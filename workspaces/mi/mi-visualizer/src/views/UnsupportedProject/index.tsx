@@ -19,7 +19,7 @@
 import React, { useEffect } from 'react';
 import { ColorThemeKind, WorkspaceFolder } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
-import { Typography } from '@wso2/ui-toolkit';
+import { Button, Typography } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { View, ViewContent, ViewHeader } from '../../components/View';
 import { VSCodeCheckbox } from '@vscode/webview-ui-toolkit/react';
@@ -218,6 +218,12 @@ export function UnsupportedProject(props: UnsupportedProjectProps) {
     setDisplayOverviewOnStartup(!displayOverviewOnStartup);
   };
 
+  const migrateProject = async () => {
+    await rpcClient
+                .getMiDiagramRpcClient()
+                .executeCommand({ commands: ["MI.migrateProject", { source: undefined }] });
+  }
+
   useEffect(() => {
     rpcClient
       .getMiVisualizerRpcClient()
@@ -273,6 +279,9 @@ export function UnsupportedProject(props: UnsupportedProjectProps) {
                 migration documentation
               </a>
               .
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                <Button onClick={() => migrateProject()}>Migrate Project</Button>
+              </div>
             </Body>
           </Block>
           <Steps>
