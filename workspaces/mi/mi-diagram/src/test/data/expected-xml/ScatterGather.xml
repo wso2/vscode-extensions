@@ -1,0 +1,28 @@
+<scatter-gather parallel-execution="true" result-target="Body" content-type="JSON">
+    <aggregation expression="${payload}" />
+    <sequence>
+        <log category="INFO">
+            <message>Processing message in clone path 1</message>
+        </log>
+        <payloadFactory media-type="json" template-type="default">
+            <format>{
+                    "requestId": ${payload.requestId},
+                    "pet": {
+                    "name": "pet2",
+                    "type": "cat"
+                    },
+                    "status": true
+                    }</format>
+        </payloadFactory>
+    </sequence>
+    <sequence>
+        <log category="INFO">
+            <message>Processing message in clone path 2</message>
+        </log>
+        <call> 
+            <endpoint>
+                <http method="post" uri-template="http://localhost:5454/api/pet"/>
+            </endpoint>
+        </call>
+    </sequence>
+</scatter-gather>

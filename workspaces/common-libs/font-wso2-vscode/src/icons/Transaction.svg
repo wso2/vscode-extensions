@@ -1,0 +1,23 @@
+<!--
+ ~ Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ ~
+ ~ WSO2 LLC. licenses this file to you under the Apache License,
+ ~ Version 2.0 (the "License"); you may not use this file except
+ ~ in compliance with the License.
+ ~ You may obtain a copy of the License at
+ ~
+ ~     http://www.apache.org/licenses/LICENSE-2.0
+ ~
+ ~ Unless required by applicable law or agreed to in writing,
+ ~ software distributed under the License is distributed on an
+ ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ ~ KIND, either express or implied. See the License for the
+ ~ specific language governing permissions and limitations
+ ~ under the License.
+-->
+<svg width="14" height="11" viewBox="0 0 14 11" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M2.5001 2.79998C2.5001 2.57906 2.67918 2.39998 2.9001 2.39998H12.8001C13.021 2.39998 13.2001 2.57906 13.2001 2.79998C13.2001 3.02089 13.021 3.19998 12.8001 3.19998H2.9001C2.67918 3.19998 2.5001 3.02089 2.5001 2.79998Z" fill="black"/>
+<path d="M10.7173 0.217133C10.8735 0.0609231 11.1267 0.0609232 11.2829 0.217133L13.6829 2.61713C13.7612 2.69542 13.8036 2.80264 13.7999 2.91329C13.7962 3.02393 13.7468 3.1281 13.6635 3.20101L11.2635 5.30101C11.0972 5.44648 10.8445 5.42963 10.6991 5.26338C10.5536 5.09712 10.5704 4.84442 10.7367 4.69895L12.8149 2.88049L10.7173 0.782818C10.561 0.626609 10.561 0.373343 10.7173 0.217133Z" fill="black"/>
+<path d="M0.700098 8.19998C0.700098 7.97906 0.879184 7.79998 1.1001 7.79998H10.7001C10.921 7.79998 11.1001 7.97906 11.1001 8.19998C11.1001 8.42089 10.921 8.59998 10.7001 8.59998H1.1001C0.879184 8.59998 0.700098 8.42089 0.700098 8.19998Z" fill="black"/>
+<path d="M3.18294 5.61713C3.33915 5.77334 3.33915 6.02661 3.18294 6.18282L1.07835 8.28741L3.17039 10.2051C3.33324 10.3544 3.34424 10.6074 3.19496 10.7703C3.04568 10.9331 2.79266 10.9441 2.62981 10.7948L0.229808 8.59484C0.149384 8.52111 0.102562 8.41774 0.100192 8.30867C0.0978221 8.19959 0.140109 8.09428 0.217255 8.01713L2.61726 5.61713C2.77347 5.46092 3.02673 5.46092 3.18294 5.61713Z" fill="black"/>
+</svg>

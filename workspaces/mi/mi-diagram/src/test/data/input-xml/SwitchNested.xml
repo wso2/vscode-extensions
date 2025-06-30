@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api xmlns="http://ws.apache.org/ns/synapse" name="NestedSwitch">
+    <resource methods="GET" uri-template="/">
+        <inSequence>
+            <!-- Get the HTTP method to determine routing -->
+            <variable name="httpMethod" expression="${props.synapse.REST_METHOD}" type="STRING"/>
+            
+            <!-- Log the incoming request information -->
+            <log category="INFO">
+                <message>Received ${vars.httpMethod} request for path: ${params.pathParams.path}</message>
+            </log>
+            
+            <!-- Validate path parameter -->
+            <filter xpath="${exists(params.pathParams.path)}">
+                <then>
+                    <!-- Route based on HTTP method -->
+                    <switch source="${vars.httpMethod}">
+                        <!-- Route GET requests -->
+                        <case regex="GET">
+                            <log category="INFO">
+                                <message>Routing to GET service</message>
+                            </log>
+                            <respond/>
+                        </case>
+                        
+                        <!-- Route POST requests -->
+                        <case regex="POST">
+                            <log category="INFO">
+                                <message>Routing to POST service</message>
+                            </log>
+                            <!-- Check if payload exists -->
+                            <filter xpath="${exists(payload)}">
+                                <then>
+                                    <respond/>
+                                </then>
+                                <else>
+                                    <variable name="ERROR_CODE" value="400" type="STRING"/>
+                                    <variable name="ERROR_MESSAGE" value="Request body is required for POST requests" type="STRING"/>
+                                    <variable name="ERROR_DETAIL" value="The POST request must contain a valid request body" type="STRING"/>
+                                    <sequence key="ErrorHandlingSequence"/>
+                                </else>
+                            </filter>
+                        </case>
+                        
+                        <!-- Route DELETE requests -->
+                        <case regex="DELETE">
+                            <log category="INFO">
+                                <message>Routing to DELETE service</message>
+                            </log>
+                            <respond/>
+                        </case>
+                        
+                        <!-- Default case for unsupported methods -->
+                        <default>
+                            <log category="ERROR">
+                                <message>Unsupported HTTP method: ${vars.httpMethod}</message>
+                            </log>
+
+                            <switch source="${payload}">
+                                <case regex="case1"></case>
+                                <default></default>
+                            </switch>
+                        </default>
+                    </switch>
+                </then>
+                <else>
+                    <variable name="ERROR_CODE" value="400" type="STRING"/>
+                    <variable name="ERROR_MESSAGE" value="Missing path parameter" type="STRING"/>
+                    <variable name="ERROR_DETAIL" value="The path parameter is required" type="STRING"/>
+                    <sequence key="ErrorHandlingSequence"/>
+                </else>
+            </filter>
+        </inSequence>
+        
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error in fault sequence: ${ERROR_MESSAGE}</message>
+            </log>
+            <!-- Set variables for error handling -->
+            <variable name="ERROR_CODE" expression="${ERROR_CODE}" type="STRING" defaultValue="500"/>
+            <variable name="ERROR_MESSAGE" expression="${ERROR_MESSAGE}" type="STRING" defaultValue="An unexpected error occurred"/>
+            <variable name="ERROR_DETAIL" expression="${ERROR_DETAIL}" type="STRING" defaultValue="Please check server logs for more details"/>
+            <sequence key="ErrorHandlingSequence"/>
+        </faultSequence>
+    </resource>
+</api>

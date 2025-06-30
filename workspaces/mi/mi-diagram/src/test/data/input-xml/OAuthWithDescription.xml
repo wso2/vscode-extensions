@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<oauthService description="OAuth Description" password="password" remoteServiceUrl="Remote Service Url/" username="username"/>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

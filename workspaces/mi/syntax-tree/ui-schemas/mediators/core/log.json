@@ -1,0 +1,98 @@
+{
+  "name": "log",
+  "type": "mediator",
+  "title": "Log Mediator",
+  "help": "Generates logs for messages. Log details are customisable.",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "category",
+        "displayName": "Log Category",
+        "inputType": "combo",
+        "defaultValue": "INFO",
+        "comboValues": [
+          "INFO",
+          "TRACE",
+          "DEBUG",
+          "WARN",
+          "ERROR",
+          "FATAL"
+        ],
+        "required": "true",
+        "helpTip": "Log Category"
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "level",
+        "displayName": "Log Level",
+        "inputType": "combo",
+        "defaultValue": "SIMPLE",
+        "comboValues": [
+          "SIMPLE",
+          "HEADERS",
+          "FULL",
+          "CUSTOM"
+        ],
+        "required": "true",
+        "helpTip": "Log Level"
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "separator",
+        "displayName": "Log Separator",
+        "inputType": "string",
+        "defaultValue": "",
+        "required": "false",
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "table",
+      "value": {
+        "name": "properties",
+        "displayName": "Properties",
+        "description": "Editing of the properties of an object LogProperty",
+        "tableKey": "propertyName",
+        "tableValue": "propertyValue",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyName",
+              "displayName": "Property Name",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyValue",
+              "displayName": "Property Value",
+              "inputType": "stringOrExpression",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "defaultValue": "",
+        "required": "false",
+        "helpTip": "Description"
+      }
+    }
+  ]
+}

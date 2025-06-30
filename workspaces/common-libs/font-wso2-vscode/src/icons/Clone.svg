@@ -1,0 +1,22 @@
+<!--
+ ~ Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ ~
+ ~ WSO2 LLC. licenses this file to you under the Apache License,
+ ~ Version 2.0 (the "License"); you may not use this file except
+ ~ in compliance with the License.
+ ~ You may obtain a copy of the License at
+ ~
+ ~     http://www.apache.org/licenses/LICENSE-2.0
+ ~
+ ~ Unless required by applicable law or agreed to in writing,
+ ~ software distributed under the License is distributed on an
+ ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ ~ KIND, either express or implied. See the License for the
+ ~ specific language governing permissions and limitations
+ ~ under the License.
+-->
+<svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path fill-rule="evenodd" clip-rule="evenodd" d="M7.0999 5.40005C7.0999 5.17913 7.27899 5.00005 7.4999 5.00005H14.1999C14.4208 5.00005 14.5999 5.17913 14.5999 5.40005V13.8C14.5999 14.021 14.4208 14.2 14.1999 14.2H7.4999C7.27899 14.2 7.0999 14.021 7.0999 13.8V5.40005ZM7.8999 5.80005V13.4H13.7999V5.80005H7.8999Z" fill="black"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M3.7999 3.00005C3.7999 2.77913 3.97899 2.60005 4.1999 2.60005H10.7999C11.0208 2.60005 11.1999 2.77913 11.1999 3.00005V5.40005C11.1999 5.62096 11.0208 5.80005 10.7999 5.80005C10.579 5.80005 10.3999 5.62096 10.3999 5.40005V3.40005H4.5999V11H7.4999C7.72082 11 7.8999 11.1791 7.8999 11.4C7.8999 11.621 7.72082 11.8 7.4999 11.8H4.1999C3.97899 11.8 3.7999 11.621 3.7999 11.4V3.00005Z" fill="black"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M0.399902 0.700049C0.399902 0.479135 0.578988 0.300049 0.799902 0.300049H7.4999C7.72082 0.300049 7.8999 0.479135 7.8999 0.700049V3.00005C7.8999 3.22096 7.72082 3.40005 7.4999 3.40005C7.27899 3.40005 7.0999 3.22096 7.0999 3.00005V1.10005H1.1999V8.70005H4.1999C4.42082 8.70005 4.5999 8.87914 4.5999 9.10005C4.5999 9.32096 4.42082 9.50005 4.1999 9.50005H0.799902C0.578988 9.50005 0.399902 9.32096 0.399902 9.10005V0.700049Z" fill="black"/>
+</svg>

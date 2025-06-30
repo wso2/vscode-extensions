@@ -1,0 +1,62 @@
+{
+  "name": "JSONTransform",
+  "type": "mediator",
+  "title": "JSON Transform Mediator",
+  "help": "Controls XML to JSON transformations inside a mediation.",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "schema",
+        "displayName": "Schema",
+        "inputType": "key",
+        "keyType": "registry",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "table",
+      "value": {
+        "name": "jsonTransformProperties",
+        "displayName": "JSON Transform Properties",
+        "title": "JSONTransformer property",
+        "description": "Editing of the properties of an object JSON Transform Mediator Property",
+        "tableKey": "propertyName",
+        "tableValue": "propertyValue",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyName",
+              "displayName": "Property Name",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyValue",
+              "displayName": "Property Value",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}

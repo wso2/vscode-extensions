@@ -1,0 +1,433 @@
+{
+  "name": "WSDL Endpoint",
+  "type": "component",
+  "title": "WSDL Endpoint",
+  "help": "",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Basic",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "inline",
+              "displayName": "Inline",
+              "inputType": "checkbox",
+              "defaultValue": false,
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "format",
+              "displayName": "Format",
+              "inputType": "combo",
+              "defaultValue": "LEAVE_AS_IS",
+              "comboValues": [
+                "LEAVE_AS_IS",
+                "soap11",
+                "soap12",
+                "pox",
+                "get",
+                "rest"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "statisticsEnabled",
+              "displayName": "Statistics Enabled",
+              "inputType": "checkbox",
+              "defaultValue": false,
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "traceEnabled",
+              "displayName": "Trace Enabled",
+              "inputType": "checkbox",
+              "defaultValue": false,
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Advanced",
+        "elements": [
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Endpoint Suspend State",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "suspendErrorCodes",
+                    "displayName": "Suspend Error Codes",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "suspendInitialDuration",
+                    "displayName": "Suspend Initial Duration",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "suspendMaximumDuration",
+                    "displayName": "Suspend Maximum Duration",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "suspendProgressionFactor",
+                    "displayName": "Suspend Progression Factor",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Endpoint Timeout State",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "retryErrorCodes",
+                    "displayName": "Retry Error Codes",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "retryCount",
+                    "displayName": "Retry Count",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "retryDelay",
+                    "displayName": "Retry Delay",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "QoS",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "reliableMessagingEnabled",
+                    "displayName": "Reliable Messaging Enabled",
+                    "inputType": "checkbox",
+                    "defaultValue": false,
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "securityEnabled",
+                    "displayName": "Security Enabled",
+                    "inputType": "checkbox",
+                    "defaultValue": false,
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "addressingEnabled",
+                    "displayName": "Addressing Enabled",
+                    "inputType": "checkbox",
+                    "defaultValue": false,
+                    "required": false,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Timeout",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "timeoutDuration",
+                    "displayName": "Timeout Duration",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "timeoutAction",
+                    "displayName": "Timeout Action",
+                    "inputType": "combo",
+                    "defaultValue": "never",
+                    "comboValues": [
+                      "never",
+                      "discard",
+                      "fault"
+                    ],
+                    "required": false,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "optimize",
+              "displayName": "Optimize",
+              "inputType": "combo",
+              "defaultValue": "LEAVE_AS_IS",
+              "comboValues": [
+                "LEAVE_AS_IS",
+                "mtom",
+                "swa"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "wsdlUri",
+              "displayName": "WSDL URI",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "service",
+              "displayName": "Service",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "port",
+              "displayName": "Port",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Failover Error Codes",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "failoverNonRetryErrorCodes",
+                    "displayName": "Failover Non Retry Error Codes",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "failoverRetryType": "NON_RETRY_ERROR_CODES"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Misc",
+        "elements": [
+          {
+            "type": "table",
+            "value": {
+              "name": "proeprties",
+              "displayName": "Properties",
+              "form": {
+                "title": "Endpoint Property",
+                "description": "Editing of the properties of an object Endpoint Property",
+                "elements": [
+                  {
+                    "type": "attributeGroup",
+                    "value": {
+                      "groupName": "Properties",
+                      "elements": [
+                        {
+                          "type": "attribute",
+                          "value": {
+                            "name": "name",
+                            "displayName": "Name",
+                            "inputType": "string",
+                            "defaultValue": "",
+                            "required": false,
+                            "helpTip": ""
+                          }
+                        },
+                        {
+                          "type": "attribute",
+                          "value": {
+                            "name": "scope",
+                            "displayName": "Scope",
+                            "inputType": "combo",
+                            "defaultValue": "default",
+                            "comboValues": [
+                              "default",
+                              "transport",
+                              "axis2",
+                              "axis2-client"
+                            ],
+                            "required": false,
+                            "helpTip": ""
+                          }
+                        },
+                        {
+                          "type": "attribute",
+                          "value": {
+                            "name": "valueType",
+                            "displayName": "Value Type",
+                            "inputType": "combo",
+                            "defaultValue": "LITERAL",
+                            "comboValues": [
+                              "LITERAL",
+                              "EXPRESSION"
+                            ],
+                            "required": false,
+                            "helpTip": ""
+                          }
+                        },
+                        {
+                          "type": "attribute",
+                          "value": {
+                            "name": "value",
+                            "displayName": "Value",
+                            "inputType": "string",
+                            "defaultValue": "",
+                            "required": false,
+                            "helpTip": "",
+                            "enableCondition": [
+                              {
+                                "valueType": "LITERAL"
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "type": "attribute",
+                          "value": {
+                            "name": "valueExpression",
+                            "displayName": "Value Expression",
+                            "inputType": "expression",
+                            "defaultValue": "",
+                            "required": false,
+                            "helpTip": "",
+                            "enableCondition": [
+                              {
+                                "valueType": "EXPRESSION"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

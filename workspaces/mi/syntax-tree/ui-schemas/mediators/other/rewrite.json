@@ -1,0 +1,175 @@
+{
+  "name": "Rewrite",
+  "type": "mediator",
+  "title": "URL Rewrite Mediator",
+  "help": "Modifies and transforms URL values in the message.",
+  "elements": [
+    {
+      "type": "table",
+      "value": {
+        "name": "urlRewriteRules",
+        "displayName": "URL Rewrite Rules",
+        "title": "URL Rewrite Rule",
+        "description": "Editing of the properties of an object URL Rewrite Rule",
+        "tableKey": "ruleAction",
+        "tableValue": "urlRewriteRuleCondition",
+        "elements": [
+          {
+            "type": "table",
+            "value": {
+              "name": "rewriteRuleAction",
+              "displayName": "Rewrite Rule Action",
+              "title": "URL Rewrite Rule Action",
+              "description": "Editing of the properties of an object URL Rewrite Rule Action",
+              "tableKey": "ruleAction",
+              "tableValue": "ruleFragment",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "ruleAction",
+                    "displayName": "Rule Action",
+                    "inputType": "combo",
+                    "defaultValue": "Replace",
+                    "comboValues": [
+                      "Replace",
+                      "Remove",
+                      "Append",
+                      "Prepend",
+                      "Set"
+                    ],
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "ruleFragment",
+                    "displayName": "Rule Fragment",
+                    "inputType": "combo",
+                    "defaultValue": "protocol",
+                    "comboValues": [
+                      "protocol",
+                      "host",
+                      "port",
+                      "path",
+                      "query",
+                      "ref",
+                      "user",
+                      "full"
+                    ],
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "ruleOption",
+                    "displayName": "Rule Option",
+                    "inputType": "combo",
+                    "defaultValue": "Value",
+                    "comboValues": [
+                      "Value",
+                      "Expression"
+                    ],
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "actionValue",
+                    "displayName": "Action Value",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "ruleOption": "Value"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "actionExpression",
+                    "displayName": "Action Expression",
+                    "inputType": "expression",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "ruleOption": "Expression"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "actionRegex",
+                    "displayName": "Action Regex",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "urlRewriteRuleCondition",
+              "displayName": "URLRewriteRuleCondition",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "inProperty",
+        "displayName": "In Property",
+        "inputType": "string",
+        "defaultValue": "",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "outProperty",
+        "displayName": "Out Property",
+        "inputType": "string",
+        "defaultValue": "",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "defaultValue": "",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}

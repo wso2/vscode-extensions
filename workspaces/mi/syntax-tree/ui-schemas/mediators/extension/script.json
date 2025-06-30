@@ -1,0 +1,135 @@
+{
+  "name": "Script",
+  "type": "mediator",
+  "title": "Script Mediator",
+  "help": "Invokes scripting language functions with embedded or stored script files.",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "scriptLanguage",
+        "displayName": "Script Language",
+        "inputType": "combo",
+        "defaultValue": "js",
+        "comboValues": [
+          "js",
+          "rb",
+          "groovy",
+          "nashornJs",
+          "rhinoJs"
+        ],
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "scriptType",
+        "displayName": "Script Type",
+        "inputType": "combo",
+        "defaultValue": "INLINE",
+        "comboValues": [
+          "INLINE",
+          "REGISTRY_REFERENCE"
+        ],
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "scriptBody",
+        "displayName": "Script Body",
+        "inputType": "codeTextArea",
+        "required": false,
+        "helpTip": "",
+        "enableCondition": [
+          {
+            "scriptType": "INLINE"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "scriptKey",
+        "displayName": "Script Key",
+        "inputType": "keyOrExpression",
+        "keyType": "registry",
+        "required": false,
+        "helpTip": "",
+        "enableCondition": [
+          {
+            "scriptType": "REGISTRY_REFERENCE"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "mediateFunction",
+        "displayName": "Mediate Function",
+        "inputType": "string",
+        "required": false,
+        "helpTip": "",
+        "enableCondition": [
+          {
+            "scriptType": "REGISTRY_REFERENCE"
+          }
+        ]
+      }
+    },
+    {
+      "type": "table",
+      "value": {
+        "name": "scriptKeys",
+        "displayName": "Script Keys",
+        "title": "Registry Key Property",
+        "description": "Editing of the properties of an object Registry Key Property",
+        "tableKey": "keyName",
+        "tableValue": "keyValue",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "keyName",
+              "displayName": "Key Name",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "keyValue",
+              "displayName": "Key Value",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ],
+        "enableCondition": [
+          {
+            "scriptType": "REGISTRY_REFERENCE"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}

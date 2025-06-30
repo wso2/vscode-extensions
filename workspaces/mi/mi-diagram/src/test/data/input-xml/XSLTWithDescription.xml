@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<xslt description="XSLT Description" key="XSLT Schema" source="XPath">
+				<property name="Pop Name" value="Prop Val"/>
+				<feature name="F Name" value="true"/>
+				<resource key="Reg Key" location="Location"/>
+			</xslt>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<callout serviceURL="Ser Url" action="SOAP" initAxis2ClientOptions="true">
+				<configuration axis2xml="Path" repository="Axix2 Repo"/>
+				<source xpath="Payload Message XPath"/>
+				<target xpath="Result Message XPath"/>
+				<enableSec inboundPolicy="In Key" outboundPolicy="Out Key"/>
+			</callout>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

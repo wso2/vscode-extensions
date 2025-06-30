@@ -1,0 +1,162 @@
+{
+  "name": "Command",
+  "type": "mediator",
+  "title": "Command Mediator",
+  "help": "Creates an instance of a custom class to invoke an object encapsulating a method call.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "className",
+              "displayName": "Class Name",
+              "inputType": "string",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "table",
+            "value": {
+              "name": "properties",
+              "displayName": "Properties",
+              "title": "Class property",
+              "description": "Editing of the properties of an object ClassProperty",
+              "tableKey": "propertyName",
+              "tableValue": "valueLiteral",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "propertyName",
+                    "displayName": "Property Name",
+                    "inputType": "string",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "valueType",
+                    "displayName": "Value Type",
+                    "inputType": "combo",
+                    "defaultValue": "LITERAL",
+                    "comboValues": [
+                      "LITERAL",
+                      "MESSAGE_ELEMENT",
+                      "CONTEXT_PROPERTY"
+                    ],
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "valueLiteral",
+                    "displayName": "Value Literal",
+                    "inputType": "string",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "valueType": "LITERAL"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "messageAction",
+                    "displayName": "Message Action",
+                    "inputType": "combo",
+                    "defaultValue": "ReadMessage",
+                    "comboValues": [
+                      "ReadMessage",
+                      "UpdateMessage",
+                      "ReadAndUpdateMessage"
+                    ],
+                    "required": false,
+                    "enableCondition": [
+                      {
+                        "valueType": "MESSAGE_ELEMENT"
+                      }
+                    ],
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "valueMessageElementXpath",
+                    "displayName": "Value Message Element Xpath",
+                    "inputType": "expression",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "valueType": "MESSAGE_ELEMENT"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "valueContextPropertyName",
+                    "displayName": "Value Context Property Name",
+                    "inputType": "string",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "valueType": "CONTEXT_PROPERTY"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "contextAction",
+                    "displayName": "Context Action",
+                    "inputType": "combo",
+                    "defaultValue": "ReadContext",
+                    "comboValues": [
+                      "ReadContext",
+                      "UpdateContext",
+                      "ReadAndUpdateContext"
+                    ],
+                    "required": false,
+                    "enableCondition": [
+                      {
+                        "valueType": "CONTEXT_PROPERTY"
+                      }
+                    ],
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

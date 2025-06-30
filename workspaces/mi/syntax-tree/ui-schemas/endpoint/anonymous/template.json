@@ -1,0 +1,87 @@
+{
+  "name": "Template Endpoint",
+  "type": "component",
+  "title": "Template Endpoint",
+  "help": "",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "targetTemplate",
+              "displayName": "Target Template",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "table",
+            "value": {
+              "name": "parameters",
+              "displayName": "Parameters",
+              "form": {
+                "title": "Template Endpoint Parameter",
+                "description": "Editing of the properties of an object Template Endpoint Parameter",
+                "elements": [
+                  {
+                    "type": "attributeGroup",
+                    "value": {
+                      "groupName": "Properties",
+                      "elements": [
+                        {
+                          "type": "attribute",
+                          "value": {
+                            "name": "parameterName",
+                            "displayName": "Parameter Name",
+                            "inputType": "string",
+                            "required": false,
+                            "helpTip": ""
+                          }
+                        },
+                        {
+                          "type": "attribute",
+                          "value": {
+                            "name": "parameterValue",
+                            "displayName": "Parameter Value",
+                            "inputType": "string",
+                            "required": false,
+                            "helpTip": ""
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "avaiableTemplates",
+              "displayName": "Avaiable Templates",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

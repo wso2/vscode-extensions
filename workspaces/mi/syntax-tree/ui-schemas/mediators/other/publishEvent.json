@@ -1,0 +1,488 @@
+{
+  "name": "PublishEvent",
+  "type": "mediator",
+  "title": "Publish Event Mediator",
+  "help": "Constructs and publishes events to different systems such as WSO2 BAM/DAS/CEP/SP via event sinks.",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "streamName",
+        "displayName": "Stream Name",
+        "inputType": "string",
+        "required": true,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "streamVersion",
+        "displayName": "Stream Version",
+        "inputType": "string",
+        "required": true,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "eventSink",
+        "displayName": "Event Sink",
+        "inputType": "string",
+        "required": true,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "async",
+        "displayName": "Async",
+        "inputType": "checkbox",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "asyncTimeout",
+        "displayName": "Async Timeout",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Meta Attributes",
+        "elements": [
+          {
+            "type": "table",
+            "value": {
+              "name": "metaAttributes",
+              "displayName": "Meta Attributes",
+              "title": "Publish Event Mediator Attribute",
+              "description": "Editing of the properties of an object PublishEvent Mediator Attribute",
+              "tableKey": "attributeName",
+              "tableValue": "attributeValue",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeName",
+                    "displayName": "Attribute Name",
+                    "inputType": "string",
+                    "required": true,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeValueType",
+                    "displayName": "Attribute Value Type",
+                    "inputType": "combo",
+                    "defaultValue": "LITERAL",
+                    "comboValues": [
+                      "LITERAL",
+                      "EXPRESSION"
+                    ],
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeType",
+                    "displayName": "Attribute Type",
+                    "inputType": "combo",
+                    "defaultValue": "STRING",
+                    "comboValues": [
+                      "STRING",
+                      "INTEGER",
+                      "BOOLEAN",
+                      "DOUBLE",
+                      "FLOAT",
+                      "LONG"
+                    ],
+                    "required": true,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeValue",
+                    "displayName": "Attribute Value",
+                    "inputType": "string",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "attributeValueType": "LITERAL"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeExpression",
+                    "displayName": "Attribute Expression",
+                    "inputType": "expression",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "attributeValueType": "EXPRESSION"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "defaultValue",
+                    "displayName": "Default Value",
+                    "inputType": "string",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Correlation Attributes",
+        "elements": [
+          {
+            "type": "table",
+            "value": {
+              "name": "correlationAttributes",
+              "displayName": "Correlation Attributes",
+              "title": "Pulish Event Mediator Attribute",
+              "description": "Editing of the properties of an object PublishEvent Mediator Attribute",
+              "tableKey": "attributeName",
+              "tableValue": "attributeValue",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeName",
+                    "displayName": "Attribute Name",
+                    "inputType": "string",
+                    "required": true,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeValueType",
+                    "displayName": "Attribute Value Type",
+                    "inputType": "combo",
+                    "defaultValue": "LITERAL",
+                    "comboValues": [
+                      "LITERAL",
+                      "EXPRESSION"
+                    ],
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeType",
+                    "displayName": "Attribute Type",
+                    "inputType": "combo",
+                    "defaultValue": "STRING",
+                    "comboValues": [
+                      "STRING",
+                      "INTEGER",
+                      "BOOLEAN",
+                      "DOUBLE",
+                      "FLOAT",
+                      "LONG"
+                    ],
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeValue",
+                    "displayName": "Attribute Value",
+                    "inputType": "string",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "attributeValueType": "LITERAL"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeExpression",
+                    "displayName": "Attribute Expression",
+                    "inputType": "expression",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "attributeValueType": "EXPRESSION"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "defaultValue",
+                    "displayName": "Default Value",
+                    "inputType": "string",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Payload Attributes",
+        "elements": [
+          {
+            "type": "table",
+            "value": {
+              "name": "payloadAttributes",
+              "displayName": "Payload Attributes",
+              "title": "Pulish Event Mediator Attribute",
+              "description": "Editing of the properties of an object PublishEvent Mediator Attribute",
+              "tableKey": "attributeName",
+              "tableValue": "attributeValue",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeName",
+                    "displayName": "Attribute Name",
+                    "inputType": "string",
+                    "required": true,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeValueType",
+                    "displayName": "Attribute Value Type",
+                    "inputType": "combo",
+                    "defaultValue": "LITERAL",
+                    "comboValues": [
+                      "LITERAL",
+                      "EXPRESSION"
+                    ],
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeType",
+                    "displayName": "Attribute Type",
+                    "inputType": "combo",
+                    "defaultValue": "STRING",
+                    "comboValues": [
+                      "STRING",
+                      "INTEGER",
+                      "BOOLEAN",
+                      "DOUBLE",
+                      "FLOAT",
+                      "LONG"
+                    ],
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeValue",
+                    "displayName": "Attribute Value",
+                    "inputType": "string",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "attributeValueType": "LITERAL"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeExpression",
+                    "displayName": "Attribute Expression",
+                    "inputType": "expression",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "attributeValueType": "EXPRESSION"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "defaultValue",
+                    "displayName": "Default Value",
+                    "inputType": "string",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Arbitrary Attributes",
+        "elements": [
+          {
+            "type": "table",
+            "value": {
+              "name": "arbitaryAttributes",
+              "displayName": "Arbitary Attributes",
+              "title": "Pulish Event Mediator Attribute",
+              "description": "Editing of the properties of an object PublishEvent Mediator Attribute",
+              "tableKey": "attributeName",
+              "tableValue": "attributeValue",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeName",
+                    "displayName": "Attribute Name",
+                    "inputType": "string",
+                    "required": true,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeValueType",
+                    "displayName": "Attribute Value Type",
+                    "inputType": "combo",
+                    "defaultValue": "LITERAL",
+                    "comboValues": [
+                      "LITERAL",
+                      "EXPRESSION"
+                    ],
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeType",
+                    "displayName": "Attribute Type",
+                    "inputType": "combo",
+                    "defaultValue": "STRING",
+                    "comboValues": [
+                      "STRING",
+                      "INTEGER",
+                      "BOOLEAN",
+                      "DOUBLE",
+                      "FLOAT",
+                      "LONG"
+                    ],
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeValue",
+                    "displayName": "Attribute Value",
+                    "inputType": "string",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "attributeValueType": "LITERAL"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "attributeExpression",
+                    "displayName": "Attribute Expression",
+                    "inputType": "expression",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "attributeValueType": "EXPRESSION"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "defaultValue",
+                    "displayName": "Default Value",
+                    "inputType": "string",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}

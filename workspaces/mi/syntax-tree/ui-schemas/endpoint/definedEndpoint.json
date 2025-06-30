@@ -1,0 +1,61 @@
+{
+  "name": "Defined Endpoint",
+  "type": "component",
+  "title": "Defined Endpoint",
+  "help": "",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "referringEndpointType",
+              "displayName": "Referring Endpoint Type",
+              "inputType": "combo",
+              "defaultValue": "Static",
+              "comboValues": [
+                "Static",
+                "dynamic"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "staticReferenceKey",
+              "displayName": "Static Reference Key",
+              "inputType": "String",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "referringEndpointType": "static"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "dynamicReferenceKey",
+              "displayName": "Dynamic Reference Key",
+              "inputType": "String",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "referringEndpointType": "dynamic"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

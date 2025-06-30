@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package ordermanagement;
+
+// The Order service definition.
+service OrderService {
+
+    // Create an Order
+    rpc CreateOrder (CreateOrderRequest) returns (CreateOrderResponse);
+
+    // Get an Order by ID
+    rpc GetOrder (GetOrderRequest) returns (GetOrderResponse);
+
+    // Update an Order
+    rpc UpdateOrder (UpdateOrderRequest) returns (UpdateOrderResponse);
+}
+
+// Request message for creating an order.
+message CreateOrderRequest {
+    string customer_id = 1;
+    string product_id = 2;
+    int32 quantity = 3;
+    float price = 4;
+}
+
+// Response message for creating an order.
+message CreateOrderResponse {
+    string order_id = 1;
+    string status = 2;  // Order creation status
+}
+
+// Request message for getting an order.
+message GetOrderRequest {
+    string order_id = 1;
+}
+
+// Response message for getting an order.
+message GetOrderResponse {
+    string order_id = 1;
+    string customer_id = 2;
+    string product_id = 3;
+    int32 quantity = 4;
+    float price = 5;
+    string status = 6;
+}
+
+// Request message for updating an order.
+message UpdateOrderRequest {
+    string order_id = 1;
+    string customer_id = 2;
+    string product_id = 3;
+    int32 quantity = 4;
+    float price = 5;
+}
+
+// Response message for updating an order.
+message UpdateOrderResponse {
+    string order_id = 1;
+    string status = 2;  // Update status
+}

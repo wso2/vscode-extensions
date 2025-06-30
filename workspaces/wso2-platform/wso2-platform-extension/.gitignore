@@ -1,0 +1,13 @@
+.nyc_output
+resources/jslibs/main.js
+resources/font-wso2-vscode
+!src/test/lib
+.vscode-test
+test-resources
+src/tests/e2e-tests/test-projects
+.env
+playwright-report
+node_modules/
+/test-results/
+/playwright-report/
+/playwright/.cache/

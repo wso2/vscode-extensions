@@ -1,0 +1,40 @@
+{
+	"folders": [
+		{
+			"path": "workspaces/ballerina/ballerina-extension"
+		},
+		{
+			"path": "workspaces/ballerina/ballerina-visualizer"
+		},
+		{
+			"path": "workspaces/ballerina/overview-view"
+		},
+		{
+			"path": "workspaces/common-libs/ui-toolkit"
+		},
+		{
+			"path": "workspaces/ballerina/data-mapper-view"
+		},
+		{
+			"path": "workspaces/ballerina/statement-editor"
+		},
+		{
+			"path": "workspaces/ballerina/graphql-design-diagram"
+		},
+		{
+			"path": "workspaces/ballerina/persist-layer-diagram"
+		},
+		{
+			"path": "workspaces/ballerina/service-designer"
+		},
+		{
+			"path": "workspaces/ballerina/ballerina-core"
+		},
+		{
+			"path": "workspaces/ballerina/ballerina-rpc-client"
+		}
+	],
+	"settings": {
+		"typescript.tsc.autoDetect": "off"
+	}
+}

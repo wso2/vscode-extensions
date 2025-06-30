@@ -1,0 +1,7 @@
+<aggregate id="AggregateID">
+<correlateOn expression="Cor Exp" />
+        <completeCondition timeout="1">
+            <messageCount max="-1" min="-1" />
+        </completeCondition>
+        <onComplete aggregateElementType="root" enclosingElementProperty="Property" expression="Agg Exp" ></onComplete>
+    </aggregate>

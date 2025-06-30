@@ -1,0 +1,6 @@
+<entitlementService callbackClass="org.wso2.carbon.identity.entitlement.mediator.callback.UTEntitlementCallbackHandler" client="basicAuth" remoteServicePassword="password" remoteServiceUrl="Url" remoteServiceUserName="username"       >
+        <onReject></onReject>
+        <onAccept></onAccept>
+        <obligations></obligations>
+        <advice></advice>
+    </entitlementService>

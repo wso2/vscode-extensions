@@ -1,0 +1,306 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Component Configuration",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "description": "The configuration file schema version",
+      "enum": [1.2, "1.2"]
+    },
+    "endpoints": {
+      "type": "array",
+      "description": "Incoming connection details for the component",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique name for the endpoint. This name will be used when generating the managed API"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Display name for the endpoint"
+          },
+          "service": {
+            "type": "object",
+            "description": "Service section has the user service endpoint details",
+            "properties": {
+              "basePath": {
+                "type": "string",
+                "pattern": "^/.*",
+                "description": "Context (base path) of the API that gets exposed via the endpoint"
+              },
+              "port": {
+                "type": "integer",
+                "description": "Numeric port value that gets exposed via the endpoint"
+              }
+            },
+            "required": [
+              "port"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "description": "Type of traffic that the endpoint is accepting.",
+            "enum": [
+              "REST",
+              "GraphQL",
+              "WS",
+              "GRPC",
+              "TCP",
+              "UDP"
+            ]
+          },
+          "networkVisibilities": {
+            "type": "array",
+            "description": "Network level visibilities of the endpoint. Accepted values: Project|Organization|Public(Default).",
+            "items": {
+              "type": "string",
+              "enum": [
+                "Project",
+                "Organization",
+                "Public"
+              ]
+            }
+          },
+          "schemaFilePath": {
+            "type": "string",
+            "description": "Path to the schema definition file. Defaults to wild card route if not provided. This is only applicable to REST or WS endpoint types. The path should be relative to the docker context."
+          }
+        },
+        "required": [
+          "name",
+          "service",
+          "type"
+        ]
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "description": "Outgoing connection details for the component.",
+      "properties": {
+        "connectionReferences": {
+          "type": "array",
+          "description": "Defines the connection references from the Internal Marketplace.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Name of the connection."
+              },
+              "resourceRef": {
+                "type": "string",
+                "description": "service identifer of the dependent component."
+              }
+            },
+            "required": [
+              "name",
+              "resourceRef"
+            ]
+          }
+        }
+      }
+    },
+    "configurations": {
+      "type": "object",
+      "description": "Defines runtime configurations",
+      "properties": {
+        "env": {
+          "type": "array",
+          "description": "List of environment variables to be injected into the component.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Name of the environment variable"
+              },
+              "valueFrom": {
+                "type": "object",
+                "description": "value source",
+                "properties": {
+                  "connectionRef": {
+                    "type": "object",
+                    "description": "Choreo connection value source",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "description": "Choreo connection name to refer the value from"
+                      },
+                      "key": {
+                        "type": "string",
+                        "description": "Choreo connection configuration key to refer the value from"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "key"
+                    ]
+                  },
+                  "configForm": {
+                    "type": "object",
+                    "description": "config form value source",
+                    "properties": {
+                      "displayName": {
+                        "type": "string",
+                        "description": "display name inside the config form, name will be shown in config form if not specified"
+                      },
+                      "required": {
+                        "type": "boolean",
+                        "description": "default value is true if not specified"
+                      },
+                      "type": {
+                        "type": "string",
+                        "description": "default value is string if not specified",
+                        "enum": [
+                          "string",
+                          "number",
+                          "boolean",
+                          "secret"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "required": []
+              }
+            },
+            "required": [
+              "name",
+              "valueFrom"
+            ]
+          }
+        }
+      },
+      "file": {
+        "type": "array",
+        "description": "List of files to be injected into the component from config form",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "name of the file"
+            },
+            "mountPath": {
+              "type": "string",
+              "description": "path to mount the file at"
+            },
+            "type": {
+              "type": "string",
+              "description": "file type",
+              "enum": [
+                "yaml",
+                "json",
+                "toml"
+              ]
+            },
+            "values": {
+              "type": "array",
+              "description": "define keys of the file",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "keys of the file"
+                  },
+                  "valueFrom": {
+                    "type": "object",
+                    "description": "value source",
+                    "properties": {
+                      "configForm": {
+                        "type": "object",
+                        "description": "config form value source",
+                        "properties": {
+                          "displayName": {
+                            "type": "string",
+                            "description": "display name inside the config form, name will be shown in config form if not specified"
+                          },
+                          "type": {
+                            "type": "string",
+                            "description": "default value is string if not specified",
+                            "enum": [
+                              "string",
+                              "number",
+                              "boolean",
+                              "secret",
+                              "object",
+                              "array"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "required": [
+                      "configForm"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "valueFrom"
+                ]
+              }
+            }
+          },
+          "required": [
+            "name",
+            "mountPath",
+            "type",
+            "values"
+          ]
+        }
+      }
+    },
+    "proxy": {
+      "type": "object",
+      "description": "Proxy configurations of the component (optional)",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Type of traffic the proxy is handling",
+          "enum": ["REST", "GraphQL", "WS"]
+        },
+        "networkVisibilities": {
+          "type": "array",
+          "description": "Network visibilities for the proxy",
+          "items": {
+            "type": "string",
+            "enum": ["Organization", "Public"]
+          }
+        },
+        "schemaFilePath": {
+          "type": "string",
+          "description": "Path to the schema definition file (REST only)"
+        },
+        "thumbnailPath": {
+          "type": "string",
+          "description": "Path to the thumbnail image"
+        },
+        "docPath": {
+          "type": "string",
+          "description": "Path to the documentation files"
+        }
+      },
+      "if": {
+        "properties": {
+          "type": { "const": "REST" }
+        }
+      },
+      "then": {
+        "properties": {
+          "schemaFilePath": {
+            "type": "string",
+            "description": "Schema file path required for REST proxy configurations"
+          }
+        },
+        "required": ["schemaFilePath"]
+      }
+    }
+  },
+  "required": [
+    "schemaVersion"
+  ]
+}

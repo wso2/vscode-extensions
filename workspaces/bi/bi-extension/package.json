@@ -1,0 +1,197 @@
+{
+    "name": "ballerina-integrator",
+    "displayName": "WSO2 Integrator: BI",
+    "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
+    "version": "1.0.5",
+    "publisher": "wso2",
+    "icon": "resources/images/wso2-ballerina-integrator-logo.png",
+    "repository": {
+        "url": "https://github.com/wso2/product-ballerina-integrator"
+    },
+    "engines": {
+        "vscode": "^1.84.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "workspaceContains:**/Ballerina.toml"
+    ],
+    "main": "./out/extension",
+    "extensionDependencies": [
+        "wso2.ballerina"
+    ],
+    "contributes": {
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "ballerina-integrator",
+                    "title": "WSO2 Integrator: BI",
+                    "icon": "assets/icon.svg"
+                }
+            ]
+        },
+        "viewsWelcome": [
+            {
+                "view": "BI.project-explorer",
+                "contents": "Welcome to WSO2 Integrator: BI. You can open a folder containing an integration or create a new integration.\n[Open Integration](command:vscode.openFolder)\n[Create New Integration](command:ballerina.open.bi.new)\nTo learn more about how to use WSO2 Integrator: BI in VS Code [read our docs](https://bi.docs.wso2.com/get-started/quick-start-guide/).",
+                "when": "BI.status == 'unknownProject'"
+            },
+            {
+                "view": "BI.project-explorer",
+                "contents": "Welcome to WSO2 Integrator: BI. Your current ballerina distribution is not supported. Please update to version 2201.12.3 or above.\n[Update Now](command:ballerina.update-ballerina-visually)\nPlease restart VS Code after updating the ballerina distribution.\nTo learn more about how to use WSO2 Integrator: BI in VS Code [read our docs](https://bi.docs.wso2.com/get-started/quick-start-guide/).",
+                "when": "BI.status == 'updateNeed'"
+            },
+            {
+                "view": "BI.project-explorer",
+                "contents": "Welcome to WSO2 Integrator: BI for VS Code! Ballerina distribution is required but not found. [Set up Ballerina distribution](command:ballerina.open.bi.welcome) to get started.\nExplore more at [ballerina.io](https://ballerina.io)",
+                "when": "BI.status == 'noLS'"
+            },
+            {
+                "view": "BI.project-explorer",
+                "contents": "Loading your workspace, please wait...",
+                "when": "BI.status == 'loading'"
+            },
+            {
+                "view": "BI.project-explorer",
+                "contents": "Activating Language Server, please wait...",
+                "when": "BI.status == 'loadingLS'"
+            }
+        ],
+        "views": {
+            "ballerina-integrator": [
+                {
+                    "id": "BI.project-explorer",
+                    "name": ""
+                }
+            ]
+        },
+        "menus": {
+            "view/item/context": [
+                {
+                    "command": "ballerina.show.visualizer",
+                    "when": "view == BI.project-explorer && viewItem == bi-project",
+                    "group": "inline"
+                },
+                {
+                    "command": "ballerina.force.update.artifacts",
+                    "when": "view == BI.project-explorer && viewItem == bi-project",
+                    "group": "inline"
+                },
+                {
+                    "command": "BI.project-explorer.add-connection",
+                    "when": "view == BI.project-explorer && viewItem == connections",
+                    "group": "inline"
+                },
+                {
+                    "command": "BI.project-explorer.delete",
+                    "when": "view == BI.project-explorer && viewItem == CONNECTION || viewItem == SERVICE || viewItem == FUNCTION || viewItem == AUTOMATION || viewItem == TYPE || viewItem == CONFIGURABLE || viewItem == DATA_MAPPER || viewItem == NP_FUNCTION || viewItem == localConnector",
+                    "group": "inline"
+                },
+                {
+                    "command": "BI.project-explorer.add-entry-point",
+                    "when": "view == BI.project-explorer && viewItem == entryPoint",
+                    "group": "inline"
+                },
+                {
+                    "command": "BI.project-explorer.add-type",
+                    "when": "view == BI.project-explorer && viewItem == types",
+                    "group": "inline"
+                },
+                {
+                    "command": "BI.project-explorer.view-type-diagram",
+                    "when": "view == BI.project-explorer && viewItem == types",
+                    "group": "inline"
+                },
+                {
+                    "command": "BI.project-explorer.add-function",
+                    "when": "view == BI.project-explorer && viewItem == functions",
+                    "group": "inline"
+                },
+                {
+                    "command": "BI.project-explorer.add-configuration",
+                    "when": "view == BI.project-explorer && viewItem == configurations",
+                    "group": "inline"
+                },
+                {
+                    "command": "BI.project-explorer.add-data-mapper",
+                    "when": "view == BI.project-explorer && viewItem == dataMappers",
+                    "group": "inline"
+                },
+                {
+                    "command": "BI.project-explorer.add-natural-function",
+                    "when": "view == BI.project-explorer && viewItem == naturalFunctions",
+                    "group": "inline"
+                },
+                {
+                    "command": "BI.project-explorer.add-connection",
+                    "when": "view == BI.project-explorer && viewItem == localConnectors",
+                    "group": "inline"
+                }
+            ],
+            "view/title": [
+                {
+                    "command": "BI.project-explorer.switch-project",
+                    "when": "view == BI.project-explorer && BI.project == true && BI.isMultiRoot == true",
+                    "group": "navigation"
+                },
+                {
+                    "command": "BI.project-explorer.add",
+                    "when": "view == BI.project-explorer && BI.project == true",
+                    "group": "navigation"
+                },
+                {
+                    "command": "BI.project-explorer.overview",
+                    "when": "view == BI.project-explorer && BI.project == true",
+                    "group": "navigation"
+                }
+            ]
+        },
+        "commands": []
+    },
+    "scripts": {
+        "vscode:prepublish": "pnpm run compile",
+        "compile": "webpack --mode production --stats-error-details",
+        "watch-bi": "webpack --mode none --watch",
+        "pretest": "pnpm run compile && pnpm run lint",
+        "lint": "eslint src --ext ts",
+        "test": "node ./out/test/runTest.js",
+        "build": "pnpm run compile && pnpm run lint && pnpm run postbuild",
+        "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release; else vsce package --no-dependencies; fi",
+        "copyFonts": "copyfiles -f ./node_modules/@wso2/font-wso2-vscode/dist/* ./resources/font-wso2-vscode/dist/",
+        "rebuild": "pnpm run clean && pnpm run compile && pnpm run postbuild",
+        "postbuild": "pnpm run copyFonts && pnpm run package && pnpm run copyVSIX",
+        "copyVSIX": "copyfiles *.vsix ./vsix",
+        "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../..",
+        "compile-tests": "tsc -p .",
+        "copy-balerina-ext": "copyfiles -f ../../ballerina/ballerina-extension/vsix/* ./vsix",
+        "e2e-test": "pnpm run copy-balerina-ext && pnpm run compile-tests && pnpm exec playwright test"
+    },
+    "dependencies": {
+        "@wso2/ballerina-core": "workspace:*",
+        "@wso2/font-wso2-vscode": "workspace:*",
+        "xstate": "^4.38.3"
+    },
+    "devDependencies": {
+        "@vscode/vsce": "^3.4.0",
+        "@types/vscode": "^1.84.0",
+        "@types/mocha": "^10.0.3",
+        "@types/node": "22.15.18",
+        "@typescript-eslint/eslint-plugin": "^6.21.0",
+        "@typescript-eslint/parser": "^8.32.1",
+        "@vscode/test-electron": "^2.5.2",
+        "eslint": "^8.57.1",
+        "glob": "^11.0.2",
+        "mocha": "^11.2.2",
+        "typescript": "5.8.3",
+        "copyfiles": "^2.4.1",
+        "copy-webpack-plugin": "^13.0.0",
+        "source-map-support": "^0.5.21",
+        "ts-loader": "^9.5.2",
+        "webpack": "^5.99.8",
+        "webpack-cli": "^6.0.1",
+        "webpack-permissions-plugin": "^1.0.9",
+        "@playwright/test": "~1.52.0",
+        "@wso2/playwright-vscode-tester": "workspace:*"
+    }
+}

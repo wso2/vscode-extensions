@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!--
+ Copyright (c) 2023, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+* http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+-->
+
+<xs:schema attributeFormDefault="qualified" elementFormDefault="qualified"
+  targetNamespace="http://www.wso2.org/products/wso2commons/throttle"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:import namespace="http://schemas.xmlsoap.org/ws/2004/09/policy"
+    schemaLocation="./ws-policy.xsd" />
+
+  <xs:element name="Allow" type="xs:string" />
+  <xs:element name="ID">
+    <xs:complexType>
+      <xs:simpleContent>
+        <xs:extension base="xs:string">
+          <xs:attribute type="xs:string" name="type" />
+        </xs:extension>
+      </xs:simpleContent>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="MediatorThrottleAssertion">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element type="xs:int" name="MaximumConcurrentAccess" />
+        <xs:element ref="wsp:Policy" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" maxOccurs="unbounded" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

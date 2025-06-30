@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<iterate attachPath="Path" continueParent="true" expression="Iterate Exp" id="IterateID" preservePayload="true" sequential="true" description="Iterate Description">
+				<target>
+					<sequence></sequence>
+				</target>
+			</iterate>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

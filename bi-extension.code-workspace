@@ -1,0 +1,50 @@
+{
+	"folders": [
+		{
+			"path": "workspaces/ballerina/ballerina-visualizer"
+		},
+		{
+			"path": "workspaces/ballerina/ballerina-extension"
+		},
+		{
+			"path": "workspaces/ballerina/component-diagram"
+		},
+		{
+			"path": "workspaces/bi/bi-extension"
+		},
+		{
+			"path": "workspaces/ballerina/ballerina-core"
+		},
+		{
+			"path": "workspaces/ballerina/ballerina-rpc-client"
+		},
+		{
+			"path": "workspaces/ballerina/ballerina-side-panel"
+		},
+		{
+			"path": "workspaces/common-libs/service-designer"
+		},
+		{
+			"path": "workspaces/common-libs/ui-toolkit"
+		},
+		{
+			"path": "workspaces/ballerina/type-diagram"
+		},
+		{
+			"path": "workspaces/ballerina/record-creator"
+		},
+		{
+			"path": "workspaces/ballerina/type-editor"
+		},
+		{
+			"path": "workspaces/common-libs/font-wso2-vscode"
+		},
+		{
+			"path": "workspaces/ballerina/bi-diagram"
+		},
+		{
+			"path": "workspaces/ballerina/data-mapper-view"
+		}
+	],
+	"settings": {}
+}

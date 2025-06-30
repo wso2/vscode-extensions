@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<makefault response="true" description="Fault Description" version="soap12">
+				<code value="soap12Env:" xmlns:soap12Env="http://www.w3.org/2003/05/soap-envelope"/>
+				<reason value="Reason"/>
+				<node>Node</node>
+				<detail>Detail</detail>
+			</makefault>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

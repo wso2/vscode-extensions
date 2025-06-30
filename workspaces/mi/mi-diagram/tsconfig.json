@@ -1,0 +1,50 @@
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "target": "es2022",
+    "useDefineForClassFields": true,
+    "lib": ["es2022", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+    "outDir": "./lib",
+    "rootDir": "./src",
+    "allowJs": true,
+    
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": false,
+    "jsx": "react",
+    "sourceMap": true,
+    "declaration": true,
+    "declarationDir": "./lib",
+    "esModuleInterop": true,
+
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "strictNullChecks": false,
+    "preserveSymlinks": true,
+    "noImplicitReturns": false,
+    "noImplicitAny": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "noImplicitThis": true,
+    "typeRoots": [
+      "node_modules/@types"
+    ],
+    "paths": {
+      "react": [
+        "./node_modules/@types/react"
+      ]
+    },
+  },
+  "exclude": [
+      "node_modules",
+      "lib",
+      "babel.config.js",
+      "jest.config.js",
+      "coverage/*",
+  ]
+}

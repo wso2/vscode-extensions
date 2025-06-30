@@ -1,0 +1,22 @@
+name: Question
+description: Ask a question about this project, its usage, or development
+title: "[Question] "
+labels: [question]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: Please clearly state your question.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Provide any relevant context, code snippets, or screenshots that might help us answer your question.
+  - type: textarea
+    id: additional-details
+    attributes:
+      label: Additional Details
+      description: Add any other details or information related to your question here.

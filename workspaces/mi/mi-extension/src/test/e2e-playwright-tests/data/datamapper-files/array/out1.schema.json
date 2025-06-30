@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "oPrimDirect1D": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    },
+    "oPrimMapFn1D": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    },
+    "oObjMapFn1D": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "q1": {
+            "type": "string"
+          },
+          "q2": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "q1",
+          "q2"
+        ]
+      }
+    },
+    "oInitPrim1D": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "oInitPrim2D": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "required": [
+    "oPrimDirect1D",
+    "oPrimMapFn1D",
+    "oObjMapFn1D",
+    "oInitPrim1D",
+    "oInitPrim2D"
+  ]
+}

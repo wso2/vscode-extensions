@@ -1,0 +1,117 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Choreo Component Configuration",
+    "description": "Template for Choreo component configurations",
+    "type": "object",
+    "properties": {
+      "apiVersion": {
+        "type": "string",
+        "enum": ["core.choreo.dev/v1beta1"],
+        "description": "The API version of the configuration."
+      },
+      "kind": {
+        "type": "string",
+        "enum": ["ComponentConfig"],
+        "description": "The type of the configuration."
+      },
+      "spec": {
+        "type": "object",
+        "properties": {
+          "inbound": {
+            "type": "array",
+            "description": "Incoming connection details for the component.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Unique name for the endpoint. This name will be used when generating the managed API.",
+                  "minLength": 1,
+                  "default": "http-endpoint"
+                },
+                "port": {
+                  "type": "integer",
+                  "description": "Numeric port value that gets exposed via the endpoint.",
+                  "default": 8080
+                },
+                "type": {
+                  "type": "string",
+                  "enum": ["REST", "GraphQL", "GRPC", "TCP", "UDP"],
+                  "description": "Type of traffic that the endpoint is accepting.",
+                  "default": "REST"
+                },
+                "networkVisibility": {
+                  "type": "string",
+                  "enum": ["Project", "Organization", "Public"],
+                  "default": "Public",
+                  "description": "Network level visibility of the endpoint."
+                },
+                "context": {
+                  "type": "string",
+                  "description": "Context (base path) of the API that gets exposed via the endpoint. Mandatory if the endpoint type is REST or GraphQL.",
+                  "default": "/"
+                },
+                "schemaFilePath": {
+                  "type": "string",
+                  "description": "The path to the schema definition file. Defaults to wildcard route if not specified. Only applicable to REST endpoint types."
+                }
+              },
+              "required": ["name", "port", "type"]
+            }
+          },
+          "outbound": {
+            "type": "object",
+            "description": "Outgoing connection details for the component.",
+            "properties": {
+              "serviceReferences": {
+                "type": "array",
+                "description": "Defines the service references from the Internal Marketplace.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Name of the service reference.",
+                      "minLength": 1,
+                      "default": "service"
+                    },
+                    "connectionConfig": {
+                      "type": "string",
+                      "description": "Name of the connection instance.",
+                      "minLength": 1,
+                      "default": "config"
+                    },
+                    "env": {
+                      "type": "array",
+                      "description": "Environment variables injected to the component for connection configuration.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "from": {
+                            "type": "string",
+                            "description": "Key name of the connection configuration.",
+                            "minLength": 1,
+                            "default": "service.url"
+                          },
+                          "to": {
+                            "type": "string",
+                            "description": "Environment variable injected to the container.",
+                            "minLength": 1,
+                            "default": "SERVICE_URL"
+                          }
+                        },
+                        "required": ["from", "to"]
+                      }
+                    }
+                  },
+                  "required": ["name", "connectionConfig"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "required": ["apiVersion", "kind", "spec"]
+  }
+  

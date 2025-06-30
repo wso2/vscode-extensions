@@ -1,0 +1,6 @@
+<makefault response="true" description="" version="soap12" >
+        <code value="soap12Env:" xmlns:soap12Env="http://www.w3.org/2003/05/soap-envelope" />
+        <reason value="Reason"  />
+        <node>Node</node>
+        <detail>Detail</detail>
+    </makefault>

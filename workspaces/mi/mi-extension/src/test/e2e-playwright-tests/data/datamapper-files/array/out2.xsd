@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="oInitObj1D" type="iobjOType"/>
+        <xs:element name="d2O" type="d2OType"/>
+        <xs:element name="oPrimMapFn2D" type="oPrimMapFn2DType"/>
+        <xs:element name="oSingle" type="xs:string"/>
+        <xs:element name="s21O" type="s21OType"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- oInitObj1D type definition -->
+  <xs:complexType name="iobjOType">
+    <xs:sequence>
+      <xs:element name="item" type="iobjItemType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="iobjItemType">
+    <xs:sequence>
+      <xs:element name="p1" type="xs:string"/>
+      <xs:element name="p2" type="p2Type"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="p2Type">
+    <xs:sequence>
+      <xs:element name="item" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- d2O type definition -->
+  <xs:complexType name="d2OType">
+    <xs:sequence>
+      <xs:element name="item" type="numberArrayType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- oPrimMapFn2D type definition -->
+  <xs:complexType name="oPrimMapFn2DType">
+    <xs:sequence>
+      <xs:element name="item" type="numberArrayType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Shared number array type -->
+  <xs:complexType name="numberArrayType">
+    <xs:sequence>
+      <xs:element name="item" type="xs:decimal" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- s21O type definition -->
+  <xs:complexType name="s21OType">
+    <xs:sequence>
+      <xs:element name="item" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+</xs:schema>

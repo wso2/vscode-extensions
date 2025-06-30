@@ -1,0 +1,173 @@
+{
+  "name": "Smooks",
+  "type": "mediator",
+  "title": "Smooks Mediator",
+  "help": "Applies lightweight message transformations (XML, non-XML).",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Input",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "inputType",
+              "displayName": "Input Type",
+              "inputType": "combo",
+              "defaultValue": "xml",
+              "comboValues": [
+                "xml",
+                "text"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "inputExpression",
+              "displayName": "Input Expression",
+              "inputType": "expression",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Key",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "configurationKey",
+              "displayName": "Configuration Key",
+              "inputType": "registry",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Output",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "outputType",
+              "displayName": "Output Type",
+              "inputType": "combo",
+              "defaultValue": "xml",
+              "comboValues": [
+                "xml",
+                "text",
+                "java"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "outputMethod",
+              "displayName": "Output Method",
+              "inputType": "combo",
+              "defaultValue": "Default",
+              "comboValues": [
+                "Default",
+                "Property",
+                "Expression"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "outputProperty",
+              "displayName": "Output Property",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "outputMethod": "Property"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "outputAction",
+              "displayName": "Output Action",
+              "inputType": "combo",
+              "defaultValue": "Add",
+              "comboValues": [
+                "Add",
+                "Replace",
+                "Sibiling"
+              ],
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "outputMethod": "Expression"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "outputExpression",
+              "displayName": "Output Expression",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "outputMethod": "Expression"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Misc",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

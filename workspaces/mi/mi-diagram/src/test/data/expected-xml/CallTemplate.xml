@@ -1,0 +1,2 @@
+<call-template target="conf:wsdleptemplate.xml" onError="defseq" >
+</call-template>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<datamapper config="gov:/datamapper/DM/DM.dmc" inputSchema="gov:/datamapper/DM/DM_inputSchema.json" inputType="JSON" outputSchema="gov:/datamapper/DM/DM_outputSchema.json" outputType="JSON"/>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

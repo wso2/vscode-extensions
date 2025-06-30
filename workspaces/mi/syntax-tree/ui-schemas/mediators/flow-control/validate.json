@@ -1,0 +1,133 @@
+{
+  "name": "validate",
+  "type": "mediator",
+  "title": "Validate Mediator",
+  "help": "Validates an XML/JSON message against XML/JSON schema.",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "source",
+        "displayName": "Source",
+        "inputType": "expression",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "enableSchemaCaching",
+        "displayName": "Enable Schema Caching",
+        "inputType": "checkbox",
+        "defaultValue": "true",
+        "required": true,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "table",
+      "value": {
+        "name": "schemas",
+        "displayName": "Schemas",
+        "title": "Validate Schema",
+        "description": "Editing of the properties of an object ValidateSchema",
+        "tableKey": "{row.number}",
+        "tableValue": "validateSchemaKey",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "validateSchemaKey",
+              "displayName": "Validate Schema Key",
+              "inputType": "key",
+              "keyType": [
+                "schema",
+                "localEntry"
+              ],
+              "required": true,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "table",
+      "value": {
+        "name": "features",
+        "displayName": "Features",
+        "title": "Validate Feature",
+        "description": "Editing of the properties of an object Validate Feature",
+        "tableKey": "featureName",
+        "tableValue": "featureEnabled",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "featureName",
+              "displayName": "Feature Name",
+              "inputType": "string",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "featureEnabled",
+              "displayName": "Feature Enabled",
+              "inputType": "checkbox",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "table",
+      "value": {
+        "name": "resources",
+        "displayName": "Resources",
+        "title": "Validate Resource",
+        "description": "Editing of the properties of an object Validate Resource",
+        "tableKey": "location",
+        "tableValue": "locationKey",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "location",
+              "displayName": "Location",
+              "inputType": "string",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "locationKey",
+              "displayName": "Location Key",
+              "inputType": "key",
+              "keyType": "registry",
+              "required": true,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}

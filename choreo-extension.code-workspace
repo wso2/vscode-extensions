@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "workspaces/choreo/choreo-core"
+		},
+		{
+			"path": "workspaces/choreo/choreo-extension"
+		},
+		{
+			"path": "workspaces/choreo/choreo-webviews"
+		}
+	]
+}

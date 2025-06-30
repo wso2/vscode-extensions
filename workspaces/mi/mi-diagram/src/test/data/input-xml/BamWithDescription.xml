@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<bam description="BAM Description">
+				<serverProfile name="Server Prop Name">
+					<streamConfig name="Stream Name" version="Stream Version"/>
+				</serverProfile>
+			</bam>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

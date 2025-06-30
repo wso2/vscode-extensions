@@ -1,0 +1,30 @@
+{
+  "name": "@wso2/wso2-platform-core",
+  "version": "1.0.2",
+  "description": "Contains models related to WSO2 Platform APIs",
+  "main": "lib/index.js",
+  "scripts": {
+    "lint": "biome check .",
+    "lint:fix": "biome check --write . ",
+    "build": "tsc --pretty",
+    "watch": "tsc --pretty --watch",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "deploy": "npm publish"
+  },
+  "author": "WSO2",
+  "devDependencies": {
+    "typescript": "5.8.3",
+    "@biomejs/biome": "^1.9.4"
+  },
+  "dependencies": {
+    "vscode-messenger-common": "^0.5.1",
+    "vscode-messenger-webview": "^0.5.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wso2/ballerina-plugin-vscode.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
+  }
+}

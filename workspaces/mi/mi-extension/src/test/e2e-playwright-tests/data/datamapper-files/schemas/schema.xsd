@@ -1,0 +1,20 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    <xs:element title="User" name="root">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element type="xs:integer" name="id"/>
+                <xs:element maxOccurs="unbounded" type="xs:string" name="tags"/>
+                <xs:element maxOccurs="unbounded" name="addresses">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element type="xs:string" name="country"/>
+                            <xs:element type="xs:integer" name="postalCode"/>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:attribute default="https://json-schema.org/draft/2020-12/schema" name="$schema" type="xs:string"/>
+    <xs:attribute default="User" name="title" type="xs:string"/>
+</xs:schema>

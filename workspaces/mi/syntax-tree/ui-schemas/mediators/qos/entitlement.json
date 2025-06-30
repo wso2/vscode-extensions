@@ -1,0 +1,284 @@
+{
+  "name": "Entitlement",
+  "type": "mediator",
+  "title": "Entitlement Mediator",
+  "help": "Evaluates messages against XACML policy.",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "entitlementServerURL",
+        "displayName": "Entitlement Server URL",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "username",
+        "displayName": "Username",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "password",
+        "displayName": "Password",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "callbackHandler",
+        "displayName": "Callback Handler",
+        "inputType": "combo",
+        "defaultValue": "UT",
+        "comboValues": [
+          "UT",
+          "X509",
+          "SAML",
+          "Kerberos",
+          "Custom"
+        ],
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "callbackClassName",
+        "displayName": "Callback Class Name",
+        "inputType": "string",
+        "required": false,
+        "enableCondition": [
+          {
+            "callbackHandler": "Custom"
+          }
+        ],
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "entitlementClientType",
+        "displayName": "Entitlement Client Type",
+        "inputType": "combo",
+        "defaultValue": "SOAP - Basic Auth (WSO2 IS 4.0.0 or later)",
+        "comboValues": [
+          "SOAP - Basic Auth (WSO2 IS 4.0.0 or later)",
+          "THRIFT",
+          "SOAP - Authentication Admin (WSO2 IS 3.2.3 or earlier)",
+          "WSXACML"
+        ],
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "thriftHost",
+        "displayName": "Thrift Host",
+        "inputType": "string",
+        "required": false,
+        "enableCondition": [
+          {
+            "entitlementClientType": "THRIFT"
+          }
+        ],
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "thriftPort",
+        "displayName": "Thrift Port",
+        "inputType": "string",
+        "required": false,
+        "enableCondition": [
+          {
+            "entitlementClientType": "THRIFT"
+          }
+        ],
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "On Acceptance",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "onAcceptSequenceType",
+              "displayName": "On Accept Sequence Type",
+              "inputType": "combo",
+              "defaultValue": "ANONYMOUS",
+              "comboValues": [
+                "ANONYMOUS",
+                "REGISTRY_REFERENCE"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "onAcceptSequenceKey",
+              "displayName": "On Accept SequenceKey",
+              "inputType": "key",
+              "enableCondition": [
+                {
+                  "onAcceptSequenceType": "REGISTRY_REFERENCE"
+                }
+              ],
+              "required": false,
+              "helpTip": "",
+              "keyType":"sequence"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "On Rejection",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "onRejectSequenceType",
+              "displayName": "On Reject Sequence Type",
+              "inputType": "combo",
+              "defaultValue": "ANONYMOUS",
+              "comboValues": [
+                "ANONYMOUS",
+                "REGISTRY_REFERENCE"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "onRejectSequenceKey",
+              "displayName": "On Reject SequenceKey",
+              "inputType": "key",
+              "enableCondition": [
+                {
+                  "onRejectSequenceType": "REGISTRY_REFERENCE"
+                }
+              ],
+              "required": false,
+              "helpTip": "",
+              "keyType":"sequence"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Obligation",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "obligationsSequenceType",
+              "displayName": "Obligations Sequence Type",
+              "inputType": "combo",
+              "defaultValue": "ANONYMOUS",
+              "comboValues": [
+                "ANONYMOUS",
+                "REGISTRY_REFERENCE"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "obligationsSequenceKey",
+              "displayName": "Obligations SequenceKey",
+              "inputType": "key",
+              "enableCondition": [
+                {
+                  "obligationsSequenceType": "REGISTRY_REFERENCE"
+                }
+              ],
+              "required": false,
+              "helpTip": "",
+              "keyType":"sequence"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Advice",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "adviceSequenceType",
+              "displayName": "Advice Sequence Type",
+              "inputType": "combo",
+              "defaultValue": "ANONYMOUS",
+              "comboValues": [
+                "ANONYMOUS",
+                "REGISTRY_REFERENCE"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "adviceSequenceKey",
+              "displayName": "Advice SequenceKey",
+              "inputType": "key",
+              "enableCondition": [
+                {
+                  "adviceSequenceType": "REGISTRY_REFERENCE"
+                }
+              ],
+              "required": false,
+              "helpTip": "",
+              "keyType":"sequence"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}
