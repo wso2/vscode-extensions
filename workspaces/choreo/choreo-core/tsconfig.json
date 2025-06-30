@@ -1,0 +1,35 @@
+{
+	"compilerOptions": {
+		"outDir": "./lib",
+		"rootDir": "./src",
+		"skipLibCheck": true,
+		"module": "commonjs",
+		"target": "es5",
+		"lib": [
+			"esnext",
+			"dom",
+			"dom.iterable"
+		],
+		"strict": true,
+		"sourceMap": true,
+		"allowJs": false,
+		"jsx": "react",
+		"declaration": true,
+		"declarationDir": "lib",
+		"experimentalDecorators": true,
+		"emitDecoratorMetadata": true,
+		"moduleResolution": "node",
+		"forceConsistentCasingInFileNames": true,
+		"noImplicitReturns": true,
+		"noImplicitThis": true,
+		"noImplicitAny": true,
+		"strictNullChecks": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"allowSyntheticDefaultImports": true,
+		"resolveJsonModule": true,
+		"esModuleInterop": true
+	},
+	"include": ["src"],
+	"exclude": ["node_modules", "lib"]
+}

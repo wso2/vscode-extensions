@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<dblookup description="DB Lookup Description">
+				<connection>
+					<pool>
+						<url>Reg Key</url>
+						<user>Conf Key</user>
+						<password>Pass Key</password>
+						<property name="validationquery" value="Prop query"/>
+					</pool>
+				</connection>
+				<statement>
+					<sql><![CDATA[select *]]></sql>
+				</statement>
+			</dblookup>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

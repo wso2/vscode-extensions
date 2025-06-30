@@ -1,0 +1,175 @@
+{
+  "name": "Payload",
+  "type": "mediator",
+  "title": "Payload Mediator",
+  "help": "Replaces message payload with a new SOAP/JSON payload.",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "payloadFormat",
+        "displayName": "Payload Format",
+        "inputType": "combo",
+        "defaultValue": "Inline",
+        "comboValues": [
+          "Inline",
+          "Registry Reference"
+        ],
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "mediaType",
+        "displayName": "Media Type",
+        "inputType": "combo",
+        "defaultValue": "json",
+        "comboValues": [
+          "xml",
+          "json",
+          "text"
+        ],
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "templateType",
+        "displayName": "Template Type",
+        "inputType": "combo",
+        "defaultValue": "Default",
+        "comboValues": [
+          "Default",
+          "Freemarker"
+        ],
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "payloadKey",
+        "displayName": "Payload Key",
+        "inputType": "registry",
+        "defaultValue": "",
+        "required": true,
+        "helpTip": "",
+        "enableCondition": [
+          {
+            "payloadFormat": "Registry Reference"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Payload",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "payload",
+              "displayName": "Payload",
+              "inputType": "codeTextArea",
+              "defaultValue": "",
+              "required": true,
+              "helpTip": {
+                "conditionField": "mediaType",
+                "values": [
+                  {
+                    "xml": "<inline/>"
+                  },
+                  {
+                    "json": "{\"Inline\":\"json\"}"
+                  },
+                  {
+                    "text": "Inline text"
+                  }
+                ]
+              },
+              "enableCondition": [
+                {
+                  "payloadFormat": "Inline"
+                }
+              ]
+            }
+          },
+          {
+            "type": "table",
+            "value": {
+              "name": "args",
+              "displayName": "Args",
+              "title": "Payload Factory Argument",
+              "description": "Editing of the properties of an object Payload Factory Argument",
+              "tableKey": "{row.number}",
+              "tableValue": "argumentValue",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "argumentValue",
+                    "displayName": "Argument Value",
+                    "inputType": "stringOrExpression",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "evaluator",
+                    "displayName": "Evaluator",
+                    "inputType": "combo",
+                    "defaultValue": "xml",
+                    "comboValues": [
+                      "xml",
+                      "json"
+                    ],
+                    "required": false,
+                    "enableCondition": [
+                      {
+                        "argumentValue": {
+                          "isExpression": true
+                        }
+                      }
+                    ],
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "literal",
+                    "displayName": "Literal",
+                    "inputType": "checkbox",
+                    "defaultValue": false,
+                    "required": false,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "defaultValue": "",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}

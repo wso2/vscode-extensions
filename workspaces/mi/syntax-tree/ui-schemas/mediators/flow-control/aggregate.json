@@ -1,0 +1,153 @@
+{
+  "name": "Aggregate",
+  "type": "mediator",
+  "title": "Aggregate Mediator",
+  "help": "Combines message responses that were split by Clone/Iterate mediator.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Complete Condition",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "completionTimeout",
+              "displayName": "Completion Timeout",
+              "inputType": "string",
+              "defaultValue": "0",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "completionMinMessages",
+              "displayName": "Completion Min Messages",
+              "inputType": "stringOrExpression",
+              "defaultValue": "-1",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "completionMaxMessages",
+              "displayName": "Completion Max Messages",
+              "inputType": "stringOrExpression",
+              "defaultValue": "-1",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "aggregateID",
+              "displayName": "Aggregate ID",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "enclosingElementProperty",
+              "displayName": "Enclosing Element Property",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "correlationExpression",
+              "displayName": "Correlation Expression",
+              "inputType": "expression",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "OnComplete",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "aggregateElementType",
+              "displayName": "Aggregate Element Type",
+              "inputType": "combo",
+              "defaultValue": "ROOT",
+              "comboValues": [
+                "ROOT",
+                "CHILD"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "aggregationExpression",
+              "displayName": "Aggregation Expression",
+              "inputType": "expression",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "sequenceType",
+              "displayName": "Sequence Type",
+              "inputType": "combo",
+              "defaultValue": "ANONYMOUS",
+              "comboValues": [
+                "ANONYMOUS",
+                "REGISTRY REFERENCE"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "sequenceKey",
+              "displayName": "Sequence Key",
+              "inputType": "key",
+              "keyType": "sequence",
+              "enableCondition": [
+                {
+                  "sequenceType": "REGISTRY REFERENCE"
+                }
+              ],
+              "required": true,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}

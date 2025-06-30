@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<enrich description="">
+				<source clone="true" type="envelope"/>
+				<target action="replace" xpath="Target XPath"/>
+			</enrich>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

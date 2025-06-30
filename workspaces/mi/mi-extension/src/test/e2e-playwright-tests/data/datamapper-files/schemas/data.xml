@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+ <root>
+     <id>1</id>
+     <name>Alice Smith</name>
+     <tags>developer</tags>
+     <tags>team lead</tags>
+     <addresses>
+         <city>New York</city>
+         <postalCode>10001</postalCode>
+     </addresses>
+     <addresses>
+         <city>San Francisco</city>
+         <postalCode>94107</postalCode>
+     </addresses>
+ </root>

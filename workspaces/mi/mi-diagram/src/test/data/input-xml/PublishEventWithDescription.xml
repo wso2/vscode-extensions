@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<publishEvent async="true" description="Publish Event Description" timeout="1000">
+				<eventSink>Event Sink</eventSink>
+				<streamName>Stream Name</streamName>
+				<streamVersion>Stream Version</streamVersion>
+				<attributes>
+					<meta>
+						<attribute defaultValue="Def Value" name="Att Name" type="STRING" value="Att Val"/>
+					</meta>
+					<correlation>
+						<attribute defaultValue="Def" name="Att name" type="STRING" value="att Val"/>
+					</correlation>
+					<payload>
+						<attribute defaultValue="Def Value" name="Att" type="STRING" value="Value"/>
+					</payload>
+					<arbitrary>
+						<attribute defaultValue="Def val" name="Att Name" type="STRING" value="Att Val"/>
+					</arbitrary>
+				</attributes>
+			</publishEvent>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

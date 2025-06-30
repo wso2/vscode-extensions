@@ -1,0 +1,14 @@
+<dblookup  >
+        <connection>
+            <pool>
+                <url>Reg Key</url>
+                <user>Conf Key</user>
+                <password>Pass Key</password>
+                <property name="validationquery" value="Prop query" />
+                <property name="initialsize" value="" />
+            </pool>
+        </connection>
+        <statement>
+            <sql><![CDATA[select *]]></sql>
+        </statement>
+    </dblookup>

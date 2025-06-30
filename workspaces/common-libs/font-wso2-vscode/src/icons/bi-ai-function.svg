@@ -1,0 +1,39 @@
+<!--
+ ~ Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ ~
+ ~ WSO2 LLC. licenses this file to you under the Apache License,
+ ~ Version 2.0 (the "License"); you may not use this file except
+ ~ in compliance with the License.
+ ~ You may obtain a copy of the License at
+ ~
+ ~     http://www.apache.org/licenses/LICENSE-2.0
+ ~
+ ~ Unless required by applicable law or agreed to in writing,
+ ~ software distributed under the License is distributed on an
+ ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ ~ KIND, either express or implied. See the License for the
+ ~ specific language governing permissions and limitations
+ ~ under the License.
+-->
+<svg
+    width="18.406384"
+    height="19.323978"
+    viewBox="0 0 18.406384 19.323978"
+    version="1.1"
+    id="svg1"
+    xml:space="preserve"
+    xmlns="http://www.w3.org/2000/svg"
+    xmlns:svg="http://www.w3.org/2000/svg"><defs
+     id="defs1" /><path
+     fill="#000000"
+     d="m 10.43,2.0066052 c -1.1000001,-0.1 -2.0700001,0.71 -2.1700001,1.82 l -0.25,2.89 H 10.83 v 2 H 7.8299999 l -0.44,5.0699998 a 3.986,3.986 0 0 1 -4.33,3.63 4,4 0 0 1 -3.059999976293945,-1.87 L 1.4999999,14.046605 c 0.24,0.74 0.9,1.31 1.73,1.38 1.1,0.1 2.07,-0.71 2.17,-1.82 l 0.43,-4.8899998 h -3 v -2 h 3.17 l 0.27,-3.07 c 0.19,-2.2 2.13,-3.83000001 4.3300001,-3.63000001 1.31,0.11 2.41,0.84 3.06,1.87000001 l -1.5,1.5 c -0.24,-0.74 -0.9,-1.31 -1.73,-1.38"
+     id="path1" /><g
+     fill="none"
+     stroke="#000000"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     stroke-width="1"
+     id="g3"
+     transform="matrix(1.3946778,0,0,1.4127825,20.912428,14.812728)"><path
+       id="path3"
+       d="m -5.4782791,-3.5498649 c -0.1428748,6.25e-4 -0.2855677,0.088545 -0.3235677,0.2620443 l -0.020508,0.096842 c -0.2768291,1.2598965 -1.2871202,2.2272876 -2.5577798,2.4495442 -0.3509996,0.061 -0.3509996,0.5656277 0,0.6266277 1.2706596,0.2222567 2.2809507,1.1896475 2.55778,2.4495442 l 0.020508,0.096843 c 0.076,0.3469997 0.5704141,0.3494176 0.6494141,0.00342 l 0.026204,-0.112793 c 0.2856109,-1.2547232 1.2967484,-2.2147128 2.5646161,-2.4347356 0.3529996,-0.062 0.3529996,-0.5680456 0,-0.6300456 -1.2678677,-0.2200232 -2.2790052,-1.1811516 -2.5646159,-2.4358724 l -0.026204,-0.112793 c -0.0395,-0.1729998 -0.1829715,-0.2592513 -0.3258468,-0.2586258 z" /></g></svg>

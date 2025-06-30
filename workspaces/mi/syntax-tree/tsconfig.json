@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "declaration": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "noImplicitAny": true,
+    "removeComments": false,
+    "module": "CommonJS",
+    "target": "ES2021",
+    "lib": ["ES2021"],
+    "jsx": "react",
+    "outDir": "lib",
+  },
+  "include": ["src", "tools"],
+  "exclude": ["node_modules", "**/*-spec.ts"]
+}

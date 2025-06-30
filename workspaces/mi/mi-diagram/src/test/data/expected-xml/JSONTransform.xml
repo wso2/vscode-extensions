@@ -1,0 +1,3 @@
+<jsontransform description="" schema="conf:wsdleptemplate.xml" >
+        <property name="Prop Name" value="Prop Value" />
+    </jsontransform>

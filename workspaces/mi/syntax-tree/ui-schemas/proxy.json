@@ -1,0 +1,561 @@
+{
+  "name": "Proxy",
+  "type": "component",
+  "title": "Proxy",
+  "help": "",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Basic",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "name",
+              "displayName": "Name",
+              "inputType": "string",
+              "required": false,
+              "helpTip": "Enter the name"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "pinnedServers",
+              "displayName": "Pinned Servers",
+              "inputType": "string",
+              "required": false,
+              "helpTip": "Enter the pinned servers"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "serviceGroup",
+              "displayName": "Service Group",
+              "inputType": "string",
+              "required": false,
+              "helpTip": "Enter the service group"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "traceEnabled",
+              "displayName": "Trace Enabled",
+              "inputType": "checkbox",
+              "required": false,
+              "helpTip": "Enable tracing"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "statisticsEnabled",
+              "displayName": "Statistics Enabled",
+              "inputType": "checkbox",
+              "required": false,
+              "helpTip": "Enable statistics"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "startOnLoad",
+              "displayName": "Start On Load",
+              "inputType": "checkbox",
+              "required": false,
+              "helpTip": "Start on load"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "transports",
+              "displayName": "Transports",
+              "inputType": "string",
+              "required": false,
+              "helpTip": "Enter the transports"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "onError",
+              "displayName": "On Error",
+              "inputType": "registry",
+              "required": false,
+              "helpTip": "Specify behavior on error"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Endpoint",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "endpointType",
+              "displayName": "Endpoint Type",
+              "inputType": "combo",
+              "defaultValue": "ANONYMOUS",
+              "comboValues": [
+                "ANONYMOUS",
+                "REGISTRY_REFERENCE",
+                "NAMED_REFERENCE"
+              ],
+              "required": false,
+              "helpTip": "Select the endpoint type"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "endpointKey",
+              "displayName": "Endpoint Key",
+              "inputType": "registry",
+              "required": false,
+              "enableCondition": [
+                {
+                  "endpointType": "REGISTRY_REFERENCE"
+                }
+              ],
+              "helpTip": "Specify the registry endpoint key"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "endpointName",
+              "displayName": "Endpoint Name",
+              "inputType": "string",
+              "required": false,
+              "enableCondition": [
+                {
+                  "endpointType": "NAMED_REFERENCE"
+                }
+              ],
+              "helpTip": "Enter the named endpoint name"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "InSequence",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "inSequenceType",
+              "displayName": "In Sequence Type",
+              "inputType": "combo",
+              "defaultValue": "ANONYMOUS",
+              "comboValues": [
+                "ANONYMOUS",
+                "REGISTRY_REFERENCE",
+                "NAMED_REFERENCE"
+              ],
+              "required": false,
+              "helpTip": "Select the in-sequence type"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "inSequenceKey",
+              "displayName": "In Sequence Key",
+              "inputType": "registry",
+              "required": false,
+              "enableCondition": [
+                {
+                  "inSequenceType": "REGISTRY_REFERENCE"
+                }
+              ],
+              "helpTip": "Specify the registry in-sequence key"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "inSequenceName",
+              "displayName": "In Sequence Name",
+              "inputType": "string",
+              "required": false,
+              "enableCondition": [
+                {
+                  "inSequenceType": "NAMED_REFERENCE"
+                }
+              ],
+              "helpTip": "Enter the named in-sequence name"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "OutSequence",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "outSequenceType",
+              "displayName": "Out Sequence Type",
+              "inputType": "combo",
+              "defaultValue": "ANONYMOUS",
+              "comboValues": [
+                "ANONYMOUS",
+                "REGISTRY_REFERENCE",
+                "NAMED_REFERENCE"
+              ],
+              "required": false,
+              "helpTip": "Select the out-sequence type"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "outSequenceKey",
+              "displayName": "Out Sequence Key",
+              "inputType": "registry",
+              "required": false,
+              "enableCondition": [
+                {
+                  "outSequenceType": "REGISTRY_REFERENCE"
+                }
+              ],
+              "helpTip": "Specify the registry out-sequence key"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "outSequenceName",
+              "displayName": "Out Sequence Name",
+              "inputType": "string",
+              "required": false,
+              "enableCondition": [
+                {
+                  "outSequenceType": "NAMED_REFERENCE"
+                }
+              ],
+              "helpTip": "Enter the named out-sequence name"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "FaultSequence",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "faultSequenceType",
+              "displayName": "Fault Sequence Type",
+              "inputType": "combo",
+              "defaultValue": "ANONYMOUS",
+              "comboValues": [
+                "ANONYMOUS",
+                "REGISTRY_REFERENCE",
+                "NAMED_REFERENCE"
+              ],
+              "required": false,
+              "helpTip": "Select the fault-sequence type"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "faultSequenceKey",
+              "displayName": "Fault Sequence Key",
+              "inputType": "registry",
+              "required": false,
+              "enableCondition": [
+                {
+                  "faultSequenceType": "REGISTRY_REFERENCE"
+                }
+              ],
+              "helpTip": "Specify the registry fault-sequence key"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "faultSequenceName",
+              "displayName": "Fault Sequence Name",
+              "inputType": "string",
+              "required": false,
+              "enableCondition": [
+                {
+                  "faultSequenceType": "NAMED_REFERENCE"
+                }
+              ],
+              "helpTip": "Enter the named fault-sequence name"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Parameters",
+        "elements": [
+          {
+            "type": "table",
+            "value": {
+              "name": "serviceParameters",
+              "displayName": "Service Parameters",
+              "form": {
+                "title": "Proxy Service Parameter",
+                "description": "Editing of the properties of an object Proxy Service Parameter",
+                "elements": [
+                  {
+                    "type": "attribute",
+                    "value": {
+                      "name": "name",
+                      "displayName": "Name",
+                      "inputType": "string",
+                      "required": false,
+                      "helpTip": ""
+                    }
+                  },
+                  {
+                    "type": "attribute",
+                    "value": {
+                      "name": "value",
+                      "displayName": "Value",
+                      "inputType": "string",
+                      "required": false,
+                      "helpTip": ""
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "ReliableMessaging",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "reliableMessagingEnabled",
+              "displayName": "Reliable Messaging Enabled",
+              "inputType": "checkbox",
+              "required": false,
+              "helpTip": "Enable reliable messaging"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Security",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "securityEnabled",
+              "displayName": "Security Enabled",
+              "inputType": "checkbox",
+              "required": false,
+              "helpTip": "Enable security"
+            }
+          },
+          {
+            "type": "table",
+            "value": {
+              "name": "servicePolicies",
+              "displayName": "Service Policies",
+              "form": {
+                "title": "Proxy Service Policy",
+                "description": "Editing of the properties of an object Proxy Service Policies",
+                "elements": [
+                  {
+                    "type": "attribute",
+                    "value": {
+                      "name": "policyKey",
+                      "displayName": "Policy Key",
+                      "inputType": "registry",
+                      "required": false,
+                      "helpTip": ""
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "WSDL",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "wsdlType",
+              "displayName": "WSDL Type",
+              "inputType": "combo",
+              "defaultValue": "NONE",
+              "comboValues": [
+                "NONE",
+                "INLINE",
+                "SOURCE_URL",
+                "REGISTRY_KEY",
+                "ENDPOINT"
+              ],
+              "required": false,
+              "helpTip": "Select the WSDL type"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "wsdlXML",
+              "displayName": "WSDL XML",
+              "inputType": "textArea",
+              "required": false,
+              "enableCondition": [
+                {
+                  "wsdlType": "INLINE"
+                }
+              ],
+              "helpTip": "Enter the WSDL XML"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "wsdlURL",
+              "displayName": "WSDL URL",
+              "inputType": "string",
+              "required": false,
+              "enableCondition": [
+                {
+                  "wsdlType": "SOURCE_URL"
+                }
+              ],
+              "helpTip": "Enter the WSDL URL"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "wsdlKey",
+              "displayName": "WSDL Key",
+              "inputType": "registry",
+              "required": false,
+              "enableCondition": [
+                {
+                  "wsdlType": "REGISTRY_KEY"
+                }
+              ],
+              "helpTip": "Specify the registry WSDL key"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "wsdlEndpoint",
+              "displayName": "WSDL Endpoint",
+              "inputType": "registry",
+              "required": false,
+              "enableCondition": [
+                {
+                  "wsdlType": "ENDPOINT"
+                }
+              ],
+              "helpTip": "Specify the WSDL endpoint"
+            }
+          },
+          {
+            "type": "table",
+            "value": {
+              "name": "wsdlResources",
+              "displayName": "WSDL Resources",
+              "enableCondition": [
+                "OR",
+                {
+                  "wsdlType": "INLINE"
+                },
+                {
+                  "wsdlType": "SOURCE_URL"
+                },
+                {
+                  "wsdlType": "REGISTRY_KEY"
+                }
+              ],
+              "form": {
+                "title": "Proxy WSDL Resource",
+                "description": "Editing of the properties of an object Proxy WSDL Resource",
+                "elements": [
+                  {
+                    "type": "attribute",
+                    "value": {
+                      "name": "location",
+                      "displayName": "Location",
+                      "inputType": "string",
+                      "defaultValue": "default_location",
+                      "required": false,
+                      "helpTip": ""
+                    }
+                  },
+                  {
+                    "type": "attribute",
+                    "value": {
+                      "name": "key",
+                      "displayName": "Key",
+                      "inputType": "registry",
+                      "defaultValue": "/default/resource",
+                      "required": false,
+                      "helpTip": ""
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "preservePolicy",
+              "displayName": "Preserve Policy",
+              "inputType": "checkbox",
+              "required": false,
+              "enableCondition": [
+                "NOT",
+                {
+                  "wsdlType": "NONE"
+                }
+              ],
+              "helpTip": "Preserve the policy"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<entitlementService callbackClass="org.wso2.carbon.identity.entitlement.mediator.callback.UTEntitlementCallbackHandler" client="basicAuth" remoteServicePassword="password" remoteServiceUrl="Url" remoteServiceUserName="username" description="Entitlement Service Description">
+				<onReject></onReject>
+				<onAccept></onAccept>
+				<obligations></obligations>
+				<advice></advice>
+			</entitlementService>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

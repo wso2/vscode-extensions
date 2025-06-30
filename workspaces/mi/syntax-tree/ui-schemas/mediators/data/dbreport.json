@@ -1,0 +1,756 @@
+{
+  "name": "DBReport",
+  "type": "mediator",
+  "title": "DB Report Mediator",
+  "help": "Executes SQL INSERT/UPDATE/DELETE statements, and sets resulting values to message context as local properties.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Connection",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "connectionType",
+              "displayName": "Connection Type",
+              "inputType": "combo",
+              "defaultValue": "DB_CONNECTION",
+              "comboValues": [
+                "DB_CONNECTION",
+                "DATA_SOURCE"
+              ],
+              "required": true,
+              "helpTip": "Select the type of connection"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "connectionDBType",
+              "displayName": "Connection DB Type",
+              "inputType": "combo",
+              "defaultValue": "OTHER",
+              "showManageDeps": true,
+              "comboValues": [
+                "OTHER",
+                "MYSQL",
+                "ORACLE",
+                "MSSQL",
+                "POSTGRESQL"
+              ],
+              "enableCondition": [
+                {
+                  "connectionType": "DB_CONNECTION"
+                }
+              ],
+              "required": true,
+              "helpTip": "Select the database type"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "isRegistryBasedDriverConfig",
+              "displayName": "Is Registry Based Driver Config",
+              "inputType": "checkbox",
+              "enableCondition": [
+                {
+                  "connectionType": "DB_CONNECTION"
+                }
+              ],
+              "required": false,
+              "helpTip": "Specify if the driver config is based on the registry"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "connectionDBDriver",
+              "displayName": "Connection DB Driver",
+              "inputType": "string",
+              "enableCondition": [
+                "AND",
+                {
+                  "connectionType": "DB_CONNECTION"
+                },
+                {
+                  "isRegistryBasedDriverConfig": "false"
+                }
+              ],
+              "required": true,
+              "helpTip": "Enter the database driver"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "registryBasedConnectionDBDriver",
+              "displayName": "Registry Based Connection DB Driver",
+              "inputType": "registry",
+              "enableCondition": [
+                "AND",
+                {
+                  "connectionType": "DB_CONNECTION"
+                },
+                {
+                  "isRegistryBasedDriverConfig": "true"
+                }
+              ],
+              "required": true,
+              "helpTip": "Enter the database driver"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "connectionDSType",
+              "displayName": "Connection DS Type",
+              "inputType": "combo",
+              "defaultValue": "EXTERNAL",
+              "comboValues": [
+                "EXTERNAL",
+                "CARBON"
+              ],
+              "enableCondition": [
+                {
+                  "connectionType": "DATA_SOURCE"
+                }
+              ],
+              "required": true,
+              "helpTip": "Select the DS type"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "connectionDSInitialContext",
+              "displayName": "Connection DS Initial Context",
+              "inputType": "string",
+              "enableCondition": [
+                {
+                  "connectionType": "DATA_SOURCE"
+                }
+              ],
+              "required": true,
+              "helpTip": "Provide the DS initial context"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "connectionDSName",
+              "displayName": "Connection DS Name",
+              "inputType": "string",
+              "enableCondition": [
+                {
+                  "connectionType": "DATA_SOURCE"
+                }
+              ],
+              "required": true,
+              "helpTip": "Enter the DS name"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "isRegistryBasedURLConfig",
+              "displayName": "Is Registry Based URL Config",
+              "inputType": "checkbox",
+              "enableCondition": [
+                "OR",
+                {
+                  "connectionType": "DB_CONNECTION"
+                },
+                [
+                  "AND",
+                  {
+                    "connectionType": "DATA_SOURCE"
+                  },
+                  {
+                    "connectionDSType": "EXTERNAL"
+                  }
+                ]
+              ],
+              "required": false,
+              "helpTip": "Specify if the URL config is registry-based"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "connectionURL",
+              "displayName": "Connection URL",
+              "inputType": "string",
+              "enableCondition": [
+                "AND",
+                {
+                  "isRegistryBasedURLConfig": "false"
+                },
+                [
+                  "OR",
+                  {
+                    "connectionType": "DB_CONNECTION"
+                  },
+                  [
+                    "AND",
+                    {
+                      "connectionType": "DATA_SOURCE"
+                    },
+                    {
+                      "connectionDSType": "EXTERNAL"
+                    }
+                  ]
+                ]
+              ],
+              "required": true,
+              "helpTip": "Enter the connection URL"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "registryBasedURLConfigKey",
+              "displayName": "Registry Based URL Config Key",
+              "inputType": "registry",
+              "enableCondition": [
+                "AND",
+                {
+                  "isRegistryBasedURLConfig": "true"
+                },
+                [
+                  "OR",
+                  {
+                    "connectionType": "DB_CONNECTION"
+                  },
+                  [
+                    "AND",
+                    {
+                      "connectionType": "DATA_SOURCE"
+                    },
+                    {
+                      "connectionDSType": "EXTERNAL"
+                    }
+                  ]
+                ]
+              ],
+              "required": true,
+              "helpTip": "Enter the registry based URL config key"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "isRegistryBasedUserConfig",
+              "displayName": "Is Registry Based User Config",
+              "inputType": "checkbox",
+              "enableCondition": [
+                "OR",
+                {
+                  "connectionType": "DB_CONNECTION"
+                },
+                [
+                  "AND",
+                  {
+                    "connectionType": "DATA_SOURCE"
+                  },
+                  {
+                    "connectionDSType": "EXTERNAL"
+                  }
+                ]
+              ],
+              "required": false,
+              "helpTip": "Specify if user config is registry based"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "connectionUsername",
+              "displayName": "Connection Username",
+              "inputType": "string",
+              "enableCondition": [
+                "AND",
+                {
+                  "isRegistryBasedUserConfig": "false"
+                },
+                [
+                  "OR",
+                  {
+                    "connectionType": "DB_CONNECTION"
+                  },
+                  [
+                    "AND",
+                    {
+                      "connectionType": "DATA_SOURCE"
+                    },
+                    {
+                      "connectionDSType": "EXTERNAL"
+                    }
+                  ]
+                ]
+              ],
+              "required": true,
+              "helpTip": "Enter the connection username"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "registryBasedUserConfigKey",
+              "displayName": "Registry Based User Config Key",
+              "inputType": "registry",
+              "enableCondition": [
+                "AND",
+                {
+                  "isRegistryBasedUserConfig": "true"
+                },
+                [
+                  "OR",
+                  {
+                    "connectionType": "DB_CONNECTION"
+                  },
+                  [
+                    "AND",
+                    {
+                      "connectionType": "DATA_SOURCE"
+                    },
+                    {
+                      "connectionDSType": "EXTERNAL"
+                    }
+                  ]
+                ]
+              ],
+              "required": true,
+              "helpTip": "Enter the registry based user config key"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "isRegistryBasedPassConfig",
+              "displayName": "Is Registry Based Pass Config",
+              "inputType": "checkbox",
+              "enableCondition": [
+                "OR",
+                {
+                  "connectionType": "DB_CONNECTION"
+                },
+                [
+                  "AND",
+                  {
+                    "connectionType": "DATA_SOURCE"
+                  },
+                  {
+                    "connectionDSType": "EXTERNAL"
+                  }
+                ]
+              ],
+              "required": false,
+              "helpTip": "Specify if password config is registry based"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "connectionPassword",
+              "displayName": "Connection Password",
+              "inputType": "string",
+              "enableCondition": [
+                "AND",
+                {
+                  "isRegistryBasedPassConfig": "false"
+                },
+                [
+                  "OR",
+                  {
+                    "connectionType": "DB_CONNECTION"
+                  },
+                  [
+                    "AND",
+                    {
+                      "connectionType": "DATA_SOURCE"
+                    },
+                    {
+                      "connectionDSType": "EXTERNAL"
+                    }
+                  ]
+                ]
+              ],
+              "required": true,
+              "helpTip": "Enter the connection password"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "registryBasedPassConfigKey",
+              "displayName": "Registry Based Pass Config Key",
+              "inputType": "registry",
+              "enableCondition": [
+                "AND",
+                {
+                  "isRegistryBasedPassConfig": "true"
+                },
+                [
+                  "OR",
+                  {
+                    "connectionType": "DB_CONNECTION"
+                  },
+                  [
+                    "AND",
+                    {
+                      "connectionType": "DATA_SOURCE"
+                    },
+                    {
+                      "connectionDSType": "EXTERNAL"
+                    }
+                  ]
+                ]
+              ],
+              "required": true,
+              "helpTip": "Enter the registry based password config key"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Statements",
+        "elements": [
+          {
+            "type": "table",
+            "required": true,
+            "value": {
+              "name": "sqlStatements",
+              "displayName": "SQL Statements",
+              "title": "SQL Statement",
+              "description": "Editing of the properties of an object SQL Statement",
+              "tableKey": "Query Template",
+              "tableValue": "queryString",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "queryString",
+                    "displayName": "Query String",
+                    "inputType": "string",
+                    "required": true,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "table",
+                  "value": {
+                    "name": "parameters",
+                    "displayName": "Parameters",
+                    "title": "SQL Parameter Definition",
+                    "description": "Editing of the properties of an object SQL Parameter Definition",
+                    "tableKey": "dataType",
+                    "tableValue": "valueLiteral",
+                    "elements": [
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "dataType",
+                          "displayName": "Data Type",
+                          "inputType": "combo",
+                          "defaultValue": "CHAR",
+                          "comboValues": [
+                            "CHAR",
+                            "VARCHAR",
+                            "LONGVARCHAR",
+                            "NUMERIC",
+                            "DECIMAL",
+                            "BIT",
+                            "TINYINT",
+                            "SMALLINT",
+                            "INTEGER",
+                            "BIGINT",
+                            "REAL",
+                            "FLOAT",
+                            "DOUBLE",
+                            "DATE",
+                            "TIME",
+                            "TIMESTAMP"
+                          ],
+                          "required": true,
+                          "helpTip": "Select the data type"
+                        }
+                      },
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "valueType",
+                          "displayName": "Value Type",
+                          "inputType": "combo",
+                          "defaultValue": "LITERAL",
+                          "comboValues": [
+                            "LITERAL",
+                            "EXPRESSION"
+                          ],
+                          "required": true,
+                          "helpTip": "Select the value type"
+                        }
+                      },
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "valueLiteral",
+                          "displayName": "Value Literal",
+                          "inputType": "string",
+                          "required": true,
+                          "enableCondition": [
+                            {
+                              "valueType": "LITERAL"
+                            }
+                          ],
+                          "helpTip": "Enter the value literal"
+                        }
+                      },
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "valueExpression",
+                          "displayName": "Value Expression",
+                          "inputType": "expression",
+                          "required": true,
+                          "enableCondition": [
+                            {
+                              "valueType": "EXPRESSION"
+                            }
+                          ],
+                          "helpTip": "Enter the value expression"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "table",
+                  "value": {
+                    "name": "results",
+                    "displayName": "Results",
+                    "title": "SQL Result Mapping",
+                    "description": "Editing of the properties of an object SQL Result Mapping",
+                    "tableKey": "propertyName",
+                    "tableValue": "columnId",
+                    "elements": [
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "propertyName",
+                          "displayName": "Property Name",
+                          "inputType": "string",
+                          "required": false,
+                          "helpTip": ""
+                        }
+                      },
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "columnId",
+                          "displayName": "Column ID",
+                          "inputType": "string",
+                          "required": false,
+                          "helpTip": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyAutocommit",
+              "displayName": "Property Autocommit",
+              "inputType": "combo",
+              "defaultValue": "DEFAULT",
+              "comboValues": [
+                "DEFAULT",
+                "true",
+                "false"
+              ],
+              "required": false,
+              "helpTip": "Select the autocommit property"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyIsolation",
+              "displayName": "Property Isolation",
+              "inputType": "combo",
+              "defaultValue": "DEFAULT",
+              "comboValues": [
+                "DEFAULT",
+                "Connection.TRANSACTION_NONE",
+                "Connection.TRANSACTION_READ_COMMITTED",
+                "Connection.TRANSACTION_UNCOMMITTED",
+                "Connection.TRANSACTION_REPEATABLE_READ",
+                "Connection.TRANSACTION.SERIALIZABLE"
+              ],
+              "required": false,
+              "helpTip": "Select the isolation property"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyMaxActive",
+              "displayName": "Property Max Active",
+              "inputType": "string",
+              "defaultValue": "-1",
+              "required": false,
+              "helpTip": "Enter the max active property"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyMaxIdle",
+              "displayName": "Property Max Idle",
+              "inputType": "string",
+              "defaultValue": "-1",
+              "required": false,
+              "helpTip": "Enter the max idle property"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyMaxOpenStatements",
+              "displayName": "Property Max Open Statements",
+              "inputType": "string",
+              "defaultValue": "-1",
+              "required": false,
+              "helpTip": "Enter the max open statements property"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyMaxWait",
+              "displayName": "Property Max Wait",
+              "inputType": "string",
+              "defaultValue": "-1",
+              "required": false,
+              "helpTip": "Enter the max wait property"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyMinIdle",
+              "displayName": "Property Min Idle",
+              "inputType": "string",
+              "defaultValue": "-1",
+              "required": false,
+              "helpTip": "Enter the min idle property"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyPoolStatements",
+              "displayName": "Property Pool Statements",
+              "inputType": "combo",
+              "defaultValue": "DEFAULT",
+              "comboValues": [
+                "DEFAULT",
+                "true",
+                "false"
+              ],
+              "required": false,
+              "helpTip": "Select the pool statements property"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyTestOnBorrow",
+              "displayName": "Property Test On Borrow",
+              "inputType": "combo",
+              "defaultValue": "DEFAULT",
+              "comboValues": [
+                "DEFAULT",
+                "true",
+                "false"
+              ],
+              "required": false,
+              "helpTip": "Select the test on borrow property"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyTestWhileIdle",
+              "displayName": "Property Test While Idle",
+              "inputType": "combo",
+              "defaultValue": "DEFAULT",
+              "comboValues": [
+                "DEFAULT",
+                "true",
+                "false"
+              ],
+              "required": false,
+              "helpTip": "Select the while idle property"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyValidationQuery",
+              "displayName": "Property Validation Query",
+              "inputType": "string",
+              "required": false,
+              "helpTip": "Enter the validation query property"
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyInitialSize",
+              "displayName": "Property Initial Size",
+              "inputType": "string",
+              "defaultValue": "-1",
+              "required": false,
+              "helpTip": "Enter the initial size property"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Misc",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "required": false,
+              "helpTip": "Enter a description"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

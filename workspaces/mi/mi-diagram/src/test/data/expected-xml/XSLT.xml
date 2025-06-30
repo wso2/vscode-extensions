@@ -1,0 +1,5 @@
+<xslt  key="XSLT Schema" source="XPath" >
+        <property name="Pop Name" value="Prop Val"  />
+        <feature name="F Name" value="true"/>
+        <resource key="Reg Key" location="Location"/>
+    </xslt>

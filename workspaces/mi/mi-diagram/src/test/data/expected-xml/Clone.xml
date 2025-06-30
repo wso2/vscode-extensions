@@ -1,0 +1,5 @@
+<clone continueParent="true" id="CloneID" sequential="true" >
+    <target soapAction="Action" to="Address" >      
+        <sequence></sequence>
+    </target>
+</clone>

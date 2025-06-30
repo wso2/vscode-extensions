@@ -1,0 +1,70 @@
+{
+  "name": "@wso2/mi-syntax-tree",
+  "version": "0.1.0",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "typings": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "engines": {
+    "node": ">=10"
+  },
+  "scripts": {
+    "prebuild": "pnpm run lint",
+    "build": "pnpm run clean && tsc --pretty",
+    "build:tools": "tsc ./tools/*.ts --outDir ./lib/tools",
+    "watch": "tsc --pretty --watch",
+    "clean": "rimraf build/ && rimraf lib/",
+    "clean:nm": "rimraf node_modules",
+    "lint": "tslint --project .",
+    "lint:fix": "tslint --fix --project .",
+    "generateMappings": "java -jar ./node_modules/jsonix/lib/jsonix-schema-compiler-full.jar -d generated -p PO synapse-schemas/synapse_config.xsd",
+    "generateST": "node ./lib/tools/stGenerator.js",
+    "generateForms": "node ./lib/tools/formGenerator.js",
+    "generateFormsFromJSON": "node ./lib/tools/formGeneratorFromJSON.js"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "tsdx lint"
+    }
+  },
+  "prettier": {
+    "printWidth": 80,
+    "semi": true,
+    "singleQuote": true,
+    "trailingComma": "es5"
+  },
+  "author": "Sajinie",
+  "module": "dist/syntax-tree.esm.js",
+  "size-limit": [
+    {
+      "path": "dist/syntax-tree.cjs.production.min.js",
+      "limit": "10 KB"
+    },
+    {
+      "path": "dist/syntax-tree.esm.js",
+      "limit": "10 KB"
+    }
+  ],
+  "devDependencies": {
+    "@size-limit/preset-small-lib": "^11.2.0",
+    "husky": "^9.1.7",
+    "size-limit": "^11.2.0",
+    "tsdx": "^0.14.1",
+    "tslib": "^2.5.0",
+    "typescript": "5.8.3",
+    "rimraf": "^6.0.1",
+    "@typescript-eslint/eslint-plugin": "~8.32.1",
+    "eslint-plugin-react-hooks": "~5.2.0",
+    "eslint-plugin-unused-imports": "~4.1.4"
+  },
+  "dependencies": {
+    "tslint": "~6.1.3",
+    "@types/node": "~22.15.21",
+    "jsonix": "~3.0.0",
+    "eslint": "~9.27.0",
+    "vscode-languageserver-types": "~3.17.5"
+  }
+}

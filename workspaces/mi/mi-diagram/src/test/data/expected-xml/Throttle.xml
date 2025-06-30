@@ -1,0 +1,20 @@
+<throttle description="" id="Group ID"   >
+            <policy>
+                <wsp:Policy wsu:id="WSO2MediatorThrottlingPolicy" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+                    <throttle:MediatorThrottleAssertion xmlns:throttle="http://www.wso2.org/products/wso2commons/throttle">
+                        <throttle:MaximumConcurrentAccess>0</throttle:MaximumConcurrentAccess>
+                        <wsp:Policy>
+                            <throttle:ID throttle:type="IP">other</throttle:ID>
+                            <throttle:UnitTime>0</throttle:UnitTime>
+                            <throttle:ProhibitTimePeriod>0</throttle:ProhibitTimePeriod>
+                            <throttle:MaximumCount>0</throttle:MaximumCount>
+                            <wsp:Policy>
+                                <throttle:Allow />
+                            </wsp:Policy>
+                        </wsp:Policy>
+                    </throttle:MediatorThrottleAssertion>
+                </wsp:Policy>
+            </policy>
+            <onAccept></onAccept>
+            <onReject></onReject>
+        </throttle>

@@ -1,0 +1,175 @@
+{
+  "name": "Fault",
+  "type": "mediator",
+  "title": "Fault Mediator",
+  "help": "Transforms the current message into a fault message.",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "soapVersion",
+        "displayName": "SOAP Version",
+        "inputType": "combo",
+        "defaultValue": "soap11",
+        "comboValues": [
+          "soap11",
+          "soap12",
+          "POX"
+        ],
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "soap11",
+        "displayName": "SOAP11",
+        "inputType": "combo",
+        "defaultValue": "VersionMismatch",
+        "comboValues": [
+          "VersionMismatch",
+          "MustUnderstand",
+          "Client",
+          "Server"
+        ],
+        "required": false,
+        "helpTip": "",
+        "enableCondition": [
+          {
+            "soapVersion": "soap11"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "code",
+        "displayName": "Code",
+        "inputType": "combo",
+        "defaultValue": "Receiver",
+        "comboValues": [
+          "VersionMismatch",
+          "MustUnderstand",
+          "DataEncordingUnknown",
+          "Sender",
+          "Reciever"
+        ],
+        "required": false,
+        "helpTip": "",
+        "enableCondition": [
+          {
+            "soapVersion": "soap12"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "Role",
+        "displayName": "Role",
+        "inputType": "string",
+        "defaultValue": "",
+        "required": false,
+        "helpTip": "",
+        "enableCondition": [
+          {
+            "soapVersion": "soap12"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "node",
+        "displayName": "Node",
+        "inputType": "string",
+        "defaultValue": "",
+        "required": false,
+        "helpTip": "",
+        "enableCondition": [
+          {
+            "soapVersion": "soap12"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "actor",
+        "displayName": "Actor",
+        "inputType": "string",
+        "defaultValue": "",
+        "required": false,
+        "helpTip": "",
+        "enableCondition": [
+          {
+            "soapVersion": "soap11"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "serializeResponse",
+        "displayName": "Serialize Response",
+        "inputType": "checkbox",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "markAsResponse",
+        "displayName": "Mark As Response",
+        "inputType": "checkbox",
+        "required": false,
+        "helpTip": "",
+        "enableCondition": [
+          {
+            "serializeResponse": "true"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "detail",
+        "displayName": "Detail",
+        "inputType": "stringOrExpression",
+        "defaultValue": "",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "reason",
+        "displayName": "Reason",
+        "inputType": "stringOrExpression",
+        "defaultValue": "",
+        "required": true,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "defaultValue": "",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}

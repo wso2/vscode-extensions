@@ -1,0 +1,65 @@
+// A launch configuration that compiles the extension and then opens it inside a new window
+// Use IntelliSense to learn about possible attributes.
+// Hover to view descriptions of existing attributes.
+// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Run Extension",
+			"type": "extensionHost",
+			"request": "launch",
+			"env": {
+				"WEB_VIEW_DEV_MODE": "true",
+				"WEB_VIEW_DEV_HOST": "http://localhost:3000/main.js",
+				"REQUEST_TRACE_ENABLED": "true"
+			},
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}"
+			],
+			"outFiles": [
+				"${workspaceFolder}/dist/**/*.js"
+			],
+			"preLaunchTask": "${defaultBuildTask}",
+            "envFile": "${workspaceFolder}/workspaces/wso2-platform/wso2-platform-extension/.env"
+		},
+        {
+            "name": "Debug Choreo UI Tests",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/node_modules/vscode-extension-tester/out/cli.js",
+            "args": [
+                "run-tests",
+                "${workspaceFolder}/dist/src/tests/e2e-tests/*.js",
+                "--mocha_config",
+                "${workspaceFolder}/src/tests/e2e-tests/.mocharc.js",
+                "-o",
+                "${workspaceFolder}/src/tests/e2e-tests/settings.json"
+            ],
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "WEB_VIEW_DEV_MODE": "true",
+				"WEB_VIEW_DEV_HOST": "http://localhost:3000/main.js",
+            },
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "preLaunchTask": "compile:choreo-tests"
+        },
+		{
+			"name": "Debug Playwright-E2E Tests",
+			"type": "node",
+			"program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
+			"cwd": "${workspaceFolder}",
+			"args": [
+				
+				"${workspaceFolder}/dist/tests/e2e-playwright/suite/**/*.test.js"
+			],
+			"request": "launch",
+			"outFiles": [
+				"${workspaceFolder}/dist/**/*.js"
+			],
+			"console": "integratedTerminal",
+			"preLaunchTask": "npm: compile-tests"
+		}
+	]
+}

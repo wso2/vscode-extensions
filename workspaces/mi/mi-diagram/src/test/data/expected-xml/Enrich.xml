@@ -1,0 +1,4 @@
+<enrich description="" >
+        <source clone="true"  type="envelope"  />
+        <target action="replace"    xpath="Target XPath"/>
+    </enrich>

@@ -1,0 +1,3405 @@
+{
+  "name": "InboundEndpoint",
+  "type": "component",
+  "title": "Inbound Endpoint",
+  "help": "",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Basic",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "name",
+                    "displayName": "Name",
+                    "inputType": "string",
+                    "required": false,
+                    "helpTip": "Enter the name"
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "type",
+                    "displayName": "Type",
+                    "inputType": "combo",
+                    "defaultValue": "HTTP",
+                    "comboValues": [
+                      "HTTP",
+                      "File",
+                      "JMS",
+                      "Custom",
+                      "HTTPS",
+                      "HL7",
+                      "KAFKA",
+                      "CXF_WS_RM",
+                      "MQTT",
+                      "RABBITMQ",
+                      "Feed",
+                      "WSO2_MB",
+                      "WS",
+                      "WSS"
+                    ],
+                    "required": false,
+                    "helpTip": "Select the type"
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "suspend",
+                    "displayName": "Suspend",
+                    "inputType": "checkbox",
+                    "required": false,
+                    "helpTip": "Suspend functionality"
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "traceEnabled",
+                    "displayName": "Trace Enabled",
+                    "inputType": "checkbox",
+                    "required": false,
+                    "helpTip": "Enable tracing"
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "statisticsEnabled",
+                    "displayName": "Statistics Enabled",
+                    "inputType": "checkbox",
+                    "required": false,
+                    "helpTip": "Enable statistics"
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "inboundHTTPPort",
+                    "displayName": "Inbound HTTP Port",
+                    "inputType": "string",
+                    "required": false,
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "HTTP"
+                      },
+                      {
+                        "type": "HTTPS"
+                      }
+                    ],
+                    "helpTip": "Specify the inbound HTTP port"
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "interval",
+                    "displayName": "Interval",
+                    "inputType": "string",
+                    "required": false,
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "File"
+                      },
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "Custom"
+                      },
+                      {
+                        "type": "KAFKA"
+                      },
+                      {
+                        "type": "MQTT"
+                      },
+                      {
+                        "type": "Feed"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "helpTip": "Specify the interval"
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "class",
+                    "displayName": "Class",
+                    "inputType": "string",
+                    "required": false,
+                    "enableCondition": [
+                      {
+                        "type": "Custom"
+                      }
+                    ],
+                    "helpTip": "Specify the class"
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "inboundEndpointBehaviour",
+                    "displayName": "Inbound Endpoint Behaviour",
+                    "inputType": "combo",
+                    "defaultValue": "poolingInboundEndpoint",
+                    "comboValues": [
+                      "poolingInboundEndpoint",
+                      "listeningInboundEndpoint",
+                      "eventBasedInboundEndpoint"
+                    ],
+                    "enableCondition": [
+                      {
+                        "type": "Custom"
+                      }
+                    ],
+                    "required": false,
+                    "helpTip": "Select inbound endpoint behavior"
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "sequential",
+                    "displayName": "Sequential",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "File"
+                      },
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "Custom"
+                      },
+                      {
+                        "type": "KAFKA"
+                      },
+                      {
+                        "type": "MQTT"
+                      },
+                      {
+                        "type": "RABBITMQ"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false,
+                    "helpTip": "Sequential behavior"
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "coordination",
+                    "displayName": "Coordination",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "File"
+                      },
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "Custom"
+                      },
+                      {
+                        "type": "KAFKA"
+                      },
+                      {
+                        "type": "MQTT"
+                      },
+                      {
+                        "type": "RABBITMQ"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false,
+                    "helpTip": "Coordination behavior"
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "fileUri",
+                    "displayName": "File URI",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false,
+                    "helpTip": "Specify the file URI"
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "contentType",
+                    "displayName": "Content Type",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "File"
+                      },
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false,
+                    "helpTip": "Specify the content type"
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wso2MBConnectionURL",
+                    "displayName": "WSO2 MB Connection URL",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false,
+                    "helpTip": "Specify the WSO2 MB connection URL"
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "javaNamingFactoryInitial",
+                    "displayName": "Java Naming Factory Initial",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false,
+                    "helpTip": "Specify the Java naming factory initial"
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "javaNamingProviderURL",
+                    "displayName": "Java Naming Provider URL",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "JMS"
+                      }
+                    ],
+                    "required": false,
+                    "helpTip": "Specify the Java naming provider URL"
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "connectionFactoryJNDIName",
+                    "displayName": "Connection Factory JNDI Name",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false,
+                    "helpTip": "Specify the connection factory JNDI name"
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "connectionFactoryType",
+                    "displayName": "Connection Factory Type",
+                    "inputType": "combo",
+                    "defaultValue": "topic",
+                    "comboValues": [
+                      "topic",
+                      "queue"
+                    ],
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false,
+                    "helpTip": "Select the connection factory type"
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "destination",
+                    "displayName": "Destination",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "sessionTransacted",
+                    "displayName": "Session Transacted",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "sessionAcknowledgement",
+                    "displayName": "Session Acknowledgement",
+                    "inputType": "combo",
+                    "defaultValue": "AUTO_ACKNOWLEDGE",
+                    "comboValues": [
+                      "AUTO_ACKNOWLEDGE",
+                      "CLIENT_ACKNOWLEDGE",
+                      "DUPS_OK_ACKNOWLEDGE",
+                      "SESSION_TRANSACTED"
+                    ],
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "cacheLevel",
+                    "displayName": "Cache Level",
+                    "inputType": "combo",
+                    "defaultValue": "1",
+                    "comboValues": [
+                      "1",
+                      "2",
+                      "3"
+                    ],
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "table",
+                  "value": {
+                    "name": "serviceParameters",
+                    "displayName": "Service Parameters",
+                    "enableCondition": [
+                      {
+                        "type": "Custom"
+                      }
+                    ],
+                    "form": {
+                      "title": "Inbound Endpoint Parameter",
+                      "description": "Editing of the properties of an object Inbound Endpoint Parameter",
+                      "elements": [
+                        {
+                          "type": "attributeGroup",
+                          "value": {
+                            "groupName": "Properties",
+                            "elements": [
+                              {
+                                "type": "attribute",
+                                "value": {
+                                  "name": "name",
+                                  "displayName": "Name",
+                                  "inputType": "string",
+                                  "required": false,
+                                  "helpTip": ""
+                                }
+                              },
+                              {
+                                "type": "attribute",
+                                "value": {
+                                  "name": "parameterType",
+                                  "displayName": "Parameter Type",
+                                  "inputType": "combo",
+                                  "defaultValue": "Static",
+                                  "comboValues": [
+                                    "Static",
+                                    "Dynamic"
+                                  ],
+                                  "required": false
+                                }
+                              },
+                              {
+                                "type": "attribute",
+                                "value": {
+                                  "name": "value",
+                                  "displayName": "Value",
+                                  "inputType": "string",
+                                  "enableCondition": [
+                                    {
+                                      "parameterType": "Static"
+                                    }
+                                  ],
+                                  "required": false,
+                                  "helpTip": ""
+                                }
+                              },
+                              {
+                                "type": "attribute",
+                                "value": {
+                                  "name": "parameterKey",
+                                  "displayName": "Parameter Key",
+                                  "inputType": "registry",
+                                  "enableCondition": [
+                                    {
+                                      "parameterType": "Dynamic"
+                                    }
+                                  ],
+                                  "required": false,
+                                  "helpTip": ""
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "port",
+                    "displayName": "Port",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "HL7"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "autoAck",
+                    "displayName": "Auto Ack",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "HL7"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "zookeeperConnect",
+                    "displayName": "Zookeeper Connect",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "groupID",
+                    "displayName": "Group ID",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "consumerType",
+                    "displayName": "Consumer Type",
+                    "inputType": "combo",
+                    "defaultValue": "highlevel",
+                    "comboValues": [
+                      "highlevel",
+                      "simple"
+                    ],
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "topicsOrTopicFilter",
+                    "displayName": "Topics or Topic Filter",
+                    "inputType": "combo",
+                    "defaultValue": "topics",
+                    "comboValues": [
+                      "topics",
+                      "topic.filter"
+                    ],
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "topicsName",
+                    "displayName": "Topics Name",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "rmHost",
+                    "displayName": "Rm Host",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "rmPort",
+                    "displayName": "Rm Port",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "rmConfigFile",
+                    "displayName": "Rm Config File",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "enableSSL",
+                    "displayName": "Enable SSL",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "connectionFactory",
+                    "displayName": "Connection Factory",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "MQTT"
+                      },
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "serverHostName",
+                    "displayName": "Server Host Name",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "MQTT"
+                      },
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "serverPort",
+                    "displayName": "Server Port",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "MQTT"
+                      },
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "topicName",
+                    "displayName": "Topic Name",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "MQTT"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "serverUsername",
+                    "displayName": "Server Username",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "serverPassword",
+                    "displayName": "Server Password",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "queueName",
+                    "displayName": "Queue Name",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "exchangeName",
+                    "displayName": "Exchange Name",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "keyStore",
+                    "displayName": "Key Store",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "HTTPS"
+                      },
+                      {
+                        "type": "MQTT"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "url",
+                    "displayName": "URL",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "Feed"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "type",
+                    "displayName": "Type",
+                    "inputType": "list",
+                    "inputOptions": [
+                      "Atom",
+                      "RSS"
+                    ],
+                    "enableCondition": [
+                      {
+                        "type": "Feed"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wsInboundPort",
+                    "displayName": "WS Inbound Port",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "WS"
+                      },
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wsClientSideBroadcastLevel",
+                    "displayName": "WS Client Side Broadcast Level",
+                    "inputType": "combo",
+                    "comboValues": [
+                      "0",
+                      "1",
+                      "2"
+                    ],
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "WS"
+                      },
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wsOutflowDispatchSequence",
+                    "displayName": "WS Outflow Dispatch Sequence",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "WS"
+                      },
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wsOutflowDispatchFaultSequence",
+                    "displayName": "WS Outflow Dispatch Fault Sequence",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "WS"
+                      },
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wssSslKeyStoreFile",
+                    "displayName": "WSS SSL Key Store File",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wssSslKeyStorePass",
+                    "displayName": "WSS SSL Key Store Pass",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wssSslTrustStoreFile",
+                    "displayName": "WSS SSL Trust Store File",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wssSslTrustStorePass",
+                    "displayName": "WSS SSL Trust Store Pass",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wssSslCertPass",
+                    "displayName": "WSS SSL Cert Pass",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Advanced",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "inboundWorkerPoolSizeCore",
+                    "displayName": "Inbound Worker Pool Size Core",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "HTTP"
+                      },
+                      {
+                        "type": "HTTPS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "inboundWorkerPoolSizeMax",
+                    "displayName": "Inbound Worker Pool Size Max",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "HTTP"
+                      },
+                      {
+                        "type": "HTTPS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "inboundWorkerThreadKeepAliveSec",
+                    "displayName": "Inbound Worker Thread Keep Alive Sec",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "HTTP"
+                      },
+                      {
+                        "type": "HTTPS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "inboundWorkerPoolQueueLength",
+                    "displayName": "Inbound Worker Pool Queue Length",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "HTTP"
+                      },
+                      {
+                        "type": "HTTPS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "inboundThreadGroupId",
+                    "displayName": "Inbound Thread Group ID",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "HTTP"
+                      },
+                      {
+                        "type": "HTTPS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "inboundThreadId",
+                    "displayName": "Inbound Thread ID",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "HTTP"
+                      },
+                      {
+                        "type": "HTTPS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "dispatchFilterPattern",
+                    "displayName": "Dispatch Filter Pattern",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "HTTP"
+                      },
+                      {
+                        "type": "HTTPS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "fileNamePattern",
+                    "displayName": "File Name Pattern",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "fileProcessInterval",
+                    "displayName": "File Process Interval",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "fileProcessCount",
+                    "displayName": "File Process Count",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "locking",
+                    "displayName": "Locking",
+                    "inputType": [
+                      "enable",
+                      "disable"
+                    ],
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "maxRetrvCount",
+                    "displayName": "Max Retrv Count",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "actionAfterProcess",
+                    "displayName": "Action After Process",
+                    "inputType": [
+                      "DELETE",
+                      "MOVE",
+                      "NONE"
+                    ],
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "moveAfterProcess",
+                    "displayName": "Move After Process",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "actionAfterErrors",
+                    "displayName": "Action After Errors",
+                    "inputType": [],
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "moveAfterErrors",
+                    "displayName": "Move After Errors",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "failedRecordsFileName",
+                    "displayName": "Failed Records File Name",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "failedRecordsFileNameDestination",
+                    "displayName": "Failed Records File Name Destination",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "moveFailedRecordTimestampFormat",
+                    "displayName": "Move Failed Record Timestamp Format",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "failedRecordNextRetryDuration",
+                    "displayName": "Failed Record Next Retry Duration",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "actionAfterFailure",
+                    "displayName": "Action After Failure",
+                    "inputType": [
+                      "DELETE",
+                      "MOVE",
+                      "NONE"
+                    ],
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "moveAfterFailure",
+                    "displayName": "Move After Failure",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "replyFileURI",
+                    "displayName": "Reply File URI",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "replyFileName",
+                    "displayName": "Reply File Name",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "autoLockRelease",
+                    "displayName": "Auto Lock Release",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "autoLockReleaseInterval",
+                    "displayName": "Auto Lock Release Interval",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "lockReleaseSameNode",
+                    "displayName": "Lock Release SameNode",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "distributedLock",
+                    "displayName": "Distributed Lock",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "streaming",
+                    "displayName": "Streaming",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "build",
+                    "displayName": "Build",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "distributedTimeout",
+                    "displayName": "Distributed Timeout",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "transportVfssFtpIdentities",
+                    "displayName": "Transport VFSS FTP Identities",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "transportVfssFtpIdentityPassPhrase",
+                    "displayName": "Transport VFSS FTP Identity Pass Phrase",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "transportVfssFtpUserDirIsRoot",
+                    "displayName": "Transport VFSS FTP User Dir Is Root",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "moveTimestampFormat",
+                    "displayName": "Move Timestamp Format",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "fileSortAttribute",
+                    "displayName": "File Sort Attribute",
+                    "inputType": "combo",
+                    "defaultValue": "none",
+                    "comboValues": [
+                      "none",
+                      "name",
+                      "size",
+                      "lastmodifiedtimestamp"
+                    ],
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "fileSortAscending",
+                    "displayName": "File Sort Ascending",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "subfolderTimestampFormat",
+                    "displayName": "Subfolder Timestamp Format",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "createFolder",
+                    "displayName": "Create Folder",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "transportVfssUpdateLastModified",
+                    "displayName": "Transport VFSS Update Last Modified",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "File"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "sharedSubscription",
+                    "displayName": "Shared Subscription",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "pinnedServers",
+                    "displayName": "Pinned Servers",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "concurrentConsumers",
+                    "displayName": "Concurrent Consumers",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "username",
+                    "displayName": "Username",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "JMS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "password",
+                    "displayName": "Password",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "JMS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "specVersion",
+                    "displayName": "Spec Version",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "subscriptionDurable",
+                    "displayName": "Subscription Durable",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "durableSubscriberClinetID",
+                    "displayName": "Durable Subscriber Clinet ID",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "messageSelector",
+                    "displayName": "Message Selector",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "retryDuration",
+                    "displayName": "Retry Duration",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "receiveTimeout",
+                    "displayName": "Receive Timeout",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "contentType",
+                    "displayName": "Content Type",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "contentTypeProperty",
+                    "displayName": "Content Type Property",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "replyDestination",
+                    "displayName": "Reply Destination",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "pubSubNoLocal",
+                    "displayName": "PubSub No Local",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "durableSubscriberName",
+                    "displayName": "Durable Subscriber Name",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "JMS"
+                      },
+                      {
+                        "type": "WSO2_MB"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "brokerType",
+                    "displayName": "Broker Type",
+                    "inputType": "combo",
+                    "defaultValue": "WSO2_BROKER_PROFILE",
+                    "comboValues": [
+                      "WSO2_BROKER_PROFILE",
+                      "ActiveMQ",
+                      "OTHER"
+                    ],
+                    "enableCondition": [
+                      {
+                        "type": "JMS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "retryBeforeSuspension",
+                    "displayName": "Retry Before Suspension",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "JMS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "resetConnectionOnPoolingSuspension",
+                    "displayName": "Reset Connection On Pooling Suspension",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "JMS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "transportJMSMessagePropertyHyphens",
+                    "displayName": "Transport JMS Message Property Hyphens",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "JMS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "poolingSuspensionPeriod",
+                    "displayName": "Pooling Suspension Period",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "JMS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "dbURL",
+                    "displayName": "DB URL",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "JMS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "trustStore",
+                    "displayName": "Trust Store",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "HTTPS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "sslVerifyClient",
+                    "displayName": "SSL Verify Client",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "HTTPS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "sslProtocol",
+                    "displayName": "SSL Protocol",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "HTTPS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "httpsProtocols",
+                    "displayName": "HTTPS Protocols",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "HTTPS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "messagePreProcessor",
+                    "displayName": "Message Pre Processor",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "HL7"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "charSet",
+                    "displayName": "CharSet",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "HL7"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "timeout",
+                    "displayName": "Timeout",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "HL7"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "validateMessage",
+                    "displayName": "Validate Message",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "HL7"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "buildInvalidMessages",
+                    "displayName": "Build Invalid Messages",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "HL7"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "passthroughInvalidMessages",
+                    "displayName": "Passthrough Invalid Messages",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "HL7"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "threadCount",
+                    "displayName": "Thread Count",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "consumerId",
+                    "displayName": "Consumer ID",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "socketTimeout",
+                    "displayName": "Socket Timeout(ms)",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "socketReceiveBufferBytes",
+                    "displayName": "Socket Receive Buffer Bytes",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "fetchMessageMaxBytes",
+                    "displayName": "Fetch Message Max Bytes",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "numConsumerFetches",
+                    "displayName": "Num Consumer Fetches",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "autoCommitEnable",
+                    "displayName": "Auto Commit Enable",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "autoCommitInterval",
+                    "displayName": "Auto Commit Interval(ms)",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "queuedMaxMessageChunks",
+                    "displayName": "Queued Max Message Chunks",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "rebalanceMaxRetries",
+                    "displayName": "Rebalance Max Retries",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "fetchMinBytes",
+                    "displayName": "Fetch Min Bytes",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "fetchWaitMax",
+                    "displayName": "Fetch Wait Max(ms)",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "rebalanceBackoff",
+                    "displayName": "Rebalance Backoff (ms)",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "refreshLeaderBackoff",
+                    "displayName": "Refresh Leader Backoff (ms)",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "autoOffsetReset",
+                    "displayName": "Auto Offset Reset",
+                    "inputType": "combo",
+                    "defaultValue": "smallest",
+                    "comboValues": [
+                      "smallest",
+                      "largest"
+                    ],
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "consumerTimeout",
+                    "displayName": "Consumer Timeout (ms)",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "excludeInternalTopics",
+                    "displayName": "Exclude Internal Topics",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "partitionAssignmentStrategy",
+                    "displayName": "Partition Assignment Strategy",
+                    "inputType": "combo",
+                    "defaultValue": "range",
+                    "comboValues": [
+                      "range",
+                      "roundrobin"
+                    ],
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "clientId",
+                    "displayName": "Client ID",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "zookeeperSessionTimeout",
+                    "displayName": "Zookeeper Session Timeout (ms)",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "zookeeperConnectionTimeout",
+                    "displayName": "Zookeeper Connection Timeout (ms)",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "zookeeperSyncTime",
+                    "displayName": "Zookeeper Sync Time (ms)",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "offsetStorage",
+                    "displayName": "Offset Storage",
+                    "inputType": "combo",
+                    "defaultValue": "zookeeper",
+                    "comboValues": [
+                      "zookeeper",
+                      "kafka"
+                    ],
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "offsetsChannelBackoff",
+                    "displayName": "Offsets Channel Backoff (ms)",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "offsetsChannelSocketTimeout",
+                    "displayName": "Offsets Channel Socket Timeout (ms)",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "offsetCommitMaxRetries",
+                    "displayName": "Offset Commit Max Retries",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "dualCommitEnabled",
+                    "displayName": "Dual Commit Enabled",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "KAFKA"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "subscriptionQOS",
+                    "displayName": "Subscription QOS",
+                    "inputType": "combo",
+                    "defaultValue": "0",
+                    "comboValues": [
+                      "0",
+                      "1",
+                      "2"
+                    ],
+                    "enableCondition": [
+                      {
+                        "type": "MQTT"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "sessionClean",
+                    "displayName": "Session Clean",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "MQTT"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "sslEnable",
+                    "displayName": "SSL Enable",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "MQTT"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "temporaryStoreDirectory",
+                    "displayName": "Temporary Store Directory",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "MQTT"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "subscriptionUsername",
+                    "displayName": "Subscription Username",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "MQTT"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "subscriptionPassword",
+                    "displayName": "Subscription Password",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "MQTT"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "clientID",
+                    "displayName": "Client ID",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "MQTT"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "trustStore",
+                    "displayName": "Trust Store",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "MQTT"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "sslKeystoreLocation",
+                    "displayName": "SSL Keystore Location",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "MQTT"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "sslKeystoreType",
+                    "displayName": "SSL Keystore Type",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "MQTT"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "sslKeystorePassword",
+                    "displayName": "SSL Keystore Password",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "MQTT"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "sslTruststoreLocation",
+                    "displayName": "SSL Truststore Location",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "MQTT"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "sslTruststoreType",
+                    "displayName": "SSL Truststore Type",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "MQTT"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "sslTruststorePassword",
+                    "displayName": "SSL Truststore Password",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "MQTT"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "sslVersion",
+                    "displayName": "SSL Version",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "MQTT"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "queueDurable",
+                    "displayName": "Queue Durable",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "queueExclusive",
+                    "displayName": "Queue Exclusive",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "queueAutoDelete",
+                    "displayName": "Queue Auto Delete",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "queueAutoAck",
+                    "displayName": "Queue Auto Ack",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "queueRoutingKey",
+                    "displayName": "Queue Routing Key",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "queueDeliveryMode",
+                    "displayName": "Queue Delivery Mode",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "exchangeType",
+                    "displayName": "Exchange Type",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "exchangeDurable",
+                    "displayName": "Exchange Durable",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "exchangeAutoDelete",
+                    "displayName": "Exchange Auto Delete",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "serverVirtualHost",
+                    "displayName": "Server Virtual Host",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "factoryHeartbeat",
+                    "displayName": "Factory Heartbeat",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "transportRabbitMqFactoryConnectionTimeout",
+                    "displayName": "Transport RabbitMqFactory Connection Timeout",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "transportRabbitMqFactoryNetworkRecoveryInterval",
+                    "displayName": "Transport RabbitMqFactory Network Recovery Interval",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "connectionSslEnabled",
+                    "displayName": "Connection SSL Enabled",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "connectionSslKeystoreLocation",
+                    "displayName": "Connection SSL Keystore Location",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "connectionSslKeystoreType",
+                    "displayName": "Connection SSL Keystore Type",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "connectionSslKeystorePassword",
+                    "displayName": "Connection SSL Keystore Password",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "connectionSslTruststoreLocation",
+                    "displayName": "Connection SSL Truststore Location",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "connectionSslTruststoreType",
+                    "displayName": "Connection SSL Truststore Type",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "connectionSslTruststorePassword",
+                    "displayName": "Connection SSL Truststore Password",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "connectionSslVersion",
+                    "displayName": "Connection SSL Version",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "messageContentType",
+                    "displayName": "Message Content Type",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "connectionRetryCount",
+                    "displayName": "Connection Retry Count",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "connectionRetryInterval",
+                    "displayName": "Connection Retry Interval",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "serverRetryInterval",
+                    "displayName": "Server Retry Interval",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "transportRabbitMqAutoDeclare",
+                    "displayName": "Transport RabbitMQ Auto Declare",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "transportRabbitMqExchangeAutoDeclare",
+                    "displayName": "Transport RabbitMQ Exchange Auto Declare",
+                    "inputType": "checkbox",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "transportRabbitMqRequeueDelay",
+                    "displayName": "Transport RabbitMQ Requeue Delay",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "transportRabbitMqConsumerTag",
+                    "displayName": "Transport RabbitMQ Consumer Tag",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "consumerQoSKey",
+                    "displayName": "Consumer QoS Key",
+                    "inputType": "registry",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "consumerQoSType",
+                    "displayName": "Consumer QoS Type",
+                    "inputType": "combo",
+                    "defaultValue": "Inline",
+                    "comboValues": [
+                      "Inline",
+                      "Registry Reference"
+                    ],
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "transportRabbitMqErrorQueueRoutingKey",
+                    "displayName": "Transport RabbitMQ Error Queue Routing Key",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "transportRabbitMqErrorExchangeName",
+                    "displayName": "Transport RabbitMQ Error Exchange Name",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "RABBITMQ"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wsBossThreadPoolSize",
+                    "displayName": "WS Boss Thread Pool Size",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "WS"
+                      },
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wsWorkerThreadPoolSize",
+                    "displayName": "WS Worker Thread Pool Size",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "WS"
+                      },
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wsSubprotocolHandlerClass",
+                    "displayName": "WS Subprotocol Handler Class",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "WS"
+                      },
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wsPipelineHandlerClass",
+                    "displayName": "WS Pipeline Handler Class",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "WS"
+                      },
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wsDefaultContentType",
+                    "displayName": "WS Default Content Type",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "WS"
+                      },
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wsShutdownStatusCode",
+                    "displayName": "WS Shutdown Status Code",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "WS"
+                      },
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wsShutdownStatusMessage",
+                    "displayName": "WS Shutdown Status Message",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "WS"
+                      },
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wsUsePortOffset",
+                    "displayName": "WS Use Port Offset",
+                    "inputType": "string",
+                    "enableCondition": [
+                      "OR",
+                      {
+                        "type": "WS"
+                      },
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wsSSLProtocols",
+                    "displayName": "WS SSL Protocols",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "wsSSLCipherSuites",
+                    "displayName": "WS SSL Cipher Suites",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "type": "WSS"
+                      }
+                    ],
+                    "required": false
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "required": false
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

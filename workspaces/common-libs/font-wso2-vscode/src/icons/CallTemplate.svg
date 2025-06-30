@@ -1,0 +1,28 @@
+<!--
+ ~ Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ ~
+ ~ WSO2 LLC. licenses this file to you under the Apache License,
+ ~ Version 2.0 (the "License"); you may not use this file except
+ ~ in compliance with the License.
+ ~ You may obtain a copy of the License at
+ ~
+ ~     http://www.apache.org/licenses/LICENSE-2.0
+ ~
+ ~ Unless required by applicable law or agreed to in writing,
+ ~ software distributed under the License is distributed on an
+ ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ ~ KIND, either express or implied. See the License for the
+ ~ specific language governing permissions and limitations
+ ~ under the License.
+-->
+<svg width="16" height="15" viewBox="0 0 16 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path fill-rule="evenodd" clip-rule="evenodd" d="M6.4 1.40002C6.4 1.17911 6.57909 1.00002 6.8 1.00002H13.6C13.8209 1.00002 14 1.17911 14 1.40002V7.70002C14 7.92094 13.8209 8.10002 13.6 8.10002C13.3791 8.10002 13.2 7.92094 13.2 7.70002V1.80002H6.8C6.57909 1.80002 6.4 1.62094 6.4 1.40002Z" fill="black"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M2.8 6.80002C3.02091 6.80002 3.2 6.97911 3.2 7.20002V13.7H10.7C10.9209 13.7 11.1 13.8791 11.1 14.1C11.1 14.3209 10.9209 14.5 10.7 14.5H2.8C2.57909 14.5 2.4 14.3209 2.4 14.1V7.20002C2.4 6.97911 2.57909 6.80002 2.8 6.80002Z" fill="black"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M6 3.00002C6.22091 3.00002 6.4 3.17911 6.4 3.40002V6.80002H10.5V3.80002H8.4C8.17909 3.80002 8 3.62094 8 3.40002C8 3.17911 8.17909 3.00002 8.4 3.00002H10.9C11.1209 3.00002 11.3 3.17911 11.3 3.40002V7.20002C11.3 7.42094 11.1209 7.60002 10.9 7.60002H6C5.77909 7.60002 5.6 7.42094 5.6 7.20002V3.40002C5.6 3.17911 5.77909 3.00002 6 3.00002Z" fill="black"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M5.6 9.60003C5.6 9.37911 5.77909 9.20003 6 9.20003H10.9C11.1209 9.20003 11.3 9.37911 11.3 9.60003C11.3 9.82094 11.1209 10 10.9 10H6C5.77909 10 5.6 9.82094 5.6 9.60003Z" fill="black"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M5.6 11.8C5.6 11.5791 5.77909 11.4 6 11.4H11.4C11.6209 11.4 11.8 11.5791 11.8 11.8C11.8 12.0209 11.6209 12.2 11.4 12.2H6C5.77909 12.2 5.6 12.0209 5.6 11.8Z" fill="black"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M0.5 3.40002C0.5 3.17911 0.679086 3.00002 0.9 3.00002H5.4C5.62091 3.00002 5.8 3.17911 5.8 3.40002C5.8 3.62094 5.62091 3.80002 5.4 3.80002H0.9C0.679086 3.80002 0.5 3.62094 0.5 3.40002Z" fill="black"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M3.41716 0.517182C3.57337 0.360972 3.82663 0.360972 3.98284 0.517182L6.68284 3.21718C6.76074 3.29508 6.80306 3.40166 6.79983 3.51177C6.79659 3.62189 6.74808 3.7258 6.66575 3.79899L3.96575 6.19899C3.80063 6.34576 3.5478 6.33088 3.40104 6.16577C3.25427 6.00066 3.26914 5.74783 3.43425 5.60106L5.81719 3.4829L3.41716 1.08287C3.26095 0.926657 3.26095 0.673391 3.41716 0.517182Z" fill="black"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M9.7 11.8C9.7 11.5791 9.87909 11.4 10.1 11.4H14.4C14.6209 11.4 14.8 11.5791 14.8 11.8C14.8 12.0209 14.6209 12.2 14.4 12.2H10.1C9.87909 12.2 9.7 12.0209 9.7 11.8Z" fill="black"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M12.0172 8.91718C12.1734 8.76097 12.4266 8.76097 12.5828 8.91718L15.2828 11.6172C15.3607 11.6951 15.4031 11.8017 15.3998 11.9118C15.3966 12.0219 15.3481 12.1258 15.2657 12.199L12.5657 14.599C12.4006 14.7458 12.1478 14.7309 12.001 14.5658C11.8543 14.4007 11.8691 14.1478 12.0343 14.0011L14.4172 11.8829L12.0172 9.48287C11.8609 9.32666 11.8609 9.07339 12.0172 8.91718Z" fill="black"/>
+</svg>

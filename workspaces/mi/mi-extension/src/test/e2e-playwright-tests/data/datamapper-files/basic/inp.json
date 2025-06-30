@@ -1,0 +1,21 @@
+{
+  "iPrimDirect": "abc123",
+  "iPrimDirectErr": "xyz456",
+  "iManyOne1": "sample1",
+  "iManyOne2": "sample2",
+  "iManyOne3": "sample3",
+  "iManyOneErr": true,
+  "iObjDirect": {
+    "d1": "nestedString",
+    "d2": 42
+  },
+  "iObjProp": {
+    "op1": "value1",
+    "op2": "value2"
+  },
+  "iCustomFn": {
+    "k1": "cfn1",
+    "k2": 100
+  },
+  "iExp": "abc123"
+}

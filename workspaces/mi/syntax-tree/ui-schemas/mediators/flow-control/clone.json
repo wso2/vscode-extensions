@@ -1,0 +1,164 @@
+{
+    "name": "Clone",
+    "type": "mediator",
+    "title": "Clone Mediator",
+    "help": "Clones a message into several messages.",
+    "elements": [
+        {
+            "type": "attribute",
+            "value": {
+                "name": "cloneId",
+                "displayName": "Clone ID",
+                "inputType": "string",
+                "defaultValue": "",
+                "required": false,
+                "helpTip": ""
+            }
+        },
+        {
+            "type": "attribute",
+            "value": {
+                "name": "sequentialMediation",
+                "displayName": "Sequential Mediation",
+                "inputType": "checkbox",
+                "defaultValue": false,
+                "required": false,
+                "helpTip": ""
+            }
+        },
+        {
+            "type": "attribute",
+            "value": {
+                "name": "continueParent",
+                "displayName": "Continue Parent",
+                "inputType": "checkbox",
+                "defaultValue": false,
+                "required": false,
+                "helpTip": ""
+            }
+        },
+        {
+            "type": "table",
+            "value": {
+                "name": "targets",
+                "displayName": "Targets",
+                "title": "CloneTarget",
+                "description": "Editing of the properties of an object CloneTarget",
+                "tableKey": "sequenceType",
+                "tableValue": "endpointType",
+                "elements": [
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "sequenceType",
+                            "displayName": "Sequence Type",
+                            "inputType": "combo",
+                            "defaultValue": "ANONYMOUS",
+                            "comboValues": [
+                                "NONE",
+                                "ANONYMOUS",
+                                "REGISTRY_REFERENCE"
+                            ],
+                            "required": false,
+                            "helpTip": ""
+                        }
+                    },
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "sequenceRegistryKey",
+                            "displayName": "Sequence Registry Key",
+                            "inputType": "key",
+                            "keyType": "sequence",
+                            "required": false,
+                            "helpTip": "",
+                            "enableCondition": [
+                                {
+                                    "sequenceType": "REGISTRY_REFERENCE"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "endpointType",
+                            "displayName": "Endpoint Type",
+                            "inputType": "combo",
+                            "defaultValue": "ANONYMOUS",
+                            "comboValues": [
+                                "NONE",
+                                "ANONYMOUS",
+                                "REGISTRY_REFERENCE"
+                            ],
+                            "required": false,
+                            "helpTip": ""
+                        }
+                    },
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "endpointRegistryKey",
+                            "displayName": "Endpoint Registry Key",
+                            "inputType": "key",
+                            "keyType" : "endpoint",
+                            "required": false,
+                            "helpTip": "",
+                            "enableCondition": [
+                                {
+                                    "endpointType": "REGISTRY_REFERENCE"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "soapAction",
+                            "displayName": "SOAP Action",
+                            "inputType": "string",
+                            "required": false,
+                            "helpTip": ""
+                        }
+                    },
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "toAddress",
+                            "displayName": "To Address",
+                            "inputType": "string",
+                            "required": false,
+                            "helpTip": ""
+                        }
+                    },
+                    {
+                        "type": "attribute",
+                        "value": {
+                          "name": "index",
+                          "displayName": "Index",
+                          "inputType": "string",
+                          "required": false,
+                          "helpTip": "",
+                          "enableCondition": [
+                            {
+                              "doNotShow": true
+                            }
+                          ]
+                        }
+                      }
+                ]
+            }
+        },
+        {
+            "type": "attribute",
+            "value": {
+                "name": "description",
+                "displayName": "Description",
+                "inputType": "string",
+                "defaultValue": "",
+                "required": false,
+                "helpTip": ""
+            }
+        }
+    ]
+}

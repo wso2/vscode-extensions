@@ -1,0 +1,415 @@
+{
+  "name": "output-mappings",
+  "type": "queryNode",
+  "title": "Output Mappings",
+  "help": "",
+  "elements": [
+    {
+      "type": "table",
+      "value": {
+        "name": "outputMappings",
+        "displayName": "Output Mappings",
+        "title": "Output Mapping",
+        "description": "",
+        "tableKey": "mappingType",
+        "tableValue": "outputField",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "mappingType",
+              "displayName": "Mapping Type",
+              "inputType": "combo",
+              "defaultValue": "Element",
+              "comboValues": [
+                "Element",
+                "Attribute",
+                "Query",
+                "Complex Element"
+              ],
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "queryId",
+              "displayName": "Query ID",
+              "inputType": "comboOrKey",
+              "required": true,
+              "keyType": "dssQuery",
+              "helpTip": ""
+            },
+            "enableCondition": [
+              {
+                "mappingType": "Element"
+              }
+            ]
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "datasourceType",
+              "displayName": "Datasource Type",
+              "inputType": "combo",
+              "defaultValue": "Column",
+              "comboValues": [
+                "Column",
+                "Query Param"
+              ],
+              "required": true,
+              "helpTip": "",
+              "enableCondition": [
+                "OR",
+                {
+                  "mappingType": "Element"
+                },
+                {
+                  "mappingType": "Attribute"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "outputField",
+              "displayName": "Output Field Name",
+              "inputType": "string",
+              "required": true,
+              "helpTip": "",
+              "enableCondition": [
+                "OR",
+                {
+                  "mappingType": "Element"
+                },
+                {
+                  "mappingType": "Attribute"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "elementName",
+              "displayName": "Element Name",
+              "inputType": "string",
+              "required": true,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "mappingType": "Complex Element"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "elementNamespace",
+              "displayName": "Element Namespace",
+              "inputType": "string",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                "OR",
+                {
+                  "mappingType": "Element"
+                },
+                {
+                  "mappingType": "Complex Element"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "datasourceColumnName",
+              "displayName": "Datasource Column Name",
+              "inputType": "string",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                "AND",
+                [
+                  "OR",
+                  {
+                    "mappingType": "Element"
+                  },
+                  {
+                    "mappingType": "Attribute"
+                  }
+                ],
+                {
+                  "datasourceType": "Column"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "datasourceQueryParamName",
+              "displayName": "Datasource Query Param Name",
+              "inputType": "string",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                "AND",
+                [
+                  "OR",
+                  {
+                    "mappingType": "Element"
+                  },
+                  {
+                    "mappingType": "Attribute"
+                  }
+                ],
+                {
+                  "datasourceType": "Query Param"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "parameterType",
+              "displayName": "Parameter Type",
+              "inputType": "combo",
+              "defaultValue": "Scalar",
+              "comboValues": [
+                "Scalar",
+                "Array"
+              ],
+              "required": true,
+              "helpTip": "",
+              "enableCondition": [
+                "NOT",
+                {
+                  "mappingType": "Query"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "arrayName",
+              "displayName": "Array Name",
+              "inputType": "string",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                "AND",
+                [
+                  "NOT",
+                  {
+                    "mappingType": "Query"
+                  }
+                ],
+                {
+                  "parameterType": "Array"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "schemaType",
+              "displayName": "Schema Type",
+              "inputType": "combo",
+              "defaultValue": "string",
+              "comboValues": [
+                "string",
+                "integer",
+                "boolean",
+                "float",
+                "double",
+                "decimal",
+                "dateTime",
+                "time",
+                "date",
+                "long",
+                "base64Binary"
+              ],
+              "required": true,
+              "helpTip": "",
+              "enableCondition": [
+                "OR",
+                {
+                  "mappingType": "Element"
+                },
+                {
+                  "mappingType": "Complex Element"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "optional",
+              "displayName": "Optional",
+              "inputType": "checkbox",
+              "defaultValue": false,
+              "required": false,
+              "helpTip": ""
+            },
+            "enableCondition": [
+              "OR",
+              {
+                "mappingType": "Element"
+              },
+              {
+                "mappingType": "Complex Element"
+              }
+            ]
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "childElements",
+              "displayName": "Child Elements",
+              "inputType": "textArea",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "mappingType": "Complex Element"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "type": "table",
+              "value": {
+                "name": "mapping",
+                "displayName": "Mappings",
+                "title": "Mapping",
+                "description": "",
+                "tableKey": "queryParamName",
+                "tableValue": "mappingName",
+                "elements": [
+                  {
+                    "type": "attribute",
+                    "value": {
+                      "name": "queryParamName",
+                      "displayName": "Query Parameter Name",
+                      "inputType": "string",
+                      "required": true,
+                      "helpTip": ""
+                    }
+                  },
+                  {
+                    "type": "attribute",
+                    "value": {
+                      "name": "mappingName",
+                      "displayName": "Mapping Name",
+                      "inputType": "string",
+                      "required": true,
+                      "helpTip": ""
+                    }
+                  },
+                  {
+                    "type": "attribute",
+                    "value": {
+                      "name": "mappingType",
+                      "displayName": "Mapping Type",
+                      "inputType": "combo",
+                      "defaultValue": "Column",
+                      "comboValues": [
+                        "Column",
+                        "Query Param"
+                      ],
+                      "required": true,
+                      "helpTip": ""
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Export Options",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "exportName",
+                    "displayName": "Export Name",
+                    "inputType": "string",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "exportType",
+                    "displayName": "Export Type",
+                    "inputType": "combo",
+                    "defaultValue": "Scalar",
+                    "comboValues": [
+                      "Scalar",
+                      "Array"
+                    ],
+                    "required": true,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            },
+            "enableCondition": [
+              "OR",
+              {
+                "mappingType": "Element"
+              },
+              {
+                "mappingType": "Complex Element"
+              }
+            ]
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Allowed User Roles",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "admin",
+                    "displayName": "admin",
+                    "inputType": "checkbox",
+                    "defaultValue": false,
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "internal",
+                    "displayName": "Internal/everyone",
+                    "inputType": "checkbox",
+                    "defaultValue": false,
+                    "required": false,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

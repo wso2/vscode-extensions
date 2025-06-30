@@ -1,0 +1,20 @@
+<!--
+ ~ Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ ~
+ ~ WSO2 LLC. licenses this file to you under the Apache License,
+ ~ Version 2.0 (the "License"); you may not use this file except
+ ~ in compliance with the License.
+ ~ You may obtain a copy of the License at
+ ~
+ ~     http://www.apache.org/licenses/LICENSE-2.0
+ ~
+ ~ Unless required by applicable law or agreed to in writing,
+ ~ software distributed under the License is distributed on an
+ ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ ~ KIND, either express or implied. See the License for the
+ ~ specific language governing permissions and limitations
+ ~ under the License.
+-->
+<svg width="734" height="734" viewBox="0 0 734 734" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M664.633 21.2667C662.155 15.0823 657.88 9.78248 652.36 6.05117C646.84 2.31986 640.329 0.328273 633.666 0.333384H100.333C93.6704 0.328273 87.1592 2.31986 81.6395 6.05117C76.1197 9.78248 71.8448 15.0823 69.3663 21.2667L2.69967 187.933C1.13753 191.881 0.334581 196.088 0.333008 200.333V700.333C0.333008 709.174 3.8449 717.652 10.0961 723.904C16.3473 730.155 24.8258 733.667 33.6663 733.667H700.333C709.174 733.667 717.652 730.155 723.903 723.904C730.154 717.652 733.666 709.174 733.666 700.333V200.333C733.665 196.088 732.862 191.881 731.3 187.933L664.633 21.2667ZM122.9 67H611.1L651.1 167H82.8997L122.9 67ZM66.9997 667V233.667H667V667H66.9997ZM333.666 567C333.666 575.841 330.154 584.319 323.903 590.57C317.652 596.821 309.174 600.333 300.333 600.333H167C158.159 600.333 149.681 596.821 143.429 590.57C137.178 584.319 133.666 575.841 133.666 567C133.666 558.159 137.178 549.681 143.429 543.43C149.681 537.179 158.159 533.667 167 533.667H300.333C309.174 533.667 317.652 537.179 323.903 543.43C330.154 549.681 333.666 558.159 333.666 567Z" fill="black"/>
+</svg>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<conditionalRouter continueAfter="true">
+				<conditionalRoute asynchronous="true" breakRoute="true">
+					<condition>
+						<equal type='param' source='foo' value='bar'/>
+					</condition>
+					<target sequence="defseq"/>
+				</conditionalRoute>
+			</conditionalRouter>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

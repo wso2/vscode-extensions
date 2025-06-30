@@ -1,0 +1,47 @@
+{
+    "name": "Currency Exchange",
+    "entryPoints": [
+        {
+            "id": "http_service",
+            "name": "http_service",
+            "type": "service",
+            "location": {
+                "filePath": "/Users/gayanka/dev/wso2/test/Currency Exchange/http_service.bal",
+                "position": {
+                    "endColumn": 1,
+                    "endLine": 13,
+                    "startColumn": 0,
+                    "startLine": 2
+                }
+            }
+        }
+    ],
+    "connections": [
+        {
+            "id": "oanda_api ",
+            "name": "oanda_api ",
+            "location": {
+                "filePath": "/Users/gayanka/dev/wso2/test/Currency Exchange/connections.bal",
+                "position": {
+                    "endColumn": 39,
+                    "endLine": 3,
+                    "startColumn": 0,
+                    "startLine": 3
+                }
+            }
+        },
+        {
+            "id": "redis_cache ",
+            "name": "redis_cache ",
+            "location": {
+                "filePath": "/Users/gayanka/dev/wso2/test/Currency Exchange/connections.bal",
+                "position": {
+                    "endColumn": 42,
+                    "endLine": 4,
+                    "startColumn": 0,
+                    "startLine": 4
+                }
+            }
+        }
+    ]
+}

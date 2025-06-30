@@ -1,0 +1,7 @@
+{
+  "name": "@wso2/mi-data-mapper-utils",
+  "version": "1.0.0",
+  "author": "WSO2",
+  "license": "ISC",
+  "scripts":{"build":""}
+}

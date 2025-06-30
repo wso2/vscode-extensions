@@ -1,0 +1,19 @@
+<publishEvent async="true" description="" timeout="1000">
+        <eventSink>Event Sink</eventSink>
+        <streamName>Stream Name</streamName>
+        <streamVersion>Stream Version</streamVersion>
+        <attributes>
+            <meta>
+                <attribute defaultValue="Def Value" name="Att Name" type="STRING" value="Att Val" />  
+            </meta>
+            <correlation>
+                <attribute defaultValue="Def" name="Att name" type="STRING" value="att Val" />
+            </correlation>
+            <payload>
+                <attribute defaultValue="Def Value" name="Att" type="STRING" value="Value" />
+            </payload>
+            <arbitrary>
+                <attribute  name="Att Name" type="" value="Att Val"  />
+            </arbitrary>
+        </attributes>
+    </publishEvent>

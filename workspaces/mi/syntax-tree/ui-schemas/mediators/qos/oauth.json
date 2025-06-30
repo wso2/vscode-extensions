@@ -1,0 +1,56 @@
+{
+  "name": "OAuth",
+  "type": "mediator",
+  "title": "OAuth Mediator",
+  "help": "Validates client credentials for a RESTful service using OAuth (WSO2 IS).",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "remoteServiceURL",
+        "displayName": "Remote Service URL",
+        "inputType": "string",
+        "required": true,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Credentials",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "username",
+              "displayName": "Username",
+              "inputType": "string",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "password",
+              "displayName": "Password",
+              "inputType": "string",
+              "required": true,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}

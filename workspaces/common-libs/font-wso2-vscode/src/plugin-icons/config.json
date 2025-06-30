@@ -1,0 +1,33 @@
+{
+    "ballerinaExtIcons": {
+        "wso2Font" : [
+            "delete.svg",
+            "design-view.svg",
+            "start.svg",
+            "debug.svg",
+            "persist-diagram.svg"
+        ],
+        "codiconFont" : [
+            "file-submodule.svg",
+            "new-file.svg",
+            "new-folder.svg",
+            "source-view.svg",
+            "refresh.svg"
+        ]
+    },
+    "choreoExtIcons": {
+        "wso2Font" : [
+            "choreo-2.svg"
+        ],
+        "codiconFont": [
+        ]
+    },
+    "mIExtIcons": {
+        "wso2Font" : [
+            "design-view.svg",
+            "build-package.svg"
+        ],
+        "codiconFont": [
+        ]
+    }
+}

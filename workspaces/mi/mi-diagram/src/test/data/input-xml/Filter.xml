@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<filter regex="regex" source="expr">
+				<then>
+				</then>
+				<else>
+				</else>
+			</filter>
+			
+			<filter regex="regex" source="expr">
+				<then>
+					<log category="INFO">
+						<message>Received ${vars.httpMethod} request for path: ${params.pathParams.path}</message>
+					</log>
+				</then>
+				<else>
+				</else>
+			</filter>
+
+			<filter regex="regex" source="expr">
+				<then>
+				</then>
+				<else>
+					<log category="INFO">
+						<message>Received ${vars.httpMethod} request for path: ${params.pathParams.path}</message>
+					</log>
+				</else>
+			</filter>
+			
+			<filter regex="regex" source="expr">
+				<then>
+				</then>
+			</filter>
+
+			<filter regex="regex" source="expr">
+				<else>
+				</else>
+			</filter>
+
+			<filter regex="regex" source="expr">
+				<then>
+					<log category="INFO">
+						<message>Received ${vars.httpMethod} request for path: ${params.pathParams.path}</message>
+					</log>
+				</then>
+			</filter>
+
+			<filter regex="regex" source="expr">
+				<else>
+					<log category="INFO">
+						<message>Received ${vars.httpMethod} request for path: ${params.pathParams.path}</message>
+					</log>
+				</else>
+			</filter>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

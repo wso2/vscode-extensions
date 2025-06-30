@@ -1,0 +1,25 @@
+<!--
+ ~ Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ ~
+ ~ WSO2 LLC. licenses this file to you under the Apache License,
+ ~ Version 2.0 (the "License"); you may not use this file except
+ ~ in compliance with the License.
+ ~ You may obtain a copy of the License at
+ ~
+ ~     http://www.apache.org/licenses/LICENSE-2.0
+ ~
+ ~ Unless required by applicable law or agreed to in writing,
+ ~ software distributed under the License is distributed on an
+ ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ ~ KIND, either express or implied. See the License for the
+ ~ specific language governing permissions and limitations
+ ~ under the License.
+-->
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
+<svg width="15" height="9" viewBox="0 0 15 9" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path fill-rule="evenodd" clip-rule="evenodd" d="M10.5999 1.39998C8.83546 1.39998 7.4999 2.80596 7.4999 4.59998C7.4999 6.28657 8.82825 7.69998 10.5999 7.69998C12.279 7.69998 13.6999 6.27906 13.6999 4.59998C13.6999 2.81353 12.2717 1.39998 10.5999 1.39998ZM6.6999 4.59998C6.6999 2.39399 8.36435 0.599976 10.5999 0.599976C12.7281 0.599976 14.4999 2.38642 14.4999 4.59998C14.4999 6.72089 12.7208 8.49998 10.5999 8.49998C8.37156 8.49998 6.6999 6.71339 6.6999 4.59998Z" fill="black"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M0.399902 4.59998C0.399902 4.37906 0.578988 4.19998 0.799902 4.19998H7.0999C7.32082 4.19998 7.4999 4.37906 7.4999 4.59998C7.4999 4.82089 7.32082 4.99998 7.0999 4.99998H0.799902C0.578988 4.99998 0.399902 4.82089 0.399902 4.59998Z" fill="black"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M8.6999 3.09998C8.6999 2.87906 8.87899 2.69998 9.0999 2.69998H12.0999C12.3208 2.69998 12.4999 2.87906 12.4999 3.09998V6.09998C12.4999 6.32089 12.3208 6.49998 12.0999 6.49998H9.0999C8.87899 6.49998 8.6999 6.32089 8.6999 6.09998V3.09998ZM9.4999 3.49998V5.69998H11.6999V3.49998H9.4999Z" fill="black"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M3.72245 1.71185C3.88157 1.55861 4.1348 1.56339 4.28803 1.72252L6.88803 4.42252C6.96263 4.49999 7.00289 4.60424 6.99973 4.71174C6.99657 4.81925 6.95024 4.92095 6.87121 4.9939L4.27121 7.3939C4.10889 7.54374 3.85582 7.53362 3.70598 7.37129C3.55614 7.20896 3.56626 6.9559 3.72859 6.80605L6.0284 4.68316L3.71177 2.27743C3.55854 2.1183 3.56332 1.86508 3.72245 1.71185Z" fill="black"/>
+</svg>

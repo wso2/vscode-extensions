@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<propertyGroup>
+				<property name="Prop Name" scope="transport" type="STRING" action="set" description="Description" value="Val" pattern="Pattern" group="0"/>
+			</propertyGroup>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

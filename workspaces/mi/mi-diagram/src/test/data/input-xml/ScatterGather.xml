@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<scatter-gather parallel-execution="true" result-target="Body" content-type="JSON">
+				<aggregation expression="${payload}" />
+				<sequence></sequence>
+				<sequence></sequence>
+			</scatter-gather>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

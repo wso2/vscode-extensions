@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/api3" name="api3" xmlns="http://ws.apache.org/ns/synapse">
+    <resource methods="GET" uri-template="/1">
+        <inSequence>
+            <log level="full" description="inSequence"/>
+        </inSequence>
+    </resource>
+    <resource methods="GET" uri-template="/2" outSequence="s1">
+        <inSequence>
+            <log level="full" description="inSequence"/>
+        </inSequence>
+    </resource>
+    <resource methods="GET" uri-template="/3" faultSequence="s1">
+        <inSequence>
+            <log level="full" description="inSequence"/>
+        </inSequence>
+    </resource>
+    <resource methods="GET" uri-template="/4" outSequence="s1" faultSequence="s2">
+        <inSequence>
+            <log level="full" description="inSequence"/>
+        </inSequence>
+    </resource>
+    <resource methods="GET" uri-template="/5" inSequence="s1">
+        <outSequence>
+            <log level="full" description="outSequence"/>
+        </outSequence>
+    </resource>
+    <resource methods="GET" uri-template="/6" inSequence="s1" faultSequence="s2">
+        <outSequence>
+            <log level="full" description="outSequence"/>
+        </outSequence>
+    </resource>
+    <resource methods="GET" uri-template="/7" inSequence="s1">
+        <faultSequence>
+            <log level="full" description="faultSequence"/>
+        </faultSequence>
+    </resource>
+    <resource methods="GET" uri-template="/8" inSequence="s1" outSequence="s1">
+        <faultSequence>
+            <log level="full" description="faultSequence"/>
+        </faultSequence>
+    </resource>
+
+    <resource methods="GET" uri-template="/9">
+        <inSequence>
+            <log level="full" description="inSequence"/>
+        </inSequence>
+        <outSequence>
+            <log level="full" description="outSequence"/>
+        </outSequence>
+    </resource>
+    <resource methods="GET" uri-template="/10">
+        <inSequence>
+            <log level="full" description="inSequence"/>
+        </inSequence>
+        <faultSequence>
+            <log level="full" description="faultSequence"/>
+        </faultSequence>
+    </resource>
+    <resource methods="GET" uri-template="/11" faultSequence="s1">
+        <inSequence>
+            <log level="full" description="inSequence"/>
+        </inSequence>
+        <outSequence>
+            <log level="full" description="outSequence"/>
+        </outSequence>
+    </resource>
+    <resource methods="GET" uri-template="/12" outSequence="s1">
+        <inSequence>
+            <log level="full" description="inSequence"/>
+        </inSequence>
+        <faultSequence>
+            <log level="full" description="faultSequence"/>
+        </faultSequence>
+    </resource>
+    <resource methods="GET" uri-template="/13" inSequence="s1">
+        <outSequence>
+            <log level="full" description="outSequence"/>
+        </outSequence>
+        <faultSequence>
+            <log level="full" description="faultSequence"/>
+        </faultSequence>
+    </resource>
+
+    <resource methods="GET" uri-template="/14">
+        <inSequence>
+            <log level="full" description="inSequence"/>
+        </inSequence>
+        <outSequence>
+            <log level="full" description="outSequence"/>
+        </outSequence>
+        <faultSequence>
+            <log level="full" description="faultSequence"/>
+        </faultSequence>
+    </resource>
+    <resource methods="GET" uri-template="/15">
+        <outSequence>
+            <log level="full" description="outSequence"/>
+        </outSequence>
+        <inSequence>
+            <log level="full" description="inSequence"/>
+        </inSequence>
+        <faultSequence>
+            <log level="full" description="faultSequence"/>
+        </faultSequence>
+    </resource>
+    <resource methods="GET" uri-template="/16">
+        <outSequence>
+            <log level="full" description="outSequence"/>
+        </outSequence>
+        <faultSequence>
+            <log level="full" description="faultSequence"/>
+        </faultSequence>
+        <inSequence>
+            <log level="full" description="inSequence"/>
+        </inSequence>
+    </resource>
+    <resource methods="GET" uri-template="/17">
+        <faultSequence>
+            <log level="full" description="faultSequence"/>
+        </faultSequence>
+        <inSequence>
+            <log level="full" description="inSequence"/>
+        </inSequence>
+        <outSequence>
+            <log level="full" description="outSequence"/>
+        </outSequence>
+    </resource>
+
+</api>

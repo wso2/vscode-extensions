@@ -1,0 +1,77 @@
+{
+  "name": "ForEachMediator",
+  "type": "mediator",
+  "title": "ForEach Mediator",
+  "help": "Splits message based on XPath/JSONPath, processes sequentially, then merges back.",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "forEachID",
+        "displayName": "ForEach ID",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "forEachExpression",
+        "displayName": "ForEach Expression",
+        "inputType": "expression",
+        "required": true,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Sequence",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "sequenceType",
+              "displayName": "Sequence Type",
+              "inputType": "combo",
+              "defaultValue": "Anonymous",
+              "comboValues": [
+                "Anonymous",
+                "Key"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "sequenceKey",
+              "displayName": "Sequence Key",
+              "inputType": "key",
+              "enableCondition": [
+                {
+                  "sequenceType": "Key"
+                }
+              ],
+              "required": false,
+              "helpTip": "",
+              "keyType": "sequence"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<aggregate id="AggregateID">
+				<correlateOn expression="Cor Exp"/>
+				<completeCondition timeout="0">
+					<messageCount max="-1" min="-1"/>
+				</completeCondition>
+				<onComplete aggregateElementType="root" enclosingElementProperty="Property" expression="Agg Exp" description="Aggregate Description"></onComplete>
+			</aggregate>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

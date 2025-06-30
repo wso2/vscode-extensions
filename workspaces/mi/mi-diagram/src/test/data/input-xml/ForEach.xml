@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<foreach expression="For Each Expr" id="ForEachID">
+				<sequence></sequence>
+			</foreach>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+	<resource methods="GET" uri-template="/namedSequence">
+        <inSequence>
+            <foreach expression="$ctx" sequence="s1" />
+            <respond />
+        </inSequence>
+        <faultSequence />
+    </resource>
+</api>

@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Choreo Endpoint Configurations",
+  "description": "Template for Choreo endpoint configurations",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "number",
+      "description": "Version of the endpoint configuration YAML.",
+      "default": "0.1"
+    },
+    "endpoints": {
+      "type": "array",
+      "description": "List of endpoints to create.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique name for the endpoint. This name will be used when generating the managed API.",
+            "minLength": 1,
+            "default": "http-endpoint"
+          },
+          "port": {
+            "type": "integer",
+            "description": "Numeric port value that gets exposed via this endpoint.",
+            "default": 8080
+          },
+          "type": {
+            "type": "string",
+            "enum": ["REST", "GraphQL", "GRPC", "UDP", "TCP"],
+            "description": "Type of traffic that the endpoint is accepting.",
+            "default": "REST"
+          },
+          "networkVisibility": {
+            "type": "string",
+            "enum": ["Project", "Organization", "Public"],
+            "default": "Public",
+            "description": "Network level visibility of this endpoint."
+          },
+          "context": {
+            "type": "string",
+            "description": "Context (base path) of the API that is exposed via this endpoint. Mandatory if the endpoint type is REST or GraphQL.",
+            "default": "/"
+          },
+          "schemaFilePath": {
+            "type": "string",
+            "description": "Path to the schema definition file. Defaults to wildcard route if not provided. Only applicable to REST endpoint types."
+          }
+        },
+        "required": ["name", "port", "type"]
+      }
+    }
+  },
+  "required": ["version", "endpoints"]
+}

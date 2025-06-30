@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<cache collector="false" hashGenerator="org.wso2.carbon.mediator.cache.digest.DOMHASHGenerator" id="ID" maxMessageSize="2000" scope="per-host" timeout="120">
+				<onCacheHit/>
+				<implementation maxSize="1000" type="memory"/>
+			</cache>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

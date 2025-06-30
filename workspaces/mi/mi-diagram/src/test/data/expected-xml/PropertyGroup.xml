@@ -1,0 +1,3 @@
+<propertyGroup >
+    <property name="Prop Name" scope="transport" type="STRING" action="set" description="Description" value="Val" pattern="Pattern" group="0" />
+</propertyGroup>

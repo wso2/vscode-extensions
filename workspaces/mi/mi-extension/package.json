@@ -1,0 +1,991 @@
+{
+  "name": "micro-integrator",
+  "displayName": "Micro Integrator",
+  "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
+  "icon": "resources/images/wso2-micro-integrator-image.png",
+  "version": "2.3.3",
+  "publisher": "wso2",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:SynapseXml",
+    "workspaceContains:.project",
+    "workspaceContains:pom.xml",
+    "onDebugResolve:mi",
+    "onDebugDynamicConfigurations:mi",
+    "onUri"
+  ],
+  "extensionDependencies": [
+    "wso2.wso2-platform"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "SynapseXml",
+        "extensions": [
+          ".xml",
+          ".dbs"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "SynapseXml",
+        "scopeName": "synapse.xml",
+        "path": "./syntaxes/xml.tmLanguage.json"
+      }
+    ],
+    "breakpoints": [
+      {
+        "language": "SynapseXml"
+      }
+    ],
+    "taskDefinitions": [
+      {
+        "type": "mi-build"
+      },
+      {
+        "type": "mi-run"
+      },
+      {
+        "type": "mi-stop"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "mi",
+        "label": "MI: Run and Debug",
+        "runtime": "node",
+        "languages": [
+          "SynapseXml"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "properties": {
+              "env": {
+                "type": "object",
+                "description": "Environment variables to set for the MI server",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "vmArgs": {
+                "type": "array",
+                "description": "Arguments to pass to the MI server",
+                "items": {
+                  "type": "string"
+                },
+                "default": []
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "mi",
+            "name": "MI: Run and Debug",
+            "request": "launch",
+            "internalConsoleOptions": "openOnSessionStart",
+            "vmArgs": []
+          }
+        ]
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Micro Integrator",
+      "properties": {
+        "MI.debugger.commandPort": {
+          "type": "number",
+          "default": 9005,
+          "description": "Command port for the debugger to communicate with the MI server"
+        },
+        "MI.debugger.eventPort": {
+          "type": "number",
+          "default": 9006,
+          "description": "Event port for the MI server to communicate with the debugger"
+        },
+        "MI.serverPort": {
+          "type": "number",
+          "default": 8290,
+          "description": "Port to check the readiness of the MI server"
+        },
+        "MI.SERVER_PATH": {
+          "type": "string",
+          "default": "",
+          "description": "Location to store MI archives, considering the user's home directory",
+          "scope": "resource"
+        },
+        "MI.JAVA_HOME": {
+          "type": "string",
+          "default": "",
+          "description": "Java Home path",
+          "scope": "resource"
+        },
+        "MI.LEGACY_EXPRESSION_ENABLED": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable legacy expression support",
+          "scope": "resource"
+        },
+        "MI.REMOTE_DEPLOYMENT_ENABLED": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable remote server deployment support",
+          "scope": "resource"
+        },
+        "MI.Scope": {
+          "type": "string",
+          "default": "",
+          "description": "Devant project scope",
+          "scope": "resource"
+        },
+        "MI.suppressServerUpdateNotification": {
+          "type": "boolean",
+          "default": false,
+          "description": "Don't show server update notification",
+          "scope": "resource"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "micro-integrator",
+          "title": "Micro Integrator",
+          "icon": "assets/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "micro-integrator": [
+        {
+          "id": "MI.project-explorer",
+          "name": "Project Explorer"
+        }
+      ],
+      "test": [
+        {
+          "id": "MI.mock-services",
+          "name": "Mock Services"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "MI.project-explorer",
+        "contents": "Loading...",
+        "when": "MI.status != 'unknownProject' && MI.status != 'projectLoaded' && MI.status != 'disabled' && MI.status != 'notSetUp'"
+      },
+      {
+        "view": "MI.project-explorer",
+        "contents": "No artifacts were found. Please add artifacts to your project to view them here.\n[Add artifact](command:MI.project-explorer.add.artifact)",
+        "when": "projectOpened && MI.status == 'projectLoaded' && MI.showAddArtifact"
+      },
+      {
+        "view": "MI.project-explorer",
+        "contents": "No artifacts were found. Please add artifacts to your project to view them here.",
+        "when": "projectOpened && MI.status == 'projectLoaded' && !MI.showAddArtifact"
+      },
+      {
+        "view": "MI.project-explorer",
+        "contents": "Welcome to Micro Integrator. You can open a folder containing a MI project or create a new project.\n[Open MI Project](command:MI.openProject)\n[Create New Project](command:MI.project-explorer.create-project)\nTo learn more about how to use Micro Integrator in VS Code, [read our docs](https://mi.docs.wso2.com/en/4.3.0/develop/mi-for-vscode/mi-for-vscode-overview/).",
+        "when": "MI.status == 'unknownProject'"
+      },
+      {
+        "view": "MI.project-explorer",
+        "contents": "This project appears to have been created with Integration Studio. Please note that the VS Code extension offers limited support for these projects. To enhance compatibility, consider migrating your project using the provided migration tool.\n[Migrate Project](command:MI.migrateProject)",
+        "when": "MI.status == 'projectLoaded' && MI.projectType == 'oldProject' && MI.migrationStatus != 'migrating' && workspaceFolderCount == 1"
+      },
+      {
+        "view": "MI.project-explorer",
+        "contents": "Migrating project... Please wait.",
+        "when": "MI.status == 'projectLoaded' && MI.projectType == 'oldProject' && MI.migrationStatus == 'migrating' && workspaceFolderCount == 1"
+      },
+      {
+        "view": "MI.project-explorer",
+        "contents": "Some errors occurred while activating the extension. Please check the output channel for more information.",
+        "when": "MI.status == 'disabled'"
+      },
+      {
+        "view": "testing",
+        "contents": "[Add Unit Test](command:MI.test.add.suite)"
+      },
+      {
+        "view": "MI.project-explorer",
+        "contents": "Micro Integrator is not set up. Please set up the MI server and Java home to continue.",
+        "when": "MI.status == 'notSetUp'"
+      }
+    ],
+    "commands": [
+      {
+        "command": "MI.openProject",
+        "title": "Open Project",
+        "category": "MI"
+      },
+      {
+        "command": "MI.importCAPP",
+        "title": "Import project from car file(CAPP)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.openWelcome",
+        "title": "Open MI Welcome",
+        "category": "MI"
+      },
+      {
+        "command": "MI.showOverview",
+        "title": "Show Overview",
+        "category": "MI"
+      },
+      {
+        "command": "MI.openAiPanel",
+        "title": "Open AI Panel",
+        "category": "MI",
+        "icon": "$(wand)"
+      },
+      {
+        "command": "MI.Open-runtime-service-view",
+        "title": "Open Runtime Services Panel",
+        "category": "MI",
+        "icon": "$(server)",
+        "when": "MI.isRunning== 'true'"
+      },
+      {
+        "command": "MI.project-explorer.add.artifact",
+        "title": "Add Artifact",
+        "icon": "$(add)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.refresh",
+        "title": "Refresh Project Explorer",
+        "icon": "$(refresh)",
+        "group": "navigation"
+      },
+      {
+        "command": "MI.project-explorer.add-api",
+        "title": "Add API",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.add-resource",
+        "title": "Add Resource",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.create-project",
+        "title": "Create New Project",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.open-project-overview",
+        "title": "Open Project Overview",
+        "icon": "$(list-unordered)",
+        "when": "false"
+      },
+      {
+        "command": "MI.project-explorer.import-project",
+        "title": "Import Project",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.open-service-designer",
+        "title": "Open Service Designer",
+        "icon": "$(distro-design-view)",
+        "when": "false"
+      },
+      {
+        "command": "MI.show.graphical-view",
+        "title": "Open Graphical View",
+        "icon": "$(distro-design-view)"
+      },
+      {
+        "command": "MI.project-explorer.add-endpoint",
+        "title": "Add Endpoint",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.add-sequence",
+        "title": "Add Sequence",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.add-inbound-endpoint",
+        "title": "Add Inbound Endpoint",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.add-message-processor",
+        "title": "Add Message Processor",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.add-proxy-service",
+        "title": "Add Proxy Service",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.add-template",
+        "title": "Add Template",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.add-local-entry",
+        "title": "Add Local Entry",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.add-connection",
+        "title": "Add Connection",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.add-registry-resource",
+        "title": "Add Registry Resource",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.add-class-mediator",
+        "title": "Add Class Mediator",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.add-ballerina-module",
+        "title": "Add Ballerina Module",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.add-task",
+        "title": "Add Scheduled Task",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.add-message-store",
+        "title": "Add Message Store",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.add-data-source",
+        "title": "Add Data Source",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.add-data-service",
+        "title": "Add Data Service",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.open-dss-service-designer",
+        "title": "Open Service Designer",
+        "icon": "$(distro-design-view)",
+        "when": "false"
+      },
+      {
+        "command": "MI.project-explorer.delete",
+        "title": "Delete",
+        "icon": "$(delete)"
+      },
+      {
+        "command": "MI.project-explorer.markAsDefaultSequence",
+        "title": "Set as Automation Sequence",
+        "icon": "$(star)"
+      },
+      {
+        "command": "MI.project-explorer.unmarkAsDefaultSequence",
+        "title": "Unset as Automation Sequence",
+        "icon": "$(star-full)"
+      },
+      {
+        "command": "project-explorer.view",
+        "title": "View"
+      },
+      {
+        "command": "MI.show.source",
+        "title": "Show Source",
+        "icon": "$(code)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.change.server",
+        "title": "Add MI server",
+        "category": "MI"
+      },
+      {
+        "command": "MI.change.java",
+        "title": "Set Java Home",
+        "category": "MI"
+      },
+      {
+        "command": "MI.build-project",
+        "title": "Build",
+        "category": "MI"
+      },
+      {
+        "command": "MI.build-and-run",
+        "title": "Build and Run",
+        "icon": "$(play)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.build-bal-module",
+        "title": "Build Ballerina Module",
+        "icon": "$(distro-build-package)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.test.add.suite",
+        "title": "Add unit test",
+        "icon": "$(add)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.test.edit.suite",
+        "title": "Edit test suite",
+        "icon": "$(distro-design-view)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.test.add.case",
+        "title": "Add test case",
+        "icon": "$(add)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.test.edit.case",
+        "title": "Edit test case",
+        "icon": "$(distro-design-view)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.test.add.mock-service",
+        "title": "Add mock service",
+        "icon": "$(add)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.test.edit.mock-service",
+        "title": "Edit mock service",
+        "icon": "$(distro-design-view)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.test.refresh.mock-services",
+        "title": "Refresh",
+        "icon": "$(refresh)",
+        "category": "MI"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "MI.importCAPP",
+          "when": "!projectOpened"
+        },
+        {
+          "command": "MI.project-explorer.add-api",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.add-resource",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.add-endpoint",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.add-sequence",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.add-inbound-endpoint",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.add-local-entry",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.add-connection",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.add-registry-resource",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.add-class-mediator",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.add-ballerina-module",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.add-message-processor",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.add-proxy-service",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.add-task",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.add-message-store",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.add-data-source",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.add-template",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.add-data-service",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.open-dss-service-designer",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.open-service-designer",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.delete",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.markAsDefaultSequence",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.unmarkAsDefaultSequence",
+          "when": "false"
+        },
+        {
+          "command": "MI.show.source",
+          "when": "false"
+        },
+        {
+          "command": "MI.show.graphical-view",
+          "when": "false"
+        },
+        {
+          "command": "MI.build-and-run",
+          "when": "false"
+        },
+        {
+          "command": "MI.build-bal-module",
+          "when": "false"
+        },
+        {
+          "command": "MI.test.add.suite",
+          "when": "false"
+        },
+        {
+          "command": "MI.test.edit.suite",
+          "when": "false"
+        },
+        {
+          "command": "MI.test.add.case",
+          "when": "false"
+        },
+        {
+          "command": "MI.test.edit.case",
+          "when": "false"
+        },
+        {
+          "command": "MI.test.add.mock-service",
+          "when": "false"
+        },
+        {
+          "command": "MI.test.edit.mock-service",
+          "when": "false"
+        },
+        {
+          "command": "MI.test.refresh.mock-services",
+          "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "MI.project-explorer.refresh",
+          "when": "view == MI.project-explorer && projectOpened",
+          "group": "navigation"
+        },
+        {
+          "command": "MI.project-explorer.create-project",
+          "when": "view == MI.project-explorer && projectOpened",
+          "group": "navigation"
+        },
+        {
+          "command": "MI.test.add.suite",
+          "when": "view == workbench.view.testing",
+          "group": "navigation"
+        },
+        {
+          "command": "MI.test.refresh.mock-services",
+          "when": "view == MI.mock-services && projectOpened",
+          "group": "navigation"
+        }
+      ],
+      "editor/title/run": [
+        {
+          "command": "MI.build-and-run",
+          "group": "navigation@1",
+          "when": "MI.status == 'projectLoaded' && (isVisualizerActive || resourceLangId == SynapseXml) && (MI.isRunning !== 'true') && !editorTextFocus",
+          "title": "Build and Run Project"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "MI.openAiPanel",
+          "group": "navigation@1",
+          "when": "MI.projectType == 'miProject' && (isVisualizerActive || resourceLangId == SynapseXml) && !editorTextFocus",
+          "title": "Open AI Panel"
+        },
+        {
+          "command": "MI.Open-runtime-service-view",
+          "group": "navigation@1",
+          "when": "MI.projectType == 'miProject' && (isVisualizerActive || resourceLangId == SynapseXml) && MI.isRunning== 'true'",
+          "title": "Open Runtime Services Panel"
+        },
+        {
+          "command": "MI.show.graphical-view",
+          "when": "MI.status == 'projectLoaded' && resourceLangId == SynapseXml",
+          "group": "navigation@3",
+          "title": "Show Graphical View"
+        },
+        {
+          "command": "MI.show.source",
+          "when": "isVisualizerActive && showGoToSource",
+          "group": "navigation@3",
+          "title": "Show Source"
+        },
+        {
+          "command": "MI.build-bal-module",
+          "group": "navigation",
+          "when": "resourceExtname == .bal",
+          "title": "Build Ballerina Module"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "MI.project-explorer.add.artifact",
+          "when": "viewItem == project",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.open-project-overview",
+          "when": "viewItem == project",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-api",
+          "when": "view == MI.project-explorer && viewItem == apis",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-resource",
+          "when": "view == MI.project-explorer && viewItem == resources",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.open-service-designer",
+          "when": "viewItem == api",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-endpoint",
+          "when": "view == MI.project-explorer && viewItem == endpoints",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-sequence",
+          "when": "view == MI.project-explorer && viewItem == sequences",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-inbound-endpoint",
+          "when": "view == MI.project-explorer && viewItem == inboundEndpoints",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-local-entry",
+          "when": "view == MI.project-explorer && viewItem == localEntries",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-connection",
+          "when": "view == MI.project-explorer && viewItem == connections",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-registry-resource",
+          "when": "view == MI.project-explorer && viewItem == registry",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-class-mediator",
+          "when": "view == MI.project-explorer && viewItem == class-mediators",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-ballerina-module",
+          "when": "view == MI.project-explorer && viewItem == ballerina-modules",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-message-processor",
+          "when": "view == MI.project-explorer && viewItem == messageProcessors",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-proxy-service",
+          "when": "view == MI.project-explorer && viewItem == proxyServices",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-task",
+          "when": "view == MI.project-explorer && viewItem == tasks",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-message-store",
+          "when": "view == MI.project-explorer && viewItem == messageStores",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-data-source",
+          "when": "view == MI.project-explorer && viewItem == dataSources",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-template",
+          "when": "view == MI.project-explorer && viewItem == templates",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-data-service",
+          "when": "view == MI.project-explorer && viewItem == dataServices",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.delete",
+          "when": "view == MI.project-explorer && viewItem == api || viewItem == resource || viewItem == endpoint || viewItem == sequence || viewItem == proxy-service || viewItem == inboundEndpoint || viewItem == messageStore || viewItem == message-processor || viewItem == task || viewItem == localEntry || viewItem == template  || viewItem == dataSource || viewItem == data-service || viewItem == data-mapper || viewItem == connection || viewItem == registry-with-metadata || viewItem == registry-without-metadata || viewItem == class-mediator || viewItem == ballerina-module",
+          "key": "delete"
+        },
+        {
+          "command": "MI.project-explorer.markAsDefaultSequence",
+          "when": "view == MI.project-explorer && viewItem == sequence",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.unmarkAsDefaultSequence",
+          "when": "view == MI.project-explorer && viewItem == sequence-main",
+          "group": "inline"
+        },
+        {
+          "command": "MI.test.add.mock-service",
+          "group": "inline",
+          "when": "view == MI.mock-services && viewItem == workspace"
+        },
+        {
+          "command": "MI.test.edit.mock-service",
+          "group": "inline",
+          "when": "view == MI.mock-services && viewItem == mockService"
+        }
+      ],
+      "testing/item/context": [
+        {
+          "command": "MI.test.add.suite",
+          "group": "inline",
+          "when": "testId in test.dirs"
+        },
+        {
+          "command": "MI.test.edit.suite",
+          "group": "inline",
+          "when": "testId in test.suites"
+        },
+        {
+          "command": "MI.test.add.case",
+          "group": "inline",
+          "when": "testId in test.suites"
+        },
+        {
+          "command": "MI.test.edit.case",
+          "group": "inline",
+          "when": "testId in test.cases"
+        }
+      ],
+      "testing/message/context": []
+    },
+    "icons": {
+      "distro-design-view": {
+        "description": "design-view",
+        "default": {
+          "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
+          "fontCharacter": "\\f16b"
+        }
+      },
+      "distro-build-package": {
+        "description": "build-package",
+        "default": {
+          "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
+          "fontCharacter": "\\f182"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "clean": "rimraf ./dist",
+    "compile": "tsc -p .",
+    "watch": "tsc -p . -w",
+    "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release; else vsce package --no-dependencies; fi",
+    "download-ls": "node ./scripts/download-ls.js",
+    "build": "pnpm clean && pnpm run download-ls && pnpm run copyJSLibs && pnpm run copyLSLibs && pnpm run copyFonts && pnpm run copyDMUtils && pnpm run renameDMUtils && webpack --mode production --devtool hidden-source-map && pnpm run package && pnpm run postbuild",
+    "compile-tests": "pnpm run compile",
+    "watch-tests": "pnpm run watch",
+    "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "pnpm run pretest && node ./out/test/runTest.js",
+    "e2e-test": "pnpm run compile-tests && pnpm exec playwright test",
+    "copyFonts": "copyfiles -f ./node_modules/@wso2/font-wso2-vscode/dist/* ./resources/font-wso2-vscode/dist/",
+    "copyJSLibs": "copyfiles -f ../mi-visualizer/build/*.js resources/jslibs",
+    "copyLSLibs": "copyfiles -f language-server/org.eclipse.lemminx/target/*.jar ls",
+    "copyDMUtils": "copyfiles -f ./node_modules/@wso2/mi-data-mapper-utils/src/* ./resources/data-mapper-utils/",
+    "renameDMUtils": "node -e \"require('fs').rename('./resources/data-mapper-utils/dm-utils.ts', './resources/data-mapper-utils/dm-utils.ts.lib', function(err) { if (err) console.log(err); else console.log('DMUtils successfully renamed!') })\"",
+    "copyVSIX": "copyfiles *.vsix ./vsix",
+    "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../..",
+    "postbuild": "pnpm run copyVSIX"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.100.0",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "22.15.21",
+    "@typescript-eslint/eslint-plugin": "^8.32.1",
+    "@typescript-eslint/parser": "^8.32.1",
+    "eslint": "^9.27.0",
+    "glob": "^11.0.2",
+    "mocha": "^11.4.0",
+    "typescript": "5.8.3",
+    "ts-loader": "^9.5.2",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^4.10.0",
+    "@vscode/test-electron": "^2.5.2",
+    "rimraf": "~6.0.1",
+    "@wso2/mi-visualizer": "workspace:*",
+    "@wso2/mi-rpc-client": "workspace:*",
+    "@wso2/mi-data-mapper-utils": "workspace:*",
+    "@wso2/mi-diagram": "workspace:*",
+    "@wso2/wso2-platform-core": "workspace:*",
+    "ts-morph": "^26.0.0",
+    "await-notify": "^1.0.1",
+    "yaml": "~2.8.0",
+    "@playwright/test": "~1.52.0",
+    "playwright-core": "~1.52.0"
+  },
+  "dependencies": {
+    "copyfiles": "^2.4.1",
+    "@vscode/vsce": "~3.4.2",
+    "vscode-messenger": "^0.5.1",
+    "vscode-messenger-common": "^0.5.1",
+    "@wso2/mi-core": "workspace:*",
+    "@wso2/mi-rpc-client": "workspace:*",
+    "@wso2/playwright-vscode-tester": "workspace:*",
+    "vscode-extension-tester": "~8.14.1",
+    "vscode-languageclient": "^9.0.1",
+    "@types/xml2js": "~0.4.12",
+    "jsonix": "~3.0.0",
+    "lodash": "~4.17.21",
+    "axios": "~1.9.0",
+    "@types/lodash": "~4.17.17",
+    "vscode-languageserver-protocol": "^3.17.5",
+    "fast-xml-parser": "~5.2.3",
+    "@wso2/mi-syntax-tree": "workspace:*",
+    "@wso2/font-wso2-vscode": "workspace:*",
+    "xstate": "^4.38.3",
+    "node-fetch": "~3.3.2",
+    "mustache": "~4.2.0",
+    "@types/mustache": "~4.2.6",
+    "uuid": "~11.1.0",
+    "unzipper": "~0.12.3",
+    "vscode-debugadapter": "^1.51.0",
+    "vscode-debugprotocol": "^1.51.0",
+    "tree-kill": "~1.2.2",
+    "node-loader": "~2.1.0",
+    "to-json-schema": "0.2.5",
+    "xml2js": "0.6.2",
+    "tmp": "~0.2.3",
+    "fs-extra": "~11.3.0",
+    "@iarna/toml": "^2.2.5",
+    "@types/tmp": "~0.2.6",
+    "@types/fs-extra": "~11.0.4",
+    "json-schema-to-ts": "3.1.1",
+    "@babel/plugin-transform-typescript": "^7.27.1",
+    "recast": "^0.23.11",
+    "@babel/core": "^7.27.1",
+    "@types/json-schema": "7.0.15",
+    "json-schema": "0.4.0",
+    "portfinder": "^1.0.37",
+    "cors-anywhere": "^0.4.4",
+    "@apidevtools/json-schema-ref-parser": "12.0.2",
+    "adm-zip": "~0.5.16",
+    "@wso2/mi-diagram": "workspace:*",
+    "upath": "~2.0.1",
+    "find-process": "~1.4.10",
+    "dotenv": "~16.5.0"
+  }
+}

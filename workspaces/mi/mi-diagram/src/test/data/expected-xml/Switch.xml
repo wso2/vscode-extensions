@@ -1,0 +1,4 @@
+<switch  source="Source XPath" >
+        <case regex=".*+"></case>
+        <default></default>
+    </switch>

@@ -1,0 +1,5 @@
+<ejb class="TestClass" id="{Session Id Expression}" stateful="true" >
+        <args>
+            <arg value="Val"/>
+        </args>
+    </ejb>

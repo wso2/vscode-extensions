@@ -1,0 +1,72 @@
+{
+  "name": "call-template",
+  "type": "mediator",
+  "title": "Call Template Mediator",
+  "help": "Invokes sequence template by populating pre-configured parameters with static values or XPath expressions.",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "targetTemplate",
+        "displayName": "Target Template",
+        "inputType": "comboOrKey",
+        "keyType": "sequenceTemplate",
+        "required": true,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "table",
+      "value": {
+        "name": "parameterNameTable",
+        "displayName": "Call-Template Parameter",
+        "description": "Editing of the properties of an object CallTemplateParameter",
+        "tableKey": "parameterName",
+        "tableValue": "parameterValue",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "parameterName",
+              "displayName": "Parameter Name",
+              "inputType": "string",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "parameterValue",
+              "displayName": "Parameter Value",
+              "inputType": "stringOrExpression",
+              "required": true,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "onError",
+        "displayName": "OnError",
+        "inputType": "key",
+        "required": false,
+        "helpTip": "",
+        "keyType": "sequence"
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}

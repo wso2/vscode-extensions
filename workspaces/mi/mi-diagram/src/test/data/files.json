@@ -1,0 +1,1484 @@
+[
+  {
+    "file": "Aggregate.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "AggregateWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Bam.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "BamWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Bean.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "BeanWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Builder.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "BuilderWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Cache.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "CacheWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "CallDataservice.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "CallDataserviceWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "CallEndpoint.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "CallEndpointWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Sequence.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "SequenceWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "CallTemplate.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "CallTemplateWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Callout.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "CalloutWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Class.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "ClassWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Clone.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "CloneWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Command.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "CommandWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "ConditionalRouter.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "ConditionalRouterWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "DBLookup.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "DBLookupWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "DBReport.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "DBReportWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "DataMapper.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "DataMapperWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Drop.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "DropWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Ejb.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "EjbWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Enqueue.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "EnqueueWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Enrich.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "EnrichWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "EntitlementService.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "EntitlementServiceWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Event.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "EventWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "FastXSLT.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "FastXSLTWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Fault.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "FaultWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Filter.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "FilterWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "ForEach.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/namedSequence",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "ForEachWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Header.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "HeaderWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Iterate.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/namedSequence",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "IterateWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "JSONTransform.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "JSONTransformWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Log.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "LogWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Loopback.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "LoopbackWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "NTLM.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "NTLMWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "OAuth.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "OAuthWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "PayloadFactory.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "PayloadFactoryWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Property.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "PropertyGroup.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "PropertyGroupWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "PropertyWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "PublishEvent.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "PublishEventWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "ResourceWithNamedInSequences.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/2",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/3",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/4",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/5",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/6",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/7",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/8",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/9",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/10",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/11",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/12",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/13",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/14",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/15",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/16",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/17",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/18",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/19",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/20",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/21",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "ResourceWithNamedInSequencesWithNodes.xml",
+    "resources": [
+      {
+        "path": "/1",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/2",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/3",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/4",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/5",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/6",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/7",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/8",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/9",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/10",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/11",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/12",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/13",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/14",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/15",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/16",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "path": "/17",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Respond.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "RespondWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Rewrite.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "RewriteWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Rule.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "RuleWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Script.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "ScriptWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Send.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "SendWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Smooks.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "SmooksWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Spring.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "SpringWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Store.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "StoreWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Switch.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "SwitchWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "SwitchNested.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Throttle.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "ThrottleWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Transaction.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "TransactionWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Validate.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "ValidateWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "XQuery.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "XQueryWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "XSLT.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "XSLTWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "ThrowError.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "ThrowErrorWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "Variable.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "VariableWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "ScatterGather.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "ScatterGatherWithDescription.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  {
+    "file": "GroupNodeMediators.xml",
+    "resources": [
+      {
+        "path": "/",
+        "methods": [
+          "POST"
+        ]
+      }
+    ]
+  }
+]

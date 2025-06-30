@@ -1,0 +1,123 @@
+{
+  "name": "transformation",
+  "type": "queryNode",
+  "title": "Configure Transformation",
+  "help": "",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "outputType",
+        "displayName": "Output Type",
+        "inputType": "combo",
+        "defaultValue": "XML",
+        "comboValues": [
+          "XML",
+          "RDF",
+          "JSON"
+        ],
+        "required": true,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "useColumnNumbers",
+        "displayName": "Use Column Numbers",
+        "inputType": "checkbox",
+        "defaultValue": false,
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "escapeNonPrintableCharacters",
+        "displayName": "Escape Non-printable Characters",
+        "inputType": "checkbox",
+        "defaultValue": false,
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "rdfBaseUri",
+        "displayName": "RDF Base URI",
+        "inputType": "string",
+        "required": false,
+        "helpTip": "",
+        "enableCondition": [
+          {
+            "outputType": "RDF"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "groupedElement",
+        "displayName": "Grouped by Element",
+        "inputType": "string",
+        "required": false,
+        "helpTip": "",
+        "enableCondition": [
+          {
+            "outputType": "XML"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "rowName",
+        "displayName": "Row Name",
+        "inputType": "string",
+        "required": false,
+        "helpTip": "",
+        "enableCondition": [
+          {
+            "outputType": "XML"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "rowNamespace",
+        "displayName": "Row Namespace",
+        "inputType": "string",
+        "required": false,
+        "helpTip": "",
+        "enableCondition": [
+          "NOT",
+          {
+            "outputType": "JSON"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "xsltPath",
+        "displayName": "XSLT Path",
+        "inputType": "string",
+        "required": false,
+        "helpTip": "",
+        "enableCondition": [
+          "NOT",
+          {
+            "outputType": "JSON"
+          }
+        ]
+      }
+    }
+  ]
+}

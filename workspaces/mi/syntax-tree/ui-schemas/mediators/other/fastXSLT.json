@@ -1,0 +1,50 @@
+{
+  "name": "Fast XSLT",
+  "type": "mediator",
+  "title": "Fast XSLT Mediator",
+  "help": "Swiftly transforms message streams (not payloads) based on an XSLT script.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "SchemaKey",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "schemaKay",
+              "displayName": "Fast Xslt Schema Key",
+              "inputType": "keyOrExpression",
+              "keyType": [
+                "xslt",
+                "xsl"
+              ],
+              "defaultValue": "",
+              "required": true,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Misc",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

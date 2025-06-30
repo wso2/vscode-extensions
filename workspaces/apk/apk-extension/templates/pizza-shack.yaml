@@ -1,0 +1,105 @@
+id: "123e4567-e89b-12d3-a456-426614174000"
+name: "Pizza Shack API"
+basePath: "/pizza"
+version: "1.0.0"
+type: "REST"
+endpointConfigurations:
+  production:
+    - endpoint: "https://pizza"
+      endpointSecurity:
+        enabled: true
+        securityType:
+          basicEndpointSecurity:
+            secretName: "backend-creds"
+            userNameKey: "username"
+            passwordKey: "password"
+      certificate:
+        secretName: "certificate-secret"
+        secretKey: "certificate-key"
+      resiliency: {}
+  sandbox:
+    - endpoint: "https://pizza"
+      endpointSecurity:
+        enabled: false
+      certificate: {}
+operations:
+  - target: "/pizzas"
+    verb: "GET"
+    secured: true
+    endpointConfigurations:
+      production:
+        - endpoint: "https://pizza"
+      sandbox:
+        - endpoint: "https://pizza"
+    operationPolicies:
+      request:
+        - policyName: "Request Policy 1"
+          policyVersion: "v1"
+          parameters:
+            header: "X-Header"
+      response:
+        - policyName: "Response Policy 1"
+          policyVersion: "v1"
+    rateLimit:
+      requestsPerUnit: 100
+      unit: "Minute"
+    scopes:
+      - "read:pizzas"
+      - "write:pizzas"
+  - target: "/pizzas/{pizzaId}"
+    verb: "GET"
+    secured: true
+    endpointConfigurations:
+      production:
+        - endpoint: "https://pizza"
+      sandbox:
+        - endpoint: "https://pizza"
+    operationPolicies:
+      request:
+        - policyName: "Request Policy 2"
+          policyVersion: "v1"
+          parameters:
+            header: "header2"
+      response:
+        - policyName: "Response Policy 2"
+          policyVersion: "v1"
+    rateLimit:
+      requestsPerUnit: 50
+      unit: "Minute"
+    scopes:
+      - "read:pizzas"
+apiPolicies:
+  request:
+    - policyName: "Global Request Policy"
+      policyVersion: "v1"
+  response:
+    - policyName: "Global Response Policy"
+      policyVersion: "v1"
+rateLimit:
+  requestsPerUnit: 1000
+  unit: "Hour"
+authentication:
+  - authType: "OAuth2"
+    sendTokenToUpstream: false
+    enabled: true
+    headerName: "Authorization"
+additionalProperties:
+  - name: "property1"
+    value: "value1"
+  - name: "property2"
+    value: "value2"
+corsConfiguration:
+  corsConfigurationEnabled: true
+  accessControlAllowOrigins:
+    - "https://example.com"
+    - "https://sandbox.example.com"
+  accessControlAllowCredentials: true
+  accessControlAllowHeaders:
+    - "Content-Type"
+    - "Authorization"
+  accessControlAllowMethods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+  accessControlAllowMaxAge: 3600

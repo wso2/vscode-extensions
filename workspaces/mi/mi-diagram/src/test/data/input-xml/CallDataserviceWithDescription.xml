@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<dataServiceCall description="Call Dataservice Description" serviceName="sdfa">
+				<operations type="single">
+					<operation name="OP Name">
+						<param name="Prop Name" value="Prop Value"/>
+					</operation>
+				</operations>
+				<source type="inline"/>
+				<target type="body"/>
+			</dataServiceCall>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

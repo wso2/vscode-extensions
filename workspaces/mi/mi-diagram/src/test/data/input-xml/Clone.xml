@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<clone continueParent="true" id="CloneID" sequential="true">
+				<target soapAction="Action" to="Address">
+					<sequence></sequence>
+				</target>
+			</clone>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

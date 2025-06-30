@@ -1,0 +1,156 @@
+{
+  "name": "Failover Endpoint",
+  "type": "component",
+  "title": "Failover Endpoint",
+  "help": "",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "endpointName",
+              "displayName": "Endpoint Name",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "buildMessage",
+              "displayName": "Build Message",
+              "inputType": "checkbox",
+              "defaultValue": false,
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "table",
+            "value": {
+              "name": "proeprties",
+              "displayName": "Properties",
+              "form": {
+                "title": "Endpoint Property",
+                "description": "Editing of the properties of an object Endpoint Property",
+                "elements": [
+                  {
+                    "type": "attributeGroup",
+                    "value": {
+                      "groupName": "Properties",
+                      "elements": [
+                        {
+                          "type": "attribute",
+                          "value": {
+                            "name": "name",
+                            "displayName": "Name",
+                            "inputType": "string",
+                            "defaultValue": "",
+                            "required": false,
+                            "helpTip": ""
+                          }
+                        },
+                        {
+                          "type": "attribute",
+                          "value": {
+                            "name": "scope",
+                            "displayName": "Scope",
+                            "inputType": "combo",
+                            "defaultValue": "default",
+                            "comboValues": [
+                              "default",
+                              "transport",
+                              "axis2",
+                              "axis2-client"
+                            ],
+                            "required": false,
+                            "helpTip": ""
+                          }
+                        },
+                        {
+                          "type": "attribute",
+                          "value": {
+                            "name": "valueType",
+                            "displayName": "Value Type",
+                            "inputType": "combo",
+                            "defaultValue": "LITERAL",
+                            "comboValues": [
+                              "LITERAL",
+                              "EXPRESSION"
+                            ],
+                            "required": false,
+                            "helpTip": ""
+                          }
+                        },
+                        {
+                          "type": "attribute",
+                          "value": {
+                            "name": "value",
+                            "displayName": "Value",
+                            "inputType": "string",
+                            "defaultValue": "",
+                            "required": false,
+                            "helpTip": "",
+                            "enableCondition": [
+                              {
+                                "valueType": "LITERAL"
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "type": "attribute",
+                          "value": {
+                            "name": "valueExpression",
+                            "displayName": "Value Expression",
+                            "inputType": "expression",
+                            "defaultValue": "",
+                            "required": false,
+                            "helpTip": "",
+                            "enableCondition": [
+                              {
+                                "valueType": "EXPRESSION"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "children",
+              "displayName": "Children",
+              "inputType": "custom",
+              "defaultValue": null,
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

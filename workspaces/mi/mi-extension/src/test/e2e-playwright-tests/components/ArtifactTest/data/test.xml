@@ -1,0 +1,11 @@
+<endpoint name="TestLocal" xmlns="http://ws.apache.org/ns/synapse">
+    <http method="get" uri-template="https://">
+        <suspendOnFailure>
+            <initialDuration>-1</initialDuration>
+            <progressionFactor>1</progressionFactor>
+        </suspendOnFailure>
+        <markForSuspension>
+            <retriesBeforeSuspension>0</retriesBeforeSuspension>
+        </markForSuspension>
+    </http>
+</endpoint>

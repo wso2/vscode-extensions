@@ -1,0 +1,6 @@
+<callout serviceURL="Ser Url" action="SOAP" initAxis2ClientOptions="true">
+  <configuration axis2xml="Path" repository="Axix2 Repo"/>
+  <source xpath="Payload Message XPath"/>
+  <target xpath="Result Message XPath"/>
+  <enableSec inboundPolicy="In Key" outboundPolicy="Out Key"/>
+</callout>

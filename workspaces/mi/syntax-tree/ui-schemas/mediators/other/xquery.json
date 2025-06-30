@@ -1,0 +1,201 @@
+{
+  "name": "XQuery",
+  "type": "mediator",
+  "title": "XQuery Mediator",
+  "help": "Performs XQuery transformation on messages.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "scriptKeyType",
+              "displayName": "Script Key Type",
+              "inputType": "combo",
+              "defaultValue": "Static",
+              "comboValues": [
+                "Static",
+                "Dynamic"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "staticScriptKey",
+              "displayName": "Static Script Key",
+              "inputType": "key",
+              "keyType": "registry",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "scriptKeyType": "Static"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "dynamicScriptKey",
+              "displayName": "Dynamic Script Key",
+              "inputType": "expression",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "scriptKeyType": "Dynamic"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "targetXPath",
+              "displayName": "Target XPath",
+              "inputType": "expression",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Variables",
+              "elements": [
+                {
+                  "type": "table",
+                  "value": {
+                    "name": "variables",
+                    "displayName": "Variables",
+                    "title": "XQuery Variable",
+                    "description": "Editing of the properties of an object XQuery Variable",
+                    "tableKey": "variableName",
+                    "tableValue": "variableLiteral",
+                    "elements": [
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "variableName",
+                          "displayName": "Variable Name",
+                          "inputType": "string",
+                          "defaultValue": "",
+                          "required": false,
+                          "helpTip": ""
+                        }
+                      },
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "variableType",
+                          "displayName": "Variable Type",
+                          "inputType": "combo",
+                          "defaultValue": "STRING",
+                          "comboValues": [
+                            "DOCUMENT",
+                            "DOCUMENT_ELEMENT",
+                            "ELEMENT",
+                            "INT",
+                            "INTEGER",
+                            "BOOLEAN",
+                            "BYTE",
+                            "DOUBLE",
+                            "SHORT",
+                            "LONG",
+                            "FLOAT",
+                            "STRING"
+                          ],
+                          "required": false,
+                          "helpTip": ""
+                        }
+                      },
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "variableOption",
+                          "displayName": "Variable Option",
+                          "inputType": "combo",
+                          "defaultValue": "LITERAL",
+                          "comboValues": [
+                            "LITERAL",
+                            "EXPRESSION"
+                          ],
+                          "required": false,
+                          "helpTip": ""
+                        }
+                      },
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "variableLiteral",
+                          "displayName": "Variable Literal",
+                          "inputType": "string",
+                          "defaultValue": "",
+                          "required": false,
+                          "helpTip": "",
+                          "enableCondition": [
+                            {
+                              "variableOption": "LITERAL"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "variableExpression",
+                          "displayName": "Variable Expression",
+                          "inputType": "expression",
+                          "defaultValue": "",
+                          "required": false,
+                          "helpTip": "",
+                          "enableCondition": [
+                            {
+                              "variableOption": "EXPRESSION"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "variableKey",
+                          "displayName": "Variable Key",
+                          "inputType": "registry",
+                          "defaultValue": "",
+                          "required": false,
+                          "helpTip": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

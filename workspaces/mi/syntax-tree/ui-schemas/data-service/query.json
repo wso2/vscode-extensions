@@ -1,0 +1,124 @@
+{
+  "name": "query",
+  "type": "queryNode",
+  "title": "Configure Query",
+  "help": "",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "queryId",
+        "displayName": "Query ID",
+        "inputType": "string",
+        "required": true,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "datasource",
+        "displayName": "Datasource",
+        "inputType": "comboOrKey",
+        "required": true,
+        "keyType": "dataSource",
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "sqlQuery",
+        "displayName": "SQL Query",
+        "inputType": "textArea",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Advanced Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "timeout",
+              "displayName": "Timeout in seconds",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "fetchDirection",
+              "displayName": "Fetch Direction",
+              "inputType": "combo",
+              "defaultValue": "Forward",
+              "comboValues": [
+                "Forward",
+                "Reverse"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "fetchSize",
+              "displayName": "Fetch Size",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "maxFieldSize",
+              "displayName": "Max Field Size",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "maxRows",
+              "displayName": "Max Rows",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "forceStoredProcedure",
+              "displayName": "Force Stored Procedure",
+              "inputType": "checkbox",
+              "defaultValue": false,
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "forceJdbcBatchRequests",
+              "displayName": "Force JDBC Batch Requests",
+              "inputType": "checkbox",
+              "defaultValue": false,
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
