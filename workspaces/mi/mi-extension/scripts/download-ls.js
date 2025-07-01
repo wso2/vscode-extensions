@@ -16,19 +16,39 @@ const TEMP_ZIP = path.join(require('os').tmpdir(), `mi-language-server-${Date.no
 
 function httpsRequest(url, options = {}) {
     return new Promise((resolve, reject) => {
+        const authHeader = {};
+        if (process.env.GITHUB_PAT) {
+            authHeader['Authorization'] = `Bearer ${process.env.GITHUB_PAT}`;
+        } else if (process.env.BALLERINA_BOT_TOKEN) {
+            authHeader['Authorization'] = `Bearer ${process.env.BALLERINA_BOT_TOKEN}`;
+        }
+
         const req = https.request(url, {
+            ...options,
             headers: {
-                'User-Agent': 'MI-Extension-Download-Script',
+                'User-Agent': 'MI-LS-Downloader',
                 'Accept': 'application/vnd.github.v3+json',
+                ...authHeader,
                 ...options.headers
             }
         }, (res) => {
+            // Handle HTTP 403 errors specifically
+            if (res.statusCode === 403) {
+                console.error('HTTP 403: Forbidden. This may be due to GitHub API rate limiting.');
+                console.error('Set GITHUB_PAT environment variable with a personal access token to increase rate limits.');
+
+                // Log rate limit info if available
+                if (res.headers['x-ratelimit-limit']) {
+                    console.error(`Rate limit: ${res.headers['x-ratelimit-remaining']}/${res.headers['x-ratelimit-limit']}`);
+                    console.error(`Rate limit resets at: ${new Date(res.headers['x-ratelimit-reset'] * 1000).toLocaleString()}`);
+                }
+            }
             let data = '';
-            
-            res.on('data', (chunk) => {
+
+            res.on('data', chunk => {
                 data += chunk;
             });
-            
+
             res.on('end', () => {
                 if (res.statusCode >= 200 && res.statusCode < 300) {
                     try {
@@ -41,7 +61,7 @@ function httpsRequest(url, options = {}) {
                 }
             });
         });
-        
+
         req.on('error', reject);
         req.end();
     });
@@ -61,14 +81,14 @@ function downloadFile(url, destination) {
                     .catch(reject);
                 return;
             }
-            
+
             if (res.statusCode !== 200) {
                 reject(new Error(`HTTP ${res.statusCode}: Failed to download file`));
                 return;
             }
-            
+
             const fileStream = createWriteStream(destination);
-            
+
             pipelineAsync(res, fileStream)
                 .then(() => {
                     const stats = fs.statSync(destination);
@@ -76,7 +96,7 @@ function downloadFile(url, destination) {
                 })
                 .catch(reject);
         });
-        
+
         req.on('error', reject);
         req.end();
     });
@@ -89,7 +109,7 @@ async function extractZip(zipPath, destDir) {
             .on('entry', (entry) => {
                 const fileName = path.basename(entry.path);
                 const type = entry.type;
-                
+
                 if (type === 'File' && fileName.endsWith('.jar')) {
                     const outputPath = path.join(destDir, fileName);
                     entry.pipe(fs.createWriteStream(outputPath));
@@ -130,7 +150,7 @@ async function main() {
         console.log('Fetching latest release information...');
         const releaseInfo = await httpsRequest(`${GITHUB_REPO_URL}/releases/latest`);
 
-        const asset = releaseInfo.assets?.find(asset => 
+        const asset = releaseInfo.assets?.find(asset =>
             asset.name && asset.name.includes('mi-language-server-')
         );
 
@@ -149,7 +169,7 @@ async function main() {
         console.log('Downloading language server ZIP...');
         const downloadUrl = `${GITHUB_REPO_URL}/releases/assets/${asset.id}`;
         const fileSize = await downloadFile(downloadUrl, TEMP_ZIP);
-        
+
         console.log(`Successfully downloaded MI language server ZIP`);
         console.log(`File size: ${fileSize} bytes`);
 
@@ -172,7 +192,7 @@ async function main() {
 
     } catch (error) {
         console.error(`Error: ${error.message}`);
-        
+
         if (fs.existsSync(TEMP_ZIP)) {
             try {
                 fs.unlinkSync(TEMP_ZIP);
@@ -180,7 +200,7 @@ async function main() {
                 console.error(`Failed to clean up temporary file: ${cleanupError.message}`);
             }
         }
-        
+
         process.exit(1);
     }
 }
