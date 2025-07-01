@@ -24,6 +24,7 @@ import {
 	type Organization,
 	type Project,
 	getComponentKindRepoSource,
+	openClonedDirReq,
 	parseGitURL,
 } from "@wso2/wso2-platform-core";
 import { ProgressLocation, type ProviderResult, type QuickPickItem, type Uri, commands, window, workspace } from "vscode";
@@ -114,45 +115,52 @@ export function activateURIHandlers() {
 				try {
 					isRpcActive(ext);
 					const urlParams = new URLSearchParams(uri.query);
-					const orgHandle = urlParams.get("org");
-					const projectHandle = urlParams.get("project");
-					const componentName = urlParams.get("component");
-					const technology = urlParams.get("technology");
-					const integrationType = urlParams.get("integrationType");
-					const integrationDisplayType = urlParams.get("integrationDisplayType");
-					if (!orgHandle || !projectHandle) {
-						return;
-					}
-					getUserInfoForCmd("open project").then(async (userInfo) => {
-						const org = userInfo?.organizations.find((item) => item.handle === orgHandle);
-						if (!org) {
-							window.showErrorMessage(`Failed to find project organization for ${orgHandle}`);
-							return;
-						}
-						const cacheProjects = dataCacheStore.getState().getProjects(orgHandle);
-						let project = cacheProjects?.find((item) => item.handler === projectHandle);
-						if (!project) {
-							const projects = await window.withProgress(
-								{ title: `Fetching projects of organization ${org.name}...`, location: ProgressLocation.Notification },
-								() => ext.clients.rpcClient.getProjects(org.id.toString()),
-							);
-							project = projects?.find((item) => item.handler === projectHandle);
-						}
-						if (!project) {
-							window.showErrorMessage(`Failed to find project for ${projectHandle}`);
-							return;
-						}
-
-						await waitForContextStoreToLoad();
-
-						await cloneOrOpenDir(org, project, componentName, technology, integrationType, integrationDisplayType);
-					});
+					const orgHandle = urlParams.get("org") || "";
+					const projectHandle = urlParams.get("project") || "";
+					const componentName = urlParams.get("component") || "";
+					const technology = urlParams.get("technology") || "";
+					const integrationType = urlParams.get("integrationType") || "";
+					const integrationDisplayType = urlParams.get("integrationDisplayType") || "";
+					openClonedDir({
+						orgHandle,
+						projectHandle,componentName,technology,integrationType,integrationDisplayType
+					})
 				} catch (err: any) {
 					console.error("Failed to handle /open uri handler", err);
 					window.showErrorMessage(err?.message || "Failed to handle /open uri handler");
 				}
 			}
 		},
+	});
+}
+
+export const openClonedDir = async (params: openClonedDirReq) => {
+	if (!params.orgHandle || !params.projectHandle) {
+		return;
+	}
+	getUserInfoForCmd("open project").then(async (userInfo) => {
+		const org = userInfo?.organizations.find((item) => item.handle === params.orgHandle);
+		if (!org) {
+			window.showErrorMessage(`Failed to find project organization for ${params.orgHandle}`);
+			return;
+		}
+		const cacheProjects = dataCacheStore.getState().getProjects(params.orgHandle);
+		let project = cacheProjects?.find((item) => item.handler === params.projectHandle);
+		if (!project) {
+			const projects = await window.withProgress(
+				{ title: `Fetching projects of organization ${org.name}...`, location: ProgressLocation.Notification },
+				() => ext.clients.rpcClient.getProjects(org.id.toString()),
+			);
+			project = projects?.find((item) => item.handler === params.projectHandle);
+		}
+		if (!project) {
+			window.showErrorMessage(`Failed to find project for ${params.projectHandle}`);
+			return;
+		}
+
+		await waitForContextStoreToLoad();
+
+		await cloneOrOpenDir(org, project, params.componentName, params.technology, params.integrationType, params.integrationDisplayType);
 	});
 }
 

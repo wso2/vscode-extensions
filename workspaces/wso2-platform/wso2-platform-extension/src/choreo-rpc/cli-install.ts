@@ -24,11 +24,7 @@ import axios from "axios";
 import { ProgressLocation, window, workspace } from "vscode";
 import { ext } from "../extensionVariables";
 
-const config = workspace.getConfiguration('WSO2.WSO2-Platform');
-const CHOREO_CLI_RELEASES_BASE_URL =
-    process.env.CHOREO_CLI_RELEASES_BASE_URL ||
-    config.get<string>('ChoreoCliReleasesBaseUrl') ||
-    '';
+const CHOREO_CLI_RELEASES_BASE_URL = process.env.CHOREO_CLI_RELEASES_BASE_URL || '';
 
 export const getCliVersion = (): string => {
 	const packageJson = JSON.parse(fs.readFileSync(path.join(ext.context.extensionPath, "package.json"), "utf8"));
@@ -49,7 +45,7 @@ export const getChoreoExecPath = () => {
 };
 
 export const getChoreoEnv = (): string => {
-	return workspace.getConfiguration().get<string>("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") || "prod";
+	return process.env.CHOREO_ENV || process.env.CLOUD_ENV || workspace.getConfiguration().get<string>("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") || "prod";
 };
 
 const getChoreoBinPath = () => {

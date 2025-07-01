@@ -16,13 +16,14 @@
  * under the License.
  */
 
-import type { ComponentKind, IWso2PlatformExtensionAPI } from "@wso2/wso2-platform-core";
+import type { ComponentKind, IWso2PlatformExtensionAPI, openClonedDirReq } from "@wso2/wso2-platform-core";
 import { ext } from "./extensionVariables";
 import { hasDirtyRepo } from "./git/util";
 import { authStore } from "./stores/auth-store";
 import { contextStore } from "./stores/context-store";
-import { getNormalizedPath, isSamePath } from "./utils";
-
+import { isSamePath } from "./utils";
+import { webviewStateStore } from "./stores/webview-state-store";
+import { openClonedDir } from "./uri-handlers";
 export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 	public isLoggedIn = () => !!authStore.getState().state?.userInfo;
 	public getDirectoryComponents = (fsPath: string) =>
@@ -32,4 +33,7 @@ export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 			?.map((item) => item?.component)
 			?.filter((item) => !!item) as ComponentKind[]) ?? [];
 	public localRepoHasChanges = (fsPath: string) => hasDirtyRepo(fsPath, ext.context, ["context.yaml"]);
+	public getWebviewStateStore = () => webviewStateStore.getState().state;
+	public getContextStateStore = ()=> contextStore.getState().state;
+	public openClonedDir = (params: openClonedDirReq) => openClonedDir(params)
 }

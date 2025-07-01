@@ -369,6 +369,6 @@ export const setExtensionName = (extName?: ExtensionName) => {
 
 export const isRpcActive = (ext: ExtensionVariables) => {
 	if (!ext.clients.rpcClient.isActive()) {
-		throw new Error(`${webviewStateStore.getState().state.extensionName} extension is still hasn't been initialized...`);
+		throw new Error(`${webviewStateStore.getState().state.extensionName} extension still hasn't been initialized...`);
 	}
 };
