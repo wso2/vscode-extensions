@@ -1,11 +1,13 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ * This file includes code originally from:
+ *   json-schema-to-typescript (https://github.com/bcherny/json-schema-to-typescript)
+ *   Copyright (c) Boris Cherny
+ *   Licensed under the MIT License: https://opensource.org/licenses/MIT
  *
- * WSO2 LLC. licenses this file to you under the Apache License,
- * Version 2.0 (the "License"); you may not use this file except
- * in compliance with the License.
+ * Modifications and additional code copyright (c) 2025, WSO2 LLC. (https://www.wso2.com)
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing,
