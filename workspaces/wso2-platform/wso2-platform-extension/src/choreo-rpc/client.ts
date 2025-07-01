@@ -273,12 +273,13 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		return response.loginUrl;
 	}
 
-	async signInWithAuthCode(authCode: string, orgId?: string, redirectUrl?: string, clientId?: string): Promise<UserInfo | undefined> {
+	async signInWithAuthCode(authCode: string, region?: string, orgId?: string, redirectUrl?: string, clientId?: string): Promise<UserInfo | undefined> {
 		if (!this.client) {
 			throw new Error("RPC client is not initialized");
 		}
 		const response = await this.client.sendRequest<{ userInfo: UserInfo }>("auth/signInWithAuthCode", {
 			authCode,
+			region,
 			orgId,
 			redirectUrl,
 			clientId,

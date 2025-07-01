@@ -55,6 +55,7 @@ export function activateURIHandlers() {
 					getLogger().info("WSO2 Platform Login Callback hit");
 					const urlParams = new URLSearchParams(uri.query);
 					const authCode = urlParams.get("code");
+					const region = urlParams.get("region") || "";
 					if (authCode) {
 						getLogger().debug("Initiating WSO2 Platform sign in flow from auth code");
 						// TODO: Check if status is equal to STATUS_LOGGING_IN, if not, show error message.
@@ -69,7 +70,7 @@ export function activateURIHandlers() {
 									const orgId = contextStore?.getState().state?.selected?.org?.id?.toString();
 									const callbackUrl = extName === "Devant" ? `${choreoEnvConfig.getDevantUrl()}/vscode-auth` : undefined;
 									const clientId = extName === "Devant" ? choreoEnvConfig.getDevantAsguadeoClientId() : undefined;
-									const userInfo = await ext.clients.rpcClient.signInWithAuthCode(authCode, orgId, callbackUrl, clientId);
+									const userInfo = await ext.clients.rpcClient.signInWithAuthCode(authCode, region, orgId, callbackUrl, clientId);
 									if (userInfo) {
 										if(contextStore?.getState().state?.selected){
 											const includesOrg = userInfo.organizations?.some(item=>item.handle === contextStore?.getState().state?.selected?.orgHandle)
