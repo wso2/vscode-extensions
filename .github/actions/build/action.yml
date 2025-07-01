@@ -1,0 +1,175 @@
+name: "Release vsix to github and notify"
+inputs:
+  isPreRelease:
+    default: true
+    type: boolean
+  enableCache:
+    default: true
+    type: boolean
+  ballerina:
+    description: Update Ballerina extension version
+    type: boolean
+    required: false
+    default: false
+  choreo:
+    description: Update Choreo extension version
+    type: boolean
+    required: false
+    default: false
+  apk:
+    description: Update APK extension version
+    type: boolean
+    required: false
+    default: false
+  bi:
+    description: Update BI extension version
+    type: boolean
+    required: false
+    default: false
+  mi:
+    description: Update MI extension version
+    type: boolean
+    required: false
+    default: false
+  version:
+    default: "N/A"
+    type: string
+    required: false
+  balVersion:
+    default: 2201.7.1
+    type: string
+  token:
+    type: string
+    required: false
+  BALLERINA_AUTH_ORG:
+    default: true
+    type: string 
+  BALLERINA_AUTH_CLIENT_ID:
+    default: true
+    type: string 
+  MI_AUTH_ORG:
+    default: true
+    type: string 
+  MI_AUTH_CLIENT_ID:
+    default: true
+    type: string 
+  PLATFORM_DEFAULT_GHAPP_CLIENT_ID:
+    default: true
+    type: string 
+  PLATFORM_DEFAULT_DEVANT_ASGUADEO_CLIENT_ID:
+    default: true
+    type: string 
+  PLATFORM_STAGE_GHAPP_CLIENT_ID:
+    default: true
+    type: string 
+  PLATFORM_STAGE_DEVANT_ASGUADEO_CLIENT_ID:
+    default: true
+    type: string 
+  PLATFORM_DEV_GHAPP_CLIENT_ID:
+    default: true
+    type: string     
+  PLATFORM_DEV_DEVANT_ASGUADEO_CLIENT_ID:
+    default: true
+    type: string  
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Rush
+      uses: gigara/setup-rush@v1.2.0
+      with:
+        pnpm: 10.10.0
+        node: 22.x
+        cache-rush: ${{ inputs.enableCache }}
+        cache-pnpm: ${{ inputs.enableCache }}
+        set-env: ${{ inputs.enableCache }}
+
+    - uses: ballerina-platform/setup-ballerina@v1
+      name: Install Ballerina
+      with:
+        version: ${{ inputs.balVersion }}
+
+    - name: Update version - Balleina
+      if: ${{ inputs.ballerina == 'true' }}
+      uses: ./.github/actions/updateVersion
+      with:
+        path: "ballerina/ballerina-extension"
+        isPreRelease: ${{ inputs.isPreRelease }}
+        version: ${{ inputs.version }}
+
+    - name: Update version - Choreo
+      if: ${{ inputs.choreo == 'true' }}
+      uses: ./.github/actions/updateVersion
+      with:
+        path: "choreo/choreo-extension"
+        isPreRelease: ${{ inputs.isPreRelease }}
+        version: ${{ inputs.version }}
+
+    - name: Update version - APK
+      if: ${{ inputs.apk == 'true' }}
+      uses: ./.github/actions/updateVersion
+      with:
+        path: "apk/apk-extension"
+        isPreRelease: ${{ inputs.isPreRelease }}
+        version: ${{ inputs.version }}
+
+    - name: Update version - BI
+      if: ${{ inputs.bi == 'true' }}
+      uses: ./.github/actions/updateVersion
+      with:
+        path: "bi/bi-extension"
+        isPreRelease: ${{ inputs.isPreRelease }}
+        version: ${{ inputs.version }}
+
+    - name: Update version - MI
+      if: ${{ inputs.mi == 'true' }}
+      uses: ./.github/actions/updateVersion
+      with:
+        path: "mi/mi-extension"
+        isPreRelease: ${{ inputs.isPreRelease }}
+        version: ${{ inputs.version }}
+
+    - name: Copy .env.example to .env
+      shell: bash
+      run: |
+        find . -type f -name ".env.example" | while read example; do
+          envfile="$(dirname "$example")/.env"
+          cp "$example" "$envfile"
+        done
+
+    - name: Build repo
+      shell: bash
+      id: build
+      run: |
+        node common/scripts/install-run-rush.js build --verbose
+      env:
+        isPreRelease: ${{ inputs.isPreRelease == 'true' }}
+        BALLERINA_AUTH_ORG: ${{ inputs.BALLERINA_AUTH_ORG }}
+        BALLERINA_AUTH_CLIENT_ID: ${{ inputs.BALLERINA_AUTH_CLIENT_ID }}
+        MI_AUTH_ORG: ${{ inputs.MI_AUTH_ORG }}
+        MI_AUTH_CLIENT_ID: ${{ inputs.MI_AUTH_CLIENT_ID }}
+        PLATFORM_DEFAULT_GHAPP_CLIENT_ID: ${{ inputs.PLATFORM_DEFAULT_GHAPP_CLIENT_ID }}
+        PLATFORM_DEFAULT_DEVANT_ASGUADEO_CLIENT_ID: ${{ inputs.PLATFORM_DEFAULT_DEVANT_ASGUADEO_CLIENT_ID }}
+        PLATFORM_STAGE_GHAPP_CLIENT_ID: ${{ inputs.PLATFORM_STAGE_GHAPP_CLIENT_ID }}
+        PLATFORM_STAGE_DEVANT_ASGUADEO_CLIENT_ID: ${{ inputs.PLATFORM_STAGE_DEVANT_ASGUADEO_CLIENT_ID }}
+        PLATFORM_DEV_GHAPP_CLIENT_ID: ${{ inputs.PLATFORM_DEV_GHAPP_CLIENT_ID }}
+        PLATFORM_DEV_DEVANT_ASGUADEO_CLIENT_ID: ${{ inputs.PLATFORM_DEV_DEVANT_ASGUADEO_CLIENT_ID }}
+
+    - name: Compress build
+      shell: bash
+      run: |
+        zip -r build.zip ./ -x 'common/temp*' -x '**/node_modules/*' -y
+        zip VSIX.zip *.vsix
+
+    - name: Save build
+      uses: actions/upload-artifact@v4
+      with:
+        path: build.zip
+        name: ExtBuild
+        retention-days: 1
+
+    - name: Save VSIX
+      uses: actions/upload-artifact@v4
+      with:
+        path: VSIX.zip
+        name: VSIX
