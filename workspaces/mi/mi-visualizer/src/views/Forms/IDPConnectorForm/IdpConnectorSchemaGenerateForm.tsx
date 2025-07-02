@@ -8,13 +8,13 @@
  */
 
 import { useState, useEffect} from 'react';
-import { useVisualizerContext } from "@wso2-enterprise/mi-rpc-client";
+import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { convertJsonSchemaToArrays,validateJson,SelectedConectionObject} from './IdpUtills';
 import styled from "@emotion/styled";
-import { EVENT_TYPE, MACHINE_VIEW} from "@wso2-enterprise/mi-core";
+import { EVENT_TYPE, MACHINE_VIEW} from "@wso2/mi-core";
 import { SchemaEditorView } from './SchemaEditorView';
 import { TryOutView } from './TryOutView';
-import { ProgressRing } from '@wso2-enterprise/ui-toolkit';
+import { ProgressRing } from '@wso2/ui-toolkit';
 
 const LoadingContainer = styled.div`
   height: 100%;

@@ -8,9 +8,9 @@
  */
 
 import styled from "@emotion/styled";
-import { RpcClient } from "@wso2-enterprise/mi-rpc-client";
-import { Typography, Button, AutoComplete } from "@wso2-enterprise/ui-toolkit";
-import { Codicon } from "@wso2-enterprise/ui-toolkit";
+import { RpcClient } from "@wso2/mi-rpc-client";
+import { Typography, Button, AutoComplete } from "@wso2/ui-toolkit";
+import { Codicon } from "@wso2/ui-toolkit";
 
 const HeaderContainer = styled.div`
     height: 35px;

@@ -8,7 +8,7 @@
  */
 
 import styled from "@emotion/styled";
-import { Codicon,Button,Typography} from "@wso2-enterprise/ui-toolkit";
+import { Codicon,Button,Typography} from "@wso2/ui-toolkit";
 
 const IconContainer = styled.div`
   height: 70px;

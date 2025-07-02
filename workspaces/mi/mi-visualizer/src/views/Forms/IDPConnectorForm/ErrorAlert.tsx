@@ -8,7 +8,7 @@
  */
 
 import styled from "@emotion/styled";
-import { Codicon, Alert } from "@wso2-enterprise/ui-toolkit";
+import { Codicon, Alert } from "@wso2/ui-toolkit";
 
 interface ErrorAlertProps {
     errorMessage: string;

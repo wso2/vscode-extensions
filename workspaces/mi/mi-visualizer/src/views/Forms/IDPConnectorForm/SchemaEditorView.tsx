@@ -10,7 +10,7 @@
 import { ToggleButton } from "./ToggleButton";
 import { UploadWindow } from "./UploadWindow";
 import styled from "@emotion/styled";
-import ParameterManager from '@wso2-enterprise/mi-diagram/lib/components/Form/GigaParamManager/ParameterManager';
+import ParameterManager from '@wso2/mi-diagram/lib/components/Form/GigaParamManager/ParameterManager';
 import {
     convertArraysToJsonSchema,
     fieldConflictCheck,
@@ -24,10 +24,10 @@ import {
 } from './IdpUtills';
 import { ImgAndPdfViewer } from "./ImgAndPdfViewer";
 import React, { useState, useEffect, useRef } from "react";
-import { Button, TextField } from "@wso2-enterprise/ui-toolkit";
+import { Button, TextField } from "@wso2/ui-toolkit";
 import { ErrorAlert } from "./ErrorAlert";
 import { IdpHeaderSchemaGeneration } from "./IdpHeaderSchemaGeneration";
-import { RpcClient } from "@wso2-enterprise/mi-rpc-client";
+import { RpcClient } from "@wso2/mi-rpc-client";
 
 const VerticalDivider = styled.div`
     width: 1px;
