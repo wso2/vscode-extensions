@@ -13,10 +13,10 @@ import styled from "@emotion/styled";
 import { useEffect, useState, useRef } from "react";
 import { handleFetchError,SelectedConectionObject } from "./IdpUtills";
 import { ImgAndPdfViewer } from "./ImgAndPdfViewer";
-import { Button } from "@wso2-enterprise/ui-toolkit";
+import { Button } from "@wso2/ui-toolkit";
 import { ErrorAlert } from "./ErrorAlert";
 import { IdpHeaderTryout } from "./IdpHeaderTryout";
-import { RpcClient } from "@wso2-enterprise/mi-rpc-client";
+import { RpcClient } from "@wso2/mi-rpc-client";
 import { InitialTryOutView } from "./InitialTryOutView";
 
 const VerticalDivider = styled.div`

@@ -8,8 +8,8 @@
  */
 
 import styled from "@emotion/styled";
-import { Typography, Button } from "@wso2-enterprise/ui-toolkit";
-import { Codicon } from "@wso2-enterprise/ui-toolkit";
+import { Typography, Button } from "@wso2/ui-toolkit";
+import { Codicon } from "@wso2/ui-toolkit";
 import React from "react";
 
 const HeaderContainer = styled.div`
