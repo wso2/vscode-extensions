@@ -180,6 +180,7 @@ export function FormGenerator(props: FormGeneratorProps) {
     const [showGeneratedValuesIdenticalMessage, setShowGeneratedValuesIdenticalMessage] = useState<boolean>(false);
     const [isGeneratedValuesIdentical, setIsGeneratedValuesIdentical] = useState<boolean>(false);
     const [numberOfDifferent, setNumberOfDifferent] = useState<number>(0);
+    const [idpSchemaNames, setidpSchemaNames] = useState< {fileName: string; documentUriWithFileName?: string}[]>([]);
 
     useEffect(() => {
         if (generatedFormDetails) {
@@ -309,11 +310,15 @@ export function FormGenerator(props: FormGeneratorProps) {
                         [name]: connectionNames
                     }));
                 }
+                else if (element.value.inputType === "idpSchemaGenerateView" && documentUri) {
+                    const idpSchemas =await rpcClient.getMiDiagramRpcClient().getSchemaFiles();
+                    setidpSchemaNames(idpSchemas.schemaFiles);
+
+                }
             }
         });
         return defaultValues;
     }
-
     function getDefaultValue(element: any) {
         const name = getNameForController(element.value.name);
         const type = element.type;
@@ -329,22 +334,18 @@ export function FormGenerator(props: FormGeneratorProps) {
 
         if (type === 'table') {
             const valueObj: any[] = [];
-            currentValue?.forEach((param: any[]) => {
-                const val: any = {};
-
+            currentValue?.forEach((param: any) => {
                 if (!Array.isArray(param)) {
-                    param = Object.values(param);
+                    valueObj.push(param);
+                } else if (Array.isArray(param)) {
+                    const val: any = {};
+                    value.elements.forEach((field: any, index: number) => {
+                        const fieldName = getNameForController(field.value.name);
+                        val[fieldName] = param[index];
+                    });
+                    valueObj.push(val);
                 }
-
-                value.elements.forEach((field: any, index: number) => {
-                    const fieldName = getNameForController(field.value.name);
-                    const fieldValue = param[index];
-
-                    val[fieldName] = fieldValue;
-                });
-                valueObj.push(val);
             });
-
             return valueObj;
         } else if (expressionTypes.includes(inputType) &&
             (!currentValue || typeof currentValue !== 'object' || !('isExpression' in currentValue))) {
@@ -1144,6 +1145,53 @@ export function FormGenerator(props: FormGeneratorProps) {
                         </div>
                     </div>
                 );
+            case 'idpSchemaGenerateView':
+                const onCreateSchemaButtonClick = async (name?: string) => {
+                    const fetchItems = async () => {
+                        const idpSchemas =await rpcClient.getMiDiagramRpcClient().getSchemaFiles();
+                        setidpSchemaNames(idpSchemas.schemaFiles);
+                    }
+
+                    const handleValueChange = (value: string) => {
+                        setValue(name,value);
+                    }
+
+                    openPopup(
+                        rpcClient,
+                        "idp",
+                        fetchItems,
+                        handleValueChange,
+                        props.documentUri,
+                        undefined,
+                        sidePanelContext
+                    );
+                }
+                return (
+                    <>
+                        <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", width: '100%', gap: '10px' }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: '10px' }}>
+                                    <label>{element.displayName}{element.required === 'true' && '*'}</label>
+                                </div>
+                                <LinkButton onClick={() => onCreateSchemaButtonClick(name)}>
+                                    <Codicon name="plus" />Add new output schema
+                                </LinkButton>
+                        </div>
+
+                        <AutoComplete
+                                name={name}
+                                errorMsg={errors[getNameForController(name)] && errors[getNameForController(name)].message.toString()}
+                                items={
+                                    idpSchemaNames.map(schema => schema.fileName)
+                                }
+                                value={field.value}
+                                onValueChange={(e: any) => {
+                                    field.onChange(e);
+                                }}
+                                required={element.required === 'true'}
+                                allowItemCreate={false}
+                            />
+                    </>
+                )
             default:
                 return null;
         }

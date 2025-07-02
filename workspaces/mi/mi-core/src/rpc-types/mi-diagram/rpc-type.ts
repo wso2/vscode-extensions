@@ -50,6 +50,11 @@ import {
     AIUserInput,
     WriteContentToFileRequest,
     WriteContentToFileResponse,
+    WriteFileToRegistryRequest,
+    WriteFileToRegistryResponse,
+    GetSchemaFilesResponse,
+    ReadSchemaFileContentRequest,
+    ReadSchemaFileContentResponse,
     CreateLocalEntryRequest,
     CreateLocalEntryResponse,
     FileDirResponse,
@@ -326,6 +331,10 @@ export const migrateProject: RequestType<MigrateProjectRequest, MigrateProjectRe
 export const getAIResponse: RequestType<AIUserInput, string> = { method: `${_preFix}/getAIResponse` };
 export const writeContentToFile: RequestType<WriteContentToFileRequest, WriteContentToFileResponse> = { method: `${_preFix}/writeContentToFile` };
 export const handleFileWithFS: RequestType<HandleFileRequest, HandleFileResponse> = { method: `${_preFix}/handleFileWithFS` };
+export const writeFileToRegistry: RequestType<WriteFileToRegistryRequest, WriteFileToRegistryResponse> = { method: `${_preFix}/writeFileToRegistry` };
+export const getSchemaFiles: RequestType<void, GetSchemaFilesResponse> = { method: `${_preFix}/getSchemaFiles` };
+export const convertPdfToBase64Images: RequestType<string, string[]> = { method: `${_preFix}/convertPdfToBase64Images` };
+export const readSchemaFileContent: RequestType<ReadSchemaFileContentRequest, ReadSchemaFileContentResponse> = { method: `${_preFix}/readSchemaFileContent` };
 export const highlightCode: NotificationType<HighlightCodeRequest> = { method: `${_preFix}/highlightCode` };
 export const getWorkspaceContext: RequestType<void, GetWorkspaceContextResponse> = { method: `${_preFix}/getWorkspaceContext` };
 export const getProjectUuid: RequestType<void, GetProjectUuidResponse> = { method: `${_preFix}/getProjectUuid` };

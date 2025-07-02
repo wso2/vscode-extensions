@@ -229,6 +229,11 @@ import {
     UpdateWsdlEndpointRequest,
     UpdateWsdlEndpointResponse,
     WriteContentToFileRequest,
+    WriteFileToRegistryRequest,
+    ReadSchemaFileContentRequest,
+    ReadSchemaFileContentResponse,
+    WriteFileToRegistryResponse,
+    GetSchemaFilesResponse,
     WriteContentToFileResponse,
     HandleFileRequest,
     HandleFileResponse,
@@ -302,7 +307,7 @@ import { testFileMatchPattern } from "../../test-explorer/discover";
 import { mockSerivesFilesMatchPattern } from "../../test-explorer/mock-services/activator";
 import { UndoRedoManager } from "../../undoRedoManager";
 import { copyDockerResources, copyMavenWrapper, createFolderStructure, getAPIResourceXmlWrapper, getAddressEndpointXmlWrapper, getDataServiceXmlWrapper, getDefaultEndpointXmlWrapper, getDssDataSourceXmlWrapper, getFailoverXmlWrapper, getHttpEndpointXmlWrapper, getInboundEndpointXmlWrapper, getLoadBalanceXmlWrapper, getMessageProcessorXmlWrapper, getMessageStoreXmlWrapper, getProxyServiceXmlWrapper, getRegistryResourceContent, getTaskXmlWrapper, getTemplateEndpointXmlWrapper, getTemplateXmlWrapper, getWsdlEndpointXmlWrapper, createGitignoreFile, getEditTemplateXmlWrapper } from "../../util";
-import { addNewEntryToArtifactXML, createMetadataFilesForRegistryCollection, deleteRegistryResource, detectMediaType, getAvailableRegistryResources, getMediatypeAndFileExtension, getRegistryResourceMetadata, updateRegistryResourceMetadata } from "../../util/fileOperations";
+import { addNewEntryToArtifactXML, createMetadataFilesForRegistryCollection, deleteRegistryResource, detectMediaType, getAvailableRegistryResources, getMediatypeAndFileExtension, getRegistryResourceMetadata, updateRegistryResourceMetadata} from "../../util/fileOperations";
 import { log } from "../../util/logger";
 import { importProject } from "../../util/migrationUtils";
 import { generateSwagger, getResourceInfo, isEqualSwaggers, mergeSwaggers } from "../../util/swagger";
@@ -312,7 +317,7 @@ import { getBallerinaModuleContent, getBallerinaConfigContent } from "../../util
 import { generateXmlData, writeXmlDataToFile } from "../../util/template-engine/mustach-templates/createLocalEntry";
 import { getRecipientEPXml } from "../../util/template-engine/mustach-templates/recipientEndpoint";
 import { dockerfileContent, rootPomXmlContent } from "../../util/templates";
-import { replaceFullContentToFile } from "../../util/workspace";
+import { replaceFullContentToFile, saveIdpSchemaToFile } from "../../util/workspace";
 import { VisualizerWebview, webviews } from "../../visualizer/webview";
 import path = require("path");
 import { importCapp } from "../../util/importCapp";
@@ -3330,6 +3335,117 @@ ${endpointAttributes}
             console.error(`Error during file operation (${operation}) at ${filePath}:`, error);
             return { status: false, content: `Error during file operation: ${(error as Error).message}` };
         }
+    }
+
+    async writeFileToRegistry(params: WriteFileToRegistryRequest): Promise<WriteFileToRegistryResponse> {
+        const { fileContent, schemaName, imageOrPdf, writeToArtifactFile} = params; 
+        const langClient = getStateMachine(this.projectUri).context().langClient!;
+        const projectDetailsRes = await langClient?.getProjectDetails();
+        const runtimeVersion = projectDetailsRes.primaryDetails.runtimeVersion.value;
+        const isRegistrySupported = compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0;
+        const directoryPath =this.projectUri;
+        //add 4.3.0 compatibility
+        let folderPath ="";
+        if(!isRegistrySupported){
+            folderPath = path.join(directoryPath ?? '', 'src', 'main', 'wso2mi', 'resources','idp-schemas', `${schemaName}`, path.sep);
+        }
+        else{
+            folderPath = path.join(directoryPath ?? '', 'src', 'main', 'wso2mi',  'resources', 'registry', 'gov', 'idp-schemas', `${schemaName}`, path.sep);
+        }
+        //write the content to a file, if file exists, overwrite else create new file
+        try {
+            const status=await saveIdpSchemaToFile(folderPath, schemaName, fileContent, imageOrPdf);
+            if (!status) {
+                return { status: false };
+            }
+        } catch (error) {
+            console.error('Error writing content to file:', error);
+            return { status: false };
+        }
+        //write to artifcat.xml
+        if (writeToArtifactFile) {
+            const artifactName= "resources_idp_schemas_"+schemaName;
+            const file=schemaName+".json";
+            let artifactPath='';
+            if(!isRegistrySupported){
+                artifactPath = "/_system/governance/mi-resources/idp-schemas/" + schemaName;
+            }
+            else{
+                artifactPath = '/_system/governance/idp-schemas/' + schemaName;
+            }
+            await addNewEntryToArtifactXML(directoryPath ?? "",artifactName,file, artifactPath, "text/plain",false,isRegistrySupported )
+        }     
+        return {status: true};
+    }
+
+    async getSchemaFiles(): Promise<GetSchemaFilesResponse> {
+        const langClient = getStateMachine(this.projectUri).context().langClient!;
+        const projectDetailsRes = await langClient?.getProjectDetails();
+        const runtimeVersion = projectDetailsRes.primaryDetails.runtimeVersion.value;
+        const isRegistrySupported = compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0;
+        const directoryPath =this.projectUri;
+        let schemaDirectory="";
+
+        if(!isRegistrySupported){
+            schemaDirectory = path.join(directoryPath ?? '', 'src', 'main', 'wso2mi', 'resources','idp-schemas');
+        }
+        else{
+            schemaDirectory = path.join(directoryPath ?? '', 'src', 'main', 'wso2mi',  'resources', 'registry', 'gov', 'idp-schemas');
+        }
+        const schemaFiles: {fileName: string, documentUriWithFileName:string}[] = [];
+        if (fs.existsSync(schemaDirectory)) {
+            const items = await fs.promises.readdir(schemaDirectory, { withFileTypes: true });
+            for (const item of items) {
+                if (item.isDirectory()) { 
+                    schemaFiles.push({ fileName: item.name, documentUriWithFileName: path.join(schemaDirectory, item.name, item.name + '.json') });
+                }
+            }
+        }
+        return { schemaFiles };
+    }
+
+    async convertPdfToBase64Images(params: string): Promise<string[]> {
+        return new Promise(async (resolve) => {
+            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const images = await langClient.pdfToImagesBase64(params)
+            resolve(images);
+        });
+    }
+
+    async readSchemaFileContent(params: ReadSchemaFileContentRequest): Promise<ReadSchemaFileContentResponse> {
+        const { filePath } = params;
+        const response = {
+            fileContent: '',
+            base64Content: ''
+        };
+        try {
+            if (fs.existsSync(filePath)) {
+                response.fileContent = fs.readFileSync(filePath, 'utf8'); 
+            } else {
+                throw new Error(`File does not exist at path: ${filePath}`);
+            }
+            const folderPath = path.dirname(filePath);
+            if (fs.existsSync(folderPath)) {
+                const folderFiles = await fs.promises.readdir(folderPath); 
+                for (const file of folderFiles) {
+                    const currentFilePath = path.join(folderPath, file);
+                    let mimeType = '';
+                    if (file.endsWith('.png')) mimeType = 'image/png';
+                    else if (file.endsWith('.jpg') || file.endsWith('.jpeg')) mimeType = 'image/jpeg';
+                    else if (file.endsWith('.gif')) mimeType = 'image/gif';
+                    else if (file.endsWith('.webp')) mimeType = 'image/webp';
+                    else if (file.endsWith('.pdf')) mimeType = 'application/pdf';
+                    if (mimeType) {
+                        const fileContent = fs.readFileSync(currentFilePath, 'base64');
+                        response.base64Content = `data:${mimeType};base64,${fileContent}`;
+                        break;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error reading schema file content:', error);
+        }
+        return response;
     }
 
     async highlightCode(params: HighlightCodeRequest) {
