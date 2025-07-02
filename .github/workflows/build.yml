@@ -74,7 +74,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          token: ${{ secrets.GITHUB_BOT_TOKEN }}
+          token: ${{ secrets.CHOREO_BOT_TOKEN }}
           fetch-depth: 2
 
       - name: Analyze diff
@@ -156,7 +156,7 @@ jobs:
           bi: ${{ inputs.bi }}
           mi: ${{ inputs.mi }}
           version: ${{ inputs.version }}
-          token: ${{ secrets.GITHUB_BOT_TOKEN }}
+          token: ${{ secrets.CHOREO_BOT_TOKEN }}
           BALLERINA_AUTH_ORG: ${{ secrets.BALLERINA_AUTH_ORG }}
           BALLERINA_AUTH_CLIENT_ID: ${{ secrets.BALLERINA_AUTH_CLIENT_ID }}
           MI_AUTH_ORG: ${{ secrets.MI_AUTH_ORG }}
@@ -447,7 +447,7 @@ jobs:
           cd workspaces/mi/mi-extension && npx playwright install
           
       - name: Run Tests (First Attempt)
-        if: github.run_attempt == 1
+        if: github.run_attempt == 1 || steps.check-results.outcome == 'failure'
         run: |
           export $(dbus-launch)
           export DISPLAY=:98.0
