@@ -40,7 +40,7 @@ const DEFAULT_CHOREO_ENV_CONFIG: IChoreoEnvConfig = {
     choreoConsoleBaseUrl: process.env.DEFAULT_CHOREO_CONSOLE_BASE_URL || config.get('Default.choreoConsoleBaseUrl') || '',
     billingConsoleBaseUrl: process.env.DEFAULT_BILLING_CONSOLE_BASE_URL || config.get('Default.billingConsoleBaseUrl') || '',
     devantConsoleBaseUrl: process.env.DEFAULT_DEVANT_CONSOLE_BASE_URL || config.get('Default.devantConsoleBaseUrl') || '',
-    devantAsguadeoClientId: process.env.PLATFORM_DEFAULT_DEVANT_ASGUADEO_CLIENT_ID || config.get('Default.devantAsguadeoClientId') || '',
+    devantAsguadeoClientId: process.env.PLATFORM_DEFAULT_DEVANT_ASGARDEO_CLIENT_ID || config.get('Default.devantAsguadeoClientId') || '',
 };
 
 const CHOREO_ENV_CONFIG_STAGE: IChoreoEnvConfig = {
@@ -54,7 +54,7 @@ const CHOREO_ENV_CONFIG_STAGE: IChoreoEnvConfig = {
     choreoConsoleBaseUrl: process.env.STAGE_CHOREO_CONSOLE_BASE_URL || config.get('Stage.choreoConsoleBaseUrl') || '',
     billingConsoleBaseUrl: process.env.STAGE_BILLING_CONSOLE_BASE_URL || config.get('Stage.billingConsoleBaseUrl') || '',
     devantConsoleBaseUrl: process.env.STAGE_DEVANT_CONSOLE_BASE_URL || config.get('Stage.devantConsoleBaseUrl') || '',
-    devantAsguadeoClientId: process.env.PLATFORM_STAGE_DEVANT_ASGUADEO_CLIENT_ID || config.get('Stage.devantAsguadeoClientId') || '',
+    devantAsguadeoClientId: process.env.PLATFORM_STAGE_DEVANT_ASGARDEO_CLIENT_ID || config.get('Stage.devantAsguadeoClientId') || '',
 };
 
 const CHOREO_ENV_CONFIG_DEV: IChoreoEnvConfig = {
@@ -68,7 +68,7 @@ const CHOREO_ENV_CONFIG_DEV: IChoreoEnvConfig = {
     choreoConsoleBaseUrl: process.env.DEV_CHOREO_CONSOLE_BASE_URL || config.get('Dev.choreoConsoleBaseUrl') || '',
     billingConsoleBaseUrl: process.env.DEV_BILLING_CONSOLE_BASE_URL || config.get('Dev.billingConsoleBaseUrl') || '',
     devantConsoleBaseUrl: process.env.DEV_DEVANT_CONSOLE_BASE_URL || config.get('Dev.devantConsoleBaseUrl') || '',
-    devantAsguadeoClientId: process.env.PLATFORM_DEV_DEVANT_ASGUADEO_CLIENT_ID || config.get('Dev.devantAsguadeoClientId') || '',
+    devantAsguadeoClientId: process.env.PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID || config.get('Dev.devantAsguadeoClientId') || '',
 };
 
 class ChoreoEnvConfig {
