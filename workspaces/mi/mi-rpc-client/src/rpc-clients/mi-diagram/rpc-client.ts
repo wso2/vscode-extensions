@@ -197,6 +197,11 @@ import {
     WriteContentToFileResponse,
     HandleFileRequest,
     HandleFileResponse,
+    WriteFileToRegistryRequest,
+    WriteFileToRegistryResponse,
+    GetSchemaFilesResponse,
+    ReadSchemaFileContentRequest,
+    ReadSchemaFileContentResponse,
     applyEdit,
     askFileDirPath,
     askProjectDirPath,
@@ -325,6 +330,10 @@ import {
     updateWsdlEndpoint,
     writeContentToFile,
     handleFileWithFS,
+    writeFileToRegistry,
+    getSchemaFiles,
+    convertPdfToBase64Images,
+    readSchemaFileContent,
     StoreConnectorJsonResponse,
     getStoreConnectorJSON,
     TestDbConnectionRequest,
@@ -701,6 +710,22 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     handleFileWithFS(params: HandleFileRequest): Promise<HandleFileResponse> {
         return this._messenger.sendRequest(handleFileWithFS, HOST_EXTENSION, params);
+    }
+
+    writeFileToRegistry(params: WriteFileToRegistryRequest): Promise<WriteFileToRegistryResponse> {
+        return this._messenger.sendRequest(writeFileToRegistry, HOST_EXTENSION, params);
+    } 
+
+    getSchemaFiles(): Promise<GetSchemaFilesResponse> {
+        return this._messenger.sendRequest(getSchemaFiles, HOST_EXTENSION);
+    }
+
+    convertPdfToBase64Images(params:string): Promise<string[]> {
+        return this._messenger.sendRequest(convertPdfToBase64Images, HOST_EXTENSION, params);
+    }
+    
+    readSchemaFileContent(params: ReadSchemaFileContentRequest): Promise<ReadSchemaFileContentResponse> {
+        return this._messenger.sendRequest(readSchemaFileContent, HOST_EXTENSION, params);
     }
 
     highlightCode(params: HighlightCodeRequest): void {

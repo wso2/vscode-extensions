@@ -79,6 +79,9 @@ export const openPopup = (rpcClient: RpcClient, view: string, fetchItems: any, s
         case "connection":
             rpcClient.getMiVisualizerRpcClient().openView({ type: POPUP_EVENT_TYPE.OPEN_VIEW, location: { view: MACHINE_VIEW.ConnectorStore, documentUri: documentUri, customProps }, isPopup: true });
             break;
+        case "idp":
+            rpcClient.getMiVisualizerRpcClient().openView({ type: POPUP_EVENT_TYPE.OPEN_VIEW, location: { view: MACHINE_VIEW.IdpConnectorSchemaGeneratorForm, documentUri: documentUri}, isPopup: true });
+            break;
         default:
             return;
     }

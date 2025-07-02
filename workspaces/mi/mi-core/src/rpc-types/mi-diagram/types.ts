@@ -1267,6 +1267,30 @@ export interface HandleFileResponse {
     content?: string;
 }
 
+export interface WriteFileToRegistryRequest {
+    fileContent?: string;
+    schemaName:string;
+    imageOrPdf?: string;
+    writeToArtifactFile?: boolean;
+}
+
+export interface WriteFileToRegistryResponse {
+    status: boolean;
+}
+
+export interface GetSchemaFilesResponse {
+    schemaFiles:  {fileName: string; documentUriWithFileName?: string}[];
+}
+
+export interface ReadSchemaFileContentRequest{
+    filePath: string;
+}
+
+export interface ReadSchemaFileContentResponse{
+    fileContent: string;
+    base64Content?: string;
+}
+
 export interface HighlightCodeRequest {
     range: Range;
     force?: boolean;
