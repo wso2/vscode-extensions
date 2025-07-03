@@ -29,8 +29,12 @@ const env = dotenv.config({ path: envPath }).parsed;
 
 const mergedEnv = { ...env, ...process.env };
 
+const platformEnv = Object.fromEntries(
+  Object.entries(mergedEnv).filter(([key]) => key.startsWith('PLATFORM_'))
+);
+
 const envKeys = Object.fromEntries(
-  Object.entries(mergedEnv).map(([key, value]) => [
+  Object.entries(platformEnv).map(([key, value]) => [
     `process.env.${key}`,
     JSON.stringify(value),
   ])

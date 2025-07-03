@@ -69,7 +69,7 @@ export function activateURIHandlers() {
 								try {
 									const orgId = contextStore?.getState().state?.selected?.org?.id?.toString();
 									const callbackUrl = extName === "Devant" ? `${choreoEnvConfig.getDevantUrl()}/vscode-auth` : undefined;
-									const clientId = extName === "Devant" ? choreoEnvConfig.getDevantAsguadeoClientId() : undefined;
+									const clientId = extName === "Devant" ? choreoEnvConfig.getDevantAsgardeoClientId() : undefined;
 									const userInfo = await ext.clients.rpcClient.signInWithAuthCode(authCode, region, orgId, callbackUrl, clientId);
 									if (userInfo) {
 										if(contextStore?.getState().state?.selected){

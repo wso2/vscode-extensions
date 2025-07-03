@@ -40,7 +40,7 @@ export function signInCommand(context: ExtensionContext) {
 				}
 				let clientId: string | undefined;
 				if (webviewStateStore.getState().state?.extensionName === "Devant") {
-					clientId = choreoEnvConfig.getDevantAsguadeoClientId();
+					clientId = choreoEnvConfig.getDevantAsgardeoClientId();
 				}
 				console.log("Generating WSO2 Platform login URL for ", callbackUrl.toString());
 				const loginUrl = await window.withProgress({ title: "Generating Login URL...", location: ProgressLocation.Notification }, async () => {

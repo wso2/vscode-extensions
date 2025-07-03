@@ -31,6 +31,7 @@ export class StdioConnection {
 		this._serverProcess = spawn(executablePath, ["start-rpc-server"], {
 			env: {
 				...process.env,
+				// SKIP_KEYRING: "true", // enable if needed for code server
 				CHOREO_ENV: getChoreoEnv(),
 			},
 		});

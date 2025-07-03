@@ -328,14 +328,6 @@ export interface ComponentDeployment {
 	cronTimezone: string;
 }
 
-export interface GHAppConfig {
-	installUrl: string;
-	authUrl: string;
-	clientId: string;
-	redirectUrl: string;
-	devantRedirectUrl: string;
-}
-
 export interface StateReason {
 	code: string;
 	message: string;
