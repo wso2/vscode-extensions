@@ -119,7 +119,7 @@ jobs:
           if [ "${{ github.event.inputs.mi }}" == "true" ]; then
             echo "chatAPI=${{ secrets.MI_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.bi }}" == "true" ] || [ "${{ github.event.inputs.ballerina }}" == "true" ]; then
-            echo "chatAPI=${{ secrets.EGGPLANT_EXT_CHAT_API }}" >> $GITHUB_OUTPUT
+            echo "chatAPI=${{ secrets.BI_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
           else
             echo "chatAPI=${{ secrets.TOOLING_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
           fi
@@ -130,7 +130,7 @@ jobs:
         with:
           repo: wso2/ballerina-vscode
           name: ballerina
-          token: ${{ secrets.PUBLISH_PAT }}
+          token: ${{ secrets.CHOREO_BOT_TOKEN }}
           chatAPI: ${{ steps.chat.outputs.chatAPI }}
   
       - name: Create a release in wso2/product-ballerina-integrator repo
@@ -139,7 +139,7 @@ jobs:
         with:
           repo: wso2/product-ballerina-integrator
           name: ballerina-integrator
-          token: ${{ secrets.PUBLISH_PAT }}
+          token: ${{ secrets.CHOREO_BOT_TOKEN }}
           chatAPI: ${{ steps.chat.outputs.chatAPI }}
           
       - name: Create a release in wso2/platform-vscode repo
@@ -148,7 +148,7 @@ jobs:
         with:
           repo: wso2/platform-vscode
           name: wso2-platform
-          token: ${{ secrets.PUBLISH_PAT }}
+          token: ${{ secrets.CHOREO_BOT_TOKEN }}
           chatAPI: ${{ steps.chat.outputs.chatAPI }}
       
       - name: Create a release in wso2/choreo-vscode repo
@@ -157,7 +157,7 @@ jobs:
         with:
           repo: wso2/choreo-vscode
           name: choreo
-          token: ${{ secrets.PUBLISH_PAT }}
+          token: ${{ secrets.CHOREO_BOT_TOKEN }}
           chatAPI: ${{ steps.chat.outputs.chatAPI }}
 
       - name: Create a release in wso2/apk repo
@@ -166,7 +166,7 @@ jobs:
         with:
           repo: wso2/apk
           name: apk
-          token: ${{ secrets.MI_PUBLISH_PAT }}
+          token: ${{ secrets.CHOREO_BOT_TOKEN }}
           chatAPI: ${{ steps.chat.outputs.chatAPI }}
  
       - name: Create a release in wso2/mi-vscode repo
@@ -174,7 +174,7 @@ jobs:
         uses: ./.github/actions/release
         with:
           repo: wso2/mi-vscode
-          token: ${{ secrets.MI_PUBLISH_PAT }}
+          token: ${{ secrets.CHOREO_BOT_TOKEN }}
           name: micro-integrator
           chatAPI: ${{ steps.chat.outputs.chatAPI }}
 
@@ -183,9 +183,9 @@ jobs:
         with:
           version: ${{ steps.vsix.outputs.version }}
           threadId: ${{ github.run_id }}
-          bot_username: ${{ secrets.BALLERINA_BOT_USERNAME }}
-          bot_email: ${{ secrets.BALLERINA_BOT_EMAIL }}
-          bot_token: ${{ secrets.BALLERINA_BOT_TOKEN }}
+          bot_username: ${{ secrets.CHOREO_BOT_USERNAME }}
+          bot_email: ${{ secrets.CHOREO_BOT_EMAIL }}
+          bot_token: ${{ secrets.CHOREO_BOT_TOKEN }}
           ref_name: ${{ github.ref_name }}
           ballerina: ${{ inputs.ballerina }}
           bi: ${{ inputs.bi }}

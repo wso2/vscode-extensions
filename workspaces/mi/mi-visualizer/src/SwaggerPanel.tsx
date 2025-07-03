@@ -16,11 +16,9 @@
  * under the License.
  */
 
-import React from "react";
 import SwaggerUI from "swagger-ui-react";
 import { parse } from "yaml";
-import { View } from "./components/View";
-import '@wso2/ui-toolkit/src/styles/swagger/main.scss';
+import '@wso2/ui-toolkit/src/styles/swagger/styles.css';
 import { SwaggerData, Request, Response } from "@wso2/mi-core";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import styled from "@emotion/styled";
