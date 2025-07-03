@@ -20,6 +20,7 @@ import { type ChildProcessWithoutNullStreams, spawn } from "child_process";
 import { type MessageConnection, StreamMessageReader, StreamMessageWriter, createMessageConnection } from "vscode-jsonrpc/node";
 import { getLogger } from "../logger/logger";
 import { getChoreoEnv, getChoreoExecPath } from "./cli-install";
+import { workspace } from "vscode";
 
 export class StdioConnection {
 	private _connection: MessageConnection;
@@ -31,7 +32,7 @@ export class StdioConnection {
 		this._serverProcess = spawn(executablePath, ["start-rpc-server"], {
 			env: {
 				...process.env,
-				// SKIP_KEYRING: "true", // enable if needed for code server
+				SKIP_KEYRING: (workspace.getConfiguration().get("WSO2.WSO2-Platform.Advanced.StsToken") || process.env.CLOUD_STS_TOKEN) ? "true" : "",
 				CHOREO_ENV: getChoreoEnv(),
 			},
 		});

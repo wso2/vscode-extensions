@@ -56,7 +56,7 @@ const _env = envSchema.safeParse({
         choreoConsoleBaseUrl:process.env.PLATFORM_DEFAULT_CHOREO_CONSOLE_BASE_URL ?? "",
         billingConsoleBaseUrl: process.env.PLATFORM_DEFAULT_BILLING_CONSOLE_BASE_URL ?? "",
         devantConsoleBaseUrl: process.env.PLATFORM_DEFAULT_DEVANT_CONSOLE_BASE_URL ?? "",
-        devantAsgardeoClientId:process.env.PLATFORM_DEFAULT_DEVANT_ASGUADEO_CLIENT_ID ?? "",
+        devantAsgardeoClientId:process.env.PLATFORM_DEFAULT_DEVANT_ASGARDEO_CLIENT_ID ?? "",
     },
     stageEnvs:{
          ghApp: {
@@ -69,7 +69,7 @@ const _env = envSchema.safeParse({
         choreoConsoleBaseUrl: process.env.PLATFORM_STAGE_CHOREO_CONSOLE_BASE_URL ?? "",
         billingConsoleBaseUrl: process.env.PLATFORM_STAGE_BILLING_CONSOLE_BASE_URL ?? "",
         devantConsoleBaseUrl: process.env.PLATFORM_STAGE_DEVANT_CONSOLE_BASE_URL ?? "",
-        devantAsgardeoClientId: process.env.PLATFORM_STAGE_DEVANT_ASGUADEO_CLIENT_ID ?? "",
+        devantAsgardeoClientId: process.env.PLATFORM_STAGE_DEVANT_ASGARDEO_CLIENT_ID ?? "",
     },
     devEnvs:{
          ghApp: {
@@ -82,7 +82,7 @@ const _env = envSchema.safeParse({
         choreoConsoleBaseUrl: process.env.PLATFORM_DEV_CHOREO_CONSOLE_BASE_URL ?? "",
         billingConsoleBaseUrl: process.env.PLATFORM_DEV_BILLING_CONSOLE_BASE_URL ?? "",
         devantConsoleBaseUrl: process.env.PLATFORM_DEV_DEVANT_CONSOLE_BASE_URL ?? "",
-        devantAsgardeoClientId: process.env.PLATFORM_DEV_DEVANT_ASGUADEO_CLIENT_ID ?? "",
+        devantAsgardeoClientId: process.env.PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID ?? "",
     }
 } as z.infer<typeof envSchema>);
 
