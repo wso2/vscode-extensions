@@ -62,7 +62,7 @@ export const ComponentFormBuildSection: FC<Props> = (props) => {
 
 	useQuery({
 		queryKey: ["set-possible-build-pack", { buildpacks, directoryFsPath }],
-		queryFn: async ():Promise<null> => {
+		queryFn: async (): Promise<null> => {
 			const possiblePack = await getPossibleBuildPack(directoryFsPath, buildpacks);
 			const selectedLang = form.getValues("buildPackLang");
 			if (buildpacks.length > 0 && (!selectedLang || !buildpacks.find((item) => item.language === selectedLang))) {
@@ -77,7 +77,7 @@ export const ComponentFormBuildSection: FC<Props> = (props) => {
 	// automatically set dockerfile path
 	useQuery({
 		queryKey: ["set-dockerfile", { buildpacks, gitRoot, subPath }],
-		queryFn: async ():Promise<null> => {
+		queryFn: async (): Promise<null> => {
 			if (form.getValues("dockerFile") === "") {
 				const dockerFileFullPath = await ChoreoWebViewAPI.getInstance().joinFsFilePaths([gitRoot, subPath, "Dockerfile"]);
 				const dockerFileExists = await ChoreoWebViewAPI.getInstance().fileExist(dockerFileFullPath);

@@ -19,7 +19,7 @@
 import type { WebviewProps } from "@wso2/choreo-core";
 import * as vscode from "vscode";
 import { ext } from "../extensionVariables";
-import { contextStore } from "../stores/context-store";
+import { getContextStateStore } from "../utils";
 import { WebViewViewRPC } from "./WebviewRPC";
 import { getUri } from "./utils";
 
@@ -41,12 +41,11 @@ export class ProjectActivityView implements vscode.WebviewViewProvider {
 		};
 		webviewView.webview.html = this._getWebviewContent(webviewView.webview);
 		this._rpc = new WebViewViewRPC(webviewView);
-		// this.updateProjectInfo();
 
-		contextStore.subscribe((store) => {
-			webviewView.title = store?.state?.selected?.project?.name ?? "Project";
-			// webviewView.description = store?.state?.selected?.org?.name;
-		});
+		setInterval(async () => {
+			const state = await getContextStateStore();
+			webviewView.title = state?.selected?.project?.name ?? "Project";
+		}, 2000);
 	}
 
 	private _getWebviewContent(webview: vscode.Webview) {

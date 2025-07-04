@@ -23,7 +23,6 @@ import { promisify } from "util";
 import type { IChildLogger, IVSCodeExtLogger } from "@vscode-logging/types";
 import { NOOP_LOGGER, configureLogger } from "@vscode-logging/wrapper";
 import { type ExtensionContext, window } from "vscode";
-import { getTelemetryReporter } from "../telemetry/telemetry";
 import { TelemetryWrapper } from "./telemetry-wrapper";
 
 const readFile = promisify(readFileCallback);
@@ -33,7 +32,7 @@ const readFile = promisify(readFileCallback);
 // only once the `activate` function has been called in extension.ts
 // as the `ExtensionContext` argument to `activate` contains the required `logPath`
 let loggerImpel: IVSCodeExtLogger = NOOP_LOGGER;
-let childLogger: IChildLogger = new TelemetryWrapper(loggerImpel, getTelemetryReporter());
+let childLogger: IChildLogger = new TelemetryWrapper(loggerImpel);
 
 export function getLogger(): IChildLogger {
 	return childLogger;
@@ -41,7 +40,7 @@ export function getLogger(): IChildLogger {
 
 function setLogger(newLogger: IVSCodeExtLogger): void {
 	loggerImpel = newLogger;
-	childLogger = new TelemetryWrapper(loggerImpel, getTelemetryReporter());
+	childLogger = new TelemetryWrapper(loggerImpel);
 }
 
 const LOGGING_LEVEL_PROP = "Logging.loggingLevel";
