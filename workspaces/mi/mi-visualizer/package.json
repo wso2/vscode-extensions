@@ -62,8 +62,7 @@
     "cron-expression-validator": "~1.0.20",
     "@playwright/test": "1.52.0",
     "react-pdf": "~9.2.1",
-    "@monaco-editor/react": "^4.7.0",
-    "flat": "^6.0.1"
+    "@monaco-editor/react": "^4.7.0"
   },
   "devDependencies": {
     "@storybook/addon-actions": "~8.6.14",
