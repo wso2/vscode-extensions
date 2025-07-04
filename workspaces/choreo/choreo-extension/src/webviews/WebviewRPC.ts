@@ -16,8 +16,7 @@
  * under the License.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, unlinkSync, writeFileSync } from "fs";
-import { join } from "path";
+// import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, unlinkSync, writeFileSync } from "fs";
 import {
 	AuthStoreChangedNotification,
 	ClearWebviewCache,
@@ -43,12 +42,15 @@ import {
 	GetConfigFileDrifts,
 	type GetConfigFileDriftsReq,
 	GetContextState,
+	GetContextStateStore,
 	GetDirectoryFileNames,
 	GetLocalGitData,
 	GetSubPath,
+	GetWebviewStateStore,
 	GetWebviewStoreState,
 	GoToSource,
 	HasDirtyLocalGitRepo,
+	IsLoggedIn,
 	JoinFsFilePaths,
 	JoinUriFilePaths,
 	OpenComponentViewDrawer,
@@ -91,27 +93,21 @@ import {
 	makeURLSafe,
 } from "@wso2/choreo-core";
 import * as yaml from "js-yaml";
-import { ProgressLocation, QuickPickItemKind, Uri, type WebviewPanel, type WebviewView, commands, env, window } from "vscode";
+import { ProgressLocation, QuickPickItemKind, Uri, type WebviewPanel, type WebviewView, commands, env, extensions, window } from "vscode";
 import * as vscode from "vscode";
 import { Messenger } from "vscode-messenger";
 import { BROADCAST } from "vscode-messenger-common";
-import { registerChoreoRpcResolver } from "../choreo-rpc";
-import { getChoreoEnv, getChoreoExecPath } from "../choreo-rpc/cli-install";
-import { quickPickWithLoader } from "../cmds/cmd-utils";
-import { submitCreateComponentHandler } from "../cmds/create-component-cmd";
-import { choreoEnvConfig } from "../config";
+// import { quickPickWithLoader } from "../cmds/cmd-utils";
+// import { submitCreateComponentHandler } from "../cmds/create-component-cmd";
+// import { choreoEnvConfig } from "../config";
 import { ext } from "../extensionVariables";
-import { getConfigFileDrifts, getGitHead, getGitRemotes, getGitRoot, hasDirtyRepo, removeCredentialsFromGitURL } from "../git/util";
 import { getLogger } from "../logger/logger";
-import { authStore } from "../stores/auth-store";
-import { contextStore } from "../stores/context-store";
-import { dataCacheStore } from "../stores/data-cache-store";
-import { webviewStateStore } from "../stores/webview-state-store";
-import { sendTelemetryEvent, sendTelemetryException } from "../telemetry/utils";
-import { getNormalizedPath, getSubPath, goTosource, readLocalEndpointsConfig, readLocalProxyConfig, saveFile } from "../utils";
+// import { sendTelemetryEvent, sendTelemetryException } from "../telemetry/utils";
+import { IWso2PlatformExtensionAPI } from "@wso2/wso2-platform-core"
 
 // Register handlers
 function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | WebviewView) {
+	/*
 	authStore.subscribe((store) => messenger.sendNotification(AuthStoreChangedNotification, BROADCAST, store.state));
 	webviewStateStore.subscribe((store) => messenger.sendNotification(WebviewStateChangedNotification, BROADCAST, store.state));
 	contextStore.subscribe((store) => messenger.sendNotification(ContextStoreChangedNotification, BROADCAST, store.state));
@@ -129,43 +125,9 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 			return [];
 		}
 	});
-	messenger.onRequest(GetLocalGitData, async (dirPath: string) => {
-		try {
-			const gitRoot = await getGitRoot(ext.context, dirPath);
-			const remotes = await getGitRemotes(ext.context, dirPath);
-			const head = await getGitHead(ext.context, dirPath);
-			let headRemoteUrl = "";
-			const remotesSet = new Set<string>();
-			remotes.forEach((remote) => {
-				if (remote.fetchUrl) {
-					const sanitized = removeCredentialsFromGitURL(remote.fetchUrl);
-					remotesSet.add(sanitized);
-					if (head?.upstream?.remote === remote.name) {
-						headRemoteUrl = sanitized;
-					}
-				}
-			});
-
-			return {
-				remotes: Array.from(remotesSet),
-				upstream: { name: head?.name, remote: head?.upstream?.remote, remoteUrl: headRemoteUrl },
-				gitRoot: gitRoot,
-			};
-		} catch (error: any) {
-			getLogger().error(error.message);
-			return undefined;
-		}
-	});
 	messenger.onRequest(JoinFsFilePaths, (files: string[]) => join(...files));
 	messenger.onRequest(JoinUriFilePaths, ([base, ...rest]: string[]) => Uri.joinPath(Uri.parse(base), ...rest).path);
 	messenger.onRequest(GetSubPath, (params: { subPath: string; parentPath: string }) => getSubPath(params.subPath, params.parentPath));
-	messenger.onRequest(ExecuteCommandRequest, async (args: string[]) => {
-		if (args.length >= 1) {
-			const cmdArgs = args.length > 1 ? args.slice(1) : [];
-			const result = await commands.executeCommand(args[0], ...cmdArgs);
-			return result;
-		}
-	});
 	messenger.onRequest(OpenExternal, (url: string) => {
 		vscode.env.openExternal(vscode.Uri.parse(url));
 	});
@@ -544,15 +506,53 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 	messenger.onRequest(CloseComponentViewDrawer, (componentKey: string) => {
 		webviewStateStore.getState().onCloseComponentDrawer(componentKey);
 	});
-	messenger.onRequest(HasDirtyLocalGitRepo, async (componentPath: string) => {
-		return hasDirtyRepo(componentPath, ext.context);
-	});
-	messenger.onRequest(GetConfigFileDrifts, async (params: GetConfigFileDriftsReq) => {
-		return getConfigFileDrifts(params.type, params.repoUrl, params.branch, params.repoDir, ext.context);
+
+	*/
+	messenger.onRequest(ExecuteCommandRequest, async (args: string[]) => {
+		if (args.length >= 1) {
+			const cmdArgs = args.length > 1 ? args.slice(1) : [];
+			const result = await commands.executeCommand(args[0], ...cmdArgs);
+			return result;
+		}
 	});
 
-	// Register Choreo CLL RPC handler
-	registerChoreoRpcResolver(messenger, ext.clients.rpcClient);
+
+	// New types
+	messenger.onRequest(IsLoggedIn, async () => {
+		const platformExt = extensions.getExtension("wso2.wso2-platform");
+		if(!platformExt){
+			return false
+		}
+		if(!platformExt.isActive){
+			await platformExt.activate();
+		}
+		const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports
+        return platformExtAPI.isLoggedIn();
+	});
+
+	messenger.onRequest(GetWebviewStateStore, async () => {
+		const platformExt = extensions.getExtension("wso2.wso2-platform");
+		if(!platformExt){
+			return false
+		}
+		if(!platformExt.isActive){
+			await platformExt.activate();
+		}
+		const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports
+        return platformExtAPI.getWebviewStateStore();
+	});
+
+	messenger.onRequest(GetContextStateStore, async () => {
+		const platformExt = extensions.getExtension("wso2.wso2-platform");
+		if(!platformExt){
+			return false
+		}
+		if(!platformExt.isActive){
+			await platformExt.activate();
+		}
+		const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports
+        return platformExtAPI.getContextStateStore();
+	});
 }
 
 export class WebViewPanelRpc {
@@ -596,7 +596,7 @@ export class WebViewViewRPC {
 		try {
 			registerWebviewRPCHandlers(this._messenger, view);
 		} catch (err) {
-			console.log("registerWebviewRPCHandlers error:", err);
+			// console.log("registerWebviewRPCHandlers error:", err);
 		}
 	}
 

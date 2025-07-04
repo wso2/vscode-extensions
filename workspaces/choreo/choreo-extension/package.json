@@ -21,7 +21,7 @@
     "onStartupFinished"
   ],
   "extensionDependencies": [
-    "redhat.vscode-yaml"
+    "wso2.wso2-platform"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -30,96 +30,6 @@
         "command": "wso2.choreo.getStarted",
         "title": "Get Started",
         "category": "Choreo"
-      },
-      {
-        "command": "wso2.choreo.sign.in",
-        "title": "Sign In",
-        "category": "Choreo",
-        "icon": "${sign-in}",
-        "enablement": "!isLoggedIn"
-      },
-      {
-        "command": "wso2.choreo.sign.in.with.authCode",
-        "title": "Sign In with Auth Code",
-        "category": "Choreo",
-        "enablement": "!isLoggedIn"
-      },
-      {
-        "command": "wso2.choreo.sign.out",
-        "title": "Sign Out",
-        "category": "Choreo",
-        "icon": "${sign-out}"
-      },
-      {
-        "command": "wso2.choreo.create.component",
-        "title": "Create Component",
-        "category": "Choreo",
-        "icon": "$(add)"
-      },
-      {
-        "command": "wso2.choreo.open.external",
-        "title": "Open in Console",
-        "category": "Choreo",
-        "icon": "$(link-external)"
-      },
-      {
-        "command": "wso2.choreo.delete.component",
-        "title": "Delete Component",
-        "category": "Choreo",
-        "icon": "$(trash)"
-      },
-      {
-        "command": "wso2.choreo.component.view",
-        "title": "View Component Details",
-        "category": "Choreo",
-        "icon": "$(preview)"
-      },
-      {
-        "command": "wso2.choreo.project.clone",
-        "title": "Clone Repository",
-        "category": "Choreo",
-        "icon": "$(repo-clone)"
-      },
-      {
-        "command": "wso2.choreo.project.create.context",
-        "title": "Select Project",
-        "category": "Choreo",
-        "icon": "$(link)"
-      },
-      {
-        "command": "wso2.choreo.project.manage.context",
-        "title": "Manage Project",
-        "category": "Choreo",
-        "icon": "$(settings-gear)"
-      },
-      {
-        "command": "wso2.choreo.project.refresh",
-        "title": "Refresh Workspace",
-        "category": "Choreo",
-        "icon": "$(refresh)",
-        "enablement": "!isLoadingContextDirs"
-      },
-      {
-        "command": "wso2.choreo.project.create.workspace",
-        "title": "Open Project in a Multi-root Workspace",
-        "shortTitle": "Create workspace file",
-        "category": "Choreo",
-        "icon": "$(new-file)",
-        "enablement": "isLoggedIn && hasSelectedProject && notUsingWorkspaceFile"
-      },
-      {
-        "command": "wso2.choreo.component.create.dependency",
-        "title": "Create component dependency",
-        "shortTitle": "Create dependency",
-        "category": "Choreo",
-        "icon": "$(link)"
-      },
-      {
-        "command": "wso2.choreo.component.view.dependency",
-        "title": "View dependency documentation",
-        "shortTitle": "View dependency",
-        "category": "Choreo",
-        "icon": "$(preview)"
       }
     ],
     "viewsContainers": {
@@ -143,39 +53,39 @@
     "menus": {
       "view/title": [
         {
-          "command": "wso2.choreo.create.component",
+          "command": "wso2.wso2-platform.create.component",
           "when": "view == choreo.activity.project && isLoggedIn",
           "group": "navigation"
         },
         {
-          "command": "wso2.choreo.project.refresh",
+          "command": "wso2.wso2-platform.project.refresh",
           "when": "view == choreo.activity.project && isLoggedIn",
           "group": "navigation"
         },
         {
-          "command": "wso2.choreo.project.manage.context",
+          "command": "wso2.wso2-platform.project.manage.context",
           "when": "view == choreo.activity.project && isLoggedIn",
           "group": "project"
         },
         {
-          "command": "wso2.choreo.open.external",
+          "command": "wso2.wso2-platform.open.external",
           "when": "view == choreo.activity.project && isLoggedIn && hasSelectedProject",
           "group": "project"
         },
         {
-          "command": "wso2.choreo.sign.out",
+          "command": "wso2.wso2-platform.sign.out",
           "when": "view == choreo.activity.project && isLoggedIn",
           "group": "sign-out"
         }
       ],
       "webview/context": [
         {
-          "command": "wso2.choreo.open.external",
+          "command": "wso2.wso2-platform.open.external",
           "when": "webviewId == choreo.activity.project && webviewSection == 'componentListItem'",
           "group": "access"
         },
         {
-          "command": "wso2.choreo.delete.component",
+          "command": "wso2.wso2-platform.delete.component",
           "when": "webviewSection == 'componentListItem'",
           "group": "destructive"
         }
@@ -207,23 +117,6 @@
           "description": "Should Source Code Location Info be added to log entries, DANGER - May be very slow, only use in debugging scenarios",
           "order": 1,
           "scope": "window"
-        },
-        "Advanced.ChoreoEnvironment": {
-          "type": "string",
-          "enum": [
-            "prod",
-            "stage",
-            "dev"
-          ],
-          "default": "prod",
-          "description": "The Choreo Enviornment to use",
-          "scope": "window"
-        },
-        "Advanced.RpcPath": {
-          "type": "string",
-          "default": "",
-          "description": "The path to Choreo RPC server",
-          "scope": "window"
         }
       }
     },
@@ -236,7 +129,7 @@
           {
             "id": "createComponent",
             "title": "Create components",
-            "description": "A Choreo component is a self-contained unit associated with your source code, designed to be built and deployed in the Choreo cloud platform.\nVarious types of components are supported, including Services, Manual Triggers, Cron Jobs, Web Applications, and more.\n[Create Component](command:wso2.choreo.create.component)\n Once created, you will be able to easily access your components from the [Choreo activity panel](command:choreo.activity.project.focus).",
+            "description": "A Choreo component is a self-contained unit associated with your source code, designed to be built and deployed in the Choreo cloud platform.\nVarious types of components are supported, including Services, Manual Triggers, Cron Jobs, Web Applications, and more.\n[Create Component](command:wso2.wso2-platform.create.component)\n Once created, you will be able to easily access your components from the [Choreo activity panel](command:choreo.activity.project.focus).",
             "media": {
               "markdown": "resources/walkthrough/comp-create.md"
             }
@@ -244,7 +137,7 @@
           {
             "id": "projectDirectory",
             "title": "Project directory",
-            "description": "Upon creating a component or linking a directory with a project, a `.choreo/context.yaml` will be created in the root of the Git repository, establishing an association between the directory and the Choreo project.\nA directory can be associated with multiple projects, and you have the ability to switch between these projects.\nIf the `context.yaml` file is not available, you can generate it by [linking the directory](command:wso2.choreo.project.create.context) with the project.\n[Manage Project](command:wso2.choreo.project.manage.context)",
+            "description": "Upon creating a component or linking a directory with a project, a `.choreo/context.yaml` will be created in the root of the Git repository, establishing an association between the directory and the Choreo project.\nA directory can be associated with multiple projects, and you have the ability to switch between these projects.\nIf the `context.yaml` file is not available, you can generate it by [linking the directory](command:wso2.wso2-platform.project.create.context) with the project.\n[Manage Project](command:wso2.wso2-platform.project.manage.context)",
             "media": {
               "markdown": "resources/walkthrough/link-dir.md"
             }
@@ -252,7 +145,7 @@
           {
             "id": "manageComponent",
             "title": "Manage your components",
-            "description": "Access the component details view to manage a selected component. This view is accessible by selecting a component in the [Choreo activity panel](command:choreo.activity.project.focus) or by running the [View Component Details](command:wso2.choreo.component.view) command.\n**Build component**: Initiate a new build by selecting the commit you wish to build. In case of build failures, diagnose them by reviewing the build logs.\n**Deploy component**: Once a component's commit has been successfully built, deploy the build onto any available environment (e.g., Development, Production, etc.).\n**Test component**: Depending on the component type, you can test it using an Open API view, manually triggering functions, or accessing publicly available URLs.\n**View Logs**: After successful deployment, monitor real-time application and gateway logs of the component within VSCode's integrated terminal.",
+            "description": "Access the component details view to manage a selected component. This view is accessible by selecting a component in the [Choreo activity panel](command:choreo.activity.project.focus) or by running the [View Component Details](command:wso2.wso2-platform.component.view) command.\n**Build component**: Initiate a new build by selecting the commit you wish to build. In case of build failures, diagnose them by reviewing the build logs.\n**Deploy component**: Once a component's commit has been successfully built, deploy the build onto any available environment (e.g., Development, Production, etc.).\n**Test component**: Depending on the component type, you can test it using an Open API view, manually triggering functions, or accessing publicly available URLs.\n**View Logs**: After successful deployment, monitor real-time application and gateway logs of the component within VSCode's integrated terminal.",
             "media": {
               "markdown": "resources/walkthrough/comp-details.md"
             }
@@ -327,6 +220,7 @@
     "@vscode/webview-ui-toolkit": "^1.2.0",
     "@wso2/choreo-core": "workspace:*",
     "@wso2/choreo-vscode-webviews": "workspace:*",
+    "@wso2/wso2-platform-core": "workspace:*",
     "byline": "^5.0.0",
     "dotenv": "^16.0.3",
     "file-type": "^18.2.1",

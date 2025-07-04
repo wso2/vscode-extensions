@@ -16,20 +16,8 @@
  * under the License.
  */
 
-import { CommandIds } from "@wso2/choreo-core";
-import { type ExtensionContext, commands } from "vscode";
-import { authStore } from "../stores/auth-store";
-import { contextStore } from "../stores/context-store";
+import type { ExtensionContext } from "vscode";
 
-export function refreshContextCommand(context: ExtensionContext) {
-	context.subscriptions.push(
-		commands.registerCommand(CommandIds.RefreshDirectoryContext, async () => {
-			const userInfo = authStore.getState().state.userInfo;
-			if (!userInfo) {
-				throw new Error("You are not logged in. Please log in and retry.");
-			}
-
-			await contextStore.getState().refreshState();
-		}),
-	);
+export function activateCmds(context: ExtensionContext) {
+	// TODO: add any commands to be activated here
 }

@@ -32,6 +32,7 @@ import type {
 } from "./common.types";
 import type { Endpoint, ProxyConfig } from "./config-file.types";
 import type { AuthState, ContextStoreState, WebviewState } from "./store.types";
+import { WebviewState as PlatformWebviewState, ContextStoreState as PlatformContextStoreState } from "@wso2/wso2-platform-core"
 
 // Request types
 export const GetAuthState: RequestType<void, AuthState> = { method: "getAuthState" };
@@ -76,6 +77,11 @@ export const CreateLocalEndpointsConfig: RequestType<CreateLocalEndpointsConfigR
 export const CreateLocalProxyConfig: RequestType<CreateLocalProxyConfigReq, void> = { method: "createLocalProxyConfig" };
 export const CreateLocalConnectionsConfig: RequestType<CreateLocalConnectionsConfigReq, void> = { method: "createLocalConnectionsConfig" };
 export const DeleteLocalConnectionsConfig: RequestType<DeleteLocalConnectionsConfigReq, void> = { method: "deleteLocalConnectionsConfig" };
+
+// new types
+export const IsLoggedIn: RequestType<void, boolean> = { method: "isLoggedIn" };
+export const GetWebviewStateStore: RequestType<void, PlatformWebviewState> = { method: "getWebviewStateStore" };
+export const GetContextStateStore: RequestType<void, PlatformContextStoreState> = { method: "getContextStateStore" };
 
 const NotificationMethods = {
 	onAuthStateChanged: "onAuthStateChanged",

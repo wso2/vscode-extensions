@@ -18,7 +18,6 @@
 
 import type { ExtensionContext, StatusBarItem } from "vscode";
 import type { ChoreoExtensionApi } from "./ChoreoExtensionApi";
-import type { ChoreoRPCClient } from "./choreo-rpc";
 
 // TODO: move into seperate type file along with ChoreoExtensionAPI
 export class ExtensionVariables {
@@ -26,9 +25,7 @@ export class ExtensionVariables {
 	public api!: ChoreoExtensionApi;
 	public statusBarItem!: StatusBarItem;
 
-	public clients!: {
-		rpcClient: ChoreoRPCClient;
-	};
+	public clients!: { };
 }
 
 export const ext = new ExtensionVariables();

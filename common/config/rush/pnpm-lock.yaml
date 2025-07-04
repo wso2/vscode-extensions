@@ -2360,6 +2360,9 @@ importers:
 
   ../../workspaces/choreo/choreo-core:
     dependencies:
+      '@wso2/wso2-platform-core':
+        specifier: workspace:*
+        version: link:../../wso2-platform/wso2-platform-core
       vscode-messenger-common:
         specifier: ^0.5.1
         version: 0.5.1
@@ -2400,6 +2403,9 @@ importers:
       '@wso2/choreo-vscode-webviews':
         specifier: workspace:*
         version: link:../choreo-webviews
+      '@wso2/wso2-platform-core':
+        specifier: workspace:*
+        version: link:../../wso2-platform/wso2-platform-core
       byline:
         specifier: ^5.0.0
         version: 5.0.0
@@ -29063,7 +29069,7 @@ snapshots:
       semver: 7.7.2
       storybook: 9.0.12(@testing-library/dom@10.4.0)(prettier@3.5.3)
       style-loader: 3.3.4(webpack@5.99.9(webpack-cli@5.1.4))
-      terser-webpack-plugin: 5.3.14(webpack@5.99.9(webpack-cli@5.1.4))
+      terser-webpack-plugin: 5.3.14(webpack@5.99.9)
       ts-dedent: 2.2.0
       url: 0.11.4
       util: 0.12.5
@@ -42016,7 +42022,10 @@ snapshots:
       pretty-format: 25.5.0
       throat: 5.0.0
     transitivePeerDependencies:
+      - bufferutil
+      - canvas
       - supports-color
+      - utf-8-validate
 
   jest-leak-detector@25.5.0:
     dependencies:
@@ -49196,15 +49205,6 @@ snapshots:
       terser: 5.43.0
       webpack: 5.88.2(webpack-cli@5.1.4)
 
-  terser-webpack-plugin@5.3.14(webpack@5.99.9(webpack-cli@5.1.4)):
-    dependencies:
-      '@jridgewell/trace-mapping': 0.3.25
-      jest-worker: 27.5.1
-      schema-utils: 4.3.2
-      serialize-javascript: 6.0.2
-      terser: 5.43.0
-      webpack: 5.99.9(webpack-cli@5.1.4)
-
   terser-webpack-plugin@5.3.14(webpack@5.99.9):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.25
@@ -49212,7 +49212,7 @@ snapshots:
       schema-utils: 4.3.2
       serialize-javascript: 6.0.2
       terser: 5.43.0
-      webpack: 5.99.9(webpack-cli@6.0.1)
+      webpack: 5.99.9(webpack-cli@5.1.4)
 
   terser@4.8.1:
     dependencies:
@@ -49562,7 +49562,7 @@ snapshots:
       semver: 7.7.2
       source-map: 0.7.4
       typescript: 5.8.3
-      webpack: 5.99.9(webpack-cli@6.0.1)
+      webpack: 5.99.9(webpack-cli@5.1.4)
 
   ts-mixer@6.0.4: {}
 
