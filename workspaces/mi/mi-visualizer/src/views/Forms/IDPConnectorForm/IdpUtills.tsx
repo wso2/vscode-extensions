@@ -7,8 +7,6 @@
  * You may not alter or remove any copyright or other notice from copies of this content.
  */
 
-import { unflatten } from 'flat'
-
 export interface FieldItem {
     name: string;
     type: string;
@@ -20,7 +18,7 @@ export interface FieldItem {
 
 export interface TableItem {
     tableName: string;
-    type: string;
+    type: 'array';
     itemType?: string;
     items: FieldItem[];
     tableDescription?: string;
@@ -92,7 +90,8 @@ export const fetchWithCopilot = async ({
         throw new Error("No access token.");
     }
     const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
-    const endpoint = `${backendRootUri}/idp-connector/generate`;
+    //const endpoint = `${backendRootUri}/idp-connector/generate`;
+    const endpoint = 'http://localhost:8000/idp-connector/generate';
     controllerRef.current = new AbortController();
     const fetchWithRetry = async (): Promise<Response> => {
         let response = await fetch(endpoint, {
@@ -230,105 +229,88 @@ export const convertJsonSchemaToArrays = (schemaString: string): { fields: Field
 };
 
 export function convertArraysToJsonSchema(fields: FieldItem[], arrays: TableItem[]): string {
-    const schemaObject: Record<string, string | string[] | number[]> = {
-        type: "object",
+    const schema: any = {
+        type: 'object',
+        properties: {},
     };
-    const typeArray: string[] = [];
+
+    const set = (obj: any, path: string[], value: any) => {
+        let current = obj;
+        for (let i = 0; i < path.length - 1; i++) {
+            const key = path[i];
+            if (!current[key] || typeof current[key].properties === 'undefined') {
+                 current[key] = { type: 'object', properties: {} };
+            }
+            current = current[key].properties;
+        }
+        current[path[path.length - 1]] = value;
+    };
+
     fields.forEach((field) => {
-        const baseName = `properties.${field.name.split(".").join(".properties.")}`;
-        if (baseName.includes(".properties")) {
-            let currentName = baseName;
-            while (currentName.includes(".properties")) {
-                const lastPropertiesIndex = currentName.lastIndexOf(".properties");
-                const trimmedName = `${currentName.substring(0, lastPropertiesIndex)}.type`;
-                if (!typeArray.includes(trimmedName)) {
-                    typeArray.push(trimmedName);
-                }
-                currentName = currentName.substring(0, lastPropertiesIndex);
-            }
-        }
-        if (field.type) {
-            schemaObject[`${baseName}.type`] = field.type;
-        }
-        if (field.description) {
-            schemaObject[`${baseName}.description`] = field.description;
-        }
-        if (field.pattern) {
-            schemaObject[`${baseName}.pattern`] = field.pattern;
-        }
-        if (field.format !== "none" && field.format) {
-            schemaObject[`${baseName}.format`] = field.format;
-        }
-        if (field.enum) {
-            schemaObject[`${baseName}.enum`] = commaSeparatedStringToArray(field.enum, field.type);
-        }
+        const pathParts = field.name.split('.');
+        const property: any = {
+            type: field.type,
+            description: field.description,
+        };
+        if (field.pattern) property.pattern = field.pattern;
+        if (field.format && field.format !== "none") property.format = field.format;
+        if (field.enum) property.enum = commaSeparatedStringToArray(field.enum, field.type);
+        set(schema.properties, pathParts, property);
     });
+
     arrays.forEach((array) => {
-        const baseName = `properties.${array.tableName.split(".").join(".properties.")}`;
-        if (baseName.includes(".properties")) {
-            let currentName = baseName;
-            while (currentName.includes(".properties")) {
-                const lastPropertiesIndex = currentName.lastIndexOf(".properties");
-                const trimmedName = `${currentName.substring(0, lastPropertiesIndex)}.type`;
-                if (!typeArray.includes(trimmedName)) {
-                    typeArray.push(trimmedName);
+        const pathParts = array.tableName.split('.');
+        let arrayProperty: any;
+        if (array.items && array.items.length > 0) {
+            arrayProperty = {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {}
                 }
-                currentName = currentName.substring(0, lastPropertiesIndex);
-            }
-        }
-        schemaObject[`${baseName}.type`] = 'array';
-        if (array.itemType) {
-            schemaObject[`${baseName}.items.type`] = array.itemType;
-        }
-        if (array.tableDescription) {
-            schemaObject[`${baseName}.items.description`] = array.tableDescription;
-        }
-        if (array.tablePattern) {
-            schemaObject[`${baseName}.items.pattern`] = array.tablePattern;
-        }
-        if (array.tableFormat !== "none" && array.tableFormat) {
-            schemaObject[`${baseName}.items.format`] = array.tableFormat;
-        }
-        if (array.tableEnum) {
-            schemaObject[`${baseName}.items.enum`] = commaSeparatedStringToArray(array.tableEnum, array.itemType);
-        }
-        if (Array.isArray(array.items)) {
+            };
             array.items.forEach((item) => {
-                const itemBaseName = `${baseName}.items.properties.${item.name.split(".").join(".properties.")}`;
-                if (itemBaseName.includes(".properties")) {
-                    let currentName = itemBaseName;
-                    while (currentName.includes(".properties")) {
-                        const lastPropertiesIndex = currentName.lastIndexOf(".properties");
-                        const trimmedName = `${currentName.substring(0, lastPropertiesIndex)}.type`;
-                        if (!typeArray.includes(trimmedName)) {
-                            typeArray.push(trimmedName);
-                        }
-                        currentName = currentName.substring(0, lastPropertiesIndex);
-                    }
-                }
-                if (item.type) {
-                    schemaObject[`${itemBaseName}.type`] = item.type;
-                }
-                if (item.description) {
-                    schemaObject[`${itemBaseName}.description`] = item.description;
-                }
-                if (item.pattern) {
-                    schemaObject[`${itemBaseName}.pattern`] = item.pattern;
-                }
-                if (item.format !== "none" && item.format) {
-                    schemaObject[`${itemBaseName}.format`] = item.format;
-                }
-                if (item.enum) {
-                    schemaObject[`${itemBaseName}.enum`] = commaSeparatedStringToArray(item.enum, item.type);
-                }
+                const itemProperty: any = {
+                    type: item.type,
+                    description: item.description,
+                };
+                if (item.pattern) itemProperty.pattern = item.pattern;
+                if (item.format && item.format !== "none") itemProperty.format = item.format;
+                if (item.enum) itemProperty.enum = commaSeparatedStringToArray(item.enum, item.type);
+                
+                arrayProperty.items.properties[item.name] = itemProperty;
             });
+        } else {
+            arrayProperty = {
+                type: 'array',
+                items: {} 
+            };
+            if (array.itemType) arrayProperty.items.type = array.itemType;
+            if (array.tableDescription) arrayProperty.items.description = array.tableDescription;
+            if (array.tablePattern) arrayProperty.items.pattern = array.tablePattern;
+            if (array.tableFormat && array.tableFormat !== "none") arrayProperty.items.format = array.tableFormat;
+            if (array.tableEnum) arrayProperty.items.enum = commaSeparatedStringToArray(array.tableEnum, array.itemType);
         }
+        set(schema.properties, pathParts, arrayProperty);
     });
-    typeArray.forEach((typeKey) => {
-        schemaObject[typeKey] = "object";
-    });
-    const jsonString = JSON.stringify(unflatten(schemaObject), null, 2);
-    return jsonString;
+
+    const addMetadata = (obj: any) => {
+        if (obj.type === 'object' && obj.properties) {
+            const propertyKeys = Object.keys(obj.properties);
+            
+            if (propertyKeys.length > 0) {
+                obj.required = propertyKeys;
+            }
+            obj.additionalProperties = true; 
+            for (const key in obj.properties) {
+                addMetadata(obj.properties[key]);
+            }
+        } else if (obj.type === 'array' && obj.items) {
+            addMetadata(obj.items);
+        }
+    };
+    addMetadata(schema);
+    return JSON.stringify(schema, null, 2);
 }
 
 export function commaSeparatedStringToArray(str: string, type: string): string[] | number[] {

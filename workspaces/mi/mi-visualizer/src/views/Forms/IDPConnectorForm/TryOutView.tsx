@@ -126,11 +126,9 @@ export function TryOutView({
             "If a field cannot be confidently inferred from the images or its description, return null for that field. " +
             "Field names in the output must exactly match the keys in the schema, including case sensitivity. " +
             "Return only a valid JSON object matching the schema structure. Do not include any other text, comments, or formatting.";
-    const USER_PROMPT_TEMPLATE = 
-            "Please analyze all the provided images thoroughly and populate the following JSON schema based on the information extracted. " +
-            "Use the descriptions to infer values where necessary. Field names must be case-sensitive and match the schema exactly. Schema: {schema}";
+    const USER_PROMPT = 
+            "Please analyze all the provided images thoroughly and populate the JSON schema based on the information extracted. ";
 
-    // Function to extract and parse LLM response
     const extractLlmResponse = (llmResponse: any) => {
         try {
             let content = '';
@@ -138,10 +136,10 @@ export function TryOutView({
             if (llmResponse.choices?.[0]?.message?.content) {
                 content = llmResponse.choices[0].message.content;
             } else {
-                throw new Error('Invalid Json Schema');
+                throw new Error('Invalid Json');
             }
             if (!content || typeof content !== 'string') {
-                throw new Error('Invalid Json Schema');
+                throw new Error('Invalid Json');
             }
             content = content.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
             let jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -150,11 +148,11 @@ export function TryOutView({
             }
             const parsedJson = JSON.parse(content);
             if (!parsedJson || typeof parsedJson !== 'object') {
-                throw new Error('Invalid Json Schema');
+                throw new Error('Invalid Json');
             }
             return parsedJson;
         } catch (error: any) {
-            throw new Error("Invalid Json Schema");
+            throw new Error("Invalid Json");
         }
     };
 
@@ -194,32 +192,24 @@ export function TryOutView({
 
         try {
             const userMessageContent = [];
-            const textPrompt = USER_PROMPT_TEMPLATE.replace("{schema}", schema);
-            userMessageContent.push({
-                type: "text",
-                text: textPrompt
-            });
+            userMessageContent.push({ type: "text", text: USER_PROMPT });
             for (const base64Image of base64Images) {
-                userMessageContent.push({
-                    type: "image_url",
-                    image_url: {
-                        "url": base64Image
-                    }
-                });
+                userMessageContent.push({ type: "image_url", image_url: { "url": base64Image } });
             }
+            
             const requestBody = {
                 model: model,
                 messages: [
-                    {
-                        role: "system",
-                        content: SYSTEM_PROMPT
-                    },
-                    {
-                        role: "user",
-                        content: userMessageContent
-                    }
+                    { role: "system", content: SYSTEM_PROMPT },
+                    { role: "user", content: userMessageContent }
                 ],
-                response_format: { type: "json_object" },
+                response_format: {
+                    type: "json_schema",
+                    json_schema: {
+                        name: "document_extraction_schema", 
+                        schema: JSON.parse(schema)                
+                    },
+                }
             };
             const response = await fetch(url, {
                 method: 'POST',
@@ -242,8 +232,10 @@ export function TryOutView({
             setTryoutOutput(JSON.stringify(extractedJson, null, 2));
         } catch (error: any) {
             if (error.name === 'AbortError') {
+            } else if (error instanceof TypeError) {
+                setErrors("Network error occurred. Please check your connection.");
             } else {
-                setErrors(`Something went wrong: ${error.message}`);
+                setErrors("An unexpected error occurred. Please try again.");
             }
         } finally {
             setIsLoading(false);
