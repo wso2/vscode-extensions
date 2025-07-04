@@ -117,6 +117,8 @@ import {
     UpdateWsdlEndpointRequest,
     WriteContentToFileRequest,
     HandleFileRequest,
+    WriteFileToRegistryRequest,
+    ReadSchemaFileContentRequest,
     addDBDriver,
     addDriverToLib,
     applyEdit,
@@ -265,6 +267,10 @@ import {
     updateWsdlEndpoint,
     writeContentToFile,
     handleFileWithFS,
+    writeFileToRegistry,
+    getSchemaFiles,
+    convertPdfToBase64Images,
+    readSchemaFileContent,
     tryOutMediator,
     MediatorTryOutRequest,
     saveInputPayload,
@@ -375,6 +381,10 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(getAIResponse, (args: AIUserInput) => rpcManger.getAIResponse(args));
     messenger.onRequest(writeContentToFile, (args: WriteContentToFileRequest) => rpcManger.writeContentToFile(args));
     messenger.onRequest(handleFileWithFS, (args: HandleFileRequest) => rpcManger.handleFileWithFS(args));
+    messenger.onRequest(writeFileToRegistry, (args: WriteFileToRegistryRequest) => rpcManger.writeFileToRegistry(args));
+    messenger.onRequest(getSchemaFiles,() => rpcManger.getSchemaFiles());
+    messenger.onRequest(convertPdfToBase64Images, (args: string) => rpcManger.convertPdfToBase64Images(args));
+    messenger.onRequest(readSchemaFileContent, (args: ReadSchemaFileContentRequest) => rpcManger.readSchemaFileContent(args));
     messenger.onNotification(highlightCode, (args: HighlightCodeRequest) => rpcManger.highlightCode(args));
     messenger.onRequest(getWorkspaceContext, () => rpcManger.getWorkspaceContext());
     messenger.onRequest(getProjectUuid, () => rpcManger.getProjectUuid());
