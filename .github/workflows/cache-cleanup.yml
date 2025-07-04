@@ -19,9 +19,9 @@ jobs:
       - name: Cleanup
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-          PR_NUMBER="${{ github.event.inputs.pull_request_number }}"
+            PR_NUMBER="${{ github.event.inputs.pull_request_number }}"
           else
-          PR_NUMBER="${{ github.event.pull_request.number }}"
+            PR_NUMBER="${{ github.event.pull_request.number }}"
           fi
 
           REPO=${{ github.repository }}
