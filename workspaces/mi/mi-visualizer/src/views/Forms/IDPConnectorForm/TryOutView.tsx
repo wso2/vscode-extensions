@@ -207,7 +207,8 @@ export function TryOutView({
                     type: "json_schema",
                     json_schema: {
                         name: "document_extraction_schema", 
-                        schema: JSON.parse(schema)                
+                        schema: JSON.parse(schema),
+                        strict: true,              
                     },
                 }
             };

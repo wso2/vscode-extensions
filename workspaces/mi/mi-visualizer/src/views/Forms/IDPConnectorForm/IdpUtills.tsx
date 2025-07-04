@@ -49,7 +49,7 @@ export const validateJson = (value: string) => {
 };
 
 export const COPILOT_ERROR_MESSAGES = {
-    BAD_REQUEST: 'Bad Request',
+    BAD_REQUEST: 'Bad Request. Schema is not valid.',
     UNAUTHORIZED: 'Unauthorized',
     FORBIDDEN: 'Forbidden',
     NOT_FOUND: 'Not Found',
@@ -91,7 +91,7 @@ export const fetchWithCopilot = async ({
     }
     const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
     const endpoint = `${backendRootUri}/idp-connector/generate`;
-    
+  
     controllerRef.current = new AbortController();
     const fetchWithRetry = async (): Promise<Response> => {
         let response = await fetch(endpoint, {
