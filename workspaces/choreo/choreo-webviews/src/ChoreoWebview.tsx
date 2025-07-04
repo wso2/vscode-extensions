@@ -17,9 +17,7 @@
  */
 
 import type {
-	ComponentsDetailsWebviewProps,
 	ComponentsListActivityViewProps,
-	NewComponentWebviewProps,
 	WebviewProps,
 } from "@wso2/choreo-core";
 import React from "react";
@@ -28,8 +26,6 @@ import { AuthContextProvider } from "./providers/auth-ctx-provider";
 import { ExtWebviewContextProvider } from "./providers/ext-vewview-ctx-provider";
 import { LinkedDirStateContextProvider } from "./providers/linked-dir-state-ctx-provider";
 import { ChoreoWebviewQueryClientProvider } from "./providers/react-query-provider";
-import { ComponentDetailsView } from "./views/ComponentDetailsView";
-import { ComponentFormView } from "./views/ComponentFormView";
 import { ComponentListView } from "./views/ComponentListView";
 
 function ChoreoWebview(props: WebviewProps) {
@@ -37,24 +33,11 @@ function ChoreoWebview(props: WebviewProps) {
 		<ChoreoWebviewQueryClientProvider type={props.type}>
 			<ErrorBoundary>
 				<ExtWebviewContextProvider>
-					<AuthContextProvider viewType={props.type}>
+					<AuthContextProvider>
 						<main>
-							{(() => {
-								switch (props.type) {
-									case "NewComponentForm":
-										return <ComponentFormView {...(props as NewComponentWebviewProps)} />;
-									case "ComponentDetailsView":
-										return <ComponentDetailsView {...(props as ComponentsDetailsWebviewProps)} />;
-									case "ComponentsListActivityView":
-										return (
-											<LinkedDirStateContextProvider>
-												<ComponentListView {...(props as ComponentsListActivityViewProps)} />
-											</LinkedDirStateContextProvider>
-										);
-									default:
-										return null;
-								}
-							})()}
+							<LinkedDirStateContextProvider>
+								<ComponentListView {...(props as ComponentsListActivityViewProps)} />
+							</LinkedDirStateContextProvider>
 						</main>
 					</AuthContextProvider>
 				</ExtWebviewContextProvider>

@@ -17,7 +17,7 @@
  */
 
 import classNames from "classnames";
-import React, { type HTMLProps, type FC } from "react";
+import React, { type FC } from "react";
 
 interface Props extends React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> {
 	name: string;

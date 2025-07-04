@@ -34,19 +34,13 @@ interface Props {
 }
 
 export const ExtWebviewContextProvider: FC<Props> = ({ children }) => {
-	const queryClient = useQueryClient();
 
 	const { data: webviewContext } = useQuery({
 		queryKey: ["webview_context"],
-		queryFn: () => ChoreoWebViewAPI.getInstance().getWebviewStoreState(),
+		queryFn: () => ChoreoWebViewAPI.getInstance().getWebviewStateStore(),
 		refetchOnWindowFocus: true,
+		refetchInterval: 2000
 	});
-
-	useEffect(() => {
-		ChoreoWebViewAPI.getInstance().onWebviewStateChanged((webviewState) => {
-			queryClient.setQueryData(["webview_context"], webviewState);
-		});
-	}, []);
 
 	return <ExtWebviewContext.Provider value={webviewContext}>{children}</ExtWebviewContext.Provider>;
 };

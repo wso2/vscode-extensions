@@ -17,7 +17,6 @@
  */
 
 import {
-	CommandIds,
 	type ContextStoreComponentState,
 	type Organization,
 	type Project,
@@ -29,6 +28,7 @@ import classNames from "classnames";
 import React, { type FC } from "react";
 import { ContextMenu } from "../../components/ContextMenu";
 import { ChoreoWebViewAPI } from "../../utilities/vscode-webview-rpc";
+import {CommandIds as PlatformCommandIds} from '@wso2/wso2-platform-core'
 
 interface Props {
 	project?: Project;
@@ -40,7 +40,7 @@ interface Props {
 
 export const ComponentListItem: FC<Props> = ({ item, isListLoading, opened, org, project }) => {
 	const viewComponentDetails = () =>
-		ChoreoWebViewAPI.getInstance().triggerCmd(CommandIds.ViewComponent, {
+		ChoreoWebViewAPI.getInstance().triggerCmd(PlatformCommandIds.ViewComponent, {
 			component: item.component,
 			project: project,
 			organization: org,

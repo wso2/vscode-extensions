@@ -17,11 +17,12 @@
  */
 
 import { VSCodeLink } from "@vscode/webview-ui-toolkit/react";
-import { CommandIds, type ContextItemEnriched } from "@wso2/choreo-core";
 import { ProgressIndicator } from "@wso2/ui-toolkit";
 import React, { type FC } from "react";
 import { Button } from "../../components/Button";
 import { ChoreoWebViewAPI } from "../../utilities/vscode-webview-rpc";
+import { type ContextItemEnriched } from "@wso2/wso2-platform-core";
+import {CommandIds as PlatformCommandIds} from '@wso2/wso2-platform-core'
 
 interface Props {
 	loading?: boolean;
@@ -30,7 +31,7 @@ interface Props {
 }
 
 export const ComponentsEmptyView: FC<Props> = ({ items, loading, selected }) => {
-	const manageContext = () => ChoreoWebViewAPI.getInstance().triggerCmd(CommandIds.ManageDirectoryContext);
+	const manageContext = () => ChoreoWebViewAPI.getInstance().triggerCmd(PlatformCommandIds.ManageDirectoryContext);
 
 	return (
 		<>
@@ -43,7 +44,7 @@ export const ComponentsEmptyView: FC<Props> = ({ items, loading, selected }) => 
 				<p>Create a new component.</p>
 				<Button
 					className="w-full max-w-80 self-center sm:self-start"
-					onClick={() => ChoreoWebViewAPI.getInstance().triggerCmd(CommandIds.CreateNewComponent)}
+					onClick={() => ChoreoWebViewAPI.getInstance().triggerCmd(PlatformCommandIds.CreateNewComponent)}
 					title="Create a Choreo component linked to your local directory. Build and deploy it to the cloud effortlessly."
 				>
 					Create Component
@@ -54,7 +55,7 @@ export const ComponentsEmptyView: FC<Props> = ({ items, loading, selected }) => 
 						<Button
 							className="w-full max-w-80 self-center sm:self-start"
 							onClick={() =>
-								ChoreoWebViewAPI.getInstance().triggerCmd(CommandIds.ManageDirectoryContext, {
+								ChoreoWebViewAPI.getInstance().triggerCmd(PlatformCommandIds.ManageDirectoryContext, {
 									onlyShowSwitchProject: true,
 								})
 							}
