@@ -18,5 +18,5 @@
 
 export const CommandIds = {
 	FocusChoreoProjectActivity: "choreo.activity.project.focus",
-	OpenWalkthrough: "wso2.choreo.getStarted"
+	OpenWalkthrough: "wso2.choreo.getStarted",
 };

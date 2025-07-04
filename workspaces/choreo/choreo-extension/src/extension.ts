@@ -24,8 +24,8 @@ import { activateCmds } from "./cmd-handlers";
 import { ext } from "./extensionVariables";
 import { getLogger, initLogger } from "./logger/logger";
 import { activateURIHandlers } from "./uri-handlers";
+import { getContextStateStore, getIsLoggedIn } from "./utils";
 import { activateActivityWebViews } from "./webviews/utils";
-import {getIsLoggedIn, getContextStateStore} from "./utils"
 
 export async function activate(context: vscode.ExtensionContext) {
 	await initLogger(context);
@@ -34,17 +34,17 @@ export async function activate(context: vscode.ExtensionContext) {
 	ext.api = new ChoreoExtensionApi();
 
 	setInterval(async () => {
-		const isLoggedIn = await getIsLoggedIn()
+		const isLoggedIn = await getIsLoggedIn();
 		vscode.commands.executeCommand("setContext", "isLoggedIn", isLoggedIn);
 	}, 2000);
 
 	setInterval(async () => {
-		const state = await getContextStateStore()
+		const state = await getContextStateStore();
 		vscode.commands.executeCommand("setContext", "isLoadingContextDirs", state.loading);
 		vscode.commands.executeCommand("setContext", "hasSelectedProject", !!state.selected);
 	}, 2000);
 
-	ext.clients = { };
+	ext.clients = {};
 	activateCmds(context);
 	activateActivityWebViews(context);
 	activateURIHandlers();

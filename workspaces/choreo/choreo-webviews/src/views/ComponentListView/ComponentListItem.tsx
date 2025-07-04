@@ -18,17 +18,17 @@
 
 import {
 	type ContextStoreComponentState,
+	type IViewComponentDetailsCmdParams,
 	type Organization,
 	type Project,
-	type IViewComponentDetailsCmdParams,
 	getComponentTypeText,
 	getTypeForDisplayType,
 } from "@wso2/wso2-platform-core";
+import { CommandIds as PlatformCommandIds } from "@wso2/wso2-platform-core";
 import classNames from "classnames";
 import React, { type FC } from "react";
 import { ContextMenu } from "../../components/ContextMenu";
 import { ChoreoWebViewAPI } from "../../utilities/vscode-webview-rpc";
-import {CommandIds as PlatformCommandIds} from '@wso2/wso2-platform-core'
 
 interface Props {
 	project?: Project;
@@ -45,7 +45,7 @@ export const ComponentListItem: FC<Props> = ({ item, isListLoading, opened, org,
 			project: project,
 			organization: org,
 			componentPath: item.componentFsPath,
-			extName: "Choreo"
+			extName: "Choreo",
 		} as IViewComponentDetailsCmdParams);
 
 	return (

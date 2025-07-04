@@ -16,8 +16,8 @@
  * under the License.
  */
 
+import type { ContextStoreState as PlatformContextStoreState, WebviewState as PlatformWebviewState } from "@wso2/wso2-platform-core";
 import type { NotificationType, RequestType } from "vscode-messenger-common";
-import { WebviewState as PlatformWebviewState, ContextStoreState as PlatformContextStoreState } from "@wso2/wso2-platform-core"
 
 // new types
 export const ExecuteCommandRequest: RequestType<string[], unknown> = { method: "choreo/executeCommand" };
@@ -30,7 +30,7 @@ export const IsLoggedIn: RequestType<void, boolean> = { method: "choreo/isLogged
 export const GetWebviewStateStore: RequestType<void, PlatformWebviewState> = { method: "choreo/getWebviewStateStore" };
 export const GetContextStateStore: RequestType<void, PlatformContextStoreState> = { method: "choreo/getContextStateStore" };
 
-const NotificationMethods = { };
+const NotificationMethods = {};
 
 export const WebviewNotificationsMethodList = Object.values(NotificationMethods) as string[];
 

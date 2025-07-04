@@ -16,10 +16,7 @@
  * under the License.
  */
 
-import type {
-	ComponentsListActivityViewProps,
-	WebviewProps,
-} from "@wso2/choreo-core";
+import type { ComponentsListActivityViewProps, WebviewProps } from "@wso2/choreo-core";
 import React from "react";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AuthContextProvider } from "./providers/auth-ctx-provider";

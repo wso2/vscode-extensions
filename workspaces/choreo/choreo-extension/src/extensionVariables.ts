@@ -24,8 +24,8 @@ export class ExtensionVariables {
 	public context!: ExtensionContext;
 	public api!: ChoreoExtensionApi;
 	public statusBarItem!: StatusBarItem;
-
-	public clients!: { };
+	// biome-ignore lint/complexity/noBannedTypes: No clients available atm
+	public clients!: {};
 }
 
 export const ext = new ExtensionVariables();

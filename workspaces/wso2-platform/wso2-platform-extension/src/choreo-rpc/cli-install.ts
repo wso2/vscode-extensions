@@ -22,8 +22,8 @@ import * as os from "os";
 import * as path from "path";
 import axios from "axios";
 import { ProgressLocation, window, workspace } from "vscode";
-import { ext } from "../extensionVariables";
 import { choreoEnvConfig } from "../config";
+import { ext } from "../extensionVariables";
 
 export const getCliVersion = (): string => {
 	const packageJson = JSON.parse(fs.readFileSync(path.join(ext.context.extensionPath, "package.json"), "utf8"));
@@ -44,7 +44,12 @@ export const getChoreoExecPath = () => {
 };
 
 export const getChoreoEnv = (): string => {
-	return process.env.CHOREO_ENV || process.env.CLOUD_ENV || workspace.getConfiguration().get<string>("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") || "prod";
+	return (
+		process.env.CHOREO_ENV ||
+		process.env.CLOUD_ENV ||
+		workspace.getConfiguration().get<string>("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") ||
+		"prod"
+	);
 };
 
 const getChoreoBinPath = () => {

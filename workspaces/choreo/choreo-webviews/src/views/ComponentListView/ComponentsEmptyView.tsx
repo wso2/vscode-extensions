@@ -18,11 +18,11 @@
 
 import { VSCodeLink } from "@vscode/webview-ui-toolkit/react";
 import { ProgressIndicator } from "@wso2/ui-toolkit";
+import type { ContextItemEnriched, ICreateComponentCmdParams, IManageDirContextCmdParams } from "@wso2/wso2-platform-core";
+import { CommandIds as PlatformCommandIds } from "@wso2/wso2-platform-core";
 import React, { type FC } from "react";
 import { Button } from "../../components/Button";
 import { ChoreoWebViewAPI } from "../../utilities/vscode-webview-rpc";
-import { ICreateComponentCmdParams, IManageDirContextCmdParams, type ContextItemEnriched } from "@wso2/wso2-platform-core";
-import {CommandIds as PlatformCommandIds} from '@wso2/wso2-platform-core'
 
 interface Props {
 	loading?: boolean;
@@ -31,9 +31,10 @@ interface Props {
 }
 
 export const ComponentsEmptyView: FC<Props> = ({ items, loading, selected }) => {
-	const manageContext = () => ChoreoWebViewAPI.getInstance().triggerCmd(PlatformCommandIds.ManageDirectoryContext,{
-									extName:"Choreo"
-								} as IManageDirContextCmdParams);
+	const manageContext = () =>
+		ChoreoWebViewAPI.getInstance().triggerCmd(PlatformCommandIds.ManageDirectoryContext, {
+			extName: "Choreo",
+		} as IManageDirContextCmdParams);
 
 	return (
 		<>
@@ -46,7 +47,9 @@ export const ComponentsEmptyView: FC<Props> = ({ items, loading, selected }) => 
 				<p>Create a new component.</p>
 				<Button
 					className="w-full max-w-80 self-center sm:self-start"
-					onClick={() => ChoreoWebViewAPI.getInstance().triggerCmd(PlatformCommandIds.CreateNewComponent,{extName:"Choreo"} as ICreateComponentCmdParams)}
+					onClick={() =>
+						ChoreoWebViewAPI.getInstance().triggerCmd(PlatformCommandIds.CreateNewComponent, { extName: "Choreo" } as ICreateComponentCmdParams)
+					}
 					title="Create a Choreo component linked to your local directory. Build and deploy it to the cloud effortlessly."
 				>
 					Create Component
@@ -59,7 +62,7 @@ export const ComponentsEmptyView: FC<Props> = ({ items, loading, selected }) => 
 							onClick={() =>
 								ChoreoWebViewAPI.getInstance().triggerCmd(PlatformCommandIds.ManageDirectoryContext, {
 									onlyShowSwitchProject: true,
-									extName:"Choreo"
+									extName: "Choreo",
 								} as IManageDirContextCmdParams)
 							}
 							title="Switch to different project context to manage the components of that project."

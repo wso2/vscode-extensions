@@ -16,14 +16,7 @@
  * under the License.
  */
 
-import {
-	CommandIds,
-	type ComponentKind,
-	type ExtensionName,
-	type Organization,
-	type Project,
-	type UserInfo,
-} from "@wso2/wso2-platform-core";
+import { CommandIds, type ComponentKind, type ExtensionName, type Organization, type Project, type UserInfo } from "@wso2/wso2-platform-core";
 import { ProgressLocation, type QuickPickItem, QuickPickItemKind, type WorkspaceFolder, commands, window, workspace } from "vscode";
 import { type ExtensionVariables, ext } from "../extensionVariables";
 import { authStore, waitForLogin } from "../stores/auth-store";

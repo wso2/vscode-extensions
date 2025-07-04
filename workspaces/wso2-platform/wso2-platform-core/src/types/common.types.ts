@@ -17,7 +17,7 @@
  */
 
 import type { DeploymentStatus } from "../enums";
-import { ContextStoreState, WebviewState } from "./store.types";
+import type { ContextStoreState, WebviewState } from "./store.types";
 
 export type ExtensionName = "WSO2" | "Choreo" | "Devant";
 
@@ -26,7 +26,7 @@ export interface IWso2PlatformExtensionAPI {
 	getDirectoryComponents(fsPath: string): ComponentKind[];
 	localRepoHasChanges(fsPath: string): Promise<boolean>;
 	getWebviewStateStore(): WebviewState;
-	getContextStateStore(): ContextStoreState
+	getContextStateStore(): ContextStoreState;
 	openClonedDir(params: openClonedDirReq): Promise<void>;
 }
 

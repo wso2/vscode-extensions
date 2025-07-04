@@ -79,12 +79,12 @@ import type {
 	ToggleAutoBuildResp,
 	UserInfo,
 } from "@wso2/wso2-platform-core";
+import { workspace } from "vscode";
 import { type MessageConnection, Trace, type Tracer } from "vscode-jsonrpc";
 import { handlerError } from "../error-utils";
 import { getLogger } from "../logger/logger";
 import { withTimeout } from "../utils";
 import { StdioConnection } from "./connection";
-import { workspace } from "vscode";
 
 export class RPCClient {
 	private _conn: MessageConnection | undefined;
@@ -275,7 +275,13 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		return response.loginUrl;
 	}
 
-	async signInWithAuthCode(authCode: string, region?: string, orgId?: string, redirectUrl?: string, clientId?: string): Promise<UserInfo | undefined> {
+	async signInWithAuthCode(
+		authCode: string,
+		region?: string,
+		orgId?: string,
+		redirectUrl?: string,
+		clientId?: string,
+	): Promise<UserInfo | undefined> {
 		if (!this.client) {
 			throw new Error("RPC client is not initialized");
 		}

@@ -102,7 +102,7 @@ export function openInConsoleCommand(context: ExtensionContext) {
 								item: item?.component,
 							}));
 							const selectedComp = await window.showQuickPick(componentItems, {
-								title: `Multiple ${extensionName === "Devant" ?"integrations" :"components"} detected. Please select ${extensionName === "Devant" ? "an integration" : "a component"} to open`,
+								title: `Multiple ${extensionName === "Devant" ? "integrations" : "components"} detected. Please select ${extensionName === "Devant" ? "an integration" : "a component"} to open`,
 							});
 							if (selectedComp?.item) {
 								env.openExternal(Uri.parse(`${projectBaseUrl}/components/${selectedComp?.item?.metadata?.handler}/overview`));
@@ -121,7 +121,10 @@ export function openInConsoleCommand(context: ExtensionContext) {
 								}));
 						} else {
 							const components = await window.withProgress(
-								{ title: `Fetching ${extensionName === "Devant" ?"integrations" :"components"} of project ${selectedProject.name}...`, location: ProgressLocation.Notification },
+								{
+									title: `Fetching ${extensionName === "Devant" ? "integrations" : "components"} of project ${selectedProject.name}...`,
+									location: ProgressLocation.Notification,
+								},
 								() =>
 									ext.clients.rpcClient.getComponentList({
 										orgId: selectedOrg?.id?.toString()!,
@@ -180,7 +183,7 @@ export function openInConsoleCommand(context: ExtensionContext) {
 
 								return cacheQuickPicks;
 							},
-							loadingTitle: `Loading ${extensionName === "Devant" ?"integrations" :"components"} of project ${selectedProject.name}`,
+							loadingTitle: `Loading ${extensionName === "Devant" ? "integrations" : "components"} of project ${selectedProject.name}`,
 							selectTitle: `Select an option to open in ${extensionName} Console`,
 						});
 

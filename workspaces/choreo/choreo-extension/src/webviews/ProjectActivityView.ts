@@ -19,9 +19,9 @@
 import type { WebviewProps } from "@wso2/choreo-core";
 import * as vscode from "vscode";
 import { ext } from "../extensionVariables";
+import { getContextStateStore } from "../utils";
 import { WebViewViewRPC } from "./WebviewRPC";
 import { getUri } from "./utils";
-import { getContextStateStore } from "../utils";
 
 export class ProjectActivityView implements vscode.WebviewViewProvider {
 	public static readonly viewType = "choreo.activity.project";
@@ -43,7 +43,7 @@ export class ProjectActivityView implements vscode.WebviewViewProvider {
 		this._rpc = new WebViewViewRPC(webviewView);
 
 		setInterval(async () => {
-			const state = await getContextStateStore()
+			const state = await getContextStateStore();
 			webviewView.title = state?.selected?.project?.name ?? "Project";
 		}, 2000);
 	}

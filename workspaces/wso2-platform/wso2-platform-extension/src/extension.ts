@@ -31,10 +31,10 @@ import { authStore } from "./stores/auth-store";
 import { contextStore } from "./stores/context-store";
 import { dataCacheStore } from "./stores/data-cache-store";
 import { locationStore } from "./stores/location-store";
+import { ChoreoConfigurationProvider, addTerminalHandlers } from "./tarminal-handlers";
 import { activateTelemetry } from "./telemetry/telemetry";
 import { activateURIHandlers } from "./uri-handlers";
 import { registerYamlLanguageServer } from "./yaml-ls";
-import { addTerminalHandlers, ChoreoConfigurationProvider } from "./tarminal-handlers";
 
 export async function activate(context: vscode.ExtensionContext) {
 	activateTelemetry(context);
@@ -88,16 +88,24 @@ export async function activate(context: vscode.ExtensionContext) {
 	return ext.api;
 }
 
-function setInitialEnv(){
-	const choreoEnv = process.env.CHOREO_ENV || process.env.CLOUD_ENV
-	if(choreoEnv && ["dev","stage","prod"].includes(choreoEnv) && workspace.getConfiguration().get("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") != choreoEnv){
-		workspace.getConfiguration().update("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment", choreoEnv)
+function setInitialEnv() {
+	const choreoEnv = process.env.CHOREO_ENV || process.env.CLOUD_ENV;
+	if (
+		choreoEnv &&
+		["dev", "stage", "prod"].includes(choreoEnv) &&
+		workspace.getConfiguration().get("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") !== choreoEnv
+	) {
+		workspace.getConfiguration().update("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment", choreoEnv);
 	}
 }
 
 function registerPreInitHandlers(): any {
 	workspace.onDidChangeConfiguration(async ({ affectsConfiguration }: ConfigurationChangeEvent) => {
-		if (affectsConfiguration("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") || affectsConfiguration("WSO2.WSO2-Platform.Advanced.RpcPath") || affectsConfiguration("WSO2.WSO2-Platform.Advanced.StsToken")) {
+		if (
+			affectsConfiguration("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") ||
+			affectsConfiguration("WSO2.WSO2-Platform.Advanced.RpcPath") ||
+			affectsConfiguration("WSO2.WSO2-Platform.Advanced.StsToken")
+		) {
 			const selection = await window.showInformationMessage(
 				"WSO2 Platform extension configuration changed. Please restart vscode for changes to take effect.",
 				"Restart Now",

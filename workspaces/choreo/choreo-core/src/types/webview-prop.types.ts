@@ -16,7 +16,6 @@
  * under the License.
  */
 
-
 export type WebviewTypes = "ComponentsListActivityView";
 
 export interface ComponentsListActivityViewProps {

@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { IWso2PlatformExtensionAPI } from "@wso2/wso2-platform-core";
+import type { IWso2PlatformExtensionAPI } from "@wso2/wso2-platform-core";
 import { type ProviderResult, type Uri, extensions, window } from "vscode";
 import { getLogger } from "./logger/logger";
 
@@ -36,15 +36,20 @@ export function activateURIHandlers() {
 
 				(async () => {
 					const platformExt = extensions.getExtension("wso2.wso2-platform");
-					if(!platformExt){
-						return
+					if (!platformExt) {
+						return;
 					}
-					if(!platformExt.isActive){
+					if (!platformExt.isActive) {
 						await platformExt.activate();
 					}
-					const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports
+					const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports;
 					platformExtAPI.openClonedDir({
-						orgHandle,projectHandle,componentName,technology, integrationType, integrationDisplayType
+						orgHandle,
+						projectHandle,
+						componentName,
+						technology,
+						integrationType,
+						integrationDisplayType,
 					});
 				})();
 			}

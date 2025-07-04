@@ -27,11 +27,11 @@ import {
 	ShowErrorMessage,
 	ShowInfoMessage,
 } from "@wso2/choreo-core";
+import type { ContextStoreState as PlatformContextStoreState, WebviewState as PlatformWebviewState } from "@wso2/wso2-platform-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
 import type { WebviewApi } from "vscode-webview";
 import { vscodeApiWrapper } from "./vscode-api-wrapper";
-import { WebviewState as PlatformWebviewState, ContextStoreState as PlatformContextStoreState} from "@wso2/wso2-platform-core"
 
 export class ChoreoWebViewAPI {
 	private readonly _messenger;

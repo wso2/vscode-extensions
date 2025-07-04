@@ -79,8 +79,9 @@ export function addTerminalHandlers() {
 							}
 						});
 					return;
-				} else if (!userInfo) {
-					window.showErrorMessage(`You must log in before connecting to the remote environment. Retry after logging in.`, "Login").then((res) => {
+				}
+				if (!userInfo) {
+					window.showErrorMessage("You must log in before connecting to the remote environment. Retry after logging in.", "Login").then((res) => {
 						if (res === "Login") {
 							commands.executeCommand(CommandIds.SignIn);
 						}

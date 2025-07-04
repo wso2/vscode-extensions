@@ -24,7 +24,7 @@ import {
 	type Organization,
 	type Project,
 	getComponentKindRepoSource,
-	openClonedDirReq,
+	type openClonedDirReq,
 	parseGitURL,
 } from "@wso2/wso2-platform-core";
 import { ProgressLocation, type ProviderResult, type QuickPickItem, type Uri, commands, window, workspace } from "vscode";
@@ -72,10 +72,10 @@ export function activateURIHandlers() {
 									const clientId = extName === "Devant" ? choreoEnvConfig.getDevantAsgardeoClientId() : undefined;
 									const userInfo = await ext.clients.rpcClient.signInWithAuthCode(authCode, region, orgId, callbackUrl, clientId);
 									if (userInfo) {
-										if(contextStore?.getState().state?.selected){
-											const includesOrg = userInfo.organizations?.some(item=>item.handle === contextStore?.getState().state?.selected?.orgHandle)
-											if(!includesOrg){
-												contextStore.getState().resetState()
+										if (contextStore?.getState().state?.selected) {
+											const includesOrg = userInfo.organizations?.some((item) => item.handle === contextStore?.getState().state?.selected?.orgHandle);
+											if (!includesOrg) {
+												contextStore.getState().resetState();
 											}
 										}
 										authStore.getState().loginSuccess(userInfo);
@@ -124,8 +124,12 @@ export function activateURIHandlers() {
 					const integrationDisplayType = urlParams.get("integrationDisplayType") || "";
 					openClonedDir({
 						orgHandle,
-						projectHandle,componentName,technology,integrationType,integrationDisplayType
-					})
+						projectHandle,
+						componentName,
+						technology,
+						integrationType,
+						integrationDisplayType,
+					});
 				} catch (err: any) {
 					console.error("Failed to handle /open uri handler", err);
 					window.showErrorMessage(err?.message || "Failed to handle /open uri handler");
@@ -163,7 +167,7 @@ export const openClonedDir = async (params: openClonedDirReq) => {
 
 		await cloneOrOpenDir(org, project, params.componentName, params.technology, params.integrationType, params.integrationDisplayType);
 	});
-}
+};
 
 export const cloneOrOpenDir = async (
 	org: Organization,

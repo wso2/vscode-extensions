@@ -16,57 +16,57 @@
  * under the License.
  */
 
-import { ContextStoreState, IWso2PlatformExtensionAPI, WebviewState } from "@wso2/wso2-platform-core";
+import type { ContextStoreState, IWso2PlatformExtensionAPI, WebviewState } from "@wso2/wso2-platform-core";
 import { extensions } from "vscode";
 import { getLogger } from "./logger/logger";
 
-export const getIsLoggedIn = async () =>{
-    try{
-        const platformExt = extensions.getExtension("wso2.wso2-platform");
-		if(!platformExt){
-			return false
+export const getIsLoggedIn = async () => {
+	try {
+		const platformExt = extensions.getExtension("wso2.wso2-platform");
+		if (!platformExt) {
+			return false;
 		}
-		if(!platformExt.isActive){
+		if (!platformExt.isActive) {
 			await platformExt.activate();
 		}
-		const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports
+		const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports;
 		return platformExtAPI.isLoggedIn();
-    }catch(err){
-        getLogger().error("failed to get isLoggedIn", err)
-        return false
-    }
-}
+	} catch (err) {
+		getLogger().error("failed to get isLoggedIn", err);
+		return false;
+	}
+};
 
-export const getWebviewStateStore = async () =>{
-    try{
-       const platformExt = extensions.getExtension("wso2.wso2-platform");
-        if(!platformExt){
-            return {} as WebviewState
-        }
-        if(!platformExt.isActive){
-            await platformExt.activate();
-        }
-        const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports
-        return platformExtAPI.getWebviewStateStore();
-    }catch(err){
-        getLogger().error("failed to getWebviewStateStore", err)
-        return {} as WebviewState
-    }
-}
-
-export const getContextStateStore = async () =>{
-    try{
-       const platformExt = extensions.getExtension("wso2.wso2-platform");
-		if(!platformExt){
-			return {} as ContextStoreState
+export const getWebviewStateStore = async () => {
+	try {
+		const platformExt = extensions.getExtension("wso2.wso2-platform");
+		if (!platformExt) {
+			return {} as WebviewState;
 		}
-		if(!platformExt.isActive){
+		if (!platformExt.isActive) {
 			await platformExt.activate();
 		}
-		const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports
-        return platformExtAPI.getContextStateStore();
-    }catch(err){
-        getLogger().error("failed to getContextStateStore", err)
-        return {} as ContextStoreState
-    }
-}
+		const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports;
+		return platformExtAPI.getWebviewStateStore();
+	} catch (err) {
+		getLogger().error("failed to getWebviewStateStore", err);
+		return {} as WebviewState;
+	}
+};
+
+export const getContextStateStore = async () => {
+	try {
+		const platformExt = extensions.getExtension("wso2.wso2-platform");
+		if (!platformExt) {
+			return {} as ContextStoreState;
+		}
+		if (!platformExt.isActive) {
+			await platformExt.activate();
+		}
+		const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports;
+		return platformExtAPI.getContextStateStore();
+	} catch (err) {
+		getLogger().error("failed to getContextStateStore", err);
+		return {} as ContextStoreState;
+	}
+};

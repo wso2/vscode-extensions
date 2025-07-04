@@ -45,10 +45,10 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		const { cacheKey, data } = params as { cacheKey: string; data: any };
 		await ext.context.workspaceState.update(cacheKey, data);
 	});
-	messenger.onRequest(RestoreWebviewCache, async (cacheKey:string) => {
+	messenger.onRequest(RestoreWebviewCache, async (cacheKey: string) => {
 		return ext.context.workspaceState.get(cacheKey);
 	});
-	messenger.onRequest(ClearWebviewCache, async (cacheKey:string) => {
+	messenger.onRequest(ClearWebviewCache, async (cacheKey: string) => {
 		await ext.context.workspaceState.update(cacheKey, undefined);
 	});
 	messenger.onRequest(ExecuteCommandRequest, async (args: string[]) => {

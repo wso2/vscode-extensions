@@ -17,8 +17,8 @@
  */
 
 import type { ComponentViewDrawers, ExtensionName, WebviewState } from "@wso2/wso2-platform-core";
-import { createStore } from "zustand";
 import { workspace } from "vscode";
+import { createStore } from "zustand";
 
 interface WebviewStateStore {
 	state: WebviewState;
@@ -34,7 +34,11 @@ export const webviewStateStore = createStore<WebviewStateStore>((set) => ({
 		extensionName: "WSO2",
 		openedComponentKey: "",
 		componentViews: {},
-		choreoEnv: process.env.CHOREO_ENV || process.env.CLOUD_ENV || workspace.getConfiguration().get<string>("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") || "prod",
+		choreoEnv:
+			process.env.CHOREO_ENV ||
+			process.env.CLOUD_ENV ||
+			workspace.getConfiguration().get<string>("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") ||
+			"prod",
 	},
 	setExtensionName: (extensionName) => set(({ state }) => ({ state: { ...state, extensionName } })),
 	setOpenedComponentKey: (openedComponentKey) => set(({ state }) => ({ state: { ...state, openedComponentKey } })),

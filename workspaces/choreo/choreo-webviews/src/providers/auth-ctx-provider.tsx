@@ -41,7 +41,6 @@ interface Props {
 }
 
 export const AuthContextProvider: FC<Props> = ({ children }) => {
-
 	const {
 		data: isLoggedIn = false,
 		error: authStateError,
@@ -53,19 +52,12 @@ export const AuthContextProvider: FC<Props> = ({ children }) => {
 		refetchInterval: 2000,
 	});
 
-
 	return (
 		<ChoreoAuthContext.Provider value={{ isLoggedIn }}>
 			{authStateError ? (
 				<ErrorBanner errorMsg="Failed to authenticate user" />
 			) : (
-				<>
-					{isLoading ? (
-						<ProgressIndicator />
-					) : (
-						<>{isLoggedIn ? children : <SignInView />}</>
-					)}
-				</>
+				<>{isLoading ? <ProgressIndicator /> : <>{isLoggedIn ? children : <SignInView />}</>}</>
 			)}
 		</ChoreoAuthContext.Provider>
 	);

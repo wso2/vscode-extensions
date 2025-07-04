@@ -34,12 +34,11 @@ interface Props {
 }
 
 export const ExtWebviewContextProvider: FC<Props> = ({ children }) => {
-
 	const { data: webviewContext } = useQuery({
 		queryKey: ["webview_context"],
 		queryFn: () => ChoreoWebViewAPI.getInstance().getWebviewStateStore(),
 		refetchOnWindowFocus: true,
-		refetchInterval: 2000
+		refetchInterval: 2000,
 	});
 
 	return <ExtWebviewContext.Provider value={webviewContext}>{children}</ExtWebviewContext.Provider>;
