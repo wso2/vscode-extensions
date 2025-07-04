@@ -19,7 +19,6 @@
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import React from "react";
 import { Component, type ErrorInfo, type FC } from "react";
-import { ChoreoWebViewAPI } from "../../utilities/vscode-webview-rpc";
 import { Banner } from "../Banner";
 
 interface ErrorBoundaryCProps {
@@ -49,7 +48,6 @@ class ErrorBoundaryC extends Component<ErrorBoundaryCProps, ErrorBoundaryState> 
 		} else {
 			// Show the error boundary if an exception is thrown even after clearing the cache
 			this.setState({ hasError: true });
-			ChoreoWebViewAPI.getInstance().sendTelemetryException({ error });
 			console.error(error, errorInfo);
 		}
 	}

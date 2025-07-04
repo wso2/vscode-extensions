@@ -34,7 +34,7 @@ import { locationStore } from "./stores/location-store";
 import { activateTelemetry } from "./telemetry/telemetry";
 import { activateURIHandlers } from "./uri-handlers";
 import { registerYamlLanguageServer } from "./yaml-ls";
-import { addTerminalHandlers } from "./tarminal-handlers";
+import { addTerminalHandlers, ChoreoConfigurationProvider } from "./tarminal-handlers";
 
 export async function activate(context: vscode.ExtensionContext) {
 	activateTelemetry(context);
@@ -71,9 +71,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			await ext.clients.rpcClient.init();
 			authStore.getState().initAuth();
 			continueCreateComponent();
-			// TODO: enable when updating choreo extension
-			// addTerminalHandlers();
-			// context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("*", new ChoreoConfigurationProvider()));
+			addTerminalHandlers();
+			context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("*", new ChoreoConfigurationProvider()));
 			getLogger().debug("WSO2 Platform Extension activated");
 		})
 		.catch((e) => {

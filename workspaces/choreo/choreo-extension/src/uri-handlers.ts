@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { IWso2PlatformExtensionAPI} from "@wso2/wso2-platform-core";
+import { IWso2PlatformExtensionAPI } from "@wso2/wso2-platform-core";
 import { type ProviderResult, type Uri, extensions, window } from "vscode";
 import { getLogger } from "./logger/logger";
 

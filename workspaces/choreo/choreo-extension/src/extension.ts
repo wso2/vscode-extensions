@@ -25,6 +25,7 @@ import { ext } from "./extensionVariables";
 import { getLogger, initLogger } from "./logger/logger";
 import { activateURIHandlers } from "./uri-handlers";
 import { activateActivityWebViews } from "./webviews/utils";
+import {getIsLoggedIn, getContextStateStore} from "./utils"
 
 export async function activate(context: vscode.ExtensionContext) {
 	await initLogger(context);
@@ -32,17 +33,16 @@ export async function activate(context: vscode.ExtensionContext) {
 	ext.context = context;
 	ext.api = new ChoreoExtensionApi();
 
-	// todo revisit before merge
-	// Set context values
-	/*
-	authStore.subscribe(({ state }) => {
-		vscode.commands.executeCommand("setContext", "isLoggedIn", !!state.userInfo);
-	});
-	contextStore.subscribe(({ state }) => {
+	setInterval(async () => {
+		const isLoggedIn = await getIsLoggedIn()
+		vscode.commands.executeCommand("setContext", "isLoggedIn", isLoggedIn);
+	}, 2000);
+
+	setInterval(async () => {
+		const state = await getContextStateStore()
 		vscode.commands.executeCommand("setContext", "isLoadingContextDirs", state.loading);
 		vscode.commands.executeCommand("setContext", "hasSelectedProject", !!state.selected);
-	});
-	*/
+	}, 2000);
 
 	ext.clients = { };
 	activateCmds(context);
@@ -51,8 +51,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	getLogger().debug("Choreo Extension activated");
 
-	// activateStatusBarItem();
-	// todo revisit before merge does this need to be in a core package
 	commands.registerCommand(CommandIds.OpenWalkthrough, () => {
 		commands.executeCommand("workbench.action.openWalkthrough", "wso2.choreo#choreo.getStarted", false);
 	});

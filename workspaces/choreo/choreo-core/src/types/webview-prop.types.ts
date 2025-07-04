@@ -16,33 +16,12 @@
  * under the License.
  */
 
-import type { ComponentKind, Environment, Organization, Project } from "./common.types";
 
-export type WebviewTypes = "NewComponentForm" | "ComponentsListActivityView" | "ComponentDetailsView" | "ChoreoCellView";
-
-export interface NewComponentWebviewProps {
-	type: "NewComponentForm";
-	directoryUriPath: string;
-	directoryFsPath: string;
-	directoryName: string;
-	organization: Organization;
-	project: Project;
-	existingComponents: ComponentKind[];
-	initialValues?: { type?: string; buildPackLang?: string; name?: string };
-}
-
-export interface ComponentsDetailsWebviewProps {
-	type: "ComponentDetailsView";
-	organization: Organization;
-	project: Project;
-	component: ComponentKind;
-	directoryFsPath?: string;
-	initialEnvs: Environment[];
-}
+export type WebviewTypes = "ComponentsListActivityView";
 
 export interface ComponentsListActivityViewProps {
 	type: "ComponentsListActivityView";
 	directoryFsPath?: string;
 }
 
-export type WebviewProps = ComponentsDetailsWebviewProps | NewComponentWebviewProps | ComponentsListActivityViewProps;
+export type WebviewProps = ComponentsListActivityViewProps;
