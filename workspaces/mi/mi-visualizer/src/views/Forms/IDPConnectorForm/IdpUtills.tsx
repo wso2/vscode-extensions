@@ -90,8 +90,7 @@ export const fetchWithCopilot = async ({
         throw new Error("No access token.");
     }
     const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
-    //const endpoint = `${backendRootUri}/idp-connector/generate`;
-    const endpoint = 'http://localhost:8000/idp-connector/generate';
+    const endpoint = `${backendRootUri}/idp-connector/generate`;
     controllerRef.current = new AbortController();
     const fetchWithRetry = async (): Promise<Response> => {
         let response = await fetch(endpoint, {
