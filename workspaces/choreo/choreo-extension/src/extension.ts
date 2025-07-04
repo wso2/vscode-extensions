@@ -52,6 +52,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	getLogger().debug("Choreo Extension activated");
 
 	// activateStatusBarItem();
+	// todo revisit before merge does this need to be in a core package
 	commands.registerCommand(CommandIds.OpenWalkthrough, () => {
 		commands.executeCommand("workbench.action.openWalkthrough", "wso2.choreo#choreo.getStarted", false);
 	});

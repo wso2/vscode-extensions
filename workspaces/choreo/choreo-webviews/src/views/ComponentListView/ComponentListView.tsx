@@ -17,7 +17,8 @@
  */
 
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { type ComponentsListActivityViewProps, getComponentKey } from "@wso2/choreo-core";
+import { type ComponentsListActivityViewProps } from "@wso2/choreo-core";
+import { getComponentKey } from "@wso2/wso2-platform-core"
 import { ProgressIndicator } from "@wso2/ui-toolkit";
 import React, { type FC } from "react";
 import { useExtWebviewContext } from "../../providers/ext-vewview-ctx-provider";

@@ -23,7 +23,7 @@ import {
 	type ViewComponentDetailsReq,
 	getComponentTypeText,
 	getTypeForDisplayType,
-} from "@wso2/choreo-core";
+} from "@wso2/wso2-platform-core";
 import classNames from "classnames";
 import React, { type FC } from "react";
 import { ContextMenu } from "../../components/ContextMenu";

@@ -128,22 +128,6 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 	messenger.onRequest(JoinFsFilePaths, (files: string[]) => join(...files));
 	messenger.onRequest(JoinUriFilePaths, ([base, ...rest]: string[]) => Uri.joinPath(Uri.parse(base), ...rest).path);
 	messenger.onRequest(GetSubPath, (params: { subPath: string; parentPath: string }) => getSubPath(params.subPath, params.parentPath));
-	messenger.onRequest(OpenExternal, (url: string) => {
-		vscode.env.openExternal(vscode.Uri.parse(url));
-	});
-	messenger.onRequest(OpenExternalChoreo, (choreoPath: string) => {
-		vscode.env.openExternal(vscode.Uri.joinPath(vscode.Uri.parse(choreoEnvConfig.getConsoleUrl()), choreoPath));
-	});
-	messenger.onRequest(SetWebviewCache, async (params) => {
-		const { cacheKey, data } = params as { cacheKey: string; data: any };
-		await ext.context.workspaceState.update(cacheKey, data);
-	});
-	messenger.onRequest(RestoreWebviewCache, async (cacheKey:string) => {
-		return ext.context.workspaceState.get(cacheKey);
-	});
-	messenger.onRequest(ClearWebviewCache, async (cacheKey:string) => {
-		await ext.context.workspaceState.update(cacheKey, undefined);
-	});
 	messenger.onRequest(GoToSource, async (filePath:string): Promise<void> => {
 		await goTosource(filePath, false);
 	});
@@ -508,6 +492,24 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 	});
 
 	*/
+
+	// messenger.onRequest(OpenExternal, (url: string) => {
+	// 	vscode.env.openExternal(vscode.Uri.parse(url));
+	// });
+	// messenger.onRequest(OpenExternalChoreo, (choreoPath: string) => {
+	// 	vscode.env.openExternal(vscode.Uri.joinPath(vscode.Uri.parse(choreoEnvConfig.getConsoleUrl()), choreoPath));
+	// });
+	messenger.onRequest(SetWebviewCache, async (params) => {
+		const { cacheKey, data } = params as { cacheKey: string; data: any };
+		await ext.context.workspaceState.update(cacheKey, data);
+	});
+	messenger.onRequest(RestoreWebviewCache, async (cacheKey:string) => {
+		return ext.context.workspaceState.get(cacheKey);
+	});
+	messenger.onRequest(ClearWebviewCache, async (cacheKey:string) => {
+		await ext.context.workspaceState.update(cacheKey, undefined);
+	});
+
 	messenger.onRequest(ExecuteCommandRequest, async (args: string[]) => {
 		if (args.length >= 1) {
 			const cmdArgs = args.length > 1 ? args.slice(1) : [];
@@ -519,15 +521,22 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 
 	// New types
 	messenger.onRequest(IsLoggedIn, async () => {
-		const platformExt = extensions.getExtension("wso2.wso2-platform");
-		if(!platformExt){
+		try{
+			const platformExt = extensions.getExtension("wso2.wso2-platform");
+			if(!platformExt){
+				return false
+			}
+			if(!platformExt.isActive){
+				await platformExt.activate();
+			}
+			const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports
+			const isLoggedIn = platformExtAPI.isLoggedIn();
+			console.log("isLoggedIn", isLoggedIn)
+			return isLoggedIn;
+		}catch(err){
+			console.log("err1", err)
 			return false
 		}
-		if(!platformExt.isActive){
-			await platformExt.activate();
-		}
-		const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports
-        return platformExtAPI.isLoggedIn();
 	});
 
 	messenger.onRequest(GetWebviewStateStore, async () => {
@@ -596,7 +605,7 @@ export class WebViewViewRPC {
 		try {
 			registerWebviewRPCHandlers(this._messenger, view);
 		} catch (err) {
-			// console.log("registerWebviewRPCHandlers error:", err);
+			console.log("registerWebviewRPCHandlers error:", err);
 		}
 	}
 

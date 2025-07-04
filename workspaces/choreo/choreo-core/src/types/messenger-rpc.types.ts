@@ -79,9 +79,9 @@ export const CreateLocalConnectionsConfig: RequestType<CreateLocalConnectionsCon
 export const DeleteLocalConnectionsConfig: RequestType<DeleteLocalConnectionsConfigReq, void> = { method: "deleteLocalConnectionsConfig" };
 
 // new types
-export const IsLoggedIn: RequestType<void, boolean> = { method: "isLoggedIn" };
-export const GetWebviewStateStore: RequestType<void, PlatformWebviewState> = { method: "getWebviewStateStore" };
-export const GetContextStateStore: RequestType<void, PlatformContextStoreState> = { method: "getContextStateStore" };
+export const IsLoggedIn: RequestType<void, boolean> = { method: "choreo/isLoggedIn" };
+export const GetWebviewStateStore: RequestType<void, PlatformWebviewState> = { method: "choreo/getWebviewStateStore" };
+export const GetContextStateStore: RequestType<void, PlatformContextStoreState> = { method: "choreo/getContextStateStore" };
 
 const NotificationMethods = {
 	onAuthStateChanged: "onAuthStateChanged",
