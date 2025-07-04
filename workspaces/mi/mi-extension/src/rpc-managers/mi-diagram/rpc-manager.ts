@@ -5462,7 +5462,7 @@ ${keyValuesXML}`;
 
     async saveConfig(params: SaveConfigRequest): Promise<SaveConfigResponse> {
         return new Promise(async (resolve, reject) => {
-            const { configName, configType } = params;
+            const { configName, configType, configValue } = params;
 
             try {
                 // Read the config file content
@@ -5488,6 +5488,18 @@ ${keyValuesXML}`;
 
                 // Write the updated config file content back to the file
                 fs.writeFileSync(configFilePath, updatedConfigFileContent, 'utf-8');
+
+                const envFilePath = [this.projectUri, '.env'].join(path.sep);
+                const envFileContent = fs.readFileSync(envFilePath, 'utf-8').trim();
+                let updatedEnvFileContent: string;
+                if (envFileContent.length > 0) {
+                    // Add a new line if the file is not empty
+                    updatedEnvFileContent = envFileContent + `\n${configName}=${configValue}`;
+                } else {
+                    updatedEnvFileContent = envFileContent + `${configName}=${configValue}`;
+                }
+                // Write the updated .env file content back to the file
+                fs.writeFileSync(envFilePath, updatedEnvFileContent, 'utf-8');
                 resolve({ success: true });
             } catch (e) {
                 reject(e);
