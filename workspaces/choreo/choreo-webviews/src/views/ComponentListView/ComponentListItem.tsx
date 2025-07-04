@@ -20,7 +20,7 @@ import {
 	type ContextStoreComponentState,
 	type Organization,
 	type Project,
-	type ViewComponentDetailsReq,
+	type IViewComponentDetailsCmdParams,
 	getComponentTypeText,
 	getTypeForDisplayType,
 } from "@wso2/wso2-platform-core";
@@ -45,7 +45,8 @@ export const ComponentListItem: FC<Props> = ({ item, isListLoading, opened, org,
 			project: project,
 			organization: org,
 			componentPath: item.componentFsPath,
-		} as ViewComponentDetailsReq);
+			extName: "Choreo"
+		} as IViewComponentDetailsCmdParams);
 
 	return (
 		<div

@@ -21,7 +21,7 @@ import classNames from "classnames";
 import React, { type FC, type HTMLProps } from "react";
 import { Button } from "../../components/Button";
 import { ChoreoWebViewAPI } from "../../utilities/vscode-webview-rpc";
-import {CommandIds as PlatformCommandIds} from '@wso2/wso2-platform-core'
+import {ICmdParamsBase, CommandIds as PlatformCommandIds} from '@wso2/wso2-platform-core'
 
 interface Props {
 	className?: HTMLProps<HTMLElement>["className"];
@@ -29,7 +29,7 @@ interface Props {
 
 export const SignInView: FC<Props> = ({ className }) => {
 	const { mutate: signInCmd, isLoading: isInitSignIn } = useMutation({
-		mutationFn: async () => ChoreoWebViewAPI.getInstance().triggerCmd(PlatformCommandIds.SignIn),
+		mutationFn: async () => ChoreoWebViewAPI.getInstance().triggerCmd(PlatformCommandIds.SignIn, {extName:"Choreo"} as ICmdParamsBase),
 	});
 	return (
 		<div className={classNames("flex w-full flex-col gap-[10px] px-6 py-2", className)}>
