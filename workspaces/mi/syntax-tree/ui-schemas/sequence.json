@@ -1,0 +1,60 @@
+{
+  "name": "Sequence",
+  "type": "component",
+  "title": "Sequence",
+  "help": "",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "name",
+              "displayName": "Name",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "traceEnabled",
+              "displayName": "Trace Enabled",
+              "inputType": "checkbox",
+              "defaultValue": false,
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "statisticsEnabled",
+              "displayName": "Statistics Enabled",
+              "inputType": "checkbox",
+              "defaultValue": false,
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "onError",
+              "displayName": "On Error",
+              "inputType": "registry",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

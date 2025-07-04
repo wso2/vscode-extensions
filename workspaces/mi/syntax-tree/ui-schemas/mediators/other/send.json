@@ -1,0 +1,124 @@
+{
+    "name": "send",
+    "type": "mediator",
+    "title": "Send Mediator",
+    "help": "Invokes external service in non-blocking mode.",
+    "elements": [
+        {
+            "type": "attributeGroup",
+            "value": {
+                "groupName": "Properties",
+                "elements": [
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "endpoint",
+                            "displayName": "Select Endpoint",
+                            "inputType": "comboOrKey",
+                            "required": true,
+                            "keyType": "endpoint",
+                            "comboValues": [
+                                "NONE"
+                            ],
+                            "helpTip": "Choose an existing endpoint, or specify a new one"
+                        }
+                    },
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "inlineEndpoint",
+                            "displayName": "Inline Endpoint",
+                            "inputType": "codeTextArea",
+                            "required": false,
+                            "helpTip": "Define your endpoint as an XML",
+                            "enableCondition": [
+                                {
+                                    "endpoint": "INLINE"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "buildMessageBeforeSending",
+                            "displayName": "Build Message Before Sending",
+                            "inputType": "checkbox",
+                            "defaultValue": false,
+                            "required": false,
+                            "helpTip": ""
+                        }
+                    },
+                    {
+                        "type": "attributeGroup",
+                        "value": {
+                            "groupName": "Receiving Sequence",
+                            "elements": [
+                                {
+                                    "type": "attribute",
+                                    "value": {
+                                        "name": "receivingSequenceType",
+                                        "displayName": "Receiving Sequence Type",
+                                        "inputType": "combo",
+                                        "defaultValue": "Default",
+                                        "comboValues": [
+                                            "Default",
+                                            "Static",
+                                            "Dynamic"
+                                        ],
+                                        "required": false,
+                                        "helpTip": ""
+                                    }
+                                },
+                                {
+                                    "type": "attribute",
+                                    "value": {
+                                        "name": "staticReceivingSequence",
+                                        "displayName": "Static Receiving Sequence",
+                                        "inputType": "key",
+                                        "keyType": "sequence",
+                                        "defaultValue": "",
+                                        "required": false,
+                                        "helpTip": "",
+                                        "enableCondition": [
+                                            {
+                                                "receivingSequenceType": "Static"
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "type": "attribute",
+                                    "value": {
+                                        "name": "dynamicReceivingSequence",
+                                        "displayName": "Dynamic Receiving Sequence",
+                                        "inputType": "expression",
+                                        "defaultValue": "",
+                                        "required": false,
+                                        "helpTip": "",
+                                        "enableCondition": [
+                                            {
+                                                "receivingSequenceType": "Dynamic"
+                                            }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "description",
+                            "displayName": "Description",
+                            "inputType": "string",
+                            "defaultValue": "",
+                            "required": false,
+                            "helpTip": ""
+                        }
+                    }
+                ]
+            }
+        }
+    ]
+}

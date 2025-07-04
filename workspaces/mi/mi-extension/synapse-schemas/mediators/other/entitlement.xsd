@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+ Copyright (c) 2019, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+* http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+-->
+
+<xs:schema 
+        xmlns:xs="http://www.w3.org/2001/XMLSchema"
+        xmlns:jaxb="http://java.sun.com/xml/ns/jaxb"
+        jaxb:version="2.0"
+        elementFormDefault="qualified" 
+        targetNamespace="http://ws.apache.org/ns/synapse" 
+        xmlns="http://ws.apache.org/ns/synapse">
+
+    <xs:include schemaLocation="../mediators.xsd" />
+    <xs:include schemaLocation="../../misc/common.xsd" />
+
+    <xs:element name="entitlementService">
+        <xs:annotation>
+            <xs:documentation source="description">
+                Intercepts messages and evaluates them against a XACML policy. The ESB profile becomes the XACML policy
+                enforcement point (PEP), and WSO2 Identity Server can be the XACML policy decision point (PDP).
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:all>
+                <xs:element name="onReject" type="sequence" minOccurs="0" maxOccurs="1" />
+                <xs:element name="onAccept" type="sequence" minOccurs="0" maxOccurs="1" />
+                <xs:element name="advice" type="sequence" minOccurs="0" maxOccurs="1" />
+                <xs:element name="obligations" type="sequence" minOccurs="0" maxOccurs="1" />
+            </xs:all>
+
+            <xs:attribute name="remoteServiceUrl" type="xs:string" use="required" />
+            <xs:attribute name="remoteServiceUserName" type="xs:string" use="required" />
+            <xs:attribute name="remoteServicePassword" type="xs:string" use="required" />
+            <xs:attribute name="callbackClass" type="xs:string" use="required" />
+            <xs:attribute name="client" use="required">
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:enumeration value="soap" />
+                        <xs:enumeration value="basicAuth" />
+                        <xs:enumeration value="thrift" />
+                        <xs:enumeration value="wsXacml" />
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="thriftHost" type="xs:string" use="optional" />
+            <xs:attribute name="thriftPort" type="xs:string" use="optional" />
+            <xs:attribute name="onReject" type="xs:string" use="optional">
+                <xs:annotation>
+                    <xs:appinfo>
+                        <jaxb:property name="onReject_attribute" />
+                    </xs:appinfo>
+                </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="onAccept" type="xs:string" use="optional">
+                <xs:annotation>
+                    <xs:appinfo>
+                        <jaxb:property name="onAccept_attribute" />
+                    </xs:appinfo>
+                </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="advice" type="xs:string" use="optional">
+                <xs:annotation>
+                    <xs:appinfo>
+                        <jaxb:property name="advice_attribute" />
+                    </xs:appinfo>
+                </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="obligations" type="xs:string" use="optional">
+                <xs:annotation>
+                    <xs:appinfo>
+                        <jaxb:property name="obligations_attribute" />
+                    </xs:appinfo>
+                </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="description" type="xs:string" use="optional" />
+        </xs:complexType>
+    </xs:element>
+
+</xs:schema>

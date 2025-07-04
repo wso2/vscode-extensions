@@ -1,0 +1,4 @@
+<cache collector="false"  hashGenerator="org.wso2.carbon.mediator.cache.digest.DOMHASHGenerator" id="ID" maxMessageSize="2000" scope="per-host" timeout="120">
+        <onCacheHit  />
+        <implementation maxSize="1000" type="memory" />
+    </cache>

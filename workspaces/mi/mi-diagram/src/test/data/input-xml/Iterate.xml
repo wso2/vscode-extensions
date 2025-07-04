@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<iterate attachPath="Path" continueParent="true" expression="Iterate Exp" id="IterateID" preservePayload="true" sequential="true">
+				<target>
+					<sequence></sequence>
+				</target>
+			</iterate>
+			<iterate expression="ex" id="id">
+				<target sequence="iterateSeq" />
+			</iterate>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+	<resource methods="GET" uri-template="/namedSequence">
+        <inSequence>
+            <iterate expression="$ctx">
+                <target sequence="seq1" />
+            </iterate>
+            <respond />
+        </inSequence>
+        <faultSequence />
+    </resource>
+</api>

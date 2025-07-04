@@ -1,0 +1,325 @@
+{
+  "name": "callout",
+  "type":"mediator",
+  "title": "Callout Mediator",
+  "help": "Invokes external service in blocking mode.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Service",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "endpointType",
+              "displayName": "Endpoint Type",
+              "inputType": "combo",
+              "comboValues": [
+                "URL",
+                "AddressEndpoint"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "soapAction",
+              "displayName": "SOAP Action",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "pathToAxis2Repository",
+              "displayName": "Path To Axis2 Repository",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "pathToAxis2xml",
+              "displayName": "Path To Axis2xml",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "initAxis2ClientOptions",
+              "displayName": "Init Axis2 Client Options",
+              "inputType": "checkbox",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "serviceURL",
+              "displayName": "Service URL",
+              "inputType": "string",
+              "enableCondition": [
+                {
+                  "endpointType": "URL"
+                }
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "addressEndpoint",
+              "displayName": "Address Endpoint",
+              "inputType": "registry",
+              "enableCondition": [
+                {
+                  "endpointType": "AddressEndpoint"
+                }
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Source",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "payloadType",
+              "displayName": "Payload Type",
+              "inputType": "combo",
+              "defaultValue": "XPATH",
+              "comboValues": [
+                "XPATH",
+                "PROPERTY",
+                "ENVELOPE"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "payloadMessageXPath",
+              "displayName": "Payload Message XPath",
+              "inputType": "expression",
+              "enableCondition": [
+                {
+                  "payloadType": "XPATH"
+                }
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "payloadProperty",
+              "displayName": "Payload Property",
+              "inputType": "string",
+              "enableCondition": [
+                {
+                  "payloadType": "PROPERTY"
+                }
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Target",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "resultType",
+              "displayName": "Result Type",
+              "inputType": "combo",
+              "defaultValue": "XPATH",
+              "comboValues": [
+                "XPATH",
+                "PROPERTY"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "resultMessageXPath",
+              "displayName": "Result Message XPath",
+              "inputType": "expression",
+              "enableCondition": [
+                {
+                  "resultType": "XPATH"
+                }
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "resultContextProperty",
+              "displayName": "Result Context Property",
+              "inputType": "string",
+              "enableCondition": [
+                {
+                  "resultType": "PROPERTY"
+                }
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "WS",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "securityType",
+              "displayName": "Security Type",
+              "inputType": "combo",
+              "defaultValue": "TRUE",
+              "comboValues": [
+                "TRUE",
+                "FALSE"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "policies",
+              "displayName": "Policies",
+              "inputType": "combo",
+              "defaultValue": "TRUE",
+              "comboValues": [
+                "TRUE",
+                "FALSE"
+              ],
+              "enableCondition": [
+                {
+                  "securityType": "TRUE"
+                }
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "policyKey",
+              "displayName": "Policy Key",
+              "inputType": "registry",
+              "enableCondition": [
+                "AND",
+                {
+                  "securityType": "TRUE"
+                },
+                {
+                  "policies": "FALSE"
+                }
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "outboundPolicyKey",
+              "displayName": "Outbound Policy Key",
+              "inputType": "registry",
+              "enableCondition": [
+                "AND",
+                {
+                  "securityType": "TRUE"
+                },
+                {
+                  "policies": "TRUE"
+                }
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "inboundPolicyKey",
+              "displayName": "Inbound Policy Key",
+              "inputType": "registry",
+              "enableCondition": [
+                "AND",
+                {
+                  "securityType": "TRUE"
+                },
+                {
+                  "policies": "TRUE"
+                }
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Misc",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,220 @@
+{
+  "name": "API",
+  "type": "component",
+  "title": "API",
+  "help": "",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "variableName",
+              "displayName": "Name",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "context",
+              "displayName": "Context",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "publishSwagger",
+              "displayName": "PublishSwagger",
+              "inputType": "registry",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "hostName",
+              "displayName": "Host Name",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "port",
+              "displayName": "Port",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "versionType",
+              "displayName": "Version Type",
+              "inputType": "combo",
+              "comboValues": [
+                "none",
+                "context",
+                "url"
+              ],
+              "defaultValue": "none",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "version",
+              "displayName": "Version",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                "NOT",
+                {
+                  "versionType": "none"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "traceEnabled",
+              "displayName": "Trace Enabled",
+              "inputType": "checkbox",
+              "defaultValue": false,
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "statisticsEnabled",
+              "displayName": "Statistics Enabled",
+              "inputType": "checkbox",
+              "defaultValue": false,
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Handler",
+        "elements": [
+          {
+            "type": "table",
+            "value": {
+              "name": "apiHandlers",
+              "displayName": "API Handlers",
+              "form": {
+                "title": "API Handler",
+                "description": "Editing of the properties of an object API Handler",
+                "elements": [
+                  {
+                    "type": "attributeGroup",
+                    "value": {
+                      "groupName": "Properties",
+                      "elements": [
+                        {
+                          "type": "attribute",
+                          "value": {
+                            "name": "className",
+                            "displayName": "Class Name",
+                            "inputType": "string",
+                            "defaultValue": "",
+                            "required": false,
+                            "helpTip": ""
+                          }
+                        },
+                        {
+                          "type": "table",
+                          "value": {
+                            "name": "properties",
+                            "displayName": "Properties",
+                            "form": {
+                              "title": "API Handler Property",
+                              "description": "Editing of the properties of an object API Handler Property",
+                              "elements": [
+                                {
+                                  "type": "attributeGroup",
+                                  "value": {
+                                    "groupName": "Properties",
+                                    "elements": [
+                                      {
+                                        "type": "attribute",
+                                        "value": {
+                                          "name": "name",
+                                          "displayName": "Name",
+                                          "inputType": "string",
+                                          "defaultValue": "",
+                                          "required": false,
+                                          "helpTip": ""
+                                        }
+                                      },
+                                      {
+                                        "type": "attribute",
+                                        "value": {
+                                          "name": "value",
+                                          "displayName": "Value",
+                                          "inputType": "string",
+                                          "defaultValue": "",
+                                          "required": false,
+                                          "helpTip": ""
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "drop",
+  "type": "mediator",
+  "title": "Drop Mediator",
+  "help": "Stops processing of the current message and terminates message flow.",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "defaultValue": "",
+        "required": false,
+        "helpTip": "Description"
+      }
+    }
+  ]
+}

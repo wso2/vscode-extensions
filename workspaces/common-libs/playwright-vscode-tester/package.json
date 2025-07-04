@@ -1,0 +1,38 @@
+{
+  "name": "@wso2/playwright-vscode-tester",
+  "version": "1.0.0",
+  "description": "Utils needed to run vscode with Cypress for e2e testing",
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc --pretty",
+    "watch": "tsc --pretty --watch"
+  },
+  "author": "WSO2",
+  "devDependencies": {
+    "@types/fs-extra": "~11.0.1",
+    "@types/node": "~22.15.24",
+    "@types/unzipper": "~0.10.11",
+    "@typescript-eslint/eslint-plugin": "~8.33.0",
+    "@typescript-eslint/parser": "~8.33.0",
+    "typescript": "5.8.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wso2/ballerina-plugin-vscode.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
+  },
+  "dependencies": {
+    
+    "@vscode/vsce": "~3.4.2",
+    "compare-versions": "~6.1.1",
+    "fs-extra": "~11.3.0",
+    "hpagent": "~1.2.0",
+    "targz": "~1.0.1",
+    "unzipper": "~0.12.3",
+    "playwright-core": "~1.52.0",
+    "got": "14.4.7",
+    "@playwright/test": "1.52.0"
+  }
+}

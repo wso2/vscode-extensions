@@ -1,0 +1,288 @@
+{
+  "name": "API Resource",
+  "type": "component",
+  "title": "API Resource",
+  "help": "",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Basic",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "urlStyle",
+              "displayName": "Url Style",
+              "inputType": "combo",
+              "defaultValue": "NONE",
+              "comboValues": [
+                "NONE",
+                "URI_TEMPLATE",
+                "URL_MAPPING"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "protocol",
+              "displayName": "Protocol",
+              "inputType": "combo",
+              "defaultValue": "http",
+              "comboValues": [
+                "http,https",
+                "http",
+                "https"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Methods",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "get",
+              "displayName": "Get",
+              "inputType": "checkbox",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "post",
+              "displayName": "Post",
+              "inputType": "checkbox",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "put",
+              "displayName": "Put",
+              "inputType": "checkbox",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "delete",
+              "displayName": "Delete",
+              "inputType": "checkbox",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "options",
+              "displayName": "Options",
+              "inputType": "checkbox",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "head",
+              "displayName": "Head",
+              "inputType": "checkbox",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "patch",
+              "displayName": "Patch",
+              "inputType": "checkbox",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "InSequence",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "inSequenceType",
+              "displayName": "In Sequence Type",
+              "inputType": "combo",
+              "defaultValue": "ANONYMOUS",
+              "comboValues": [
+                "ANONYMOUS",
+                "REGISTRY_REFERENCE",
+                "NAMED_REFERENCE"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "inSequenceKey",
+              "displayName": "In Sequence Key",
+              "inputType": "registry",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "inSequenceType": "REGISTRY_REFERENCE"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "inSequenceName",
+              "displayName": "In Sequence Name",
+              "inputType": "string",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "inSequenceType": "NAMED_REFERENCE"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "OutSequence",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "outSequenceType",
+              "displayName": "Out Sequence Type",
+              "inputType": "combo",
+              "defaultValue": "ANONYMOUS",
+              "comboValues": [
+                "ANONYMOUS",
+                "REGISTRY_REFERENCE",
+                "NAMED_REFERENCE"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "outSequenceKey",
+              "displayName": "Out Sequence Key",
+              "inputType": "registry",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "outSequenceType": "REGISTRY_REFERENCE"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "outSequenceName",
+              "displayName": "Out Sequence Name",
+              "inputType": "string",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "outSequenceType": "NAMED_REFERENCE"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "FaultSequence",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "faultSequenceType",
+              "displayName": "Fault Sequence Type",
+              "inputType": "combo",
+              "defaultValue": "ANONYMOUS",
+              "comboValues": [
+                "ANONYMOUS",
+                "REGISTRY_REFERENCE",
+                "NAMED_REFERENCE"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "faultSequenceKey",
+              "displayName": "Fault Sequence Key",
+              "inputType": "registry",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "faultSequenceType": "REGISTRY_REFERENCE"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "faultSequenceName",
+              "displayName": "Fault Sequence Name",
+              "inputType": "string",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "faultSequenceType": "NAMED_REFERENCE"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,137 @@
+{
+    "name": "header",
+    "type": "mediator",
+    "title": "Header Mediator",
+    "help": "Sets/removes message header (SOAP/transport scope).",
+    "elements": [
+        {
+            "type": "attribute",
+            "value": {
+                "name": "headerName",
+                "displayName": "Header Name",
+                "inputType": "expression",
+                "defaultValue": "To",
+                "required": false,
+                "helpTip": ""
+            }
+        },
+        {
+            "type": "attribute",
+            "value": {
+                "name": "headerAction",
+                "displayName": "Header Action",
+                "inputType": "combo",
+                "defaultValue": "set",
+                "comboValues": [
+                    "set",
+                    "remove"
+                ],
+                "required": false,
+                "helpTip": ""
+            }
+        },
+        {
+            "type": "attribute",
+            "value": {
+                "name": "scope",
+                "displayName": "Scope",
+                "inputType": "combo",
+                "defaultValue": "default",
+                "comboValues": [
+                    "default",
+                    "transport"
+                ],
+                "required": false,
+                "helpTip": ""
+            }
+        },
+        {
+            "type": "attributeGroup",
+            "value": {
+                "groupName": "HeaderValue",
+                "elements": [
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "valueType",
+                            "displayName": "Value Type",
+                            "inputType": "combo",
+                            "defaultValue": "LITERAL",
+                            "comboValues": [
+                                "LITERAL",
+                                "EXPRESSION",
+                                "INLINE"
+                            ],
+                            "required": false,
+                            "helpTip": ""
+                        }
+                    },
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "valueLiteral",
+                            "displayName": "Value Literal",
+                            "inputType": "string",
+                            "defaultValue": "",
+                            "required": false,
+                            "helpTip": "",
+                            "enableCondition": [
+                                {
+                                    "valueType": "LITERAL"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "valueExpression",
+                            "displayName": "Value Expression",
+                            "inputType": "expression",
+                            "defaultValue": "",
+                            "required": false,
+                            "helpTip": "",
+                            "enableCondition": [
+                                {
+                                    "valueType": "EXPRESSION"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "valueInline",
+                            "displayName": "Value Inline",
+                            "inputType": "string",
+                            "defaultValue": "",
+                            "required": false,
+                            "helpTip": "",
+                            "enableCondition": [
+                                {
+                                    "valueType": "INLINE"
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "enableCondition": [
+                    {
+                        "headerAction": "set"
+                    }
+                ]
+            }
+        },
+        {
+            "type": "attribute",
+            "value": {
+                "name": "description",
+                "displayName": "Description",
+                "inputType": "string",
+                "defaultValue": "",
+                "required": false,
+                "helpTip": ""
+            }
+        }
+    ]
+}

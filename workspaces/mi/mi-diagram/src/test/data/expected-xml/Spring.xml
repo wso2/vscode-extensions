@@ -1,0 +1,1 @@
+<spring:spring bean="Bean Name"  key="Config Key" xmlns:spring="http://ws.apache.org/ns/synapse"/>

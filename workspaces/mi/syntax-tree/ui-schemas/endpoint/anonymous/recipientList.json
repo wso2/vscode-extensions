@@ -1,0 +1,168 @@
+{
+  "name": "Recipient List Endpoint",
+  "type": "component",
+  "title": "Recipient List Endpoint",
+  "help": "",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "endpointName",
+              "displayName": "Endpoint Name",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "endpointType",
+              "displayName": "Endpoint Type",
+              "inputType": "combo",
+              "defaultValue": "Inline",
+              "comboValues": [
+                "Inline",
+                "Value",
+                "XPath"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "endpointValue",
+              "displayName": "Endpoint Value",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "maxCache",
+              "displayName": "Max Cache",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "table",
+            "value": {
+              "name": "proeprties",
+              "displayName": "Properties",
+              "form": {
+                "title": "Endpoint Property",
+                "description": "Editing of the properties of an object Endpoint Property",
+                "elements": [
+                  {
+                    "type": "attributeGroup",
+                    "value": {
+                      "groupName": "Properties",
+                      "elements": [
+                        {
+                          "type": "attribute",
+                          "value": {
+                            "name": "name",
+                            "displayName": "Name",
+                            "inputType": "string",
+                            "defaultValue": "",
+                            "required": false,
+                            "helpTip": ""
+                          }
+                        },
+                        {
+                          "type": "attribute",
+                          "value": {
+                            "name": "scope",
+                            "displayName": "Scope",
+                            "inputType": "combo",
+                            "defaultValue": "default",
+                            "comboValues": [
+                              "default",
+                              "transport",
+                              "axis2",
+                              "axis2-client"
+                            ],
+                            "required": false,
+                            "helpTip": ""
+                          }
+                        },
+                        {
+                          "type": "attribute",
+                          "value": {
+                            "name": "valueType",
+                            "displayName": "Value Type",
+                            "inputType": "combo",
+                            "defaultValue": "LITERAL",
+                            "comboValues": [
+                              "LITERAL",
+                              "EXPRESSION"
+                            ],
+                            "required": false,
+                            "helpTip": ""
+                          }
+                        },
+                        {
+                          "type": "attribute",
+                          "value": {
+                            "name": "value",
+                            "displayName": "Value",
+                            "inputType": "string",
+                            "defaultValue": "",
+                            "required": false,
+                            "helpTip": "",
+                            "enableCondition": [
+                              {
+                                "valueType": "LITERAL"
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "type": "attribute",
+                          "value": {
+                            "name": "valueExpression",
+                            "displayName": "Value Expression",
+                            "inputType": "expression",
+                            "defaultValue": "",
+                            "required": false,
+                            "helpTip": "",
+                            "enableCondition": [
+                              {
+                                "valueType": "EXPRESSION"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

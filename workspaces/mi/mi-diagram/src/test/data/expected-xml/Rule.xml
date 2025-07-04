@@ -1,0 +1,14 @@
+<brs:rule description="" xmlns:brs="http://wso2.org/carbon/rules">
+        <brs:source xpath="Source XPath">Source</brs:source>
+        <brs:target action="replace" resultXpath="Target XPath" xpath="Target XPath" xmlns:Pref="NS Url">Target</brs:target>
+        <brs:ruleSet>
+            <brs:properties />
+            <brs:rule resourceType="regular"  sourceType="inline"><![CDATA[<code/>]]></brs:rule>
+        </brs:ruleSet>
+        <brs:input namespace="Input Namespace" wrapperElementName="Input Wrapper" >
+            <brs:fact elementName="Name" namespace="Input Namespace" type="Custom" xpath="Property Expression" />
+        </brs:input>
+        <brs:output namespace="Out NS" wrapperElementName="Out Wrapper" >
+            <brs:fact elementName="Res Name" namespace="Out NS" type="Res Custom" />
+        </brs:output>
+    </brs:rule>

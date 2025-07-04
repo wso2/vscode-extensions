@@ -1,0 +1,231 @@
+{
+  "name": "Enrich",
+  "type": "mediator",
+  "title": "Enrich Mediator",
+  "help": "Enriches message content (envelope, body, etc.) based on specification.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Source",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "cloneSource",
+              "displayName": "Clone Source",
+              "defaultValue": true,
+              "inputType": "checkbox",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "sourceType",
+              "displayName": "Source Type",
+              "inputType": "combo",
+              "defaultValue": "envelope",
+              "comboValues": [
+                "custom",
+                "envelope",
+                "body",
+                "property",
+                "inline"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "sourceXPath",
+              "displayName": "Source XPath",
+              "inputType": "expression",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "sourceType": "custom"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "sourceProperty",
+              "displayName": "Source Property",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "sourceType": "property"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "inlineType",
+              "displayName": "Inline Type",
+              "inputType": "combo",
+              "defaultValue": "Inline XML/JSON",
+              "comboValues": [
+                "Inline XML/JSON",
+                "RegistryKey"
+              ],
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "sourceType": "inline"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "sourceXML",
+              "displayName": "Source XML",
+              "inputType": "textArea",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                "AND",
+                {
+                  "sourceType": "inline"
+                },
+                {
+                  "inlineType": "Inline XML/JSON"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "inlineRegistryKey",
+              "displayName": "Inline Registry Key",
+              "inputType": "key",
+              "keyType": [
+                "registry",
+                "localEntry"
+              ],
+              "defaultValue": "",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                "AND",
+                {
+                  "sourceType": "inline"
+                },
+                {
+                  "inlineType": "RegistryKey"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Target",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "targetAction",
+              "displayName": "Target Action",
+              "inputType": "combo",
+              "defaultValue": "replace",
+              "comboValues": [
+                "replace",
+                "child",
+                "sibling",
+                "remove"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "targetType",
+              "displayName": "Target Type",
+              "inputType": "combo",
+              "defaultValue": "custom",
+              "comboValues": [
+                "custom",
+                "body",
+                "property",
+                "envelope",
+                "key"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "targetXPathJsonPath",
+              "displayName": "Target XPath / JSONPath",
+              "inputType": "expression",
+              "defaultValue": "",
+              "required": true,
+              "helpTip": "",
+              "enableCondition": [
+                "OR",
+                {
+                  "targetType": "custom"
+                },
+                {
+                  "targetType": "key"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "targetProperty",
+              "displayName": "Target Property",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "targetType": "property"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "defaultValue": "",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}

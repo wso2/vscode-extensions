@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": "workspaces/api-designer/api-designer-extension"
+		},
+		{
+			"path": "workspaces/api-designer/api-designer-visualizer"
+		},
+		{
+			"path": "workspaces/api-designer/api-designer-core"
+		},
+		{
+			"path": "workspaces/api-designer/api-designer-rpc-client"
+		}
+	],
+	"settings": {
+		"typescript.tsc.autoDetect": "off"
+	}
+}

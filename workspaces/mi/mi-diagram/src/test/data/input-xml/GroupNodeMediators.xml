@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/" name="WeatherAPI" xmlns="http://ws.apache.org/ns/synapse">
+    <resource methods="POST" uri-template="/">
+
+        <inSequence>
+            <property name="uri.var.appid" scope="default" type="STRING" value="ABCDEFGH" />
+            <variable name="APP_ID" type="STRING" value="ABCDEF" />
+            <scatter-gather parallel-execution="true" result-target="Body" content-type="JSON">
+                <aggregation expression="${payload}" />
+                <sequence>
+                    <log category="INFO">
+                        <message></message>
+                    </log>
+                </sequence>
+                <sequence></sequence>
+            </scatter-gather>
+            <iterate expression="json-eval($.cities)" id="cities">
+                <target>
+                    <sequence>
+                        <property name="uri.var.city" scope="default" type="STRING"
+                            expression="json-eval($.name)" />
+                        <call>
+                            <endpoint key="OpenWeatherMapEp" />
+
+                        </call>
+                    </sequence>
+                </target>
+            </iterate>
+            <aggregate id="cities">
+
+                <completeCondition timeout="0">
+                    <messageCount max="-1" min="-1" />
+                </completeCondition>
+                <onComplete expression="json-eval($)">
+                    <respond />
+                </onComplete>
+            </aggregate>
+        </inSequence>
+        <faultSequence>
+        </faultSequence>
+    </resource>
+    <resource methods="POST" uri-template="/newway">
+        <inSequence>
+            <foreach collection="${payload.cities}" parallel-execution="true">
+                <sequence>
+</sequence>
+            </foreach>
+        </inSequence>
+        <faultSequence>
+        </faultSequence>
+    </resource>
+</api>

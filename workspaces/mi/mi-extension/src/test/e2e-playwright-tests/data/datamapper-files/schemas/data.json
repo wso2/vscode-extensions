@@ -1,0 +1,16 @@
+{
+    "id": 1,
+    "name": "Alice Smith",
+    "tags": ["developer", "team lead"],
+    "addresses": [
+      {
+        "city": "New York",
+        "postalCode": 10001
+      },
+      {
+        "city": "San Francisco",
+        "postalCode": 94107
+      }
+    ]
+  }
+  

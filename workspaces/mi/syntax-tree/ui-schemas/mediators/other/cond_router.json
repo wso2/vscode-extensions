@@ -1,0 +1,81 @@
+{
+  "name": "ConditionalRouter",
+  "type": "mediator",
+  "title": "Conditional Router Mediator",
+  "help": "Routes messages to target sequence only if conditions are met.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "continueAfterRoute",
+              "displayName": "Continue After Route",
+              "inputType": "checkbox",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "table",
+            "value": {
+              "name": "conditionalRouteBranches",
+              "displayName": "Conditional Route Branches",
+              "title": "Conditional Route Branch",
+              "description": "Editing of the properties of an object Conditional Route Branch",
+              "tableKey": "breakAfterRoute",
+              "tableValue": "targetSequence",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "breakAfterRoute",
+                    "displayName": "Break After Route",
+                    "inputType": "checkbox",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "targetSequence",
+                    "displayName": "Target Sequence",
+                    "inputType": "key",
+                    "keyType": "sequence",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "evaluatorExpression",
+                    "displayName": "Evaluator Expression",
+                    "inputType": "string",
+                    "defaultValue": "<equal  type='param' source='foo' value='bar'/>",
+                    "required": true,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

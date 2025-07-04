@@ -1,0 +1,3 @@
+<class name="TestClass"  >
+        <property name="testArg" value="Arg Val" />
+</class>

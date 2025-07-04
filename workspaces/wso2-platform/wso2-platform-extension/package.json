@@ -1,0 +1,261 @@
+{
+  "name": "wso2-platform",
+  "displayName": "WSO2 Platform",
+  "description": "Manage WSO2 Choreo and Devant projects in VS Code.",
+  "license": "Apache-2.0",
+  "version": "1.0.13-sts-12",
+  "cliVersion": "v1.2.182507031200",
+  "publisher": "wso2",
+  "bugs": {
+    "url": "https://github.com/wso2/choreo-vscode/issues"
+  },
+  "repository": "https://github.com/wso2/choreo-vscode",
+  "icon": "resources/icons/wso2-logo.png",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "extensionDependencies": [
+    "redhat.vscode-yaml"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "wso2.wso2-platform.sign.in",
+        "title": "Sign In",
+        "category": "WSO2",
+        "icon": "${sign-in}",
+        "enablement": "!isLoggedIn"
+      },
+      {
+        "command": "wso2.wso2-platform.sign.in.with.authCode",
+        "title": "Sign In with Auth Code",
+        "category": "WSO2",
+        "enablement": "!isLoggedIn"
+      },
+      {
+        "command": "wso2.wso2-platform.sign.out",
+        "title": "Sign Out",
+        "category": "WSO2",
+        "icon": "${sign-out}",
+        "enablement": "isLoggedIn"
+      },
+      {
+        "command": "wso2.wso2-platform.create.component",
+        "title": "Create Component",
+        "category": "WSO2",
+        "icon": "$(add)"
+      },
+      {
+        "command": "wso2.wso2-platform.open.external",
+        "title": "Open in Console",
+        "category": "WSO2",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "wso2.wso2-platform.delete.component",
+        "title": "Delete Component",
+        "category": "WSO2",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "wso2.wso2-platform.component.view",
+        "title": "View Component Details",
+        "category": "WSO2",
+        "icon": "$(preview)"
+      },
+      {
+        "command": "wso2.wso2-platform.project.clone",
+        "title": "Clone Repository",
+        "category": "WSO2",
+        "icon": "$(repo-clone)"
+      },
+      {
+        "command": "wso2.wso2-platform.project.create.context",
+        "title": "Select Project",
+        "category": "WSO2",
+        "icon": "$(link)"
+      },
+      {
+        "command": "wso2.wso2-platform.project.manage.context",
+        "title": "Manage Project",
+        "category": "WSO2",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "wso2.wso2-platform.project.refresh",
+        "title": "Refresh Workspace",
+        "category": "WSO2",
+        "icon": "$(refresh)",
+        "enablement": "!isLoadingContextDirs"
+      },
+      {
+        "command": "wso2.wso2-platform.project.create.workspace",
+        "title": "Open Project in a Multi-root Workspace",
+        "shortTitle": "Create workspace file",
+        "category": "WSO2",
+        "icon": "$(new-file)",
+        "enablement": "isLoggedIn && hasSelectedProject && notUsingWorkspaceFile"
+      },
+      {
+        "command": "wso2.wso2-platform.component.create.dependency",
+        "title": "Create component dependency",
+        "shortTitle": "Create dependency",
+        "category": "WSO2",
+        "icon": "$(link)"
+      },
+      {
+        "command": "wso2.wso2-platform.component.view.dependency",
+        "title": "View dependency documentation",
+        "shortTitle": "View dependency",
+        "category": "WSO2",
+        "icon": "$(preview)"
+      },
+      {
+        "command": "wso2.wso2-platform.open.component.src",
+        "title": "Open component source directory",
+        "shortTitle": "Open component source",
+        "category": "WSO2",
+        "icon": "$(repo-clone)"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "WSO2 Platform",
+      "properties": {
+        "WSO2.WSO2-Platform.Logging.loggingLevel": {
+          "type": "string",
+          "enum": [
+            "off",
+            "fatal",
+            "error",
+            "warn",
+            "info",
+            "debug",
+            "trace"
+          ],
+          "default": "error",
+          "description": "The verbosity of logging. The Order is off < fatal < error < warn < info < debug < trace.",
+          "order": 1,
+          "scope": "window"
+        },
+        "WSO2.WSO2-Platform.Logging.sourceLocationTracking": {
+          "type": "boolean",
+          "default": false,
+          "description": "Should Source Code Location Info be added to log entries, DANGER - May be very slow, only use in debugging scenarios",
+          "order": 1,
+          "scope": "window"
+        },
+        "WSO2.WSO2-Platform.Advanced.ChoreoEnvironment": {
+          "type": "string",
+          "enum": [
+            "prod",
+            "stage",
+            "dev"
+          ],
+          "default": "prod",
+          "description": "The WSO2 Platform Enviornment to use",
+          "scope": "window"
+        },
+        "WSO2.WSO2-Platform.Advanced.RpcPath": {
+          "type": "string",
+          "default": "",
+          "description": "The path to Choreo RPC server",
+          "scope": "window"
+        },
+        "WSO2.WSO2-Platform.Advanced.StsToken": {
+          "type": "string",
+          "default": "",
+          "description": "User STS token",
+          "scope": "window"
+        }
+      }
+    },
+    "icons": {
+      "distro-wso2-platform-2": {
+        "description": "wso2-platform-2",
+        "default": {
+          "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
+          "fontCharacter": "\\f147"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "clean": "del-cli ./dist ./out ./resources/jslibs ./platform-*.vsix ./coverage ./.nyc_output",
+    "compile": "webpack --mode production",
+    "watch-wso2-platform": "webpack --watch",
+    "build": "pnpm run compile && pnpm run copy-webview-lib && pnpm run postbuild",
+    "rebuild": "pnpm run clean && pnpm run compile && pnpm run copy-webview-lib && pnpm run postbuild",
+    "copy-webview-lib": "mkdir -p ./resources/jslibs && copyfiles -f ../wso2-platform-webviews/build/* ./resources/jslibs",
+    "compile-tests": "tsc -p . --outDir dist",
+    "watch-tests": "tsc -p . -w --outDir dist",
+    "e2e-test-setup": "npx extest get-vscode -c 1.83.1 && npx extest get-chromedriver -c 1.83.1 && npx extest install-vsix -f $(ls vsix/*.vsix)",
+    "e2e-test": "pnpm run compile-tests && npx extest run-tests 'dist/src/tests/e2e-tests/*.test.js' --mocha_config src/tests/e2e-tests/.mocharc.js -o src/tests/e2e-tests/settings.json",
+    "e2e-playwright": "pnpm run compile-tests && pnpm exec playwright test",
+    "e2e-pw-record": "pnpm run compile-tests && node ./dist/tests/e2e-playwright/recorder.js",
+    "integration-test": "pnpm run compile-tests && npx extest run-tests 'dist/tests/integration-tests/*.test.js' --mocha_config src/tests/integration-tests/.mocharc.js -o src/tests/integration-tests/settings.json",
+    "pretest": "pnpm run clean && pnpm run compile-tests && pnpm run copy-webview-lib",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write . ",
+    "test-nyc-cli": "nyc --reporter=html node ./dist/test/runTest.js",
+    "test": "rm -rf .vscode-test/extensions && node ./dist/test/runTest.js && nyc report && nyc report --reporter=html",
+    "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/; else vsce package --no-dependencies --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/; fi",
+    "copyVSIX": "copyfiles *.vsix ./vsix",
+    "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../..",
+    "postbuild": "pnpm run package && pnpm run copyVSIX"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.52.0",
+    "@types/byline": "^4.2.36",
+    "@types/js-yaml": "^4.0.9",
+    "@types/mocha": "~10.0.1",
+    "@types/node": "^22.15.21",
+    "@types/vscode": "^1.100.0",
+    "@types/which": "^3.0.4",
+    "@vscode/vsce": "^3.4.2",
+    "@wso2/playwright-vscode-tester": "workspace:*",
+    "axios": "^1.9.0",
+    "copyfiles": "^2.4.1",
+    "del-cli": "^6.0.0",
+    "mocha": "^11.5.0",
+    "typescript": "^5.8.3",
+    "vscode-extension-tester": "^8.14.1",
+    "ts-loader": "~9.5.2",
+    "webpack": "^5.99.9",
+    "webpack-cli": "^6.0.1",
+    "webpack-permissions-plugin": "^1.0.10",
+    "copy-webpack-plugin": "^13.0.0",
+    "@biomejs/biome": "^1.9.4",
+    "terser-webpack-plugin": "^5.3.14"
+  },
+  "dependencies": {
+    "@vscode-logging/logger": "^2.0.0",
+    "@vscode-logging/types": "^2.0.0",
+    "@vscode-logging/wrapper": "^2.0.0",
+    "@vscode/extension-telemetry": "~1.0.0",
+    "@vscode/iconv-lite-umd": "^0.7.0",
+    "@vscode/webview-ui-toolkit": "^1.4.0",
+    "@wso2/wso2-platform-core": "workspace:*",
+    "@wso2/wso2-platform-vscode-webviews": "workspace:*",
+    "byline": "^5.0.0",
+    "dotenv": "^16.0.3",
+    "file-type": "^18.2.1",
+    "js-yaml": "^4.1.0",
+    "yaml": "^2.8.0",
+    "jschardet": "^3.1.4",
+    "vscode-messenger": "^0.5.1",
+    "vscode-messenger-common": "^0.5.1",
+    "which": "^5.0.0",
+    "vscode-jsonrpc": "^8.2.1",
+    "zustand": "^5.0.5",
+    "@aws-sdk/client-s3": "^3.817.0",
+    "zod":"^3.22.4"
+  }
+}

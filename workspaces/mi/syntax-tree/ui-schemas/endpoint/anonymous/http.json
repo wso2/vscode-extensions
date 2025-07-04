@@ -1,0 +1,691 @@
+{
+  "name": "HTTP Endpoint",
+  "type": "component",
+  "title": "HTTP Endpoint",
+  "help": "",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Basic",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "statisticsEnabled",
+              "displayName": "Statistics Enabled",
+              "inputType": "checkbox",
+              "defaultValue": false,
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "traceEnabled",
+              "displayName": "Trace Enabled",
+              "inputType": "checkbox",
+              "defaultValue": false,
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "uriTemplate",
+              "displayName": "URI Template",
+              "inputType": "string",
+              "defaultValue": false,
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "httpMethod",
+              "displayName": "HTTP Method",
+              "inputType": "combo",
+              "defaultValue": "GET",
+              "comboValues": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "HEAD",
+                "OPTIONS",
+                "PATCH",
+                "Leave_as_is"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Advanced",
+        "elements": [
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Endpoint Properties",
+              "elements": [
+                {
+                  "type": "table",
+                  "value": {
+                    "name": "proeprties",
+                    "displayName": "Properties",
+                    "form": {
+                      "title": "Endpoint Property",
+                      "description": "Editing of the properties of an object Endpoint Property",
+                      "elements": [
+                        {
+                          "type": "attributeGroup",
+                          "value": {
+                            "groupName": "Properties",
+                            "elements": [
+                              {
+                                "type": "attribute",
+                                "value": {
+                                  "name": "name",
+                                  "displayName": "Name",
+                                  "inputType": "string",
+                                  "defaultValue": "",
+                                  "required": false,
+                                  "helpTip": ""
+                                }
+                              },
+                              {
+                                "type": "attribute",
+                                "value": {
+                                  "name": "scope",
+                                  "displayName": "Scope",
+                                  "inputType": "combo",
+                                  "defaultValue": "default",
+                                  "comboValues": [
+                                    "default",
+                                    "transport",
+                                    "axis2",
+                                    "axis2-client"
+                                  ],
+                                  "required": false,
+                                  "helpTip": ""
+                                }
+                              },
+                              {
+                                "type": "attribute",
+                                "value": {
+                                  "name": "valueType",
+                                  "displayName": "Value Type",
+                                  "inputType": "combo",
+                                  "defaultValue": "LITERAL",
+                                  "comboValues": [
+                                    "LITERAL",
+                                    "EXPRESSION"
+                                  ],
+                                  "required": false,
+                                  "helpTip": ""
+                                }
+                              },
+                              {
+                                "type": "attribute",
+                                "value": {
+                                  "name": "value",
+                                  "displayName": "Value",
+                                  "inputType": "string",
+                                  "defaultValue": "",
+                                  "required": false,
+                                  "helpTip": "",
+                                  "enableCondition": [
+                                    {
+                                      "valueType": "LITERAL"
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "type": "attribute",
+                                "value": {
+                                  "name": "valueExpression",
+                                  "displayName": "Value Expression",
+                                  "inputType": "expression",
+                                  "defaultValue": "",
+                                  "required": false,
+                                  "helpTip": "",
+                                  "enableCondition": [
+                                    {
+                                      "valueType": "EXPRESSION"
+                                    }
+                                  ]
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Auth Configurations",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "oauthType",
+                    "displayName": "OAuth Type",
+                    "inputType": "combo",
+                    "defaultValue": "default",
+                    "comboValues": [
+                      "None",
+                      "Basic Auth",
+                      "OAuth"
+                    ],
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "basicAuthUsername",
+                    "displayName": "Basic Auth Username",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "oauthType": "Basic Auth"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "basicAuthPassword",
+                    "displayName": "Basic Auth Password",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "oauthType": "Basic Auth"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "oauthGrantType",
+                    "displayName": "OAuth Grant Type",
+                    "inputType": "combo",
+                    "defaultValue": "default",
+                    "comboValues": [
+                      "Authorization Code Grant",
+                      "Client Credentials Grant",
+                      "Password Credentials Grant"
+                    ],
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "oauthType": " OAuth"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "clientId",
+                    "displayName": "Client ID",
+                    "inputType": "stringOrExpression",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "oauthType": "OAuth"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "clientSecret",
+                    "displayName": "Client Secret",
+                    "inputType": "stringOrExpression",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "oauthType": "OAuth"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "refreshToken",
+                    "displayName": "Refresh Token",
+                    "inputType": "stringOrExpression",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      "AND",
+                      {
+                        "authType": "OAuth"
+                      },
+                      {
+                        "oauthGrantType": "Authorization Code Grant"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "oauthUsername",
+                    "displayName": "OAuth Username",
+                    "inputType": "stringOrExpression",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      "AND",
+                      {
+                        "authType": "OAuth"
+                      },
+                      {
+                        "oauthGrantType": "Password Credentials Grant"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "tokenUrl",
+                    "displayName": "Token URL",
+                    "inputType": "stringOrExpression",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "authType": "OAuth"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "oauthAuthenticationMode",
+                    "displayName": "OAuth Authentication Mode",
+                    "inputType": "combo",
+                    "defaultValue": "default",
+                    "comboValues": [
+                      "Header",
+                      "Payload"
+                    ],
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "authType": "OAuth"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "table",
+                  "value": {
+                    "name": "oauthParameters",
+                    "displayName": "OAuth Parameters",
+                    "form": {
+                      "title": "Endpoint Property",
+                      "description": "Editing of the properties of an object Endpoint Property",
+                      "elements": [
+                        {
+                          "type": "attributeGroup",
+                          "value": {
+                            "groupName": "OAuthProperties",
+                            "elements": [
+                              {
+                                "type": "attribute",
+                                "value": {
+                                  "name": "name",
+                                  "displayName": "Name",
+                                  "inputType": "string",
+                                  "defaultValue": "",
+                                  "required": false,
+                                  "helpTip": ""
+                                }
+                              },
+                              {
+                                "type": "attribute",
+                                "value": {
+                                  "name": "scope",
+                                  "displayName": "Scope",
+                                  "inputType": "combo",
+                                  "defaultValue": "default",
+                                  "comboValues": [
+                                    "default",
+                                    "transport",
+                                    "axis2",
+                                    "axis2-client"
+                                  ],
+                                  "required": false,
+                                  "helpTip": ""
+                                }
+                              },
+                              {
+                                "type": "attribute",
+                                "value": {
+                                  "name": "valueType",
+                                  "displayName": "Value Type",
+                                  "inputType": "combo",
+                                  "defaultValue": "LITERAL",
+                                  "comboValues": [
+                                    "LITERAL",
+                                    "EXPRESSION"
+                                  ],
+                                  "required": false,
+                                  "helpTip": ""
+                                }
+                              },
+                              {
+                                "type": "attribute",
+                                "value": {
+                                  "name": "value",
+                                  "displayName": "Value",
+                                  "inputType": "string",
+                                  "defaultValue": "",
+                                  "required": false,
+                                  "helpTip": "",
+                                  "enableCondition": [
+                                    {
+                                      "valueType": "LITERAL"
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "type": "attribute",
+                                "value": {
+                                  "name": "valueExpression",
+                                  "displayName": "Value Expression",
+                                  "inputType": "expression",
+                                  "defaultValue": "",
+                                  "required": false,
+                                  "helpTip": "",
+                                  "enableCondition": [
+                                    {
+                                      "valueType": "EXPRESSION"
+                                    }
+                                  ]
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Endpoint Suspend State",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "suspendErrorCodes",
+                    "displayName": "Suspend Error Codes",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "suspendInitialDuration",
+                    "displayName": "Suspend Initial Duration",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "suspendMaximumDuration",
+                    "displayName": "Suspend Maximum Duration",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "suspendProgressionFactor",
+                    "displayName": "Suspend Progression Factor",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Endpoint Timeout State",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "retryErrorCodes",
+                    "displayName": "Retry Error Codes",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "retryCount",
+                    "displayName": "Retry Count",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "retryDelay",
+                    "displayName": "Retry Delay",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "QoS",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "reliableMessagingEnabled",
+                    "displayName": "Reliable Messaging Enabled",
+                    "inputType": "checkbox",
+                    "defaultValue": false,
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "securityEnabled",
+                    "displayName": "Security Enabled",
+                    "inputType": "checkbox",
+                    "defaultValue": false,
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "addressingEnabled",
+                    "displayName": "Addressing Enabled",
+                    "inputType": "checkbox",
+                    "defaultValue": false,
+                    "required": false,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Timeout",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "timeoutDuration",
+                    "displayName": "Timeout Duration",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "timeoutAction",
+                    "displayName": "Timeout Action",
+                    "inputType": "combo",
+                    "defaultValue": "never",
+                    "comboValues": [
+                      "never",
+                      "discard",
+                      "fault"
+                    ],
+                    "required": false,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "optimize",
+              "displayName": "Optimize",
+              "inputType": "combo",
+              "defaultValue": "LEAVE_AS_IS",
+              "comboValues": [
+                "LEAVE_AS_IS",
+                "mtom",
+                "swa"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Failover Error Codes",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "failoverNonRetryErrorCodes",
+                    "displayName": "Failover Non Retry Error Codes",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": "",
+                    "enableCondition": [
+                      {
+                        "failoverRetryType": "NON_RETRY_ERROR_CODES"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Misc",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,3 +1,25 @@
+dist
+out
+node_modules
+webviews/node_modules
+.vscode-test/
+*.vsix
+**/vsix
+!resources/jslibs/font/DroidSansMono.ttf
+**/resources/jslibs
+!.vscode
+coverage
+extractedDistribution
+.npmrc
+test-resources
+**/resources/font-wso2-vscode
+.env
+.hintrc
+
+# gradle
+.gradle
+!gradle-wrapper.jar
+
 # Compiled class file
 *.class
 
@@ -21,4 +43,37 @@
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
-replay_pid*
+
+# ignore Intellij-IDEA files
+*.iml
+.idea/
+*.iws
+*.ipr
+
+# MacOS
+*.DS_Store
+
+node_modules/
+*.tsbuildinfo
+
+lib/
+build
+
+# Rush temporary files
+common/deploy/
+common/temp/
+common/autoinstallers/*/.npmrc
+**/.rush/temp/
+
+# Playwright
+playwright-report/
+# ignore storybook build
+**/.out/
+
+# storybook
+.storybook-out/
+**/storybook-static/
+
+extensions.json
+
+!sample-mi-project.zip

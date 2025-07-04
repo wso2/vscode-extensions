@@ -1,0 +1,69 @@
+{
+  "name": "Builder",
+  "type": "mediator",
+  "title": "Builder Mediator",
+  "help": "Builds (converts to XML) messages even with Binary Relay enabled in the server.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "table",
+            "value": {
+              "name": "messageBuilders",
+              "displayName": "Message Builders",
+              "title": "Message Builder",
+              "description": "Editing of the properties of an object Message Builder",
+              "tableKey": "contentType",
+              "tableValue": "builderClass",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "contentType",
+                    "displayName": "Content Type",
+                    "inputType": "string",
+                    "required": true,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "builderClass",
+                    "displayName": "Builder Class",
+                    "inputType": "string",
+                    "required": true,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "formatterClass",
+                    "displayName": "Formatter Class",
+                    "inputType": "string",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

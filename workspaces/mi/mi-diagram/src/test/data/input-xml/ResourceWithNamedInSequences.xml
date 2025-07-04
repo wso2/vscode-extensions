@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/api3" name="api3" xmlns="http://ws.apache.org/ns/synapse">
+    <resource methods="GET" uri-template="/" inSequence="s1">
+    </resource>
+    <resource methods="GET" uri-template="/2" inSequence="s1" outSequence="s2" faultSequence="s3">
+    </resource>
+    <resource methods="GET" uri-template="/3" inSequence="s1" outSequence="s2">
+    </resource>
+    <resource methods="GET" uri-template="/4" inSequence="s1" faultSequence="s3">
+    </resource>
+
+    <resource methods="GET" uri-template="/5">
+        <inSequence>
+        </inSequence>
+    </resource>
+    <resource methods="GET" uri-template="/6" outSequence="s1">
+        <inSequence>
+        </inSequence>
+    </resource>
+    <resource methods="GET" uri-template="/7" faultSequence="s1">
+        <inSequence>
+        </inSequence>
+    </resource>
+    <resource methods="GET" uri-template="/8" outSequence="s1" faultSequence="s2">
+        <inSequence>
+        </inSequence>
+    </resource>
+    <resource methods="GET" uri-template="/9" inSequence="s1">
+        <outSequence>
+        </outSequence>
+    </resource>
+    <resource methods="GET" uri-template="/10" inSequence="s1" faultSequence="s2">
+        <outSequence>
+        </outSequence>
+    </resource>
+    <resource methods="GET" uri-template="/11" inSequence="s1">
+        <faultSequence>
+        </faultSequence>
+    </resource>
+    <resource methods="GET" uri-template="/12" inSequence="s1" outSequence="s1">
+        <faultSequence>
+        </faultSequence>
+    </resource>
+
+    <resource methods="GET" uri-template="/13">
+        <inSequence>
+        </inSequence>
+        <outSequence>
+        </outSequence>
+    </resource>
+    <resource methods="GET" uri-template="/14">
+        <inSequence>
+        </inSequence>
+        <faultSequence>
+        </faultSequence>
+    </resource>
+    <resource methods="GET" uri-template="/15" faultSequence="s1">
+        <inSequence>
+        </inSequence>
+        <outSequence>
+        </outSequence>
+    </resource>
+    <resource methods="GET" uri-template="/16" outSequence="s1">
+        <inSequence>
+        </inSequence>
+        <faultSequence>
+        </faultSequence>
+    </resource>
+    <resource methods="GET" uri-template="/17" inSequence="s1">
+        <outSequence>
+        </outSequence>
+        <faultSequence>
+        </faultSequence>
+    </resource>
+
+    <resource methods="GET" uri-template="/18">
+        <inSequence>
+        </inSequence>
+        <outSequence>
+        </outSequence>
+        <faultSequence>
+        </faultSequence>
+    </resource>
+    <resource methods="GET" uri-template="/19">
+        <outSequence>
+        </outSequence>
+        <inSequence>
+        </inSequence>
+        <faultSequence>
+        </faultSequence>
+    </resource>
+    <resource methods="GET" uri-template="/20">
+        <outSequence>
+        </outSequence>
+        <faultSequence>
+        </faultSequence>
+        <inSequence>
+        </inSequence>
+    </resource>
+    <resource methods="GET" uri-template="/21">
+        <faultSequence>
+        </faultSequence>
+        <inSequence>
+        </inSequence>
+        <outSequence>
+        </outSequence>
+    </resource>
+
+</api>

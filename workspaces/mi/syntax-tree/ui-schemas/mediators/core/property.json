@@ -1,0 +1,182 @@
+{
+    "name": "property",
+    "type": "mediator",
+    "title": "Property Mediator",
+    "help": "Manipulates message properties by setting and/or removing property values, supporting both constant and dynamically generated values through XPath expressions.",
+    "elements": [
+        {
+            "type": "attribute",
+            "value": {
+                "name": "propertyName",
+                "displayName": "Property Name",
+                "inputType": "stringOrExpression",
+                "defaultValue": "",
+                "required": true,
+                "helpTip": "New Property Name"
+            }
+        },
+        {
+            "type": "attribute",
+            "value": {
+                "name": "propertyAction",
+                "displayName": "Property Action",
+                "inputType": "combo",
+                "defaultValue": "set",
+                "comboValues": [
+                    "set",
+                    "remove"
+                ],
+                "required": true,
+                "helpTip": "Property Action"
+            }
+        },
+        {
+            "type": "attribute",
+            "value": {
+                "name": "propertyDataType",
+                "displayName": "Property Data Type",
+                "inputType": "combo",
+                "defaultValue": "STRING",
+                "comboValues": [
+                    "STRING",
+                    "INTEGER",
+                    "BOOLEAN",
+                    "DOUBLE",
+                    "FLOAT",
+                    "LONG",
+                    "SHORT",
+                    "OM",
+                    "JSON"
+                ],
+                "required": true,
+                "helpTip": "Property Data Type",
+                "enableCondition": [
+                    "NOT",
+                    {
+                        "propertyAction": "remove"
+                    }
+                ]
+            }
+        },
+        {
+            "type": "attribute",
+            "value": {
+                "name": "value",
+                "displayName": "Property Value",
+                "inputType": "stringOrExpression",
+                "defaultValue": "",
+                "required": true,
+                "helpTip": "Value",
+                "enableCondition": [
+                    "NOT",
+                    [
+                        "OR",
+                        {
+                            "propertyDataType": "OM"
+                        },
+                        {
+                            "propertyAction": "remove"
+                        }
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "attribute",
+            "value": {
+                "name": "OMValue",
+                "displayName": "OM",
+                "inputType": "stringOrExpression",
+                "defaultValue": "",
+                "required": true,
+                "helpTip": "Value",
+                "enableCondition": [
+                    {
+                        "propertyDataType": "OM"
+                    }
+                ]
+            }
+        },
+        {
+            "type": "attribute",
+            "value": {
+                "name": "propertyScope",
+                "displayName": "Property Scope",
+                "inputType": "combo",
+                "defaultValue": "DEFAULT",
+                "comboValues": [
+                    "DEFAULT",
+                    "TRANSPORT",
+                    "AXIS2",
+                    "AXIS2-CLIENT",
+                    "OPERATION",
+                    "REGISTRY",
+                    "SYSTEM",
+                    "ANALYTICS"
+                ],
+                "required": true,
+                "helpTip": "Property Scope"
+            }
+        },
+        {
+            "type": "attributeGroup",
+            "value": {
+                "groupName": "Advanced",
+                "isCollapsible": true,
+                "elements": [
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "valueStringPattern",
+                            "displayName": "Value String Pattern",
+                            "inputType": "string",
+                            "defaultValue": "",
+                            "required": false,
+                            "helpTip": "Value String Pattern",
+                            "enableCondition": [
+                                "AND",
+                                {
+                                    "propertyDataType": "STRING"
+                                },
+                                {
+                                    "propertyAction": "set"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "valueStringCapturingGroup",
+                            "displayName": "Value String Capturing Group",
+                            "inputType": "string",
+                            "defaultValue": "0",
+                            "required": false,
+                            "helpTip": "Value String Capturing Group",
+                            "enableCondition": [
+                                "AND",
+                                {
+                                    "propertyDataType": "STRING"
+                                },
+                                {
+                                    "propertyAction": "set"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "attribute",
+            "value": {
+                "name": "description",
+                "displayName": "Description",
+                "inputType": "string",
+                "defaultValue": "",
+                "required": false,
+                "helpTip": "Description"
+            }
+        }
+    ]
+}

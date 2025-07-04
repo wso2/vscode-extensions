@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<validate source="Source" cache-schema="true" description="Validate Description">
+				<schema key="gov:datamapper/DM/DM_inputSchema.json"/>
+				<feature name="Feature Name" value="true"/>
+				<resource key="conf:wsdleptemplate.xml" location="Location"/>
+				<on-fail></on-fail>
+			</validate>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

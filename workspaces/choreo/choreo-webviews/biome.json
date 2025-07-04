@@ -1,0 +1,33 @@
+{
+	"extends": ["../biome.json"],
+	"files": {
+		"ignore": ["lib/**", "build/**", "*.json"]
+	},
+	"linter": {
+		"rules": {
+			"suspicious": {
+				"noExplicitAny": "off",
+				"noArrayIndexKey": "off"
+			},
+			"correctness": {
+				"noUnsafeOptionalChaining": "off",
+				"useExhaustiveDependencies": "off"
+			},
+			"complexity": {
+				"noForEach": "off",
+				"noThisInStatic": "off"
+			},
+			"a11y": {
+				"noSvgWithoutTitle": "off",
+				"useKeyWithClickEvents": "off",
+				"noLabelWithoutControl": "off"
+			},
+			"nursery": {
+				"useSortedClasses": "warn"
+			}
+		}
+	},
+	"javascript": {
+		"jsxRuntime": "reactClassic"
+	}
+}

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+		    <rewrite inProperty="In Prop" outProperty="Out Prop" >
+		        <rewriterule>
+		            <condition>URLRewrite Condition</condition>
+		        </rewriterule>
+		    </rewrite> 
+		    
+			
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

@@ -1,0 +1,22 @@
+<Repo-Root>/workspaces/choreo/choreo-extension/test-resources/Visual Studio Code.app/Contents/MacOS/Electron
+--allow-pre-commit-input
+--disable-background-networking
+--disable-client-side-phishing-detection
+--disable-default-apps
+--disable-dev-shm-usage 
+--disable-hang-monitor 
+--disable-popup-blocking
+--disable-prompt-on-repost
+--disable-sync
+--enable-automation
+--enable-blink-features=ShadowDOMV0
+--enable-logging
+--log-level=0
+--no-first-run
+--no-sandbox
+--no-service-autorun
+--password-store=basic
+--remote-debugging-port=0
+--test-type=webdriver
+--use-mock-keychain
+--user-data-dir=<Repo-Root>/workspaces/choreo/choreo-extension/test-resources/settings

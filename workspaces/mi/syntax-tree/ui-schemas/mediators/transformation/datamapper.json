@@ -1,0 +1,108 @@
+{
+  "name": "Data Mapper",
+  "type": "mediator",
+  "title": "Data Mapper Mediator",
+  "help": "Transforms data format/structure in the message.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "configurationLocalPath",
+              "displayName": "Configuration Local Path",
+              "inputType": "registry",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "InputType",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "inputType",
+                    "displayName": "Input Type",
+                    "inputType": "combo",
+                    "defaultValue": "XML",
+                    "comboValues": [
+                      "XML",
+                      "CSV",
+                      "JSON"
+                    ],
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "inputSchemaLocalPath",
+                    "displayName": "InputSchema Local Path",
+                    "inputType": "registry",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "OutputType",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "outputType",
+                    "displayName": "Output Type",
+                    "inputType": "combo",
+                    "defaultValue": "XML",
+                    "comboValues": [
+                      "XML",
+                      "CSV",
+                      "JSON"
+                    ],
+                    "required": false,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "outputSchemaLocalPath",
+                    "displayName": "OutputSchema Local Path",
+                    "inputType": "registry",
+                    "defaultValue": "",
+                    "required": false,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

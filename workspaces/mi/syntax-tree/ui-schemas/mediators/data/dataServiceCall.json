@@ -1,0 +1,194 @@
+{
+  "name": "DataServiceCall",
+  "type": "mediator",
+  "title": "Data Service Mediator",
+  "help": "Invokes data service operations.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "serviceName",
+              "displayName": "Data Service Name",
+              "inputType": "key",
+              "keyType": "dataService",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "sourceType",
+              "displayName": "Source Type",
+              "inputType": "combo",
+              "defaultValue": "INLINE",
+              "comboValues": [
+                "INLINE",
+                "BODY"
+              ],
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "operationType",
+              "displayName": "Operation Type",
+              "inputType": "combo",
+              "defaultValue": "SINGLE",
+              "comboValues": [
+                "SINGLE",
+                "BATCH",
+                "REQUESTBOX"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "table",
+            "value": {
+              "name": "operations",
+              "displayName": "Operations",
+              "description": "Editing of the properties of an object AbstractDSSOperation",
+              "tableKey": "operationName",
+              "tableValue": "DSSProperties",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "operationName",
+                    "displayName": "OperationName",
+                    "inputType": "string",
+                    "required": true,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "table",
+                  "value": {
+                    "name": "DSSProperties",
+                    "displayName": "DSS Properties",
+                    "description": "Editing of the properties of an object DSSoperationProperty",
+                    "tableKey": "propertyName",
+                    "tableValue": "propertyValue",
+                    "elements": [
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "propertyName",
+                          "displayName": "Property Name",
+                          "inputType": "string",
+                          "required": true,
+                          "helpTip": ""
+                        }
+                      },
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "propertyValueType",
+                          "displayName": "Property Value Type",
+                          "inputType": "combo",
+                          "defaultValue": "LITERAL",
+                          "comboValues": [
+                            "LITERAL",
+                            "EXPRESSION"
+                          ],
+                          "required": false,
+                          "helpTip": ""
+                        }
+                      },
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "propertyValue",
+                          "displayName": "Property Value",
+                          "inputType": "string",
+                          "required": false,
+                          "helpTip": "",
+                          "enableCondition": [
+                            {
+                              "propertyValueType": "LITERAL"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "propertyExpression",
+                          "displayName": "Property Expression",
+                          "inputType": "expression",
+                          "required": false,
+                          "helpTip": "",
+                          "enableCondition": [
+                            {
+                              "propertyValueType": "EXPRESSION"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ],
+              "enableCondition": [
+                {
+                  "sourceType": "INLINE"
+                }
+              ],
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "targetType",
+              "displayName": "Target Type",
+              "inputType": "combo",
+              "defaultValue": "BODY",
+              "comboValues": [
+                "BODY",
+                "PROPERTY"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "targetProperty",
+              "displayName": "Target Property",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "enableCondition": [
+                {
+                  "targetType": "PROPERTY"
+                }
+              ],
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

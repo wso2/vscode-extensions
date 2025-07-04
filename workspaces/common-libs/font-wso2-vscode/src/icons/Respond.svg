@@ -1,0 +1,24 @@
+<!--
+ ~ Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ ~
+ ~ WSO2 LLC. licenses this file to you under the Apache License,
+ ~ Version 2.0 (the "License"); you may not use this file except
+ ~ in compliance with the License.
+ ~ You may obtain a copy of the License at
+ ~
+ ~     http://www.apache.org/licenses/LICENSE-2.0
+ ~
+ ~ Unless required by applicable law or agreed to in writing,
+ ~ software distributed under the License is distributed on an
+ ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ ~ KIND, either express or implied. See the License for the
+ ~ specific language governing permissions and limitations
+ ~ under the License.
+-->
+<svg width="15" height="13" viewBox="0 0 15 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path fill-rule="evenodd" clip-rule="evenodd" d="M0.900049 9.99995C0.900049 9.77904 1.07914 9.59995 1.30005 9.59995H9.70005C9.92096 9.59995 10.1 9.77904 10.1 9.99995C10.1 10.2209 9.92096 10.4 9.70005 10.4H1.30005C1.07914 10.4 0.900049 10.2209 0.900049 9.99995Z" fill="black"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M3.68818 7.22249C3.84141 7.38162 3.83663 7.63484 3.67751 7.78808L1.28891 10.0882L3.66579 12.201C3.83091 12.3478 3.84578 12.6006 3.69901 12.7657C3.55225 12.9308 3.29942 12.9457 3.1343 12.7989L0.434303 10.3989C0.350985 10.3249 0.302352 10.2194 0.300129 10.1079C0.297905 9.99647 0.342293 9.88915 0.422592 9.81182L3.12259 7.21182C3.28172 7.05859 3.53494 7.06337 3.68818 7.22249Z" fill="black"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M9.70005 0.999951C8.52096 0.999951 7.60005 1.92087 7.60005 3.09995C7.60005 4.27904 8.52096 5.19995 9.70005 5.19995C10.8791 5.19995 11.8 4.27904 11.8 3.09995C11.8 1.92087 10.8791 0.999951 9.70005 0.999951ZM6.80005 3.09995C6.80005 1.47904 8.07913 0.199951 9.70005 0.199951C11.321 0.199951 12.6 1.47904 12.6 3.09995C12.6 4.72087 11.321 5.99995 9.70005 5.99995C8.07913 5.99995 6.80005 4.72087 6.80005 3.09995Z" fill="black"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M1.00005 0.599951C1.00005 0.379037 1.17914 0.199951 1.40005 0.199951H9.70005C9.92096 0.199951 10.1 0.379037 10.1 0.599951C10.1 0.820865 9.92096 0.999951 9.70005 0.999951H1.40005C1.17914 0.999951 1.00005 0.820865 1.00005 0.599951Z" fill="black"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M9.20005 0.599951C9.20005 0.379037 9.37914 0.199951 9.60005 0.199951C12.421 0.199951 14.7 2.47904 14.7 5.29995C14.7 8.12087 12.421 10.4 9.60005 10.4C9.37914 10.4 9.20005 10.2209 9.20005 9.99995C9.20005 9.77904 9.37914 9.59995 9.60005 9.59995C11.9791 9.59995 13.9 7.67904 13.9 5.29995C13.9 2.92087 11.9791 0.999951 9.60005 0.999951C9.37914 0.999951 9.20005 0.820865 9.20005 0.599951Z" fill="black"/>
+</svg>

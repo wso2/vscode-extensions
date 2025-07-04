@@ -1,0 +1,58 @@
+{
+  "name": "Enqueue",
+  "type": "mediator",
+  "title": "Enqueue Mediator",
+  "help": "Executes different sequences for messages with different properties in high-load scenarios.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "executor",
+              "displayName": "Executor",
+              "inputType": "string",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "priority",
+              "displayName": "Priority",
+              "inputType": "string",
+              "defaultValue": "0",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "sequenceKey",
+              "displayName": "Sequence Key",
+              "inputType": "key",
+              "keyType": "sequence",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

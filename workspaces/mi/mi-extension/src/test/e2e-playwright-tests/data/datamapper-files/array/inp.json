@@ -1,0 +1,25 @@
+{
+    "iPrimDirect1D": [1, 2, 3],
+    "iPrimMapFn1D": [4, 5, 6],
+    "iObjMapFn1D": [
+      {
+        "p1": "example1",
+        "p2": ["str1", "str2"]
+      },
+      {
+        "p1": "example2",
+        "p2": ["str3", "str4"]
+      }
+    ],
+    "iInitPrim": "stringValue",
+    "iInitObj": {
+      "p1": "nestedString",
+      "p2": ["nestedStr1", "nestedStr2"]
+    },
+    "iPrimMapFn2D": [
+      [5, 6],
+      [7, 8]
+    ],
+    "iSingle1D": ["output1", "output2", "output3"]
+}
+  

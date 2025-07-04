@@ -1,0 +1,748 @@
+---
+type: object
+properties:
+  id:
+    type: string
+    title: UUID of the API
+  name:
+    type: string
+    title: Name of the API
+    maxLength: 60
+    minLength: 1
+  basePath:
+    type: string
+    title: Base Path of the API
+    maxLength: 256
+    minLength: 1
+  version:
+    type: string
+    title: Version of the API
+    maxLength: 30
+    minLength: 1
+    pattern: '^[^~!@#;:%^*()+={}|\\<>"'',&/$\[\]\s+\/]+$'
+    description: |
+      A string representing the version of the API. It should not contain
+      special characters or spaces.
+  type:
+    type: string
+    default: REST
+    enum:
+      - REST
+      - GRAPHQL
+      - GRPC
+    description: "The type of the API. Can be one of: REST, GraphQL, GRPC."
+  definitionPath:
+    type: string
+    description: Endpoint to expose API Definition
+  defaultVersion:
+    type: boolean
+    description: Is this the default version of the API
+  subscriptionValidation:
+    type: boolean
+    description: Is subscription validation enabled for the API
+  environment:
+    type: string
+    description: Environment of the API
+  endpointConfigurations:
+    "$ref": "#/schemas/EndpointConfigurations"
+    description: Configuration for different endpoints of the API.
+  aiProvider:
+    $ref: "#/schemas/AIProvider"
+  operations:
+    type: array
+    items:
+      "$ref": "#/schemas/APKOperations"
+    description: Operations supported by the API.
+  apiPolicies:
+    "$ref": "#/schemas/APIOperationPolicies"
+    description: Policies applied to API-level operations.
+  rateLimit:
+    "$ref": "#/schemas/RateLimit"
+    description: Rate limiting configuration for the API.
+  authentication:
+    type: array
+    items:
+      oneOf:
+        - $ref: "#/schemas/OAuth2Authentication"
+        - $ref: "#/schemas/MTLSAuthentication"
+        - $ref: "#/schemas/JWTAuthentication"
+        - $ref: "#/schemas/APIKeyAuthentication"
+  additionalProperties:
+    type: array
+    description: Map of custom properties of API
+    items:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+  corsConfiguration:
+    "$ref": "#/schemas/CORSConfiguration"
+    description: Cross-Origin Resource Sharing (CORS) configuration for the API.
+additionalProperties: false
+schemas:
+  OAuth2Authentication:
+    type: object
+    properties:
+      required:
+        type: string
+        default: mandatory
+        enum:
+          - mandatory
+          - optional
+        description: Specifies whether OAuth2 is mandatory or optional
+      authType:
+        type: string
+        enum: [OAuth2]
+        description: The type of authentication to be used, e.g., OAuth2, etc.
+      sendTokenToUpstream:
+        type: boolean
+        default: false
+        description: Specifies whether to send the authentication token to the upstream service.
+      enabled:
+        type: boolean
+        example: true
+        description: Specifies whether OAuth2 authentication is enabled for the API.
+      headerName:
+        type: string
+        example: Authorization
+        description: The name of the header field used to send the authentication token.
+      headerEnable:
+        type: boolean
+        description: Specifies whether the authentication token can be sent in the header.
+    additionalProperties: false
+  JWTAuthentication:
+    type: object
+    properties:
+      required:
+        type: string
+        default: mandatory
+        enum:
+          - mandatory
+          - optional
+        description: Specifies whether JWT is mandatory or optional
+      authType:
+        type: string
+        enum: [JWT]
+        description: The type of authentication to be used, e.g., JWT, etc.
+      sendTokenToUpstream:
+        type: boolean
+        default: false
+        description: Specifies whether to send the authentication token to the upstream service.
+      enabled:
+        type: boolean
+        example: true
+        description: Specifies whether JWT authentication is enabled for the API.
+      headerName:
+        type: string
+        example: Authorization
+        description: The name of the header field used to send the authentication token.
+      headerEnable:
+        type: boolean
+        description: Specifies whether the authentication token can be sent in the header.
+      audience:
+        type: array
+        default: []
+        items:
+          type: string
+    additionalProperties: false
+  APIKeyAuthentication:
+    type: object
+    properties:
+      required:
+        type: string
+        default: mandatory
+        enum:
+          - mandatory
+          - optional
+        description: Specifies whether API Key is mandatory or optional
+      authType:
+        type: string
+        enum: [APIKey]
+        description: The type of authentication to be used, e.g., APIKey, etc.
+      sendTokenToUpstream:
+        type: boolean
+        default: false
+        description: Specifies whether to send the authentication token to the upstream service.
+      enabled:
+        type: boolean
+        example: true
+        description: Specifies whether API Key authentication is enabled for the API.
+      headerName:
+        type: string
+        example: APIKey
+        description: The name of the header field used to send the API key.
+      headerEnable:
+        type: boolean
+        description: Specifies whether the API key can be sent in the header.
+      queryParamName:
+        type: string
+        example: apikey
+        default: apikey
+      queryParamEnable:
+        type: boolean
+        default: true
+        description: Specifies whether the API key can be sent as a query parameter.
+    additionalProperties: false
+  MTLSAuthentication:
+    type: object
+    properties:
+      authType:
+        type: string
+        example: mTLS
+        enum: [mTLS]
+        description: The type of authentication to be used, e.g., mTLS, etc.
+      enabled:
+        type: boolean
+        example: true
+        default: true
+        description: Specifies whether mTLS authentication is enabled for the API.
+      required:
+        type: string
+        default: optional
+        enum:
+          - mandatory
+          - optional
+        description: Specifies whether mTLS is mandatory or optional
+      certificates:
+        type: array
+        description: The names and keys of the secrets containing the mTLS certificates of that API
+        items:
+          type: object
+          properties:
+            name:
+              type: string
+            key:
+              type: string
+    additionalProperties: false
+  CORSConfiguration:
+    type: object
+    description: Cross-Origin Resource Sharing (CORS) configuration for the API.
+    properties:
+      corsConfigurationEnabled:
+        type: boolean
+        default: false
+        description: Specifies whether CORS configuration is enabled.
+      accessControlAllowOrigins:
+        type: array
+        items:
+          type: string
+        description: Allowed origins for CORS requests.
+      accessControlAllowCredentials:
+        type: boolean
+        default: false
+        description: |
+          Specifies whether credentials are allowed to be sent for CORS
+          requests.
+      accessControlAllowHeaders:
+        type: array
+        items:
+          type: string
+        description: Allowed headers for CORS requests.
+      accessControlAllowMethods:
+        type: array
+        items:
+          type: string
+        description: Allowed HTTP methods for CORS requests.
+      accessControlAllowMaxAge:
+        type: integer
+        default: 0
+        description: |
+          Maximum age (in seconds) for which the CORS preflight response can be
+          cached.
+      accessControlExposeHeaders:
+        type: array
+        items:
+          type: string
+        description: The headers that are safe to expose to the API.
+    additionalProperties: false
+  APIOperationPolicies:
+    title: API Operation Level Policies
+    properties:
+      request:
+        type: array
+        items:
+          $ref: "#/schemas/APKRequestOperationPolicy"
+        description: Policies applied to request operations.
+      response:
+        type: array
+        items:
+          $ref: "#/schemas/APKResponseOperationPolicy"
+        description: Policies applied to response operations.
+    additionalProperties: false
+  APKRequestOperationPolicy:
+    title: API Operation Policy
+    required:
+      - policyName
+    type: object
+    properties:
+      policyName:
+        type: string
+        description: The name of the operation policy.
+        enum:
+          - AddHeader
+          - RemoveHeader
+          - SetHeader
+          - Interceptor
+          - BackendJwt
+          - RequestMirror
+          - RequestRedirect
+          - ModelBasedRoundRobin
+      policyVersion:
+        type: string
+        default: v1
+        description: The version of the operation policy.
+      policyId:
+        type: string
+        description: The ID of the operation policy.
+      parameters:
+        type: object
+        oneOf:
+          - "$ref": "#/schemas/InterceptorProperties"
+          - "$ref": "#/schemas/BackendJWTProperties"
+          - "$ref": "#/schemas/HeaderModifierProperties"
+          - "$ref": "#/schemas/RequestMirrorProperties"
+          - "$ref": "#/schemas/RequestRedirectProperties"
+          - "$ref": "#/schemas/ModelBasedRoundRobinProperties"
+    additionalProperties: false
+  APKResponseOperationPolicy:
+    title: API Operation Policy
+    required:
+      - policyName
+    type: object
+    properties:
+      policyName:
+        type: string
+        description: The name of the operation policy.
+        enum:
+          - AddHeader
+          - RemoveHeader
+          - SetHeader
+          - Interceptor
+          - BackendJwt
+      policyVersion:
+        type: string
+        default: v1
+        description: The version of the operation policy.
+      policyId:
+        type: string
+        description: The ID of the operation policy.
+      parameters:
+        type: object
+        oneOf:
+          - "$ref": "#/schemas/InterceptorProperties"
+          - "$ref": "#/schemas/BackendJWTProperties"
+          - "$ref": "#/schemas/HeaderModifierProperties"
+    additionalProperties: false
+  HeaderModifierProperties:
+    title: Header Modifier Parameters
+    type: object
+    properties:
+      headerName:
+        type: string
+        description: The name of the header.
+      headerValue:
+        type: string
+        description: The value of the header.
+    required:
+      - headerName
+    additionalProperties: false
+  RequestMirrorProperties:
+    title: Request Mirror Parameters
+    type: object
+    properties:
+      urls:
+        type: array
+        items:
+          type: string
+          description: The urls to mirror the request to.
+    additionalProperties: false
+  RequestRedirectProperties:
+    title: Request Redirect Parameters
+    type: object
+    properties:
+      url:
+        type: string
+        description: The URL to redirect the request to.
+      statusCode:
+        type: integer
+        description: The status code to show upon redirecting the request.
+        default: 302
+        enum:
+          - 301
+          - 302
+    additionalProperties: false
+  RateLimit:
+    title: API Rate Limit Details
+    type: object
+    required:
+      - requestsPerUnit
+      - unit
+    properties:
+      requestsPerUnit:
+        type: integer
+        description: The number of requests allowed per specified unit of time.
+        example: 30
+      unit:
+        type: string
+        description: The unit of time for rate limiting.
+        enum:
+          - Minute
+          - Hour
+          - Day
+        example: Minute
+    additionalProperties: false
+  AIProvider:
+    title: AI Provider
+    properties:
+      name:
+        type: string
+      apiVersion:
+        type: string
+    additionalProperties: false
+  EndpointConfigurations:
+    title: Endpoint Configurations
+    properties:
+      production:
+        type: array
+        items:
+          $ref: "#/schemas/EndpointConfiguration"
+      sandbox:
+        type: array
+        items:
+          $ref: "#/schemas/EndpointConfiguration"
+    additionalProperties: false
+  EndpointConfiguration:
+    required:
+      - endpoint
+    type: object
+    properties:
+      endpoint:
+        oneOf:
+          - type: string
+          - $ref: "#/schemas/K8sService"
+      endpointSecurity:
+        $ref: "#/schemas/EndpointSecurity"
+        description: Security configuration for the API endpoint.
+      certificate:
+        type: object
+        $ref: "#/schemas/Certificate"
+        description: Certificate information for secure communication.
+      resiliency:
+        $ref: "#/schemas/Resiliency"
+        description: Resiliency configuration for the API endpoint.
+      aiRatelimit:
+        $ref: "#/schemas/AIRatelimit"
+      weight:
+        type: integer
+    additionalProperties: false
+  Certificate:
+    type: object
+    properties:
+      secretName:
+        type: string
+        description: The name of the secret containing the certificate.
+      secretKey:
+        type: string
+        description: The key within the secret that holds the certificate.
+    additionalProperties: false
+  EndpointSecurity:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+        default: false
+        description: Specifies whether endpoint security is enabled.
+      securityType:
+        oneOf:
+          - $ref: "#/schemas/BasicEndpointSecurity"
+          - $ref: "#/schemas/APIKeyEndpointSecurity"
+        description: The type of security to be applied to the API endpoint.
+    additionalProperties: false
+  BasicEndpointSecurity:
+    type: object
+    properties:
+      secretName:
+        type: string
+        description: |
+          The name of the secret containing the credentials for basic
+          authentication.
+      userNameKey:
+        type: string
+        description: |
+          The key within the secret that holds the username for basic
+          authentication.
+      passwordKey:
+        type: string
+        description: |
+          The key within the secret that holds the password for basic
+          authentication.
+    additionalProperties: false
+  APIKeyEndpointSecurity:
+    type: object
+    properties:
+      secretName:
+        type: string
+      in:
+        type: string
+        enum:
+          - Header
+          - Query
+        default: Header
+      apiKeyNameKey:
+        type: string
+      apiKeyValueKey:
+        type: string
+    additionalProperties: false
+  Resiliency:
+    type: object
+    description: Endpoint resiliency related configurations of the API
+    properties:
+      timeout:
+        $ref: "#/schemas/Timeout"
+      retryPolicy:
+        $ref: "#/schemas/RetryPolicy"
+      circuitBreaker:
+        $ref: "#/schemas/CircuitBreaker"
+    additionalProperties: false
+  CircuitBreaker:
+    type: object
+    properties:
+      maxConnectionPools:
+        type: integer
+        example: 100
+      maxConnections:
+        type: integer
+        example: 100
+      maxPendingRequests:
+        type: integer
+        example: 100
+      maxRequests:
+        type: integer
+        example: 100
+      maxRetries:
+        type: integer
+        example: 3
+    additionalProperties: false
+  Timeout:
+    type: object
+    properties:
+      downstreamRequestIdleTimeout:
+        type: integer
+        example: 400
+      upstreamResponseTimeout:
+        type: integer
+        example: 40
+    additionalProperties: false
+  RetryPolicy:
+    type: object
+    properties:
+      count:
+        type: integer
+        example: 3
+      baseIntervalMillis:
+        type: integer
+        example: 1000
+      statusCodes:
+        type: array
+        items:
+          type: integer
+    additionalProperties: false
+  AIRatelimit:
+    type: object
+    required:
+      - enabled
+      - token
+      - request
+    properties:
+      enabled:
+        type: boolean
+        default: true
+      token:
+        $ref: "#/schemas/TokenAIRL"
+      request:
+        $ref: "#/schemas/RequestAIRL"
+  TokenAIRL:
+    type: object
+    required:
+      - promptLimit
+      - completionLimit
+      - totalLimit
+      - unit
+    properties:
+      promptLimit:
+        type: integer
+        default: 0
+      completionLimit:
+        type: integer
+        default: 0
+      totalLimit:
+        type: integer
+        default": 0
+      unit:
+        type: string
+        default: Minute
+        enum:
+          - Minute
+          - Hour
+          - Day
+  RequestAIRL:
+    type: object
+    required:
+      - requestLimit
+      - unit
+    properties:
+      requestLimit:
+        type: integer
+        default: 0
+      unit:
+        type: string
+        default: Minute
+        enum:
+          - Minute
+          - Hour
+          - Day
+  APKOperations:
+    title: Operation
+    type: object
+    required:
+      - target
+      - verb
+    properties:
+      target:
+        type: string
+        example: "/order/{orderId}"
+      verb:
+        type: string
+        example: POST
+      secured:
+        type: boolean
+        example: true
+        default: true
+        description: Authentication mode for resource (true/false)
+      endpointConfigurations:
+        $ref: "#/schemas/EndpointConfigurations"
+      operationPolicies:
+        $ref: "#/schemas/APIOperationPolicies"
+      rateLimit:
+        $ref: "#/schemas/RateLimit"
+      scopes:
+        type: array
+        example: []
+        items:
+          type: string
+    additionalProperties: false
+  K8sService:
+    type: object
+    properties:
+      name:
+        type: string
+        example: pizzashack-service
+      namespace:
+        type: string
+        example: apk-platform
+      port:
+        type: integer
+        example: 8080
+      protocol:
+        type: string
+        example: http
+    additionalProperties: false
+  InterceptorProperties:
+    title: Interceptor Parameters
+    type: object
+    properties:
+      backendUrl:
+        type: string
+      headersEnabled:
+        type: boolean
+      bodyEnabled:
+        type: boolean
+      trailersEnabled:
+        type: boolean
+      contextEnabled:
+        type: boolean
+      tlsSecretName:
+        type: string
+      tlsSecretKey:
+        type: string
+    required:
+      - backendUrl
+    additionalProperties: false
+  ModelBasedRoundRobinProperties:
+    title: "Model Based Round Robin Policy Parameters"
+    type: "object"
+    properties:
+      onQuotaExceedSuspendDuration:
+        type: "integer"
+        description: "The duration for which the model routing is suspended for a particular model upon exceeding the quota for that model."
+      productionModels:
+        type: "array"
+        items:
+          $ref: "#/schemas/AIModel"
+      sandboxModels:
+        type: "array"
+        items:
+          $ref: "#/schemas/AIModel"
+    required:
+      - "onQuotaExceedSuspendDuration"
+      - "productionModels"
+    additionalProperties: false
+  AIModel:
+    title: "AI Model"
+    type: "object"
+    properties:
+      model:
+        type: "string"
+        description: "The Name of the model."
+      endpoint:
+        type: "string"
+        description: "The endpoint of the model."
+      weight:
+        type: "integer"
+        description: "The weight of the model."
+    required:
+      - "model"
+      - "endpoint"
+    additionalProperties: false
+  BackendJWTProperties:
+    title: Backend JWT Parameters
+    type: object
+    properties:
+      encoding:
+        type: string
+      signingAlgorithm:
+        type: string
+      header:
+        type: string
+      tokenTTL:
+        type: integer
+      customClaims:
+        type: array
+        items:
+          $ref: "#/schemas/CustomClaims"
+    additionalProperties: false
+  CustomClaims:
+    type: object
+    required:
+      - claim
+      - value
+    properties:
+      claim:
+        type: string
+        default: claim1
+      value:
+        type: string
+        default: value1
+      type:
+        type: string
+        default: string
+    additionalProperties: false
+required:
+  - name
+  - basePath
+  - type
+  - operations
+  - endpointConfigurations
+  - version

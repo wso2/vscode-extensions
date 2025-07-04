@@ -1,0 +1,46 @@
+{
+  "name": "Spring",
+  "type":"mediator",
+  "title": "Spring Mediator",
+  "help": "Exposes a Spring bean as a mediator.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "beanName",
+              "displayName": "Bean Name",
+              "inputType": "string",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "configurationKey",
+              "displayName": "Configuration Key",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

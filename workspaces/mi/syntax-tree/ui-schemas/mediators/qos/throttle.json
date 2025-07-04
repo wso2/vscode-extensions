@@ -1,0 +1,262 @@
+{
+    "name": "Throttle",
+    "type": "mediator",
+    "title": "Throttle Mediator",
+    "help": "Restricts access to services.",
+    "elements": [
+        {
+            "type": "attributeGroup",
+            "value": {
+                "groupName": "General",
+                "elements": [
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "groupId",
+                            "displayName": "Group ID",
+                            "inputType": "string",
+                            "required": true,
+                            "helpTip": ""
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "attributeGroup",
+            "value": {
+                "groupName": "OnAccept",
+                "elements": [
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "onAcceptBranchsequenceType",
+                            "displayName": "On Accept Branch Sequence Type",
+                            "inputType": "combo",
+                            "defaultValue": "ANONYMOUS",
+                            "comboValues": [
+                                "ANONYMOUS",
+                                "REGISTRY_REFERENCE"
+                            ],
+                            "required": false,
+                            "helpTip": ""
+                        }
+                    },
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "onAcceptBranchsequenceKey",
+                            "displayName": "On Accept Branch Sequence Key",
+                            "inputType": "key",
+                            "keyType": "sequence",
+                            "required": false,
+                            "helpTip": "",
+                            "enableCondition": [
+                                {
+                                    "onAcceptBranchsequenceType": "REGISTRY_REFERENCE"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "attributeGroup",
+            "value": {
+                "groupName": "OnReject",
+                "elements": [
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "onRejectBranchsequenceType",
+                            "displayName": "On Reject Branch Sequence Type",
+                            "inputType": "combo",
+                            "defaultValue": "ANONYMOUS",
+                            "comboValues": [
+                                "ANONYMOUS",
+                                "REGISTRY_REFERENCE"
+                            ],
+                            "required": false,
+                            "helpTip": ""
+                        }
+                    },
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "onRejectBranchsequenceKey",
+                            "displayName": "On Reject Branch Sequence Key",
+                            "inputType": "key",
+                            "keyType": "sequence",
+                            "required": false,
+                            "helpTip": "",
+                            "enableCondition": [
+                                {
+                                    "onRejectBranchsequenceType": "REGISTRY_REFERENCE"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "attributeGroup",
+            "value": {
+                "groupName": "ThrottlePolicy",
+                "elements": [
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "policyType",
+                            "displayName": "Policy Type",
+                            "inputType": "combo",
+                            "defaultValue": "INLINE",
+                            "comboValues": [
+                                "INLINE",
+                                "REGISTRY_REFERENCE"
+                            ],
+                            "required": false,
+                            "helpTip": ""
+                        }
+                    },
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "maximumConcurrentAccess",
+                            "displayName": "Maxmium Concurrent Access",
+                            "inputType": "string",
+                            "defaultValue": "0",
+                            "required": false,
+                            "helpTip": "",
+                            "enableCondition": [
+                                {
+                                    "policyType": "INLINE"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "type": "table",
+                        "value": {
+                            "name": "policyEntries",
+                            "displayName": "Policy Entries",
+                            "title": "ThrottlePolicyEntry",
+                            "description": "Editing of the properties of an object ThrottlePolicyEntry",
+                            "tableKey": "throttleType",
+                            "tableValue": "accessType",
+                            "elements": [
+                                {
+                                    "type": "attribute",
+                                    "value": {
+                                        "name": "throttleType",
+                                        "displayName": "Throttle Type",
+                                        "inputType": "combo",
+                                        "defaultValue": "IP",
+                                        "comboValues": [
+                                            "IP",
+                                            "DOMAIN"
+                                        ],
+                                        "required": false,
+                                        "helpTip": ""
+                                    }
+                                },
+                                {
+                                    "type": "attribute",
+                                    "value": {
+                                        "name": "throttleRange",
+                                        "displayName": "Throttle Range",
+                                        "inputType": "string",
+                                        "defaultValue": "other",
+                                        "required": false,
+                                        "helpTip": ""
+                                    }
+                                },
+                                {
+                                    "type": "attribute",
+                                    "value": {
+                                        "name": "accessType",
+                                        "displayName": "Access Type",
+                                        "inputType": "combo",
+                                        "defaultValue": "Allow",
+                                        "comboValues": [
+                                            "Allow",
+                                            "Deny",
+                                            "Control"
+                                        ],
+                                        "required": false,
+                                        "helpTip": ""
+                                    }
+                                },
+                                {
+                                    "type": "attribute",
+                                    "value": {
+                                        "name": "maxRequestCount",
+                                        "displayName": "Max Request Count",
+                                        "inputType": "string",
+                                        "defaultValue": "0",
+                                        "required": false,
+                                        "helpTip": ""
+                                    }
+                                },
+                                {
+                                    "type": "attribute",
+                                    "value": {
+                                        "name": "unitTime",
+                                        "displayName": "Unit Time",
+                                        "inputType": "string",
+                                        "defaultValue": "0",
+                                        "required": false,
+                                        "helpTip": ""
+                                    }
+                                },
+                                {
+                                    "type": "attribute",
+                                    "value": {
+                                        "name": "prohibitPeriod",
+                                        "displayName": "Prohibit Period",
+                                        "inputType": "string",
+                                        "defaultValue": "0",
+                                        "required": false,
+                                        "helpTip": ""
+                                    }
+                                }
+                            ],
+                            "enableCondition": [
+                                {
+                                    "policyType": "INLINE"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "type": "attribute",
+                        "value": {
+                            "name": "policyKey",
+                            "displayName": "Policy Key",
+                            "inputType": "key",
+                            "keyType": "ws_policy",
+                            "required": false,
+                            "helpTip": "",
+                            "enableCondition": [
+                                {
+                                    "policyType": "REGISTRY_REFERENCE"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "attribute",
+            "value": {
+                "name": "description",
+                "displayName": "Description",
+                "inputType": "string",
+                "required": false,
+                "helpTip": ""
+            }
+        }
+    ]
+}

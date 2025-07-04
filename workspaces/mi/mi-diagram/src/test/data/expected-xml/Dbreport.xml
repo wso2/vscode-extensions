@@ -1,0 +1,14 @@
+<dbreport  >
+        <connection>
+            <pool>
+                <url>Reg Based Url</url>
+                <user>username</user>
+                <password>passowrd</password>
+                <property name="validationquery" value="val query" />
+                <property name="initialsize" value="" />
+            </pool>
+        </connection>
+        <statement>
+            <sql><![CDATA[select q]]></sql>
+        </statement>
+    </dbreport>

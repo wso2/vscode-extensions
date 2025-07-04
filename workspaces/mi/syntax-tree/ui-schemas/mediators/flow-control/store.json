@@ -1,0 +1,43 @@
+{
+  "name": "store",
+  "type": "mediator",
+  "title": "Store Mediator",
+  "help": "Routes message to a predefined message store.",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "messageStore",
+        "displayName": "Message Store",
+        "inputType": "keyOrExpression",
+        "keyType": "messageStore",
+        "defaultValue": "",
+        "required": true,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "onStoreSequence",
+        "displayName": "On Store Sequence",
+        "inputType": "key",
+        "defaultValue": "",
+        "required": false,
+        "helpTip": "",
+        "keyType": "sequence"
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "defaultValue": "",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}

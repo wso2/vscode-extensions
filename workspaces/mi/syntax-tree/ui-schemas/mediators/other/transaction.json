@@ -1,0 +1,46 @@
+{
+  "name": "Transaction",
+  "type":"mediator",
+  "title": "Transaction Mediator",
+  "help": "Provides transaction management for child mediators.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "action",
+              "displayName": "Action",
+              "inputType": "combo",
+              "defaultValue": "Commit transaction",
+              "comboValues": [
+                "Commit transaction",
+                "Fault if no transaction",
+                "Initiate new transaction",
+                "Resume transaction",
+                "Suspend transaction",
+                "Rollback transaction",
+                "Use existing or initiate transaction"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

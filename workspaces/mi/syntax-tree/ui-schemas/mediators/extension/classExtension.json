@@ -1,0 +1,61 @@
+{
+  "name": "Class",
+  "type": "mediator",
+  "title": "Class Mediator",
+  "help": "Uses custom class instance as mediator.",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "className",
+        "displayName": "Class Name",
+        "inputType": "string",
+        "required": true,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "table",
+      "value": {
+        "name": "properties",
+        "displayName": "Class Arguments",
+        "title": "Class Args",
+        "description": "Editing of the properties of an object ClassProperty",
+        "tableKey": "propertyName",
+        "tableValue": "propertyValue",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyName",
+              "displayName": "Arg Name",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyValue",
+              "displayName": "Arg Value",
+              "inputType": "stringOrExpression",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}

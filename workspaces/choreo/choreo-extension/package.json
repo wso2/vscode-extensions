@@ -1,0 +1,236 @@
+{
+  "name": "choreo",
+  "displayName": "Choreo",
+  "description": "An extension for managing your Choreo projects and components",
+  "license": "Apache-2.0",
+  "version": "2.2.5-2",
+  "cliVersion": "v1.2.92505041530",
+  "publisher": "wso2",
+  "bugs": {
+    "url": "https://github.com/wso2/choreo-vscode/issues"
+  },
+  "repository": "https://github.com/wso2/choreo-vscode",
+  "icon": "resources/icons/choreo.png",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "extensionDependencies": [
+    "wso2.wso2-platform"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "wso2.choreo.getStarted",
+        "title": "Get Started",
+        "category": "Choreo"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "wso2-choreo",
+          "title": "Choreo",
+          "icon": "resources/icons/choreo-2.svg"
+        }
+      ]
+    },
+    "views": {
+      "wso2-choreo": [
+        {
+          "id": "choreo.activity.project",
+          "name": "Project",
+          "type": "webview"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "wso2.wso2-platform.create.component",
+          "when": "view == choreo.activity.project && isLoggedIn",
+          "group": "navigation"
+        },
+        {
+          "command": "wso2.wso2-platform.project.refresh",
+          "when": "view == choreo.activity.project && isLoggedIn",
+          "group": "navigation"
+        },
+        {
+          "command": "wso2.wso2-platform.project.manage.context",
+          "when": "view == choreo.activity.project && isLoggedIn",
+          "group": "project"
+        },
+        {
+          "command": "wso2.wso2-platform.open.external",
+          "when": "view == choreo.activity.project && isLoggedIn && hasSelectedProject",
+          "group": "project"
+        },
+        {
+          "command": "wso2.wso2-platform.sign.out",
+          "when": "view == choreo.activity.project && isLoggedIn",
+          "group": "sign-out"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "wso2.wso2-platform.open.external",
+          "when": "webviewId == choreo.activity.project && webviewSection == 'componentListItem'",
+          "group": "access"
+        },
+        {
+          "command": "wso2.wso2-platform.delete.component",
+          "when": "webviewSection == 'componentListItem'",
+          "group": "destructive"
+        }
+      ]
+    },
+    "configuration": {
+      "type": "object",
+      "title": "Choreo",
+      "properties": {
+        "Logging.loggingLevel": {
+          "type": "string",
+          "enum": [
+            "off",
+            "fatal",
+            "error",
+            "warn",
+            "info",
+            "debug",
+            "trace"
+          ],
+          "default": "error",
+          "description": "The verbosity of logging. The Order is off < fatal < error < warn < info < debug < trace.",
+          "order": 1,
+          "scope": "window"
+        },
+        "Logging.sourceLocationTracking": {
+          "type": "boolean",
+          "default": false,
+          "description": "Should Source Code Location Info be added to log entries, DANGER - May be very slow, only use in debugging scenarios",
+          "order": 1,
+          "scope": "window"
+        }
+      }
+    },
+    "walkthroughs": [
+      {
+        "id": "choreo.getStarted",
+        "title": "Getting started with Choreo",
+        "description": "Utilize the Choreo VSCode extension to enhance and streamline your developer experience with Choreo components. Easily access and manage components associated with your currently opened VSCode workspace through the Choreo panel on the left activity bar.",
+        "steps": [
+          {
+            "id": "createComponent",
+            "title": "Create components",
+            "description": "A Choreo component is a self-contained unit associated with your source code, designed to be built and deployed in the Choreo cloud platform.\nVarious types of components are supported, including Services, Manual Triggers, Cron Jobs, Web Applications, and more.\n[Create Component](command:wso2.wso2-platform.create.component)\n Once created, you will be able to easily access your components from the [Choreo activity panel](command:choreo.activity.project.focus).",
+            "media": {
+              "markdown": "resources/walkthrough/comp-create.md"
+            }
+          },
+          {
+            "id": "projectDirectory",
+            "title": "Project directory",
+            "description": "Upon creating a component or linking a directory with a project, a `.choreo/context.yaml` will be created in the root of the Git repository, establishing an association between the directory and the Choreo project.\nA directory can be associated with multiple projects, and you have the ability to switch between these projects.\nIf the `context.yaml` file is not available, you can generate it by [linking the directory](command:wso2.wso2-platform.project.create.context) with the project.\n[Manage Project](command:wso2.wso2-platform.project.manage.context)",
+            "media": {
+              "markdown": "resources/walkthrough/link-dir.md"
+            }
+          },
+          {
+            "id": "manageComponent",
+            "title": "Manage your components",
+            "description": "Access the component details view to manage a selected component. This view is accessible by selecting a component in the [Choreo activity panel](command:choreo.activity.project.focus) or by running the [View Component Details](command:wso2.wso2-platform.component.view) command.\n**Build component**: Initiate a new build by selecting the commit you wish to build. In case of build failures, diagnose them by reviewing the build logs.\n**Deploy component**: Once a component's commit has been successfully built, deploy the build onto any available environment (e.g., Development, Production, etc.).\n**Test component**: Depending on the component type, you can test it using an Open API view, manually triggering functions, or accessing publicly available URLs.\n**View Logs**: After successful deployment, monitor real-time application and gateway logs of the component within VSCode's integrated terminal.",
+            "media": {
+              "markdown": "resources/walkthrough/comp-details.md"
+            }
+          }
+        ]
+      }
+    ],
+    "icons": {
+      "distro-choreo-2": {
+        "description": "choreo-2",
+        "default": {
+          "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
+          "fontCharacter": "\\f17d"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "clean": "del-cli ./dist ./out ./resources/jslibs ./choreo-*.vsix ./coverage ./.nyc_output",
+    "compile": "webpack --mode production",
+    "watch-choreo": "webpack --watch",
+    "build": "pnpm run compile && pnpm run copy-webview-lib && pnpm run postbuild",
+    "rebuild": "pnpm run clean && pnpm run compile && pnpm run copy-webview-lib && pnpm run postbuild",
+    "copy-webview-lib": "mkdir -p ./resources/jslibs && copyfiles -f ../choreo-webviews/build/* ./resources/jslibs",
+    "compile-tests": "tsc -p . --outDir dist",
+    "watch-tests": "tsc -p . -w --outDir dist",
+    "e2e-test-setup": "npx extest get-vscode -c 1.83.1 && npx extest get-chromedriver -c 1.83.1 && npx extest install-vsix -f $(ls vsix/*.vsix)",
+    "e2e-test": "pnpm run compile-tests && npx extest run-tests 'dist/src/tests/e2e-tests/*.test.js' --mocha_config src/tests/e2e-tests/.mocharc.js -o src/tests/e2e-tests/settings.json",
+    "e2e-playwright": "pnpm run compile-tests && pnpm exec playwright test",
+    "e2e-pw-record": "pnpm run compile-tests && node ./dist/tests/e2e-playwright/recorder.js",
+    "integration-test": "pnpm run compile-tests && npx extest run-tests 'dist/tests/integration-tests/*.test.js' --mocha_config src/tests/integration-tests/.mocharc.js -o src/tests/integration-tests/settings.json",
+    "pretest": "pnpm run clean && pnpm run compile-tests && pnpm run copy-webview-lib",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write . ",
+    "test-nyc-cli": "nyc --reporter=html node ./dist/test/runTest.js",
+    "test": "rm -rf .vscode-test/extensions && node ./dist/test/runTest.js && nyc report && nyc report --reporter=html",
+    "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/; else vsce package --no-dependencies --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/; fi",
+    "copyVSIX": "copyfiles *.vsix ./vsix",
+    "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../..",
+    "postbuild": "pnpm run package && pnpm run copyVSIX"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.52.0",
+    "@types/byline": "^4.2.36",
+    "@types/js-yaml": "^4.0.9",
+    "@types/mocha": "~10.0.1",
+    "@types/node": "^22.15.24",
+    "@types/vscode": "^1.100.0",
+    "@types/which": "^3.0.4",
+    "@vscode/vsce": "^3.4.2",
+    "@wso2/playwright-vscode-tester": "workspace:*",
+    "axios": "^1.9.0",
+    "copyfiles": "^2.4.1",
+    "del-cli": "^6.0.0",
+    "mocha": "^11.5.0",
+    "typescript": "5.8.3",
+    "vscode-extension-tester": "^8.14.1",
+    "ts-loader": "~9.5.2",
+    "webpack": "^5.99.9",
+    "webpack-cli": "^6.0.1",
+    "webpack-permissions-plugin": "^1.0.9",
+    "copy-webpack-plugin": "^13.0.0",
+    "@biomejs/biome": "^1.8.3",
+    "terser-webpack-plugin": "^5.3.10"
+  },
+  "dependencies": {
+    "@vscode-logging/logger": "^2.0.0",
+    "@vscode-logging/types": "^2.0.0",
+    "@vscode-logging/wrapper": "^2.0.0",
+    "@vscode/extension-telemetry": "~1.0.0",
+    "@vscode/iconv-lite-umd": "^0.7.0",
+    "@vscode/webview-ui-toolkit": "^1.2.0",
+    "@wso2/choreo-core": "workspace:*",
+    "@wso2/choreo-vscode-webviews": "workspace:*",
+    "@wso2/wso2-platform-core": "workspace:*",
+    "byline": "^5.0.0",
+    "dotenv": "^16.0.3",
+    "file-type": "^18.2.1",
+    "js-yaml": "^4.1.0",
+    "yaml": "^2.6.0",
+    "jschardet": "^3.0.0",
+    "vscode-messenger": "^0.5.1",
+    "vscode-messenger-common": "^0.5.1",
+    "which": "^5.0.0",
+    "vscode-jsonrpc": "^8.2.1",
+    "zustand": "^5.0.5"
+  }
+}

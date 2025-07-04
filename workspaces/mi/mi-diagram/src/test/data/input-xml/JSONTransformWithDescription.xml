@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<jsontransform description="JSON Transform Description" schema="conf:wsdleptemplate.xml">
+				<property name="Prop Name" value="Prop Value"/>
+			</jsontransform>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

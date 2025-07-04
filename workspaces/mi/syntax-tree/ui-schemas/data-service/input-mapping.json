@@ -1,0 +1,212 @@
+{
+  "name": "input-mappings",
+  "type": "queryNode",
+  "title": "Configure Input Mappings",
+  "help": "",
+  "elements": [
+    {
+      "type": "table",
+      "value": {
+        "name": "inputMappings",
+        "displayName": "Input Mappings",
+        "title": "Input Mapping",
+        "description": "",
+        "tableKey": "paramName",
+        "tableValue": "queryParameter",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "paramName",
+              "displayName": "Mapping Name",
+              "inputType": "string",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "queryParameter",
+              "displayName": "Query Parameter",
+              "inputType": "string",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "paramType",
+              "displayName": "Parameter Type",
+              "inputType": "combo",
+              "defaultValue": "Scalar",
+              "comboValues": [
+                "Scalar",
+                "Array"
+              ],
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "sqlType",
+              "displayName": "SQL Type",
+              "inputType": "combo",
+              "defaultValue": "String",
+              "comboValues": [
+                "String",
+                "Integer",
+                "Real",
+                "Double",
+                "Numeric",
+                "TINYINT",
+                "SMALLINT",
+                "BIGINT",
+                "DATE",
+                "TIME",
+                "TIMESTAMP",
+                "BIT",
+                "ORACLE REF CURSOR",
+                "BINARY",
+                "BLOB",
+                "CLOB",
+                "STRUCT",
+                "ARRAY",
+                "UUID",
+                "VARINT",
+                "INETADDRESS",
+                "QUERY_STRING"
+              ],
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "defaultValue",
+              "displayName": "Default Value",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "type",
+              "displayName": "IN/OUT Type",
+              "inputType": "combo",
+              "defaultValue": "IN",
+              "comboValues": [
+                "IN",
+                "OUT",
+                "INOUT"
+              ],
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "ordinal",
+              "displayName": "Ordinal",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Validators",
+              "elements": [
+                {
+                  "type": "table",
+                  "value": {
+                    "name": "validators",
+                    "displayName": "Validators",
+                    "title": "Validator",
+                    "description": "",
+                    "tableKey": "validationType",
+                    "tableValue": "minimum",
+                    "elements": [
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "validationType",
+                          "displayName": "Validator Type",
+                          "inputType": "combo",
+                          "defaultValue": "Long Range Validator",
+                          "comboValues": [
+                            "Long Range Validator",
+                            "Double Range Validator",
+                            "Length Validator",
+                            "Pattern Validator"
+                          ],
+                          "required": true,
+                          "helpTip": ""
+                        }
+                      },
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "minimum",
+                          "displayName": "Minimum Value",
+                          "inputType": "string",
+                          "required": true,
+                          "helpTip": "",
+                          "enableCondition": [
+                            "NOT",
+                            {
+                              "validationType": "Pattern Validator"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "maximum",
+                          "displayName": "Maximum Value",
+                          "inputType": "string",
+                          "required": true,
+                          "helpTip": "",
+                          "enableCondition": [
+                            "NOT",
+                            {
+                              "validationType": "Pattern Validator"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "type": "attribute",
+                        "value": {
+                          "name": "pattern",
+                          "displayName": "Pattern",
+                          "inputType": "string",
+                          "required": true,
+                          "helpTip": "",
+                          "enableCondition": [
+                            {
+                              "validationType": "Pattern Validator"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "workspaces/wso2-platform/wso2-platform-core"
+		},
+		{
+			"path": "workspaces/wso2-platform/wso2-platform-extension"
+		},
+		{
+			"path": "workspaces/wso2-platform/wso2-platform-webviews"
+		}
+	]
+}

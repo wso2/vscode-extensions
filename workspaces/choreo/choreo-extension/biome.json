@@ -1,0 +1,20 @@
+{
+	"extends": ["../biome.json"],
+	"files": {
+		"ignore": ["dist/**", "jslibs/**", "src/git", "*.json", "codicon.css"]
+	},
+	"linter": {
+		"rules": {
+			"suspicious": {
+				"noExplicitAny": "off"
+			},
+			"complexity": {
+				"noForEach": "off"
+			},
+			"style": {
+				"useNodejsImportProtocol": "off",
+				"noNonNullAssertion": "off"
+			}
+		}
+	}
+}

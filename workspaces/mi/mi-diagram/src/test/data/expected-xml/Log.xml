@@ -1,0 +1,3 @@
+<log category="INFO" level="simple" separator="," >
+    <property name="Prop Name" value="Prop Value"  />
+</log>

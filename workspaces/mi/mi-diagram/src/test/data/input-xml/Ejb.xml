@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<ejb beanstalk="Beanstalk" class="TestClass" id="{Session Id Expression}" jndiName="JNDI Name" method="Main" remove="true" stateful="true" target="Target">
+				<args>
+					<arg value="Val"/>
+				</args>
+			</ejb>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

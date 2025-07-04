@@ -1,0 +1,6 @@
+<validate source="Source" cache-schema="true" >
+    <schema key="gov:datamapper/DM/DM_inputSchema.json" />
+    <feature name="Feature Name" value="true" />
+    <resource key="conf:wsdleptemplate.xml" location="Location" />
+    <on-fail></on-fail>
+    </validate>

@@ -1,0 +1,23 @@
+{
+  "oPrimDirect": "outputString1",
+  "oPrimDirectErr": 123,
+  "oManyOne": "outputString2",
+  "oManyOneErr": 456,
+  "oObjDirect": {
+    "d1": "nestedOutputString1",
+    "d2": 789
+  },
+  "oObjDirectErr": {
+    "d1": "nestedOutputString2",
+    "d2": "nestedOutputString3"
+  },
+  "oObjProp": {
+    "p1": "parameter1",
+    "p2": 10
+  },
+  "oCustomFn": {
+    "k1": "cfn1",
+    "k3": 100
+  },
+  "oExp": "abc123"
+}

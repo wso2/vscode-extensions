@@ -1,0 +1,71 @@
+{
+  "name": "Event",
+  "type":"mediator",
+  "title": "Event Mediator",
+  "help": "Sends event notifications to an event source, and publishes messages to topics.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "topicType",
+              "displayName": "Topic Type",
+              "inputType": "combo",
+              "defaultValue": "static",
+              "comboValues": [
+                "static",
+                "dynamic"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "staticTopic",
+              "displayName": "Static Topic",
+              "inputType": "string",
+              "required": true,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "topicType": "static"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "dynamicTopic",
+              "displayName": "Dynamic Topic",
+              "inputType": "string",
+              "required": true,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "topicType": "dynamic"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

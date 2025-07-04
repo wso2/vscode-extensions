@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<payloadFactory description="Payload Description" media-type="json" template-type="default">
+				<format>{"Sample":"Payload"}</format>
+				<args>
+					<arg literal="true" value="Arg Val"/>
+				</args>
+			</payloadFactory>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

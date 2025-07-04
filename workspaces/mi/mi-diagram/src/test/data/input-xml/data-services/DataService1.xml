@@ -1,0 +1,21 @@
+<data name="ds" serviceNamespace="" serviceGroup="" transports="http https"       disableStreaming="true">
+	<description />
+	<query id="gg" useConfig="tt">
+		<sql></sql>
+	</query>
+	<resource method="GET" path="hello" disableStreaming="true">
+
+		<call-query href="gg" />
+	</resource>
+
+	<query id="fbcd12bc-d175-4eea-94b8-f5e0ba004581">
+		<sql></sql>
+	</query>
+	
+
+	<config id="tt">
+		<property name="driverClassName">
+			com.mysql.jdbc.Driver</property>
+		<property name="url">jdbc:mysql://[machine-name/ip]:[port]/[database-name]</property>
+	</config>
+</data>

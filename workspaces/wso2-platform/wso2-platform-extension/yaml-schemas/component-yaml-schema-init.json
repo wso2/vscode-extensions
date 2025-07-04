@@ -1,0 +1,14 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Component Configuration",
+    "type": "object",
+    "properties": {
+        "schemaVersion": {
+          "enum": [1.0, "1.0",1.1,"1.1",1.2,"1.2"],
+          "description": "The configuration file schema version"
+        }
+    },
+    "required": [
+      "schemaVersion"
+    ]
+  }

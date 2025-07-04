@@ -1,0 +1,120 @@
+{
+  "name": "Iterate",
+  "type": "mediator",
+  "title": "Iterate Mediator",
+  "help": "Splits message into several for parallel processing (XPath/JSONPath).\n",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "iterateID",
+        "displayName": "Iterate ID",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "iterateExpression",
+        "displayName": "Iterate Expression",
+        "inputType": "expression",
+        "required": true,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "sequentialMediation",
+        "displayName": "Sequential Mediation",
+        "inputType": "checkbox",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "continueParent",
+        "displayName": "Continue Parent",
+        "inputType": "checkbox",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "preservePayload",
+        "displayName": "Preserve Payload",
+        "inputType": "checkbox",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "attachPath",
+        "displayName": "Attach Path",
+        "inputType": "expression",
+        "required": false,
+        "helpTip": "",
+        "enableCondition": [{
+          "preservePayload": "true"
+        }]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Sequence",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "sequenceType",
+              "displayName": "Sequence Type",
+              "inputType": "combo",
+              "defaultValue": "Anonymous",
+              "comboValues": [
+                "Anonymous",
+                "Key"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "sequenceKey",
+              "displayName": "Sequence Key",
+              "inputType": "key",
+              "enableCondition": [
+                {
+                  "sequenceType": "Key"
+                }
+              ],
+              "required": false,
+              "helpTip": "",
+              "keyType": "sequence"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}

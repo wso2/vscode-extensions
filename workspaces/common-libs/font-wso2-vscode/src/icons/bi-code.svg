@@ -1,0 +1,21 @@
+<!--
+ ~ Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ ~
+ ~ WSO2 LLC. licenses this file to you under the Apache License,
+ ~ Version 2.0 (the "License"); you may not use this file except
+ ~ in compliance with the License.
+ ~ You may obtain a copy of the License at
+ ~
+ ~     http://www.apache.org/licenses/LICENSE-2.0
+ ~
+ ~ Unless required by applicable law or agreed to in writing,
+ ~ software distributed under the License is distributed on an
+ ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ ~ KIND, either express or implied. See the License for the
+ ~ specific language governing permissions and limitations
+ ~ under the License.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+    <path fill="#000"
+        d="M15 20q-.425 0-.712-.288T14 19t.288-.712T15 18h2q.425 0 .713-.288T18 17v-2q0-.95.55-1.725t1.45-1.1v-.35q-.9-.325-1.45-1.1T18 9V7q0-.425-.288-.712T17 6h-2q-.425 0-.712-.288T14 5t.288-.712T15 4h2q1.25 0 2.125.875T20 7v2q0 .425.288.713T21 10t.713.288T22 11v2q0 .425-.288.713T21 14t-.712.288T20 15v2q0 1.25-.875 2.125T17 20zm-8 0q-1.25 0-2.125-.875T4 17v-2q0-.425-.288-.712T3 14t-.712-.288T2 13v-2q0-.425.288-.712T3 10t.713-.288T4 9V7q0-1.25.875-2.125T7 4h2q.425 0 .713.288T10 5t-.288.713T9 6H7q-.425 0-.712.288T6 7v2q0 .95-.55 1.725T4 11.825v.35q.9.325 1.45 1.1T6 15v2q0 .425.288.713T7 18h2q.425 0 .713.288T10 19t-.288.713T9 20z" />
+</svg>

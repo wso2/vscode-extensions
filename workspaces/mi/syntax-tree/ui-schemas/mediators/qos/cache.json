@@ -1,0 +1,355 @@
+{
+  "name": "Cache",
+  "type": "mediator",
+  "title": "Cache Mediator",
+  "help": "Utilizes cached response if a similar message has been stored previously.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Type",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "cacheMediatorImplementation",
+              "displayName": "Cache Mediator Implementation",
+              "inputType": "combo",
+              "defaultValue": "Default",
+              "comboValues": [
+                "Default",
+                "611 Compatible"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "cacheType",
+              "displayName": "Cache Type",
+              "inputType": "combo",
+              "defaultValue": "FINDER",
+              "comboValues": [
+                "FINDER",
+                "COLLECTOR"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "id",
+              "displayName": "Id",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                "AND",
+                {
+                  "cacheMediatorImplementation": "611 Compatible"
+                },
+                {
+                  "cacheType": "FINDER"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "cacheTimeout",
+              "displayName": "Cache Timeout(S)",
+              "inputType": "string",
+              "defaultValue": "120",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "cacheType": "FINDER"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "maxMessageSize",
+              "displayName": "Max Message Size(bytes)",
+              "inputType": "string",
+              "defaultValue": "2000",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "cacheType": "FINDER"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "scope",
+              "displayName": "Scope",
+              "inputType": "combo",
+              "defaultValue": "per-host",
+              "comboValues": [
+                "per-host",
+                "per-mediator"
+              ],
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "cacheMediatorImplementation": "611 Compatible"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "hashGeneratorAttribute",
+              "displayName": "HashGenerator Attribute",
+              "inputType": "string",
+              "defaultValue": "org.wso2.carbon.mediator.cache.digest.DOMHASHGenerator",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                "AND",
+                {
+                  "cacheMediatorImplementation": "611 Compatible"
+                },
+                {
+                  "cacheType": "FINDER"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Implementation",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "maxEntryCount",
+              "displayName": "Max Entry Count",
+              "inputType": "string",
+              "defaultValue": "1000",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "implementationType",
+              "displayName": "Implementation Type",
+              "inputType": "combo",
+              "defaultValue": "memory",
+              "comboValues": [
+                "memory",
+                "disk"
+              ],
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                "AND",
+                {
+                  "cacheMediatorImplementation": "611 Compatible"
+                }
+              ]
+            }
+          }
+        ],
+        "enableCondition": [
+          {
+            "cacheType": "FINDER"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "On Cache Hit",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "sequenceType",
+              "displayName": "Sequence Type",
+              "inputType": "combo",
+              "defaultValue": "ANONYMOUS",
+              "comboValues": [
+                "ANONYMOUS",
+                "REGISTRY_REFERENCE"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "sequenceKey",
+              "displayName": "Sequence Key",
+              "inputType": "key",
+              "keyType": "sequence",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "sequenceType": "REGISTRY_REFERENCE"
+                }
+              ]
+            }
+          }
+        ],
+        "enableCondition": [
+          {
+            "cacheType": "FINDER"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Protocol",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "cacheProtocolType",
+              "displayName": "Cache Protocol Type",
+              "inputType": "combo",
+              "defaultValue": "HTTP",
+              "comboValues": [
+                "HTTP"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "cacheProtocolMethods",
+              "displayName": "Cache Protocol Methods",
+              "inputType": "string",
+              "defaultValue": "*",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "headersToExcludeInHash",
+              "displayName": "Headers To Exclude In Hash",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "headersToIncludeInHash",
+              "displayName": "Headers To Include In Hash",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "responseCodes",
+              "displayName": "Response Codes",
+              "inputType": "string",
+              "defaultValue": ".*",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "enableCacheControl",
+              "displayName": "Enable Cache Control",
+              "inputType": "checkbox",
+              "defaultValue": false,
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "includeAgeHeader",
+              "displayName": "Include Age Header",
+              "inputType": "checkbox",
+              "defaultValue": false,
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "hashGenerator",
+              "displayName": "Hash Generator",
+              "inputType": "string",
+              "defaultValue": "org.wso2.carbon.mediator.cache.digest.HttpRequestHashGenerator",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ],
+        "enableCondition": [
+          "AND",
+          {
+            "cacheMediatorImplementation": "Default"
+          },
+          {
+            "cacheType": "FINDER"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "defaultValue": "",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}

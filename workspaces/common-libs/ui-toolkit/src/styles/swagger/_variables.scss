@@ -1,0 +1,362 @@
+// Base Colours
+$black: var(--vscode-editor-foreground) !default;  // #000
+$white: var(--vscode-editor-background) !default;   // #fff
+$gray-50: var(--vscode-tab-inactiveBackground) !default; // #ececec | original #ebebeb
+$gray-200: var(--vscode-editorOverviewRuler-bracketMatchForeground) !default; // #a0a0a0; | original #a0a0a0
+$gray-300: var(--vscode-editorIndentGuide-activeBackground) !default; // #939393 | original #909090
+$gray-400: var(--vscode-list-deemphasizedForeground) !default; // #8e8e90 | original #808080
+$gray-500: var(--vscode-descriptionForeground) !default; // #717171 | original #707070
+$gray-600: var(--vscode-foreground) !default; // #616161 | original #606060
+$gray-650: var(--vscode-terminal-ansiWhite) !default; // #555555 | original #555555
+$gray-700: var(--vscode-breadcrumb-focusForeground) !default; // #4e4e4e  | original #505050 
+$gray-800: var(--vscode-icon-foreground) !default; // #424242 | original #404040
+$gray-900: var(--vscode-terminal-foreground) !default; // #333333 | original #303030
+
+$cod-gray: var(--vscode-peekViewResult-fileForeground) !default; // #1e1e1e | original #1b1b1b 
+$agate-gray: var(--vscode-activityBar-background) !default; // #2c2c2c  | original #333333
+$bright-gray: var(--vscode-terminal-foreground) !default; // #333333 | original #3b4151
+$mako-gray: var(--vscode-button-secondaryHoverBackground) !default;  // #4c5561 | original #41444e
+$waterloo-gray: var(--vscode-list-deemphasizedForeground) !default; // #8e8e90 | original #7d8492 
+$alto-gray: var(--vscode-editorRuler-foreground) !default; // #d3d3d3 | original #d9d9d9
+$mercury-gray: var(--vscode-list-inactiveSelectionBackground) !default; // #e4e6f1 | original #e4e4e4
+$concrete-gray: var(--vscode-list-hoverBackground) !default;   // #e8e8e8 | original #e8e8e8
+$alabaster: var(--vscode-notifications-background) !default; // #f3f3f3 | original #f7f7f7
+$apple-green: var(--vscode-terminal-ansiGreen) !default; // #00bc00 original #62a03f
+$green-haze: var(--vscode-charts-green) !default; // #388a34 original #009d77
+$japanese-laurel: var(--vscode-debugTokenExpression-number) !default;  // #098658 original #008000
+$persian-green: var(--vscode-terminal-ansiCyan) !default; // #0598bc original #00a0a7
+$geyser-blue: var(--vscode-notebook-cellBorderColor) !default; // #dae3e9 | original #d8dde7
+$dodger-blue: var(--vscode-notebook-cellInsertionIndicator) !default; // #0090f1 original #1391ff
+$endeavour-blue: var(--vscode-notificationLink-foreground) !default; // #006ab1 original #005dae
+$scampi-purple: var(--vscode-terminal-ansiBlue) !default; // #0451a5 | original #55a
+$electric-violet: var(--vscode-terminal-ansiMagenta) !default; // #bc05bc; | original #7300e5
+$persian-red: var(--vscode-charts-red) !default; // #e51400 | original #cf3030
+$mango-tango: var(--vscode-symbolIcon-classForeground) !default; // #d67e00 | original #e97500
+
+// Theme
+
+$color-primary: var(--vscode-charts-green) !default; // #388a34 original #89bf04
+$color-secondary: var(--vscode-charts-purple) !default; // #652d90 | original #9012fe
+$color-info: var(--vscode-debugView-valueChangedHighlight) !default; // #569cd6 original #4990e2
+$color-warning: var(--vscode-statusBar-debuggingBackground) !default; // #cc6633; | original #ff6060  
+$color-danger: var(--vscode-editorGutter-deletedBackground) !default; //  #ca4b51; | original #f00
+
+$color-primary-hover: var(--vscode-terminal-ansiGreen) !default; // #00bc00;
+
+$_color-post: var(--vscode-terminal-ansiBrightGreen) !default; // #14ce14 original #49cc90
+$_color-get: var(--vscode-editorGutter-modifiedBackground) !default; // #66afe0 original #61affe
+$_color-put: var(--vscode-notificationsWarningIcon-foreground) !default; // #e9a700 | original #fca130
+$_color-delete: var(--vscode-editorGutter-deletedBackground) !default; // #ca4b51; | original: #f93e3e
+$_color-head: var(--vscode-charts-purple) !default; // #652d90 | original #9012fe
+$_color-patch: var(--vscode-terminal-ansiYellow) !default; // #949800 original #50e3c2
+$_color-disabled: var(--vscode-editor-inactiveSelectionBackground) !default; // #e5ebf1; | original #ebebeb
+$_color-options: var(--vscode-terminal-ansiBlue) !default; // #0451a5 original #0d5aa7
+
+// Authorize
+
+$auth-container-border-color: $gray-50 !default;
+$auth-select-all-none-link-font-color: $color-info !default;
+// Buttons
+
+$btn-background-color: transparent !default;
+$btn-border-color: $gray-400 !default;
+$btn-font-color: inherit !default;
+$btn-box-shadow-color: $black !default;
+
+$btn-authorize-background-color: transparent !default;
+$btn-authorize-border-color: $_color-post !default;
+$btn-authorize-font-color: $_color-post !default;
+$btn-authorize-svg-fill-color: $_color-post !default;
+
+$btn-cancel-background-color: transparent !default;
+$btn-cancel-border-color: $color-warning !default;
+$btn-cancel-font-color: $color-warning !default;
+
+$btn-execute-background-color: transparent !default;
+$btn-execute-border-color: $color-info !default;
+$btn-execute-font-color: $white !default;
+$btn-execute-background-color-alt: $color-info !default;
+
+$expand-methods-svg-fill-color: $gray-500 !default;
+$expand-methods-svg-fill-color-hover: $gray-800 !default;
+
+// Errors
+
+$errors-wrapper-background-color: $_color-delete !default;
+$errors-wrapper-border-color: $_color-delete !default;
+
+$errors-wrapper-errors-small-font-color: $gray-600 !default;
+
+// Form
+
+$form-select-background-color: $alabaster !default;
+$form-select-border-color: $mako-gray !default;
+$form-select-box-shadow-color: $black !default;
+
+$form-input-border-color: $alto-gray !default;
+$form-input-background-color: $white !default;
+
+$form-textarea-background-color: $white !default;
+$form-textarea-focus-border-color: $_color-get !default;
+
+$form-textarea-curl-background-color: $mako-gray !default;
+$form-textarea-curl-font-color: $white !default;
+
+$form-checkbox-label-font-color: $gray-900 !default;
+$form-checkbox-background-color: $alabaster !default;
+$form-checkbox-box-shadow-color: $alabaster !default;
+
+// Information
+
+$info-code-background-color: $black !default;
+$info-code-font-color: $_color-head !default;
+
+$info-link-font-color: $color-info !default;
+$info-link-font-color-hover: $info-link-font-color !default;
+
+$info-title-small-background-color: $waterloo-gray !default;
+
+$info-title-small-pre-font-color: $white !default;
+
+// Layout
+
+$opblock-border-color: $black !default;
+$opblock-box-shadow-color: $black !default;
+
+$opblock-tag-border-bottom-color: $bright-gray !default;
+$opblock-tag-background-color-hover: $black !default;
+
+$opblock-tab-header-tab-item-active-h4-span-after-background-color: $gray-400 !default;
+
+$opblock-isopen-summary-border-bottom-color: $black !default;
+
+$opblock-isopen-section-header-background-color: $white !default;
+$opblock-isopen-section-header-box-shadow-color: $black !default;
+
+$opblock-summary-method-background-color: $black !default;
+$opblock-summary-method-font-color: $white !default;
+$opblock-summary-method-text-shadow-color: $black !default;
+
+$operational-filter-input-border-color: $geyser-blue !default;
+
+$tab-list-item-first-background-color: $black !default;
+
+$response-col-status-undocumented-font-color: $gray-300 !default;
+
+$response-col-links-font-color: $gray-300 !default;
+
+$opblock-body-background-color: $agate-gray !default;
+$opblock-body-font-color: $white !default;
+
+$scheme-container-background-color: $white !default;
+$scheme-container-box-shadow-color: $black !default;
+
+$server-container-background-color: $white !default;
+$server-container-box-shadow-color: $black !default;
+
+$server-container-computed-url-code-font-color: $gray-400 !default;
+
+$loading-container-before-border-color: $gray-650 !default;
+$loading-container-before-border-top-color: $black !default;
+
+$response-content-type-controls-accept-header-select-border-color: $japanese-laurel !default;
+$response-content-type-controls-accept-header-small-font-color: $japanese-laurel !default;
+
+// Modal
+
+$dialog-ux-backdrop-background-color: $black !default;
+
+
+$dialog-ux-modal-background-color: $white !default;
+$dialog-ux-modal-border-color: $gray-50 !default;
+$dialog-ux-modal-box-shadow-color: $black !default;
+
+$dialog-ux-modal-content-font-color: $mako-gray !default;
+
+$dialog-ux-modal-header-border-bottom-color: $gray-50 !default;
+
+// Models
+
+$model-deprecated-font-color: $gray-200 !default;
+
+$model-hint-font-color: $gray-50 !default;
+$model-hint-background-color: $black !default;
+
+$section-models-border-color: $bright-gray !default;
+
+$section-models-isopen-h4-border-bottom-color: $section-models-border-color !default;
+
+$section-models-h4-font-color: $gray-600 !default;
+$section-models-h4-background-color-hover: $black !default;
+
+$section-models-h5-font-color: $gray-500 !default;
+
+$section-models-model-container-background-color: $black !default;
+
+$section-models-model-box-background-color: $black !default;
+
+$section-models-model-title-font-color: $gray-700 !default;
+
+$prop-type-font-color: $scampi-purple !default;
+
+$prop-format-font-color: $gray-600 !default;
+
+// Tables
+
+$table-thead-td-border-bottom-color: $bright-gray !default;
+
+$table-parameter-name-required-font-color: $color-danger !default;
+
+$table-parameter-in-font-color: $gray-400 !default;
+
+$table-parameter-deprecated-font-color: $color-danger !default;
+
+// Topbar
+
+$topbar-background-color: $cod-gray !default;
+
+$topbar-link-font-color: $white !default;
+
+$topbar-download-url-wrapper-element-border-color: $apple-green !default;
+
+$topbar-download-url-button-background-color: $apple-green !default;
+$topbar-download-url-button-font-color: $white !default;
+
+// Type
+
+$text-body-default-font-color: $bright-gray !default;
+$text-code-default-font-color: $bright-gray !default;
+$text-headline-default-font-color: $bright-gray !default;
+
+
+/*
+--vscode-tab-inactiveBackground	 #ececec;
+--vscode-editorOverviewRuler-bracketMatchForeground	 #a0a0a0;
+--vscode-editorIndentGuide-activeBackground	 #939393;
+--vscode-list-deemphasizedForeground	 #8e8e90;
+--vscode-descriptionForeground	 #717171;
+--vscode-foreground	 #616161;
+--vscode-terminal-ansiWhite  // #555555;
+--vscode-button-secondaryBackground	 #5f6a79;
+--vscode-icon-foreground	 #424242;
+--vscode-terminal-foreground	 #333333;
+
+
+--vscode-notebook-cellBorderColor	// #dae3e9;
+--vscode-editorWidget-border	 #c8c8c8;
+--vscode-terminal-ansiBrightWhite	// #a5a5a5;
+--vscode-terminal-ansiBrightBlack	 // #666666;
+
+--vscode-notifications-background	 #f3f3f3;
+--vscode-notifications-border	 #e7e7e7;
+--vscode-checkbox-border	 #cecece;
+
+--vscode-debugIcon-breakpointDisabledForeground	 #848484;
+--vscode-editorGutter-commentRangeForeground	 #c5c5c5;
+--vscode-titleBar-activeBackground	 #dddddd;
+--vscode-sideBarTitle-foreground	 #6f6f6f;
+--vscode-activityBar-background	 #2c2c2c;
+--vscode-editorHint-foreground	 #6c6c6c;
+--vscode-peekViewEditor-background	 #f2f8fc;
+
+
+--vscode-peekViewResult-fileForeground	 #1e1e1e;
+--vscode-peekViewResult-lineForeground	 #646465;
+--vscode-editorBracketMatch-border	 #b9b9b9;
+--vscode-editorCodeLens-foreground	 #999999;
+--vscode-editorRuler-foreground	 #d3d3d3;
+
+--vscode-editor-lineHighlightBorder	 #eeeeee;
+--vscode-breadcrumb-focusForeground	 #4e4e4e;
+--vscode-tree-indentGuidesStroke	 #a9a9a9;
+--vscode-list-hoverBackground	 #e8e8e8;
+--vscode-list-inactiveSelectionBackground	 #e4e6f1;
+--vscode-pickerGroup-border	 #cccedb;
+--vscode-badge-background	 #c4c4c4;
+--vscode-button-secondaryHoverBackground	 #4c5561;
+--vscode-input-placeholderForeground	 #767676;
+*/
+
+
+/*
+--vscode-statusBar-background	 #007acc;
+--vscode-activityBarBadge-background	 #007acc;
+--vscode-extensionBadge-remoteBackground	 #007acc;
+--vscode-notificationLink-foreground	 #006ab1;
+
+--vscode-notificationsErrorIcon-foreground	 #e51400;
+--vscode-notificationsWarningIcon-foreground	 #e9a700;
+--vscode-notificationsInfoIcon-foreground	 #75beff;
+
+--vscode-statusBarItem-remoteBackground	 #16825d;
+--vscode-statusBar-noFolderBackground	 #68217a;
+
+--vscode-statusBar-debuggingBackground	 #cc6633;
+--vscode-settings-modifiedItemIndicator	 #66afe0;
+
+
+
+// red
+--vscode-charts-red	 #e51400;
+--vscode-notificationsErrorIcon-foreground	 #e51400;
+--vscode-debugExceptionWidget-border	 #a31515;
+--vscode-editorGutter-deletedBackground	 #ca4b51;
+--vscode-debugTokenExpression-string	 #a31515;
+--vscode-debugConsole-errorForeground	 #a1260d;
+--vscode-terminal-ansiRed	 #cd3131;
+--vscode-gitDecoration-deletedResourceForeground	 #ad0707;
+
+// yellow
+--vscode-charts-yellow	 #e9a700;
+--vscode-debugIcon-breakpointCurrentStackframeForeground	 #ffcc00
+--vscode-terminal-ansiYellow	 #949800;
+--vscode-terminal-ansiBrightYellow	 #b5ba00;
+
+// orange
+--vscode-charts-orange	 #d18616;
+--vscode-symbolIcon-classForeground	 #d67e00;
+--vscode-notificationsWarningIcon-foreground	 #e9a700;
+--vscode-statusBar-debuggingBackground	 #cc6633;
+--vscode-gitDecoration-modifiedResourceForeground	 #895503;
+
+
+
+// purple
+--vscode-charts-purple	 #652d90;
+--vscode-symbolIcon-functionForeground	 #652d90;
+--vscode-statusBar-noFolderBackground	 #68217a;
+--vscode-debugTokenExpression-name	 #9b46b0;
+--vscode-terminal-ansiMagenta	 #bc05bc;
+
+// green
+--vscode-charts-green	 #388a34;
+--vscode-statusBarItem-remoteBackground	 #16825d;
+--vscode-editorGutter-addedBackground	 #81b88b;
+--vscode-debugIcon-breakpointStackframeForeground	 #89d185;
+--vscode-debugTokenExpression-number	 #098658;
+--vscode-extensionButton-prominentBackground	 #327e36;
+--vscode-extensionButton-prominentHoverBackground	 #28632b;
+--vscode-notebookStatusSuccessIcon-foreground	 #388a34;
+--vscode-terminal-ansiGreen	 #00bc00;
+--vscode-terminal-ansiBrightGreen	 #14ce14;
+--vscode-gitDecoration-addedResourceForeground	 #587c0c;
+
+// blue
+--vscode-editorSuggestWidget-selectedBackground	 #d6ebff;
+--vscode-charts-blue	 #75beff;
+--vscode-tab-activeModifiedBorder	 #33aaee;
+--vscode-editorLineNumber-foreground	 #237893;
+--vscode-editorSuggestWidget-highlightForeground	 #0066bf;
+--vscode-notificationLink-foreground	 #006ab1
+--vscode-editorActiveLineNumber-foreground	 #0b216f;
+--vscode-statusBar-background	 #007acc;
+--vscode-editorGutter-modifiedBackground	 #66afe0;
+--vscode-debugTokenExpression-boolean	 #0000ff;
+--vscode-debugView-valueChangedHighlight	 #569cd6;
+--vscode-notebook-cellInsertionIndicator	 #0090f1;
+--vscode-terminal-ansiBlue	 #0451a5;
+--vscode-terminal-ansiCyan	 #0598bc;
+--vscode-gitDecoration-conflictingResourceForeground	 #6c6cc4;
+--vscode-editorInfo-foreground	 #75beff;
+--vscode-terminal-ansiYellow	 #949800;
+*/

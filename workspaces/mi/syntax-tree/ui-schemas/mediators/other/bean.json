@@ -1,0 +1,203 @@
+{
+  "name": "Bean",
+  "type": "mediator",
+  "title": "Bean Mediator",
+  "help": "Manipulates JavaBean bound to message context as a property.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "action",
+              "displayName": "Action",
+              "inputType": "combo",
+              "defaultValue": "CREATE",
+              "comboValues": [
+                "CREATE",
+                "REMOVE",
+                "SET_PROPERTY",
+                "GET_PROPERTY"
+              ],
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "class",
+              "displayName": "Class",
+              "inputType": "string",
+              "enableCondition": [
+                {
+                  "action": "CREATE"
+                }
+              ],
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "var",
+              "displayName": "Var",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "property",
+              "displayName": "Property",
+              "inputType": "string",
+              "enableCondition": [
+                "OR",
+                {
+                  "action": "SET_PROPERTY"
+                },
+                {
+                  "action": "GET_PROPERTY"
+                }
+              ],
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Value",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "valueType",
+                    "displayName": "Value Type",
+                    "inputType": "combo",
+                    "defaultValue": "LITERAL",
+                    "comboValues": [
+                      "LITERAL",
+                      "EXPRESSION"
+                    ],
+                    "required": true,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "valueLiteral",
+                    "displayName": "Value Literal",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "valueType": "LITERAL"
+                      }
+                    ],
+                    "required": true,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "valueExpression",
+                    "displayName": "Value Expression",
+                    "inputType": "expression",
+                    "enableCondition": [
+                      {
+                        "valueType": "EXPRESSION"
+                      }
+                    ],
+                    "required": true,
+                    "helpTip": ""
+                  }
+                }
+              ],
+              "enableCondition": [
+                {
+                  "action": "SET_PROPERTY"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Target",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "targetType",
+                    "displayName": "Target Type",
+                    "inputType": "combo",
+                    "defaultValue": "LITERAL",
+                    "comboValues": [
+                      "LITERAL",
+                      "EXPRESSION"
+                    ],
+                    "required": true,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "targetLiteral",
+                    "displayName": "Target Literal",
+                    "inputType": "string",
+                    "enableCondition": [
+                      {
+                        "targetType": "LITERAL"
+                      }
+                    ],
+                    "required": true,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "targetExpression",
+                    "displayName": "Target Expression",
+                    "inputType": "expression",
+                    "enableCondition": [
+                      {
+                        "targetType": "EXPRESSION"
+                      }
+                    ],
+                    "required": true,
+                    "helpTip": ""
+                  }
+                }
+              ],
+              "enableCondition": [
+                {
+                  "action": "GET_PROPERTY"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

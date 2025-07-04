@@ -1,0 +1,19 @@
+{
+  "name": "respond",
+  "type": "mediator",
+  "title": "Respond Mediator",
+  "help": "Terminates the processing of the current message flow and returns the message to the client.",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "defaultValue": "",
+        "required": false,
+        "helpTip": "Description"
+      }
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/arithmaticAPI" name="ArithmaticOperationServiceAPI"
+	xmlns="http://ws.apache.org/ns/synapse">
+	<resource methods="GET" uri-template="/">
+		<inSequence>
+			<xquery key="{Dynamic Script Key}" target="Dynamic Script Key">
+				<variable name="Name" type="STRING" key="Var key" value="Literal"/>
+			</xquery>
+		</inSequence>
+		<faultSequence>
+		</faultSequence>
+	</resource>
+</api>

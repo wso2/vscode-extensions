@@ -1,0 +1,483 @@
+name: Build and run Tests
+
+on: 
+  workflow_call:
+    inputs: 
+      isPreRelease:
+        default: true
+        type: boolean  
+      enableCache:
+        default: true
+        type: boolean  
+      ballerina:
+        description: Update Ballerina extension version
+        type: boolean
+        required: false
+        default: false
+      wso2-platform:
+        description: Update WSO2 Platform extension version
+        type: boolean
+        required: false
+        default: false   
+      choreo:
+        description: Update Choreo extension version
+        type: boolean
+        required: false
+        default: false   
+      apk:
+        description: Update APK extension version
+        type: boolean
+        required: false
+        default: false  
+      bi:
+        description: Update BI extension version
+        type: boolean
+        required: false
+        default: false           
+      mi:
+        description: Update MI extension version
+        type: boolean
+        required: false
+        default: false                     
+      version:
+        default: 'N/A'
+        type: string
+        required: false
+      isReleaseBuild:  
+        type: boolean
+        default: false
+      runTests:
+        type: boolean
+        required: false
+        default: false
+      runE2ETests:
+        type: boolean
+        required: false
+        default: false  
+
+env:
+  ballerina_version: 2201.7.2
+  ballerina_zip_url: https://github.com/ballerina-platform/ballerina-distribution/releases/download/v2201.7.2/ballerina-2201.7.2-swan-lake.zip
+  ballerina_deb_url: https://dist.ballerina.io/downloads/2201.7.2/ballerina-2201.7.2-swan-lake-linux-x64.deb
+
+jobs:
+  Build_Stage:
+    name: Build repo
+    timeout-minutes: 45
+    runs-on: ubuntu-latest
+    outputs:
+      runBalExtTests: ${{ steps.testMatrix.outputs.runBalExtTests }}
+      runChoreoExtTests: ${{ steps.testMatrix.outputs.runChoreoExtTests }}
+      runMIExtTests: ${{ steps.testMatrix.outputs.runMIExtTests }}
+      runAPKExtTests: ${{ steps.testMatrix.outputs.runAPKExtTests }}
+      runBIExtTests: ${{ steps.testMatrix.outputs.runBIExtTests }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.CHOREO_BOT_TOKEN }}
+          fetch-depth: 2
+
+      - name: Analyze diff
+        shell: bash
+        id: diff
+        run: |
+          testArray=""
+          echo "hasBalDiff=false" >> $GITHUB_OUTPUT
+          echo "hasChoreoDiff=false" >> $GITHUB_OUTPUT
+          echo "hasMIDiff=false" >> $GITHUB_OUTPUT
+
+          # Get list of all changed files in the PR
+          if [[ ${{ inputs.isReleaseBuild }} = 'true' ]]; then
+            git fetch origin main
+            CHANGED_DIRS=$(git diff --name-only HEAD..refs/remotes/origin/main | grep -E "^/*" || true)
+          else
+            CHANGED_DIRS=$(git diff --name-only HEAD^..HEAD | grep -E "^/*" || true)
+          fi
+
+          echo $CHANGED_DIRS[@]
+
+          # Ballerina ext
+          if [[ "${CHANGED_DIRS[@]}" =~ "workspaces/ballerina" ]]; then
+            echo "hasBalDiff=true" >> $GITHUB_OUTPUT
+          fi 
+
+          # Choreo ext
+          if [[ "${CHANGED_DIRS[@]}" =~ "workspaces/choreo" ]]; then
+            echo "hasChoreoDiff=true" >> $GITHUB_OUTPUT
+          fi
+
+          # MI ext
+          if [[ "${CHANGED_DIRS[@]}" =~ "workspaces/mi" ]]; then
+              echo "hasMIDiff=true" >> $GITHUB_OUTPUT
+          fi
+          
+          # APK ext
+          if [[ "${CHANGED_DIRS[@]}" =~ "workspaces/apk" ]]; then
+            echo "hasAPKDiff=true" >> $GITHUB_OUTPUT
+          fi
+
+          # BI ext
+          if [[ "${CHANGED_DIRS[@]}" =~ "workspaces/bi" ]]; then
+            echo "hasBIDiff=true" >> $GITHUB_OUTPUT
+          fi
+
+          # Common
+          if  [[ "${CHANGED_DIRS[@]}" =~ "workspaces/common-libs" || "${CHANGED_DIRS[@]}" =~ "common" || "${CHANGED_DIRS[@]}" =~ ".github" || "${CHANGED_DIRS[@]}" =~ "^/*.json" ]]; then
+            echo "Have changes in common libs"
+            echo "hasBalDiff=true" >> $GITHUB_OUTPUT
+            echo "hasChoreoDiff=true" >> $GITHUB_OUTPUT
+            echo "hasAPKDiff=true" >> $GITHUB_OUTPUT
+            echo "hasBIDiff=true" >> $GITHUB_OUTPUT
+            echo "hasMIDiff=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set test matrix
+        shell: bash
+        id: testMatrix
+        run: |
+          echo "Ballerina Tests: ${{ steps.diff.outputs.hasBalDiff }}"
+          echo "runBalExtTests=${{ steps.diff.outputs.hasBalDiff }}" >> $GITHUB_OUTPUT
+          echo "Choreo Tests: ${{ steps.diff.outputs.hasChoreoDiff }}"
+          echo "runChoreoExtTests=${{ steps.diff.outputs.hasChoreoDiff }}" >> $GITHUB_OUTPUT
+          echo "runAPKExtTests=${{ steps.diff.outputs.hasAPKDiff }}" >> $GITHUB_OUTPUT
+          echo "runBIExtTests=${{ steps.diff.outputs.hasBIDiff }}" >> $GITHUB_OUTPUT
+          echo "MI Tests: ${{ steps.diff.outputs.hasMIDiff }}"
+          echo "runMIExtTests=${{ steps.diff.outputs.hasMIDiff }}" >> $GITHUB_OUTPUT
+
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          isPreRelease: ${{ inputs.isPreRelease }}
+          enableCache: ${{ inputs.enableCache }}
+          ballerina: ${{ inputs.ballerina }}
+          choreo: ${{ inputs.choreo }}
+          wso2-platform: ${{ inputs.wso2-platform }}
+          apk: ${{ inputs.apk }}
+          bi: ${{ inputs.bi }}
+          mi: ${{ inputs.mi }}
+          version: ${{ inputs.version }}
+          token: ${{ secrets.CHOREO_BOT_TOKEN }}
+          BALLERINA_AUTH_ORG: ${{ secrets.BALLERINA_AUTH_ORG }}
+          BALLERINA_AUTH_CLIENT_ID: ${{ secrets.BALLERINA_AUTH_CLIENT_ID }}
+          MI_AUTH_ORG: ${{ secrets.MI_AUTH_ORG }}
+          MI_AUTH_CLIENT_ID: ${{ secrets.MI_AUTH_CLIENT_ID }}
+          PLATFORM_DEFAULT_GHAPP_CLIENT_ID: ${{ secrets.PLATFORM_DEFAULT_GHAPP_CLIENT_ID }}
+          PLATFORM_DEFAULT_DEVANT_ASGARDEO_CLIENT_ID: ${{ secrets.PLATFORM_DEFAULT_DEVANT_ASGARDEO_CLIENT_ID }}
+          PLATFORM_STAGE_GHAPP_CLIENT_ID: ${{ secrets.PLATFORM_STAGE_GHAPP_CLIENT_ID }}
+          PLATFORM_STAGE_DEVANT_ASGARDEO_CLIENT_ID: ${{ secrets.PLATFORM_STAGE_DEVANT_ASGARDEO_CLIENT_ID }}
+          PLATFORM_DEV_GHAPP_CLIENT_ID: ${{ secrets.PLATFORM_DEV_GHAPP_CLIENT_ID }}
+          PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID: ${{ secrets.PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID }}
+
+  ExtTest_Ballerina:
+    name: Run Ballerina extension tests
+    needs: Build_Stage
+    if: ${{ inputs.runTests || !inputs.isPreRelease || needs.Build_Stage.outputs.runBalExtTests == 'true' || github.base_ref == 'release-ballerina' }}
+    timeout-minutes: 45
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore build
+        uses: actions/download-artifact@v4
+        with:
+          name: ExtBuild
+          path: ./
+
+      - name: Set up workspace
+        run: |
+          unzip build.zip
+          rm build.zip
+
+      - name: Setup Rush
+        uses: gigara/setup-rush@v1.2.0
+        with:
+          pnpm: 10.10.0
+          node: 22.x
+          rush-install: true
+
+      - name: Set up Ballerina
+        run: |
+          cd workspaces/ballerina/ballerina-extension
+          mkdir extractedDistribution
+          wget ${{ env.ballerina_zip_url }}
+          unzip -qq ./ballerina-${{ env.ballerina_version }}-swan-lake.zip -d ./extractedDistribution
+          rm ballerina-${{ env.ballerina_version }}-swan-lake.zip
+          balVersion=$(ls ./extractedDistribution)
+          balHome=./extractedDistribution/$balVersion
+
+          echo "$balHome/bin" >> $GITHUB_PATH
+
+      - name: Run Test
+        run: |
+          cd workspaces/ballerina/ballerina-extension
+          xvfb-run --auto-servernum pnpm run test
+        env:
+          balVersion: ${{ steps.set-version.outputs.balVersion }}
+          balHome: ${{ steps.set-version.outputs.balHome }}
+
+  UiTest_Ballerina:
+    name: Run Ballerina e2e tests
+    needs: Build_Stage
+    if: false
+    # if: ${{ inputs.runE2ETests || github.base_ref == 'release-ballerina' }}
+    timeout-minutes: 45
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore build
+        uses: actions/download-artifact@v4
+        with:
+          name: ExtBuild
+          path: ./
+
+      - name: Set up workspace
+        run: |
+          unzip build.zip
+          rm build.zip
+
+      - name: Setup Rush
+        uses: gigara/setup-rush@v1.2.0
+        with:
+          pnpm: 10.10.0
+          node: 22.x
+          rush-install: true
+
+      - uses: ballerina-platform/setup-ballerina@v1
+        name: Install Ballerina
+        with:
+          version: ${{ env.ballerina_version }}
+
+      - name: update packages
+        run: sudo apt-get update
+
+      - name: install packages
+        run: |
+          sudo apt-get install ffmpeg
+          sudo apt-get install xvfb
+
+      - name: Runs Tests
+        run: |
+          cd workspaces/ballerina/ballerina-extension
+          sudo apt-get install xvfb
+          pnpm run e2e-test-setup
+          export DISPLAY=:98.0
+          timeout 1800 sh e2e-test-runner.sh
+
+      - name: Publish e2e test output
+        uses: actions/upload-artifact@v4
+        with:
+          path: workspaces/ballerina/ballerina-extension/test-resources/output.txt
+          name: Ballerina-e2e-test-output-${{ github.run_attempt }}
+        if: failure()
+
+      - name: Publish e2e test recording
+        uses: actions/upload-artifact@v4
+        with:
+          path: workspaces/ballerina/ballerina-extension/test-resources/e2e-test-out.mp4
+          name: Ballerina-e2e-test-recording-${{ github.run_attempt }}
+          retention-days: 5
+        if: failure()
+
+      - name: Publish e2e test Screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          path: workspaces/ballerina/ballerina-extension/test-resources/screenshots/
+          name: Ballerina-e2e-test-screenshots-${{ github.run_attempt }}
+          retention-days: 5
+        if: failure()
+
+  UiTest_Choreo:
+    name: Run Choreo e2e tests
+    # Disabling Choreo E2E tests until tests have been updated to V2 Flow
+    if: false
+    # if: ${{ !inputs.skipUiTests || github.base_ref == 'release-choreo' }}
+    needs: Build_Stage
+    timeout-minutes: 120
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore build
+        uses: actions/download-artifact@v4
+        with:
+          name: ExtBuild
+          path: ./
+
+      - name: Set up workspace
+        run: |
+          unzip build.zip
+          rm build.zip
+
+      - name: Setup Rush
+        uses: gigara/setup-rush@v1.2.0
+        with:
+          pnpm: 10.10.0
+          node: 22.x
+          rush-install: true
+
+      - uses: ballerina-platform/setup-ballerina@v1
+        name: Install Ballerina
+        with:
+          version: ${{ env.ballerina_version }}
+
+      - name: update packages
+        run: sudo apt-get update
+
+      - name: install packages
+        run: |
+          sudo apt-get install ffmpeg
+          sudo apt-get install xvfb
+          sudo apt-get install -y gnome-keyring
+          sudo apt-get install libsecret-1.0
+          sudo apt install dbus-x11
+          cd workspaces/choreo/choreo-extension && npx playwright install
+
+      - name: Run tests
+        run: |
+          cd workspaces/choreo/choreo-extension 
+          pnpm run e2e-test-setup
+          export $(dbus-launch)
+          export DISPLAY=:98.0
+          git config --global user.email "choreo-test-user@wso2.com"
+          git config --global user.name "choreo-user"
+          timeout 900 sh e2e-test-runner.sh
+        env:
+          TEST_CHOREO_EXT_ENV: prod
+
+      - name: Publish e2e test output
+        uses: actions/upload-artifact@v4
+        with:
+          path: workspaces/choreo/choreo-extension/test-resources/output.txt
+          name: Choreo-e2e-test-output-${{ github.run_attempt }}
+          retention-days: 5
+        if: failure()
+
+      - name: Publish e2e test recording
+        uses: actions/upload-artifact@v4
+        with:
+          path: workspaces/choreo/choreo-extension/test-resources/e2e-test-out.mp4
+          name: Choreo-e2e-test-recording-${{ github.run_attempt }}
+          retention-days: 5
+        if: failure()
+
+      - name: Publish e2e test Screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          path: workspaces/choreo/choreo-extension/test-resources/screenshots/
+          name: Choreo-e2e-test-screenshots-${{ github.run_attempt }}
+        if: failure()
+
+  ExtTest_MI:
+    name: Run MI diagram tests
+    needs: Build_Stage
+    if: ${{ inputs.runTests || !inputs.isPreRelease || needs.Build_Stage.outputs.runMIExtTests == 'true' || github.base_ref == 'release-mi' }}
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore build
+        uses: actions/download-artifact@v4
+        with:
+          name: ExtBuild
+          path: ./
+
+      - name: Set up workspace
+        run: |
+          unzip build.zip
+          rm build.zip
+
+      - name: Setup Rush
+        uses: gigara/setup-rush@v1.2.0
+        with:
+          pnpm: 10.10.0
+          node: 22.x
+          rush-install: true
+
+      - name: Run Test
+        run: |
+          cd workspaces/mi/mi-diagram
+          xvfb-run --auto-servernum pnpm run test
+
+  UITest_MI:
+    name: Run MI UI tests
+    needs: Build_Stage
+    if: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [group1, group2, group3]
+    steps:
+      - name: Restore build
+        uses: actions/download-artifact@v4
+        with:
+          name: ExtBuild
+          path: ./
+
+      - name: Set up workspace
+        run: |
+          unzip build.zip
+          rm build.zip
+
+      - name: Setup Rush
+        uses: gigara/setup-rush@v1.2.0
+        with:
+          pnpm: 10.10.0
+          node: 22.x
+          rush-install: true
+
+      - name: Check for previous test results
+        if: github.run_attempt > 1
+        run: |
+          PREVIOUS_ATTEMPT=$((${{ github.run_attempt }} - 1))
+          echo "PREVIOUS_ATTEMPT=$PREVIOUS_ATTEMPT" >> $GITHUB_ENV
+        
+      - name: Download previous test results
+        id: check-results
+        if: github.run_attempt > 1
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: MI-e2e-test-results-${{ matrix.group }}-${{ env.PREVIOUS_ATTEMPT }}
+          path: workspaces/mi/mi-extension/test-results
+
+      - name: install packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install xvfb
+          sudo apt-get install ffmpeg
+          sudo apt-get install -y gnome-keyring
+          sudo apt-get install libsecret-1.0
+          sudo apt install dbus-x11
+          cd workspaces/mi/mi-extension && npx playwright install
+          
+      - name: Run Tests (First Attempt)
+        if: github.run_attempt == 1 || steps.check-results.outcome == 'failure'
+        run: |
+          export $(dbus-launch)
+          export DISPLAY=:98.0
+          cd workspaces/mi/mi-extension
+          xvfb-run --server-num 98.0 -s "-ac -screen 0 1920x1080x24" bash -c "ffmpeg -f x11grab -r 30 -s 1920x1080 -i :98.0 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart -hide_banner -loglevel error record.mp4 & npx playwright test --grep ${{ matrix.group }}"
+
+      - name: Run Failed Tests (Re-run)
+        if: github.run_attempt > 1 && steps.check-results.outcome == 'success'
+        run: |
+          export $(dbus-launch)
+          export DISPLAY=:98.0
+          cd workspaces/mi/mi-extension
+          xvfb-run --server-num 98.0 -s "-ac -screen 0 1920x1080x24" bash -c "ffmpeg -f x11grab -r 30 -s 1920x1080 -i :98.0 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart -hide_banner -loglevel error record.mp4 & npx playwright test --grep ${{ matrix.group }} --last-failed"
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: MI-e2e-test-results-${{ matrix.group }}-${{ github.run_attempt }}
+          path: workspaces/mi/mi-extension/test-results/**
+          retention-days: 5
+          include-hidden-files: true
+          
+      - name: Upload recordings
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: MI-e2e-test-recording-${{ matrix.group }}-${{ github.run_attempt }}
+          path: | 
+            workspaces/mi/mi-extension/src/test/test-resources/videos/**
+            workspaces/mi/mi-extension/src/test/test-resources/screenshots/**
+            workspaces/mi/mi-extension/record.mp4
+          retention-days: 5

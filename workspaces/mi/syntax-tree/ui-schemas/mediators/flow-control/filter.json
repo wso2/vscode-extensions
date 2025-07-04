@@ -1,0 +1,82 @@
+{
+  "name": "Filter",
+  "type": "mediator",
+  "title": "Filter Mediator",
+  "help": "Filters messages based on XPath/JSONPath/regex.",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "conditionType",
+        "displayName": "Condition Type",
+        "inputType": "combo",
+        "defaultValue": "Source and Regular Expression",
+        "comboValues": [
+          "Source and Regular Expression",
+          "XPath"
+        ],
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "source",
+        "displayName": "Source",
+        "inputType": "expression",
+        "defaultValue": "",
+        "required": true,
+        "helpTip": "",
+        "enableCondition": [
+          {
+            "conditionType": "Source and Regular Expression"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "regularExpression",
+        "displayName": "Regular Expression",
+        "inputType": "string",
+        "defaultValue": "",
+        "required": false,
+        "helpTip": "",
+        "enableCondition": [
+          {
+            "conditionType": "Source and Regular Expression"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "xPath",
+        "displayName": "XPath",
+        "inputType": "expression",
+        "defaultValue": "",
+        "required": false,
+        "helpTip": "",
+        "enableCondition": [
+          {
+            "conditionType": "XPath"
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "defaultValue": "",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}

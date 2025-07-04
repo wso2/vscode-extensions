@@ -1,0 +1,68 @@
+{
+  "name": "Bam",
+  "type":"mediator",
+  "title": "Bam Mediator",
+  "help": "Deprecated. Use PublishEvent Mediator for similar functionality.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "serverProfileName",
+              "displayName": "Server Profile Name",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attributeGroup",
+            "value": {
+              "groupName": "Stream",
+              "elements": [
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "streamName",
+                    "displayName": "Stream Name",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": true,
+                    "helpTip": ""
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "streamVersion",
+                    "displayName": "Stream Version",
+                    "inputType": "string",
+                    "defaultValue": "",
+                    "required": true,
+                    "helpTip": ""
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "defaultValue": "",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

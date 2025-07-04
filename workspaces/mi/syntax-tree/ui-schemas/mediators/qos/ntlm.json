@@ -1,0 +1,76 @@
+{
+  "name": "NTLM",
+  "type":"mediator",
+  "title": "NTLM Mediator",
+  "help": "Enables access to NTLM-protected services.",
+  "elements": [
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Properties",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "username",
+              "displayName": "Username",
+              "inputType": "stringOrExpression",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "password",
+              "displayName": "Password",
+              "inputType": "stringOrExpression",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "host",
+              "displayName": "Host",
+              "inputType": "stringOrExpression",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "domain",
+              "displayName": "Domain",
+              "inputType": "stringOrExpression",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "ntlmVersion",
+              "displayName": "NTLM Version",
+              "inputType": "stringOrExpression",
+              "required": true,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "description",
+              "displayName": "Description",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

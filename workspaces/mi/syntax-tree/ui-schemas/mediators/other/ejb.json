@@ -1,0 +1,199 @@
+{
+  "name": "EJB",
+  "type": "mediator",
+  "title": "EJB Mediator",
+  "help": "Calls EJB (Stateless/Stateful) and stores result in message payload/property.",
+  "elements": [
+    {
+      "type": "attribute",
+      "value": {
+        "name": "beanstalk",
+        "displayName": "Beanstalk",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "class",
+        "displayName": "Class",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "method",
+        "displayName": "Method",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "remove",
+        "displayName": "Remove",
+        "inputType": "checkbox",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "target",
+        "displayName": "Target",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "jndiName",
+        "displayName": "JNDI Name",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    },
+    {
+      "type": "table",
+      "value": {
+        "name": "methodArguments",
+        "displayName": "Method Arguments",
+        "title": "Method Argument",
+        "description": "Editing of the properties of an object Method Argument",
+        "tableKey": "propertyName",
+        "tableValue": "propertyValue",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyName",
+              "displayName": "Property Name",
+              "inputType": "string",
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyValueType",
+              "displayName": "Property Value Type",
+              "inputType": "combo",
+              "defaultValue": "LITERAL",
+              "comboValues": [
+                "LITERAL",
+                "EXPRESSION"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyValue",
+              "displayName": "Property Value",
+              "inputType": "string",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "propertyValueType": "LITERAL"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "propertyExpression",
+              "displayName": "Property Expression",
+              "inputType": "expression",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "propertyValueType": "EXPRESSION"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attributeGroup",
+      "value": {
+        "groupName": "Session",
+        "elements": [
+          {
+            "type": "attribute",
+            "value": {
+              "name": "sessionIdType",
+              "displayName": "Session Id Type",
+              "inputType": "combo",
+              "defaultValue": "LITERAL",
+              "comboValues": [
+                "LITERAL",
+                "EXPRESSION"
+              ],
+              "required": false,
+              "helpTip": ""
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "sessionIdLiteral",
+              "displayName": "Session Id Literal",
+              "inputType": "string",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "sessionIdType": "LITERAL"
+                }
+              ]
+            }
+          },
+          {
+            "type": "attribute",
+            "value": {
+              "name": "sessionIdExpression",
+              "displayName": "Session Id Expression",
+              "inputType": "expression",
+              "required": false,
+              "helpTip": "",
+              "enableCondition": [
+                {
+                  "sessionIdType": "EXPRESSION"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "attribute",
+      "value": {
+        "name": "description",
+        "displayName": "Description",
+        "inputType": "string",
+        "required": false,
+        "helpTip": ""
+      }
+    }
+  ]
+}
