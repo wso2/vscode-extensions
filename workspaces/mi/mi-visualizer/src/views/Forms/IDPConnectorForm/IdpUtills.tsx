@@ -90,7 +90,7 @@ export const fetchWithCopilot = async ({
         throw new Error("No access token.");
     }
     const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
-    const endpoint = `${backendRootUri}/idp-connector/generate`;
+    const endpoint = `${backendRootUri}/idp-connector/generate`; 
     controllerRef.current = new AbortController();
     const fetchWithRetry = async (): Promise<Response> => {
         let response = await fetch(endpoint, {
@@ -269,6 +269,7 @@ export function convertArraysToJsonSchema(fields: FieldItem[], arrays: TableItem
                 }
             };
             array.items.forEach((item) => {
+                const itemPathParts = item.name.split('.');
                 const itemProperty: any = {
                     type: item.type,
                     description: item.description,
@@ -276,8 +277,7 @@ export function convertArraysToJsonSchema(fields: FieldItem[], arrays: TableItem
                 if (item.pattern) itemProperty.pattern = item.pattern;
                 if (item.format && item.format !== "none") itemProperty.format = item.format;
                 if (item.enum) itemProperty.enum = commaSeparatedStringToArray(item.enum, item.type);
-                
-                arrayProperty.items.properties[item.name] = itemProperty;
+                set(arrayProperty.items.properties, itemPathParts, itemProperty);
             });
         } else {
             arrayProperty = {
