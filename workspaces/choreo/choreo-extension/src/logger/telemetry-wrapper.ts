@@ -17,7 +17,6 @@
  */
 
 import type { IChildLogger } from "@vscode-logging/logger";
-import { TelemetryReporter } from "@vscode/extension-telemetry";
 
 // This is the telemetry wrapper class that is used to send telemetry data to the App Insights backend.
 // It will implment the IChildLogger interface by wrapping a provided logger instance.
@@ -25,25 +24,16 @@ import { TelemetryReporter } from "@vscode/extension-telemetry";
 
 export class TelemetryWrapper implements IChildLogger {
 	private logger: IChildLogger;
-	private reporter: TelemetryReporter;
 
-	constructor(logger: IChildLogger, reporter: TelemetryReporter) {
+	constructor(logger: IChildLogger) {
 		this.logger = logger;
-		this.reporter = reporter;
 	}
 	public fatal(msg: string, ...args: any[]): void {
 		this.logger.fatal(msg, args);
-		this.reporter.sendTelemetryErrorEvent("vscode-error-occurred", {
-			message: msg,
-		});
 	}
 
 	public error(message: string, error?: Error): void {
 		this.logger.error(message, error);
-		this.reporter.sendDangerousTelemetryErrorEvent("vscode-error-occurred", {
-			message: message,
-			error: error ? error.toString() : "",
-		});
 	}
 
 	public warn(message: string, error?: Error): void {
@@ -63,6 +53,6 @@ export class TelemetryWrapper implements IChildLogger {
 	}
 
 	public getChildLogger(opts: { label: string }): IChildLogger {
-		return new TelemetryWrapper(this.logger.getChildLogger(opts), this.reporter);
+		return new TelemetryWrapper(this.logger.getChildLogger(opts));
 	}
 }

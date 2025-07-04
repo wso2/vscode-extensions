@@ -17,7 +17,7 @@
  */
 
 import { useMutation } from "@tanstack/react-query";
-import { CommandIds } from "@wso2/choreo-core";
+import { type ICmdParamsBase, CommandIds as PlatformCommandIds } from "@wso2/wso2-platform-core";
 import classNames from "classnames";
 import React, { type FC, type HTMLProps } from "react";
 import { Button } from "../../components/Button";
@@ -29,7 +29,7 @@ interface Props {
 
 export const SignInView: FC<Props> = ({ className }) => {
 	const { mutate: signInCmd, isLoading: isInitSignIn } = useMutation({
-		mutationFn: async () => ChoreoWebViewAPI.getInstance().triggerCmd(CommandIds.SignIn),
+		mutationFn: async () => ChoreoWebViewAPI.getInstance().triggerCmd(PlatformCommandIds.SignIn, { extName: "Choreo" } as ICmdParamsBase),
 	});
 	return (
 		<div className={classNames("flex w-full flex-col gap-[10px] px-6 py-2", className)}>

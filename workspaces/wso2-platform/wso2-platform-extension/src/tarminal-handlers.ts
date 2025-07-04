@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { CommandIds, type ComponentKind } from "@wso2/choreo-core";
+import { CommandIds, type ComponentKind } from "@wso2/wso2-platform-core";
 import type vscode from "vscode";
 import { commands, window, workspace } from "vscode";
 import { getChoreoExecPath } from "./choreo-rpc/cli-install";
@@ -79,8 +79,9 @@ export function addTerminalHandlers() {
 							}
 						});
 					return;
-				} else if (!userInfo) {
-					window.showErrorMessage(`You must log in before connecting to the remote environment. Retry after logging in.`, "Login").then((res) => {
+				}
+				if (!userInfo) {
+					window.showErrorMessage("You must log in before connecting to the remote environment. Retry after logging in.", "Login").then((res) => {
 						if (res === "Login") {
 							commands.executeCommand(CommandIds.SignIn);
 						}

@@ -16,19 +16,18 @@
  * under the License.
  */
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { UserInfo } from "@wso2/choreo-core";
+import { useQuery } from "@tanstack/react-query";
 import { ErrorBanner, ProgressIndicator } from "@wso2/ui-toolkit";
-import React, { type FC, type ReactNode, useContext, useEffect } from "react";
+import React, { type FC, type ReactNode, useContext } from "react";
 import { ChoreoWebViewAPI } from "../utilities/vscode-webview-rpc";
 import { SignInView } from "../views/SignInView";
 
 interface IAuthContext {
-	userInfo: UserInfo | null;
+	isLoggedIn: boolean | null;
 }
 
 const defaultContext: IAuthContext = {
-	userInfo: null,
+	isLoggedIn: false,
 };
 
 const ChoreoAuthContext = React.createContext(defaultContext);
@@ -39,40 +38,26 @@ export const useAuthContext = () => {
 
 interface Props {
 	children: ReactNode;
-	viewType?: string;
 }
 
-export const AuthContextProvider: FC<Props> = ({ children, viewType }) => {
-	const queryClient = useQueryClient();
-
+export const AuthContextProvider: FC<Props> = ({ children }) => {
 	const {
-		data: authState,
+		data: isLoggedIn = false,
 		error: authStateError,
 		isLoading,
 	} = useQuery({
 		queryKey: ["auth_state"],
-		queryFn: () => ChoreoWebViewAPI.getInstance().getAuthState(),
+		queryFn: () => ChoreoWebViewAPI.getInstance().isLoggedIn(),
 		refetchOnWindowFocus: true,
+		refetchInterval: 2000,
 	});
 
-	useEffect(() => {
-		ChoreoWebViewAPI.getInstance().onAuthStateChanged((authState) => {
-			queryClient.setQueryData(["auth_state"], authState);
-		});
-	}, []);
-
 	return (
-		<ChoreoAuthContext.Provider value={{ userInfo: authState?.userInfo || null }}>
+		<ChoreoAuthContext.Provider value={{ isLoggedIn }}>
 			{authStateError ? (
 				<ErrorBanner errorMsg="Failed to authenticate user" />
 			) : (
-				<>
-					{isLoading ? (
-						<ProgressIndicator />
-					) : (
-						<>{authState?.userInfo ? children : <SignInView className={!viewType?.includes("ActivityView") && "py-6"} />}</>
-					)}
-				</>
+				<>{isLoading ? <ProgressIndicator /> : <>{isLoggedIn ? children : <SignInView />}</>}</>
 			)}
 		</ChoreoAuthContext.Provider>
 	);

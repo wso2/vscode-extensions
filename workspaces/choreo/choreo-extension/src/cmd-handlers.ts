@@ -16,4 +16,8 @@
  * under the License.
  */
 
-export { VerticalStepper, type StepItem } from "./VerticalStepper";
+import type { ExtensionContext } from "vscode";
+
+export function activateCmds(context: ExtensionContext) {
+	// TODO: add any commands to be activated here
+}

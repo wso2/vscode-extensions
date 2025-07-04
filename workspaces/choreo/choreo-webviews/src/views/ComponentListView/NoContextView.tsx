@@ -17,8 +17,13 @@
  */
 
 import { VSCodeLink } from "@vscode/webview-ui-toolkit/react";
-import { CommandIds } from "@wso2/choreo-core";
 import { ProgressIndicator } from "@wso2/ui-toolkit";
+import {
+	type ICloneProjectCmdParams,
+	type ICmdParamsBase,
+	type ICreateComponentCmdParams,
+	CommandIds as PlatformCommandIds,
+} from "@wso2/wso2-platform-core";
 import React, { type FC } from "react";
 import { Button } from "../../components/Button";
 import { ChoreoWebViewAPI } from "../../utilities/vscode-webview-rpc";
@@ -36,7 +41,9 @@ export const NoContextView: FC<Props> = ({ loading }) => {
 				<p>Create a new component.</p>
 				<Button
 					className="w-full max-w-80 self-center sm:self-start"
-					onClick={() => ChoreoWebViewAPI.getInstance().triggerCmd(CommandIds.CreateNewComponent)}
+					onClick={() =>
+						ChoreoWebViewAPI.getInstance().triggerCmd(PlatformCommandIds.CreateNewComponent, { extName: "Choreo" } as ICreateComponentCmdParams)
+					}
 					title="Create a Choreo component linked to your local directory. Build and deploy it to the cloud effortlessly."
 				>
 					Create Component
@@ -44,14 +51,23 @@ export const NoContextView: FC<Props> = ({ loading }) => {
 				<p>Link a directory with an existing project.</p>
 				<Button
 					className="w-full max-w-80 self-center sm:self-start"
-					onClick={() => ChoreoWebViewAPI.getInstance().triggerCmd(CommandIds.CreateDirectoryContext)}
+					onClick={() =>
+						ChoreoWebViewAPI.getInstance().triggerCmd(PlatformCommandIds.CreateDirectoryContext, { extName: "Choreo" } as ICmdParamsBase)
+					}
 					title="Create a context.yaml file in within your workspace directory in order to associate the directory with your project."
 				>
 					Link Directory
 				</Button>
 				<p>
 					If you have an existing project that hasn't been cloned locally, click{" "}
-					<VSCodeLink onClick={() => ChoreoWebViewAPI.getInstance().triggerCmd(CommandIds.CloneProject)}>here</VSCodeLink>.
+					<VSCodeLink
+						onClick={() =>
+							ChoreoWebViewAPI.getInstance().triggerCmd(PlatformCommandIds.CloneProject, { extName: "Choreo" } as ICloneProjectCmdParams)
+						}
+					>
+						here
+					</VSCodeLink>
+					.
 				</p>
 			</div>
 		</>

@@ -19,7 +19,6 @@
 const path = require("path");
 const TerserPlugin = require("terser-webpack-plugin");
 
-const CopyPlugin = require("copy-webpack-plugin");
 const PermissionsOutputPlugin = require("webpack-permissions-plugin");
 
 //@ts-check
@@ -32,7 +31,6 @@ const extensionConfig = {
 
 	entry: {
 		extension: "./src/extension.ts",
-		"askpass-main": "./src/git/askpass-main.ts",
 	},
 	output: {
 		path: path.resolve(__dirname, "dist"),
@@ -88,9 +86,6 @@ const extensionConfig = {
 		],
 	},
 	plugins: [
-		new CopyPlugin({
-			patterns: [{ from: "src/git/*.sh", to: "[name][ext]" }],
-		}),
 		new PermissionsOutputPlugin({
 			buildFolders: [path.resolve(__dirname, "dist/")],
 		}),
