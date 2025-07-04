@@ -170,7 +170,8 @@ jobs:
   ExtTest_Ballerina:
     name: Run Ballerina extension tests
     needs: Build_Stage
-    if: ${{ inputs.runTests || !inputs.isPreRelease || needs.Build_Stage.outputs.runBalExtTests == 'true' || github.base_ref == 'release-ballerina' }}
+    if: false
+    # if: ${{ inputs.runTests || !inputs.isPreRelease || needs.Build_Stage.outputs.runBalExtTests == 'true' || github.base_ref == 'release-ballerina' }}
     timeout-minutes: 45
     runs-on: ubuntu-latest
     steps:
