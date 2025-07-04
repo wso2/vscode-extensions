@@ -90,7 +90,8 @@ export const fetchWithCopilot = async ({
         throw new Error("No access token.");
     }
     const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
-    const endpoint = `${backendRootUri}/idp-connector/generate`; 
+    //const endpoint = `${backendRootUri}/idp-connector/generate`;
+    const endpoint = 'http://localhost:8000/idp-connector/generate';
     controllerRef.current = new AbortController();
     const fetchWithRetry = async (): Promise<Response> => {
         let response = await fetch(endpoint, {
@@ -300,7 +301,7 @@ export function convertArraysToJsonSchema(fields: FieldItem[], arrays: TableItem
             if (propertyKeys.length > 0) {
                 obj.required = propertyKeys;
             }
-            obj.additionalProperties = true; 
+            obj.additionalProperties = false; 
             for (const key in obj.properties) {
                 addMetadata(obj.properties[key]);
             }
