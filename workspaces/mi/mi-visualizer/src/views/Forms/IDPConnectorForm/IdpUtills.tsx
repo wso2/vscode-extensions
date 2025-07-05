@@ -91,7 +91,6 @@ export const fetchWithCopilot = async ({
     }
     const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
     const endpoint = `${backendRootUri}/idp-connector/generate`;
-  
     controllerRef.current = new AbortController();
     const fetchWithRetry = async (): Promise<Response> => {
         let response = await fetch(endpoint, {
@@ -506,15 +505,8 @@ export const parameterConfigForFields = {
                 required: false,
                 helpTip: "Regex pattern of the field",
                 enableCondition: [
-                    "OR",
                     {
                         type: "string"
-                    },
-                    {
-                        type: "number"
-                    },
-                    {
-                        type: "integer"
                     }
                 ]
             },
@@ -635,10 +627,7 @@ export const parameterConfigForTables = {
                 required: false,
                 helpTip: "Regex pattern of the table",
                 enableCondition: [
-                    "OR",
-                    { itemType: "string" },
-                    { itemType: "number" },
-                    { itemType: "integer" }
+                    { itemType: "string" }
                 ]
             },
         },
@@ -742,10 +731,7 @@ export const parameterConfigForTables = {
                             required: false,
                             helpTip: "Regex pattern of the field",
                             enableCondition: [
-                                "OR",
                                 { type: "string" },
-                                { type: "number" },
-                                { type: "integer" }
                             ]
                         },
                     },
