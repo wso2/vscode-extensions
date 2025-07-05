@@ -47,6 +47,29 @@ const IconButton = styled.div`
     }
 `;
 
+const PreviewContainer = styled.div`
+    background-color: var(--vscode-input-background);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 1px;
+    padding: 6px 12px;
+    margin: -10px 0 20px 0;
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    height: 23px;
+`;
+
+const PreviewText = styled(Typography)`
+    color: var(--vscode-descriptionForeground);
+    font-family: var(--vscode-editor-font-family, 'Monaco', 'Menlo', 'Ubuntu Mono', monospace);
+    font-size: 5px;
+    word-break: break-all;
+`;
+
+const sanitizeProjectName = (name: string): string => {
+    return name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+};
+
 export function ProjectForm() {
     const { rpcClient } = useRpcContext();
     const [selectedModule, setSelectedModule] = useState("Main");
@@ -101,6 +124,13 @@ export function ProjectForm() {
                 label="Integration Name"
                 placeholder="Enter a integration name"
             />
+            {name && (
+                <PreviewContainer>
+                    <PreviewText variant="body2">
+                        {sanitizeProjectName(name)}
+                    </PreviewText>
+                </PreviewContainer>
+            )}
             <LocationSelector
                 label="Select Integration Path"
                 selectedFile={path}
