@@ -222,6 +222,15 @@ export function createNewComponentCommand(context: ExtensionContext) {
 
 					const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSubpath(item.uri?.fsPath, selectedUri?.fsPath));
 
+					let compInitialName = params?.name || dirName || selectedType;
+					const existingNames = components.map(c => c.metadata?.name?.toLowerCase?.());
+					let baseName = compInitialName;
+					let counter = 1;
+					while (existingNames.includes(compInitialName.toLowerCase())) {
+						compInitialName = `${baseName}-${counter}`;
+						counter++;
+					}
+					
 					const createCompParams: IComponentCreateFormParams = {
 						directoryUriPath: selectedUri.path,
 						directoryFsPath: selectedUri.fsPath,
@@ -233,7 +242,7 @@ export function createNewComponentCommand(context: ExtensionContext) {
 							type: selectedType,
 							subType: selectedSubType,
 							buildPackLang: params?.buildPackLang,
-							name: params?.name || dirName || "",
+							name: compInitialName,
 						},
 					};
 
