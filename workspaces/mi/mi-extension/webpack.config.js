@@ -20,22 +20,22 @@
 
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 const webpack = require('webpack');
+const { createEnvDefinePlugin } = require('../../../common/scripts/env-webpack-helper');
 
 const envPath = path.resolve(__dirname, '.env');
 const env = dotenv.config({ path: envPath }).parsed;
 
-const mergedEnv = { ...env, ...process.env };
-
-const envKeys = Object.fromEntries(
-  Object.entries(mergedEnv).map(([key, value]) => [
-    `process.env.${key}`,
-    JSON.stringify(value),
-  ])
-);
+let envKeys;
+try {
+  envKeys = createEnvDefinePlugin(env);
+} catch (error) {
+  console.error('\n❌ Environment Variable Configuration Error:');
+  console.error(error.message);
+  process.exit(1);
+}
 
 /** @type {import('webpack').Configuration} */
 module.exports = {
