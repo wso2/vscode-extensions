@@ -32,7 +32,7 @@ export function createComponentDependencyCommand(context: ExtensionContext) {
 			try {
 				isRpcActive(ext);
 				const extensionName = webviewStateStore.getState().state.extensionName;
-				const userInfo = await getUserInfoForCmd(`create dependency`);
+				const userInfo = await getUserInfoForCmd("create dependency");
 				if (userInfo) {
 					const selected = contextStore.getState().state.selected;
 					if (!selected?.org || !selected.project) {

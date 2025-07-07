@@ -18,97 +18,43 @@
 
 import { CommandIds } from "@wso2/choreo-core";
 import * as vscode from "vscode";
-import { type ConfigurationChangeEvent, commands, window, workspace } from "vscode";
+import { commands } from "vscode";
 import { ChoreoExtensionApi } from "./ChoreoExtensionApi";
-import { ChoreoRPCClient } from "./choreo-rpc";
-import { initRPCServer } from "./choreo-rpc/activate";
-import { activateCmds } from "./cmds";
-import { continueCreateComponent } from "./cmds/create-component-cmd";
-import { activateCodeLenses } from "./code-lens";
+import { activateCmds } from "./cmd-handlers";
 import { ext } from "./extensionVariables";
 import { getLogger, initLogger } from "./logger/logger";
-import { authStore } from "./stores/auth-store";
-import { contextStore } from "./stores/context-store";
-import { dataCacheStore } from "./stores/data-cache-store";
-import { locationStore } from "./stores/location-store";
-import { ChoreoConfigurationProvider, addTerminalHandlers } from "./tarminal-handlers";
-import { activateTelemetry } from "./telemetry/telemetry";
 import { activateURIHandlers } from "./uri-handlers";
+import { getContextStateStore, getIsLoggedIn } from "./utils";
 import { activateActivityWebViews } from "./webviews/utils";
-import { registerYamlLanguageServer } from "./yaml-ls";
 
 export async function activate(context: vscode.ExtensionContext) {
-	activateTelemetry(context);
 	await initLogger(context);
 	getLogger().debug("Activating Choreo Extension");
 	ext.context = context;
 	ext.api = new ChoreoExtensionApi();
 
-	// Initialize stores
-	await authStore.persist.rehydrate();
-	await contextStore.persist.rehydrate();
-	await dataCacheStore.persist.rehydrate();
-	await locationStore.persist.rehydrate();
+	setInterval(async () => {
+		const isLoggedIn = await getIsLoggedIn();
+		vscode.commands.executeCommand("setContext", "isLoggedIn", isLoggedIn);
+	}, 2000);
 
-	// Set context values
-	authStore.subscribe(({ state }) => {
-		vscode.commands.executeCommand("setContext", "isLoggedIn", !!state.userInfo);
-	});
-	contextStore.subscribe(({ state }) => {
+	setInterval(async () => {
+		const state = await getContextStateStore();
 		vscode.commands.executeCommand("setContext", "isLoadingContextDirs", state.loading);
 		vscode.commands.executeCommand("setContext", "hasSelectedProject", !!state.selected);
-	});
-	workspace.onDidChangeWorkspaceFolders(() => {
-		vscode.commands.executeCommand("setContext", "notUsingWorkspaceFile", !workspace.workspaceFile);
-	});
-	vscode.commands.executeCommand("setContext", "notUsingWorkspaceFile", !workspace.workspaceFile);
+	}, 2000);
 
-	const rpcClient = new ChoreoRPCClient();
-	ext.clients = { rpcClient: rpcClient };
+	ext.clients = {};
+	activateCmds(context);
+	activateActivityWebViews(context);
+	activateURIHandlers();
 
-	initRPCServer()
-		.then(async () => {
-			await ext.clients.rpcClient.init();
+	getLogger().debug("Choreo Extension activated");
 
-			authStore.getState().initAuth();
-
-			activateCmds(context);
-			activateActivityWebViews(context); // activity web views
-			activateURIHandlers();
-			activateCodeLenses(context);
-			continueCreateComponent();
-			addTerminalHandlers();
-			context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("*", new ChoreoConfigurationProvider()));
-			getLogger().debug("Choreo Extension activated");
-		})
-		.catch((e) => {
-			getLogger().error("Failed to initialize rpc client", e);
-		});
-
-	// activateStatusBarItem();
 	commands.registerCommand(CommandIds.OpenWalkthrough, () => {
 		commands.executeCommand("workbench.action.openWalkthrough", "wso2.choreo#choreo.getStarted", false);
 	});
-	registerPreInitHandlers();
-	registerYamlLanguageServer();
 	return ext.api;
-}
-
-function registerPreInitHandlers(): any {
-	workspace.onDidChangeConfiguration(async ({ affectsConfiguration }: ConfigurationChangeEvent) => {
-		if (affectsConfiguration("Advanced.ChoreoEnvironment") || affectsConfiguration("Advanced.RpcPath")) {
-			const selection = await window.showInformationMessage(
-				"Choreo extension configuration changed. Please restart vscode for changes to take effect.",
-				"Restart Now",
-			);
-			if (selection === "Restart Now") {
-				if (affectsConfiguration("Advanced.ChoreoEnvironment")) {
-					authStore.getState().logout();
-				}
-				commands.executeCommand("workbench.action.reloadWindow");
-			}
-		}
-	});
 }
 
 export function deactivate() {}

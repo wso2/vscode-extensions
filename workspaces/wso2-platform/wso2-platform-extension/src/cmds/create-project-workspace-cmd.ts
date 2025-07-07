@@ -19,14 +19,7 @@
 import { writeFileSync } from "fs";
 import * as os from "os";
 import * as path from "path";
-import {
-	CommandIds,
-	type ComponentKind,
-	type ICmdParamsBase,
-	type Organization,
-	type Project,
-	type WorkspaceConfig,
-} from "@wso2/wso2-platform-core";
+import { CommandIds, type ComponentKind, type ICmdParamsBase, type Organization, type Project, type WorkspaceConfig } from "@wso2/wso2-platform-core";
 import { type ExtensionContext, Uri, commands, window, workspace } from "vscode";
 import { ext } from "../extensionVariables";
 import { contextStore } from "../stores/context-store";

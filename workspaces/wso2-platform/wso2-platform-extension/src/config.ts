@@ -16,102 +16,125 @@
  * under the License.
  */
 
-import type { GHAppConfig } from "@wso2/wso2-platform-core";
-import { workspace } from "vscode";
+import { window } from "vscode";
+import { z } from "zod";
+import { getChoreoEnv } from "./choreo-rpc/cli-install";
 
-interface IChoreoEnvConfig {
-    ghApp: GHAppConfig;
-    choreoConsoleBaseUrl: string;
-    billingConsoleBaseUrl: string;
-    devantConsoleBaseUrl: string;
-    devantAsguadeoClientId: string;
+const ghAppSchema = z.object({
+	installUrl: z.string().min(1),
+	authUrl: z.string().min(1),
+	clientId: z.string().min(1),
+	redirectUrl: z.string().min(1),
+	devantRedirectUrl: z.string().min(1),
+});
+
+const envSchemaItem = z.object({
+	ghApp: ghAppSchema,
+	choreoConsoleBaseUrl: z.string().min(1),
+	billingConsoleBaseUrl: z.string().min(1),
+	devantConsoleBaseUrl: z.string().min(1),
+	devantAsgardeoClientId: z.string().min(1),
+});
+
+const envSchema = z.object({
+	CLI_RELEASES_BASE_URL: z.string().min(1),
+	defaultEnvs: envSchemaItem,
+	stageEnvs: envSchemaItem,
+	devEnvs: envSchemaItem,
+});
+
+const _env = envSchema.safeParse({
+	CLI_RELEASES_BASE_URL: process.env.PLATFORM_CHOREO_CLI_RELEASES_BASE_URL,
+	defaultEnvs: {
+		ghApp: {
+			installUrl: process.env.PLATFORM_DEFAULT_GHAPP_INSTALL_URL ?? "",
+			authUrl: process.env.PLATFORM_DEFAULT_GHAPP_AUTH_URL ?? "",
+			clientId: process.env.PLATFORM_DEFAULT_GHAPP_CLIENT_ID ?? "",
+			redirectUrl: process.env.PLATFORM_DEFAULT_GHAPP_REDIRECT_URL ?? "",
+			devantRedirectUrl: process.env.PLATFORM_DEFAULT_GHAPP_DEVANT_REDIRECT_URL ?? "",
+		},
+		choreoConsoleBaseUrl: process.env.PLATFORM_DEFAULT_CHOREO_CONSOLE_BASE_URL ?? "",
+		billingConsoleBaseUrl: process.env.PLATFORM_DEFAULT_BILLING_CONSOLE_BASE_URL ?? "",
+		devantConsoleBaseUrl: process.env.PLATFORM_DEFAULT_DEVANT_CONSOLE_BASE_URL ?? "",
+		devantAsgardeoClientId: process.env.PLATFORM_DEFAULT_DEVANT_ASGARDEO_CLIENT_ID ?? "",
+	},
+	stageEnvs: {
+		ghApp: {
+			installUrl: process.env.PLATFORM_STAGE_GHAPP_INSTALL_URL ?? "",
+			authUrl: process.env.PLATFORM_STAGE_GHAPP_AUTH_URL ?? "",
+			clientId: process.env.PLATFORM_STAGE_GHAPP_CLIENT_ID ?? "",
+			redirectUrl: process.env.PLATFORM_STAGE_GHAPP_REDIRECT_URL ?? "",
+			devantRedirectUrl: process.env.PLATFORM_STAGE_GHAPP_DEVANT_REDIRECT_URL ?? "",
+		},
+		choreoConsoleBaseUrl: process.env.PLATFORM_STAGE_CHOREO_CONSOLE_BASE_URL ?? "",
+		billingConsoleBaseUrl: process.env.PLATFORM_STAGE_BILLING_CONSOLE_BASE_URL ?? "",
+		devantConsoleBaseUrl: process.env.PLATFORM_STAGE_DEVANT_CONSOLE_BASE_URL ?? "",
+		devantAsgardeoClientId: process.env.PLATFORM_STAGE_DEVANT_ASGARDEO_CLIENT_ID ?? "",
+	},
+	devEnvs: {
+		ghApp: {
+			installUrl: process.env.PLATFORM_DEV_GHAPP_INSTALL_URL ?? "",
+			authUrl: process.env.PLATFORM_DEV_GHAPP_AUTH_URL ?? "",
+			clientId: process.env.PLATFORM_DEV_GHAPP_CLIENT_ID ?? "",
+			redirectUrl: process.env.PLATFORM_DEV_GHAPP_REDIRECT_URL ?? "",
+			devantRedirectUrl: process.env.PLATFORM_DEV_GHAPP_DEVANT_REDIRECT_URL ?? "",
+		},
+		choreoConsoleBaseUrl: process.env.PLATFORM_DEV_CHOREO_CONSOLE_BASE_URL ?? "",
+		billingConsoleBaseUrl: process.env.PLATFORM_DEV_BILLING_CONSOLE_BASE_URL ?? "",
+		devantConsoleBaseUrl: process.env.PLATFORM_DEV_DEVANT_CONSOLE_BASE_URL ?? "",
+		devantAsgardeoClientId: process.env.PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID ?? "",
+	},
+} as z.infer<typeof envSchema>);
+
+if (!_env.success) {
+	window.showErrorMessage(`Invalid environment variables. ${_env.error.message}`);
+	console.error("Invalid environment variables:", _env.error.flatten().fieldErrors);
 }
-
-const config = workspace.getConfiguration('WSO2.WSO2-Platform');
-
-const DEFAULT_CHOREO_ENV_CONFIG: IChoreoEnvConfig = {
-    ghApp: {
-        installUrl: process.env.DEFAULT_GHAPP_INSTALL_URL || config.get('Default.ghappInstallUrl') || '',
-        authUrl: process.env.DEFAULT_GHAPP_AUTH_URL || config.get('Default.ghappAuthUrl') || '',
-        clientId: process.env.PLATFORM_DEFAULT_GHAPP_CLIENT_ID || config.get('Default.ghappClientId') || '',
-        redirectUrl: process.env.DEFAULT_GHAPP_REDIRECT_URL || config.get('Default.ghappRedirectUrl') || '',
-        devantRedirectUrl: process.env.DEFAULT_GHAPP_DEVANT_REDIRECT_URL || config.get('Default.ghappDevantRedirectUrl') || '',
-    },
-    choreoConsoleBaseUrl: process.env.DEFAULT_CHOREO_CONSOLE_BASE_URL || config.get('Default.choreoConsoleBaseUrl') || '',
-    billingConsoleBaseUrl: process.env.DEFAULT_BILLING_CONSOLE_BASE_URL || config.get('Default.billingConsoleBaseUrl') || '',
-    devantConsoleBaseUrl: process.env.DEFAULT_DEVANT_CONSOLE_BASE_URL || config.get('Default.devantConsoleBaseUrl') || '',
-    devantAsguadeoClientId: process.env.PLATFORM_DEFAULT_DEVANT_ASGUADEO_CLIENT_ID || config.get('Default.devantAsguadeoClientId') || '',
-};
-
-const CHOREO_ENV_CONFIG_STAGE: IChoreoEnvConfig = {
-    ghApp: {
-        installUrl: process.env.STAGE_GHAPP_INSTALL_URL || config.get('Stage.ghappInstallUrl') || '',
-        authUrl: process.env.STAGE_GHAPP_AUTH_URL || config.get('Stage.ghappAuthUrl') || '',
-        clientId: process.env.PLATFORM_STAGE_GHAPP_CLIENT_ID || config.get('Stage.ghappClientId') || '',
-        redirectUrl: process.env.STAGE_GHAPP_REDIRECT_URL || config.get('Stage.ghappRedirectUrl') || '',
-        devantRedirectUrl: process.env.STAGE_GHAPP_DEVANT_REDIRECT_URL || config.get('Stage.ghappDevantRedirectUrl') || '',
-    },
-    choreoConsoleBaseUrl: process.env.STAGE_CHOREO_CONSOLE_BASE_URL || config.get('Stage.choreoConsoleBaseUrl') || '',
-    billingConsoleBaseUrl: process.env.STAGE_BILLING_CONSOLE_BASE_URL || config.get('Stage.billingConsoleBaseUrl') || '',
-    devantConsoleBaseUrl: process.env.STAGE_DEVANT_CONSOLE_BASE_URL || config.get('Stage.devantConsoleBaseUrl') || '',
-    devantAsguadeoClientId: process.env.PLATFORM_STAGE_DEVANT_ASGUADEO_CLIENT_ID || config.get('Stage.devantAsguadeoClientId') || '',
-};
-
-const CHOREO_ENV_CONFIG_DEV: IChoreoEnvConfig = {
-    ghApp: {
-        installUrl: process.env.DEV_GHAPP_INSTALL_URL || config.get('Dev.ghappInstallUrl') || '',
-        authUrl: process.env.DEV_GHAPP_AUTH_URL || config.get('Dev.ghappAuthUrl') || '',
-        clientId: process.env.PLATFORM_DEV_GHAPP_CLIENT_ID || config.get('Dev.ghappClientId') || '',
-        redirectUrl: process.env.DEV_GHAPP_REDIRECT_URL || config.get('Dev.ghappRedirectUrl') || '',
-        devantRedirectUrl: process.env.DEV_GHAPP_DEVANT_REDIRECT_URL || config.get('Dev.ghappDevantRedirectUrl') || '',
-    },
-    choreoConsoleBaseUrl: process.env.DEV_CHOREO_CONSOLE_BASE_URL || config.get('Dev.choreoConsoleBaseUrl') || '',
-    billingConsoleBaseUrl: process.env.DEV_BILLING_CONSOLE_BASE_URL || config.get('Dev.billingConsoleBaseUrl') || '',
-    devantConsoleBaseUrl: process.env.DEV_DEVANT_CONSOLE_BASE_URL || config.get('Dev.devantConsoleBaseUrl') || '',
-    devantAsguadeoClientId: process.env.PLATFORM_DEV_DEVANT_ASGUADEO_CLIENT_ID || config.get('Dev.devantAsguadeoClientId') || '',
-};
 
 class ChoreoEnvConfig {
-    constructor(private _config: IChoreoEnvConfig = DEFAULT_CHOREO_ENV_CONFIG) {}
+	constructor(private _config: z.infer<typeof envSchemaItem> = _env.data!.defaultEnvs) {}
 
-    public getGHAppConfig(): GHAppConfig {
-        return this._config.ghApp;
-    }
+	public getCliInstallUrl() {
+		return _env.data?.CLI_RELEASES_BASE_URL;
+	}
 
-    public getConsoleUrl(): string {
-        return this._config.choreoConsoleBaseUrl;
-    }
+	public getGHAppConfig() {
+		return this._config.ghApp;
+	}
 
-    public getBillingUrl(): string {
-        return this._config.billingConsoleBaseUrl;
-    }
+	public getConsoleUrl(): string {
+		return this._config.choreoConsoleBaseUrl;
+	}
 
-    public getDevantUrl(): string {
-        return this._config.devantConsoleBaseUrl;
-    }
+	public getBillingUrl(): string {
+		return this._config.billingConsoleBaseUrl;
+	}
 
-    public getDevantAsguadeoClientId(): string {
-        return this._config.devantAsguadeoClientId;
-    }
+	public getDevantUrl(): string {
+		return this._config.devantConsoleBaseUrl;
+	}
+
+	public getDevantAsgardeoClientId(): string {
+		return this._config.devantAsgardeoClientId;
+	}
 }
 
-const choreoEnv = process.env.TEST_CHOREO_EXT_ENV || workspace.getConfiguration().get("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment");
+const choreoEnv = getChoreoEnv();
 
-let pickedEnvConfig: IChoreoEnvConfig;
+let pickedEnvConfig: z.infer<typeof envSchemaItem>;
 
 switch (choreoEnv) {
-	
-    case "prod":
-        pickedEnvConfig = DEFAULT_CHOREO_ENV_CONFIG;
-        break;
-    case "stage":
-        pickedEnvConfig = CHOREO_ENV_CONFIG_STAGE;
-        break;
-    case "dev":
-        pickedEnvConfig = CHOREO_ENV_CONFIG_DEV;
-        break;
-    default:
-        pickedEnvConfig = DEFAULT_CHOREO_ENV_CONFIG;
+	case "prod":
+		pickedEnvConfig = _env.data!.defaultEnvs;
+		break;
+	case "stage":
+		pickedEnvConfig = _env.data!.stageEnvs;
+		break;
+	case "dev":
+		pickedEnvConfig = _env.data!.devEnvs;
+		break;
+	default:
+		pickedEnvConfig = _env.data!.defaultEnvs;
 }
 
 export const choreoEnvConfig: ChoreoEnvConfig = new ChoreoEnvConfig(pickedEnvConfig);

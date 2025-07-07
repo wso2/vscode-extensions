@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import type { Project } from "@wso2/choreo-core";
+import type { Project } from "@wso2/wso2-platform-core";
 import { EventEmitter } from "vscode";
 
 interface IChoreoExtensionAPI {

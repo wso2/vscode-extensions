@@ -15,12 +15,12 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          token: ${{ secrets.BALLERINA_BOT_TOKEN }}
+          token: ${{ secrets.CHOREO_BOT_TOKEN }}
 
       - name: Configure Git
         run: |
-          git config --global user.email "${{ secrets.BALLERINA_BOT_EMAIL }}"
-          git config --global user.name "${{ secrets.BALLERINA_BOT_USERNAME }}"
+          git config --global user.email "${{ secrets.CHOREO_BOT_EMAIL }}"
+          git config --global user.name "${{ secrets.CHOREO_BOT_USERNAME }}"
 
       - name: Create temporary branch and sync changes
         run: |
@@ -38,7 +38,7 @@ jobs:
       - name: Create Pull Request
         id: commit
         env:
-          GH_TOKEN: ${{ secrets.BALLERINA_BOT_TOKEN }}
+          GH_TOKEN: ${{ secrets.CHOREO_BOT_TOKEN }}
         run: |
           RELEASE_BRANCH="${{ github.event.pull_request.base.ref }}"
           TEMP_BRANCH=$(git branch --show-current)

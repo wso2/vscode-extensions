@@ -17,14 +17,14 @@
  */
 
 import {
-	CommandIds,
 	type ContextStoreComponentState,
+	type IViewComponentDetailsCmdParams,
 	type Organization,
 	type Project,
-	type ViewComponentDetailsReq,
 	getComponentTypeText,
 	getTypeForDisplayType,
-} from "@wso2/choreo-core";
+} from "@wso2/wso2-platform-core";
+import { CommandIds as PlatformCommandIds } from "@wso2/wso2-platform-core";
 import classNames from "classnames";
 import React, { type FC } from "react";
 import { ContextMenu } from "../../components/ContextMenu";
@@ -40,12 +40,13 @@ interface Props {
 
 export const ComponentListItem: FC<Props> = ({ item, isListLoading, opened, org, project }) => {
 	const viewComponentDetails = () =>
-		ChoreoWebViewAPI.getInstance().triggerCmd(CommandIds.ViewComponent, {
+		ChoreoWebViewAPI.getInstance().triggerCmd(PlatformCommandIds.ViewComponent, {
 			component: item.component,
 			project: project,
 			organization: org,
 			componentPath: item.componentFsPath,
-		} as ViewComponentDetailsReq);
+			extName: "Choreo",
+		} as IViewComponentDetailsCmdParams);
 
 	return (
 		<div

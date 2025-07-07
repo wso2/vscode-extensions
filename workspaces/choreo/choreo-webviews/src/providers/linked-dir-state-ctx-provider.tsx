@@ -17,7 +17,7 @@
  */
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ContextStoreState } from "@wso2/choreo-core";
+import type { ContextStoreState } from "@wso2/wso2-platform-core";
 import React, { type FC, type ReactNode, useContext, useEffect } from "react";
 import { ChoreoWebViewAPI } from "../utilities/vscode-webview-rpc";
 
@@ -40,20 +40,12 @@ interface Props {
 }
 
 export const LinkedDirStateContextProvider: FC<Props> = ({ children }) => {
-	const queryClient = useQueryClient();
-
 	const { data: linkedDirState, isLoading } = useQuery({
 		queryKey: ["context_state"],
-		queryFn: () => ChoreoWebViewAPI.getInstance().getContextState(),
+		queryFn: () => ChoreoWebViewAPI.getInstance().getContextStateStore(),
 		refetchOnWindowFocus: true,
+		refetchInterval: 2000,
 	});
-
-	useEffect(() => {
-		ChoreoWebViewAPI.getInstance().refreshContextState();
-		ChoreoWebViewAPI.getInstance().onContextStateChanged((contextState) => {
-			queryClient.setQueryData(["context_state"], contextState);
-		});
-	}, []);
 
 	return <LinkedDirStateContext.Provider value={{ state: linkedDirState, isLoading }}>{children}</LinkedDirStateContext.Provider>;
 };
