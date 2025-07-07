@@ -62,6 +62,7 @@ import type {
 	GetMarketplaceListReq,
 	GetProjectEnvsReq,
 	GetProxyDeploymentInfoReq,
+	GetSubscriptionsReq,
 	GetSwaggerSpecReq,
 	GetTestKeyReq,
 	GetTestKeyResp,
@@ -75,6 +76,7 @@ import type {
 	PromoteProxyDeploymentReq,
 	ProxyDeploymentInfo,
 	RequestPromoteApprovalReq,
+	SubscriptionsResp,
 	ToggleAutoBuildReq,
 	ToggleAutoBuildResp,
 	UserInfo,
@@ -531,6 +533,14 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 			throw new Error("RPC client is not initialized");
 		}
 		await this.client.sendRequest("deployment/promoteProxy", params);
+	}
+
+	async getSubscriptions(params: GetSubscriptionsReq): Promise<SubscriptionsResp> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: SubscriptionsResp = await this.client.sendRequest("auth/getSubscriptions", params);
+		return response;
 	}
 }
 

@@ -22,18 +22,18 @@ const CopyPlugin = require("copy-webpack-plugin");
 const PermissionsOutputPlugin = require("webpack-permissions-plugin");
 const webpack = require("webpack");
 const dotenv = require("dotenv");
-const { createEnvDefinePlugin } = require('../../../common/scripts/env-webpack-helper');
+const { createEnvDefinePlugin } = require("../../../common/scripts/env-webpack-helper");
 
 const envPath = path.resolve(__dirname, ".env");
 const env = dotenv.config({ path: envPath }).parsed;
 
 let envKeys;
 try {
-  	envKeys = createEnvDefinePlugin(env);
+	envKeys = createEnvDefinePlugin(env);
 } catch (error) {
-	console.warn('\n⚠️  Environment Variable Configuration Warning:');
+	console.warn("\n⚠️  Environment Variable Configuration Warning:");
 	console.warn(error.message);
-	console.warn('Continuing build with empty environment variables...');
+	console.warn("Continuing build with empty environment variables...");
 	envKeys = {};
 }
 //@ts-check

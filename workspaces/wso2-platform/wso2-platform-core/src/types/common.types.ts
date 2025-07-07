@@ -549,3 +549,13 @@ export interface CredentialItem {
 	type: string;
 	referenceToken: string;
 }
+
+export interface SubscriptionItem {
+	subscriptionId: string;
+	tierId: string;
+	supportPlanId: string;
+	cloudType: string;
+	subscriptionType: string;
+	subscriptionBillingProvider: string;
+	subscriptionBillingProviderStatus: string;
+}

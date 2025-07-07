@@ -52,6 +52,7 @@ import {
 	ChoreoRpcGetMarketplaceItems,
 	ChoreoRpcGetProjectsRequest,
 	ChoreoRpcGetProxyDeploymentInfo,
+	ChoreoRpcGetSubscriptions,
 	ChoreoRpcGetSwaggerRequest,
 	ChoreoRpcGetTestKeyRequest,
 	ChoreoRpcIsRepoAuthorizedRequest,
@@ -76,6 +77,7 @@ import {
 	type GetMarketplaceListReq,
 	type GetProjectEnvsReq,
 	type GetProxyDeploymentInfoReq,
+	type GetSubscriptionsReq,
 	type GetSwaggerSpecReq,
 	type GetTestKeyReq,
 	type IChoreoRPCClient,
@@ -174,4 +176,5 @@ export function registerChoreoRpcResolver(messenger: Messenger, rpcClient: IChor
 			rpcClient.promoteProxyDeployment(params),
 		);
 	});
+	messenger.onRequest(ChoreoRpcGetSubscriptions, (params: GetSubscriptionsReq) => rpcClient.getSubscriptions(params));
 }

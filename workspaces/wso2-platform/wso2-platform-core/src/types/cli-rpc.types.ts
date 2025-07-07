@@ -36,6 +36,7 @@ import type {
 	Project,
 	ProjectBuildLogsData,
 	ProxyDeploymentInfo,
+	SubscriptionItem,
 } from "./common.types";
 import type { InboundConfig } from "./config-file.types";
 
@@ -394,6 +395,17 @@ export interface GetBuildLogsForTypeReq {
 	buildId: number;
 }
 
+export interface GetSubscriptionsReq {
+	orgId: string;
+}
+
+export interface SubscriptionsResp {
+	count: number;
+	list: SubscriptionItem[];
+	cloudType: string;
+	emailType: string;
+}
+
 export interface IChoreoRPCClient {
 	getComponentItem(params: GetComponentItemReq): Promise<ComponentKind>;
 	getDeploymentTracks(params: GetDeploymentTracksReq): Promise<DeploymentTrack[]>;
@@ -433,6 +445,7 @@ export interface IChoreoRPCClient {
 	cancelApprovalRequest(params: CancelApprovalReq): Promise<void>;
 	requestPromoteApproval(params: RequestPromoteApprovalReq): Promise<void>;
 	promoteProxyDeployment(params: PromoteProxyDeploymentReq): Promise<void>;
+	getSubscriptions(params: GetSubscriptionsReq): Promise<SubscriptionsResp>;
 }
 
 export class ChoreoRpcWebview implements IChoreoRPCClient {
@@ -549,6 +562,9 @@ export class ChoreoRpcWebview implements IChoreoRPCClient {
 	promoteProxyDeployment(params: PromoteProxyDeploymentReq): Promise<void> {
 		return this._messenger.sendRequest(ChoreoRpcPromoteProxyDeployment, HOST_EXTENSION, params);
 	}
+	getSubscriptions(params: GetSubscriptionsReq): Promise<SubscriptionsResp> {
+		return this._messenger.sendRequest(ChoreoRpcGetSubscriptions, HOST_EXTENSION, params);
+	}
 }
 
 export const ChoreoRpcGetProjectsRequest: RequestType<string, Project[]> = { method: "rpc/project/getProjects" };
@@ -611,4 +627,7 @@ export const ChoreoRpcRequestPromoteApproval: RequestType<RequestPromoteApproval
 };
 export const ChoreoRpcPromoteProxyDeployment: RequestType<PromoteProxyDeploymentReq, void> = {
 	method: "rpc/deployment/promoteProxy",
+};
+export const ChoreoRpcGetSubscriptions: RequestType<GetSubscriptionsReq, SubscriptionsResp> = {
+	method: "rpc/auth/getSubscriptions",
 };
