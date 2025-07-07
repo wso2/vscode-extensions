@@ -439,18 +439,7 @@ export const parameterConfigForFields = {
                 matchPattern: "^[^\\s]+$"
             },
         },
-        {
-            type: "attribute",
-            value: {
-                name: "description",
-                defaultValue: "",
-                displayName: "Description",
-                inputType: "string",
-                required: true,
-                helpTip: "Description of the field",
-            },
-        },
-        {
+           {
             type: "attribute",
             value: {
                 name: "type",
@@ -467,6 +456,18 @@ export const parameterConfigForFields = {
                 helpTip: "Return type of the field",
             },
         },
+        {
+            type: "attribute",
+            value: {
+                name: "description",
+                defaultValue: "",
+                displayName: "Description",
+                inputType: "string",
+                required: true,
+                helpTip: "Description of the field",
+            },
+        },
+     
         {
             type: "attribute",
             value: {
