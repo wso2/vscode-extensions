@@ -26,35 +26,34 @@
  * @returns {Object} Environment variables object ready for webpack.DefinePlugin
  */
 function createEnvDefinePlugin(env) {
-  
-    const envKeys = Object.create(null);
-    const missingVars = [];
-  
-    if (env) {
-      Object.entries(env).forEach(([key, value]) => {
-        if (value !== undefined && value !== '') {
-          envKeys[`process.env.${key}`] = JSON.stringify(value);
-        }
-        else if (process.env[key] !== undefined && process.env[key] !== '') {
-          envKeys[`process.env.${key}`] = JSON.stringify(process.env[key]);
-        }
-        else {
-          missingVars.push(key);
-        }
-      });
-    }
-  
-    if (missingVars.length > 0) {
-      throw new Error(
-        `Missing required environment variables: ${missingVars.join(', ')}\n` +
-        `Please provide values in either .env file or runtime environment.\n`
-      );
-    }
-  
-    return envKeys;
+
+  const envKeys = Object.create(null);
+  const missingVars = [];
+
+  if (env) {
+    Object.entries(env).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        envKeys[`process.env.${key}`] = JSON.stringify(value);
+      }
+      else if (process.env[key] !== undefined && process.env[key] !== '') {
+        envKeys[`process.env.${key}`] = JSON.stringify(process.env[key]);
+      }
+      else {
+        missingVars.push(key);
+      }
+    });
   }
-  
-  module.exports = {
-    createEnvDefinePlugin
-  }; 
-  
+
+  if (missingVars.length > 0) {
+    throw new Error(
+      `Missing required environment variables: ${missingVars.join(', ')}\n` +
+      `Please provide values in either .env file or runtime environment.\n`
+    );
+  }
+
+  return envKeys;
+}
+
+module.exports = {
+  createEnvDefinePlugin
+}; 
