@@ -22,16 +22,20 @@ const CopyPlugin = require("copy-webpack-plugin");
 const PermissionsOutputPlugin = require("webpack-permissions-plugin");
 const webpack = require("webpack");
 const dotenv = require("dotenv");
+const { createEnvDefinePlugin } = require('../../../common/scripts/env-webpack-helper');
 
 const envPath = path.resolve(__dirname, ".env");
 const env = dotenv.config({ path: envPath }).parsed;
 
-const mergedEnv = { ...env, ...process.env };
-
-const platformEnv = Object.fromEntries(Object.entries(mergedEnv).filter(([key]) => key.startsWith("PLATFORM_")));
-
-const envKeys = Object.fromEntries(Object.entries(platformEnv).map(([key, value]) => [`process.env.${key}`, JSON.stringify(value)]));
-
+let envKeys;
+try {
+  	envKeys = createEnvDefinePlugin(env);
+} catch (error) {
+	console.warn('\n⚠️  Environment Variable Configuration Warning:');
+	console.warn(error.message);
+	console.warn('Continuing build with empty environment variables...');
+	envKeys = {};
+}
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
