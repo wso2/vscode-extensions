@@ -23,7 +23,7 @@
  * 3. Only define variables that are explicitly declared in .env file
  * 
  * @param {Object} env - Parsed environment variables from .env file (from dotenv.config().parsed)
- * @returns {Object} Environment variables object ready for webpack.DefinePlugin
+ * @returns {Object} Object containing envKeys for webpack.DefinePlugin and missingVars array
  */
 function createEnvDefinePlugin(env) {
   
@@ -44,14 +44,7 @@ function createEnvDefinePlugin(env) {
       });
     }
   
-    if (missingVars.length > 0) {
-      throw new Error(
-        `Missing required environment variables: ${missingVars.join(', ')}\n` +
-        `Please provide values in either .env file or runtime environment.\n`
-      );
-    }
-  
-    return envKeys;
+    return { envKeys, missingVars };
   }
   
   module.exports = {
