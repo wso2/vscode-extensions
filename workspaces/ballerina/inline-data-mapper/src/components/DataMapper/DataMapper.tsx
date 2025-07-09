@@ -18,7 +18,7 @@
 // tslint:disable: jsx-no-multiline-js
 import React, { useCallback, useEffect, useReducer, useState } from "react";
 import { css } from "@emotion/css";
-import { ExpandedDMModel } from "@wso2/ballerina-core";
+import { ExpandedDMModel, InlineDataMapperModelResponse, InlineDataMapperSourceResponse, MappingElement } from "@wso2/ballerina-core";
 
 import { DataMapperContext } from "../../utils/DataMapperContext/DataMapperContext";
 import DataMapperDiagram from "../Diagram/Diagram";
@@ -52,13 +52,41 @@ import {
 import { SubMappingNodeInitVisitor } from "../../visitors/SubMappingNodeInitVisitor";
 import { SubMappingConfigForm } from "./SidePanel/SubMappingConfig/SubMappingConfigForm";
 import { ClausesPanel } from "./SidePanel/QueryClauses/ClausesPanel";
+import { useRpcContext } from "@wso2/ballerina-rpc-client";
+import { VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
+import { Button, Codicon } from "@wso2/ui-toolkit";
+import { AUTO_MAP_IN_PROGRESS_MSG, AUTO_MAP_TIMEOUT_MS } from "../Diagram/utils/constants";
 
 const classes = {
     root: css({
         flexGrow: 1,
         height: "100vh",
         overflow: "hidden",
-    })
+    }),
+    overlayWithLoader: css({
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        width: '100vw',
+        zIndex: 1,
+        position: 'fixed',
+        backdropFilter: "blur(3px)",
+        backgroundColor: 'rgba(var(--vscode-editor-background-rgb), 0.8)',
+    }),
+    autoMapInProgressMsg: css({
+        marginTop: '10px'
+    }),
+    autoMapStopButton: css({
+        "& > vscode-button": {
+            textTransform: 'none',
+            marginTop: '15px',
+            border: '1px solid var(--vscode-welcomePage-tileBorder)',
+            width: '100px',
+            justifyContent: 'center'
+        }
+    })  
 }
 
 enum ActionType {
@@ -73,6 +101,10 @@ type ViewAction = {
         view?: View,
         index?: number
     },
+}
+
+export interface AutoMapError {
+    onClose: () => void;
 }
 
 function viewsReducer(state: View[], action: ViewAction) {
@@ -98,7 +130,9 @@ export function InlineDataMapper(props: DataMapperViewProps) {
         handleView,
         convertToQuery,
         generateForm,
-        addClauses
+        addClauses,
+        modelParams,
+        sourceParams
     } = props;
     const {
         model,
@@ -115,10 +149,13 @@ export function InlineDataMapper(props: DataMapperViewProps) {
     const [nodes, setNodes] = useState<DataMapperNodeModel[]>([]);
     const [errorKind, setErrorKind] = useState<ErrorNodeKind>();
     const [hasInternalError, setHasInternalError] = useState(false);
+    const [autoMapInProgress, setAutoMapInProgress] = useState(false);
+    const [autoMapError, setAutoMapError] = useState<AutoMapError>();
 
     const { isSMConfigPanelOpen } = useDMSubMappingConfigPanelStore((state) => state.subMappingConfig);
 
     const { resetSearchStore } = useDMSearchStore();
+    const { rpcClient } = useRpcContext();
 
     const addView = useCallback((view: View) => {
         dispatch({ type: ActionType.ADD_VIEW, payload: { view } });
@@ -247,15 +284,105 @@ export function InlineDataMapper(props: DataMapperViewProps) {
         setErrorKind(kind);
     };
 
+    const autoMapWithAI = async () => {
+        setAutoMapInProgress(true);
+
+        const createTimeoutPromise = () => {
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    reject(new Error('Reached timeout.'));
+                }, AUTO_MAP_TIMEOUT_MS);
+            });
+        };
+
+        const isErrorCode = (error: any): boolean => {
+            return Object.prototype.hasOwnProperty.call(error, "code") &&
+                Object.prototype.hasOwnProperty.call(error, "message");
+        };
+
+        try {
+            const modelPromise = rpcClient
+                .getInlineDataMapperRpcClient()
+                .getDataMapperModel(modelParams);
+
+            const modelResult = await Promise.race([modelPromise, createTimeoutPromise()]);
+
+            if (isErrorCode(modelResult)) {
+                throw modelResult;
+            }
+
+            const mappingPromise = rpcClient
+                .getAiPanelRpcClient()
+                .generateInlineMappings(modelResult as InlineDataMapperModelResponse);
+
+            const mappingElement = await Promise.race([mappingPromise, createTimeoutPromise()]);
+
+            if (isErrorCode(mappingElement)) {
+                throw mappingElement;
+            }
+
+            const allMappingsRequest = {
+                ...sourceParams,
+            mappings: (mappingElement as MappingElement).mappings
+            };
+
+            const sourcePromise = rpcClient
+                .getInlineDataMapperRpcClient()
+                .getAllDataMapperSource(allMappingsRequest);
+
+            const sourceResponse = await Promise.race([sourcePromise, createTimeoutPromise()]);
+
+            if (isErrorCode(sourceResponse)) {
+                throw sourceResponse;
+            }
+            setAutoMapInProgress(false);
+
+            const autogen = sourceResponse as InlineDataMapperSourceResponse;
+            if (autogen.error) {
+                setAutoMapError({ onClose: closeAutoMapError });
+                return;
+            }
+        } catch (error) {
+            setAutoMapInProgress(false);
+        }
+    };
+
+    const closeAutoMapError = () => {
+        setAutoMapError(undefined);
+    };
+
+    const stopAutoMap = async (): Promise<boolean> => {
+        setAutoMapInProgress(false);
+        await rpcClient.getAiPanelRpcClient().stopAIInlineMappings();
+        return true;
+    }
+
     return (
         <DataMapperErrorBoundary hasError={hasInternalError} onClose={onClose}>
             <div className={classes.root}>
+                {autoMapInProgress && (
+                    <div className={classes.overlayWithLoader}>
+                        <VSCodeProgressRing />
+                        <div className={classes.autoMapInProgressMsg}>
+                            {AUTO_MAP_IN_PROGRESS_MSG}
+                        </div>
+                        <Button
+                            onClick={stopAutoMap}
+                            appearance="secondary"
+                            className={classes.autoMapStopButton}
+                        >
+                            <Codicon sx={{ marginRight: 5 }} name="stop-circle" />
+                            {"Stop"}
+                        </Button>
+                    </div>
+                )}
                 {model && (
                     <DataMapperHeader
                         views={views}
                         switchView={switchView}
                         hasEditDisabled={false}
                         onClose={handleOnClose}
+                        autoMapWithAI={autoMapWithAI}
                     />
                 )}
                 {errorKind && <IOErrorComponent errorKind={errorKind} classes={classes} />}
