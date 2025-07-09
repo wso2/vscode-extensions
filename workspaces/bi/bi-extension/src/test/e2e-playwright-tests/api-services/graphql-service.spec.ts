@@ -49,7 +49,7 @@ export default function createTests() {
 
             // Check if the type diagram canvas is visible
             const typeDiagram = artifactWebView.locator('[data-testid="type-diagram"]');
-            await typeDiagram.waitFor({ state: 'visible', timeout: 30000 });
+            await typeDiagram.waitFor();
 
             // Check if the service name is visible
             const context = artifactWebView.locator(`text=${sampleName}`).first();
