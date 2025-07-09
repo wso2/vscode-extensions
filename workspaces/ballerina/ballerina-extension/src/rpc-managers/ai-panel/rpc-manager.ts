@@ -40,7 +40,10 @@ import {
     GenerateTypesFromRecordResponse,
     GetFromFileRequest,
     GetModuleDirParams,
+    InlineDataMapperModelResponse,
+    InlineDataMapperSourceResponse,
     LLMDiagnostics,
+    MappingElement,
     NotifyAIMappingsRequest,
     PostProcessRequest,
     PostProcessResponse,
@@ -48,14 +51,13 @@ import {
     ProjectModule,
     ProjectSource,
     RequirementSpecification,
-    STModification,
     SourceFile,
     SubmitFeedbackRequest,
     SyntaxTree,
     TemplateId,
     TestGenerationMentions,
     TestGenerationRequest,
-    TestGenerationResponse
+    TestGenerationResponse,
 } from "@wso2/ballerina-core";
 import { STKindChecker, STNode } from "@wso2/syntax-tree";
 import * as crypto from 'crypto';
@@ -65,7 +67,6 @@ import path from "path";
 import { parse } from 'toml';
 import { Uri, commands, window, workspace } from 'vscode';
 
-import { writeFileSync } from "fs";
 import { isNumber } from "lodash";
 import { URI } from "vscode-uri";
 import { AIStateMachine } from "../../../src/views/ai-panel/aiMachine";
@@ -78,6 +79,7 @@ import { getLLMDiagnosticArrayAsString, handleChatSummaryFailure } from "../../f
 import { StateMachine, updateView } from "../../stateMachine";
 import { getAccessToken, getRefreshedAccessToken, loginGithubCopilot } from "../../utils/ai/auth";
 import { modifyFileContent, writeBallerinaFileDidOpen } from "../../utils/modification";
+import { updateSourceCode } from "../../utils/source-utils";
 import { PARSING_ERROR, UNKNOWN_ERROR } from "../../views/ai-panel/errorCodes";
 import {
     DEVELOPMENT_DOCUMENT,
@@ -89,7 +91,7 @@ import {
 import { attemptRepairProject, checkProjectDiagnostics } from "./repair-utils";
 import { cleanDiagnosticMessages, handleStop, isErrorCode, requirementsSpecification, searchDocumentation } from "./utils";
 import { fetchData } from "./utils/fetch-data-utils";
-import { updateSourceCode } from "../../utils/source-utils";
+import { processInlineMappings } from "./inline-utils";
 
 export let hasStopped: boolean = false;
 
@@ -795,6 +797,24 @@ export class AiPanelRpcManager implements AIPanelAPI {
                 resolve(false);
             }
         });
+    }
+
+    async generateInlineMappings(params: InlineDataMapperModelResponse): Promise<MappingElement> {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const res = await processInlineMappings(params);
+                resolve(res as MappingElement);
+            } catch (error) {
+                console.error("Error generating inline mappings:", error);
+                reject(error);
+            }
+        });
+    }
+
+    async stopAIInlineMappings(): Promise<InlineDataMapperSourceResponse> {
+        hasStopped = true;
+        handleStop();
+        return { userAborted: true };
     }
 }
 

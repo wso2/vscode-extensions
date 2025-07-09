@@ -27,19 +27,23 @@ import {
     GetSubMappingCodedataRequest,
     InitialIDMSourceRequest,
     InitialIDMSourceResponse,
+    InlineAllDataMapperSourceRequest,
     InlineDataMapperAPI,
     InlineDataMapperModelRequest,
     InlineDataMapperModelResponse,
     InlineDataMapperSourceRequest,
     InlineDataMapperSourceResponse,
     MACHINE_VIEW,
+    TextEdit,
     VisualizableFieldsRequest,
     VisualizableFieldsResponse
 } from "@wso2/ballerina-core";
 
-import { openView, StateMachine } from "../../stateMachine";
+import { openView, StateMachine, updateInlineDataMapperView } from "../../stateMachine";
 import { updateSourceCode } from "../../utils";
 import { fetchDataMapperCodeData, updateAndRefreshDataMapper } from "./utils";
+
+export let hasStopped: boolean = false;
 
 export class InlineDataMapperRpcManager implements InlineDataMapperAPI {
     async getInitialIDMSource(params: InitialIDMSourceRequest): Promise<InitialIDMSourceResponse> {
@@ -55,8 +59,8 @@ export class InlineDataMapperRpcManager implements InlineDataMapperAPI {
                     if (modelCodeData.isNew) {
                         // Clone the object to avoid mutating the original reference
                         const clonedModelCodeData = { ...modelCodeData };
-                        clonedModelCodeData.lineRange.startLine.line+=1;
-                        clonedModelCodeData.lineRange.endLine.line+=1;
+                        clonedModelCodeData.lineRange.startLine.line += 1;
+                        clonedModelCodeData.lineRange.endLine.line += 1;
                         modelCodeData = clonedModelCodeData;
                     }
 
@@ -182,5 +186,146 @@ export class InlineDataMapperRpcManager implements InlineDataMapperAPI {
 
             resolve(dataMapperCodedata);
         });
+    }
+
+    private buildSourceRequests(params: InlineAllDataMapperSourceRequest): InlineDataMapperSourceRequest[] {
+        return params.mappings.map(mapping => ({
+            filePath: params.filePath,
+            codedata: params.codedata,
+            varName: params.varName,
+            targetField: params.targetField,
+            mapping: mapping
+        }));
+    }
+
+    private async processSourceRequests(requests: InlineDataMapperSourceRequest[]): Promise<PromiseSettledResult<InlineDataMapperSourceResponse>[]> {
+        return Promise.allSettled(
+            requests.map(async (request) => {
+                if (hasStopped) {
+                    throw new Error("Operation was stopped");
+                }
+                try {
+                    return await StateMachine.langClient().getInlineDataMapperSource(request);
+                } catch (error) {
+                    console.error("Error in getDataMapperSource:", error);
+                    throw error;
+                }
+            })
+        );
+    }
+
+    private consolidateTextEdits(
+        responses: PromiseSettledResult<InlineDataMapperSourceResponse>[],
+        totalMappings: number
+    ): { [key: string]: TextEdit[] } {
+        const allTextEdits: { [key: string]: TextEdit[] } = {};
+
+        responses.forEach((result, index) => {
+            if (result.status === 'fulfilled') {
+                console.log(`>>> Completed mapping ${index + 1}/${totalMappings}`);
+                this.mergeTextEdits(allTextEdits, result.value.textEdits);
+            } else {
+                console.error(`>>> Failed mapping ${index + 1}:`, result.reason);
+            }
+        });
+
+        return this.optimizeTextEdits(allTextEdits);
+    }
+
+    private mergeTextEdits(
+        allTextEdits: { [key: string]: TextEdit[] },
+        newTextEdits?: { [key: string]: TextEdit[] }
+    ): void {
+        if (!newTextEdits) { return; }
+
+        Object.entries(newTextEdits).forEach(([key, edits]) => {
+            if (!allTextEdits[key]) {
+                allTextEdits[key] = [];
+            }
+            allTextEdits[key].push(...edits);
+        });
+    }
+
+    private optimizeTextEdits(allTextEdits: { [key: string]: TextEdit[] }): { [key: string]: TextEdit[] } {
+        const optimizedEdits: { [key: string]: TextEdit[] } = {};
+
+        Object.entries(allTextEdits).forEach(([key, edits]) => {
+            if (edits.length === 0) { return; }
+
+            const sortedEdits = this.sortTextEdits(edits);
+            const combinedEdit = this.combineTextEdits(sortedEdits);
+
+            optimizedEdits[key] = [combinedEdit];
+        });
+
+        return optimizedEdits;
+    }
+
+    private sortTextEdits(edits: TextEdit[]): TextEdit[] {
+        return edits.sort((a, b) => {
+            if (a.range.start.line !== b.range.start.line) {
+                return a.range.start.line - b.range.start.line;
+            }
+            return a.range.start.character - b.range.start.character;
+        });
+    }
+
+    private combineTextEdits(edits: TextEdit[]): TextEdit {
+        const formattedTexts = edits.map((edit, index) => {
+            const text = edit.newText.trim();
+            return index < edits.length - 1 ? `${text},` : text;
+        });
+
+        return {
+            range: edits[0].range,
+            newText: formattedTexts.join('\n').trimStart()
+        };
+    }
+
+    private async updateSourceCode(params: { textEdits: { [key: string]: TextEdit[] } }): Promise<void> {
+        try {
+            await updateSourceCode(params);
+        } catch (error) {
+            console.error("Failed to update source code:", error);
+            throw new Error("Source code update failed");
+        }
+    }
+
+    private async updateInlineDataMapperView(params: InlineAllDataMapperSourceRequest): Promise<void> {
+        try {
+            const finalCodedataResp = await StateMachine
+                .langClient()
+                .getDataMapperCodedata({
+                    filePath: params.filePath,
+                    codedata: params.codedata,
+                    name: params.varName
+                });
+
+            updateInlineDataMapperView(finalCodedataResp.codedata);
+        } catch (error) {
+            console.error("Failed to update inline data mapper view:", error);
+            throw new Error("View update failed");
+        }
+    }
+
+    async getAllDataMapperSource(params: InlineAllDataMapperSourceRequest): Promise<InlineDataMapperSourceResponse> {
+        try {
+            hasStopped = false;
+
+            const sourceRequests = this.buildSourceRequests(params);
+            const responses = await this.processSourceRequests(sourceRequests);
+            const allTextEdits = this.consolidateTextEdits(responses, params.mappings.length);
+
+            await this.updateSourceCode({ textEdits: allTextEdits });
+            await this.updateInlineDataMapperView(params);
+
+            return { textEdits: allTextEdits };
+        } catch (error) {
+            console.error("Error in getAllDataMapperSource:", error);
+            return {
+                error: error instanceof Error ? error.message : "Unknown error occurred",
+                userAborted: hasStopped
+            };
+        }
     }
 }

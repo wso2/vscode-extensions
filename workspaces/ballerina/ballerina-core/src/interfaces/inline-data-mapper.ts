@@ -17,7 +17,7 @@
  */
 
 import { CodeData } from "./bi";
-import { LineRange } from "./common";
+import { LinePosition, LineRange } from "./common";
 
 export enum TypeKind {
     Record = "record",
@@ -28,14 +28,19 @@ export enum TypeKind {
     Decimal = "decimal",
     Boolean = "boolean",
     Enum = "enum",
-    Unknown = "unknown"
+    Unknown = "unknown",
+    Anydata = "anydata",
+    Byte = "byte",
+    Json = "json"
 }
 
 export enum InputCategory {
-    Const = "const",
+    Constant = "constant",
     ModuleVariable = "moduleVariable",
     Configurable = "configurable",
-    Enum = "enum"
+    Enum = "enum",
+    Parameter = "parameter",
+    Variable = "variable"
 }
 
 export enum IntermediateClauseType {
@@ -210,4 +215,10 @@ export interface IDMFormFieldValues {
 export interface IDMViewState {
     viewId: string;
     codedata?: CodeData;
+}
+
+export interface ModelParams {
+    filePath: string;
+    codedata: CodeData;
+    position: LinePosition;
 }

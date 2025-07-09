@@ -24,7 +24,7 @@ import type {} from "@projectstorm/react-diagrams-core";
 import type {} from "@projectstorm/react-diagrams";
 import { css, Global } from '@emotion/react';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { IDMFormProps, IDMViewState, ModelState, IntermediateClause } from "@wso2/ballerina-core";
+import { IDMFormProps, IDMViewState, ModelState, IntermediateClause, ModelParams, InlineDataMapperBase } from "@wso2/ballerina-core";
 import { ErrorBoundary } from "@wso2/ui-toolkit";
 
 import { InlineDataMapper } from "./components/DataMapper/DataMapper";
@@ -58,6 +58,8 @@ export interface DataMapperViewProps {
     addClauses: (clause: IntermediateClause, targetField: string, isNew: boolean, index?:number) => Promise<void>;
     onClose: () => void;
     handleView: (viewId: string, isSubMapping?: boolean) => void;
+    modelParams: ModelParams;
+    sourceParams: InlineDataMapperBase;
 }
 
 export function DataMapperView(props: DataMapperViewProps) {

@@ -28,7 +28,9 @@ import {
     ModelState,
     AddClausesRequest,
     IDMViewState,
-    IntermediateClause
+    IntermediateClause,
+    InlineDataMapperModelRequest,
+    InlineDataMapperBase
 } from "@wso2/ballerina-core";
 import { ProgressIndicator } from "@wso2/ui-toolkit";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
@@ -69,6 +71,21 @@ export function InlineDataMapperView(props: InlineDataMapperProps) {
         isFetching,
         isError
     } = useInlineDataMapperModel(filePath, viewState);
+
+    const modelParams: InlineDataMapperModelRequest = {
+        filePath,
+        codedata,
+        position: {
+            line: codedata.lineRange.startLine.line,
+            offset: codedata.lineRange.startLine.offset
+        }
+    };
+
+    const sourceParams: InlineDataMapperBase = {
+        filePath,
+        codedata,
+        varName
+    };
 
     useEffect(() => {
         setViewState(prev => ({
@@ -265,6 +282,8 @@ export function InlineDataMapperView(props: InlineDataMapperProps) {
                     generateForm={generateForm}
                     convertToQuery={convertToQuery}
                     addClauses={addClauses}
+                    modelParams={modelParams}
+                    sourceParams={sourceParams}
                 />
             )}
         </>
