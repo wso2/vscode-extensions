@@ -27,6 +27,7 @@ import {
     BISourceCodeResponse,
     Command,
     DeleteFromProjectRequest,
+    DevantTokens,
     DeveloperDocument,
     DiagnosticEntry,
     Diagnostics,
@@ -48,7 +49,6 @@ import {
     ProjectModule,
     ProjectSource,
     RequirementSpecification,
-    STModification,
     SourceFile,
     SubmitFeedbackRequest,
     SyntaxTree,
@@ -65,7 +65,6 @@ import path from "path";
 import { parse } from 'toml';
 import { Uri, commands, window, workspace } from 'vscode';
 
-import { writeFileSync } from "fs";
 import { isNumber } from "lodash";
 import { URI } from "vscode-uri";
 import { AIStateMachine } from "../../../src/views/ai-panel/aiMachine";
@@ -73,11 +72,12 @@ import { extension } from "../../BalExtensionContext";
 import { NOT_SUPPORTED } from "../../core";
 import { generateDataMapping, generateTypeCreation } from "../../features/ai/dataMapping";
 import { generateTest, getDiagnostics, getResourceAccessorDef, getResourceAccessorNames, getServiceDeclaration, getServiceDeclarationNames } from "../../features/ai/testGenerator";
-import { BACKEND_URL, closeAllBallerinaFiles } from "../../features/ai/utils";
+import { BACKEND_URL, closeAllBallerinaFiles, DEVANT_API_KEY, DEVANT_STS_TOKEN } from "../../features/ai/utils";
 import { getLLMDiagnosticArrayAsString, handleChatSummaryFailure } from "../../features/natural-programming/utils";
 import { StateMachine, updateView } from "../../stateMachine";
 import { getAccessToken, getRefreshedAccessToken, loginGithubCopilot } from "../../utils/ai/auth";
 import { modifyFileContent, writeBallerinaFileDidOpen } from "../../utils/modification";
+import { updateSourceCode } from "../../utils/source-utils";
 import { PARSING_ERROR, UNKNOWN_ERROR } from "../../views/ai-panel/errorCodes";
 import {
     DEVELOPMENT_DOCUMENT,
@@ -89,7 +89,6 @@ import {
 import { attemptRepairProject, checkProjectDiagnostics } from "./repair-utils";
 import { cleanDiagnosticMessages, handleStop, isErrorCode, requirementsSpecification, searchDocumentation } from "./utils";
 import { fetchData } from "./utils/fetch-data-utils";
-import { updateSourceCode } from "../../utils/source-utils";
 
 export let hasStopped: boolean = false;
 
@@ -794,6 +793,16 @@ export class AiPanelRpcManager implements AIPanelAPI {
                 console.error("Error submitting feedback:", error);
                 resolve(false);
             }
+        });
+    }
+
+    async getDevantTokens(): Promise<DevantTokens> {
+        return new Promise(async (resolve) => {
+            const tokens: DevantTokens = {
+                apiKey: DEVANT_API_KEY,
+                stsToken: DEVANT_STS_TOKEN
+            };
+            resolve(tokens);
         });
     }
 }
