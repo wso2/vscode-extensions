@@ -16,6 +16,8 @@
  * under the License.
  */
 
-export * from "./types/webview-prop.types";
-export * from "./types/messenger-rpc.types";
-export * from "./constants";
+import type { ExtensionContext } from "vscode";
+
+export function activateCmds(context: ExtensionContext) {
+	// TODO: add any commands to be activated here
+}

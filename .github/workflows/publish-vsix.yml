@@ -109,11 +109,11 @@ jobs:
         if: ${{ steps.repo.outputs.repo != '' }}
         run: |
           id=`curl -X GET  -H "Accept: application/vnd.github.v3+json" \
-          -H "Authorization:token ${{ secrets.PUBLISH_PAT }}" \
+          -H "Authorization:token ${{ secrets.CHOREO_BOT_TOKEN }}" \
           https://api.github.com/repos/wso2/${{ steps.repo.outputs.repo }}/releases/tags/v${{ steps.vsix.outputs.version }} \
            | jq -r .id` && \
            updateResponse=`curl -X PATCH -H "Accept: application/vnd.github.v3+json" \
-          -H "Authorization:token ${{ secrets.PUBLISH_PAT }}" \
+          -H "Authorization:token ${{ secrets.CHOREO_BOT_TOKEN }}" \
             -d '{"draft":false,"prerelease":false}' \
             https://api.github.com/repos/wso2/${{ steps.repo.outputs.repo }}/releases/$id`         
 
@@ -123,7 +123,7 @@ jobs:
           if [ "${{ inputs.extension }}" == "micro-integrator" ]; then
             echo "chatAPI=${{ secrets.MI_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
           elif [ "${{ inputs.extension }}" == "ballerina" ] || [ "${{ inputs.extension }}" == "ballerina-integrator" ]; then
-            echo "chatAPI=${{ secrets.EGGPLANT_EXT_CHAT_API }}" >> $GITHUB_OUTPUT
+            echo "chatAPI=${{ secrets.BI_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
           else
             echo "chatAPI=${{ secrets.TOOLING_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
           fi

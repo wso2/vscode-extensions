@@ -2,10 +2,10 @@ import type { ChoreoComponentType, DevantScopes } from "../enums";
 import type { ComponentKind, ExtensionName, Organization, Project } from "./common.types";
 
 export interface ICmdParamsBase {
-	extName?: ExtensionName
+	extName?: ExtensionName;
 }
 
-export interface ICloneProjectCmdParams extends ICmdParamsBase{
+export interface ICloneProjectCmdParams extends ICmdParamsBase {
 	organization: Organization;
 	project: Project;
 	componentName: string;
@@ -15,7 +15,7 @@ export interface ICloneProjectCmdParams extends ICmdParamsBase{
 	integrationDisplayType: string;
 }
 
-export interface ICreateDependencyParams extends ICmdParamsBase{
+export interface ICreateDependencyParams extends ICmdParamsBase {
 	componentFsPath?: string;
 	isCodeLens?: boolean;
 }
@@ -29,17 +29,17 @@ export interface ICreateComponentCmdParams extends ICmdParamsBase {
 	componentDir?: string;
 }
 
-export interface IDeleteComponentCmdParams extends ICmdParamsBase{
+export interface IDeleteComponentCmdParams extends ICmdParamsBase {
 	organization: Organization;
 	project: Project;
 	component: ComponentKind;
 }
 
-export interface IManageDirContextCmdParams extends ICmdParamsBase{
+export interface IManageDirContextCmdParams extends ICmdParamsBase {
 	onlyShowSwitchProject?: boolean;
 }
 
-export interface IOpenCompSrcCmdParams extends ICmdParamsBase{
+export interface IOpenCompSrcCmdParams extends ICmdParamsBase {
 	org: Organization | string;
 	project: Project | string;
 	component: string;
@@ -48,21 +48,21 @@ export interface IOpenCompSrcCmdParams extends ICmdParamsBase{
 	integrationDisplayType: string;
 }
 
-export interface IOpenInConsoleCmdParams extends ICmdParamsBase{
+export interface IOpenInConsoleCmdParams extends ICmdParamsBase {
 	organization: Organization;
 	project: Project;
 	component: ComponentKind;
 	componentFsPath: string;
-	newComponentParams?: ICreateComponentCmdParams
+	newComponentParams?: ICreateComponentCmdParams;
 }
 
-export interface IViewDependencyCmdParams extends ICmdParamsBase{
+export interface IViewDependencyCmdParams extends ICmdParamsBase {
 	componentFsPath?: string;
 	isCodeLens?: boolean;
 	connectionName: string;
 }
 
-export interface IViewComponentDetailsCmdParams extends ICmdParamsBase{
+export interface IViewComponentDetailsCmdParams extends ICmdParamsBase {
 	organization: Organization;
 	project: Project;
 	component: ComponentKind;

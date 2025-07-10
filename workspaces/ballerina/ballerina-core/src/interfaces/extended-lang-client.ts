@@ -1258,6 +1258,23 @@ export interface GetTypeResponse {
     type: Type;
 }
 
+export interface JsonToTypeRequest {
+    jsonString: string;
+    typeName: string;
+    prefix?: string;
+    allowAdditionalFields?: boolean;
+    asInline?: boolean;
+    nullAsOptional?: boolean;
+    filePath?: string;
+}
+
+export interface JsonToTypeResponse {
+    types: {
+        type: Type;
+        refs: string[];
+    }[];
+}
+
 export interface GetRecordConfigRequest {
     filePath: string;
     codedata: {
@@ -1363,6 +1380,24 @@ export interface ResourceSourceCodeResponse {
         [key: string]: TextEdit[];
     };
 }
+
+export interface ResourceReturnTypesRequest {
+    filePath?: string;
+    context?: string;
+}
+
+export interface ResponseCode {
+    category: string;
+    label: string;
+    type: string;
+    statusCode: string;
+    hasBody?: boolean;
+}
+export interface ResourceReturnTypesResponse {
+    completions: ResponseCode[];
+}
+
+
 // <-------- Service Designer Related ------->
 
 
@@ -1577,6 +1612,7 @@ export interface BIInterface extends BaseLangClientInterface {
     getHttpResourceModel: (params: HttpResourceModelRequest) => Promise<HttpResourceModelResponse>;
     addResourceSourceCode: (params: FunctionSourceCodeRequest) => Promise<ResourceSourceCodeResponse>;
     addFunctionSourceCode: (params: FunctionSourceCodeRequest) => Promise<ResourceSourceCodeResponse>;
+    getResourceReturnTypes: (params: ResourceReturnTypesRequest) => Promise<ResourceReturnTypesResponse>;
 
     // Function APIs
     getFunctionNode: (params: FunctionNodeRequest) => Promise<FunctionNodeResponse>;

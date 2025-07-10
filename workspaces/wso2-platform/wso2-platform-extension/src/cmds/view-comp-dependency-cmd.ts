@@ -61,7 +61,7 @@ export function viewComponentDependencyCommand(context: ExtensionContext) {
 					if (components?.length === 0) {
 						window
 							.showInformationMessage(
-								`No ${extName === "Devant" ?"integrations" :"components"} available within the project directory`,
+								`No ${extName === "Devant" ? "integrations" : "components"} available within the project directory`,
 								`Create ${extName === "Devant" ? "Integration" : "Component"}`,
 							)
 							.then((res) => {
