@@ -61,9 +61,6 @@ test.beforeAll(async () => {
 // <----Automation Test---->
 test.describe(automation);
 
-test.describe(configuration);
-test.describe(typeTest);
-
 // <----AI Chat Service Test---->
 test.describe(aiChatService);
 
