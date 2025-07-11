@@ -16,10 +16,11 @@
  * under the License.
  */
 
-import { expect, test } from '@playwright/test';
-import { addArtifact, initTest, page } from '../utils';
-import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
-import { ProjectExplorer } from '../ProjectExplorer';
+import {  test } from '@playwright/test';
+import { addArtifact, initTest, page, getWebview, verifyGeneratedSource } from '../utils';
+import { Form } from '@wso2/playwright-vscode-tester';
+import { TypeEditorUtils } from './TypeEditorUtils';
+import path from 'path';
 
 export default function createTests() {
     test.describe('Type Editor Tests', {
@@ -29,7 +30,7 @@ export default function createTests() {
 
         test('Create Types from Scratch', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
-            console.log('Creating a record type from scratch in test attempt: ', testAttempt);
+            console.log('Creating types from scratch in test attempt: ', testAttempt);
 
             // Navigate to type editor
             await addArtifact('Type', 'type');
@@ -37,328 +38,61 @@ export default function createTests() {
             // Wait for page to be stable before accessing iframe
             await page.page.waitForLoadState('networkidle');
 
-            // Retry logic for iframe access
-            let artifactWebView;
-            let retryCount = 0;
-            const maxRetries = 3;
+            // Get webview directly from utils
+            const artifactWebView = await getWebview('WSO2 Integrator: BI', page);
+            const typeUtils = new TypeEditorUtils(page.page, artifactWebView);
 
-            while (retryCount < maxRetries) {
-                try {
-                    artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
-                    if (artifactWebView) {
-                        break;
-                    }
-                } catch (error) {
-                    console.log(`Attempt ${retryCount + 1} failed to access iframe:`, error instanceof Error ? error.message : String(error));
-                    retryCount++;
-                    if (retryCount < maxRetries) {
-                        // Wait a bit before retrying
-                        await page.page.waitForTimeout(2000);
-                        await page.page.waitForLoadState('domcontentloaded');
-                    }
-                }
-            }
-
-            if (!artifactWebView) {
-                throw new Error('WSO2 Integrator: BI webview not found after multiple attempts');
-            }
-
-            // Click Add Type button
-            // const addTypeButton = artifactWebView.getByRole('button', { name: 'Add Type' });
-            // await addTypeButton.waitFor({ state: 'visible', timeout: 60000 });
-            // await addTypeButton.click();
-
-            // Wait for the type editor to load
-            await page.page.waitForTimeout(2000);
-            await page.page.waitForLoadState('domcontentloaded');
-
-            // Wait for type editor content to be visible
-            const typeEditorContent = artifactWebView.locator('[data-testid="type-editor-container"]');
-            await typeEditorContent.waitFor({ state: 'visible', timeout: 60000 });
-
-            // create an enum type to verify the type diagram updates
-            // await addTypeButton.waitFor({ state: 'visible', timeout: 60000 });
-            // await addTypeButton.click();
+            // Wait for type editor to be ready
+            await typeUtils.waitForTypeEditor();
 
             // ENUM: Role
-
             const enumName = `Role${testAttempt}`;
-
-            const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
-            await form.switchToFormView(false, artifactWebView);
-        
-            await form.fill({
-                values: {
-                    'Name': {
-                        type: 'input',
-                        value: enumName,
-                    },
-                    'Kind': {
-                        type: 'dropdown',
-                        value: 'Enum',
-                    }
-                }
-            });
-
-            // already a field is added in enum, so we just need to fill it
-            const enumFieldNameInput = artifactWebView.locator('[data-testid="identifier-field"]').first();
-            await enumFieldNameInput.waitFor({ state: 'visible', timeout: 60000 });
-            await enumFieldNameInput.dblclick();
-            await enumFieldNameInput.type('Admin');
-
-            // add new enum field
-            const addMemberButton = artifactWebView.locator('[data-testid="add-member-button"]');
-            await addMemberButton.click();
-
-
-            const enumFieldNameInput2 = artifactWebView.locator('[data-testid="identifier-field"]').nth(1);
-            await enumFieldNameInput2.waitFor({ state: 'visible', timeout: 60000 });
-            await enumFieldNameInput2.dblclick();
-            await enumFieldNameInput2.type('Engineer');
-
-            // add sales enum field
-            await addMemberButton.click();
-            const enumFieldNameInput3 = artifactWebView.locator('[data-testid="identifier-field"]').nth(2);
-            await enumFieldNameInput3.waitFor({ state: 'visible', timeout: 60000 });
-            await enumFieldNameInput3.dblclick();
-            await enumFieldNameInput3.type('Sales');
-
-            //add marketing enum field
-            await addMemberButton.click();
-            const enumFieldNameInput4 = artifactWebView.locator('[data-testid="identifier-field"]').nth(3);
-            await enumFieldNameInput4.waitFor({ state: 'visible', timeout: 60000 });
-            await enumFieldNameInput4.dblclick();
-            await enumFieldNameInput4.type('Marketing');
-
-            // delete the second field
-            const deleteButton2 = artifactWebView.locator('[data-testid="delete-member-1"]');
-            await deleteButton2.waitFor({ state: 'visible', timeout: 60000 });
-            await deleteButton2.click();
-
-            // Save the enum type
-            await form.submit('Save');
-
-            // Wait for the save operation to complete
-            await page.page.waitForTimeout(2000);
-            await page.page.waitForLoadState('domcontentloaded');
-
-            // Verify the enum type was created in the type diagram by checking for EntityHeads data-testid
-            const enumElement = artifactWebView.locator(`[data-testid="type-node-${enumName}"]`);
-            await enumElement.waitFor({ state: 'visible', timeout: 60000 });
+            
+            // Create enum with members, delete one, then save
+            const enumForm = await typeUtils.createEnumType(enumName, ['Admin', 'Engineer', 'Sales', 'Marketing']);
+            await typeUtils.deleteEnumMember(1); // Delete 'Engineer'
+            await typeUtils.saveAndWait(enumForm);
+            await typeUtils.verifyTypeNodeExists(enumName);
 
             // UNION: Id
-            const addTypeButton = artifactWebView.getByRole('button', { name: 'Add Type' });
-
-            // create union type to verify the type diagram updates union has two fields int and string
-            await addTypeButton.waitFor({ state: 'visible', timeout: 60000 });
-            await addTypeButton.click();
-
+            await typeUtils.clickAddType();
             const unionName = `Id${testAttempt}`;
-            await form.fill({
-                values: {
-                    'Name': {
-                        type: 'input',
-                        value: unionName,
-                    },
-                    'Kind': {
-                        type: 'dropdown',
-                        value: 'Union',
-                    }
-                }
-            });
+            const unionForm = await typeUtils.createUnionType(unionName, ['int', 'string']);
+            await typeUtils.saveAndWait(unionForm);
+            await typeUtils.verifyTypeNodeExists(unionName);
 
-            // add first field to union already a field is added in union, so we just need to fill it
-            const unionFieldNameInput = artifactWebView.locator('[data-testid="type-field"]').first();
-            await unionFieldNameInput.waitFor({ state: 'visible', timeout: 60000 });
-            await unionFieldNameInput.dblclick();
-            await unionFieldNameInput.type('int');
-            // just need to fill the second field as well
-            const unionFieldNameInput2 = artifactWebView.locator('[data-testid="type-field"]').nth(1);
-            await unionFieldNameInput2.waitFor({ state: 'visible', timeout: 60000 });
-            await unionFieldNameInput2.dblclick();
-            await unionFieldNameInput2.type('string');
-
-            //save
-            await form.submit('Save');
-
-
-            // RECORD: Employee
-
-            // const addTypeButton = artifactWebView.getByRole('button', { name: 'Add Type' });
-            await addTypeButton.waitFor({ state: 'visible', timeout: 60000 });
-            await addTypeButton.click();
-
-            // Fill in the record type details using test IDs
+            // RECORD: Employee (initially with just id field)
+            await typeUtils.clickAddType();
             const recordName = `Employee${testAttempt}`;
+            const recordForm = await typeUtils.createRecordType(recordName, [
+                { name: 'id', type: unionName }
+            ]);
+            await typeUtils.saveAndWait(recordForm);
+            await typeUtils.verifyTypeNodeExists(recordName);
 
-            await form.fill({
-                values: {
-                    'Name': {
-                        type: 'input',
-                        value: recordName,
-                    },
-                    'Kind': {
-                        type: 'dropdown',
-                        value: 'Record',
-                    }
-                }
-            });
+            // Verify link
+            await typeUtils.verifyTypeLink(recordName, 'id', unionName);
 
-            // Add a field to the record
-            const addFieldButton = artifactWebView.locator('[data-testid="add-field-button"]');
-            await addFieldButton.waitFor({ state: 'visible', timeout: 60000 });
-            await addFieldButton.click();
+            // Edit Employee type to add role field
+            await typeUtils.editType(recordName);
+            await typeUtils.addRecordField('role', enumName);
+            const editForm = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
+            await typeUtils.saveAndWait(editForm);
+            await typeUtils.verifyTypeLink(recordName, 'role', enumName);
 
-            // Fill in field details - use identifier-field for field name and type-field for field type
-            const fieldNameInput = artifactWebView.locator('[data-testid="identifier-field"]').first();
-            await fieldNameInput.waitFor({ state: 'visible', timeout: 60000 });
-            // For VS Code text fields, we need to double-click to select all, then type
-            await fieldNameInput.dblclick();
-            await fieldNameInput.type('role');
-
-            const fieldTypeInput = artifactWebView.locator('[data-testid="type-field"]').first();
-            await fieldTypeInput.waitFor({ state: 'visible', timeout: 60000 });
-            // For VS Code text fields, we need to double-click to select all, then type
-            await fieldTypeInput.dblclick();
-            await fieldTypeInput.type(enumName); // Use the enum type created earlier
-
-            // Add a field to the record
-            await addFieldButton.click();
-
-            // Fill in field details - use identifier-field for field name and type-field for field type
-            const fieldNameInput2 = artifactWebView.locator('[data-testid="identifier-field"]').first();
-            await fieldNameInput2.waitFor({ state: 'visible', timeout: 60000 });
-            // For VS Code text fields, we need to double-click to select all, then type
-            await fieldNameInput2.dblclick();
-            await fieldNameInput2.type('id');
-
-            const fieldTypeInput2 = artifactWebView.locator('[data-testid="type-field"]').first();
-            await fieldTypeInput2.waitFor({ state: 'visible', timeout: 60000 });
-            // For VS Code text fields, we need to double-click to select all, then type
-            await fieldTypeInput2.dblclick();
-            await fieldTypeInput2.type(unionName); // Use the union type created earlier
-
-            await form.submit('Save');
-
-            // Wait for the save operation to complete
-            await page.page.waitForTimeout(2000);
-            await page.page.waitForLoadState('domcontentloaded');
-
-            // Verify the record was created in the type diagram by checking for EntityHeads data-testid
-            const recordElement = artifactWebView.locator(`[data-testid="type-node-${recordName}"]`);
-            await recordElement.waitFor({ state: 'visible', timeout: 60000 });
-
-            // Verify the link between the record and enum in the type diagram
-            const enumLinkTestID = `node-link-${recordName}/id-${unionName}`;
-            // Verify the link between the record and enum
-            const enumLinkElement = artifactWebView.locator(`[data-testid="${enumLinkTestID}"]`);
-            await enumLinkElement.waitFor({ state: 'visible', timeout: 60000 });
-
-            
-
-            // click the menu button of the Employee type
-            const employeeMenuButton = artifactWebView.locator(`[data-testid="type-node-${recordName}-menu"]`);
-            await employeeMenuButton.waitFor({ state: 'visible', timeout: 60000 });
-            await employeeMenuButton.click();
-
-            const menuItem = artifactWebView.getByText('Edit', { exact: true });
-            await menuItem.waitFor({ state: 'visible', timeout: 60000 });
-            await menuItem.click();
-
-            // Wait for type editor content to be visible
-            const typeEditorContent2 = artifactWebView.locator('[data-testid="type-editor-container"]');
-            await typeEditorContent2.waitFor({ state: 'visible', timeout: 60000 });
-
-            // Add new field to the record
-            const addFieldButton2 = artifactWebView.locator('[data-testid="add-field-button"]');
-            await addFieldButton2.waitFor({ state: 'visible', timeout: 60000 });
-            await addFieldButton2.click();
-
-            //make the field type enumName
-            const newFieldNameInput = artifactWebView.locator('[data-testid="identifier-field"]').last();
-            await newFieldNameInput.waitFor({ state: 'visible', timeout: 60000 });
-            await newFieldNameInput.dblclick();
-            await newFieldNameInput.type('role');
-
-            const newFieldTypeInput = artifactWebView.locator('[data-testid="type-field"]').last();
-            await newFieldTypeInput.waitFor({ state: 'visible', timeout: 60000 });
-            await newFieldTypeInput.dblclick();
-            await newFieldTypeInput.type(enumName); // Use the enum type created earlier
-
-
-            // Save the updated record type
-            await form.submit('Save');
-
-
-            // Wait for the save operation to complete
-            await page.page.waitForTimeout(2000);
-            await page.page.waitForLoadState('domcontentloaded');
-
-            // Verify the link between the record and enum in the type diagram
-            const updatedEnumLinkTestID = `node-link-${recordName}/role-${enumName}`;
-            // Verify the link between the record and enum
-            const updatedEnumLinkElement = artifactWebView.locator(`[data-testid="${updatedEnumLinkTestID}"]`);
-            await updatedEnumLinkElement.waitFor({ state: 'visible', timeout: 60000 });
-
-
-            // Create new type of Service Class
-            await addTypeButton.waitFor({ state: 'visible', timeout: 60000 });
-            await addTypeButton.click();
-
+            // Create Service Class: Project
+            await typeUtils.clickAddType();
             const serviceClassName = `Project${testAttempt}`;
-            await form.fill({
-                values: {
-                    'Name': {
-                        type: 'input',
-                        value: serviceClassName,
-                    },
-                    'Kind': {
-                        type: 'dropdown',
-                        value: 'Service Class',
-                    }
-                }
-            });
+            const serviceForm = await typeUtils.createServiceClass(serviceClassName, [
+                { name: 'employeeDetails', returnType: recordName }
+            ]);
+            await typeUtils.saveAndWait(serviceForm);
+            await typeUtils.verifyTypeNodeExists(serviceClassName);
+            await typeUtils.verifyTypeLink(serviceClassName, 'employeeDetails', recordName);
 
-            // click the add function button
-            const addFunctionButton = artifactWebView.locator('[data-testid="function-add-button"]');
-            await addFunctionButton.waitFor({ state: 'visible', timeout: 60000 });
-            await addFunctionButton.click();
-
-            // Fill in the function details
-            const functionNameInput = artifactWebView.locator('[data-testid="identifier-field"]').first();
-            await functionNameInput.waitFor({ state: 'visible', timeout: 60000 });
-            // For VS Code text fields, we need to double-click to select all, then type
-            await functionNameInput.dblclick();
-            await functionNameInput.type('employeeDetails');
-
-           const functionTypeInput = artifactWebView.locator('[data-testid="type-field"]').first();
-           await functionTypeInput.waitFor({ state: 'visible', timeout: 60000 });
-           await functionTypeInput.dblclick();
-           await functionTypeInput.type(recordName);
-
-           // Save the function
-           await form.submit('Save');
-
-
-            // Wait for the save operation to complete
-            await page.page.waitForTimeout(2000);
-            await page.page.waitForLoadState('domcontentloaded');
-
-            // Verify the service class was created in the type diagram by checking for EntityHeads data-testid
-            const serviceClassElement = artifactWebView.locator(`[data-testid="type-node-${serviceClassName}"]`);
-            await serviceClassElement.waitFor({ state: 'visible', timeout: 60000 });
-
-            // Verify the link between the service class and record in the type diagram
-            const serviceClassLinkTestID = `node-link-${serviceClassName}/employeeDetails-${recordName}`;
-            const serviceClassLinkElement = artifactWebView.locator(`[data-testid="${serviceClassLinkTestID}"]`);
-            await serviceClassLinkElement.waitFor({ state: 'visible', timeout: 60000 });
-
-            await page.page.pause();
-
-
-
-            
-            
+            // Verify the generated types.bal matches testOutput.bal
+            const expectedFilePath = path.join(__dirname, 'testOutput.bal');
+            await verifyGeneratedSource('types.bal', expectedFilePath);
 
         });
     });
