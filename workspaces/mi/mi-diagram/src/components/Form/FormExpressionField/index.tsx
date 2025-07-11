@@ -274,7 +274,11 @@ export const FormExpressionField = (params: FormExpressionFieldProps) => {
             position,
             'default',
             () => handleChangeHelperPaneState(false),
-            handleHelperPaneChange
+            handleHelperPaneChange,
+            undefined,
+            undefined,
+            300,
+            false
         );
     }, [expressionRef.current, handleChangeHelperPaneState, nodeRange, getHelperPane]);
 

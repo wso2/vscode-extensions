@@ -65,11 +65,12 @@ export const Arrow = styled.div<ArrowProps>`
     ${(props: StyleBase) => props.sx}
 `;
 
-const PanelViewContainer = styled.div`
+const PanelViewContainer = styled.div<{ sx?: CSSProperties }>`
     height: 100%;
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    ${({ sx }: { sx?: CSSProperties }) => sx}
 `;
 
 const PanelTabContainer = styled.div<{ isActive: boolean }>`
@@ -379,13 +380,13 @@ const Loader: React.FC<LoadingSectionProps> = ({ columns, rows, sections }) => {
     );
 }
 
-const PanelView: React.FC<PanelViewProps> = ({ children, id }) => {
+const PanelView: React.FC<PanelViewProps> = ({ children, id, sx }) => {
     const { activePanelIndex } = useHelperPanePanelContext();
     
     return (
         <>
             {activePanelIndex === id && (
-                <PanelViewContainer>
+                <PanelViewContainer sx={sx}>
                     {React.Children.toArray(children).length > 0 ? (
                         children
                     ) : (

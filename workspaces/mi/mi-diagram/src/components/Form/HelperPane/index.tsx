@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { CSSProperties, useState } from 'react';
+import React, { CSSProperties, useEffect, useRef, useState } from 'react';
 import { Position } from 'vscode-languageserver-types';
 import { HelperPane, HelperPaneHeight } from '@wso2/ui-toolkit';
 import { CategoryPage } from './CategoryPage';
@@ -29,6 +29,8 @@ import { ParamsPage } from './ParamsPage';
 export type HelperPaneProps = {
     position: Position;
     helperPaneHeight: HelperPaneHeight;
+    contentHeight?: number;
+    isTokenEditor?: boolean;
     onClose: () => void;
     onChange: (value: string) => void;
     addFunction?: (value: string) => void;
@@ -46,56 +48,108 @@ export const PAGE = {
 
 export type Page = (typeof PAGE)[keyof typeof PAGE];
 
-const HelperPaneEl = ({ position, helperPaneHeight, sx, onClose, onChange, addFunction }: HelperPaneProps) => {
+const HelperPaneEl = ({ position, helperPaneHeight, contentHeight, isTokenEditor, sx, onClose, onChange, addFunction }: HelperPaneProps) => {
     const [currentPage, setCurrentPage] = useState<Page>(PAGE.CATEGORY);
+    const panelRef = useRef<HTMLDivElement>(null);
+    const [height, setHeight] = useState<number>(400);
+    const [isComponentOverflowing, setIsComponentOverflowing] = useState<boolean>(false);
+    const componentDefaultHeight = isTokenEditor ? 380 : 400;
+    useEffect(() => {
+        const checkOverflow = () => {
+            if (panelRef.current) {
+                const element = panelRef.current;
+                const rect = element.getBoundingClientRect();
+                const viewportHeight = window.innerHeight;
+                
+                // Get children height
+                const clientHeight = isTokenEditor ? (element.clientHeight + 180) : element.clientHeight;
+
+                const heightDiff = clientHeight - viewportHeight; // Adjust for token editor if needed
+                let overflowHeight = 0;
+                let bottomOverflow = 0;
+                if (heightDiff < 0) {
+                    bottomOverflow = rect.bottom - viewportHeight;
+                    if (bottomOverflow < 0) {
+                        overflowHeight = 0; // No overflow
+                    }
+                    overflowHeight = bottomOverflow + (isTokenEditor ? 40 : 0);
+                } else {
+                    overflowHeight = heightDiff;
+                    console.log('Overflow Height:', overflowHeight);
+                }
+                const heightWithComponents = clientHeight - overflowHeight - (isTokenEditor ? 180 : 0); // Adjust for token editor if needed
+                const newHeight = heightWithComponents > componentDefaultHeight ? componentDefaultHeight : heightWithComponents;
+                setIsComponentOverflowing(heightWithComponents > componentDefaultHeight);
+                console.log('New Height:', newHeight, 'Is Overflowing:', isComponentOverflowing);
+                setHeight(newHeight);
+            }
+        };
+
+        // Check immediately and on window resize
+        // checkOverflow();
+        window.addEventListener('resize', checkOverflow);
+        window.addEventListener('scroll', checkOverflow); // Also check on scroll
+
+        // Use setTimeout to check after render is complete
+        setTimeout(checkOverflow, 10);
+
+        return () => {
+            window.removeEventListener('resize', checkOverflow);
+            window.removeEventListener('scroll', checkOverflow);
+        };
+    }, []);
+
+    console.log('Current Page:', height);
 
     return (
-        <HelperPane helperPaneHeight={helperPaneHeight} sx={{ ' *': { boxSizing: 'border-box' }, ...sx }}>
-            {currentPage === PAGE.CATEGORY && (
-                <CategoryPage
-                    position={position}
-                    setCurrentPage={setCurrentPage}
-                    onClose={onClose}
-                    onChange={onChange}
-                    addFunction={addFunction}
-                />
-            )}
-            {currentPage === PAGE.PAYLOAD && (
-                <PayloadPage
-                    position={position}
-                    setCurrentPage={setCurrentPage}
-                    onClose={onClose}
-                    onChange={onChange}
-                />
-            )}
-            {currentPage === PAGE.VARIABLES && (
-                <VariablesPage
-                    position={position}
-                    setCurrentPage={setCurrentPage}
-                    onClose={onClose}
-                    onChange={onChange}
-                />
-            )}
-            {currentPage === PAGE.HEADERS && (
-                <HeadersPage
-                    position={position}
-                    setCurrentPage={setCurrentPage}
-                    onClose={onClose}
-                    onChange={onChange}
-                />
-            )}
-            {currentPage === PAGE.PARAMS && (
-                <ParamsPage position={position} setCurrentPage={setCurrentPage} onClose={onClose} onChange={onChange} />
-            )}
-            {currentPage === PAGE.PROPERTIES && (
-                <PropertiesPage
-                    position={position}
-                    setCurrentPage={setCurrentPage}
-                    onClose={onClose}
-                    onChange={onChange}
-                />
-            )}
-        </HelperPane>
+        <div ref={panelRef}>
+            <HelperPane helperPaneHeight={helperPaneHeight} sx={{ ' *': { boxSizing: 'border-box' }, ...sx, height: height, minHeight: 'unset' }}>
+                {currentPage === PAGE.CATEGORY && (
+                    <CategoryPage
+                        position={position}
+                        setCurrentPage={setCurrentPage}
+                        onClose={onClose}
+                        onChange={onChange}
+                        addFunction={addFunction}
+                    />
+                )}
+                {currentPage === PAGE.PAYLOAD && (
+                    <PayloadPage
+                        position={position}
+                        setCurrentPage={setCurrentPage}
+                        onClose={onClose}
+                        onChange={onChange}
+                    />
+                )}
+                {currentPage === PAGE.VARIABLES && (
+                    <VariablesPage
+                        position={position}
+                        setCurrentPage={setCurrentPage}
+                        onClose={onClose}
+                        onChange={onChange}
+                    />
+                )}
+                {currentPage === PAGE.HEADERS && (
+                    <HeadersPage
+                        position={position}
+                        setCurrentPage={setCurrentPage}
+                        onClose={onClose}
+                        onChange={onChange}
+                    />
+                )}
+                {currentPage === PAGE.PARAMS && (
+                    <ParamsPage position={position} setCurrentPage={setCurrentPage} onClose={onClose} onChange={onChange} />
+                )}
+                {currentPage === PAGE.PROPERTIES && (
+                    <PropertiesPage
+                        position={position}
+                        setCurrentPage={setCurrentPage}
+                        onClose={onClose}
+                        onChange={onChange}
+                    />
+                )}
+            </HelperPane>
+        </div>
     );
 };
 
@@ -105,7 +159,9 @@ export const getHelperPane = (
     onClose: () => void,
     onChange: (value: string) => void,
     addFunction?: (value: string) => void,
-    sx?: CSSProperties
+    sx?: CSSProperties,
+    contentHeight?: number,
+    isTokenEditor?: boolean
 ) => {
     return (
         <HelperPaneEl
@@ -114,7 +170,9 @@ export const getHelperPane = (
             sx={sx}
             onClose={onClose}
             onChange={onChange}
+            contentHeight={contentHeight}
             addFunction={addFunction}
+            isTokenEditor={isTokenEditor}
         />
     );
 };

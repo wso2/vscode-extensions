@@ -108,7 +108,9 @@ export const FormTokenEditor = ({
             () => handleChangeHelperPaneState(false),
             onChange,
             addFunction,
-            { width: 'auto', border: '1px solid var(--dropdown-border)' }
+            { width: 'auto', border: '1px solid var(--dropdown-border)' },
+            400,
+            true
         );
     }, [nodeRange, handleChangeHelperPaneState, getHelperPane]);
 

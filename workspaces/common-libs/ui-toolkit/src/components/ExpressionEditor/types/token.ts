@@ -32,12 +32,13 @@ type TokenEditorBaseProps = {
     onFocus?: () => void;
     onBlur?: () => void;
     getExpressionEditorIcon?: () => ReactNode;
+    height?: number;
     editorSx?: CSSProperties;
 };
 
 type HelperPaneConditionalProps =
     | {
-          getHelperPane: (onChange: (value: string) => void, addFunction: (signature: string) => void) => JSX.Element;
+          getHelperPane: (onChange: (value: string) => void, addFunction: (signature: string) => void, height?: number) => JSX.Element;
           helperPaneOrigin?: HelperPaneOrigin;
           changeHelperPaneState: (state: boolean) => void;
           isHelperPaneOpen: boolean;

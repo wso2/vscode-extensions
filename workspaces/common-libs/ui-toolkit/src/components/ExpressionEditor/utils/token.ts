@@ -138,6 +138,9 @@ export const getHelperPaneWithEditorPosition = (
     if (window.innerHeight - rect.top < HELPER_PANE_WITH_EDITOR_HEIGHT / 2) {
         position.top = window.innerHeight - HELPER_PANE_WITH_EDITOR_HEIGHT;
     }
+    if (window.innerHeight < HELPER_PANE_WITH_EDITOR_HEIGHT) {
+        position.top = 0;
+    }
 
     return position;
 };

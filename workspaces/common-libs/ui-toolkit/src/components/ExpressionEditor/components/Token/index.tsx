@@ -211,7 +211,8 @@ export const TokenEditor = ({
     onFocus,
     onBlur,
     getExpressionEditorIcon,
-    editorSx
+    editorSx,
+    height,
 }: TokenEditorProps) => {
     const [isFocused, setIsFocused] = useState<boolean>(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -228,6 +229,10 @@ export const TokenEditor = ({
     const [calculatedHelperPaneOrigin, setCalculatedHelperPaneOrigin] = useState<HelperPaneOrigin>('auto');
     const monacoEditorRef = useRef();
 
+    let helperPaneStyle: StyleBase;
+    if (height) {
+        helperPaneStyle = { sx: { height: `${height}px`, overflowY: 'auto' } };
+    }
     const updatePosition = throttle(() => {
         if (containerRef.current) {
             const calculatedHelperPaneOrigin = getHelperPaneWithEditorOrigin(containerRef, helperPaneOrigin);
@@ -591,25 +596,27 @@ export const TokenEditor = ({
                     </S.Adornment>
                 </S.HelperPaneEditor>
 
-                {/* Helper pane content */}
-                {getHelperPane(handleHelperPaneChange, handleAddFunction)}
+                <div style={helperPaneStyle && helperPaneStyle.sx ? helperPaneStyle.sx : {}}>
+                    {/* Helper pane content */}
+                    {getHelperPane(handleHelperPaneChange, handleAddFunction)}
 
-                {/* Action buttons for the helper pane */}
-                <S.HelperPaneButtons>
-                    <Button appearance="secondary" onClick={handleHelperPaneWithEditorClose}>
-                        Cancel
-                    </Button>
-                    <Button
-                        appearance="primary"
-                        onClick={() =>
-                            selectedTokenRef.current
-                                ? handleHelperPaneWithEditorEdit()
-                                : handleHelperPaneWithEditorSave()
-                        }
-                    >
-                        Add
-                    </Button>
-                </S.HelperPaneButtons>
+                    {/* Action buttons for the helper pane */}
+                    <S.HelperPaneButtons>
+                        <Button appearance="secondary" onClick={handleHelperPaneWithEditorClose}>
+                            Cancel
+                        </Button>
+                        <Button
+                            appearance="primary"
+                            onClick={() =>
+                                selectedTokenRef.current
+                                    ? handleHelperPaneWithEditorEdit()
+                                    : handleHelperPaneWithEditorSave()
+                            }
+                        >
+                            Add
+                        </Button>
+                    </S.HelperPaneButtons>
+                </div>
 
                 {/* Side arrow of the helper pane */}
                 {helperPaneArrowPosition && (
