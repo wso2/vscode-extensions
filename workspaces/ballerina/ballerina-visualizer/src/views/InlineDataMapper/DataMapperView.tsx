@@ -31,7 +31,7 @@ import {
     IDMViewState,
     IntermediateClause,
     InlineDataMapperModelRequest,
-    InlineDataMapperBase
+    InlineDataMapperBase,
     TriggerCharacter,
     TRIGGER_CHARACTERS
 } from "@wso2/ballerina-core";
