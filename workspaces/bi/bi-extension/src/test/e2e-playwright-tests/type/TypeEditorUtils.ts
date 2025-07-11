@@ -23,7 +23,7 @@ import { Form } from '@wso2/playwright-vscode-tester';
  * Utility class for type editor test operations
  */
 export class TypeEditorUtils {
-    constructor(private page: Page, private webView: Frame) {}
+    constructor(private page: Page, private webView: Frame) { }
 
     /**
      * Wait for element to be visible and interactable
@@ -58,7 +58,7 @@ export class TypeEditorUtils {
     async addEnumMember(memberName: string): Promise<void> {
         const addButton = this.webView.locator('[data-testid="add-member-button"]');
         await addButton.click();
-        
+
         // Get the last identifier field (newly added)
         const memberFields = this.webView.locator('[data-testid="identifier-field"]');
         const count = await memberFields.count();
@@ -84,10 +84,10 @@ export class TypeEditorUtils {
 
         // Fill the newly added field (last in the form)
         const identifierFields = this.webView.locator('[data-testid="identifier-field"]');
-        
+
         const fieldCount = await identifierFields.count();
         const lastIndex = fieldCount - 1;
-        
+
         await this.fillIdentifierField(lastIndex, fieldName);
         await this.fillTypeField(lastIndex, fieldType);
     }
@@ -102,8 +102,7 @@ export class TypeEditorUtils {
 
         // Fill the newly added function (last in the form)
         const identifierFields = this.webView.locator('[data-testid="identifier-field"]');
-        const typeFields = this.webView.locator('[data-testid="type-field"]');
-        
+
         const fieldCount = await identifierFields.count();
         const lastIndex = fieldCount - 1;
 
@@ -117,7 +116,7 @@ export class TypeEditorUtils {
     async createType(name: string, kind: 'Enum' | 'Union' | 'Record' | 'Service Class'): Promise<Form> {
         const form = new Form(this.page, 'WSO2 Integrator: BI', this.webView);
         await form.switchToFormView(false, this.webView);
-        
+
         await form.fill({
             values: {
                 'Name': {
@@ -233,7 +232,7 @@ export class TypeEditorUtils {
     /**
      * Create a record type with specified fields
      */
-    async createRecordType(recordName: string, fields: Array<{name: string, type: string}>): Promise<Form> {
+    async createRecordType(recordName: string, fields: Array<{ name: string, type: string }>): Promise<Form> {
         const form = await this.createType(recordName, 'Record');
 
         // Add fields
@@ -247,7 +246,7 @@ export class TypeEditorUtils {
     /**
      * Create a service class with functions
      */
-    async createServiceClass(className: string, functions: Array<{name: string, returnType: string}>): Promise<Form> {
+    async createServiceClass(className: string, functions: Array<{ name: string, returnType: string }>): Promise<Form> {
         const form = await this.createType(className, 'Service Class');
 
         // Add functions
@@ -257,4 +256,4 @@ export class TypeEditorUtils {
 
         return form;
     }
-} 
+}

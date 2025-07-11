@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import {  test } from '@playwright/test';
+import { test } from '@playwright/test';
 import { addArtifact, initTest, page, getWebview, verifyGeneratedSource } from '../utils';
 import { Form } from '@wso2/playwright-vscode-tester';
 import { TypeEditorUtils } from './TypeEditorUtils';
@@ -47,7 +47,7 @@ export default function createTests() {
 
             // ENUM: Role
             const enumName = `Role${testAttempt}`;
-            
+
             // Create enum with members, delete one, then save
             const enumForm = await typeUtils.createEnumType(enumName, ['Admin', 'Engineer', 'Sales', 'Marketing']);
             await typeUtils.deleteEnumMember(1); // Delete 'Engineer'
