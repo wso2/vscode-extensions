@@ -27,6 +27,8 @@ import {
     InitialIDMSourceRequest,
     InitialIDMSourceResponse,
     InlineAllDataMapperSourceRequest,
+    PropertyRequest,
+    PropertyResponse,
     InlineDataMapperAPI,
     InlineDataMapperModelRequest,
     InlineDataMapperModelResponse,
@@ -39,6 +41,7 @@ import {
     convertToQuery,
     getAllDataMapperSource,
     getDataMapperCodedata,
+    getProperty,
     getDataMapperModel,
     getDataMapperSource,
     getInitialIDMSource,
@@ -93,5 +96,9 @@ export class InlineDataMapperRpcClient implements InlineDataMapperAPI {
 
     getAllDataMapperSource(params: InlineAllDataMapperSourceRequest): Promise<InlineDataMapperSourceResponse> {
         return this._messenger.sendRequest(getAllDataMapperSource, HOST_EXTENSION, params);
+    }
+  
+    getProperty(params: PropertyRequest): Promise<PropertyResponse> {
+        return this._messenger.sendRequest(getProperty, HOST_EXTENSION, params);
     }
 }

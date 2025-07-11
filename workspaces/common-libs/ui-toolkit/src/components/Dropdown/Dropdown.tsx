@@ -30,6 +30,7 @@ export interface OptionProps {
     id?: string;
     content?: string | ReactNode;
     value: any;
+    disabled?: boolean;
 }
 
 export interface DropdownProps extends ComponentProps<"select"> {
@@ -122,7 +123,7 @@ export const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>((prop
                     )}
                     <VSCodeDropdown ref={ref} id={id} aria-label={ariaLabel ? ariaLabel : `${label}${isRequired ? "*" : ""}`} style={sx} {...rest} onChange={handleValueChange}>
                         {items?.map((item: OptionProps) => (
-                            <VSCodeOption key={item?.id} value={item.value}>
+                            <VSCodeOption key={item?.id} value={item.value} disabled={item.disabled}>
                                 {item?.content || item.value}
                             </VSCodeOption>
                         ))}

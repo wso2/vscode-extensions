@@ -26,6 +26,8 @@ import {
     ConvertToQueryRequest,
     getAllDataMapperSource,
     getDataMapperCodedata,
+    getProperty,
+    PropertyRequest,
     getDataMapperModel,
     getDataMapperSource,
     getInitialIDMSource,
@@ -54,4 +56,5 @@ export function registerInlineDataMapperRpcHandlers(messenger: Messenger) {
     messenger.onRequest(getDataMapperCodedata, (args: GetInlineDataMapperCodedataRequest) => rpcManger.getDataMapperCodedata(args));
     messenger.onRequest(getSubMappingCodedata, (args: GetSubMappingCodedataRequest) => rpcManger.getSubMappingCodedata(args));
     messenger.onRequest(getAllDataMapperSource, (args: InlineAllDataMapperSourceRequest) => rpcManger.getAllDataMapperSource(args));
+    messenger.onRequest(getProperty, (args: PropertyRequest) => rpcManger.getProperty(args));
 }

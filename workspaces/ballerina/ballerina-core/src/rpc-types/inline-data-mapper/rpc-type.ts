@@ -27,6 +27,8 @@ import {
     InlineDataMapperSourceResponse,
     VisualizableFieldsRequest,
     VisualizableFieldsResponse,
+    PropertyRequest,
+    PropertyResponse,
     InitialIDMSourceResponse,
     InitialIDMSourceRequest,
     GetInlineDataMapperCodedataRequest,
@@ -47,3 +49,4 @@ export const addClauses: RequestType<AddClausesRequest, InlineDataMapperSourceRe
 export const getDataMapperCodedata: RequestType<GetInlineDataMapperCodedataRequest, GetInlineDataMapperCodedataResponse> = { method: `${_preFix}/getDataMapperCodedata` };
 export const getSubMappingCodedata: RequestType<GetSubMappingCodedataRequest, GetInlineDataMapperCodedataResponse> = { method: `${_preFix}/getSubMappingCodedata` };
 export const getAllDataMapperSource: RequestType<InlineAllDataMapperSourceRequest, InlineDataMapperSourceResponse> = { method: `${_preFix}/getAllDataMapperSource` };
+export const getProperty: RequestType<PropertyRequest, PropertyResponse> = { method: `${_preFix}/getProperty` };

@@ -25,6 +25,8 @@ import {
     InlineDataMapperSourceResponse,
     VisualizableFieldsRequest,
     VisualizableFieldsResponse,
+    PropertyRequest,
+    PropertyResponse,
     InitialIDMSourceResponse,
     InitialIDMSourceRequest,
     GetInlineDataMapperCodedataRequest,
@@ -44,4 +46,5 @@ export interface InlineDataMapperAPI {
     getDataMapperCodedata: (params: GetInlineDataMapperCodedataRequest) => Promise<GetInlineDataMapperCodedataResponse>;
     getSubMappingCodedata: (params: GetSubMappingCodedataRequest) => Promise<GetInlineDataMapperCodedataResponse>;
     getAllDataMapperSource: (params:InlineAllDataMapperSourceRequest) => Promise<InlineDataMapperSourceResponse>;
+    getProperty: (params: PropertyRequest) => Promise<PropertyResponse>;
 }
