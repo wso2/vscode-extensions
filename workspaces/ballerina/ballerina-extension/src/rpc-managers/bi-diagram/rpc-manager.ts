@@ -84,6 +84,8 @@ import {
     GetTypesResponse,
     ImportStatement,
     ImportStatements,
+    JsonToTypeRequest,
+    JsonToTypeResponse,
     LinePosition,
     ModelFromCodeRequest,
     NodeKind,
@@ -659,12 +661,12 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     }
 
 
-    // Function to open config toml
+    // Function to open Config.toml
     async openConfigToml(params: OpenConfigTomlRequest): Promise<void> {
         return new Promise(async (resolve) => {
             const currentProject: BallerinaProject | undefined = await getCurrentBIProject(params.filePath);
 
-            const configFilePath = path.join(StateMachine.context().projectUri, "config.toml");
+            const configFilePath = path.join(StateMachine.context().projectUri, "Config.toml");
             const ignoreFile = path.join(StateMachine.context().projectUri, ".gitignore");
             const docLink = "https://ballerina.io/learn/provide-values-to-configurable-variables/#provide-via-toml-syntax";
             const uri = Uri.file(configFilePath);
@@ -692,8 +694,8 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 if (fs.existsSync(ignoreFile)) {
                     const ignoreUri = Uri.file(ignoreFile);
                     let ignoreContent: string = fs.readFileSync(ignoreUri.fsPath, 'utf8');
-                    if (!ignoreContent.includes("config.toml")) {
-                        ignoreContent += `\n${"config.toml"}\n`;
+                    if (!ignoreContent.includes("Config.toml")) {
+                        ignoreContent += `\n${"Config.toml"}\n`;
                         fs.writeFile(ignoreUri.fsPath, ignoreContent, function (error) {
                             if (error) {
                                 return window.showErrorMessage('Unable to update the .gitIgnore file: ' + error);
@@ -1685,6 +1687,22 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 console.log(">>> error getting openapi generated modules", error);
                 reject(error);
             });
+        });
+    }
+
+    async getTypeFromJson(params: JsonToTypeRequest): Promise<JsonToTypeResponse> {
+        return new Promise((resolve, reject) => {
+            const projectUri = StateMachine.context().projectUri;
+            const filePath = path.join(projectUri, 'types.bal');
+            StateMachine.langClient().getTypeFromJson({ ...params, filePath })
+                .then((response) => {
+                    console.log(">>> type from json response", response);
+                    resolve(response);
+                })
+                .catch((error) => {
+                    console.log(">>> error getting type from json", error);
+                    reject(error);
+                });
         });
     }
 }
