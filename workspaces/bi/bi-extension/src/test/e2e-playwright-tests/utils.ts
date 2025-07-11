@@ -86,7 +86,7 @@ export async function setupBallerinaIntegrator() {
     }
 }
 
-async function getWebview(viewName: string, page: ExtendedPage) {
+export async function getWebview(viewName: string, page: ExtendedPage) {
     let webview;
     let retryCount = 0;
     const maxRetries = 3;
@@ -212,4 +212,46 @@ export async function enableICP() {
     if (!(await icpToggle.isChecked())) {
         await icpToggle.click();
     }
+}
+
+/**
+ * Normalize source code for comparison
+ */
+function normalizeSource(source: string): string {
+    return source
+        .replace(/\r\n/g, '\n')           // Normalize line endings
+        .replace(/\t/g, '    ')           // Convert tabs to spaces
+        .split('\n')
+        .map(line => line.trimEnd())      // Remove trailing whitespace
+        .filter(line => line.trim() !== '') // Remove empty lines
+        .join('\n')
+        .trim();
+}
+
+/**
+ * Compare a generated .bal file with an expected .bal file
+ * @param generatedFileName - Name of the generated file (e.g., 'types.bal')
+ * @param expectedFilePath - Path to the expected file (e.g., path to testOutput.bal)
+ */
+export async function verifyGeneratedSource(generatedFileName: string, expectedFilePath: string): Promise<void> {
+    const { expect } = await import('@playwright/test');
+    
+    // Generated file is in the project sample folder
+    const generatedFilePath = path.join(newProjectPath, 'sample', generatedFileName);
+    
+    if (!fs.existsSync(generatedFilePath)) {
+        throw new Error(`Generated file not found at: ${generatedFilePath}`);
+    }
+    
+    if (!fs.existsSync(expectedFilePath)) {
+        throw new Error(`Expected file not found at: ${expectedFilePath}`);
+    }
+    
+    const actualContent = fs.readFileSync(generatedFilePath, 'utf-8');
+    const expectedContent = fs.readFileSync(expectedFilePath, 'utf-8');
+    
+    const normalizedActual = normalizeSource(actualContent);
+    const normalizedExpected = normalizeSource(expectedContent);
+    
+    expect(normalizedActual).toBe(normalizedExpected);
 }
