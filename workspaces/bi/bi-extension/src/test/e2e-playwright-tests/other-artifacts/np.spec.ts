@@ -22,16 +22,16 @@ import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../ProjectExplorer';
 
 export default function createTests() {
-    test.describe('Function Artifact Tests', {
+    test.describe('Natural Function Artifact Tests', {
         tag: '@group1',
     }, async () => {
         let functionName = '';
         initTest();
-        test('Create Function Artifact', async ({ }, testInfo) => {
+        test('Create Natural Function Artifact', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
-            console.log('Creating a new function in test attempt: ', testAttempt);
+            console.log('Creating a new natural function in test attempt: ', testAttempt);
             // Creating a HTTP Service
-            await addArtifact('Function Artifact', 'bi-function');
+            await addArtifact('Natural Function Artifact', 'bi-ai-function');
             const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
@@ -41,7 +41,7 @@ export default function createTests() {
             await form.switchToFormView(false, artifactWebView);
             await form.fill({
                 values: {
-                    'Name*Name of the function': {
+                    'Name*Name of the natural function': {
                         type: 'input',
                         value: functionName,
                     }
@@ -58,9 +58,9 @@ export default function createTests() {
             }
         });
 
-        test('Editing Function Artifact', async ({ }, testInfo) => {
+        test('Editing Natural Function Artifact', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
-            console.log('Editing a function in test attempt: ', testAttempt);
+            console.log('Editing a natural function in test attempt: ', testAttempt);
             const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
