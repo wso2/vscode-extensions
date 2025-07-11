@@ -36,4 +36,5 @@ export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 	public getWebviewStateStore = () => webviewStateStore.getState().state;
 	public getContextStateStore = () => contextStore.getState().state;
 	public openClonedDir = (params: openClonedDirReq) => openClonedDir(params);
+	public getStsToken = () => ext.clients.rpcClient.getStsToken()
 }

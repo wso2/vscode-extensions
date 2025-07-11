@@ -537,6 +537,14 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		const response: SubscriptionsResp = await this.client.sendRequest("auth/getSubscriptions", params);
 		return response;
 	}
+
+	async getStsToken(): Promise<string> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: {token: string} = await this.client.sendRequest("auth/getStsToken", {});
+		return response?.token;
+	}
 }
 
 export class ChoreoTracer implements Tracer {
