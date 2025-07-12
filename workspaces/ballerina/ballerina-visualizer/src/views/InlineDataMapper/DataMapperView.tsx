@@ -30,6 +30,8 @@ import {
     AddClausesRequest,
     IDMViewState,
     IntermediateClause,
+    InlineDataMapperModelRequest,
+    InlineDataMapperBase,
     TriggerCharacter,
     TRIGGER_CHARACTERS
 } from "@wso2/ballerina-core";
@@ -80,6 +82,21 @@ export function InlineDataMapperView(props: InlineDataMapperProps) {
         isFetching,
         isError
     } = useInlineDataMapperModel(filePath, viewState);
+
+    const modelParams: InlineDataMapperModelRequest = {
+        filePath,
+        codedata,
+        position: {
+            line: codedata.lineRange.startLine.line,
+            offset: codedata.lineRange.startLine.offset
+        }
+    };
+
+    const sourceParams: InlineDataMapperBase = {
+        filePath,
+        codedata,
+        varName
+    };
 
     useEffect(() => {
         setViewState(prev => ({
@@ -360,6 +377,8 @@ export function InlineDataMapperView(props: InlineDataMapperProps) {
                     generateForm={generateForm}
                     convertToQuery={convertToQuery}
                     addClauses={addClauses}
+                    modelParams={modelParams}
+                    sourceParams={sourceParams}
                     expressionBar={{
                         completions: filteredCompletions,
                         triggerCompletions: retrieveCompeletions,

@@ -33,7 +33,8 @@ import {
     InitialIDMSourceRequest,
     GetInlineDataMapperCodedataRequest,
     GetInlineDataMapperCodedataResponse,
-    GetSubMappingCodedataRequest
+    GetSubMappingCodedataRequest,
+    InlineAllDataMapperSourceRequest
 } from "../../interfaces/extended-lang-client";
 import { RequestType } from "vscode-messenger-common";
 
@@ -47,4 +48,5 @@ export const convertToQuery: RequestType<ConvertToQueryRequest, InlineDataMapper
 export const addClauses: RequestType<AddClausesRequest, InlineDataMapperSourceResponse> = { method: `${_preFix}/addClauses` };
 export const getDataMapperCodedata: RequestType<GetInlineDataMapperCodedataRequest, GetInlineDataMapperCodedataResponse> = { method: `${_preFix}/getDataMapperCodedata` };
 export const getSubMappingCodedata: RequestType<GetSubMappingCodedataRequest, GetInlineDataMapperCodedataResponse> = { method: `${_preFix}/getSubMappingCodedata` };
+export const getAllDataMapperSource: RequestType<InlineAllDataMapperSourceRequest, InlineDataMapperSourceResponse> = { method: `${_preFix}/getAllDataMapperSource` };
 export const getProperty: RequestType<PropertyRequest, PropertyResponse> = { method: `${_preFix}/getProperty` };
