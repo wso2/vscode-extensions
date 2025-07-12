@@ -385,7 +385,7 @@ export const rootPomXmlContent = (projectName: string, groupID: string, artifact
       <plugin>
         <groupId>org.wso2.maven</groupId>
         <artifactId>synapse-unit-test-maven-plugin</artifactId>
-        <version>5.2.90</version>
+        <version>5.2.109</version>
         <executions>
           <execution>
             <id>synapse-unit-test</id>
@@ -418,6 +418,7 @@ export const rootPomXmlContent = (projectName: string, groupID: string, artifact
     <keystore.name>wso2carbon.jks</keystore.name>
     <keystore.password>wso2carbon</keystore.password>
     <keystore.alias>wso2carbon</keystore.alias>
+    <fat.car.enable>false</fat.car.enable>
     <ciphertool.enable>true</ciphertool.enable>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
@@ -430,7 +431,7 @@ export const rootPomXmlContent = (projectName: string, groupID: string, artifact
     <test.server.port>9008</test.server.port>
     <test.server.path>/</test.server.path>
     <test.server.version>\${project.runtime.version}</test.server.version>
-    <testServerDownloadLink>https://github.com/wso2/micro-integrator/releases/download/v\${test.server.version}/wso2mi-\${test.server.version}.zip</testServerDownloadLink>
+    <testServerDownloadLink></testServerDownloadLink>
     <maven.test.skip>false</maven.test.skip>
   </properties>
   ${initialDependencies}

@@ -16,12 +16,30 @@
  * under the License.
  */
 
-export function getRegistryResource(type: string, resourceName: string) {
+import { render } from "mustache";
+
+export function getRegistryResource(type: string, resourceName: string, roles: string | undefined) {
     switch (type) {
         case "WSDL File":
             return getWSDLFileTemplate();
         case "WS-Policy":
             return getWSPolicyTemplate();
+        case "Username Token":
+            return render(getUsernameTokenWSPolicyTemplate(), roles);
+        case "Non-repudiation":
+            return getNonRepudiationWSPolicyTemplate();
+        case "Integrity":
+            return getIntegrityWSPolicyTemplate();
+        case "Confidentiality":
+            return getConfidentialityWSPolicyTemplate();
+        case "Sign and Encrypt - X509 Authentication":
+            return getSignX509WSPolicyTemplate();
+        case "Sign and Encrypt - Anonymous Clients":
+            return getSignAnonymousWSPolicyTemplate();
+        case "Encrypt Only - Username Token Authentication":
+            return render(getEncryptUsernameWSPolicyTemplate(), roles);
+        case "Sign and Encrypt - Username Token Authentication":
+            return render(getSignUsernameWSPolicyTemplate(), roles);
         case "XSD File":
             return getXSDTemplate();
         case "XSLT File":
@@ -131,8 +149,7 @@ function getWSPolicyTemplate() {
 		<rampart:timestampTTL>300</rampart:timestampTTL>
 		<rampart:timestampMaxSkew>300</rampart:timestampMaxSkew>
 		<rampart:timestampStrict>false</rampart:timestampStrict>
-		<rampart:tokenStoreClass>org.wso2.carbon.security.util.SecurityTokenStore
-		</rampart:tokenStoreClass>
+		<rampart:tokenStoreClass>org.wso2.micro.integrator.security.extensions.SecurityTokenStore</rampart:tokenStoreClass>
 		<rampart:nonceLifeTime>300</rampart:nonceLifeTime>
 	</rampart:RampartConfig>
 	<sec:CarbonSecConfig xmlns:sec="http://www.wso2.org/products/carbon/security">
@@ -157,4 +174,679 @@ function getXSLTemplate() {
             <!-- TODO: Auto-generated template -->
         </xsl:template>
     </xsl:stylesheet>`;
+}
+
+function getUsernameTokenWSPolicyTemplate() {
+    return `<wsp:Policy wsu:Id="UTOverTransport" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+    <wsp:ExactlyOne>
+        <wsp:All>
+            <sp:TransportBinding xmlns:sp="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy">
+                <wsp:Policy>
+                    <sp:TransportToken>
+                        <wsp:Policy>
+                            <sp:HttpsToken RequireClientCertificate="false"/>
+                        </wsp:Policy>
+                    </sp:TransportToken>
+                    <sp:AlgorithmSuite>
+                        <wsp:Policy>
+                            <sp:Basic256/>
+                        </wsp:Policy>
+                    </sp:AlgorithmSuite>
+                    <sp:Layout>
+                        <wsp:Policy>
+                            <sp:Lax/>
+                        </wsp:Policy>
+                    </sp:Layout>
+                    <sp:IncludeTimestamp/>
+                </wsp:Policy>
+            </sp:TransportBinding>
+            <sp:SignedSupportingTokens xmlns:sp="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy">
+                <wsp:Policy>
+                    <sp:UsernameToken sp:IncludeToken="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy/IncludeToken/AlwaysToRecipient"/>
+                </wsp:Policy>
+            </sp:SignedSupportingTokens>
+        </wsp:All>
+    </wsp:ExactlyOne>
+    <rampart:RampartConfig xmlns:rampart="http://ws.apache.org/rampart/policy">
+        <rampart:user>wso2carbon</rampart:user>
+        <rampart:encryptionUser>useReqSigCert</rampart:encryptionUser>
+        <rampart:timestampPrecisionInMilliseconds>true</rampart:timestampPrecisionInMilliseconds>
+        <rampart:timestampTTL>300</rampart:timestampTTL>
+        <rampart:timestampMaxSkew>300</rampart:timestampMaxSkew>
+        <rampart:timestampStrict>false</rampart:timestampStrict>
+        <rampart:tokenStoreClass>org.wso2.micro.integrator.security.extensions.SecurityTokenStore</rampart:tokenStoreClass>
+        <rampart:nonceLifeTime>300</rampart:nonceLifeTime>
+    </rampart:RampartConfig>
+{{#.}}
+    <sec:CarbonSecConfig xmlns:sec="http://www.wso2.org/products/carbon/security">
+        <sec:Authorization>
+            <sec:property name="org.wso2.carbon.security.allowedroles">{{.}}</sec:property>
+        </sec:Authorization>
+    </sec:CarbonSecConfig>
+{{/.}}</wsp:Policy>`;
+}
+
+function getNonRepudiationWSPolicyTemplate() {
+    return `<wsp:Policy wsu:Id="SigOnly" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+    <wsp:ExactlyOne>
+        <wsp:All>
+            <sp:AsymmetricBinding xmlns:sp="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy">
+                <wsp:Policy>
+                    <sp:InitiatorToken>
+                        <wsp:Policy>
+                            <sp:X509Token sp:IncludeToken="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy/IncludeToken/AlwaysToRecipient">
+                                <wsp:Policy>
+                                    <sp:RequireThumbprintReference/>
+                                    <sp:WssX509V3Token10/>
+                                    <!-- sp:WssX509V3Token10/ -->
+                                </wsp:Policy>
+                            </sp:X509Token>
+                        </wsp:Policy>
+                    </sp:InitiatorToken>
+                    <sp:RecipientToken>
+                        <wsp:Policy>
+                            <sp:X509Token sp:IncludeToken="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy/IncludeToken/Never">
+                                <wsp:Policy>
+                                    <sp:RequireThumbprintReference/>
+                                    <sp:WssX509V3Token10/>
+                                    <!-- sp:WssX509V3Token10/ -->
+                                </wsp:Policy>
+                            </sp:X509Token>
+                        </wsp:Policy>
+                    </sp:RecipientToken>
+                    <sp:AlgorithmSuite>
+                        <wsp:Policy>
+                            <sp:Basic256/>
+                        </wsp:Policy>
+                    </sp:AlgorithmSuite>
+                    <sp:Layout>
+                        <wsp:Policy>
+                            <sp:Strict/>
+                        </wsp:Policy>
+                    </sp:Layout>
+                    <sp:IncludeTimestamp/>
+                    <sp:OnlySignEntireHeadersAndBody/>
+                </wsp:Policy>
+            </sp:AsymmetricBinding>
+            <sp:Wss10 xmlns:sp="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy">
+                <wsp:Policy>
+                    <sp:MustSupportRefKeyIdentifier/>
+                    <sp:MustSupportRefIssuerSerial/>
+                </wsp:Policy>
+            </sp:Wss10>
+            <sp:SignedParts xmlns:sp="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy">
+                <sp:Body/>
+            </sp:SignedParts>
+        </wsp:All>
+    </wsp:ExactlyOne>
+    <rampart:RampartConfig xmlns:rampart="http://ws.apache.org/rampart/policy">
+        <rampart:user>wso2carbon</rampart:user>
+        <rampart:encryptionUser>useReqSigCert</rampart:encryptionUser>
+        <rampart:timestampPrecisionInMilliseconds>true</rampart:timestampPrecisionInMilliseconds>
+        <rampart:timestampTTL>300</rampart:timestampTTL>
+        <rampart:timestampMaxSkew>300</rampart:timestampMaxSkew>
+        <rampart:timestampStrict>false</rampart:timestampStrict>
+        <rampart:tokenStoreClass>org.wso2.micro.integrator.security.extensions.SecurityTokenStore</rampart:tokenStoreClass>
+        <rampart:nonceLifeTime>300</rampart:nonceLifeTime>
+        <rampart:encryptionCrypto>
+            <rampart:crypto cryptoKey="org.wso2.carbon.security.crypto.privatestore" provider="org.wso2.micro.integrator.security.util.ServerCrypto">
+                <rampart:property name="org.wso2.carbon.security.crypto.alias">wso2carbon</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.privatestore">wso2carbon.jks</rampart:property>
+                <rampart:property name="org.wso2.stratos.tenant.id">-1234</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.truststores">wso2carbon.jks</rampart:property>
+                <rampart:property name="rampart.config.user">wso2carbon</rampart:property>
+            </rampart:crypto>
+        </rampart:encryptionCrypto>
+        <rampart:signatureCrypto>
+            <rampart:crypto cryptoKey="org.wso2.carbon.security.crypto.privatestore" provider="org.wso2.micro.integrator.security.util.ServerCrypto">
+                <rampart:property name="org.wso2.carbon.security.crypto.alias">wso2carbon</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.privatestore">wso2carbon.jks</rampart:property>
+                <rampart:property name="org.wso2.stratos.tenant.id">-1234</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.truststores">wso2carbon.jks</rampart:property>
+                <rampart:property name="rampart.config.user">wso2carbon</rampart:property>
+            </rampart:crypto>
+        </rampart:signatureCrypto>
+    </rampart:RampartConfig>
+</wsp:Policy>`;
+}
+
+function getIntegrityWSPolicyTemplate() {
+    return `<wsp:Policy wsu:Id="SgnOnlyAnonymous" xmlns:sp="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+    <wsp:ExactlyOne>
+        <wsp:All>
+            <sp:SymmetricBinding>
+                <wsp:Policy>
+                    <sp:ProtectionToken>
+                        <wsp:Policy>
+                            <sp:X509Token sp:IncludeToken="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy/IncludeToken/Never">
+                                <wsp:Policy>
+                                    <sp:RequireThumbprintReference/>
+                                    <sp:WssX509V3Token10/>
+                                </wsp:Policy>
+                            </sp:X509Token>
+                        </wsp:Policy>
+                    </sp:ProtectionToken>
+                    <sp:AlgorithmSuite>
+                        <wsp:Policy>
+                            <sp:Basic256/>
+                        </wsp:Policy>
+                    </sp:AlgorithmSuite>
+                    <sp:Layout>
+                        <wsp:Policy>
+                            <sp:Lax/>
+                        </wsp:Policy>
+                    </sp:Layout>
+                    <sp:IncludeTimestamp/>
+                    <sp:OnlySignEntireHeadersAndBody/>
+                </wsp:Policy>
+            </sp:SymmetricBinding>
+            <sp:SignedParts>
+                <sp:Body/>
+            </sp:SignedParts>
+            <sp:Wss11>
+                <wsp:Policy>
+                    <sp:MustSupportRefKeyIdentifier/>
+                    <sp:MustSupportRefIssuerSerial/>
+                    <sp:MustSupportRefThumbprint/>
+                    <sp:MustSupportRefEncryptedKey/>
+                    <sp:RequireSignatureConfirmation/>
+                </wsp:Policy>
+            </sp:Wss11>
+            <sp:Trust10>
+                <wsp:Policy>
+                    <sp:MustSupportIssuedTokens/>
+                    <sp:RequireClientEntropy/>
+                    <sp:RequireServerEntropy/>
+                </wsp:Policy>
+            </sp:Trust10>
+        </wsp:All>
+    </wsp:ExactlyOne>
+    <rampart:RampartConfig xmlns:rampart="http://ws.apache.org/rampart/policy">
+        <rampart:user>wso2carbon</rampart:user>
+        <rampart:encryptionUser>useReqSigCert</rampart:encryptionUser>
+        <rampart:timestampPrecisionInMilliseconds>true</rampart:timestampPrecisionInMilliseconds>
+        <rampart:timestampTTL>300</rampart:timestampTTL>
+        <rampart:timestampMaxSkew>300</rampart:timestampMaxSkew>
+        <rampart:timestampStrict>false</rampart:timestampStrict>
+        <rampart:tokenStoreClass>org.wso2.micro.integrator.security.extensions.SecurityTokenStore</rampart:tokenStoreClass>
+        <rampart:nonceLifeTime>300</rampart:nonceLifeTime>
+        <rampart:encryptionCrypto>
+            <rampart:crypto cryptoKey="org.wso2.carbon.security.crypto.privatestore" provider="org.wso2.micro.integrator.security.util.ServerCrypto">
+                <rampart:property name="org.wso2.carbon.security.crypto.alias">wso2carbon</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.privatestore">wso2carbon.jks</rampart:property>
+                <rampart:property name="org.wso2.stratos.tenant.id">-1234</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.truststores">wso2carbon.jks</rampart:property>
+                <rampart:property name="rampart.config.user">wso2carbon</rampart:property>
+            </rampart:crypto>
+        </rampart:encryptionCrypto>
+        <rampart:signatureCrypto>
+            <rampart:crypto cryptoKey="org.wso2.carbon.security.crypto.privatestore" provider="org.wso2.micro.integrator.security.util.ServerCrypto">
+                <rampart:property name="org.wso2.carbon.security.crypto.alias">wso2carbon</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.privatestore">wso2carbon.jks</rampart:property>
+                <rampart:property name="org.wso2.stratos.tenant.id">-1234</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.truststores">wso2carbon.jks</rampart:property>
+                <rampart:property name="rampart.config.user">wso2carbon</rampart:property>
+            </rampart:crypto>
+        </rampart:signatureCrypto>
+    </rampart:RampartConfig>
+</wsp:Policy>`;
+}
+
+function getConfidentialityWSPolicyTemplate() {
+    return `<wsp:Policy wsu:Id="EncrOnlyAnonymous" xmlns:sp="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+    <wsp:ExactlyOne>
+        <wsp:All>
+            <sp:SymmetricBinding>
+                <wsp:Policy>
+                    <sp:ProtectionToken>
+                        <wsp:Policy>
+                            <sp:X509Token sp:IncludeToken="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy/IncludeToken/Never">
+                                <wsp:Policy>
+                                    <sp:RequireThumbprintReference/>
+                                    <sp:WssX509V3Token10/>
+                                </wsp:Policy>
+                            </sp:X509Token>
+                        </wsp:Policy>
+                    </sp:ProtectionToken>
+                    <sp:AlgorithmSuite>
+                        <wsp:Policy>
+                            <sp:Basic256/>
+                        </wsp:Policy>
+                    </sp:AlgorithmSuite>
+                    <sp:Layout>
+                        <wsp:Policy>
+                            <sp:Lax/>
+                        </wsp:Policy>
+                    </sp:Layout>
+                    <sp:IncludeTimestamp/>
+                    <sp:OnlySignEntireHeadersAndBody/>
+                </wsp:Policy>
+            </sp:SymmetricBinding>
+            <sp:EncryptedParts>
+                <sp:Body/>
+            </sp:EncryptedParts>
+            <sp:Wss11>
+                <wsp:Policy>
+                    <sp:MustSupportRefKeyIdentifier/>
+                    <sp:MustSupportRefIssuerSerial/>
+                    <sp:MustSupportRefThumbprint/>
+                    <sp:MustSupportRefEncryptedKey/>
+                    <sp:RequireSignatureConfirmation/>
+                </wsp:Policy>
+            </sp:Wss11>
+            <sp:Trust10>
+                <wsp:Policy>
+                    <sp:MustSupportIssuedTokens/>
+                    <sp:RequireClientEntropy/>
+                    <sp:RequireServerEntropy/>
+                </wsp:Policy>
+            </sp:Trust10>
+        </wsp:All>
+    </wsp:ExactlyOne>
+    <rampart:RampartConfig xmlns:rampart="http://ws.apache.org/rampart/policy">
+        <rampart:user>wso2carbon</rampart:user>
+        <rampart:encryptionUser>useReqSigCert</rampart:encryptionUser>
+        <rampart:timestampPrecisionInMilliseconds>true</rampart:timestampPrecisionInMilliseconds>
+        <rampart:timestampTTL>300</rampart:timestampTTL>
+        <rampart:timestampMaxSkew>300</rampart:timestampMaxSkew>
+        <rampart:timestampStrict>false</rampart:timestampStrict>
+        <rampart:tokenStoreClass>org.wso2.micro.integrator.security.extensions.SecurityTokenStore</rampart:tokenStoreClass>
+        <rampart:nonceLifeTime>300</rampart:nonceLifeTime>
+        <rampart:encryptionCrypto>
+            <rampart:crypto cryptoKey="org.wso2.carbon.security.crypto.privatestore" provider="org.wso2.micro.integrator.security.util.ServerCrypto">
+                <rampart:property name="org.wso2.carbon.security.crypto.alias">wso2carbon</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.privatestore">wso2carbon.jks</rampart:property>
+                <rampart:property name="org.wso2.stratos.tenant.id">-1234</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.truststores">wso2carbon.jks</rampart:property>
+                <rampart:property name="rampart.config.user">wso2carbon</rampart:property>
+            </rampart:crypto>
+        </rampart:encryptionCrypto>
+        <rampart:signatureCrypto>
+            <rampart:crypto cryptoKey="org.wso2.carbon.security.crypto.privatestore" provider="org.wso2.micro.integrator.security.util.ServerCrypto">
+                <rampart:property name="org.wso2.carbon.security.crypto.alias">wso2carbon</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.privatestore">wso2carbon.jks</rampart:property>
+                <rampart:property name="org.wso2.stratos.tenant.id">-1234</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.truststores">wso2carbon.jks</rampart:property>
+                <rampart:property name="rampart.config.user">wso2carbon</rampart:property>
+            </rampart:crypto>
+        </rampart:signatureCrypto>
+    </rampart:RampartConfig>
+</wsp:Policy>`;
+}
+
+function getSignX509WSPolicyTemplate() {
+    return `<wsp:Policy wsu:Id="SigEncr" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+    <wsp:ExactlyOne>
+        <wsp:All>
+            <sp:AsymmetricBinding xmlns:sp="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy">
+                <wsp:Policy>
+                    <sp:InitiatorToken>
+                        <wsp:Policy>
+                            <sp:X509Token sp:IncludeToken="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy/IncludeToken/AlwaysToRecipient">
+                                <wsp:Policy>
+                                    <sp:RequireThumbprintReference/>
+                                    <sp:WssX509V3Token10/>
+                                </wsp:Policy>
+                            </sp:X509Token>
+                        </wsp:Policy>
+                    </sp:InitiatorToken>
+                    <sp:RecipientToken>
+                        <wsp:Policy>
+                            <sp:X509Token sp:IncludeToken="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy/IncludeToken/Never">
+                                <wsp:Policy>
+                                    <sp:RequireThumbprintReference/>
+                                    <sp:WssX509V3Token10/>
+                                </wsp:Policy>
+                            </sp:X509Token>
+                        </wsp:Policy>
+                    </sp:RecipientToken>
+                    <sp:AlgorithmSuite>
+                        <wsp:Policy>
+                            <sp:Basic256/>
+                        </wsp:Policy>
+                    </sp:AlgorithmSuite>
+                    <sp:Layout>
+                        <wsp:Policy>
+                            <sp:Strict/>
+                        </wsp:Policy>
+                    </sp:Layout>
+                    <sp:IncludeTimestamp/>
+                    <sp:OnlySignEntireHeadersAndBody/>
+                </wsp:Policy>
+            </sp:AsymmetricBinding>
+            <sp:Wss11 xmlns:sp="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy">
+                <wsp:Policy>
+                    <sp:MustSupportRefKeyIdentifier/>
+                    <sp:MustSupportRefIssuerSerial/>
+                    <sp:MustSupportRefThumbprint/>
+                    <sp:MustSupportRefEncryptedKey/>
+                    <sp:RequireSignatureConfirmation/>
+                </wsp:Policy>
+            </sp:Wss11>
+            <sp:Wss10 xmlns:sp="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy">
+                <wsp:Policy>
+                    <sp:MustSupportRefKeyIdentifier/>
+                    <sp:MustSupportRefIssuerSerial/>
+                </wsp:Policy>
+            </sp:Wss10>
+            <sp:SignedParts xmlns:sp="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy">
+                <sp:Body/>
+            </sp:SignedParts>
+            <sp:EncryptedParts xmlns:sp="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy">
+                <sp:Body/>
+            </sp:EncryptedParts>
+        </wsp:All>
+    </wsp:ExactlyOne>
+    <rampart:RampartConfig xmlns:rampart="http://ws.apache.org/rampart/policy">
+        <rampart:user>wso2carbon</rampart:user>
+        <rampart:encryptionUser>useReqSigCert</rampart:encryptionUser>
+        <rampart:timestampPrecisionInMilliseconds>true</rampart:timestampPrecisionInMilliseconds>
+        <rampart:timestampTTL>300</rampart:timestampTTL>
+        <rampart:timestampMaxSkew>300</rampart:timestampMaxSkew>
+        <rampart:timestampStrict>false</rampart:timestampStrict>
+        <rampart:tokenStoreClass>org.wso2.micro.integrator.security.extensions.SecurityTokenStore</rampart:tokenStoreClass>
+        <rampart:nonceLifeTime>300</rampart:nonceLifeTime>
+        <rampart:encryptionCrypto>
+            <rampart:crypto cryptoKey="org.wso2.carbon.security.crypto.privatestore" provider="org.wso2.micro.integrator.security.util.ServerCrypto">
+                <rampart:property name="org.wso2.carbon.security.crypto.alias">wso2carbon</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.privatestore">wso2carbon.jks</rampart:property>
+                <rampart:property name="org.wso2.stratos.tenant.id">-1234</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.truststores">wso2carbon.jks</rampart:property>
+                <rampart:property name="rampart.config.user">wso2carbon</rampart:property>
+            </rampart:crypto>
+        </rampart:encryptionCrypto>
+        <rampart:signatureCrypto>
+            <rampart:crypto cryptoKey="org.wso2.carbon.security.crypto.privatestore" provider="org.wso2.micro.integrator.security.util.ServerCrypto">
+                <rampart:property name="org.wso2.carbon.security.crypto.alias">wso2carbon</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.privatestore">wso2carbon.jks</rampart:property>
+                <rampart:property name="org.wso2.stratos.tenant.id">-1234</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.truststores">wso2carbon.jks</rampart:property>
+                <rampart:property name="rampart.config.user">wso2carbon</rampart:property>
+            </rampart:crypto>
+        </rampart:signatureCrypto>
+    </rampart:RampartConfig>
+</wsp:Policy>`;
+}
+
+function getSignAnonymousWSPolicyTemplate() {
+    return `<wsp:Policy wsu:Id="SgnEncrAnonymous" xmlns:sp="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+    <wsp:ExactlyOne>
+        <wsp:All>
+            <sp:SymmetricBinding>
+                <wsp:Policy>
+                    <sp:ProtectionToken>
+                        <wsp:Policy>
+                            <sp:X509Token sp:IncludeToken="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy/IncludeToken/Never">
+                                <wsp:Policy>
+                                    <sp:RequireThumbprintReference/>
+                                    <sp:WssX509V3Token10/>
+                                </wsp:Policy>
+                            </sp:X509Token>
+                        </wsp:Policy>
+                    </sp:ProtectionToken>
+                    <sp:AlgorithmSuite>
+                        <wsp:Policy>
+                            <sp:Basic256/>
+                        </wsp:Policy>
+                    </sp:AlgorithmSuite>
+                    <sp:Layout>
+                        <wsp:Policy>
+                            <sp:Lax/>
+                        </wsp:Policy>
+                    </sp:Layout>
+                    <sp:IncludeTimestamp/>
+                    <sp:OnlySignEntireHeadersAndBody/>
+                </wsp:Policy>
+            </sp:SymmetricBinding>
+            <sp:SignedParts>
+                <sp:Body/>
+            </sp:SignedParts>
+            <sp:EncryptedParts>
+                <sp:Body/>
+            </sp:EncryptedParts>
+            <sp:Wss11>
+                <wsp:Policy>
+                    <sp:MustSupportRefKeyIdentifier/>
+                    <sp:MustSupportRefIssuerSerial/>
+                    <sp:MustSupportRefThumbprint/>
+                    <sp:MustSupportRefEncryptedKey/>
+                    <sp:RequireSignatureConfirmation/>
+                </wsp:Policy>
+            </sp:Wss11>
+            <sp:Trust10>
+                <wsp:Policy>
+                    <sp:MustSupportIssuedTokens/>
+                    <sp:RequireClientEntropy/>
+                    <sp:RequireServerEntropy/>
+                </wsp:Policy>
+            </sp:Trust10>
+        </wsp:All>
+    </wsp:ExactlyOne>
+    <rampart:RampartConfig xmlns:rampart="http://ws.apache.org/rampart/policy">
+        <rampart:user>wso2carbon</rampart:user>
+        <rampart:encryptionUser>useReqSigCert</rampart:encryptionUser>
+        <rampart:timestampPrecisionInMilliseconds>true</rampart:timestampPrecisionInMilliseconds>
+        <rampart:timestampTTL>300</rampart:timestampTTL>
+        <rampart:timestampMaxSkew>300</rampart:timestampMaxSkew>
+        <rampart:timestampStrict>false</rampart:timestampStrict>
+        <rampart:tokenStoreClass>org.wso2.micro.integrator.security.extensions.SecurityTokenStore</rampart:tokenStoreClass>
+        <rampart:nonceLifeTime>300</rampart:nonceLifeTime>
+        <rampart:encryptionCrypto>
+            <rampart:crypto cryptoKey="org.wso2.carbon.security.crypto.privatestore" provider="org.wso2.micro.integrator.security.util.ServerCrypto">
+                <rampart:property name="org.wso2.carbon.security.crypto.alias">wso2carbon</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.privatestore">wso2carbon.jks</rampart:property>
+                <rampart:property name="org.wso2.stratos.tenant.id">-1234</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.truststores">wso2carbon.jks</rampart:property>
+                <rampart:property name="rampart.config.user">wso2carbon</rampart:property>
+            </rampart:crypto>
+        </rampart:encryptionCrypto>
+        <rampart:signatureCrypto>
+            <rampart:crypto cryptoKey="org.wso2.carbon.security.crypto.privatestore" provider="org.wso2.micro.integrator.security.util.ServerCrypto">
+                <rampart:property name="org.wso2.carbon.security.crypto.alias">wso2carbon</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.privatestore">wso2carbon.jks</rampart:property>
+                <rampart:property name="org.wso2.stratos.tenant.id">-1234</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.truststores">wso2carbon.jks</rampart:property>
+                <rampart:property name="rampart.config.user">wso2carbon</rampart:property>
+            </rampart:crypto>
+        </rampart:signatureCrypto>
+    </rampart:RampartConfig>
+</wsp:Policy>`;
+}
+
+function getEncryptUsernameWSPolicyTemplate() {
+    return `<wsp:Policy wsu:Id="EncrOnlyUsername" xmlns:sp="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+    <wsp:ExactlyOne>
+        <wsp:All>
+            <sp:SymmetricBinding>
+                <wsp:Policy>
+                    <sp:ProtectionToken>
+                        <wsp:Policy>
+                            <sp:X509Token sp:IncludeToken="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy/IncludeToken/Never">
+                                <wsp:Policy>
+                                    <sp:RequireThumbprintReference/>
+                                    <sp:WssX509V3Token10/>
+                                </wsp:Policy>
+                            </sp:X509Token>
+                        </wsp:Policy>
+                    </sp:ProtectionToken>
+                    <sp:AlgorithmSuite>
+                        <wsp:Policy>
+                            <sp:Basic256/>
+                        </wsp:Policy>
+                    </sp:AlgorithmSuite>
+                    <sp:Layout>
+                        <wsp:Policy>
+                            <sp:Lax/>
+                        </wsp:Policy>
+                    </sp:Layout>
+                    <sp:IncludeTimestamp/>
+                    <sp:OnlySignEntireHeadersAndBody/>
+                </wsp:Policy>
+            </sp:SymmetricBinding>
+            <sp:EncryptedParts>
+                <sp:Body/>
+            </sp:EncryptedParts>
+            <sp:SignedSupportingTokens>
+                <wsp:Policy>
+                    <sp:UsernameToken sp:IncludeToken="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy/IncludeToken/AlwaysToRecipient">
+                        <wsp:Policy>
+                            <sp:WssUsernameToken10/>
+                        </wsp:Policy>
+                    </sp:UsernameToken>
+                </wsp:Policy>
+            </sp:SignedSupportingTokens>
+            <sp:Wss11>
+                <wsp:Policy>
+                    <sp:MustSupportRefKeyIdentifier/>
+                    <sp:MustSupportRefIssuerSerial/>
+                    <sp:MustSupportRefThumbprint/>
+                    <sp:MustSupportRefEncryptedKey/>
+                    <sp:RequireSignatureConfirmation/>
+                </wsp:Policy>
+            </sp:Wss11>
+            <sp:Trust10>
+                <wsp:Policy>
+                    <sp:MustSupportIssuedTokens/>
+                    <sp:RequireClientEntropy/>
+                    <sp:RequireServerEntropy/>
+                </wsp:Policy>
+            </sp:Trust10>
+        </wsp:All>
+    </wsp:ExactlyOne>
+    <rampart:RampartConfig xmlns:rampart="http://ws.apache.org/rampart/policy">
+        <rampart:user>wso2carbon</rampart:user>
+        <rampart:encryptionUser>useReqSigCert</rampart:encryptionUser>
+        <rampart:timestampPrecisionInMilliseconds>true</rampart:timestampPrecisionInMilliseconds>
+        <rampart:timestampTTL>300</rampart:timestampTTL>
+        <rampart:timestampMaxSkew>300</rampart:timestampMaxSkew>
+        <rampart:timestampStrict>false</rampart:timestampStrict>
+        <rampart:tokenStoreClass>org.wso2.micro.integrator.security.extensions.SecurityTokenStore</rampart:tokenStoreClass>
+        <rampart:nonceLifeTime>300</rampart:nonceLifeTime>
+        <rampart:encryptionCrypto>
+            <rampart:crypto cryptoKey="org.wso2.carbon.security.crypto.privatestore" provider="org.wso2.micro.integrator.security.util.ServerCrypto">
+                <rampart:property name="org.wso2.carbon.security.crypto.alias">wso2carbon</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.privatestore">wso2carbon.jks</rampart:property>
+                <rampart:property name="org.wso2.stratos.tenant.id">-1234</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.truststores">wso2carbon.jks</rampart:property>
+                <rampart:property name="rampart.config.user">wso2carbon</rampart:property>
+            </rampart:crypto>
+        </rampart:encryptionCrypto>
+        <rampart:signatureCrypto>
+            <rampart:crypto cryptoKey="org.wso2.carbon.security.crypto.privatestore" provider="org.wso2.micro.integrator.security.util.ServerCrypto">
+                <rampart:property name="org.wso2.carbon.security.crypto.alias">wso2carbon</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.privatestore">wso2carbon.jks</rampart:property>
+                <rampart:property name="org.wso2.stratos.tenant.id">-1234</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.truststores">wso2carbon.jks</rampart:property>
+                <rampart:property name="rampart.config.user">wso2carbon</rampart:property>
+            </rampart:crypto>
+        </rampart:signatureCrypto>
+    </rampart:RampartConfig>
+{{#.}}
+    <sec:CarbonSecConfig xmlns:sec="http://www.wso2.org/products/carbon/security">
+        <sec:Authorization>
+            <sec:property name="org.wso2.carbon.security.allowedroles">{{.}}</sec:property>
+        </sec:Authorization>
+    </sec:CarbonSecConfig>
+{{/.}}</wsp:Policy>
+`;
+}
+
+function getSignUsernameWSPolicyTemplate() {
+    return `<wsp:Policy wsu:Id="SgnEncrUsername" xmlns:sp="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+    <wsp:ExactlyOne>
+        <wsp:All>
+            <sp:SymmetricBinding>
+                <wsp:Policy>
+                    <sp:ProtectionToken>
+                        <wsp:Policy>
+                            <sp:X509Token sp:IncludeToken="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy/IncludeToken/Never">
+                                <wsp:Policy>
+                                    <sp:RequireThumbprintReference/>
+                                    <sp:WssX509V3Token10/>
+                                </wsp:Policy>
+                            </sp:X509Token>
+                        </wsp:Policy>
+                    </sp:ProtectionToken>
+                    <sp:AlgorithmSuite>
+                        <wsp:Policy>
+                            <sp:Basic256/>
+                        </wsp:Policy>
+                    </sp:AlgorithmSuite>
+                    <sp:Layout>
+                        <wsp:Policy>
+                            <sp:Lax/>
+                        </wsp:Policy>
+                    </sp:Layout>
+                    <sp:IncludeTimestamp/>
+                    <sp:OnlySignEntireHeadersAndBody/>
+                </wsp:Policy>
+            </sp:SymmetricBinding>
+            <sp:SignedParts>
+                <sp:Body/>
+            </sp:SignedParts>
+            <sp:EncryptedParts>
+                <sp:Body/>
+            </sp:EncryptedParts>
+            <sp:SignedSupportingTokens>
+                <wsp:Policy>
+                    <sp:UsernameToken sp:IncludeToken="http://schemas.xmlsoap.org/ws/2005/07/securitypolicy/IncludeToken/AlwaysToRecipient">
+                        <wsp:Policy>
+                            <sp:WssUsernameToken10/>
+                        </wsp:Policy>
+                    </sp:UsernameToken>
+                </wsp:Policy>
+            </sp:SignedSupportingTokens>
+            <sp:Wss11>
+                <wsp:Policy>
+                    <sp:MustSupportRefKeyIdentifier/>
+                    <sp:MustSupportRefIssuerSerial/>
+                    <sp:MustSupportRefThumbprint/>
+                    <sp:MustSupportRefEncryptedKey/>
+                    <sp:RequireSignatureConfirmation/>
+                </wsp:Policy>
+            </sp:Wss11>
+            <sp:Trust10>
+                <wsp:Policy>
+                    <sp:MustSupportIssuedTokens/>
+                    <sp:RequireClientEntropy/>
+                    <sp:RequireServerEntropy/>
+                </wsp:Policy>
+            </sp:Trust10>
+        </wsp:All>
+    </wsp:ExactlyOne>
+    <rampart:RampartConfig xmlns:rampart="http://ws.apache.org/rampart/policy">
+        <rampart:user>wso2carbon</rampart:user>
+        <rampart:encryptionUser>useReqSigCert</rampart:encryptionUser>
+        <rampart:timestampPrecisionInMilliseconds>true</rampart:timestampPrecisionInMilliseconds>
+        <rampart:timestampTTL>300</rampart:timestampTTL>
+        <rampart:timestampMaxSkew>300</rampart:timestampMaxSkew>
+        <rampart:timestampStrict>false</rampart:timestampStrict>
+        <rampart:tokenStoreClass>org.wso2.micro.integrator.security.extensions.SecurityTokenStore</rampart:tokenStoreClass>
+        <rampart:nonceLifeTime>300</rampart:nonceLifeTime>
+        <rampart:encryptionCrypto>
+            <rampart:crypto cryptoKey="org.wso2.carbon.security.crypto.privatestore" provider="org.wso2.micro.integrator.security.util.ServerCrypto">
+                <rampart:property name="org.wso2.carbon.security.crypto.alias">wso2carbon</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.privatestore">wso2carbon.jks</rampart:property>
+                <rampart:property name="org.wso2.stratos.tenant.id">-1234</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.truststores">wso2carbon.jks</rampart:property>
+                <rampart:property name="rampart.config.user">wso2carbon</rampart:property>
+            </rampart:crypto>
+        </rampart:encryptionCrypto>
+        <rampart:signatureCrypto>
+            <rampart:crypto cryptoKey="org.wso2.carbon.security.crypto.privatestore" provider="org.wso2.micro.integrator.security.util.ServerCrypto">
+                <rampart:property name="org.wso2.carbon.security.crypto.alias">wso2carbon</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.privatestore">wso2carbon.jks</rampart:property>
+                <rampart:property name="org.wso2.stratos.tenant.id">-1234</rampart:property>
+                <rampart:property name="org.wso2.carbon.security.crypto.truststores">wso2carbon.jks</rampart:property>
+                <rampart:property name="rampart.config.user">wso2carbon</rampart:property>
+            </rampart:crypto>
+        </rampart:signatureCrypto>
+    </rampart:RampartConfig>
+{{#.}}
+    <sec:CarbonSecConfig xmlns:sec="http://www.wso2.org/products/carbon/security">
+        <sec:Authorization>
+            <sec:property name="org.wso2.carbon.security.allowedroles">{{.}}</sec:property>
+        </sec:Authorization>
+    </sec:CarbonSecConfig>
+{{/.}}</wsp:Policy>`;
 }

@@ -30,6 +30,7 @@ import { spawn } from "child_process";
 import { RPCLayer } from "../RPCLayer";
 import { VisualizerWebview } from "../visualizer/webview";
 import { MiVisualizerRpcManager } from "../rpc-managers/mi-visualizer/rpc-manager";
+import { compareVersions, getMIVersionFromPom } from "./onboardingUtils";
 
 interface ProgressMessage {
     message: string;
@@ -644,9 +645,16 @@ export async function createMetadataFilesForRegistryCollection(collectionRoot: s
  * @param projectDir    The project directory.
  * @returns             The list of available registry resources.
  */
-export function getAvailableRegistryResources(projectDir: string): ListRegistryArtifactsResponse {
+export async function getAvailableRegistryResources(projectDir: string): Promise<ListRegistryArtifactsResponse> {
     const result: RegistryArtifact[] = [];
-    var artifactXMLPath = path.join(projectDir, 'src', 'main', 'wso2mi', 'resources', 'registry', 'artifact.xml');
+    
+    const miVersion = await getMIVersionFromPom();
+    if (miVersion && compareVersions(miVersion, '4.4.0') >= 0) {
+        var artifactXMLPath = path.join(projectDir, 'src', 'main', 'wso2mi', 'resources', 'artifact.xml');
+    } else {
+        var artifactXMLPath = path.join(projectDir, 'src', 'main', 'wso2mi', 'resources', 'registry', 'artifact.xml');
+    }
+
     if (fs.existsSync(artifactXMLPath)) {
         const artifactXML = fs.readFileSync(artifactXMLPath, "utf8");
         const options = {

@@ -110,6 +110,11 @@ function getTestSuiteMustacheTemplate() {
             </registry-resource>
             {{/registryResources}}
         </registry-resources>
+        <connector-resources>
+            {{#connectorResources}}
+            <connector-resource>{{.}}</connector-resource>
+            {{/connectorResources}}
+        </connector-resources>
     </artifacts>
     <test-cases>
         {{#testCases}}

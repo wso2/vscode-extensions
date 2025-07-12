@@ -98,10 +98,10 @@ export function MessageProcessorWizard(props: MessageProcessorWizardProps) {
             .matches(/^[a-zA-Z0-9_-]*$/, "Invalid characters in Message Processor name")
             .test('validateTaskName',
                 'An artifact with same name already exists', value => {
-                    return !(workspaceFileNames.includes(value) && savedMPName !== value)
+                    return !(workspaceFileNames.includes(value.toLowerCase()) && savedMPName !== value)
                 }).test('validateArtifactName',
                     'A registry resource with this artifact name already exists', value => {
-                        return !(artifactNames.includes(value) && savedMPName !== value)
+                        return !(artifactNames.includes(value.toLowerCase()) && savedMPName !== value)
                     }),
         messageProcessorType: yup.string().default(""),
         messageStoreType: yup.string().when('messageProcessorType', {
@@ -198,11 +198,11 @@ export function MessageProcessorWizard(props: MessageProcessorWizardProps) {
             const artifactRes = await rpcClient.getMiDiagramRpcClient().getAllArtifacts({
                 path: props.path,
             });
-            setWorkspaceFileNames(artifactRes.artifacts);
+            setWorkspaceFileNames(artifactRes.artifacts.map(name => name.toLowerCase()));
             const regArtifactRes = await rpcClient.getMiDiagramRpcClient().getAvailableRegistryResources({
                 path: props.path,
             });
-            setArtifactNames(regArtifactRes.artifacts);
+            setArtifactNames(regArtifactRes.artifacts.map(name => name.toLowerCase()));
 
             if (props.path.endsWith(".xml")) {
                 setIsNewMessageProcessor(false);

@@ -80,11 +80,14 @@ import {
     toggleDisplayOverview,
     updateContext,
     getProjectDetails,
+    updateProperties,
+    reloadIntegrationProjectDependencies,
     updateDependencies,
     updatePomValues,
     updateConfigFileValues,
     ProjectDetailsResponse,
     importOpenAPISpec,
+    UpdatePropertiesRequest,
     UpdateDependenciesRequest,
     UpdatePomValuesRequest,
     UpdateConfigValuesRequest,
@@ -244,6 +247,12 @@ export class MiVisualizerRpcClient implements MIVisualizerAPI {
     }
     getProjectDetails(): Promise<ProjectDetailsResponse> {
         return this._messenger.sendRequest(getProjectDetails, HOST_EXTENSION);
+    }
+    updateProperties(params: UpdatePropertiesRequest): Promise<boolean> {
+        return this._messenger.sendRequest(updateProperties, HOST_EXTENSION, params);
+    }
+    reloadIntegrationProjectDependencies(): Promise<boolean> {
+        return this._messenger.sendRequest(reloadIntegrationProjectDependencies, HOST_EXTENSION);
     }
     updateDependencies(params: UpdateDependenciesRequest): Promise<boolean> {
         return this._messenger.sendRequest(updateDependencies, HOST_EXTENSION, params);

@@ -76,10 +76,10 @@ export function SequenceWizard(props: SequenceWizardProps) {
         name: yup.string().required("Sequence name is required").matches(/^[a-zA-Z0-9_-]*$/, "Invalid characters in sequence name")
             .test('validateSequenceName',
                 'An artifact with same name already exists', value => {
-                    return !workspaceFileNames.includes(value)
+                    return !workspaceFileNames.includes(value.toLowerCase())
                 }).test('validateArtifactName',
                     'A registry resource with this artifact name already exists', value => {
-                        return !artifactNames.includes(value)
+                        return !artifactNames.includes(value.toLowerCase())
                     }),
         endpoint: yup.string().notRequired(),
         onErrorSequence: yup.string().notRequired(),
@@ -93,10 +93,10 @@ export function SequenceWizard(props: SequenceWizardProps) {
             otherwise: () =>
                 yup.string().required("Artifact Name is required").test('validateArtifactName',
                     'Artifact name already exists', value => {
-                        return !artifactNames.includes(value);
+                        return !artifactNames.includes(value.toLowerCase());
                     }).test('validateFileName',
                         'A file already exists in the workspace with this artifact name', value => {
-                            return !workspaceFileNames.includes(value);
+                            return !workspaceFileNames.includes(value.toLowerCase());
                         }),
         }),
         registryPath: yup.string().when('saveInReg', {
@@ -131,7 +131,7 @@ export function SequenceWizard(props: SequenceWizardProps) {
     useEffect(() => {
         (async () => {
             const result = await getArtifactNamesAndRegistryPaths(props.path, rpcClient);
-            setArtifactNames(result.artifactNamesArr);
+            setArtifactNames(result.artifactNamesArr.map(name => name.toLowerCase()));
             setRegistryPaths(result.registryPaths);
             const artifactRes = await rpcClient.getMiDiagramRpcClient().getAllArtifacts({
                 path: props.path,
@@ -139,7 +139,7 @@ export function SequenceWizard(props: SequenceWizardProps) {
             const response = await rpcClient.getMiVisualizerRpcClient().getProjectDetails();
             const runtimeVersion = response.primaryDetails.runtimeVersion.value;
             setIsRegistryContentVisible(compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0);
-            setWorkspaceFileNames(artifactRes.artifacts);
+            setWorkspaceFileNames(artifactRes.artifacts.map(name => name.toLowerCase()));
         })();
     }, []);
 
@@ -159,6 +159,12 @@ export function SequenceWizard(props: SequenceWizardProps) {
             directory: sequenceDir,
         }
         const result = await rpcClient.getMiDiagramRpcClient().createSequence(createSequenceParams);
+
+        if (result.filePath === "") {
+            let registryDir = path.join(projectDir, 'src', 'main', 'wso2mi', 'resources', 'registry', values.registryType);
+            const registryPath = path.join(registryDir, values.registryPath);
+            result.filePath = path.join(registryPath, values.name + ".xml");
+        }
 
         if (watch("saveInReg")) {
             await saveToRegistry(rpcClient, props.path, values.registryType, values.name, result.fileContent, values.registryPath, values.artifactName);

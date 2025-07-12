@@ -138,10 +138,10 @@ export function TaskForm(props: TaskFormProps) {
             .matches(/^[a-zA-Z0-9]*$/, "Invalid characters in Task name")
             .test('validateTaskName',
                 'An artifact with same name already exists', value => {
-                    return !(workspaceFileNames.includes(value) && savedTaskName !== value)
+                    return !(workspaceFileNames.includes(value.toLowerCase()) && savedTaskName !== value)
                 }).test('validateArtifactName',
                     'A registry resource with this artifact name already exists', value => {
-                        return !(artifactNames.includes(value) && savedTaskName !== value)
+                        return !(artifactNames.includes(value.toLowerCase()) && savedTaskName !== value)
                     }),
         group: yup.string().required("Task group is required"),
         implementation: yup.string().required("Task Implementation is required"),
@@ -253,11 +253,11 @@ export function TaskForm(props: TaskFormProps) {
             const artifactRes = await rpcClient.getMiDiagramRpcClient().getAllArtifacts({
                 path: props.path,
             });
-            setWorkspaceFileNames(artifactRes.artifacts);
+            setWorkspaceFileNames(artifactRes.artifacts.map(name => name.toLowerCase()));
             const regArtifactRes = await rpcClient.getMiDiagramRpcClient().getAvailableRegistryResources({
                 path: props.path,
             });
-            setArtifactNames(regArtifactRes.artifacts);
+            setArtifactNames(regArtifactRes.artifacts.map(name => name.toLowerCase()));
         })();
     }, []);
 

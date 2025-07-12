@@ -117,11 +117,11 @@ export function AddressEndpointWizard(props: AddressEndpointWizardProps) {
             .matches(/^[^@\\^+;:!%&,=*#[\]?'"<>{}() /]*$/, "Invalid characters in Endpoint Name")
             .test('validateEndpointName',
                 'An artifact with same name already exists', value => {
-                    return !isNewEndpoint ? !(workspaceFileNames.includes(value) && value !== savedEPName) : !workspaceFileNames.includes(value);
+                    return !isNewEndpoint ? !(workspaceFileNames.includes(value.toLowerCase()) && value !== savedEPName) : !workspaceFileNames.includes(value.toLowerCase());
                 })
             .test('validateEndpointArtifactName',
                 'A registry resource with this artifact name already exists', value => {
-                    return !isNewEndpoint ? !(artifactNames.includes(value) && value !== savedEPName) : !artifactNames.includes(value);
+                    return !isNewEndpoint ? !(artifactNames.includes(value.toLowerCase()) && value !== savedEPName) : !artifactNames.includes(value.toLowerCase());
                 }) :
             yup.string().required("Endpoint Name is required")
                 .matches(/^[^@\\^+;:!%&,=*#[\]?'"<>{}() /]*$/, "Invalid characters in Endpoint Name"),
@@ -170,11 +170,11 @@ export function AddressEndpointWizard(props: AddressEndpointWizardProps) {
             .matches(/^[^@\\^+;:!%&,=*#[\]?'"<>{}() /]*$/, "Invalid characters in Template Name")
             .test('validateTemplateName',
                 'An artifact with same name already exists', value => {
-                    return !isNewEndpoint ? !(workspaceFileNames.includes(value) && value !== savedEPName) : !workspaceFileNames.includes(value);
+                    return !isNewEndpoint ? !(workspaceFileNames.includes(value.toLowerCase()) && value !== savedEPName) : !workspaceFileNames.includes(value.toLowerCase());
                 })
             .test('validateTemplateArtifactName',
                 'A registry resource with this artifact name already exists', value => {
-                    return !isNewEndpoint ? !(artifactNames.includes(value) && value !== savedEPName) : !artifactNames.includes(value);
+                    return !isNewEndpoint ? !(artifactNames.includes(value.toLowerCase()) && value !== savedEPName) : !artifactNames.includes(value.toLowerCase());
                 }) :
             yup.string().notRequired().default(""),
         requireTemplateParameters: yup.boolean().notRequired().default(false),
@@ -187,11 +187,11 @@ export function AddressEndpointWizard(props: AddressEndpointWizardProps) {
                 yup.string().required("Artifact Name is required")
                     .test('validateArtifactName',
                         'Artifact name already exists', value => {
-                            return !artifactNames.includes(value);
+                            return !artifactNames.includes(value.toLowerCase());
                         })
                     .test('validateFileName',
                         'A file already exists in the workspace with this artifact name', value => {
-                            return !workspaceFileNames.includes(value);
+                            return !workspaceFileNames.includes(value.toLowerCase());
                         }),
         }),
         registryPath: yup.string().when('saveInReg', {
@@ -328,7 +328,7 @@ export function AddressEndpointWizard(props: AddressEndpointWizardProps) {
             }
 
             const result = await getArtifactNamesAndRegistryPaths(props.path, rpcClient);
-            setArtifactNames(result.artifactNamesArr);
+            setArtifactNames(result.artifactNamesArr.map(name => name.toLowerCase()));
             setRegistryPaths(result.registryPaths);
             const artifactRes = await rpcClient.getMiDiagramRpcClient().getAllArtifacts({
                 path: props.path,
@@ -336,7 +336,7 @@ export function AddressEndpointWizard(props: AddressEndpointWizardProps) {
             const response = await rpcClient.getMiVisualizerRpcClient().getProjectDetails();
             const runtimeVersion = response.primaryDetails.runtimeVersion.value;
             setIsRegistryContentVisible(compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0);
-            setWorkspaceFileNames(artifactRes.artifacts);
+            setWorkspaceFileNames(artifactRes.artifacts.map(name => name.toLowerCase()));
         })();
     }, [props.path]);
 

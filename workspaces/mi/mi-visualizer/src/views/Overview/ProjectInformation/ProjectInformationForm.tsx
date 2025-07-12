@@ -50,6 +50,11 @@ const treeViewSelectedStyle = { margin: "0px 0px 3px", whiteSpace: "nowrap", ove
 const treeViewStyle = { ...treeViewSelectedStyle, opacity: 0.8 };
 const sectionTitleStyle = { margin: 0, paddingLeft: 20 };
 
+// Field name to pom property name mapping
+export const fieldToPomPropertyMap: Record<string, string> = {
+    "buildDetails-enableFatCar": "fat.car.enable",
+};
+
 export function ProjectInformationForm(props: ProjectInformationFormProps) {
     const { rpcClient } = useVisualizerContext();
     const [projectDetails, setProjectDetails] = useState<ProjectDetailsResponse>();
@@ -64,6 +69,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
         "primaryDetails-runtimeVersion": yup.string().required("Runtime version is required"),
         "buildDetails-dockerDetails-dockerFileBaseImage": yup.string().required("Base image is required"),
         "buildDetails-dockerDetails-dockerName": yup.string().required("Docker name is required"),
+        "buildDetails-enableFatCar": yup.boolean(),
         "buildDetails-dockerDetails-enableCipherTool": yup.boolean(),
         "buildDetails-dockerDetails-keyStoreName": yup.string(),
         "buildDetails-dockerDetails-keyStoreAlias": yup.string(),
@@ -169,6 +175,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                     "primaryDetails-runtimeVersion": response.primaryDetails?.runtimeVersion?.value,
                     "buildDetails-dockerDetails-dockerFileBaseImage": response.buildDetails?.dockerDetails?.dockerFileBaseImage?.value,
                     "buildDetails-dockerDetails-dockerName": response.buildDetails?.dockerDetails?.dockerName.value,
+                    "buildDetails-enableFatCar": response.buildDetails?.enableFatCar?.value === 'true',
                     "buildDetails-dockerDetails-enableCipherTool": Boolean(response.buildDetails?.dockerDetails?.cipherToolEnable?.value),
                     "buildDetails-dockerDetails-keyStoreName": response.buildDetails?.dockerDetails?.keyStoreName?.value,
                     "buildDetails-dockerDetails-keyStoreAlias": response.buildDetails?.dockerDetails?.keyStoreAlias?.value,
@@ -238,6 +245,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
     const handleFormSubmit = async () => {
         try {
             const changes: any[] = [];
+            const fieldsToAdd: string[] = [];
             Object.entries(dirtyFields).forEach(async ([field]) => {
                 if (field === "advanced-legacyExpressionSupport") {
                     let isLegacyExpressionSupportEnabled = getValues("advanced-legacyExpressionSupport");
@@ -254,6 +262,9 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                     } else {
                         changes.push({ value: fieldValue, range });
                     }
+                } else {
+                    // No range found, so this field needs to be newly added
+                    fieldsToAdd.push(field);
                 }
             });
 
@@ -262,6 +273,19 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                 const sortedChanges = changes.sort((a, b) => b.range.start - a.range.start);
 
                 await rpcClient.getMiVisualizerRpcClient().updatePomValues({ pomValues: sortedChanges });
+            }
+            if (fieldsToAdd.length > 0) {
+                const newProperties = fieldsToAdd.map(field => {
+                    const value = getValues(field as any);
+                    const name = fieldToPomPropertyMap[field];
+                    if (!name) {
+                        return null; // Skip if no mapping found
+                    }
+                    return { name, value: typeof value === "boolean" ? value.toString() : value };
+                });
+                if (newProperties.length > 0) {
+                    await rpcClient.getMiVisualizerRpcClient().updateProperties({ properties: newProperties });
+                }
             }
 
             let isRemoteDeploymentSupportEnabled = getValues("deployment-deployOnRemoteServer");
@@ -472,6 +496,14 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                                 descriptionSx={{ margin: "10px 0" }}
                                 sx={fieldStyle}
                                 {...register("buildDetails-dockerDetails-dockerName")}
+                            />
+                            <FormCheckBox
+                                label="Enable Fat CAR"
+                                description="Enables the Fat CAR build option"
+                                descriptionSx={{ margin: "10px 0" }}
+                                control={control as any}
+                                sx={fieldStyle}
+                                {...register("buildDetails-enableFatCar")}
                             />
                             <FormCheckBox
                                 label="Enable Cipher Tool"

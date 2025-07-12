@@ -41,6 +41,7 @@ import {
     ReadmeContentResponse,
     AddConfigurableRequest,
     ProjectDetailsResponse,
+    UpdatePropertiesRequest,
     UpdateDependenciesRequest,
     UpdatePomValuesRequest,
     UpdateConfigValuesRequest,
@@ -86,6 +87,8 @@ export interface MIVisualizerAPI {
     downloadMI: (params: DownloadMIRequest) => Promise<string>;
     getSupportedMIVersionsHigherThan: (param:string) => Promise<string[]>;
     getProjectDetails: () => Promise<ProjectDetailsResponse>;
+    updateProperties: (params: UpdatePropertiesRequest) => Promise<boolean>;
+    reloadIntegrationProjectDependencies: () => Promise<boolean>;
     updateDependencies: (params: UpdateDependenciesRequest) => Promise<boolean>;
     updatePomValues: (params: UpdatePomValuesRequest) => Promise<boolean>;
     updateConfigFileValues: (params: UpdateConfigValuesRequest) => Promise<boolean>;

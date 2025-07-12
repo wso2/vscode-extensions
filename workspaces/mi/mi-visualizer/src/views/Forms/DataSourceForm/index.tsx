@@ -92,9 +92,19 @@ export function DataSourceWizard(props: DataSourceFormProps) {
     const [step, setStep] = useState(1);
     const [isEnableURLEdit, setIsEnableURLEdit] = React.useState(false);
     const [prevDbType, setPrevDbType] = React.useState("MySQL");
+    const [artifactNames, setArtifactNames] = useState([]);
+    const [workspaceFileNames, setWorkspaceFileNames] = useState([]);
 
     const schema = yup.object({
-        name: yup.string().required("Datasource name is required").matches(/^[^@\\^+;:!%&,=*#[\]$?'"<>{}() /]*$/, "Invalid characters in datasource name"),
+        name: yup.string().required("Datasource name is required")
+            .matches(/^[a-zA-Z0-9_-]*$/, "Invalid characters in Datasource name")
+            .test('validateTaskName',
+                'An artifact with same name already exists', value => {
+                    return !workspaceFileNames.includes(value.toLowerCase())
+                }).test('validateArtifactName',
+                'A registry resource with this artifact name already exists', value => {
+                    return !artifactNames.includes(value.toLowerCase())
+                }),
         description: yup.string().notRequired(),
         type: yup.string().required("Datasource type is required"),
         dataSourceProvider: yup.string().when('type', {
@@ -212,12 +222,21 @@ export function DataSourceWizard(props: DataSourceFormProps) {
     }, [dsConfigParams]);
 
     useEffect(() => {
-        if (props.path.endsWith(".xml")) {
-            setIsUpdate(true);
-            if (props.path.includes('dataSources')) {
-                props.path = props.path.replace('dataSources', 'data-sources');
-            }
-            (async () => {
+        (async () => {
+            const artifactRes = await rpcClient.getMiDiagramRpcClient().getAllArtifacts({
+                path: props.path,
+            });
+            setWorkspaceFileNames(artifactRes.artifacts.map(name => name.toLowerCase()));
+            const regArtifactRes = await rpcClient.getMiDiagramRpcClient().getAvailableRegistryResources({
+                path: props.path,
+            });
+            setArtifactNames(regArtifactRes.artifacts.map(name => name.toLowerCase()));
+
+            if (props.path.endsWith(".xml")) {
+                setIsUpdate(true);
+                if (props.path.includes('dataSources')) {
+                    props.path = props.path.replace('dataSources', 'data-sources');
+                }
                 const response = await rpcClient.getMiDiagramRpcClient().getDataSource({ path: props.path });
                 reset(response);
                 const formValues = getValues();
@@ -297,11 +316,11 @@ export function DataSourceWizard(props: DataSourceFormProps) {
 
                     extractValuesFromUrl(response.url, watch("dbEngine"));
                 }
-            })();
-        } else {
-            setIsUpdate(false);
-            reset(newDataSource);
-        }
+            } else {
+                setIsUpdate(false);
+                reset(newDataSource);
+            }
+        })();
     }, [props.path]);
 
     useEffect(() => {
