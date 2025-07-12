@@ -45,6 +45,10 @@ export function ProjectInformation(props: ProjectInformationProps) {
         paramValues: [],
         paramFields: []
     });
+    const [integrationProjectDependencies, setIntegrationProjectDependencies] = useState<ParamConfig>({
+        paramValues: [],
+        paramFields: []
+    });
     const [otherDependencies, setOtherDependencies] = useState<ParamConfig>({
         paramValues: [],
         paramFields: []
@@ -57,6 +61,7 @@ export function ProjectInformation(props: ProjectInformationProps) {
                 const response = await rpcClient.getMiVisualizerRpcClient().getProjectDetails();
                 setProjectDetails(response);
                 setDependencies(response.dependencies.connectorDependencies, setConnectorDependencies);
+                setDependencies(response.dependencies.integrationProjectDependencies, setIntegrationProjectDependencies);
                 setDependencies(response.dependencies.otherDependencies, setOtherDependencies);
             } catch (error) {
                 console.error("Error fetching project details:", error);
@@ -198,6 +203,10 @@ export function ProjectInformation(props: ProjectInformationProps) {
         </>;
     }
 
+    const reloadIntegrationProjectDependencies = () => {
+       rpcClient.getMiVisualizerRpcClient().reloadIntegrationProjectDependencies();
+    }
+
     const handleEditProjectInformation = (componentType: string) => {
         rpcClient.getMiVisualizerRpcClient().openView({
             type: POPUP_EVENT_TYPE.OPEN_VIEW,
@@ -250,6 +259,18 @@ export function ProjectInformation(props: ProjectInformationProps) {
 
             <Typography variant="h4" sx={{margin: "10px 0 12px", opacity: 0.8}}>Connector Dependencies</Typography>
             {Dependencies("Connector Dependencies", dependencies?.connectorDependencies, "zip", connectorDependencies, setConnectorDependencies)}
+
+            <Divider />
+
+            <Typography variant="h4" sx={{margin: "10px 0 12px", opacity: 0.8, display: 'flex', alignItems: 'center'}}>
+                Integration Project Dependencies
+                <div style={{ display: "flex", paddingRight: 6, flex: 1, justifyContent: "flex-end" }}>
+                    <Button appearance="icon" tooltip="Reload Integration Project Dependencies" onClick={() => reloadIntegrationProjectDependencies()}>
+                        <Icon name="refresh" isCodicon sx={{ flex: 1 }} />
+                    </Button>
+                </div>
+            </Typography>
+            {Dependencies("Integration Project Dependencies", dependencies?.integrationProjectDependencies, "car", integrationProjectDependencies, setIntegrationProjectDependencies)}
 
             <Divider />
 

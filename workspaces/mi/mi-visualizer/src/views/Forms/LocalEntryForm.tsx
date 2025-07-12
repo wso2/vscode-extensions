@@ -104,10 +104,10 @@ export function LocalEntryWizard(props: LocalEntryWizardProps) {
     const schema = yup.object({
         name: yup.string().required("Local Entry Name is required").matches(/^[^@\\^+;:!%&,=*#[\]$?'"<>{}() /]*$/, "Invalid characters in Local Entry name")
             .test('validateSequenceName', 'An artifact with same name already exists', value => {
-                return !(workspaceFileNames.includes(value) && savedLocalEntryName !== value)
+                return !(workspaceFileNames.includes(value.toLowerCase()) && savedLocalEntryName !== value)
             })
             .test('validateArtifactName', 'A registry resource with this artifact name already exists', value => {
-                return !(artifactNames.includes(value) && savedLocalEntryName !== value)
+                return !(artifactNames.includes(value.toLowerCase()) && savedLocalEntryName !== value)
             }),
         type: yup.string(),
         saveInReg: yup.boolean().default(false),
@@ -133,10 +133,10 @@ export function LocalEntryWizard(props: LocalEntryWizardProps) {
             otherwise: () =>
                 yup.string().required("Artifact Name is required")
                     .test('validateArtifactName', 'Artifact name already exists', value => {
-                        return !artifactNames.includes(value);
+                        return !artifactNames.includes(value.toLowerCase());
                     })
                     .test('validateFileName', 'A file already exists in the workspace with this artifact name', value => {
-                        return !workspaceFileNames.includes(value);
+                        return !workspaceFileNames.includes(value.toLowerCase());
                     }),
         }),
         registryPath: yup.string().when('saveInReg', {
@@ -172,7 +172,7 @@ export function LocalEntryWizard(props: LocalEntryWizardProps) {
     useEffect(() => {
         (async () => {
             const result = await getArtifactNamesAndRegistryPaths(props.path, rpcClient);
-            setArtifactNames(result.artifactNamesArr);
+            setArtifactNames(result.artifactNamesArr.map(name => name.toLowerCase()));
             setRegistryPaths(result.registryPaths);
             const artifactRes = await rpcClient.getMiDiagramRpcClient().getAllArtifacts({
                 path: props.path,
@@ -180,7 +180,7 @@ export function LocalEntryWizard(props: LocalEntryWizardProps) {
             const response = await rpcClient.getMiVisualizerRpcClient().getProjectDetails();
             const runtimeVersion = response.primaryDetails.runtimeVersion.value;
             setIsRegistryContentVisible(compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0);
-            setWorkspaceFileNames(artifactRes.artifacts);
+            setWorkspaceFileNames(artifactRes.artifacts.map(name => name.toLowerCase()));
         })();
     }, [props.path]);
 
