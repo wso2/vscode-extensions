@@ -52,6 +52,7 @@ import { log } from '../util/logger';
 import { getJavaHomeFromConfig } from '../util/onboardingUtils';
 import { SELECTED_SERVER_PATH } from '../debugger/constants';
 import { extension } from '../MIExtensionContext';
+import { extractCAppDependenciesAsProjects } from '../visualizer/activate';
 const exec = util.promisify(require('child_process').exec);
 
 export interface ScopeInfo {
@@ -258,6 +259,10 @@ export class MILanguageClient {
                 this.languageClient = new ExtendedLanguageClient('synapseXML', 'Synapse Language Server', this.projectUri,
                     serverOptions, clientOptions);
                 await this.languageClient.start();
+                const projectDetails = await this.languageClient?.getProjectDetails();
+                const projectName = projectDetails.primaryDetails.projectName.value;
+                await extractCAppDependenciesAsProjects(projectName);
+                await this.languageClient?.loadDependentCAppResources();
 
                 //Setup autoCloseTags
                 let tagProvider: (document: TextDocument, position: Position) => Thenable<AutoCloseResult> = (document: TextDocument, position: Position) => {

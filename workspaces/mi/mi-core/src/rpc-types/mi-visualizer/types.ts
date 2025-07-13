@@ -121,6 +121,7 @@ export interface PrimaryDetails {
 
 export interface BuildDetails {
     dockerDetails: DockerDetails;
+    enableFatCar: PomNodeDetails;
     advanceDetails: AdvanceDetails;
 }
 
@@ -148,7 +149,14 @@ export interface PluginDetatils {
 
 export interface DependenciesDetails {
     connectorDependencies: DependencyDetails[];
+    integrationProjectDependencies: DependencyDetails[];
     otherDependencies: DependencyDetails[];
+}
+
+export interface PropertyDetails {
+    name: string;
+    value: string;
+    range?: STRange;
 }
 
 export interface DependencyDetails {
@@ -177,11 +185,18 @@ export interface UpdateConfigValuesRequest {
     configValues: PomNodeDetails[];
 }
 
+export interface UpdatePropertiesRequest {
+    properties: PropertyDetails[];
+}
 export interface UpdateDependenciesRequest {
     dependencies: DependencyDetails[];
 }
 
 export interface UpdateConfigValuesResponse {
+    textEdits: TextEdit[];
+}
+
+export interface UpdatePropertiesResponse {
     textEdits: TextEdit[];
 }
 

@@ -234,9 +234,6 @@ export const ResourceForm = ({ isOpen, onCancel, onSave, formData }: ResourceFor
                                 <LinkButton onClick={showPathParam}>
                                     <Codicon name="add"/><>Add Path Param</>
                                 </LinkButton>
-                                <LinkButton onClick={showQueryParam}>
-                                    <Codicon name="add"/><>Add Query Param</>
-                                </LinkButton>
                             </AddButtonWrapper>
                             <Dropdown
                                 label="Resource Method"
