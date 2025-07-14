@@ -1,6 +1,6 @@
 # Change log
 
-## **1.1.0** (2025-07-12)
+## **1.1.0** (2025-07-14)
 
 ### Major Features
 
@@ -16,7 +16,7 @@
 
 ### Changed
 
-- **Project Management**: Refactored artifacts management and navigation system for better organization
+- **Integration Management**: Refactored artifacts management and navigation
 - **UI Components**: 
   - Type Diagram and GraphQL designer with improved visual presentation
 - **Developer Experience**:
@@ -28,7 +28,6 @@
 
 - **Extension Stability**:
   - Resolved extension startup and activation issues for reliable performance
-  - Improved compatibility across different development environments
 - **Data Mapping & Visualization**:
   - Fixed issues when working with complex data types from imported modules
   - Improved visualization of array types and nested data structures
@@ -45,7 +44,6 @@
   - Improved file path handling across different operating systems
 - **User Interface**:
   - Fixed theme-related display issues in command interfaces
-  - Enhanced project artifact management and navigation
 
 
 ## **1.0.3** (2024-05-28)
