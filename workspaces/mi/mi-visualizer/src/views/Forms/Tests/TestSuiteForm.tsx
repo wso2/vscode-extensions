@@ -18,7 +18,7 @@
 
 import styled from "@emotion/styled";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { EVENT_TYPE, MACHINE_VIEW, ProjectStructureArtifactResponse, GetSelectiveArtifactsResponse, GetUserAccessTokenResponse, ResourceType, RegistryArtifact } from "@wso2/mi-core";
+import { EVENT_TYPE, MACHINE_VIEW, ProjectStructureArtifactResponse, GetSelectiveArtifactsResponse, GetUserAccessTokenResponse, ResourceType, RegistryArtifact, GetAvailableConnectorResponse } from "@wso2/mi-core";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { Button, ComponentCard, ContainerProps, ContextMenu, Dropdown, FormActions, FormGroup, FormView, Item, ProgressIndicator, TextField, Typography, Icon } from "@wso2/ui-toolkit";
 import { useEffect, useState } from "react";
@@ -32,6 +32,8 @@ import { SelectMockService } from "./MockServices/SelectMockService";
 import { MI_UNIT_TEST_GENERATION_BACKEND_URL } from "../../../constants";
 import { getParamManagerFromValues, getParamManagerValues, ParamConfig, ParamField, ParamManager, ParamValue } from "@wso2/mi-diagram";
 import { normalize } from "upath";
+import { compareVersions } from "@wso2/mi-diagram/lib/utils/commons";
+import { getProjectRuntimeVersion } from "../../AIPanel/utils";
 
 interface TestSuiteFormProps {
     stNode?: UnitTest;
@@ -88,6 +90,7 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
 
     const [testCases, setTestCases] = useState<TestCaseEntry[]>([]);
     const [mockServices, setMockServices] = useState<MockServiceEntry[]>([]);
+    const [connectorData, setConnectorData] = useState<any[]>([]);
 
     const [currentTestCase, setCurrentTestCase] = useState<TestCaseEntry | undefined>(undefined);
     const [currentMockService, setCurrentMockService] = useState<MockServiceEntry | undefined>(undefined);
@@ -101,6 +104,8 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
     const isWindows = props.isWindows;
     const fileName = filePath ? filePath.split(isWindows ? path.win32.sep : path.sep).pop().split(".xml")[0] : undefined;
 
+    const [miVersion, setMiVersion] = useState<string>("");
+
     const paramConfigs: ParamField = {
         id: 0,
         type: "KeyLookup",
@@ -113,7 +118,7 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
         id: 0,
         type: "KeyLookup",
         label: "Name",
-        filterType: ["sequence", "endpoint", "sequenceTemplate", "endpointTemplate", "localEntry", "registry"] as ResourceType[],
+        filterType: ["sequence", "endpoint", "sequenceTemplate", "endpointTemplate", "localEntry", "unitTestRegistry"] as ResourceType[],
         isRequired: true,
         artifactTypes: { registryArtifacts: true, artifacts: false }
     };
@@ -135,6 +140,7 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
         artifactType: yup.string().required("Artifact type is required"),
         artifact: yup.string().required("Artifact is required"),
         supportiveArtifacts: yup.object<ParamConfig>(),
+        connectorResources: yup.object<ParamConfig>(),
         registryResources: yup.object<ParamConfig>()
     });
 
@@ -157,6 +163,10 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
             supportiveArtifacts: {
                 paramValues: [],
                 paramFields: [paramConfigs]
+            },
+            connectorResources: {
+                paramValues: [],
+                paramFields: []
             },
             registryResources: {
                 paramValues: [],
@@ -282,10 +292,28 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
             const testSuites = await rpcClient.getMiDiagramRpcClient().getAllTestSuites();
             setAllTestSuites(testSuites.testSuites);
 
+            const miRuntimeVersion = await getProjectRuntimeVersion(rpcClient);
+            setMiVersion(miRuntimeVersion);
+
+            const projectConnectors = await rpcClient.getMiDiagramRpcClient().getAvailableConnectors({
+                documentUri: "",
+                connectorName: null
+            })
+            const connectorList = projectConnectors.connectors ? projectConnectors.connectors : [];
+            setConnectorData(connectorList);
+            const connectorParamConfigs: ParamField = {
+                    id: 0,
+                    type: "AutoComplete",
+                    label: "Connector Name",
+                    values: connectorList.map(item => item.displayName),
+                    isRequired: true
+                };
+
             if (syntaxTree && filePath) {
                 let artifactType = "";
                 let artifactPath = "";
                 let supportiveArtifacts: any[] = [];
+                let connectorResources: any[] = [];
                 let registryResources: any[] = [];
 
                 if (syntaxTree.unitTestArtifacts.testArtifact.artifact) {
@@ -316,10 +344,18 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
                     for (let i = 0; i < resourcesWithoutPropertiesFiles.length; i++) {
                         const param = resourcesWithoutPropertiesFiles[i];
                         registryResources.push([{
-                            value: getKeyFromRegistryArtifactPath(param),
+                            value: getKeyFromRegistryArtifactPath(param, miRuntimeVersion),
                             additionalData: { path: param },
                         }]);
                     }
+                }
+
+                if (syntaxTree.unitTestArtifacts.connectorResources?.connectorResources) {
+                    syntaxTree.unitTestArtifacts.connectorResources.connectorResources.map((resource: any) => {
+                        connectorResources.push([{
+                            value: getDisplayNameFromValue(resource.textNode, connectorList)
+                        }]);
+                    });
                 }
 
                 // get test cases
@@ -342,12 +378,18 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
                         paramValues: getParamManagerFromValues(supportiveArtifacts, undefined, 0),
                         paramFields: [paramConfigs]
                     },
+                    connectorResources: {
+                        paramValues: getParamManagerFromValues(connectorResources, undefined, 0),
+                        paramFields: [connectorParamConfigs]
+                    },
                     registryResources: {
                         paramValues: getParamManagerFromValues(registryResources, undefined, 0),
                         paramFields: [registryParamConfigs]
                     }
                 });
             } else {
+                setTestCases([]);
+                setMockServices([]);
                 reset({
                     name: "",
                     artifactType: "API",
@@ -355,6 +397,10 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
                     supportiveArtifacts: {
                         paramValues: [],
                         paramFields: [paramConfigs]
+                    },
+                    connectorResources: {
+                        paramValues: [],
+                        paramFields: [connectorParamConfigs]
                     },
                     registryResources: {
                         paramValues: [],
@@ -405,6 +451,48 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
         setShowAddMockService(true);
     }
 
+    function getConnectorResources(connectorResources: any[]): string[] {
+        return connectorResources.map(item => {
+            if (Array.isArray(item)) {
+                if (typeof item[0] === 'object' && item[0] !== null && 'value' in item[0]) {
+                    return item[0].value;
+                }
+                return item[0];
+            }
+            return item;
+        });
+    }
+
+    function processConnectors(names: string[]): string[] {
+        return names.map(name => {
+            const match = connectorData.find(item => item.displayName === name);
+            if (match) {
+                return getRelativeSrcPath(match.connectorZipPath) ?? match.artifactId + "-" + match.version;
+            }
+            return name;
+        });
+    }
+
+    function getRelativeSrcPath(fullPath: string): string {
+        if (fullPath === undefined) {
+            return;
+        }
+        const normalizedPath = path.normalize(fullPath);
+        const parts = normalizedPath.split(path.sep + "src" + path.sep);
+
+        if (parts.length > 1) {
+            return path.join("src", parts[1]);
+        }
+        return normalizedPath;
+    }
+
+    function getDisplayNameFromValue(value: string, connectorList: GetAvailableConnectorResponse[]): string | undefined {
+        const match = connectorList.find((item: GetAvailableConnectorResponse) =>
+            getRelativeSrcPath(item.connectorZipPath) === value || item.artifactId + "-" + item.version === value
+        );
+        return match?.displayName ;
+    }
+
     const submitForm = async (values: any) => {
         values.testCases = testCases;
         values.artifact = values.artifact.startsWith(path.sep) ? values.artifact.slice(1) : values.artifact;
@@ -415,6 +503,10 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
 
         const registryResources = getParamManagerValues(values.registryResources, true);
         values.registryResources = await getRegistryArtifactDetails(registryResources);
+
+        const connectorResources = getParamManagerValues(values.connectorResources, false);
+        const connectors = getConnectorResources(connectorResources);
+        values.connectorResources = processConnectors(connectors);
 
         const mockServicePaths = [];
         const mockServicesDirs = ["src", "test", "resources", "mock-services"];
@@ -437,10 +529,19 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
             ];
 
             const miDiagramRpcClient = rpcClient.getMiDiagramRpcClient();
-            const [allRegistryResources, allRegistryPaths] = await Promise.all([
-                (await miDiagramRpcClient.getAvailableRegistryResources({ path: projectUri, withAdditionalData: true })).artifactsWithAdditionalData,
-                miDiagramRpcClient.getAllRegistryPaths({ path: projectUri }),
-            ]);
+
+            let allRegistryResources, allRegistryPaths, allResourcePaths;
+            if(compareVersions(miVersion, "4.4.0") >= 0) {
+                [allRegistryResources, allResourcePaths] = await Promise.all([
+                    (await miDiagramRpcClient.getAvailableRegistryResources({ path: projectUri, withAdditionalData: true })).artifactsWithAdditionalData,
+                    miDiagramRpcClient.getAllResourcePaths(),
+                ]);
+            }else{
+                [allRegistryResources, allRegistryPaths] = await Promise.all([
+                    (await miDiagramRpcClient.getAvailableRegistryResources({ path: projectUri, withAdditionalData: true })).artifactsWithAdditionalData,
+                    miDiagramRpcClient.getAllRegistryPaths({path: projectUri}),
+                ]);
+            }
 
             const artifacts = allRegistryResources.map((artifact) => ({
                 ...artifact,
@@ -456,28 +557,46 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
 
             for (const param of params) {
                 const paramKey = param[0];
-                const artifact = artifacts.find((a) => a.key === paramKey.value);
-                if (!artifact) continue;
+                const artifact = artifacts.find((a) => {
+                  
+                    let artifactFileName, paramFileName;
+                    const normalizedKey = a.key.endsWith('.dmc') ? a.key.replace(/\.dmc$/, '') : a.key;
+                    if(compareVersions(miVersion, "4.4.0") >= 0) {
+                        artifactFileName = normalizedKey.replace("gov:mi-resources/", "");
+                        paramFileName = paramKey.value.replace("resources:", "");                   
+                    } else {
+                        artifactFileName = normalizedKey;
+                        paramFileName = paramKey.value;
+                    }            
+                    return artifactFileName === paramFileName;
+                    
+                });
+                if (!artifact) {
+                    continue;
+                }
+
 
                 const registryPath =
                     artifact.path.endsWith('/') && artifact.path.length > 1
                         ? artifact.path.slice(0, -1)
                         : artifact.path;
 
-                const artifactPath = normalize(param[0].additionalData.path).replace(`${normalize(projectUri)}/`, '')
+                const artifactPath = normalize(param[0].additionalData.path).replace(`${normalize(projectUri)}/`, '');
+
+                const artifactFile = artifact.file.endsWith('.dmc') ? artifact.file.replace(/\.dmc$/, '.ts') : artifact.file;
 
                 const newArtifact = {
-                    fileName: artifact.file,
+                    fileName: artifactFile,
                     artifact: artifactPath,
                     registryPath,
                     mediaType: artifact.mediaType,
                 };
-
                 artifactDetails.push(newArtifact);
                 const relativePath = findArtifactRelativePath(paramKey.value);
                 if (
                     relativePath &&
-                    allRegistryPaths.registryPaths.includes(`${relativePath}.properties`)
+                    ((compareVersions(miVersion, "4.4.0") >= 0 && allResourcePaths.resourcePaths.includes(`${relativePath}.properties`)) ||
+                    (compareVersions(miVersion, "4.4.0") < 0 && allRegistryPaths.registryPaths.includes(`${relativePath}.properties`)))
                 ) {
                     artifactDetails.push({
                         fileName: `${newArtifact.fileName}.properties`,
@@ -491,7 +610,9 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
 
             function parseParamValue(paramValue: string): { type: string; fileName: string } | null {
                 const match = paramValue.match(/(conf|gov):(.+)/);
-                if (!match) return null;
+                if (!match) {
+                    return null;
+                }
                 const [, type, fileName] = match;
                 return { type, fileName };
             }
@@ -532,14 +653,19 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
             return true;
         });
     }
-    function getKeyFromRegistryArtifactPath(filePath: string) {
-        const BASE_PATH = 'src/main/wso2mi/resources/registry/';
-        const VALID_PREFIXES = ['gov', 'conf'];
+    function getKeyFromRegistryArtifactPath(filePath: string, version:string) {
+        let BASE_PATH;
+        if (compareVersions(version, "4.4.0") >= 0) {
+            BASE_PATH = 'src/main/wso2mi/';
+        }else{
+            BASE_PATH = 'src/main/wso2mi/resources/registry/';
+        }
+
+        const VALID_PREFIXES = ['gov', 'conf','resources'];
 
         if (!filePath.startsWith(BASE_PATH)) {
             throw new Error('Invalid base path in file path.');
         }
-
         const relativePath = filePath.slice(BASE_PATH.length);
 
         const pathComponents = relativePath.split('/');
@@ -553,8 +679,10 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
         // Reconstruct the remaining path
         const remainingPath = pathComponents.join('/');
 
+        const cleanedRemainingPath = remainingPath.replace(/\.ts$/, '');
+
         // Build the transformed path
-        return `${prefix}:${remainingPath}`;
+        return `${prefix}:${cleanedRemainingPath}`;
     }
     const getTestCases = (testCases: TestCase[]): TestCaseEntry[] => {
         return testCases.map((testCase) => {
@@ -747,6 +875,28 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
                     )}
                 />
             </div>
+            <Controller
+                name="connectorResources"
+                control={control}
+                render={({ field: { onChange, value } }) => (
+                    <ParamManager
+                        paramConfigs={value as ParamConfig}
+                        addParamText="Add Connector Resource"
+                        readonly={false}
+                        onChange={(values) => {
+                            values.paramValues = values.paramValues.map((param: any, index: number) => {
+                                const property: ParamValue[] = param.paramValues;
+                                param.key = index + 1;
+                                param.value = (property[0]?.value as any)?.value ?? property[0]?.value;
+                                param.icon = 'query';
+
+                                return param;
+                            });
+                            onChange(values);
+                        }}
+                    />
+                )}
+            />
             <div id="testSuiteRegistryResourcesSection">
                 <Controller
                     name="registryResources"
