@@ -146,6 +146,7 @@ export function ManageDependencies(props: ManageDependenciesProps) {
                 pomValues: removedDependencies.map(dep => ({ range: dep.range, value: '' }))
             });
         }
+        await rpcClient.getMiVisualizerRpcClient().reloadDependencies();
         onClose();
     };
 
