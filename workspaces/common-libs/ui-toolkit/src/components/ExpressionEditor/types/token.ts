@@ -28,6 +28,7 @@ type TokenEditorBaseProps = {
     actionButtons?: ActionButtonType[];
     startAdornment?: ReactNode;
     endAdornment?: ReactNode;
+    enableFullscreen?: boolean;
     onChange: (value: string) => void;
     onFocus?: () => void;
     onBlur?: () => void;
@@ -38,7 +39,7 @@ type TokenEditorBaseProps = {
 
 type HelperPaneConditionalProps =
     | {
-          getHelperPane: (onChange: (value: string) => void, addFunction: (signature: string) => void, height?: number) => JSX.Element;
+          getHelperPane: (onChange: (value: string) => void, addFunction: (signature: string) => void, height?: number, isFullscreen?: boolean) => JSX.Element;
           helperPaneOrigin?: HelperPaneOrigin;
           changeHelperPaneState: (state: boolean) => void;
           isHelperPaneOpen: boolean;

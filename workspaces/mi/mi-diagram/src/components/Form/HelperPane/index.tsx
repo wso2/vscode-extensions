@@ -31,6 +31,8 @@ export type HelperPaneProps = {
     helperPaneHeight: HelperPaneHeight;
     contentHeight?: number;
     isTokenEditor?: boolean;
+    isFullscreen?: boolean;
+    height?: number;
     onClose: () => void;
     onChange: (value: string) => void;
     addFunction?: (value: string) => void;
@@ -48,23 +50,21 @@ export const PAGE = {
 
 export type Page = (typeof PAGE)[keyof typeof PAGE];
 
-const HelperPaneEl = ({ position, helperPaneHeight, contentHeight, isTokenEditor, sx, onClose, onChange, addFunction }: HelperPaneProps) => {
+const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen, height: componentDefaultHeight, sx, onClose, onChange, addFunction }: HelperPaneProps) => {
     const [currentPage, setCurrentPage] = useState<Page>(PAGE.CATEGORY);
     const panelRef = useRef<HTMLDivElement>(null);
     const [height, setHeight] = useState<number>(400);
     const [isComponentOverflowing, setIsComponentOverflowing] = useState<boolean>(false);
-    const componentDefaultHeight = isTokenEditor ? 380 : 400;
     useEffect(() => {
         const checkOverflow = () => {
-            if (panelRef.current) {
+            const viewportHeight = window.innerHeight;
+            if (panelRef.current && !isFullscreen) {
                 const element = panelRef.current;
                 const rect = element.getBoundingClientRect();
-                const viewportHeight = window.innerHeight;
-                
                 // Get children height
                 const clientHeight = isTokenEditor ? (element.clientHeight + 180) : element.clientHeight;
 
-                const heightDiff = clientHeight - viewportHeight; // Adjust for token editor if needed
+                const heightDiff = clientHeight - viewportHeight;
                 let overflowHeight = 0;
                 let bottomOverflow = 0;
                 if (heightDiff < 0) {
@@ -75,31 +75,73 @@ const HelperPaneEl = ({ position, helperPaneHeight, contentHeight, isTokenEditor
                     overflowHeight = bottomOverflow + (isTokenEditor ? 40 : 0);
                 } else {
                     overflowHeight = heightDiff;
-                    console.log('Overflow Height:', overflowHeight);
                 }
-                const heightWithComponents = clientHeight - overflowHeight - (isTokenEditor ? 180 : 0); // Adjust for token editor if needed
+                const heightWithComponents = clientHeight - overflowHeight - (isTokenEditor ? 180 : 0);
                 const newHeight = heightWithComponents > componentDefaultHeight ? componentDefaultHeight : heightWithComponents;
-                setIsComponentOverflowing(heightWithComponents > componentDefaultHeight);
-                console.log('New Height:', newHeight, 'Is Overflowing:', isComponentOverflowing);
+                setIsComponentOverflowing(heightWithComponents < componentDefaultHeight);
                 setHeight(newHeight);
+            } else if (isFullscreen) {
+                setHeight(viewportHeight - 160); // Default height if no panelRef or fullscreen
             }
         };
 
         // Check immediately and on window resize
-        // checkOverflow();
         window.addEventListener('resize', checkOverflow);
-        window.addEventListener('scroll', checkOverflow); // Also check on scroll
+        window.addEventListener('scroll', checkOverflow);
 
-        // Use setTimeout to check after render is complete
+        // Use multiple timeouts to ensure DOM is ready
         setTimeout(checkOverflow, 10);
+        setTimeout(checkOverflow, 100); // Additional check after longer delay
+        setTimeout(checkOverflow, 300); // Final check for complex layouts
 
         return () => {
             window.removeEventListener('resize', checkOverflow);
             window.removeEventListener('scroll', checkOverflow);
         };
-    }, []);
+    }, [isFullscreen, isTokenEditor, componentDefaultHeight]);
 
-    console.log('Current Page:', height);
+    // Additional effect specifically for fullscreen changes
+    useEffect(() => {
+        if (isFullscreen !== undefined) {
+            const handleFullscreenChange = () => {
+                // Force recalculation after fullscreen change
+                setTimeout(() => {
+                    if (panelRef.current) {
+                        const viewportHeight = window.innerHeight;
+                        if (isFullscreen) {
+                            setHeight(viewportHeight - 160);
+                        } else {
+                            // Trigger overflow check for non-fullscreen
+                            const element = panelRef.current;
+                            const rect = element.getBoundingClientRect();
+                            const clientHeight = isTokenEditor ? (element.clientHeight + 180) : element.clientHeight;
+                            const heightDiff = clientHeight - viewportHeight;
+                            let overflowHeight = 0;
+                            let bottomOverflow = 0;
+                            
+                            if (heightDiff < 0) {
+                                bottomOverflow = rect.bottom - viewportHeight;
+                                if (bottomOverflow < 0) {
+                                    overflowHeight = 0;
+                                } else {
+                                    overflowHeight = bottomOverflow + (isTokenEditor ? 40 : 0);
+                                }
+                            } else {
+                                overflowHeight = heightDiff;
+                            }
+                            
+                            const heightWithComponents = clientHeight - overflowHeight - (isTokenEditor ? 180 : 0);
+                            const newHeight = heightWithComponents > componentDefaultHeight ? componentDefaultHeight : heightWithComponents;
+                            setIsComponentOverflowing(heightWithComponents < componentDefaultHeight);
+                            setHeight(newHeight);
+                        }
+                    }
+                }, 200); // Wait longer for layout changes
+            };
+            
+            handleFullscreenChange();
+        }
+    }, [isFullscreen]);
 
     return (
         <div ref={panelRef}>
@@ -107,6 +149,7 @@ const HelperPaneEl = ({ position, helperPaneHeight, contentHeight, isTokenEditor
                 {currentPage === PAGE.CATEGORY && (
                     <CategoryPage
                         position={position}
+                        isHelperPaneHeightOverflow={isComponentOverflowing}
                         setCurrentPage={setCurrentPage}
                         onClose={onClose}
                         onChange={onChange}
@@ -161,7 +204,8 @@ export const getHelperPane = (
     addFunction?: (value: string) => void,
     sx?: CSSProperties,
     contentHeight?: number,
-    isTokenEditor?: boolean
+    isTokenEditor?: boolean,
+    isFullscreen?: boolean
 ) => {
     return (
         <HelperPaneEl
@@ -173,6 +217,8 @@ export const getHelperPane = (
             contentHeight={contentHeight}
             addFunction={addFunction}
             isTokenEditor={isTokenEditor}
+            isFullscreen={isFullscreen}
+            height={contentHeight} // Default height if not provided
         />
     );
 };
