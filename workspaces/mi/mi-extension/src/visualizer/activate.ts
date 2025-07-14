@@ -34,6 +34,7 @@ import * as fs from 'fs';
 import { AiPanelWebview } from '../ai-panel/webview';
 import { MiDiagramRpcManager } from '../rpc-managers/mi-diagram/rpc-manager';
 import { log } from '../util/logger';
+import { CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR } from '../util/onboardingUtils';
 
 export function activateVisualizer(context: vscode.ExtensionContext, firstProject: string) {
     context.subscriptions.push(
@@ -193,6 +194,9 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
             if (document.document.uri.fsPath.endsWith('pom.xml')) {
                 const projectUri = vscode.workspace.getWorkspaceFolder(document.document.uri)?.uri.fsPath;
                 const langClient = getStateMachine(projectUri!).context().langClient;
+                const projectDetails = await langClient?.getProjectDetails();
+                const projectName = projectDetails.primaryDetails.projectName.value;
+                
                 const confirmUpdate = await vscode.window.showInformationMessage(
                     'The pom.xml file has been modified. Do you want to update the dependencies?',
                     'Yes',
@@ -204,6 +208,8 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                     statusBarItem.text = '$(sync) Updating dependencies...';
                     statusBarItem.show();
                     await langClient?.updateConnectorDependencies();
+                    await extractCAppDependenciesAsProjects(projectName);
+                    await langClient?.loadDependentCAppResources();
                     statusBarItem.hide();
                 }
             }
@@ -313,6 +319,59 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
             }
         }, extension.context),
     );
+}
+
+export async function extractCAppDependenciesAsProjects(projectName: string) {
+    try {
+        const dependenciesDir = path.join(CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR);  
+        const dependencyDirs = fs.readdirSync(dependenciesDir, { withFileTypes: true })
+            .filter(dirent => dirent.isDirectory() && dirent.name.startsWith(projectName))
+            .map(dirent => dirent.name);
+
+        if (dependencyDirs.length === 0) {
+            return;
+        }
+
+        const selectedDependencyDir = dependencyDirs[0];
+        const downloadedDir = path.join(dependenciesDir, selectedDependencyDir, 'Downloaded');
+        const extractedDir = path.join(dependenciesDir, selectedDependencyDir, 'Extracted');
+        const carFiles = fs.readdirSync(downloadedDir).filter(file => file.endsWith('.car'));
+
+        // Delete any directory inside the Extracted directory
+        if (fs.existsSync(extractedDir)) {
+            const extractedSubDirs = fs.readdirSync(extractedDir, { withFileTypes: true })
+                .filter(dirent => dirent.isDirectory())
+                .map(dirent => path.join(extractedDir, dirent.name));
+
+            extractedSubDirs.forEach(subDir => {
+                fs.rmSync(subDir, { recursive: true, force: true });
+            });
+        }
+
+        for (const carFile of carFiles) {
+            const carFileNameWithoutExt = path.basename(carFile, path.extname(carFile));
+            const carFileExtractedDir = path.join(extractedDir, carFileNameWithoutExt);
+
+            if (!fs.existsSync(carFileExtractedDir)) {
+                fs.mkdirSync(carFileExtractedDir, { recursive: true });
+            }
+            await importCapp({
+                source: path.join(downloadedDir, carFile),
+                directory: carFileExtractedDir,
+                open: false
+            });
+            // During the extraction process, the .car file is renamed to .zip
+            // Hence remove the .car file after extraction
+            const zipFilePath = path.join(downloadedDir, carFileNameWithoutExt + '.zip');
+            if (fs.existsSync(zipFilePath)) {
+                fs.rmSync(zipFilePath);
+            }
+        }
+
+        vscode.window.showInformationMessage(`Dependencies for project "${projectName}" have been loaded successfully.`);
+    } catch (error: any) {
+        vscode.window.showErrorMessage(`Failed to load dependencies: ${error.message}`);
+    }
 }
 
 export const refreshDiagram = debounce(async (projectUri: string, refreshDiagram: boolean = true) => {
