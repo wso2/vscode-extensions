@@ -167,11 +167,11 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     }
 
     /**
-     * Reloads the integration project dependencies for the current integration project.
+     * Reloads the dependencies for the current integration project.
      *
      * @returns {Promise<boolean>} A promise that resolves to `true` when all dependency reload operations are complete.
      */
-    async reloadIntegrationProjectDependencies(): Promise<boolean> {
+    async reloadDependencies(): Promise<boolean> {
         return new Promise(async (resolve) => {
             const langClient = getStateMachine(this.projectUri).context().langClient!;
             const projectDetails = await langClient?.getProjectDetails();
