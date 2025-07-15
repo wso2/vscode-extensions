@@ -196,22 +196,44 @@ export function TryOutView({
             for (const base64Image of base64Images) {
                 userMessageContent.push({ type: "image_url", image_url: { "url": base64Image } });
             }
-            
-            const requestBody = {
-                model: model,
-                messages: [
-                    { role: "system", content: SYSTEM_PROMPT },
-                    { role: "user", content: userMessageContent }
-                ],
-                response_format: {
-                    type: "json_schema",
-                    json_schema: {
-                        name: "document_extraction_schema", 
-                        schema: JSON.parse(schema),
-                        strict: true,              
-                    },
+
+            let requestBody: any;
+            //handle mi-copilot connection
+            if (selectedConnectionName === "mi-copilot") {
+                requestBody = {
+                        model: model,
+                        system: SYSTEM_PROMPT,
+                        prompt: USER_PROMPT,
+                        images: base64Images,
+                        response_format: {
+                            type: "json_schema",
+                            json_schema: {
+                                name: "document_extraction_schema", 
+                                schema: JSON.parse(schema),
+                                strict: true,              
+                                },
+                        }
                 }
-            };
+            }
+            else{
+                    requestBody = {
+                        model: model,
+                        messages: [
+                            { role: "system", content: SYSTEM_PROMPT },
+                            { role: "user", content: userMessageContent }
+                        ],
+                        response_format: {
+                            type: "json_schema",
+                            json_schema: {
+                                name: "document_extraction_schema", 
+                                schema: JSON.parse(schema),
+                                strict: true,              
+                            },
+                        }
+                };
+            }
+            
+            
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {

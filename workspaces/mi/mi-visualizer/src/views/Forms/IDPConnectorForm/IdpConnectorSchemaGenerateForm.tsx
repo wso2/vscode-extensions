@@ -102,31 +102,55 @@ export function IdpConnectorSchemaGenerateForm({ onClose, path,fileContent }: Id
     useEffect(() => {
         const fetchConnections = async () => {
             try {
-                const fetchedConnections = await rpcClient.getMiDiagramRpcClient().getConnectorConnections({
-                    documentUri: "",
-                    connectorName: 'idp'
-                });
-        
-                const { connections } = fetchedConnections || {};
+                const allConnections: SelectedConectionObject[] = [];
+                //Fetch MI-Copilot connection
+                try {
+                    const token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
+                    if (token) {
+                        const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
+                        const endpoint = `${backendRootUri}/v1/chat/completions`;
+                        
+                        allConnections.push({
+                            name: "mi-copilot",
+                            apiKey: token.token,
+                            url: endpoint,
+                            model: "gpt-4.1-mini"
+                        });
+                    }
+                } catch (error) {
+                    console.error("Failed to fetch mi-copilot connection");
+                }
 
-                if (connections && connections.length > 0) {
-                    setIdpConnections(connections.map((conn: any) => {
+                // Fetch other IDP connections
+                const { connections: fetchedIdpConnections } = await rpcClient.getMiDiagramRpcClient().getConnectorConnections({
+                    documentUri: "",
+                    connectorName: 'idp',
+                });
+
+                if (fetchedIdpConnections && fetchedIdpConnections.length > 0) {
+                    const transformedIdpConnections = fetchedIdpConnections.map((conn: any) => {
                         const getParam = (paramName: string) =>
-                            conn.parameters?.find((p: any) => p.name === paramName)?.value || "";
-                
+                            conn.parameters?.find((p: any) => p.name === paramName)?.value || ""; 
                         return {
                             name: conn?.name,
                             apiKey: getParam("apiKey"),
                             url: getParam("endpointUrl"),
                             model: getParam("model")
                         };
-                    }));
-                    setSelectedConnectionName(connections[0].name);
+                    });
+                    allConnections.push(...transformedIdpConnections);
                 }
+                
+                if (allConnections.length > 0) {
+                    setIdpConnections(allConnections);
+                    setSelectedConnectionName(allConnections[0].name);
+                }
+
             } catch (error) {
-                console.error("Failed to fetch IDP connections", error);
+                console.error("Failed to fetch connections");
             }
         };
+
         fetchConnections();
     }, [rpcClient]);
 

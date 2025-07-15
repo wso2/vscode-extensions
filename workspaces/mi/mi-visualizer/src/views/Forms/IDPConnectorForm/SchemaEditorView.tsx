@@ -165,24 +165,25 @@ export function SchemaEditorView({
         setErrors(null);
         setIsLoading(true);
         setConflictError(null);
-        let body;
+
+        let base64Images: string[] = [];
         if (base64String.startsWith("data:application/pdf")) {
-            body = {
-                files: [{
-                    name: "file.pdf",
-                    mimetype: "application/pdf",
-                    content: base64String.replace(/^data:application\/pdf;base64,/, "")
-                }]
-            };
+            const base64 = base64String.split(",")[1];
+            base64Images = await rpcClient.getMiDiagramRpcClient().convertPdfToBase64Images(base64);
+            if (!base64Images || base64Images.length === 0) {
+                setErrors("Pdf processing failed");
+                setIsLoading(false);
+                return;
+            }
         } else {
-            body = { images: [base64String] };
+            base64Images.push(base64String);
         }
         try {
             const response = await fetchWithCopilot({
                 rpcClient,
                 body: {
                     endpoint: "generate",
-                    ...body,
+                    images: base64Images
                 },
                 controllerRef: controllerRef1,
             });
@@ -240,18 +241,19 @@ export function SchemaEditorView({
 
     const handleFineTuneThroughCopilot = async () => {
         setIsLoading(true);
-        let body;
+        let base64Images: string[] = [];
         if (base64String) {
-            if (base64String.startsWith("data:application/pdf")) {
-                body = {
-                    files: [{
-                        name: "file.pdf",
-                        mimetype: "application/pdf",
-                        content: base64String.replace(/^data:application\/pdf;base64,/, "")
-                    }]
-                };
-            } else {
-                body = { images: [base64String] };
+             if (base64String.startsWith("data:application/pdf")) {
+                const base64 = base64String.split(",")[1];
+                base64Images = await rpcClient.getMiDiagramRpcClient().convertPdfToBase64Images(base64);
+                if (!base64Images || base64Images.length === 0) {
+                    setErrors("Pdf processing failed");
+                    setIsLoading(false);
+                    return;
+                }
+            } 
+            else {
+                base64Images.push(base64String);
             }
         }
         try {
@@ -261,7 +263,7 @@ export function SchemaEditorView({
                     endpoint: "finetune",
                     user_input: userInput,
                     json_schema: schema,
-                    ...body,
+                    images: base64Images,
                 },
                 controllerRef: controllerRef2,
             });
