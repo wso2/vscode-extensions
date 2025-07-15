@@ -19,11 +19,12 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { GitProvider, type NewComponentWebviewProps, parseGitURL, toSentenceCase } from "@wso2/wso2-platform-core";
-import React, { type FC, type ReactNode, useEffect } from "react";
+import React, { type FC, type ReactNode, useEffect, useState } from "react";
 import type { SubmitHandler, UseFormReturn } from "react-hook-form";
 import type { z } from "zod";
 import { Banner } from "../../../components/Banner";
 import { Button } from "../../../components/Button";
+import { ConnectRepoCard } from "../../../components/ConnectRepoCard";
 import { Dropdown } from "../../../components/FormElements/Dropdown";
 import { TextField } from "../../../components/FormElements/TextField";
 import { useGetGitBranches } from "../../../hooks/use-queries";
@@ -135,7 +136,7 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({ onNextClick, organiz
 		data: branches = [],
 		refetch: refetchBranches,
 		isFetching: isFetchingBranches,
-	} = useGetGitBranches(repoUrl, organization, provider === GitProvider.GITHUB ? "" : credential, isRepoAuthorizedResp?.isAccessible, {
+	} = useGetGitBranches(repoUrl, organization.id?.toString() || "", provider === GitProvider.GITHUB ? "" : credential, isRepoAuthorizedResp?.isAccessible, {
 		enabled: !!repoUrl && !!provider && (provider === GitProvider.GITHUB ? !!isRepoAuthorizedResp?.isAccessible : !!credential),
 		refetchOnWindowFocus: true,
 	});
@@ -175,7 +176,7 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({ onNextClick, organiz
 
 	if (!isLoadingGitData) {
 		if (gitData === null) {
-			invalidRepoMsg = "Please initialize the selected directory as a Git repository to proceed.";
+			invalidRepoMsg = "Please initialize the selected directory as a Git repository to proceed *****55.";
 			invalidRepoAction = "Source Control";
 			onInvalidRepoActionClick = openSourceControl;
 			onInvalidRepoRefreshClick = refetchGitData;
@@ -230,6 +231,39 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({ onNextClick, organiz
 
 		onInvalidRepoRefreshClick = refetchRepoAccess;
 		onInvalidRepoRefreshing = isFetchingRepoAccess;
+	}
+
+	// if (extensionName === "Choreo" && !showRepoSelection && !selectedRepo) {
+	if (extensionName === "WSO2") {
+		
+		const isNextButtonDisabled = !!invalidRepoMsg || branches?.length === 0;
+		
+		return (
+			<>
+				<ConnectRepoCard
+					organizationId={organization.id?.toString() || ""}
+					className="mb-6"
+					repoAuthStatus={isRepoAuthorizedResp} 
+				/>
+				{/* <div className="grid gap-4">
+					<TextField
+						label="Name"
+						key="devant-gen-details-name"
+						required
+						name="name"
+						placeholder="integration-name"
+						control={form.control}
+						wrapClassName="col-span-full"
+					/>
+				</div> */}
+
+				<div className="flex justify-end gap-3 pt-6 pb-2">
+					<Button onClick={form.handleSubmit(onSubmitForm)} disabled={false}>
+						Push
+					</Button>
+				</div>
+			</>
+		);
 	}
 
 	return (

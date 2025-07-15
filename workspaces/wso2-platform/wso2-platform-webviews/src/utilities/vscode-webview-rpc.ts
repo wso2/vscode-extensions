@@ -19,6 +19,7 @@
 import {
 	type AuthState,
 	AuthStoreChangedNotification,
+	ChoreoRpcGetAuthorizedGitOrgsRequest,
 	ChoreoRpcWebview,
 	ClearWebviewCache,
 	CloseComponentViewDrawer,
@@ -247,6 +248,10 @@ export class ChoreoWebViewAPI {
 
 	public async triggerGithubInstallFlow(orgId: string): Promise<void> {
 		return this._messenger.sendRequest(TriggerGithubInstallFlow, HOST_EXTENSION, orgId);
+	}
+
+	public async getGitHubRepositories(orgId: string): Promise<any> {
+		return this._messenger.sendRequest(ChoreoRpcGetAuthorizedGitOrgsRequest, HOST_EXTENSION, { orgId, credRef: "" });
 	}
 
 	public async submitComponentCreate(params: SubmitComponentCreateReq): Promise<ComponentKind> {
