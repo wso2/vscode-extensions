@@ -1336,6 +1336,7 @@ export interface CreateRegistryResourceRequest {
     registryRoot: string;
     createOption: string;
     content?: string;
+    roles?: string;
 }
 
 export interface CreateRegistryResourceResponse {
@@ -1499,6 +1500,9 @@ export interface GetAvailableConnectorResponse {
     iconPath?: string;
     connectionUiSchema?: connectionUiSchemaRecord;
     actions?: any[];
+    displayName?: string;
+    artifactId?: string;
+    connectorZipPath?: string;
 }
 
 export interface ConnectorDependency {
