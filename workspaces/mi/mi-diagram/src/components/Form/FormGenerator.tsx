@@ -319,6 +319,7 @@ export function FormGenerator(props: FormGeneratorProps) {
         });
         return defaultValues;
     }
+
     function getDefaultValue(element: any) {
         const name = getNameForController(element.value.name);
         const type = element.type;
@@ -343,6 +344,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                         const fieldName = getNameForController(field.value.name);
                         val[fieldName] = param[index];
                     });
+                    
                     valueObj.push(val);
                 }
             });
