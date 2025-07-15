@@ -176,7 +176,7 @@ runs:
     - name: Compress build
       shell: bash
       run: |
-        zip -r build.zip ./ -x 'common/temp*' -x '**/node_modules/*' -y
+        zip -rq build.zip ./ -x 'common/temp*' -x '**/node_modules/*'
         zip VSIX.zip *.vsix
 
     - name: Save build
