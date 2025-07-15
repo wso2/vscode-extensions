@@ -207,10 +207,10 @@ export function EditProxyForm({ proxyData, isOpen, documentUri, onCancel, onSave
         name: yup.string().required("Proxy  Name is required").matches(/^[^@\\^+;:!%&,=*#[\]$?'"<>{}() /]*$/, "Invalid characters in Proxy name")
               .test('validateMessageStoreName',
               'An artifact with same name already exists', value => {
-                  return !(workspaceFileNames.includes(value) && proxyData.name !== value)
+                  return !(workspaceFileNames.includes(value.toLowerCase()) && proxyData.name !== value)
               }).test('validateMessageStoreName',
                   'A registry resource with this artifact name already exists', value => {
-                      return !(proxyArtifactsNames.includes(value) && proxyData.name !== value)
+                      return !(proxyArtifactsNames.includes(value.toLowerCase()) && proxyData.name !== value)
                   }),
         endpointType: yup.string(),
         endpoint: yup.string().when('endpointType', {
@@ -587,11 +587,11 @@ export function EditProxyForm({ proxyData, isOpen, documentUri, onCancel, onSave
     useEffect(() => {
         (async () => {
             const result = await getArtifactNamesAndRegistryPaths(documentUri, rpcClient);
-            setProxyArtifactsNames(result.artifactNamesArr);
+            setProxyArtifactsNames(result.artifactNamesArr.map(name => name.toLowerCase()));
             const artifactRes = await rpcClient.getMiDiagramRpcClient().getAllArtifacts({
                 path: documentUri,
             });
-            setWorkspaceFileNames(artifactRes.artifacts);
+            setWorkspaceFileNames(artifactRes.artifacts.map(name => name.toLowerCase()));
         })();
     }, [proxyData]);
     
