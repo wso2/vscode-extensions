@@ -34,7 +34,8 @@ const miDownloadUrls: { [key: string]: string } = {
 export const miUpdateVersionCheckUrl: string = process.env.MI_UPDATE_VERSION_CHECK_URL as string;
 export const ADOPTIUM_API_BASE_URL: string = process.env.ADOPTIUM_API_BASE_URL as string;
 
-const CACHED_FOLDER = path.join(os.homedir(), '.wso2-mi');
+export const CACHED_FOLDER = path.join(os.homedir(), '.wso2-mi');
+export const INTEGRATION_PROJECT_DEPENDENCIES_DIR = 'integration-project-dependencies';
 
 let ballerinaOutputChannel: vscode.OutputChannel | undefined;
 
@@ -67,7 +68,7 @@ export async function setupEnvironment(projectUri: string, isOldProject: boolean
         const isJavaSet = await isJavaSetup(projectUri, miVersionFromPom);
 
         if (isMISet && isJavaSet) {
-            const isUpdateRequested = await isServerUpdateRequested();
+            const isUpdateRequested = await isServerUpdateRequested(projectUri);
             return !isUpdateRequested;
         }
         return isMISet && isJavaSet;
@@ -120,6 +121,24 @@ export async function getMIVersionFromPom(): Promise<string | null> {
     const result = await parseStringPromise(pomContent.getText(), { explicitArray: false, ignoreAttrs: true });
     const runtimeVersion = result?.project?.properties?.["project.runtime.version"];
     return runtimeVersion;
+}
+
+export async function getCAppDependenciesFromPom(): Promise<string[]> {
+    const pomFiles = await vscode.workspace.findFiles('pom.xml', '**/node_modules/**', 1);
+    if (pomFiles.length === 0) {
+        vscode.window.showErrorMessage('pom.xml not found.');
+        return [];
+    }
+
+    const pomContent = await vscode.workspace.openTextDocument(pomFiles[0]);
+    const result = await parseStringPromise(pomContent.getText(), { explicitArray: false, ignoreAttrs: true });
+    const dependencies = result?.project?.dependencies?.dependency;
+    if (Array.isArray(dependencies)) {
+        return dependencies
+            .filter((dep: any) => dep.type === 'car')
+            .map((dep: any) => `${dep.artifactId}-${dep.version}`);
+    }
+    return [];
 }
 
 export function filterConnectorVersion(connectorName: string, connectors: any[] | undefined): string {
@@ -467,6 +486,18 @@ export async function downloadJavaFromMI(projectUri: string, miVersion: string):
 
 export async function downloadMI(projectUri: string, miVersion: string, isUpdatedPack?: boolean): Promise<string> {
     const miPath = path.join(CACHED_FOLDER, 'micro-integrator');
+
+    if(isUpdatedPack) {
+        if (fs.existsSync(path.join(miPath, "wso2mi-4.4.0"))) {
+            const latestUpdateVersion = await fetchLatestMIVersion("4.4.0");
+            const currentUpdateVersion = getCurrentUpdateVersion(path.join(miPath, "wso2mi-4.4.0"));
+            if (latestUpdateVersion && compareVersions(latestUpdateVersion, currentUpdateVersion) > 0) {
+                fs.rmSync(path.join(miPath, "wso2mi-4.4.0-UPDATED.zip"), { force: true });
+            }
+        } else {
+            fs.rmSync(path.join(miPath, "wso2mi-4.4.0-UPDATED.zip"), { force: true });
+        }
+    }
 
     try {
         if (!fs.existsSync(miPath)) {
@@ -1165,7 +1196,7 @@ function getCurrentUpdateVersion(miPath: string): string {
     return '0';
 }
 
-export async function isServerUpdateRequested(): Promise<boolean> {
+export async function isServerUpdateRequested(projectUri: string): Promise<boolean> {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (workspaceFolder) {
         const config = vscode.workspace.getConfiguration('MI', workspaceFolder.uri);
@@ -1184,15 +1215,18 @@ export async function isServerUpdateRequested(): Promise<boolean> {
                     if (cachedMIPath && cachedMIPath.version === latestUpdateVersion) {
                         const changeOption = 'Switch to Updated Version';
                         const cancelOption = 'Keep Current Version';
-                        vscode.window.showWarningMessage(
+                        const selection = await vscode.window.showInformationMessage(
                             'A newer version of the Micro Integrator is available locally. Would you like to switch to it?',
-                            changeOption,
-                            cancelOption
-                        ).then((selection) => {
-                            if (selection === changeOption) {
-                                setPathsInWorkSpace({ projectUri: workspaceFolder.uri.fsPath, type: 'MI', path: cachedMIPath.path });
-                            }
-                        });
+                            { modal: true },
+                            "Yes",
+                            "No, Don't Ask Again"
+                        );
+                        if (selection === "Yes") {
+                            setPathsInWorkSpace({ projectUri: projectUri, type: 'MI', path: cachedMIPath.path });
+                        } else if (selection === "No, Don't Ask Again") {
+                            const config = vscode.workspace.getConfiguration('MI', workspaceFolder.uri);
+                            config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.Workspace);
+                        }
                     } else {
                         const selection = await vscode.window.showInformationMessage(
                             'A new version of the Micro Integrator is available. Would you like to update now?',
