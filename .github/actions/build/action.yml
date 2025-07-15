@@ -43,34 +43,34 @@ inputs:
     required: false
   BALLERINA_AUTH_ORG:
     default: true
-    type: string 
+    type: string
   BALLERINA_AUTH_CLIENT_ID:
     default: true
-    type: string 
+    type: string
   MI_AUTH_ORG:
     default: true
-    type: string 
+    type: string
   MI_AUTH_CLIENT_ID:
     default: true
-    type: string 
+    type: string
   PLATFORM_DEFAULT_GHAPP_CLIENT_ID:
     default: true
-    type: string 
+    type: string
   PLATFORM_DEFAULT_DEVANT_ASGARDEO_CLIENT_ID:
     default: true
-    type: string 
+    type: string
   PLATFORM_STAGE_GHAPP_CLIENT_ID:
     default: true
-    type: string 
+    type: string
   PLATFORM_STAGE_DEVANT_ASGARDEO_CLIENT_ID:
     default: true
-    type: string 
+    type: string
   PLATFORM_DEV_GHAPP_CLIENT_ID:
     default: true
-    type: string     
+    type: string
   PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID:
     default: true
-    type: string  
+    type: string
 
 runs:
   using: "composite"
@@ -136,6 +136,22 @@ runs:
           envfile="$(dirname "$example")/.env"
           cp "$example" "$envfile"
         done
+
+    - name: Restore MI LS from cache
+      id: mi-ls-cache
+      if: ${{ inputs.isPreRelease == 'true' }}
+      uses: actions/cache@v4
+      with:
+        path: workspaces/mi/mi-extension/ls
+        key: ${{ runner.os }}-mi-ls
+
+    - name: Restore Ballerina LS from cache
+      id: ballerina-ls-cache
+      if: ${{ inputs.isPreRelease == 'true' }}
+      uses: actions/cache@v4
+      with:
+        path: workspaces/ballerina/ballerina-extension/ls
+        key: ${{ runner.os }}-ballerina-ls
 
     - name: Build repo
       shell: bash
