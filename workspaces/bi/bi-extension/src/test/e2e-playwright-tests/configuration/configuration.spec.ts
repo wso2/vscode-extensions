@@ -54,7 +54,7 @@ export default function createTests() {
             await form.switchToFormView(false, configurationWebView);
             await form.fill({
                 values: {
-                    'Variable name*Name of the variable': {
+                    'Variable Name*Name of the variable': {
                         type: 'input',
                         value: 'time',
                     },
@@ -101,7 +101,7 @@ export default function createTests() {
             await addForm.switchToFormView(false, configurationWebView);
             await addForm.fill({
                 values: {
-                    'Variable name*Name of the variable': {
+                    'Variable Name*Name of the variable': {
                         type: 'input',
                         value: 'place',
                     },
@@ -121,7 +121,7 @@ export default function createTests() {
             await addNewForm.switchToFormView(false, configurationWebView);
             await addNewForm.fill({
                 values: {
-                    'Variable name*Name of the variable': {
+                    'Variable Name*Name of the variable': {
                         type: 'input',
                         value: 'destination',
                     },
