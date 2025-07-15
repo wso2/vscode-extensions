@@ -212,7 +212,7 @@ const AddConnector = (props: AddConnectorProps) => {
             range: nodePosition
         });
 
-         if(sidePanelContext.newDataMapperName && sidePanelContext.newDataMapperName === values.scannerOutputSchema){
+         if(sidePanelContext.newDataMapperName && sidePanelContext.newDataMapperName === values.idpSchema){
             const idpSchemas = await rpcClient.getMiDiagramRpcClient().getSchemaFiles();
             const matchingSchema = idpSchemas.schemaFiles.find(
                 schema => schema.fileName === sidePanelContext.newDataMapperName

@@ -6,7 +6,7 @@
  * herein in any form is strictly forbidden, unless permitted by WSO2 expressly.
  * You may not alter or remove any copyright or other notice from copies of this content.
  */
-
+import { RpcClient } from "@wso2/mi-rpc-client";
 export interface FieldItem {
     name: string;
     type: string;
@@ -26,11 +26,6 @@ export interface TableItem {
     tableFormat?: string;
     tableEnum?: string;
 }
-
-interface ConvertPdfToImagesOptions {
-    scale?: number;
-    format?: 'image/png' | 'image/jpeg';
-  }
 
 export interface SelectedConectionObject {
     name: string;
@@ -76,7 +71,7 @@ export const fetchWithCopilot = async ({
     retryCount = 0,
     maxRetries = 2,
 }: {
-    rpcClient: any;
+    rpcClient: RpcClient
     body: any;
     controllerRef: React.MutableRefObject<AbortController | null>;
     retryCount?: number;
