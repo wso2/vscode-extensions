@@ -394,7 +394,7 @@ export const FormExpressionField = (params: FormExpressionFieldProps) => {
             <div>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                     {!isAIFill && 
-                    <div>
+                    <div style={{ width: '100%' }}>
                     <FormExpressionEditor
                         ref={expressionRef}
                         disabled={disabled}
