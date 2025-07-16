@@ -28,7 +28,7 @@ interface Props {
 	required?: boolean;
 	loading?: boolean;
 	control?: Control;
-	items?: ({ value: string; label?: string } | string)[];
+	items?: ({ value: string; label?: string; type?: "separator" } | string)[];
 	disabled?: boolean;
 	wrapClassName?: HTMLProps<HTMLElement>["className"];
 }
@@ -53,10 +53,20 @@ export const Dropdown: FC<Props> = (props) => {
 						disabled={disabled || loading || undefined}
 						{...field}
 					>
-						{items?.map((item) => (
-							<VSCodeOption key={typeof item === "string" ? item : item?.value} value={typeof item === "string" ? item : item.value} className="p-1">
-								{typeof item === "string" ? item : item?.label || item.value}
-							</VSCodeOption>
+						{items?.map((item, index) => (
+							<>
+								{typeof item !== "string" && item.type === "separator" ? (
+									<VSCodeOption disabled className="h-[1px] bg-vsc-foreground" key={`separator-${index}`} value={`separator-${index}`}/>
+								) : (
+									<VSCodeOption
+										key={typeof item === "string" ? item : item?.value}
+										value={typeof item === "string" ? item : item.value}
+										className="p-1"
+									>
+										{typeof item === "string" ? item : item?.label || item.value}
+									</VSCodeOption>
+								)}
+							</>
 						))}
 					</VSCodeDropdown>
 				</FormElementWrap>

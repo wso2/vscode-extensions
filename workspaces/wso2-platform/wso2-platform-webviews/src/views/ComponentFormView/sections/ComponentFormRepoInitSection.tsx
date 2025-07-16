@@ -17,10 +17,10 @@
  */
 
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { VSCodeLink } from "@vscode/webview-ui-toolkit/react";
+import { useQuery } from "@tanstack/react-query";
+import { RequiredFormInput } from "@wso2/ui-toolkit";
 import { GitProvider, type NewComponentWebviewProps } from "@wso2/wso2-platform-core";
-import React, { type FC, type ReactNode, useEffect } from "react";
+import React, { type FC, useEffect, useState } from "react";
 import type { SubmitHandler, UseFormReturn } from "react-hook-form";
 import type { z } from "zod";
 import { Banner } from "../../../components/Banner";
@@ -44,12 +44,18 @@ interface Props extends NewComponentWebviewProps {
 	componentType: string;
 }
 
+const connectMoreRepoText = "Connect More Repositories";
+const createNewRpoText = "Create New Repository";
+
 export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organization, form, nextText, loadingNextText, initializingRepo }) => {
 	const [compDetailsSections] = useAutoAnimate();
 	const { extensionName } = useExtWebviewContext();
+	const [creatingRepo, setCreatingRepo] = useState(false);
 
 	const orgName = form.watch("org");
-	const repoName = form.watch("repo");
+	const repo = form.watch("repo");
+	const repoError = form.formState?.errors?.repo;
+	const repoName = [connectMoreRepoText, createNewRpoText].includes(repo) ? "" : repo;
 
 	const { data: hasSubscriptions = false } = useQuery({
 		queryKey: ["hasSubscriptions", { orgId: organization?.id }],
@@ -73,17 +79,23 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 
 	useEffect(() => {
 		if (matchingOrgItem?.repositories.length > 0 && !matchingOrgItem?.repositories?.some((item) => item.name === form.getValues("repo"))) {
-			form.setValue("repo", "");
+			setTimeout(()=>form.setValue("repo", ""),1000);
 		}
 		if (matchingOrgItem) {
 			form.setValue("orgHandler", matchingOrgItem.orgHandler);
 		}
 	}, [matchingOrgItem]);
 
-	const { data: branches = [] } = useGetGitBranches(repoUrl, organization, provider === GitProvider.GITHUB ? "" : credential, !errorFetchingGitOrg, {
-		enabled: !!repoName && !!provider && (provider === GitProvider.GITHUB ? !errorFetchingGitOrg : !!credential),
-		refetchOnWindowFocus: true,
-	});
+	const { data: branches = [], isLoading: isLoadingBranches } = useGetGitBranches(
+		repoUrl,
+		organization,
+		provider === GitProvider.GITHUB ? "" : credential,
+		!errorFetchingGitOrg,
+		{
+			enabled: !!repoName && !!provider && (provider === GitProvider.GITHUB ? !errorFetchingGitOrg : !!credential),
+			refetchOnWindowFocus: true,
+		},
+	);
 
 	useEffect(() => {
 		if (branches?.length > 0 && !branches.includes(form.getValues("branch"))) {
@@ -98,7 +110,26 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 		}
 	}, [branches]);
 
+	useEffect(() => {
+		if (repo === createNewRpoText) {
+			setTimeout(()=>form.setValue("repo", ""),1000);
+			ChoreoWebViewAPI.getInstance().openExternal("https://github.com/new");
+			setCreatingRepo(true);
+		} else if (repo === connectMoreRepoText) {
+			setTimeout(()=>form.setValue("repo", ""),1000);
+			ChoreoWebViewAPI.getInstance().triggerGithubInstallFlow(organization.id?.toString());
+		}
+	}, [repo]);
+
 	const onSubmitForm: SubmitHandler<ComponentRepoInitSchemaType> = () => onNextClick();
+
+	const repoDropdownItems = [{ value: connectMoreRepoText },{ value: createNewRpoText } ]
+	if(matchingOrgItem?.repositories?.length>0){
+		repoDropdownItems.push(
+			{ type: "separator", value: "" } as {value: string},
+			...matchingOrgItem?.repositories?.map((item) => ({ value: item.name }))
+		)
+	}
 
 	return (
 		<>
@@ -121,34 +152,44 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 					control={form.control}
 					items={gitOrgs?.gitOrgs?.map((item) => ({ value: item.orgName }))}
 					loading={loadingGitOrgs}
-					wrapClassName="col-span-full"
 				/>
-				<div key="gen-repo" className="col-span-full">
+				{creatingRepo ? (
+					<div className="flex w-full flex-col" key="connect-repo-btn">
+						<div className="flex justify-between gap-1">
+							<span className="flex gap-1">
+								<label className="font-light">{hasSubscriptions ? "Repository" : "Public Repository"}</label>
+								<RequiredFormInput />
+							</span>
+							{repoError?.message && (
+								<label className="line-clamp-1 flex-1 text-right text-vsc-errorForeground" title={repoError?.message}>
+									{repoError?.message}
+								</label>
+							)}
+						</div>
+						<div className="grid grid-cols-1">
+							<Button
+								onClick={() => {
+									ChoreoWebViewAPI.getInstance().triggerGithubInstallFlow(organization.id?.toString());
+									setCreatingRepo(false);
+								}}
+								appearance="secondary"
+							>
+								{connectMoreRepoText}
+							</Button>
+						</div>
+					</div>
+				) : (
 					<Dropdown
 						label={hasSubscriptions ? "Repository" : "Public Repository"}
 						key="gen-details-repo"
 						required
 						name="repo"
 						control={form.control}
-						items={matchingOrgItem?.repositories?.map((item) => ({ value: item.name }))}
+						items={repoDropdownItems}
 						disabled={!matchingOrgItem}
 					/>
-					<div className="mt-1 flex justify-between">
-						<VSCodeLink
-							className="mt-0.5 font-semibold text-[11px] text-vsc-foreground"
-							onClick={() => ChoreoWebViewAPI.getInstance().openExternal("https://github.com/new")}
-						>
-							Create New Repository
-						</VSCodeLink>
-						<VSCodeLink
-							className="mt-0.5 font-semibold text-[11px] text-vsc-foreground"
-							onClick={() => ChoreoWebViewAPI.getInstance().triggerGithubInstallFlow(organization.id?.toString())}
-						>
-							Connect More Repositories
-						</VSCodeLink>
-					</div>
-				</div>
-				{branches?.length > 0 && (
+				)}
+				{repoName && (branches?.length > 0 || isLoadingBranches) && (
 					<Dropdown
 						label="Branch"
 						key="gen-details-branch"
@@ -156,10 +197,10 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 						name="branch"
 						control={form.control}
 						items={branches}
-						wrapClassName="col-span-full"
+						loading={isLoadingBranches}
 					/>
 				)}
-				<TextField label="Path" key="gen-details-path" required name="subPath" placeholder="/" control={form.control} wrapClassName="col-span-full" />
+				<TextField label="Path" key="gen-details-path" required name="subPath" placeholder="/directory-path" control={form.control} />
 				<TextField
 					label="Name"
 					key="gen-details-name"
@@ -167,7 +208,6 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 					name="name"
 					placeholder={extensionName === "Devant" ? "integration-name" : "component-name"}
 					control={form.control}
-					wrapClassName="col-span-full"
 				/>
 			</div>
 
