@@ -172,8 +172,10 @@ export function createNewComponentCommand(context: ExtensionContext) {
 					dataCacheStore.getState().setComponents(selectedOrg.handle, selectedProject.handler, components);
 
 					let gitRoot: string | undefined;
+					let isGitInitialized = false;
 					try {
 						gitRoot = await getGitRoot(context, selectedUri.fsPath);
+						isGitInitialized = true;
 					} catch (err) {
 						// ignore error
 					}
@@ -238,6 +240,8 @@ export function createNewComponentCommand(context: ExtensionContext) {
 						organization: selectedOrg!,
 						project: selectedProject!,
 						extensionName: webviewStateStore.getState().state.extensionName,
+						shouldAutoCommit: isGitInitialized === false && webviewStateStore.getState().state.extensionName === "Devant",
+						isGitInitialized,
 						initialValues: {
 							type: selectedType,
 							subType: selectedSubType,

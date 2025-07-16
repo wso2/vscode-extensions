@@ -31,6 +31,7 @@ import {
 	type DeploymentLogsData,
 	type DeploymentTrack,
 	type Environment,
+	type GetAuthorizedGitOrgsResp,
 	type GetAutoBuildStatusResp,
 	type GetTestKeyResp,
 	type Organization,
@@ -53,6 +54,7 @@ export const queryKeys = {
 	],
 	getSwaggerSpec: (apiRevisionId: string, org: Organization) => ["get-swagger-spec", { selectedEndpoint: apiRevisionId, org: org.handle }],
 	getBuildPacks: (selectedType: string, org: Organization) => ["build-packs", { selectedType, orgId: org?.id }],
+	getAuthorizedGitOrgs: (orgId: string, credRef = "") => ["get-authorized-github-orgs", { orgId, credRef }],
 	getGitBranches: (repoUrl: string, org: Organization, credRef: string, isAccessible: boolean) => [
 		"get-git-branches",
 		{ repo: repoUrl, orgId: org?.id, credRef, isAccessible },
@@ -148,6 +150,13 @@ export const useGetBuildPacks = (selectedType: string, org: Organization, option
 				orgUuid: org.uuid,
 				orgId: org.id.toString(),
 			}),
+		options,
+	);
+
+export const useGetAuthorizedGitOrgs = (orgId: string, credRef = "", options?: UseQueryOptions<GetAuthorizedGitOrgsResp>) =>
+	useQuery<GetAuthorizedGitOrgsResp>(
+		queryKeys.getAuthorizedGitOrgs(orgId, credRef),
+		() => ChoreoWebViewAPI.getInstance().getChoreoRpcClient().getAuthorizedGitOrgs({ orgId, credRef }),
 		options,
 	);
 

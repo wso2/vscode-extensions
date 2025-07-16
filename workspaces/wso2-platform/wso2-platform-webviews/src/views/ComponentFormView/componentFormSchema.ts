@@ -35,6 +35,19 @@ import * as yaml from "js-yaml";
 import { z } from "zod";
 import { ChoreoWebViewAPI } from "../../utilities/vscode-webview-rpc";
 
+export const componentRepoInitSchema = z.object({
+	org: z.string().min(1, "Required"),
+	repo: z.string().min(1, "Required"),
+	branch: z.string(),
+	subPath: z.string(),
+	name: z
+		.string()
+		.min(1, "Required")
+		.max(60, "Max length exceeded")
+		.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
+		.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters"),
+});
+
 export const componentGeneralDetailsSchema = z.object({
 	name: z
 		.string()
@@ -198,6 +211,13 @@ export const getComponentFormSchemaGenDetails = (existingComponents: ComponentKi
 		const parsed = parseGitURL(data.repoUrl);
 		if (parsed?.[2] && parsed[2] !== GitProvider.GITHUB && !data.credential) {
 			ctx.addIssue({ path: ["credential"], code: z.ZodIssueCode.custom, message: "Required" });
+		}
+	});
+
+export const getRepoInitSchemaGenDetails = (existingComponents: ComponentKind[]) =>
+	componentRepoInitSchema.partial().superRefine(async (data, ctx) => {
+		if (existingComponents.some((item) => item.metadata.name === makeURLSafe(data.name))) {
+			ctx.addIssue({ path: ["name"], code: z.ZodIssueCode.custom, message: "Name already exists" });
 		}
 	});
 

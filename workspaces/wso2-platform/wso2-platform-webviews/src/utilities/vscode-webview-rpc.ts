@@ -19,6 +19,7 @@
 import {
 	type AuthState,
 	AuthStoreChangedNotification,
+	ChoreoRpcGetAuthorizedGitOrgsRequest,
 	ChoreoRpcWebview,
 	ClearWebviewCache,
 	CloseComponentViewDrawer,
@@ -39,6 +40,7 @@ import {
 	ExecuteCommandRequest,
 	FileExists,
 	GetAuthState,
+	GetAuthorizedGitOrgsReq,
 	GetConfigFileDrifts,
 	type GetConfigFileDriftsReq,
 	GetContextState,

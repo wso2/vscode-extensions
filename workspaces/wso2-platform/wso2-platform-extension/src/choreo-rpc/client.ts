@@ -41,6 +41,7 @@ import type {
 	DeploymentLogsData,
 	DeploymentTrack,
 	Environment,
+	GetAuthorizedGitOrgsReq,
 	GetAutoBuildStatusReq,
 	GetAutoBuildStatusResp,
 	GetBranchesReq,
@@ -66,6 +67,7 @@ import type {
 	GetSwaggerSpecReq,
 	GetTestKeyReq,
 	GetTestKeyResp,
+	GithubOrganization,
 	IChoreoRPCClient,
 	IsRepoAuthorizedReq,
 	IsRepoAuthorizedResp,
@@ -246,6 +248,14 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		}
 		const response = await this.client.sendRequest<IsRepoAuthorizedResp>("repo/isRepoAuthorized", params);
 		return response;
+	}
+
+	async getAuthorizedGitOrgs(params: GetAuthorizedGitOrgsReq) {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response = await this.client.sendRequest<{ gitOrgs: GithubOrganization[] }>("repo/getAuthorizedGitOrgs", params);
+		return { gitOrgs: response.gitOrgs };
 	}
 
 	async getCredentials(params: GetCredentialsReq) {
@@ -542,7 +552,7 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		if (!this.client) {
 			throw new Error("RPC client is not initialized");
 		}
-		const response: {token: string} = await this.client.sendRequest("auth/getStsToken", {});
+		const response: { token: string } = await this.client.sendRequest("auth/getStsToken", {});
 		return response?.token;
 	}
 }

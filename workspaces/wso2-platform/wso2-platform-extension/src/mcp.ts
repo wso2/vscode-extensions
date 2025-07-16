@@ -40,10 +40,10 @@ export function activateMcp(context: vscode.ExtensionContext) {
 			},
 			resolveMcpServerDefinition: async (def, _token) => {
 				const userInfo = await getUserInfoForCmd("connect with Choreo MCP server");
-				if (userInfo){
+				if (userInfo) {
 					return def;
 				}
-				return undefined
+				return undefined;
 			},
 		}),
 	);

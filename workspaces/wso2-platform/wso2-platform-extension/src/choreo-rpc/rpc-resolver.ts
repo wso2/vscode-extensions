@@ -31,6 +31,7 @@ import {
 	ChoreoRpcDeleteConnection,
 	ChoreoRpcDisableAutoBuild,
 	ChoreoRpcEnableAutoBuild,
+	ChoreoRpcGetAuthorizedGitOrgsRequest,
 	ChoreoRpcGetAutoBuildStatus,
 	ChoreoRpcGetBranchesRequest,
 	ChoreoRpcGetBuildLogs,
@@ -58,6 +59,7 @@ import {
 	ChoreoRpcIsRepoAuthorizedRequest,
 	ChoreoRpcPromoteProxyDeployment,
 	ChoreoRpcRequestPromoteApproval,
+	type GetAuthorizedGitOrgsReq,
 	type GetAutoBuildStatusReq,
 	type GetBranchesReq,
 	type GetBuildLogsForTypeReq,
@@ -107,6 +109,7 @@ export function registerChoreoRpcResolver(messenger: Messenger, rpcClient: IChor
 	messenger.onRequest(ChoreoRpcGetBuildPacksRequest, (params: BuildPackReq) => rpcClient.getBuildPacks(params));
 	messenger.onRequest(ChoreoRpcGetBranchesRequest, (params: GetBranchesReq) => rpcClient.getRepoBranches(params));
 	messenger.onRequest(ChoreoRpcIsRepoAuthorizedRequest, (params: IsRepoAuthorizedReq) => rpcClient.isRepoAuthorized(params));
+	messenger.onRequest(ChoreoRpcGetAuthorizedGitOrgsRequest, (params: GetAuthorizedGitOrgsReq) => rpcClient.getAuthorizedGitOrgs(params));
 	messenger.onRequest(ChoreoRpcGetCredentialsRequest, (params: GetCredentialsReq) => rpcClient.getCredentials(params));
 	messenger.onRequest(ChoreoRpcDeleteComponentRequest, async (params: Parameters<IChoreoRPCClient["deleteComponent"]>[0]) => {
 		const extName = webviewStateStore.getState().state.extensionName;

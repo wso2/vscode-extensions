@@ -560,3 +560,14 @@ export interface SubscriptionItem {
 	subscriptionBillingProvider: string;
 	subscriptionBillingProviderStatus: string;
 }
+
+export interface GithubRepository {
+	name: string;
+}
+
+export interface GithubOrganization {
+	orgName: string;
+	orgHandler: string;
+	repositories: GithubRepository[];
+
+}
