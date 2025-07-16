@@ -2121,8 +2121,8 @@ importers:
         specifier: ^6.2.0
         version: 6.2.0(webpack@5.99.9)
       html-to-image:
-        specifier: ^1.11.13
-        version: 1.11.13
+        specifier: ^1.11.11
+        version: 1.11.11
       lodash:
         specifier: ^4.17.21
         version: 4.17.21
@@ -3233,8 +3233,8 @@ importers:
         specifier: ~4.1.4
         version: 4.1.4(@typescript-eslint/eslint-plugin@8.32.1(@typescript-eslint/parser@8.33.1(eslint@9.27.0(jiti@2.4.2))(typescript@5.8.3))(eslint@9.27.0(jiti@2.4.2))(typescript@5.8.3))(eslint@9.27.0(jiti@2.4.2))
       html-to-image:
-        specifier: 1.11.13
-        version: 1.11.13
+        specifier: 1.11.11
+        version: 1.11.11
       lodash:
         specifier: ~4.17.21
         version: 4.17.21
@@ -14593,6 +14593,9 @@ packages:
   html-tags@3.3.1:
     resolution: {integrity: sha512-ztqyC3kLto0e9WbNp0aeP+M3kTt+nbaIveGmUxAtZa+8iFgKLUOD4YKM5j+f3QD89bra7UeumolZHKuOXnTmeQ==}
     engines: {node: '>=8'}
+
+  html-to-image@1.11.11:
+    resolution: {integrity: sha512-9gux8QhvjRO/erSnDPv28noDZcPZmYE7e1vFsBLKLlRlKDSqNJYebj6Qz1TGd5lsRV+X+xYyjCKjuZdABinWjA==}
 
   html-to-image@1.11.13:
     resolution: {integrity: sha512-cuOPoI7WApyhBElTTb9oqsawRvZ0rHhaHwghRLlTuffoD1B2aDemlCruLeZrUIIdvG7gs9xeELEPm6PhuASqrg==}
@@ -40603,6 +40606,8 @@ snapshots:
       uglify-js: 3.4.10
 
   html-tags@3.3.1: {}
+
+  html-to-image@1.11.11: {}
 
   html-to-image@1.11.13: {}
 
