@@ -1,3 +1,5 @@
+
+
 /**
  * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
@@ -21,65 +23,54 @@ import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../ProjectExplorer';
 
 export default function createTests() {
-    test.describe('API Tests', {
+    test.describe('Connection Artifact Tests', {
         tag: '@group1',
     }, async () => {
         initTest();
-        test('Create Service', async ({ }, testInfo) => {
+        test('Create Connection Artifact', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
-            console.log('Creating a new service in test attempt: ', testAttempt);
-            // Creating a HTTP Service
-            await addArtifact('HTTP Service', 'http-service-card');
+            console.log('Creating a new connection in test attempt: ', testAttempt);
+            // Creating a HTTP Connection
+            await addArtifact('HTTP Connection', 'connection');
             const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
-            const sampleName = `/sample${testAttempt}`;
+
+            const cardHttp = artifactWebView.locator('#connector-http');
+            await cardHttp.waitFor();
+            await cardHttp.click({ force: true });
+
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
+            const connectionName = `sample${testAttempt}`;
             await form.switchToFormView(false, artifactWebView);
             await form.fill({
                 values: {
-                    'Service base path*': {
+                    'Url': {
+                        type: 'textarea',
+                        value: '"https://foo.bar/baz"',
+                    },
+                    'Connection Name*Name of the connection': {
                         type: 'input',
-                        value: sampleName,
+                        value: connectionName,
                     }
                 }
             });
+            await page.page.waitForTimeout(1000); // Wait for the form button to be enabled
             await form.submit('Create');
-            const context = artifactWebView.locator(`text=${sampleName}`);
-            await context.waitFor();
+
+            const connectionCard = artifactWebView.getByText(connectionName, { exact: true }).first();
+            await connectionCard.waitFor();
+
             const projectExplorer = new ProjectExplorer(page.page);
-            await projectExplorer.findItem(['sample', `HTTP Service - ${sampleName}`], true);
+            await projectExplorer.findItem(['sample', `${connectionName}`], true);
             const updateArtifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!updateArtifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
         });
 
-        test('Editing Service', async ({ }, testInfo) => {
-            const testAttempt = testInfo.retry + 1;
-            console.log('Editing a service in test attempt: ', testAttempt);
-            const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
-            if (!artifactWebView) {
-                throw new Error('WSO2 Integrator: BI webview not found');
-            }
-            const editBtn = artifactWebView.getByRole('button', { name: ' Edit' });
-            await editBtn.waitFor();
-            await editBtn.click({ force: true });
-            const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
-            await form.switchToFormView(false, artifactWebView);
-            const sampleName = `/newSample${testAttempt}`;
-            await form.fill({
-                values: {
-                    'Service base path*': {
-                        type: 'input',
-                        value: sampleName,
-                    }
-                }
-            });
-            await form.submit('Save');
-            const context = artifactWebView.locator(`text=${sampleName}`);
-            await context.waitFor();
-        });
     });
 }
+
+

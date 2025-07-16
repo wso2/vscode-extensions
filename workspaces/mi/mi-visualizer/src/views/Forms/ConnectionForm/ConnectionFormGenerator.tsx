@@ -391,7 +391,7 @@ export function AddConnection(props: AddConnectionProps) {
                     return "Connection name already exists";
                 } else if (workspaceFileNames.includes(connectionName)) {
                     return "An artifact with same name already exists";
-                } else if (/[^\w]/.test(connectionName)) {
+                } else if (/[^a-zA-Z0-9_-]/.test(connectionName)) {
                     return "Connection name cannot contain spaces or special characters";
                 }
                 return true;

@@ -178,10 +178,10 @@ export function MessageStoreWizard(props: MessageStoreWizardProps) {
             name: yup.string().required("Message Store name is required").matches(/^[a-zA-Z0-9_-]*$/, "Invalid characters in message store name")
                 .test('validateSequenceName',
                     'An artifact with same name already exists', value => {
-                        return !(workspaceFileNames.includes(value) && storeName !== value)
+                        return !(workspaceFileNames.includes(value.toLowerCase()) && storeName !== value)
                     }).test('validateArtifactName',
                         'A registry resource with this artifact name already exists', value => {
-                            return !(artifactNames.includes(value) && storeName !== value)
+                            return !(artifactNames.includes(value.toLowerCase()) && storeName !== value)
                         }),
             type: yup.string(),
             connectionInformationType: yup.string().default("Pool").oneOf(["Pool", "Carbon Datasource"]),
@@ -362,11 +362,11 @@ export function MessageStoreWizard(props: MessageStoreWizardProps) {
             const artifactRes = await rpcClient.getMiDiagramRpcClient().getAllArtifacts({
                 path: props.path,
             });
-            setWorkspaceFileNames(artifactRes.artifacts);
+            setWorkspaceFileNames(artifactRes.artifacts.map(name => name.toLowerCase()));
             const regArtifactRes = await rpcClient.getMiDiagramRpcClient().getAvailableRegistryResources({
                 path: props.path
             });
-            setArtifactNames(regArtifactRes.artifacts);
+            setArtifactNames(regArtifactRes.artifacts.map(name => name.toLowerCase()));
             const xmlFileNames = await rpcClient.getMiDiagramRpcClient().getAvailableResources({
                 resourceType: "messageStore",
                 documentIdentifier: props.path,

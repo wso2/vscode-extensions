@@ -54,7 +54,7 @@ export default function createTests() {
             await form.switchToFormView(false, configurationWebView);
             await form.fill({
                 values: {
-                    'Variable name*Name of the variable': {
+                    'Variable Name*Name of the variable': {
                         type: 'input',
                         value: 'time',
                     },
@@ -68,17 +68,15 @@ export default function createTests() {
                     }
                 }
             });
-        
+
             const documentationField = await configurationWebView.locator('textarea[name="documentation"]');
             await documentationField.fill('This is the description of the time config variable');
 
             await configurationWebView.getByRole('button', { name: 'Save' }).click();
-
             await configEditor.verifyConfigurableVariable('time', '100', '');
 
+            // Edit the configurable variable
             await configEditor.editConfigurableVariable('time');
-
-            // Fill the form fields
             const editForm = new Form(page.page, 'WSO2 Integrator: BI', configurationWebView);
             await editForm.switchToFormView(false, configurationWebView);
             await editForm.fill({
@@ -93,18 +91,17 @@ export default function createTests() {
             await configurationWebView.getByRole('button', { name: 'Save' }).click();
             await configEditor.verifyConfigurableVariable('time', '200', '');
 
+            // Add a config toml value to the configurable variable through inline editor
             await configEditor.addConfigTomlValue('time', '500');
             await configEditor.verifyConfigurableVariable('time', '200', '500');
 
-            // Create a new configurable variable with no default value
+            // Create a new configurable variable with no default value and verify warning
             await configEditor.addNewConfigurableVariable();
-
-            // Fill the form fields
             const addForm = new Form(page.page, 'WSO2 Integrator: BI', configurationWebView);
             await addForm.switchToFormView(false, configurationWebView);
             await addForm.fill({
                 values: {
-                    'Variable name*Name of the variable': {
+                    'Variable Name*Name of the variable': {
                         type: 'input',
                         value: 'place',
                     },
@@ -114,16 +111,62 @@ export default function createTests() {
                     }
                 }
             });
-
             await configurationWebView.getByRole('button', { name: 'Save' }).click();
             await configEditor.verifyConfigurableVariable('place', '', '');
             await configEditor.verifyWarning('place');
 
+            // Create a new configurable variable with no default value
+            await configEditor.addNewConfigurableVariable();
+            const addNewForm = new Form(page.page, 'WSO2 Integrator: BI', configurationWebView);
+            await addNewForm.switchToFormView(false, configurationWebView);
+            await addNewForm.fill({
+                values: {
+                    'Variable Name*Name of the variable': {
+                        type: 'input',
+                        value: 'destination',
+                    },
+                    'Variable Type': {
+                        type: 'textarea',
+                        value: 'string'
+                    }
+                }
+            });
+
+            await configurationWebView.getByRole('button', { name: 'Save' }).click();
+            await configEditor.verifyConfigurableVariable('destination', '', '');
+            await configEditor.verifyWarning('destination');
+
+            // Verify 2 warnings in the integration package
+            await configEditor.verifyNumberofWarningIntegration(2);
+
+            // Add value to library config variable and check if warning is removed
+            await configEditor.addConfigTomlValue('place', 'new-string-value');
+            await configEditor.verifyConfigurableVariable('place', '', 'new-string-value');
+            await configEditor.verifyNoWarning('place');
+
+            // Click run integration button and check for missing configurations popup
+            await page.page.locator('a[role="button"][aria-label="Run Integration"]').click();
+            await page.page.getByText('Missing required configurations in Config.toml file', { exact: true }).waitFor();
+            await page.page.getByRole('button', { name: 'Update Configurables' }).click();
+
+            // Delete the configurable variable
             await configEditor.deleteConfigVariable('place');
 
+            // Add config value for missing configurable variables
+            await configEditor.addConfigTomlValue('destination', 'new-destination-value');
+            await configEditor.verifyConfigurableVariable('destination', '', 'new-destination-value');
+
+            // Add value to library config variable
             await configEditor.selectPackage('ballerinax/wso2.controlplane');
             await configEditor.addConfigTomlValue('dashboard', 'example-dashboard');
             await configEditor.verifyConfigurableVariable('dashboard', '', 'example-dashboard');
+
+            // Click run integration button and check for missing configurations popup
+            await page.page.locator('a[role="button"][aria-label="Run Integration"]').click();
+
+            // Verify vs code terminal is opened
+            const terminalPanel = page.page.locator('div.composite.panel#terminal');
+            await terminalPanel.waitFor({ state: 'visible', timeout: 60000 });
 
         });
     });
