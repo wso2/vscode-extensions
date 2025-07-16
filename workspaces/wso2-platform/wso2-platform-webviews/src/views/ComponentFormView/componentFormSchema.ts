@@ -46,6 +46,7 @@ export const componentRepoInitSchema = z.object({
 		.max(60, "Max length exceeded")
 		.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
 		.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters"),
+	gitProvider: z.string().min(1, "Required"),
 });
 
 export const componentGeneralDetailsSchema = z.object({

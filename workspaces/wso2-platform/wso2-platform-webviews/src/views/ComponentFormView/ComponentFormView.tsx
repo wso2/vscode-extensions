@@ -29,6 +29,7 @@ import {
 	type NewComponentWebviewProps,
 	type SubmitComponentCreateReq,
 	WebAppSPATypes,
+	buildGitURL,
 	getComponentTypeText,
 	getIntegrationComponentTypeText,
 	getRandomNumber,
@@ -97,7 +98,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 	const repoInitForm = useForm<ComponentRepoInitType>({
 		resolver: zodResolver(getRepoInitSchemaGenDetails(existingComponents), { async: true }, { mode: "async" }),
 		mode: "all",
-		defaultValues: { org: "", repo: "", branch: "main", subPath: "/", name: initialValues?.name || "" },
+		defaultValues: { org: "", repo: "", branch: "main", subPath: "/", name: initialValues?.name || "", gitProvider: GitProvider.GITHUB },
 	});
 
 	const name = genDetailsForm.watch("name");
@@ -174,11 +175,18 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 			const buildDetails = buildDetailsForm.getValues();
 			const gitProxyDetails = gitProxyForm.getValues();
 
-			const name = props.isGitInitialized ? repoInitDetails.name : genDetails.name
-			const componentName = makeURLSafe(props.isGitInitialized ? repoInitDetails.name : genDetails.name);
+			const name = props.isGitInitialized ? genDetails.name: repoInitDetails.name 
+			const componentName = makeURLSafe(props.isGitInitialized ? genDetails.name: repoInitDetails.name);
 
 			const parsedRepo = parseGitURL(genDetails.repoUrl);
-			const provider = parsedRepo ? parsedRepo[2] : null;
+			let provider = parsedRepo ? parsedRepo[2] : null;
+
+			let branch = props.isGitInitialized ? genDetails.branch : repoInitDetails.branch
+			if(!props.isGitInitialized){
+				provider = genDetails.gitProvider
+			}
+
+			const repoUrl = props.isGitInitialized ? genDetails.repoUrl : buildGitURL(repoInitDetails.org, repoInitDetails.repo, repoInitDetails.gitProvider)
 
 			const createParams: Partial<CreateComponentReq> = {
 				orgId: organization.id.toString(),
@@ -190,10 +198,10 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 				type,
 				componentSubType: initialValues?.subType || "",
 				buildPackLang: buildDetails.buildPackLang,
-				componentDir: directoryFsPath, // should update
-				repoUrl: genDetails.repoUrl, // should update
-				gitProvider: genDetails.gitProvider, // should update
-				branch: genDetails.branch,  // should update
+				componentDir: directoryFsPath, // todo: should update
+				repoUrl: repoUrl,
+				gitProvider: provider,
+				branch: branch,
 				langVersion: buildDetails.langVersion,
 				port: buildDetails.webAppPort,
 				originCloud: extensionName === "Devant" ? "devant" : "choreo",
