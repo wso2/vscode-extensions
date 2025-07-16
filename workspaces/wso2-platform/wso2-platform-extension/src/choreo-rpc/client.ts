@@ -41,6 +41,8 @@ import type {
 	DeploymentLogsData,
 	DeploymentTrack,
 	Environment,
+	GetAuthorizedGitOrgsReq,
+	GetAuthorizedGitOrgsResp,
 	GetAutoBuildStatusReq,
 	GetAutoBuildStatusResp,
 	GetBranchesReq,
@@ -78,6 +80,7 @@ import type {
 	ToggleAutoBuildReq,
 	ToggleAutoBuildResp,
 	UserInfo,
+	UserRepo,
 } from "@wso2/wso2-platform-core";
 import { type MessageConnection, Trace, type Tracer } from "vscode-jsonrpc";
 import { handlerError } from "../error-utils";
@@ -258,6 +261,14 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		}
 		const response = await this.client.sendRequest<{ userInfo: UserInfo; isLoggedIn: boolean }>("auth/getUserInfo");
 		return response.userInfo;
+	}
+
+	async getAuthorizedGitOrgs(params: GetAuthorizedGitOrgsReq) {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response = await this.client.sendRequest<{ gitOrgs: UserRepo[] }>("repo/getAuthorizedGitOrgs", params);
+		return { gitOrgs: response.gitOrgs };
 	}
 
 	async getSignInUrl({

@@ -53,9 +53,10 @@ export const queryKeys = {
 	],
 	getSwaggerSpec: (apiRevisionId: string, org: Organization) => ["get-swagger-spec", { selectedEndpoint: apiRevisionId, org: org.handle }],
 	getBuildPacks: (selectedType: string, org: Organization) => ["build-packs", { selectedType, orgId: org?.id }],
-	getGitBranches: (repoUrl: string, org: Organization, credRef: string, isAccessible: boolean) => [
+	getAuthorizedGitOrgs: (orgId: string, credRef = "") => ["get-authorized-git-orgs", { orgId, credRef }],
+	getGitBranches: (repoUrl: string, orgId: string, credRef: string, isAccessible: boolean) => [
 		"get-git-branches",
-		{ repo: repoUrl, orgId: org?.id, credRef, isAccessible },
+		{ repo: repoUrl, orgId, credRef, isAccessible },
 	],
 	getDeployedEndpoints: (deploymentTrack: DeploymentTrack, component: ComponentKind, org: Organization) => [
 		"get-deployed-endpoints",
@@ -151,14 +152,31 @@ export const useGetBuildPacks = (selectedType: string, org: Organization, option
 		options,
 	);
 
-export const useGetGitBranches = (repoUrl: string, org: Organization, credRef = "", isAccessible = false, options?: UseQueryOptions<string[]>) =>
+export const useGetAuthorizedGitOrgs = (orgId: string, credRef = "", options?: UseQueryOptions<any>) =>
+	useQuery<any>(
+		queryKeys.getAuthorizedGitOrgs(orgId, credRef),
+		async () => {
+			try {
+				const orgs = await ChoreoWebViewAPI.getInstance().getChoreoRpcClient().getAuthorizedGitOrgs({
+					orgId,
+					credRef: ""
+				});
+				return orgs ?? null;
+			} catch {
+				return null;
+			}
+		},
+		options,
+	);
+
+export const useGetGitBranches = (repoUrl: string, orgId: string, credRef = "", isAccessible = false, options?: UseQueryOptions<string[]>) =>
 	useQuery<string[]>(
-		queryKeys.getGitBranches(repoUrl, org, credRef, isAccessible),
+		queryKeys.getGitBranches(repoUrl, orgId, credRef, isAccessible),
 		async () => {
 			try {
 				const branches = await ChoreoWebViewAPI.getInstance().getChoreoRpcClient().getRepoBranches({
 					repoUrl,
-					orgId: org.id.toString(),
+					orgId,
 					credRef,
 				});
 				return branches ?? [];
