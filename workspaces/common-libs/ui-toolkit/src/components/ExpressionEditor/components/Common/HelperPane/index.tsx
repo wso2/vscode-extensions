@@ -156,7 +156,7 @@ const IconButtonContainer = styled.div`
 
     & p,
     & i {
-        color: var(--vscode-button-background);
+        color: var(--vscode-notebook-focusedEditorBorder);
     }
 
     & p:hover,

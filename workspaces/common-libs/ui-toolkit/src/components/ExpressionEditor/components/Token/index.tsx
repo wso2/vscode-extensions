@@ -588,7 +588,7 @@ export const TokenEditor = ({
                             <Button
                                 appearance="icon"
                                 onClick={handleFullscreenToggle}
-                                tooltip='Toggle fullscreen'
+                                tooltip={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
                                 sx={{ marginRight: '8px' }}
                             >
                                 <Codicon name={isFullscreen ? "screen-normal" : "screen-full"} />
