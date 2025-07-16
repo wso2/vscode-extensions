@@ -50,6 +50,11 @@ export const PAGE = {
 
 export type Page = (typeof PAGE)[keyof typeof PAGE];
 
+const TOKEN_EDITOR_OFFSET = 180;
+const TOKEN_EDITOR_BOTTOM_OFFSET = 40;
+const FULLSCREEN_OFFSET = 160;
+const FULLSCREEN_DELAY = 200;
+
 const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen, height: componentDefaultHeight, sx, onClose, onChange, addFunction }: HelperPaneProps) => {
     const [currentPage, setCurrentPage] = useState<Page>(PAGE.CATEGORY);
     const panelRef = useRef<HTMLDivElement>(null);
@@ -62,7 +67,7 @@ const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen,
                 const element = panelRef.current;
                 const rect = element.getBoundingClientRect();
                 // Get children height
-                const clientHeight = isTokenEditor ? (element.clientHeight + 180) : element.clientHeight;
+                const clientHeight = isTokenEditor ? (element.clientHeight + TOKEN_EDITOR_OFFSET) : element.clientHeight;
 
                 const heightDiff = clientHeight - viewportHeight;
                 let overflowHeight = 0;
@@ -72,16 +77,16 @@ const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen,
                     if (bottomOverflow < 0) {
                         overflowHeight = 0; // No overflow
                     }
-                    overflowHeight = bottomOverflow + (isTokenEditor ? 40 : 0);
+                    overflowHeight = bottomOverflow + (isTokenEditor ? TOKEN_EDITOR_BOTTOM_OFFSET : 0);
                 } else {
                     overflowHeight = heightDiff;
                 }
-                const heightWithComponents = clientHeight - overflowHeight - (isTokenEditor ? 180 : 0);
+                const heightWithComponents = clientHeight - overflowHeight - (isTokenEditor ? TOKEN_EDITOR_OFFSET : 0);
                 const newHeight = heightWithComponents > componentDefaultHeight ? componentDefaultHeight : heightWithComponents;
                 setIsComponentOverflowing(heightWithComponents < componentDefaultHeight);
                 setHeight(newHeight);
             } else if (isFullscreen) {
-                setHeight(viewportHeight - 160); // Default height if no panelRef or fullscreen
+                setHeight(viewportHeight - FULLSCREEN_OFFSET); // Default height if no panelRef or fullscreen
             }
         };
 
@@ -109,7 +114,7 @@ const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen,
                     if (panelRef.current) {
                         const viewportHeight = window.innerHeight;
                         if (isFullscreen) {
-                            setHeight(viewportHeight - 160);
+                            setHeight(viewportHeight - FULLSCREEN_OFFSET);
                         } else {
                             // Trigger overflow check for non-fullscreen
                             const element = panelRef.current;
@@ -136,7 +141,7 @@ const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen,
                             setHeight(newHeight);
                         }
                     }
-                }, 200); // Wait longer for layout changes
+                }, FULLSCREEN_DELAY); // Wait longer for layout changes
             };
             
             handleFullscreenChange();
