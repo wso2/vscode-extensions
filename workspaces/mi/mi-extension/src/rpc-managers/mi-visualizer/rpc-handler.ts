@@ -63,7 +63,7 @@ import {
     updateContext,
     getProjectDetails,
     updateProperties,
-    reloadIntegrationProjectDependencies,
+    reloadDependencies,
     updateDependencies,
     updatePomValues,
     updateConfigFileValues,
@@ -127,7 +127,7 @@ export function registerMiVisualizerRpcHandlers(messenger: Messenger, projectUri
     messenger.onRequest(getSupportedMIVersionsHigherThan, (args: string) => rpcManger.getSupportedMIVersionsHigherThan(args));
     messenger.onRequest(getProjectDetails, () => rpcManger.getProjectDetails());
     messenger.onRequest(updateProperties, (args: UpdatePropertiesRequest) => rpcManger.updateProperties(args));
-    messenger.onRequest(reloadIntegrationProjectDependencies, () => rpcManger.reloadIntegrationProjectDependencies());
+    messenger.onRequest(reloadDependencies, () => rpcManger.reloadDependencies());
     messenger.onRequest(updateDependencies, (args: UpdateDependenciesRequest) => rpcManger.updateDependencies(args));
     messenger.onRequest(updatePomValues, (args: UpdatePomValuesRequest) => rpcManger.updatePomValues(args));
     messenger.onRequest(updateConfigFileValues, (args: UpdateConfigValuesRequest) => rpcManger.updateConfigFileValues(args));
