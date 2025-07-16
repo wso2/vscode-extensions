@@ -107,7 +107,7 @@ export default function createTests() {
                             type: 'input',
                             value: multiWorkspaceName,
                         },
-                        'Micro Integrator runtime version*': {
+                        'WSO2 Integrator: MI runtime version*': {
                             type: 'dropdown',
                             value: '4.4.0'
                         },

@@ -659,7 +659,7 @@ export function openView(type: EVENT_TYPE, viewLocation?: VisualizerLocation) {
             return;
         }
 
-        if (workspaces.length > 1) {
+        if (workspaces.length > 1 && viewLocation?.view !== MACHINE_VIEW.Welcome ) {
             askForPrj();
             async function askForPrj() {
                 const projectUri = await askForProject();

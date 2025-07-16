@@ -147,7 +147,6 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
 			vscode.commands.executeCommand('setContext', 'MI.showAddArtifact', false);
 			return data;
 		}
-		vscode.commands.executeCommand('setContext', 'MI.showAddArtifact', true);
 	} else {
 		vscode.commands.executeCommand('setContext', 'projectOpened', false);
 	}
