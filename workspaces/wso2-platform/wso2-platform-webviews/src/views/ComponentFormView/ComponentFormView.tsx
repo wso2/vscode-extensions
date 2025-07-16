@@ -98,7 +98,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 	const repoInitForm = useForm<ComponentRepoInitType>({
 		resolver: zodResolver(getRepoInitSchemaGenDetails(existingComponents), { async: true }, { mode: "async" }),
 		mode: "all",
-		defaultValues: { org: "", repo: "", branch: "main", subPath: "/", name: initialValues?.name || "", gitProvider: GitProvider.GITHUB },
+		defaultValues: { org: "", repo: "", branch: "main", subPath: "/", name: initialValues?.name || "", gitProvider: GitProvider.GITHUB, serverUrl:"" },
 	});
 
 	const name = genDetailsForm.watch("name");
@@ -207,6 +207,19 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 				originCloud: extensionName === "Devant" ? "devant" : "choreo",
 			};
 
+			await ChoreoWebViewAPI.getInstance().cloneRepositoryIntoCompDir({
+				cwd: props.directoryFsPath,
+				subpath: repoInitDetails.subPath,
+				repo:{
+					org: repoInitDetails.org,
+					branch: repoInitDetails.branch,
+					provider: repoInitDetails.gitProvider,
+					repo: repoInitDetails.repo,
+					serverUrl: repoInitDetails.serverUrl,
+				}
+			})
+
+			/*
 			if (provider !== GitProvider.GITHUB) {
 				createParams.gitCredRef = genDetails?.credential;
 			}
@@ -242,6 +255,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 			if (created) {
 				ChoreoWebViewAPI.getInstance().closeWebView();
 			}
+			*/
 		},
 	});
 

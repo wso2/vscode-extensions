@@ -48,6 +48,7 @@ export const componentRepoInitSchema = z.object({
 		.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
 		.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters"),
 	gitProvider: z.string().min(1, "Required"),
+	serverUrl: z.string(),
 });
 
 export const componentGeneralDetailsSchema = z.object({

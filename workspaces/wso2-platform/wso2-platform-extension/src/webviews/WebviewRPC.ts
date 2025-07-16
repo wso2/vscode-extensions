@@ -16,11 +16,14 @@
  * under the License.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, unlinkSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync,copyFileSync, readFileSync, readdirSync, rmSync, statSync, unlinkSync, writeFileSync, mkdtempSync, renameSync, rmdirSync } from "fs";
+import * as fs from "fs"
 import { join } from "path";
 import {
 	AuthStoreChangedNotification,
 	ClearWebviewCache,
+	CloneRepositoryIntoCompDir,
+	CloneRepositoryIntoCompDirReq,
 	CloseComponentViewDrawer,
 	CloseWebViewNotification,
 	type CommitHistory,
@@ -84,6 +87,7 @@ import {
 	WebviewNotificationsMethodList,
 	type WebviewQuickPickItem,
 	WebviewStateChangedNotification,
+	buildGitURL,
 	deepEqual,
 	getShortenedHash,
 	makeURLSafe,
@@ -106,7 +110,9 @@ import { contextStore } from "../stores/context-store";
 import { dataCacheStore } from "../stores/data-cache-store";
 import { webviewStateStore } from "../stores/webview-state-store";
 import { sendTelemetryEvent, sendTelemetryException } from "../telemetry/utils";
-import { getConfigFileDrifts, getNormalizedPath, getSubPath, goTosource, readLocalEndpointsConfig, readLocalProxyConfig, saveFile } from "../utils";
+import { delay, getConfigFileDrifts, getNormalizedPath, getSubPath, goTosource, readLocalEndpointsConfig, readLocalProxyConfig, saveFile } from "../utils";
+import { initGit } from "../git/main";
+import * as os from "os";
 
 // Register handlers
 function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | WebviewView) {
@@ -551,6 +557,66 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 	});
 	messenger.onRequest(GetConfigFileDrifts, async (params: GetConfigFileDriftsReq) => {
 		return getConfigFileDrifts(params.type, params.repoUrl, params.branch, params.repoDir, ext.context);
+	});
+	messenger.onRequest(CloneRepositoryIntoCompDir, async (params: CloneRepositoryIntoCompDirReq) => {
+		const tempDirPath = await fs.promises.mkdtemp(join(os.tmpdir(), `temp-platform-code`));
+		const newGit = await initGit(ext.context);
+		const repoUrl = buildGitURL(params.repo.org, params.repo.repo, params.repo.provider, params.repo.serverUrl)
+		if(newGit && repoUrl){
+			fs.mkdirSync(tempDirPath, { recursive: true });
+
+			// move everything into a temp directory before cloning
+			const files = readdirSync(params.cwd);
+			for (const file of files) {
+				const srcPath = join(params.cwd, file);
+				const destPath = join(tempDirPath, file);
+				if([".git"].includes(file)){
+					fs.cpSync(srcPath, destPath,{recursive: true})
+				}
+				await fs.promises.rm(srcPath,{recursive: true});
+			}
+
+			await delay(1000)
+			await window.withProgress(
+				{
+					title: `Cloning repository into current directory`,
+					location: ProgressLocation.Notification,
+				},
+				async (progress, cancellationToken) => {		
+					const clonedPath = await newGit.clone(
+						repoUrl,
+						{
+							recursive: true,
+							ref: params.repo.branch,
+							parentPath: params.cwd,
+							skipCreateSubPath: true,
+							progress: {
+								report: ({ increment, ...rest }: { increment: number }) =>
+									progress.report({
+										increment: increment,
+										message: `Cloning selected repository into current directory`,
+										...rest,
+									}),
+							},
+						},
+						cancellationToken,
+					);
+				
+					return clonedPath;
+				},
+			)
+
+			// After cloning, move contents back
+			const tempFiles = readdirSync(tempDirPath);
+			fs.mkdirSync(join(params.cwd, params.subpath), { recursive: true });
+
+			for (const file of tempFiles) {
+				const tempFilePath = join(tempDirPath, file);
+				const destFilePath = join(params.cwd, params.subpath, file);
+				fs.cpSync(tempFilePath, destFilePath, {recursive: true})
+			}
+			await fs.promises.rm(tempDirPath,{recursive: true});
+			}
 	});
 
 	// Register Choreo CLL RPC handler

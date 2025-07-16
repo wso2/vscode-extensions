@@ -22,6 +22,8 @@ import {
 	ChoreoRpcGetAuthorizedGitOrgsRequest,
 	ChoreoRpcWebview,
 	ClearWebviewCache,
+	CloneRepositoryIntoCompDir,
+	CloneRepositoryIntoCompDirReq,
 	CloseComponentViewDrawer,
 	CloseWebViewNotification,
 	type CommitHistory,
@@ -245,6 +247,10 @@ export class ChoreoWebViewAPI {
 
 	public async triggerGithubAuthFlow(orgId: string): Promise<void> {
 		return this._messenger.sendRequest(TriggerGithubAuthFlow, HOST_EXTENSION, orgId);
+	}
+
+	public async cloneRepositoryIntoCompDir(params: CloneRepositoryIntoCompDirReq): Promise<void> {
+		return this._messenger.sendRequest(CloneRepositoryIntoCompDir, HOST_EXTENSION, params);
 	}
 
 	public async triggerGithubInstallFlow(orgId: string): Promise<void> {
