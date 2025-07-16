@@ -113,12 +113,6 @@ const MainPanel = (props: MainPanelProps) => {
     }, [props]);
 
     useEffect(() => {
-        rpcClient.getVisualizerState().then((visualizerState) => {
-            rpcClient.getMiDiagramRpcClient().executeCommand({ commands: ['setContext', 'MI.showAddArtifact', viewComponent && visualizerState.view !== MACHINE_VIEW.ADD_ARTIFACT] });
-        });
-    }, [viewComponent]);
-
-    useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'i' && (event.metaKey || event.ctrlKey)) {
                 rpcClient.getMiDiagramRpcClient().executeCommand({ commands: ["MI.openAiPanel"] });
