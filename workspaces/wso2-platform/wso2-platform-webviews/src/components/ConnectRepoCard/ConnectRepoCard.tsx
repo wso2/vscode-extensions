@@ -30,6 +30,7 @@ interface ConnectRepoCardProps {
 		isAccessible?: boolean;
 		retrievedRepos?: boolean;
 	};
+	onRepositorySelect?: (repository: any) => void;
 }
 
 interface GitHubOrganization {
@@ -40,7 +41,8 @@ interface GitHubOrganization {
 export const ConnectRepoCard: FC<ConnectRepoCardProps> = ({ 
 	organizationId, 
 	className, 
-	repoAuthStatus
+	repoAuthStatus,
+	onRepositorySelect
 }) => {
 	const { extensionName } = useExtWebviewContext();
 	const [isAuthenticating, setIsAuthenticating] = useState(false);
@@ -54,9 +56,6 @@ export const ConnectRepoCard: FC<ConnectRepoCardProps> = ({
 	const [newRepoRequested, setNewRepoRequested] = useState(false);
 	const [selectedRepository, setSelectedRepository] = useState<any>(null);
 	const [selectedBranch, setSelectedBranch] = useState<string>("");
-	// const [directories, setDirectories] = useState<string[]>([]);
-	// const [selectedDirectory, setSelectedDirectory] = useState<string>("");
-	// const [isLoadingDirectories, setIsLoadingDirectories] = useState(false);
 
 	// Generate repo URL for the selected repository
 	const repoUrl = selectedRepository && selectedOrganization 
@@ -299,6 +298,7 @@ export const ConnectRepoCard: FC<ConnectRepoCardProps> = ({
 	const handleRepoSelect = (repo: any) => {
 		setSelectedRepository(repo);
 		setSelectedBranch("");
+		onRepositorySelect?.(repo);
 	};
 
 	const handleBranchSelect = (branch: string) => {
@@ -342,13 +342,11 @@ export const ConnectRepoCard: FC<ConnectRepoCardProps> = ({
 
 		if (authenticationStatus === "SUCCESS") {
 			// Show organization and repository selection
-			console.log("#### Rendering SUCCESS state - Organizations:", organizations, "Selected Org:", selectedOrganization, "Filtered Repos:", filteredRepos);
 			return (
 				<div className="space-y-4">
 					<div className="flex items-center justify-between">
 						<h3 className="text-lg font-medium">Select a Git Repository</h3>
 					</div>
-						{/* Organization and Repository Selection - Side by Side */}
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 						{/* Organization Dropdown */}
 						<div className="space-y-1">
@@ -398,7 +396,6 @@ export const ConnectRepoCard: FC<ConnectRepoCardProps> = ({
 									if (e.target.value === "add_more") {
 										// Handle adding more organizations
 										handleConnectMoreRepos();
-										// Don't reset the organization selection when adding more
 										return;
 									}
 									const selectedOrg = organizations.find(org => org.name === e.target.value);
@@ -430,7 +427,6 @@ export const ConnectRepoCard: FC<ConnectRepoCardProps> = ({
 							>
 								<option value="">Select Organization</option>
 								{organizations.map((org) => {
-									console.log("#### Rendering org option:", org);
 									return (
 										<option key={org.name} value={org.name}>
 											{org.name}
