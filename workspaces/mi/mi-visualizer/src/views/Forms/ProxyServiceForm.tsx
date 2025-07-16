@@ -70,7 +70,7 @@ export function ProxyServiceWizard(props: ProxyServiceWizardProps) {
             .matches(/^[^@\\^+;:!%&,=*#[\]$?'"<>{}() /]*$/, "Invalid characters in Proxy Service Name")
             .test('validateProxyServiceName',
                 'An artifact with same name already exists', value => {
-                    return !workspaceFileNames.includes(value)
+                    return !workspaceFileNames.includes(value.toLowerCase())
                 }),
         proxyServiceType: yup.string().default(""),
         endpointType: yup.string().notRequired().default(""),
@@ -133,7 +133,7 @@ export function ProxyServiceWizard(props: ProxyServiceWizardProps) {
             const artifactRes = await rpcClient.getMiDiagramRpcClient().getAllArtifacts({
                 path: props.path,
             });
-            setWorkspaceFileNames(artifactRes.artifacts);
+            setWorkspaceFileNames(artifactRes.artifacts.map(name => name.toLowerCase()));
         })();
 
     }, []);

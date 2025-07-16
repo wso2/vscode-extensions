@@ -66,35 +66,35 @@ const PopupPanel = (props: { formState: PopupMachineStateValue, handleClose?: ()
     }, []);
 
     const fetchContext = () => {
-        const endpointPath = new URL(path.join('src', 'main', 'wso2mi', 'artifacts', 'endpoints').toString(), window.location.origin).pathname;
         rpcClient.getPopupVisualizerState().then((machineSate: PopupVisualizerLocation) => {
+            const endpointPath = machineSate.documentUri ? path.join(machineSate.documentUri.split(`artifacts${path.sep}`)[0], 'artifacts', 'endpoints') : "";
             switch (machineSate?.view) {
                 case MACHINE_VIEW.EndPointForm:
                     setViewComponent(<EndpointWizard handlePopupClose={props.handleClose} isPopup={true} path={machineSate.documentUri} />);
                     break;
                 case MACHINE_VIEW.HttpEndpointForm:
-                    setViewComponent(<HttpEndpointWizard handlePopupClose={props.handleClose} isPopup={true} path={`${machineSate.documentUri}${endpointPath}`} type={machineSate.customProps.type} />);
+                    setViewComponent(<HttpEndpointWizard handlePopupClose={props.handleClose} isPopup={true} path={endpointPath} type={machineSate.customProps.type} />);
                     break;
                 case MACHINE_VIEW.AddressEndpointForm:
-                    setViewComponent(<AddressEndpointWizard handlePopupClose={props.handleClose} isPopup={true} path={`${machineSate.documentUri}${endpointPath}`} type={machineSate.customProps.type} />);
+                    setViewComponent(<AddressEndpointWizard handlePopupClose={props.handleClose} isPopup={true} path={endpointPath} type={machineSate.customProps.type} />);
                     break;
                 case MACHINE_VIEW.WsdlEndpointForm:
-                    setViewComponent(<WsdlEndpointWizard handlePopupClose={props.handleClose} isPopup={true} path={`${machineSate.documentUri}${endpointPath}`} type={machineSate.customProps.type} />);
+                    setViewComponent(<WsdlEndpointWizard handlePopupClose={props.handleClose} isPopup={true} path={endpointPath} type={machineSate.customProps.type} />);
                     break;
                 case MACHINE_VIEW.DefaultEndpointForm:
-                    setViewComponent(<DefaultEndpointWizard handlePopupClose={props.handleClose} isPopup={true} path={`${machineSate.documentUri}${endpointPath}`} type={machineSate.customProps.type} />);
+                    setViewComponent(<DefaultEndpointWizard handlePopupClose={props.handleClose} isPopup={true} path={endpointPath} type={machineSate.customProps.type} />);
                     break;
                 case MACHINE_VIEW.LoadBalanceEndPointForm:
-                    setViewComponent(<LoadBalanceWizard handlePopupClose={props.handleClose} isPopup={true} path={`${machineSate.documentUri}${endpointPath}`} />);
+                    setViewComponent(<LoadBalanceWizard handlePopupClose={props.handleClose} isPopup={true} path={endpointPath} />);
                     break;
                 case MACHINE_VIEW.FailoverEndPointForm:
-                    setViewComponent(<FailoverWizard handlePopupClose={props.handleClose} isPopup={true} path={`${machineSate.documentUri}${endpointPath}`} />);
+                    setViewComponent(<FailoverWizard handlePopupClose={props.handleClose} isPopup={true} path={endpointPath} />);
                     break;
                 case MACHINE_VIEW.RecipientEndPointForm:
-                    setViewComponent(<RecipientWizard handlePopupClose={props.handleClose} isPopup={true} path={`${machineSate.documentUri}${endpointPath}`} />);
+                    setViewComponent(<RecipientWizard handlePopupClose={props.handleClose} isPopup={true} path={endpointPath} />);
                     break;
                 case MACHINE_VIEW.TemplateEndPointForm:
-                    setViewComponent(<TemplateEndpointWizard handlePopupClose={props.handleClose} isPopup={true} path={`${machineSate.documentUri}${endpointPath}`} />);
+                    setViewComponent(<TemplateEndpointWizard handlePopupClose={props.handleClose} isPopup={true} path={endpointPath} />);
                     break;
                 case MACHINE_VIEW.ConnectorStore:
                     setViewComponent(<ConnectionWizard handlePopupClose={props.handleClose} isPopup={true} path={machineSate.documentUri} allowedConnectionTypes={machineSate.customProps?.allowedConnectionTypes} />);

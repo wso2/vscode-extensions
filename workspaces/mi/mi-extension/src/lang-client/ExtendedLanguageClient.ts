@@ -64,6 +64,8 @@ import {
     GetConnectionSchemaResponse,
     GenerateConnectorRequest,
     GenerateConnectorResponse,
+    UpdatePropertiesRequest,
+    UpdatePropertiesResponse,
     UpdateDependenciesResponse,
     UpdateDependenciesRequest,
     GetHelperPaneInfoResponse,
@@ -354,12 +356,20 @@ export class ExtendedLanguageClient extends LanguageClient {
         return this.sendRequest('synapse/getProjectIntegrationType', { uri: Uri.file(path).fsPath });
     }
 
+    async updateProperties(req: UpdatePropertiesRequest): Promise<UpdatePropertiesResponse> {
+        return this.sendRequest('synapse/updateProperty', req);
+    }
+
     async updateDependencies(req: UpdateDependenciesRequest): Promise<UpdateDependenciesResponse> {
         return this.sendRequest('synapse/updateDependency', req);
     }
 
     async updateConnectorDependencies(): Promise<string> {
         return this.sendRequest('synapse/updateConnectorDependencies');
+    }
+
+    async loadDependentCAppResources(): Promise<string> {
+        return this.sendRequest('synapse/loadDependentResources');
     }
 
     async getProjectDetails(): Promise<any> {
