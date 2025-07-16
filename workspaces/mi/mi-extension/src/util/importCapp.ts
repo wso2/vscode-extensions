@@ -150,7 +150,7 @@ export async function importCapp(params: ImportProjectRequest): Promise<ImportPr
         console.log("Created project structure for project: " + projectName);
         importConfigs(extractFolderPath, directory);
 
-        window.showInformationMessage(`Successfully imported ${projectName} project`);
+        window.showInformationMessage(`Successfully imported "${projectName}" project`);
 
         if (fs.existsSync(extractFolderPath)) {
             fs.rmSync(extractFolderPath, { recursive: true });
@@ -170,7 +170,7 @@ export async function importCapp(params: ImportProjectRequest): Promise<ImportPr
 
 function getProjectDetails(source: string): { projectName: any; groupId: any; artifactId: any; version: any; } {
 
-    const match = source.match(/^(.+?)_(\d+(?:\.\d+){0,2}(?:-[\w\d]+)?)\.(zip|car)$/);
+    const match = source.match(/^(.+?)[-_](\d+(?:\.\d+){0,2}(?:-[\w\d]+)?)\.(zip|car)$/);
     const projectName = match ? match[1] : "sample";
     const version = match ? match[2] : "1.0.0";
     return { projectName: projectName, groupId: "org.wso2", artifactId: projectName, version: version };

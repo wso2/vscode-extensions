@@ -82,29 +82,37 @@ const newDataService: DataServiceFields = {
     ds: []
 }
 
-const schema = yup.object({
-    dataServiceName: yup.string().required("Data Service Name is required").matches(/^[^@\\^+;:!%&,=*#[\]$?'"<>{}() /]*$/, "Invalid characters in data service name"),
-    dataServiceNamespace: yup.string().notRequired(),
-    serviceGroup: yup.string().notRequired(),
-    selectedTransports: yup.string().notRequired(),
-    publishSwagger: yup.string().notRequired(),
-    jndiName: yup.string().notRequired(),
-    enableBoxcarring: yup.boolean().notRequired(),
-    enableBatchRequests: yup.boolean().notRequired(),
-    serviceStatus: yup.boolean().notRequired(),
-    disableLegacyBoxcarringMode: yup.boolean().notRequired(),
-    enableStreaming: yup.boolean().notRequired(),
-    description: yup.string().notRequired(),
-    authProviderClass: yup.string().notRequired(),
-    http: yup.boolean().notRequired(),
-    https: yup.boolean().notRequired(),
-    jms: yup.boolean().notRequired(),
-    local: yup.boolean().notRequired(),
-    authProps: yup.array().notRequired(),
-    ds: yup.array().notRequired()
-});
-
 export function DataServiceWizard(props: DataServiceWizardProps) {
+
+    const schema = yup.object({
+        dataServiceName: yup.string().required("Data Service Name is required")
+            .matches(/^[a-zA-Z0-9_-]*$/, "Invalid characters in Data Service name")
+            .test('validateTaskName',
+                'An artifact with same name already exists', value => {
+                    return !workspaceFileNames.includes(value.toLowerCase())
+                }).test('validateArtifactName',
+                'A registry resource with this artifact name already exists', value => {
+                    return !artifactNames.includes(value.toLowerCase())
+                }),
+        dataServiceNamespace: yup.string().notRequired(),
+        serviceGroup: yup.string().notRequired(),
+        selectedTransports: yup.string().notRequired(),
+        publishSwagger: yup.string().notRequired(),
+        jndiName: yup.string().notRequired(),
+        enableBoxcarring: yup.boolean().notRequired(),
+        enableBatchRequests: yup.boolean().notRequired(),
+        serviceStatus: yup.boolean().notRequired(),
+        disableLegacyBoxcarringMode: yup.boolean().notRequired(),
+        enableStreaming: yup.boolean().notRequired(),
+        description: yup.string().notRequired(),
+        authProviderClass: yup.string().notRequired(),
+        http: yup.boolean().notRequired(),
+        https: yup.boolean().notRequired(),
+        jms: yup.boolean().notRequired(),
+        local: yup.boolean().notRequired(),
+        authProps: yup.array().notRequired(),
+        ds: yup.array().notRequired()
+    });
 
     const {
         control,
@@ -126,9 +134,20 @@ export function DataServiceWizard(props: DataServiceWizardProps) {
     const [datasources, setDatasources] = useState([]);
     const [authProperties, setAuthProperties] = useState([]);
     const [isNewDataService, setIsNewDataService] = useState(!props.path.endsWith(".xml"));
+    const [artifactNames, setArtifactNames] = useState([]);
+    const [workspaceFileNames, setWorkspaceFileNames] = useState([]);
 
     useEffect(() => {
         (async () => {
+            const artifactRes = await rpcClient.getMiDiagramRpcClient().getAllArtifacts({
+                path: props.path,
+            });
+            setWorkspaceFileNames(artifactRes.artifacts.map(name => name.toLowerCase()));
+            const regArtifactRes = await rpcClient.getMiDiagramRpcClient().getAvailableRegistryResources({
+                path: props.path,
+            });
+            setArtifactNames(regArtifactRes.artifacts.map(name => name.toLowerCase()));
+
             if (props.path.endsWith(".dbs")) {
                 if (props.path.includes('/dataServices')) {
                     props.path = props.path.replace('/dataServices', '/data-services');

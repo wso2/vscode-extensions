@@ -1297,7 +1297,8 @@ export function FormGenerator(props: FormGeneratorProps) {
                 const subKeyValue = parentValue?.[subKey] || currentVal;
                 return subKeyValue === expectedValue;
             }
-            return currentVal === condition[conditionKey] || (typeof condition[conditionKey] === 'string' && String(currentVal) === condition[conditionKey]);
+            return currentVal === condition[conditionKey] || (typeof condition[conditionKey] === 'string' && String(currentVal) === condition[conditionKey]) ||
+                (typeof condition[conditionKey] === 'boolean' && String(currentVal) === String(condition[conditionKey]));
         };
 
         if (Array.isArray(conditions)) {

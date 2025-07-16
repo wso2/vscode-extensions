@@ -243,14 +243,9 @@ export function AddInboundConnector(props: AddInboundConnectorProps) {
     const handleCreateInboundConnector = async (values: any) => {
         const attributeNames = getGenericAttributeNames(formData);
 
-        if (values.generateSequences) {
-            if (props.model) {
-                values.sequence = props.model.sequence;
-                values.onError = props.model.onError;
-            }
-        } else {
-            values.sequence = values.sequence.value;
-            values.onError = values.onError.value;
+        if (props.model || String(values.generateSequences) === "false") {
+                values.sequence = values.sequence.value ?? values.sequence;
+                values.onError = values.onError.value ?? values.onError;
         }
 
         const { attrFields, paramFields } = extractProperties(values, attributeNames);
@@ -264,8 +259,11 @@ export function AddInboundConnector(props: AddInboundConnectorProps) {
 
         // Transform the keys of the rest object
         const transformedParameters = Object.fromEntries(
-            Object.entries(paramFields).map(([key, value]) => [getOriginalName(key), value])
-                .filter(([_, value]) => (value !== null && value !== undefined && value !== '') && typeof value !== 'object')
+            Object.entries(paramFields)
+                .filter(([key, value]) =>
+                    key !== 'generateSequences' &&
+                    value !== null && value !== undefined && value !== '' && typeof value !== 'object'
+                ).map(([key, value]) => [getOriginalName(key), value])
         );
 
         // Merge transformedParameters into finalParameters
