@@ -2,6 +2,19 @@
 
 All notable changes to the "micro-integrator" extension will be documented in this file.
 
+## [2.4.1] - 2025-07-09
+
+### Fixed
+
+Fixed: WS-Policy UI options are not available in the MI extension ([#1164](https://github.com/wso2/mi-vscode/issues/1164))   
+Fixed: Artifact name validation issue ([#1165](https://github.com/wso2/mi-vscode/issues/1165))  
+
+## [2.4.0] - 2025-07-02
+
+### New Features
+
+Added: Support for Resources, Data Mappers and Connections in Unit Test Framework ([#1147](https://github.com/wso2/mi-vscode/issues/1147))   
+
 ## [2.3.3] - 2025-06-27
 
 ### Fixed

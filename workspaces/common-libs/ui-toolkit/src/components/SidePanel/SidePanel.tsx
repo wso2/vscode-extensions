@@ -127,11 +127,12 @@ export const SidePanel: React.FC<SidePanelProps> = (props: SidePanelProps) => {
             {visible && (
                 <>
                     { overlay && isOpen && <Overlay sx={{background: colors.vscodeInputBackground, opacity: 0.4, zIndex: 2000}} onClose={handleOverlayClose}/> }
-                    <SidePanelContainer isOpen={open} alignment={alignment} width={width} isFullWidth={isFullWidth} sx={sx} onTransitionEnd={handleTransitionEnd}>
+                    <SidePanelContainer data-testid="side-panel" isOpen={open} alignment={alignment} width={width} isFullWidth={isFullWidth} sx={sx} onTransitionEnd={handleTransitionEnd}>
                         {children}
                     </SidePanelContainer>
                     {subPanel && (
                         <SubPanelContainer
+                            data-testid="side-panel-sub-panel"
                             isOpen={open}
                             isSubPanelOpen={subPanelOpen}
                             alignment={alignment}
