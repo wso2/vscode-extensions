@@ -110,12 +110,12 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
             .test('validateApiName', 'An artifact with same file name already exists', function (value) {
                 const { version } = this.parent;
                 const fileName = version ? `${value}_v${version}` : value;
-                return (value === apiData?.apiName) || !(workspaceFileNames.includes(fileName));
+                return (value === apiData?.apiName) || !(workspaceFileNames.includes(fileName.toLowerCase()));
             }).test('validateArtifactName',
                 'A registry resource with this artifact name already exists', function (value) {
                     const { version } = this.parent;
                     const artifactName = version ? `${value}:v${version}` : value;
-                    return (value === apiData?.apiName) || !(artifactNames.includes(artifactName))
+                    return (value === apiData?.apiName) || !(artifactNames.includes(artifactName.toLowerCase()))
                 }),
         apiContext: yup.string().required("API Context is required")
             .test('validateApiContext', 'An artifact with same context already exists', function (value) {
@@ -231,11 +231,11 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
             const artifactRes = await rpcClient.getMiDiagramRpcClient().getAllArtifacts({
                 path: path,
             });
-            setWorkspaceFileNames(artifactRes.artifacts);
+            setWorkspaceFileNames(artifactRes.artifacts.map(name => name.toLowerCase()));
             const regArtifactRes = await rpcClient.getMiDiagramRpcClient().getAvailableRegistryResources({
                 path: path,
             });
-            setArtifactNames(regArtifactRes.artifacts);
+            setArtifactNames(regArtifactRes.artifacts.map(name => name.toLowerCase()));
 
             const contextResp = await rpcClient.getMiDiagramRpcClient().getAllAPIcontexts();
             if (apiData) {

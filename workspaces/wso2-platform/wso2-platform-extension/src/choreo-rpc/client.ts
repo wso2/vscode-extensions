@@ -82,6 +82,7 @@ import type {
 	UserInfo,
 	UserRepo,
 } from "@wso2/wso2-platform-core";
+import { workspace } from "vscode";
 import { type MessageConnection, Trace, type Tracer } from "vscode-jsonrpc";
 import { handlerError } from "../error-utils";
 import { getLogger } from "../logger/logger";
@@ -109,6 +110,7 @@ export class RPCClient {
 			const resp = await this._conn.sendRequest<{}>("initialize", {
 				clientName: "vscode",
 				clientVersion: "1.0.0",
+				cloudStsToken: workspace.getConfiguration().get("WSO2.WSO2-Platform.Advanced.StsToken") || process.env.CLOUD_STS_TOKEN || "",
 			});
 			console.log("Initialized RPC server", resp);
 		} catch (e) {
@@ -284,12 +286,19 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		return response.loginUrl;
 	}
 
-	async signInWithAuthCode(authCode: string, orgId?: string, redirectUrl?: string, clientId?: string): Promise<UserInfo | undefined> {
+	async signInWithAuthCode(
+		authCode: string,
+		region?: string,
+		orgId?: string,
+		redirectUrl?: string,
+		clientId?: string,
+	): Promise<UserInfo | undefined> {
 		if (!this.client) {
 			throw new Error("RPC client is not initialized");
 		}
 		const response = await this.client.sendRequest<{ userInfo: UserInfo }>("auth/signInWithAuthCode", {
 			authCode,
+			region,
 			orgId,
 			redirectUrl,
 			clientId,

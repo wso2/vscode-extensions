@@ -18,13 +18,7 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { VSCodeLink } from "@vscode/webview-ui-toolkit/react";
-import {
-	ChoreoComponentType,
-	type ComponentKind,
-	type ProxyConfig,
-	ReadLocalProxyConfigResp,
-	getTypeForDisplayType,
-} from "@wso2/wso2-platform-core";
+import { ChoreoComponentType, type ComponentKind, type ProxyConfig, ReadLocalProxyConfigResp, getTypeForDisplayType } from "@wso2/wso2-platform-core";
 import React, { type FC } from "react";
 import { Button } from "../../../components/Button";
 import { Codicon } from "../../../components/Codicon";

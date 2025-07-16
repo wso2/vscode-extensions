@@ -28,7 +28,7 @@ import {
 	getComponentKindRepoSource,
 	parseGitURL,
 } from "@wso2/wso2-platform-core";
-import { type ExtensionContext, ProgressLocation, type QuickPickItem, QuickPickItemKind, Uri, commands, extensions, window } from "vscode";
+import { type ExtensionContext, ProgressLocation, type QuickPickItem, QuickPickItemKind, Uri, commands, window } from "vscode";
 import { ext } from "../extensionVariables";
 import { initGit } from "../git/main";
 import { authStore } from "../stores/auth-store";

@@ -36,10 +36,10 @@ function updateStatusBarItem(webviewState: WebviewState | null, authState?: Auth
 	statusBarItem.command = CommandIds.ManageDirectoryContext;
 	if (authState?.userInfo) {
 		statusBarItem.text = "WSO2";
-		if(contextStoreState?.selected){
-			statusBarItem.tooltip = `Logged in as ${authState.userInfo?.userEmail}.\n\nDirectory associated with:\n- Organization: ${contextStoreState?.selected?.org?.name}\n- Project: ${contextStoreState?.selected?.project?.name}`
-		}else{
-			statusBarItem.tooltip = `Logged in as ${authState.userInfo?.userEmail}.\n\nDirectory not associated with any WSO2 Projects.`
+		if (contextStoreState?.selected) {
+			statusBarItem.tooltip = `Logged in as ${authState.userInfo?.userEmail}.\n\nDirectory associated with:\n- Organization: ${contextStoreState?.selected?.org?.name}\n- Project: ${contextStoreState?.selected?.project?.name}`;
+		} else {
+			statusBarItem.tooltip = `Logged in as ${authState.userInfo?.userEmail}.\n\nDirectory not associated with any WSO2 Projects.`;
 		}
 		statusBarItem.show();
 	} else {

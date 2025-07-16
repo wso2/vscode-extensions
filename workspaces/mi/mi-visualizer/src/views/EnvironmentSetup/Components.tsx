@@ -66,7 +66,7 @@ const RUNTIME_CONFIG = {
         pathLabel: 'Current Java Home',
     },
     MI: {
-        name: 'Micro Integrator',
+        name: 'WSO2 Integrator: MI',
         pathLabel: 'Current MI runtime Path',
     }
 };
