@@ -282,7 +282,7 @@ export const continueCreateComponent = () => {
 	}
 };
 
-export const submitCreateComponentHandler = async ({ createParams, org, project }: SubmitComponentCreateReq) => {
+export const submitCreateComponentHandler = async ({ createParams, org, project, newWorkspaceDir }: SubmitComponentCreateReq) => {
 	const extensionName = webviewStateStore.getState().state?.extensionName;
 	const createdComponent = await window.withProgress(
 		{
@@ -321,12 +321,18 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 			showComponentDetailsView(org, project, createdComponent, createParams?.componentDir);
 		}
 
-		window
-			.showInformationMessage(
-				`${extensionName === "Devant" ? "Integration" : "Component"} '${createdComponent.metadata.name}' was successfully created`,
-				`Open in ${extensionName}`,
-			)
-			.then(async (resp) => {
+		const successMessage = `${extensionName === "Devant" ? "Integration" : "Component"} '${createdComponent.metadata.name}' was successfully created.`;
+
+		if (newWorkspaceDir) {
+			window.showInformationMessage(`${successMessage} Reload workspace to continue`, { modal: true }, "Continue").then((resp) => {
+				if (resp === "Continue") {
+					commands.executeCommand("vscode.openFolder", Uri.file(newWorkspaceDir), {
+						forceNewWindow: false,
+					});
+				}
+			});
+		} else {
+			window.showInformationMessage(successMessage, `Open in ${extensionName}`).then(async (resp) => {
 				if (resp === `Open in ${extensionName}`) {
 					commands.executeCommand(
 						"vscode.open",
@@ -334,6 +340,7 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 					);
 				}
 			});
+		}
 
 		const compCache = dataCacheStore.getState().getComponents(org.handle, project.handler);
 		dataCacheStore.getState().setComponents(org.handle, project.handler, [createdComponent, ...compCache]);

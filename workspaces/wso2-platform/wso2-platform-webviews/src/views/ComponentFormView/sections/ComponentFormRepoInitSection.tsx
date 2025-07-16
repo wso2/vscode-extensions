@@ -36,13 +36,15 @@ type ComponentRepoInitSchemaType = z.infer<typeof componentRepoInitSchema>;
 
 interface Props extends NewComponentWebviewProps {
 	onNextClick: () => void;
+	initializingRepo?: boolean;
 	nextText: string;
+	loadingNextText?: string;
 	initialFormValues?: ComponentRepoInitSchemaType;
 	form: UseFormReturn<ComponentRepoInitSchemaType>;
 	componentType: string;
 }
 
-export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organization, form, nextText }) => {
+export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organization, form, nextText, loadingNextText, initializingRepo }) => {
 	const [compDetailsSections] = useAutoAnimate();
 	const { extensionName } = useExtWebviewContext();
 
@@ -73,8 +75,8 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 		if (matchingOrgItem?.repositories.length > 0 && !matchingOrgItem?.repositories?.some((item) => item.name === form.getValues("repo"))) {
 			form.setValue("repo", "");
 		}
-		if(matchingOrgItem){
-			form.setValue("orgHandler", matchingOrgItem.orgHandler)
+		if (matchingOrgItem) {
+			form.setValue("orgHandler", matchingOrgItem.orgHandler);
 		}
 	}, [matchingOrgItem]);
 
@@ -104,7 +106,7 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 				<label className="col-span-full mb-4 opacity-80">You integration must exist in a remote Git repository in order to continue</label>
 				{errorFetchingGitOrg && (
 					<Banner
-						type="info"
+						type="error"
 						className="col-span-full"
 						key="invalid-repo-banner"
 						title={`Please authorize ${extensionName} to access your GitHub repositories.`}
@@ -121,7 +123,6 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 					loading={loadingGitOrgs}
 					wrapClassName="col-span-full"
 				/>
-
 				<div key="gen-repo" className="col-span-full">
 					<Dropdown
 						label={hasSubscriptions ? "Repository" : "Public Repository"}
@@ -171,7 +172,9 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 			</div>
 
 			<div className="flex justify-end gap-3 pt-6 pb-2">
-				<Button onClick={form.handleSubmit(onSubmitForm)}>{nextText}</Button>
+				<Button onClick={form.handleSubmit(onSubmitForm)} disabled={initializingRepo}>
+					{initializingRepo ? (loadingNextText ?? nextText) : nextText}
+				</Button>
 			</div>
 		</>
 	);

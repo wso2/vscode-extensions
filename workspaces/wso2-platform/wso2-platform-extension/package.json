@@ -175,6 +175,12 @@
           "default": "",
           "description": "User STS token",
           "scope": "window"
+        },
+        "WSO2.WSO2-Platform.Advanced.GitUserPassword": {
+          "type": "string",
+          "default": "",
+          "description": "Git Username and password (eg: USERNAME:PASSWORD)",
+          "scope": "window"
         }
       }
     },

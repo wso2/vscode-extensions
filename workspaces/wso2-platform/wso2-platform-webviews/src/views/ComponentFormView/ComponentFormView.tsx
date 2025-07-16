@@ -98,7 +98,15 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 	const repoInitForm = useForm<ComponentRepoInitType>({
 		resolver: zodResolver(getRepoInitSchemaGenDetails(existingComponents), { async: true }, { mode: "async" }),
 		mode: "all",
-		defaultValues: { org: "", repo: "", branch: "main", subPath: "/", name: initialValues?.name || "", gitProvider: GitProvider.GITHUB, serverUrl:"" },
+		defaultValues: {
+			org: "",
+			repo: "",
+			branch: "main",
+			subPath: "/",
+			name: initialValues?.name || "",
+			gitProvider: GitProvider.GITHUB,
+			serverUrl: "",
+		},
 	});
 
 	const name = genDetailsForm.watch("name");
@@ -168,6 +176,29 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 		},
 	});
 
+	const { mutateAsync: initializeRepoAsync, isLoading: initializingRepo } = useMutation({
+		mutationFn: async () => {
+			if (!props.isGitInitialized) {
+				const repoInitDetails = repoInitForm.getValues();
+				await ChoreoWebViewAPI.getInstance().cloneRepositoryIntoCompDir({
+					cwd: props.directoryFsPath,
+					subpath: repoInitDetails.subPath,
+					repo: {
+						org: repoInitDetails.org,
+						branch: repoInitDetails.branch,
+						provider: repoInitDetails.gitProvider,
+						repo: repoInitDetails.repo,
+						serverUrl: repoInitDetails.serverUrl,
+					},
+				});
+
+				if (props.shouldAutoCommit) {
+					await ChoreoWebViewAPI.getInstance().pushEverythingToRemoteRepo({ repoRoot: directoryFsPath, componentName: repoInitDetails.name });
+				}
+			}
+		},
+	});
+
 	const { mutate: createComponent, isLoading: isCreatingComponent } = useMutation({
 		mutationFn: async () => {
 			const genDetails = genDetailsForm.getValues();
@@ -175,18 +206,25 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 			const buildDetails = buildDetailsForm.getValues();
 			const gitProxyDetails = gitProxyForm.getValues();
 
-			const name = props.isGitInitialized ? genDetails.name: repoInitDetails.name 
-			const componentName = makeURLSafe(props.isGitInitialized ? genDetails.name: repoInitDetails.name);
+			const name = props.isGitInitialized ? genDetails.name : repoInitDetails.name;
+			const componentName = makeURLSafe(props.isGitInitialized ? genDetails.name : repoInitDetails.name);
 
 			const parsedRepo = parseGitURL(genDetails.repoUrl);
 			let provider = parsedRepo ? parsedRepo[2] : null;
 
-			let branch = props.isGitInitialized ? genDetails.branch : repoInitDetails.branch
-			if(!props.isGitInitialized){
-				provider = genDetails.gitProvider
+			const branch = props.isGitInitialized ? genDetails.branch : repoInitDetails.branch;
+			if (!props.isGitInitialized) {
+				provider = genDetails.gitProvider;
 			}
 
-			const repoUrl = props.isGitInitialized ? genDetails.repoUrl : buildGitURL(repoInitDetails.orgHandler, repoInitDetails.repo, repoInitDetails.gitProvider)
+			const repoUrl = props.isGitInitialized
+				? genDetails.repoUrl
+				: buildGitURL(repoInitDetails.orgHandler, repoInitDetails.repo, repoInitDetails.gitProvider);
+
+			let componentDir = directoryFsPath;
+			if (!props.isGitInitialized && !["", ".", "/"].includes(repoInitDetails.subPath)) {
+				componentDir = await ChoreoWebViewAPI.getInstance().joinFsFilePaths([directoryFsPath, repoInitDetails.subPath]);
+			}
 
 			const createParams: Partial<CreateComponentReq> = {
 				orgId: organization.id.toString(),
@@ -198,7 +236,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 				type,
 				componentSubType: initialValues?.subType || "",
 				buildPackLang: buildDetails.buildPackLang,
-				componentDir: directoryFsPath, // todo: should update
+				componentDir: componentDir,
 				repoUrl: repoUrl,
 				gitProvider: provider,
 				branch: branch,
@@ -207,19 +245,6 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 				originCloud: extensionName === "Devant" ? "devant" : "choreo",
 			};
 
-			await ChoreoWebViewAPI.getInstance().cloneRepositoryIntoCompDir({
-				cwd: props.directoryFsPath,
-				subpath: repoInitDetails.subPath,
-				repo:{
-					org: repoInitDetails.org,
-					branch: repoInitDetails.branch,
-					provider: repoInitDetails.gitProvider,
-					repo: repoInitDetails.repo,
-					serverUrl: repoInitDetails.serverUrl,
-				}
-			})
-
-			/*
 			if (provider !== GitProvider.GITHUB) {
 				createParams.gitCredRef = genDetails?.credential;
 			}
@@ -250,12 +275,15 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 				createParams: createParams as CreateComponentReq,
 			};
 
+			if (componentDir !== directoryFsPath) {
+				createCompCommandParams.newWorkspaceDir = componentDir;
+			}
+
 			const created = await ChoreoWebViewAPI.getInstance().submitComponentCreate(createCompCommandParams);
 
 			if (created) {
 				ChoreoWebViewAPI.getInstance().closeWebView();
 			}
-			*/
 		},
 	});
 
@@ -377,17 +405,20 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 		});
 	}
 
-	if(!props.isGitInitialized){
+	if (!props.isGitInitialized) {
 		steps.unshift({
 			label: "Repository Details",
 			content: (
 				<ComponentFormRepoInitSection
 					{...props}
 					key="repo-init-section"
-					nextText={steps.length>0?"Next":"Deploy"}
+					nextText={steps.length > 0 ? "Next" : "Deploy"}
+					loadingNextText={steps.length > 0 ? "Initializing..." : "Deploying..."}
 					form={repoInitForm}
 					componentType={type}
-					onNextClick={() => {
+					initializingRepo={initializingRepo || isCreatingComponent}
+					onNextClick={async () => {
+						await initializeRepoAsync();
 						if (steps.length > 1) {
 							gitProxyForm.setValue(
 								"proxyContext",
