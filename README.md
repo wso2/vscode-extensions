@@ -6,7 +6,7 @@ This repository contains multiple Visual Studio Code extensions developed by WSO
 - [Choreo](https://marketplace.visualstudio.com/items?itemName=WSO2.choreo)
 - [WSO2 Integrator: BI](https://marketplace.visualstudio.com/items?itemName=WSO2.ballerina-integrator)
 - [APK Config Language Support](https://marketplace.visualstudio.com/items?itemName=WSO2.apk-config-language-support)
-- [Micro Integrator](https://marketplace.visualstudio.com/items?itemName=WSO2.micro-integrator)
+- [WSO2 Integrator: MI](https://marketplace.visualstudio.com/items?itemName=WSO2.micro-integrator)
 
 ## Prerequisites
 

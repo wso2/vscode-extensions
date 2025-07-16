@@ -88,7 +88,7 @@ export interface MIVisualizerAPI {
     getSupportedMIVersionsHigherThan: (param:string) => Promise<string[]>;
     getProjectDetails: () => Promise<ProjectDetailsResponse>;
     updateProperties: (params: UpdatePropertiesRequest) => Promise<boolean>;
-    reloadIntegrationProjectDependencies: () => Promise<boolean>;
+    reloadDependencies: () => Promise<boolean>;
     updateDependencies: (params: UpdateDependenciesRequest) => Promise<boolean>;
     updatePomValues: (params: UpdatePomValuesRequest) => Promise<boolean>;
     updateConfigFileValues: (params: UpdateConfigValuesRequest) => Promise<boolean>;
