@@ -77,3 +77,6 @@ playwright-report/
 extensions.json
 
 !sample-mi-project.zip
+
+#vscode-web
+.vscode-test-web/

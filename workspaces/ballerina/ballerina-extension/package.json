@@ -24,15 +24,12 @@
         "Snippets"
     ],
     "activationEvents": [
+        "*",
         "onLanguage:ballerina",
         "onCommand:ballerina.showExamples",
         "workspaceContains:**/Ballerina.toml",
         "onNotebook:ballerina-notebook",
         "onUri"
-    ],
-    "extensionDependencies": [
-        "anweber.httpbook",
-        "WSO2.wso2-platform"
     ],
     "contributes": {
         "languages": [
@@ -200,7 +197,7 @@
                     "default": false,
                     "description": "Use Ballerina distribution language server instead of bundled language server. Note: This will be automatically enabled for Ballerina versions older than 2201.12.3."
                 },
-                "ballerina.enableSequenceDiagramView":{
+                "ballerina.enableSequenceDiagramView": {
                     "type": "boolean",
                     "default": true,
                     "description": "Enable the experimental Sequence Diagram View.",
@@ -1067,6 +1064,7 @@
         ]
     },
     "main": "./dist/extension",
+    "browser": "./dist/web/extension.js",
     "scripts": {
         "clean": "del-cli ./dist ./out ./ballerina-*.vsix ./coverage ./.nyc_output",
         "compile": "webpack --mode production",
@@ -1087,7 +1085,13 @@
         "build": "pnpm run compile && pnpm run lint && pnpm run postbuild",
         "rebuild": "pnpm run clean && pnpm run compile && pnpm run postbuild",
         "postbuild": "if [ \"$isPreRelease\" = \"true\" ]; then pnpm run download-ls --prerelease; else pnpm run download-ls; fi && pnpm run copyFonts && pnpm run copyJSLibs && pnpm run package && pnpm run copyVSIX",
-        "copyJSLibs": "copyfiles -f ../ballerina-visualizer/build/*.js resources/jslibs"
+        "copyJSLibs": "copyfiles -f ../ballerina-visualizer/build/*.js resources/jslibs",
+        "compile-web": "webpack --mode development --devtool source-map",
+        "watch-web": "webpack --watch",
+        "package-web": "webpack --mode development --devtool source-map",
+        "test-web": "npx @vscode/test-web --extensionDevelopmentPath=. --browserType=chromium",
+        "build-web": "pnpm run package-web && mkdir -p ../../../dist/web-ballerina && unzip *.vsix -d ../../../dist/web-ballerina",
+        "start-web": "pnpm run compile-web && pnpm run test-web && pnpm run watch-ballerina"
     },
     "dependencies": {
         "@types/lodash": "^4.14.200",
@@ -1161,7 +1165,23 @@
         "webpack-cli": "^5.1.4",
         "webpack-merge-and-include-globally": "^2.3.4",
         "yarn": "^1.22.19",
-        "adm-zip": "^0.5.16"
+        "adm-zip": "^0.5.16",
+        "@vscode/test-web": "~0.0.71",
+        "os-browserify": "~0.3.0",
+        "https-browserify": "~1.0.0",
+        "crypto-browserify": "~3.12.1",
+        "stream-http": "~3.2.0",
+        "browserify-zlib": "~0.2.0",
+        "path-browserify": "~1.0.1",
+        "util": "~0.12.5",
+        "url": "~0.11.4",
+        "assert": "~2.1.0",
+        "process": "~0.11.10",
+        "buffer": "~6.0.3",
+        "constants-browserify": "~1.0.0",
+        "timers-browserify": "~2.0.12",
+        "vscode-languageserver": "~9.0.1",
+        "vscode-languageserver-textdocument": "~1.0.12"
     },
     "extensionPack": [
         "be5invis.toml"

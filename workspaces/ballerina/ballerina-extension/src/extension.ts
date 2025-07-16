@@ -106,6 +106,7 @@ function onBeforeInit(langClient: ExtendedLangClient) {
 }
 
 export async function activate(context: ExtensionContext) {
+    console.log('Activating Ballerina VS Code extension...');
     extension.context = context;
     // Init RPC Layer methods
     RPCLayer.init();
@@ -192,8 +193,8 @@ export async function activateBallerina(): Promise<BallerinaExtension> {
         commands.executeCommand('setContext', 'BI.status', 'noLS');
 
         if (e.message && e.message.includes('Error when checking ballerina version.')) {
-            ballerinaExtInstance.showMessageInstallBallerina();
-            ballerinaExtInstance.showMissingBallerinaErrInStatusBar();
+            // ballerinaExtInstance.showMessageInstallBallerina();
+            // ballerinaExtInstance.showMissingBallerinaErrInStatusBar();
 
             // TODO: Fix this properly
             // cmds.forEach((cmd) => {
