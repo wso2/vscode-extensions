@@ -29,6 +29,7 @@ import path from 'path';
 import { runHandler } from './runner';
 import { startWatchingWorkspace } from './discover';
 import { ExecutorPositionsResponse, ExecutorPosition, BallerinaProject } from '@wso2/ballerina-core';
+import { WebExtendedLanguageClient } from 'src/web-activators/webExtendedLanguageClient';
 
 enum EXEC_POSITION_TYPE {
   SOURCE = 'source',
@@ -37,7 +38,7 @@ enum EXEC_POSITION_TYPE {
 
 export let testController: TestController;
 export let projectRoot;
-let langClient: ExtendedLangClient | undefined;
+let langClient: ExtendedLangClient | WebExtendedLanguageClient | undefined;
 let currentProjectRoot;
 const testFiles: string[] = [];
 

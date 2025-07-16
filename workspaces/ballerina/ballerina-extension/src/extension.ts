@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { ExtensionContext, commands, window, Location, Uri, TextEditor, extensions } from 'vscode';
+import { ExtensionContext, commands, window, Location, Uri, TextEditor, extensions, UIKind, env } from 'vscode';
 import { ballerinaExtInstance, BallerinaExtension } from './core';
 import { activate as activateBBE } from './views/bbe';
 import {
@@ -108,6 +108,8 @@ function onBeforeInit(langClient: ExtendedLangClient) {
 export async function activate(context: ExtensionContext) {
     console.log('Activating Ballerina VS Code extension...');
     extension.context = context;
+    // set the webmode or desktop mode
+    extension.isWebMode = env.uiKind === UIKind.Web ? true : false;
     // Init RPC Layer methods
     RPCLayer.init();
     // Wait for the ballerina extension to be ready

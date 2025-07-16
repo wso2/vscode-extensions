@@ -38,6 +38,7 @@ import {
 } from "../features/telemetry";
 import { NodePosition } from "@wso2/syntax-tree";
 import { existsSync } from "fs";
+import { WebExtendedLanguageClient } from "src/web-activators/webExtendedLanguageClient";
 interface ProgressMessage {
     message: string;
     increment?: number;
@@ -383,7 +384,7 @@ function getGitHubRawFileUrl(githubFileUrl) {
     return rawFileUrl;
 }
 
-async function resolveModules(langClient: ExtendedLangClient, pathValue) {
+async function resolveModules(langClient: ExtendedLangClient | WebExtendedLanguageClient, pathValue) {
     const isBallerinProject = findBallerinaTomlFile(pathValue);
     if (isBallerinProject) {
         // Create a status bar item for the build notification

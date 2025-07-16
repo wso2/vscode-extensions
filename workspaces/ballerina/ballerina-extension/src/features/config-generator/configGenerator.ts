@@ -30,6 +30,7 @@ import { fileURLToPath } from "url";
 import { startDebugging } from "../editor-support/codelens-provider";
 import { openView } from "../../stateMachine";
 import * as path from "path";
+import { WebExtendedLanguageClient } from "src/web-activators/webExtendedLanguageClient";
 
 const UNUSED_IMPORT_ERR_CODE = "BCE2002";
 
@@ -224,7 +225,7 @@ async function executeRunCommand(ballerinaExtInstance: BallerinaExtension, fileP
     }
 }
 
-export async function cleanAndValidateProject(langClient: ExtendedLangClient, path: string): Promise<boolean> {
+export async function cleanAndValidateProject(langClient: ExtendedLangClient|WebExtendedLanguageClient, path: string): Promise<boolean> {
     try {
         // Get initial project diagnostics
         const projectPath = ballerinaExtInstance?.getDocumentContext()?.getCurrentProject()?.path || path;

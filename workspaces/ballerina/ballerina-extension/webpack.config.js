@@ -156,4 +156,50 @@ module.exports = [{
       },
     ],
   },
+},
+{
+  mode: 'none',
+  target: 'webworker', // web extensions run in a webworker context
+  entry: {
+    browserServerMain: './src/web-activators/Ls/browserServerMain.ts',
+  },
+  output: {
+    filename: '[name].js',
+    path: path.join(__dirname, 'dist'),
+    libraryTarget: 'var',
+    library: 'serverExportVar',
+    devtoolModuleFilenameTemplate: '../[resource-path]'
+  },
+  resolve: {
+    mainFields: ['module', 'main'],
+    extensions: ['.ts', '.js'], // support ts-files and js-files
+    alias: {},
+    fallback: {
+      //path: require.resolve("path-browserify")
+    },
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        exclude: /node_modules/,
+        use: [
+          {
+            loader: 'ts-loader',
+          },
+        ],
+      },
+    ],
+  },
+  externals: {
+    vscode: 'commonjs vscode', // ignored because it doesn't exist
+    'async_hooks': 'commonjs async_hooks',
+    'cls-hooked': 'commonjs cls-hooked',
+    'applicationinsights-native-metrics': 'commonjs applicationinsights-native-metrics',
+
+  },
+  performance: {
+    hints: false,
+  },
+  devtool: 'nosources-source-map',
 }];

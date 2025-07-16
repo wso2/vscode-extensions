@@ -30,6 +30,7 @@ import { constructDebugConfig } from '../debugger';
 import { ExecutorPosition, ExecutorPositionsResponse, SyntaxTree } from '@wso2/ballerina-core';
 import { traversNode } from '@wso2/syntax-tree';
 import { CodeLensProviderVisitor } from './codelense-provider-visitor';
+import { WebExtendedLanguageClient } from 'src/web-activators/webExtendedLanguageClient';
 
 export enum EXEC_POSITION_TYPE {
     SOURCE = 'source',
@@ -105,7 +106,7 @@ export class ExecutorCodeLensProvider implements CodeLensProvider {
 
     private async getCodeLensList(): Promise<CodeLens[]> {
         let codeLenses: CodeLens[] = [];
-        let langClient: ExtendedLangClient | undefined = this.ballerinaExtension.langClient;
+        let langClient: ExtendedLangClient | WebExtendedLanguageClient | undefined = this.ballerinaExtension.langClient;
 
         if (!langClient) {
             return codeLenses;

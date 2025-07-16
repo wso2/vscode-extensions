@@ -68,6 +68,8 @@ import fs from 'fs';
 import path from 'path';
 import { RPCLayer } from "../RPCLayer";
 import { VisualizerWebview } from "../views/visualizer/webview";
+import { BalFileSystemProvider } from "src/web-activators/fs/BalFileSystemProvider";
+import { WebExtendedLanguageClient } from "src/web-activators/webExtendedLanguageClient";
 
 const SWAN_LAKE_REGEX = /(s|S)wan( |-)(l|L)ake/g;
 
@@ -75,7 +77,8 @@ export const EXTENSION_ID = 'wso2.ballerina';
 const PREV_EXTENSION_ID = 'ballerina.ballerina';
 export enum LANGUAGE {
     BALLERINA = 'ballerina',
-    TOML = 'toml'
+    TOML = 'toml',
+    BAL_TOML = "Ballerina.toml",
 }
 
 export enum WEBVIEW_TYPE {
@@ -143,7 +146,7 @@ export class BallerinaExtension {
     public isNPSupported: boolean;
     public extension: Extension<any>;
     private clientOptions: LanguageClientOptions;
-    public langClient?: ExtendedLangClient;
+    public langClient?: ExtendedLangClient | WebExtendedLanguageClient;
     public context?: ExtensionContext;
     public isPersist?: boolean;
     private sdkVersion: StatusBarItem;
@@ -161,6 +164,9 @@ export class BallerinaExtension {
     private ballerinaInstallationDir: string;
     private updateToolServerUrl: string;
     private ballerinaUpdateToolUserAgent: string;
+    //web config
+    public activeBalFileUri?: string | undefined;
+    public fsProvider?: BalFileSystemProvider;
 
     constructor() {
         this.ballerinaHome = '';

@@ -16,6 +16,7 @@ import { AIStateMachine } from './views/ai-panel/aiMachine';
 import { StateMachinePopup } from './stateMachinePopup';
 import { checkIsBallerina, checkIsBI, fetchScope, getOrgPackageName } from './utils';
 import { buildProjectArtifactsStructure } from './utils/project-artifacts';
+import { activateFileSystemProvider } from './web-activators/fs/activateFs';
 
 interface MachineContext extends VisualizerLocation {
     langClient: ExtendedLangClient | null;
@@ -84,8 +85,8 @@ const stateMachine = createMachine<MachineContext>(
             activateLS: {
                 invoke: {
                     src: 'activateLanguageServer',
-                    onDone: {
-                        target: "fetchProjectStructure",
+                     onDone: {
+                        target: "activateFS",
                         actions: assign({
                             langClient: (context, event) => event.data.langClient,
                             isBISupported: (context, event) => event.data.isBISupported
@@ -93,6 +94,17 @@ const stateMachine = createMachine<MachineContext>(
                     },
                     onError: {
                         target: "lsError"
+                    }
+                }
+            },
+              activateFS: {
+                invoke: {
+                    src: 'activateFileSystemProvider',
+                    onDone: {
+                        target: "fetchProjectStructure",
+                         actions: assign({
+                            projectUri: (context, event) => getProjectUriForArtifacts()
+                        })
                     }
                 }
             },
@@ -413,7 +425,27 @@ const stateMachine = createMachine<MachineContext>(
                 const lastView = getLastHistory().location;
                 return resolve(lastView);
             });
-        }
+        },
+         activateFileSystemProvider: (context, event) => {
+            return new Promise(async (resolve, reject) => {
+                if(extension.isWebMode)
+                {
+                    try {
+                        await activateFileSystemProvider();
+                        // Execute the openGithubRepository command after activating FS
+                        const result= await commands.executeCommand('ballerina.openGithubRepository');
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        resolve(true);
+                    } catch (error) {
+                        throw new Error("FS Activation failed.");
+                    }
+                }
+                else{
+                    console.log('not activating fs,this is desktop mode');
+                    resolve(true);
+                }             
+            });
+        },
     }
 });
 
@@ -540,4 +572,14 @@ async function handleSingleWorkspace(workspaceURI: any) {
 
 function setBIContext(isBI: boolean) {
     commands.executeCommand('setContext', 'isBIProject', isBI);
+}
+
+//get workspace uri for artifacts
+function getProjectUriForArtifacts():string {
+    const workspaceFolders = workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        throw new Error("No workspace folders found");
+    }
+    const projectUri = workspaceFolders[0].uri.toString();
+    return projectUri;
 }
