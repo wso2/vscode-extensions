@@ -73,6 +73,9 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 		if (matchingOrgItem?.repositories.length > 0 && !matchingOrgItem?.repositories?.some((item) => item.name === form.getValues("repo"))) {
 			form.setValue("repo", "");
 		}
+		if(matchingOrgItem){
+			form.setValue("orgHandler", matchingOrgItem.orgHandler)
+		}
 	}, [matchingOrgItem]);
 
 	const { data: branches = [] } = useGetGitBranches(repoUrl, organization, provider === GitProvider.GITHUB ? "" : credential, !errorFetchingGitOrg, {

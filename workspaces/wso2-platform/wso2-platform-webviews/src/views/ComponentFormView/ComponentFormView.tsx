@@ -18,7 +18,7 @@
 
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	ChoreoBuildPackNames,
 	ChoreoComponentType,
@@ -36,7 +36,7 @@ import {
 	makeURLSafe,
 	parseGitURL,
 } from "@wso2/wso2-platform-core";
-import React, { type FC, useState, useEffect } from "react";
+import React, { type FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { HeaderSection } from "../../components/HeaderSection";
@@ -186,7 +186,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 				provider = genDetails.gitProvider
 			}
 
-			const repoUrl = props.isGitInitialized ? genDetails.repoUrl : buildGitURL(repoInitDetails.org, repoInitDetails.repo, repoInitDetails.gitProvider)
+			const repoUrl = props.isGitInitialized ? genDetails.repoUrl : buildGitURL(repoInitDetails.orgHandler, repoInitDetails.repo, repoInitDetails.gitProvider)
 
 			const createParams: Partial<CreateComponentReq> = {
 				orgId: organization.id.toString(),

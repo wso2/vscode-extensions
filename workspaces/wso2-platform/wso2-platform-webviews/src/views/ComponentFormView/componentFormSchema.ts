@@ -37,6 +37,7 @@ import { ChoreoWebViewAPI } from "../../utilities/vscode-webview-rpc";
 
 export const componentRepoInitSchema = z.object({
 	org: z.string().min(1, "Required"),
+	orgHandler: z.string(),
 	repo: z.string().min(1, "Required"),
 	branch: z.string(),
 	subPath: z.string(),
