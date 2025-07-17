@@ -3062,8 +3062,9 @@ ${endpointAttributes}
 
             if (open) {
                 if (projectOpened) {
-                    const answer = await window.showInformationMessage(
+                    const answer = await window.showWarningMessage(
                         "Do you want to open the created project in the current window or new window?",
+                        { modal: true },
                         "Current Window",
                         "New Window"
                     );
