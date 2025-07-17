@@ -123,7 +123,7 @@ export class BallerinaModule {
         await clearNotificationAlerts();
 
         await currentPage.getByRole('tab', { name: `${moduleName}-module.bal` }).getByLabel('Close').click();
-        await page.selectSidebarItem('Micro Integrator');
+        await page.selectSidebarItem('WSO2 Integrator: MI');
         await projectExplorer.goToOverview("testProject");
     }
 
