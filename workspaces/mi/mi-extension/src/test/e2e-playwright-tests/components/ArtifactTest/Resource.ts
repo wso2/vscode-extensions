@@ -74,6 +74,8 @@ export class Resource {
         console.log("Switched to Project Overview iframe");
         await resWebView.getByRole('heading', { name: 'Deployment Options' }).waitFor({ timeout: 60000 });
         console.log("Waiting for Deployment Options to load");
+        await projectExplorer.findItem(['Project testProject', 'Other Artifacts'], true);
+        console.log("Collapsed Other Artifacts");
         await projectExplorer.findItem(['Project testProject', 'Resources'], true);
         console.log("Navigated to Resources in Project Explorer");
         await this._page.getByLabel('Add Resource').click();

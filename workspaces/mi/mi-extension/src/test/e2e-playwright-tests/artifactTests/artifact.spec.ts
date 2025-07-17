@@ -246,9 +246,9 @@ export default function createTests() {
     test('Registry Resource Tests', async () => {
       const testAttempt = test.info().retry + 1;
       await test.step('Create new resource from artifacts', async () => {
-        console.log('Closing All editor groups');
+        console.log('Closing All Editors');
         await page.page.waitForTimeout(1000);
-        await page.executePaletteCommand('View: Close All Editor Groups');
+        await page.executePaletteCommand('View: Close All Editors');
         console.log('Creating new resource from artifacts');
         const resource = new Resource(page.page);
         await resource.openNewFormFromArtifacts();
