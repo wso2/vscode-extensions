@@ -59,6 +59,10 @@ import type {
 	GetCredentialsReq,
 	GetDeploymentStatusReq,
 	GetDeploymentTracksReq,
+	GetGitMetadataReq,
+	GetGitMetadataResp,
+	GetGitTokenForRepositoryReq,
+	GetGitTokenForRepositoryResp,
 	GetMarketplaceIdlReq,
 	GetMarketplaceListReq,
 	GetProjectEnvsReq,
@@ -554,6 +558,22 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		}
 		const response: { token: string } = await this.client.sendRequest("auth/getStsToken", {});
 		return response?.token;
+	}
+
+	async getGitTokenForRepository(params: GetGitTokenForRepositoryReq): Promise<GetGitTokenForRepositoryResp> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: GetGitTokenForRepositoryResp = await this.client.sendRequest("repo/gitTokenForRepository", params);
+		return response;
+	}
+
+	async getGitRepoMetadata(params: GetGitMetadataReq): Promise<GetGitMetadataResp> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: GetGitMetadataResp = await this.client.sendRequest("repo/getRepoMetadata", params);
+		return response;
 	}
 }
 

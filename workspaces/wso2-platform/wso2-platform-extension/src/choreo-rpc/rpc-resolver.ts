@@ -49,6 +49,8 @@ import {
 	ChoreoRpcGetDeploymentTracksRequest,
 	ChoreoRpcGetEndpointsRequest,
 	ChoreoRpcGetEnvsRequest,
+	ChoreoRpcGetGitRepoMetadata,
+	ChoreoRpcGetGitTokenForRepository,
 	ChoreoRpcGetMarketplaceItemIdl,
 	ChoreoRpcGetMarketplaceItems,
 	ChoreoRpcGetProjectsRequest,
@@ -75,6 +77,8 @@ import {
 	type GetCredentialsReq,
 	type GetDeploymentStatusReq,
 	type GetDeploymentTracksReq,
+	GetGitMetadataReq,
+	type GetGitTokenForRepositoryReq,
 	type GetMarketplaceIdlReq,
 	type GetMarketplaceListReq,
 	type GetProjectEnvsReq,
@@ -180,4 +184,6 @@ export function registerChoreoRpcResolver(messenger: Messenger, rpcClient: IChor
 		);
 	});
 	messenger.onRequest(ChoreoRpcGetSubscriptions, (params: GetSubscriptionsReq) => rpcClient.getSubscriptions(params));
+	messenger.onRequest(ChoreoRpcGetGitTokenForRepository, (params: GetGitTokenForRepositoryReq) => rpcClient.getGitTokenForRepository(params));
+	messenger.onRequest(ChoreoRpcGetGitRepoMetadata, (params: GetGitMetadataReq) => rpcClient.getGitRepoMetadata(params));
 }

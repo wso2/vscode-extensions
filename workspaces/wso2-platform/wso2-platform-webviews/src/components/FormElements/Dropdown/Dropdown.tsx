@@ -56,7 +56,7 @@ export const Dropdown: FC<Props> = (props) => {
 						{items?.map((item, index) => (
 							<>
 								{typeof item !== "string" && item.type === "separator" ? (
-									<VSCodeOption disabled className="h-[1px] bg-vsc-foreground" key={`separator-${index}`} value={`separator-${index}`}/>
+									<VSCodeOption disabled className="h-[1px] bg-vsc-foreground" key={`separator-${index}`} value={`separator-${index}`} />
 								) : (
 									<VSCodeOption
 										key={typeof item === "string" ? item : item?.value}

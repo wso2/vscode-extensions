@@ -3,8 +3,8 @@
   "displayName": "WSO2 Platform",
   "description": "Manage WSO2 Choreo and Devant projects in VS Code.",
   "license": "Apache-2.0",
-  "version": "1.0.14-code-server-1",
-  "cliVersion": "v1.2.182507161500",
+  "version": "1.0.14-code-server-2",
+  "cliVersion": "v1.2.182507171300",
   "publisher": "wso2",
   "bugs": {
     "url": "https://github.com/wso2/choreo-vscode/issues"
@@ -12,7 +12,7 @@
   "repository": "https://github.com/wso2/choreo-vscode",
   "icon": "resources/icons/wso2-logo.png",
   "engines": {
-    "vscode": "^1.101.2"
+    "vscode": "^1.100.0"
   },
   "categories": [
     "Other"
@@ -175,12 +175,6 @@
           "default": "",
           "description": "User STS token",
           "scope": "window"
-        },
-        "WSO2.WSO2-Platform.Advanced.GitUserPassword": {
-          "type": "string",
-          "default": "",
-          "description": "Git Username and password (eg: USERNAME:PASSWORD)",
-          "scope": "window"
         }
       }
     },
@@ -230,7 +224,7 @@
     "@types/js-yaml": "^4.0.9",
     "@types/mocha": "~10.0.1",
     "@types/node": "^22.15.21",
-    "@types/vscode": "^1.101.0",
+    "@types/vscode": "^1.100.0",
     "@types/which": "^3.0.4",
     "@vscode/vsce": "^3.4.2",
     "@wso2/playwright-vscode-tester": "workspace:*",

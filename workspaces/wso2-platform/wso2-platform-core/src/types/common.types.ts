@@ -569,5 +569,24 @@ export interface GithubOrganization {
 	orgName: string;
 	orgHandler: string;
 	repositories: GithubRepository[];
+}
 
+export interface GitRepoMetadata {
+	isBareRepo: boolean;
+	isSubPathEmpty: boolean;
+	isSubPathValid: boolean;
+	isValidRepo: boolean;
+	hasBallerinaTomlInPath: boolean;
+	hasBallerinaTomlInRoot: boolean;
+	isDockerfilePathValid: boolean;
+	hasDockerfileInPath: boolean;
+	isDockerContextPathValid: boolean;
+	isOpenApiFilePathValid: boolean;
+	hasOpenApiFileInPath: boolean;
+	hasPomXmlInPath: boolean;
+	hasPomXmlInRoot: boolean;
+	isBuildpackPathValid: boolean;
+	isTestRunnerPathValid: boolean;
+	isProcfileExists: boolean;
+	isEndpointYamlExists: boolean;
 }

@@ -183,8 +183,10 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 				await ChoreoWebViewAPI.getInstance().cloneRepositoryIntoCompDir({
 					cwd: props.directoryFsPath,
 					subpath: repoInitDetails.subPath,
+					orgId: props.organization?.id?.toString(),
 					repo: {
-						org: repoInitDetails.org,
+						orgHandler: repoInitDetails.orgHandler,
+						orgName: repoInitDetails.org,
 						branch: repoInitDetails.branch,
 						provider: repoInitDetails.gitProvider,
 						repo: repoInitDetails.repo,

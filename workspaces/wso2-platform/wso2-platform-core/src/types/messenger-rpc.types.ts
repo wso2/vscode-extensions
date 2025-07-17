@@ -113,9 +113,11 @@ export interface PushEverythingToRemoteRepoReq {
 export interface CloneRepositoryIntoCompDirReq {
 	cwd: string;
 	subpath: string;
+	orgId: string;
 	repo: {
 		provider: string;
-		org: string;
+		orgName: string;
+		orgHandler: string;
 		repo: string;
 		serverUrl?: string;
 		branch: string;

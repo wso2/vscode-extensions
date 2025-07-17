@@ -26,6 +26,7 @@ import {
 	GitProvider,
 	GoogleProviderBuildPackNames,
 	type OpenApiSpec,
+	Organization,
 	WebAppSPATypes,
 	capitalizeFirstLetter,
 	makeURLSafe,
@@ -58,7 +59,7 @@ export const componentGeneralDetailsSchema = z.object({
 		.max(60, "Max length exceeded")
 		.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
 		.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters"),
-	subPath: z.string(),
+	subPath: z.string(), // todo: add regex
 	gitRoot: z.string(),
 	repoUrl: z.string().min(1, "Required"),
 	gitProvider: z.string().min(1, "Required"),

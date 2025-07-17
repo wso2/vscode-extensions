@@ -17,7 +17,7 @@
  */
 
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { RequiredFormInput } from "@wso2/ui-toolkit";
 import { GitProvider, type NewComponentWebviewProps } from "@wso2/wso2-platform-core";
 import React, { type FC, useEffect, useState } from "react";
@@ -63,7 +63,11 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 		select: (data) => !!data.list?.length,
 	});
 
-	const { data: gitOrgs, isLoading: loadingGitOrgs, error: errorFetchingGitOrg } = useGetAuthorizedGitOrgs(organization.id?.toString());
+	const {
+		data: gitOrgs,
+		isLoading: loadingGitOrgs,
+		error: errorFetchingGitOrg,
+	} = useGetAuthorizedGitOrgs(organization.id?.toString(), "", { refetchOnWindowFocus: true });
 	const matchingOrgItem = gitOrgs?.gitOrgs?.find((item) => item.orgName === orgName);
 
 	// todo: handle bitbucket and gitlab
@@ -79,7 +83,7 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 
 	useEffect(() => {
 		if (matchingOrgItem?.repositories.length > 0 && !matchingOrgItem?.repositories?.some((item) => item.name === form.getValues("repo"))) {
-			setTimeout(()=>form.setValue("repo", ""),1000);
+			setTimeout(() => form.setValue("repo", ""), 1000);
 		}
 		if (matchingOrgItem) {
 			form.setValue("orgHandler", matchingOrgItem.orgHandler);
@@ -111,24 +115,45 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 	}, [branches]);
 
 	useEffect(() => {
+		// TODO: avoid using useEffect and try to override the onChange handler
 		if (repo === createNewRpoText) {
-			setTimeout(()=>form.setValue("repo", ""),1000);
+			setTimeout(() => form.setValue("repo", ""), 1000);
 			ChoreoWebViewAPI.getInstance().openExternal("https://github.com/new");
 			setCreatingRepo(true);
 		} else if (repo === connectMoreRepoText) {
-			setTimeout(()=>form.setValue("repo", ""),1000);
+			setTimeout(() => form.setValue("repo", ""), 1000);
 			ChoreoWebViewAPI.getInstance().triggerGithubInstallFlow(organization.id?.toString());
 		}
 	}, [repo]);
 
-	const onSubmitForm: SubmitHandler<ComponentRepoInitSchemaType> = () => onNextClick();
+	const { mutateAsync: getRepoMetadata, isLoading: isValidatingPath } = useMutation({
+		mutationFn: (data: ComponentRepoInitSchemaType) => {
+			const subPath = data.subPath.startsWith("/") ? data.subPath.slice(1) : data.subPath;
+			return ChoreoWebViewAPI.getInstance().getChoreoRpcClient().getGitRepoMetadata({
+				branch: data.branch,
+				gitOrgName: data.org,
+				gitRepoName: data.repo,
+				relativePath: subPath,
+				orgId: organization?.id?.toString()
+			});
+		},
+	});
 
-	const repoDropdownItems = [{ value: connectMoreRepoText },{ value: createNewRpoText } ]
-	if(matchingOrgItem?.repositories?.length>0){
+	const onSubmitForm: SubmitHandler<ComponentRepoInitSchemaType> = async (data) => {
+		const resp = await getRepoMetadata(data);
+		if(resp?.metadata && !resp?.metadata?.isSubPathEmpty){
+			form.setError("subPath",{message:"Path is not empty"})
+		}else{
+			onNextClick()
+		}
+	};
+
+	const repoDropdownItems = [{ value: connectMoreRepoText }, { value: createNewRpoText }];
+	if (matchingOrgItem?.repositories?.length > 0) {
 		repoDropdownItems.push(
-			{ type: "separator", value: "" } as {value: string},
-			...matchingOrgItem?.repositories?.map((item) => ({ value: item.name }))
-		)
+			{ type: "separator", value: "" } as { value: string },
+			...matchingOrgItem?.repositories?.map((item) => ({ value: item.name })),
+		);
 	}
 
 	return (
@@ -201,19 +226,21 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 					/>
 				)}
 				<TextField label="Path" key="gen-details-path" required name="subPath" placeholder="/directory-path" control={form.control} />
-				<TextField
-					label="Name"
-					key="gen-details-name"
-					required
-					name="name"
-					placeholder={extensionName === "Devant" ? "integration-name" : "component-name"}
-					control={form.control}
-				/>
+				<div className="col-span-full" key="gen-details-name-wrap">
+					<TextField
+						label="Name"
+						key="gen-details-name"
+						required
+						name="name"
+						placeholder={extensionName === "Devant" ? "integration-name" : "component-name"}
+						control={form.control}
+					/>
+				</div>
 			</div>
 
 			<div className="flex justify-end gap-3 pt-6 pb-2">
-				<Button onClick={form.handleSubmit(onSubmitForm)} disabled={initializingRepo}>
-					{initializingRepo ? (loadingNextText ?? nextText) : nextText}
+				<Button onClick={form.handleSubmit(onSubmitForm)} disabled={isValidatingPath || initializingRepo}>
+					{(isValidatingPath || initializingRepo) ? (loadingNextText ?? nextText) : nextText}
 				</Button>
 			</div>
 		</>

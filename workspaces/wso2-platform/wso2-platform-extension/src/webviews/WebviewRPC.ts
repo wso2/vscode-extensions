@@ -585,22 +585,25 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 	messenger.onRequest(CloneRepositoryIntoCompDir, async (params: CloneRepositoryIntoCompDirReq) => {
 		const tempDirPath = await fs.promises.mkdtemp(join(os.tmpdir(), "temp-platform-code"));
 		const newGit = await initGit(ext.context);
-		const _repoUrl = buildGitURL(params.repo.org, params.repo.repo, params.repo.provider, params.repo.serverUrl);
+		const _repoUrl = buildGitURL(params.repo.orgHandler, params.repo.repo, params.repo.provider, params.repo.serverUrl);
 		if (!_repoUrl || !_repoUrl.startsWith("https://")) {
 			getLogger().info("failed to parse git details", params);
 			return;
 		}
 		const urlObj = new URL(_repoUrl);
 
+		// todo: this should only happen in code server!
 		// temporarily get the user token from configuration
-		const usernamePassword = workspace.getConfiguration().get<string>("WSO2.WSO2-Platform.Advanced.GitUserPassword");
-		const usernamePasswordSplit = usernamePassword?.split(":");
-		if (!usernamePasswordSplit || usernamePasswordSplit.length < 2) {
-			getLogger().info("WSO2.WSO2-Platform.Advanced.GitUserPassword is required to proceed");
-			return;
-		}
-		urlObj.username = usernamePasswordSplit[0];
-		urlObj.password = usernamePasswordSplit[1];
+		const gitPat = await window.withProgress({ title: `Accessing the repository ${_repoUrl}...`, location: ProgressLocation.Notification }, () =>
+			ext.clients.rpcClient.getGitTokenForRepository({
+				orgId: params.orgId,
+				gitOrg: params.repo.orgName,
+				gitRepo: params.repo.repo,
+			}),
+		);
+
+		urlObj.username = "x-access-token";
+		urlObj.password = gitPat.token;
 		const repoUrl = urlObj.href;
 
 		if (newGit && repoUrl) {

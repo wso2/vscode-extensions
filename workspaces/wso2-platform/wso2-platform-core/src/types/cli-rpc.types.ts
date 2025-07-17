@@ -32,6 +32,7 @@ import type {
 	DeploymentTrack,
 	Environment,
 	GithubOrganization,
+	GitRepoMetadata,
 	MarketplaceItem,
 	Pagination,
 	Project,
@@ -400,6 +401,30 @@ export interface GetSubscriptionsReq {
 	orgId: string;
 }
 
+export interface GetGitTokenForRepositoryReq {
+	orgId: string;
+	gitOrg: string;
+    gitRepo: string;
+}
+
+export interface GetGitTokenForRepositoryResp {
+	token: string;
+	gitOrganization: string;
+    gitRepository: string;
+}
+
+export interface GetGitMetadataReq {
+	orgId: string;
+	gitOrgName: string;
+	gitRepoName: string;
+	branch: string;
+	relativePath: string;
+}
+
+export interface GetGitMetadataResp {
+	metadata: GitRepoMetadata;
+}
+
 export interface SubscriptionsResp {
 	count: number;
 	list: SubscriptionItem[];
@@ -457,6 +482,8 @@ export interface IChoreoRPCClient {
 	requestPromoteApproval(params: RequestPromoteApprovalReq): Promise<void>;
 	promoteProxyDeployment(params: PromoteProxyDeploymentReq): Promise<void>;
 	getSubscriptions(params: GetSubscriptionsReq): Promise<SubscriptionsResp>;
+	getGitTokenForRepository(params: GetGitTokenForRepositoryReq): Promise<GetGitTokenForRepositoryResp>;
+	getGitRepoMetadata(params: GetGitMetadataReq): Promise<GetGitMetadataResp>;
 }
 
 export class ChoreoRpcWebview implements IChoreoRPCClient {
@@ -579,6 +606,12 @@ export class ChoreoRpcWebview implements IChoreoRPCClient {
 	getSubscriptions(params: GetSubscriptionsReq): Promise<SubscriptionsResp> {
 		return this._messenger.sendRequest(ChoreoRpcGetSubscriptions, HOST_EXTENSION, params);
 	}
+	getGitTokenForRepository(params: GetGitTokenForRepositoryReq): Promise<GetGitTokenForRepositoryResp> {
+		return this._messenger.sendRequest(ChoreoRpcGetGitTokenForRepository, HOST_EXTENSION, params);
+	}
+	getGitRepoMetadata(params: GetGitMetadataReq): Promise<GetGitMetadataResp> {
+		return this._messenger.sendRequest(ChoreoRpcGetGitRepoMetadata, HOST_EXTENSION, params);
+	}
 }
 
 export const ChoreoRpcGetProjectsRequest: RequestType<string, Project[]> = { method: "rpc/project/getProjects" };
@@ -645,4 +678,10 @@ export const ChoreoRpcPromoteProxyDeployment: RequestType<PromoteProxyDeployment
 };
 export const ChoreoRpcGetSubscriptions: RequestType<GetSubscriptionsReq, SubscriptionsResp> = {
 	method: "rpc/auth/getSubscriptions",
+};
+export const ChoreoRpcGetGitTokenForRepository: RequestType<GetGitTokenForRepositoryReq, GetGitTokenForRepositoryResp> = {
+	method: "rpc/repo/gitTokenForRepository",
+};
+export const ChoreoRpcGetGitRepoMetadata: RequestType<GetGitMetadataReq, GetGitMetadataResp> = {
+	method: "rpc/repo/getRepoMetadata",
 };
