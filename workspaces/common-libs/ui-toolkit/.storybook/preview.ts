@@ -15,7 +15,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import type { Preview } from '@storybook/react-vite';
+import type { Preview } from '@storybook/react';
 
 const preview: Preview = {
   globalTypes: {
