@@ -43,6 +43,7 @@ import {
 	type GetConfigFileDriftsReq,
 	GetContextState,
 	GetDirectoryFileNames,
+	GetGithubAuthStatus,
 	GetLocalGitData,
 	GetSubPath,
 	GetWebviewStoreState,
@@ -104,6 +105,7 @@ import { getLogger } from "../logger/logger";
 import { authStore } from "../stores/auth-store";
 import { contextStore } from "../stores/context-store";
 import { dataCacheStore } from "../stores/data-cache-store";
+import { getGithubAuthStatus, clearGithubAuthStatus } from "../uri-handlers";
 import { webviewStateStore } from "../stores/webview-state-store";
 import { sendTelemetryEvent, sendTelemetryException } from "../telemetry/utils";
 import { getConfigFileDrifts, getNormalizedPath, getSubPath, goTosource, readLocalEndpointsConfig, readLocalProxyConfig, saveFile } from "../utils";
@@ -177,7 +179,7 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 	messenger.onRequest(SetWebviewCache, async (params: { cacheKey: string; data: any }) => {
 		await ext.context.workspaceState.update(params.cacheKey, params.data);
 	});
-	messenger.onRequest(RestoreWebviewCache, async (cacheKey:string) => {
+	messenger.onRequest(RestoreWebviewCache, async (cacheKey: string) => {
 		return ext.context.workspaceState.get(cacheKey);
 	});
 	messenger.onRequest(ClearWebviewCache, async (cacheKey: string) => {
@@ -186,27 +188,30 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 	messenger.onRequest(GoToSource, async (filePath): Promise<void> => {
 		await goTosource(filePath as string, false);
 	});
-	messenger.onRequest(SaveFile, async (params: {
-		fileName: string;
-		fileContent: string;
-		baseDirectoryFs: string;
-		successMessage?: string;
-		isOpenApiFile?: boolean;
-		shouldPromptDirSelect?: boolean;
-		dialogTitle?: string;
-		shouldOpen?: boolean;
-	}): Promise<string> => {
-		return saveFile(
-			params.fileName,
-			params.fileContent,
-			params.baseDirectoryFs,
-			params.successMessage,
-			params.isOpenApiFile,
-			params.shouldPromptDirSelect,
-			params.dialogTitle,
-			params.shouldOpen,
-		);
-	});
+	messenger.onRequest(
+		SaveFile,
+		async (params: {
+			fileName: string;
+			fileContent: string;
+			baseDirectoryFs: string;
+			successMessage?: string;
+			isOpenApiFile?: boolean;
+			shouldPromptDirSelect?: boolean;
+			dialogTitle?: string;
+			shouldOpen?: boolean;
+		}): Promise<string> => {
+			return saveFile(
+				params.fileName,
+				params.fileContent,
+				params.baseDirectoryFs,
+				params.successMessage,
+				params.isOpenApiFile,
+				params.shouldPromptDirSelect,
+				params.dialogTitle,
+				params.shouldOpen,
+			);
+		},
+	);
 	messenger.onRequest(DeleteFile, async (filePath) => {
 		unlinkSync(filePath as string);
 	});
@@ -222,21 +227,18 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		});
 		return itemSelection as WebviewQuickPickItem;
 	});
-	messenger.onRequest(
-		ShowInputBox,
-		async (params: { regex?: { expression: RegExp; message: string }; [x: string]: any }) => {
-			const { regex, ...rest } = params;
-			return window.showInputBox({
-				...rest,
-				validateInput: (val) => {
-					if (regex && !new RegExp(regex.expression).test(val)) {
-						return regex.message;
-					}
-					return null;
-				},
-			});
-		}
-	);
+	messenger.onRequest(ShowInputBox, async (params: { regex?: { expression: RegExp; message: string }; [x: string]: any }) => {
+		const { regex, ...rest } = params;
+		return window.showInputBox({
+			...rest,
+			validateInput: (val) => {
+				if (regex && !new RegExp(regex.expression).test(val)) {
+					return regex.message;
+				}
+				return null;
+			},
+		});
+	});
 	const outputChanelMap: Map<string, vscode.OutputChannel> = new Map();
 	messenger.onRequest(ShowTextInOutputChannel, async (params: { key: string; output: string }) => {
 		if (!outputChanelMap.has(params.key)) {
@@ -258,7 +260,7 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 			}
 			const args = ["logs", type, "-o", orgName, "-p", projectName, "-c", componentName, "-d", deploymentTrackName, "-e", envName, "-f"];
 			window.createTerminal(`${componentName}:${type.replace("component-", "")}-logs`, getChoreoExecPath(), args).show();
-		}
+		},
 	);
 	const _getGithubUrlState = async (orgId: string): Promise<string> => {
 		const callbackUrl = await env.asExternalUri(Uri.parse(`${env.uriScheme}://wso2.wso2-platform/ghapp`));
@@ -282,6 +284,14 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		const state = await _getGithubUrlState(orgId);
 		const ghURL = Uri.parse(`${installUrl}?state=${state}`);
 		await env.openExternal(ghURL);
+	});
+	messenger.onRequest(GetGithubAuthStatus, async (orgId: string) => {
+		const status = getGithubAuthStatus(orgId);
+		// Clear the status after reading it (single-use)
+		if (status.cancelled) {
+			clearGithubAuthStatus(orgId);
+		}
+		return status;
 	});
 	messenger.onRequest(SubmitComponentCreate, submitCreateComponentHandler);
 	messenger.onRequest(GetDirectoryFileNames, (dirPath: string) => {

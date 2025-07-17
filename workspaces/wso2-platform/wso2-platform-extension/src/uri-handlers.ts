@@ -24,6 +24,7 @@ import {
 	type Organization,
 	type Project,
 	getComponentKindRepoSource,
+	type openClonedDirReq,
 	parseGitURL,
 } from "@wso2/wso2-platform-core";
 import { ProgressLocation, type ProviderResult, type QuickPickItem, type Uri, commands, window, workspace } from "vscode";
@@ -42,6 +43,17 @@ import { locationStore } from "./stores/location-store";
 import { webviewStateStore } from "./stores/webview-state-store";
 import { delay, isSamePath, openDirectory } from "./utils";
 
+// Simple in-memory store for GitHub auth status
+const githubAuthStatus = new Map<string, { cancelled?: boolean; error?: string }>();
+
+export function getGithubAuthStatus(orgId: string): { cancelled?: boolean; error?: string } {
+	return githubAuthStatus.get(orgId) || {};
+}
+
+export function clearGithubAuthStatus(orgId: string): void {
+	githubAuthStatus.delete(orgId);
+}
+
 export function activateURIHandlers() {
 	window.registerUriHandler({
 		handleUri(uri: Uri): ProviderResult<void> {
@@ -54,6 +66,7 @@ export function activateURIHandlers() {
 					getLogger().info("WSO2 Platform Login Callback hit");
 					const urlParams = new URLSearchParams(uri.query);
 					const authCode = urlParams.get("code");
+					const region = urlParams.get("region") || "";
 					if (authCode) {
 						getLogger().debug("Initiating WSO2 Platform sign in flow from auth code");
 						// TODO: Check if status is equal to STATUS_LOGGING_IN, if not, show error message.
@@ -67,13 +80,13 @@ export function activateURIHandlers() {
 								try {
 									const orgId = contextStore?.getState().state?.selected?.org?.id?.toString();
 									const callbackUrl = extName === "Devant" ? `${choreoEnvConfig.getDevantUrl()}/vscode-auth` : undefined;
-									const clientId = extName === "Devant" ? choreoEnvConfig.getDevantAsguadeoClientId() : undefined;
-									const userInfo = await ext.clients.rpcClient.signInWithAuthCode(authCode, orgId, callbackUrl, clientId);
+									const clientId = extName === "Devant" ? choreoEnvConfig.getDevantAsgardeoClientId() : undefined;
+									const userInfo = await ext.clients.rpcClient.signInWithAuthCode(authCode, region, orgId, callbackUrl, clientId);
 									if (userInfo) {
-										if(contextStore?.getState().state?.selected){
-											const includesOrg = userInfo.organizations?.some(item=>item.handle === contextStore?.getState().state?.selected?.orgHandle)
-											if(!includesOrg){
-												contextStore.getState().resetState()
+										if (contextStore?.getState().state?.selected) {
+											const includesOrg = userInfo.organizations?.some((item) => item.handle === contextStore?.getState().state?.selected?.orgHandle);
+											if (!includesOrg) {
+												contextStore.getState().resetState();
 											}
 										}
 										authStore.getState().loginSuccess(userInfo);
@@ -98,12 +111,29 @@ export function activateURIHandlers() {
 			} else if (uri.path === "/ghapp") {
 				try {
 					isRpcActive(ext);
-					getLogger().info("WSO2 Platform Githup auth Callback hit");
+					getLogger().info("WSO2 Platform Github auth Callback hit");
 					const urlParams = new URLSearchParams(uri.query);
 					const authCode = urlParams.get("code");
+					const error = urlParams.get("error");
+					const errorDescription = urlParams.get("error_description");
 					// const installationId = urlParams.get("installationId");
 					const orgId = urlParams.get("orgId");
-					if (authCode && orgId) {
+					
+					if (error) {
+						// Handle OAuth cancellation/error
+						getLogger().info(`GitHub OAuth cancelled or failed: ${error} - ${errorDescription}`);
+						if (orgId) {
+							// Store the cancellation status
+							githubAuthStatus.set(orgId, { cancelled: true, error: error });
+						}
+						if (error === "access_denied") {
+							getLogger().info("User cancelled GitHub OAuth flow");
+						}
+						// Show error message to user
+						window.showWarningMessage("GitHub authentication was cancelled or failed");
+					} else if (authCode && orgId) {
+						// Clear any previous cancellation status on successful auth
+						githubAuthStatus.delete(orgId);
 						ext.clients.rpcClient.obtainGithubToken({ code: authCode, orgId });
 					}
 				} catch (err: any) {
@@ -114,38 +144,19 @@ export function activateURIHandlers() {
 				try {
 					isRpcActive(ext);
 					const urlParams = new URLSearchParams(uri.query);
-					const orgHandle = urlParams.get("org");
-					const projectHandle = urlParams.get("project");
-					const componentName = urlParams.get("component");
-					const technology = urlParams.get("technology");
-					const integrationType = urlParams.get("integrationType");
-					const integrationDisplayType = urlParams.get("integrationDisplayType");
-					if (!orgHandle || !projectHandle) {
-						return;
-					}
-					getUserInfoForCmd("open project").then(async (userInfo) => {
-						const org = userInfo?.organizations.find((item) => item.handle === orgHandle);
-						if (!org) {
-							window.showErrorMessage(`Failed to find project organization for ${orgHandle}`);
-							return;
-						}
-						const cacheProjects = dataCacheStore.getState().getProjects(orgHandle);
-						let project = cacheProjects?.find((item) => item.handler === projectHandle);
-						if (!project) {
-							const projects = await window.withProgress(
-								{ title: `Fetching projects of organization ${org.name}...`, location: ProgressLocation.Notification },
-								() => ext.clients.rpcClient.getProjects(org.id.toString()),
-							);
-							project = projects?.find((item) => item.handler === projectHandle);
-						}
-						if (!project) {
-							window.showErrorMessage(`Failed to find project for ${projectHandle}`);
-							return;
-						}
-
-						await waitForContextStoreToLoad();
-
-						await cloneOrOpenDir(org, project, componentName, technology, integrationType, integrationDisplayType);
+					const orgHandle = urlParams.get("org") || "";
+					const projectHandle = urlParams.get("project") || "";
+					const componentName = urlParams.get("component") || "";
+					const technology = urlParams.get("technology") || "";
+					const integrationType = urlParams.get("integrationType") || "";
+					const integrationDisplayType = urlParams.get("integrationDisplayType") || "";
+					openClonedDir({
+						orgHandle,
+						projectHandle,
+						componentName,
+						technology,
+						integrationType,
+						integrationDisplayType,
 					});
 				} catch (err: any) {
 					console.error("Failed to handle /open uri handler", err);
@@ -155,6 +166,36 @@ export function activateURIHandlers() {
 		},
 	});
 }
+
+export const openClonedDir = async (params: openClonedDirReq) => {
+	if (!params.orgHandle || !params.projectHandle) {
+		return;
+	}
+	getUserInfoForCmd("open project").then(async (userInfo) => {
+		const org = userInfo?.organizations.find((item) => item.handle === params.orgHandle);
+		if (!org) {
+			window.showErrorMessage(`Failed to find project organization for ${params.orgHandle}`);
+			return;
+		}
+		const cacheProjects = dataCacheStore.getState().getProjects(params.orgHandle);
+		let project = cacheProjects?.find((item) => item.handler === params.projectHandle);
+		if (!project) {
+			const projects = await window.withProgress(
+				{ title: `Fetching projects of organization ${org.name}...`, location: ProgressLocation.Notification },
+				() => ext.clients.rpcClient.getProjects(org.id.toString()),
+			);
+			project = projects?.find((item) => item.handler === params.projectHandle);
+		}
+		if (!project) {
+			window.showErrorMessage(`Failed to find project for ${params.projectHandle}`);
+			return;
+		}
+
+		await waitForContextStoreToLoad();
+
+		await cloneOrOpenDir(org, project, params.componentName, params.technology, params.integrationType, params.integrationDisplayType);
+	});
+};
 
 export const cloneOrOpenDir = async (
 	org: Organization,

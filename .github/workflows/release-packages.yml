@@ -109,9 +109,9 @@ jobs:
         with:
           version: ${{ steps.publish.outputs.version }}${{ inputs.package }}
           threadId: ${{ github.run_id }}
-          bot_username: ${{ secrets.BALLERINA_BOT_USERNAME }}
-          bot_email: ${{ secrets.BALLERINA_BOT_EMAIL }}
-          bot_token: ${{ secrets.BALLERINA_BOT_TOKEN }}
+          bot_username: ${{ secrets.CHOREO_BOT_USERNAME }}
+          bot_email: ${{ secrets.CHOREO_BOT_EMAIL }}
+          bot_token: ${{ secrets.CHOREO_BOT_TOKEN }}
           ref_name: ${{ github.ref_name }}
           commonLibs: true
           choreo: true

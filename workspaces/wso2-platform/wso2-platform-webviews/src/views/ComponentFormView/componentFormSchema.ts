@@ -42,6 +42,19 @@ export const componentGeneralDetailsSchema = z.object({
 		.max(60, "Max length exceeded")
 		.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
 		.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters"),
+	displayName: z
+		.string()
+		.min(1, "Required")
+		.max(60, "Max length exceeded")
+		.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
+		.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters"),
+	integrationName: z
+		.string()
+		.min(1, "Required")
+		.min(3, "Integration name must be at least 3 characters")
+		.max(60, "Max length exceeded")
+		.regex(/^[a-z0-9-]+$/, "You can only use lowercase letters, digits, or hyphens")
+		.regex(/^[a-z0-9].*[a-z0-9]$|^[a-z0-9]$/, "Cannot start or end with hyphens"),
 	subPath: z.string(),
 	gitRoot: z.string(),
 	repoUrl: z.string().min(1, "Required"),

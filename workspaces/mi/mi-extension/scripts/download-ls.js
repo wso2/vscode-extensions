@@ -17,10 +17,10 @@ const TEMP_ZIP = path.join(require('os').tmpdir(), `mi-language-server-${Date.no
 function httpsRequest(url, options = {}) {
     return new Promise((resolve, reject) => {
         const authHeader = {};
-        if (process.env.GITHUB_TOKEN) {
+        if (process.env.CHOREO_BOT_TOKEN) {
+            authHeader['Authorization'] = `Bearer ${process.env.CHOREO_BOT_TOKEN}`;
+        } else if (process.env.GITHUB_TOKEN) {
             authHeader['Authorization'] = `Bearer ${process.env.GITHUB_TOKEN}`;
-        } else if (process.env.GITHUB_BOT_TOKEN) {
-            authHeader['Authorization'] = `Bearer ${process.env.GITHUB_BOT_TOKEN}`;
         }
 
         const req = https.request(url, {

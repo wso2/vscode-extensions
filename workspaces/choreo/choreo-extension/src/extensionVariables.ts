@@ -18,17 +18,14 @@
 
 import type { ExtensionContext, StatusBarItem } from "vscode";
 import type { ChoreoExtensionApi } from "./ChoreoExtensionApi";
-import type { ChoreoRPCClient } from "./choreo-rpc";
 
 // TODO: move into seperate type file along with ChoreoExtensionAPI
 export class ExtensionVariables {
 	public context!: ExtensionContext;
 	public api!: ChoreoExtensionApi;
 	public statusBarItem!: StatusBarItem;
-
-	public clients!: {
-		rpcClient: ChoreoRPCClient;
-	};
+	// biome-ignore lint/complexity/noBannedTypes: No clients available atm
+	public clients!: {};
 }
 
 export const ext = new ExtensionVariables();

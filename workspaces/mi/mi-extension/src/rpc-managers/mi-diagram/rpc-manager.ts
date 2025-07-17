@@ -3733,7 +3733,13 @@ ${endpointAttributes}
     async createRegistryResource(params: CreateRegistryResourceRequest): Promise<CreateRegistryResourceResponse> {
         return new Promise(async (resolve) => {
             const artifactNamePrefix = params.registryRoot === '' ? 'resources/' : params.registryRoot + '/';
-            let artifactName = (artifactNamePrefix + params.registryPath).replace(new RegExp('/', 'g'), "_").replace(/_+/g, '_');
+            let artifactName;
+            const runtimeVersion = await this.getMIVersionFromPom();
+            if (params.createOption === "import" || compareVersions(runtimeVersion.version, '4.4.0') >= 0) {
+                artifactName = (artifactNamePrefix + params.registryPath).replace(new RegExp('/', 'g'), "_").replace(/_+/g, '_');
+            } else {
+                artifactName = params.artifactName;
+            }
 
             let projectDir = params.projectDirectory;
             const fileUri = Uri.file(params.projectDirectory);
@@ -3788,7 +3794,9 @@ ${endpointAttributes}
                 let fileName = params.resourceName;
                 const fileData = getMediatypeAndFileExtension(params.templateType);
                 fileName = fileName + "." + fileData.fileExtension;
-                artifactName = artifactName + '_' + params.resourceName + '_' + fileData.fileExtension;
+                if (compareVersions(runtimeVersion.version, '4.4.0') >= 0) {
+                    artifactName = artifactName + '_' + params.resourceName + '_' + fileData.fileExtension;
+                }
                 const registryPath = path.join(registryDir, params.registryPath);
                 const destPath = path.join(registryPath, fileName);
                 if (!fs.existsSync(registryPath)) {
@@ -3804,8 +3812,10 @@ ${endpointAttributes}
                 let fileName = params.resourceName;
                 const fileData = getMediatypeAndFileExtension(params.templateType);
                 fileName = fileName + "." + fileData.fileExtension;
-                artifactName = artifactName + '_' + params.resourceName + '_' + fileData.fileExtension;
-                let fileContent = params.content ? params.content : getRegistryResourceContent(params.templateType, params.resourceName);
+                if (compareVersions(runtimeVersion.version, '4.4.0') >= 0) {
+                    artifactName = artifactName + '_' + params.resourceName + '_' + fileData.fileExtension;
+                }
+                let fileContent = params.content ? params.content : getRegistryResourceContent(params.templateType, params.resourceName, params.roles);
                 const registryPath = path.join(registryDir, params.registryPath);
                 const destPath = path.join(registryPath, fileName);
                 if (!fs.existsSync(registryPath)) {
@@ -3919,7 +3929,7 @@ ${endpointAttributes}
 
     async getAvailableRegistryResources(params: ListRegistryArtifactsRequest): Promise<RegistryArtifactNamesResponse> {
         return new Promise(async (resolve) => {
-            const response = getAvailableRegistryResources(this.projectUri);
+            const response = await getAvailableRegistryResources(this.projectUri);
             const artifacts = response.artifacts;
             var tempArtifactNames: string[] = [];
             for (let i = 0; i < artifacts.length; i++) {

@@ -31,6 +31,7 @@ import { authStore } from "./stores/auth-store";
 import { contextStore } from "./stores/context-store";
 import { dataCacheStore } from "./stores/data-cache-store";
 import { locationStore } from "./stores/location-store";
+import { ChoreoConfigurationProvider, addTerminalHandlers } from "./tarminal-handlers";
 import { activateTelemetry } from "./telemetry/telemetry";
 import { activateURIHandlers } from "./uri-handlers";
 import { registerYamlLanguageServer } from "./yaml-ls";
@@ -41,6 +42,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	getLogger().debug("Activating WSO2 Platform Extension");
 	ext.context = context;
 	ext.api = new PlatformExtensionApi();
+	setInitialEnv();
 
 	// Initialize stores
 	await authStore.persist.rehydrate();
@@ -69,6 +71,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			await ext.clients.rpcClient.init();
 			authStore.getState().initAuth();
 			continueCreateComponent();
+			addTerminalHandlers();
+			context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("*", new ChoreoConfigurationProvider()));
 			getLogger().debug("WSO2 Platform Extension activated");
 		})
 		.catch((e) => {
@@ -84,9 +88,24 @@ export async function activate(context: vscode.ExtensionContext) {
 	return ext.api;
 }
 
+function setInitialEnv() {
+	const choreoEnv = process.env.CHOREO_ENV || process.env.CLOUD_ENV;
+	if (
+		choreoEnv &&
+		["dev", "stage", "prod"].includes(choreoEnv) &&
+		workspace.getConfiguration().get("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") !== choreoEnv
+	) {
+		workspace.getConfiguration().update("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment", choreoEnv);
+	}
+}
+
 function registerPreInitHandlers(): any {
 	workspace.onDidChangeConfiguration(async ({ affectsConfiguration }: ConfigurationChangeEvent) => {
-		if (affectsConfiguration("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") || affectsConfiguration("WSO2.WSO2-Platform.Advanced.RpcPath")) {
+		if (
+			affectsConfiguration("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") ||
+			affectsConfiguration("WSO2.WSO2-Platform.Advanced.RpcPath") ||
+			affectsConfiguration("WSO2.WSO2-Platform.Advanced.StsToken")
+		) {
 			const selection = await window.showInformationMessage(
 				"WSO2 Platform extension configuration changed. Please restart vscode for changes to take effect.",
 				"Restart Now",

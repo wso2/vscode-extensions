@@ -3,8 +3,8 @@
   "displayName": "WSO2 Platform",
   "description": "Manage WSO2 Choreo and Devant projects in VS Code.",
   "license": "Apache-2.0",
-  "version": "1.0.11",
-  "cliVersion": "v1.2.82504171200",
+  "version": "1.0.13-sts-12",
+  "cliVersion": "v1.2.182507031200",
   "publisher": "wso2",
   "bugs": {
     "url": "https://github.com/wso2/choreo-vscode/issues"
@@ -169,145 +169,11 @@
           "description": "The path to Choreo RPC server",
           "scope": "window"
         },
-        "WSO2.WSO2-Platform.Default.ghappInstallUrl": {
+        "WSO2.WSO2-Platform.Advanced.StsToken": {
           "type": "string",
           "default": "",
-          "description": "Default GitHub App Install URL for production environment."
-        },
-        "WSO2.WSO2-Platform.Default.ghappAuthUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Default GitHub App Auth URL for production environment."
-        },
-        "WSO2.WSO2-Platform.Default.ghappClientId": {
-          "type": "string",
-          "default": "",
-          "description": "Default GitHub App Client ID for production environment."
-        },
-        "WSO2.WSO2-Platform.Default.ghappRedirectUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Default GitHub App Redirect URL for production environment."
-        },
-        "WSO2.WSO2-Platform.Default.ghappDevantRedirectUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Default GitHub App Devant Redirect URL for production environment."
-        },
-        "WSO2.WSO2-Platform.Default.choreoConsoleBaseUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Default Choreo Console Base URL for production environment."
-        },
-        "WSO2.WSO2-Platform.Default.billingConsoleBaseUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Default Billing Console Base URL for production environment."
-        },
-        "WSO2.WSO2-Platform.Default.devantConsoleBaseUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Default Devant Console Base URL for production environment."
-        },
-        "WSO2.WSO2-Platform.Default.devantAsguadeoClientId": {
-          "type": "string",
-          "default": "",
-          "description": "Default Devant Asguadeo Client ID for production environment."
-        },
-        "WSO2.WSO2-Platform.Stage.ghappInstallUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Stage GitHub App Install URL."
-        },
-        "WSO2.WSO2-Platform.Stage.ghappAuthUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Stage GitHub App Auth URL."
-        },
-        "WSO2.WSO2-Platform.Stage.ghappClientId": {
-          "type": "string",
-          "default": "",
-          "description": "Stage GitHub App Client ID."
-        },
-        "WSO2.WSO2-Platform.Stage.ghappRedirectUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Stage GitHub App Redirect URL."
-        },
-        "WSO2.WSO2-Platform.Stage.ghappDevantRedirectUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Stage GitHub App Devant Redirect URL."
-        },
-        "WSO2.WSO2-Platform.Stage.choreoConsoleBaseUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Stage Choreo Console Base URL."
-        },
-        "WSO2.WSO2-Platform.Stage.billingConsoleBaseUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Stage Billing Console Base URL."
-        },
-        "WSO2.WSO2-Platform.Stage.devantConsoleBaseUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Stage Devant Console Base URL."
-        },
-        "WSO2.WSO2-Platform.Stage.devantAsguadeoClientId": {
-          "type": "string",
-          "default": "",
-          "description": "Stage Devant Asguadeo Client ID."
-        },
-        "WSO2.WSO2-Platform.Dev.ghappInstallUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Dev GitHub App Install URL."
-        },
-        "WSO2.WSO2-Platform.Dev.ghappAuthUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Dev GitHub App Auth URL."
-        },
-        "WSO2.WSO2-Platform.Dev.ghappClientId": {
-          "type": "string",
-          "default": "",
-          "description": "Dev GitHub App Client ID."
-        },
-        "WSO2.WSO2-Platform.Dev.ghappRedirectUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Dev GitHub App Redirect URL."
-        },
-        "WSO2.WSO2-Platform.Dev.ghappDevantRedirectUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Dev GitHub App Devant Redirect URL."
-        },
-        "WSO2.WSO2-Platform.Dev.choreoConsoleBaseUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Dev Choreo Console Base URL."
-        },
-        "WSO2.WSO2-Platform.Dev.billingConsoleBaseUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Dev Billing Console Base URL."
-        },
-        "WSO2.WSO2-Platform.Dev.devantConsoleBaseUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Dev Devant Console Base URL."
-        },
-        "WSO2.WSO2-Platform.Dev.devantAsguadeoClientId": {
-          "type": "string",
-          "default": "",
-          "description": "Dev Devant Asguadeo Client ID."
-        },
-        "WSO2.WSO2-Platform.ChoreoCliReleasesBaseUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Base URL for downloading Choreo CLI releases."
+          "description": "User STS token",
+          "scope": "window"
         }
       }
     },
@@ -389,6 +255,7 @@
     "which": "^5.0.0",
     "vscode-jsonrpc": "^8.2.1",
     "zustand": "^5.0.5",
-    "@aws-sdk/client-s3": "^3.817.0"
+    "@aws-sdk/client-s3": "^3.817.0",
+    "zod":"^3.22.4"
   }
 }
