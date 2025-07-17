@@ -227,5 +227,6 @@
     "vscode-messenger": "^0.5.1",
     "vscode-messenger-common": "^0.5.1",
     "which": "^5.0.0",
-    "vscode-jsonrpc": "^8.2.1"  }
+    "vscode-jsonrpc": "^8.2.1"
+  }
 }
