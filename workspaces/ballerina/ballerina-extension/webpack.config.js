@@ -102,8 +102,12 @@ module.exports = [{
   },
   devtool: 'source-map',
   externals: {
-    vscode: 'commonjs vscode' ,
+    vscode: 'commonjs vscode',
     'applicationinsights-native-metrics': 'commonjs applicationinsights-native-metrics',
+    'applicationinsights': false,
+    'diagnostic-channel': false,
+    'diagnostic-channel-publishers': false,
+    '@opentelemetry/tracing': false,
   },
   plugins: [
     new webpack.DefinePlugin(webEnvKeys),
@@ -120,6 +124,9 @@ module.exports = [{
   resolve: {
     mainFields: ['browser', 'module', 'main'],
     extensions: ['.ts', '.js'],
+    alias: {
+    src: path.resolve(__dirname, 'src/')
+  },
     fallback: {
       os: require.resolve('os-browserify/browser'),
       module: false,
@@ -143,7 +150,11 @@ module.exports = [{
       timers: require.resolve("timers-browserify"),
       dns: false,
       _stream_transform: false,
-      async_hooks: false
+      async_hooks: false,
+      'diagnostic-channel': false,
+      'diagnostic-channel-publishers': false,
+      '@opentelemetry/tracing': false,
+      'applicationinsights': false
     }
   },
   module: {
@@ -173,7 +184,9 @@ module.exports = [{
   resolve: {
     mainFields: ['module', 'main'],
     extensions: ['.ts', '.js'], // support ts-files and js-files
-    alias: {},
+    alias: {
+    src: path.resolve(__dirname, 'src/')
+  },
     fallback: {
       //path: require.resolve("path-browserify")
     },

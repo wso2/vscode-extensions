@@ -70,6 +70,8 @@ import { RPCLayer } from "../RPCLayer";
 import { VisualizerWebview } from "../views/visualizer/webview";
 import { BalFileSystemProvider } from "src/web-activators/fs/BalFileSystemProvider";
 import { WebExtendedLanguageClient } from "src/web-activators/webExtendedLanguageClient";
+import { extension } from "../BalExtensionContext";
+import { activateLanguageServer } from "../web-activators/Ls/activateLs";
 
 const SWAN_LAKE_REGEX = /(s|S)wan( |-)(l|L)ake/g;
 
@@ -235,7 +237,7 @@ export class BallerinaExtension {
         this.context = context;
     }
 
-    init(_onBeforeInit: Function): Promise<void> {
+    async init(_onBeforeInit: Function): Promise<void> {
         if (extensions.getExtension(PREV_EXTENSION_ID)) {
             this.showUninstallOldVersion();
         }
@@ -264,6 +266,13 @@ export class BallerinaExtension {
         commands.registerCommand('ballerina.update-ballerina-visually', () => { // Update release pack from ballerina update tool with webview
             this.updateBallerinaVisually();
         });
+
+         //activate language server for web mode
+        if (extension.isWebMode) {
+            this.langClient = await activateLanguageServer();
+            console.log("creating web lang client");
+            _onBeforeInit(this.langClient);
+        }
 
         try {
             // Register pre init handlers.
