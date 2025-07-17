@@ -15,7 +15,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { Meta, StoryObj } from "@storybook/react-vite";
+import { Meta, StoryObj } from "@storybook/react";
 import { SampleReactHookForm } from "./SampleReactHookForm";
 
 const meta: Meta<typeof SampleReactHookForm> = {

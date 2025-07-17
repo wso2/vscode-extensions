@@ -16,8 +16,8 @@
  * under the License.
  */
 import React, { useState } from "react";
-import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Popover } from "./Popover";
+import type { Meta, StoryObj } from '@storybook/react';
+import {  Popover , PopoverProps } from "./Popover";
 import styled from "@emotion/styled";
 
 const popOverStyle = {
@@ -57,7 +57,7 @@ export const PopoverDefault: Story = {
         },
         sx: popOverStyle,
     },
-    render: args => {
+    render: (args: PopoverProps) => {
         const [isOpen, setIsOpen] = useState(false);
         const [anchorEvent, setAnchorEvent] = useState<null | HTMLElement>(null);
         const openPanel = (event: React.MouseEvent<HTMLElement>) => {

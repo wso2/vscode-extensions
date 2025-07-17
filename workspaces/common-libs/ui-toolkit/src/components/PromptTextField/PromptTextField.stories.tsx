@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import type { Meta, StoryObj } from '@storybook/react-vite';
-import { PromptTextField } from "./PromptTextField";
+import type { Meta, StoryObj } from '@storybook/react';
+import {  PromptTextField , PromptTextFieldProps } from "./PromptTextField";
 
 const meta = {
     component: PromptTextField,
@@ -17,7 +17,7 @@ export const Default: Story = {
         required: true,
         autoFocus: true,
     },
-    render: args => {
+    render: (args: PromptTextFieldProps) => {
         const [value, setValue] = useState("");
         return (
             <PromptTextField
@@ -43,7 +43,7 @@ export const WithError: Story = {
         errorMsg: "This field is required",
         required: true,
     },
-    render: args => {
+    render: (args: PromptTextFieldProps) => {
         const [value, setValue] = useState("");
         return (
             <PromptTextField

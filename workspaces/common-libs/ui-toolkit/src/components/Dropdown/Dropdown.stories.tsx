@@ -16,8 +16,8 @@
  * under the License.
  */
 import React from "react";
-import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Dropdown } from "./Dropdown";
+import type { Meta, StoryObj } from '@storybook/react';
+import {  Dropdown , DropdownProps } from "./Dropdown";
 
 const meta = {
     component: Dropdown,
@@ -44,7 +44,7 @@ export const Select: Story = {
         disabled: false,
         isRequired: true
     },
-    render: args => (
+    render: (args: DropdownProps) => (
         <div style={{width: 300}}>
             <Dropdown {...args} ref={undefined}/>
         </div>

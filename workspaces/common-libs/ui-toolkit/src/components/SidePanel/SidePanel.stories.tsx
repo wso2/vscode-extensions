@@ -16,7 +16,7 @@
  * under the License.
  */
 import React from "react";
-import { Meta, StoryObj } from "@storybook/react-vite";
+import { Meta, StoryObj } from "@storybook/react";
 import { SidePanel } from "./SidePanel";
 import { SidePanelBody, SidePanelTitleContainer } from "../../styles/SidePanel";
 import { Button } from "../Button/Button";
