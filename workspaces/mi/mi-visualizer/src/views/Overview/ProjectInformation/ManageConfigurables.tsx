@@ -38,6 +38,7 @@ export function ManageConfigurables(props: ManageConfigurablesProps) {
                 icon: 'query',
                 paramValues: [
                     { value: config.key },
+                    { value: config.type },
                     { value: config.value },
                 ]
             }
@@ -61,6 +62,13 @@ export function ManageConfigurables(props: ManageConfigurablesProps) {
                 "isRequired": true,
                 "canChange": false
             },
+            {
+                "type": "TextField",
+                "label": "Value",
+                "defaultValue": "",
+                "isRequired": true,
+                "canChange": false
+            }
         ]
     });
 
@@ -70,7 +78,8 @@ export function ManageConfigurables(props: ManageConfigurablesProps) {
         const configs = values.map((value) => {
             return {
                 key: value[0]!,
-                value: value[1]!,
+                type: value[1]!,
+                value: value[2]!,
             };
         });
         await rpcClient.getMiVisualizerRpcClient().updateConfigFileValues({ configValues: configs });
@@ -101,7 +110,8 @@ export function ManageConfigurables(props: ManageConfigurablesProps) {
                     values.paramValues = values.paramValues.map((param: any) => {
                         const paramValues = param.paramValues;
                         param.key = paramValues[0].value;
-                        param.value = paramValues[1].value;
+                        param.type = paramValues[1].value;
+                        param.value = paramValues[2].value;
                         param.icon = 'query';
                         return param;
                     });
