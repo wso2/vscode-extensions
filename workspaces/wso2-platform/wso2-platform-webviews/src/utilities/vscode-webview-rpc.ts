@@ -44,6 +44,7 @@ import {
 	type GetConfigFileDriftsReq,
 	GetContextState,
 	GetDirectoryFileNames,
+	GetGithubAuthStatus,
 	GetLocalGitData,
 	type GetLocalGitDataResp,
 	GetSubPath,
@@ -248,6 +249,10 @@ export class ChoreoWebViewAPI {
 
 	public async triggerGithubInstallFlow(orgId: string): Promise<void> {
 		return this._messenger.sendRequest(TriggerGithubInstallFlow, HOST_EXTENSION, orgId);
+	}
+
+	public async getGithubAuthStatus(orgId: string): Promise<{ cancelled?: boolean; error?: string }> {
+		return this._messenger.sendRequest(GetGithubAuthStatus, HOST_EXTENSION, orgId);
 	}
 
 	public async getGitHubRepositories(orgId: string): Promise<any> {

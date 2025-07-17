@@ -43,6 +43,7 @@ import {
 	type GetConfigFileDriftsReq,
 	GetContextState,
 	GetDirectoryFileNames,
+	GetGithubAuthStatus,
 	GetLocalGitData,
 	GetSubPath,
 	GetWebviewStoreState,
@@ -104,6 +105,7 @@ import { getLogger } from "../logger/logger";
 import { authStore } from "../stores/auth-store";
 import { contextStore } from "../stores/context-store";
 import { dataCacheStore } from "../stores/data-cache-store";
+import { getGithubAuthStatus, clearGithubAuthStatus } from "../uri-handlers";
 import { webviewStateStore } from "../stores/webview-state-store";
 import { sendTelemetryEvent, sendTelemetryException } from "../telemetry/utils";
 import { getConfigFileDrifts, getNormalizedPath, getSubPath, goTosource, readLocalEndpointsConfig, readLocalProxyConfig, saveFile } from "../utils";
@@ -282,6 +284,14 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		const state = await _getGithubUrlState(orgId);
 		const ghURL = Uri.parse(`${installUrl}?state=${state}`);
 		await env.openExternal(ghURL);
+	});
+	messenger.onRequest(GetGithubAuthStatus, async (orgId: string) => {
+		const status = getGithubAuthStatus(orgId);
+		// Clear the status after reading it (single-use)
+		if (status.cancelled) {
+			clearGithubAuthStatus(orgId);
+		}
+		return status;
 	});
 	messenger.onRequest(SubmitComponentCreate, submitCreateComponentHandler);
 	messenger.onRequest(GetDirectoryFileNames, (dirPath: string) => {

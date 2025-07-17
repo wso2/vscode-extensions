@@ -21,7 +21,7 @@ import React, { type FC, type ReactNode, useEffect, useState } from "react";
 import { Button } from "../Button";
 import { ChoreoWebViewAPI } from "../../utilities/vscode-webview-rpc";
 import { useExtWebviewContext } from "../../providers/ext-vewview-ctx-provider";
-import { useGetAuthorizedGitOrgs, useGetGitBranches } from "../../hooks/use-queries";
+import { useGetGitBranches } from "../../hooks/use-queries";
 
 interface ConnectRepoCardProps {
 	organizationId: string;
@@ -45,12 +45,11 @@ export const ConnectRepoCard: FC<ConnectRepoCardProps> = ({
 	onRepositorySelect
 }) => {
 	const { extensionName } = useExtWebviewContext();
-	const [isAuthenticating, setIsAuthenticating] = useState(false);
 	const [isInstallingApp, setIsInstallingApp] = useState(false);
+	const [isAuthenticating, setIsAuthenticating] = useState(false);
 	const [authenticationStatus, setAuthenticationStatus] = useState<"INITIAL" | "SUCCESS" | "FAILED">("INITIAL");
 	const [organizations, setOrganizations] = useState<GitHubOrganization[]>([]);
 	const [selectedOrganization, setSelectedOrganization] = useState<GitHubOrganization | null>(null);
-	const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
 	const [isRefreshingOrgs, setIsRefreshingOrgs] = useState(false);
 	const [isRefreshingRepos, setIsRefreshingRepos] = useState(false);
 	const [newRepoRequested, setNewRepoRequested] = useState(false);
@@ -88,44 +87,20 @@ export const ConnectRepoCard: FC<ConnectRepoCardProps> = ({
 
 	useEffect(() => {
 		if (repoAuthStatus?.isAccessible || repoAuthStatus?.retrievedRepos) {
-			console.log("#### Authentication status updated to SUCCESS", repoAuthStatus);
 			setAuthenticationStatus("SUCCESS");
 			// Try to fetch repositories when props indicate success
-			if (organizationId && !isAuthenticating) {
+			if (organizationId) {
 				fetchRepositories();
 			}
 		} else {
 			setAuthenticationStatus("INITIAL");
 		}
-	}, [repoAuthStatus, organizationId, isAuthenticating]);
-
-	const authorizedGitOrgs = useGetAuthorizedGitOrgs(organizationId, "", {
-		enabled: authenticationStatus === "SUCCESS" && !!organizationId,
-		onSuccess: (data) => {
-			if (data && data.length > 0) {
-				const orgs = data.map((org: any) => ({
-					name: org.name || org.login,
-					repositories: org.repositories || []
-				}));
-				setOrganizations(orgs);
-				if (!selectedOrganization && orgs.length > 0) {
-					setSelectedOrganization(orgs[0]);
-				}
-			} else {
-				setOrganizations([]);
-				setSelectedOrganization(null);
-			}
-		},
-		onError: (error) => {
-			console.error("Error fetching authorized GitHub organizations:", error);
-			setOrganizations([]);
-			setSelectedOrganization(null);
-		}
-	});
+	}, [repoAuthStatus, organizationId]);
 
 	const fetchRepositories = async (preserveSelection = false) => {
 		try {
 			const authorizedOrgs = await ChoreoWebViewAPI.getInstance().getGitHubRepositories(organizationId);
+			console.log("Fetched GitHub repositories:", authorizedOrgs);
 			if (authorizedOrgs && authorizedOrgs.gitOrgs && authorizedOrgs.gitOrgs.length > 0) {
 				const orgs = authorizedOrgs.gitOrgs.map((gitOrg: any) => ({
 					name: gitOrg.orgName,
@@ -152,6 +127,7 @@ export const ConnectRepoCard: FC<ConnectRepoCardProps> = ({
 				}
 			} else {
 				// No organizations found, clear state
+				console.log("No organizations found, clearing state");
 				setOrganizations([]);
 				setSelectedOrganization(null);
 				setSelectedRepository(null);
@@ -159,7 +135,6 @@ export const ConnectRepoCard: FC<ConnectRepoCardProps> = ({
 			}
 		} catch (error) {
 			console.error("Error fetching GitHub repositories:", error);
-			// Set empty state on error
 			setOrganizations([]);
 			setSelectedOrganization(null);
 			setSelectedRepository(null);
@@ -174,122 +149,151 @@ export const ConnectRepoCard: FC<ConnectRepoCardProps> = ({
 		}
 	}, [authenticationStatus]);
 
+	// Clear authenticating state when organizationId changes
+	useEffect(() => {
+		setIsAuthenticating(false);
+	}, [organizationId]);
+
 	// Filter repositories based on selected organization
 	const filteredRepos = selectedOrganization?.repositories || [];
 
-	// Use existing GitHub auth flow from the main component
 	const handleGitHubAuth = async () => {
 		setIsAuthenticating(true);
-		try {
-			await ChoreoWebViewAPI.getInstance().triggerGithubAuthFlow(organizationId);
-			// Start polling for authentication completion
-			startPollingForAuth();
-		} catch (error) {
-			console.error("Error during GitHub auth:", error);
+		
+		// Safety timeout to ensure we always clear the authenticating state
+		const authTimeout = setTimeout(() => {
+			console.log("Auth timeout - clearing isAuthenticating state");
 			setIsAuthenticating(false);
 			setAuthenticationStatus("FAILED");
+		}, 120000); // 2 minutes timeout for auth flow
+		
+		try {
+			await ChoreoWebViewAPI.getInstance().triggerGithubAuthFlow(organizationId);
+			
+			// Use polling instead of focus events for more reliability
+			let pollCount = 0;
+			const maxPolls = 60; // Poll for up to 2 minutes (60 * 2 seconds)
+			
+			const pollAuthStatus = async () => {
+				try {
+					// Check if user cancelled the OAuth flow
+					const authStatus = await ChoreoWebViewAPI.getInstance().getGithubAuthStatus(organizationId);
+					if (authStatus.cancelled) {
+						console.log("GitHub OAuth was cancelled by user");
+						setAuthenticationStatus("FAILED");
+						setIsAuthenticating(false);
+						clearTimeout(authTimeout);
+						return;
+					}
+
+					// Check if repositories are available (successful auth)
+					const authorizedOrgs = await ChoreoWebViewAPI.getInstance().getGitHubRepositories(organizationId);
+					
+					if (authorizedOrgs && authorizedOrgs.gitOrgs && authorizedOrgs.gitOrgs.length > 0) {
+						// Authentication successful and repositories found
+						await fetchRepositories();
+						setAuthenticationStatus("SUCCESS");
+						setIsAuthenticating(false);
+						clearTimeout(authTimeout);
+						return;
+					}
+					
+					// Continue polling if no repos found yet and we haven't timed out
+					pollCount++;
+					if (pollCount < maxPolls) {
+						setTimeout(pollAuthStatus, 2000); // Poll every 2 seconds
+					} else {
+						console.log("Polling timeout - no repositories found");
+						setIsAuthenticating(false);
+						setAuthenticationStatus("FAILED");
+						clearTimeout(authTimeout);
+					}
+				} catch (error) {
+					console.error("Error during polling:", error);
+					pollCount++;
+					if (pollCount < maxPolls) {
+						setTimeout(pollAuthStatus, 2000); // Continue polling on error
+					} else {
+						setIsAuthenticating(false);
+						setAuthenticationStatus("FAILED");
+						clearTimeout(authTimeout);
+					}
+				}
+			};
+			
+			// Start polling after a short delay to allow OAuth flow to begin
+			setTimeout(pollAuthStatus, 3000);
+		} catch (error) {
+			console.error("Error during GitHub auth:", error);
+			setAuthenticationStatus("FAILED");
+			setIsAuthenticating(false);
+			clearTimeout(authTimeout);
 		}
 	};
 
-	// Use existing GitHub install flow from the main component
+	// GitHub install flow for additional repositories
 	const handleGitHubInstall = async () => {
 		setIsInstallingApp(true);
+		
+		// Safety timeout to ensure we always clear the installing state
+		const installTimeout = setTimeout(() => {
+			console.log("Install timeout - clearing isInstallingApp state");
+			setIsInstallingApp(false);
+		}, 120000); // 2 minutes timeout for install flow
+		
 		try {
 			await ChoreoWebViewAPI.getInstance().triggerGithubInstallFlow(organizationId);
 			
-			// Start polling for authentication completion
-			startPollingForInstallation();
+			// Use polling instead of focus events for more reliability
+			let pollCount = 0;
+			const maxPolls = 60; // Poll for up to 2 minutes (60 * 2 seconds)
+			
+			const pollInstallStatus = async () => {
+				try {
+					
+					// Check if new repositories are available (successful install)
+					const authorizedOrgs = await ChoreoWebViewAPI.getInstance().getGitHubRepositories(organizationId);
+					console.log("Polling - Authorized organizations:", authorizedOrgs);
+
+					if (authorizedOrgs && authorizedOrgs.gitOrgs && authorizedOrgs.gitOrgs.length > 0) {
+						// Install successful - fetch repositories
+						console.log("Install successful - fetching repositories");
+						await fetchRepositories(true);
+						setIsInstallingApp(false);
+						clearTimeout(installTimeout);
+						return;
+					}
+					
+					// Continue polling if no repos found yet and we haven't timed out
+					pollCount++;
+					if (pollCount < maxPolls) {
+						setTimeout(pollInstallStatus, 2000); // Poll every 2 seconds
+					} else {
+						console.log("Polling timeout - install flow completed");
+						setIsInstallingApp(false);
+						clearTimeout(installTimeout);
+					}
+				} catch (error) {
+					console.error("Error during install polling:", error);
+					pollCount++;
+					if (pollCount < maxPolls) {
+						setTimeout(pollInstallStatus, 2000); // Continue polling on error
+					} else {
+						setIsInstallingApp(false);
+						clearTimeout(installTimeout);
+					}
+				}
+			};
+			
+			// Start polling after a short delay to allow install flow to begin
+			setTimeout(pollInstallStatus, 3000);
+			
 		} catch (error) {
 			console.error("Error during GitHub install:", error);
 			setIsInstallingApp(false);
+			clearTimeout(installTimeout);
 		}
 	};
-
-	// Poll for authentication completion by checking if repositories are available
-	const startPollingForAuth = () => {
-		let attempts = 0;
-		const maxAttempts = 30; // Poll for up to 30 seconds (every 1 second)
-		
-		const interval = setInterval(async () => {
-			attempts++;
-			
-			try {
-				const authorizedOrgs = await ChoreoWebViewAPI.getInstance().getGitHubRepositories(organizationId);
-				if (authorizedOrgs && authorizedOrgs.gitOrgs && authorizedOrgs.gitOrgs.length > 0) {
-					// Authentication successful and repositories found
-					await fetchRepositories();
-					setAuthenticationStatus("SUCCESS");
-					setIsAuthenticating(false);
-					clearInterval(interval);
-					setPollInterval(null);
-				} else if (attempts >= maxAttempts) {
-					setAuthenticationStatus("SUCCESS");
-					setIsAuthenticating(false);
-					clearInterval(interval);
-					setPollInterval(null);
-				}
-			} catch (error) {
-				console.error("Error during auth polling:", error);
-				if (attempts >= maxAttempts) {
-					setAuthenticationStatus("FAILED");
-					setIsAuthenticating(false);
-					clearInterval(interval);
-					setPollInterval(null);
-				}
-			}
-		}, 1000); // Poll every second
-		
-		setPollInterval(interval);
-	};
-
-	// Poll for installation completion by checking if repositories are available
-	const startPollingForInstallation = () => {
-		// Clear any existing interval first
-		if (pollInterval) {
-			clearInterval(pollInterval);
-			setPollInterval(null);
-		}
-		
-		let attempts = 0;
-		const maxAttempts = 30; // Poll for up to 30 seconds (every 1 second)
-		
-		const interval = setInterval(async () => {
-			attempts++;
-			
-			try {
-				const authorizedOrgs = await ChoreoWebViewAPI.getInstance().getGitHubRepositories(organizationId);
-				if (authorizedOrgs && authorizedOrgs.gitOrgs && authorizedOrgs.gitOrgs.length > 0) {
-					// Installation successful and repositories found
-					await fetchRepositories(true); // Preserve selection when refreshing after installation
-					setIsInstallingApp(false);
-					clearInterval(interval);
-					setPollInterval(null);
-				} else if (attempts >= maxAttempts) {
-					setIsInstallingApp(false);
-					clearInterval(interval);
-					setPollInterval(null);
-				}
-			} catch (error) {
-				console.error("Error during installation polling:", error);
-				if (attempts >= maxAttempts) {
-					setIsInstallingApp(false);
-					clearInterval(interval);
-					setPollInterval(null);
-				}
-			}
-		}, 1000); // Poll every second
-		
-		setPollInterval(interval);
-	};
-
-	// Cleanup interval on unmount
-	useEffect(() => {
-		return () => {
-			if (pollInterval) {
-				clearInterval(pollInterval);
-			}
-		};
-	}, [pollInterval]);
 
 	const handleConnectMoreRepos = () => {
 		handleGitHubInstall();
@@ -331,15 +335,6 @@ export const ConnectRepoCard: FC<ConnectRepoCardProps> = ({
 	};
 
 	const renderAuthenticationState = (): ReactNode => {
-		if (isAuthenticating) {
-			return (
-				<div className="flex items-center justify-center py-4">
-					<div className="animate-spin rounded-full h-4 w-4 border-2 border-transparent border-t-blue-600"></div>
-					<span className="ml-2">Authorizing with GitHub...</span>
-				</div>
-			);
-		}
-
 		if (authenticationStatus === "SUCCESS") {
 			// Show organization and repository selection
 			return (
@@ -653,14 +648,15 @@ export const ConnectRepoCard: FC<ConnectRepoCardProps> = ({
 								color: 'var(--vscode-inputValidation-errorForeground)'
 							}}
 						>
-							<p>Authentication failed. Please try again.</p>
+							<p>GitHub authentication failed or was cancelled. Please try again.</p>
 						</div>
 					)}
 
 					<div className="space-y-2">
 						<Button
 							onClick={() => {
-								setIsAuthenticating(true);
+								// Reset failed state when user tries again
+								setAuthenticationStatus("INITIAL");
 								if (repoAuthStatus?.retrievedRepos) {
 									// If repos are retrieved but not accessible, trigger install flow
 									handleGitHubInstall();
@@ -669,13 +665,24 @@ export const ConnectRepoCard: FC<ConnectRepoCardProps> = ({
 									handleGitHubAuth();
 								}
 							}}
-							disabled={isAuthenticating || isInstallingApp}
+							disabled={isInstallingApp || isAuthenticating}
 							className="w-full"
 						>
-							{isAuthenticating || isInstallingApp ? (
+							{isInstallingApp ? (
 								<>
-									<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-									{isInstallingApp ? "Installing App..." : "Authenticating..."}
+									<svg className="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+										<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+										<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+									</svg>
+									Installing App...
+								</>
+							) : isAuthenticating ? (
+								<>
+									<svg className="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+										<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+										<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+									</svg>
+									Connecting to GitHub...
 								</>
 							) : (
 								<>
