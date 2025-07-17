@@ -26,6 +26,7 @@ import { continueCreateComponent } from "./cmds/create-component-cmd";
 import { activateCodeLenses } from "./code-lens";
 import { ext } from "./extensionVariables";
 import { getLogger, initLogger } from "./logger/logger";
+import { activateMcp } from "./mcp";
 import { activateStatusbar } from "./status-bar";
 import { authStore } from "./stores/auth-store";
 import { contextStore } from "./stores/context-store";
@@ -73,12 +74,12 @@ export async function activate(context: vscode.ExtensionContext) {
 			continueCreateComponent();
 			addTerminalHandlers();
 			context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("*", new ChoreoConfigurationProvider()));
+			activateMcp(context);
 			getLogger().debug("WSO2 Platform Extension activated");
 		})
 		.catch((e) => {
 			getLogger().error("Failed to initialize rpc client", e);
 		});
-
 	activateCmds(context);
 	activateURIHandlers();
 	activateCodeLenses(context);

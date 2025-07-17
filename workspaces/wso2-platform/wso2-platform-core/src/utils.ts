@@ -285,6 +285,24 @@ export const parseGitURL = (url?: string): null | [string, string, string] => {
 	return [org, repoName, provider];
 };
 
+export const buildGitURL = (
+	org: string,
+	repoName: string,
+	provider: string,
+	serverUrl?: string,
+): string | null => {
+	switch (provider) {
+		case GitProvider.GITHUB:
+			return `https://github.com/${org}/${repoName}.git`;
+		case GitProvider.BITBUCKET:
+			return serverUrl ? `${serverUrl}/${org}/${repoName}.git` :`https://bitbucket.org/${org}/${repoName}.git`;
+		case GitProvider.GITLAB_SERVER:
+			return serverUrl ? `${serverUrl}/${org}/${repoName}.git`: `https://gitlab.com/${org}/${repoName}.git`;
+		default:
+			return null;
+	}
+};
+
 export const getComponentKindRepoSource = (source: ComponentKindSource) => {
 	return {
 		repo: source?.github?.repository || source?.bitbucket?.repository || source?.gitlab?.repository || "",

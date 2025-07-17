@@ -100,7 +100,7 @@ export function activateURIHandlers() {
 			} else if (uri.path === "/ghapp") {
 				try {
 					isRpcActive(ext);
-					getLogger().info("WSO2 Platform Githup auth Callback hit");
+					getLogger().info("WSO2 Platform Github auth Callback hit");
 					const urlParams = new URLSearchParams(uri.query);
 					const authCode = urlParams.get("code");
 					// const installationId = urlParams.get("installationId");

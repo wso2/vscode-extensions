@@ -16,11 +16,28 @@
  * under the License.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, unlinkSync, writeFileSync } from "fs";
+import {
+	copyFileSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	readdirSync,
+	renameSync,
+	rmSync,
+	rmdirSync,
+	statSync,
+	unlinkSync,
+	writeFileSync,
+} from "fs";
+import * as fs from "fs";
+import * as os from "os";
 import { join } from "path";
 import {
 	AuthStoreChangedNotification,
 	ClearWebviewCache,
+	CloneRepositoryIntoCompDir,
+	type CloneRepositoryIntoCompDirReq,
 	CloseComponentViewDrawer,
 	CloseWebViewNotification,
 	type CommitHistory,
@@ -57,6 +74,8 @@ import {
 	OpenExternalChoreo,
 	OpenSubDialogRequest,
 	type ProxyConfig,
+	PushEverythingToRemoteRepo,
+	type PushEverythingToRemoteRepoReq,
 	ReadFile,
 	ReadLocalEndpointsConfig,
 	ReadLocalProxyConfig,
@@ -84,12 +103,13 @@ import {
 	WebviewNotificationsMethodList,
 	type WebviewQuickPickItem,
 	WebviewStateChangedNotification,
+	buildGitURL,
 	deepEqual,
 	getShortenedHash,
 	makeURLSafe,
 } from "@wso2/wso2-platform-core";
 import * as yaml from "js-yaml";
-import { ProgressLocation, QuickPickItemKind, Uri, type WebviewPanel, type WebviewView, commands, env, window } from "vscode";
+import { ProgressLocation, QuickPickItemKind, Uri, type WebviewPanel, type WebviewView, commands, env, window, workspace } from "vscode";
 import * as vscode from "vscode";
 import { Messenger } from "vscode-messenger";
 import { BROADCAST } from "vscode-messenger-common";
@@ -99,6 +119,7 @@ import { quickPickWithLoader } from "../cmds/cmd-utils";
 import { submitCreateComponentHandler } from "../cmds/create-component-cmd";
 import { choreoEnvConfig } from "../config";
 import { ext } from "../extensionVariables";
+import { initGit } from "../git/main";
 import { getGitHead, getGitRemotes, getGitRoot, hasDirtyRepo, removeCredentialsFromGitURL } from "../git/util";
 import { getLogger } from "../logger/logger";
 import { authStore } from "../stores/auth-store";
@@ -106,7 +127,16 @@ import { contextStore } from "../stores/context-store";
 import { dataCacheStore } from "../stores/data-cache-store";
 import { webviewStateStore } from "../stores/webview-state-store";
 import { sendTelemetryEvent, sendTelemetryException } from "../telemetry/utils";
-import { getConfigFileDrifts, getNormalizedPath, getSubPath, goTosource, readLocalEndpointsConfig, readLocalProxyConfig, saveFile } from "../utils";
+import {
+	delay,
+	getConfigFileDrifts,
+	getNormalizedPath,
+	getSubPath,
+	goTosource,
+	readLocalEndpointsConfig,
+	readLocalProxyConfig,
+	saveFile,
+} from "../utils";
 
 // Register handlers
 function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | WebviewView) {
@@ -551,6 +581,93 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 	});
 	messenger.onRequest(GetConfigFileDrifts, async (params: GetConfigFileDriftsReq) => {
 		return getConfigFileDrifts(params.type, params.repoUrl, params.branch, params.repoDir, ext.context);
+	});
+	messenger.onRequest(CloneRepositoryIntoCompDir, async (params: CloneRepositoryIntoCompDirReq) => {
+		const tempDirPath = await fs.promises.mkdtemp(join(os.tmpdir(), "temp-platform-code"));
+		const newGit = await initGit(ext.context);
+		const _repoUrl = buildGitURL(params.repo.orgHandler, params.repo.repo, params.repo.provider, params.repo.serverUrl);
+		if (!_repoUrl || !_repoUrl.startsWith("https://")) {
+			getLogger().info("failed to parse git details", params);
+			return;
+		}
+		const urlObj = new URL(_repoUrl);
+
+		// todo: this should only happen in code server!
+		// temporarily get the user token from configuration
+		const gitPat = await window.withProgress({ title: `Accessing the repository ${_repoUrl}...`, location: ProgressLocation.Notification }, () =>
+			ext.clients.rpcClient.getGitTokenForRepository({
+				orgId: params.orgId,
+				gitOrg: params.repo.orgName,
+				gitRepo: params.repo.repo,
+			}),
+		);
+
+		urlObj.username = "x-access-token";
+		urlObj.password = gitPat.token;
+		const repoUrl = urlObj.href;
+
+		if (newGit && repoUrl) {
+			fs.mkdirSync(tempDirPath, { recursive: true });
+
+			// move everything into a temp directory before cloning
+			const files = readdirSync(params.cwd);
+			for (const file of files) {
+				const srcPath = join(params.cwd, file);
+				const destPath = join(tempDirPath, file);
+				if (![".git"].includes(file)) {
+					// skip these directories when moving them
+					fs.cpSync(srcPath, destPath, { recursive: true });
+				}
+				await fs.promises.rm(srcPath, { recursive: true });
+			}
+
+			await delay(1000);
+			await window.withProgress(
+				{
+					title: "Cloning selected repository into current directory",
+					location: ProgressLocation.Notification,
+				},
+				async (progress, cancellationToken) => {
+					const clonedPath = await newGit.clone(
+						repoUrl,
+						{
+							recursive: true,
+							ref: params.repo.branch,
+							parentPath: params.cwd,
+							skipCreateSubPath: true,
+							progress: {
+								report: ({ increment, ...rest }: { increment: number }) => progress.report({ increment: increment, ...rest }),
+							},
+						},
+						cancellationToken,
+					);
+
+					return clonedPath;
+				},
+			);
+
+			// After cloning, move contents back
+			const tempFiles = readdirSync(tempDirPath);
+			fs.mkdirSync(join(params.cwd, params.subpath), { recursive: true });
+
+			for (const file of tempFiles) {
+				const tempFilePath = join(tempDirPath, file);
+				const destFilePath = join(params.cwd, params.subpath, file);
+				fs.cpSync(tempFilePath, destFilePath, { recursive: true });
+			}
+			await fs.promises.rm(tempDirPath, { recursive: true });
+		}
+	});
+
+	messenger.onRequest(PushEverythingToRemoteRepo, async (params: PushEverythingToRemoteRepoReq) => {
+		const newGit = await initGit(ext.context);
+		const extName = webviewStateStore.getState().state.extensionName;
+		if (newGit) {
+			const repo = newGit.open(params.repoRoot, { path: params.repoRoot });
+			await repo.add(["."]);
+			await repo.commit(`Add source for new ${extName} ${extName === "Devant" ? "Integration" : "Component"} (${params.componentName})`);
+			await repo.push();
+		}
 	});
 
 	// Register Choreo CLL RPC handler
