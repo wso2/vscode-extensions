@@ -20,7 +20,7 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { RequiredFormInput } from "@wso2/ui-toolkit";
 import { GitProvider, type NewComponentWebviewProps } from "@wso2/wso2-platform-core";
-import React, { type FC, useEffect, useState } from "react";
+import React, { type FC, useCallback, useEffect, useState } from "react";
 import type { SubmitHandler, UseFormReturn } from "react-hook-form";
 import type { z } from "zod";
 import { Banner } from "../../../components/Banner";
@@ -31,6 +31,7 @@ import { useGetAuthorizedGitOrgs, useGetGitBranches } from "../../../hooks/use-q
 import { useExtWebviewContext } from "../../../providers/ext-vewview-ctx-provider";
 import { ChoreoWebViewAPI } from "../../../utilities/vscode-webview-rpc";
 import type { componentRepoInitSchema } from "../componentFormSchema";
+import debounce from "lodash.debounce";
 
 type ComponentRepoInitSchemaType = z.infer<typeof componentRepoInitSchema>;
 
@@ -54,6 +55,7 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 
 	const orgName = form.watch("org");
 	const repo = form.watch("repo");
+	const subPath = form.watch("subPath");
 	const repoError = form.formState?.errors?.repo;
 	const repoName = [connectMoreRepoText, createNewRpoText].includes(repo) ? "" : repo;
 
@@ -126,6 +128,25 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 		}
 	}, [repo]);
 
+	const debouncedUpdateName = useCallback(debounce((subPath: string, repo: string)=>{
+		if(subPath){
+			const paths = subPath.split("/")
+			const lastPath = paths.findLast(item=>!!item)
+			if(lastPath){
+				form.setValue("name",lastPath)
+				return
+			}
+		}
+		if(repo){
+			form.setValue("name",repo)
+			return
+		}
+	}, 2000),[]);
+
+	useEffect(()=>{
+		debouncedUpdateName(subPath, repo)
+	},[repo, subPath])
+
 	const { mutateAsync: getRepoMetadata, isLoading: isValidatingPath } = useMutation({
 		mutationFn: (data: ComponentRepoInitSchemaType) => {
 			const subPath = data.subPath.startsWith("/") ? data.subPath.slice(1) : data.subPath;
@@ -142,7 +163,7 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 	const onSubmitForm: SubmitHandler<ComponentRepoInitSchemaType> = async (data) => {
 		const resp = await getRepoMetadata(data);
 		if(resp?.metadata && !resp?.metadata?.isSubPathEmpty){
-			form.setError("subPath",{message:"Path is not empty"})
+			form.setError("subPath",{message:"Path isn't empty in the remote repo"})
 		}else{
 			onNextClick()
 		}
@@ -226,16 +247,16 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 					/>
 				)}
 				<TextField label="Path" key="gen-details-path" required name="subPath" placeholder="/directory-path" control={form.control} />
-				<div className="col-span-full" key="gen-details-name-wrap">
+				{repo && <div className="col-span-full" key="gen-details-name-wrap">
 					<TextField
-						label="Name"
+						label={extensionName === "Devant" ? "Integration Name": "Component Name"}
 						key="gen-details-name"
 						required
 						name="name"
 						placeholder={extensionName === "Devant" ? "integration-name" : "component-name"}
 						control={form.control}
 					/>
-				</div>
+				</div>}
 			</div>
 
 			<div className="flex justify-end gap-3 pt-6 pb-2">

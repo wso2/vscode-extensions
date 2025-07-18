@@ -41,10 +41,11 @@ export const componentRepoInitSchema = z.object({
 	orgHandler: z.string(),
 	repo: z.string().min(1, "Required"),
 	branch: z.string(),
-	subPath: z.string(),
+	subPath: z.string().regex(/^(\/)?([a-zA-Z0-9_-]+(\/)?)*$/,"Invalid path"),
 	name: z
 		.string()
 		.min(1, "Required")
+		.min(3, "Needs to be at least characters")
 		.max(60, "Max length exceeded")
 		.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
 		.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters"),
@@ -56,6 +57,7 @@ export const componentGeneralDetailsSchema = z.object({
 	name: z
 		.string()
 		.min(1, "Required")
+		.min(3, "Needs to be at least characters")
 		.max(60, "Max length exceeded")
 		.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
 		.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters"),
