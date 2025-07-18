@@ -19,10 +19,11 @@
 import React, { useEffect } from 'react';
 import { ColorThemeKind, WorkspaceFolder } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
-import { Typography } from '@wso2/ui-toolkit';
+import { Button, Typography } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { View, ViewContent, ViewHeader } from '../../components/View';
 import { VSCodeCheckbox } from '@vscode/webview-ui-toolkit/react';
+import { COMMANDS } from '../../constants';
 
 const Container = styled.div`
   display: flex;
@@ -155,9 +156,9 @@ const Card: React.FC<CardProps> = ({ title, description, expanded, onClick }) =>
         </CardExpanded>
       ) : (
         <CardCollapsed onClick={onClick}>
-            <CardTitle variant='body3' sx={{ fontWeight: 600 }}>
-              {title}
-            </CardTitle>
+          <CardTitle variant='body3' sx={{ fontWeight: 600 }}>
+            {title}
+          </CardTitle>
         </CardCollapsed>
       )}
     </React.Fragment>
@@ -218,6 +219,11 @@ export function UnsupportedProject(props: UnsupportedProjectProps) {
     setDisplayOverviewOnStartup(!displayOverviewOnStartup);
   };
 
+  const migrateProject = async () => {
+    await rpcClient.getMiDiagramRpcClient()
+      .executeCommand({ commands: [COMMANDS.MIGRATE_PROJECT, { source: undefined }] });
+  }
+
   useEffect(() => {
     rpcClient
       .getMiVisualizerRpcClient()
@@ -273,6 +279,9 @@ export function UnsupportedProject(props: UnsupportedProjectProps) {
                 migration documentation
               </a>
               .
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                <Button onClick={() => migrateProject()}>Migrate Project</Button>
+              </div>
             </Body>
           </Block>
           <Steps>
@@ -300,7 +309,7 @@ export function UnsupportedProject(props: UnsupportedProjectProps) {
           </Steps>
           <Footer>
             <VSCodeCheckbox value='display-overview' checked={displayOverviewOnStartup} onClick={disableOverview}>
-                Show overview page on startup
+              Show overview page on startup
             </VSCodeCheckbox>
           </Footer>
         </Container>
