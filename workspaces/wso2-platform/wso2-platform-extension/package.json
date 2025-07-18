@@ -169,12 +169,6 @@
           "default": "",
           "description": "The path to Choreo RPC server",
           "scope": "window"
-        },
-        "WSO2.WSO2-Platform.Advanced.StsToken": {
-          "type": "string",
-          "default": "",
-          "description": "User STS token",
-          "scope": "window"
         }
       }
     },

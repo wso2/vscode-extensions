@@ -32,7 +32,7 @@ export class StdioConnection {
 		this._serverProcess = spawn(executablePath, ["start-rpc-server"], {
 			env: {
 				...process.env,
-				SKIP_KEYRING: workspace.getConfiguration().get("WSO2.WSO2-Platform.Advanced.StsToken") || process.env.CLOUD_STS_TOKEN ? "true" : "",
+				SKIP_KEYRING: process.env.CLOUD_STS_TOKEN ? "true" : "",
 				CHOREO_ENV: getChoreoEnv(),
 			},
 		});

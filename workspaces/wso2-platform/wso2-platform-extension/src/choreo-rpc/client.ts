@@ -115,7 +115,7 @@ export class RPCClient {
 			const resp = await this._conn.sendRequest<{}>("initialize", {
 				clientName: "vscode",
 				clientVersion: "1.0.0",
-				cloudStsToken: workspace.getConfiguration().get("WSO2.WSO2-Platform.Advanced.StsToken") || process.env.CLOUD_STS_TOKEN || "",
+				cloudStsToken: process.env.CLOUD_STS_TOKEN || "",
 			});
 			console.log("Initialized RPC server", resp);
 		} catch (e) {

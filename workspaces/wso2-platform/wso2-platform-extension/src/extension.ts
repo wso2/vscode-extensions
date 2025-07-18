@@ -103,10 +103,11 @@ function setInitialEnv() {
 function registerPreInitHandlers(): any {
 	workspace.onDidChangeConfiguration(async ({ affectsConfiguration }: ConfigurationChangeEvent) => {
 		if (
+			!process.env.CLOUD_STS_TOKEN && (
 			affectsConfiguration("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") ||
-			affectsConfiguration("WSO2.WSO2-Platform.Advanced.RpcPath") ||
-			affectsConfiguration("WSO2.WSO2-Platform.Advanced.StsToken")
-		) {
+			affectsConfiguration("WSO2.WSO2-Platform.Advanced.RpcPath")
+		)) {
+			// skip showing this if cloud sts env is available
 			const selection = await window.showInformationMessage(
 				"WSO2 Platform extension configuration changed. Please restart vscode for changes to take effect.",
 				"Restart Now",
@@ -122,3 +123,8 @@ function registerPreInitHandlers(): any {
 }
 
 export function deactivate() {}
+
+/*
+git config --global user.name "cloud-editor"
+git config --global user.email "cloud-editor@wso2.com"
+*/
