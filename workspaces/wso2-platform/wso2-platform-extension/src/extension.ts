@@ -22,7 +22,7 @@ import { PlatformExtensionApi } from "./PlatformExtensionApi";
 import { ChoreoRPCClient } from "./choreo-rpc";
 import { initRPCServer } from "./choreo-rpc/activate";
 import { activateCmds } from "./cmds";
-import { continueCreateComponent } from "./cmds/create-component-cmd";
+import { continueCreateComponent, continueShowCompCreatedNotification } from "./cmds/create-component-cmd";
 import { activateCodeLenses } from "./code-lens";
 import { ext } from "./extensionVariables";
 import { getLogger, initLogger } from "./logger/logger";
@@ -72,6 +72,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			await ext.clients.rpcClient.init();
 			authStore.getState().initAuth();
 			continueCreateComponent();
+			continueShowCompCreatedNotification()
 			addTerminalHandlers();
 			context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("*", new ChoreoConfigurationProvider()));
 			activateMcp(context);
