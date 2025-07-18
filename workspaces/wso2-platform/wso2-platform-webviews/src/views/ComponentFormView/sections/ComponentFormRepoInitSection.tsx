@@ -142,7 +142,7 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 				form.setValue("name", repo);
 				return;
 			}
-		}, 2000),
+		}, 1000),
 		[],
 	);
 

@@ -219,7 +219,28 @@ const getSelected = (items: { [key: string]: ContextItemEnriched }, prevSelected
 		}
 	}
 
-	return selected || matchingItem;
+	let cloudServerSelected: ContextItemEnriched | undefined = undefined;
+	if (process.env.CLOUD_INITIAL_ORG_ID) {
+		const userOrgs = authStore.getState().state.userInfo?.organizations;
+		const matchingOrg = userOrgs?.find(
+			(item) => item.uuid === process.env.CLOUD_INITIAL_ORG_ID || item.id?.toString() === process.env.CLOUD_INITIAL_ORG_ID,
+		);
+		if (matchingOrg) {
+			const projectsCache = dataCacheStore.getState().getProjects(matchingOrg.handle);
+			const matchingProject = projectsCache.find((item) => item.id === process.env.CLOUD_INITIAL_PROJECT_ID) || projectsCache[0];
+			if (matchingProject) {
+				cloudServerSelected = {
+					orgHandle: matchingOrg.handle,
+					projectHandle: matchingProject.handler,
+					org: matchingOrg,
+					project: matchingProject,
+					contextDirs: [],
+				};
+			}
+		}
+	}
+
+	return selected || matchingItem || cloudServerSelected;
 };
 
 const getEnrichedContexts = async (items: { [key: string]: ContextItemEnriched }) => {
