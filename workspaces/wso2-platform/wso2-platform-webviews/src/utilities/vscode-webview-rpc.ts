@@ -251,7 +251,7 @@ export class ChoreoWebViewAPI {
 		return this._messenger.sendRequest(TriggerGithubAuthFlow, HOST_EXTENSION, orgId);
 	}
 
-	public async cloneRepositoryIntoCompDir(params: CloneRepositoryIntoCompDirReq): Promise<void> {
+	public async cloneRepositoryIntoCompDir(params: CloneRepositoryIntoCompDirReq): Promise<string> {
 		return this._messenger.sendRequest(CloneRepositoryIntoCompDir, HOST_EXTENSION, params);
 	}
 

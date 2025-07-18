@@ -583,12 +583,13 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		return getConfigFileDrifts(params.type, params.repoUrl, params.branch, params.repoDir, ext.context);
 	});
 	messenger.onRequest(CloneRepositoryIntoCompDir, async (params: CloneRepositoryIntoCompDirReq) => {
-		const tempDirPath = await fs.promises.mkdtemp(join(os.tmpdir(), "temp-platform-code"));
 		const newGit = await initGit(ext.context);
+		if(!newGit){
+			throw new Error("failed to retrieve Git details")
+		}
 		const _repoUrl = buildGitURL(params.repo.orgHandler, params.repo.repo, params.repo.provider, params.repo.serverUrl);
 		if (!_repoUrl || !_repoUrl.startsWith("https://")) {
-			getLogger().info("failed to parse git details", params);
-			return;
+			throw new Error("failed to parse git details")
 		}
 		const urlObj = new URL(_repoUrl);
 
@@ -606,68 +607,52 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		urlObj.password = gitPat.token;
 		const repoUrl = urlObj.href;
 
-		if (newGit && repoUrl) {
-			fs.mkdirSync(tempDirPath, { recursive: true });
-
-			// move everything into a temp directory before cloning
-			const files = readdirSync(params.cwd);
-			for (const file of files) {
-				const srcPath = join(params.cwd, file);
-				const destPath = join(tempDirPath, file);
-				if (![".git"].includes(file)) {
-					// skip these directories when moving them
-					fs.cpSync(srcPath, destPath, { recursive: true });
-				}
-				await fs.promises.rm(srcPath, { recursive: true });
-			}
-
-			await delay(1000);
-			await window.withProgress(
-				{
-					title: "Cloning selected repository into current directory",
-					location: ProgressLocation.Notification,
-				},
-				async (progress, cancellationToken) => {
-					const clonedPath = await newGit.clone(
-						repoUrl,
-						{
-							recursive: true,
-							ref: params.repo.branch,
-							parentPath: params.cwd,
-							skipCreateSubPath: true,
-							progress: {
-								report: ({ increment, ...rest }: { increment: number }) => progress.report({ increment: increment, ...rest }),
-							},
+		await delay(1000);
+		const clonedPath = await window.withProgress(
+			{
+				title: `Cloning repository ${params.repo?.orgHandler}/${params.repo.orgName}`,
+				location: ProgressLocation.Notification,
+			},
+			async (progress, cancellationToken) => newGit.clone(
+					repoUrl,
+					{
+						recursive: true,
+						ref: params.repo.branch,
+						parentPath: join(params.cwd,".."),
+						progress: {
+							report: ({ increment, ...rest }: { increment: number }) => progress.report({ increment: increment, ...rest }),
 						},
-						cancellationToken,
-					);
+					},
+					cancellationToken,
+				),
+		);
 
-					return clonedPath;
-				},
-			);
+		// Move everything into cloned dir
+		const cwdFiled = readdirSync(params.cwd);
+		const newPath = join(clonedPath, params.subpath)
+		fs.mkdirSync(newPath, { recursive: true });
 
-			// After cloning, move contents back
-			const tempFiles = readdirSync(tempDirPath);
-			fs.mkdirSync(join(params.cwd, params.subpath), { recursive: true });
-
-			for (const file of tempFiles) {
-				const tempFilePath = join(tempDirPath, file);
-				const destFilePath = join(params.cwd, params.subpath, file);
-				fs.cpSync(tempFilePath, destFilePath, { recursive: true });
-			}
-			await fs.promises.rm(tempDirPath, { recursive: true });
+		for (const file of cwdFiled) {
+			const cwdFilePath = join(params.cwd, file);
+			const destFilePath = join(newPath, file);
+			fs.cpSync(cwdFilePath, destFilePath, { recursive: true });
 		}
+
+		return newPath
 	});
 
 	messenger.onRequest(PushEverythingToRemoteRepo, async (params: PushEverythingToRemoteRepoReq) => {
 		const newGit = await initGit(ext.context);
-		const extName = webviewStateStore.getState().state.extensionName;
-		if (newGit) {
-			const repo = newGit.open(params.repoRoot, { path: params.repoRoot });
-			await repo.add(["."]);
-			await repo.commit(`Add source for new ${extName} ${extName === "Devant" ? "Integration" : "Component"} (${params.componentName})`);
-			await repo.push();
+		if(!newGit){
+			throw new Error("failed to initGit")
 		}
+		const extName = webviewStateStore.getState().state.extensionName;
+		const repoRoot = await newGit?.getRepositoryRoot(params.dirPath)
+		const dotGit = await newGit?.getRepositoryDotGit(params.dirPath)
+		const repo = newGit.open(repoRoot, dotGit);
+		await repo.add(["."]);
+		await repo.commit(`Add source for new ${extName} ${extName === "Devant" ? "Integration" : "Component"} (${params.componentName})`);
+		await repo.push();
 	});
 
 	// Register Choreo CLL RPC handler

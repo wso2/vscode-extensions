@@ -282,7 +282,7 @@ export const continueCreateComponent = () => {
 	}
 };
 
-export const submitCreateComponentHandler = async ({ createParams, org, project, newWorkspaceDir }: SubmitComponentCreateReq) => {
+export const submitCreateComponentHandler = async ({ createParams, org, project }: SubmitComponentCreateReq) => {
 	const extensionName = webviewStateStore.getState().state?.extensionName;
 	const createdComponent = await window.withProgress(
 		{
@@ -317,30 +317,6 @@ export const submitCreateComponentHandler = async ({ createParams, org, project,
 		}
 		*/
 
-		if (extensionName !== "Devant") {
-			showComponentDetailsView(org, project, createdComponent, createParams?.componentDir);
-		}
-
-		const successMessage = `${extensionName === "Devant" ? "Integration" : "Component"} '${createdComponent.metadata.name}' was successfully created.`;
-
-		if (newWorkspaceDir) {
-			window.showInformationMessage(`${successMessage} Reload workspace to continue`, { modal: true }, "Continue").then((resp) => {
-				if (resp === "Continue") {
-					commands.executeCommand("vscode.openFolder", Uri.file(newWorkspaceDir), {
-						forceNewWindow: false,
-					});
-				}
-			});
-		} else {
-			window.showInformationMessage(successMessage, `Open in ${extensionName}`).then(async (resp) => {
-				if (resp === `Open in ${extensionName}`) {
-					commands.executeCommand(
-						"vscode.open",
-						`${extensionName === "Devant" ? choreoEnvConfig.getDevantUrl() : choreoEnvConfig.getConsoleUrl()}/organizations/${org.handle}/projects/${project.id}/components/${createdComponent.metadata.handler}/overview`,
-					);
-				}
-			});
-		}
 
 		const compCache = dataCacheStore.getState().getComponents(org.handle, project.handler);
 		dataCacheStore.getState().setComponents(org.handle, project.handler, [createdComponent, ...compCache]);
@@ -355,6 +331,39 @@ export const submitCreateComponentHandler = async ({ createParams, org, project,
 			}
 		} catch (err) {
 			console.error("Failed to get git details of ", createParams.componentDir);
+		}
+
+		if (extensionName !== "Devant") {
+			showComponentDetailsView(org, project, createdComponent, createParams?.componentDir);
+		}
+
+		const successMessage = `${extensionName === "Devant" ? "Integration" : "Component"} '${createdComponent.metadata.name}' was successfully created.`;
+
+		const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSubpath(item.uri?.fsPath, createParams.componentDir));
+
+		if(isWithinWorkspace || workspace.workspaceFile){
+			window.showInformationMessage(successMessage, `Open in ${extensionName}`).then(async (resp) => {
+				if (resp === `Open in ${extensionName}`) {
+					commands.executeCommand(
+						"vscode.open",
+						`${extensionName === "Devant" ? choreoEnvConfig.getDevantUrl() : choreoEnvConfig.getConsoleUrl()}/organizations/${org.handle}/projects/${project.id}/components/${createdComponent.metadata.handler}/overview`,
+					);
+				}
+			});
+		} else {
+			if(extensionName === 'Devant'){
+				commands.executeCommand("vscode.openFolder", Uri.file(createParams.componentDir), {
+						forceNewWindow: false,
+					});
+			}else{
+				window.showInformationMessage(`${successMessage} Reload workspace to continue`, { modal: true }, "Continue").then((resp) => {
+					if (resp === "Continue") {
+						commands.executeCommand("vscode.openFolder", Uri.file(createParams.componentDir), {
+							forceNewWindow: false,
+						});
+					}
+				});
+			}
 		}
 
 		if (workspace.workspaceFile) {

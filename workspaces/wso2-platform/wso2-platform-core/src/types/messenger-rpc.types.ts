@@ -76,7 +76,7 @@ export const CreateLocalEndpointsConfig: RequestType<CreateLocalEndpointsConfigR
 export const CreateLocalProxyConfig: RequestType<CreateLocalProxyConfigReq, void> = { method: "createLocalProxyConfig" };
 export const CreateLocalConnectionsConfig: RequestType<CreateLocalConnectionsConfigReq, void> = { method: "createLocalConnectionsConfig" };
 export const DeleteLocalConnectionsConfig: RequestType<DeleteLocalConnectionsConfigReq, void> = { method: "deleteLocalConnectionsConfig" };
-export const CloneRepositoryIntoCompDir: RequestType<CloneRepositoryIntoCompDirReq, void> = { method: "cloneRepositoryIntoCompDir" };
+export const CloneRepositoryIntoCompDir: RequestType<CloneRepositoryIntoCompDirReq, string> = { method: "cloneRepositoryIntoCompDir" };
 export const PushEverythingToRemoteRepo: RequestType<PushEverythingToRemoteRepoReq, void> = { method: "pushEverythingToRemoteRepo" };
 
 const NotificationMethods = {
@@ -106,7 +106,7 @@ export interface OpenTestViewReq {
 }
 
 export interface PushEverythingToRemoteRepoReq {
-	repoRoot: string;
+	dirPath: string;
 	componentName: string;
 }
 
@@ -131,7 +131,6 @@ export interface SubmitComponentCreateReq {
 	createParams: CreateComponentReq;
 	autoBuildOnCommit?: boolean;
 	type: string;
-	newWorkspaceDir?: string;
 }
 
 export interface CreateLocalEndpointsConfigReq {
