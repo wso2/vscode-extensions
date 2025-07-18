@@ -248,7 +248,9 @@ import {
     DeleteMappingRequest,
     MapWithCustomFnRequest,
     AIToolResponse,
-    AIToolRequest
+    AIToolRequest,
+    ImportTibcoRequest,
+    ImportTibcoResponse
 } from "@wso2/ballerina-core";
 import { BallerinaExtension } from "./index";
 import { debug, handlePullModuleProgress } from "../utils";
@@ -413,6 +415,7 @@ enum EXTENDED_APIS {
     OPEN_API_GENERATE_CLIENT = 'openAPIService/genClient',
     OPEN_API_GENERATED_MODULES = 'openAPIService/getModules',
     OPEN_API_CLIENT_DELETE = 'openAPIService/deleteModule',
+    TIBCO_TO_BI = 'projectService/importTibco',
     GET_ARTIFACTS = 'designModelService/artifacts',
     PUBLISH_ARTIFACTS = 'designModelService/publishArtifacts',
     COPILOT_ALL_LIBRARIES = 'copilotLibraryManager/getLibrariesList',
@@ -1247,6 +1250,11 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
         return this.sendRequest<CopilotFilterLibrariesResponse>(EXTENDED_APIS.COPILOT_FILTER_LIBRARIES, params);
     }
 
+
+    async importTibcoToBI(params: ImportTibcoRequest): Promise<ImportTibcoResponse> {
+        debug(`Importing Tibco to Ballerina: ${JSON.stringify(params)}`);
+        return this.sendRequest<ImportTibcoResponse>(EXTENDED_APIS.TIBCO_TO_BI, params);
+    }
 
     // <------------ BI APIS END --------------->
 
