@@ -256,4 +256,95 @@ export class TypeEditorUtils {
 
         return form;
     }
+
+    /**
+     * Toggle field options by clicking the chevron icon
+     * @param fieldIndex Index of the field to toggle (default is 0 for the first field)
+     */
+    async toggleFieldOptionsByChevron(fieldIndex: number = 0): Promise<void> {
+        // Find all field rows
+        const fieldRows = this.webView.locator('div[style*="display: flex"][style*="gap: 8px"][style*="align-items: start"]');
+        const targetRow = fieldRows.nth(fieldIndex);
+
+        // Find the <i> element with the chevron icon
+        const chevronIcon = targetRow.locator('i.codicon.codicon-chevron-right, i.codicon.codicon-chevron-down');
+
+        try {
+            await chevronIcon.waitFor({ state: 'visible', timeout: 3000 });
+
+            // Scroll and force click
+            await chevronIcon.scrollIntoViewIfNeeded();
+            await chevronIcon.click({ force: true });
+            console.log('Clicked chevron for field', fieldIndex);
+
+
+            await this.page.waitForTimeout(300);
+        } catch (error) {
+            throw new Error(`Could not click chevron icon at field index ${fieldIndex}: ${error}`);
+        }
+    }
+
+
+    /**
+     * Toggle any dropdown/collapsible section by text
+     */
+    async toggleDropdown(dropdownText: string, waitTime: number = 500): Promise<void> {
+        const dropdownToggle = this.webView.locator(`text=${dropdownText}`);
+        await this.waitForElement(dropdownToggle);
+        await dropdownToggle.click();
+        
+        // Wait for animation to complete
+        await this.page.waitForTimeout(waitTime);
+    }
+
+    /**
+     * Set any checkbox by its aria-label or name
+     */
+    async setCheckbox(checkboxName: string, checked: boolean): Promise<void> {
+        const checkbox = this.webView.getByRole('checkbox', { name: checkboxName });
+        console.log(`Setting checkbox "${checkboxName}" to ${checked}`);
+        await this.waitForElement(checkbox);
+        
+        const ariaChecked = await checkbox.getAttribute('aria-checked');
+        const isCurrentlyChecked = ariaChecked === 'true';
+        
+        if (isCurrentlyChecked !== checked) {
+            await checkbox.click();
+        }
+    }
+
+    /**
+     * Get checkbox state by its name
+     */
+    async getCheckboxState(checkboxName: string): Promise<boolean> {
+        const checkbox = this.webView.getByRole('checkbox', { name: checkboxName });
+        await this.waitForElement(checkbox);
+        
+        const ariaChecked = await checkbox.getAttribute('aria-checked');
+        return ariaChecked === 'true';
+    }
+
+    /**
+     * Verify multiple checkbox states at once
+     */
+    async verifyCheckboxStates( expectedStates: Record<string, boolean>): Promise<void> {
+        const errors: string[] = [];
+        
+        for (const [checkboxName, expectedState] of Object.entries(expectedStates)) {
+            try {
+                const actualState = await this.getCheckboxState(checkboxName);
+
+                if (actualState !== expectedState) {
+                    errors.push(`${checkboxName}: expected ${expectedState}, got ${actualState}`);
+                }
+            } catch (error) {
+                errors.push(`${checkboxName}: checkbox not found or not accessible`);
+            }
+        }
+        
+        if (errors.length > 0) {
+            throw new Error(`Checkbox verification failed:\n${errors.join('\n')}`);
+        }
+    }
+
 }
