@@ -118,7 +118,7 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                 file = file.fsPath;
                 projectUri = vscode.workspace.getWorkspaceFolder(file as any)?.uri.fsPath
             } else {
-                projectUri = vscode.workspace.getWorkspaceFolder(vscode.Uri.parse(file))?.uri.fsPath;
+                projectUri = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(file))?.uri.fsPath;
             }
             if (!projectUri) {
                 return;

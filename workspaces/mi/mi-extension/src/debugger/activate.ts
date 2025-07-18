@@ -219,14 +219,14 @@ export function activateDebugger(context: vscode.ExtensionContext) {
 
         if (webview && webview?.getProjectUri()) {
             const projectUri = webview.getProjectUri();
-            const projectWorkspace = workspace.getWorkspaceFolder(Uri.parse(projectUri));
+            const projectWorkspace = workspace.getWorkspaceFolder(Uri.file(projectUri));
             const launchJsonPath = path.join(projectUri, '.vscode', 'launch.json');
             const envPath = path.join(projectUri, '.env');
             let config: vscode.DebugConfiguration | undefined = undefined;
 
             if (fs.existsSync(launchJsonPath)) {
                 // Read the configurations from launch.json
-                const configurations = vscode.workspace.getConfiguration('launch', Uri.parse(projectUri));
+                const configurations = vscode.workspace.getConfiguration('launch', Uri.file(projectUri));
                 const allConfigs = configurations.get<vscode.DebugConfiguration[]>('configurations');
 
                 if (allConfigs) {
