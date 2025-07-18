@@ -29,7 +29,6 @@ import { ParamsPage } from './ParamsPage';
 export type HelperPaneProps = {
     position: Position;
     helperPaneHeight: HelperPaneHeight;
-    contentHeight?: number;
     isTokenEditor?: boolean;
     isFullscreen?: boolean;
     height?: number;
@@ -58,6 +57,7 @@ const FULLSCREEN_DELAY = 200;
 const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen, height: componentDefaultHeight, sx, onClose, onChange, addFunction }: HelperPaneProps) => {
     const [currentPage, setCurrentPage] = useState<Page>(PAGE.CATEGORY);
     const panelRef = useRef<HTMLDivElement>(null);
+    const timeoutIds = useRef<NodeJS.Timeout[]>([]);
     const [height, setHeight] = useState<number>(400);
     const [isComponentOverflowing, setIsComponentOverflowing] = useState<boolean>(false);
     useEffect(() => {
@@ -74,9 +74,6 @@ const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen,
                 let bottomOverflow = 0;
                 if (heightDiff < 0) {
                     bottomOverflow = rect.bottom - viewportHeight;
-                    if (bottomOverflow < 0) {
-                        overflowHeight = 0; // No overflow
-                    }
                     overflowHeight = bottomOverflow + (isTokenEditor ? TOKEN_EDITOR_BOTTOM_OFFSET : 0);
                 } else {
                     overflowHeight = heightDiff;
@@ -95,13 +92,15 @@ const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen,
         window.addEventListener('scroll', checkOverflow);
 
         // Use multiple timeouts to ensure DOM is ready
-        setTimeout(checkOverflow, 10);
-        setTimeout(checkOverflow, 100); // Additional check after longer delay
-        setTimeout(checkOverflow, 300); // Final check for complex layouts
+        timeoutIds.current.push(setTimeout(checkOverflow, 10));
+        timeoutIds.current.push(setTimeout(checkOverflow, 100)); // Additional check after longer delay
+        timeoutIds.current.push(setTimeout(checkOverflow, 300)); // Final check for complex layouts
 
         return () => {
             window.removeEventListener('resize', checkOverflow);
             window.removeEventListener('scroll', checkOverflow);
+            timeoutIds.current.forEach(clearTimeout); // Clear all timeouts
+            timeoutIds.current = []; // Reset the array
         };
     }, [isFullscreen, isTokenEditor, componentDefaultHeight]);
 
@@ -208,7 +207,7 @@ export const getHelperPane = (
     onChange: (value: string) => void,
     addFunction?: (value: string) => void,
     sx?: CSSProperties,
-    contentHeight?: number,
+    height?: number,
     isTokenEditor?: boolean,
     isFullscreen?: boolean
 ) => {
@@ -219,11 +218,10 @@ export const getHelperPane = (
             sx={sx}
             onClose={onClose}
             onChange={onChange}
-            contentHeight={contentHeight}
             addFunction={addFunction}
             isTokenEditor={isTokenEditor}
             isFullscreen={isFullscreen}
-            height={contentHeight} // Default height if not provided
+            height={height}
         />
     );
 };

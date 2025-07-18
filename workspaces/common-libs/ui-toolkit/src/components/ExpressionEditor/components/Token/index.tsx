@@ -239,8 +239,9 @@ export const TokenEditor = ({
         if (containerRef.current) {
             const calculatedHelperPaneOrigin = getHelperPaneWithEditorOrigin(containerRef, helperPaneOrigin);
             setCalculatedHelperPaneOrigin(calculatedHelperPaneOrigin);
-            setHelperPanePosition(getHelperPaneWithEditorPosition(containerRef, calculatedHelperPaneOrigin));
-            const newHelperPanePosition = isFullscreen ? { top: 0, left: helperPanePosition.left } : helperPanePosition;
+            const computedHelperPanePosition = getHelperPaneWithEditorPosition(containerRef, calculatedHelperPaneOrigin);
+            setHelperPanePosition(computedHelperPanePosition);
+            const newHelperPanePosition = isFullscreen ? { top: 0, left: computedHelperPanePosition.left } : computedHelperPanePosition;
             setHelperPaneArrowPosition(
                 getHelperPaneWithEditorArrowPosition(containerRef, calculatedHelperPaneOrigin, newHelperPanePosition)
             );
