@@ -317,7 +317,6 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 		}
 		*/
 
-
 		const compCache = dataCacheStore.getState().getComponents(org.handle, project.handler);
 		dataCacheStore.getState().setComponents(org.handle, project.handler, [createdComponent, ...compCache]);
 
@@ -341,7 +340,7 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 
 		const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSubpath(item.uri?.fsPath, createParams.componentDir));
 
-		if(isWithinWorkspace || workspace.workspaceFile){
+		if (isWithinWorkspace || workspace.workspaceFile) {
 			window.showInformationMessage(successMessage, `Open in ${extensionName}`).then(async (resp) => {
 				if (resp === `Open in ${extensionName}`) {
 					commands.executeCommand(
@@ -351,11 +350,11 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 				}
 			});
 		} else {
-			if(extensionName === 'Devant'){
+			if (extensionName === "Devant") {
 				commands.executeCommand("vscode.openFolder", Uri.file(createParams.componentDir), {
-						forceNewWindow: false,
-					});
-			}else{
+					forceNewWindow: false,
+				});
+			} else {
 				window.showInformationMessage(`${successMessage} Reload workspace to continue`, { modal: true }, "Continue").then((resp) => {
 					if (resp === "Continue") {
 						commands.executeCommand("vscode.openFolder", Uri.file(createParams.componentDir), {

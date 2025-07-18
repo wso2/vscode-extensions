@@ -197,7 +197,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 				if (props.shouldAutoCommit) {
 					await ChoreoWebViewAPI.getInstance().pushEverythingToRemoteRepo({ dirPath: newWorkspacePath, componentName: repoInitDetails.name });
 				}
-				return newWorkspacePath
+				return newWorkspacePath;
 			}
 		},
 	});

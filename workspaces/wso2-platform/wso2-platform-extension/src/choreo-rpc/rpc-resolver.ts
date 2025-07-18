@@ -77,7 +77,7 @@ import {
 	type GetCredentialsReq,
 	type GetDeploymentStatusReq,
 	type GetDeploymentTracksReq,
-	GetGitMetadataReq,
+	type GetGitMetadataReq,
 	type GetGitTokenForRepositoryReq,
 	type GetMarketplaceIdlReq,
 	type GetMarketplaceListReq,

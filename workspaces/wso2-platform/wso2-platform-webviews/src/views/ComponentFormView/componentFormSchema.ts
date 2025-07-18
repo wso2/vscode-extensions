@@ -41,7 +41,7 @@ export const componentRepoInitSchema = z.object({
 	orgHandler: z.string(),
 	repo: z.string().min(1, "Required"),
 	branch: z.string(),
-	subPath: z.string().regex(/^(\/)?([a-zA-Z0-9_-]+(\/)?)*$/,"Invalid path"),
+	subPath: z.string().regex(/^(\/)?([a-zA-Z0-9_-]+(\/)?)*$/, "Invalid path"),
 	name: z
 		.string()
 		.min(1, "Required")

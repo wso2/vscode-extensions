@@ -584,12 +584,12 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 	});
 	messenger.onRequest(CloneRepositoryIntoCompDir, async (params: CloneRepositoryIntoCompDirReq) => {
 		const newGit = await initGit(ext.context);
-		if(!newGit){
-			throw new Error("failed to retrieve Git details")
+		if (!newGit) {
+			throw new Error("failed to retrieve Git details");
 		}
 		const _repoUrl = buildGitURL(params.repo.orgHandler, params.repo.repo, params.repo.provider, params.repo.serverUrl);
 		if (!_repoUrl || !_repoUrl.startsWith("https://")) {
-			throw new Error("failed to parse git details")
+			throw new Error("failed to parse git details");
 		}
 		const urlObj = new URL(_repoUrl);
 
@@ -613,12 +613,13 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 				title: `Cloning repository ${params.repo?.orgHandler}/${params.repo.orgName}`,
 				location: ProgressLocation.Notification,
 			},
-			async (progress, cancellationToken) => newGit.clone(
+			async (progress, cancellationToken) =>
+				newGit.clone(
 					repoUrl,
 					{
 						recursive: true,
 						ref: params.repo.branch,
-						parentPath: join(params.cwd,".."),
+						parentPath: join(params.cwd, ".."),
 						progress: {
 							report: ({ increment, ...rest }: { increment: number }) => progress.report({ increment: increment, ...rest }),
 						},
@@ -629,7 +630,7 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 
 		// Move everything into cloned dir
 		const cwdFiled = readdirSync(params.cwd);
-		const newPath = join(clonedPath, params.subpath)
+		const newPath = join(clonedPath, params.subpath);
 		fs.mkdirSync(newPath, { recursive: true });
 
 		for (const file of cwdFiled) {
@@ -638,17 +639,17 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 			fs.cpSync(cwdFilePath, destFilePath, { recursive: true });
 		}
 
-		return newPath
+		return newPath;
 	});
 
 	messenger.onRequest(PushEverythingToRemoteRepo, async (params: PushEverythingToRemoteRepoReq) => {
 		const newGit = await initGit(ext.context);
-		if(!newGit){
-			throw new Error("failed to initGit")
+		if (!newGit) {
+			throw new Error("failed to initGit");
 		}
 		const extName = webviewStateStore.getState().state.extensionName;
-		const repoRoot = await newGit?.getRepositoryRoot(params.dirPath)
-		const dotGit = await newGit?.getRepositoryDotGit(params.dirPath)
+		const repoRoot = await newGit?.getRepositoryRoot(params.dirPath);
+		const dotGit = await newGit?.getRepositoryDotGit(params.dirPath);
 		const repo = newGit.open(repoRoot, dotGit);
 		await repo.add(["."]);
 		await repo.commit(`Add source for new ${extName} ${extName === "Devant" ? "Integration" : "Component"} (${params.componentName})`);
