@@ -81,7 +81,7 @@ import {
     updateContext,
     getProjectDetails,
     updateProperties,
-    reloadIntegrationProjectDependencies,
+    reloadDependencies,
     updateDependencies,
     updatePomValues,
     updateConfigFileValues,
@@ -251,8 +251,8 @@ export class MiVisualizerRpcClient implements MIVisualizerAPI {
     updateProperties(params: UpdatePropertiesRequest): Promise<boolean> {
         return this._messenger.sendRequest(updateProperties, HOST_EXTENSION, params);
     }
-    reloadIntegrationProjectDependencies(): Promise<boolean> {
-        return this._messenger.sendRequest(reloadIntegrationProjectDependencies, HOST_EXTENSION);
+    reloadDependencies(): Promise<boolean> {
+        return this._messenger.sendRequest(reloadDependencies, HOST_EXTENSION);
     }
     updateDependencies(params: UpdateDependenciesRequest): Promise<boolean> {
         return this._messenger.sendRequest(updateDependencies, HOST_EXTENSION, params);

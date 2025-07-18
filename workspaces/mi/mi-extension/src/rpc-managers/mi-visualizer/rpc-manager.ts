@@ -167,11 +167,11 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     }
 
     /**
-     * Reloads the integration project dependencies for the current integration project.
+     * Reloads the dependencies for the current integration project.
      *
      * @returns {Promise<boolean>} A promise that resolves to `true` when all dependency reload operations are complete.
      */
-    async reloadIntegrationProjectDependencies(): Promise<boolean> {
+    async reloadDependencies(): Promise<boolean> {
         return new Promise(async (resolve) => {
             const langClient = getStateMachine(this.projectUri).context().langClient!;
             const projectDetails = await langClient?.getProjectDetails();
@@ -254,8 +254,20 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                 fs.writeFileSync(configFilePath, "");
             }
 
-            const content = params.configValues.map(configValue => `${configValue.key}:${configValue.value}`).join('\n');
+            const content = params.configValues.map(configValue => `${configValue.key}:${configValue.type}`).join('\n');
             fs.writeFileSync(configFilePath, content);
+
+            const envFilePath = [this.projectUri, '.env'].join(path.sep);
+            const envDir = path.dirname(envFilePath);
+            if (!fs.existsSync(envDir)) {
+                // Create the directory structure for the .env file if it doesn't exist
+                fs.mkdirSync(envDir, { recursive: true });
+            }
+            // Get values of params.configValues -> configValue -> key and value not empty
+            const nonEmptyConfigValues = params.configValues.filter(configValue => configValue.key && configValue.value);
+            const envContent = nonEmptyConfigValues.map(configValue => `${configValue.key}=${configValue.value}`).join('\n');
+            fs.writeFileSync(envFilePath, envContent);
+
             navigate(this.projectUri);
 
             resolve(true);

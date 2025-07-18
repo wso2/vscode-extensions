@@ -203,8 +203,8 @@ export function ProjectInformation(props: ProjectInformationProps) {
         </>;
     }
 
-    const reloadIntegrationProjectDependencies = () => {
-       rpcClient.getMiVisualizerRpcClient().reloadIntegrationProjectDependencies();
+    const reloadDependencies = () => {
+       rpcClient.getMiVisualizerRpcClient().reloadDependencies();
     }
 
     const handleEditProjectInformation = (componentType: string) => {
@@ -265,7 +265,7 @@ export function ProjectInformation(props: ProjectInformationProps) {
             <Typography variant="h4" sx={{margin: "10px 0 12px", opacity: 0.8, display: 'flex', alignItems: 'center'}}>
                 Integration Project Dependencies
                 <div style={{ display: "flex", paddingRight: 6, flex: 1, justifyContent: "flex-end" }}>
-                    <Button appearance="icon" tooltip="Reload Integration Project Dependencies" onClick={() => reloadIntegrationProjectDependencies()}>
+                    <Button appearance="icon" tooltip="Reload Integration Project Dependencies" onClick={() => reloadDependencies()}>
                         <Icon name="refresh" isCodicon sx={{ flex: 1 }} />
                     </Button>
                 </div>

@@ -53,7 +53,7 @@
         "react-json-view": "latest",
         "react-json-view-lite": "latest",
         "react-markdown": "~10.1.0",
-        "html-to-image": "1.11.13"
+        "html-to-image": "1.11.11"
     },
     "devDependencies": {
         "@storybook/addon-essentials": "^8.6.14",

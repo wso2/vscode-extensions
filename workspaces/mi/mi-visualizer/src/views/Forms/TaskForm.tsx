@@ -560,7 +560,7 @@ export function TaskForm(props: TaskFormProps) {
                     </>
                 ) : (
                     <>
-                        <span>Startup trigger runs the sequence once and terminates the server when the Micro Integrator starts in automation mode.</span>
+                        <span>Startup trigger runs the sequence once and terminates the server when the WSO2 Integrator: MI starts in automation mode.</span>
                         <SequenceWizard path={props.path} isExternalTrigger={true} />
                     </>
                 )

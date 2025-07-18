@@ -33,6 +33,7 @@ import { getStateMachine } from './stateMachine';
 import { webviews } from './visualizer/webview';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
+import { COMMANDS } from './constants';
 const os = require('os');
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -67,6 +68,8 @@ export async function activate(context: vscode.ExtensionContext) {
 				webview.dispose();
 			}
 		}
+		// refresh project explorer
+		vscode.commands.executeCommand(COMMANDS.REFRESH_COMMAND);
 	}
 	);
 	StateMachineAI.initialize();
