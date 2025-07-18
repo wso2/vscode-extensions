@@ -52,6 +52,17 @@ export class DataMapper {
         this.tsFile = path.join(newProjectPath, 'testProject', 'src', 'main', 'wso2mi', 'resources', 'datamapper', this._name, `${this._name}.ts`);
     }
 
+    public async add(name: string) {
+        const seqWebView = await switchToIFrame('Resource View', this._page);
+        if (!seqWebView) {
+            throw new Error("Failed to switch to Resource Form iframe");
+        }
+        const seqFrame = seqWebView.locator('#popUpPanel');
+        await seqFrame.waitFor();
+        await seqFrame.getByRole('textbox', { name: 'Name' }).fill(name);
+        await seqFrame.getByRole('button', { name: 'Create' }).click();
+    }
+
     public getWebView() {
         return this.webView;
     }
