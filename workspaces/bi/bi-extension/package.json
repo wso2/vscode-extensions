@@ -114,6 +114,11 @@
                     "group": "inline"
                 },
                 {
+                    "command": "BI.project-explorer.view-configuration",
+                    "when": "view == BI.project-explorer && viewItem == configurations",
+                    "group": "inline"
+                },
+                {
                     "command": "BI.project-explorer.add-data-mapper",
                     "when": "view == BI.project-explorer && viewItem == dataMappers",
                     "group": "inline"
