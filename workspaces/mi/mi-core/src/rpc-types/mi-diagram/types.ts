@@ -2129,6 +2129,7 @@ export interface TestConnectorConnectionResponse {
 export interface SaveConfigRequest {
     configName: string;
     configType: "string" | "cert";
+    configValue: string;
 }
 
 export interface SaveConfigResponse {
