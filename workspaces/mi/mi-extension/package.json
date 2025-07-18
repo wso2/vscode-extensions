@@ -190,16 +190,6 @@
       },
       {
         "view": "MI.project-explorer",
-        "contents": "This project appears to have been created with Integration Studio. Please note that the VS Code extension offers limited support for these projects. To enhance compatibility, consider migrating your project using the provided migration tool.\n[Migrate Project](command:MI.migrateProject)",
-        "when": "MI.status == 'projectLoaded' && MI.projectType == 'oldProject' && MI.migrationStatus != 'migrating' && workspaceFolderCount == 1"
-      },
-      {
-        "view": "MI.project-explorer",
-        "contents": "Migrating project... Please wait.",
-        "when": "MI.status == 'projectLoaded' && MI.projectType == 'oldProject' && MI.migrationStatus == 'migrating' && workspaceFolderCount == 1"
-      },
-      {
-        "view": "MI.project-explorer",
         "contents": "Some errors occurred while activating the extension. Please check the output channel for more information.",
         "when": "MI.status == 'disabled'"
       },
