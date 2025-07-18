@@ -77,9 +77,9 @@ export class Welcome {
             await container?.locator('div:has-text("Java is setup")').first().waitFor({ timeout: 180000 });
             console.log('Java setup done');
         }
-        const microIntegratorErrorMessage = container?.locator('div:has-text("Micro Integrator is not available")');
+        const microIntegratorErrorMessage = container?.locator('div:has-text("WSO2 Integrator: MI is not available")');
         if (await microIntegratorErrorMessage!.count() > 0) {
-            console.log('Micro Integrator is not setup');
+            console.log('WSO2 Integrator: MI is not setup');
             const checkbox = container?.locator(`vscode-checkbox[aria-label="Download Latest Pack"]`);
             if (await checkbox?.count() > 0) {
                 const isChecked = await checkbox.isChecked();
@@ -87,12 +87,12 @@ export class Welcome {
                     await checkbox.click();
                 }
             }
-            const downloadMI = await getVsCodeButton(container!, 'Download Micro Integrator', 'primary');
+            const downloadMI = await getVsCodeButton(container!, 'Download WSO2 Integrator: MI', 'primary');
             await downloadMI.click();
 
             // Wait for MI to be downloaded
-            await container!.locator('div:has-text("Micro Integrator is setup")').first().waitFor({ timeout: 180000 });
-            console.log('Micro Integrator setup done');
+            await container!.locator('div:has-text("WSO2 Integrator: MI is setup")').first().waitFor({ timeout: 180000 });
+            console.log('WSO2 Integrator: MI setup done');
         }
 
         const continueAnywayBtn = await getVsCodeButton(container!, 'Continue Anyway', 'secondary').catch(() => null);

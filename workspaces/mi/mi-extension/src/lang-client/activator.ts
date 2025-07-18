@@ -188,7 +188,7 @@ export class MILanguageClient {
                     args: [...args, main],
                     options: {},
                 };
-                let workspaceFolder = workspace.getWorkspaceFolder(Uri.parse(this.projectUri));
+                let workspaceFolder = workspace.getWorkspaceFolder(Uri.file(this.projectUri));
 
                 if (!workspaceFolder) {
                     throw new Error("Workspace folder not found.");
