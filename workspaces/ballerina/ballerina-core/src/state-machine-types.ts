@@ -214,6 +214,7 @@ interface AIUsageTokens {
 export interface AIUserToken {
     accessToken: string;
     usageTokens?: AIUsageTokens;
+    apiKey?: string;
 }
 
 export interface AIMachineContext {

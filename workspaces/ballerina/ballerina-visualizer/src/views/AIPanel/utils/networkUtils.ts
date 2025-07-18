@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { AIMachineEventType } from "@wso2/ballerina-core";
+import { AIMachineEventType, DevantTokens } from "@wso2/ballerina-core";
 
 interface FetchWithAuthParams {
     url: string;
@@ -37,17 +37,30 @@ export const fetchWithAuth = async ({
     controller?.abort();
 
     controller = new AbortController();
+    const devantTokens:DevantTokens = await rpcClient.getAiPanelRpcClient().getDevantTokens();
+    const apiKey = devantTokens.apiKey;
+    const stsToken = devantTokens.stsToken;
+    
+    const makeRequest = async (authToken: string): Promise<Response> => {
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+        };
 
-    const makeRequest = async (authToken: string): Promise<Response> =>
-        fetch(url, {
+        // Add API key and STS token headers if both are not empty
+        if (apiKey && stsToken && apiKey.trim() !== "" && stsToken.trim() !== "") {
+            headers["api-key"] = apiKey;
+            headers["x-Authorization"] = `${stsToken}`;
+        } else {
+            headers["Authorization"] = `Bearer ${authToken}`;
+        }
+
+        return fetch(url, {
             method,
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${authToken}`,
-            },
+            headers,
             body: body ? JSON.stringify(body) : undefined,
             signal: controller!.signal,
         });
+    };
 
     let finalToken;
     try {

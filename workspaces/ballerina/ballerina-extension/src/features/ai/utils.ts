@@ -28,6 +28,9 @@ export const AUTH_ORG : string = config.get('authOrg') || process.env.BALLERINA_
 export const AUTH_CLIENT_ID : string = config.get('authClientID') || process.env.BALLERINA_AUTH_CLIENT_ID;
 export const AUTH_REDIRECT_URL : string = config.get('authRedirectURL') || process.env.BALLERINA_AUTH_REDIRECT_URL;
 
+export const DEVANT_API_KEY : string = config.get('devantApiKey') || process.env.DEVANT_API_KEY || '';
+export const DEVANT_STS_TOKEN : string = config.get('cloudStsToken') || process.env.CLOUD_STS_TOKEN || '';
+
 export async function closeAllBallerinaFiles(dirPath: string): Promise<void> {
     // Check if the directory exists
     if (!fs.existsSync(dirPath)) {

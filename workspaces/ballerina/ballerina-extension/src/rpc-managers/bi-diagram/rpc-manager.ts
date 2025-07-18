@@ -781,13 +781,31 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         }
 
         if (!integrationType) {
-            return { isCompleted: true };
+            return { isCompleted: false };
+        }
+
+        const componentName = await window.showInputBox({
+            prompt: 'Enter component name',
+            placeHolder: 'e.g., my-integration',
+            validateInput: (value) => {
+                if (!value || value.trim() === '') {
+                    return 'Component name is required';
+                }
+                if (!/^[a-zA-Z][a-zA-Z0-9-_]*$/.test(value)) {
+                    return 'Component name must start with a letter and contain only letters, numbers, hyphens, and underscores';
+                }
+                return null;
+            }
+        });
+
+        if (!componentName) {
+            return { isCompleted: false };
         }
 
         const deployementParams: ICreateComponentCmdParams = {
             integrationType: integrationType as any,
             buildPackLang: "ballerina", // Example language
-            name: path.basename(StateMachine.context().projectUri),
+            name: componentName,
             componentDir: StateMachine.context().projectUri,
             extName: "Devant"
         };
