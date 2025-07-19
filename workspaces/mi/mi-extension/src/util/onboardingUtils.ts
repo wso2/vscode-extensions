@@ -61,7 +61,7 @@ export async function setupEnvironment(projectUri: string, isOldProject: boolean
         }
         const versions: string[] = ["4.0.0", "4.1.0", "4.2.0", "4.3.0"];
         if (miVersionFromPom && versions.includes(miVersionFromPom)) {
-            const config = vscode.workspace.getConfiguration('MI', vscode.Uri.parse(projectUri));
+            const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
             await config.update("LEGACY_EXPRESSION_ENABLED", true, vscode.ConfigurationTarget.Workspace);
         }
         const isMISet = await isMISetup(projectUri, miVersionFromPom);
@@ -637,7 +637,7 @@ async function getJavaAndMIPathsFromWorkspace(projectUri: string, projectMiVersi
         miDetails: { status: 'not-valid', version: projectMiVersion }
     };
     if (projectMiVersion) {
-        const config = vscode.workspace.getConfiguration('MI', vscode.Uri.parse(projectUri));
+        const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
 
         const javaHome = config.get<string>(SELECTED_JAVA_HOME);
         const validJavaHome = javaHome && verifyJavaHomePath(javaHome) ||
