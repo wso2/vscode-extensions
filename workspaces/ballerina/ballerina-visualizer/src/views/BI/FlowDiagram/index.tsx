@@ -61,6 +61,7 @@ import {
     removeAgentNode,
     removeToolFromAgentNode,
 } from "../AIChatAgent/utils";
+import { PROVIDER_NAME_MAP } from "../../../constants";
 
 const Container = styled.div`
     width: 100%;
@@ -141,6 +142,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                     .getFlowModel()
                     .then((model) => {
                         if (model?.flowModel) {
+                            updateAgentModelTypes(model?.flowModel);
                             setModel(model.flowModel);
                             onReady(model.flowModel.fileName);
                         }
@@ -151,6 +153,31 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                     });
             });
     };
+
+    // Hack: Updates agent model types based on ModelProvider connections
+    // This is so that we render the icons for the models in the AgentCallNodeWidget
+    function updateAgentModelTypes(flowModel?: Flow) {
+        if (!flowModel || !Array.isArray(flowModel.connections) || !Array.isArray(flowModel.nodes)) return;
+        const connectionNodes = flowModel.connections.filter(
+            (connection) => connection?.codedata?.object === "ModelProvider" ||
+                connection?.codedata?.object === "OpenAiModelProvider"
+        );
+        connectionNodes.forEach((connection) => {
+            const modelVarName = connection?.properties?.variable?.value;
+            const modelProviderName = connection?.codedata?.module;
+            if (!modelVarName || !modelProviderName) return;
+            const matchingNodes = flowModel.nodes.filter(
+                (node: FlowNode) =>
+                    node?.codedata?.node === "AGENT_CALL" &&
+                    node?.metadata?.data?.model?.name === modelVarName
+            );
+            matchingNodes.forEach((node: FlowNode) => {
+                if (node?.metadata?.data?.model) {
+                    node.metadata.data.model.type = PROVIDER_NAME_MAP?.[modelProviderName] || modelProviderName;
+                }
+            });
+        });
+    }
 
     useEffect(() => {
         if (model && selectedNodeRef.current?.codedata?.lineRange?.startLine && sidePanelView === SidePanelView.FORM) {
