@@ -16,10 +16,10 @@
  * under the License.
  */
 
-import { WebviewView, WebviewPanel, window } from 'vscode';
+import { WebviewView, WebviewPanel, window,Uri } from 'vscode';
 import { Messenger } from 'vscode-messenger';
 import { StateMachine } from './stateMachine';
-import { stateChanged, getVisualizerLocation, VisualizerLocation, projectContentUpdated, aiStateChanged, sendAIStateEvent, popupStateChanged, getPopupVisualizerState, PopupVisualizerLocation, breakpointChanged, AIMachineEventType, ArtifactData, onArtifactUpdatedNotification, onArtifactUpdatedRequest, currentThemeChanged } from '@wso2/ballerina-core';
+import { stateChanged, getVisualizerLocation, VisualizerLocation, projectContentUpdated, aiStateChanged, sendAIStateEvent, popupStateChanged, getPopupVisualizerState, PopupVisualizerLocation, breakpointChanged, AIMachineEventType, ArtifactData, onArtifactUpdatedNotification, onArtifactUpdatedRequest, currentThemeChanged, vscode } from '@wso2/ballerina-core';
 import { VisualizerWebview } from './views/visualizer/webview';
 import { registerVisualizerRpcHandlers } from './rpc-managers/visualizer/rpc-handler';
 import { registerLangClientRpcHandlers } from './rpc-managers/lang-client/rpc-handler';
@@ -130,13 +130,12 @@ async function getContext(): Promise<VisualizerLocation> {
             serviceType: context.serviceType,
             type: context.type,
             isGraphql: context.isGraphql,
-            addType: context.addType,
             focusFlowDiagramView: context.focusFlowDiagramView,
             metadata: {
                 isBISupported: context.isBISupported,
                 haveLS: StateMachine.langClient() && true,
-                recordFilePath: path.join(context.projectUri, "types.bal"),
-                enableSequenceDiagram: ballerinaExtInstance.enableSequenceDiagramView(),
+                recordFilePath: Uri.joinPath(Uri.parse(context.projectUri), "types.bal").path,
+                enableSequenceDiagram: true,
                 target: context.metadata?.target
             },
             scope: context.scope,

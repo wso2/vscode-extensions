@@ -27,6 +27,7 @@ import { FindConstructByIndexVisitor } from "./history/find-construct-by-index-v
 import { getConstructBodyString } from "./history/util";
 import { ballerinaExtInstance } from "../core";
 import path from "path";
+import { extension } from "../BalExtensionContext";
 
 export async function getView(documentUri: string, position: NodePosition, projectUri?: string): Promise<HistoryEntry> {
     const haveTreeData = !!StateMachine.context().projectStructure;
@@ -279,7 +280,7 @@ function getViewByArtifacts(documentUri: string, position: NodePosition, project
 function findViewByArtifact(dir: ProjectStructureArtifactResponse, position: NodePosition, documentUri: string, projectUri?: string) {
     // In windows the documentUri might contain drive letter
     const driveLetterRegex = /^[a-zA-Z]:/;
-    const normalizedDocumentUri = documentUri.replace(driveLetterRegex, '');
+    const normalizedDocumentUri = extension.isWebMode?documentUri.replace(driveLetterRegex, '').replace(/^web-bala:/, ''):documentUri.replace(driveLetterRegex, '');
     const normalizedDirPath = dir.path.replace(driveLetterRegex, '');
     const normalizedProjectUri = projectUri?.replace(driveLetterRegex, '');
     if (normalizedDirPath === normalizedDocumentUri && isPositionWithinRange(position, dir.position)) {
@@ -444,7 +445,7 @@ export function getNodeByIndex(uid: string, fullST: STNode): [STNode, string] {
 
 function getSTByRangeReq(documentUri: string, position: NodePosition) {
     return {
-        documentIdentifier: { uri: Uri.file(documentUri).toString() },
+        documentIdentifier: { uri: extension.isWebMode?Uri.parse(documentUri).toString():Uri.file(documentUri).toString() },
         lineRange: {
             start: {
                 line: position.startLine,

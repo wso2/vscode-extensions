@@ -273,8 +273,9 @@ export class BallerinaExtension {
             console.log("creating web lang client");
             _onBeforeInit(this.langClient);
         }
-
-        try {
+        //activate language server for desktop mode
+        else{
+            try {
             // Register pre init handlers.
             this.registerPreInitHandlers();
 
@@ -365,6 +366,7 @@ export class BallerinaExtension {
             }
             return Promise.reject(msg);
         }
+    }
     }
 
     private getUpdateToolUserAgent(): string {

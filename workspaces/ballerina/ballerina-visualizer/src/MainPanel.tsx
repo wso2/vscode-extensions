@@ -166,8 +166,20 @@ const MainPanel = () => {
     const fetchContext = () => {
         setNavActive(true);
         rpcClient.getVisualizerLocation().then((value) => {
-            let defaultFunctionsFile = Utils.joinPath(URI.file(value.projectUri), 'functions.bal').fsPath;
-            if (value.documentUri) {
+            //need to check isWeb is false in desktop mode
+            const isWeb = typeof window !== 'undefined' && window.location.protocol.startsWith('http');
+            let defaultFunctionsFile: string;
+            if (isWeb) {
+                // Use web-bala scheme for web
+                defaultFunctionsFile = URI.parse(`${value.projectUri}/functions.bal`).toString();
+                if (value.documentUri) {
+                    const parsedUri = URI.parse(value.documentUri);
+                    value.documentUri = parsedUri.with({ scheme: 'web-bala' }).toString();
+                }
+            } else {
+                // Use file scheme for desktop
+                defaultFunctionsFile = Utils.joinPath(URI.file(value.projectUri), 'functions.bal').fsPath;
+            } if (value.documentUri) {
                 defaultFunctionsFile = value.documentUri
             }
             if (!value?.view) {
@@ -186,8 +198,7 @@ const MainPanel = () => {
                             <ServiceDesigner
                                 serviceIdentifier={value.identifier}
                                 filePath={value.documentUri}
-                                position={value?.position}
-                            />
+                                position={value?.position}                            />
                         );
                         break;
                     case MACHINE_VIEW.AIAgentDesigner:
@@ -210,7 +221,7 @@ const MainPanel = () => {
                         setViewComponent(<ERDiagram />);
                         break;
                     case MACHINE_VIEW.TypeDiagram:
-                        setViewComponent(<TypeDiagram selectedTypeId={value?.identifier} projectUri={value?.projectUri} addType={value?.addType} />);
+                        setViewComponent(<TypeDiagram selectedTypeId={value?.identifier} projectUri={value?.projectUri} />);
                         break;
                     case MACHINE_VIEW.DataMapper:
                         setViewComponent(
@@ -245,7 +256,7 @@ const MainPanel = () => {
                         );
                         break;
                     case MACHINE_VIEW.GraphQLDiagram:
-                        setViewComponent(<GraphQLDiagram serviceIdentifier={value?.identifier} filePath={value?.documentUri} position={value?.position} projectUri={value?.projectUri} />);
+                        setViewComponent(<GraphQLDiagram filePath={value?.documentUri} position={value?.position} projectUri={value?.projectUri} serviceIdentifier={value?.identifier} />);
                         break;
                     case MACHINE_VIEW.SequenceDiagram:
                         setViewComponent(
@@ -329,13 +340,34 @@ const MainPanel = () => {
                         />);
                         break;
                     case MACHINE_VIEW.ViewConfigVariables:
-                        setViewComponent(
+                        rpcClient.getVisualizerLocation().then((location) => {
+                            setViewComponent(
                                 <ViewConfigurableVariables
-                                    fileName={Utils.joinPath(URI.file(value.projectUri), 'config.bal').fsPath}
-                                    org={value?.org}
-                                    package={value?.package}
-                                />
+                                    fileName={Utils.joinPath(URI.file(location.projectUri), 'config.bal').fsPath} org={""} package={""}                                />
                             );
+                        });
+                        break;
+                    case MACHINE_VIEW.EditConfigVariables:
+                        rpcClient.getVisualizerLocation().then((location) => {
+                            rpcClient.getBIDiagramRpcClient().getConfigVariables().then((variables) => {
+                                if (variables.configVariables.length > 0) {
+                                    const variableIndex = variables.configVariables.findIndex(
+                                        (v) => {
+                                            const bindingPattern = value.syntaxTree.typedBindingPattern.bindingPattern;
+                                            if (bindingPattern.kind === "CaptureBindingPattern") {
+                                                return v.properties.variable.value === (bindingPattern as any).variableName.value;
+                                            }
+                                            return false;
+                                        }
+                                    );
+                                    // setViewComponent(
+                                    //     <ViewConfigurableVariables
+                                    //         isExternallauncher={true}
+                                    //         fileName={Utils.joinPath(URI.file(location.projectUri), 'config.bal').fsPath} />
+                                    // );
+                                }
+                            });
+                        });
                         break;
                     default:
                         setNavActive(false);
