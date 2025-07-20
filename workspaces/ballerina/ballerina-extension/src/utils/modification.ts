@@ -69,6 +69,12 @@ export async function writeBallerinaFileDidOpen(filePath: string, content: strin
     if (!extension.isWebMode) {
            writeFileSync(filePath, content.trim());
     }
+    else {
+        // For web: use VS Code FileSystem API with the custom scheme
+        const uri = Uri.parse(filePath); // filePath should be a URI string like 'web-bala:/path/to/file.bal'
+        const encoder = new TextEncoder();
+        await workspace.fs.writeFile(uri, encoder.encode(content.trim()));
+    }
     StateMachine.langClient().didChange({
         textDocument: { uri: filePath, version: 1 },
         contentChanges: [
