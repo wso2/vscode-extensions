@@ -46,16 +46,11 @@ export class RecordCreatorRpcManager implements RecordCreatorAPI {
     }
 
     async convertJsonToRecordType(params: JsonToRecordParams): Promise<TypeDataWithReferences> {
-        let projectUri: Uri | string;
-        let filePathUri: string;
-        if(extension.isWebMode) {
-            projectUri = Uri.parse(StateMachine.context().projectUri);
-            filePathUri = Uri.joinPath(projectUri, 'types.bal').toString();
-        }
-        else{
-            projectUri = StateMachine.context().projectUri;
-            filePathUri = path.join(projectUri, 'types.bal');
-        }
+        const context = StateMachine.context();
+        const projectUri = context.projectUri;
+        const filePathUri = extension.isWebMode
+            ? Uri.joinPath(Uri.parse(projectUri), 'types.bal').toString()
+            : path.join(projectUri, 'types.bal');
         return new Promise(async (resolve) => {
             const response = await StateMachine.langClient().convertJsonToRecordType({
                 ...params,
@@ -66,16 +61,11 @@ export class RecordCreatorRpcManager implements RecordCreatorAPI {
     }
 
     async convertXmlToRecordType(params: XMLToRecordParams): Promise<TypeDataWithReferences> {
-         let projectUri: Uri | string;
-        let filePath: string;
-        if(extension.isWebMode) {
-            projectUri = Uri.parse(StateMachine.context().projectUri);
-            filePath = Uri.joinPath(projectUri, 'types.bal').toString();
-        }
-        else{
-            projectUri = StateMachine.context().projectUri;
-            filePath = path.join(projectUri, 'types.bal');
-        }
+        const context = StateMachine.context();
+        const projectUri = context.projectUri;
+        const filePath = extension.isWebMode
+            ? Uri.joinPath(Uri.parse(projectUri), 'types.bal').toString()
+            : path.join(projectUri, 'types.bal');
         return new Promise(async (resolve) => {
             const response = await StateMachine.langClient().convertXmlToRecordType({
                 ...params,
