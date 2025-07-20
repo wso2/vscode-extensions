@@ -429,7 +429,7 @@ export function checkCommentMinutiae(minutiae: ReactNode[]): ReactNode[] {
     const checkedMinutiae = minutiae;
     const commentList: number[] = [];
     minutiae?.map((element, index) => {
-        if (element && element[0] === "/") {
+        if (typeof element === "string" && element[0] === "/") {
             commentList.push(index);
         }
     });
