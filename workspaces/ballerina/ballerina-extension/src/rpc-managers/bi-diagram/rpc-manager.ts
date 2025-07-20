@@ -1741,18 +1741,48 @@ export async function fetchWithToken(url: string, options: RequestInit) {
 
 export async function getBallerinaFiles(dir: string): Promise<string[]> {
     let files: string[] = [];
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
 
-    for (const entry of entries) {
-        const entryPath = path.join(dir, entry.name);
-        if (entry.isDirectory()) {
-            files = files.concat(await getBallerinaFiles(entryPath));
-        } else if (entry.isFile() && entry.name.endsWith(".bal")) {
-            files.push(entryPath);
+    if (extension.isWebMode) {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders || workspaceFolders.length === 0) {
+            console.error("No workspace folder is open.");
+            return files;
+        }
+        
+        const rootUri = workspaceFolders[0].uri;
+        const entries = await vscode.workspace.fs.readDirectory(rootUri);
+
+        for (const [name, type] of entries) {
+            if (name === '.git' || name === '.vscode') { continue; }
+
+            const entryPath = `${rootUri}/${name}`;
+            if (type === vscode.FileType.Directory) {
+                const subFiles = await getBallerinaFiles(entryPath);
+                files.push(...subFiles);
+            } else if (type === vscode.FileType.File && name.endsWith('.bal')) {
+                files.push(entryPath);
+            }
+        }
+
+    } else {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+        for (const entry of entries) {
+            if (entry.name === '.git' || entry.name === '.vscode') { continue; }
+
+            const entryPath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                const subFiles = await getBallerinaFiles(entryPath);
+                files.push(...subFiles);
+            } else if (entry.isFile() && entry.name.endsWith('.bal')) {
+                files.push(entryPath);
+            }
         }
     }
+
     return files;
 }
+
 
 export async function extractImports(content: string, filePath: string): Promise<ImportStatements> {
     const withoutSingleLineComments = content.replace(/\/\/.*$/gm, "");
