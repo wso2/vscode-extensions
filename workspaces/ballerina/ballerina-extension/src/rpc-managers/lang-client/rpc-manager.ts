@@ -61,7 +61,7 @@ import { URI } from "vscode-uri";
 import { ballerinaExtInstance } from "../../core";
 import { StateMachine } from "../../stateMachine";
 import { modifyFileContent } from "../../utils/modification";
-import { extension } from "src/BalExtensionContext";
+import { extension } from "../../BalExtensionContext";
 
 export class LangClientRpcManager implements LangClientAPI {
     

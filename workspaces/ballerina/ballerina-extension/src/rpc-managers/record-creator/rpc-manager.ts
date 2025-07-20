@@ -27,7 +27,7 @@ import {
 } from "@wso2/ballerina-core";
 import { StateMachine } from "../../stateMachine";
 import path from "path";
-import { extension } from "src/BalExtensionContext";
+import { extension } from "../../BalExtensionContext";
 import { Uri } from "vscode";
 
 export class RecordCreatorRpcManager implements RecordCreatorAPI {
