@@ -263,11 +263,14 @@ export class TypeEditorUtils {
      */
     async toggleFieldOptionsByChevron(fieldIndex: number = 0): Promise<void> {
         // Find all field rows
-        const fieldRows = this.webView.locator('div[style*="display: flex"][style*="gap: 8px"][style*="align-items: start"]');
-        const targetRow = fieldRows.nth(fieldIndex);
+
+        // const fieldRows = this.webView.locator('div[style*="display: flex"][style*="gap: 8px"][style*="align-items: start"]');
+        const chevronIcons = this.webView.locator('[data-testid="field-expand-btn"]');
+        // await this.page.pause();
+        const chevronIcon = chevronIcons.nth(fieldIndex);
 
         // Find the <i> element with the chevron icon
-        const chevronIcon = targetRow.locator('i.codicon.codicon-chevron-right, i.codicon.codicon-chevron-down');
+        // const chevronIcon = targetRow.locator('i.codicon.codicon-chevron-right, i.codicon.codicon-chevron-down');
 
         try {
             await chevronIcon.waitFor({ state: 'visible', timeout: 3000 });
