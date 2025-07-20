@@ -593,13 +593,17 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     async updateConfigVariables(params: UpdateConfigVariableRequest): Promise<UpdateConfigVariableResponse> {
         return new Promise(async (resolve) => {
             const req: UpdateConfigVariableRequest = params;
-
-            if (!fs.existsSync(params.configFilePath)) {
+            
+            //need to handle in webmode as well
+            if(!extension.isWebMode)
+            {
+              if (!fs.existsSync(params.configFilePath)) {
 
                 // Create config.bal if it doesn't exist
                 writeBallerinaFileDidOpen(params.configFilePath, "\n");
             }
-
+            }
+            
             const response = await StateMachine.langClient().updateConfigVariables(req) as BISourceCodeResponse;
             await updateSourceCode({ textEdits: response.textEdits }, { artifactType: DIRECTORY_MAP.CONFIGURABLE });
             resolve(response);
@@ -1748,7 +1752,7 @@ export async function getBallerinaFiles(dir: string): Promise<string[]> {
             console.error("No workspace folder is open.");
             return files;
         }
-        
+
         const rootUri = workspaceFolders[0].uri;
         const entries = await vscode.workspace.fs.readDirectory(rootUri);
 
