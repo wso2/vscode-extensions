@@ -97,7 +97,7 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
         return new Promise(async (resolve) => {
             const context = StateMachine.context();
             try {
-                const projectDir = extension.isWebMode ? context.projectUri : path.join(StateMachine.context().projectUri);
+                const projectDir = context.projectUri;
                 const targetFile = extension.isWebMode ? Uri.joinPath(Uri.parse(projectDir), 'main.bal').toString() : path.join(projectDir, 'main.bal');
                 this.ensureFileExists(targetFile);
                 params.filePath = targetFile;
