@@ -255,8 +255,8 @@ const DeployButton = styled.div`
 
 const DeploymentOptionContainer = styled.div<{ isExpanded: boolean }>`
     cursor: pointer;
-    border: ${props => props.isExpanded ? '1px solid var(--vscode-welcomePage-tileBorder)' : 'none'};
-    background: ${props => props.isExpanded ? 'var(--vscode-welcomePage-tileBackground)' : 'transparent'};
+    border: ${(props: { isExpanded: any; }) => props.isExpanded ? '1px solid var(--vscode-welcomePage-tileBorder)' : 'none'};
+    background: ${(props: { isExpanded: any; }) => props.isExpanded ? 'var(--vscode-welcomePage-tileBackground)' : 'transparent'};
     border-radius: 6px;
     display: flex;
     overflow: hidden;
@@ -282,10 +282,10 @@ const DeploymentHeader = styled.div`
 `;
 
 const DeploymentBody = styled.div<{ isExpanded: boolean }>`
-    max-height: ${props => props.isExpanded ? '200px' : '0'};
+    max-height: ${(props: { isExpanded: any; }) => props.isExpanded ? '200px' : '0'};
     overflow: hidden;
     transition: max-height 0.3s ease-in-out;
-    margin-top: ${props => props.isExpanded ? '8px' : '0'};
+    margin-top: ${(props: { isExpanded: any; }) => props.isExpanded ? '8px' : '0'};
 `;
 
 interface DeploymentOptionProps {
