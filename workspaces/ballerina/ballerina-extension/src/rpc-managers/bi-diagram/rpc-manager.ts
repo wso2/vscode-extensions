@@ -541,31 +541,51 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         });
     }
 
-    async handleReadmeContent(params: ReadmeContentRequest): Promise<ReadmeContentResponse> {
-        // console.log(">>> Savineadme.md", params);
-        return new Promise((resolve) => {
-            const projectUri = StateMachine.context().projectUri;
-            const readmePath = path.join(projectUri, README_FILE);
+      async handleReadmeContent(params: ReadmeContentRequest): Promise<ReadmeContentResponse> {
+        const projectUri = StateMachine.context().projectUri;
+
+        if (extension.isWebMode) {
+            // ===== WEB EXTENSION (vscode.workspace.fs) =====
+            const readmeUri = vscode.Uri.joinPath(vscode.Uri.parse(projectUri), README_FILE);
             if (params.read) {
-                if (!fs.existsSync(readmePath)) {
-                    resolve({ content: "" });
-                } else {
-                    const content = fs.readFileSync(readmePath, "utf8");
-                    console.log(">>> Read content:", content);
-                    resolve({ content });
+                try {
+                    const fileData = await vscode.workspace.fs.readFile(readmeUri);
+                    const content = new TextDecoder().decode(fileData);
+                    console.log(">>> Read content (Web):", content);
+                    return { content };
+                } catch (error) {
+                    if (error instanceof vscode.FileSystemError && error.code === 'Unknown') {
+                        return { content: "" };
+                    }
+                    throw error;
                 }
             } else {
-                if (!fs.existsSync(readmePath)) {
-                    fs.writeFileSync(readmePath, params.content);
-                    console.log(">>> Created and saved readme.md with content:", params.content);
+                const contentBytes = new TextEncoder().encode(params.content);
+                await vscode.workspace.fs.writeFile(readmeUri, contentBytes);
+                console.log(">>> Saved readme.md (Web):", params.content);
+                return { content: params.content };
+            }
+        } else {
+            // ===== DESKTOP EXTENSION (Node.js fs) =====
+            const readmePath = path.join(projectUri, README_FILE); // Convert URI to filesystem path
+
+            return new Promise((resolve) => {
+                if (params.read) {
+                    if (!fs.existsSync(readmePath)) {
+                        resolve({ content: "" });
+                    } else {
+                        const content = fs.readFileSync(readmePath, "utf8");
+                        console.log(">>> Read content (Desktop):", content);
+                        resolve({ content });
+                    }
                 } else {
                     fs.writeFileSync(readmePath, params.content);
-                    console.log(">>> Updated readme.md with content:", params.content);
+                    console.log(">>> Saved readme.md (Desktop):", params.content);
+                    resolve({ content: params.content });
                 }
-            }
-        });
+            });
+        }
     }
-
     async getExpressionCompletions(params: ExpressionCompletionsRequest): Promise<ExpressionCompletionsResponse> {
         return new Promise((resolve, reject) => {
             if (!params.filePath) {
