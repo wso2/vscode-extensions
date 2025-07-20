@@ -28,11 +28,15 @@ export function activateSubscriptions() {
     const context = extension.context;
     context.subscriptions.push(
         vscode.commands.registerCommand(PALETTE_COMMANDS.SHOW_SOURCE, () => {
-            const path = StateMachine.context().documentUri;
+            let path = StateMachine.context().documentUri;
+            if(extension.isWebMode && !path.startsWith("web-bala:"))
+            {
+                 path = `web-bala:${path}`;
+            }
             if (!path) {
                 return;
             }
-            vscode.window.showTextDocument(vscode.Uri.file(path), { viewColumn: ViewColumn.Beside });
+            vscode.window.showTextDocument(extension.isWebMode ? vscode.Uri.parse(path) : vscode.Uri.file(path), { viewColumn: ViewColumn.Beside });
         })
     );
 
