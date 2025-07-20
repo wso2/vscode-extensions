@@ -98,9 +98,7 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
             const context = StateMachine.context();
             try {
                 const projectDir = extension.isWebMode ? context.projectUri : path.join(StateMachine.context().projectUri);
-                const targetFile = extension.isWebMode
-                    ? Uri.joinPath(Uri.parse(projectDir), 'main.bal').toString()
-                    : path.join(projectDir, 'main.bal');
+                const targetFile = extension.isWebMode ? Uri.joinPath(Uri.parse(projectDir), 'main.bal').toString() : path.join(projectDir, 'main.bal');
                 this.ensureFileExists(targetFile);
                 params.filePath = targetFile;
                 const res: ListenersResponse = await context.langClient.getListeners(params);
@@ -164,8 +162,8 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
         return new Promise(async (resolve) => {
             const context = StateMachine.context();
             try {
-                const projectDir = path.join(StateMachine.context().projectUri);
-                const targetFile = path.join(projectDir, `main.bal`);
+                const projectDir = context.projectUri;
+                const targetFile = extension.isWebMode ? Uri.joinPath(Uri.parse(projectDir), 'main.bal').toString() : path.join(projectDir, 'main.bal');
                 this.ensureFileExists(targetFile);
                 params.filePath = targetFile;
                 const res: ListenerSourceCodeResponse = await context.langClient.updateListenerSourceCode(params);
@@ -184,8 +182,8 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
         return new Promise(async (resolve) => {
             const context = StateMachine.context();
             try {
-                const projectDir = extension.isWebMode ? context.projectUri : path.join(StateMachine.context().projectUri);
-                const targetFile = extension.isWebMode ? Uri.joinPath(Uri.parse(projectDir), 'main.bal').toString() : path.join(projectDir, 'main.bal');
+                 const projectDir = context.projectUri;
+                 const targetFile = extension.isWebMode ? Uri.joinPath(Uri.parse(projectDir), 'main.bal').toString() : path.join(projectDir, 'main.bal');
                 this.ensureFileExists(targetFile);
                 params.filePath = targetFile;
                 const res: ServiceModelResponse = await context.langClient.getServiceModel(params);
@@ -200,7 +198,7 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
         return new Promise(async (resolve) => {
             const context = StateMachine.context();
             try {
-                const projectDir = extension.isWebMode ? context.projectUri : path.join(StateMachine.context().projectUri);
+                const projectDir = context.projectUri;
                 const targetFile = extension.isWebMode ? Uri.joinPath(Uri.parse(projectDir), 'main.bal').toString() : path.join(projectDir, 'main.bal');
                 this.ensureFileExists(targetFile);
                 params.filePath = targetFile;
@@ -239,7 +237,7 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
         return new Promise(async (resolve) => {
             const context = StateMachine.context();
             try {
-                const projectDir = extension.isWebMode ? context.projectUri : path.join(StateMachine.context().projectUri);
+                const projectDir = context.projectUri;
                 const targetFile = extension.isWebMode ? Uri.joinPath(Uri.parse(projectDir), 'main.bal').toString() : path.join(projectDir, 'main.bal');
                 this.ensureFileExists(targetFile);
                 params.filePath = targetFile;
@@ -296,7 +294,7 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
         return new Promise(async (resolve) => {
             const context = StateMachine.context();
             try {
-                const projectDir = extension.isWebMode ? context.projectUri : path.join(StateMachine.context().projectUri);
+                const projectDir = context.projectUri;
                 if (!params.filePath) {
                     const targetFile = extension.isWebMode ? Uri.joinPath(Uri.parse(projectDir), 'main.bal').toString() : path.join(projectDir, 'main.bal');
                     this.ensureFileExists(targetFile);

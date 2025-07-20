@@ -305,7 +305,7 @@ export async function getDefaultFnName(
 ): Promise<string> {
     const completionParams: CompletionParams = {
         textDocument: {
-            uri: URI.file(filePath).toString()
+            uri: URI.parse(filePath).toString()
         },
         position: {
             character: targetPosition.endColumn,
@@ -334,7 +334,7 @@ async function getVirtualDiagnostics(filePath: string,
                                      currentFileContent: string,
                                      newContent: string,
                                      langServerRpcClient: LangClientRpcClient): Promise<Diagnostic[]> {
-    const docUri = URI.file(filePath).toString();
+    const docUri = URI.parse(filePath).toString();
     langServerRpcClient.didChange({
         contentChanges: [
             {

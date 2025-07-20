@@ -58,7 +58,7 @@ export class FunctionDefinitionStore {
         langServerRpcClient: LangClientRpcClient) {
 
         this.fnDefinitions.clear();
-        const fileUri = URI.file(context.currentFile.path).toString();
+        const fileUri = URI.parse(context.currentFile.path).toString();
         const visitor = new FunctionCallFindingVisitor();
         traversNode(stNode, visitor);
 

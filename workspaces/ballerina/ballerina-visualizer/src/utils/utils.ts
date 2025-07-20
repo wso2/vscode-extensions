@@ -115,7 +115,7 @@ export const applyModifications = async (rpcClient: BallerinaRpcClient, modifica
     const { parseSuccess, source: newSource } = await langServerRPCClient?.stModify({
         astModifications: modifications,
         documentIdentifier: {
-            uri: URI.file(filePath).toString(),
+            uri: URI.parse(filePath).toString(),
         },
     });
     if (parseSuccess) {

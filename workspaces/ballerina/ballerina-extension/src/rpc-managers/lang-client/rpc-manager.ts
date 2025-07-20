@@ -56,11 +56,12 @@ import {
     UpdateFileContentRequest,
     UpdateFileContentResponse
 } from "@wso2/ballerina-core";
-import { workspace } from "vscode";
+import { workspace,Uri } from "vscode";
 import { URI } from "vscode-uri";
 import { ballerinaExtInstance } from "../../core";
 import { StateMachine } from "../../stateMachine";
 import { modifyFileContent } from "../../utils/modification";
+import { extension } from "src/BalExtensionContext";
 
 export class LangClientRpcManager implements LangClientAPI {
     
@@ -68,7 +69,7 @@ export class LangClientRpcManager implements LangClientAPI {
         return new Promise(async (resolve) => {
             const context = StateMachine.context();
             const req: BallerinaSTParams = {
-                documentIdentifier: { uri: URI.file(context.documentUri).toString() },
+                documentIdentifier: { uri: extension.isWebMode ? Uri.parse(context.documentUri).toString() : URI.file(context.documentUri).toString()},
                 lineRange: {
                     start: {
                         line: context.position.startLine,
