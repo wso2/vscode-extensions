@@ -32,6 +32,7 @@ export type HelperPaneProps = {
     onClose: () => void;
     onChange: (value: string) => void;
     addFunction?: (value: string) => void;
+    artifactPath?: string;
     sx?: CSSProperties;
 };
 
@@ -46,9 +47,9 @@ export const PAGE = {
 
 export type Page = (typeof PAGE)[keyof typeof PAGE];
 
-const HelperPaneEl = ({ position, helperPaneHeight, sx, onClose, onChange, addFunction }: HelperPaneProps) => {
+const HelperPaneEl = ({ position, helperPaneHeight, sx, onClose, onChange, addFunction, artifactPath }: HelperPaneProps) => {
     const [currentPage, setCurrentPage] = useState<Page>(PAGE.CATEGORY);
-
+    
     return (
         <HelperPane helperPaneHeight={helperPaneHeight} sx={{ ' *': { boxSizing: 'border-box' }, ...sx }}>
             {currentPage === PAGE.CATEGORY && (
@@ -58,6 +59,7 @@ const HelperPaneEl = ({ position, helperPaneHeight, sx, onClose, onChange, addFu
                     onClose={onClose}
                     onChange={onChange}
                     addFunction={addFunction}
+                    artifactPath={artifactPath}
                 />
             )}
             {currentPage === PAGE.PAYLOAD && (
@@ -66,6 +68,7 @@ const HelperPaneEl = ({ position, helperPaneHeight, sx, onClose, onChange, addFu
                     setCurrentPage={setCurrentPage}
                     onClose={onClose}
                     onChange={onChange}
+                    artifactPath={artifactPath}
                 />
             )}
             {currentPage === PAGE.VARIABLES && (
@@ -74,6 +77,7 @@ const HelperPaneEl = ({ position, helperPaneHeight, sx, onClose, onChange, addFu
                     setCurrentPage={setCurrentPage}
                     onClose={onClose}
                     onChange={onChange}
+                    artifactPath={artifactPath}
                 />
             )}
             {currentPage === PAGE.HEADERS && (
@@ -82,10 +86,17 @@ const HelperPaneEl = ({ position, helperPaneHeight, sx, onClose, onChange, addFu
                     setCurrentPage={setCurrentPage}
                     onClose={onClose}
                     onChange={onChange}
+                    artifactPath={artifactPath}
                 />
             )}
             {currentPage === PAGE.PARAMS && (
-                <ParamsPage position={position} setCurrentPage={setCurrentPage} onClose={onClose} onChange={onChange} />
+                <ParamsPage 
+                    position={position} 
+                    setCurrentPage={setCurrentPage} 
+                    onClose={onClose} 
+                    onChange={onChange}
+                    artifactPath={artifactPath}
+                />
             )}
             {currentPage === PAGE.PROPERTIES && (
                 <PropertiesPage
@@ -93,6 +104,7 @@ const HelperPaneEl = ({ position, helperPaneHeight, sx, onClose, onChange, addFu
                     setCurrentPage={setCurrentPage}
                     onClose={onClose}
                     onChange={onChange}
+                    artifactPath={artifactPath}
                 />
             )}
         </HelperPane>
@@ -104,6 +116,7 @@ export const getHelperPane = (
     helperPaneHeight: HelperPaneHeight,
     onClose: () => void,
     onChange: (value: string) => void,
+    artifactPath?: string,
     addFunction?: (value: string) => void,
     sx?: CSSProperties
 ) => {
@@ -115,6 +128,7 @@ export const getHelperPane = (
             onClose={onClose}
             onChange={onChange}
             addFunction={addFunction}
+            artifactPath={artifactPath}
         />
     );
 };

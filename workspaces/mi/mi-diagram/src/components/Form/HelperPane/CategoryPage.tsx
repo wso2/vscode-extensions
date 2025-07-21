@@ -16,15 +16,17 @@
  * under the License.
  */
 
-import React from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Position } from 'vscode-languageserver-types';
 import { Divider, HelperPane } from '@wso2/ui-toolkit';
 import { FunctionsPage } from './FunctionsPage';
 import { ConfigsPage } from './ConfigsPage';
 import { PAGE, Page } from './index';
+import { useVisualizerContext } from '@wso2/mi-rpc-client';
 
 type PanelPageProps = {
     setCurrentPage: (page: Page) => void;
+    helperPaneResponse?: any;
 };
 
 type CategoryPageProps = {
@@ -33,9 +35,10 @@ type CategoryPageProps = {
     onClose: () => void;
     onChange: (value: string) => void;
     addFunction?: (value: string) => void;
+    artifactPath?: string;
 };
 
-const DataPanel = ({ setCurrentPage }: PanelPageProps) => {
+const DataPanel = ({ setCurrentPage, helperPaneResponse }: PanelPageProps) => {
     return (
         <>
             <HelperPane.CategoryItem label="Payload" onClick={() => setCurrentPage(PAGE.PAYLOAD)} />
@@ -52,24 +55,63 @@ export const CategoryPage = ({
     position,
     setCurrentPage,
     onChange,
-    addFunction
+    addFunction,
+    artifactPath
 }: CategoryPageProps) => {
+    const { rpcClient } = useVisualizerContext();
+    const [helperPaneResponse, setHelperPaneResponse] = useState<any>(null);
+
+    const getHelperPaneInfo = useCallback(() => {
+        rpcClient.getVisualizerState().then((machineView) => {
+             let requestBody;
+                const documentUri = artifactPath ? artifactPath : machineView.documentUri;
+
+                if (machineView.documentUri.includes('src/test/')) {
+                    requestBody = {
+                        documentUri: documentUri,
+                        position: {line: 0, character: 0 },
+                        needLastMediator: true
+                    }
+                }else{
+                    requestBody = {
+                        documentUri: documentUri,
+                        position: position
+                    }
+                }
+            rpcClient
+                .getMiDiagramRpcClient()
+                .getHelperPaneInfo(requestBody)
+                .then((response) => {
+                    console.log('Response from getHelperPaneInfo:', response);
+                    setHelperPaneResponse(response);
+                });
+        });
+    }, [rpcClient, position, artifactPath]);
+
+    useEffect(() => {
+        getHelperPaneInfo();
+    }, [getHelperPaneInfo]);
+
     return (
         <>
             <HelperPane.Body>
                 <HelperPane.Panels>
                     <HelperPane.PanelTab id={0} title="Data" />
                     <HelperPane.PanelTab id={1} title="Functions" />
-                    <HelperPane.PanelTab id={2} title="Configs" />
+                    {helperPaneResponse?.configs && helperPaneResponse.configs.length > 0 && (
+                        <HelperPane.PanelTab id={2} title="Configs" />
+                    )}
                     <HelperPane.PanelView id={0}>
-                        <DataPanel setCurrentPage={setCurrentPage} />
+                        <DataPanel setCurrentPage={setCurrentPage} helperPaneResponse={helperPaneResponse} />
                     </HelperPane.PanelView>
                     <HelperPane.PanelView id={1}>
-                        <FunctionsPage position={position} onChange={onChange} addFunction={addFunction} />
+                        <FunctionsPage position={position} onChange={onChange} addFunction={addFunction} artifactPath={artifactPath} />
                     </HelperPane.PanelView>
-                    <HelperPane.PanelView id={2}>
-                        <ConfigsPage position={position} onChange={onChange} />
-                    </HelperPane.PanelView>
+                    {helperPaneResponse?.configs && helperPaneResponse.configs.length > 0 && (
+                        <HelperPane.PanelView id={2}>
+                            <ConfigsPage position={position} onChange={onChange} artifactPath={artifactPath} />
+                        </HelperPane.PanelView>
+                    )}
                 </HelperPane.Panels>
             </HelperPane.Body>
         </>

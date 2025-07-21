@@ -30,13 +30,15 @@ type PropertiesPageProps = {
     setCurrentPage: (page: Page) => void;
     onClose: () => void;
     onChange: (value: string) => void;
+    artifactPath?: string;
 };
 
 export const PropertiesPage = ({
     position,
     setCurrentPage,
     onClose,
-    onChange
+    onChange,
+    artifactPath
 }: PropertiesPageProps) => {
     const { rpcClient } = useVisualizerContext();
     const firstRender = useRef<boolean>(true);
@@ -49,12 +51,24 @@ export const PropertiesPage = ({
         setIsLoading(true);
         setTimeout(() => {
             rpcClient.getVisualizerState().then((machineView) => {
+                let requestBody;
+                const documentUri = artifactPath ? artifactPath : machineView.documentUri;
+
+                if (machineView.documentUri.includes('src/test/')) {
+                    requestBody = {
+                        documentUri: documentUri,
+                        position: {line: 0, character: 0 },
+                        needLastMediator: true
+                    }
+                }else{
+                    requestBody = {
+                        documentUri: documentUri,
+                        position: position
+                    }
+                }
                 rpcClient
                     .getMiDiagramRpcClient()
-                    .getHelperPaneInfo({
-                        documentUri: machineView.documentUri,
-                        position: position,
-                    })
+                    .getHelperPaneInfo(requestBody)
                     .then((response) => {
                         if (response.properties?.length) {
                             setPropertiesInfo(response.properties);

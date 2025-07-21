@@ -91,6 +91,8 @@ type FormExpressionFieldProps = {
     nodeRange: Range;
     canChange: boolean;
     supportsAIValues?: boolean;
+    artifactPath?: string;
+    artifactType?: string;
     onChange: (value: FormExpressionFieldValue) => void;
     onFocus?: (e?: any) => void | Promise<void>;
     onBlur?: (e?: any) => void | Promise<void>;
@@ -173,6 +175,8 @@ export const FormExpressionField = (params: FormExpressionFieldProps) => {
         nodeRange,
         canChange,
         supportsAIValues,
+        artifactPath,
+        artifactType,
         onChange,
         onCancel,
         errorMsg,
@@ -246,6 +250,10 @@ export const FormExpressionField = (params: FormExpressionFieldProps) => {
     };
 
     const handleChangeHelperPaneState = (isOpen: boolean) => {
+        // Prevent opening helper pane if artifact type is API
+        if (isOpen && artifactType === "API") {
+            return;
+        }
         setIsHelperPaneOpen(isOpen);
     }
 
@@ -269,12 +277,18 @@ export const FormExpressionField = (params: FormExpressionFieldProps) => {
             nodeRange?.start == nodeRange?.end
                 ? nodeRange.start
                 : { line: nodeRange.start.line, character: nodeRange.start.character + 1 } : undefined;
-
+        
+        // Don't return helper pane if artifact type is API
+        if (artifactType === "API") {
+            return null;
+        }
+        
         return getHelperPane(
             position,
             'default',
             () => handleChangeHelperPaneState(false),
-            handleHelperPaneChange
+            handleHelperPaneChange,
+            artifactPath
         );
     }, [expressionRef.current, handleChangeHelperPaneState, nodeRange, getHelperPane]);
 
@@ -347,7 +361,7 @@ export const FormExpressionField = (params: FormExpressionFieldProps) => {
                     }
                 ]
                 : []),
-            ...(value.isExpression
+            ...(value.isExpression && artifactType !== "API"
                 ? [
                     {
                         tooltip: 'Open Helper Pane',
@@ -368,7 +382,8 @@ export const FormExpressionField = (params: FormExpressionFieldProps) => {
         expressionRef.current,
         handleChangeHelperPaneState,
         openExpressionEditor,
-        onChange
+        onChange,
+        artifactType
     ]);
 
     const expressionValue = useMemo(() => {
@@ -403,7 +418,7 @@ export const FormExpressionField = (params: FormExpressionFieldProps) => {
                         onCancel={handleCancel}
                         getExpressionEditorIcon={handleGetExpressionEditorIcon}
                         actionButtons={actionButtons}
-                        {...(value.isExpression && {
+                        {...(value.isExpression && artifactType !== "API" && {
                             completions,
                             isHelperPaneOpen,
                             changeHelperPaneState: handleChangeHelperPaneState,
