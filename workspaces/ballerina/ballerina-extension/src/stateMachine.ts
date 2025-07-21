@@ -274,12 +274,14 @@ const stateMachine = createMachine<MachineContext>(
                         history = new History();
                         undoRedoManager = new UndoRedoManager();
                         const webview = VisualizerWebview.currentPanel?.getWebview();
-                        if (webview && (context.isBI || context.view === MACHINE_VIEW.BIWelcome)) {
+                        if(!extension.isWebMode) {
+                            if (webview && (context.isBI || context.view === MACHINE_VIEW.BIWelcome)) {
                             const biExtension = extensions.getExtension('wso2.ballerina-integrator');
                             webview.iconPath = {
                                 light: Uri.file(path.join(extension.context.extensionPath, 'resources', 'icons', biExtension ? 'light-icon.svg' : 'ballerina.svg')),
                                 dark: Uri.file(path.join(extension.context.extensionPath, 'resources', 'icons', biExtension ? 'dark-icon.svg' : 'ballerina-inverse.svg'))
                             };
+                        }
                         }
                         resolve(true);
                     });
@@ -586,6 +588,9 @@ function getProjectUriForArtifacts():string {
 }
 //get project uri for a given file path
 function getProjectUri(filePath: string) : string {
+     if(extension.isWebMode && !filePath.startsWith('web-bala:')) {
+        filePath= `web-bala:${filePath}`;
+    }
     console.log("parameter file path",filePath);
     const workspaceFolders = workspace.workspaceFolders;
     console.log("workspace folders: ", workspaceFolders);

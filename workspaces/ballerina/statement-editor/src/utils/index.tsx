@@ -1314,3 +1314,7 @@ function findExactMatches(text: string, pattern: string): RegExpMatchArray {
     const regex = new RegExp(escapedPattern, 'g');
     return text.match(regex);
 }
+
+export function isWebMode(): boolean {
+  return typeof window !== 'undefined' && window.location.protocol.startsWith('http');
+}

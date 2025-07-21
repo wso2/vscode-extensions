@@ -2341,6 +2341,15 @@ importers:
       '@wso2/font-wso2-vscode':
         specifier: workspace:*
         version: link:../../common-libs/font-wso2-vscode
+      buffer:
+        specifier: ^6.0.3
+        version: 6.0.3
+      process:
+        specifier: ~0.11.10
+        version: 0.11.10
+      stream-browserify:
+        specifier: ^3.0.0
+        version: 3.0.0
       xstate:
         specifier: ^4.38.3
         version: 4.38.3
@@ -2366,6 +2375,9 @@ importers:
       '@vscode/test-electron':
         specifier: ^2.5.2
         version: 2.5.2
+      '@vscode/test-web':
+        specifier: ~0.0.71
+        version: 0.0.71
       '@vscode/vsce':
         specifier: ^3.4.0
         version: 3.4.2
@@ -20603,6 +20615,9 @@ packages:
 
   stream-browserify@2.0.2:
     resolution: {integrity: sha512-nX6hmklHs/gr2FuxYDltq8fJA1GDlxKQCz8O/IM4atRqBH8OORmBNgfvW5gG10GT/qQ9u0CzIvr2X5Pkt6ntqg==}
+
+  stream-browserify@3.0.0:
+    resolution: {integrity: sha512-H73RAHsVBapbim0tU2JwwOiXUj+fikfiaoYAKHF3VJfA0pe2BCzkhAHBlLG6REzE+2WNZcxOXjK7lkso+9euLA==}
 
   stream-each@1.2.3:
     resolution: {integrity: sha512-vlMC2f8I2u/bZGqkdfLQW/13Zihpej/7PmSiMQsbYddxuTsJp8vRe2x2FvVExZg7FaOds43ROAuFJwPR4MTZLw==}
@@ -48730,6 +48745,11 @@ snapshots:
     dependencies:
       inherits: 2.0.4
       readable-stream: 2.3.8
+
+  stream-browserify@3.0.0:
+    dependencies:
+      inherits: 2.0.4
+      readable-stream: 3.6.2
 
   stream-each@1.2.3:
     dependencies:

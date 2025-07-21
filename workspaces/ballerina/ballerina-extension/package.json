@@ -1065,6 +1065,7 @@
     },
     "main": "./dist/extension",
     "browser": "./dist/web/extension.js",
+    "extensionKind": ["workspace"],
     "scripts": {
         "clean": "del-cli ./dist ./out ./ballerina-*.vsix ./coverage ./.nyc_output",
         "compile": "webpack --mode production",
@@ -1089,6 +1090,7 @@
         "compile-web": "webpack --mode development --devtool source-map",
         "watch-web": "webpack --watch",
         "package-web": "webpack --mode development --devtool source-map",
+        "package-vsix": "vsce package --no-dependencies",
         "test-web": "npx @vscode/test-web --extensionDevelopmentPath=. --browserType=chromium",
         "build-web": "pnpm run package-web && mkdir -p ../../../dist/web-ballerina && unzip *.vsix -d ../../../dist/web-ballerina",
         "start-web": "pnpm run compile-web && pnpm run test-web && pnpm run watch-ballerina"

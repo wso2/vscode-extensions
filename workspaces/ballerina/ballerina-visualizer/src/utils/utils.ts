@@ -115,7 +115,7 @@ export const applyModifications = async (rpcClient: BallerinaRpcClient, modifica
     const { parseSuccess, source: newSource } = await langServerRPCClient?.stModify({
         astModifications: modifications,
         documentIdentifier: {
-            uri: URI.parse(filePath).toString(),
+            uri: isWebMode?URI.parse(filePath).toString():URI.file(filePath).toString(),
         },
     });
     if (parseSuccess) {
@@ -227,3 +227,7 @@ export const isPositionChanged = (prev: NodePosition, current: NodePosition) => 
         prev.endLine !== current.endLine ||
         prev.endColumn !== current.endColumn;
 };
+
+function isWebMode(): boolean {
+  return typeof window !== 'undefined' && window.location.protocol.startsWith('http');
+}

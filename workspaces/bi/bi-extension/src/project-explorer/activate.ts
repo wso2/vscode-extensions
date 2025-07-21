@@ -28,6 +28,10 @@ interface ExplorerActivationConfig {
 	isMultiRoot?: boolean;
 }
 
+export function isWebMode():boolean{
+	return typeof window !== "undefined" && !!(window as any).vscodeWebExtension;
+}
+
 export function activateProjectExplorer(config: ExplorerActivationConfig) {
 	const { context, isBI, isBallerina, isMultiRoot } = config;
 
@@ -66,6 +70,8 @@ function handleVisibilityChangeEvents(tree: TreeView<ProjectExplorerEntry>, data
 }
 
 async function handleVisibilityChange(res: { visible: boolean }, dataProvider: ProjectExplorerEntryProvider, isBallerina?: boolean) {
+	commands.executeCommand(SHARED_COMMANDS.SHOW_VISUALIZER);
+	handleNonBallerinaVisibility();
 	if (res.visible) {
 		if (isBallerina && extension.biSupported) {
 			commands.executeCommand(SHARED_COMMANDS.SHOW_VISUALIZER);
@@ -89,7 +95,6 @@ function handleNonBallerinaVisibility() {
 	}
 	commands.executeCommand(SHARED_COMMANDS.OPEN_BI_WELCOME);
 }
-
 function registerBICommands(isMultiRoot?: boolean) {
 	commands.executeCommand(BI_COMMANDS.FOCUS_PROJECT_EXPLORER);
 	commands.executeCommand(SHARED_COMMANDS.SHOW_VISUALIZER);

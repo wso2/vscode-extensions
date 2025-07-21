@@ -21,7 +21,7 @@ import * as path from "path";
 import { Uri, ViewColumn, Webview } from "vscode";
 import { RPCLayer } from "../../RPCLayer";
 import { debounce } from "lodash";
-import { WebViewOptions, getComposerWebViewOptions, getLibraryWebViewContent } from "../../utils/webview-utils";
+import { WebViewOptions, getComposerWebViewOptions, getLibraryWebViewContent, getCommonWebViewOptions } from "../../utils/webview-utils";
 import { extension } from "../../BalExtensionContext";
 import { StateMachine, updateView } from "../../stateMachine";
 import { LANGUAGE } from "../../core";
@@ -91,16 +91,17 @@ export class VisualizerWebview {
             VisualizerWebview.webviewTitle,
             { viewColumn: ViewColumn.Active, preserveFocus: true },
             {
-                enableScripts: true,
-                localResourceRoots: [Uri.file(path.join(extension.context.extensionPath, "resources"))],
+                ...getCommonWebViewOptions(),
                 retainContextWhenHidden: true,
             }
         );
-        // Use BI icons if in web mode, or if BI extension is present in desktop
-        const useBiIcons = extension.isWebMode || vscode.extensions.getExtension('wso2.ballerina-integrator');
-        panel.iconPath = {
-            light: vscode.Uri.joinPath(extension.context.extensionUri, 'resources', 'icons', useBiIcons ? 'light-icon.svg' : 'ballerina.svg'),
-            dark: vscode.Uri.joinPath(extension.context.extensionUri, 'resources', 'icons', useBiIcons ? 'dark-icon.svg' : 'ballerina-inverse.svg')
+        const biExtension = vscode.extensions.getExtension('wso2.ballerina-integrator');
+        panel.iconPath =extension.isWebMode? {
+            light: vscode.Uri.joinPath(extension.context.extensionUri, 'resources', 'icons', biExtension ? 'light-icon.svg' : 'ballerina.svg'),
+            dark: vscode.Uri.joinPath(extension.context.extensionUri, 'resources', 'icons', biExtension ? 'dark-icon.svg' : 'ballerina-inverse.svg')
+        }: {
+            light: vscode.Uri.file(path.join(extension.context.extensionPath, 'resources', 'icons', biExtension ? 'light-icon.svg' : 'ballerina.svg')),
+            dark: vscode.Uri.file(path.join(extension.context.extensionPath, 'resources', 'icons', biExtension ? 'dark-icon.svg' : 'ballerina-inverse.svg'))
         };
         return panel;
     }

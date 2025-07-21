@@ -15,12 +15,12 @@
         "Other"
     ],
     "activationEvents": [
-        "workspaceContains:**/Ballerina.toml"
+        "workspaceContains:**/Ballerina.toml",
+        "*"
     ],
     "main": "./out/extension",
-    "extensionDependencies": [
-        "wso2.ballerina"
-    ],
+    "browser": "./dist/web/extension.js",
+    "enabledApiProposals": ["treeViewActiveItem"],
     "contributes": {
         "viewsContainers": {
             "activitybar": [
@@ -158,40 +158,44 @@
         "test": "node ./out/test/runTest.js",
         "build": "pnpm run compile && pnpm run lint && pnpm run postbuild",
         "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release; else vsce package --no-dependencies; fi",
-        "copyFonts": "copyfiles -f ./node_modules/@wso2/font-wso2-vscode/dist/* ./resources/font-wso2-vscode/dist/",
+        "copyFonts": "copyfiles -f ./node_modules/@wso2-enterprise/font-wso2-vscode/dist/* ./resources/font-wso2-vscode/dist/",
         "rebuild": "pnpm run clean && pnpm run compile && pnpm run postbuild",
         "postbuild": "pnpm run copyFonts && pnpm run package && pnpm run copyVSIX",
         "copyVSIX": "copyfiles *.vsix ./vsix",
         "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../..",
-        "compile-tests": "tsc -p .",
-        "copy-balerina-ext": "copyfiles -f ../../ballerina/ballerina-extension/vsix/* ./vsix",
-        "e2e-test": "pnpm run copy-balerina-ext && pnpm run compile-tests && pnpm exec playwright test"
+        "package-web": "webpack --mode development --devtool source-map",
+        "test-web": "npx @vscode/test-web --extensionDevelopmentPath=. --extensionPath=../../../dist/web-ballerina/extension --browser=chromium",
+        "build-web": "pnpm run package-web",
+        "start-web": "pnpm run compile-web && pnpm run test-web",
+        "compile-web": "webpack --mode development --devtool source-map"
     },
     "dependencies": {
         "@wso2/ballerina-core": "workspace:*",
         "@wso2/font-wso2-vscode": "workspace:*",
+        "buffer": "^6.0.3",
+        "process": "~0.11.10",
+        "stream-browserify": "^3.0.0",
         "xstate": "^4.38.3"
     },
     "devDependencies": {
-        "@vscode/vsce": "^3.4.0",
-        "@types/vscode": "^1.84.0",
         "@types/mocha": "^10.0.3",
-        "@types/node": "22.15.18",
-        "@typescript-eslint/eslint-plugin": "^6.21.0",
-        "@typescript-eslint/parser": "^8.32.1",
-        "@vscode/test-electron": "^2.5.2",
-        "eslint": "^8.57.1",
-        "glob": "^11.0.2",
-        "mocha": "^11.2.2",
-        "typescript": "5.8.3",
+        "@types/node": "18.x",
+        "@types/vscode": "^1.84.0",
+        "@typescript-eslint/eslint-plugin": "^6.9.0",
+        "@typescript-eslint/parser": "^6.9.0",
+        "@vscode/test-electron": "^2.3.6",
+        "@vscode/test-web": "~0.0.69",
+        "@vscode/vsce": "^2.22.0",
+        "copy-webpack-plugin": "^11.0.0",
         "copyfiles": "^2.4.1",
-        "copy-webpack-plugin": "^13.0.0",
+        "eslint": "^8.52.0",
+        "glob": "^10.3.10",
+        "mocha": "^10.2.0",
         "source-map-support": "^0.5.21",
-        "ts-loader": "^9.5.2",
-        "webpack": "^5.99.8",
-        "webpack-cli": "^6.0.1",
-        "webpack-permissions-plugin": "^1.0.9",
-        "@playwright/test": "~1.52.0",
-        "@wso2/playwright-vscode-tester": "workspace:*"
+        "ts-loader": "^9.4.1",
+        "typescript": "^5.2.2",
+        "webpack": "^5.56.0",
+        "webpack-cli": "^4.10.0",
+        "webpack-permissions-plugin": "^1.0.9"
     }
 }

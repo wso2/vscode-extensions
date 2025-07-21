@@ -117,7 +117,8 @@ export async function activate(context: ExtensionContext) {
     // Wait for the ballerina extension to be ready
     await StateMachine.initialize();
     // Then return the ballerina extension context
-    return { ballerinaExtInstance, projectPath: StateMachine.context().projectUri };
+    return { ballerinaExtInstance, projectPath: StateMachine.context().projectUri, isWebMode: extension.isWebMode,
+ };
 }
 
 export async function activateBallerina(): Promise<BallerinaExtension> {
