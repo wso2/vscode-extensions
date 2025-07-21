@@ -430,6 +430,7 @@ jobs:
           rush-install: true
 
       - name: Check for previous test results
+        shell: bash
         if: github.run_attempt > 1
         run: |
           PREVIOUS_ATTEMPT=$((${{ github.run_attempt }} - 1))
@@ -445,6 +446,7 @@ jobs:
           path: workspaces/mi/mi-extension/test-results
 
       - name: install packages
+        shell: bash
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             cd workspaces/mi/mi-extension && npx playwright install --with-deps    
@@ -459,6 +461,7 @@ jobs:
           fi
           
       - name: Run Tests (First Attempt)
+        shell: bash
         if: github.run_attempt == 1 || steps.check-results.outcome == 'failure'
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
@@ -471,6 +474,7 @@ jobs:
           fi
 
       - name: Run Failed Tests (Re-run)
+        shell: bash
         if: github.run_attempt > 1 && steps.check-results.outcome == 'success'
         run: |
           if [[ "$RUNNER_OS" == "Windows" || "$RUNNER_OS" == "macOS" ]]; then
