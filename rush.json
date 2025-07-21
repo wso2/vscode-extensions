@@ -596,6 +596,11 @@
       "projectFolder": "workspaces/ballerina/inline-data-mapper",
       "versionPolicyName": "ballerina-extension"
     },
+    {
+      "packageName": "bi-web-extension-server",
+      "projectFolder": "workspaces/ballerina/bi-web-server",
+      "versionPolicyName": "bi-web-server"
+    }
     // {
     //   "packageName": "@wso2/api-designer-core",
     //   "projectFolder": "workspaces/api-designer/api-designer-core"

@@ -80,3 +80,4 @@ extensions.json
 
 #vscode-web
 .vscode-test-web/
+**/repos
