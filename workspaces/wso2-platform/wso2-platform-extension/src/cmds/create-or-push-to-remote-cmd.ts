@@ -46,9 +46,11 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 						throw new Error("failed to initGit");
 					}
 					const dotGit = await newGit?.getRepositoryDotGit(params.componentPath);
-					const repo = newGit.open(params.componentPath, dotGit);
+					const repoRoot = await newGit?.getRepositoryRoot(params.componentPath);
+					const repo = newGit.open(repoRoot, dotGit);
 
 					await window.withProgress({ title: "Adding changes to be committed...", location: ProgressLocation.Notification }, async () => {
+						await repo.pull();
 						await repo.add(["."]);
 					});
 
