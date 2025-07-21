@@ -401,7 +401,7 @@ jobs:
       fail-fast: false
       matrix:
         group: [group1, group2, group3]
-        os: [ubuntu-latest, windows-latest]
+        os: [windows-latest]
     runs-on: ${{ matrix.os }}    
     steps:
       - name: Restore build
