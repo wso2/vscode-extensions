@@ -37,7 +37,7 @@ import {
 	getTypeOfIntegrationType,
 	parseGitURL,
 } from "@wso2/wso2-platform-core";
-import { type ExtensionContext, ProgressLocation, type QuickPickItem, Uri, commands, window, workspace } from "vscode";
+import { type ExtensionContext, ProgressLocation, type QuickPickItem, Uri, commands, env, window, workspace } from "vscode";
 import { choreoEnvConfig } from "../config";
 import { ext } from "../extensionVariables";
 import { getGitRemotes, getGitRoot } from "../git/util";
@@ -45,7 +45,7 @@ import { authStore } from "../stores/auth-store";
 import { contextStore } from "../stores/context-store";
 import { dataCacheStore } from "../stores/data-cache-store";
 import { webviewStateStore } from "../stores/webview-state-store";
-import { convertFsPathToUriPath, isSamePath, isSubpath, openDirectory } from "../utils";
+import { convertFsPathToUriPath, delay, isSamePath, isSubpath, openDirectory } from "../utils";
 import { showComponentDetailsView } from "../webviews/ComponentDetailsView";
 import { ComponentFormView, type IComponentCreateFormParams } from "../webviews/ComponentFormView";
 import { getUserInfoForCmd, isRpcActive, selectOrg, selectProjectWithCreateNew, setExtensionName } from "./cmd-utils";
@@ -243,7 +243,7 @@ export function createNewComponentCommand(context: ExtensionContext) {
 						organization: selectedOrg!,
 						project: selectedProject!,
 						extensionName: webviewStateStore.getState().state.extensionName,
-						shouldAutoCommit: isGitInitialized === false && webviewStateStore.getState().state.extensionName === "Devant",
+						shouldAutoCommit: isGitInitialized === false && webviewStateStore.getState().state.extensionName === "Devant" && !!process.env.CLOUD_STS_TOKEN,
 						isGitInitialized,
 						initialValues: {
 							type: selectedType,
@@ -292,7 +292,6 @@ export const continueShowCompCreatedNotification = () => {
 		const createCompParams: { org: Organization; project: Project; component: ComponentKind; extensionName: string } = JSON.parse(createdComp);
 		if (createCompParams?.extensionName && createCompParams.org && createCompParams.project && createCompParams.component) {
 			webviewStateStore.getState().setExtensionName(createCompParams?.extensionName as ExtensionName);
-
 			const successMessage = `${createCompParams?.extensionName === "Devant" ? "Integration" : "Component"} '${createCompParams.component.metadata.name}' was successfully created.`;
 			window.showInformationMessage(successMessage, `Open in ${createCompParams?.extensionName}`).then(async (resp) => {
 				if (resp === `Open in ${createCompParams?.extensionName}`) {
@@ -364,32 +363,6 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 
 		const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSubpath(item.uri?.fsPath, createParams.componentDir));
 
-		if (isWithinWorkspace || workspace.workspaceFile) {
-			window.showInformationMessage(successMessage, `Open in ${extensionName}`).then(async (resp) => {
-				if (resp === `Open in ${extensionName}`) {
-					commands.executeCommand(
-						"vscode.open",
-						`${extensionName === "Devant" ? choreoEnvConfig.getDevantUrl() : choreoEnvConfig.getConsoleUrl()}/organizations/${org.handle}/projects/${project.id}/components/${createdComponent.metadata.handler}/overview`,
-					);
-				}
-			});
-		} else {
-			if (extensionName === "Devant") {
-				ext.context.globalState.update("show-comp-created-notification", { org, project, component: createdComponent, extensionName });
-				commands.executeCommand("vscode.openFolder", Uri.file(createParams.componentDir), {
-					forceNewWindow: false,
-				});
-			} else {
-				window.showInformationMessage(`${successMessage} Reload workspace to continue`, { modal: true }, "Continue").then((resp) => {
-					if (resp === "Continue") {
-						commands.executeCommand("vscode.openFolder", Uri.file(createParams.componentDir), {
-							forceNewWindow: false,
-						});
-					}
-				});
-			}
-		}
-
 		if (workspace.workspaceFile) {
 			const workspaceContent: WorkspaceConfig = JSON.parse(readFileSync(workspace.workspaceFile.fsPath, "utf8"));
 			workspaceContent.folders = [
@@ -399,9 +372,33 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 					path: path.normalize(path.relative(path.dirname(workspace.workspaceFile.fsPath), createParams.componentDir)),
 				},
 			];
+		} else if (isWithinWorkspace) {
+			window.showInformationMessage(successMessage, `Open in ${extensionName}`).then(async (resp) => {
+				if (resp === `Open in ${extensionName}`) {
+					commands.executeCommand(
+						"vscode.open",
+						`${extensionName === "Devant" ? choreoEnvConfig.getDevantUrl() : choreoEnvConfig.getConsoleUrl()}/organizations/${org.handle}/projects/${project.id}/components/${createdComponent.metadata.handler}/overview`,
+					);
+				}
+			});
+		} else if (extensionName === "Devant") {
+			await ext.context.globalState.update(
+				"show-comp-created-notification",
+				JSON.stringify({ org, project, component: createdComponent, extensionName }),
+			);
+			await commands.executeCommand("workbench.action.closeAllEditors");
+			workspace.updateWorkspaceFolders(0, 1, { uri: Uri.file(createParams.componentDir) });
 		} else {
-			contextStore.getState().refreshState();
+			window.showInformationMessage(`${successMessage} Reload workspace to continue`, { modal: true }, "Continue").then((resp) => {
+				if (resp === "Continue") {
+					commands.executeCommand("vscode.openFolder", Uri.file(createParams.componentDir), {
+						forceNewWindow: false,
+					});
+				}
+			});
 		}
+
+		contextStore.getState().refreshState();
 	}
 
 	return createdComponent;

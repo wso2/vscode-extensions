@@ -593,21 +593,21 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		}
 		const urlObj = new URL(_repoUrl);
 
-		// todo: this should only happen in code server!
-		// temporarily get the user token from configuration
-		const gitPat = await window.withProgress({ title: `Accessing the repository ${_repoUrl}...`, location: ProgressLocation.Notification }, () =>
-			ext.clients.rpcClient.getGitTokenForRepository({
-				orgId: params.orgId,
-				gitOrg: params.repo.orgName,
-				gitRepo: params.repo.repo,
-			}),
-		);
+		if (process.env.CLOUD_STS_TOKEN) {
+			const gitPat = await window.withProgress({ title: `Accessing the repository ${_repoUrl}...`, location: ProgressLocation.Notification }, () =>
+				ext.clients.rpcClient.getGitTokenForRepository({
+					orgId: params.orgId,
+					gitOrg: params.repo.orgName,
+					gitRepo: params.repo.repo,
+				}),
+			);
 
-		urlObj.username = "x-access-token";
-		urlObj.password = gitPat.token;
+			urlObj.username = "x-access-token";
+			urlObj.password = gitPat.token;
+		}
+		
 		const repoUrl = urlObj.href;
 
-		await delay(1000);
 		const clonedPath = await window.withProgress(
 			{
 				title: `Cloning repository ${params.repo?.orgHandler}/${params.repo.orgName}`,
@@ -651,9 +651,11 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		const repoRoot = await newGit?.getRepositoryRoot(params.dirPath);
 		const dotGit = await newGit?.getRepositoryDotGit(params.dirPath);
 		const repo = newGit.open(repoRoot, dotGit);
-		await repo.add(["."]);
-		await repo.commit(`Add source for new ${extName} ${extName === "Devant" ? "Integration" : "Component"} (${params.componentName})`);
-		await repo.push();
+		await window.withProgress({ title: "Pushing the changes to your remote repository...", location: ProgressLocation.Notification }, async () => {
+			await repo.add(["."]);
+			await repo.commit(`Add source for new ${extName} ${extName === "Devant" ? "Integration" : "Component"} (${params.componentName})`);
+			await repo.push();
+		});
 	});
 
 	// Register Choreo CLL RPC handler

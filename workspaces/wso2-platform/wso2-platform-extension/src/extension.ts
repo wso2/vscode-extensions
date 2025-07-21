@@ -72,7 +72,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			await ext.clients.rpcClient.init();
 			authStore.getState().initAuth();
 			continueCreateComponent();
-			continueShowCompCreatedNotification()
+			continueShowCompCreatedNotification();
 			addTerminalHandlers();
 			context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("*", new ChoreoConfigurationProvider()));
 			activateMcp(context);
