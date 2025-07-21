@@ -32,7 +32,7 @@ import { signInWithAuthCodeCommand } from "./sign-in-with-code-cmd";
 import { signOutCommand } from "./sign-out-cmd";
 import { viewComponentDependencyCommand } from "./view-comp-dependency-cmd";
 import { viewComponentCommand } from "./view-component-cmd";
-import { commitAndPushToGitCommand } from "./create-or-push-to-remote-cmd";
+import { commitAndPushToGitCommand } from "./commit-and-push-to-git-cmd";
 
 export function activateCmds(context: ExtensionContext) {
 	createNewComponentCommand(context);

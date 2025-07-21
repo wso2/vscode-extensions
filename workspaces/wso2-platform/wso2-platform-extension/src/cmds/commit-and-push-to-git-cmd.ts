@@ -20,9 +20,7 @@ import { CommandIds, type ICommitAndPuhCmdParams } from "@wso2/wso2-platform-cor
 import { type ExtensionContext, ProgressLocation, commands, window } from "vscode";
 import { ext } from "../extensionVariables";
 import { contextStore } from "../stores/context-store";
-import { getUserInfoForCmd, isRpcActive, selectOrg, selectProject, setExtensionName } from "./cmd-utils";
-import { webviewStateStore } from "../stores/webview-state-store";
-import { hasDirtyRepo } from "../git/util";
+import { getUserInfoForCmd, isRpcActive, setExtensionName } from "./cmd-utils";
 import { initGit } from "../git/main";
 
 export function commitAndPushToGitCommand(context: ExtensionContext) {
@@ -67,6 +65,7 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 
 					if(!commitMessage){
 						window.showErrorMessage("Commit message is required in order to proceed");
+						return
 					}
 
 					await window.withProgress({ title: "Committing and pushing changes to remove...", location: ProgressLocation.Notification }, async () => {
