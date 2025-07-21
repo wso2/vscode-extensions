@@ -52,6 +52,7 @@ const ButtonPanel = styled.div`
 
 type ConfigsPageProps = {
     position: Position;
+    hideSearch?: boolean;
     onChange: (value: string) => void;
     artifactPath?: string;
 };
@@ -65,7 +66,7 @@ const schema = yup.object({
 
 type ConfigFormData = yup.InferType<typeof schema>;
 
-export const ConfigsPage = ({ position, onChange, artifactPath }: ConfigsPageProps) => {
+export const ConfigsPage = ({ position, onChange, hideSearch, artifactPath }: ConfigsPageProps) => {
     const { rpcClient } = useVisualizerContext();
     const firstRender = useRef<boolean>(true);
     const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -150,10 +151,12 @@ export const ConfigsPage = ({ position, onChange, artifactPath }: ConfigsPagePro
         <>
             {!isFormOpen ? (
                 <>
-                    <HelperPane.Header
-                        searchValue={searchValue}
-                        onSearch={handleSearch}
-                    />
+                    { !hideSearch && (
+                        <HelperPane.Header
+                            searchValue={searchValue}
+                            onSearch={handleSearch}
+                        /> 
+                    )}
                     <HelperPane.Body loading={isLoading}>
                         {filteredConfigInfo?.map((config) => (
                             getHelperPaneCompletionItem(config, onChange, getCompletionItemIcon)

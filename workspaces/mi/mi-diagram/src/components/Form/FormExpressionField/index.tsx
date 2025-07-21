@@ -262,7 +262,6 @@ export const FormExpressionField = (params: FormExpressionFieldProps) => {
             const cursorPosition = expressionRef.current?.shadowRoot?.querySelector('textarea')?.selectionStart;
             const updatedValue = currentValue.slice(0, cursorPosition) + value + currentValue.slice(cursorPosition);
             const updatedCursorPosition = cursorPosition + value.length;
-
             // Update the value in the expression editor
             onChange(updatedValue, updatedCursorPosition);
             // Focus the expression editor
@@ -288,7 +287,11 @@ export const FormExpressionField = (params: FormExpressionFieldProps) => {
             'default',
             () => handleChangeHelperPaneState(false),
             handleHelperPaneChange,
-            artifactPath
+            artifactPath,
+            undefined,
+            undefined,
+            380,
+            false
         );
     }, [expressionRef.current, handleChangeHelperPaneState, nodeRange, getHelperPane]);
 
@@ -406,7 +409,7 @@ export const FormExpressionField = (params: FormExpressionFieldProps) => {
             <div>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                     {!isAIFill && 
-                    <div>
+                    <div style={{ width: '100%' }}>
                     <FormExpressionEditor
                         ref={expressionRef}
                         disabled={disabled}

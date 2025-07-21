@@ -26,6 +26,7 @@ import { filterHelperPaneFunctionCompletionItems } from '../FormExpressionField/
 
 type FunctionsPageProps = {
     position: Position;
+    hideSearch?: boolean;
     onChange: (value: string) => void;
     addFunction?: (value: string) => void;
     artifactPath?: string;
@@ -33,6 +34,7 @@ type FunctionsPageProps = {
 
 export const FunctionsPage = ({
     position,
+    hideSearch = false,
     onChange,
     addFunction,
     artifactPath
@@ -126,10 +128,12 @@ export const FunctionsPage = ({
 
     return (
         <>
-            <HelperPane.Header
-                searchValue={searchValue}
-                onSearch={handleSearch}
-            />
+            { !hideSearch &&
+                <HelperPane.Header
+                    searchValue={searchValue}
+                    onSearch={handleSearch}
+                />
+            }
             <HelperPane.Body loading={isLoading}>
                 {sortedFunctionInfo.map(({ group, items }) => (
                     <HelperPane.Section title={group}>

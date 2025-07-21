@@ -96,12 +96,11 @@ export const FormTokenEditor = ({
         setIsHelperPaneOpen(isOpen);
     }
 
-    const handleGetHelperPane = useCallback((onChange: (value: string) => void, addFunction: (value: string) => void) => {
+    const handleGetHelperPane = useCallback((onChange: (value: string) => void, addFunction: (value: string) => void, height?: number, isFullscreen?: boolean) => {
         const position = nodeRange ?
             nodeRange?.start == nodeRange?.end
                 ? nodeRange.start
                 : { line: nodeRange.start.line, character: nodeRange.start.character + 1 } : undefined;
-
         return getHelperPane(
             position,
             'default',
@@ -109,7 +108,10 @@ export const FormTokenEditor = ({
             onChange,
             undefined, // artifactPath - not available in FormTokenEditorte
             addFunction,
-            { width: 'auto', border: '1px solid var(--dropdown-border)' }
+            { width: 'auto', border: '1px solid var(--dropdown-border)' },
+            height,
+            true,
+            isFullscreen
         );
     }, [nodeRange, handleChangeHelperPaneState, getHelperPane]);
 
@@ -141,6 +143,7 @@ export const FormTokenEditor = ({
                 actionButtons={actionButtons}
                 getHelperPane={handleGetHelperPane}
                 isHelperPaneOpen={isHelperPaneOpen}
+                enableFullscreen
                 changeHelperPaneState={setIsHelperPaneOpen}
                 getExpressionEditorIcon={getExpressionEditorIcon}
                 startAdornment={
