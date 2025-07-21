@@ -50,4 +50,5 @@ export const BI_COMMANDS = {
     BI_ADD_TEST_FUNCTION: 'BI.test.add.function',
     BI_EDIT_TEST_FUNCTION_DEF: 'BI.test.edit.function.def',
     ADD_NATURAL_FUNCTION: 'BI.project-explorer.add-natural-function',
+    DEVANT_PUSH_TO_CLOUD: 'BI.devant.push.cloud'
 };

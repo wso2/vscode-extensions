@@ -28,7 +28,8 @@ import {
     DevantMetadata,
     SHARED_COMMANDS,
     DIRECTORY_MAP,
-    SCOPE
+    SCOPE,
+    findScopeByModule
 } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { Typography, Codicon, ProgressRing, Button, Icon, Divider, CheckBox, ProgressIndicator, Overlay } from "@wso2/ui-toolkit";
@@ -41,7 +42,6 @@ import ReactMarkdown from "react-markdown";
 import { useQuery } from '@tanstack/react-query'
 import { IOpenInConsoleCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
 import { AlertBoxWithClose } from "../../AIPanel/AlertBoxWithClose";
-import { findScopeByModule } from "./utils";
 
 const SpinnerContainer = styled.div`
     display: flex;
