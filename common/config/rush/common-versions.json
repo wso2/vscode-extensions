@@ -24,7 +24,9 @@
      * instead of the latest version.
      */
     // "some-library": "1.2.3"
-    "webpack": "^5.56.0"
+    "webpack": "^5.56.0",
+    "@eslint/plugin-kit": "^0.3.3",
+    "on-headers": "^1.1.0"
   },
 
   /**
