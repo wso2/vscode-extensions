@@ -265,3 +265,8 @@ export interface FeedbackMessage {
     content: string;
     role : string;
 }
+
+export interface DevantTokens {
+    stsToken: string;
+    apiKey: string;
+}

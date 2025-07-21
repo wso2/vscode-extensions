@@ -489,6 +489,32 @@ function IntegrationControlPlane({ enabled, handleICP }: IntegrationControlPlane
     );
 }
 
+function SaveAndDeployToDevantButton({ projectStructure, handleDeploy }: { projectStructure: ProjectStructureResponse, handleDeploy: () => void }) {
+    const { rpcClient } = useRpcContext();
+
+    const handleSaveAndDeployToDevant = () => {
+        handleDeploy();
+    }
+
+    // Check if project has automation or service
+    const hasAutomationOrService = projectStructure?.directoryMap && (
+        (projectStructure.directoryMap.AUTOMATION && projectStructure.directoryMap.AUTOMATION.length > 0) ||
+        (projectStructure.directoryMap.SERVICE && projectStructure.directoryMap.SERVICE.length > 0)
+    );
+
+    // Only render if there's an automation or service
+    if (!hasAutomationOrService) {
+        return null;
+    }
+
+    return (
+        <Button appearance="primary" onClick={handleSaveAndDeployToDevant}>
+            <Codicon name="save" sx={{ marginRight: 8 }} /> Deploy
+        </Button>
+    );
+}
+
+
 interface ComponentDiagramProps {
     projectPath: string;
 }
@@ -851,6 +877,8 @@ export function Overview(props: ComponentDiagramProps) {
         return resp;
     }
 
+    const isDevantEditor = (window as any).isDevantEditor !== undefined ? true : false;
+
     return (
         <PageLayout>
             <HeaderRow>
@@ -859,6 +887,7 @@ export function Overview(props: ComponentDiagramProps) {
                     <ProjectSubtitle>Integration</ProjectSubtitle>
                 </TitleContainer>
                 <HeaderControls>
+                    {isDevantEditor && <SaveAndDeployToDevantButton projectStructure={projectStructure} handleDeploy={handleDeploy}/>}
                     <Button appearance="icon" onClick={handleLocalConfigure} buttonSx={{ padding: "4px 8px" }}>
                         <Codicon name="settings-gear" sx={{ marginRight: 5 }} /> Configure
                     </Button>
@@ -874,7 +903,7 @@ export function Overview(props: ComponentDiagramProps) {
             <MainContent>
                 <LeftContent>
                     <DiagramPanel noPadding={true}>
-                        {showAlert && (
+                        {/*showAlert && (
                             <AlertBoxWithClose
                                 subTitle={
                                     "Please log in to WSO2 AI Platform to access AI features. You won't be able to use AI features until you log in."
@@ -891,7 +920,7 @@ export function Overview(props: ComponentDiagramProps) {
                                 btn2OnClick={() => handleClose()}
                                 btn2Id="Close"
                             />
-                        )}
+                        )*/}
                         <DiagramHeaderContainer withPadding={true}>
                             <Title variant="h2">Design</Title>
                             {!isEmptyProject() && (<ActionContainer>
@@ -958,15 +987,19 @@ export function Overview(props: ComponentDiagramProps) {
                     </FooterPanel>
                 </LeftContent>
                 <SidePanel>
-                    <DeploymentOptions
-                        handleDockerBuild={handleDockerBuild}
-                        handleJarBuild={handleJarBuild}
-                        handleDeploy={handleDeploy}
-                        goToDevant={goToDevant}
-                        devantMetadata={devantMetadata}
-                        hasDeployableIntegration={deployableIntegrationTypes.length > 0}
-                    />
-                    <Divider sx={{ margin: "16px 0" }} />
+                    { !isDevantEditor && 
+                    <>
+                        <DeploymentOptions
+                            handleDockerBuild={handleDockerBuild}
+                            handleJarBuild={handleJarBuild}
+                            handleDeploy={handleDeploy}
+                            goToDevant={goToDevant}
+                            devantMetadata={devantMetadata}
+                            hasDeployableIntegration={deployableIntegrationTypes.length > 0}
+                        />
+                        <Divider sx={{ margin: "16px 0" }} />
+                    </>
+                    }
                     <IntegrationControlPlane enabled={enabled} handleICP={handleICP} />
                 </SidePanel>
             </MainContent>
