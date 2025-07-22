@@ -52,6 +52,10 @@ export const SIDE_PANEL_WIDTH = 450;
 
 export const gitIssueUrl = "https://github.com/wso2/mi-vscode/issues";
 
+export const COMMANDS = {
+    MIGRATE_PROJECT: "MI.migrateProject",
+}
+
 // Actions for service designer
 export const ARTIFACT_TEMPLATES = {
     ADD_API: "add-api",
