@@ -106,6 +106,7 @@ export interface AdvancedProjectDetails {
 
 export interface PomNodeDetails {
     value: string;
+    type?: string;
     key?: string;
     displayValue?: string;
     range?: STRange | STRange[];
