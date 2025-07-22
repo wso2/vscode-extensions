@@ -186,7 +186,7 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 				<label className="col-span-full mb-4 opacity-80">You integration must exist in a remote Git repository in order to continue</label>
 				{errorFetchingGitOrg && (
 					<Banner
-						type="error"
+						type="info"
 						className="col-span-full"
 						key="invalid-repo-banner"
 						title={`Please authorize ${extensionName} to access your GitHub repositories.`}

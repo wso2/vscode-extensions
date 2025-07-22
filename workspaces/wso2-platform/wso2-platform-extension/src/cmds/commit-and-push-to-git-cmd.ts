@@ -48,12 +48,11 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 					const repo = newGit.open(repoRoot, dotGit);
 
 					await window.withProgress({ title: "Adding changes to be committed...", location: ProgressLocation.Notification }, async () => {
-						await repo.pull();
 						await repo.add(["."]);
 					});
 
 					const commitMessage = await window.showInputBox({
-						placeHolder: "Enter commit message",
+						placeHolder: "Message to describe the changes done to your integration",
 						title: "Enter commit message",
 						validateInput: (val) => {
 							if (!val) {
@@ -72,6 +71,8 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 						await repo.commit(commitMessage);
 						await repo.push();
 					});
+
+					window.showInformationMessage("Your changes have been successfully pushed to cloud")
 				}
 			} catch (err: any) {
 				console.error("Failed to push to remote", err);

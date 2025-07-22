@@ -243,6 +243,7 @@ export function createNewComponentCommand(context: ExtensionContext) {
 						organization: selectedOrg!,
 						project: selectedProject!,
 						extensionName: webviewStateStore.getState().state.extensionName,
+						// todo: make this flow only work in code-server?
 						shouldAutoCommit: isGitInitialized === false && webviewStateStore.getState().state.extensionName === "Devant" && !!process.env.CLOUD_STS_TOKEN,
 						isGitInitialized,
 						initialValues: {
@@ -381,7 +382,7 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 					);
 				}
 			});
-		} else if (extensionName === "Devant") {
+		} else if (extensionName === "Devant" && process.env.CLOUD_STS_TOKEN) {
 			await ext.context.globalState.update(
 				"show-comp-created-notification",
 				JSON.stringify({ org, project, component: createdComponent, extensionName }),

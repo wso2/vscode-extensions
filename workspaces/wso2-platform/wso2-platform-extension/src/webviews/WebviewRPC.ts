@@ -652,7 +652,6 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		const dotGit = await newGit?.getRepositoryDotGit(params.dirPath);
 		const repo = newGit.open(repoRoot, dotGit);
 		await window.withProgress({ title: "Pushing the changes to your remote repository...", location: ProgressLocation.Notification }, async () => {
-			await repo.pull();
 			await repo.add(["."]);
 			await repo.commit(`Add source for new ${extName} ${extName === "Devant" ? "Integration" : "Component"} (${params.componentName})`);
 			await repo.push();
