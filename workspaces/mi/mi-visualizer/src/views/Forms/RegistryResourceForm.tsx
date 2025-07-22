@@ -39,6 +39,10 @@ const templates = [{ value: "Data Mapper" }, { value: "Javascript File" }, { val
 { value: "WS-Policy" }, { value: "XSD File" }, { value: "XSL File" }, { value: "XSLT File" }, { value: "YAML File" }, { value: "TEXT File" }, { value: "XML File" },
 { value: "RB File" }, { value: "GROOVY File" }];
 
+const policyTypes = [{ value: "Username Token" }, { value: "Non-repudiation" }, { value: "Integrity" }, { value: "Confidentiality" },
+    { value: "Sign and Encrypt - X509 Authentication" }, { value: "Sign and Encrypt - Anonymous Clients" },
+    { value: "Encrypt Only - Username Token Authentication" }, { value: "Sign and Encrypt - Username Token Authentication" }];
+
 type InputsFields = {
     templateType?: string;
     filePath?: string;
@@ -47,6 +51,8 @@ type InputsFields = {
     registryPath?: string;
     createOption?: "new" | "import";
     registryType?: string;
+    policyType?: string;
+    roles?: string;
 };
 
 const canCreateTemplateForType = (type: string) => {
@@ -77,7 +83,9 @@ const getInitialResource = (type: string): InputsFields => ({
     artifactName: "",
     registryPath: type ? type : "xslt",
     createOption: canCreateTemplateForType(type) ? "new" : "import",
-    registryType: "gov"
+    registryType: "gov",
+    policyType: "Username Token",
+    roles: ""
 });
 
 const getTemplateType = (type: string) => {
@@ -189,6 +197,15 @@ export function RegistryResourceForm(props: RegistryWizardProps) {
                 otherwise: () =>
                     yup.string().notRequired(),
             }),
+            policyType: yup.string().when(['createOption', 'templateType'], {
+                is: (createOption: string, templateType: string) =>
+                    createOption === 'new' && templateType === 'WS-Policy',
+                then: () =>
+                    yup.string().required("Policy type is required"),
+                otherwise: () =>
+                    yup.string().notRequired(),
+            }),
+            roles: yup.string().notRequired(),
             resourceName: yup.string().when('createOption', {
                 is: "new",
                 then: () =>
@@ -333,13 +350,14 @@ export function RegistryResourceForm(props: RegistryWizardProps) {
         const projectDir = props.path ? (await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path: props.path })).path : (await rpcClient.getVisualizerState()).projectUri;
         const regRequest: CreateRegistryResourceRequest = {
             projectDirectory: projectDir,
-            templateType: values.templateType,
+            templateType: values.templateType === "WS-Policy" ? values.policyType : values.templateType,
             filePath: values.filePath,
             resourceName: values.resourceName,
-            artifactName: '',
+            artifactName: values.resourceName,
             registryPath: handleRegistryPathPrefix(values.registryPath),
             registryRoot: getRegistryRoot(values.registryType, values.registryPath),
-            createOption: values.createOption
+            createOption: values.createOption,
+            roles: values.roles
         }
         
         const regfilePath = await rpcClient.getMiDiagramRpcClient().createRegistryResource(regRequest);
@@ -399,6 +417,26 @@ export function RegistryResourceForm(props: RegistryWizardProps) {
                     {...register("templateType")}
                     dropdownContainerSx={{ position: "relative", "z-index": 1000 }}
                 />
+                { watch("templateType") === "WS-Policy" && (
+                    <>
+                        <Dropdown
+                            label="WS-Policy Type"
+                            id="policyType"
+                            items={policyTypes}
+                            {...register("policyType")}
+                        />
+                        {(["Username Token",
+                            "Encrypt Only - Username Token Authentication",
+                            "Sign and Encrypt - Username Token Authentication"]).includes(watch("policyType")) && (
+                            <TextField
+                                label="User Roles"
+                                id="roles"
+                                errorMsg={errors.roles?.message.toString()}
+                                {...register("roles")}
+                            />
+                        )}
+                    </>
+                )}
             </>)}
             {!createOptionValue && (<>
                 <div style={{ display: "flex", flexDirection: "row", gap: "10px", alignItems: "center" }}>

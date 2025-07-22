@@ -55,6 +55,7 @@ import {
     WorkspaceFolder,
     WorkspacesResponse,
     ProjectDetailsResponse,
+    UpdatePropertiesRequest,
     UpdateDependenciesRequest,
     UpdatePomValuesRequest,
     UpdateConfigValuesRequest,
@@ -87,6 +88,7 @@ import { copy } from 'fs-extra';
 const fs = require('fs');
 import { TextEdit } from "vscode-languageclient";
 import { downloadJavaFromMI, downloadMI, getProjectSetupDetails, getSupportedMIVersionsHigherThan, setPathsInWorkSpace, updateRuntimeVersionsInPom, getMIVersionFromPom } from '../../util/onboardingUtils';
+import { extractCAppDependenciesAsProjects } from "../../visualizer/activate";
 
 Mustache.escape = escapeXml;
 export class MiVisualizerRpcManager implements MIVisualizerAPI {
@@ -149,6 +151,44 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
         });
     }
 
+    /**
+     * Updates project-level properties in the `pom.xml` file.
+     *
+     * @param params - An object containing a `properties` field, which is a list of property changes describing the updates to apply.
+     * @returns A promise that resolves to `true` when the properties have been successfully updated.
+     */
+    async updateProperties(params: UpdatePropertiesRequest): Promise<boolean> {
+        return new Promise(async (resolve) => {
+            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const res = await langClient.updateProperties(params);
+            await this.updatePom(res.textEdits);
+            resolve(true);
+        })
+    }
+
+    /**
+     * Reloads the dependencies for the current integration project.
+     *
+     * @returns {Promise<boolean>} A promise that resolves to `true` when all dependency reload operations are complete.
+     */
+    async reloadDependencies(): Promise<boolean> {
+        return new Promise(async (resolve) => {
+            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const projectDetails = await langClient?.getProjectDetails();
+            const projectName = projectDetails.primaryDetails.projectName.value;
+            await langClient?.updateConnectorDependencies();
+            await extractCAppDependenciesAsProjects(projectName);
+            const loadResult = await langClient?.loadDependentCAppResources();
+            if (!loadResult.startsWith("DUPLICATE ARTIFACTS")) {
+                await window.showWarningMessage(
+                    loadResult,
+                    { modal: true }
+                );
+            }
+            resolve(true);
+        });
+    }
+
     async updateDependencies(params: UpdateDependenciesRequest): Promise<boolean> {
         return new Promise(async (resolve) => {
             const langClient = getStateMachine(this.projectUri).context().langClient!;
@@ -196,7 +236,7 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
         return new Promise(async (resolve) => {
             const textEdits = params.pomValues.map((pomValue) => {
                 return {
-                    newText: pomValue.value,
+                    newText: String(pomValue.value),
                     range: pomValue.range! as Range
                 };
 
@@ -220,8 +260,20 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                 fs.writeFileSync(configFilePath, "");
             }
 
-            const content = params.configValues.map(configValue => `${configValue.key}:${configValue.value}`).join('\n');
+            const content = params.configValues.map(configValue => `${configValue.key}:${configValue.type}`).join('\n');
             fs.writeFileSync(configFilePath, content);
+
+            const envFilePath = [this.projectUri, '.env'].join(path.sep);
+            const envDir = path.dirname(envFilePath);
+            if (!fs.existsSync(envDir)) {
+                // Create the directory structure for the .env file if it doesn't exist
+                fs.mkdirSync(envDir, { recursive: true });
+            }
+            // Get values of params.configValues -> configValue -> key and value not empty
+            const nonEmptyConfigValues = params.configValues.filter(configValue => configValue.key && configValue.value);
+            const envContent = nonEmptyConfigValues.map(configValue => `${configValue.key}=${configValue.value}`).join('\n');
+            fs.writeFileSync(envFilePath, envContent);
+
             navigate(this.projectUri);
 
             resolve(true);

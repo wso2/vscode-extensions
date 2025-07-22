@@ -92,7 +92,7 @@ export function GraphQLDiagram(props: GraphQLDiagramProps) {
     const getTypeKindDisplayName = (typeNodeKind?: TypeNodeKind): string => {
         switch (typeNodeKind) {
             case "RECORD":
-                return "Input Object";
+                return "Object"; // In edit mode, always show as "Object"
             case "ENUM":
                 return "Enum";
             case "CLASS":
@@ -227,7 +227,7 @@ export function GraphQLDiagram(props: GraphQLDiagramProps) {
                             </SubTitleWrapper>
                         }
                         actions={
-                            <ActionButton appearance="secondary" onClick={handleServiceEdit}>
+                            <ActionButton appearance="secondary" onClick={handleServiceEdit} data-testid="edit-service-btn">
                                 <Icon name="bi-edit" sx={{ marginRight: 5, width: 16, height: 16, fontSize: 14 }} />
                                 Edit
                             </ActionButton>
@@ -293,8 +293,9 @@ export function GraphQLDiagram(props: GraphQLDiagramProps) {
                         type={editingType}
                         onTypeChange={onTypeChange}
                         newType={false}
-                        isGraphql={true}
-                    />
+                        isGraphql={true} 
+                        onTypeCreate={() => { }}    
+                        />
                 </PanelContainer>
             )}
             {isTypeEditorOpen && editingType && editingType.codedata.node === "CLASS" && (

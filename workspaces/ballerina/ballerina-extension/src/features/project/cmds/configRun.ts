@@ -16,19 +16,18 @@
  * under the License.
  */
 
-import { commands, languages, Uri, window } from "vscode";
-import { BALLERINA_COMMANDS, getRunCommand, PALETTE_COMMANDS, runCommand } from "./cmd-runner";
-import { ballerinaExtInstance } from "../../../core";
-import { prepareAndGenerateConfig } from "../../config-generator/configGenerator";
+import { commands, languages, Uri, window, workspace } from "vscode";
+import { getRunCommand, PALETTE_COMMANDS, runCommand } from "./cmd-runner";
+import { extension } from "../../../BalExtensionContext";
 import { getConfigCompletions } from "../../config-generator/utils";
-
+import { BiDiagramRpcManager } from "../../../rpc-managers/bi-diagram/rpc-manager";
 
 function activateConfigRunCommand() {
     // register the config view run command
     commands.registerCommand(PALETTE_COMMANDS.RUN_CONFIG, async (filePath: Uri) => {
-        const currentProject = ballerinaExtInstance.getDocumentContext().getCurrentProject();
+        const currentProject = extension.ballerinaExtInstance.getDocumentContext().getCurrentProject();
         if (currentProject) {
-            runCommand(currentProject, ballerinaExtInstance.getBallerinaCmd(),
+            runCommand(currentProject, extension.ballerinaExtInstance.getBallerinaCmd(),
             getRunCommand(),
             currentProject.path!);
             return;
@@ -37,10 +36,16 @@ function activateConfigRunCommand() {
 
     commands.registerCommand(PALETTE_COMMANDS.CONFIG_CREATE_COMMAND, async () => {
         try {
-            const currentProject = ballerinaExtInstance.getDocumentContext().getCurrentProject();
-            const filePath = window.activeTextEditor.document;
-            const path = filePath.uri.fsPath;
-            prepareAndGenerateConfig(ballerinaExtInstance, currentProject ? currentProject.path! : path, true);
+            // Open current config.toml or create a new config.toml if it does not exist
+            let projectPath: string;
+            if (window.activeTextEditor) {
+                projectPath = window.activeTextEditor.document.uri.fsPath;
+            } else if (workspace.workspaceFolders && workspace.workspaceFolders.length > 0) {
+                projectPath = workspace.workspaceFolders[0].uri.fsPath;
+            }
+
+            const biDiagramRpcManager = new BiDiagramRpcManager();
+            await biDiagramRpcManager.openConfigToml({ filePath: projectPath });
             return;
         } catch (error) {
             throw new Error("Unable to create Config.toml file. Try again with a valid Ballerina file open in the editor.");
@@ -49,10 +54,10 @@ function activateConfigRunCommand() {
 
     languages.registerCompletionItemProvider({ language: 'toml' }, {
         async provideCompletionItems(document, position, token, context) {
-            const currentProject = ballerinaExtInstance.getDocumentContext().getCurrentProject();
+            const currentProject = extension.ballerinaExtInstance.getDocumentContext().getCurrentProject();
             const filePath = window.activeTextEditor.document;
             const path = filePath.uri.fsPath;
-            const suggestions = await getConfigCompletions(ballerinaExtInstance, currentProject ? currentProject.path! : path, document, position);
+            const suggestions = await getConfigCompletions(extension.ballerinaExtInstance, currentProject ? currentProject.path! : path, document, position);
             return suggestions;
         }
     });

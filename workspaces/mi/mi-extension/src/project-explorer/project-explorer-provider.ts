@@ -135,7 +135,7 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
 				const resp = await langClient?.languageClient?.getProjectExplorerModel(rootPath);
 				const projectDetailsRes = await langClient?.languageClient?.getProjectDetails();
 				const runtimeVersion = projectDetailsRes.primaryDetails.runtimeVersion.value;
-				const projectTree = generateTreeData(workspace, resp, runtimeVersion);
+				const projectTree = await generateTreeData(workspace, resp, runtimeVersion);
 
 				if (projectTree) {
 					data.push(projectTree);
@@ -147,7 +147,6 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
 			vscode.commands.executeCommand('setContext', 'MI.showAddArtifact', false);
 			return data;
 		}
-		vscode.commands.executeCommand('setContext', 'MI.showAddArtifact', true);
 	} else {
 		vscode.commands.executeCommand('setContext', 'projectOpened', false);
 	}
@@ -155,7 +154,7 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
 
 }
 
-function generateTreeData(project: vscode.WorkspaceFolder, data: ProjectStructureResponse, runtimeVersion: string): ProjectExplorerEntry | undefined {
+async function generateTreeData(project: vscode.WorkspaceFolder, data: ProjectStructureResponse, runtimeVersion: string): Promise<ProjectExplorerEntry | undefined> {
 	const directoryMap = data.directoryMap;
 	if (directoryMap) {
 		const projectRoot = new ProjectExplorerEntry(
@@ -166,12 +165,12 @@ function generateTreeData(project: vscode.WorkspaceFolder, data: ProjectStructur
 		);
 
 		projectRoot.contextValue = 'project';
-		generateTreeDataOfArtifacts(project, data, projectRoot, runtimeVersion);
+		await generateTreeDataOfArtifacts(project, data, projectRoot, runtimeVersion);
 		return projectRoot;
 	}
 }
 
-function generateTreeDataOfArtifacts(project: vscode.WorkspaceFolder, data: ProjectStructureResponse, projectRoot: ProjectExplorerEntry, runtimeVersion: string) {
+async function generateTreeDataOfArtifacts(project: vscode.WorkspaceFolder, data: ProjectStructureResponse, projectRoot: ProjectExplorerEntry, runtimeVersion: string) {
 	const artifacts = (data.directoryMap as any)?.src?.main?.wso2mi?.artifacts;
 	if (!artifacts) {
 		return;
@@ -199,7 +198,7 @@ function generateTreeDataOfArtifacts(project: vscode.WorkspaceFolder, data: Proj
 		if (['APIs', 'Event Integrations', 'Automations', 'Data Services'].includes(key)) {
 			children = genProjectStructureEntry(artifacts[key]);
 		} else if (key === 'Resources') {
-			const existingResources = getAvailableRegistryResources(project.uri.fsPath);
+			const existingResources = await getAvailableRegistryResources(project.uri.fsPath);
 			children = generateResources(artifacts[key], existingResources);
 		} else {
 			children = generateArtifacts(artifacts[key], data, project);

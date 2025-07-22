@@ -1898,7 +1898,7 @@ export interface UnitTestArtifacts {
     testArtifact: TestArtifact;
     supportiveArtifacts: SupportiveArtifacts;
     registryResources: RegistryResources;
-    connectorResources: STNode;
+    connectorResources: ConnectorResources;
 }
 
 export interface SupportiveArtifacts extends STNode {
@@ -1907,6 +1907,10 @@ export interface SupportiveArtifacts extends STNode {
 
 export interface RegistryResources extends STNode {
     registryResources: Artifact[];
+}
+
+export interface ConnectorResources extends STNode {
+    connectorResources: Artifact[];
 }
 
 export interface TestArtifact extends STNode {
