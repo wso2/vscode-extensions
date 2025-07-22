@@ -37,11 +37,13 @@ export const fetchWithAuth = async ({
     controller?.abort();
 
     controller = new AbortController();
-    const devantTokens:DevantTokens = await rpcClient.getAiPanelRpcClient().getDevantTokens();
-    const apiKey = devantTokens.apiKey;
-    const stsToken = devantTokens.stsToken;
     
     const makeRequest = async (authToken: string): Promise<Response> => {
+        // Get STS token each time a request is made
+        const devantTokens: DevantTokens = await rpcClient.getAiPanelRpcClient().getDevantTokens();
+        const apiKey = devantTokens.apiKey;
+        const stsToken = devantTokens.stsToken;
+        
         const headers: Record<string, string> = {
             "Content-Type": "application/json",
         };

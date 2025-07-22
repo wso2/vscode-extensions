@@ -57,13 +57,14 @@ import {
     TestGenerationRequest,
     TestGenerationResponse
 } from "@wso2/ballerina-core";
+import { IWso2PlatformExtensionAPI } from "@wso2/wso2-platform-core";
 import { STKindChecker, STNode } from "@wso2/syntax-tree";
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import path from "path";
 import { parse } from 'toml';
-import { Uri, commands, window, workspace } from 'vscode';
+import { Uri, commands, extensions, window, workspace } from 'vscode';
 
 import { isNumber } from "lodash";
 import { URI } from "vscode-uri";
@@ -798,9 +799,37 @@ export class AiPanelRpcManager implements AIPanelAPI {
 
     async getDevantTokens(): Promise<DevantTokens> {
         return new Promise(async (resolve) => {
+            let stsToken = DEVANT_STS_TOKEN;
+            
+            try {
+                // Try to get STS token from platform extension
+                const platformExt = extensions.getExtension("wso2.wso2-platform");
+                if (!platformExt) {
+                    const tokens: DevantTokens = {
+                        apiKey: DEVANT_API_KEY,
+                        stsToken: stsToken
+                    };
+                    resolve(tokens);
+                    return;
+                }
+                
+                // Check if extension is already active before activating
+                if (!platformExt.isActive) {
+                    await platformExt.activate();
+                }
+                const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports;
+                
+                const platformStsToken = await platformExtAPI.getStsToken();
+                if (platformStsToken && platformStsToken.trim() !== "") {
+                    stsToken = platformStsToken;
+                }
+            } catch (error) {
+                console.error("Failed to get STS token from platform extension, using fallback:", error);
+            }
+            
             const tokens: DevantTokens = {
                 apiKey: DEVANT_API_KEY,
-                stsToken: DEVANT_STS_TOKEN
+                stsToken: stsToken
             };
             resolve(tokens);
         });
