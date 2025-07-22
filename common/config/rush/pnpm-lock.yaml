@@ -2401,6 +2401,9 @@ importers:
         specifier: ^4.38.3
         version: 4.38.3
     devDependencies:
+      '@playwright/test':
+        specifier: ~1.52.0
+        version: 1.52.0
       '@types/mocha':
         specifier: ^10.0.3
         version: 10.0.10
@@ -2425,6 +2428,9 @@ importers:
       '@vscode/vsce':
         specifier: ^2.22.0
         version: 2.32.0
+      '@wso2/playwright-vscode-tester':
+        specifier: workspace:*
+        version: link:../../common-libs/playwright-vscode-tester
       copy-webpack-plugin:
         specifier: ^11.0.0
         version: 11.0.0(webpack@5.99.9)
