@@ -193,7 +193,7 @@ export type ExpressionEditorRef = {
 
 /* <------ Types related to the helper pane ------> */
 
-export type HelperPaneOrigin = 'bottom' | 'left' | 'right' | 'auto';
+export type HelperPaneOrigin = 'bottom' | 'top' | 'left' | 'right' | 'auto';
 
 export type HelperPaneHeight = 'full' | '3/4' | 'default';
 

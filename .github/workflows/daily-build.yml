@@ -39,7 +39,7 @@ jobs:
       - name: Notification - MI
         uses: ./.github/actions/dailyBuildNotification
         with:
-          title: Micro Integrator
+          title: "WSO2 Integrator: MI"
           fileName: micro-integrator
           chatAPI: ${{ secrets.MI_TEAM_CHAT_API }}
 
