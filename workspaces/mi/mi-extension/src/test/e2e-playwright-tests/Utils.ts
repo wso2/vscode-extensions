@@ -65,7 +65,7 @@ export async function stopRunningProject(page: ExtendedPage) {
 
 export async function createProject(page: ExtendedPage, projectName?: string, runtimeVersino?: string, addAdvancedConfig: boolean = false) {
     console.log('Creating new project');
-    await page.selectSidebarItem('Micro Integrator');
+    await page.selectSidebarItem('WSO2 Integrator: MI');
     const welcomePage = new Welcome(page);
     await welcomePage.init();
     await welcomePage.createNewProject();
@@ -78,7 +78,7 @@ export async function createProject(page: ExtendedPage, projectName?: string, ru
                 type: 'input',
                 value: projectName || 'testProject',
             },
-            'Micro Integrator runtime version*': {
+            'WSO2 Integrator: MI runtime version*': {
                 type: 'dropdown',
                 value: runtimeVersino || '4.4.0'
             },

@@ -178,7 +178,13 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
             const projectName = projectDetails.primaryDetails.projectName.value;
             await langClient?.updateConnectorDependencies();
             await extractCAppDependenciesAsProjects(projectName);
-            await langClient?.loadDependentCAppResources();
+            const loadResult = await langClient?.loadDependentCAppResources();
+            if (!loadResult.startsWith("DUPLICATE ARTIFACTS")) {
+                await window.showWarningMessage(
+                    loadResult,
+                    { modal: true }
+                );
+            }
             resolve(true);
         });
     }
@@ -254,8 +260,20 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                 fs.writeFileSync(configFilePath, "");
             }
 
-            const content = params.configValues.map(configValue => `${configValue.key}:${configValue.value}`).join('\n');
+            const content = params.configValues.map(configValue => `${configValue.key}:${configValue.type}`).join('\n');
             fs.writeFileSync(configFilePath, content);
+
+            const envFilePath = [this.projectUri, '.env'].join(path.sep);
+            const envDir = path.dirname(envFilePath);
+            if (!fs.existsSync(envDir)) {
+                // Create the directory structure for the .env file if it doesn't exist
+                fs.mkdirSync(envDir, { recursive: true });
+            }
+            // Get values of params.configValues -> configValue -> key and value not empty
+            const nonEmptyConfigValues = params.configValues.filter(configValue => configValue.key && configValue.value);
+            const envContent = nonEmptyConfigValues.map(configValue => `${configValue.key}=${configValue.value}`).join('\n');
+            fs.writeFileSync(envFilePath, envContent);
+
             navigate(this.projectUri);
 
             resolve(true);
