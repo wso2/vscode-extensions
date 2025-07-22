@@ -1,0 +1,154 @@
+<html lang="en" class=" webkit chrome mac js gr__localhost">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="editor/commons/images/favicon.png" rel="icon" type="image/png" sizes="16x16"/>
+    <script src="/editor/commons/lib/remarkable/remarkable.min.js"></script>
+    <script src="editor/commons/lib/css-browser-selector_0.4.0/css_browser_selector.js"></script>
+    <link href="editor/commons/lib/font-wso2-1.2.2/css/font-wso2.min.css" rel="stylesheet" type="text/css"/>
+    <link rel="stylesheet" type="text/css" href="editor/commons/lib/bootstrap_v3.3.6/css/bootstrap.min.css"/>
+    <link href="editor/commons/lib/theme-wso2-2.0.0/css/theme-wso2.min.css" rel="stylesheet" type="text/css"/>
+    <link href="editor/commons/lib/jquery-ui_v1.12.1/jquery-ui.min.css" rel="stylesheet" type="text/css"/>
+    <link href="editor/commons/lib/js-tree-v3.3.8/themes/default/style.min.css" rel="stylesheet" type="text/css"/>
+    <link href="editor/commons/lib/nanoscroller_0.8.7/nanoscroller.css" rel="stylesheet" type="text/css"/>
+    <link href="editor/commons/lib/data-table/dataTables.bootstrap.min.css" rel="stylesheet" type="text/css"/>
+    <link href="editor/commons/lib/theme-wso2-2.0.0/extensions/datatables/css/dataTables.wso2.css" rel="stylesheet"
+          type="text/css"/>
+    <link href="editor/commons/css/layout.css" rel="stylesheet" type="text/css"/>
+    <link href="editor/commons/css/styles.css" rel="stylesheet" type="text/css"/>
+    <link href="editor/commons/css/welcome-screen.css" rel="stylesheet" type="text/css"/>
+    <link href="editor/commons/css/menu-bar.css" rel="stylesheet" type="text/css"/>
+    <link href="editor/commons/css/tab-styles.css" rel="stylesheet" type="text/css"/>
+    <link href="editor/commons/css/fileDialog.css" rel="stylesheet" type="text/css"/>
+    <link rel="stylesheet" type="text/css" href="editor/commons/css/left-tool-bar.css"/>
+    <link rel="stylesheet" type="text/css" href="editor/commons/css/workspace-explorer.css"/>
+    <link rel="stylesheet" type="text/css" href="editor/commons/css/operator-finder.css"/>
+    <link rel="stylesheet" type="text/css" href="editor/commons/css/template-deploy.css"/>
+    <link href="editor/commons/css/jquery-ui-timepicker-addon.css" rel="stylesheet" type="text/css"/>
+    <link href="editor/commons/css/simulator.css" rel="stylesheet" type="text/css"/>
+    <link rel="stylesheet" type="text/css" href="editor/commons/css/notification.css"/>
+    <link rel="stylesheet" type="text/css"
+          href="editor/commons/lib/perfect-scrollbar-1.4.0/css/perfect-scrollbar.css"/>
+    <link rel="stylesheet" type="text/css" href="editor/commons/css/pagination.css"/>
+
+    <!--Enjoy Hint CSS-->
+
+    <link href="editor/commons/css/enjoyhint.css" rel="stylesheet" type="text/css"/>
+    <link href="editor/commons/css/guide.css" rel="stylesheet" type="text/css"/>
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="editor/commons/lib/html5shiv_3.7.2/html5shiv.min.js"></script>
+    <script src="editor/commons/lib/respond_1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <!-- JSONEditor doesn't suppot AMD/RequireJS -->
+    <script src="editor/commons/lib/json-editor_v0.7.28/jsoneditor.min.js"></script>
+    <!-- loading jsPlumb script-->
+    <script src="editor/commons/lib/jsplumb_v2.6.9/jsplumb.min.js"></script>
+    <script src="editor/commons/lib/js-yaml/js-yaml.js"></script>
+    <script src="editor/js/async-api/react-component/dist/bundle.js"></script>
+
+    <link rel="stylesheet" type="text/css" href="editor/css/styles.css"/>
+    <link rel="stylesheet" type="text/css" href="editor/css/debugger.css"/>
+    <link rel="stylesheet" type="text/css" href="editor/css/console.css"/>
+    <link rel="stylesheet" type="text/css" href="editor/css/error-handler.css"/>
+    <link rel="stylesheet" type="text/css" href="editor/commons/css/welcome-screen.css"/>
+    <link rel="stylesheet" type="text/css" href="editor/css/async-api-def.css"/>
+    <link rel="stylesheet" type="text/css" href="editor/css/async-api-font.css"/>
+
+    <link rel="stylesheet" type="text/css" href="editor/css/design-view.css"/>
+    <link rel="stylesheet" type="text/css" href="editor/css/etl-task-view.css"/>
+    <link rel="stylesheet" type="text/css" href="editor/css/tool-palette.css"/>
+
+    <!-- CSS For The Design View -->
+    <link rel="stylesheet" type="text/css" href="editor/commons/lib/overlay_scroll/css/OverlayScrollbars.min.css"/>
+
+    <!-- SmartWizard CSS -->
+    <link rel="stylesheet" type="text/css" href="editor/commons/lib/smartWizard/css/smart_wizard.css"/>
+    <link rel="stylesheet" type="text/css" href="editor/css/export-docker-kubernetes.css"/>
+    <link rel="stylesheet" type="text/css" href="editor/css/cron-generator.css"/>
+    <title>Streaming Integrator Tooling</title>
+</head>
+
+<body class="sticky-footer">
+<div id="mavenVersion" hidden>${project.version}</div>
+
+<!-- Start: page-content-wrapper -->
+<div id="page-content-wrapper" class="page-content-wrapper">
+    <div id="page-content" class="container">
+        <div class="nano" id="extensionInstallConfigModalId" role="dialog" aria-hidden="true" style="overflow: scroll;">
+            <div class="nano-content" role="document">
+                <div class="modal-content" id="sampleDialog">
+                    <div class="modal-header">
+                        <h4 class="modal-title file-dialog-title">Extension Installer</h4>
+                        <hr class="style1">
+                    </div>
+                    <div class="modal-body">
+                        <div class="container-fluid">
+                            <form class="form-horizontal" onsubmit="return false">
+                                <div class="form-group">
+                                    <label for="locationSearch" class="col-sm-2 file-dialog-label">Search :</label>
+                                    <input type="text" placeholder="enter the extension name"
+                                           class="search-file-dialog-form-control"
+                                           id="extensionSearchId" autofocus>
+                                </div>
+                                <div id="loadingScreen" class="d-flex justify-content-center align-items-center position-fixed w-100 h-100 bg-white" style="z-index: 9999; top: 0; left: 0;">
+                                    <div class="text-center">
+                                        <div class="spinner-border" role="status"></div>
+                                        <p class="mt-3">Loading extensions...</p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="extension-installer-form-scrollable-block" style="padding:10px4px; margin-left:35px;">
+                                        <div id="noResults" style="display:none;">No extensions found.</div>
+                                        <div id="extensionTableId" class="samples-pane">
+                                        </div>
+                                        <div id="file-browser-error" class="alert alert-danger" style="display: none;">
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                            <div id="extensionInstallErrorId" class="alert alert-danger" style="display: none;">
+                                <strong>Error!</strong>Something went wrong.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+<!-- End: page-content-wrapper -->
+
+<script src="editor/commons/lib/requirejs-2.3.6/require.min.js"></script>
+<script src="editor/commons/lib/jquery_v1.9.1/jquery-1.9.1.min.js"></script>
+<script>
+    //Load common code that includes config, then load the app
+    //logic for this page. Do the requirejs calls here instead of
+    //a separate file so after a build there are only 2 HTTP
+    //requests instead of three.
+    var extensionPath = "${extensionPath}";
+    requirejs.config({waitSeconds: 0});
+    var x213 = {id: 1, name: "a"};
+
+    requirejs([`${extensionPath}/app.js`], function (common) {
+        //js/common sets the baseUrl to be js/ so
+        //can just ask for 'app/main1' here instead
+        //of 'js/app/main1'
+        requirejs([`${extensionPath}/editor/js/app-main-extension-installer.js`], function() {
+            console.log("[DEBUG] app-main loaded successfully");
+        }, function(err) {
+            console.error("[DEBUG] app-main failed to load", err);
+        });
+    }, function(err) {
+        console.error("[DEBUG] editor/app failed to load", err);
+    });
+    console.log("ending");
+</script>
+</body>
+</html>

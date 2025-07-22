@@ -1,0 +1,1863 @@
+{
+  "name": "Siddhi",
+  "scopeName": "source.siddhi",
+  "fileTypes": [
+    "siddhi"
+  ],
+  "patterns": [
+    {
+      "include": "#siddhiApp"
+    },
+    {
+      "include": "#comment"
+    }
+  ],
+  "repository": {
+    "siddhiApp": {
+      "name": "siddhiapp.siddhi",
+      "patterns": [
+        {
+          "include": "#appAnnotation"
+        },
+        {
+          "include": "#annotation"
+        },
+        {
+          "include": "#definitionStream"
+        },
+        {
+          "include": "#definitionTable"
+        },
+        {
+          "include": "#definitionWindow"
+        },
+        {
+          "include": "#definitionFunction"
+        },
+        {
+          "include": "#definitionAggregation"
+        },
+        {
+          "include": "#definitionTrigger"
+        },
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#executionElement"
+        },
+        {
+          "include": "#keywords"
+        }
+      ]
+    },
+    "appAnnotation": {
+      "begin": "(@)(\\s*)((?i)App)(\\s*)(:)(\\s*)((?i)name|(?i)description|(?i)statistics)(\\s*)(\\()",
+      "end": "\\)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.siddhi"
+        },
+        "3": {
+          "name": "keyword.control.siddhi"
+        },
+        "5": {
+          "name": "support.constant.siddhi"
+        },
+        "7": {
+          "name": "keyword.control.siddhi"
+        },
+        "9": {
+          "name": "support.constant.punctuation.paren.open.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.punctuation.paren.close.siddhi"
+        }
+      },
+      "name": "appannotation.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#annotationElement"
+        }
+      ]
+    },
+    "annotation": {
+      "begin": "(@)(\\s*)([a-zA-Z_][a-zA-Z_0-9]*)(\\s*)(\\()",
+      "end": "\\)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.siddhi"
+        },
+        "3": {
+          "name": "keyword.control.siddhi"
+        },
+        "5": {
+          "name": "support.constant.punctuation.paren.open.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.punctuation.paren.close.siddhi"
+        }
+      },
+      "name": "annotation.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#annotation"
+        },
+        {
+          "include": "#annotationElement"
+        }
+      ]
+    },
+    "annotationElement": {
+      "begin": "(?<=\\()|(?=((([a-zA-Z_][a-zA-Z_0-9]*[.])*[a-zA-Z_][a-zA-Z_0-9]*))(?=\\s*\\=)|(?<=,))",
+      "end": "(?=\\))",
+      "name": "annotation.annotationelement.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#annotation"
+        },
+        {
+          "include": "#propertyName"
+        },
+        {
+          "include": "#propertyValue"
+        }
+      ]
+    },
+    "propertyName": {
+      "name": "variable.parameter.property.name.siddhi",
+      "match": "(([a-zA-Z_][a-zA-Z_0-9]*[.])*[a-zA-Z_][a-zA-Z_0-9]*)(?=\\s*\\=)"
+    },
+    "propertyValue": {
+      "name": "property.value.siddhi",
+      "patterns": [
+        {
+          "include": "#stringValue"
+        }
+      ]
+    },
+    "definitionStream": {
+      "begin": "((?i)define)(\\s*)((?i)stream)",
+      "end": ";",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.siddhi"
+        },
+        "3": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.punctuation.semi-colon.siddhi"
+        }
+      },
+      "name": "definition.stream.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#annotation"
+        },
+        {
+          "include": "#definitionAttributeList"
+        },
+        {
+          "include": "#source"
+        }
+      ]
+    },
+    "definitionTable": {
+      "begin": "((?i)define)(\\s*)((?i)table)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.siddhi"
+        },
+        "3": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "end": ";",
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.punctuation.semi-colon.siddhi"
+        }
+      },
+      "name": "definition.table.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#definitionAttributeList"
+        },
+        {
+          "include": "#source"
+        }
+      ]
+    },
+    "definitionWindow": {
+      "begin": "((?i)define)(\\s*)((?i)window)",
+      "end": ";",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.siddhi"
+        },
+        "3": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.siddhi"
+        }
+      },
+      "name": "definition.window.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#definitionAttributeList"
+        },
+        {
+          "include": "#functionOperation"
+        },
+        {
+          "include": "#source"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "\\b(?i)output\\b"
+        },
+        {
+          "include": "#outputEventType"
+        }
+      ]
+    },
+    "definitionAttributeList": {
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": {
+          "name": "support.constant.punctuation.paren.open.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.punctuation.paren.close.siddhi"
+        }
+      },
+      "name": "attributelist.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#attributeType"
+        },
+        {
+          "include": "#attributeName"
+        }
+      ]
+    },
+    "attribute": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#mathOperation"
+        }
+      ]
+    },
+    "attributeType": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "storage.type.attributetype.siddhi",
+          "match": "\\b((?i)string|(?i)int|(?i)long|(?i)float|(?i)double|(?i)bool|(?i)object)\\b"
+        }
+      ]
+    },
+    "attributeName": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "variable.parameter.attributename.siddhi",
+          "match": "([a-zA-Z_][a-zA-Z_0-9]*)"
+        }
+      ]
+    },
+    "source": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "entity.other.attribute-name.streamid.source.siddhi",
+          "match": "(?i)(?<=\\stable)(\\s*)(\\s*[a-zA-Z_][a-zA-Z_0-9]*)"
+        },
+        {
+          "name": "entity.other.attribute-name.streamid.source.siddhi",
+          "match": "(?i)(?<=\\sstream)(\\s*[a-zA-Z_][a-zA-Z_0-9]*)"
+        },
+        {
+          "name": "entity.other.attribute-name.streamid.source.siddhi",
+          "match": "(?i)(?<=\\swindow)(\\s*[a-zA-Z_][a-zA-Z_0-9]*)"
+        },
+        {
+          "name": "entity.other.attribute-name.streamid.source.siddhi",
+          "match": "(?i)(?<=from)(\\s*[a-zA-Z_][a-zA-Z_0-9]*)"
+        },
+        {
+          "name": "streamid.innserstream.source.siddhi",
+          "match": "(#)(\\s*)([a-zA-Z_][a-zA-Z_0-9]*)",
+          "captures": {
+            "1": {
+              "name": "support.constant.siddhi"
+            },
+            "3": {
+              "name": "entity.other.attribute-name"
+            }
+          }
+        },
+        {
+          "name": "streamid.faultstream.source.siddhi",
+          "match": "(!)(\\s*)([a-zA-Z_][a-zA-Z_0-9]*)",
+          "captures": {
+            "1": {
+              "name": "support.constant.siddhi"
+            },
+            "3": {
+              "name": "entity.other.attribute-name"
+            }
+          }
+        }
+      ]
+    },
+    "outputEventType": {
+      "name": "keyword.control.output.event.type.siddhi",
+      "match": "\\b(?i)(all(\\s\\s*)events|expired(\\s\\s*)events|current(\\s\\s*)events|events)\\b"
+    },
+    "functionOperation": {
+      "begin": "(?=[a-zA-Z_][a-zA-Z_0-9]*\\s*:\\s*[a-zA-Z_][a-zA-Z_0-9]*\\(|[a-zA-Z_][a-zA-Z_0-9]*\\()",
+      "end": "(?<=\\))",
+      "name": "function.operation.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#functionNamespace"
+        },
+        {
+          "include": "#functionId"
+        },
+        {
+          "include": "#attributeList"
+        }
+      ]
+    },
+    "functionId": {
+      "name": "support.function.functionid.siddhi",
+      "match": "([a-zA-Z_][a-zA-Z_0-9]*)(?=\\()"
+    },
+    "functionNamespace": {
+      "name": "storage.modifier.namespace.function.operation.siddhi",
+      "match": "([a-zA-Z_][a-zA-Z_0-9]*)(?=:)"
+    },
+    "attributeList": {
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": {
+          "name": "support.constant.punctuation.paren.open.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.punctuation.paren.open.siddhi"
+        }
+      },
+      "name": "attributelist.siddhi",
+      "patterns": [
+        {
+          "include": "#attributeList"
+        },
+        {
+          "include": "#mathOperation"
+        }
+      ]
+    },
+    "mathOperation": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "operator.numerical.math.operation.siddhi",
+          "match": "\\+|\\*|\\/|-|%|==|!=|\\>=|<=|\\>|\\<"
+        },
+        {
+          "name": "keyword.operator.logical.math.operation.siddhi",
+          "match": "\\b(?i)(not|or|and)\\b"
+        },
+        {
+          "name": "keyword.operator.is.math.operation.siddhi",
+          "match": "\\b(?i)is\\b"
+        },
+        {
+          "name": "keyword.operator.null.matoperation.siddhi",
+          "match": "\\b(?i)null\\b"
+        },
+        {
+          "name": "keyword.operator.in.math.operation.siddhi",
+          "match": "\\b(?i)in\\b"
+        },
+        {
+          "include": "#functionOperation"
+        },
+        {
+          "include": "#constantValue"
+        },
+        {
+          "include": "#attributeReference"
+        },
+        {
+          "include": "#streamReference"
+        },
+        {
+          "include": "#basicMathOperation"
+        }
+      ]
+    },
+    "streamReference": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "support.constant.siddhi",
+          "match": "#|!"
+        },
+        {
+          "name": "variable.parameter.stream.reference.siddhi",
+          "match": "[a-zA-Z_][a-zA-Z_0-9]*"
+        },
+        {
+          "include": "#attributeIndex"
+        }
+      ]
+    },
+    "attributeReference": {
+      "name": "attribute.reference.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "support.constant.siddhi",
+          "match": "#|!"
+        },
+        {
+          "name": "variable.parameter.attributereference.siddhi",
+          "match": "[a-zA-Z_][a-zA-Z_0-9]*"
+        },
+        {
+          "include": "#attributeIndex"
+        }
+      ]
+    },
+    "constantValue": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "constant.language.boolean.siddhi",
+          "match": "\\b(?i)(true|false)\\b"
+        },
+        {
+          "name": "constant.numeric.double.siddhi",
+          "match": "(\\d*\\.?\\d*)\\b(?i)d\\b"
+        },
+        {
+          "name": "constant.numeric.long.siddhi",
+          "match": "(\\d)\\s*(?i)\\bl\\b"
+        },
+        {
+          "name": "constant.numeric.int.siddhi",
+          "match": "\\d"
+        },
+        {
+          "name": "constant.numeric.float.siddhi",
+          "match": "\\d\\.?\\d"
+        },
+        {
+          "name": "constant.other.timevalue.siddhi",
+          "match": "(?i)\\b(years|months|hours|minutes|seconds|sec|min|hour|year|month)\\b"
+        },
+        {
+          "include": "#stringValue"
+        }
+      ]
+    },
+    "basicMathOperation": {
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": {
+          "name": "support.constant.punctuation.paren.open.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.punctuation.paren.close.xdcd.siddhi"
+        }
+      },
+      "name": "basic.math.operation.siddhi",
+      "patterns": {
+        "include": "#mathOperation"
+      }
+    },
+    "definitionFunction": {
+      "begin": "(?i)(\\bdefine\\b)(\\s*)(\\bfunction\\b)",
+      "end": ";",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.siddhi"
+        },
+        "3": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.siddhi"
+        }
+      },
+      "name": "definition.function.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)\\breturn\\b"
+        },
+        {
+          "include": "#attributeType"
+        },
+        {
+          "include": "#keywords"
+        },
+        {
+          "include": "#languageName"
+        },
+        {
+          "include": "#functionName"
+        },
+        {
+          "include": "#functionBody"
+        }
+      ]
+    },
+    "functionBody": {
+      "begin": "\\{",
+      "beginCaptures": {
+        "0": {
+          "name": "support.constant.siddhi"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.siddhi"
+        }
+      },
+      "name": "function.body.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "source.js"
+        }
+      ]
+    },
+    "functionName": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "entity.other.attribute-name.function.name.siddhi",
+          "match": "[a-zA-Z_][a-zA-Z_0-9]*"
+        }
+      ]
+    },
+    "languageName": {
+      "begin": "\\[",
+      "beginCaptures": {
+        "0": {
+          "name": "support.constant.siddhi"
+        }
+      },
+      "end": "\\]",
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.siddhi"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "entity.name.tag.language.siddhi",
+          "match": "[a-zA-Z_][a-zA-Z_0-9]*"
+        }
+      ]
+    },
+    "definitionTrigger": {
+      "begin": "((?i)define)(\\s*)((?i)trigger)",
+      "end": ";",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.siddhi"
+        },
+        "3": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.siddhi"
+        }
+      },
+      "name": "definition.trigger.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#keywords"
+        },
+        {
+          "include": "#triggerName"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?!)at"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)every"
+        },
+        {
+          "include": "#timeValue"
+        },
+        {
+          "include": "#stringValue"
+        }
+      ]
+    },
+    "definitionAggregation": {
+      "begin": "((?i)define)(\\s*)((?i)aggregation)",
+      "end": ";",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.siddhi"
+        },
+        "3": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "support.constant"
+        }
+      },
+      "name": "aggregation.definition.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)by"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)aggregate"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)from"
+        },
+        {
+          "include": "#groupByQuerySelection"
+        },
+        {
+          "include": "#standardStream"
+        },
+        {
+          "include": "#aggregationTime"
+        },
+        {
+          "include": "#aggregationName"
+        },
+        {
+          "include": "#attributeReference"
+        }
+      ]
+    },
+    "groupByQuerySelection": {
+      "begin": "(?i)select",
+      "beginCaptures": {
+        "0": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "end": "(?=(?i)aggregate)",
+      "name": "groupbyqueryselection.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "support.constant.siddhi",
+          "match": "\\*"
+        },
+        {
+          "include": "#groupBy"
+        },
+        {
+          "include": "#outputAttribute"
+        }
+      ]
+    },
+    "aggregationTime": {
+      "begin": "\\b(?i)every\\b",
+      "end": "(?=;)",
+      "beginCaptures": {
+        "0": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "name": "aggregation.time.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "support.constnst.siddhi",
+          "match": "\\.\\s*\\.\\s*\\."
+        },
+        {
+          "name": "constant.other.timevalue.siddhi",
+          "match": "\\b(?i)(years|months|days|hours|minutes|seconds|sec|min|hour|year|month|day)\\b"
+        }
+      ]
+    },
+    "filter": {
+      "begin": "(#?)(\\s*)(\\[)",
+      "end": "\\]",
+      "beginCaptures": {
+        "1": {
+          "name": "support.constant.siddhi"
+        },
+        "3": {
+          "name": "support.constant.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.siddhi"
+        }
+      },
+      "name": "filter.siddhi",
+      "patterns": [
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "window": {
+      "begin": "(#)(\\s*)((?i)window)",
+      "beginCaptures": {
+        "1": {
+          "name": "support.constant.siddhi"
+        },
+        "3": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "end": "\\b(?=(i?)select)\\b|\\b(?=(i?)as)\\b",
+      "name": "definition.stream.window.siddhi",
+      "patterns": [
+        {
+          "include": "#functionOperation"
+        }
+      ]
+    },
+    "streamFunction": {
+      "begin": "(#)(\\s*)(?=[a-zA-Z_][a-zA-Z_0-9]*\\(|[a-zA-Z_][a-zA-Z_0-9]*\\s*:)",
+      "end": "(?<=\\))",
+      "beginCaptures": {
+        "1": {
+          "name": "support.constant.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.siddhi"
+        }
+      },
+      "name": "stream.function.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#functionOperation"
+        }
+      ]
+    },
+    "expression": {
+      "name": "expression.siddhi",
+      "patterns": [
+        {
+          "include": "#mathOperation"
+        }
+      ]
+    },
+    "aggregationName": {
+      "name": "entity.other.attribute-name.name.aggregation.siddhi",
+      "match": "(?<= aggregation)((\\s*)[a-zA-Z_][a-zA-Z_0-9]*)"
+    },
+    "triggerName": {
+      "name": "entity.other.attribute-name.name.trigger.siddhi",
+      "match": "[a-zA-Z_][a-zA-Z_0-9]*"
+    },
+    "timeValue": {
+      "patterns": [
+        {
+          "include": "#integerLiteral"
+        }
+      ]
+    },
+    "outputAttribute": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)\\bas\\b"
+        },
+        {
+          "include": "#attribute"
+        },
+        {
+          "include": "#attributeName"
+        },
+        {
+          "include": "#attributeReference"
+        }
+      ]
+    },
+    "idQuotes": {
+      "name": "idquotes.siddhi",
+      "patterns": [
+        {
+          "name": "string.constant.idquotes.siddhi",
+          "match": "`'(.*?)'`"
+        }
+      ]
+    },
+    "attributeIndex": {
+      "begin": "\\[",
+      "end": "\\]",
+      "beginCaptures": {
+        "0": {
+          "name": "support.constant.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.siddhi"
+        }
+      },
+      "name": "attribute.index.siddhi",
+      "patterns": [
+        {
+          "include": "#integerLiteral"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "\\b(?i)last\\b"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "\\-|\\+"
+        }
+      ]
+    },
+    "name": {
+      "patterns": [
+        {
+          "include": "#keywords"
+        },
+        {
+          "include": "#id"
+        }
+      ]
+    },
+    "id": {
+      "patterns": [
+        {
+          "name": "string.unquoted",
+          "match": "\\b[a-zA-Z_][a-zA-Z_0-9]*\\b"
+        },
+        {
+          "include": "#idQuotes"
+        }
+      ]
+    },
+    "stringValue": {
+      "name": "stringvalue.siddhi",
+      "patterns": [
+        {
+          "include": "#stringLiteral"
+        }
+      ]
+    },
+    "integerLiteral": {
+      "patterns": [
+        {
+          "name": "constant.numeric.timevalue.siddhi",
+          "match": "[0-9]\\d*"
+        }
+      ]
+    },
+    "stringLiteral": {
+      "name": "stringliteral.siddhi",
+      "patterns": [
+        {
+          "include": "#qstring"
+        },
+        {
+          "include": "#qqstring"
+        }
+      ]
+    },
+    "qstring": {
+      "begin": "\\'",
+      "end": "\\'",
+      "beginCaptures": {
+        "0": {
+          "name": "string.begin.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "string.end.siddhi"
+        }
+      },
+      "patterns": [
+        {
+          "name": "string.quoted.single.siddhi",
+          "match": "."
+        }
+      ]
+    },
+    "qqstring": {
+      "begin": "\\\"",
+      "end": "\\\"",
+      "beginCaptures": {
+        "0": {
+          "name": "string.begin.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "string.end.siddhi"
+        }
+      },
+      "patterns": [
+        {
+          "name": "constant.character.escape.siddhi",
+          "match": "\\\\."
+        },
+        {
+          "name": "string.quoted.double.siddhi",
+          "match": "."
+        }
+      ]
+    },
+    "comment": {
+      "patterns": [
+        {
+          "name": "comment.line.double-dash.siddhi",
+          "match": "\\-\\-.*"
+        },
+        {
+          "begin": "\\/\\*",
+          "end": "\\*\\/",
+          "beginCaptures": {
+            "0": {
+              "name": "string.begin.siddhi"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "string.end.siddhi"
+            }
+          },
+          "name": "comment.block.siddhi"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.siddhi",
+          "match": "\\b((?i)define|(?i)stream|(?i)table|(?i)window|(?i)output|(?i)function)\\b"
+        },
+        {
+          "name": "keyword.operator.siddhi",
+          "match": "(!|%|\\+|\\-|~=|==|=|!=|<|>|&&|\\|\\||\\?:|\\.\\.\\.|@)"
+        },
+        {
+          "name": "keyword.control.event.siddhi",
+          "match": "\\b((?i)all|(?i)events|(?i)expired|(?i)current)\\b"
+        },
+        {
+          "name": "keyword.other.siddhi",
+          "match": "\\b((?i)at|(?i)every)\\b"
+        },
+        {
+          "name": "storage.type.timevalue.siddhi",
+          "match": "\\b(?i)(years|months|hours|minutes|seconds|sec|min|hour|year|month)\\b"
+        },
+        {
+          "name": "support.constant.punctuation.siddhi",
+          "match": "\\(|\\)"
+        }
+      ]
+    },
+    "executionElement": {
+      "begin": "(\\b(?i)from\\b|(\\b(?i)partition\\b)(\\s*)(\\b(?i)with)\\b)",
+      "end": ";",
+      "beginCaptures": {
+        "0": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.siddi"
+        }
+      },
+      "name": "executionelement.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#query"
+        },
+        {
+          "include": "#partition"
+        }
+      ]
+    },
+    "query": {
+      "begin": "(?i)(?<=from)",
+      "end": "(?=;)",
+      "name": "query.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#queryInput"
+        },
+        {
+          "include": "#querySection"
+        },
+        {
+          "include": "#outputRate"
+        },
+        {
+          "include": "#queryOutput"
+        }
+      ]
+    },
+    "queryInput": {
+      "begin": "(?i)(?<=from)",
+      "beginCaptures": {
+        "0": {
+          "name": "keyword.other.siddhi"
+        }
+      },
+      "end": "(?i)(?=select|update|delete|return|insert)",
+      "name": "input.query.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "keyword.other.siddhi",
+          "match": "(?<=from)\\s*(?i)\\bevery\\b"
+        },
+        {
+          "name": "keyword.other.siddhi",
+          "match": "every"
+        },
+        {
+          "name": "keyword.other.siddhi",
+          "match": "(?i)\\bper\\b"
+        },
+        {
+          "name": "keyword.other.siddhi",
+          "match": "(?i)\\bfor\\b"
+        },
+        {
+          "name": "keyword.other.siddhi",
+          "match": "(?i)\\bunidirectional\\b"
+        },
+        {
+          "name": "keyword.other.siddhi",
+          "match": "(?i)\\bas\\b"
+        },
+        {
+          "name": "keyword.operator.logical.siddhi",
+          "match": "(?i)\\b(and|or|not)\\b"
+        },
+        {
+          "name": "keyword.other.siddhi",
+          "match": "\\b(?i)on\\b"
+        },
+        {
+          "name": "constant.other.timevalue.siddhi",
+          "match": "\\b(?i)(years|months|hours|minutes|seconds|sec|min|hour|year|month)\\b"
+        },
+        {
+          "name": "keyword.operator.logical.math.operation.siddhi",
+          "match": "\\b(?i)(not|or|and)\\b"
+        },
+        {
+          "name": "support.constant.siddhi",
+          "match": "\\?"
+        },
+        {
+          "name": "support.constant.siddhi",
+          "match": "\\*"
+        },
+        {
+          "include": "#join"
+        },
+        {
+          "include": "#onCondition"
+        },
+        {
+          "name": "entity.other.attribute-name.alias.siddhi",
+          "match": "(?i)(?<=as)\\s*[a-zA-Z_][a-zA-Z_0-9]*"
+        },
+        {
+          "name": "entity.other.attribute-name.joinsource.right.siddhi",
+          "match": "(?i)(?<=join)\\s*[a-zA-Z_][a-zA-Z_0-9]*"
+        },
+        {
+          "include": "#withinTimeRange"
+        },
+        {
+          "include": "#perExpression"
+        },
+        {
+          "include": "#window"
+        },
+        {
+          "include": "#filter"
+        },
+        {
+          "include": "#anonymousStream"
+        },
+        {
+          "include": "#sequenceSource"
+        },
+        {
+          "include": "#streamFunction"
+        },
+        {
+          "include": "#source"
+        },
+        {
+          "include": "#propertyName"
+        },
+        {
+          "include": "#integerLiteral"
+        }
+      ]
+    },
+    "standardStream": {
+      "begin": "(?i)(?<=from)",
+      "end": "(?i)(?=select)",
+      "name": "standardstream.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#filter"
+        },
+        {
+          "include": "#streamFunction"
+        },
+        {
+          "include": "#source"
+        }
+      ]
+    },
+    "sequenceSource": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "entity.other.attribute-name.sequence.source.siddhi",
+          "match": "(?<=\\=)(\\s*)[a-zA-Z_][a-zA-Z_0-9]*"
+        }
+      ]
+    },
+    "anonymousStream": {
+      "begin": "(\\()(\\s*)((?i)from)",
+      "beginCaptures": {
+        "1": {
+          "name": "support.constant.siddhi"
+        },
+        "3": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "end": "\\)",
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.siddhi"
+        }
+      },
+      "name": "anonymousstream.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)return"
+        },
+        {
+          "include": "#queryInput"
+        },
+        {
+          "include": "#querySection"
+        },
+        {
+          "include": "#outputRate"
+        },
+        {
+          "include": "#outputEventType"
+        }
+      ]
+    },
+    "onCondition": {
+      "begin": "(?i)(?<=\\son)",
+      "end": "(?i)(?=select|within|;)",
+      "name": "on.expression.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "perExpression": {
+      "begin": "(?i)(?<=per)",
+      "end": "(?i)(?=select|output|insert|delete|update|return|;)",
+      "name": "on.expression.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "join": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "keyword.other.siddhi.leftouterjoin.join.siddhi",
+          "match": "(?i)left(\\W*)(?i)outer(\\W*)(?i)join"
+        },
+        {
+          "name": "keyword.other.rightouterjoin.join.sidhdi",
+          "match": "(?i)right(\\W*)(?i)outer(\\W*)(?i)join"
+        },
+        {
+          "name": "keyword.other.fullouterjoin.join.sidhdi",
+          "match": "(?i)full(\\W*)(?i)outer(\\W*)(?i)join"
+        },
+        {
+          "name": "keyword.other.outerjoin.join.siddhi",
+          "match": "(?i)outer(\\W*)(?i)join"
+        },
+        {
+          "name": "keyword.other.innerjoin.join.siddhi",
+          "match": "(?i)inner(\\W*)(?i)join"
+        },
+        {
+          "name": "keyword.other.join.siddhi",
+          "match": "(?i)join"
+        }
+      ]
+    },
+    "outputRate": {
+      "begin": "(?i)output",
+      "beginCaptures": {
+        "0": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "end": "(?i)(?=return|insert|delete|update|;)",
+      "name": "outputrate.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#outputRateType"
+        },
+        {
+          "include": "#integerLiteral"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)EVENTS"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)EVERY"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)SNAPSHOT"
+        },
+        {
+          "name": "constant.other.timevalue.siddhi",
+          "match": "\\b(?i)(years|months|hours|minutes|seconds|sec|min|hour|year|month)\\b"
+        }
+      ]
+    },
+    "outputRateType": {
+      "patterns": [
+        {
+          "name": "keyword.control.outputratetype.siddhi",
+          "match": "(?i)\\b(ALL|LAST|FIRST)\\b"
+        }
+      ]
+    },
+    "queryOutput": {
+      "begin": "(?i)(insert|delete|update\\s*or\\s*insert\\s*into|update|delete|return)",
+      "end": "(?=;)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "name": "output.query.siddhi",
+      "patterns": [
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)\\binto\\b"
+        },
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)for"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)on"
+        },
+        {
+          "include": "#onCondition"
+        },
+        {
+          "include": "#setClause"
+        },
+        {
+          "include": "#outputEventType"
+        },
+        {
+          "include": "#target"
+        }
+      ]
+    },
+    "partition": {
+      "begin": "(?i)(?<=with)",
+      "end": "(?=;)",
+      "name": "partition.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#partitionWithStreamList"
+        },
+        {
+          "include": "#queryBlock"
+        }
+      ]
+    },
+    "partitionWithStreamList": {
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": {
+          "name": "support.constant.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.siddhi"
+        }
+      },
+      "name": "partitionwithstreamlist.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#partitionWithStream"
+        }
+      ]
+    },
+    "partitionWithStream": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "keyword.other.siddhi",
+          "match": "(?i)of"
+        },
+        {
+          "name": "keyword.other.siddhi",
+          "match": "(?i)as"
+        },
+        {
+          "include": "#attribute"
+        },
+        {
+          "name": "variable.parameter.streamid.siddhi",
+          "match": "(?i)(?<=of)\\s*[a-zA-Z_][a-zA-Z_0-9]*"
+        },
+        {
+          "include": "#stringValue"
+        },
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "queryBlock": {
+      "begin": "(?i)begin",
+      "end": "(?i)end",
+      "beginCaptures": {
+        "0": {
+          "name": "keyword.other.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "keyword.other.sidhdi"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)from"
+        },
+        {
+          "name": "support.constant.siddhi",
+          "match": ";"
+        },
+        {
+          "include": "#query"
+        }
+      ]
+    },
+    "onDemandQuery": {
+      "begin": "(?i)from",
+      "end": ";",
+      "beginCaptures": {
+        "0": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "support.constant.siddhi"
+        }
+      },
+      "name": "ondemand.query.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)insert(\\s*)(?i)into"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)update"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)delete"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)update(\\s*)(?i)or"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)on"
+        },
+        {
+          "include": "#onDemandInput"
+        },
+        {
+          "include": "#querySection"
+        },
+        {
+          "include": "#target"
+        },
+        {
+          "include": "#setClause"
+        },
+        {
+          "include": "#onDemandQueryOutput"
+        },
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "onDemandInput": {
+      "begin": "(?<=from)",
+      "end": "(?i)(?=select|delete|update|output)",
+      "name": "input.ondemand.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)\\bas\\b"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)\\bon\\b"
+        },
+        {
+          "name": "keyword.control.siddhi",
+          "match": "(?i)\\bper\\b"
+        },
+        {
+          "name": "variable.parameter.name.sourceid.ondemandquery.siddhi",
+          "match": "(?<=from\\Wevery)(\\s*)[a-zA-Z_][a-zA-Z_0-9]*"
+        },
+        {
+          "name": "variable.parameter.name.sourceid.ondemandquery.siddhi",
+          "match": "(?<=from)(\\s*)[a-zA-Z_][a-zA-Z_0-9]*"
+        },
+        {
+          "name": "variable.parameter.name.alias.ondemandquery.siddhi",
+          "match": "(?<=as)(\\s*)[a-zA-Z_][a-zA-Z_0-9]*"
+        },
+        {
+          "include": "#withinTimeRange"
+        },
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "withinTimeRange": {
+      "begin": "(?i)within",
+      "end": "(?=per|select)",
+      "beginCaptures": {
+        "0": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "name": "withintimerange.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "querySection": {
+      "begin": "(?i)select",
+      "end": "(?i)(?=insert|update|delete|return|output|\\)|;)",
+      "beginCaptures": {
+        "0": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "name": "querysection.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "support.constant.sddhi",
+          "match": "\\*"
+        },
+        {
+          "name": "keyword.other.siddhi",
+          "match": "(?i)\\bas\\b"
+        },
+        {
+          "include": "#groupBy"
+        },
+        {
+          "include": "#having"
+        },
+        {
+          "include": "#orderBy"
+        },
+        {
+          "include": "#limit"
+        },
+        {
+          "include": "#offset"
+        },
+        {
+          "include": "#outputAttribute"
+        }
+      ]
+    },
+    "groupBy": {
+      "begin": "((?i)group)(\\s*)((?i)by)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.siddhi"
+        },
+        "3": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "end": "(?=aggregate|having|order\\s*by|limit|offset|insert|update|output|;)",
+      "name": "phrase.groupbys.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#attributeReference"
+        }
+      ]
+    },
+    "having": {
+      "begin": "(?i)having",
+      "end": "(?i)(?=order\\s*by|limit|offset|insert|update|output|;)",
+      "beginCaptures": {
+        "0": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "name": "phrase.having.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "orderBy": {
+      "begin": "((?i)order)(\\s*)((?i)by)",
+      "end": "(?i)(?=limit|offset|insert|update|output|;)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.siddhi"
+        },
+        "3": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "name": "phrase.orderby.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#order"
+        },
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "order": {
+      "patterns": [
+        {
+          "name": "support.constant.siddhi",
+          "match": "(?i)\\basc\\b"
+        },
+        {
+          "name": "support.constant.siddhi",
+          "match": "(?i)\\bdesc\\b"
+        }
+      ]
+    },
+    "limit": {
+      "begin": "(?i)limit",
+      "end": "(?i)(?=offset|insert|update|output|;)",
+      "beginCaptures": {
+        "0": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "name": "phrase.limit.siddhi",
+      "patterns": [
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "offset": {
+      "begin": "(?i)offset",
+      "end": "(?i)(?=insert|update|output|\\)|;)",
+      "beginCaptures": {
+        "0": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "name": "phrase.offset.siddhi",
+      "patterns": [
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "setClause": {
+      "begin": "(?i)set",
+      "end": "(?i)(?=on|update|delete)",
+      "beginCaptures": {
+        "0": {
+          "name": "keyword.control.siddhi"
+        }
+      },
+      "name": "setclause.ondemand.siddhi",
+      "patterns": [
+        {
+          "include": "#attributeReference"
+        },
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "onDemandQueryOutput": {
+      "begin": "(?<= update|delete)",
+      "end": "(?=;)",
+      "name": "output.ondemand.siddhi",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#target"
+        },
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "target": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "name": "entity.other.attribute-name.source.target.siddhi",
+          "match": "(?i)(?<=into|update|delete)(\\s*)([a-zA-Z_][a-zA-Z_0-9]*)"
+        },
+        {
+          "name": "source.target.siddhi",
+          "match": "(?i)(?<=into|update|delete)(\\s*)(#)(\\W*)([a-zA-Z_][a-zA-Z_0-9]*)",
+          "captures": {
+            "2": {
+              "name": "support.constant.siddhi"
+            },
+            "4": {
+              "name": "entity.other.attribute-name.siddhi"
+            }
+          }
+        },
+        {
+          "name": "source.target.siddhi",
+          "match": "(?i)(?<=into|update|delete)(\\s*)(!)(\\W*)([a-zA-Z_][a-zA-Z_0-9]*)",
+          "captures": {
+            "2": {
+              "name": "support.constant.siddhi"
+            },
+            "4": {
+              "name": "entity.other.attribute-name.siddhi"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

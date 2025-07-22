@@ -608,5 +608,21 @@
     //   "packageName": "@wso2/api-designer-rpc-client",
     //   "projectFolder": "workspaces/api-designer/api-designer-rpc-client"
     // }
+    {
+      "packageName": "streaming-integrator",
+      "projectFolder": "workspaces/si/si-extension"
+    },
+    {
+      "packageName": "@wso2/si-core",
+      "projectFolder": "workspaces/si/si-core"
+    },
+    {
+      "packageName": "@wso2/si-visualizer",
+      "projectFolder": "workspaces/si/si-visualizer"
+    },
+    {
+      "packageName": "@wso2/si-rpc-client",
+      "projectFolder": "workspaces/si/si-rpc-client"
+    }
   ]
 }

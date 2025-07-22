@@ -1,0 +1,275 @@
+{
+  "name": "streaming-integrator",
+  "displayName": "WSO2 Integrator: SI",
+  "description": "IntelliSense, Diagnostics and Syntax Highlighting for Siddhi apps",
+  "version": "1.0.0",
+  "publisher": "WSO2",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wso2/vscode-extensions"
+  },
+  "icon": "resources/images/icons/si-icon.png",
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "keywords": [
+    "siddhi",
+    "stream processing",
+    "cep"
+  ],
+  "activationEvents": [
+    "onLanguage:siddhi"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "siddhi",
+        "aliases": [
+          "Siddhi",
+          "siddhi"
+        ],
+        "extensions": [
+          ".siddhi"
+        ],
+        "icon": {
+          "light": "resources/images/siddhi-icon.png",
+          "dark": "resources/images/siddhi-icon.png"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "siddhi",
+        "scopeName": "source.siddhi",
+        "path": "./grammar/siddhi-grammar/syntaxes/siddhi.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Siddhi",
+      "properties": {
+        "siddhi.home": {
+          "type": "string",
+          "default": "",
+          "description": "Specifies the path to the WSO2 Integrator: SI home directory"
+        },
+        "siddhi.javaHome": {
+          "type": "string",
+          "default": "",
+          "description": "Specifies the path to the java home directory"
+        },
+        "siddhi.debugLog": {
+          "type": "boolean",
+          "default": false,
+          "description": "If set to true debug messages will be printed to output channel"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "SI.build-and-run",
+        "title": "Run",
+        "icon": {
+          "dark": "./resources/images/icons/start-inverse.svg",
+          "light": "./resources/images/icons/start.svg"
+        },
+        "category": "SI"
+      },
+      {
+        "command": "SI.show.source",
+        "title": "Show Source",
+        "icon": "$(code)",
+        "category": "SI"
+      },
+      {
+        "command": "SI.show.graphical-view",
+        "title": "Open Graphical View",
+        "icon": "$(distro-design-view)",
+        "category": "SI"
+      },
+      {
+        "command": "SI.event.simulate",
+        "title": "Event Simulator",
+        "icon": "$(beaker)",
+        "category": "SI"
+      },
+      {
+        "command": "SI.change.server",
+        "title": "Add SI server",
+        "category": "SI"
+      },
+      {
+        "command": "SI.change.java",
+        "title": "Set Java Home",
+        "category": "SI"
+      },
+      {
+        "command": "SI.openWelcome",
+        "title": "Open SI Welcome",
+        "category": "SI"
+      },
+      {
+        "command": "SI.export.to.docker",
+        "title": "Export Siddhi Apps to Docker",
+        "category": "SI"
+      },
+      {
+        "command": "SI.extension.installer",
+        "title": "Extension Installer",
+        "category": "SI"
+      }
+
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "SI.show.source",
+          "when": "SI.isVisualizerActive === 'true'"
+        },
+        {
+          "command": "SI.show.graphical-view",
+          "when": "resourceLangId == siddhi"
+        },
+        {
+          "command": "SI.build-and-run",
+          "when": "resourceLangId == siddhi"
+        },
+        {
+          "command": "SI.event.simulate",
+          "when": "resourceLangId == siddhi && SI.isRunning === 'true'"
+        }
+      ],
+      "editor/title/run": [
+        {
+          "command": "SI.build-and-run",
+          "group": "navigation@1",
+          "when": "resourceLangId == siddhi && SI.isRunning !== 'true'",
+          "title": "Build and Run Project"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "SI.show.graphical-view",
+          "when": "resourceLangId == siddhi",
+          "group": "navigation@3",
+          "title": "Show Graphical View"
+        },
+        {
+          "command": "SI.show.source",
+          "when": "SI.isVisualizerActive === 'true'",
+          "group": "navigation@3",
+          "title": "Show Source"
+        },
+        {
+          "command": "SI.event.simulate",
+          "when": "resourceLangId == siddhi && SI.isRunning === 'true'",
+          "group": "navigation@3",
+          "title": "Event Simulator"
+        }
+      ]
+    },
+    "debuggers": [
+      {
+        "type": "si",
+        "label": "SI: Run and Debug",
+        "runtime": "node",
+        "languages": [
+          "siddhi"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "properties": {
+              "env": {
+                "type": "object",
+                "description": "Environment variables to set for the SI runtime",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "vmArgs": {
+                "type": "array",
+                "description": "Arguments to pass to the SI runtime",
+                "items": {
+                  "type": "string"
+                },
+                "default": []
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "si",
+            "name": "SI: Run and Debug",
+            "request": "launch",
+            "internalConsoleOptions": "openOnSessionStart",
+            "vmArgs": []
+          }
+        ]
+      }
+    ]
+  },
+  "main": "./dist/extension.js",
+  "files": [
+    "dist/**",
+    "resources/**",
+    "grammar/**",
+    "src/web/**",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "clean": "rimraf ./dist",
+    "compile": "tsc -p .",
+    "watch": "tsc -p . -w",
+    "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release; else vsce package --no-dependencies; fi",
+    "build": "pnpm clean && pnpm run copyJSLibs && webpack --mode production --devtool hidden-source-map && pnpm run package && pnpm run postbuild",
+    "compile-tests": "pnpm run compile",
+    "watch-tests": "pnpm run watch",
+    "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "pnpm run pretest && node ./out/test/runTest.js",
+    "download-ls": "node scripts/download-ls.js",
+    "e2e-test": "pnpm run compile-tests && pnpm exec playwright test",
+    "copyJSLibs": "copyfiles -f ../si-visualizer/build/*.js resources/jslibs",
+    "copyVSIX": "copyfiles *.vsix ./vsix",
+    "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../..",
+    "postbuild": "if [ \"$isPreRelease\" = \"true\" ]; then pnpm run download-ls --prerelease; else pnpm run download-ls; fi && pnpm run copyJSLibs && pnpm run package && pnpm run copyVSIX",
+    "build-tm-grammar": "js-yaml grammar/siddhi-grammar/syntaxes/siddhi.tmLanguage.yaml > grammar/siddhi-grammar/syntaxes/siddhi.tmLanguage.json"
+  },
+  "devDependencies": {
+    "@types/mocha": "^2.2.42",
+    "@types/node": "^12.0.12",
+    "@types/vscode": "^1.59.0",
+    "glob": "^7.1.6",
+    "istanbul": "^0.4.5",
+    "js-yaml": "^3.13.1",
+    "tslint": "^5.8.0",
+    "typescript": "^5.8.3",
+    "vsce": "^1.93.0"
+  },
+  "dependencies": {
+    "@types/glob": "^7.1.1",
+    "@wso2/ui-toolkit": "workspace:*",
+    "await-notify": "^1.0.1",
+    "axios": "^1.9.0",
+    "copyfiles": "^2.4.1",
+    "lodash": "~4.17.21",
+    "node-fetch": "~2.6.2",
+    "rimraf": "^6.0.1",
+    "ts-loader": "^9.5.2",
+    "unzipper": "~0.10.14",
+    "vscode-debugadapter": "^1.51.0",
+    "vscode-debugprotocol": "^1.51.0",
+    "vscode-languageclient": "9.0.1",
+    "vscode-messenger": "^0.5.1",
+    "vscode-messenger-webview": "^0.5.1",
+    "xstate": "^4.38.3",
+    "@wso2/si-core": "workspace:*"
+  }
+}

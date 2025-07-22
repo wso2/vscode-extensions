@@ -1,0 +1,16 @@
+# Package Files #
+*.vsix
+
+#generated files
+package-lock.json
+
+#directories
+out
+.vscode-test
+node_modules
+.vscode/
+.vscode-test/
+.idea
+
+!src/web/editor/commons/lib/
+!src/web/editor/commons/lib/**

@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "es6",                          
+    "module": "commonjs",                     
+    "lib": [
+      "es6",
+      "dom"
+    ],                             
+    "outDir": "dist",                                              
+    "strict": true,                           /* Enable all strict type-checking options. */
+    "noImplicitAny": false,                 /* Raise error on expressions and declarations with an implied 'any' type. */
+    "noUnusedLocals": false,                /* Report errors on unused locals. */
+    "moduleResolution": "node",           
+    "noUnusedParameters": false,               
+    "rootDir": "src",
+    "sourceMap": true
+  },
+  "exclude": [
+    "./resources"
+  ]
+}
+

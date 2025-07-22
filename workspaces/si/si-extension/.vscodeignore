@@ -1,0 +1,14 @@
+.vscode/**
+.vscode-test/**
+.idea/
+typings/**
+out/test/**
+test/**
+src/**
+!src/web/**
+**/*.map
+.gitignore
+tsconfig.json
+pull_request_template.md
+issue_template.md
+package-lock.json
