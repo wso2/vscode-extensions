@@ -14,14 +14,16 @@ export class VSBrowser {
     private customSettings: object;
     private codeVersion: string;
     private releaseType: ReleaseQuality;
+    private profileName: string;
     private static _instance: VSBrowser;
 
-    constructor(codeVersion: string, releaseType: ReleaseQuality, private resources: string[], customSettings: object = {}) {
+    constructor(codeVersion: string, releaseType: ReleaseQuality, private resources: string[], customSettings: object = {}, profileName?: string) {
         this.storagePath = process.env.TEST_RESOURCES ? process.env.TEST_RESOURCES : os.tmpdir();
         this.extensionsFolder = process.env.EXTENSIONS_FOLDER ? process.env.EXTENSIONS_FOLDER : undefined;
         this.customSettings = customSettings;
         this.codeVersion = codeVersion;
         this.releaseType = releaseType;
+        this.profileName = profileName || `test-profile-${Date.now()}`;
 
         VSBrowser._instance = this;
     }
@@ -38,8 +40,8 @@ export class VSBrowser {
             '--no-sandbox',
             '--enable-logging',
             '--log-level=0',
-            `--log-file=${path.join(this.storagePath, 'settings', 'chromium-log')}`,
-            `--crash-reporter-directory=${path.join(this.storagePath, 'settings', 'crash-reports')}`,
+            `--log-file=${path.join(this.storagePath, 'settings', this.profileName, 'chromium-log')}`,
+            `--crash-reporter-directory=${path.join(this.storagePath, 'settings', this.profileName, 'crash-reports')}`,
             '--enable-blink-features=ShadowDOMV0',
             '--disable-renderer-backgrounding',
             '--ignore-certificate-errors',
@@ -51,7 +53,7 @@ export class VSBrowser {
             '--disable-ipc-flooding-protection',
             '--enable-precise-memory-info',
             '--disable-workspace-trust',
-            `--user-data-dir=${path.join(this.storagePath, 'settings', 'Code')}`,
+            `--user-data-dir=${path.join(this.storagePath, 'settings', this.profileName, 'Code')}`,
         ];
 
         if (this.extensionsFolder) {
@@ -70,9 +72,9 @@ export class VSBrowser {
 
 
     private async writeSettings() {
-        const userSettings = path.join(this.storagePath, 'settings', 'Code', 'User');
+        const userSettings = path.join(this.storagePath, 'settings', this.profileName, 'Code', 'User');
         if (fs.existsSync(userSettings)) {
-            fs.removeSync(path.join(this.storagePath, 'settings'));
+            fs.removeSync(path.join(this.storagePath, 'settings', this.profileName));
         }
         let defaultSettings = {
             "workbench.editor.enablePreview": false,
