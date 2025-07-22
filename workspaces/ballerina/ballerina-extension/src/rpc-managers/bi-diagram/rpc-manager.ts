@@ -763,8 +763,6 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         });
     }
 
-
-
     async deployProject(params: DeploymentRequest): Promise<DeploymentResponse> {
         const scopes = params.integrationTypes;
 

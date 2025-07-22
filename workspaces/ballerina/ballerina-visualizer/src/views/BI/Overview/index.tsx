@@ -489,7 +489,7 @@ function IntegrationControlPlane({ enabled, handleICP }: IntegrationControlPlane
     );
 }
 
-function SaveAndDeployToDevantButton({ projectStructure, handleDeploy }: { projectStructure: ProjectStructureResponse, handleDeploy: () => void }) {
+function DevantDashboard({ projectStructure, handleDeploy }: { projectStructure: ProjectStructureResponse, handleDeploy: () => void }) {
     const { rpcClient } = useRpcContext();
 
     const handleSaveAndDeployToDevant = () => {
@@ -502,15 +502,34 @@ function SaveAndDeployToDevantButton({ projectStructure, handleDeploy }: { proje
         (projectStructure.directoryMap.SERVICE && projectStructure.directoryMap.SERVICE.length > 0)
     );
 
-    // Only render if there's an automation or service
-    if (!hasAutomationOrService) {
-        return null;
-    }
-
     return (
-        <Button appearance="primary" onClick={handleSaveAndDeployToDevant}>
-            <Codicon name="save" sx={{ marginRight: 8 }} /> Deploy
-        </Button>
+        <React.Fragment>
+            <Title variant="h3">Deploy to Devant</Title>
+            {!hasAutomationOrService ? (
+                <Typography sx={{ color: "var(--vscode-descriptionForeground)" }}>
+                    Before you can deploy your integration to Devant, please add an artifact (such as a Service or Automation) to your project.
+                </Typography>
+            ) : (
+                <React.Fragment>
+                    <Typography sx={{ color: "var(--vscode-descriptionForeground)" }}>
+                        Deploy your integration to Devant and run it in the cloud.
+                    </Typography>
+                    <Button
+                        appearance="primary"
+                        onClick={handleSaveAndDeployToDevant}
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            marginTop: "10px",
+                            mx: "auto"
+                        }}
+                    >
+                        <Codicon name="save" sx={{ marginRight: 8 }} /> Save and Deploy
+                    </Button>
+                </React.Fragment>
+            )}
+        </React.Fragment>
     );
 }
 
@@ -887,7 +906,6 @@ export function Overview(props: ComponentDiagramProps) {
                     <ProjectSubtitle>Integration</ProjectSubtitle>
                 </TitleContainer>
                 <HeaderControls>
-                    {isDevantEditor && <SaveAndDeployToDevantButton projectStructure={projectStructure} handleDeploy={handleDeploy}/>}
                     <Button appearance="icon" onClick={handleLocalConfigure} buttonSx={{ padding: "4px 8px" }}>
                         <Codicon name="settings-gear" sx={{ marginRight: 5 }} /> Configure
                     </Button>
@@ -987,20 +1005,21 @@ export function Overview(props: ComponentDiagramProps) {
                     </FooterPanel>
                 </LeftContent>
                 <SidePanel>
-                    { !isDevantEditor && 
-                    <>
-                        <DeploymentOptions
-                            handleDockerBuild={handleDockerBuild}
-                            handleJarBuild={handleJarBuild}
-                            handleDeploy={handleDeploy}
-                            goToDevant={goToDevant}
-                            devantMetadata={devantMetadata}
-                            hasDeployableIntegration={deployableIntegrationTypes.length > 0}
-                        />
-                        <Divider sx={{ margin: "16px 0" }} />
-                    </>
+                    {!isDevantEditor &&
+                        <>
+                            <DeploymentOptions
+                                handleDockerBuild={handleDockerBuild}
+                                handleJarBuild={handleJarBuild}
+                                handleDeploy={handleDeploy}
+                                goToDevant={goToDevant}
+                                devantMetadata={devantMetadata}
+                                hasDeployableIntegration={deployableIntegrationTypes.length > 0}
+                            />
+                            <Divider sx={{ margin: "16px 0" }} />
+                            <IntegrationControlPlane enabled={enabled} handleICP={handleICP} />
+                        </>
                     }
-                    <IntegrationControlPlane enabled={enabled} handleICP={handleICP} />
+                    {isDevantEditor && <DevantDashboard projectStructure={projectStructure} handleDeploy={handleDeploy} />}
                 </SidePanel>
             </MainContent>
         </PageLayout>
