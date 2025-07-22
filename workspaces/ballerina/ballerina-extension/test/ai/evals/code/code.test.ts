@@ -22,7 +22,6 @@ import { ChatNotify, GenerateCodeRequest } from "@wso2/ballerina-core";
 import { CopilotEventHandler } from "../../../../src/features/ai/service/event";
 import { commands, Uri, workspace } from "vscode";
 import { ExtendedLangClient } from "../../../../src/core/extended-language-client";
-import { ballerinaExtInstance } from "../../../../src/core/extension";
 import { getServerOptions } from "../../../../src/utils/server/server";
 
 const RESOURCES_PATH = path.resolve(__dirname, "../../../../../test/ai/evals/code/resources");
@@ -108,11 +107,14 @@ function createTestEventHandler(): { handler: CopilotEventHandler; getResult: ()
 }
 
 suite.only("AI Code Generator Tests Suite", () => {
-    test("basic workspace test", async function () {
-        this.timeout(30000);
-        //TODO: Set new langserver jar
 
-        const PROJECT_ROOT = "/Users/wso2/repos/ballerina-copilot/evals/project_samples/fresh_bi_package";
+    // Close all the open workspace folders before running the test
+    suiteSetup(async function () {
+        await commands.executeCommand("workbench.action.closeAllEditors");
+    });
+
+    test("basic workspace test", async function () {
+        const PROJECT_ROOT = "/Users/anjanash/Desktop/Office/OpenSource/vscode-extensions/workspaces/ballerina/ballerina-extension/test/data/aiTest";
 
         const success = workspace.updateWorkspaceFolders(0, 0, {
             uri: Uri.file(PROJECT_ROOT),
@@ -132,7 +134,7 @@ suite.only("AI Code Generator Tests Suite", () => {
         };
 
         try {
-            await generateCodeCore(params, testEventHandler);
+            await commands.executeCommand('ballerina.test.ai.generateCodeCore', params, testEventHandler);
 
             const result = getResult();
 
@@ -156,7 +158,7 @@ suite.only("AI Code Generator Tests Suite", () => {
     });
 });
 
-// suite.only("AI Code Generator Tests Suite", () => {
+// suite("AI Code Generator Tests Suite", () => {
 //     // let langClient: ExtendedLangClient;
 
 //     // suiteSetup(async (done): Promise<any> => {
