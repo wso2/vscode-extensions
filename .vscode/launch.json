@@ -246,5 +246,24 @@
             ],
             "preLaunchTask": "npm: watch-apk"
         },
+        {
+            "name": "SI Extension",
+            "type": "extensionHost",
+            "request": "launch",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/si/si-extension"
+            ],
+            "outFiles": [
+                "${workspaceFolder}/workspaces/si/si-extension/dist/**/*.js",
+            ],
+            "skipFiles": [
+                "**/node_modules/**"
+            ],
+            "resolveSourceMapLocations": [
+                "${workspaceFolder}/workspaces/si/si-extension/dist/**/*.js",
+                "!**/node_modules/**"
+            ],
+            "preLaunchTask": "npm: watch-si"
+        },
     ]
 }
