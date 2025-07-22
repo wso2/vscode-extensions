@@ -54,6 +54,9 @@ module.exports = {
         if (pkg.dependencies['on-headers']) {
           pkg.dependencies['on-headers'] = '^1.1.0';
         }
+        if (pkg.dependencies['form-data']) {
+          pkg.dependencies['form-data'] = '^4.0.4';
+        }
       }
 
       if (pkg.devDependencies) {
@@ -90,6 +93,9 @@ module.exports = {
         }
         if (pkg.devDependencies['on-headers']) {
           pkg.devDependencies['on-headers'] = '^1.1.0';
+        }
+        if (pkg.devDependencies['form-data']) {
+          pkg.devDependencies['form-data'] = '^4.0.4';
         }
       }
 
