@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { BI_COMMANDS, DIRECTORY_MAP, SCOPE, findScopeByModule } from "@wso2/ballerina-core";
+import { BI_COMMANDS, DIRECTORY_MAP, EVENT_TYPE, MACHINE_VIEW, SCOPE, findScopeByModule } from "@wso2/ballerina-core";
 import {
     CommandIds as PlatformCommandIds,
     IWso2PlatformExtensionAPI,
@@ -24,12 +24,12 @@ import {
     ICreateComponentCmdParams,
 } from "@wso2/wso2-platform-core";
 import { BallerinaExtension } from "../../core";
-import { StateMachine } from "../../stateMachine";
+import { openView, StateMachine } from "../../stateMachine";
 import { commands, extensions, window } from "vscode";
 
 export function activateDevantFeatures(_ballerinaExtInstance: BallerinaExtension) {
-    const connectionToken = process.env.CONNECTION_TOKEN;
-    if (connectionToken) {
+    const cloudToken = process.env.CLOUD_STS_TOKEN;
+    if (cloudToken) {
         // Set the connection token context
         commands.executeCommand("setContext", "devant.editor", true);
     }
@@ -88,13 +88,22 @@ const handleComponentPushToDevant = async () => {
         let integrationType: SCOPE;
 
         if (scopeSet.size === 0) {
-            window.showInformationMessage("Please add a construct and try again to deploy your integration");
+            window
+                .showInformationMessage(
+                    "Please add a construct and try again to deploy your integration",
+                    "Add Construct"
+                )
+                .then((resp) => {
+                    if (resp === "Add Construct") {
+                        openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.BIComponentView });
+                    }
+                });
             return;
         } else if (scopeSet.size === 1) {
             integrationType = [...scopeSet][0];
         } else {
             const selectedScope = await window.showQuickPick([...scopeSet], {
-                placeHolder: "Multiple types of artifacts detected. Please select the artifact type to be deployed"
+                placeHolder: "Multiple types of artifacts detected. Please select the artifact type to be deployed",
             });
             integrationType = selectedScope as SCOPE;
         }
