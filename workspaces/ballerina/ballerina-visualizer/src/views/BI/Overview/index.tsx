@@ -332,7 +332,7 @@ function DeploymentOption({
                 {isExpanded ? (
                     <Codicon
                         name={'triangle-down'}
-                        sx={{ color: 'var(--vscode-textLink-foreground)'}}
+                        sx={{ color: 'var(--vscode-textLink-foreground)' }}
                     />
                 ) : (
                     <Codicon
@@ -496,11 +496,15 @@ function IntegrationControlPlane({ enabled, handleICP }: IntegrationControlPlane
     );
 }
 
-function DevantDashboard({ projectStructure, handleDeploy }: { projectStructure: ProjectStructureResponse, handleDeploy: () => void }) {
+function DevantDashboard({ projectStructure, handleDeploy, goToDevant, devantMetadata }: { projectStructure: ProjectStructureResponse, handleDeploy: () => void, goToDevant: () => void, devantMetadata: DevantMetadata }) {
     const { rpcClient } = useRpcContext();
 
     const handleSaveAndDeployToDevant = () => {
         handleDeploy();
+    }
+
+    const handlePushChanges = () => {
+        rpcClient.getCommonRpcClient().executeCommand({ commands: [BI_COMMANDS.DEVANT_PUSH_TO_CLOUD] });
     }
 
     // Check if project has automation or service
@@ -511,30 +515,66 @@ function DevantDashboard({ projectStructure, handleDeploy }: { projectStructure:
 
     return (
         <React.Fragment>
-            <Title variant="h3">Deploy to Devant</Title>
+            {devantMetadata?.hasComponent ? <Title variant="h3">Deployed in Devant</Title> : <Title variant="h3">Deploy to Devant</Title>}
             {!hasAutomationOrService ? (
                 <Typography sx={{ color: "var(--vscode-descriptionForeground)" }}>
                     Before you can deploy your integration to Devant, please add an artifact (such as a Service or Automation) to your project.
                 </Typography>
             ) : (
-                <React.Fragment>
-                    <Typography sx={{ color: "var(--vscode-descriptionForeground)" }}>
-                        Deploy your integration to Devant and run it in the cloud.
-                    </Typography>
-                    <Button
-                        appearance="primary"
-                        onClick={handleSaveAndDeployToDevant}
-                        sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            marginTop: "10px",
-                            mx: "auto"
-                        }}
-                    >
-                        <Codicon name="save" sx={{ marginRight: 8 }} /> Save and Deploy
-                    </Button>
-                </React.Fragment>
+                <>
+                    {devantMetadata?.hasComponent ? (
+                        <>
+                            <Typography sx={{ color: "var(--vscode-descriptionForeground)" }}>
+                                This integration is deployed in Devant.
+                            </Typography>
+                            <Button
+                                appearance="secondary"
+                                onClick={goToDevant}
+                                sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    marginTop: "10px",
+                                    mx: "auto"
+                                }}
+                            >
+                                <Codicon name="save" sx={{ marginRight: 8 }} /> Push Changes
+                            </Button>
+                            <Button
+                                appearance="secondary"
+                                onClick={goToDevant}
+                                sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    marginTop: "10px",
+                                    mx: "auto"
+                                }}
+                            >
+                                <Codicon name="save" sx={{ marginRight: 8 }} /> Open Console
+                            </Button>
+                        </>
+                    ) : (
+                        <React.Fragment>
+                            <Typography sx={{ color: "var(--vscode-descriptionForeground)" }}>
+                                Deploy your integration to Devant and run it in the cloud.
+                            </Typography>
+                            <Button
+                                appearance="primary"
+                                onClick={handleSaveAndDeployToDevant}
+                                sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    marginTop: "10px",
+                                    mx: "auto"
+                                }}
+                            >
+                                <Codicon name="save" sx={{ marginRight: 8 }} /> Save and Deploy
+                            </Button>
+                        </React.Fragment>
+                    )}
+                </>
             )}
         </React.Fragment>
     );
@@ -1026,7 +1066,14 @@ export function Overview(props: ComponentDiagramProps) {
                             <IntegrationControlPlane enabled={enabled} handleICP={handleICP} />
                         </>
                     }
-                    {isDevantEditor && <DevantDashboard projectStructure={projectStructure} handleDeploy={handleDeploy} />}
+                    {isDevantEditor &&
+                        <DevantDashboard
+                            projectStructure={projectStructure}
+                            handleDeploy={handleDeploy}
+                            goToDevant={goToDevant}
+                            devantMetadata={devantMetadata}
+                        />
+                    }
                 </SidePanel>
             </MainContent>
         </PageLayout>
