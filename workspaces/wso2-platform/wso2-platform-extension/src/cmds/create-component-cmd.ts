@@ -286,26 +286,6 @@ export const continueCreateComponent = () => {
 	}
 };
 
-export const continueShowCompCreatedNotification = () => {
-	const createdComp: string | null | undefined = ext.context.globalState.get("show-comp-created-notification");
-	if (createdComp) {
-		ext.context.globalState.update("show-comp-created-notification", null);
-		const createCompParams: { org: Organization; project: Project; component: ComponentKind; extensionName: string } = JSON.parse(createdComp);
-		if (createCompParams?.extensionName && createCompParams.org && createCompParams.project && createCompParams.component) {
-			webviewStateStore.getState().setExtensionName(createCompParams?.extensionName as ExtensionName);
-			const successMessage = `${createCompParams?.extensionName === "Devant" ? "Integration" : "Component"} '${createCompParams.component.metadata.name}' was successfully created.`;
-			window.showInformationMessage(successMessage, `Open in ${createCompParams?.extensionName}`).then(async (resp) => {
-				if (resp === `Open in ${createCompParams?.extensionName}`) {
-					commands.executeCommand(
-						"vscode.open",
-						`${createCompParams?.extensionName === "Devant" ? choreoEnvConfig.getDevantUrl() : choreoEnvConfig.getConsoleUrl()}/organizations/${createCompParams.org.handle}/projects/${createCompParams.project.id}/components/${createCompParams.component.metadata.handler}/overview`,
-					);
-				}
-			});
-		}
-	}
-};
-
 export const submitCreateComponentHandler = async ({ createParams, org, project }: SubmitComponentCreateReq) => {
 	const extensionName = webviewStateStore.getState().state?.extensionName;
 	const createdComponent = await window.withProgress(
@@ -382,13 +362,6 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 					);
 				}
 			});
-		} else if (extensionName === "Devant" && process.env.CLOUD_STS_TOKEN) {
-			await ext.context.globalState.update(
-				"show-comp-created-notification",
-				JSON.stringify({ org, project, component: createdComponent, extensionName }),
-			);
-			await commands.executeCommand("workbench.action.closeAllEditors");
-			workspace.updateWorkspaceFolders(0, 1, { uri: Uri.file(createParams.componentDir) });
 		} else {
 			window.showInformationMessage(`${successMessage} Reload workspace to continue`, { modal: true }, "Continue").then((resp) => {
 				if (resp === "Continue") {
