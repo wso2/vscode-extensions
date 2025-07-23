@@ -8,7 +8,7 @@
  */
 
 import * as vscode from "vscode";
-import { StreamAttributesResponse, StreamResponse } from "@wso2-enterprise/si-core";
+import { StreamAttributesResponse, StreamResponse } from "@wso2/si-core";
 import * as path from "path";
 import * as fs from "fs";
 import { extension } from "../SIExtensionContext";
