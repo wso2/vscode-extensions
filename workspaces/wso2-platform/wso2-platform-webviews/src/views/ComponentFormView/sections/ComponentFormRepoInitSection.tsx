@@ -19,7 +19,7 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { RequiredFormInput } from "@wso2/ui-toolkit";
-import { buildGitURL, GitProvider, type NewComponentWebviewProps } from "@wso2/wso2-platform-core";
+import { GitProvider, type NewComponentWebviewProps, buildGitURL } from "@wso2/wso2-platform-core";
 import debounce from "lodash.debounce";
 import React, { type FC, useCallback, useEffect, useState } from "react";
 import type { SubmitHandler, UseFormReturn } from "react-hook-form";
@@ -75,7 +75,7 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 
 	// todo: handle bitbucket and gitlab
 	const provider = GitProvider.GITHUB;
-	const repoUrl = matchingOrgItem && repoName && buildGitURL(matchingOrgItem?.orgHandler, repoName, provider, false, serverUrl)
+	const repoUrl = matchingOrgItem && repoName && buildGitURL(matchingOrgItem?.orgHandler, repoName, provider, false, serverUrl);
 	const credential = "";
 
 	useEffect(() => {

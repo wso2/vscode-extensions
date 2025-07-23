@@ -31,8 +31,8 @@ import type {
 	DeploymentLogsData,
 	DeploymentTrack,
 	Environment,
-	GithubOrganization,
 	GitRepoMetadata,
+	GithubOrganization,
 	MarketplaceItem,
 	Pagination,
 	Project,
@@ -404,13 +404,13 @@ export interface GetSubscriptionsReq {
 export interface GetGitTokenForRepositoryReq {
 	orgId: string;
 	gitOrg: string;
-    gitRepo: string;
+	gitRepo: string;
 }
 
 export interface GetGitTokenForRepositoryResp {
 	token: string;
 	gitOrganization: string;
-    gitRepository: string;
+	gitRepository: string;
 }
 
 export interface GetGitMetadataReq {
@@ -622,7 +622,9 @@ export const ChoreoRpcCreateComponentRequest: RequestType<CreateComponentReq, Co
 export const ChoreoRpcGetBuildPacksRequest: RequestType<BuildPackReq, Buildpack[]> = { method: "rpc/component/getBuildPacks" };
 export const ChoreoRpcGetBranchesRequest: RequestType<GetBranchesReq, string[]> = { method: "rpc/repo/getBranches" };
 export const ChoreoRpcIsRepoAuthorizedRequest: RequestType<IsRepoAuthorizedReq, IsRepoAuthorizedResp> = { method: "rpc/repo/isRepoAuthorized" };
-export const ChoreoRpcGetAuthorizedGitOrgsRequest: RequestType<GetAuthorizedGitOrgsReq, GetAuthorizedGitOrgsResp> = { method: "rpc/repo/getAuthorizedGitOrgs" };
+export const ChoreoRpcGetAuthorizedGitOrgsRequest: RequestType<GetAuthorizedGitOrgsReq, GetAuthorizedGitOrgsResp> = {
+	method: "rpc/repo/getAuthorizedGitOrgs",
+};
 export const ChoreoRpcGetCredentialsRequest: RequestType<GetCredentialsReq, CredentialItem[]> = { method: "rpc/repo/getCredentials" };
 export const ChoreoRpcDeleteComponentRequest: RequestType<DeleteCompReq, void> = { method: "rpc/component/delete" };
 export const ChoreoRpcCreateBuildRequest: RequestType<CreateBuildReq, BuildKind> = { method: "rpc/build/create" };

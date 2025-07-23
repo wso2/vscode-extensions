@@ -3895,6 +3895,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.817.0
         version: 3.832.0
+      '@iarna/toml':
+        specifier: ^2.2.5
+        version: 2.2.5
       '@vscode-logging/logger':
         specifier: ^2.0.0
         version: 2.0.0
@@ -25355,10 +25358,7 @@ snapshots:
       jest-runner: 25.5.4
       jest-runtime: 25.5.4
     transitivePeerDependencies:
-      - bufferutil
-      - canvas
       - supports-color
-      - utf-8-validate
 
   '@jest/test-sequencer@29.7.0':
     dependencies:

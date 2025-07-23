@@ -250,6 +250,7 @@
     "file-type": "^18.2.1",
     "js-yaml": "^4.1.0",
     "yaml": "^2.8.0",
+    "@iarna/toml": "^2.2.5",
     "jschardet": "^3.1.4",
     "vscode-messenger": "^0.5.1",
     "vscode-messenger-common": "^0.5.1",

@@ -181,12 +181,13 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 		mutationFn: async () => {
 			if (!props.isGitInitialized) {
 				const repoInitDetails = repoInitForm.getValues();
-				const repoUrl = buildGitURL(repoInitDetails?.orgHandler, repoInitDetails.repo, repoInitDetails.gitProvider, false, repoInitDetails.serverUrl)
-				const branchesCache: string[] = queryClient.getQueryData(queryKeys.getGitBranches(repoUrl, organization, "", true))
+				const repoUrl = buildGitURL(repoInitDetails?.orgHandler, repoInitDetails.repo, repoInitDetails.gitProvider, false, repoInitDetails.serverUrl);
+				const branchesCache: string[] = queryClient.getQueryData(queryKeys.getGitBranches(repoUrl, organization, "", true));
 				const newWorkspacePath = await ChoreoWebViewAPI.getInstance().cloneRepositoryIntoCompDir({
 					cwd: props.directoryFsPath,
 					subpath: repoInitDetails.subPath,
-					orgId: props.organization?.id?.toString(),
+					org: props.organization,
+					componentName: makeURLSafe(repoInitDetails.name),
 					repo: {
 						orgHandler: repoInitDetails.orgHandler,
 						orgName: repoInitDetails.org,

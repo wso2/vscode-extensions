@@ -227,7 +227,7 @@ const getSelected = async (items: { [key: string]: ContextItemEnriched }, prevSe
 		);
 		if (matchingOrg) {
 			let projectsCache = dataCacheStore.getState().getProjects(matchingOrg.handle);
-			if(projectsCache.length === 0){
+			if (projectsCache.length === 0) {
 				const projects = await ext.clients.rpcClient.getProjects(matchingOrg.id.toString());
 				dataCacheStore.getState().setProjects(matchingOrg.handle, projects);
 				projectsCache = projects;
