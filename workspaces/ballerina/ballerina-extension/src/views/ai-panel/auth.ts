@@ -17,10 +17,10 @@
  */
 
 import axios from 'axios';
-import { extension } from '../../BalExtensionContext';
 import { AUTH_CLIENT_ID, AUTH_ORG, AUTH_REDIRECT_URL } from '../../features/ai/utils';
 import { AIStateMachine } from './aiMachine';
-import { AIMachineEventType } from '@wso2/ballerina-core';
+import { AIMachineEventType, AuthCredentials, LoginMethod } from '@wso2/ballerina-core';
+import { storeAuthCredentials } from '../../utils/ai/auth';
 
 export interface AccessToken {
     accessToken: string;
@@ -73,14 +73,19 @@ export async function exchangeAuthCode(authCode: string) {
         throw new Error("Auth code is not provided.");
     } else {
         try {
-            console.log("Exchanging auth code to token...");
             const response = await exchangeAuthCodeNew(authCode);
-            let token = await extension.context.secrets.get('BallerinaAIUser');
-            await extension.context.secrets.store('BallerinaAIUser', response.accessToken);
-            await extension.context.secrets.store('BallerinaAIRefreshToken', response.refreshToken ?? '');
-            token = await extension.context.secrets.get('BallerinaAIUser');
+            
+            // Store credentials in structured format
+            const credentials: AuthCredentials = {
+                loginMethod: LoginMethod.BI_INTEL,
+                secrets: {
+                    accessToken: response.accessToken,
+                    refreshToken: response.refreshToken ?? ''
+                }
+            };
+            await storeAuthCredentials(credentials);
 
-            AIStateMachine.sendEvent(AIMachineEventType.LOGIN_SUCCESS);
+            AIStateMachine.sendEvent(AIMachineEventType.COMPLETE_AUTH);
         } catch (error: any) {
             const errMsg = "Error while signing in to Copilot! " + error?.message;
             throw new Error(errMsg);

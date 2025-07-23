@@ -161,7 +161,6 @@ import { OLD_BACKEND_URL } from "../../features/ai/utils";
 import { ICreateComponentCmdParams, IWso2PlatformExtensionAPI, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
 import { cleanAndValidateProject, getCurrentBIProject } from "../../features/config-generator/configGenerator";
 import { updateSourceCode } from "../../utils/source-utils";
-import { getRefreshedAccessToken } from "../../../src/utils/ai/auth";
 import { applyBallerinaTomlEdit } from "./utils";
 import { fetchWithAuth } from "../../../src/features/ai/service/connection";
 export class BiDiagramRpcManager implements BIDiagramAPI {
