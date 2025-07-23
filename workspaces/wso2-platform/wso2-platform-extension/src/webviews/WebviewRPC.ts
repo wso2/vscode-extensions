@@ -605,7 +605,7 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 			urlObj.username = "x-access-token";
 			urlObj.password = gitPat.token;
 		}
-		
+
 		const repoUrl = urlObj.href;
 
 		const clonedPath = await window.withProgress(

@@ -244,7 +244,8 @@ export function createNewComponentCommand(context: ExtensionContext) {
 						project: selectedProject!,
 						extensionName: webviewStateStore.getState().state.extensionName,
 						// todo: make this flow only work in code-server?
-						shouldAutoCommit: isGitInitialized === false && webviewStateStore.getState().state.extensionName === "Devant" && !!process.env.CLOUD_STS_TOKEN,
+						shouldAutoCommit:
+							isGitInitialized === false && webviewStateStore.getState().state.extensionName === "Devant" && !!process.env.CLOUD_STS_TOKEN,
 						isGitInitialized,
 						initialValues: {
 							type: selectedType,

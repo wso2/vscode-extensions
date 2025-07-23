@@ -19,7 +19,7 @@
 import { type PersistOptions, createJSONStorage } from "zustand/middleware";
 import { ext } from "../extensionVariables";
 
-const version = "v1"
+const version = "v1";
 
 export const getGlobalStateStore = (storeName: string): PersistOptions<any, any> => {
 	return {
