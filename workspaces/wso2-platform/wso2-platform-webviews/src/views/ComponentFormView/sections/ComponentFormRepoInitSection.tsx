@@ -19,7 +19,7 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { RequiredFormInput } from "@wso2/ui-toolkit";
-import { GitProvider, type NewComponentWebviewProps } from "@wso2/wso2-platform-core";
+import { buildGitURL, GitProvider, type NewComponentWebviewProps } from "@wso2/wso2-platform-core";
 import debounce from "lodash.debounce";
 import React, { type FC, useCallback, useEffect, useState } from "react";
 import type { SubmitHandler, UseFormReturn } from "react-hook-form";
@@ -56,6 +56,7 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 	const orgName = form.watch("org");
 	const repo = form.watch("repo");
 	const subPath = form.watch("subPath");
+	const serverUrl = form.watch("serverUrl");
 	const repoError = form.formState?.errors?.repo;
 	const repoName = [connectMoreRepoText, createNewRpoText].includes(repo) ? "" : repo;
 
@@ -74,7 +75,7 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 
 	// todo: handle bitbucket and gitlab
 	const provider = GitProvider.GITHUB;
-	const repoUrl = matchingOrgItem && repoName && `https://github.com/${matchingOrgItem?.orgHandler}/${repoName}`;
+	const repoUrl = matchingOrgItem && repoName && buildGitURL(matchingOrgItem?.orgHandler, repoName, provider, false, serverUrl)
 	const credential = "";
 
 	useEffect(() => {
@@ -164,15 +165,20 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 	});
 
 	const onSubmitForm: SubmitHandler<ComponentRepoInitSchemaType> = async (data) => {
-		const resp = await getRepoMetadata(data);
-		if (resp?.metadata && !resp?.metadata?.isSubPathEmpty) {
-			form.setError("subPath", { message: "Path isn't empty in the remote repo" });
-		} else {
+		try {
+			const resp = await getRepoMetadata(data);
+			if (resp?.metadata && !resp?.metadata?.isSubPathEmpty) {
+				form.setError("subPath", { message: "Path isn't empty in the remote repo" });
+			} else {
+				onNextClick();
+			}
+		} catch {
+			// the API will throw an error, if branch does not exist
 			onNextClick();
 		}
 	};
 
-	const repoDropdownItems = [{ value: connectMoreRepoText }, { value: createNewRpoText }];
+	const repoDropdownItems = [{ value: createNewRpoText }, { value: connectMoreRepoText }];
 	if (matchingOrgItem?.repositories?.length > 0) {
 		repoDropdownItems.push(
 			{ type: "separator", value: "" } as { value: string },
@@ -215,15 +221,19 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 								</label>
 							)}
 						</div>
-						<div className="grid grid-cols-1">
+						<div className="flex items-center gap-1">
 							<Button
 								onClick={() => {
 									ChoreoWebViewAPI.getInstance().triggerGithubInstallFlow(organization.id?.toString());
 									setCreatingRepo(false);
 								}}
 								appearance="secondary"
+								className="flex-1"
 							>
-								{connectMoreRepoText}
+								Connect Newly Created Repository
+							</Button>
+							<Button onClick={() => setCreatingRepo(false)} appearance="icon">
+								Cancel
 							</Button>
 						</div>
 					</div>

@@ -587,7 +587,7 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		if (!newGit) {
 			throw new Error("failed to retrieve Git details");
 		}
-		const _repoUrl = buildGitURL(params.repo.orgHandler, params.repo.repo, params.repo.provider, params.repo.serverUrl);
+		const _repoUrl = buildGitURL(params.repo.orgHandler, params.repo.repo, params.repo.provider, true, params.repo.serverUrl);
 		if (!_repoUrl || !_repoUrl.startsWith("https://")) {
 			throw new Error("failed to parse git details");
 		}

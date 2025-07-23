@@ -289,15 +289,16 @@ export const buildGitURL = (
 	org: string,
 	repoName: string,
 	provider: string,
+	withDotGitSuffix?: boolean,
 	serverUrl?: string,
 ): string | null => {
 	switch (provider) {
 		case GitProvider.GITHUB:
-			return `https://github.com/${org}/${repoName}.git`;
+			return `https://github.com/${org}/${repoName}${withDotGitSuffix ? '.git' : ''}`;
 		case GitProvider.BITBUCKET:
-			return serverUrl ? `${serverUrl}/${org}/${repoName}.git` :`https://bitbucket.org/${org}/${repoName}.git`;
+			return serverUrl ? `${serverUrl}/${org}/${repoName}${withDotGitSuffix ? '.git' : ''}` :`https://bitbucket.org/${org}/${repoName}${withDotGitSuffix ? '.git' : ''}`;
 		case GitProvider.GITLAB_SERVER:
-			return serverUrl ? `${serverUrl}/${org}/${repoName}.git`: `https://gitlab.com/${org}/${repoName}.git`;
+			return serverUrl ? `${serverUrl}/${org}/${repoName}${withDotGitSuffix ? '.git' : ''}`: `https://gitlab.com/${org}/${repoName}${withDotGitSuffix ? '.git' : ''}`;
 		default:
 			return null;
 	}
