@@ -63,11 +63,11 @@ export const contextStore = createStore(
 					if (authStore.getState().state?.userInfo) {
 						set(({ state }) => ({ state: { ...state, loading: true } }));
 						let items = await getAllContexts(get().state?.items);
-						let selected = getSelected(items, get().state?.selected);
+						let selected = await getSelected(items, get().state?.selected);
 						let components = await getComponentsInfoCache(selected);
 						set(({ state }) => ({ state: { ...state, items, selected, components } }));
 						items = await getEnrichedContexts(get().state?.items);
-						selected = getSelected(items, selected);
+						selected = await getSelected(items, selected);
 						components = await getComponentsInfoCache(selected);
 						set(({ state }) => ({ state: { ...state, items, selected, components } }));
 						components = await getComponentsInfo(selected);
@@ -195,7 +195,7 @@ const getAllContexts = async (previousItems: { [key: string]: ContextItemEnriche
 	return contextItems;
 };
 
-const getSelected = (items: { [key: string]: ContextItemEnriched }, prevSelected?: ContextItemEnriched) => {
+const getSelected = async (items: { [key: string]: ContextItemEnriched }, prevSelected?: ContextItemEnriched) => {
 	let selected: ContextItemEnriched | undefined = undefined;
 	const matchingItem = Object.values(items).find(
 		(item) =>
@@ -220,14 +220,19 @@ const getSelected = (items: { [key: string]: ContextItemEnriched }, prevSelected
 	}
 
 	let cloudServerSelected: ContextItemEnriched | undefined = undefined;
-	if (process.env.CLOUD_INITIAL_ORG_ID) {
+	if (!selected && !matchingItem && process.env.CLOUD_INITIAL_ORG_ID) {
 		const userOrgs = authStore.getState().state.userInfo?.organizations;
 		const matchingOrg = userOrgs?.find(
 			(item) => item.uuid === process.env.CLOUD_INITIAL_ORG_ID || item.id?.toString() === process.env.CLOUD_INITIAL_ORG_ID,
 		);
 		if (matchingOrg) {
-			const projectsCache = dataCacheStore.getState().getProjects(matchingOrg.handle);
-			const matchingProject = projectsCache.find((item) => item.id === process.env.CLOUD_INITIAL_PROJECT_ID) || projectsCache[0];
+			let projectsCache = dataCacheStore.getState().getProjects(matchingOrg.handle);
+			if(projectsCache.length === 0){
+				const projects = await ext.clients.rpcClient.getProjects(matchingOrg.id.toString());
+				dataCacheStore.getState().setProjects(matchingOrg.handle, projects);
+				projectsCache = projects;
+			}
+			const matchingProject = projectsCache.find((item) => item.id === process.env.CLOUD_INITIAL_PROJECT_ID) || projectsCache?.[0];
 			if (matchingProject) {
 				cloudServerSelected = {
 					orgHandle: matchingOrg.handle,
