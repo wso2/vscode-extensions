@@ -24,6 +24,7 @@ import { AiPanelWebview } from './webview';
 import { getAuthUrl, getLogoutUrl } from './auth';
 import { extension } from '../../BalExtensionContext';
 import { ACCESS_TOKEN_SECRET_KEY, getAccessToken, REFRESH_TOKEN_SECRET_KEY } from '../../utils/ai/auth';
+import { DEVANT_API_KEY } from '../../../src/features/ai/utils';
 
 export const USER_CHECK_BACKEND_URL = '/user/usage';
 
@@ -150,11 +151,11 @@ const checkToken = async (context, event): Promise<AIUserToken | undefined> => {
     return new Promise(async (resolve, reject) => {
         try {
             const accessToken = await getAccessToken();
-            if (!accessToken) {
+            if (!accessToken && DEVANT_API_KEY.trim() === '') {
                 resolve(undefined);
                 return;
             }
-            resolve({ accessToken, usageTokens: undefined });
+            resolve({ accessToken, usageTokens: undefined, apiKey: DEVANT_API_KEY.trim() });
         } catch (error) {
             reject(error);
         }

@@ -14,6 +14,8 @@
  * KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations
  * under the License.
+ * 
+ * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
     AIChatSummary,
@@ -22,6 +24,7 @@ import {
     AIPanelPrompt,
     AddToProjectRequest,
     DeleteFromProjectRequest,
+    DevantTokens,
     DeveloperDocument,
     FetchDataRequest,
     FetchDataResponse,
@@ -60,6 +63,7 @@ import {
     getBackendUrl,
     getContentFromFile,
     getDefaultPrompt,
+    getDevantTokens,
     getDriftDiagnosticContents,
     getFileExists,
     getFromDocumentation,
@@ -293,5 +297,9 @@ export class AiPanelRpcClient implements AIPanelAPI {
 
     submitFeedback(params: SubmitFeedbackRequest): Promise<boolean> {
         return this._messenger.sendRequest(submitFeedback, HOST_EXTENSION, params);
+    }
+
+    getDevantTokens(): Promise<DevantTokens> {
+        return this._messenger.sendRequest(getDevantTokens, HOST_EXTENSION);
     }
 }
