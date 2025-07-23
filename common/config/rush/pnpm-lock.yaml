@@ -4001,6 +4001,9 @@ importers:
       '@types/vscode':
         specifier: ^1.59.0
         version: 1.101.0
+      '@vscode/vsce':
+        specifier: ~3.4.2
+        version: 3.4.2
       glob:
         specifier: ^7.1.6
         version: 7.2.3
@@ -4016,9 +4019,6 @@ importers:
       typescript:
         specifier: ^5.8.3
         version: 5.8.3
-      vsce:
-        specifier: ^1.93.0
-        version: 1.103.1
 
   ../../workspaces/si/si-rpc-client:
     dependencies:
@@ -12942,9 +12942,6 @@ packages:
   delegates@1.0.0:
     resolution: {integrity: sha512-bd2L678uiWATM6m5Z1VzNCErI3jiGzt6HGY8OVICs40JQq/HALfbyNJmp0UDakEY4pMMaN0Ly5om/B1VI/+xfQ==}
 
-  denodeify@1.2.1:
-    resolution: {integrity: sha512-KNTihKNmQENUZeKu5fzfpzRqR5S2VMp4gl9RFHiWzj9DfvYQPMJ6XHKNaQxaGCXwPk6y9yme3aUoaiAe+KX+vg==}
-
   depd@1.1.2:
     resolution: {integrity: sha512-7emPTl6Dpo6JRXOXjLRxck+FlLRX5847cLKEn00PLAgc3g2hTZZgr+e4c2v6QpSmLeFP3n5yUo7ft6avBK/5jQ==}
     engines: {node: '>= 0.6'}
@@ -13289,9 +13286,6 @@ packages:
   enquirer@2.4.1:
     resolution: {integrity: sha512-rRqJg/6gd538VHvR3PSrdRBb/1Vy2YfzHqzvbhGIQpDRKIa4FgV/54b5Q1xYSxOOwKvjXweS26E0Q+nAMwp2pQ==}
     engines: {node: '>=8.6'}
-
-  entities@2.0.3:
-    resolution: {integrity: sha512-MyoZ0jgnLvB2X3Lg5HqpFmn1kybDiIfEQmKzTb5apr51Rb+T3KdmMiqa70T+bhGnyv7bQ6WMj2QMHpGMmlrUYQ==}
 
   entities@2.1.0:
     resolution: {integrity: sha512-hCx1oky9PFrJ611mf0ifBLBRW8lUUVRlFolb5gWRfIELabBlbp9xZvrqZLZAs+NxFnbfQoeGd8wDkygjg7U85w==}
@@ -16689,9 +16683,6 @@ packages:
     resolution: {integrity: sha512-wM1+Z03eypVAVUCE7QdSqpVIvelbOakn1M0bPDoA4SGWPx3sNDVUiMo3L6To6WWGClB7VyXnhQ4Sn7gxiJbE6A==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
-  linkify-it@2.2.0:
-    resolution: {integrity: sha512-GnAl/knGn+i1U/wjBz3akz2stz+HrHLsxMwHQGofCDfPvlf+gDKN58UtfmUquTY4/MXeE2x7k19KQmeoZi94Iw==}
-
   linkify-it@3.0.3:
     resolution: {integrity: sha512-ynTsyrFSdE5oZ/O9GEf00kPngmOfVwazR5GKDq6EYfhlpFug3J2zybX56a2PRRpc9P+FuSoGNAwjlbDs9jJBPQ==}
 
@@ -17022,10 +17013,6 @@ packages:
 
   markdown-escapes@1.0.4:
     resolution: {integrity: sha512-8z4efJYk43E0upd0NbVXwgSTQs6cT3T06etieCMEg7dRbzCbxUCK/GHlX8mhHRDcp+OLlHkPKsvqQTCvsRl2cg==}
-
-  markdown-it@10.0.0:
-    resolution: {integrity: sha512-YWOP1j7UbDNz+TumYP1kpwnP0aEa711cJjrAQrzd0UXlbJfc5aAq0F/PZHjiioqDC1NKgvIMX+o+9Bk7yuM2dg==}
-    hasBin: true
 
   markdown-it@12.3.2:
     resolution: {integrity: sha512-TchMembfxfNVpHkbtriWltGWc+m3xszaRD0CZup7GFFhzIgQqxIfn3eGj1yZpfuflzPvfkt611B2Q/Bsk1YnGg==}
@@ -22552,12 +22539,6 @@ packages:
   vm-browserify@1.1.2:
     resolution: {integrity: sha512-2ham8XPWTONajOR0ohOKOHXkm3+gaBmGut3SRuu75xLd/RRaY6vqgh8NBYYk7+RW3u5AtzPQZG8F10LHkl0lAQ==}
 
-  vsce@1.103.1:
-    resolution: {integrity: sha512-98oKQKKRp7J/vTIk1cuzom5cezZpYpRHs3WlySdsrTCrAEipB/HvaPTc4VZ3hGZHzHXS9P5p2L0IllntJeXwiQ==}
-    engines: {node: '>= 10'}
-    deprecated: vsce has been renamed to @vscode/vsce. Install using @vscode/vsce instead.
-    hasBin: true
-
   vsce@2.15.0:
     resolution: {integrity: sha512-P8E9LAZvBCQnoGoizw65JfGvyMqNGlHdlUXD1VAuxtvYAaHBKLBdKPnpy60XKVDAkQCfmMu53g+gq9FM+ydepw==}
     engines: {node: '>= 14'}
@@ -26040,7 +26021,10 @@ snapshots:
       jest-runner: 25.5.4
       jest-runtime: 25.5.4
     transitivePeerDependencies:
+      - bufferutil
+      - canvas
       - supports-color
+      - utf-8-validate
 
   '@jest/test-sequencer@29.7.0':
     dependencies:
@@ -39106,8 +39090,6 @@ snapshots:
 
   delegates@1.0.0: {}
 
-  denodeify@1.2.1: {}
-
   depd@1.1.2: {}
 
   depd@2.0.0: {}
@@ -39440,8 +39422,6 @@ snapshots:
     dependencies:
       ansi-colors: 4.1.3
       strip-ansi: 6.0.1
-
-  entities@2.0.3: {}
 
   entities@2.1.0: {}
 
@@ -44528,10 +44508,6 @@ snapshots:
 
   lines-and-columns@2.0.4: {}
 
-  linkify-it@2.2.0:
-    dependencies:
-      uc.micro: 1.0.6
-
   linkify-it@3.0.3:
     dependencies:
       uc.micro: 1.0.6
@@ -44891,14 +44867,6 @@ snapshots:
       object-visit: 1.0.1
 
   markdown-escapes@1.0.4: {}
-
-  markdown-it@10.0.0:
-    dependencies:
-      argparse: 1.0.10
-      entities: 2.0.3
-      linkify-it: 2.2.0
-      mdurl: 1.0.1
-      uc.micro: 1.0.6
 
   markdown-it@12.3.2:
     dependencies:
@@ -52261,32 +52229,6 @@ snapshots:
       yaml: 2.8.0
 
   vm-browserify@1.1.2: {}
-
-  vsce@1.103.1:
-    dependencies:
-      azure-devops-node-api: 11.2.0
-      chalk: 2.4.2
-      cheerio: 1.1.0
-      commander: 6.2.1
-      denodeify: 1.2.1
-      glob: 7.2.3
-      hosted-git-info: 4.1.0
-      keytar: 7.9.0
-      leven: 3.1.0
-      lodash: 4.17.21
-      markdown-it: 10.0.0
-      mime: 1.6.0
-      minimatch: 3.1.2
-      osenv: 0.1.5
-      parse-semver: 1.1.1
-      read: 1.0.7
-      semver: 5.7.2
-      tmp: 0.2.3
-      typed-rest-client: 1.8.11
-      url-join: 1.1.0
-      xml2js: 0.4.23
-      yauzl: 2.10.0
-      yazl: 2.5.1
 
   vsce@2.15.0:
     dependencies:

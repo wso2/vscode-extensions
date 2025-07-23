@@ -214,15 +214,6 @@
     ]
   },
   "main": "./dist/extension.js",
-  "files": [
-    "dist/**",
-    "resources/**",
-    "grammar/**",
-    "src/web/**",
-    "README.md",
-    "CHANGELOG.md",
-    "LICENSE"
-  ],
   "scripts": {
     "clean": "rimraf ./dist",
     "compile": "tsc -p .",
@@ -251,7 +242,7 @@
     "js-yaml": "^3.13.1",
     "tslint": "^5.8.0",
     "typescript": "^5.8.3",
-    "vsce": "^1.93.0"
+    "@vscode/vsce": "~3.4.2"
   },
   "dependencies": {
     "@types/glob": "^7.1.1",
