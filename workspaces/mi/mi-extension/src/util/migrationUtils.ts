@@ -78,6 +78,12 @@ type FileInfo = {
     projectType?: Nature;
 };
 
+type PomResolutionResult = {
+    success: boolean;
+    content?: string;
+    error?: string;
+};
+
 interface ArtifactsRoot {
   artifacts: {
     artifact?: Artifact | Artifact[];
@@ -262,7 +268,14 @@ export async function generateProjectDirToResolvedPomMap(multiModuleProjectDir: 
     const projectDirToResolvedPomMap = new Map<string, string>();
 
     await copyMavenWrapper(extension.context.asAbsolutePath(path.join('resources', 'maven-wrapper')), multiModuleProjectDir);
-    const resolvedPomContent = await getResolvedPomXmlContent(path.join(multiModuleProjectDir, 'pom.xml'));
+    const pomResolvedResult = await getResolvedPomXmlContent(path.join(multiModuleProjectDir, 'pom.xml'));
+    if (!pomResolvedResult.success) {
+        await window.showWarningMessage(
+            `Migration may fail: Unable to resolve the root pom.xml in ${multiModuleProjectDir}.\nError: ${pomResolvedResult.error}`,
+            { modal: true }
+        );
+    }
+    const resolvedPomContent = pomResolvedResult.content || '';
 
     const projectRegex = /<project[\s\S]*?<\/project>/g;
     let match;
@@ -309,7 +322,7 @@ export function getProjectDetails(filePath: string, projectDirToResolvedPomMap?:
     const pomPath = path.join(filePath, "pom.xml");
 
     if (fs.existsSync(pomPath)) {
-        if (projectDirToResolvedPomMap) {
+        if (projectDirToResolvedPomMap && projectDirToResolvedPomMap.get(filePath)) {
             const resolvedPomContent = projectDirToResolvedPomMap.get(filePath);
             const parser = new XMLParser({ ignoreAttributes: false });
             const parsed = resolvedPomContent ? parser.parse(resolvedPomContent) : {};
@@ -726,7 +739,7 @@ function extractXmlFromMavenOutput(output: string): string | null {
  * @param pomFilePath - The absolute path to the `pom.xml` file for which to resolve the effective POM.
  * @returns A promise that resolves to the effective POM XML content as a string, or an empty string if extraction fails.
  */
-export async function getResolvedPomXmlContent(pomFilePath: string): Promise<string> {
+export async function getResolvedPomXmlContent(pomFilePath: string): Promise<PomResolutionResult> {
     const mvnCmd = process.platform === "win32" ? ".\\mvnw.cmd" : "./mvnw";
     const command = `${mvnCmd} -f "${pomFilePath}" help:effective-pom`;
     const pomDir = path.dirname(pomFilePath);
@@ -757,20 +770,23 @@ export async function getResolvedPomXmlContent(pomFilePath: string): Promise<str
             if (code === 0) {
                 const xmlContent = extractXmlFromMavenOutput(output);
                 if (!xmlContent) {
-                    console.warn(`Maven output does not contain effective POM XML content for pom file: ${pomFilePath}`);
-                    resolve('');
+                    console.warn(`Output of 'mvn help:effective-pom -f ${pomFilePath}' might be corrupted.`);
+                    const warnMsg = `Failed to obtain effective-pom for '${pomFilePath}'. The obtained effective pom might be corrupted.`;
+                    resolve({ success: false, error: warnMsg });
                 } else {
-                    resolve(xmlContent);
+                    resolve({ success: true, content: xmlContent });
                 }
             } else {
-                console.error(`Failed to run Maven help:effective-pom for ${pomFilePath}. Exit code: ${code}\n${errorOutput}`);
-                resolve('');
+                console.error(`Failed to run 'mvn help:effective-pom -f ${pomFilePath}'. Exit code: ${code}\n${errorOutput}`);
+                const errMsg = `Failed to obtain effective-pom for '${pomFilePath}'. Exit code: ${code}\n${errorOutput}`;
+                resolve({ success: false, error: errMsg });
             }
         });
 
         child.on('error', (err) => {
-            console.error(`Failed to run Maven help:effective-pom for ${pomFilePath}`, err);
-            resolve('');
+            console.error(`Failed to run 'mvn help:effective-pom -f ${pomFilePath}'`, err);
+            const errMsg = `Failed to obtain effective-pom for '${pomFilePath}': ${err.message}`;
+            resolve({ success: false, error: errMsg });
         });
     });
 }
@@ -1487,7 +1503,17 @@ function readPomDependencies(source: string, projectDirToResolvedPomMap: Map<str
         console.error(`pom.xml file not found in the source directory: ${source}`);
         return [];
     }
-    const resolvedPomContent = projectDirToResolvedPomMap.get(source) || '';
+    let resolvedPomContent = projectDirToResolvedPomMap.get(source) || '';
+    if (!resolvedPomContent) {
+        console.error(`Resolved POM content not found for the directory: ${source}`);
+        // Fallback: read the pom.xml directly if resolved content is missing
+        try {
+            resolvedPomContent = fs.readFileSync(pomFilePath, 'utf-8');
+        } catch (err) {
+            console.error(`Failed to read pom.xml from ${pomFilePath}:`, err);
+            return [];
+        }
+    }
 
     const parser = new XMLParser({ ignoreAttributes: false });
     const parsed = parser.parse(resolvedPomContent);
