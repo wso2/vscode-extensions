@@ -33,6 +33,7 @@ import {
 import * as fs from "fs";
 import * as os from "os";
 import { join } from "path";
+import * as toml from "@iarna/toml";
 import {
 	AuthStoreChangedNotification,
 	ClearWebviewCache,
@@ -587,7 +588,7 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		if (!newGit) {
 			throw new Error("failed to retrieve Git details");
 		}
-		const _repoUrl = buildGitURL(params.repo.orgHandler, params.repo.repo, params.repo.provider, params.repo.serverUrl);
+		const _repoUrl = buildGitURL(params.repo.orgHandler, params.repo.repo, params.repo.provider, true, params.repo.serverUrl);
 		if (!_repoUrl || !_repoUrl.startsWith("https://")) {
 			throw new Error("failed to parse git details");
 		}
@@ -596,7 +597,7 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		if (process.env.CLOUD_STS_TOKEN) {
 			const gitPat = await window.withProgress({ title: `Accessing the repository ${_repoUrl}...`, location: ProgressLocation.Notification }, () =>
 				ext.clients.rpcClient.getGitTokenForRepository({
-					orgId: params.orgId,
+					orgId: params.org.id?.toString(),
 					gitOrg: params.repo.orgName,
 					gitRepo: params.repo.repo,
 				}),
@@ -605,12 +606,12 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 			urlObj.username = "x-access-token";
 			urlObj.password = gitPat.token;
 		}
-		
+
 		const repoUrl = urlObj.href;
 
 		const clonedPath = await window.withProgress(
 			{
-				title: `Cloning repository ${params.repo?.orgHandler}/${params.repo.orgName}`,
+				title: `Cloning repository ${params.repo?.orgHandler}/${params.repo.repo}`,
 				location: ProgressLocation.Notification,
 			},
 			async (progress, cancellationToken) =>
@@ -627,6 +628,21 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 					cancellationToken,
 				),
 		);
+
+		// if ballerina toml exists, need to update the org and name
+		const balTomlPath = join(params.cwd, "Ballerina.toml");
+		if (existsSync(balTomlPath)) {
+			const fileContent = await fs.promises.readFile(balTomlPath, "utf-8");
+			const parsedToml: any = toml.parse(fileContent);
+			if (parsedToml?.package?.org) {
+				parsedToml.package.org = params.org.handle;
+			}
+			if (parsedToml?.package?.name) {
+				parsedToml.package.name = params.componentName?.replaceAll("-", "_");
+			}
+			const updatedTomlContent = toml.stringify(parsedToml);
+			await fs.promises.writeFile(balTomlPath, updatedTomlContent, "utf-8");
+		}
 
 		// Move everything into cloned dir
 		const cwdFiled = readdirSync(params.cwd);

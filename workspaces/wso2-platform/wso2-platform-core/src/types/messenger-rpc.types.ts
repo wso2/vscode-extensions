@@ -113,7 +113,8 @@ export interface PushEverythingToRemoteRepoReq {
 export interface CloneRepositoryIntoCompDirReq {
 	cwd: string;
 	subpath: string;
-	orgId: string;
+	org: Organization;
+	componentName: string;
 	repo: {
 		provider: string;
 		orgName: string;
@@ -121,9 +122,8 @@ export interface CloneRepositoryIntoCompDirReq {
 		repo: string;
 		serverUrl?: string;
 		branch: string;
-	}
+	};
 }
-
 
 export interface SubmitComponentCreateReq {
 	org: Organization;

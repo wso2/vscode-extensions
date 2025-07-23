@@ -28,7 +28,7 @@ export interface IWso2PlatformExtensionAPI {
 	getWebviewStateStore(): WebviewState;
 	getContextStateStore(): ContextStoreState;
 	openClonedDir(params: openClonedDirReq): Promise<void>;
-	getStsToken(): Promise<string>
+	getStsToken(): Promise<string>;
 }
 
 export interface openClonedDirReq {

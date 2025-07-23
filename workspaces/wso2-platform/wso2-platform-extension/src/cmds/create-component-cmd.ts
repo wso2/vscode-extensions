@@ -42,7 +42,7 @@ import { choreoEnvConfig } from "../config";
 import { ext } from "../extensionVariables";
 import { getGitRemotes, getGitRoot } from "../git/util";
 import { authStore } from "../stores/auth-store";
-import { contextStore } from "../stores/context-store";
+import { contextStore, waitForContextStoreToLoad } from "../stores/context-store";
 import { dataCacheStore } from "../stores/data-cache-store";
 import { webviewStateStore } from "../stores/webview-state-store";
 import { convertFsPathToUriPath, delay, isSamePath, isSubpath, openDirectory } from "../utils";
@@ -62,6 +62,7 @@ export function createNewComponentCommand(context: ExtensionContext) {
 				isRpcActive(ext);
 				const userInfo = await getUserInfoForCmd(`create ${extName === "Devant" ? "an integration" : "a component"}`);
 				if (userInfo) {
+					await waitForContextStoreToLoad();
 					const selected = contextStore.getState().state.selected;
 					let selectedProject = selected?.project;
 					let selectedOrg = selected?.org;
@@ -244,7 +245,8 @@ export function createNewComponentCommand(context: ExtensionContext) {
 						project: selectedProject!,
 						extensionName: webviewStateStore.getState().state.extensionName,
 						// todo: make this flow only work in code-server?
-						shouldAutoCommit: isGitInitialized === false && webviewStateStore.getState().state.extensionName === "Devant" && !!process.env.CLOUD_STS_TOKEN,
+						shouldAutoCommit:
+							isGitInitialized === false && webviewStateStore.getState().state.extensionName === "Devant" && !!process.env.CLOUD_STS_TOKEN,
 						isGitInitialized,
 						initialValues: {
 							type: selectedType,
@@ -283,26 +285,6 @@ export const continueCreateComponent = () => {
 		}
 		componentWizard = new ComponentFormView(ext.context.extensionUri, createCompParams);
 		componentWizard.getWebview()?.reveal();
-	}
-};
-
-export const continueShowCompCreatedNotification = () => {
-	const createdComp: string | null | undefined = ext.context.globalState.get("show-comp-created-notification");
-	if (createdComp) {
-		ext.context.globalState.update("show-comp-created-notification", null);
-		const createCompParams: { org: Organization; project: Project; component: ComponentKind; extensionName: string } = JSON.parse(createdComp);
-		if (createCompParams?.extensionName && createCompParams.org && createCompParams.project && createCompParams.component) {
-			webviewStateStore.getState().setExtensionName(createCompParams?.extensionName as ExtensionName);
-			const successMessage = `${createCompParams?.extensionName === "Devant" ? "Integration" : "Component"} '${createCompParams.component.metadata.name}' was successfully created.`;
-			window.showInformationMessage(successMessage, `Open in ${createCompParams?.extensionName}`).then(async (resp) => {
-				if (resp === `Open in ${createCompParams?.extensionName}`) {
-					commands.executeCommand(
-						"vscode.open",
-						`${createCompParams?.extensionName === "Devant" ? choreoEnvConfig.getDevantUrl() : choreoEnvConfig.getConsoleUrl()}/organizations/${createCompParams.org.handle}/projects/${createCompParams.project.id}/components/${createCompParams.component.metadata.handler}/overview`,
-					);
-				}
-			});
-		}
 	}
 };
 
@@ -382,13 +364,6 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 					);
 				}
 			});
-		} else if (extensionName === "Devant" && process.env.CLOUD_STS_TOKEN) {
-			await ext.context.globalState.update(
-				"show-comp-created-notification",
-				JSON.stringify({ org, project, component: createdComponent, extensionName }),
-			);
-			await commands.executeCommand("workbench.action.closeAllEditors");
-			workspace.updateWorkspaceFolders(0, 1, { uri: Uri.file(createParams.componentDir) });
 		} else {
 			window.showInformationMessage(`${successMessage} Reload workspace to continue`, { modal: true }, "Continue").then((resp) => {
 				if (resp === "Continue") {

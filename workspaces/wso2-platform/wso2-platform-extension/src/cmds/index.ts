@@ -18,6 +18,7 @@
 
 import type { ExtensionContext } from "vscode";
 import { cloneRepoCommand } from "./clone-project-cmd";
+import { commitAndPushToGitCommand } from "./commit-and-push-to-git-cmd";
 import { createComponentDependencyCommand } from "./create-comp-dependency-cmd";
 import { createNewComponentCommand } from "./create-component-cmd";
 import { createDirectoryContextCommand } from "./create-directory-context-cmd";
@@ -32,7 +33,6 @@ import { signInWithAuthCodeCommand } from "./sign-in-with-code-cmd";
 import { signOutCommand } from "./sign-out-cmd";
 import { viewComponentDependencyCommand } from "./view-comp-dependency-cmd";
 import { viewComponentCommand } from "./view-component-cmd";
-import { commitAndPushToGitCommand } from "./commit-and-push-to-git-cmd";
 
 export function activateCmds(context: ExtensionContext) {
 	createNewComponentCommand(context);
@@ -50,5 +50,5 @@ export function activateCmds(context: ExtensionContext) {
 	createComponentDependencyCommand(context);
 	viewComponentDependencyCommand(context);
 	openCompSrcCommand(context);
-	commitAndPushToGitCommand(context)
+	commitAndPushToGitCommand(context);
 }

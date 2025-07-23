@@ -42,7 +42,7 @@ import type { z } from "zod";
 import { HeaderSection } from "../../components/HeaderSection";
 import type { HeaderTag } from "../../components/HeaderSection/HeaderSection";
 import { type StepItem, VerticalStepper } from "../../components/VerticalStepper";
-import { useComponentList } from "../../hooks/use-queries";
+import { queryKeys, useComponentList } from "../../hooks/use-queries";
 import { useExtWebviewContext } from "../../providers/ext-vewview-ctx-provider";
 import { ChoreoWebViewAPI } from "../../utilities/vscode-webview-rpc";
 import {
@@ -82,6 +82,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 		existingComponents: existingComponentsCache,
 	} = props;
 	const type = initialValues?.type;
+	const queryClient = useQueryClient();
 	const [formSections] = useAutoAnimate();
 	const { extensionName } = useExtWebviewContext();
 
@@ -180,14 +181,17 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 		mutationFn: async () => {
 			if (!props.isGitInitialized) {
 				const repoInitDetails = repoInitForm.getValues();
+				const repoUrl = buildGitURL(repoInitDetails?.orgHandler, repoInitDetails.repo, repoInitDetails.gitProvider, false, repoInitDetails.serverUrl);
+				const branchesCache: string[] = queryClient.getQueryData(queryKeys.getGitBranches(repoUrl, organization, "", true));
 				const newWorkspacePath = await ChoreoWebViewAPI.getInstance().cloneRepositoryIntoCompDir({
 					cwd: props.directoryFsPath,
 					subpath: repoInitDetails.subPath,
-					orgId: props.organization?.id?.toString(),
+					org: props.organization,
+					componentName: makeURLSafe(repoInitDetails.name),
 					repo: {
 						orgHandler: repoInitDetails.orgHandler,
 						orgName: repoInitDetails.org,
-						branch: repoInitDetails.branch,
+						branch: branchesCache?.length > 0 ? repoInitDetails.branch : undefined,
 						provider: repoInitDetails.gitProvider,
 						repo: repoInitDetails.repo,
 						serverUrl: repoInitDetails.serverUrl,

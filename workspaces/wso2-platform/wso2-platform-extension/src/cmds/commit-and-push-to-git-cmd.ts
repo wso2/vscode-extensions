@@ -16,27 +16,28 @@
  * under the License.
  */
 
-import { CommandIds, type ICommitAndPuhCmdParams } from "@wso2/wso2-platform-core";
+import { CommandIds, type ICommitAndPuhCmdParams, parseGitURL } from "@wso2/wso2-platform-core";
 import { type ExtensionContext, ProgressLocation, commands, window } from "vscode";
 import { ext } from "../extensionVariables";
+import { initGit } from "../git/main";
+import { getLogger } from "../logger/logger";
 import { contextStore } from "../stores/context-store";
 import { getUserInfoForCmd, isRpcActive, setExtensionName } from "./cmd-utils";
-import { initGit } from "../git/main";
 
 export function commitAndPushToGitCommand(context: ExtensionContext) {
 	context.subscriptions.push(
 		commands.registerCommand(CommandIds.CommitAndPushToGit, async (params: ICommitAndPuhCmdParams) => {
-			if(!params.componentPath){
-				throw new Error("component/integration path is required")
+			if (!params.componentPath) {
+				throw new Error("component/integration path is required");
 			}
 			setExtensionName(params?.extName);
 			try {
 				isRpcActive(ext);
-				const userInfo = await getUserInfoForCmd(`commit and push changes to Git`);
-				if (userInfo) {		
+				const userInfo = await getUserInfoForCmd("commit and push changes to Git");
+				if (userInfo) {
 					const selected = contextStore.getState().state.selected;
-					if(!selected){
-						throw new Error("project is not associated with a component directory")
+					if (!selected) {
+						throw new Error("project is not associated with a component directory");
 					}
 
 					const newGit = await initGit(ext.context);
@@ -46,6 +47,50 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 					const dotGit = await newGit?.getRepositoryDotGit(params.componentPath);
 					const repoRoot = await newGit?.getRepositoryRoot(params.componentPath);
 					const repo = newGit.open(repoRoot, dotGit);
+
+					const remotes = await window.withProgress({ title: "Fetching remotes of the repo...", location: ProgressLocation.Notification }, () =>
+						repo.getRemotes(),
+					);
+
+					if (remotes.length === 0) {
+						window.showErrorMessage("No remotes found within the directory");
+						return;
+					}
+
+					let matchingRemote = remotes.find((item) => {
+						if (item.pushUrl) {
+							const urlObj = new URL(item.pushUrl);
+							if (urlObj.password) {
+								return true;
+							}
+						}
+					});
+
+					if (!matchingRemote && process.env.CLOUD_STS_TOKEN && remotes[0].fetchUrl) {
+						const repoUrl = remotes[0].fetchUrl;
+						const parsed = parseGitURL(repoUrl);
+						if (parsed) {
+							const [repoOrg, repoName] = parsed;
+							const urlObj = new URL(repoUrl);
+							getLogger().debug(`Fetching PAT for org ${repoOrg} and repo ${repoName}`);
+							const gitPat = await window.withProgress(
+								{ title: `Accessing the repository ${repoUrl}...`, location: ProgressLocation.Notification },
+								() =>
+									ext.clients.rpcClient.getGitTokenForRepository({
+										orgId: selected.org?.id?.toString()!,
+										gitOrg: repoOrg,
+										gitRepo: repoName,
+									}),
+							);
+							urlObj.username = "x-access-token";
+							urlObj.password = gitPat.token;
+							await window.withProgress({ title: "Setting new remote...", location: ProgressLocation.Notification }, async () => {
+								await repo.addRemote("cloud-editor-remote", urlObj.href);
+								const remotes = await repo.getRemotes();
+								matchingRemote = remotes.find((item) => item.name === "cloud-editor-remote");
+							});
+						}
+					}
 
 					await window.withProgress({ title: "Adding changes to be committed...", location: ProgressLocation.Notification }, async () => {
 						await repo.add(["."]);
@@ -62,17 +107,17 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 						},
 					});
 
-					if(!commitMessage){
+					if (!commitMessage) {
 						window.showErrorMessage("Commit message is required in order to proceed");
-						return
+						return;
 					}
 
-					await window.withProgress({ title: "Committing and pushing changes to remove...", location: ProgressLocation.Notification }, async () => {
+					await window.withProgress({ title: "Committing and pushing changes to remote...", location: ProgressLocation.Notification }, async () => {
 						await repo.commit(commitMessage);
-						await repo.push();
+						await repo.push(matchingRemote?.name);
 					});
 
-					window.showInformationMessage("Your changes have been successfully pushed to cloud")
+					window.showInformationMessage("Your changes have been successfully pushed to cloud");
 				}
 			} catch (err: any) {
 				console.error("Failed to push to remote", err);
