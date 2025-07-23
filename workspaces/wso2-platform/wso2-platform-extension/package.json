@@ -168,7 +168,7 @@
           "type": "string",
           "default": "",
           "description": "The path to Choreo RPC server",
-          "scope": "window"
+          "scope": "machine"
         }
       }
     },
