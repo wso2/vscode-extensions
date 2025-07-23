@@ -30,6 +30,8 @@ export interface NewComponentWebviewProps {
 	existingComponents: ComponentKind[];
 	initialValues?: { type?: string; subType?: string; buildPackLang?: string; name?: string };
 	extensionName?: string;
+	isGitInitialized?: boolean;
+	shouldAutoCommit?: boolean;
 }
 
 export interface ComponentsDetailsWebviewProps {

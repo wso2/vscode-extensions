@@ -28,6 +28,7 @@ export interface IWso2PlatformExtensionAPI {
 	getWebviewStateStore(): WebviewState;
 	getContextStateStore(): ContextStoreState;
 	openClonedDir(params: openClonedDirReq): Promise<void>;
+	getStsToken(): Promise<string>
 }
 
 export interface openClonedDirReq {
@@ -548,4 +549,44 @@ export interface CredentialItem {
 	organizationUuid: string;
 	type: string;
 	referenceToken: string;
+}
+
+export interface SubscriptionItem {
+	subscriptionId: string;
+	tierId: string;
+	supportPlanId: string;
+	cloudType: string;
+	subscriptionType: string;
+	subscriptionBillingProvider: string;
+	subscriptionBillingProviderStatus: string;
+}
+
+export interface GithubRepository {
+	name: string;
+}
+
+export interface GithubOrganization {
+	orgName: string;
+	orgHandler: string;
+	repositories: GithubRepository[];
+}
+
+export interface GitRepoMetadata {
+	isBareRepo: boolean;
+	isSubPathEmpty: boolean;
+	isSubPathValid: boolean;
+	isValidRepo: boolean;
+	hasBallerinaTomlInPath: boolean;
+	hasBallerinaTomlInRoot: boolean;
+	isDockerfilePathValid: boolean;
+	hasDockerfileInPath: boolean;
+	isDockerContextPathValid: boolean;
+	isOpenApiFilePathValid: boolean;
+	hasOpenApiFileInPath: boolean;
+	hasPomXmlInPath: boolean;
+	hasPomXmlInRoot: boolean;
+	isBuildpackPathValid: boolean;
+	isTestRunnerPathValid: boolean;
+	isProcfileExists: boolean;
+	isEndpointYamlExists: boolean;
 }

@@ -76,6 +76,8 @@ export const CreateLocalEndpointsConfig: RequestType<CreateLocalEndpointsConfigR
 export const CreateLocalProxyConfig: RequestType<CreateLocalProxyConfigReq, void> = { method: "createLocalProxyConfig" };
 export const CreateLocalConnectionsConfig: RequestType<CreateLocalConnectionsConfigReq, void> = { method: "createLocalConnectionsConfig" };
 export const DeleteLocalConnectionsConfig: RequestType<DeleteLocalConnectionsConfigReq, void> = { method: "deleteLocalConnectionsConfig" };
+export const CloneRepositoryIntoCompDir: RequestType<CloneRepositoryIntoCompDirReq, void> = { method: "cloneRepositoryIntoCompDir" };
+export const PushEverythingToRemoteRepo: RequestType<PushEverythingToRemoteRepoReq, void> = { method: "pushEverythingToRemoteRepo" };
 
 const NotificationMethods = {
 	onAuthStateChanged: "onAuthStateChanged",
@@ -103,12 +105,33 @@ export interface OpenTestViewReq {
 	endpoints: ComponentEP[];
 }
 
+export interface PushEverythingToRemoteRepoReq {
+	repoRoot: string;
+	componentName: string;
+}
+
+export interface CloneRepositoryIntoCompDirReq {
+	cwd: string;
+	subpath: string;
+	orgId: string;
+	repo: {
+		provider: string;
+		orgName: string;
+		orgHandler: string;
+		repo: string;
+		serverUrl?: string;
+		branch: string;
+	}
+}
+
+
 export interface SubmitComponentCreateReq {
 	org: Organization;
 	project: Project;
 	createParams: CreateComponentReq;
 	autoBuildOnCommit?: boolean;
 	type: string;
+	newWorkspaceDir?: string;
 }
 
 export interface CreateLocalEndpointsConfigReq {

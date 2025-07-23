@@ -172,8 +172,10 @@ export function createNewComponentCommand(context: ExtensionContext) {
 					dataCacheStore.getState().setComponents(selectedOrg.handle, selectedProject.handler, components);
 
 					let gitRoot: string | undefined;
+					let isGitInitialized = false;
 					try {
 						gitRoot = await getGitRoot(context, selectedUri.fsPath);
+						isGitInitialized = true;
 					} catch (err) {
 						// ignore error
 					}
@@ -222,6 +224,15 @@ export function createNewComponentCommand(context: ExtensionContext) {
 
 					const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSubpath(item.uri?.fsPath, selectedUri?.fsPath));
 
+					let compInitialName = params?.name || dirName || selectedType;
+					const existingNames = components.map((c) => c.metadata?.name?.toLowerCase?.());
+					const baseName = compInitialName;
+					let counter = 1;
+					while (existingNames.includes(compInitialName.toLowerCase())) {
+						compInitialName = `${baseName}-${counter}`;
+						counter++;
+					}
+
 					const createCompParams: IComponentCreateFormParams = {
 						directoryUriPath: selectedUri.path,
 						directoryFsPath: selectedUri.fsPath,
@@ -229,11 +240,13 @@ export function createNewComponentCommand(context: ExtensionContext) {
 						organization: selectedOrg!,
 						project: selectedProject!,
 						extensionName: webviewStateStore.getState().state.extensionName,
+						shouldAutoCommit: isGitInitialized === false && webviewStateStore.getState().state.extensionName === "Devant",
+						isGitInitialized,
 						initialValues: {
 							type: selectedType,
 							subType: selectedSubType,
 							buildPackLang: params?.buildPackLang,
-							name: params?.name || dirName || "",
+							name: compInitialName,
 						},
 					};
 
@@ -269,7 +282,7 @@ export const continueCreateComponent = () => {
 	}
 };
 
-export const submitCreateComponentHandler = async ({ createParams, org, project }: SubmitComponentCreateReq) => {
+export const submitCreateComponentHandler = async ({ createParams, org, project, newWorkspaceDir }: SubmitComponentCreateReq) => {
 	const extensionName = webviewStateStore.getState().state?.extensionName;
 	const createdComponent = await window.withProgress(
 		{
@@ -308,12 +321,18 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 			showComponentDetailsView(org, project, createdComponent, createParams?.componentDir);
 		}
 
-		window
-			.showInformationMessage(
-				`${extensionName === "Devant" ? "Integration" : "Component"} '${createdComponent.metadata.name}' was successfully created`,
-				`Open in ${extensionName}`,
-			)
-			.then(async (resp) => {
+		const successMessage = `${extensionName === "Devant" ? "Integration" : "Component"} '${createdComponent.metadata.name}' was successfully created.`;
+
+		if (newWorkspaceDir) {
+			window.showInformationMessage(`${successMessage} Reload workspace to continue`, { modal: true }, "Continue").then((resp) => {
+				if (resp === "Continue") {
+					commands.executeCommand("vscode.openFolder", Uri.file(newWorkspaceDir), {
+						forceNewWindow: false,
+					});
+				}
+			});
+		} else {
+			window.showInformationMessage(successMessage, `Open in ${extensionName}`).then(async (resp) => {
 				if (resp === `Open in ${extensionName}`) {
 					commands.executeCommand(
 						"vscode.open",
@@ -321,6 +340,7 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 					);
 				}
 			});
+		}
 
 		const compCache = dataCacheStore.getState().getComponents(org.handle, project.handler);
 		dataCacheStore.getState().setComponents(org.handle, project.handler, [createdComponent, ...compCache]);

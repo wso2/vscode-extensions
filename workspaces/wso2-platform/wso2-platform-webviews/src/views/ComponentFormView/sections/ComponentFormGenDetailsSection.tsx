@@ -62,6 +62,12 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({ onNextClick, organiz
 		cacheTime: 0,
 	});
 
+	const { data: hasSubscriptions = false } = useQuery({
+		queryKey: ["hasSubscriptions", { orgId: organization?.id }],
+		queryFn: () => ChoreoWebViewAPI.getInstance().getChoreoRpcClient().getSubscriptions({ orgId: organization?.id?.toString() }),
+		select: (data) => !!data.list?.length,
+	});
+
 	useEffect(() => {
 		const parsedRepo = parseGitURL(repoUrl);
 		if (parsedRepo && form.getValues("gitProvider") !== parsedRepo[2]) {
@@ -200,8 +206,7 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({ onNextClick, organiz
 			if (isRepoAuthorizedResp?.retrievedRepos) {
 				invalidRepoMsg = (
 					<span>
-						{extensionName} lacks access to the selected repository.{" "}
-						<span className="font-thin">(Only public repos are allowed within the free tier.)</span>
+						{extensionName} lacks access to the selected {hasSubscriptions ? "repository" : "public repository"}.
 					</span>
 				);
 				invalidRepoAction = "Grant Access";
@@ -216,10 +221,7 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({ onNextClick, organiz
 			onInvalidRepoActionClick = () => ChoreoWebViewAPI.getInstance().openExternalChoreo(`organizations/${organization.handle}/settings/credentials`);
 			if (isRepoAuthorizedResp?.retrievedRepos) {
 				invalidRepoMsg = (
-					<span>
-						Selected Credential does not have sufficient permissions.{" "}
-						<span className="font-thin">(Only public repos are allowed within the free tier.)</span>
-					</span>
+					<span>Selected Credential does not have sufficient permissions to access the {hasSubscriptions ? "repository" : "public repository"}.</span>
 				);
 				invalidRepoAction = "Manage Credentials";
 			} else {
