@@ -42,7 +42,7 @@ import { choreoEnvConfig } from "../config";
 import { ext } from "../extensionVariables";
 import { getGitRemotes, getGitRoot } from "../git/util";
 import { authStore } from "../stores/auth-store";
-import { contextStore } from "../stores/context-store";
+import { contextStore, waitForContextStoreToLoad } from "../stores/context-store";
 import { dataCacheStore } from "../stores/data-cache-store";
 import { webviewStateStore } from "../stores/webview-state-store";
 import { convertFsPathToUriPath, delay, isSamePath, isSubpath, openDirectory } from "../utils";
@@ -62,6 +62,7 @@ export function createNewComponentCommand(context: ExtensionContext) {
 				isRpcActive(ext);
 				const userInfo = await getUserInfoForCmd(`create ${extName === "Devant" ? "an integration" : "a component"}`);
 				if (userInfo) {
+					await waitForContextStoreToLoad();
 					const selected = contextStore.getState().state.selected;
 					let selectedProject = selected?.project;
 					let selectedOrg = selected?.org;
