@@ -24,6 +24,7 @@ import { initRPCServer } from "./choreo-rpc/activate";
 import { activateCmds } from "./cmds";
 import { continueCreateComponent } from "./cmds/create-component-cmd";
 import { activateCodeLenses } from "./code-lens";
+import { activateDevantFeatures } from "./devant-utils";
 import { ext } from "./extensionVariables";
 import { getLogger, initLogger } from "./logger/logger";
 import { activateMcp } from "./mcp";
@@ -75,6 +76,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			addTerminalHandlers();
 			context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("*", new ChoreoConfigurationProvider()));
 			activateMcp(context);
+			activateDevantFeatures();
 			getLogger().debug("WSO2 Platform Extension activated");
 		})
 		.catch((e) => {
@@ -122,8 +124,3 @@ function registerPreInitHandlers(): any {
 }
 
 export function deactivate() {}
-
-/*
-git config --global user.name "cloud-editor"
-git config --global user.email "cloud-editor@wso2.com"
-*/
