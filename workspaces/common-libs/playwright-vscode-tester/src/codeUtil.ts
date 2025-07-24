@@ -159,10 +159,12 @@ export class CodeUtil {
     }
 
     private installExt(pathOrID: string): void {
-        let command = `${this.cliEnv} "${this.executablePath}" "${this.cliPath}" --ms-enable-electron-run-as-node --force --install-extension "${pathOrID}"`;
+        let command = `${this.cliEnv} "${this.executablePath}" "${this.cliPath}" --ms-enable-electron-run-as-node --force --install-extension "${pathOrID}" --user-data-dir="${path.join(this.downloadFolder, 'settings', this.profileName, 'Code')}"`;
         if (this.extensionsFolder) {
             command += ` --extensions-dir=${this.extensionsFolder}`;
         }
+        // If no extensionsFolder is specified, extensions will be installed to the default location
+        // within the user data directory: {user-data-dir}/extensions/
         child_process.execSync(command, { stdio: 'inherit' });
     }
 
@@ -214,10 +216,12 @@ export class CodeUtil {
         const extension = `${pjson.publisher}.${pjson.name}`;
 
         if (cleanup) {
-            let command = `${this.cliEnv} "${this.executablePath}" "${this.cliPath}" --ms-enable-electron-run-as-node --uninstall-extension "${extension}"`;
+            let command = `${this.cliEnv} "${this.executablePath}" "${this.cliPath}" --ms-enable-electron-run-as-node --uninstall-extension "${extension}" --user-data-dir="${path.join(this.downloadFolder, 'settings', this.profileName, 'Code')}"`;
             if (this.extensionsFolder) {
                 command += ` --extensions-dir=${this.extensionsFolder}`;
             }
+            // If no extensionsFolder is specified, uninstall from the default location
+            // within the user data directory: {user-data-dir}/extensions/
             child_process.execSync(command, { stdio: 'inherit' });
         }
     }
@@ -383,7 +387,7 @@ export class CodeUtil {
         const key = 'PATH';
         finalEnv[key] = [this.downloadFolder, process.env[key]].join(path.delimiter);
         
-        const browser = new VSBrowser(literalVersion, this.releaseType, runOptions.resources, {}, this.profileName);
+        const browser = new VSBrowser(literalVersion, this.releaseType, runOptions.resources, {}, this.profileName, this.extensionsFolder);
         const launchArgs = await browser.getLaunchArgs()
         
         process.env = {

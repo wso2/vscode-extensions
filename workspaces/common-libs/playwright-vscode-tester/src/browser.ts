@@ -17,9 +17,9 @@ export class VSBrowser {
     private profileName: string;
     private static _instance: VSBrowser;
 
-    constructor(codeVersion: string, releaseType: ReleaseQuality, private resources: string[], customSettings: object = {}, profileName?: string) {
+    constructor(codeVersion: string, releaseType: ReleaseQuality, private resources: string[], customSettings: object = {}, profileName?: string, extensionsFolder?: string) {
         this.storagePath = process.env.TEST_RESOURCES ? process.env.TEST_RESOURCES : os.tmpdir();
-        this.extensionsFolder = process.env.EXTENSIONS_FOLDER ? process.env.EXTENSIONS_FOLDER : undefined;
+        this.extensionsFolder = extensionsFolder || (process.env.EXTENSIONS_FOLDER ? process.env.EXTENSIONS_FOLDER : undefined);
         this.customSettings = customSettings;
         this.codeVersion = codeVersion;
         this.releaseType = releaseType;
@@ -58,6 +58,9 @@ export class VSBrowser {
 
         if (this.extensionsFolder) {
             args.push(`--extensions-dir=${this.extensionsFolder}`);
+        } else {
+            // If no extensions folder is specified, use a profile-specific one to ensure isolation
+            args.push(`--extensions-dir=${path.join(this.storagePath, 'settings', this.profileName, 'extensions')}`);
         }
 
         if (compareVersions(this.codeVersion, '1.39.0') < 0) {
