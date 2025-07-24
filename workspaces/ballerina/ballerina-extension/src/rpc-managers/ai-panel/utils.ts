@@ -17,7 +17,7 @@
  */
 
 import { ArrayTypeDesc, FunctionDefinition, ModulePart, QualifiedNameReference, RequiredParam, STKindChecker } from "@wso2/syntax-tree";
-import { ErrorCode, FormField, STModification, SyntaxTree, Attachment, AttachmentStatus, RecordDefinitonObject, ParameterMetadata, ParameterDefinitions, MappingFileRecord, keywords, AIMachineEventType, DiagnosticEntry } from "@wso2/ballerina-core";
+import { ErrorCode, FormField, STModification, SyntaxTree, Attachment, AttachmentStatus, RecordDefinitonObject, ParameterMetadata, ParameterDefinitions, MappingFileRecord, keywords, AIMachineEventType, DiagnosticEntry, DevantTokens } from "@wso2/ballerina-core";
 import { QuickPickItem, QuickPickOptions, window, workspace } from 'vscode';
 import { UNKNOWN_ERROR } from '../../views/ai-panel/errorCodes';
 
@@ -38,8 +38,9 @@ import { hasStopped } from "./rpc-manager";
 // import { StateMachineAI } from "../../views/ai-panel/aiMachine";
 import path from "path";
 import * as fs from 'fs';
-import { BACKEND_URL } from "../../features/ai/utils";
+import { BACKEND_URL, DEVANT_API_KEY, DEVANT_STS_TOKEN } from "../../features/ai/utils";
 import { getAccessToken, getRefreshedAccessToken } from "../../../src/utils/ai/auth";
+import { extensions } from 'vscode';
 import { AIStateMachine } from "../../../src/views/ai-panel/aiMachine";
 import { AIChatError } from "./utils/errors";
 
@@ -2126,27 +2127,109 @@ function getBase64FromFile(filePath) {
     return fileBuffer.toString('base64');
 }
 
+async function getDevantTokens(): Promise<DevantTokens> {
+    return new Promise(async (resolve) => {
+        let stsToken = DEVANT_STS_TOKEN;
+        
+        try {
+            // Try to get STS token from platform extension
+            const platformExt = extensions.getExtension("wso2.wso2-platform");
+            if (!platformExt) {
+                const tokens: DevantTokens = {
+                    apiKey: DEVANT_API_KEY,
+                    stsToken: stsToken
+                };
+                resolve(tokens);
+                return;
+            }
+            
+            // Check if extension is already active before activating
+            if (!platformExt.isActive) {
+                await platformExt.activate();
+            }
+            const platformExtAPI: any = platformExt.exports;
+            
+            const platformStsToken = await platformExtAPI.getStsToken();
+            if (platformStsToken && platformStsToken.trim() !== "") {
+                stsToken = platformStsToken;
+            }
+        } catch (error) {
+            console.error("Failed to get STS token from platform extension, using fallback:", error);
+        }
+        
+        const tokens: DevantTokens = {
+            apiKey: DEVANT_API_KEY,
+            stsToken: stsToken
+        };
+        resolve(tokens);
+    });
+}
+
 export async function fetchWithToken(url: string, options: RequestInit) {
     const accessToken = await getAccessToken();
-    options.headers = {
-        ...options.headers,
-        'Authorization': `Bearer ${accessToken}`,
+    
+    // Get DevantTokens (API key and STS token)
+    const devantTokens: DevantTokens = await getDevantTokens();
+    const apiKey = devantTokens.apiKey;
+    const stsToken = devantTokens.stsToken;
+    
+    const headers: Record<string, string> = {
+        ...options.headers as Record<string, string>,
         'User-Agent': 'Ballerina-VSCode-Plugin',
     };
+    
+    // Determine if using API key and STS token flow
+    const usingDevantTokens = apiKey && stsToken && apiKey.trim() !== "" && stsToken.trim() !== "";
+    
+    // Add API key and STS token headers if both are not empty
+    if (usingDevantTokens) {
+        headers["api-key"] = apiKey;
+        headers["x-Authorization"] = `${stsToken}`;
+    } else {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+    }
+    
+    options.headers = headers;
+    
     let response = await fetch(url, options);
     console.log("Response status: ", response.status);
     if (response.status === 401) {
-        console.log("Token expired. Refreshing token...");
-        const newToken = await getRefreshedAccessToken();
-        if (newToken) {
-            options.headers = {
-                ...options.headers,
-                'Authorization': `Bearer ${newToken}`,
-            };
-            response = await fetch(url, options);
+        if (usingDevantTokens) {
+            console.log("Unauthorized. Retrying with fresh tokens...");
+            // Retry with fresh devant tokens
+            const freshDevantTokens: DevantTokens = await getDevantTokens();
+            const freshApiKey = freshDevantTokens.apiKey;
+            const freshStsToken = freshDevantTokens.stsToken;
+            
+            if (freshApiKey && freshStsToken && freshApiKey.trim() !== "" && freshStsToken.trim() !== "") {
+                options.headers = {
+                    ...options.headers,
+                    'api-key': freshApiKey,
+                    'x-Authorization': `${freshStsToken}`,
+                };
+                response = await fetch(url, options);
+                
+                if (response.status === 401) {
+                    console.log("Unauthorized");
+                    return response;
+                }
+            } else {
+                console.log("Unable to get tokens");
+                return response;
+            }
         } else {
-            AIStateMachine.service().send(AIMachineEventType.LOGOUT);
-            return;
+            console.log("Token expired. Refreshing token...");
+            const newToken = await getRefreshedAccessToken();
+            if (newToken) {
+                options.headers = {
+                    ...options.headers,
+                    'Authorization': `Bearer ${newToken}`,
+                };
+                response = await fetch(url, options);
+            } else {
+                AIStateMachine.service().send(AIMachineEventType.LOGOUT);
+                return;
+            }
         }
     }
     return response;
