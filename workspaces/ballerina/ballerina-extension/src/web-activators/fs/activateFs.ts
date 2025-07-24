@@ -17,8 +17,8 @@ export function activateFileSystemProvider() {
     // Register the command to open a github repository
     ballerinaExtInstance.context.subscriptions.push(
         vscode.commands.registerCommand("ballerina.openGithubRepository", async () => {
-            // const repoUrl = await vscode.window.showInputBox({ placeHolder: 'Enter repository URL' });
-            const repoUrl = "https://github.com/ChathuraIshara/post-intergration";
+            const repoUrl = await vscode.window.showInputBox({ placeHolder: 'Enter repository URL' });
+            //const repoUrl = "https://github.com/ChathuraIshara/post-intergration";
             if (!repoUrl) {
                 return;
             }

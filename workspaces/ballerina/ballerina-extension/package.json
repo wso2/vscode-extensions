@@ -671,6 +671,10 @@
                 "icon": "$(add)",
                 "group": "navigation",
                 "category": "BI"
+            },
+             {
+                "command": "ballerina.openGithubRepository",
+                "title": "Open GitHub Repository"
             }
         ],
         "views": {
