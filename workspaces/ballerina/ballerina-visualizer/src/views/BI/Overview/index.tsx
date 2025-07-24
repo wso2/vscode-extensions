@@ -513,6 +513,8 @@ function DevantDashboard({ projectStructure, handleDeploy, goToDevant, devantMet
         (projectStructure.directoryMap.SERVICE && projectStructure.directoryMap.SERVICE.length > 0)
     );
 
+    console.log(">>> devantMetadata", devantMetadata);
+
     return (
         <React.Fragment>
             {devantMetadata?.hasComponent ? <Title variant="h3">Deployed in Devant</Title> : <Title variant="h3">Deploy to Devant</Title>}
@@ -529,7 +531,8 @@ function DevantDashboard({ projectStructure, handleDeploy, goToDevant, devantMet
                             </Typography>
                             <Button
                                 appearance="secondary"
-                                onClick={goToDevant}
+                                disabled={!devantMetadata?.hasLocalChanges}
+                                onClick={handlePushChanges}
                                 sx={{
                                     display: "flex",
                                     alignItems: "center",
@@ -538,10 +541,10 @@ function DevantDashboard({ projectStructure, handleDeploy, goToDevant, devantMet
                                     mx: "auto"
                                 }}
                             >
-                                <Codicon name="save" sx={{ marginRight: 8 }} /> Push Changes
+                                <Codicon name="save" sx={{ marginRight: 8 }} /> Push Changes to Devant
                             </Button>
                             <Button
-                                appearance="secondary"
+                                appearance="icon"
                                 onClick={goToDevant}
                                 sx={{
                                     display: "flex",
@@ -551,7 +554,7 @@ function DevantDashboard({ projectStructure, handleDeploy, goToDevant, devantMet
                                     mx: "auto"
                                 }}
                             >
-                                <Codicon name="save" sx={{ marginRight: 8 }} /> Open Console
+                                <Codicon name="link" sx={{ marginRight: 8 }} /> Open in Devant Console
                             </Button>
                         </>
                     ) : (
@@ -601,7 +604,7 @@ export function Overview(props: ComponentDiagramProps) {
     const { data: devantMetadata } = useQuery({
         queryKey: ["devant-metadata", props.projectPath],
         queryFn: () => rpcClient.getBIDiagramRpcClient().getDevantMetadata(),
-        refetchInterval: 5000
+        refetchInterval: 60000 // TODO: remove this with an event
     })
     const [showAlert, setShowAlert] = React.useState(false);
 
