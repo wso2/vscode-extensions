@@ -214,25 +214,54 @@ jobs:
           echo "  - Timeout: 10 minutes"
           echo "  - Exit on vulnerabilities: YES"
 
+      - name: Debug dependency state
+        run: |
+          echo "🔍 Debugging dependency state for vulnerability scanning..."
+          echo "Current directory contents:"
+          ls -la
+          echo ""
+          echo "Checking for axios in root package.json:"
+          cat package.json | grep -A5 -B5 axios || echo "No axios found in root package.json"
+          echo ""
+          echo "Checking for axios in ui-toolkit package.json:"
+          cat workspaces/common-libs/ui-toolkit/package.json | grep -A5 -B5 axios || echo "No axios found in ui-toolkit package.json"
+          echo ""
+          echo "Checking pnpm-lock.yaml for axios entries:"
+          grep -c "axios" pnpm-lock.yaml || echo "No axios entries found in pnpm-lock.yaml"
+          echo ""
+          echo "Checking if axios 0.21.0 is in pnpm-lock.yaml:"
+          grep "axios@0.21.0" pnpm-lock.yaml || echo "No axios@0.21.0 found in pnpm-lock.yaml"
+          echo ""
+          echo "Lock file structure summary:"
+          echo "- pnpm-lock.yaml exists: $(test -f pnpm-lock.yaml && echo 'YES' || echo 'NO')"
+          echo "- common/config/rush/pnpm-lock.yaml exists: $(test -f common/config/rush/pnpm-lock.yaml && echo 'YES' || echo 'NO')"
+
       - name: Run Trivy vulnerability scanner
         run: |
           echo "🔍 Running Trivy vulnerability scanner (table format)..."
           
-          # Run Trivy once with table format (human-readable for PR comments and logs)
+          # Run Trivy with verbose output for debugging
           trivy fs . \
             --timeout 10m \
             --skip-dirs common/temp \
             --severity CRITICAL,HIGH,MEDIUM,LOW \
             --format table \
             --output trivy-table-results.txt \
-            --exit-code 0
+            --exit-code 0 \
+            --debug
           
           echo "📊 Table output complete."
+          echo ""
+          echo "📋 Trivy scan results preview:"
+          head -50 trivy-table-results.txt || echo "No output file generated"
+          echo ""
           
           # Check if vulnerabilities were found by examining the table output
           if [ -f "trivy-table-results.txt" ]; then
             # Count vulnerability lines (exclude headers and empty lines)
             VULN_COUNT=$(grep -c "CVE\|GHSA" trivy-table-results.txt 2>/dev/null || echo "0")
+            echo "🔢 CVE/GHSA count found: $VULN_COUNT"
+            
             if [ "$VULN_COUNT" -gt 0 ]; then
               echo "❌ Trivy scan found $VULN_COUNT vulnerabilities!"
               echo "Check the table output for details."
