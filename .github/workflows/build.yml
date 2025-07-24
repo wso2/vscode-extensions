@@ -167,6 +167,58 @@ jobs:
           PLATFORM_DEV_GHAPP_CLIENT_ID: ${{ secrets.PLATFORM_DEV_GHAPP_CLIENT_ID }}
           PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID: ${{ secrets.PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID }}
 
+  Security_Scan:
+    name: Security vulnerability scan
+    needs: Build_Stage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Restore build
+        uses: actions/download-artifact@v4
+        with:
+          name: ExtBuild
+          path: ./
+
+      - name: Set up workspace
+        run: |
+          unzip build.zip
+          rm build.zip
+
+      - name: Setup Rush
+        uses: gigara/setup-rush@v1.2.0
+        with:
+          pnpm: 10.10.0
+          node: 22.x
+          rush-install: true
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          skip-dirs: 'common/temp'
+          timeout: '10m'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+          exit-code: '1'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Trivy scanner for table output
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          skip-dirs: 'common/temp'
+          timeout: '10m'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+
   ExtTest_Ballerina:
     name: Run Ballerina extension tests
     needs: Build_Stage
