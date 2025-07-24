@@ -24,6 +24,7 @@ import { PALETTE_COMMANDS } from "../../features/project/cmds/cmd-runner";
 import { BallerinaExtension, ExtendedLangClient } from "../../core";
 import { getCommonWebViewOptions } from "../../utils";
 import { render } from "./renderer";
+import { extension } from "../../BalExtensionContext";
 
 const COMPATIBILITY_MESSAGE = "An incompatible Ballerina version was detected. Update Ballerina to 2201.6.0 or higher to use the feature.";
 
@@ -120,5 +121,8 @@ export function activate(ballerinaExtInstance: BallerinaExtension) {
 // }
 
 export function checkIsPersistModelFile(fileUri: Uri): boolean {
-    return basename(dirname(fileUri.fsPath)) === 'persist' && existsSync(join(dirname(dirname(fileUri.fsPath)), 'Ballerina.toml'));
+    if(!extension.isWebMode)
+    {
+           return basename(dirname(fileUri.fsPath)) === 'persist' && existsSync(join(dirname(dirname(fileUri.fsPath)), 'Ballerina.toml'));
+    }
 }

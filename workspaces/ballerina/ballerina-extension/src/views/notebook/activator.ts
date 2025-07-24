@@ -35,6 +35,7 @@ import {
 } from './constants';
 import { createFile } from './utils';
 import { BallerinaDebugAdapterTrackerFactory, NotebookDebuggerController } from './debugger';
+import { extension } from '../../BalExtensionContext';
 
 const update2RegEx = /^2201.([2-9]|[1-9][0-9]).([0-9]+)/g;
 const CLEAR_ALL_CELLS_OUTPUT_COMMAND = 'notebook.clearAllCellsOutputs';
@@ -118,7 +119,9 @@ function registerCreateNotebook(ballerinaExtInstance: BallerinaExtension): Dispo
             if (notebookName && notebookName.trim().length > 0) {
                 notebookName = notebookName.endsWith(BAL_NOTEBOOK) ? notebookName : `${notebookName}${BAL_NOTEBOOK}`;
                 const uri: Uri = Uri.file(`${workspace.workspaceFolders![0].uri!.fsPath}${sep}${notebookName}`);
-                if (!existsSync(uri.fsPath)) {
+                if(!extension.isWebMode)
+                {
+                    if (!existsSync(uri.fsPath)) {
                     await createFile(uri);
                     commands.executeCommand("vscode.open", uri);
                     outputChannel.appendLine(`${notebookName} created in workspace`);
@@ -127,6 +130,7 @@ function registerCreateNotebook(ballerinaExtInstance: BallerinaExtension): Dispo
                     // sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_ERROR_EXECUTE_CREATE_NOTEBOOK,
                     //     CMP_NOTEBOOK, getMessageObject(message));
                     window.showErrorMessage(message);
+                }
                 }
             }
         } catch (error) {
