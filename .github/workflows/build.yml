@@ -214,41 +214,143 @@ jobs:
           echo "  - Timeout: 10 minutes"
           echo "  - Exit on vulnerabilities: YES"
 
-      - name: Run Trivy vulnerability scanner (SARIF)
+      - name: Run Trivy vulnerability scanner
         run: |
-          echo "Running Trivy vulnerability scanner..."
+          echo "🔍 Running Trivy vulnerability scanner (table format)..."
+          
+          # Run Trivy once with table format (human-readable for PR comments and logs)
           trivy fs . \
             --timeout 10m \
             --skip-dirs common/temp \
             --severity CRITICAL,HIGH,MEDIUM,LOW \
-            --format sarif \
-            --output trivy-results.sarif \
-            --exit-code 1
+            --format table \
+            --output trivy-table-results.txt \
+            --exit-code 0
           
-          if [ $? -ne 0 ]; then
-            echo "❌ Trivy scan found vulnerabilities!"
-            echo "Check the uploaded SARIF file and table output for details."
-            exit 1
+          echo "📊 Table output complete."
+          
+          # Check if vulnerabilities were found by examining the table output
+          if [ -f "trivy-table-results.txt" ]; then
+            # Count vulnerability lines (exclude headers and empty lines)
+            VULN_COUNT=$(grep -c "CVE\|GHSA" trivy-table-results.txt 2>/dev/null || echo "0")
+            if [ "$VULN_COUNT" -gt 0 ]; then
+              echo "❌ Trivy scan found $VULN_COUNT vulnerabilities!"
+              echo "Check the table output for details."
+              echo "VULNERABILITIES_FOUND=true" >> $GITHUB_ENV
+              echo "VULN_COUNT=$VULN_COUNT" >> $GITHUB_ENV
+            else
+              echo "✅ No vulnerabilities found!"
+              echo "VULNERABILITIES_FOUND=false" >> $GITHUB_ENV
+              echo "VULN_COUNT=0" >> $GITHUB_ENV
+            fi
           else
-            echo "✅ No vulnerabilities found!"
+            echo "⚠️ Table output file not generated!"
+            echo "VULNERABILITIES_FOUND=false" >> $GITHUB_ENV
+            echo "VULN_COUNT=0" >> $GITHUB_ENV
           fi
 
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+      - name: Create PR comment with vulnerability report
+        if: env.VULNERABILITIES_FOUND == 'true'
+        uses: actions/github-script@v7
+        continue-on-error: true
         with:
-          sarif_file: 'trivy-results.sarif'
+          script: |
+            const fs = require('fs');
+            
+            // Read the table output
+            let tableOutput = '';
+            try {
+              tableOutput = fs.readFileSync('trivy-table-results.txt', 'utf8');
+            } catch (error) {
+              tableOutput = 'Unable to read vulnerability details.';
+            }
+            
+            // Count vulnerabilities by severity
+            const vulnCount = process.env.VULN_COUNT || 'unknown';
+            
+            const comment = `## 🚨 Security Vulnerabilities Detected
+            
+            **❌ Build Failed**: ${vulnCount} security vulnerabilities found in dependencies.
 
-      - name: Run Trivy scanner for table output  
-        if: always()
+            ### 📊 Vulnerability Summary
+            \`\`\`
+            ${tableOutput}
+            \`\`\`
+
+            ### 🔧 Next Steps
+            1. **Review vulnerabilities** in the table above
+            2. **Update vulnerable packages** to the fixed versions shown
+            3. **Re-run the build** after fixing the issues
+
+            ### 📋 Additional Information
+            - **Scan Type**: Production dependencies only
+            - **Severity Levels**: CRITICAL, HIGH, MEDIUM, LOW
+            - **Workflow**: Security_Scan job in build pipeline
+
+            > 💡 **Tip**: Focus on CRITICAL and HIGH severity vulnerabilities first for maximum security impact.`;
+
+            // Get PR number from various possible sources
+            let prNumber = null;
+            
+            // Method 1: Direct PR context (pull_request events)
+            if (context.payload.pull_request) {
+              prNumber = context.payload.pull_request.number;
+            }
+            
+            // Method 2: Check if triggered by PR (workflow_run events)
+            if (!prNumber && context.payload.workflow_run && context.payload.workflow_run.pull_requests && context.payload.workflow_run.pull_requests.length > 0) {
+              prNumber = context.payload.workflow_run.pull_requests[0].number;
+            }
+            
+            // Method 3: Parse from ref if it's a PR branch
+            if (!prNumber && context.ref && context.ref.includes('refs/pull/')) {
+              const match = context.ref.match(/refs\/pull\/(\d+)\//);
+              if (match) {
+                prNumber = parseInt(match[1]);
+              }
+            }
+            
+            // Method 4: Check environment variables (some CI systems set these)
+            if (!prNumber && process.env.GITHUB_HEAD_REF) {
+              console.log('Detected fork/branch build, checking for associated PR...');
+              // This is a potential PR build but we can't determine the PR number reliably
+            }
+            
+            if (prNumber) {
+              try {
+                console.log(`Posting vulnerability report to PR #${prNumber}`);
+                await github.rest.issues.createComment({
+                  issue_number: prNumber,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: comment
+                });
+                console.log('✅ PR comment posted successfully');
+              } catch (error) {
+                console.log('❌ Failed to post PR comment:', error.message);
+                console.log('Vulnerability report logged in job output instead');
+              }
+            } else {
+              console.log('📋 No PR context found - vulnerability report available in job output');
+              console.log('Event:', context.eventName);
+              console.log('Ref:', context.ref);
+              console.log('Actor:', context.actor);
+            }
+            
+            // Always log the vulnerability details to job output
+            console.log('\n' + '='.repeat(80));
+            console.log('🚨 SECURITY VULNERABILITY REPORT');
+            console.log('='.repeat(80));
+            console.log(comment);
+            console.log('='.repeat(80) + '\n');
+
+      - name: Fail build if vulnerabilities found
+        if: env.VULNERABILITIES_FOUND == 'true'
         run: |
-          echo "🔍 Running Trivy scanner for human-readable table output..."
-          trivy fs . \
-            --timeout 10m \
-            --skip-dirs common/temp \
-            --severity CRITICAL,HIGH,MEDIUM,LOW \
-            --format table
-          echo "📊 Table output complete."
+          echo "❌ Build failed due to security vulnerabilities!"
+          echo "Please review the table output above for vulnerability details."
+          echo "Fix the vulnerabilities before proceeding."
+          exit 1
 
   ExtTest_Ballerina:
     name: Run Ballerina extension tests
