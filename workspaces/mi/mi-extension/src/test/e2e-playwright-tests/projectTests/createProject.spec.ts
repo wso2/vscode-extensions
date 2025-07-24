@@ -26,7 +26,7 @@ import path from "path";
 import fs from 'fs';
 const dataFolder = path.join( __dirname, '..', 'data');
 
-export const newProjectPath = path.join(dataFolder, 'new-project', 'testProject');
+export const newProjectPath = path.join(dataFolder, 'new-project', 'testProjectFolder');
 
 export default function createTests() {
     test.describe("Create Project Tests", {
