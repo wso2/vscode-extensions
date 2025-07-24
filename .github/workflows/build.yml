@@ -283,6 +283,7 @@ jobs:
         uses: actions/github-script@v7
         continue-on-error: true
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
             
@@ -328,6 +329,8 @@ jobs:
             console.log('Actor:', context.actor);
             console.log('Repository:', context.repo.owner + '/' + context.repo.repo);
             console.log('Payload keys:', Object.keys(context.payload));
+            console.log('Full payload structure:');
+            console.log(JSON.stringify(context.payload, null, 2));
             
             // Method 1: Direct PR context (pull_request events)
             if (context.payload.pull_request) {
@@ -350,7 +353,7 @@ jobs:
               }
             }
             
-            // Method 4: Search for PR using commit SHA
+            // Method 4: Search for PR using commit SHA (most reliable for workflow_call)
             if (!prNumber) {
               console.log('🔍 Searching for PR using commit SHA...');
               try {
@@ -367,11 +370,15 @@ jobs:
                   console.log('PR details:', {
                     number: prs[0].number,
                     title: prs[0].title,
-                    state: prs[0].state
+                    state: prs[0].state,
+                    head: prs[0].head.ref,
+                    base: prs[0].base.ref
                   });
                 }
               } catch (error) {
                 console.log('❌ Failed to search for PR via commit SHA:', error.message);
+                console.log('Error status:', error.status);
+                console.log('Error response:', error.response?.data);
               }
             }
             
@@ -397,30 +404,93 @@ jobs:
               }
             }
             
-            // Method 6: Check environment variables
-            if (!prNumber && process.env.GITHUB_HEAD_REF) {
-              console.log('🔍 Detected branch build, GITHUB_HEAD_REF:', process.env.GITHUB_HEAD_REF);
-              // This is a potential PR build but we can't determine the PR number reliably from env vars alone
+            // Method 6: Fallback - try common PR numbers if this is clearly a PR context
+            if (!prNumber && (context.ref.includes('pull') || context.actor !== 'dependabot[bot]')) {
+              console.log('🔍 Attempting fallback PR detection...');
+              // Try to extract from git refs or environment
+              const gitRef = process.env.GITHUB_REF || context.ref || '';
+              console.log('Git ref:', gitRef);
+              const headRef = process.env.GITHUB_HEAD_REF || '';
+              console.log('Head ref:', headRef);
+              
+              // Check if we can find recent PRs that might match our commit
+              try {
+                const { data: recentPrs } = await github.rest.pulls.list({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  state: 'open',
+                  sort: 'updated',
+                  per_page: 10
+                });
+                
+                console.log(`Found ${recentPrs.length} recent open PRs`);
+                for (const pr of recentPrs) {
+                  console.log(`PR #${pr.number}: ${pr.title} (head: ${pr.head.sha.substring(0, 8)})`);
+                  if (pr.head.sha === context.sha) {
+                    prNumber = pr.number;
+                    console.log('✅ Found PR via SHA match in recent PRs:', prNumber);
+                    break;
+                  }
+                }
+              } catch (error) {
+                console.log('❌ Failed to search recent PRs:', error.message);
+              }
             }
             
             if (prNumber) {
               try {
-                console.log(`📝 Posting vulnerability report to PR #${prNumber}`);
-                await github.rest.issues.createComment({
+                console.log(`📝 Attempting to post vulnerability report to PR #${prNumber}`);
+                
+                // First, verify the PR exists and is accessible
+                const { data: prDetails } = await github.rest.pulls.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: prNumber
+                });
+                
+                console.log(`✅ PR #${prNumber} verified: "${prDetails.title}" (state: ${prDetails.state})`);
+                
+                // Now post the comment
+                const result = await github.rest.issues.createComment({
                   issue_number: prNumber,
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   body: comment
                 });
+                
                 console.log('✅ PR comment posted successfully!');
+                console.log('Comment ID:', result.data.id);
+                console.log('Comment URL:', result.data.html_url);
+                
               } catch (error) {
                 console.log('❌ Failed to post PR comment:', error.message);
-                console.log('Error details:', error.status, error.response?.data);
+                console.log('Error status:', error.status);
+                console.log('Error response:', JSON.stringify(error.response?.data, null, 2));
+                
+                if (error.status === 404) {
+                  console.log('🔍 PR not found - checking if PR exists...');
+                  try {
+                    const { data: prCheck } = await github.rest.pulls.get({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      pull_number: prNumber
+                    });
+                    console.log('PR exists but comment failed:', prCheck.title);
+                  } catch (prError) {
+                    console.log('PR does not exist:', prError.message);
+                  }
+                }
+                
                 console.log('Vulnerability report will be logged in job output instead');
               }
             } else {
               console.log('📋 No PR found - vulnerability report available in job output');
               console.log('All detection methods exhausted.');
+              console.log('Environment details:');
+              console.log('- GITHUB_REF:', process.env.GITHUB_REF);
+              console.log('- GITHUB_HEAD_REF:', process.env.GITHUB_HEAD_REF);
+              console.log('- GITHUB_BASE_REF:', process.env.GITHUB_BASE_REF);
+              console.log('- GITHUB_EVENT_NAME:', process.env.GITHUB_EVENT_NAME);
             }
             
             // Always log the vulnerability details to job output
