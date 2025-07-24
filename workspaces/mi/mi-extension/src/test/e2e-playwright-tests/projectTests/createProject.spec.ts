@@ -46,7 +46,7 @@ export default function createTests() {
 
             await test.step("Create New Project from Sample", async () => {
                 console.log('Starting to create a new project from sample');
-                await page.executePaletteCommand("MI: Open MI Welcome");
+                await page.executePaletteCommand("MI: Create New Project");
                 const welcomePage = new Welcome(page);
                 await welcomePage.init();
                 console.log('Creating new project from sample');
