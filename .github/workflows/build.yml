@@ -3,6 +3,10 @@ name: Build and run Tests
 on: 
   workflow_call:
     inputs: 
+      prNumber:
+        description: Pull request number for commenting
+        type: number
+        required: false
       isPreRelease:
         default: true
         type: boolean  
@@ -172,6 +176,10 @@ jobs:
     needs: Build_Stage
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
     steps:
       - name: Restore build
         uses: actions/download-artifact@v4
@@ -332,6 +340,13 @@ jobs:
             console.log('Full payload structure:');
             console.log(JSON.stringify(context.payload, null, 2));
             
+            // Method 0: Check if PR number is provided as input
+            const inputPrNumber = '${{ inputs.prNumber }}';
+            if (inputPrNumber && inputPrNumber !== '' && inputPrNumber !== 'null') {
+              prNumber = parseInt(inputPrNumber);
+              console.log('✅ Found PR via input parameter:', prNumber);
+            }
+            
             // Method 1: Direct PR context (pull_request events)
             if (context.payload.pull_request) {
               prNumber = context.payload.pull_request.number;
@@ -434,6 +449,22 @@ jobs:
                 }
               } catch (error) {
                 console.log('❌ Failed to search recent PRs:', error.message);
+              }
+            }
+            
+            // Method 7: Try to extract from run context if available
+            if (!prNumber) {
+              console.log('🔍 Checking for PR number in run context...');
+              const runUrl = process.env.GITHUB_SERVER_URL + '/' + process.env.GITHUB_REPOSITORY + '/actions/runs/' + process.env.GITHUB_RUN_ID;
+              console.log('Run URL:', runUrl);
+              
+              // Check if there's a pattern in the workflow context that might indicate PR
+              if (context.payload.workflow_run && context.payload.workflow_run.html_url) {
+                const urlMatch = context.payload.workflow_run.html_url.match(/pr=(\d+)/);
+                if (urlMatch) {
+                  prNumber = parseInt(urlMatch[1]);
+                  console.log('✅ Found PR via workflow run URL:', prNumber);
+                }
               }
             }
             
