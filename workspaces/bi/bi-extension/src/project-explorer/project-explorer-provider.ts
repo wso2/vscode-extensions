@@ -44,13 +44,26 @@ export class ProjectExplorerEntry extends vscode.TreeItem {
     ) {
         super(label, collapsibleState);
         this.tooltip = `${this.label}`;
-        this.info = info;
+        if (extension.isWebMode) {
+            if (!info) {
+                this.info = null;
+            } else {
+                this.info = info.startsWith('web-bala:') ? info : `web-bala:${info}`;
+            }
+        }
+        else{
+            this.info = info;
+        }
         if (icon && isCodicon) {
             this.iconPath = new vscode.ThemeIcon(icon);
         } else if (icon) {
             this.iconPath = {
-                light: vscode.Uri.file(path.join(extension.context.extensionPath, 'assets', `light-${icon}.svg`)),
-                dark: vscode.Uri.file(path.join(extension.context.extensionPath, 'assets', `dark-${icon}.svg`))
+                light: extension.isWebMode
+                    ? vscode.Uri.joinPath(extension.context.extensionUri, 'assets', `light-${icon}.svg`)
+                    : vscode.Uri.file(path.join(extension.context.extensionPath, 'assets', `light-${icon}.svg`)),
+                dark: extension.isWebMode
+                    ? vscode.Uri.joinPath(extension.context.extensionUri, 'assets', `dark-${icon}.svg`)
+                    : vscode.Uri.file(path.join(extension.context.extensionPath, 'assets', `dark-${icon}.svg`))
             };
         }
     }
@@ -133,11 +146,20 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
     if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
         const data: ProjectExplorerEntry[] = [];
         if (extension.langClient && extension.projectPath) {
-            const workspace = vscode
+            let workspace;
+            if(extension.isWebMode)
+            {
+                workspace = vscode
                 .workspace
                 .workspaceFolders
-                .find(folder => folder.uri.fsPath === extension.projectPath);
-
+                .find(folder => Uri.parse(folder.uri.toString()).toString() === extension.projectPath);
+            }
+            else{
+                workspace = vscode
+                    .workspace
+                    .workspaceFolders
+                    .find(folder => folder.uri.fsPath === extension.projectPath);
+            }
             if (!workspace) {
                 return [];
             }

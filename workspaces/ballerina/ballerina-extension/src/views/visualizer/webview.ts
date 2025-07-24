@@ -21,7 +21,7 @@ import * as path from "path";
 import { Uri, ViewColumn, Webview } from "vscode";
 import { RPCLayer } from "../../RPCLayer";
 import { debounce } from "lodash";
-import { WebViewOptions, getComposerWebViewOptions, getLibraryWebViewContent } from "../../utils/webview-utils";
+import { WebViewOptions, getComposerWebViewOptions, getLibraryWebViewContent, getCommonWebViewOptions } from "../../utils/webview-utils";
 import { extension } from "../../BalExtensionContext";
 import { StateMachine, updateView } from "../../stateMachine";
 import { LANGUAGE } from "../../core";
@@ -53,9 +53,6 @@ export class VisualizerWebview {
             const machineReady = typeof state === 'object' && 'viewActive' in state && state.viewActive === "viewReady";
             if (this._panel?.active && machineReady && document && document.document.languageId === LANGUAGE.BALLERINA) {
                 sendUpdateNotificationToWebview();
-            } else if (machineReady && document?.document && document.document.languageId === LANGUAGE.TOML && document.document.fileName.endsWith("Config.toml") &&
-                vscode.window.visibleTextEditors.some(editor => editor.document.fileName === document.document.fileName)){
-                sendUpdateNotificationToWebview(true);
             }
         }, extension.context);
 
@@ -79,6 +76,11 @@ export class VisualizerWebview {
     }
 
     public static get webviewTitle(): string {
+        // If running in web mode, always use biTitle
+        if (extension.isWebMode) {
+            return VisualizerWebview.biTitle;
+        }
+        // Otherwise, check for the presence of the BI extension
         const biExtension = vscode.extensions.getExtension('wso2.ballerina-integrator');
         return biExtension ? VisualizerWebview.biTitle : VisualizerWebview.ballerinaTitle;
     }
@@ -89,13 +91,15 @@ export class VisualizerWebview {
             VisualizerWebview.webviewTitle,
             { viewColumn: ViewColumn.Active, preserveFocus: true },
             {
-                enableScripts: true,
-                localResourceRoots: [Uri.file(path.join(extension.context.extensionPath, "resources"))],
+                ...getCommonWebViewOptions(),
                 retainContextWhenHidden: true,
             }
         );
         const biExtension = vscode.extensions.getExtension('wso2.ballerina-integrator');
-        panel.iconPath = {
+        panel.iconPath =extension.isWebMode? {
+            light: vscode.Uri.joinPath(extension.context.extensionUri, 'resources', 'icons', biExtension ? 'light-icon.svg' : 'ballerina.svg'),
+            dark: vscode.Uri.joinPath(extension.context.extensionUri, 'resources', 'icons', biExtension ? 'dark-icon.svg' : 'ballerina-inverse.svg')
+        }: {
             light: vscode.Uri.file(path.join(extension.context.extensionPath, 'resources', 'icons', biExtension ? 'light-icon.svg' : 'ballerina.svg')),
             dark: vscode.Uri.file(path.join(extension.context.extensionPath, 'resources', 'icons', biExtension ? 'dark-icon.svg' : 'ballerina-inverse.svg'))
         };

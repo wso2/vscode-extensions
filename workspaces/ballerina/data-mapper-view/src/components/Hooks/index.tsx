@@ -265,7 +265,8 @@ export const useDMMetaData = (langServerRpcClient: LangClientRpcClient): {
 } => {
     const fetchDMMetaData = async () => {
         try {
-            const ballerinaVersion = (await langServerRpcClient.getBallerinaVersion()).version;
+            const isWebMode = typeof window !== 'undefined' && typeof window.document !== 'undefined';
+            const ballerinaVersion = isWebMode ?  "2201.12.7 " : (await langServerRpcClient.getBallerinaVersion()).version;
             const dMSupported = isDMSupported(ballerinaVersion);
             const dMUnsupportedMessage = `The current ballerina version ${ballerinaVersion.replace(
                 "(swan lake)", "").trim()

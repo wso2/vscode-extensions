@@ -19,6 +19,7 @@
 import { Uri, ExtensionContext, WebviewOptions, WebviewPanelOptions, Webview } from "vscode";
 import { join, sep } from "path";
 import { ballerinaExtInstance } from "../core";
+import { extension } from "../BalExtensionContext";
 
 export const RESOURCES_CDN = `https://choreo-shared-codeserver-cdne.azureedge.net/ballerina-low-code-resources@${process.env.BALLERINA_LOW_CODE_RESOURCES_VERSION}`;
 const isDevMode = process.env.WEB_VIEW_WATCH_MODE === "true";
@@ -46,7 +47,11 @@ export function getCommonWebViewOptions(): Partial<WebviewOptions & WebviewPanel
 }
 
 function getVSCodeResourceURI(filePath: string, webView: Webview): string {
-    return webView.asWebviewUri(Uri.file(filePath)).toString();
+    if (extension.isWebMode) {
+        return webView.asWebviewUri(Uri.file(filePath)).path;
+    } else {
+        return webView.asWebviewUri(Uri.file(filePath)).toString();
+    }
 }
 
 export interface WebViewOptions {
@@ -133,7 +138,7 @@ function getComposerCSSFiles(disableComDebug: boolean, devHost: string, webView:
     const filePath = join((ballerinaExtInstance.context as ExtensionContext).extensionPath, 'resources', 'jslibs', 'themes', 'ballerina-default.min.css');
     return [
         (isDevMode && !disableComDebug) ? join(devHost, 'themes', 'ballerina-default.min.css')
-            : webView.asWebviewUri(Uri.file(filePath)).toString()
+            :extension.isWebMode ? webView.asWebviewUri(Uri.file(filePath)).path: webView.asWebviewUri(Uri.file(filePath)).toString()
     ];
 }
 
@@ -141,7 +146,7 @@ function getComposerJSFiles(componentName: string, disableComDebug: boolean, dev
     const filePath = join((ballerinaExtInstance.context as ExtensionContext).extensionPath, 'resources', 'jslibs') + sep + componentName + '.js';
     return [
         (isDevMode && !disableComDebug) ? join(devHost, componentName + '.js')
-            : webView.asWebviewUri(Uri.file(filePath)).toString(),
+            : extension.isWebMode ? webView.asWebviewUri(Uri.file(filePath)).path:webView.asWebviewUri(Uri.file(filePath)).toString(),
         isDevMode ? 'http://localhost:8097' : '' // For React Dev Tools
     ];
 }

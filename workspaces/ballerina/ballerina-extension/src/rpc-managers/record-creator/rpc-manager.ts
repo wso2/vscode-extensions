@@ -27,6 +27,8 @@ import {
 } from "@wso2/ballerina-core";
 import { StateMachine } from "../../stateMachine";
 import path from "path";
+import { extension } from "../../BalExtensionContext";
+import { Uri } from "vscode";
 
 export class RecordCreatorRpcManager implements RecordCreatorAPI {
     async convertJsonToRecord(params: JsonToRecordParams): Promise<JsonToRecord> {
@@ -44,8 +46,11 @@ export class RecordCreatorRpcManager implements RecordCreatorAPI {
     }
 
     async convertJsonToRecordType(params: JsonToRecordParams): Promise<TypeDataWithReferences> {
-        const projectUri = StateMachine.context().projectUri;
-        const filePathUri = path.join(projectUri, 'types.bal');
+        const context = StateMachine.context();
+        const projectUri = context.projectUri;
+        const filePathUri = extension.isWebMode
+            ? Uri.joinPath(Uri.parse(projectUri), 'types.bal').toString()
+            : path.join(projectUri, 'types.bal');
         return new Promise(async (resolve) => {
             const response = await StateMachine.langClient().convertJsonToRecordType({
                 ...params,
@@ -56,8 +61,11 @@ export class RecordCreatorRpcManager implements RecordCreatorAPI {
     }
 
     async convertXmlToRecordType(params: XMLToRecordParams): Promise<TypeDataWithReferences> {
-        const projectUri = StateMachine.context().projectUri;
-        const filePath = path.join(projectUri, 'types.bal');
+        const context = StateMachine.context();
+        const projectUri = context.projectUri;
+        const filePath = extension.isWebMode
+            ? Uri.joinPath(Uri.parse(projectUri), 'types.bal').toString()
+            : path.join(projectUri, 'types.bal');
         return new Promise(async (resolve) => {
             const response = await StateMachine.langClient().convertXmlToRecordType({
                 ...params,

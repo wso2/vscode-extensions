@@ -21,7 +21,7 @@ import { getCommonWebViewOptions } from '../../utils';
 import { render } from './render';
 import { ballerinaExtInstance } from "../../core";
 import { SwaggerServer } from "./server";
-import { CMP_TRYIT_GRAPHQL_VIEW, sendTelemetryEvent, TM_EVENT_GRAPHQL_RUN } from "../../features/telemetry";
+// import { CMP_TRYIT_GRAPHQL_VIEW, sendTelemetryEvent, TM_EVENT_GRAPHQL_RUN } from "../../features/telemetry";
 import path from "path";
 import { extension } from "../../BalExtensionContext";
 
@@ -81,5 +81,5 @@ export async function showGraphqlView(serviceAPI: string): Promise<void> {
         }
     }
     //editor-lowcode-code-tryit
-    sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_GRAPHQL_RUN, CMP_TRYIT_GRAPHQL_VIEW);
+    //sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_GRAPHQL_RUN, CMP_TRYIT_GRAPHQL_VIEW);
 }

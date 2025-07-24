@@ -227,6 +227,10 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         }
     };
 
+    function isWebMode():boolean{
+        return typeof window !=="undefined" && (window as any).VscodeWebExtension;
+    }
+
     const fetchNodesAndAISuggestions = (
         parent: FlowNode | Branch,
         target: LineRange,
@@ -239,7 +243,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         }
         const getNodeRequest: BIAvailableNodesRequest = {
             position: target.startLine,
-            filePath: model?.fileName || parent?.codedata?.lineRange.fileName,
+            filePath: model?.fileName || (isWebMode ? originalFlowModel.current?.fileName : parent?.codedata?.lineRange.fileName),
         };
         console.log(">>> get available node request", getNodeRequest);
         // save original model

@@ -19,7 +19,7 @@ import { BallerinaExtension } from '../../core';
 import { commands, extensions, StatusBarAlignment, StatusBarItem, ThemeColor, window, workspace } from 'vscode';
 import { PALETTE_COMMANDS } from '../project';
 // import { hasDiagram } from '../../views/diagram';
-import { CMP_GIT_STATUS, sendTelemetryEvent, TM_EVENT_GIT_COMMIT } from '../telemetry';
+// import { CMP_GIT_STATUS, sendTelemetryEvent, TM_EVENT_GIT_COMMIT } from '../telemetry';
 const schedule = require('node-schedule');
 
 export class gitStatusBarItem {
@@ -77,7 +77,7 @@ export class gitStatusBarItem {
         if (this.latestGitHash != commit) {
             this.latestGitHash = commit;
             //editor-workspace-git-commit
-            sendTelemetryEvent(this.extension, TM_EVENT_GIT_COMMIT, CMP_GIT_STATUS);
+           // sendTelemetryEvent(this.extension, TM_EVENT_GIT_COMMIT, CMP_GIT_STATUS);
         }
     }
 }

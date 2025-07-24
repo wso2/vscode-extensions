@@ -27,6 +27,8 @@ export class BalExtensionContext {
     public agentChatContext?: AgentChatContext;
     public hasPullModuleNotification = false;
     public hasPullModuleResolved = false;
+    //web config
+    public isWebMode?:boolean;
 }
 
 export const extension = new BalExtensionContext();

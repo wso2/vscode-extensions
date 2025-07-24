@@ -30,17 +30,17 @@ import {
     TabInputText
 } from 'vscode';
 import * as child_process from "child_process";
-import { getPortPromise } from 'portfinder';
+// import { getPortPromise } from 'portfinder';
 import * as path from "path";
 import {
     ballerinaExtInstance, BallerinaExtension, LANGUAGE, OLD_BALLERINA_VERSION_DEBUGGER_RUNINTERMINAL,
     UNSUPPORTED_DEBUGGER_RUNINTERMINAL_KIND, INVALID_DEBUGGER_RUNINTERMINAL_KIND
 } from '../../core';
 import { ExtendedLangClient } from '../../core/extended-language-client';
-import {
-    TM_EVENT_START_DEBUG_SESSION, CMP_DEBUGGER, sendTelemetryEvent, sendTelemetryException,
-    CMP_NOTEBOOK, TM_EVENT_START_NOTEBOOK_DEBUG
-} from '../telemetry';
+// import {
+//     TM_EVENT_START_DEBUG_SESSION, CMP_DEBUGGER, sendTelemetryEvent, sendTelemetryException,
+//     CMP_NOTEBOOK, TM_EVENT_START_NOTEBOOK_DEBUG
+// } from '../telemetry';
 import { log, debug as debugLog, isSupportedSLVersion } from "../../utils";
 import { decimal, ExecutableOptions } from 'vscode-languageclient/node';
 import { BAL_NOTEBOOK, getTempFile, NOTEBOOK_CELL_SCHEME } from '../../views/notebook';
@@ -232,8 +232,8 @@ async function showInputBox(paramName: string, value: string, type: string, isRe
 }
 
 async function getModifiedConfigs(workspaceFolder: WorkspaceFolder, config: DebugConfiguration) {
-    const debuggeePort = config.debuggeePort ?? await findFreePort();
-    config.debuggeePort = debuggeePort.toString();
+   // const debuggeePort = config.debuggeePort ?? await findFreePort();
+   // config.debuggeePort = debuggeePort.toString();
 
     const ballerinaHome = ballerinaExtInstance.getBallerinaHome();
     config['ballerina.home'] = ballerinaHome;
@@ -253,7 +253,7 @@ async function getModifiedConfigs(workspaceFolder: WorkspaceFolder, config: Debu
     const activeTextEditor = window.activeTextEditor;
 
     if (activeTextEditor && activeTextEditor.document.fileName.endsWith(BAL_NOTEBOOK)) {
-        sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_START_NOTEBOOK_DEBUG, CMP_NOTEBOOK);
+      //  sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_START_NOTEBOOK_DEBUG, CMP_NOTEBOOK);
         let activeTextEditorUri = activeTextEditor.document.uri;
         if (activeTextEditorUri.scheme === NOTEBOOK_CELL_SCHEME) {
             activeTextEditorUri = Uri.file(getTempFile());
@@ -330,10 +330,10 @@ async function getModifiedConfigs(workspaceFolder: WorkspaceFolder, config: Debu
         }
     }
 
-    if (!config.debugServer) {
-        const debugServerPort = await findFreePort();
-        config.debugServer = debugServerPort.toString();
-    }
+    // if (!config.debugServer) {
+    //     const debugServerPort = await findFreePort();
+    //     config.debugServer = debugServerPort.toString();
+    // }
 
     // Notify debug server that the debug session is started in low-code mode
     const isWebviewPresent = VisualizerWebview.currentPanel !== undefined;
@@ -611,11 +611,11 @@ class BallerinaDebugAdapterDescriptorFactory implements DebugAdapterDescriptorFa
                     debugLog(`${data}`);
                 });
             });
-            sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_START_DEBUG_SESSION, CMP_DEBUGGER);
+           // sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_START_DEBUG_SESSION, CMP_DEBUGGER);
             this.registerLogTraceNotificationHandler(session);
             return new DebugAdapterServer(port);
         } catch (error) {
-            sendTelemetryException(ballerinaExtInstance, error as Error, CMP_DEBUGGER);
+          //  sendTelemetryException(ballerinaExtInstance, error as Error, CMP_DEBUGGER);
             return await Promise.reject(error);
         }
     }
@@ -820,9 +820,9 @@ function getWorkspaceRoot(): string | undefined {
     return workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
-function findFreePort(): Promise<number> {
-    return getPortPromise({ port: 5010, stopPort: 20000 });
-}
+// function findFreePort(): Promise<number> {
+//     return getPortPromise({ port: 5010, stopPort: 20000 });
+// }
 
 function isFastRunEnabled(): boolean {
     const config = workspace.getConfiguration('ballerina');

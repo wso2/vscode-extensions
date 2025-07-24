@@ -25,8 +25,8 @@
  * @param {Object} env - Parsed environment variables from .env file (from dotenv.config().parsed)
  * @returns {Object} Environment variables object ready for webpack.DefinePlugin
  */
-function createEnvDefinePlugin(env) {
-  
+function createEnvDefinePlugin(env, options = {}) {
+    const { allowEmpty = false } = options;
     const envKeys = Object.create(null);
     const missingVars = [];
   
@@ -38,13 +38,17 @@ function createEnvDefinePlugin(env) {
         else if (process.env[key] !== undefined && process.env[key] !== '') {
           envKeys[`process.env.${key}`] = JSON.stringify(process.env[key]);
         }
+        else if (allowEmpty) {
+          // For web builds, allow empty values and set them to empty string
+          envKeys[`process.env.${key}`] = JSON.stringify('');
+        }
         else {
           missingVars.push(key);
         }
       });
     }
   
-    if (missingVars.length > 0) {
+    if (missingVars.length > 0 && !allowEmpty) {
       throw new Error(
         `Missing required environment variables: ${missingVars.join(', ')}\n` +
         `Please provide values in either .env file or runtime environment.\n`

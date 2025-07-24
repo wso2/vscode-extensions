@@ -33,3 +33,7 @@ export function findScopeByModule(moduleName: string): SCOPE {
         return SCOPE.FILE_INTEGRATION;
     }
 }
+
+export function isWebMode(): boolean {
+    return typeof window !== "undefined" && (window as any).VscodeWebExtension;
+}

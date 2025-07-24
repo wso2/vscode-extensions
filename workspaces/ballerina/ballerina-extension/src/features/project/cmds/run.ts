@@ -18,9 +18,9 @@
 
 import { ballerinaExtInstance, LANGUAGE } from "../../../core";
 import { commands, Uri, window } from "vscode";
-import {
-    TM_EVENT_PROJECT_RUN, CMP_PROJECT_RUN, sendTelemetryEvent, sendTelemetryException
-} from "../../telemetry";
+// import {
+//     TM_EVENT_PROJECT_RUN, CMP_PROJECT_RUN, sendTelemetryEvent, sendTelemetryException
+// } from "../../telemetry";
 import { runCommand, BALLERINA_COMMANDS, PROJECT_TYPE, PALETTE_COMMANDS, runCommandWithConf, MESSAGES, getRunCommand } from "./cmd-runner";
 import { getCurrentBallerinaProject, getCurrentBallerinaFile, getCurrenDirectoryPath } from "../../../utils/project-utils";
 import { prepareAndGenerateConfig } from '../../config-generator/configGenerator';
@@ -38,7 +38,7 @@ function activateRunCmdCommand() {
 
     async function run(args: any[]) {
         try {
-            sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_PROJECT_RUN, CMP_PROJECT_RUN);
+           // sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_PROJECT_RUN, CMP_PROJECT_RUN);
             if (window.activeTextEditor && window.activeTextEditor.document.isDirty) {
                 await commands.executeCommand(PALETTE_COMMANDS.SAVE_ALL);
             }
@@ -81,7 +81,7 @@ function activateRunCmdCommand() {
 
         } catch (error) {
             if (error instanceof Error) {
-                sendTelemetryException(ballerinaExtInstance, error, CMP_PROJECT_RUN);
+              //  sendTelemetryException(ballerinaExtInstance, error, CMP_PROJECT_RUN);
                 window.showErrorMessage(error.message);
             } else {
                 window.showErrorMessage("Unkown error occurred.");
