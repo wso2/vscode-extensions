@@ -19,12 +19,12 @@
 import { ExtensionContext, commands, window, Location, Uri, TextEditor, extensions, UIKind, env } from "vscode";
 import { ballerinaExtInstance, BallerinaExtension } from "./core";
 import { activate as activateBBE } from "./views/bbe";
-import {
-    activate as activateTelemetryListener,
-    CMP_EXTENSION_CORE,
-    sendTelemetryEvent,
-    TM_EVENT_EXTENSION_ACTIVATE,
-} from "./features/telemetry";
+// import {
+//     activate as activateTelemetryListener,
+//     CMP_EXTENSION_CORE,
+//     sendTelemetryEvent,
+//     TM_EVENT_EXTENSION_ACTIVATE,
+// } from "./features/telemetry";
 import { activateDebugConfigProvider } from "./features/debugger";
 import { activate as activateProjectFeatures } from "./features/project";
 import { activate as activateEditorSupport } from "./features/editor-support";
@@ -123,7 +123,7 @@ export async function activate(context: ExtensionContext) {
 
 export async function activateBallerina(): Promise<BallerinaExtension> {
     debug("Active the Ballerina VS Code extension.");
-    sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_EXTENSION_ACTIVATE, CMP_EXTENSION_CORE);
+   // sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_EXTENSION_ACTIVATE, CMP_EXTENSION_CORE);
     ballerinaExtInstance.setContext(extension.context);
     // Enable URI handlers
     activateUriHandlers(ballerinaExtInstance);
@@ -171,7 +171,7 @@ export async function activateBallerina(): Promise<BallerinaExtension> {
 
             // <------------ OTHER FEATURES ----------->
             // Enable Ballerina Telemetry listener
-            activateTelemetryListener(ballerinaExtInstance);
+           // activateTelemetryListener(ballerinaExtInstance);
 
             //activate ai panel
             activateAiPanel(ballerinaExtInstance);
@@ -255,6 +255,6 @@ export function deactivate(): Thenable<void> | undefined {
     if (!langClient) {
         return;
     }
-    ballerinaExtInstance.telemetryReporter.dispose();
+  //  ballerinaExtInstance.telemetryReporter.dispose();
     return langClient.stop();
 }

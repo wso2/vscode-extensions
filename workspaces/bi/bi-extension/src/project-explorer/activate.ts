@@ -73,6 +73,7 @@ async function handleVisibilityChange(res: { visible: boolean }, dataProvider: P
 	commands.executeCommand(SHARED_COMMANDS.SHOW_VISUALIZER);
 	handleNonBallerinaVisibility();
 	if (res.visible) {
+		commands.executeCommand(SHARED_COMMANDS.SHOW_VISUALIZER);
 		if (isBallerina && extension.biSupported) {
 			commands.executeCommand(SHARED_COMMANDS.SHOW_VISUALIZER);
 			await commands.executeCommand(SHARED_COMMANDS.FORCE_UPDATE_PROJECT_ARTIFACTS);

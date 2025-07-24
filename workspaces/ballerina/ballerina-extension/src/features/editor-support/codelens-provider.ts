@@ -23,9 +23,9 @@ import {
     ProviderResult, Range, TextDocument, Uri, window, workspace, WorkspaceFolder
 } from 'vscode';
 import { BAL_TOML, clearTerminal, PALETTE_COMMANDS } from '../project';
-import {
-    CMP_EXECUTOR_CODELENS, sendTelemetryEvent, TM_EVENT_SOURCE_DEBUG_CODELENS, TM_EVENT_TEST_DEBUG_CODELENS
-} from '../telemetry';
+// import {
+//     CMP_EXECUTOR_CODELENS, sendTelemetryEvent, TM_EVENT_SOURCE_DEBUG_CODELENS, TM_EVENT_TEST_DEBUG_CODELENS
+// } from '../telemetry';
 import { constructDebugConfig } from '../debugger';
 import { ExecutorPosition, ExecutorPositionsResponse, SyntaxTree } from '@wso2/ballerina-core';
 import { traversNode } from '@wso2/syntax-tree';
@@ -77,7 +77,7 @@ export class ExecutorCodeLensProvider implements CodeLensProvider {
         });
 
         commands.registerCommand(INTERNAL_DEBUG_COMMAND, async () => {
-            sendTelemetryEvent(this.ballerinaExtension, TM_EVENT_SOURCE_DEBUG_CODELENS, CMP_EXECUTOR_CODELENS);
+           // sendTelemetryEvent(this.ballerinaExtension, TM_EVENT_SOURCE_DEBUG_CODELENS, CMP_EXECUTOR_CODELENS);
             clearTerminal();
             commands.executeCommand(FOCUS_DEBUG_CONSOLE_COMMAND);
             startDebugging(this.activeTextEditorUri!, false);
@@ -90,7 +90,7 @@ export class ExecutorCodeLensProvider implements CodeLensProvider {
         });
 
         commands.registerCommand(TEST_DEBUG_COMMAND, async () => {
-            sendTelemetryEvent(this.ballerinaExtension, TM_EVENT_TEST_DEBUG_CODELENS, CMP_EXECUTOR_CODELENS);
+           // sendTelemetryEvent(this.ballerinaExtension, TM_EVENT_TEST_DEBUG_CODELENS, CMP_EXECUTOR_CODELENS);
             clearTerminal();
             commands.executeCommand(FOCUS_DEBUG_CONSOLE_COMMAND);
             startDebugging(window.activeTextEditor!.document.uri, true);

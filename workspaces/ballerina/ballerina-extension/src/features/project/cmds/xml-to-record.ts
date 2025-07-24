@@ -16,9 +16,9 @@
  * under the License.
  */
 
-import {
-    sendTelemetryEvent, sendTelemetryException, TM_EVENT_PASTE_AS_RECORD, CMP_XML_TO_RECORD,
-} from "../../telemetry";
+// import {
+//     sendTelemetryEvent, sendTelemetryException, TM_EVENT_PASTE_AS_RECORD, CMP_XML_TO_RECORD,
+// } from "../../telemetry";
 import { commands, window, env } from "vscode";
 import { ballerinaExtInstance, DIAGNOSTIC_SEVERITY } from "../../../core";
 import { PALETTE_COMMANDS, MESSAGES } from "./cmd-runner";
@@ -43,7 +43,7 @@ export function activatePasteXMLAsRecord() {
             window.showErrorMessage("Target is not a Ballerina file!");
             return;
         }
-        sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_PASTE_AS_RECORD, CMP_XML_TO_RECORD);
+       // sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_PASTE_AS_RECORD, CMP_XML_TO_RECORD);
         env.clipboard.readText()
             .then(clipboardText => {
                 if (!ballerinaExtInstance.langClient) {
@@ -91,13 +91,13 @@ export function activatePasteXMLAsRecord() {
                         });
                         error => {
                             window.showErrorMessage(error.message);
-                            sendTelemetryException(ballerinaExtInstance, error, CMP_XML_TO_RECORD);
+                          //  sendTelemetryException(ballerinaExtInstance, error, CMP_XML_TO_RECORD);
                         };
                     });
             },
                 error => {
                     window.showErrorMessage(error.message);
-                    sendTelemetryException(ballerinaExtInstance, error, CMP_XML_TO_RECORD);
+                   // sendTelemetryException(ballerinaExtInstance, error, CMP_XML_TO_RECORD);
                 });
     });
 }

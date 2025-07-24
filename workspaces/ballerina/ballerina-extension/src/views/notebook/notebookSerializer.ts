@@ -22,7 +22,7 @@ import {
     NotebookCellOutput, NotebookCellOutputItem, NotebookData, NotebookSerializer
 } from 'vscode';
 import { ballerinaExtInstance } from "../../core";
-import { CMP_NOTEBOOK, sendTelemetryEvent, TM_EVENT_CLOSE_NOTEBOOK, TM_EVENT_OPEN_NOTEBOOK } from "../../features/telemetry";
+// import { CMP_NOTEBOOK, sendTelemetryEvent, TM_EVENT_CLOSE_NOTEBOOK, TM_EVENT_OPEN_NOTEBOOK } from "../../features/telemetry";
 
 /**
  * Data structure to store infomation of notebook cells
@@ -47,7 +47,7 @@ interface RawCellOutput {
  */
 export class BallerinaNotebookSerializer implements NotebookSerializer {
     async deserializeNotebook(content: Uint8Array, _token: CancellationToken): Promise<NotebookData> {
-        sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_OPEN_NOTEBOOK, CMP_NOTEBOOK);
+       // sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_OPEN_NOTEBOOK, CMP_NOTEBOOK);
         var contents = new TextDecoder().decode(content);
 
         let raw: RawNotebookCell[];
@@ -71,7 +71,7 @@ export class BallerinaNotebookSerializer implements NotebookSerializer {
     }
 
     async serializeNotebook(data: NotebookData, _token: CancellationToken): Promise<Uint8Array> {
-        sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_CLOSE_NOTEBOOK, CMP_NOTEBOOK);
+      //  sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_CLOSE_NOTEBOOK, CMP_NOTEBOOK);
         let contents: RawNotebookCell[] = [];
         for (const cell of data.cells) {
             contents.push({

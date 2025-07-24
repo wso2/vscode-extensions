@@ -18,7 +18,7 @@
 
 import { WebviewViewProvider, WebviewView, WebviewViewResolveContext, CancellationToken, ExtensionContext, Webview } from "vscode";
 import { BallerinaExtension, ExtendedLangClient } from "../../core";
-import { CMP_NOTEBOOK, sendTelemetryEvent, TM_EVENT_UPDATE_VARIABLE_VIEW } from "../../features/telemetry";
+// import { CMP_NOTEBOOK, sendTelemetryEvent, TM_EVENT_UPDATE_VARIABLE_VIEW } from "../../features/telemetry";
 import { getComposerWebViewOptions, getLibraryWebViewContent, WebViewOptions } from "../../utils";
 
 // let webviewRPCHandler: WebViewRPCHandler;
@@ -75,7 +75,7 @@ export class VariableViewProvider implements WebviewViewProvider {
 	}
 
 	public updateVariables() {
-		sendTelemetryEvent(this.ballerinaExtension, TM_EVENT_UPDATE_VARIABLE_VIEW, CMP_NOTEBOOK);
+		//sendTelemetryEvent(this.ballerinaExtension, TM_EVENT_UPDATE_VARIABLE_VIEW, CMP_NOTEBOOK);
 		// if (webviewRPCHandler) {
 		// 	webviewRPCHandler.invokeRemoteMethod("updateVariableValues", undefined, () => { });
 		// }

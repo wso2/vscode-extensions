@@ -20,10 +20,10 @@ import { workspace, ExtensionContext, commands, Disposable, window, Uri, debug }
 import { existsSync } from 'fs';
 import { sep } from 'path';
 import { BallerinaExtension, ExtendedLangClient } from '../../core';
-import {
-    CMP_NOTEBOOK, getMessageObject, sendTelemetryEvent, sendTelemetryException, TM_EVENT_CREATE_NOTEBOOK,
-    TM_EVENT_ERROR_EXECUTE_CREATE_NOTEBOOK, TM_EVENT_OPEN_VARIABLE_VIEW, TM_EVENT_RESTART_NOTEBOOK
-} from '../../features/telemetry';
+// import {
+//     CMP_NOTEBOOK, getMessageObject, sendTelemetryEvent, sendTelemetryException, TM_EVENT_CREATE_NOTEBOOK,
+//     TM_EVENT_ERROR_EXECUTE_CREATE_NOTEBOOK, TM_EVENT_OPEN_VARIABLE_VIEW, TM_EVENT_RESTART_NOTEBOOK
+// } from '../../features/telemetry';
 import { outputChannel } from '../../utils';
 import { BallerinaNotebookSerializer } from "./notebookSerializer";
 import { BallerinaNotebookController } from "./notebookController";
@@ -84,7 +84,7 @@ function registerFocusToOutline(): Disposable {
 
 function registerVariableView(ballerinaExtInstance: BallerinaExtension): Disposable {
     return commands.registerCommand(OPEN_VARIABLE_VIEW_COMMAND, () => {
-        sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_OPEN_VARIABLE_VIEW, CMP_NOTEBOOK);
+      //  sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_OPEN_VARIABLE_VIEW, CMP_NOTEBOOK);
         ballerinaExtInstance.setNotebookVariableViewEnabled(true);
         commands.executeCommand(FOCUS_VARIABLE_VIEW_COMMAND);
     });
@@ -99,7 +99,7 @@ function registerRefreshVariableView(notebookController: BallerinaNotebookContro
 function registerRestartNotebook(ballerinaExtInstance: BallerinaExtension,
     notebookController: BallerinaNotebookController): Disposable {
     return commands.registerCommand(RESTART_NOTEBOOK_COMMAND, async () => {
-        sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_RESTART_NOTEBOOK, CMP_NOTEBOOK);
+       // sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_RESTART_NOTEBOOK, CMP_NOTEBOOK);
         const langClient = <ExtendedLangClient>ballerinaExtInstance.langClient;
         if (!langClient) {
             return;
@@ -113,7 +113,7 @@ function registerRestartNotebook(ballerinaExtInstance: BallerinaExtension,
 function registerCreateNotebook(ballerinaExtInstance: BallerinaExtension): Disposable {
     return commands.registerCommand(CREATE_NOTEBOOK_COMMAND, async () => {
         try {
-            sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_CREATE_NOTEBOOK, CMP_NOTEBOOK);
+          //  sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_CREATE_NOTEBOOK, CMP_NOTEBOOK);
             let notebookName = await window.showInputBox({ placeHolder: "new_notebook" });
             if (notebookName && notebookName.trim().length > 0) {
                 notebookName = notebookName.endsWith(BAL_NOTEBOOK) ? notebookName : `${notebookName}${BAL_NOTEBOOK}`;
@@ -124,14 +124,14 @@ function registerCreateNotebook(ballerinaExtInstance: BallerinaExtension): Dispo
                     outputChannel.appendLine(`${notebookName} created in workspace`);
                 } else {
                     const message = `${notebookName} already exists in the workspace.`;
-                    sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_ERROR_EXECUTE_CREATE_NOTEBOOK,
-                        CMP_NOTEBOOK, getMessageObject(message));
+                    // sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_ERROR_EXECUTE_CREATE_NOTEBOOK,
+                    //     CMP_NOTEBOOK, getMessageObject(message));
                     window.showErrorMessage(message);
                 }
             }
         } catch (error) {
             if (error instanceof Error) {
-                sendTelemetryException(ballerinaExtInstance, error, CMP_NOTEBOOK);
+              //  sendTelemetryException(ballerinaExtInstance, error, CMP_NOTEBOOK);
                 window.showErrorMessage(error.message);
             } else {
                 window.showErrorMessage("Unkown error occurred.");

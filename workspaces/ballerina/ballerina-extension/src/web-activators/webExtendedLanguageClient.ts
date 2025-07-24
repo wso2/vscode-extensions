@@ -1240,14 +1240,14 @@ export class WebExtendedLanguageClient extends LanguageClient implements Extende
 
     public pushLSClientTelemetries() {
         if (this.timeConsumption.completion.length > 0) {
-            const completionValues = calculateTelemetryValues(this.timeConsumption.completion, "completion");
+          //  const completionValues = calculateTelemetryValues(this.timeConsumption.completion, "completion");
             //  sendTelemetryEvent(this.ballerinaExtInstance!, TM_EVENT_LANG_CLIENT, CMP_LS_CLIENT_COMPLETIONS,
             //   getMessageObject(process.env.HOSTNAME), completionValues);
             this.timeConsumption.completion = [];
         }
 
         if (this.timeConsumption.diagnostics.length > 0) {
-            const diagnosticValues = calculateTelemetryValues(this.timeConsumption.diagnostics, "diagnostic");
+            //const diagnosticValues = calculateTelemetryValues(this.timeConsumption.diagnostics, "diagnostic");
             this.timeConsumption.diagnostics = [];
             // sendTelemetryEvent(this.ballerinaExtInstance!, TM_EVENT_LANG_CLIENT, CMP_LS_CLIENT_DIAGNOSTICS,
             //    getMessageObject(process.env.HOSTNAME), diagnosticValues);

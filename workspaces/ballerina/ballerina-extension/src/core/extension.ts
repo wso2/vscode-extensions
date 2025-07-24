@@ -50,13 +50,13 @@ import {
     USE_BALLERINA_CLI_LANG_SERVER
 }
     from "./preferences";
-import TelemetryReporter from "vscode-extension-telemetry";
-import {
-    createTelemetryReporter, CMP_EXTENSION_CORE, sendTelemetryEvent, sendTelemetryException,
-    TM_EVENT_ERROR_INVALID_BAL_HOME_CONFIGURED, TM_EVENT_EXTENSION_INIT, TM_EVENT_EXTENSION_INI_FAILED,
-    TM_EVENT_ERROR_OLD_BAL_HOME_DETECTED,
-    getMessageObject
-} from "../features/telemetry";
+//import TelemetryReporter from "vscode-extension-telemetry";
+// import {
+//     createTelemetryReporter, CMP_EXTENSION_CORE, sendTelemetryEvent, sendTelemetryException,
+//     TM_EVENT_ERROR_INVALID_BAL_HOME_CONFIGURED, TM_EVENT_EXTENSION_INIT, TM_EVENT_EXTENSION_INI_FAILED,
+//     TM_EVENT_ERROR_OLD_BAL_HOME_DETECTED,
+//     getMessageObject
+// } from "../features/telemetry";
 import { BALLERINA_COMMANDS, runCommand } from "../features/project";
 import { gitStatusBarItem } from "../features/editor-support/git-status";
 import { checkIsPersistModelFile } from "../views/persist-layer-diagram/activator";
@@ -140,7 +140,7 @@ export interface WebviewContext {
 const showMessageInstallBallerinaCommand = 'ballerina.showMessageInstallBallerina';
 const SDK_PREFIX = 'Ballerina ';
 export class BallerinaExtension {
-    public telemetryReporter: TelemetryReporter;
+ //   public telemetryReporter: TelemetryReporter;
     public ballerinaHome: string;
     private ballerinaCmd: string;
     public ballerinaVersion: string;
@@ -209,7 +209,7 @@ export class BallerinaExtension {
             }
         };
 
-        this.telemetryReporter = createTelemetryReporter(this);
+        //this.telemetryReporter = createTelemetryReporter(this);
         this.documentContext = new DocumentContext();
         this.codeServerContext = {
             codeServerEnv: this.isCodeServerEnv(),
@@ -283,7 +283,7 @@ export class BallerinaExtension {
             if (this.overrideBallerinaHome()) {
                 if (!this.getConfiguredBallerinaHome()) {
                     const message = "Trying to get ballerina version without setting ballerina home.";
-                    sendTelemetryEvent(this, TM_EVENT_ERROR_INVALID_BAL_HOME_CONFIGURED, CMP_EXTENSION_CORE, getMessageObject(message));
+                    //sendTelemetryEvent(this, TM_EVENT_ERROR_INVALID_BAL_HOME_CONFIGURED, CMP_EXTENSION_CORE, getMessageObject(message));
                     throw new AssertionError({
                         message: message
                     });
@@ -314,7 +314,7 @@ export class BallerinaExtension {
                     this.showMessageOldBallerina();
                     const message = `Ballerina version ${this.ballerinaVersion} is not supported. 
                         The extension supports Ballerina Swan Lake Beta 3+ versions.`;
-                    sendTelemetryEvent(this, TM_EVENT_ERROR_OLD_BAL_HOME_DETECTED, CMP_EXTENSION_CORE, getMessageObject(message));
+                  //  sendTelemetryEvent(this, TM_EVENT_ERROR_OLD_BAL_HOME_DETECTED, CMP_EXTENSION_CORE, getMessageObject(message));
                     return;
                 }
 
@@ -332,13 +332,13 @@ export class BallerinaExtension {
                 // Following was put in to handle server startup failures.
                 if (this.langClient.state === LS_STATE.Stopped) {
                     const message = "Couldn't establish language server connection.";
-                    sendTelemetryEvent(this, TM_EVENT_EXTENSION_INI_FAILED, CMP_EXTENSION_CORE, getMessageObject(message));
+                  //  sendTelemetryEvent(this, TM_EVENT_EXTENSION_INI_FAILED, CMP_EXTENSION_CORE, getMessageObject(message));
                     log(message);
                     this.showPluginActivationError();
                 } else if (this.langClient.state === LS_STATE.Running) {
                     await this.langClient?.registerExtendedAPICapabilities();
                     this.updateStatusBar(this.ballerinaVersion);
-                    sendTelemetryEvent(this, TM_EVENT_EXTENSION_INIT, CMP_EXTENSION_CORE);
+                  //  sendTelemetryEvent(this, TM_EVENT_EXTENSION_INIT, CMP_EXTENSION_CORE);
                 }
 
                 commands.registerCommand('ballerina.stopLangServer', () => {
@@ -346,13 +346,13 @@ export class BallerinaExtension {
                 });
                 debug("=".repeat(60));
             }, (reason) => {
-                sendTelemetryException(this, reason, CMP_EXTENSION_CORE);
+              //  sendTelemetryException(this, reason, CMP_EXTENSION_CORE);
                 this.showMessageInstallBallerina();
                 throw new Error(reason);
             }).catch(e => {
                 const msg = `Error when checking ballerina version. ${e.message}`;
-                sendTelemetryException(this, e, CMP_EXTENSION_CORE, getMessageObject(msg));
-                this.telemetryReporter.dispose();
+               // sendTelemetryException(this, e, CMP_EXTENSION_CORE, getMessageObject(msg));
+               // this.telemetryReporter.dispose();
                 throw new Error(msg);
             });
         } catch (ex) {
@@ -361,8 +361,8 @@ export class BallerinaExtension {
                 msg = "Error while activating plugin. " + (ex.message ? ex.message : ex);
                 // If any failure occurs while initializing show an error message
                 this.showPluginActivationError();
-                sendTelemetryException(this, ex, CMP_EXTENSION_CORE, getMessageObject(msg));
-                this.telemetryReporter.dispose();
+                // sendTelemetryException(this, ex, CMP_EXTENSION_CORE, getMessageObject(msg));
+                // this.telemetryReporter.dispose();
             }
             return Promise.reject(msg);
         }
@@ -1670,9 +1670,9 @@ export class BallerinaExtension {
                     const parsedVersion = implVersionLine.replace(replacePrefix, '').replace(/[\n\t\r]/g, '');
                     return resolve(parsedVersion);
                 } catch (error) {
-                    if (error instanceof Error) {
-                        sendTelemetryException(this, error, CMP_EXTENSION_CORE);
-                    }
+                    // if (error instanceof Error) {
+                    //     sendTelemetryException(this, error, CMP_EXTENSION_CORE);
+                    // }
                     return reject(error);
                 }
             });
@@ -1886,9 +1886,9 @@ export class BallerinaExtension {
         return getOutputChannel();
     }
 
-    public isTelemetryEnabled(): boolean {
-        return <boolean>workspace.getConfiguration().get(ENABLE_TELEMETRY);
-    }
+    // public isTelemetryEnabled(): boolean {
+    //     return <boolean>workspace.getConfiguration().get(ENABLE_TELEMETRY);
+    // }
 
     public isAllCodeLensEnabled(): boolean {
         return <boolean>workspace.getConfiguration().get(ENABLE_ALL_CODELENS);

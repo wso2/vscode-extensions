@@ -43,7 +43,7 @@ import { getAccessToken, getRefreshedAccessToken } from "../../../src/utils/ai/a
 import { AIStateMachine } from "../../../src/views/ai-panel/aiMachine";
 import { AIChatError } from "./utils/errors";
 
-const BACKEND_BASE_URL = BACKEND_URL.replace(/\/v2\.0$/, "");
+const BACKEND_BASE_URL = BACKEND_URL?.replace(/\/v2\.0$/, "") || "";
 //TODO: Temp workaround as custom domain seem to block file uploads
 const CONTEXT_UPLOAD_URL_V1 = "https://e95488c8-8511-4882-967f-ec3ae2a0f86f-prod.e1-us-east-azure.choreoapis.dev/ballerina-copilot/context-upload-api/v1.0";
 // const CONTEXT_UPLOAD_URL_V1 = BACKEND_BASE_URL + "/context-api/v1.0";

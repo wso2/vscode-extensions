@@ -588,26 +588,12 @@ function getProjectUriForArtifacts():string {
 }
 //get project uri for a given file path
 function getProjectUri(filePath: string) : string {
-     if(extension.isWebMode && !filePath.startsWith('web-bala:')) {
-        filePath= `web-bala:${filePath}`;
-    }
     console.log("parameter file path",filePath);
     const workspaceFolders = workspace.workspaceFolders;
     console.log("workspace folders: ", workspaceFolders);
+    const projectUri =  workspaceFolders[0].uri.toString();
     if (!workspaceFolders || workspaceFolders.length === 0) {
         throw new Error("No workspace folders found");
     }
-    const projectUri = workspaceFolders.find((folder) => {
-        const folderUri = folder.uri.toString();
-        console.log("folder uri: ", folderUri);
-        return filePath?.includes(folderUri) && filePath.startsWith(folderUri);
-    });
-    console.log("finding project uri: ", {
-        "filepath": filePath,
-        "project uri": projectUri
-    });
-    if (!projectUri) {
-        throw new Error(`No matching workspace folder found for the given file path: ${filePath}`);
-    }
-    return projectUri.uri.toString();
+    return projectUri;
 }

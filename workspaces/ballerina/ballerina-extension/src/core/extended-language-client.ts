@@ -228,7 +228,7 @@ import {
 } from "@wso2/ballerina-core";
 import { BallerinaExtension } from "./index";
 import { debug, handlePullModuleProgress } from "../utils";
-import { CMP_LS_CLIENT_COMPLETIONS, CMP_LS_CLIENT_DIAGNOSTICS, getMessageObject, sendTelemetryEvent, TM_EVENT_LANG_CLIENT } from "../features/telemetry";
+// import { CMP_LS_CLIENT_COMPLETIONS, CMP_LS_CLIENT_DIAGNOSTICS, getMessageObject, sendTelemetryEvent, TM_EVENT_LANG_CLIENT } from "../features/telemetry";
 import { DefinitionParams, InitializeParams, InitializeResult, Location, LocationLink, TextDocumentPositionParams } from 'vscode-languageserver-protocol';
 import { updateProjectArtifacts } from "../utils/project-artifacts";
 
@@ -1203,21 +1203,21 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
         return Promise.resolve((await this.registerExtendedAPICapabilities()).has(serviceName));
     }
 
-    public pushLSClientTelemetries() {
-        if (this.timeConsumption.completion.length > 0) {
-            const completionValues = calculateTelemetryValues(this.timeConsumption.completion, 'completion');
-            sendTelemetryEvent(this.ballerinaExtInstance!, TM_EVENT_LANG_CLIENT, CMP_LS_CLIENT_COMPLETIONS,
-                getMessageObject(process.env.HOSTNAME), completionValues);
-            this.timeConsumption.completion = [];
-        }
+    // public pushLSClientTelemetries() {
+    //     if (this.timeConsumption.completion.length > 0) {
+    //         const completionValues = calculateTelemetryValues(this.timeConsumption.completion, 'completion');
+    //         sendTelemetryEvent(this.ballerinaExtInstance!, TM_EVENT_LANG_CLIENT, CMP_LS_CLIENT_COMPLETIONS,
+    //             getMessageObject(process.env.HOSTNAME), completionValues);
+    //         this.timeConsumption.completion = [];
+    //     }
 
-        if (this.timeConsumption.diagnostics.length > 0) {
-            const diagnosticValues = calculateTelemetryValues(this.timeConsumption.diagnostics, 'diagnostic');
-            this.timeConsumption.diagnostics = [];
-            sendTelemetryEvent(this.ballerinaExtInstance!, TM_EVENT_LANG_CLIENT, CMP_LS_CLIENT_DIAGNOSTICS,
-                getMessageObject(process.env.HOSTNAME), diagnosticValues);
-        }
-    }
+    //     if (this.timeConsumption.diagnostics.length > 0) {
+    //         const diagnosticValues = calculateTelemetryValues(this.timeConsumption.diagnostics, 'diagnostic');
+    //         this.timeConsumption.diagnostics = [];
+    //         sendTelemetryEvent(this.ballerinaExtInstance!, TM_EVENT_LANG_CLIENT, CMP_LS_CLIENT_DIAGNOSTICS,
+    //             getMessageObject(process.env.HOSTNAME), diagnosticValues);
+    //     }
+    // }
 
     public close(): void {
     }

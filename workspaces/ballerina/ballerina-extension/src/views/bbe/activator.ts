@@ -22,7 +22,7 @@ import { render } from './renderer';
 import { ExtendedLangClient } from '../../core/extended-language-client';
 import { ballerinaExtInstance, BallerinaExtension } from '../../core';
 import { getCommonWebViewOptions } from '../../utils';
-import { TM_EVENT_OPEN_EXAMPLES, CMP_EXAMPLES_VIEW, sendTelemetryEvent, sendTelemetryException } from '../../features/telemetry';
+// import { TM_EVENT_OPEN_EXAMPLES, CMP_EXAMPLES_VIEW, sendTelemetryEvent, sendTelemetryException } from '../../features/telemetry';
 import { PALETTE_COMMANDS } from '../../features/project';
 
 let examplesPanel: WebviewPanel | undefined;
@@ -107,7 +107,7 @@ export function activate(ballerinaExtInstance: BallerinaExtension) {
     const context = <ExtensionContext>ballerinaExtInstance.context;
     const langClient = <ExtendedLangClient>ballerinaExtInstance.langClient;
     const examplesListRenderer = commands.registerCommand(PALETTE_COMMANDS.SHOW_EXAMPLES, () => {
-        sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_OPEN_EXAMPLES, CMP_EXAMPLES_VIEW);
+       // sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_OPEN_EXAMPLES, CMP_EXAMPLES_VIEW);
         showExamples(context, langClient);
     });
 
