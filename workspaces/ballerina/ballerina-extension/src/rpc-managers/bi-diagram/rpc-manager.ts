@@ -1484,9 +1484,13 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         let isLoggedIn = false;
         let hasComponent = false;
         let hasLocalChanges = false;
+        let isGitRepo = false;
         try {
             const projectRoot = StateMachine.context().projectUri;
             const repoRoot = getRepoRoot(projectRoot);
+            if (repoRoot) {
+                isGitRepo = true;
+            }
             if (repoRoot) {
                 const contextYamlPath = path.join(repoRoot, ".choreo", "context.yaml");
                 if (fs.existsSync(contextYamlPath)) {
@@ -1496,7 +1500,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
 
             const platformExt = extensions.getExtension("wso2.wso2-platform");
             if (!platformExt) {
-                return { hasComponent: hasContextYaml, isLoggedIn: false };
+                return { hasComponent: isGitRepo, isLoggedIn: false };
             }
             const platformExtAPI: IWso2PlatformExtensionAPI = await platformExt.activate();
             hasLocalChanges = await platformExtAPI.localRepoHasChanges(projectRoot);
@@ -1504,12 +1508,12 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
             if (isLoggedIn) {
                 const components = platformExtAPI.getDirectoryComponents(projectRoot);
                 hasComponent = components.length > 0;
-                return { isLoggedIn, hasComponent, hasLocalChanges };
+                return { isLoggedIn, hasComponent: isGitRepo, hasLocalChanges };
             }
-            return { isLoggedIn, hasComponent: hasContextYaml, hasLocalChanges };
+            return { isLoggedIn, hasComponent: isGitRepo, hasLocalChanges };
         } catch (err) {
             console.error("failed to call getDevantMetadata: ", err);
-            return { hasComponent: hasComponent || hasContextYaml, isLoggedIn, hasLocalChanges };
+            return { hasComponent: isGitRepo, isLoggedIn, hasLocalChanges };
         }
     }
 
