@@ -40,7 +40,9 @@ import {
 import { type ExtensionContext, ProgressLocation, type QuickPickItem, Uri, commands, env, window, workspace } from "vscode";
 import { choreoEnvConfig } from "../config";
 import { ext } from "../extensionVariables";
+import { initGit } from "../git/main";
 import { getGitRemotes, getGitRoot } from "../git/util";
+import { getLogger } from "../logger/logger";
 import { authStore } from "../stores/auth-store";
 import { contextStore, waitForContextStoreToLoad } from "../stores/context-store";
 import { dataCacheStore } from "../stores/data-cache-store";
@@ -328,11 +330,38 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 
 		// update the context file if needed
 		try {
-			const gitRoot = await getGitRoot(ext.context, createParams.componentDir);
+			const newGit = await initGit(ext.context);
+			const gitRoot = await newGit?.getRepositoryRoot(createParams.componentDir);
+			const dotGit = await newGit?.getRepositoryDotGit(createParams.componentDir);
 			const projectCache = dataCacheStore.getState().getProjects(org.handle);
-			if (gitRoot) {
+			if (newGit && gitRoot && dotGit) {
 				updateContextFile(gitRoot, authStore.getState().state.userInfo!, project, org, projectCache);
 				contextStore.getState().refreshState();
+
+				if (process.env.CLOUD_STS_TOKEN) {
+					// update the code server, to attach itself to the created component
+					const repo = newGit.open(gitRoot, dotGit);
+					const head = await repo.getHEAD();
+					if (head.name) {
+						const commit = await repo.getCommit(head.name);
+						try {
+							await window.withProgress(
+								{ title: "Updating cloud editor with newly created component...", location: ProgressLocation.Notification },
+								() =>
+									ext.clients.rpcClient.updateCodeServer({
+										componentId: createdComponent.metadata.id,
+										orgHandle: org.handle,
+										orgId: org.id.toString(),
+										orgUuid: org.uuid,
+										projectId: project.id,
+										sourceCommitHash: commit.hash,
+									}),
+							);
+						} catch (err) {
+							getLogger().error("Failed to updated code server after creating the component", err);
+						}
+					}
+				}
 			}
 		} catch (err) {
 			console.error("Failed to get git details of ", createParams.componentDir);
