@@ -321,14 +321,24 @@ jobs:
             // Get PR number from various possible sources
             let prNumber = null;
             
+            console.log('🔍 Debugging context information:');
+            console.log('Event name:', context.eventName);
+            console.log('Ref:', context.ref);
+            console.log('SHA:', context.sha);
+            console.log('Actor:', context.actor);
+            console.log('Repository:', context.repo.owner + '/' + context.repo.repo);
+            console.log('Payload keys:', Object.keys(context.payload));
+            
             // Method 1: Direct PR context (pull_request events)
             if (context.payload.pull_request) {
               prNumber = context.payload.pull_request.number;
+              console.log('✅ Found PR via payload.pull_request:', prNumber);
             }
             
             // Method 2: Check if triggered by PR (workflow_run events)
             if (!prNumber && context.payload.workflow_run && context.payload.workflow_run.pull_requests && context.payload.workflow_run.pull_requests.length > 0) {
               prNumber = context.payload.workflow_run.pull_requests[0].number;
+              console.log('✅ Found PR via workflow_run:', prNumber);
             }
             
             // Method 3: Parse from ref if it's a PR branch
@@ -336,34 +346,81 @@ jobs:
               const match = context.ref.match(/refs\/pull\/(\d+)\//);
               if (match) {
                 prNumber = parseInt(match[1]);
+                console.log('✅ Found PR via ref parsing:', prNumber);
               }
             }
             
-            // Method 4: Check environment variables (some CI systems set these)
+            // Method 4: Search for PR using commit SHA
+            if (!prNumber) {
+              console.log('🔍 Searching for PR using commit SHA...');
+              try {
+                const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  commit_sha: context.sha
+                });
+                
+                console.log('Found PRs for commit:', prs.length);
+                if (prs && prs.length > 0) {
+                  prNumber = prs[0].number;
+                  console.log('✅ Found PR via commit SHA search:', prNumber);
+                  console.log('PR details:', {
+                    number: prs[0].number,
+                    title: prs[0].title,
+                    state: prs[0].state
+                  });
+                }
+              } catch (error) {
+                console.log('❌ Failed to search for PR via commit SHA:', error.message);
+              }
+            }
+            
+            // Method 5: Try to find open PRs for this branch
+            if (!prNumber && context.ref) {
+              const branchName = context.ref.replace('refs/heads/', '');
+              console.log('🔍 Searching for PRs for branch:', branchName);
+              try {
+                const { data: prs } = await github.rest.pulls.list({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  head: `${context.repo.owner}:${branchName}`,
+                  state: 'open'
+                });
+                
+                console.log('Found PRs for branch:', prs.length);
+                if (prs && prs.length > 0) {
+                  prNumber = prs[0].number;
+                  console.log('✅ Found PR via branch search:', prNumber);
+                }
+              } catch (error) {
+                console.log('❌ Failed to search for PR via branch:', error.message);
+              }
+            }
+            
+            // Method 6: Check environment variables
             if (!prNumber && process.env.GITHUB_HEAD_REF) {
-              console.log('Detected fork/branch build, checking for associated PR...');
-              // This is a potential PR build but we can't determine the PR number reliably
+              console.log('🔍 Detected branch build, GITHUB_HEAD_REF:', process.env.GITHUB_HEAD_REF);
+              // This is a potential PR build but we can't determine the PR number reliably from env vars alone
             }
             
             if (prNumber) {
               try {
-                console.log(`Posting vulnerability report to PR #${prNumber}`);
+                console.log(`📝 Posting vulnerability report to PR #${prNumber}`);
                 await github.rest.issues.createComment({
                   issue_number: prNumber,
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   body: comment
                 });
-                console.log('✅ PR comment posted successfully');
+                console.log('✅ PR comment posted successfully!');
               } catch (error) {
                 console.log('❌ Failed to post PR comment:', error.message);
-                console.log('Vulnerability report logged in job output instead');
+                console.log('Error details:', error.status, error.response?.data);
+                console.log('Vulnerability report will be logged in job output instead');
               }
             } else {
-              console.log('📋 No PR context found - vulnerability report available in job output');
-              console.log('Event:', context.eventName);
-              console.log('Ref:', context.ref);
-              console.log('Actor:', context.actor);
+              console.log('📋 No PR found - vulnerability report available in job output');
+              console.log('All detection methods exhausted.');
             }
             
             // Always log the vulnerability details to job output
