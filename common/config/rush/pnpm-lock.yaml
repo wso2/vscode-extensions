@@ -1514,9 +1514,6 @@ importers:
       '@wso2/ballerina-rpc-client':
         specifier: workspace:*
         version: link:../ballerina-rpc-client
-      '@wso2/syntax-tree':
-        specifier: workspace:*
-        version: link:../syntax-tree
       '@wso2/ui-toolkit':
         specifier: workspace:*
         version: link:../../common-libs/ui-toolkit
