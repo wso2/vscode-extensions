@@ -22,7 +22,8 @@ import {
     HELPER_PANE_WITH_EDITOR_HEIGHT,
     HELPER_PANE_WITH_EDITOR_WIDTH,
     ARROW_HEIGHT,
-    ARROW_OFFSET
+    ARROW_OFFSET,
+    HELPER_PANE_EX_BTN_OFFSET
 } from '../constants';
 import { HelperPaneOrigin, HelperPanePosition } from '../types';
 
@@ -105,6 +106,13 @@ export const getHelperPaneWithEditorOrigin = (
         return 'left';
     } else if (window.innerWidth - (rect.left + rect.width) > HELPER_PANE_WITH_EDITOR_WIDTH + ARROW_HEIGHT) {
         return 'right';
+    } else if (rect.top > window.innerHeight / 2) {
+        // Checks if there is enough space in the top to display the helper pane
+        const expTop = rect.top - HELPER_PANE_WITH_EDITOR_HEIGHT - HELPER_PANE_EX_BTN_OFFSET;
+        if (expTop < 0) {
+            return 'bottom';
+        }
+        return 'top';
     }
 
     return 'bottom';
@@ -118,6 +126,9 @@ export const getHelperPaneWithEditorPosition = (
     const rect = expressionEditor.getBoundingClientRect();
     if (helperPaneOrigin === 'bottom') {
         return { top: rect.top + rect.height, left: rect.left };
+    }
+    if (helperPaneOrigin === 'top') {
+        return { top: (rect.top - HELPER_PANE_WITH_EDITOR_HEIGHT - HELPER_PANE_EX_BTN_OFFSET), left: rect.left };
     }
 
     const position: HelperPanePosition = { top: 0, left: 0 };
@@ -137,6 +148,9 @@ export const getHelperPaneWithEditorPosition = (
     }
     if (window.innerHeight - rect.top < HELPER_PANE_WITH_EDITOR_HEIGHT / 2) {
         position.top = window.innerHeight - HELPER_PANE_WITH_EDITOR_HEIGHT;
+    }
+    if (window.innerHeight < HELPER_PANE_WITH_EDITOR_HEIGHT) {
+        position.top = 0;
     }
 
     return position;
