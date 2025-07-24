@@ -179,7 +179,7 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
             await langClient?.updateConnectorDependencies();
             await extractCAppDependenciesAsProjects(projectName);
             const loadResult = await langClient?.loadDependentCAppResources();
-            if (!loadResult.startsWith("DUPLICATE ARTIFACTS")) {
+            if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
                 await window.showWarningMessage(
                     loadResult,
                     { modal: true }
