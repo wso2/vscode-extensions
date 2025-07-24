@@ -2,7 +2,7 @@
 import { ExtendedLangClient } from './core';
 import { createMachine, assign, interpret } from 'xstate';
 import { activateBallerina } from './extension';
-import { EVENT_TYPE, SyntaxTree, History, HistoryEntry, MachineStateValue, STByRangeRequest, SyntaxTreeResponse, UndoRedoManager, VisualizerLocation, webviewReady, MACHINE_VIEW, DIRECTORY_MAP, SCOPE, ProjectStructureResponse, ArtifactData, ProjectStructureArtifactResponse } from "@wso2/ballerina-core";
+import { EVENT_TYPE, SyntaxTree, History, HistoryEntry, MachineStateValue, STByRangeRequest, SyntaxTreeResponse, UndoRedoManager, VisualizerLocation, webviewReady, MACHINE_VIEW, DIRECTORY_MAP, SCOPE, ProjectStructureResponse, ArtifactData, ProjectStructureArtifactResponse, CodeData } from "@wso2/ballerina-core";
 import { fetchAndCacheLibraryData } from './features/library-browser';
 import { VisualizerWebview } from './views/visualizer/webview';
 import { commands, extensions, Uri, window, workspace, WorkspaceFolder } from 'vscode';
@@ -160,7 +160,8 @@ const stateMachine = createMachine<MachineContext>(
                             type: (context, event) => event.viewLocation?.type,
                             isGraphql: (context, event) => event.viewLocation?.isGraphql,
                             metadata: (context, event) => event.viewLocation?.metadata,
-                            addType: (context, event) => event.viewLocation?.addType
+                            addType: (context, event) => event.viewLocation?.addType,
+                            dataMapperMetadata: (context, event) => event.viewLocation?.dataMapperMetadata
                         })
                     }
                 }
@@ -194,7 +195,8 @@ const stateMachine = createMachine<MachineContext>(
                                     identifier: (context, event) => event.data.identifier,
                                     position: (context, event) => event.data.position,
                                     syntaxTree: (context, event) => event.data.syntaxTree,
-                                    focusFlowDiagramView: (context, event) => event.data.focusFlowDiagramView
+                                    focusFlowDiagramView: (context, event) => event.data.focusFlowDiagramView,
+                                    dataMapperMetadata: (context, event) => event.data.dataMapperMetadata
                                 })
                             }
                         }
@@ -212,7 +214,8 @@ const stateMachine = createMachine<MachineContext>(
                                     type: (context, event) => event.viewLocation?.type,
                                     isGraphql: (context, event) => event.viewLocation?.isGraphql,
                                     metadata: (context, event) => event.viewLocation?.metadata,
-                                    addType: (context, event) => event.viewLocation?.addType
+                                    addType: (context, event) => event.viewLocation?.addType,
+                                    dataMapperMetadata: (context, event) => event.viewLocation?.dataMapperMetadata
                                 })
                             },
                             VIEW_UPDATE: {
@@ -225,7 +228,8 @@ const stateMachine = createMachine<MachineContext>(
                                     serviceType: (context, event) => event.viewLocation.serviceType,
                                     type: (context, event) => event.viewLocation?.type,
                                     isGraphql: (context, event) => event.viewLocation?.isGraphql,
-                                    addType: (context, event) => event.viewLocation?.addType
+                                    addType: (context, event) => event.viewLocation?.addType,
+                                    dataMapperMetadata: (context, event) => event.viewLocation?.dataMapperMetadata
                                 })
                             },
                             FILE_EDIT: {
@@ -330,7 +334,8 @@ const stateMachine = createMachine<MachineContext>(
                             identifier: context.identifier,
                             type: context?.type,
                             isGraphql: context?.isGraphql,
-                            addType: context?.addType
+                            addType: context?.addType,
+                            dataMapperMetadata: context?.dataMapperMetadata
                         }
                     });
                     return resolve();
@@ -533,6 +538,16 @@ export function updateView(refreshTreeView?: boolean) {
     if (refreshTreeView) {
         buildProjectArtifactsStructure(StateMachine.context().projectUri, StateMachine.langClient(), true);
     }
+    notifyCurrentWebview();
+}
+
+export function updateInlineDataMapperView(codedata?: CodeData, variableName?: string) {
+    let lastView: HistoryEntry = getLastHistory();
+    lastView.location.dataMapperMetadata = {
+        codeData: codedata,
+        name: variableName
+    };
+    stateService.send({ type: "VIEW_UPDATE", viewLocation: lastView.location });
     notifyCurrentWebview();
 }
 
