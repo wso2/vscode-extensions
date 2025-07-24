@@ -401,6 +401,15 @@ export interface GetSubscriptionsReq {
 	orgId: string;
 }
 
+export interface UpdateCodeServerReq {
+	orgId: string;
+	orgUuid: string;
+	orgHandle: string;
+	projectId: string;
+	componentId: string;
+	sourceCommitHash: string;
+}
+
 export interface GetGitTokenForRepositoryReq {
 	orgId: string;
 	gitOrg: string;

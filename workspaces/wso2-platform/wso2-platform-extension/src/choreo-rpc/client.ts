@@ -85,6 +85,7 @@ import type {
 	SubscriptionsResp,
 	ToggleAutoBuildReq,
 	ToggleAutoBuildResp,
+	UpdateCodeServerReq,
 	UserInfo,
 } from "@wso2/wso2-platform-core";
 import { workspace } from "vscode";
@@ -574,6 +575,13 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		}
 		const response: GetGitMetadataResp = await this.client.sendRequest("repo/getRepoMetadata", params);
 		return response;
+	}
+
+	async updateCodeServer(params: UpdateCodeServerReq): Promise<void> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		await this.client.sendRequest("component/updateCodeServer", params);
 	}
 }
 
