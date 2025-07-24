@@ -187,21 +187,51 @@ jobs:
       - name: Setup Rush
         uses: gigara/setup-rush@v1.2.0
         with:
-          pnpm: 10.10.0
+          pnpm: 10.11.0
           node: 22.x
           rush-install: true
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          skip-dirs: 'common/temp'
-          timeout: '10m'
-          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
-          exit-code: '1'
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy
+
+      - name: Verify Trivy installation
+        run: |
+          trivy version
+          echo "Trivy installed successfully"
+
+      - name: Show scan configuration
+        run: |
+          echo "🔧 Security Scan Configuration:"
+          echo "  - Scanning: Production dependencies"
+          echo "  - Severity levels: CRITICAL, HIGH, MEDIUM, LOW"
+          echo "  - Skipping directories: common/temp"
+          echo "  - Timeout: 10 minutes"
+          echo "  - Exit on vulnerabilities: YES"
+
+      - name: Run Trivy vulnerability scanner (SARIF)
+        run: |
+          echo "Running Trivy vulnerability scanner..."
+          trivy fs . \
+            --timeout 10m \
+            --skip-dirs common/temp \
+            --severity CRITICAL,HIGH,MEDIUM,LOW \
+            --format sarif \
+            --output trivy-results.sarif \
+            --exit-code 1
+          
+          if [ $? -ne 0 ]; then
+            echo "❌ Trivy scan found vulnerabilities!"
+            echo "Check the uploaded SARIF file and table output for details."
+            exit 1
+          else
+            echo "✅ No vulnerabilities found!"
+          fi
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
@@ -209,15 +239,16 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-      - name: Run Trivy scanner for table output
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'table'
-          skip-dirs: 'common/temp'
-          timeout: '10m'
-          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+      - name: Run Trivy scanner for table output  
+        if: always()
+        run: |
+          echo "🔍 Running Trivy scanner for human-readable table output..."
+          trivy fs . \
+            --timeout 10m \
+            --skip-dirs common/temp \
+            --severity CRITICAL,HIGH,MEDIUM,LOW \
+            --format table
+          echo "📊 Table output complete."
 
   ExtTest_Ballerina:
     name: Run Ballerina extension tests
