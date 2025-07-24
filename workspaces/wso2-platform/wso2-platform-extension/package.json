@@ -162,13 +162,13 @@
           ],
           "default": "prod",
           "description": "The WSO2 Platform Enviornment to use",
-          "scope": "window"
+          "scope": "machine"
         },
         "WSO2.WSO2-Platform.Advanced.RpcPath": {
           "type": "string",
           "default": "",
           "description": "The path to Choreo RPC server",
-          "scope": "machine"
+          "scope": "window"
         }
       }
     },
