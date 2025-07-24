@@ -367,10 +367,8 @@ export async function extractCAppDependenciesAsProjects(projectName: string) {
                 fs.rmSync(zipFilePath);
             }
         }
-
-        vscode.window.showInformationMessage(`Dependencies for project "${projectName}" have been loaded successfully.`);
     } catch (error: any) {
-        vscode.window.showErrorMessage(`Failed to load dependencies: ${error.message}`);
+        vscode.window.showErrorMessage(`Failed to load integration project dependencies: ${error.message}`);
     }
 }
 
