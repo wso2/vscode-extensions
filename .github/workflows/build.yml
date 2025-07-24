@@ -468,6 +468,37 @@ jobs:
               }
             }
             
+            // Method 8: Extract from GitHub Actions environment (GITHUB_REF for pull request events)
+            if (!prNumber) {
+              console.log('🔍 Checking GITHUB_REF for PR information...');
+              const githubRef = process.env.GITHUB_REF || '';
+              console.log('GITHUB_REF:', githubRef);
+              
+              // Check if this is a merge ref (refs/pull/150/merge)
+              const mergeRefMatch = githubRef.match(/refs\/pull\/(\d+)\/merge/);
+              if (mergeRefMatch) {
+                prNumber = parseInt(mergeRefMatch[1]);
+                console.log('✅ Found PR via GITHUB_REF merge ref:', prNumber);
+              }
+            }
+            
+            // Method 9: Try to get PR number from the event payload more deeply
+            if (!prNumber) {
+              console.log('🔍 Deep inspection of event payload...');
+              
+              // Check if this is a pull_request_target event or similar
+              if (context.payload.number) {
+                prNumber = context.payload.number;
+                console.log('✅ Found PR via payload.number:', prNumber);
+              }
+              
+              // Check for pull request in nested structures
+              if (!prNumber && context.payload.pull_request && context.payload.pull_request.number) {
+                prNumber = context.payload.pull_request.number;
+                console.log('✅ Found PR via nested payload.pull_request.number:', prNumber);
+              }
+            }
+            
             if (prNumber) {
               try {
                 console.log(`📝 Attempting to post vulnerability report to PR #${prNumber}`);
