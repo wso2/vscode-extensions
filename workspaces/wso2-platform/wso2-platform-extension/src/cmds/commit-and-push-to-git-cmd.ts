@@ -20,6 +20,7 @@ import { CommandIds, type ICommitAndPuhCmdParams, parseGitURL } from "@wso2/wso2
 import { type ExtensionContext, ProgressLocation, commands, window } from "vscode";
 import { ext } from "../extensionVariables";
 import { initGit } from "../git/main";
+import { hasDirtyRepo } from "../git/util";
 import { getLogger } from "../logger/logger";
 import { contextStore } from "../stores/context-store";
 import { getUserInfoForCmd, isRpcActive, setExtensionName } from "./cmd-utils";
@@ -38,6 +39,12 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 					const selected = contextStore.getState().state.selected;
 					if (!selected) {
 						throw new Error("project is not associated with a component directory");
+					}
+
+					const haveChanges = await hasDirtyRepo(params.componentPath, ext.context, ["context.yaml"]);
+					if (!haveChanges) {
+						window.showErrorMessage("There are no new changes to push to cloud");
+						return;
 					}
 
 					const newGit = await initGit(ext.context);

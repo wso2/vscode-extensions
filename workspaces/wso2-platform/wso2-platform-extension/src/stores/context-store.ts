@@ -196,31 +196,6 @@ const getAllContexts = async (previousItems: { [key: string]: ContextItemEnriche
 };
 
 const getSelected = async (items: { [key: string]: ContextItemEnriched }, prevSelected?: ContextItemEnriched) => {
-	if (process.env.CLOUD_INITIAL_ORG_ID) {
-		const userOrgs = authStore.getState().state.userInfo?.organizations;
-		const matchingOrg = userOrgs?.find(
-			(item) => item.uuid === process.env.CLOUD_INITIAL_ORG_ID || item.id?.toString() === process.env.CLOUD_INITIAL_ORG_ID,
-		);
-		if (matchingOrg) {
-			let projectsCache = dataCacheStore.getState().getProjects(matchingOrg.handle);
-			if (projectsCache.length === 0) {
-				const projects = await ext.clients.rpcClient.getProjects(matchingOrg.id.toString());
-				dataCacheStore.getState().setProjects(matchingOrg.handle, projects);
-				projectsCache = projects;
-			}
-			const matchingProject = projectsCache.find((item) => item.id === process.env.CLOUD_INITIAL_PROJECT_ID) || projectsCache?.[0];
-			if (matchingProject) {
-				return {
-					orgHandle: matchingOrg.handle,
-					projectHandle: matchingProject.handler,
-					org: matchingOrg,
-					project: matchingProject,
-					contextDirs: [],
-				};
-			}
-		}
-	}
-
 	let selected: ContextItemEnriched | undefined = undefined;
 	const matchingItem = Object.values(items).find(
 		(item) =>
@@ -241,6 +216,31 @@ const getSelected = async (items: { [key: string]: ContextItemEnriched }, prevSe
 		const filtered = Object.values(items).filter((item) => item.org && item.project);
 		if (filtered.length > 0) {
 			selected = filtered[0];
+		}
+	}
+
+	if (!selected && !matchingItem && process.env.CLOUD_INITIAL_ORG_ID && process.env.CLOUD_INITIAL_PROJECT_ID) {
+		const userOrgs = authStore.getState().state.userInfo?.organizations;
+		const matchingOrg = userOrgs?.find(
+			(item) => item.uuid === process.env.CLOUD_INITIAL_ORG_ID || item.id?.toString() === process.env.CLOUD_INITIAL_ORG_ID,
+		);
+		if (matchingOrg) {
+			let projectsCache = dataCacheStore.getState().getProjects(matchingOrg.handle);
+			if (projectsCache.length === 0) {
+				const projects = await ext.clients.rpcClient.getProjects(matchingOrg.id.toString());
+				dataCacheStore.getState().setProjects(matchingOrg.handle, projects);
+				projectsCache = projects;
+			}
+			const matchingProject = projectsCache.find((item) => item.id === process.env.CLOUD_INITIAL_PROJECT_ID);
+			if (matchingProject) {
+				return {
+					orgHandle: matchingOrg.handle,
+					projectHandle: matchingProject.handler,
+					org: matchingOrg,
+					project: matchingProject,
+					contextDirs: [],
+				};
+			}
 		}
 	}
 
