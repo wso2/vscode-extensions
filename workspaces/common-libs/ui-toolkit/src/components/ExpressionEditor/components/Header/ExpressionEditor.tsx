@@ -65,6 +65,7 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
         completions,
         showDefaultCompletion,
         autoSelectFirstItem,
+        isUpdatingSource,
         getDefaultCompletion,
         onChange,
         onSave,
@@ -403,7 +404,7 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
                 sx={{ width: '100%', ...sx }}
                 disabled={disabled || isSavingExpression}
             />
-            {isSavingExpression && <ProgressIndicator barWidth={6} sx={{ top: "100%" }} />}
+            {(isSavingExpression || isUpdatingSource) && <ProgressIndicator barWidth={6} sx={{ top: "100%" }} />}
             {isFocused && 
                 createPortal(
                     <DropdownContainer ref={dropdownContainerRef} sx={{ ...dropdownElPosition }}>
