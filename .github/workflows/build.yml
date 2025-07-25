@@ -3,10 +3,6 @@ name: Build and run Tests
 on: 
   workflow_call:
     inputs: 
-      prNumber:
-        description: Pull request number for commenting
-        type: number
-        required: false
       isPreRelease:
         default: true
         type: boolean  
@@ -176,10 +172,6 @@ jobs:
     needs: Build_Stage
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    permissions:
-      contents: read
-      issues: write
-      pull-requests: write
     steps:
       - name: Restore build
         uses: actions/download-artifact@v4
@@ -211,12 +203,22 @@ jobs:
       - name: Update Trivy vulnerability database
         run: |
           echo "🔄 Updating Trivy vulnerability database..."
-          # Force fresh download of vulnerability database
+          echo "🔄 Run attempt: ${{ github.run_attempt }}"
+          
+          # Force complete cleanup of any cached data
           rm -rf ~/.cache/trivy || true
+          rm -rf /tmp/trivy* || true
+          
+          # Download fresh vulnerability database
           trivy image --download-db-only
+          
           echo "✅ Trivy database updated successfully"
           echo "📊 Database info:"
           trivy version --format json | jq '.VulnerabilityDB' || trivy version
+          
+          # Show database timestamp to detect any caching issues
+          echo "📅 Database cache info:"
+          ls -la ~/.cache/trivy/ 2>/dev/null || echo "No cache directory found"
 
       - name: Verify Trivy installation
         run: |
@@ -230,425 +232,116 @@ jobs:
           echo "  - Severity levels: CRITICAL, HIGH, MEDIUM, LOW"
           echo "  - Skipping directories: common/temp"
           echo "  - Timeout: 10 minutes"
-          echo "  - Exit on vulnerabilities: YES"
-
-      - name: Debug dependency state
-        run: |
-          echo "🔍 Debugging dependency state for vulnerability scanning..."
-          echo "Current directory contents:"
-          ls -la
-          echo ""
-          echo "=== COMPARING WITH LOCAL ENVIRONMENT ==="
-          echo ""
-          echo "1. Trivy version comparison:"
-          trivy version
-          echo ""
-          echo "2. Checking axios in ui-toolkit package.json:"
-          cat workspaces/common-libs/ui-toolkit/package.json | grep -A5 -B5 axios || echo "No axios found in ui-toolkit package.json"
-          echo ""
-          echo "3. Axios entries in pnpm-lock.yaml:"
-          echo "   Total axios entries: $(grep -c "axios" pnpm-lock.yaml || echo "0")"
-          echo "   Axios 0.21.0 entries:"
-          grep "axios@0.21.0" pnpm-lock.yaml || echo "   No axios@0.21.0 found"
-          echo ""
-          echo "4. Lock file checksums (to compare with local):"
-          echo "   pnpm-lock.yaml: $(md5sum pnpm-lock.yaml | cut -d' ' -f1)"
-          echo "   common/config/rush/pnpm-lock.yaml: $(md5sum common/config/rush/pnpm-lock.yaml | cut -d' ' -f1)"
-          echo ""
-          echo "5. Rush installation status:"
-          echo "   Rush version: $(node -e "console.log(require('@microsoft/rush/package.json').version)" 2>/dev/null || echo "Not found")"
-          echo "   PNPM version: $(pnpm --version || echo "Not found")"
-          echo ""
-          echo "6. Node modules structure:"
-          echo "   workspaces/common-libs/ui-toolkit/node_modules exists: $(test -d workspaces/common-libs/ui-toolkit/node_modules && echo 'YES' || echo 'NO')"
-          if [ -d "workspaces/common-libs/ui-toolkit/node_modules" ]; then
-            echo "   axios version installed: $(cat workspaces/common-libs/ui-toolkit/node_modules/axios/package.json | grep '"version"' || echo "Not found")"
-          fi
-          echo ""
-          echo "7. Environment variables that might affect scanning:"
-          echo "   PWD: $PWD"
-          echo "   HOME: $HOME"
-          echo "   NODE_ENV: ${NODE_ENV:-"not set"}"
-          echo ""
-          echo "8. Testing exact same command as local:"
-          echo "   Running: trivy fs . --timeout 10m --skip-dirs common/temp --format table"
-          trivy fs . --timeout 10m --skip-dirs common/temp --format table | head -30
-          echo ""
-          echo "9. Detailed Trivy analysis:"
-          echo "   Scanning specific ui-toolkit directory:"
-          trivy fs workspaces/common-libs/ui-toolkit --format table --severity CRITICAL,HIGH,MEDIUM,LOW
-          echo ""
-          echo "10. Check if node_modules are being scanned:"
-          echo "    Node modules in ui-toolkit:"
-          ls -la workspaces/common-libs/ui-toolkit/node_modules/ | head -10 || echo "No node_modules found"
-          echo ""
-          echo "11. Rush vs PNPM difference check:"
-          echo "    Checking if Rush installed different versions:"
-          find . -name "node_modules" -type d | head -5
-          echo ""
-          echo "12. Manual CVE check on axios 0.21.0:"
-          echo "    Checking if this specific version has known CVEs:"
-          trivy fs workspaces/common-libs/ui-toolkit/node_modules/axios --format table || echo "Cannot scan axios directly"
-          echo ""
-          echo "13. Force vulnerability test with minimal package.json:"
-          mkdir -p /tmp/vuln-test
-          cat > /tmp/vuln-test/package.json << 'EOFVULN'
-          {
-            "name": "vuln-test",
-            "version": "1.0.0",
-            "dependencies": {
-              "axios": "0.21.0"
-            }
-          }
-          EOFVULN
-          cd /tmp/vuln-test && npm install --package-lock-only
-          echo "    Scanning minimal test case:"
-          trivy fs /tmp/vuln-test --format table --severity CRITICAL,HIGH,MEDIUM,LOW
-          cd -
+          echo "  - Exit on vulnerabilities: YES (Build will fail)"
 
       - name: Run Trivy vulnerability scanner
         run: |
-          echo "🔍 Running Trivy vulnerability scanner (table format)..."
+          echo "🔍 Scanning for security vulnerabilities..."
+          echo "🔄 Run attempt: ${{ github.run_attempt }}"
+          echo "📂 Current working directory: $(pwd)"
+          echo ""
           
-          # Run Trivy with verbose output for debugging
+          # Debug: Check environment and file system state
+          echo "📊 Environment check:"
+          echo "  - Build artifacts restored: $(test -f rush.json && echo 'YES' || echo 'NO')"
+          echo "  - Rush installed: $(rush --version 2>/dev/null && echo 'YES' || echo 'NO')"
+          echo "  - ui-toolkit exists: $(test -d workspaces/common-libs/ui-toolkit && echo 'YES' || echo 'NO')"
+          echo "  - ui-toolkit node_modules: $(test -d workspaces/common-libs/ui-toolkit/node_modules && echo 'YES' || echo 'NO')"
+          echo ""
+          
+          # Check if axios is actually installed with vulnerable version
+          if [ -d "workspaces/common-libs/ui-toolkit/node_modules/axios" ]; then
+            AXIOS_VERSION=$(cat workspaces/common-libs/ui-toolkit/node_modules/axios/package.json | grep '"version"' | cut -d'"' -f4)
+            echo "  - axios version found: $AXIOS_VERSION"
+            if [ "$AXIOS_VERSION" = "0.21.0" ]; then
+              echo "  - ⚠️  VULNERABLE AXIOS VERSION DETECTED: $AXIOS_VERSION"
+            fi
+          else
+            echo "  - axios not found in node_modules"
+          fi
+          echo ""
+          
+          # Run Trivy vulnerability scan
+          echo "🚀 Starting Trivy scan..."
           trivy fs . \
             --timeout 10m \
             --skip-dirs common/temp \
             --severity CRITICAL,HIGH,MEDIUM,LOW \
             --format table \
-            --output trivy-table-results.txt \
-            --exit-code 0 \
-            --debug
+            --output trivy-results.txt \
+            --exit-code 0
           
-          echo "📊 Table output complete."
-          echo ""
-          echo "📋 Trivy scan results preview:"
-          head -50 trivy-table-results.txt || echo "No output file generated"
+          TRIVY_EXIT_CODE=$?
+          echo "📊 Trivy scan exit code: $TRIVY_EXIT_CODE"
           echo ""
           
-          # Check if vulnerabilities were found by examining the table output
-          if [ -f "trivy-table-results.txt" ]; then
-            # Count vulnerability lines (exclude headers and empty lines)
-            VULN_COUNT=$(grep -c "CVE\|GHSA" trivy-table-results.txt 2>/dev/null || echo "0")
-            echo "🔢 CVE/GHSA count found: $VULN_COUNT"
+          # Always display the results for transparency
+          if [ -f "trivy-results.txt" ]; then
+            echo "📋 Complete vulnerability report:"
+            cat trivy-results.txt
+            echo ""
+            
+            # Count vulnerabilities with detailed breakdown
+            TOTAL_LINES=$(wc -l < trivy-results.txt)
+            CVE_COUNT=$(grep -c "CVE-" trivy-results.txt 2>/dev/null || echo "0")
+            GHSA_COUNT=$(grep -c "GHSA-" trivy-results.txt 2>/dev/null || echo "0")
+            
+            # Clean the counts to remove any whitespace/newlines
+            CVE_COUNT=$(echo "$CVE_COUNT" | tr -d '\n\r ')
+            GHSA_COUNT=$(echo "$GHSA_COUNT" | tr -d '\n\r ')
+            
+            # Calculate total vulnerabilities safely
+            VULN_COUNT=$((CVE_COUNT + GHSA_COUNT))
+            
+            # Debug vulnerability detection inconsistency
+            echo "🔍 Vulnerability Detection Analysis:"
+            echo "  - CVE count (cleaned): '$CVE_COUNT'"
+            echo "  - GHSA count (cleaned): '$GHSA_COUNT'"
+            echo "  - Total vulnerabilities: $VULN_COUNT"
+            echo "  - Run attempt: ${{ github.run_attempt }}"
+            echo "  - Expected: Should ALWAYS find axios 0.21.0 vulnerabilities"
+            
+            # Check if this is inconsistent behavior
+            if [ "${{ github.run_attempt }}" -gt 1 ] && [ "$VULN_COUNT" -eq 0 ]; then
+              echo "  - 🚨 CRITICAL: Vulnerability detection is INCONSISTENT!"
+              echo "  - 🚨 First run found vulnerabilities, but rerun shows clean results"
+              echo "  - 🚨 This indicates a serious issue with the security scanning process"
+            fi
+            
+            echo "📊 Scan Analysis:"
+            echo "  - Total lines in report: $TOTAL_LINES"
+            echo "  - CVE entries found: $CVE_COUNT"
+            echo "  - GHSA entries found: $GHSA_COUNT"
+            echo "  - Total vulnerabilities: $VULN_COUNT"
+            echo "  - File size: $(wc -c < trivy-results.txt) bytes"
+            echo ""
+            
+            # Show specific axios vulnerabilities if found
+            echo "🔍 Axios-specific vulnerabilities:"
+            grep -i "axios" trivy-results.txt || echo "  - No axios vulnerabilities found in report"
+            echo ""
             
             if [ "$VULN_COUNT" -gt 0 ]; then
-              echo "❌ Trivy scan found $VULN_COUNT vulnerabilities!"
-              echo "Check the table output for details."
-              echo "VULNERABILITIES_FOUND=true" >> $GITHUB_ENV
-              echo "VULN_COUNT=$VULN_COUNT" >> $GITHUB_ENV
+              echo "❌ SECURITY ALERT: Found $VULN_COUNT vulnerabilities"
+              echo "🚫 Build failed due to security vulnerabilities"
+              exit 1
             else
-              echo "✅ No vulnerabilities found!"
-              echo "VULNERABILITIES_FOUND=false" >> $GITHUB_ENV
-              echo "VULN_COUNT=0" >> $GITHUB_ENV
+              echo "✅ SUCCESS: No security vulnerabilities detected"
+              echo "⚠️  WARNING: If axios 0.21.0 is installed, this result is INCORRECT"
             fi
           else
-            echo "⚠️ Table output file not generated!"
-            echo "VULNERABILITIES_FOUND=false" >> $GITHUB_ENV
-            echo "VULN_COUNT=0" >> $GITHUB_ENV
+            echo "❌ ERROR: No scan results file generated!"
+            echo "This indicates a problem with the Trivy scan itself"
+            exit 1
           fi
 
-      - name: Debug vulnerability detection results
+      - name: Security scan diagnostics
+        if: failure()
         run: |
-          echo "🔍 Vulnerability Detection Results:"
-          echo "VULNERABILITIES_FOUND: ${VULNERABILITIES_FOUND:-"not set"}"
-          echo "VULN_COUNT: ${VULN_COUNT:-"not set"}"
-          echo "File exists: $(test -f trivy-table-results.txt && echo 'YES' || echo 'NO')"
-          if [ -f "trivy-table-results.txt" ]; then
-            echo "File size: $(wc -c < trivy-table-results.txt) bytes"
-            echo "CVE/GHSA lines: $(grep -c "CVE\|GHSA" trivy-table-results.txt 2>/dev/null || echo "0")"
-            echo "Last 10 lines of results:"
-            tail -10 trivy-table-results.txt
-          fi
-
-      - name: Create PR comment with vulnerability report
-        if: env.VULNERABILITIES_FOUND == 'true'
-        uses: actions/github-script@v7
-        continue-on-error: true
-        with:
-          github-token: ${{ secrets.CHOREO_BOT_TOKEN || secrets.GITHUB_TOKEN }}
-          script: |
-            console.log('🔍 Token debugging:');
-            console.log('CHOREO_BOT_TOKEN available:', '${{ secrets.CHOREO_BOT_TOKEN }}' !== '');
-            console.log('GITHUB_TOKEN available:', '${{ secrets.GITHUB_TOKEN }}' !== '');
-            console.log('Current token being used:', '${{ secrets.CHOREO_BOT_TOKEN }}' !== '' ? 'CHOREO_BOT_TOKEN' : 'GITHUB_TOKEN (fallback)');
-            
-            const fs = require('fs');
-            
-            // Read the table output
-            let tableOutput = '';
-            try {
-              tableOutput = fs.readFileSync('trivy-table-results.txt', 'utf8');
-            } catch (error) {
-              tableOutput = 'Unable to read vulnerability details.';
-            }
-            
-            // Count vulnerabilities by severity
-            const vulnCount = process.env.VULN_COUNT || 'unknown';
-            
-            const comment = `## 🚨 Security Vulnerabilities Detected
-            
-            **❌ Build Failed**: ${vulnCount} security vulnerabilities found in dependencies.
-
-            ### 📊 Vulnerability Summary
-            \`\`\`
-            ${tableOutput}
-            \`\`\`
-
-            ### 🔧 Next Steps
-            1. **Review vulnerabilities** in the table above
-            2. **Update vulnerable packages** to the fixed versions shown
-            3. **Re-run the build** after fixing the issues
-
-            ### 📋 Additional Information
-            - **Scan Type**: Production dependencies only
-            - **Severity Levels**: CRITICAL, HIGH, MEDIUM, LOW
-            - **Workflow**: Security_Scan job in build pipeline
-
-            > 💡 **Tip**: Focus on CRITICAL and HIGH severity vulnerabilities first for maximum security impact.`;
-
-            // Get PR number from various possible sources
-            let prNumber = null;
-            
-            console.log('🔍 Debugging context information:');
-            console.log('Event name:', context.eventName);
-            console.log('Ref:', context.ref);
-            console.log('SHA:', context.sha);
-            console.log('Actor:', context.actor);
-            console.log('Repository:', context.repo.owner + '/' + context.repo.repo);
-            console.log('Payload keys:', Object.keys(context.payload));
-            console.log('Full payload structure:');
-            console.log(JSON.stringify(context.payload, null, 2));
-            
-            // Method 0: Check if PR number is provided as input
-            const inputPrNumber = '${{ inputs.prNumber }}';
-            if (inputPrNumber && inputPrNumber !== '' && inputPrNumber !== 'null') {
-              prNumber = parseInt(inputPrNumber);
-              console.log('✅ Found PR via input parameter:', prNumber);
-            }
-            
-            // Method 1: Direct PR context (pull_request events)
-            if (context.payload.pull_request) {
-              prNumber = context.payload.pull_request.number;
-              console.log('✅ Found PR via payload.pull_request:', prNumber);
-            }
-            
-            // Method 2: Check if triggered by PR (workflow_run events)
-            if (!prNumber && context.payload.workflow_run && context.payload.workflow_run.pull_requests && context.payload.workflow_run.pull_requests.length > 0) {
-              prNumber = context.payload.workflow_run.pull_requests[0].number;
-              console.log('✅ Found PR via workflow_run:', prNumber);
-            }
-            
-            // Method 3: Parse from ref if it's a PR branch
-            if (!prNumber && context.ref && context.ref.includes('refs/pull/')) {
-              const match = context.ref.match(/refs\/pull\/(\d+)\//);
-              if (match) {
-                prNumber = parseInt(match[1]);
-                console.log('✅ Found PR via ref parsing:', prNumber);
-              }
-            }
-            
-            // Method 4: Search for PR using commit SHA (most reliable for workflow_call)
-            if (!prNumber) {
-              console.log('🔍 Searching for PR using commit SHA...');
-              try {
-                const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  commit_sha: context.sha
-                });
-                
-                console.log('Found PRs for commit:', prs.length);
-                if (prs && prs.length > 0) {
-                  prNumber = prs[0].number;
-                  console.log('✅ Found PR via commit SHA search:', prNumber);
-                  console.log('PR details:', {
-                    number: prs[0].number,
-                    title: prs[0].title,
-                    state: prs[0].state,
-                    head: prs[0].head.ref,
-                    base: prs[0].base.ref
-                  });
-                }
-              } catch (error) {
-                console.log('❌ Failed to search for PR via commit SHA:', error.message);
-                console.log('Error status:', error.status);
-                console.log('Error response:', error.response?.data);
-              }
-            }
-            
-            // Method 5: Try to find open PRs for this branch
-            if (!prNumber && context.ref) {
-              const branchName = context.ref.replace('refs/heads/', '');
-              console.log('🔍 Searching for PRs for branch:', branchName);
-              try {
-                const { data: prs } = await github.rest.pulls.list({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  head: `${context.repo.owner}:${branchName}`,
-                  state: 'open'
-                });
-                
-                console.log('Found PRs for branch:', prs.length);
-                if (prs && prs.length > 0) {
-                  prNumber = prs[0].number;
-                  console.log('✅ Found PR via branch search:', prNumber);
-                }
-              } catch (error) {
-                console.log('❌ Failed to search for PR via branch:', error.message);
-              }
-            }
-            
-            // Method 6: Fallback - try common PR numbers if this is clearly a PR context
-            if (!prNumber && (context.ref.includes('pull') || context.actor !== 'dependabot[bot]')) {
-              console.log('🔍 Attempting fallback PR detection...');
-              // Try to extract from git refs or environment
-              const gitRef = process.env.GITHUB_REF || context.ref || '';
-              console.log('Git ref:', gitRef);
-              const headRef = process.env.GITHUB_HEAD_REF || '';
-              console.log('Head ref:', headRef);
-              
-              // Check if we can find recent PRs that might match our commit
-              try {
-                const { data: recentPrs } = await github.rest.pulls.list({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  state: 'open',
-                  sort: 'updated',
-                  per_page: 10
-                });
-                
-                console.log(`Found ${recentPrs.length} recent open PRs`);
-                for (const pr of recentPrs) {
-                  console.log(`PR #${pr.number}: ${pr.title} (head: ${pr.head.sha.substring(0, 8)})`);
-                  if (pr.head.sha === context.sha) {
-                    prNumber = pr.number;
-                    console.log('✅ Found PR via SHA match in recent PRs:', prNumber);
-                    break;
-                  }
-                }
-              } catch (error) {
-                console.log('❌ Failed to search recent PRs:', error.message);
-              }
-            }
-            
-            // Method 7: Try to extract from run context if available
-            if (!prNumber) {
-              console.log('🔍 Checking for PR number in run context...');
-              const runUrl = process.env.GITHUB_SERVER_URL + '/' + process.env.GITHUB_REPOSITORY + '/actions/runs/' + process.env.GITHUB_RUN_ID;
-              console.log('Run URL:', runUrl);
-              
-              // Check if there's a pattern in the workflow context that might indicate PR
-              if (context.payload.workflow_run && context.payload.workflow_run.html_url) {
-                const urlMatch = context.payload.workflow_run.html_url.match(/pr=(\d+)/);
-                if (urlMatch) {
-                  prNumber = parseInt(urlMatch[1]);
-                  console.log('✅ Found PR via workflow run URL:', prNumber);
-                }
-              }
-            }
-            
-            // Method 8: Extract from GitHub Actions environment (GITHUB_REF for pull request events)
-            if (!prNumber) {
-              console.log('🔍 Checking GITHUB_REF for PR information...');
-              const githubRef = process.env.GITHUB_REF || '';
-              console.log('GITHUB_REF:', githubRef);
-              
-              // Check if this is a merge ref (refs/pull/150/merge)
-              const mergeRefMatch = githubRef.match(/refs\/pull\/(\d+)\/merge/);
-              if (mergeRefMatch) {
-                prNumber = parseInt(mergeRefMatch[1]);
-                console.log('✅ Found PR via GITHUB_REF merge ref:', prNumber);
-              }
-            }
-            
-            // Method 9: Try to get PR number from the event payload more deeply
-            if (!prNumber) {
-              console.log('🔍 Deep inspection of event payload...');
-              
-              // Check if this is a pull_request_target event or similar
-              if (context.payload.number) {
-                prNumber = context.payload.number;
-                console.log('✅ Found PR via payload.number:', prNumber);
-              }
-              
-              // Check for pull request in nested structures
-              if (!prNumber && context.payload.pull_request && context.payload.pull_request.number) {
-                prNumber = context.payload.pull_request.number;
-                console.log('✅ Found PR via nested payload.pull_request.number:', prNumber);
-              }
-            }
-            
-            if (prNumber) {
-              try {
-                console.log(`📝 Attempting to post vulnerability report to PR #${prNumber}`);
-                
-                // First, verify the PR exists and is accessible
-                const { data: prDetails } = await github.rest.pulls.get({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  pull_number: prNumber
-                });
-                
-                console.log(`✅ PR #${prNumber} verified: "${prDetails.title}" (state: ${prDetails.state})`);
-                
-                // Now post the comment
-                const result = await github.rest.issues.createComment({
-                  issue_number: prNumber,
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  body: comment
-                });
-                
-                console.log('✅ PR comment posted successfully!');
-                console.log('Comment ID:', result.data.id);
-                console.log('Comment URL:', result.data.html_url);
-                
-              } catch (error) {
-                console.log('❌ Failed to post PR comment:', error.message);
-                console.log('Error status:', error.status);
-                console.log('Error response:', JSON.stringify(error.response?.data, null, 2));
-                
-                if (error.status === 404) {
-                  console.log('🔍 PR not found - checking if PR exists...');
-                  try {
-                    const { data: prCheck } = await github.rest.pulls.get({
-                      owner: context.repo.owner,
-                      repo: context.repo.repo,
-                      pull_number: prNumber
-                    });
-                    console.log('PR exists but comment failed:', prCheck.title);
-                  } catch (prError) {
-                    console.log('PR does not exist:', prError.message);
-                  }
-                }
-                
-                console.log('Vulnerability report will be logged in job output instead');
-              }
-            } else {
-              console.log('📋 No PR found - vulnerability report available in job output');
-              console.log('All detection methods exhausted.');
-              console.log('Environment details:');
-              console.log('- GITHUB_REF:', process.env.GITHUB_REF);
-              console.log('- GITHUB_HEAD_REF:', process.env.GITHUB_HEAD_REF);
-              console.log('- GITHUB_BASE_REF:', process.env.GITHUB_BASE_REF);
-              console.log('- GITHUB_EVENT_NAME:', process.env.GITHUB_EVENT_NAME);
-            }
-            
-            // Always log the vulnerability details to job output
-            console.log('\n' + '='.repeat(80));
-            console.log('🚨 SECURITY VULNERABILITY REPORT');
-            console.log('='.repeat(80));
-            console.log(comment);
-            console.log('='.repeat(80) + '\n');
-
-      - name: Fail build if vulnerabilities found
-        if: env.VULNERABILITIES_FOUND == 'true'
-        run: |
-          echo "❌ Build failed due to security vulnerabilities!"
-          echo "Please review the table output above for vulnerability details."
-          echo "Fix the vulnerabilities before proceeding."
-          exit 1
+          echo "🔍 Security Scan Diagnostics:"
+          echo "Trivy version: $(trivy version --format json | jq -r '.Version' 2>/dev/null || trivy version)"
+          echo "Scan completed with vulnerabilities found"
+          echo "Review the vulnerability table above for details and remediation steps"
 
   ExtTest_Ballerina:
     name: Run Ballerina extension tests
