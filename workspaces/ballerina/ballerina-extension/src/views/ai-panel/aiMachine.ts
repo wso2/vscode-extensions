@@ -151,11 +151,11 @@ const checkToken = async (context, event): Promise<AIUserToken | undefined> => {
     return new Promise(async (resolve, reject) => {
         try {
             const accessToken = await getAccessToken();
-            if (!accessToken && getAiConfig().API_KEY.trim() === '') {
+            if (!accessToken && getAiConfig().CODE_API_KEY.trim() === '') {
                 resolve(undefined);
                 return;
             }
-            resolve({ accessToken, usageTokens: undefined, apiKey: getAiConfig().API_KEY.trim() });
+            resolve({ accessToken, usageTokens: undefined, apiKey: getAiConfig().CODE_API_KEY.trim() });
         } catch (error) {
             reject(error);
         }

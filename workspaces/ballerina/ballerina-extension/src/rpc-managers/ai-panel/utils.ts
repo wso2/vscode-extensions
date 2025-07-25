@@ -2136,7 +2136,7 @@ async function getDevantTokens(): Promise<DevantTokens> {
             const platformExt = extensions.getExtension("wso2.wso2-platform");
             if (!platformExt) {
                 const tokens: DevantTokens = {
-                    apiKey: getAiConfig().API_KEY,
+                    apiKey: getAiConfig().ASK_API_KEY,
                     stsToken: stsToken
                 };
                 resolve(tokens);
@@ -2158,7 +2158,7 @@ async function getDevantTokens(): Promise<DevantTokens> {
         }
         
         const tokens: DevantTokens = {
-            apiKey: getAiConfig().API_KEY,
+            apiKey: getAiConfig().ASK_API_KEY,
             stsToken: stsToken
         };
         resolve(tokens);

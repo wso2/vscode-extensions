@@ -27,7 +27,8 @@ interface AiConfig {
     AUTH_ORG: string;
     AUTH_CLIENT_ID: string;
     AUTH_REDIRECT_URL: string;
-    API_KEY: string;
+    CODE_API_KEY: string;
+    ASK_API_KEY: string;
 }
 
 export const getAiConfig = () => {
@@ -36,14 +37,16 @@ export const getAiConfig = () => {
         AUTH_ORG: process.env.BALLERINA_DEV_COPLIOT_AUTH_ORG ?? "",
         AUTH_CLIENT_ID: process.env.BALLERINA_DEV_COPLIOT_AUTH_CLIENT_ID ?? "",
         AUTH_REDIRECT_URL: process.env.BALLERINA_DEV_COPLIOT_AUTH_REDIRECT_URL ?? "",
-        API_KEY: process.env.BALLERINA_DEV_COPLIOT_API_KEY ?? ""
+        CODE_API_KEY: process.env.BALLERINA_DEV_COPLIOT_CODE_API_KEY ?? "",
+        ASK_API_KEY: process.env.BALLERINA_DEV_COPLIOT_ASK_API_KEY ?? ""
     };
     const prodAiConfig: AiConfig = {
         BACKEND_URL: process.env.BALLERINA_DEFAULT_COPLIOT_ROOT_URL ?? "",
         AUTH_ORG: process.env.BALLERINA_DEFAULT_COPLIOT_AUTH_ORG ?? "",
         AUTH_CLIENT_ID: process.env.BALLERINA_DEFAULT_COPLIOT_AUTH_CLIENT_ID ?? "",
         AUTH_REDIRECT_URL: process.env.BALLERINA_DEFAULT_COPLIOT_AUTH_REDIRECT_URL ?? "",
-        API_KEY: process.env.BALLERINA_DEFAULT_COPLIOT_API_KEY ?? ""
+        CODE_API_KEY: process.env.BALLERINA_DEFAULT_COPLIOT_CODE_API_KEY ?? "",
+        ASK_API_KEY: process.env.BALLERINA_DEFAULT_COPLIOT_ASK_API_KEY ?? ""
     };
 
     const selectedEnv = process.env.CLOUD_ENV || workspace.getConfiguration().get("ballerina.copilot.environment");

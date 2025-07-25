@@ -806,7 +806,7 @@ export class AiPanelRpcManager implements AIPanelAPI {
                 const platformExt = extensions.getExtension("wso2.wso2-platform");
                 if (!platformExt) {
                     const tokens: DevantTokens = {
-                        apiKey: getAiConfig().API_KEY,
+                        apiKey: getAiConfig().CODE_API_KEY,
                         stsToken: stsToken
                     };
                     resolve(tokens);
@@ -828,7 +828,7 @@ export class AiPanelRpcManager implements AIPanelAPI {
             }
             
             const tokens: DevantTokens = {
-                apiKey: getAiConfig().API_KEY,
+                apiKey: getAiConfig().CODE_API_KEY,
                 stsToken: stsToken
             };
             resolve(tokens);
