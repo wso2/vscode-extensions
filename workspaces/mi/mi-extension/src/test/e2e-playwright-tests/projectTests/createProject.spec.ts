@@ -86,7 +86,7 @@ export default function createTests() {
                 await page.page.reload();
                 await page.executePaletteCommand("MI: Open MI Welcome");
                 await createProject(page, 'newProjectWithAdConfig', '4.4.0', true);
-                await waitUntilPomContains(page.page, path.join(newProjectPath, 'newProject', 'newProjectWithAdConfig', 'pom.xml'), 
+                await waitUntilPomContains(page.page, path.join(newProjectPath, 'newProjectWithAdConfig', 'pom.xml'), 
                 '<artifactId>test</artifactId>');
                 console.log('New project with advanced config created successfully');
             });
