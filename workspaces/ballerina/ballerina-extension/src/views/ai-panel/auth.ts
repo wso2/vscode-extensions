@@ -18,7 +18,7 @@
 
 import axios from 'axios';
 import { extension } from '../../BalExtensionContext';
-import { AUTH_CLIENT_ID, AUTH_ORG, AUTH_REDIRECT_URL } from '../../features/ai/utils';
+import { getAiConfig } from '../../features/ai/utils';
 import { AIStateMachine } from './aiMachine';
 import { AIMachineEventType } from '@wso2/ballerina-core';
 
@@ -39,23 +39,23 @@ export async function getAuthUrl(callbackUri: string): Promise<string> {
     // return `${this._config.loginUrl}?profile=vs-code&client_id=${this._config.clientId}`
     //     + `&state=${stateBase64}&code_challenge=${this._challenge.code_challenge}`;
     const state = encodeURIComponent(btoa(JSON.stringify({ callbackUri })));
-    return `https://api.asgardeo.io/t/${AUTH_ORG}/oauth2/authorize?response_type=code&redirect_uri=${AUTH_REDIRECT_URL}&client_id=${AUTH_CLIENT_ID}&scope=openid%20email&state=${state}`;
+    return `https://api.asgardeo.io/t/${getAiConfig().AUTH_ORG}/oauth2/authorize?response_type=code&redirect_uri=${getAiConfig().AUTH_REDIRECT_URL}&client_id=${getAiConfig().AUTH_CLIENT_ID}&scope=openid%20email&state=${state}`;
 }
 
 export function getLogoutUrl() : string {
-    return `https://api.asgardeo.io/t/${AUTH_ORG}/oidc/logout`;
+    return `https://api.asgardeo.io/t/${getAiConfig().AUTH_ORG}/oidc/logout`;
 }
 
 export async function exchangeAuthCodeNew(authCode: string): Promise<AccessToken> {
     const params = new URLSearchParams({
-        client_id: AUTH_CLIENT_ID,
+        client_id: getAiConfig().AUTH_CLIENT_ID,
         code: authCode,
         grant_type: 'authorization_code',
-        redirect_uri: AUTH_REDIRECT_URL,
+        redirect_uri: getAiConfig().AUTH_REDIRECT_URL,
         scope: 'openid email'
     });
     try {
-        const response = await axios.post(`https://api.asgardeo.io/t/${AUTH_ORG}/oauth2/token`, params.toString(), { headers: CommonReqHeaders });
+        const response = await axios.post(`https://api.asgardeo.io/t/${getAiConfig().AUTH_ORG}/oauth2/token`, params.toString(), { headers: CommonReqHeaders });
         return {
             accessToken: response.data.access_token,
             refreshToken: response.data.refresh_token,
