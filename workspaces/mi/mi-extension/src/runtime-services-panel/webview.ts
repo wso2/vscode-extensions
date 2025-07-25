@@ -48,11 +48,6 @@ export class RuntimeServicesWebview {
 
     private createWebview(): vscode.WebviewPanel {
         let title = "Runtime Services";
-        const workspaces = vscode.workspace.workspaceFolders;
-        const projectName = workspaces && workspaces.length > 1 ? path.basename(this.projectUri) : '';
-        if (projectName) {
-            title = `${title} - ${projectName}`;
-        }
         const panel = vscode.window.createWebviewPanel(
             RuntimeServicesWebview.viewType,
             title,
