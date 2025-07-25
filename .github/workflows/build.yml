@@ -291,7 +291,7 @@ jobs:
         uses: actions/github-script@v7
         continue-on-error: true
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.CHOREO_BOT_TOKEN }}
           script: |
             const fs = require('fs');
             
