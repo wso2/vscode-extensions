@@ -7,6 +7,10 @@ on:
         description: Pull request number for commenting
         type: number
         required: false
+      githubToken:
+        description: GitHub token for PR commenting
+        type: string
+        required: false
       isPreRelease:
         default: true
         type: boolean  
@@ -208,6 +212,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install trivy
 
+      - name: Update Trivy vulnerability database
+        run: |
+          echo "🔄 Updating Trivy vulnerability database..."
+          # Force fresh download of vulnerability database
+          rm -rf ~/.cache/trivy || true
+          trivy image --download-db-only
+          echo "✅ Trivy database updated successfully"
+          echo "📊 Database info:"
+          trivy version --format json | jq '.VulnerabilityDB' || trivy version
+
       - name: Verify Trivy installation
         run: |
           trivy version
@@ -228,21 +242,73 @@ jobs:
           echo "Current directory contents:"
           ls -la
           echo ""
-          echo "Checking for axios in root package.json:"
-          cat package.json | grep -A5 -B5 axios || echo "No axios found in root package.json"
+          echo "=== COMPARING WITH LOCAL ENVIRONMENT ==="
           echo ""
-          echo "Checking for axios in ui-toolkit package.json:"
+          echo "1. Trivy version comparison:"
+          trivy version
+          echo ""
+          echo "2. Checking axios in ui-toolkit package.json:"
           cat workspaces/common-libs/ui-toolkit/package.json | grep -A5 -B5 axios || echo "No axios found in ui-toolkit package.json"
           echo ""
-          echo "Checking pnpm-lock.yaml for axios entries:"
-          grep -c "axios" pnpm-lock.yaml || echo "No axios entries found in pnpm-lock.yaml"
+          echo "3. Axios entries in pnpm-lock.yaml:"
+          echo "   Total axios entries: $(grep -c "axios" pnpm-lock.yaml || echo "0")"
+          echo "   Axios 0.21.0 entries:"
+          grep "axios@0.21.0" pnpm-lock.yaml || echo "   No axios@0.21.0 found"
           echo ""
-          echo "Checking if axios 0.21.0 is in pnpm-lock.yaml:"
-          grep "axios@0.21.0" pnpm-lock.yaml || echo "No axios@0.21.0 found in pnpm-lock.yaml"
+          echo "4. Lock file checksums (to compare with local):"
+          echo "   pnpm-lock.yaml: $(md5sum pnpm-lock.yaml | cut -d' ' -f1)"
+          echo "   common/config/rush/pnpm-lock.yaml: $(md5sum common/config/rush/pnpm-lock.yaml | cut -d' ' -f1)"
           echo ""
-          echo "Lock file structure summary:"
-          echo "- pnpm-lock.yaml exists: $(test -f pnpm-lock.yaml && echo 'YES' || echo 'NO')"
-          echo "- common/config/rush/pnpm-lock.yaml exists: $(test -f common/config/rush/pnpm-lock.yaml && echo 'YES' || echo 'NO')"
+          echo "5. Rush installation status:"
+          echo "   Rush version: $(node -e "console.log(require('@microsoft/rush/package.json').version)" 2>/dev/null || echo "Not found")"
+          echo "   PNPM version: $(pnpm --version || echo "Not found")"
+          echo ""
+          echo "6. Node modules structure:"
+          echo "   workspaces/common-libs/ui-toolkit/node_modules exists: $(test -d workspaces/common-libs/ui-toolkit/node_modules && echo 'YES' || echo 'NO')"
+          if [ -d "workspaces/common-libs/ui-toolkit/node_modules" ]; then
+            echo "   axios version installed: $(cat workspaces/common-libs/ui-toolkit/node_modules/axios/package.json | grep '"version"' || echo "Not found")"
+          fi
+          echo ""
+          echo "7. Environment variables that might affect scanning:"
+          echo "   PWD: $PWD"
+          echo "   HOME: $HOME"
+          echo "   NODE_ENV: ${NODE_ENV:-"not set"}"
+          echo ""
+          echo "8. Testing exact same command as local:"
+          echo "   Running: trivy fs . --timeout 10m --skip-dirs common/temp --format table"
+          trivy fs . --timeout 10m --skip-dirs common/temp --format table | head -30
+          echo ""
+          echo "9. Detailed Trivy analysis:"
+          echo "   Scanning specific ui-toolkit directory:"
+          trivy fs workspaces/common-libs/ui-toolkit --format table --severity CRITICAL,HIGH,MEDIUM,LOW
+          echo ""
+          echo "10. Check if node_modules are being scanned:"
+          echo "    Node modules in ui-toolkit:"
+          ls -la workspaces/common-libs/ui-toolkit/node_modules/ | head -10 || echo "No node_modules found"
+          echo ""
+          echo "11. Rush vs PNPM difference check:"
+          echo "    Checking if Rush installed different versions:"
+          find . -name "node_modules" -type d | head -5
+          echo ""
+          echo "12. Manual CVE check on axios 0.21.0:"
+          echo "    Checking if this specific version has known CVEs:"
+          trivy fs workspaces/common-libs/ui-toolkit/node_modules/axios --format table || echo "Cannot scan axios directly"
+          echo ""
+          echo "13. Force vulnerability test with minimal package.json:"
+          mkdir -p /tmp/vuln-test
+          cat > /tmp/vuln-test/package.json << 'EOFVULN'
+          {
+            "name": "vuln-test",
+            "version": "1.0.0",
+            "dependencies": {
+              "axios": "0.21.0"
+            }
+          }
+          EOFVULN
+          cd /tmp/vuln-test && npm install --package-lock-only
+          echo "    Scanning minimal test case:"
+          trivy fs /tmp/vuln-test --format table --severity CRITICAL,HIGH,MEDIUM,LOW
+          cd -
 
       - name: Run Trivy vulnerability scanner
         run: |
@@ -286,13 +352,33 @@ jobs:
             echo "VULN_COUNT=0" >> $GITHUB_ENV
           fi
 
+      - name: Debug vulnerability detection results
+        run: |
+          echo "🔍 Vulnerability Detection Results:"
+          echo "VULNERABILITIES_FOUND: ${VULNERABILITIES_FOUND:-"not set"}"
+          echo "VULN_COUNT: ${VULN_COUNT:-"not set"}"
+          echo "File exists: $(test -f trivy-table-results.txt && echo 'YES' || echo 'NO')"
+          if [ -f "trivy-table-results.txt" ]; then
+            echo "File size: $(wc -c < trivy-table-results.txt) bytes"
+            echo "CVE/GHSA lines: $(grep -c "CVE\|GHSA" trivy-table-results.txt 2>/dev/null || echo "0")"
+            echo "Last 10 lines of results:"
+            tail -10 trivy-table-results.txt
+          fi
+
       - name: Create PR comment with vulnerability report
         if: env.VULNERABILITIES_FOUND == 'true'
         uses: actions/github-script@v7
         continue-on-error: true
         with:
-          github-token: ${{ secrets.CHOREO_BOT_TOKEN }}
+          github-token: ${{ inputs.githubToken || github.token }}
           script: |
+            console.log('🔍 Token debugging:');
+            console.log('inputs.githubToken available:', '${{ inputs.githubToken }}' !== '');
+            console.log('github.token available:', '${{ github.token }}' !== '');
+            console.log('GITHUB_TOKEN available:', '${{ secrets.GITHUB_TOKEN }}' !== '');
+            console.log('CHOREO_BOT_TOKEN available:', '${{ secrets.CHOREO_BOT_TOKEN }}' !== '');
+            console.log('Current token being used:', '${{ inputs.githubToken }}' !== '' ? 'inputs.githubToken' : 'github.token (fallback)');
+            
             const fs = require('fs');
             
             // Read the table output
