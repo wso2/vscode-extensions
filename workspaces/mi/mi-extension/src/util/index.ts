@@ -230,8 +230,8 @@ export function getInboundEndpointXmlWrapper(props: GetInboundTemplatesArgs) {
 	return getInboundEndpointdXml(props);
 }
 
-export function getRegistryResourceContent(type: string, resourceName: string) {
-	return getRegistryResource(type, resourceName);
+export function getRegistryResourceContent(type: string, resourceName: string, roles: string | undefined) {
+	return getRegistryResource(type, resourceName, roles);
 }
 
 export function getMessageProcessorXmlWrapper(props: MessageProcessorTemplateArgs) {

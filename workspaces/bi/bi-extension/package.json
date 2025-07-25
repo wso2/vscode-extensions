@@ -2,7 +2,7 @@
     "name": "ballerina-integrator",
     "displayName": "WSO2 Integrator: BI",
     "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
-    "version": "1.0.5",
+    "version": "1.1.1",
     "publisher": "wso2",
     "icon": "resources/images/wso2-ballerina-integrator-logo.png",
     "repository": {
@@ -69,7 +69,7 @@
         "menus": {
             "view/item/context": [
                 {
-                    "command": "ballerina.show.visualizer",
+                    "command": "ballerina.showVisualizer",
                     "when": "view == BI.project-explorer && viewItem == bi-project",
                     "group": "inline"
                 },
@@ -110,6 +110,11 @@
                 },
                 {
                     "command": "BI.project-explorer.add-configuration",
+                    "when": "view == BI.project-explorer && viewItem == configurations",
+                    "group": "inline"
+                },
+                {
+                    "command": "BI.project-explorer.view-configuration",
                     "when": "view == BI.project-explorer && viewItem == configurations",
                     "group": "inline"
                 },

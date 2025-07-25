@@ -64,10 +64,10 @@ export function EditSequenceForm({ sequenceData, isOpen, onCancel, onSave, docum
         name: yup.string().required("Sequence name is required").matches(/^[a-zA-Z0-9_-]*$/, "Invalid characters in sequence name")
             .test('validateSequenceName',
                 'An artifact with same name already exists', value => {
-                    return !(workspaceFileNames.includes(value) && sequenceData.name !== value)
+                    return !(workspaceFileNames.includes(value.toLowerCase()) && sequenceData.name !== value)
                 }).test('validateArtifactName',
                     'A registry resource with this artifact name already exists', value => {
-                        return !(artifactNames.includes(value) && sequenceData.name !== value)
+                        return !(artifactNames.includes(value.toLowerCase()) && sequenceData.name !== value)
                     }),
         endpoint: yup.string().notRequired(),
         onError: yup.string().notRequired(),
@@ -93,11 +93,11 @@ export function EditSequenceForm({ sequenceData, isOpen, onCancel, onSave, docum
             const artifactRes = await rpcClient.getMiDiagramRpcClient().getAllArtifacts({
                 path: documentUri,
             });
-            setWorkspaceFileNames(artifactRes.artifacts);
+            setWorkspaceFileNames(artifactRes.artifacts.map(name => name.toLowerCase()));
             const regArtifactRes = await rpcClient.getMiDiagramRpcClient().getAvailableRegistryResources({
                 path: documentUri
             });
-            setArtifactNames(regArtifactRes.artifacts);
+            setArtifactNames(regArtifactRes.artifacts.map(name => name.toLowerCase()));
         })();
     }, []);
 

@@ -70,7 +70,7 @@ export function ProjectWizard({ cancelView }: { cancelView: MACHINE_VIEW }) {
         groupID: yup.string().notRequired().default("com.microintegrator.projects").matches(/^[a-zA-Z0-9_-]([a-zA-Z0-9_-]*\.?[a-zA-Z0-9_-])*$/, "Group id cannot contain spaces or special characters"),
         artifactID: yup.string().notRequired().matches(/^[a-zA-Z0-9_-]?([a-zA-Z0-9_-]*\.?[a-zA-Z0-9_-])*$/, "Artifact id cannot contain spaces or special characters"),
         version: yup.string().notRequired().default("1.0.0").matches(/^[a-zA-Z0-9.]*$/, "Version cannot contain spaces or special characters"),
-        miVersion: yup.string().required("Micro Integrator Runtime version is required").matches(/^[a-zA-Z0-9.]*$/, "Micro Integrator Version cannot contain spaces or special characters"),
+        miVersion: yup.string().required("WSO2 Integrator: MI Runtime version is required").matches(/^[a-zA-Z0-9.]*$/, "WSO2 Integrator: MI Version cannot contain spaces or special characters"),
     });
 
     const {
@@ -118,6 +118,7 @@ export function ProjectWizard({ cancelView }: { cancelView: MACHINE_VIEW }) {
         }
         setFormSaved(true);
         await rpcClient.getMiDiagramRpcClient().createProject(createProjectParams);
+        rpcClient.getMiDiagramRpcClient().closeWebView();
     };
 
     const handleCancel = () => {
@@ -145,7 +146,7 @@ export function ProjectWizard({ cancelView }: { cancelView: MACHINE_VIEW }) {
             />
             <Dropdown
                 id='miVersion'
-                label="Micro Integrator runtime version"
+                label="WSO2 Integrator: MI runtime version"
                 isRequired={true}
                 errorMsg={errors.miVersion?.message.toString()}
                 items={supportedMIVersions}
@@ -183,7 +184,7 @@ export function ProjectWizard({ cancelView }: { cancelView: MACHINE_VIEW }) {
                     />
                 </React.Fragment>
             </FormGroup>
-            <DownloadLabel>If the necessary Micro Integrator runtime and tools are not available, you will be prompted to download them after project creation.</DownloadLabel>
+            <DownloadLabel>If the necessary WSO2 Integrator: MI runtime and tools are not available, you will be prompted to download them after project creation.</DownloadLabel>
             <FormActions>
                 <Button
                     appearance="secondary"

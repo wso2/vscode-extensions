@@ -3062,8 +3062,9 @@ ${endpointAttributes}
 
             if (open) {
                 if (projectOpened) {
-                    const answer = await window.showInformationMessage(
+                    const answer = await window.showWarningMessage(
                         "Do you want to open the created project in the current window or new window?",
+                        { modal: true },
                         "Current Window",
                         "New Window"
                     );
@@ -3733,7 +3734,13 @@ ${endpointAttributes}
     async createRegistryResource(params: CreateRegistryResourceRequest): Promise<CreateRegistryResourceResponse> {
         return new Promise(async (resolve) => {
             const artifactNamePrefix = params.registryRoot === '' ? 'resources/' : params.registryRoot + '/';
-            let artifactName = (artifactNamePrefix + params.registryPath).replace(new RegExp('/', 'g'), "_").replace(/_+/g, '_');
+            let artifactName;
+            const runtimeVersion = await this.getMIVersionFromPom();
+            if (params.createOption === "import" || compareVersions(runtimeVersion.version, '4.4.0') >= 0) {
+                artifactName = (artifactNamePrefix + params.registryPath).replace(new RegExp('/', 'g'), "_").replace(/_+/g, '_');
+            } else {
+                artifactName = params.artifactName;
+            }
 
             let projectDir = params.projectDirectory;
             const fileUri = Uri.file(params.projectDirectory);
@@ -3788,7 +3795,9 @@ ${endpointAttributes}
                 let fileName = params.resourceName;
                 const fileData = getMediatypeAndFileExtension(params.templateType);
                 fileName = fileName + "." + fileData.fileExtension;
-                artifactName = artifactName + '_' + params.resourceName + '_' + fileData.fileExtension;
+                if (compareVersions(runtimeVersion.version, '4.4.0') >= 0) {
+                    artifactName = artifactName + '_' + params.resourceName + '_' + fileData.fileExtension;
+                }
                 const registryPath = path.join(registryDir, params.registryPath);
                 const destPath = path.join(registryPath, fileName);
                 if (!fs.existsSync(registryPath)) {
@@ -3804,8 +3813,10 @@ ${endpointAttributes}
                 let fileName = params.resourceName;
                 const fileData = getMediatypeAndFileExtension(params.templateType);
                 fileName = fileName + "." + fileData.fileExtension;
-                artifactName = artifactName + '_' + params.resourceName + '_' + fileData.fileExtension;
-                let fileContent = params.content ? params.content : getRegistryResourceContent(params.templateType, params.resourceName);
+                if (compareVersions(runtimeVersion.version, '4.4.0') >= 0) {
+                    artifactName = artifactName + '_' + params.resourceName + '_' + fileData.fileExtension;
+                }
+                let fileContent = params.content ? params.content : getRegistryResourceContent(params.templateType, params.resourceName, params.roles);
                 const registryPath = path.join(registryDir, params.registryPath);
                 const destPath = path.join(registryPath, fileName);
                 if (!fs.existsSync(registryPath)) {
@@ -3919,7 +3930,7 @@ ${endpointAttributes}
 
     async getAvailableRegistryResources(params: ListRegistryArtifactsRequest): Promise<RegistryArtifactNamesResponse> {
         return new Promise(async (resolve) => {
-            const response = getAvailableRegistryResources(this.projectUri);
+            const response = await getAvailableRegistryResources(this.projectUri);
             const artifacts = response.artifacts;
             var tempArtifactNames: string[] = [];
             for (let i = 0; i < artifacts.length; i++) {
@@ -5462,7 +5473,7 @@ ${keyValuesXML}`;
 
     async saveConfig(params: SaveConfigRequest): Promise<SaveConfigResponse> {
         return new Promise(async (resolve, reject) => {
-            const { configName, configType } = params;
+            const { configName, configType, configValue } = params;
 
             try {
                 // Read the config file content
@@ -5488,6 +5499,18 @@ ${keyValuesXML}`;
 
                 // Write the updated config file content back to the file
                 fs.writeFileSync(configFilePath, updatedConfigFileContent, 'utf-8');
+
+                const envFilePath = [this.projectUri, '.env'].join(path.sep);
+                const envFileContent = fs.readFileSync(envFilePath, 'utf-8').trim();
+                let updatedEnvFileContent: string;
+                if (envFileContent.length > 0) {
+                    // Add a new line if the file is not empty
+                    updatedEnvFileContent = envFileContent + `\n${configName}=${configValue}`;
+                } else {
+                    updatedEnvFileContent = envFileContent + `${configName}=${configValue}`;
+                }
+                // Write the updated .env file content back to the file
+                fs.writeFileSync(envFilePath, updatedEnvFileContent, 'utf-8');
                 resolve({ success: true });
             } catch (e) {
                 reject(e);

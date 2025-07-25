@@ -55,6 +55,7 @@ export class ConfigEditor {
         console.log(`Verify config variable ${variableName}`);
         const configVariableItem = this.webView.locator(`div#${variableName}-variable`);
         await configVariableItem.waitFor({ state: 'visible', timeout: 30000 });
+        await configVariableItem.click();
 
         // Verify the variable name and default
         const variableExists = await configVariableItem.isVisible();
@@ -125,12 +126,36 @@ export class ConfigEditor {
         console.log(`Verify warning for config variable ${variableName}`);
         const configVariableItem = this.webView.locator(`div#${variableName}-variable`);
         await configVariableItem.waitFor({ state: 'visible', timeout: 30000 });
+        await configVariableItem.click();
 
         // Verify the Required warning text is visible
         const requiredWarningText = configVariableItem.locator('span', { hasText: 'Required' });
         await requiredWarningText.waitFor({ state: 'visible', timeout: 30000 });
         const requiredTextVisible = await requiredWarningText.isVisible();
         expect(requiredTextVisible, `Required warning text for variable "${variableName}" was not verified successfully.`).toBe(true);
+    }
+
+    public async verifyNoWarning(variableName: string) {
+        console.log(`Verify no warning for config variable ${variableName}`);
+        const configVariableItem = this.webView.locator(`div#${variableName}-variable`);
+        await configVariableItem.waitFor({ state: 'visible', timeout: 30000 });
+        await configVariableItem.click();
+
+        // Wait for the Required warning text to be hidden or detached
+        const requiredWarningText = configVariableItem.locator('span', { hasText: 'Required' });
+        await requiredWarningText.waitFor({ state: 'hidden', timeout: 30000 }).catch(() => {});
+        const requiredTextVisible = await requiredWarningText.isVisible().catch(() => false);
+        expect(requiredTextVisible, `Required warning text for variable "${variableName}" was verified when it should not be.`).toBe(false);
+    }
+
+    public async verifyNumberofWarningIntegration(number: number) {
+        console.log(`Verify number of warnings in package integration`);
+        // Get the warning count span inside the integration container
+        const warningCountSpan = this.webView.locator('span#integration-warning-count');
+        await warningCountSpan.waitFor({ state: 'visible', timeout: 10000 });
+        const warningCountText = await warningCountSpan.textContent();
+        const warningCount = parseInt(warningCountText || '0', 10);
+        expect(warningCount, `Expected ${number} warnings, but found ${warningCount}.`).toBe(number);
     }
 
     public async getSelectedPackage(): Promise<string> {

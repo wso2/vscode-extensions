@@ -32,6 +32,12 @@ export default function createTests() {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
             await artifactWebView.getByRole('button', { name: 'Create' }).click();
+
+            const diagramCanvas = artifactWebView.locator('#bi-diagram-canvas');
+            await diagramCanvas.waitFor({ state: 'visible', timeout: 30000 });
+
+            const diagramTitle = artifactWebView.locator('h2', { hasText: 'Automation' });
+            await diagramTitle.waitFor();
         });
     });
 }
