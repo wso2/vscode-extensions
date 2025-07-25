@@ -404,7 +404,9 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
                 sx={{ width: '100%', ...sx }}
                 disabled={disabled || isSavingExpression}
             />
-            {(isSavingExpression || isUpdatingSource) && <ProgressIndicator barWidth={6} sx={{ top: "100%" }} />}
+            {(isSavingExpression || isUpdatingSource) && 
+                <ProgressIndicator barWidth={6} sx={{ top: "100%" }} duration={2} />
+            }
             {isFocused && 
                 createPortal(
                     <DropdownContainer ref={dropdownContainerRef} sx={{ ...dropdownElPosition }}>
