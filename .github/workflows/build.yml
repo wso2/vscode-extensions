@@ -7,10 +7,6 @@ on:
         description: Pull request number for commenting
         type: number
         required: false
-      githubToken:
-        description: GitHub token for PR commenting
-        type: string
-        required: false
       isPreRelease:
         default: true
         type: boolean  
@@ -370,14 +366,12 @@ jobs:
         uses: actions/github-script@v7
         continue-on-error: true
         with:
-          github-token: ${{ inputs.githubToken || github.token }}
+          github-token: ${{ secrets.CHOREO_BOT_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
             console.log('🔍 Token debugging:');
-            console.log('inputs.githubToken available:', '${{ inputs.githubToken }}' !== '');
-            console.log('github.token available:', '${{ github.token }}' !== '');
-            console.log('GITHUB_TOKEN available:', '${{ secrets.GITHUB_TOKEN }}' !== '');
             console.log('CHOREO_BOT_TOKEN available:', '${{ secrets.CHOREO_BOT_TOKEN }}' !== '');
-            console.log('Current token being used:', '${{ inputs.githubToken }}' !== '' ? 'inputs.githubToken' : 'github.token (fallback)');
+            console.log('GITHUB_TOKEN available:', '${{ secrets.GITHUB_TOKEN }}' !== '');
+            console.log('Current token being used:', '${{ secrets.CHOREO_BOT_TOKEN }}' !== '' ? 'CHOREO_BOT_TOKEN' : 'GITHUB_TOKEN (fallback)');
             
             const fs = require('fs');
             

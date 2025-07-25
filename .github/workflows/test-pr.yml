@@ -16,5 +16,4 @@ jobs:
     secrets: inherit  
     with:
       prNumber: ${{ github.event.pull_request.number }}
-      githubToken: ${{ secrets.CHOREO_BOT_TOKEN || secrets.GITHUB_TOKEN }}
       runE2ETests: ${{ contains(github.event.pull_request.labels.*.name, 'Checks/Run with UI Tests') }}
