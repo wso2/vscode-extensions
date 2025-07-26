@@ -56,7 +56,7 @@ export function NewTool(props: NewToolProps): JSX.Element {
     const initPanel = async () => {
         // get agent file path
         const filePath = await rpcClient.getVisualizerLocation();
-        agentFilePath.current = await rpcClient.getVisualizerRpcClient().joinProjectPath("agents.bal");
+        agentFilePath.current = Utils.joinPath(URI.file(filePath.projectUri), "agents.bal").fsPath;
         projectUri.current = filePath.projectUri;
         // fetch tools and agent node
         await fetchAgentNode();

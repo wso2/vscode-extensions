@@ -49,7 +49,7 @@ import { FormattingProvider } from './FormattingProvider';
 
 import util = require('util');
 import { log } from '../util/logger';
-import { getJavaHomeFromConfig, getProjectSetupDetails, isMISetup, isJavaSetup } from '../util/onboardingUtils';
+import { getJavaHomeFromConfig } from '../util/onboardingUtils';
 import { SELECTED_SERVER_PATH } from '../debugger/constants';
 import { extension } from '../MIExtensionContext';
 import { extractCAppDependenciesAsProjects } from '../visualizer/activate';
@@ -73,10 +73,6 @@ const ERRORS: Record<string, ErrorType> = {
     JAVA_HOME: {
         title: "Java Home Error",
         message: "JAVA_HOME is not set."
-    },
-    MISSING_MI_RUNTIME_VERSION: {
-        title: "WSO2 Integrator: MI Runtime Version Not Found",
-        message: "Runtime version not found in the pom file. Please add the runtime version and reload to continue."
     },
     LANG_CLIENT_START: {
         title: "Lang Client Start Error",
@@ -164,15 +160,6 @@ export class MILanguageClient {
 
     private async launch(projectUri: string) {
         try {
-            const { miVersionFromPom } = await getProjectSetupDetails(projectUri);
-            if (!miVersionFromPom) {
-                const errorMessage = `Runtime version not found in the pom file of project ${projectUri}. Please add the runtime version and reload to continue.`;
-                window.showErrorMessage(errorMessage);
-                this.updateErrors(ERRORS.MISSING_MI_RUNTIME_VERSION);
-                throw new Error(errorMessage);
-            }
-            await isJavaSetup(projectUri, miVersionFromPom);
-            await isMISetup(projectUri, miVersionFromPom);
             const JAVA_HOME = getJavaHomeFromConfig(this.projectUri);
             if (JAVA_HOME) {
                 const isJDKCompatible = await this.checkJDKCompatibility(JAVA_HOME);
@@ -216,7 +203,7 @@ export class MILanguageClient {
                         fileEvents: workspace.createFileSystemWatcher(new RelativePattern(workspaceFolder, '**/*.zip'))
                     },
                     // Register the server for synapse xml documents
-                    documentSelector: [{ scheme: 'file', language: 'SynapseXml', pattern: `${workspaceFolder.uri.fsPath}/**/*` }],
+                    documentSelector: [{ scheme: 'file', language: 'SynapseXml' }],
                     middleware: {
                         workspace: {
                             didChangeConfiguration: async () => {

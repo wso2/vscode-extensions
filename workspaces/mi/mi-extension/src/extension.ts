@@ -81,7 +81,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	activateMigrationSupport(context);
 	// activateActivityPanel(context);
 	// activateAiPrompt(context);
-	activateRuntimeService(context, firstProject);
+	activateRuntimeService(context);
 	activateVisualizer(context, firstProject);
 	activateAiPanel(context);
 }

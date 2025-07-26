@@ -126,12 +126,11 @@ export function FunctionForm(props: FunctionFormProps) {
 
     const getFunctionNode = async (kind: NodeKind) => {
         setIsLoading(true);
-        const filePath = await rpcClient.getVisualizerRpcClient().joinProjectPath(fileName);
         const res = await rpcClient
             .getBIDiagramRpcClient()
             .getNodeTemplate({
                 position: { line: 0, offset: 0 },
-                filePath: filePath,
+                filePath: Utils.joinPath(URI.file(projectPath), fileName).fsPath,
                 id: { node: kind },
             });
         let flowNode = res.flowNode;

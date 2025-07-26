@@ -24,18 +24,12 @@ import { ExpressionLabelModel } from "../Label";
 import { InputOutputPortModel } from '../Port/model/InputOutputPortModel';
 import { isInputNode, isLinkModel, isOutputNode } from '../Actions/utils';
 import { DataMapperLinkModel } from '../Link/DataMapperLink';
-import { DataMapperNodeModel } from '../Node/commons/DataMapperNode';
-import { handleExpand } from '../utils/common-utils';
-import { getMappingType, isPendingMappingRequired } from '../utils/common-utils';
-import { removePendingMappingTempLinkIfExists } from '../utils/link-utils';
-import { useDMExpressionBarStore } from '../../../store/store';
 /**
  * This state is controlling the creation of a link.
  */
 export class CreateLinkState extends State<DiagramEngine> {
 	sourcePort: PortModel;
 	link: LinkModel;
-	temporaryLink: LinkModel;
 
 	constructor(resetState: boolean = false) {
 		super({ name: 'create-new-link' });
@@ -51,9 +45,6 @@ export class CreateLinkState extends State<DiagramEngine> {
 					let element = this.engine.getActionEventBus().getModelForEvent(actionEvent);
 					const isValueConfig = (actionEvent.event.target as Element)
 						.closest('div[id^="value-config"]');
-
-					const { focusedPort, focusedFilter } = useDMExpressionBarStore.getState();
-					const isExprBarFocused = focusedPort || focusedFilter;
 
 					if (element === null) {
 						this.clearState();
@@ -77,14 +68,7 @@ export class CreateLinkState extends State<DiagramEngine> {
 							if (recordFieldElement) {
 								const fieldId = (recordFieldElement.id.split("-"))[1] + ".OUT";
 								const portModel = (element as any).getPort(fieldId) as InputOutputPortModel;
-								if (portModel?.attributes.portType === "OUT" &&
-									!portModel?.attributes?.parentModel &&
-									portModel.attributes?.collapsed
-								) {
-									handleExpand(portModel.attributes.fieldFQN, false);
-									this.clearState();
-									this.eject();
-								} else if (portModel) {
+								if (portModel) {
 									element = portModel;
 								}
 							}
@@ -97,18 +81,9 @@ export class CreateLinkState extends State<DiagramEngine> {
 						}
 					}
 
-					if (this.temporaryLink) {
-						removePendingMappingTempLinkIfExists(this.temporaryLink);
-						this.temporaryLink = undefined;
-					}
-
-					if (isExprBarFocused && element instanceof InputOutputPortModel && element.attributes.portType === "OUT") {
-						element.fireEvent({}, "addToExpression");
-						this.clearState();
-						this.eject();
-					} else if (element instanceof PortModel && !this.sourcePort) {
+					if (element instanceof PortModel && !this.sourcePort) {
 						if (element instanceof InputOutputPortModel) {
-							if (element.attributes.portType === "OUT") {
+							if (element.portType === "OUT") {
 								this.sourcePort = element;
 								element.fireEvent({}, "mappingStartedFrom");
 								element.linkedPorts.forEach((linkedPort) => {
@@ -117,20 +92,19 @@ export class CreateLinkState extends State<DiagramEngine> {
 								const link = this.sourcePort.createLinkModel();
 								link.setSourcePort(this.sourcePort);
 								link.addLabel(new ExpressionLabelModel({
-									link: link as DataMapperLinkModel,
 									value: undefined,
-									context: (element.getNode() as DataMapperNodeModel).context
+									context: undefined
 								}));
 								this.link = link;
 							} else if (!isValueConfig) {
-								element.fireEvent({}, "expressionBarFocused");
+								element.fireEvent({}, "firstClickedOnOutput");
 								this.clearState();
 								this.eject();
 							}
 						}
 					} else if (element instanceof PortModel && this.sourcePort && element !== this.sourcePort) {
 						if ((element instanceof InputOutputPortModel)) {
-							if (element.attributes.portType === "IN") {
+							if (element.portType === "IN") {
 								let isDisabled = false;
 								if (element instanceof InputOutputPortModel) {
 								isDisabled = element.isDisabled();
@@ -140,13 +114,6 @@ export class CreateLinkState extends State<DiagramEngine> {
 									if (this.sourcePort.canLinkToPort(element)) {
 
 										this.link?.setTargetPort(element);
-
-										const connectingMappingType = getMappingType(this.sourcePort, element);
-										if (isPendingMappingRequired(connectingMappingType)) {
-											(this.link as any).pendingMappingType = connectingMappingType;
-											this.temporaryLink = this.link;
-										}
-										
 										this.engine.getModel().addAll(this.link)
 										if (this.sourcePort instanceof InputOutputPortModel) {
 											this.sourcePort.linkedPorts.forEach((linkedPort) => {

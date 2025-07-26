@@ -136,10 +136,6 @@ namespace S {
     export const ComponentTitle = styled.div`
         white-space: nowrap;
         width: 124px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        display: block;
-        word-break: break-word;
     `;
 
     export const IconContainer = styled.div`

@@ -22,7 +22,7 @@ import { RefObject, useRef } from 'react';
 
 import { debounce } from 'lodash';
 import { useCallback, useState } from 'react';
-import { CodeData, LineRange } from '@wso2/ballerina-core';
+import { LineRange } from '@wso2/ballerina-core';
 import {
     TypeHelperCategory,
     TypeHelperComponent,
@@ -58,7 +58,7 @@ type TypeHelperProps = {
     typeHelperState: boolean;
     onChange: (newType: string, newCursorPosition: number) => void;
     changeTypeHelperState: (isOpen: boolean) => void;
-    updateImports: (key: string, imports: {[key: string]: string}, codedata?: CodeData) => void;
+    updateImports: (key: string, imports: {[key: string]: string}) => void;
     onTypeCreate: (typeName: string) => void;
     onCloseCompletions?: () => void;
 };
@@ -229,7 +229,7 @@ const TypeHelperEl = (props: TypeHelperProps) => {
             const importStatement = {
                 [response.prefix]: response.moduleId
             };
-            updateImports(fieldKey, importStatement, item.codedata);
+            updateImports(fieldKey, importStatement);
             return response.template;
         }
 

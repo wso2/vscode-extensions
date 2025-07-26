@@ -42,7 +42,6 @@ export enum TemplateId {
     // Command.DataMap
     MappingsForRecords = 'mappings-for-records',
     MappingsForFunction = 'mappings-for-function',
-    InlineMappings = 'inline-mappings',
 
     // Command.TypeCreator
     TypesForAttached = 'types-for-attached',

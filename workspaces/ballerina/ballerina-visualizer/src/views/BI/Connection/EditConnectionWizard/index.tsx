@@ -24,6 +24,7 @@ import ConnectionConfigView from "../ConnectionConfigView";
 import { getFormProperties } from "../../../../utils/bi";
 import { ExpressionFormField, PanelContainer } from "@wso2/ballerina-side-panel";
 import { ProgressRing, ThemeColors } from "@wso2/ui-toolkit";
+import { InlineDataMapper } from "../../../InlineDataMapper";
 import { HelperView } from "../../HelperView";
 import { URI, Utils } from "vscode-uri";
 
@@ -60,7 +61,7 @@ export function EditConnectionWizard(props: EditConnectionWizardProps) {
         rpcClient
             .getBIDiagramRpcClient()
             .getModuleNodes()
-            .then(async (res) => {
+            .then((res) => {
                 console.log(">>> moduleNodes", { moduleNodes: res });
                 if (!res.flowModel.connections || res.flowModel.connections.length === 0) {
                     return;
@@ -74,7 +75,7 @@ export function EditConnectionWizard(props: EditConnectionWizardProps) {
                     return;
                 }
                 const connectionFile = connector.codedata.lineRange.fileName;
-                let connectionFilePath = await rpcClient.getVisualizerRpcClient().joinProjectPath(connectionFile);
+                let connectionFilePath = Utils.joinPath(URI.file(projectUri), connectionFile).fsPath;
                 setFilePath(connectionFilePath);
 
                 setConnection(connector);
@@ -141,6 +142,14 @@ export function EditConnectionWizard(props: EditConnectionWizardProps) {
 
     const findSubPanelComponent = (subPanel: SubPanel) => {
         switch (subPanel.view) {
+            case SubPanelView.INLINE_DATA_MAPPER:
+                return (
+                    <InlineDataMapper
+                        onClosePanel={handleSubPanel}
+                        updateFormField={updateExpressionField}
+                        {...subPanel.props?.inlineDataMapper}
+                    />
+                );
             case SubPanelView.HELPER_PANEL:
                 return (
                     <HelperView

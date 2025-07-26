@@ -17,24 +17,23 @@
  */
 import { NodeModel } from "@projectstorm/react-diagrams";
 
-import { InputNode, ObjectOutputNode, QueryOutputNode } from "../Node";
+import { InputNode, ObjectOutputNode } from "../Node";
 import { InputOutputPortModel } from "../Port";
-import { ARRAY_OUTPUT_TARGET_PORT_PREFIX, OBJECT_OUTPUT_TARGET_PORT_PREFIX, PRIMITIVE_OUTPUT_TARGET_PORT_PREFIX, QUERY_OUTPUT_TARGET_PORT_PREFIX } from "./constants";
+import { ARRAY_OUTPUT_TARGET_PORT_PREFIX, OBJECT_OUTPUT_TARGET_PORT_PREFIX } from "./constants";
 import { ArrayOutputNode } from "../Node/ArrayOutput/ArrayOutputNode";
-import { PrimitiveOutputNode } from "../Node/PrimitiveOutput/PrimitiveOutputNode";
 
 export function getInputPort(node: InputNode, inputField: string): InputOutputPortModel {
     let port = node.getPort(`${inputField}.OUT`) as InputOutputPortModel;
 
-    while (port && port.attributes.hidden) {
-        port = port.attributes.parentModel;
+    while (port && port.hidden) {
+        port = port.parentModel;
     }
 
     return port;
 }
 
 export function getOutputPort(
-    node: ObjectOutputNode | ArrayOutputNode | PrimitiveOutputNode | QueryOutputNode,
+    node: ObjectOutputNode | ArrayOutputNode,
     outputField: string
 ): [InputOutputPortModel, InputOutputPortModel] {
     const portId = `${getTargetPortPrefix(node)}.${outputField}.IN`;
@@ -44,8 +43,8 @@ export function getOutputPort(
         const actualPort = port as InputOutputPortModel;
         let mappedPort = actualPort;
 
-        while (mappedPort && mappedPort.attributes.hidden) {
-            mappedPort = mappedPort.attributes.parentModel;
+        while (mappedPort && mappedPort.hidden) {
+            mappedPort = mappedPort.parentModel;
         }
 
         return [actualPort, mappedPort];
@@ -60,10 +59,7 @@ export function getTargetPortPrefix(node: NodeModel): string {
 			return OBJECT_OUTPUT_TARGET_PORT_PREFIX;
         case node instanceof ArrayOutputNode:
             return ARRAY_OUTPUT_TARGET_PORT_PREFIX;
-        case node instanceof PrimitiveOutputNode:
-            return PRIMITIVE_OUTPUT_TARGET_PORT_PREFIX;
-        case node instanceof QueryOutputNode:
-                return QUERY_OUTPUT_TARGET_PORT_PREFIX;
+        // TODO: Update cases for other node types
 		default:
 			return "";
 	}

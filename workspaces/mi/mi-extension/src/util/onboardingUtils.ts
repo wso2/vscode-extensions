@@ -62,7 +62,7 @@ export async function setupEnvironment(projectUri: string, isOldProject: boolean
         const versions: string[] = ["4.0.0", "4.1.0", "4.2.0", "4.3.0"];
         if (miVersionFromPom && versions.includes(miVersionFromPom)) {
             const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
-            await config.update("LEGACY_EXPRESSION_ENABLED", true, vscode.ConfigurationTarget.WorkspaceFolder);
+            await config.update("LEGACY_EXPRESSION_ENABLED", true, vscode.ConfigurationTarget.Workspace);
         }
         const isMISet = await isMISetup(projectUri, miVersionFromPom);
         const isJavaSet = await isJavaSetup(projectUri, miVersionFromPom);
@@ -173,8 +173,8 @@ export function generateInitialDependencies(httpConnectorVersion: string): strin
     </dependencies>`
 }
 
-export async function isMISetup(projectUri: string, miVersion: string): Promise<boolean> {
-    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
+async function isMISetup(projectUri: string, miVersion: string): Promise<boolean> {
+    const config = vscode.workspace.getConfiguration('MI');
     const currentMIPath = config.get<string>(SELECTED_SERVER_PATH);
     if (currentMIPath) {
         const availableMIVersion = getMIVersion(currentMIPath);
@@ -200,7 +200,7 @@ export async function isMISetup(projectUri: string, miVersion: string): Promise<
 
         const miCachedPathInfo = getLatestMIPathFromCache(miVersion);
         if (miCachedPathInfo && miCachedPathInfo.path) {
-            await config.update(SELECTED_SERVER_PATH, miCachedPathInfo.path, vscode.ConfigurationTarget.WorkspaceFolder);
+            await config.update(SELECTED_SERVER_PATH, miCachedPathInfo.path, vscode.ConfigurationTarget.Workspace);
             return true;
         }
     }
@@ -251,8 +251,8 @@ export async function isMISetup(projectUri: string, miVersion: string): Promise<
             });
     }
 }
-export async function isJavaSetup(projectUri: string, miVersion: string): Promise<boolean> {
-    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
+async function isJavaSetup(projectUri: string, miVersion: string): Promise<boolean> {
+    const config = vscode.workspace.getConfiguration('MI');
     const currentJavaHome = config.get<string>(SELECTED_JAVA_HOME);
     if (currentJavaHome) {
         const currentJavaVersion = getJavaVersion(path.join(currentJavaHome, 'bin')) ?? '';
@@ -274,7 +274,7 @@ export async function isJavaSetup(projectUri: string, miVersion: string): Promis
             if (!isRecommendedJavaVersionForMI(javaVersion, miVersion)) {
                 showJavaHomeChangePrompt();
             }
-            await config.update(SELECTED_JAVA_HOME, globalJavaHome, vscode.ConfigurationTarget.WorkspaceFolder);
+            await config.update(SELECTED_JAVA_HOME, globalJavaHome, vscode.ConfigurationTarget.Workspace);
             return true;
         }
     }
@@ -282,7 +282,7 @@ export async function isJavaSetup(projectUri: string, miVersion: string): Promis
     const javaHome = getJavaHomeForMIVersionFromCache(miVersion);
 
     if (javaHome) {
-        await config.update(SELECTED_JAVA_HOME, path.normalize(javaHome), vscode.ConfigurationTarget.WorkspaceFolder);
+        await config.update(SELECTED_JAVA_HOME, path.normalize(javaHome), vscode.ConfigurationTarget.Workspace);
         return true;
     }
     if (process.env.JAVA_HOME) {
@@ -291,7 +291,7 @@ export async function isJavaSetup(projectUri: string, miVersion: string): Promis
             if (!isRecommendedJavaVersionForMI(javaVersion, miVersion)) {
                 showJavaHomeChangePrompt();
             }
-            await config.update(SELECTED_JAVA_HOME, process.env.JAVA_HOME, vscode.ConfigurationTarget.WorkspaceFolder);
+            await config.update(SELECTED_JAVA_HOME, process.env.JAVA_HOME, vscode.ConfigurationTarget.Workspace);
             return true;
         }
     }
@@ -589,7 +589,7 @@ export async function setPathsInWorkSpace(request: SetPathRequest): Promise<Path
 
     let response: PathDetailsResponse = { status: 'not-valid' };
     if (projectMIVersion) {
-        const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(request.projectUri));
+        const config = vscode.workspace.getConfiguration('MI');
         if (request.type === 'JAVA') {
             const validJavaHome = verifyJavaHomePath(request.path);
             if (validJavaHome) {
@@ -601,7 +601,7 @@ export async function setPathsInWorkSpace(request: SetPathRequest): Promise<Path
                 }
             }
             if (response.status !== 'not-valid') {
-                config.update(SELECTED_JAVA_HOME, validJavaHome, vscode.ConfigurationTarget.WorkspaceFolder);
+                config.update(SELECTED_JAVA_HOME, validJavaHome, vscode.ConfigurationTarget.Workspace);
                 extension.context.globalState.update(SELECTED_JAVA_HOME, validJavaHome);
 
             } else {
@@ -619,9 +619,9 @@ export async function setPathsInWorkSpace(request: SetPathRequest): Promise<Path
                 }
             }
             if (response.status !== 'not-valid') {
-                config.update(SELECTED_SERVER_PATH, validServerPath, vscode.ConfigurationTarget.WorkspaceFolder);
+                config.update(SELECTED_SERVER_PATH, validServerPath, vscode.ConfigurationTarget.Workspace);
                 extension.context.globalState.update(SELECTED_SERVER_PATH, validServerPath);
-                config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.WorkspaceFolder);
+                config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.Workspace);
             } else {
                 vscode.window.showErrorMessage('Invalid WSO2 Integrator: MI path or Unsupported version. Please set a valid WSO2 Integrator: MI path');
             }
@@ -990,7 +990,7 @@ function setupConfigFiles(projectUri: string): void {
 }
 
 export function getJavaHomeFromConfig(projectUri: string): string | undefined {
-    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
+    const config = vscode.workspace.getConfiguration('MI');
     const currentJavaHome = config.get<string>(SELECTED_JAVA_HOME);
 
     const projectName = path.basename(projectUri);
@@ -1029,7 +1029,7 @@ export function getJavaHomeFromConfig(projectUri: string): string | undefined {
 }
 
 export function getServerPathFromConfig(projectUri: string): string | undefined {
-    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
+    const config = vscode.workspace.getConfiguration('MI');
     const currentServerPath = config.get<string>(SELECTED_SERVER_PATH);
     return currentServerPath;
 }
@@ -1225,7 +1225,7 @@ export async function isServerUpdateRequested(projectUri: string): Promise<boole
                             setPathsInWorkSpace({ projectUri: projectUri, type: 'MI', path: cachedMIPath.path });
                         } else if (selection === "No, Don't Ask Again") {
                             const config = vscode.workspace.getConfiguration('MI', workspaceFolder.uri);
-                            config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.WorkspaceFolder);
+                            config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.Workspace);
                         }
                     } else {
                         const selection = await vscode.window.showInformationMessage(
@@ -1238,7 +1238,7 @@ export async function isServerUpdateRequested(projectUri: string): Promise<boole
                             return true;
                         } else if (selection === "No, Don't Ask Again") {
                             const config = vscode.workspace.getConfiguration('MI', workspaceFolder.uri);
-                            config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.WorkspaceFolder);
+                            config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.Workspace);
                         }
                     }
                 }

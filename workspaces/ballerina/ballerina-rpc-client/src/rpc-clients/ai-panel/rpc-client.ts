@@ -23,7 +23,6 @@ import {
     AIPanelAPI,
     AIPanelPrompt,
     AddToProjectRequest,
-    CodeSegment,
     DeleteFromProjectRequest,
     DeveloperDocument,
     FetchDataRequest,
@@ -38,9 +37,7 @@ import {
     GenerateTypesFromRecordResponse,
     GetFromFileRequest,
     GetModuleDirParams,
-    InlineAllDataMapperSourceRequest,
     LLMDiagnostics,
-    MetadataWithAttachments,
     NotifyAIMappingsRequest,
     PostProcessRequest,
     PostProcessResponse,
@@ -59,7 +56,6 @@ import {
     abortAIGeneration,
     abortTestGeneration,
     addChatSummary,
-    addInlineCodeSegmentToWorkspace,
     addToProject,
     applyDoOnFailBlocks,
     checkSyntaxError,
@@ -84,7 +80,6 @@ import {
     getFromDocumentation,
     getFromFile,
     getGeneratedTests,
-    getMappingsFromModel,
     getMappingsFromRecord,
     getModuleDirectory,
     getProjectUuid,
@@ -103,7 +98,6 @@ import {
     isRequirementsSpecificationFileExist,
     markAlertShown,
     notifyAIMappings,
-    openInlineMappingChatWindow,
     postProcess,
     promptGithubAuthorize,
     promptWSO2AILogout,
@@ -191,18 +185,6 @@ export class AiPanelRpcClient implements AIPanelAPI {
 
     clearInitialPrompt(): void {
         return this._messenger.sendNotification(clearInitialPrompt, HOST_EXTENSION);
-    }
-
-    openInlineMappingChatWindow(): void {
-        return this._messenger.sendNotification(openInlineMappingChatWindow, HOST_EXTENSION);
-    }
-
-    getMappingsFromModel(params: MetadataWithAttachments): Promise<InlineAllDataMapperSourceRequest> {
-        return this._messenger.sendRequest(getMappingsFromModel, HOST_EXTENSION, params);
-    }
-
-    addInlineCodeSegmentToWorkspace(params: CodeSegment): void {
-        return this._messenger.sendNotification(addInlineCodeSegmentToWorkspace, HOST_EXTENSION, params);
     }
 
     getGeneratedTests(params: TestGenerationRequest): Promise<TestGenerationResponse> {

@@ -145,9 +145,7 @@ export function ServiceConfigForm(props: ServiceConfigFormProps) {
         }
 
         serviceModel && setServiceFields(convertConfig(serviceModel));
-        rpcClient.getVisualizerRpcClient().joinProjectPath('main.bal').then((filePath) => {
-            setFilePath(filePath);
-        });
+        rpcClient.getVisualizerLocation().then(res => { setFilePath(Utils.joinPath(URI.file(res.projectUri), 'main.bal').fsPath) });
     }, [serviceModel]);
 
     const handleServiceSubmit = async (data: FormValues, formImports: FormImports) => {

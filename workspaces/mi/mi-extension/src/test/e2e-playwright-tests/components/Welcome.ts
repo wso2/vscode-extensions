@@ -45,7 +45,7 @@ export class Welcome {
         await textInput?.fill(path);
         const selectBtn = await fileInput?.waitForSelector('a.monaco-button:has-text("Select Folder")');
         await selectBtn?.click();
-        await this.page.page.getByRole('button', { name: 'New Window' }).click();
+        await this.page.page.getByRole('button', { name: 'This Window' }).click();
         await this.page.page.getByRole('button', { name: "No, Don't Ask Again" })
             .click({ timeout: 30000 }).catch(() => {});
     }

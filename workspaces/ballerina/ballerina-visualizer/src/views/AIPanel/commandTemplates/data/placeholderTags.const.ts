@@ -55,8 +55,7 @@ export const placeholderTags: PlaceholderTagMap = {
         },
         'mappings-for-function': {
             functionName: []
-        },
-        'inline-mappings': {}
+        }
     },
     [Command.TypeCreator]: {
         'types-for-attached': {}

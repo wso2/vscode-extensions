@@ -17,20 +17,19 @@
  */
 import {
     ColorThemeKind,
-    EVENT_TYPE,
     HistoryEntry,
-    MACHINE_VIEW,
-    OpenViewRequest,
-    PopupVisualizerLocation,
-    SHARED_COMMANDS,
     UpdateUndoRedoMangerRequest,
     VisualizerAPI,
-    VisualizerLocation
+    OpenViewRequest,
+    MACHINE_VIEW,
+    PopupVisualizerLocation,
+    VisualizerLocation,
+    EVENT_TYPE,
+    SHARED_COMMANDS
 } from "@wso2/ballerina-core";
-import { commands, window } from "vscode";
-import { history, openView, StateMachine, undoRedoManager, updateView } from "../../stateMachine";
+import { history, openView, undoRedoManager, updateView } from "../../stateMachine";
 import { openPopupView } from "../../stateMachinePopup";
-import { URI, Utils } from "vscode-uri";
+import { commands, window } from "vscode";
 
 export class VisualizerRpcManager implements VisualizerAPI {
 
@@ -94,14 +93,6 @@ export class VisualizerRpcManager implements VisualizerAPI {
     async getThemeKind(): Promise<ColorThemeKind> {
         return new Promise((resolve) => {
             resolve(window.activeColorTheme.kind);
-        });
-    }
-
-    async joinProjectPath(segments: string | string[]): Promise<string> {
-        return new Promise((resolve) => {
-            const projectPath = StateMachine.context().projectUri;
-            const filePath = Array.isArray(segments) ? Utils.joinPath(URI.file(projectPath), ...segments) : Utils.joinPath(URI.file(projectPath), segments);
-            resolve(filePath.fsPath);
         });
     }
 }

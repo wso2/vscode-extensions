@@ -15,33 +15,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+import React from 'react';
+
 import { useQuery } from '@tanstack/react-query';
 import { useRpcContext } from '@wso2/ballerina-rpc-client';
-import { IDMViewState } from '@wso2/ballerina-core';
+import { FlowNode, LinePosition } from '@wso2/ballerina-core';
 
 export const useInlineDataMapperModel = (
     filePath: string,
-    viewState: IDMViewState
+    flowNode: FlowNode,
+    propertyKey: string,
+    position: LinePosition
 ) => {
     const { rpcClient } = useRpcContext();
-    const viewId = viewState?.viewId;
-    const codedata = viewState?.codedata;
-
     const getIDMModel = async () => {
         try {
-            const modelParams = {
-                filePath,
-                codedata,
-                targetField: viewId,
-                position: {
-                    line: codedata.lineRange.startLine.line,
-                    offset: codedata.lineRange.startLine.offset
-                }
-            };
             const res = await rpcClient
                 .getInlineDataMapperRpcClient()
-                .getDataMapperModel(modelParams);
-
+                .getDataMapperModel({ filePath, flowNode, propertyKey, position });
             console.log('>>> [Inline Data Mapper] Model:', res);
             return res.mappingsModel;
         } catch (error) {
@@ -56,7 +47,7 @@ export const useInlineDataMapperModel = (
         isError,
         refetch
     } = useQuery({
-        queryKey: ['getIDMModel', { filePath, codedata, viewId }],
+        queryKey: ['getIDMModel', { filePath, flowNode, position }],
         queryFn: () => getIDMModel(),
         networkMode: 'always'
     });

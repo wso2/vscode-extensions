@@ -92,10 +92,9 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
         prefix: /((?:\w|')*)$/,
         suffix: /^((?:\w|')*)/,
     };
-    const manualFocusTrigger = useRef<boolean>(false);
-    const [isFocused, setIsFocused] = useState<boolean>(false);
 
     const showCompletions = showDefaultCompletion || completions?.length > 0 || !!fnSignature;
+    const isFocused = document.activeElement === inputRef.current;
 
     const updatePosition = throttle(() => {
         if (elementRef.current) {
@@ -168,7 +167,7 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
 
         await handleChange(newTextValue, newCursorPosition);
         onCompletionSelect && await onCompletionSelect(newTextValue, item);
-        setCursor(inputRef, 'input', newTextValue, newCursorPosition, manualFocusTrigger);
+        setCursor(inputRef, 'input', newTextValue, newCursorPosition);
     };
 
     const handleExpressionSave = async (value: string, ref?: React.MutableRefObject<string>) => {
@@ -328,32 +327,20 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
         }
     };
 
-    const handleRefFocus = (manualTrigger?: boolean) => {
+    const handleRefFocus = () => {
         if (document.activeElement !== elementRef.current) {
-            manualFocusTrigger.current = manualTrigger ?? false;
             inputRef.current?.focus();
         }
     }
 
     const handleRefBlur = async (value?: string) => {
-        if (isFocused) {
+        if (document.activeElement === elementRef.current) {
             // Trigger save event on blur
             if (value !== undefined) {
                 await handleExpressionSaveMutation(value);
             }
             inputRef.current?.blur();
         }
-    }
-
-    const handleTextAreaFocus = async () => {
-        // Additional actions to be performed when the expression editor gains focus
-        setIsFocused(true);
-
-        if (!manualFocusTrigger.current) {
-            await onFocus?.();
-        }
-
-        manualFocusTrigger.current = false;
     }
 
     const handleTextFieldBlur = (e: React.FocusEvent) => {
@@ -375,11 +362,10 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
         // Prevent blur event when clicking on the dropdown
         const handleOutsideClick = async (e: any) => {
             if (
-                isFocused &&
+                document.activeElement === inputRef.current &&
                 !inputRef.current?.contains(e.target) &&
                 !dropdownContainerRef.current?.contains(e.target)
             ) {
-                setIsFocused(false);
                 await onBlur?.(e);
             }
         }
@@ -388,7 +374,7 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
         return () => {
             document.removeEventListener('mousedown', handleOutsideClick);
         }
-    }, [isFocused, onBlur]);
+    }, [onBlur]);
 
     return (
         <Container ref={elementRef}>
@@ -398,7 +384,6 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
                 value={value}
                 onTextChange={handleChange}
                 onKeyDown={handleInputKeyDown}
-                onFocus={handleTextAreaFocus}
                 onBlur={handleTextFieldBlur}
                 sx={{ width: '100%', ...sx }}
                 disabled={disabled || isSavingExpression}

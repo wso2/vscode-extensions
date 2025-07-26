@@ -3006,9 +3006,8 @@ ${endpointAttributes}
             const connectorStoreResponse = await this.getStoreConnectorJSON(miVersion);
             const httpConnectorVersion = filterConnectorVersion('HTTP', connectorStoreResponse.connectors);
             const initialDependencies = generateInitialDependencies(httpConnectorVersion);
-            const tempName = name.replace(/\./g, '');
             const folderStructure: FileStructure = {
-                [tempName]: { // Project folder
+                [name]: { // Project folder
                     'pom.xml': rootPomXmlContent(name, groupID ?? "com.example", (artifactID ?? name).toLowerCase(), projectUuid, version ?? DEFAULT_PROJECT_VERSION, miVersion, initialDependencies),
                     '.env': '',
                     'src': {
@@ -3054,13 +3053,10 @@ ${endpointAttributes}
             };
 
             await createFolderStructure(directory, folderStructure);
-            copyDockerResources(extension.context.asAbsolutePath(path.join('resources', 'docker-resources')), path.join(directory, tempName));
-            await copyMavenWrapper(extension.context.asAbsolutePath(path.join('resources', 'maven-wrapper')), path.join(directory, tempName));
-            await createGitignoreFile(path.join(directory, tempName));
+            copyDockerResources(extension.context.asAbsolutePath(path.join('resources', 'docker-resources')), path.join(directory, name));
+            await copyMavenWrapper(extension.context.asAbsolutePath(path.join('resources', 'maven-wrapper')), path.join(directory, name));
+            await createGitignoreFile(path.join(directory, name));
 
-            if ((name !== tempName)) {
-                await fs.promises.rename(path.join(directory, tempName), path.join(directory, name));
-            }
             window.showInformationMessage(`Successfully created ${name} project`);
             const projectOpened = getStateMachine(this.projectUri).context().projectOpened;
 

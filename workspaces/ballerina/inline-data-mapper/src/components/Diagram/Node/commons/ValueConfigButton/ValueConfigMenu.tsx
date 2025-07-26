@@ -34,7 +34,6 @@ export enum ValueConfigOption {
     InitializeWithValue = "Initialize With Default Value",
     EditValue = "Edit Value",
     InitializeArray = "Initialize Array",
-    AddElement = "Add Element",
     DeleteValue = "Delete Value",
     DeleteElement = "Delete Element",
     DeleteArray = "Delete Array",

@@ -164,7 +164,6 @@ export function GraphqlObjectViewer(props: GraphqlObjectViewerProps) {
     const classNameField = serviceClassModel?.properties["name"];
     const saveButtonClicked = useRef(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [serviceClassFilePath, setServiceClassFilePath] = useState<string>("");
 
     useEffect(() => {
         getServiceClassModel();
@@ -172,7 +171,7 @@ export function GraphqlObjectViewer(props: GraphqlObjectViewerProps) {
 
     const getServiceClassModel = async () => {
         if (!type) return;
-        const currentFilePath = await rpcClient.getVisualizerRpcClient().joinProjectPath(type.codedata.lineRange.fileName);
+        const currentFilePath = Utils.joinPath(URI.file(projectUri), type.codedata.lineRange.fileName).fsPath;
         const serviceClassModelRequest: ModelFromCodeRequest = {
             filePath: currentFilePath,
             codedata: {
@@ -185,8 +184,6 @@ export function GraphqlObjectViewer(props: GraphqlObjectViewerProps) {
         }
 
         const serviceClassModelResponse = await rpcClient.getBIDiagramRpcClient().getServiceClassModel(serviceClassModelRequest);
-        const serviceClassFilePath = await rpcClient.getVisualizerRpcClient().joinProjectPath(serviceClassModelResponse.model.codedata.lineRange.fileName);
-        setServiceClassFilePath(serviceClassFilePath);
         setServiceClassModel(serviceClassModelResponse.model);
     }
 
@@ -202,14 +199,14 @@ export function GraphqlObjectViewer(props: GraphqlObjectViewerProps) {
             endColumn: func?.codedata?.lineRange?.endLine?.offset
         }
         const deleteAction: STModification = removeStatement(targetPosition);
-        const currentFilePath = await rpcClient.getVisualizerRpcClient().joinProjectPath(type.codedata.lineRange.fileName);
+        const currentFilePath = Utils.joinPath(URI.file(projectUri), type.codedata.lineRange.fileName).fsPath;
         await applyModifications(rpcClient, [deleteAction], currentFilePath);
         getServiceClassModel();
     }
 
     const onFunctionImplement = async (func: FunctionModel) => {
         const lineRange: LineRange = func.codedata.lineRange;
-        const currentFilePath = await rpcClient.getVisualizerRpcClient().joinProjectPath(type.codedata.lineRange.fileName);
+        const currentFilePath = Utils.joinPath(URI.file(projectUri), type.codedata.lineRange.fileName).fsPath;
         const nodePosition: NodePosition = {
             startLine: lineRange.startLine.line,
             startColumn: lineRange.startLine.offset,
@@ -230,7 +227,7 @@ export function GraphqlObjectViewer(props: GraphqlObjectViewerProps) {
         try {
             setIsSaving(true);
             let artifacts;
-            const currentFilePath = await rpcClient.getVisualizerRpcClient().joinProjectPath(serviceClassModel.codedata.lineRange.fileName);
+            const currentFilePath = Utils.joinPath(URI.file(projectUri), serviceClassModel.codedata.lineRange.fileName).fsPath;
             if (isNew) {
                 artifacts = await rpcClient.getServiceDesignerRpcClient().addFunctionSourceCode({
                     filePath: currentFilePath,
@@ -565,7 +562,7 @@ export function GraphqlObjectViewer(props: GraphqlObjectViewerProps) {
                     <OperationForm
                         isSaving={isSaving}
                         model={editingFunction}
-                        filePath={serviceClassFilePath}
+                        filePath={Utils.joinPath(URI.file(projectUri), serviceClassModel.codedata.lineRange.fileName).fsPath}
                         lineRange={serviceClassModel.codedata.lineRange}
                         isGraphqlView={true}
                         onClose={handleCloseFunctionForm}

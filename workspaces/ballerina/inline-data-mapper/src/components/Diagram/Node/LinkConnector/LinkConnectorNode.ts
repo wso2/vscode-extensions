@@ -27,8 +27,6 @@ import { IDMDiagnostic, Mapping } from "@wso2/ballerina-core";
 import { getTargetPortPrefix } from "../../utils/port-utils";
 import { ArrayOutputNode } from "../ArrayOutput";
 import { removeMapping } from "../../utils/modification-utils";
-import { QueryOutputNode } from "../QueryOutput";
-import { useDMSearchStore } from "../../../../store/store";
 
 export const LINK_CONNECTOR_NODE_TYPE = "link-connector-node";
 const NODE_ID = "link-connector-node";
@@ -45,7 +43,7 @@ export class LinkConnectorNode extends DataMapperNodeModel {
     public value: string;
     public diagnostics: IDMDiagnostic[];
     public hidden: boolean;
-    public shouldInitLinks: boolean;
+    public hasInitialized: boolean;
     public label: string;
 
     constructor(
@@ -71,20 +69,8 @@ export class LinkConnectorNode extends DataMapperNodeModel {
         this.addPort(this.inPort);
         this.addPort(this.outPort);
 
-        const inputSearch = useDMSearchStore.getState().inputSearch;
-        const outputSearch = useDMSearchStore.getState().outputSearch;
-
-
-        const views = this.context.views;
-        const focusedSourceField = views[views.length - 1].sourceField;
-
         this.mapping.inputs.forEach((field) => {
-            const inputField = field.split('.').pop();
-            const matchedSearch = inputSearch === "" || inputField.toLowerCase().includes(inputSearch.toLowerCase());
-
-            if (!matchedSearch) return;
-
-            const inputNode = findInputNode(field, this, focusedSourceField);
+            const inputNode = findInputNode(field, this);
             if (inputNode) {
                 const inputPort = getInputPort(inputNode, field.replace(/\.\d+/g, ''));
                 if (!this.sourcePorts.some(port => port.getID() === inputPort.getID())) {
@@ -93,13 +79,10 @@ export class LinkConnectorNode extends DataMapperNodeModel {
             }
         })
 
-        const outputField = this.mapping.output.split(".").pop();
-        const matchedSearch = outputSearch === "" || outputField.toLowerCase().includes(outputSearch.toLowerCase());
-
-        if (matchedSearch && this.outPort) {
+        if (this.outPort) {
             this.getModel().getNodes().map((node) => {
     
-                if (node instanceof ObjectOutputNode || node instanceof ArrayOutputNode || node instanceof QueryOutputNode) {
+                if (node instanceof ObjectOutputNode || node instanceof ArrayOutputNode) {
                     const targetPortPrefix = getTargetPortPrefix(node);
 
                     this.targetPort = node.getPort(`${targetPortPrefix}.${this.mapping.output}.IN`) as InputOutputPortModel;
@@ -107,13 +90,13 @@ export class LinkConnectorNode extends DataMapperNodeModel {
 
                     [this.targetPort, this.targetMappedPort] = getOutputPort(node, this.mapping.output);
                     const previouslyHidden = this.hidden;
-                    this.hidden = this.targetMappedPort?.attributes.portName !== this.targetPort?.attributes.portName;
+                    this.hidden = this.targetMappedPort?.portName !== this.targetPort?.portName;
                     if (this.hidden !== previouslyHidden
                         || (prevSourcePorts.length !== this.sourcePorts.length
                             || prevSourcePorts.map(port => port.getID()).join('')
                                 !== this.sourcePorts.map(port => port.getID()).join('')))
                     {
-                        this.shouldInitLinks = true;
+                        this.hasInitialized = false;
                     }
                 }
             });
@@ -121,7 +104,7 @@ export class LinkConnectorNode extends DataMapperNodeModel {
     }
 
     initLinks(): void {
-        if (!this.shouldInitLinks) {
+        if (this.hasInitialized) {
             return;
         }
         if (this.hidden) {
@@ -148,7 +131,7 @@ export class LinkConnectorNode extends DataMapperNodeModel {
                     this.getModel().addAll(lm as any);
 
                     if (!this.label) {
-                        this.label = this.targetMappedPort.attributes.fieldFQN.split('.').pop();
+                        this.label = this.targetMappedPort.fieldFQN.split('.').pop();
                     }
                 })
             }
@@ -199,13 +182,13 @@ export class LinkConnectorNode extends DataMapperNodeModel {
                 })
 
                 if (!this.label) {
-                    const fieldFQN = this.targetMappedPort.attributes.fieldFQN;
-                    this.label = fieldFQN ? this.targetMappedPort.attributes.fieldFQN.split('.').pop() : '';
+                    const fieldFQN = this.targetMappedPort.fieldFQN;
+                    this.label = fieldFQN ? this.targetMappedPort.fieldFQN.split('.').pop() : '';
                 }
                 this.getModel().addAll(lm as any);
             }
         }
-        this.shouldInitLinks = false;
+        this.hasInitialized = true;
     }
 
     async updateSource(suffix: string): Promise<void> {
@@ -224,6 +207,6 @@ export class LinkConnectorNode extends DataMapperNodeModel {
     }
 
     public async deleteLink(): Promise<void> {
-        await removeMapping(this.mapping, this.context);
+        await removeMapping(this.mapping.output, this.context);
     }
 }

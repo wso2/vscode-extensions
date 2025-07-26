@@ -206,7 +206,7 @@ async function generateTreeDataOfArtifacts(project: vscode.WorkspaceFolder, data
 
 		parentEntry.children = children;
 		parentEntry.contextValue = artifactConfig.contextValue;
-		parentEntry.id = `${project.name}/${artifactConfig.contextValue}/${project.uri.fsPath}`;
+		parentEntry.id = `${project.name}/${artifactConfig.contextValue}`;
 
 		if (!children || children.length === 0) continue;
 		projectRoot.children.push(parentEntry);
@@ -550,13 +550,13 @@ function generateArtifacts(
 			case 'Class Mediators': {
 				const javaPath = path.join(project.uri.fsPath, 'src', 'main', 'java');
 				const mediators = findJavaFiles(javaPath);
-				parentEntry.id = `class-mediator/${project.uri.fsPath}`;
+				parentEntry.id = 'class-mediator';
 				parentEntry.children = generateTreeDataOfClassMediator(project, projectStructure);
 				parentEntry.contextValue = 'class-mediators';
 				break;
 			}
 			case 'Ballerina Modules': {
-				parentEntry.id = `ballerina-module/${project.uri.fsPath}`;
+				parentEntry.id = 'ballerina-module';
 				parentEntry.children = generateTreeDataOfBallerinaModule(project, projectStructure,
 					data[key].filter(file => file.name !== "Ballerina.toml"));
 				parentEntry.contextValue = 'ballerina-modules';
@@ -564,7 +564,7 @@ function generateArtifacts(
 			}
 			case 'Data Mappers': {
 				parentEntry.contextValue = 'data-mappers';
-				parentEntry.id = `data-mapper/${project.uri.fsPath}`;
+				parentEntry.id = 'data-mapper';
 				parentEntry.children = data[key].map((folder: any) => {
 					const explorerEntry = new ProjectExplorerEntry(
 						folder.name,

@@ -16,7 +16,8 @@
  * under the License.
  */
 
-import { FlowNode, CurrentBreakpointsResponse as BreakpointInfo, BaseVisitor } from "@wso2/ballerina-core";
+import { FlowNode, CurrentBreakpointsResponse as BreakpointInfo } from "@wso2/ballerina-core";
+import { BaseVisitor } from "./BaseVisitor";
 
 
 export class BreakpointVisitor implements BaseVisitor {
