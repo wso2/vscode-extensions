@@ -115,10 +115,9 @@ import * as vscode from "vscode";
 import { Messenger } from "vscode-messenger";
 import { BROADCAST } from "vscode-messenger-common";
 import { registerChoreoRpcResolver } from "../choreo-rpc";
-import { getChoreoEnv, getChoreoExecPath } from "../choreo-rpc/cli-install";
+import { getChoreoExecPath } from "../choreo-rpc/cli-install";
 import { quickPickWithLoader } from "../cmds/cmd-utils";
 import { submitCreateComponentHandler } from "../cmds/create-component-cmd";
-import { choreoEnvConfig } from "../config";
 import { ext } from "../extensionVariables";
 import { initGit } from "../git/main";
 import { getGitHead, getGitRemotes, getGitRoot, hasDirtyRepo, removeCredentialsFromGitURL } from "../git/util";
@@ -128,16 +127,7 @@ import { contextStore } from "../stores/context-store";
 import { dataCacheStore } from "../stores/data-cache-store";
 import { webviewStateStore } from "../stores/webview-state-store";
 import { sendTelemetryEvent, sendTelemetryException } from "../telemetry/utils";
-import {
-	delay,
-	getConfigFileDrifts,
-	getNormalizedPath,
-	getSubPath,
-	goTosource,
-	readLocalEndpointsConfig,
-	readLocalProxyConfig,
-	saveFile,
-} from "../utils";
+import { getConfigFileDrifts, getNormalizedPath, getSubPath, goTosource, readLocalEndpointsConfig, readLocalProxyConfig, saveFile } from "../utils";
 
 // Register handlers
 function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | WebviewView) {
@@ -199,11 +189,14 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		vscode.env.openExternal(vscode.Uri.parse(url));
 	});
 	messenger.onRequest(OpenExternalChoreo, (choreoPath: string) => {
-		if (webviewStateStore.getState().state.extensionName === "Devant") {
-			vscode.env.openExternal(vscode.Uri.joinPath(vscode.Uri.parse(choreoEnvConfig.getDevantUrl()), choreoPath));
-		} else {
-			vscode.env.openExternal(vscode.Uri.joinPath(vscode.Uri.parse(choreoEnvConfig.getConsoleUrl()), choreoPath));
-		}
+		vscode.env.openExternal(
+			vscode.Uri.joinPath(
+				vscode.Uri.parse(
+					(webviewStateStore.getState().state.extensionName === "Devant" ? ext.config?.devantConsoleUrl : ext.config?.choreoConsoleUrl) || "",
+				),
+				choreoPath,
+			),
+		);
 	});
 	messenger.onRequest(SetWebviewCache, async (params: { cacheKey: string; data: any }) => {
 		await ext.context.workspaceState.update(params.cacheKey, params.data);
@@ -281,7 +274,7 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		async (params: { orgName: string; projectName: string; componentName: string; deploymentTrackName: string; envName: string; type: string }) => {
 			const { orgName, projectName, componentName, deploymentTrackName, envName, type } = params;
 			// todo: export the env from here
-			if (getChoreoEnv() !== "prod") {
+			if (ext.choreoEnv !== "prod") {
 				window.showErrorMessage(
 					"Choreo extension currently displays runtime logs is only if 'WSO2.Platform.Advanced.ChoreoEnvironment' is set to 'prod'",
 				);
@@ -302,16 +295,16 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		return Buffer.from(JSON.stringify(state), "binary").toString("base64");
 	};
 	messenger.onRequest(TriggerGithubAuthFlow, async (orgId: string) => {
-		const { authUrl, clientId, redirectUrl, devantRedirectUrl } = choreoEnvConfig.getGHAppConfig();
 		const extName = webviewStateStore.getState().state.extensionName;
+		const baseUrl = extName === "Devant" ? ext.config?.devantConsoleUrl : ext.config?.choreoConsoleUrl;
+		const redirectUrl = `${baseUrl}/ghapp`;
 		const state = await _getGithubUrlState(orgId);
-		const ghURL = Uri.parse(`${authUrl}?redirect_uri=${extName === "Devant" ? devantRedirectUrl : redirectUrl}&client_id=${clientId}&state=${state}`);
+		const ghURL = Uri.parse(`${ext.config?.ghApp.authUrl}?redirect_uri=${redirectUrl}&client_id=${ext.config?.ghApp.clientId}&state=${state}`);
 		await env.openExternal(ghURL);
 	});
 	messenger.onRequest(TriggerGithubInstallFlow, async (orgId: string) => {
-		const { installUrl } = choreoEnvConfig.getGHAppConfig();
 		const state = await _getGithubUrlState(orgId);
-		const ghURL = Uri.parse(`${installUrl}?state=${state}`);
+		const ghURL = Uri.parse(`${ext.config?.ghApp.installUrl}?state=${state}`);
 		await env.openExternal(ghURL);
 	});
 	messenger.onRequest(SubmitComponentCreate, submitCreateComponentHandler);

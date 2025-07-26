@@ -16,6 +16,7 @@
  * under the License.
  */
 
+import type { GetCliRpcResp } from "@wso2/wso2-platform-core";
 import type { ExtensionContext, StatusBarItem } from "vscode";
 import type { PlatformExtensionApi } from "./PlatformExtensionApi";
 import type { ChoreoRPCClient } from "./choreo-rpc";
@@ -25,6 +26,12 @@ export class ExtensionVariables {
 	public context!: ExtensionContext;
 	public api!: PlatformExtensionApi;
 	public statusBarItem!: StatusBarItem;
+	public config?: GetCliRpcResp;
+	public choreoEnv: string;
+
+	public constructor() {
+		this.choreoEnv = "prod";
+	}
 
 	public clients!: {
 		rpcClient: ChoreoRPCClient;

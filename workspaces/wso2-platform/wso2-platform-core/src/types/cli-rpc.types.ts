@@ -450,6 +450,17 @@ export interface GetAuthorizedGitOrgsResp {
 	gitOrgs: GithubOrganization[];
 }
 
+export interface GetCliRpcResp {
+	billingConsoleUrl: string;
+	choreoConsoleUrl: string;
+	devantConsoleUrl: string;
+	ghApp: {
+		installUrl: string;
+		authUrl: string;
+		clientId: string;
+	};
+}
+
 export interface IChoreoRPCClient {
 	getComponentItem(params: GetComponentItemReq): Promise<ComponentKind>;
 	getDeploymentTracks(params: GetDeploymentTracksReq): Promise<DeploymentTrack[]>;

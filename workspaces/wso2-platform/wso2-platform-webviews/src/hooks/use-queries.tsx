@@ -47,12 +47,12 @@ export const queryKeys = {
 		"has-config-drift",
 		{ directoryPath, component: component?.metadata?.id, branch },
 	],
-	getProjectEnvs: (project: Project, org: Organization) => ["get-project-envs", { organization: org.handle, project: project.handler }],
+	getProjectEnvs: (project: Project, org: Organization) => ["get-project-envs", { organization: org.uuid, project: project.id }],
 	getTestKey: (endpointApimId: string, env: Environment, org: Organization) => [
 		"get-test-key",
-		{ endpoint: endpointApimId, env: env.id, org: org.handle },
+		{ endpoint: endpointApimId, env: env.id, org: org.uuid },
 	],
-	getSwaggerSpec: (apiRevisionId: string, org: Organization) => ["get-swagger-spec", { selectedEndpoint: apiRevisionId, org: org.handle }],
+	getSwaggerSpec: (apiRevisionId: string, org: Organization) => ["get-swagger-spec", { selectedEndpoint: apiRevisionId, org: org.uuid }],
 	getBuildPacks: (selectedType: string, org: Organization) => ["build-packs", { selectedType, orgId: org?.id }],
 	getAuthorizedGitOrgs: (orgId: string, credRef = "") => ["get-authorized-github-orgs", { orgId, credRef }],
 	getGitBranches: (repoUrl: string, org: Organization, credRef: string, isAccessible: boolean) => [
@@ -61,16 +61,16 @@ export const queryKeys = {
 	],
 	getDeployedEndpoints: (deploymentTrack: DeploymentTrack, component: ComponentKind, org: Organization) => [
 		"get-deployed-endpoints",
-		{ organization: org.handle, component: component.metadata.id, deploymentTrackId: deploymentTrack?.id },
+		{ organization: org.uuid, component: component.metadata.id, deploymentTrackId: deploymentTrack?.id },
 	],
 	getProxyDeploymentInfo: (component: ComponentKind, org: Organization, env: Environment, apiVersion: ApiVersion) => [
 		"get-proxy-deployment-info",
-		{ org: org.handle, component: component.metadata.id, env: env?.id, apiVersion: apiVersion?.id },
+		{ org: org.uuid, component: component.metadata.id, env: env?.id, apiVersion: apiVersion?.id },
 	],
 	getDeploymentStatus: (deploymentTrack: DeploymentTrack, component: ComponentKind, org: Organization, env: Environment) => [
 		"get-deployment-status",
 		{
-			organization: org.handle,
+			organization: org.uuid,
 			component: component.metadata.id,
 			deploymentTrackId: deploymentTrack?.id,
 			envId: env.id,
@@ -79,28 +79,28 @@ export const queryKeys = {
 	getWorkflowStatus: (org: Organization, env: Environment, buildId: string) => [
 		"get-workflow-status",
 		{
-			organization: org?.handle,
+			organization: org?.uuid,
 			envId: env?.id,
 			buildId,
 		},
 	],
 	getBuilds: (deploymentTrack: DeploymentTrack, component: ComponentKind, project: Project, org: Organization) => [
 		"get-builds",
-		{ component: component.metadata.id, organization: org.handle, project: project.handler, branch: deploymentTrack?.branch },
+		{ component: component.metadata.id, organization: org.uuid, project: project.id, branch: deploymentTrack?.branch },
 	],
 	getBuildsLogs: (component: ComponentKind, project: Project, org: Organization, build: BuildKind) => [
 		"get-build-logs",
-		{ component: component.metadata.id, organization: org.handle, project: project.handler, build: build?.status?.runId },
+		{ component: component.metadata.id, organization: org.uuid, project: project.id, build: build?.status?.runId },
 	],
 	getComponentConnections: (component: ComponentKind, project: Project, org: Organization) => [
 		"get-component-connections",
-		{ component: component.metadata.id, organization: org.handle, project: project.handler },
+		{ component: component.metadata.id, organization: org.uuid, project: project.id },
 	],
-	useComponentList: (project: Project, org: Organization) => ["get-components", { organization: org.handle, project: project.handler }],
-	getProjectConnections: (project: Project, org: Organization) => ["get-project-connections", { organization: org.handle, project: project.handler }],
+	useComponentList: (project: Project, org: Organization) => ["get-components", { organization: org.uuid, project: project.id }],
+	getProjectConnections: (project: Project, org: Organization) => ["get-project-connections", { organization: org.uuid, project: project.id }],
 	getAutoBuildStatus: (component: ComponentKind, deploymentTrack: DeploymentTrack, org: Organization) => [
 		"get-auto-build-status",
-		{ component: component.metadata.id, organization: org.handle, versionId: deploymentTrack?.id },
+		{ component: component.metadata.id, organization: org.uuid, versionId: deploymentTrack?.id },
 	],
 };
 
