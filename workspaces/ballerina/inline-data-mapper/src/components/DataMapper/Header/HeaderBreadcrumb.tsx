@@ -25,22 +25,26 @@ import { extractLastPartFromLabel } from './utils';
 
 const useStyles = () => {
     const baseStyle = {
-        color: "inherit",
-        fontFamily: "var(--vscode-editor-font-family)",
-        fontSize: "13px"
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis'
     };
 
     return {
+        baseStyle,
         active: css({
             ...baseStyle,
-            cursor: "default"
+            cursor: "default",
+            lineHeight: "unset",
+            color: "inherit",
         }),
         link: css({
             ...baseStyle,
             cursor: "pointer",
+            color: "inherit",
             "&:hover": {
-                color: "var(--vscode-textLink-activeForeground)"
-            }
+                color: "inherit"
+            },
         })
     };
 };
@@ -57,21 +61,20 @@ export default function HeaderBreadcrumb(props: HeaderBreadcrumbProps) {
     const [activeLink, links] = useMemo(() => {
         if (views) {
             const focusedView = views[views.length - 1];
-            const isFocusedOnSubMappingRoot = focusedView?.subMappingInfo?.focusedOnSubMappingRoot;
             const otherViews = views.slice(0, -1);
-            let isRootView = views.length === 1;
+            let isFnDef = views.length === 1;
             let label = extractLastPartFromLabel(focusedView.label);
 
             const selectedLink = (
                 <div className={classes.active}>
-                    {isRootView ? label : `${label}:${isFocusedOnSubMappingRoot ? "SubMapping" : "Query"}`}
+                    {isFnDef ? label : 'Map'}
                 </div>
             );
 
             const restLinks = otherViews.length > 0 && (
                 otherViews.map((view, index) => {
                     label = view.label;
-                    isRootView = index === 0;
+                    isFnDef = index === 0;
                     return (
                         <a
                             data-index={index}
@@ -80,7 +83,7 @@ export default function HeaderBreadcrumb(props: HeaderBreadcrumbProps) {
                             className={classes.link}
                             data-testid={`dm-header-breadcrumb-${index}`}
                         >
-                            {isRootView ? label : `${label}:${view.subMappingInfo ? "SubMapping" : "Query"}`}
+                            {isFnDef ? label : 'Map'}
                         </a>
                     );
                 })
@@ -101,6 +104,7 @@ export default function HeaderBreadcrumb(props: HeaderBreadcrumbProps) {
         <Breadcrumbs
             maxItems={3}
             separator={<Codicon name="chevron-right" />}
+            sx={{ width: '82%' }}
         >
             {links}
             {activeLink}

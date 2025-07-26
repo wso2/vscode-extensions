@@ -25,12 +25,11 @@ import {
     VisualizerAPI,
     addToHistory,
     addToUndoStack,
-    getHistory,
     getThemeKind,
+    getHistory,
     goBack,
     goHome,
     goSelected,
-    joinProjectPath,
     openView,
     redo,
     undo,
@@ -80,10 +79,6 @@ export class VisualizerRpcClient implements VisualizerAPI {
 
     addToUndoStack(source: string): void {
         return this._messenger.sendNotification(addToUndoStack, HOST_EXTENSION, source);
-    }
-
-    joinProjectPath(segments: string | string[]): Promise<string> {
-        return this._messenger.sendRequest(joinProjectPath, HOST_EXTENSION, segments);
     }
 
     updateUndoRedoManager(params: UpdateUndoRedoMangerRequest): void {

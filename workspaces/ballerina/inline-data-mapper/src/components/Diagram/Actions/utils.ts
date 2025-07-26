@@ -20,32 +20,22 @@ import { BaseModel } from "@projectstorm/react-canvas-core";
 import {
     ObjectOutputNode,
     InputNode,
-    ArrayOutputNode,
-    PrimitiveOutputNode,
-    QueryExprConnectorNode,
-    LinkConnectorNode,
-    QueryOutputNode,
-    SubMappingNode
+    ArrayOutputNode
 } from "../Node";
 import { IO_NODE_DEFAULT_WIDTH } from "../utils/constants";
+import { DataMapperNodeModel } from "../Node/commons/DataMapperNode";
 import { DataMapperLinkModel } from "../Link";
 
 export const INPUT_NODES = [
-    InputNode,
-    SubMappingNode
+    InputNode
 ];
 
 export const OUTPUT_NODES = [
     ObjectOutputNode,
-    ArrayOutputNode,
-    PrimitiveOutputNode,
-    QueryOutputNode
+    ArrayOutputNode
 ];
 
-export const INTERMEDIATE_NODES = [
-    LinkConnectorNode,
-    QueryExprConnectorNode
-];
+export const INTERMEDIATE_NODES: typeof DataMapperNodeModel[] = [];
 
 export const MIN_VISIBLE_HEIGHT = 68;
 export const INPUT_NODE_DEFAULT_RIGHT_X = IO_NODE_DEFAULT_WIDTH;

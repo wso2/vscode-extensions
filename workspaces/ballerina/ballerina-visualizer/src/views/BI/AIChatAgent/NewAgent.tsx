@@ -74,7 +74,7 @@ export function NewAgent(props: NewAgentProps): JSX.Element {
         setLoading(true);
         // get agent file path
         const filePath = await rpcClient.getVisualizerLocation();
-        agentFilePath.current = await rpcClient.getVisualizerRpcClient().joinProjectPath("agents.bal");
+        agentFilePath.current = Utils.joinPath(URI.file(filePath.projectUri), "agents.bal").fsPath;
         // get main file path
         mainFilePath.current = Utils.joinPath(URI.file(filePath.projectUri), "main.bal").fsPath;
         // get agent org

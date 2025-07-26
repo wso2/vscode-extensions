@@ -15,34 +15,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { CustomFnMetadata, ExpandedDMModel, LineRange, Mapping } from "@wso2/ballerina-core";
+import { IDMModel, Mapping } from "@wso2/ballerina-core";
 import { View } from "../../components/DataMapper/Views/DataMapperView";
 
 export interface IDataMapperContext {
-    model: ExpandedDMModel;
+    model: IDMModel;
     views: View[];
     addView: (view: View) => void;
-    applyModifications: (outputId: string, expression: string, viewId: string, name: string) => Promise<void>;
-    addArrayElement: (outputId: string, viewId: string, name: string) => Promise<void>;
-    hasInputsOutputsChanged: boolean;
-    convertToQuery: (outputId: string, viewId: string, name: string) => Promise<void>;
-    deleteMapping: (mapping: Mapping, viewId: string) => Promise<void>;
-    mapWithCustomFn: (mapping: Mapping, metadata: CustomFnMetadata, viewId: string) => Promise<void>;
-    goToFunction: (functionRange: LineRange) => Promise<void>;
+    applyModifications: (mappings: Mapping[]) => Promise<void>;
+    addArrayElement: (targetField: string) => Promise<void>;
 }
 
 export class DataMapperContext implements IDataMapperContext {
 
     constructor(
-        public model: ExpandedDMModel,
+        public model: IDMModel,
         public views: View[] = [],
         public addView: (view: View) => void,
-        public applyModifications: (outputId: string, expression: string, viewId: string, name: string) => Promise<void>,
-        public addArrayElement: (outputId: string, viewId: string, name: string) => Promise<void>,
-        public hasInputsOutputsChanged: boolean = false,
-        public convertToQuery: (outputId: string, viewId: string, name: string) => Promise<void>,
-        public deleteMapping: (mapping: Mapping, viewId: string) => Promise<void>,
-        public mapWithCustomFn: (mapping: Mapping, metadata: CustomFnMetadata, viewId: string) => Promise<void>,
-        public goToFunction: (functionRange: LineRange) => Promise<void>
+        public applyModifications: (mappings: Mapping[]) => Promise<void>,
+        public addArrayElement: (targetField: string) => Promise<void>
     ){}
 }

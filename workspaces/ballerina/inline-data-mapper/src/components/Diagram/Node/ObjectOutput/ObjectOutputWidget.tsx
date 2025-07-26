@@ -19,7 +19,7 @@
 import React, { useState } from 'react';
 
 import { DiagramEngine } from '@projectstorm/react-diagrams';
-import { Button, Codicon, TruncatedLabel } from '@wso2/ui-toolkit';
+import { Button, Codicon } from '@wso2/ui-toolkit';
 import { IOType, Mapping } from '@wso2/ballerina-core';
 
 import { IDataMapperContext } from "../../../../utils/DataMapperContext/DataMapperContext";
@@ -29,6 +29,7 @@ import { ObjectOutputFieldWidget } from "./ObjectOutputFieldWidget";
 import { useIONodesStyles } from '../../../styles';
 import { useDMCollapsedFieldsStore, useDMIOConfigPanelStore } from '../../../../store/store';
 import { OutputSearchHighlight } from '../commons/Search';
+import { OutputBeforeInputNotification } from '../commons/OutputBeforeInputNotification';
 import { useShallow } from 'zustand/react/shallow';
 
 export interface ObjectOutputWidgetProps {
@@ -59,6 +60,7 @@ export function ObjectOutputWidget(props: ObjectOutputWidgetProps) {
 
 	const [portState, setPortState] = useState<PortState>(PortState.Unselected);
 	const [isHovered, setIsHovered] = useState(false);
+	const [hasOutputBeforeInput, setHasOutputBeforeInput] = useState(false);
 
 	const collapsedFieldsStore = useDMCollapsedFieldsStore();
 
@@ -76,10 +78,10 @@ export function ObjectOutputWidget(props: ObjectOutputWidgetProps) {
 	const portIn = getPort(`${id}.IN`);
 
 	let expanded = true;
-	if ((portIn && portIn.attributes.collapsed)) {
+	if ((portIn && portIn.collapsed)) {
 		expanded = false;
 	}
-	const isDisabled = portIn?.attributes.descendantHasValue;
+	const isDisabled = portIn?.descendantHasValue;
 
 	const indentation = (portIn && (!hasFields || !expanded)) ? 0 : 24;
 
@@ -96,6 +98,10 @@ export function ObjectOutputWidget(props: ObjectOutputWidgetProps) {
 		setPortState(state)
 	};
 
+	const handlePortSelection = (outputBeforeInput: boolean) => {
+		setHasOutputBeforeInput(outputBeforeInput);
+	};
+
 	const onMouseEnter = () => {
 		setIsHovered(true);
 	};
@@ -105,16 +111,17 @@ export function ObjectOutputWidget(props: ObjectOutputWidgetProps) {
 	};
 
 	const label = (
-		<TruncatedLabel style={{ marginRight: "auto" }}>
+		<span style={{ marginRight: "auto" }}>
 			{valueLabel && (
-				<span className={classes.valueLabelHeader}>
+				<span className={classes.valueLabel}>
 					<OutputSearchHighlight>{valueLabel}</OutputSearchHighlight>
+					{typeName && ":"}
 				</span>
 			)}
-			<span className={classes.typeLabel}>
+			<span className={classes.outputTypeLabel}>
 				{typeName || ''}
 			</span>
-		</TruncatedLabel>
+		</span>
 	);
 
 	const onRightClick = (event: React.MouseEvent) => {
@@ -139,6 +146,7 @@ export function ObjectOutputWidget(props: ObjectOutputWidgetProps) {
 								engine={engine}
 								port={portIn}
 								handlePortState={handlePortState}
+								hasFirstSelectOutput={handlePortSelection}
 								disable={isDisabled && !expanded}
 							/>)
 						}
@@ -156,6 +164,7 @@ export function ObjectOutputWidget(props: ObjectOutputWidgetProps) {
 						</Button>
 						{label}
 					</span>
+                    {hasOutputBeforeInput && <OutputBeforeInputNotification />}
 				</TreeHeader>
 				{(expanded && fields) && (
 					<TreeBody>

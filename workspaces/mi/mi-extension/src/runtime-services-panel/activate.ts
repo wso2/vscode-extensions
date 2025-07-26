@@ -19,13 +19,15 @@
 import * as vscode from 'vscode';
 import { RuntimeServicesWebview } from './webview';
 import { COMMANDS } from '../constants';
-import { webviews } from '../visualizer/webview';
+import { askForProject } from '../util/workspace';
 
-export function activateRuntimeService(context: vscode.ExtensionContext, firstProject: string) {
+export function activateRuntimeService(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand(COMMANDS.OPEN_RUNTIME_VIEW, async (projectUri: string) => {
-            const webview = [...webviews.values()].find(webview => webview.getWebview()?.active);
-            openRuntimeServicesWebview(webview ? webview.getProjectUri() : firstProject);
+            if (!projectUri) {
+                projectUri = await askForProject();
+            }
+            openRuntimeServicesWebview(projectUri);
         })
     );
 }

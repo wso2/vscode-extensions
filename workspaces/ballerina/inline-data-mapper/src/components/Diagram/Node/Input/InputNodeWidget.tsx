@@ -18,9 +18,9 @@
 // tslint:disable: jsx-no-multiline-js
 import React, { useState } from "react";
 
-import { Button, Codicon, TruncatedLabel } from "@wso2/ui-toolkit";
+import { Button, Codicon } from "@wso2/ui-toolkit";
 import { DiagramEngine } from '@projectstorm/react-diagrams';
-import { IOType, TypeKind } from "@wso2/ballerina-core";
+import { IOType } from "@wso2/ballerina-core";
 
 import { DataMapperPortWidget, PortState, InputOutputPortModel } from '../../Port';
 import { InputSearchHighlight } from '../commons/Search';
@@ -38,11 +38,10 @@ export interface InputNodeWidgetProps {
     getPort: (portId: string) => InputOutputPortModel;
     valueLabel?: string;
     nodeHeaderSuffix?: string;
-    focusedInputs?: string[];
 }
 
 export function InputNodeWidget(props: InputNodeWidgetProps) {
-    const { engine, dmType, id, getPort, valueLabel, nodeHeaderSuffix, focusedInputs } = props;
+    const { engine, dmType, id, getPort, valueLabel, nodeHeaderSuffix } = props;
     
     const [portState, setPortState] = useState<PortState>(PortState.Unselected);
     const [isHovered, setIsHovered] = useState(false);
@@ -63,30 +62,23 @@ export function InputNodeWidget(props: InputNodeWidgetProps) {
 
     const hasFields = !!dmType?.fields?.length;
 
-    let fields: IOType[];
-
-    if (dmType.kind === TypeKind.Record) {
-        fields = dmType.fields;
-    } else if (dmType.kind === TypeKind.Array) {
-        fields = [ dmType.member ];
-    }
-
     let expanded = true;
-    if (portOut && portOut.attributes.collapsed) {
+    if (portOut && portOut.collapsed) {
         expanded = false;
     }
 
     const label = (
-        <TruncatedLabel style={{ marginRight: "auto" }}>
-            <span className={classes.valueLabelHeader}>
+        <span style={{ marginRight: "auto" }}>
+            <span className={classes.valueLabel}>
                 <InputSearchHighlight>{valueLabel ? valueLabel : id}</InputSearchHighlight>
+                {typeName && ":"}
             </span>
             {typeName && (
-                <span className={classes.typeLabel}>
+                <span className={classes.inputTypeLabel}>
                     {typeName}
                 </span>
             )}
-        </TruncatedLabel>
+        </span>
     );
 
     const handleExpand = () => {
@@ -159,7 +151,6 @@ export function InputNodeWidget(props: InputNodeWidgetProps) {
                                     parentId={id}
                                     treeDepth={0}
                                     hasHoveredParent={isHovered}
-                                    focusedInputs={focusedInputs}
                                 />
                             );
                         })

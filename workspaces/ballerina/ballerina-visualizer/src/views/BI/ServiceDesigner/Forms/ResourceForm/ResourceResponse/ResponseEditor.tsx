@@ -60,9 +60,7 @@ export function ResponseEditor(props: ParamProps) {
         rpcClient.getServiceDesignerRpcClient().getResourceReturnTypes({ filePath: undefined, context: undefined }).then((res) => {
             console.log("Resource Return Types: ", res);
             setResponseCodes(res.completions);
-            rpcClient.getVisualizerRpcClient().joinProjectPath('main.bal').then((filePath) => {
-                setFilePath(filePath);
-            });
+            rpcClient.getVisualizerLocation().then(res => { setFilePath(Utils.joinPath(URI.file(res.projectUri), 'main.bal').fsPath) });
         });
     }, []);
 

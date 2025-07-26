@@ -94,9 +94,7 @@ export function ListenerConfigForm(props: ListenerConfigFormProps) {
         setRecordTypeFields(recordTypeFields);
 
         listenerModel && setListenerFields(convertConfig(listenerModel));
-        rpcClient.getVisualizerRpcClient().joinProjectPath('main.bal').then((filePath) => {
-            setFilePath(filePath);
-        });
+        rpcClient.getVisualizerLocation().then(res => { setFilePath(Utils.joinPath(URI.file(res.projectUri), 'main.bal').fsPath) });
     }, [listenerModel]);
 
     const handleListenerSubmit = async (data: FormValues, formImports: FormImports) => {

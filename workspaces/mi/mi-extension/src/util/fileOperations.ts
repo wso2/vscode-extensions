@@ -184,20 +184,16 @@ export async function handleOpenFile(projectUri: string, sampleName: string, rep
             }
         }).on("close", () => {
             console.log("Extraction complete!");
+            let uri = Uri.file(path.join(selectedPath, sampleName));
             window.showInformationMessage('Where would you like to open the project?',
                 { modal: true },
-                'Current Window',
+                'This Window',
                 'New Window'
-            ).then(selection => {
-                if (selection === "Current Window") {
-                    const folderUri = Uri.file(path.join(selectedPath, sampleName));
-                    const workspaceFolders = workspace.workspaceFolders || [];
-                    if (!workspaceFolders.some(folder => folder.uri.fsPath === folderUri.fsPath)) {
-                        workspace.updateWorkspaceFolders(workspaceFolders.length, 0, { uri: folderUri });
-                    }
-                } else if (selection === "New Window") {
-                    commands.executeCommand('vscode.openFolder', Uri.file(path.join(selectedPath, sampleName)));
+            ).then((selection) => {
+                if (selection === undefined) {
+                    return;
                 }
+                commands.executeCommand("vscode.openFolder", uri, selection === 'New Window');
             });
         });
         window.showInformationMessage(

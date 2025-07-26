@@ -42,13 +42,13 @@ export class ObjectOutputNodeFactory extends AbstractReactFactory<ObjectOutputNo
 					<ObjectOutputWidget
 						engine={this.engine}
 						id={`${OBJECT_OUTPUT_TARGET_PORT_PREFIX}.${event.model.rootName}`}
-						outputType={event.model.filteredOutputType}
+						outputType={event.model.outputType}
 						typeName={event.model.typeName}
 						value={undefined}
 						getPort={(portId: string) => event.model.getPort(portId) as InputOutputPortModel}
 						context={event.model.context}
-						mappings={event.model.filteredMappings}
-						valueLabel={event.model.filteredOutputType.id}
+						mappings={event.model.filterdMappings}
+						valueLabel={event.model.outputType.id}
 						originalTypeName={event.model.filteredOutputType?.variableName}
 					/>
 				)}

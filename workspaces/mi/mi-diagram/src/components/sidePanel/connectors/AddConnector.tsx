@@ -177,13 +177,6 @@ const AddConnector = (props: AddConnectorProps) => {
         sidePanelContext.pageStack.length > 1 ? sidepanelGoBack(sidePanelContext) : clearSidePanelState(sidePanelContext);
     }
 
-    const getFormData = () => {
-        if (connectionName) {
-            setValue('configRef', connectionName);
-        }
-        return formData;
-    };
-
     const onClick = async (values: any) => {
         setDiagramLoading(true);
 
@@ -312,7 +305,7 @@ const AddConnector = (props: AddConnectorProps) => {
                         {/* {renderForm(props.formData.elements)} */}
                         <FormGenerator
                             documentUri={props.documentUri}
-                            formData={getFormData()}
+                            formData={formData}
                             connectorName={props.connectorName}
                             control={control}
                             errors={errors}

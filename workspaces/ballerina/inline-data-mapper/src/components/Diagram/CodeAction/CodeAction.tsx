@@ -23,36 +23,31 @@ import { CodeActionTooltip } from "./CodeActionTooltip";
 
 export interface CodeAction {
     title: string;
-    onClick: () => Promise<void>;
+    onClick: () => void;
 }
 
 export interface CodeActionWidgetProps {
     codeActions: CodeAction[];
     isConfiguration?: boolean;
-	collectClauseFn?: string;
-    sx?: React.CSSProperties;
+    btnSx?: React.CSSProperties;
 }
 
 export function CodeActionWidget(props: CodeActionWidgetProps) {
-    const { codeActions, isConfiguration, collectClauseFn, sx } = props;
+    const { codeActions, isConfiguration, btnSx } = props;
 
     return (
         <CodeActionTooltip codeActions={codeActions}>
-            {collectClauseFn ? (
-                <span style={sx}>{collectClauseFn}</span>
-            ) : (
-                <Button
-                    appearance="icon"
-                    data-testid={`data-mapper-code-action`}
-                    sx={{ ...sx, userSelect: "none", pointerEvents: "auto" }}
-                >
-                    <Codicon
-                        name={isConfiguration ? "settings-gear" : "lightbulb"}
-                        sx={{ height: "18px", width: "18px" }}
-                        iconSx={{ fontSize: "17px", color: "var(--vscode-input-placeholderForeground)" }}
-                    />
-                </Button>
-            )}
+            <Button
+                appearance="icon"
+                data-testid={`data-mapper-code-action`}
+                sx={{ ...btnSx, userSelect: "none", pointerEvents: "auto" }}
+            >
+                <Codicon
+                    name={isConfiguration ? "settings-gear" : "lightbulb"}
+                    sx={{ height: "18px", width: "18px" }}
+                    iconSx={{ fontSize: "17px", color: "var(--vscode-input-placeholderForeground)" }}
+                />
+            </Button>
         </CodeActionTooltip>
     );
 }

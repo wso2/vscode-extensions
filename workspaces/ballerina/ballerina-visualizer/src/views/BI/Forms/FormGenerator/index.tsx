@@ -34,9 +34,7 @@ import {
     ExpressionProperty,
     Type,
     RecordTypeField,
-    Imports,
-    CodeData,
-    VisualizableField
+    Imports
 } from "@wso2/ballerina-core";
 import {
     FormField,
@@ -66,7 +64,7 @@ import {
     filterUnsupportedDiagnostics,
     getFormProperties,
     getImportsForFormFields,
-    calculateExpressionOffsets,
+    getInfoFromExpressionValue,
     injectHighlightTheme,
     removeDuplicateDiagnostics,
     updateLineRange,
@@ -103,7 +101,7 @@ interface FormProps {
     editForm?: boolean;
     isGraphql?: boolean;
     submitText?: string;
-    onSubmit: (node?: FlowNode, openInDataMapper?: boolean, formImports?: FormImports, rawFormValues?: FormValues) => void;
+    onSubmit: (node?: FlowNode, isDataMapper?: boolean, formImports?: FormImports, rawFormValues?: FormValues) => void;
     showProgressIndicator?: boolean;
     subPanelView?: SubPanelView;
     openSubPanel?: (subPanel: SubPanel) => void;
@@ -175,7 +173,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
     const [fields, setFields] = useState<FormField[]>([]);
     const [formImports, setFormImports] = useState<FormImports>({});
     const [typeEditorState, setTypeEditorState] = useState<TypeEditorState>({ isOpen: false, newTypeValue: "" });
-    const [visualizableField, setVisualizableField] = useState<VisualizableField>();
+    const [visualizableFields, setVisualizableFields] = useState<string[]>([]);
     const [recordTypeFields, setRecordTypeFields] = useState<RecordTypeField[]>([]);
 
     /* Expression editor related state and ref variables */
@@ -185,7 +183,6 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
     const [types, setTypes] = useState<CompletionItem[]>([]);
     const [filteredTypes, setFilteredTypes] = useState<CompletionItem[]>([]);
     const expressionOffsetRef = useRef<number>(0); // To track the expression offset on adding import statements
-    const importsCodedataRef = useRef<any>(null); // To store codeData for getVisualizableFields
 
     useEffect(() => {
         if (rpcClient) {
@@ -265,15 +262,12 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             }
         }
 
-        if (node.codedata.node === "VARIABLE") {
-            const codedata = importsCodedataRef.current || { symbol: formProperties?.type.value };
-            rpcClient
-                .getInlineDataMapperRpcClient()
-                .getVisualizableFields({ filePath: fileName, codedata })
-                .then((res) => {
-                    setVisualizableField(res.visualizableProperties);
-                });
-        }
+        rpcClient
+            .getInlineDataMapperRpcClient()
+            .getVisualizableFields({ filePath: fileName, flowNode: node, position: targetLineRange.startLine })
+            .then((res) => {
+                setVisualizableFields(res.visualizableProperties);
+            });
 
         // Extract fields with typeMembers where kind is RECORD_TYPE
         const recordTypeFields = Object.entries(formProperties)
@@ -302,8 +296,8 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             const updatedNode = mergeFormDataWithFlowNode(data, targetLineRange, dirtyFields);
             console.log(">>> Updated node", updatedNode);
 
-            const openInDataMapper = data["openInDataMapper"];
-            onSubmit(updatedNode, openInDataMapper, formImports);
+            const isDataMapperFormUpdate = data["isDataMapperFormUpdate"];
+            onSubmit(updatedNode, isDataMapperFormUpdate, formImports, data);
         }
     };
 
@@ -344,10 +338,8 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         setTypeEditorState({ isOpen, fieldKey: editingField?.key, newTypeValue: f[editingField?.key] });
     };
 
-    const handleUpdateImports = (key: string, imports: Imports, codedata?: CodeData) => {
-        importsCodedataRef.current = codedata;
+    const handleUpdateImports = (key: string, imports: Imports) => {
         const importKey = Object.keys(imports)?.[0];
-
         if (Object.keys(formImports).includes(key)) {
             if (importKey && !Object.keys(formImports[key]).includes(importKey)) {
                 const updatedImports = { ...formImports, [key]: { ...formImports[key], ...imports } };
@@ -392,7 +384,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                         })
                         .sort((a, b) => a.sortText.localeCompare(b.sortText));
                 } else {
-                    const { lineOffset, charOffset } = calculateExpressionOffsets(value, offset);
+                    const { lineOffset, charOffset } = getInfoFromExpressionValue(value, offset);
                     let completions = await rpcClient.getBIDiagramRpcClient().getExpressionCompletions({
                         filePath: fileName,
                         context: {
@@ -503,7 +495,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
     );
 
     const extractArgsFromFunction = async (value: string, property: ExpressionProperty, cursorPosition: number) => {
-        const { lineOffset, charOffset } = calculateExpressionOffsets(value, cursorPosition);
+        const { lineOffset, charOffset } = getInfoFromExpressionValue(value, cursorPosition);
         const signatureHelp = await rpcClient.getBIDiagramRpcClient().getSignatureHelp({
             filePath: fileName,
             context: {
@@ -725,13 +717,11 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         handleExpressionEditorCancel,
     ]);
 
-    const fetchVisualizableFields = async (filePath: string, typeName?: string) => {
-        const codedata = importsCodedataRef.current || { symbol: typeName };
+    const fetchVisualizableFields = async (filePath: string, flowNode: FlowNode, position: LinePosition) => {
         const res = await rpcClient
             .getInlineDataMapperRpcClient()
-            .getVisualizableFields({ filePath, codedata});
-        setVisualizableField(res.visualizableProperties);
-        importsCodedataRef.current = {};
+            .getVisualizableFields({ filePath, flowNode, position });
+        setVisualizableFields(res.visualizableProperties);
     };
 
     const handleTypeCreate = (typeName?: string) => {
@@ -837,7 +827,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                     resetUpdatedExpressionField={resetUpdatedExpressionField}
                     mergeFormDataWithFlowNode={mergeFormDataWithFlowNode}
                     handleVisualizableFields={fetchVisualizableFields}
-                    visualizableField={visualizableField}
+                    visualizableFields={visualizableFields}
                     infoLabel={infoLabel}
                     disableSaveButton={disableSaveButton}
                     actionButton={actionButton}

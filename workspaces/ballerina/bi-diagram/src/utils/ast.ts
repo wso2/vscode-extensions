@@ -16,10 +16,8 @@
  * under the License.
  */
 
-import { FlowNode } from "../interfaces/bi";
-
-import { Flow } from "../interfaces/bi";
-import { BaseVisitor } from "./BaseVisitor";
+import { BaseVisitor } from "../visitors/BaseVisitor";
+import { Flow, FlowNode } from "./types";
 
 const metaNodes = ["viewState", "position", "parent"];
 

@@ -55,8 +55,6 @@ import {
     Imports,
     ColorThemeKind,
     CompletionInsertText,
-    SubPanel,
-    SubPanelView
 } from "@wso2/ballerina-core";
 import {
     HelperPaneVariableInfo,
@@ -77,8 +75,6 @@ import { DocSection } from "../components/ExpressionEditor";
 import ballerina from "../languages/ballerina.js";
 import { FUNCTION_REGEX } from "../resources/constants";
 hljs.registerLanguage("ballerina", ballerina);
-
-export const BALLERINA_INTEGRATOR_ISSUES_URL = "https://github.com/wso2/product-ballerina-integrator/issues";
 
 function convertAvailableNodeToPanelNode(node: AvailableNode, functionType?: FUNCTION_TYPE): PanelNode {
     // Check if node should be filtered based on function type
@@ -685,7 +681,7 @@ export function injectHighlightTheme(theme: ColorThemeKind) {
             extractedTheme = "dark";
             break;
     }
-
+    
     const existingTheme = document.getElementById("hljs-theme");
     if (existingTheme) existingTheme.remove();
 
@@ -724,7 +720,7 @@ async function getDocumentation(fnDescription: string, argsDescription: string[]
                 </ReactMarkdown>
             </DocSection>
         ),
-        args:
+        args: 
             <>
                 {argsDescription.map((arg) => (
                     <DocSection key={arg}>
@@ -1015,7 +1011,7 @@ export function getFlowNodeForNaturalFunction(node: FunctionNode): FlowNode {
  * @param expression
  * @returns { lineOffset: number, charOffset: number }
  */
-export function calculateExpressionOffsets(
+export function getInfoFromExpressionValue(
     expression: string,
     cursorPosition: number
 ): { lineOffset: number, charOffset: number } {
@@ -1077,16 +1073,3 @@ export const isDMSupportedType = (type: VisibleTypeItem) => {
 
     return true;
 };
-
-export function getSubPanelWidth(subPanel: SubPanel) {
-    if (!subPanel?.view) {
-        return undefined;
-    }
-    switch (subPanel.view) {
-        case SubPanelView.ADD_NEW_FORM:
-        case SubPanelView.HELPER_PANEL:
-            return 400;
-        default:
-            return undefined;
-    }
-}

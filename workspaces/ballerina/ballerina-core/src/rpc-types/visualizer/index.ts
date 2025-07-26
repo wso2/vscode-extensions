@@ -30,7 +30,6 @@ export interface VisualizerAPI {
     undo: () => Promise<string>;
     redo: () => Promise<string>;
     addToUndoStack: (source: string) => void;
-    joinProjectPath: (segments: string | string[]) => Promise<string>;
     updateUndoRedoManager: (params: UpdateUndoRedoMangerRequest) => void;
     getThemeKind: () => Promise<ColorThemeKind>;
 }

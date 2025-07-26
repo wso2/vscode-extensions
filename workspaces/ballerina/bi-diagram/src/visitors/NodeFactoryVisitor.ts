@@ -15,7 +15,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { BaseVisitor } from "@wso2/ballerina-core";
 
 import { NodeLinkModel, NodeLinkModelOptions } from "../components/NodeLink";
 import { ApiCallNodeModel } from "../components/nodes/ApiCallNode";
@@ -40,6 +39,7 @@ import {
 import { createNodesLink } from "../utils/diagram";
 import { getBranchInLinkId, getBranchLabel, getCustomNodeId, reverseCustomNodeId } from "../utils/node";
 import { Branch, FlowNode, NodeModel } from "../utils/types";
+import { BaseVisitor } from "./BaseVisitor";
 import { EndNodeModel } from "../components/nodes/EndNode";
 import { ErrorNodeModel } from "../components/nodes/ErrorNode";
 import { AgentCallNodeModel } from "../components/nodes/AgentCallNode/AgentCallNodeModel";

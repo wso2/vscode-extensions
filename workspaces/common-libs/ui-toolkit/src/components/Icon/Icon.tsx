@@ -38,16 +38,15 @@ export interface IconProps {
     sx?: any;
     iconSx?: any;
     isCodicon?: boolean;
-    tooltip?: string;
     onClick?: () => void;
 }
 
 export const Icon: React.FC<IconProps> = (props: IconProps) => {
-    const { name, iconSx, isCodicon, tooltip, ...rest } = props;
+    const { name, iconSx, isCodicon, ...rest } = props;
     
     const icon = isCodicon ? <i style= {iconSx} className={`codicon codicon-${name}`} /> : <i style={iconSx} className={`fw-${name}`} />;
     return (
-        <IconContainer title={tooltip} {...rest} >
+        <IconContainer {...rest}>
             {icon}
         </IconContainer>
     );

@@ -18,7 +18,7 @@
 import { Point } from "@projectstorm/geometry";
 import { IOType, Mapping, TypeKind } from "@wso2/ballerina-core";
 
-import { useDMCollapsedFieldsStore, useDMExpandedFieldsStore, useDMSearchStore } from "../../../../store/store";
+import { useDMCollapsedFieldsStore, useDMSearchStore } from "../../../../store/store";
 import { IDataMapperContext } from "../../../../utils/DataMapperContext/DataMapperContext";
 import { ExpressionLabelModel } from "../../Label";
 import { DataMapperLinkModel } from "../../Link";
@@ -37,7 +37,7 @@ const NODE_ID = "array-output-node";
 
 export class ArrayOutputNode extends DataMapperNodeModel {
     public filteredOutputType: IOType;
-    public filteredMappings: Mapping[];
+    public filterdMappings: Mapping[];
     public typeName: string;
     public rootName: string;
     public hasNoMatchingFields: boolean;
@@ -65,50 +65,22 @@ export class ArrayOutputNode extends DataMapperNodeModel {
             this.rootName = this.filteredOutputType?.id;
 
             const collapsedFields = useDMCollapsedFieldsStore.getState().fields;
-            const expandedFields = useDMExpandedFieldsStore.getState().fields;
             this.typeName = getTypeName(this.filteredOutputType);
 
             this.hasNoMatchingFields = hasNoOutputMatchFound(this.outputType, this.filteredOutputType);
 
-            const parentPort = this.addPortsForHeader({
-                dmType: this.filteredOutputType,
-                name: this.rootName,
-                portType: "IN",
-                portPrefix: ARRAY_OUTPUT_TARGET_PORT_PREFIX,
-                mappings,
-                collapsedFields,
-                expandedFields
-            });
+            const parentPort = this.addPortsForHeader(
+                this.filteredOutputType, this.rootName, "IN", ARRAY_OUTPUT_TARGET_PORT_PREFIX, mappings, this.isMapFn
+            );
 
             if (this.filteredOutputType.kind === TypeKind.Array) {
                 const mapping = findMappingByOutput(mappings, this.outputType.id);
                 if (mapping?.elements && mapping.elements.length > 0) {
                     mapping.elements.forEach((element, index) => {
-                        this.addPortsForOutputField({
-                            field: this.outputType.member,
-                            type: "IN",
-                            parentId: this.rootName,
-                            mappings,
-                            portPrefix: ARRAY_OUTPUT_TARGET_PORT_PREFIX,
-                            parent: parentPort,
-                            collapsedFields,
-                            expandedFields,
-                            hidden: parentPort.attributes.collapsed,
-                            elementIndex: index
-                        });
-                    });
-                } else {
-                    this.addPortsForOutputField({
-                        field: { ...this.outputType.member, variableName: this.outputType.variableName + "Item" },
-                        type: "IN",
-                        parentId: this.rootName,
-                        mappings,
-                        portPrefix: ARRAY_OUTPUT_TARGET_PORT_PREFIX,
-                        parent: parentPort,
-                        collapsedFields,
-                        expandedFields,
-                        hidden: parentPort.attributes.collapsed,
-                        isPreview: true
+                        this.addPortsForOutputField(
+                            this.outputType.member, "IN", this.rootName, mappings,
+                            ARRAY_OUTPUT_TARGET_PORT_PREFIX, parentPort, collapsedFields, parentPort.collapsed, index
+                        );
                     });
                 }
             }
@@ -120,10 +92,9 @@ export class ArrayOutputNode extends DataMapperNodeModel {
     }
 
     async initLinks() {
-        const inputSearch = useDMSearchStore.getState().inputSearch;
-        const outputSearch = useDMSearchStore.getState().outputSearch;
-        this.filteredMappings = getFilteredMappings(this.context.model.mappings, inputSearch, outputSearch);
-        this.createLinks(this.filteredMappings);
+        const searchValue = useDMSearchStore.getState().outputSearch;
+        this.filterdMappings = getFilteredMappings(this.context.model.mappings, searchValue);
+        this.createLinks(this.filterdMappings);
     }
 
     private createLinks(mappings: Mapping[]) {
@@ -162,7 +133,7 @@ export class ArrayOutputNode extends DataMapperNodeModel {
                     value: expression,
                     link: lm,
                     context: this.context,
-                    deleteLink: () => this.deleteField(mapping)
+                    deleteLink: () => this.deleteField(output)
                 }));
 
                 lm.registerListener({
@@ -181,8 +152,8 @@ export class ArrayOutputNode extends DataMapperNodeModel {
         });
     }
 
-    async deleteField(mapping: Mapping) {
-        await removeMapping(mapping, this.context);
+    async deleteField(field: string) {
+        await removeMapping(field, this.context);
     }
 
     public updatePosition() {
