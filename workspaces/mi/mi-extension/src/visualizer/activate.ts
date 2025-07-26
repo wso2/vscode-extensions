@@ -107,7 +107,8 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
     );
     context.subscriptions.push(
         vscode.commands.registerCommand(COMMANDS.OPEN_WELCOME, () => {
-            openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.Welcome });
+            const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
+            openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.Welcome, projectUri: webview ? webview.getProjectUri() : firstProject });
         })
     );
     // Activate editor/title items
