@@ -16,6 +16,9 @@
             "form-data": "^4.0.4"
         }
     },
+    "dependencies": {
+        "axios": "0.21.0"
+    },
     "scripts": {
         "prebuild": "pnpm run init-submodules && rush install",
         "init-submodules": "git submodule update --init --recursive && git submodule foreach git pull origin master",
