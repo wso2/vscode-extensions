@@ -18,7 +18,7 @@
 
 import * as vscode from 'vscode';
 import { extension } from "../../BalExtensionContext";
-import { AUTH_CLIENT_ID, AUTH_ORG } from '../../features/ai/utils';
+import { getAiConfig } from '../../features/ai/utils';
 import axios from 'axios';
 import { jwtDecode, JwtPayload } from 'jwt-decode';
 // import { StateMachineAI } from '../../../src/views/ai-panel/aiMachine';
@@ -172,13 +172,13 @@ export const getRefreshedAccessToken = async (): Promise<string> => {
             }
 
             const params = new URLSearchParams({
-                client_id: AUTH_CLIENT_ID,
+                client_id: getAiConfig().AUTH_CLIENT_ID,
                 refresh_token: refreshToken,
                 grant_type: 'refresh_token',
                 scope: 'openid email'
             });
 
-            const response = await axios.post(`https://api.asgardeo.io/t/${AUTH_ORG}/oauth2/token`, params.toString(), { headers: CommonReqHeaders });
+            const response = await axios.post(`https://api.asgardeo.io/t/${getAiConfig().AUTH_ORG}/oauth2/token`, params.toString(), { headers: CommonReqHeaders });
 
             const newAccessToken = response.data.access_token;
             const newRefreshToken = response.data.refresh_token;
