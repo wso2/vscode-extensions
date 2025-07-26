@@ -26,7 +26,7 @@ import path from "path";
 import fs from 'fs';
 const dataFolder = path.join( __dirname, '..', 'data');
 
-export const newProjectPath = path.join(dataFolder, 'new-project', 'testProject');
+export const newProjectPath = path.join(dataFolder, 'new-project', 'testProjectFolder');
 
 export default function createTests() {
     test.describe("Create Project Tests", {
@@ -86,7 +86,7 @@ export default function createTests() {
                 await page.page.reload();
                 await page.executePaletteCommand("MI: Open MI Welcome");
                 await createProject(page, 'newProjectWithAdConfig', '4.4.0', true);
-                await waitUntilPomContains(page.page, path.join(newProjectPath, 'newProject', 'newProjectWithAdConfig', 'pom.xml'), 
+                await waitUntilPomContains(page.page, path.join(newProjectPath, 'newProjectWithAdConfig', 'pom.xml'), 
                 '<artifactId>test</artifactId>');
                 console.log('New project with advanced config created successfully');
             });

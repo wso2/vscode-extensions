@@ -3133,8 +3133,15 @@ ${endpointAttributes}
     async getWorkspaceRoot(): Promise<ProjectRootResponse> {
         return new Promise(async (resolve) => {
             const workspaceFolders = workspace.workspaceFolders;
-            if (workspaceFolders) {
-                resolve({ path: this.projectUri });
+            if (workspaceFolders && this.projectUri) {
+                const existingProject = path.basename(this.projectUri);
+                const matched = workspaceFolders.find(folder => path.basename(folder.uri.fsPath) === existingProject);
+                if (matched) {
+                    const parentPath = path.dirname(this.projectUri);
+                    resolve({ path: parentPath });
+                } else {
+                    resolve({ path: this.projectUri });
+                }
             }
             resolve({ path: getDefaultProjectPath() });
         });

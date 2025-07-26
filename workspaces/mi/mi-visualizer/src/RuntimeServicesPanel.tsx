@@ -162,7 +162,7 @@ export function RuntimeServicePanel() {
     const { rpcClient } = useVisualizerContext();
     const [services, setAvailableServices] = useState<RuntimeServicesResponse>();
     const [isSwaggerEnabled, setSwaggerEnabled] = useState<SwaggerDetails>({ isSwaggerTriggered: false });
-    const [serverRunStatus, setServerRunStatus] = useState<MiServerRunStatus>('Stopped' as MiServerRunStatus);
+    const [serverRunStatus, setServerRunStatus] = useState<MiServerRunStatus>('Running' as MiServerRunStatus);
 
     useEffect(() => {
         if (rpcClient) {
