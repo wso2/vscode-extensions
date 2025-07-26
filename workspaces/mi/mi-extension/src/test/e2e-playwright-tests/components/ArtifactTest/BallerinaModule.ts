@@ -123,7 +123,7 @@ export class BallerinaModule {
         await clearNotificationAlerts();
 
         await currentPage.getByRole('tab', { name: `${moduleName}-module.bal` }).getByLabel('Close').click();
-        await page.selectSidebarItem('Micro Integrator');
+        await page.selectSidebarItem('WSO2 Integrator: MI');
         await projectExplorer.goToOverview("testProject");
     }
 
@@ -165,5 +165,14 @@ export class BallerinaModule {
         await diagram.refreshBallerinaModule(moduleName);
         const notificationAlert = await page.page.getByText('Ballerina module build successful', { exact: true })
         await expect(notificationAlert).toBeVisible({ timeout: 40000 });
+    }
+
+    public async removeBallerinaExtension() {
+        await page.page.keyboard.press('Control+Shift+X');
+        await page.page.keyboard.type('WSO2 Integrator BI');
+        await page.page.getByText('WSO2 Integrator: BI').click();
+        await page.page.getByRole('button', { name: 'Uninstall' }).click();
+        await page.executePaletteCommand("Developer: Reload Window");
+        await page.selectSidebarItem('WSO2 Integrator: MI');
     }
 }

@@ -89,7 +89,7 @@ export const DisabledView = () => {
     return (
         <Container>
             <TitlePanel>
-                <Headline>Micro Integrator (MI) for VS Code</Headline>
+                <Headline>WSO2 Integrator: MI for VS Code</Headline>
                 <span>
                     The extension is currently disabled due to the following errors. Please resolve the errors and retry.
                 </span>

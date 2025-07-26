@@ -201,7 +201,7 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
                     const workspaceFolders = vscode.workspace.workspaceFolders;
                     if (workspaceFolders && workspaceFolders.length > 0) {
                         // copy all the jars present in deployement/libs
-                        const workspaceLibs = vscode.Uri.joinPath(vscode.Uri.parse(projectUri), "deployment", "libs");
+                        const workspaceLibs = vscode.Uri.joinPath(vscode.Uri.file(projectUri), "deployment", "libs");
                         if (fs.existsSync(workspaceLibs.fsPath)) {
                             try {
                                 const jars = await getDeploymentLibJars(workspaceLibs);
@@ -217,7 +217,7 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
                                 reject(err);
                             }
                         }
-                        const targetDirectory = vscode.Uri.joinPath(vscode.Uri.parse(projectUri), "target");
+                        const targetDirectory = vscode.Uri.joinPath(vscode.Uri.file(projectUri), "target");
                         if (fs.existsSync(targetDirectory.fsPath)) {
                             try {
                                 const sourceFiles = await getCarFiles(targetDirectory);
@@ -468,7 +468,7 @@ export async function executeTasks(projectUri: string, serverPath: string, isDeb
 }
 
 export async function getServerPath(projectUri: string): Promise<string | undefined> {
-    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.parse(projectUri));
+    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
     const currentPath = getServerPathFromConfig(projectUri);
     if (!currentPath) {
         await vscode.commands.executeCommand(COMMANDS.CHANGE_SERVER_PATH);
@@ -481,7 +481,7 @@ export async function getServerPath(projectUri: string): Promise<string | undefi
     return path.normalize(currentPath);
 }
 export function setJavaHomeInEnvironmentAndPath(projectUri: string): { [key: string]: string; } {
-    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.parse(projectUri));
+    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
     const javaHome = getJavaHomeFromConfig(projectUri);
     const env = { ...process.env };
     if (javaHome) {

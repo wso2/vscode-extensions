@@ -133,7 +133,7 @@ export class VisualizerWebview {
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
           <meta name="theme-color" content="#000000">
-          <title>Micro Integrator</title>
+          <title>WSO2 Integrator: MI</title>
          
           <style>
             body, html, #root {

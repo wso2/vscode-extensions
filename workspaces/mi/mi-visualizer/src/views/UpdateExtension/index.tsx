@@ -48,7 +48,7 @@ export const UpdateMIExtension = () => {
                 <AlertBox
                     buttonTitle="Update Extension"
                     onClick={openExtensionUpdatePage} 
-                    title={"You are in an older version of Micro Integrator extension."}
+                    title={"You are in an older version of WSO2 Integrator: MI extension."}
                     subTitle={"To continue using the MI Copilot Chat please update to the latest version."}
                 />
         </Container>

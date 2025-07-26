@@ -98,6 +98,9 @@ export const getHelperPanePosition = (
     if (window.innerHeight - rect.top < HELPER_PANE_HEIGHT / 2) {
         position.top = window.innerHeight - HELPER_PANE_HEIGHT;
     }
+    if (window.innerHeight < HELPER_PANE_HEIGHT) {
+        position.top = 0;
+    }
 
     return position;
 };

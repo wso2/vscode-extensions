@@ -76,6 +76,7 @@ export type LoadingSectionProps = {
 
 export type PanelViewProps = PropsWithChildren<{
     id: number;
+    sx?: CSSProperties;
 }>;
 
 export type PanelTabProps = {

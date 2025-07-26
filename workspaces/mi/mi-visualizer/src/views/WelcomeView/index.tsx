@@ -174,14 +174,14 @@ export function WelcomeView() {
         <>
             <Wrapper>
                 <TitlePanel>
-                    <Headline>Micro Integrator (MI) for VS Code</Headline>
+                    <Headline>WSO2 Integrator: MI for VS Code</Headline>
                     <span>A comprehensive integration solution that simplifies your digital transformation journey. Streamlines connectivity among applications, services, data, and cloud using a user-friendly low-code graphical designing experience. </span>
                 </TitlePanel>
                 <Grid>
                     <Pane>
                         <Tab>
                             <SubTitle>Getting started</SubTitle>
-                            <span>Learn about the Micro Integrator Extension in our <VSCodeLink onClick={openGettingStartedGuide}>Getting Started Guide</VSCodeLink>.</span>
+                            <span>Learn about the WSO2 Integrator: MI Extension in our <VSCodeLink onClick={openGettingStartedGuide}>Getting Started Guide</VSCodeLink>.</span>
                         </Tab>
                         <Tab>
                             <SubTitle>Create New Project</SubTitle>

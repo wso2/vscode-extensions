@@ -190,7 +190,7 @@ export function DeploymentOptions({ handleDockerBuild, handleCAPPBuild, handleRe
 
             <DeploymentOption
                 title="Deploy on a Remote Server"
-                description="Build and deploy an Integration Application (CApp) to a remote WSO2 Micro Integrator Server."
+                description="Build and deploy an Integration Application (CApp) to a remote WSO2 Integrator: MI Server."
                 buttonText="Deploy"
                 isExpanded={expandedOptions.has('remote')}
                 onToggle={() => toggleOption('remote')}
@@ -208,7 +208,7 @@ export function DeploymentOptions({ handleDockerBuild, handleCAPPBuild, handleRe
 
             <DeploymentOption
                 title="Build CAPP"
-                description="Create an Integration Application (CApp) that runs on WSO2 Micro Integrator Server."
+                description="Create an Integration Application (CApp) that runs on WSO2 Integrator: MI Server."
                 buttonText="Create CAPP"
                 isExpanded={expandedOptions.has('vm')}
                 onToggle={() => toggleOption('vm')}

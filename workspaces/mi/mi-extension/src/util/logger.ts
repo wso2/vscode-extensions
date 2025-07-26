@@ -18,7 +18,7 @@
 
 import * as vscode from 'vscode';
 
-export const outputChannel = vscode.window.createOutputChannel("Micro Integrator");
+export const outputChannel = vscode.window.createOutputChannel("WSO2 Integrator: MI");
 export const ERROR_LOG = 'ERROR';
 export const INFO_LOG = 'INFO';
 

@@ -191,7 +191,7 @@ export const EnvironmentSetup = () => {
     }
 
     const selectMIPath = async () => {
-        const selectedMIPath = await rpcClient.getMiVisualizerRpcClient().selectFolder("Select the Micro Integrator runtime path");
+        const selectedMIPath = await rpcClient.getMiVisualizerRpcClient().selectFolder("Select the WSO2 Integrator: MI runtime path");
         if (selectedMIPath) {
             const miDetails = await rpcClient.getMiVisualizerRpcClient().setPathsInWorkSpace({ projectUri, type: 'MI', path: selectedMIPath });
             if (miDetails.status !== "not-valid") {
@@ -231,7 +231,7 @@ export const EnvironmentSetup = () => {
         const miStatus = miPathDetails?.status;
         const bothNotFound = javaStatus === "not-valid" && miStatus === "not-valid";
         if (isMIDownloading) {
-            return <DownloadComponent title="Micro Integrator" description="Fetching the MI runtime required to run MI." progress={miProgress} />;
+            return <DownloadComponent title="WSO2 Integrator: MI" description="Fetching the MI runtime required to run MI." progress={miProgress} />;
         }
         if (miStatus === "not-valid" && miPathDetails?.version === "4.4.0") {
             return (
@@ -302,14 +302,14 @@ export const EnvironmentSetup = () => {
             return <ButtonWithDescription buttonDisabled={isJavaDownloading || isMIDownloading}
                 onClick={handleDownload}
                 buttonText="Download Java & MI"
-                description="Download and setup the Java and Micro Integrator runtime."
+                description="Download and setup the Java and WSO2 Integrator: MI runtime."
             />
         }
 
         return <ButtonWithDescription buttonDisabled={true}
             onClick={refreshProject}
             buttonText="Continue"
-            description="Configure the Java and Micro Integrator runtime to continue."
+            description="Configure the Java and WSO2 Integrator: MI runtime to continue."
         />
 
     }
@@ -335,11 +335,11 @@ export const EnvironmentSetup = () => {
         let miStatus = miPathDetails?.status;
 
         if (javaStatus === "valid" && miStatus === "valid") {
-            return `Micro Integrator ${recommendedVersions.miVersion} project is setup.`;
+            return `WSO2 Integrator: MI ${recommendedVersions.miVersion} project is setup.`;
         } else if (javaStatus !== "not-valid" && miStatus !== "not-valid") {
-            return `Micro Integrator ${recommendedVersions.miVersion} project in not properly setup.`;
+            return `WSO2 Integrator: MI ${recommendedVersions.miVersion} project in not properly setup.`;
         } else {
-            return `Micro Integrator ${recommendedVersions.miVersion} is not setup.`;
+            return `WSO2 Integrator: MI ${recommendedVersions.miVersion} is not setup.`;
         }
     }
 
@@ -358,7 +358,7 @@ export const EnvironmentSetup = () => {
     return (
         <Container>
             <TitlePanel>
-                <Headline>Micro Integrator (MI) for VS Code</Headline>
+                <Headline>WSO2 Integrator: MI for VS Code</Headline>
                 <HeadlineSecondary>{getHeadlineDescription()}</HeadlineSecondary>
             </TitlePanel>
 
@@ -393,7 +393,7 @@ export const EnvironmentSetup = () => {
                                         <>
                                             <Row>
                                                 <StepDescription>
-                                                    Micro Integrator runtime {recommendedVersions.miVersion} is required. Select MI path if you have already installed.
+                                                    WSO2 Integrator: MI runtime {recommendedVersions.miVersion} is required. Select MI path if you have already installed.
                                                     <br />
                                                     <strong>Note:</strong> All the artifacts in the server will be cleaned in this selected runtime.
                                                 </StepDescription>
@@ -422,7 +422,7 @@ export const EnvironmentSetup = () => {
 
                     <Dropdown
                         id='miVersion'
-                        label="Micro Integrator runtime version"
+                        label="WSO2 Integrator: MI runtime version"
                         isRequired={true}
                         items={supportedMIVersions}
                         onChange={(e) => setSelectedRuntimeVersion(e.target.value)}

@@ -18,7 +18,7 @@
 
 import * as vscode from 'vscode';
 
-export const outputServerChannel = vscode.window.createOutputChannel("Micro Integrator Server");
+export const outputServerChannel = vscode.window.createOutputChannel("WSO2 Integrator: MI Server");
 
 export function showServerOutputChannel() {
     outputServerChannel.show(true);

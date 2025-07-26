@@ -30,13 +30,16 @@ type HelperPaneConditionalProps = {
     helperPaneWidth?: number;
     // - Helper pane styles
     helperPaneSx?: CSSProperties;
+    // - Height of the helper pane in pixels, used when helperPaneHeight is 'default'
+    height?: number;
     // - Callback function to open/close the helper pane
     changeHelperPaneState: (isOpen: boolean) => void;
-    // - Get the helper panel component
+    // - Get the helper pane component
     getHelperPane: (
         value: string,
         onChange: (value: string, updatedCursorPosition: number) => void,
-        helperPaneHeight: HelperPaneHeight
+        helperPaneHeight: HelperPaneHeight,
+        height?: number,
     ) => ReactNode;
     // - Get a custom icon for the expression editor
     getExpressionEditorIcon?: () => ReactNode;
@@ -46,6 +49,7 @@ type HelperPaneConditionalProps = {
     helperPaneHeight?: never;
     helperPaneWidth?: never;
     helperPaneSx?: never;
+    height?: never;
     changeHelperPaneState?: never;
     getHelperPane?: never;
     getExpressionEditorIcon?: never;

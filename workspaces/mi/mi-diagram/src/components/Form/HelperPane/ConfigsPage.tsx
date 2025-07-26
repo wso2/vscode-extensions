@@ -52,18 +52,20 @@ const ButtonPanel = styled.div`
 
 type ConfigsPageProps = {
     position: Position;
+    hideSearch?: boolean;
     onChange: (value: string) => void;
 };
 
 /* Validation schema for the config form */
 const schema = yup.object({
     configName: yup.string().required('Config Name is required'),
-    configType: yup.string().oneOf(['string', 'cert'] as const).required('Config Type is required')
+    configType: yup.string().oneOf(['string', 'cert'] as const).required('Config Type is required'),
+    configValue: yup.string().required('Config Value is required').required('Config Value is required')
 });
 
 type ConfigFormData = yup.InferType<typeof schema>;
 
-export const ConfigsPage = ({ position, onChange }: ConfigsPageProps) => {
+export const ConfigsPage = ({ position, onChange, hideSearch }: ConfigsPageProps) => {
     const { rpcClient } = useVisualizerContext();
     const firstRender = useRef<boolean>(true);
     const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -112,7 +114,8 @@ export const ConfigsPage = ({ position, onChange }: ConfigsPageProps) => {
         // Handle form submission
         rpcClient.getMiDiagramRpcClient().saveConfig({
             configName: data.configName,
-            configType: data.configType
+            configType: data.configType,
+            configValue: data.configValue
         }).then(({ success }) => {
             if (success) {
                 // Retrieve the updated config info
@@ -147,10 +150,12 @@ export const ConfigsPage = ({ position, onChange }: ConfigsPageProps) => {
         <>
             {!isFormOpen ? (
                 <>
-                    <HelperPane.Header
-                        searchValue={searchValue}
-                        onSearch={handleSearch}
-                    />
+                    { !hideSearch && (
+                        <HelperPane.Header
+                            searchValue={searchValue}
+                            onSearch={handleSearch}
+                        /> 
+                    )}
                     <HelperPane.Body loading={isLoading}>
                         {filteredConfigInfo?.map((config) => (
                             getHelperPaneCompletionItem(config, onChange, getCompletionItemIcon)
@@ -165,12 +170,6 @@ export const ConfigsPage = ({ position, onChange }: ConfigsPageProps) => {
                         </Typography>
                         <Divider sx={{ margin: '0' }} />
                     </Title>
-                    <Alert
-                        variant='primary'
-                        title="Important!"
-                        subTitle="After adding the configuration through the form, please add config name and the value to the .env file."
-                        sx={{ marginBottom: '0' }}
-                    />
                     <TextField
                         id="configName"
                         placeholder="Name of the configuration"
@@ -190,6 +189,14 @@ export const ConfigsPage = ({ position, onChange }: ConfigsPageProps) => {
                             { id: '1', content: 'string', value: 'string' },
                             { id: '2', content: 'cert', value: 'cert' }
                         ]}
+                    />
+                    <TextField
+                        id="configValue"
+                        placeholder="Value of the configuration"
+                        label="Value"
+                        required
+                        {...register('configValue')}
+                        errorMsg={errors.configValue?.message}
                     />
                     <ButtonPanel>
                         <Button appearance="secondary" onClick={clearForm}>

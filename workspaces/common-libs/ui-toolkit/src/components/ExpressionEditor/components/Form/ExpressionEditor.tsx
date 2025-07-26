@@ -90,6 +90,7 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
         helperPaneWidth,
         helperPaneSx,
         actionButtons,
+        height,
         resize = 'vertical',
         growRange = { start: 1, offset: 7 },
         changeHelperPaneState,
@@ -154,7 +155,7 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
 
     useEffect(() => {
         // Position polling to detect any position changes
-        let lastPosition = { top: 0, left: 0, width: 0, height: 0 };
+        let lastPosition = { top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0 };
         let animationFrameId: number;
 
         const checkPositionChange = () => {
@@ -163,7 +164,9 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
             const rect = elementRef.current.getBoundingClientRect();
             const currentPosition = {
                 top: rect.top,
+                bottom: window.innerHeight - rect.bottom,
                 left: rect.left,
+                right: window.innerWidth - rect.left,
                 width: rect.width,
                 height: rect.height
             };
@@ -171,7 +174,9 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
             // Check if position or size has changed
             if (
                 currentPosition.top !== lastPosition.top ||
+                currentPosition.bottom !== lastPosition.bottom ||
                 currentPosition.left !== lastPosition.left ||
+                currentPosition.right !== lastPosition.right ||
                 currentPosition.width !== lastPosition.width ||
                 currentPosition.height !== lastPosition.height
             ) {
@@ -356,7 +361,7 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
         return (
             <DropdownContainer ref={helperPaneContainerRef} sx={{ ...helperPanePosition, ...helperPaneSx }}>
                 <Transition show={isHelperPaneOpen} {...ANIMATION}>
-                    {getHelperPane(value, handleChange, helperPaneHeight)}
+                    {getHelperPane(value, handleChange, helperPaneHeight, height)}
                     {arrowPosition && (
                         <HelperPane.Arrow origin={calculatedHelperPaneOrigin} sx={{ ...arrowPosition }} />
                     )}

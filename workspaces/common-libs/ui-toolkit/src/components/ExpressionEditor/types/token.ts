@@ -28,16 +28,18 @@ type TokenEditorBaseProps = {
     actionButtons?: ActionButtonType[];
     startAdornment?: ReactNode;
     endAdornment?: ReactNode;
+    enableFullscreen?: boolean;
     onChange: (value: string) => void;
     onFocus?: () => void;
     onBlur?: () => void;
     getExpressionEditorIcon?: () => ReactNode;
+    height?: number;
     editorSx?: CSSProperties;
 };
 
 type HelperPaneConditionalProps =
     | {
-          getHelperPane: (onChange: (value: string) => void, addFunction: (signature: string) => void) => JSX.Element;
+          getHelperPane: (onChange: (value: string) => void, addFunction: (signature: string) => void, height?: number, isFullscreen?: boolean) => JSX.Element;
           helperPaneOrigin?: HelperPaneOrigin;
           changeHelperPaneState: (state: boolean) => void;
           isHelperPaneOpen: boolean;

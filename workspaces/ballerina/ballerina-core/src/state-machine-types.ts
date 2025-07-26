@@ -76,6 +76,7 @@ export enum MACHINE_VIEW {
     AddConnectionWizard = "Add Connection Wizard",
     ViewConfigVariables = "View Config Variables",
     EditConfigVariables = "Edit Config Variables",
+    AddConfigVariables = "Add Config Variables",
     EditConnectionWizard = "Edit Connection Wizard",
     BIMainFunctionForm = "Add Automation SKIP",
     BIFunctionForm = "Add Function SKIP",
@@ -113,6 +114,7 @@ export interface VisualizerLocation {
     documentUri?: string;
     projectUri?: string;
     identifier?: string;
+    artifactType?: DIRECTORY_MAP;
     position?: NodePosition;
     syntaxTree?: STNode;
     isBI?: boolean;
