@@ -26,6 +26,7 @@ import {
 import { BallerinaExtension } from "../../core";
 import { openView, StateMachine } from "../../stateMachine";
 import { commands, extensions, window } from "vscode";
+import { debug } from "../../utils";
 
 export function activateDevantFeatures(_ballerinaExtInstance: BallerinaExtension) {
     const cloudToken = process.env.CLOUD_STS_TOKEN;
@@ -51,6 +52,7 @@ const handleComponentPushToDevant = async () => {
         await platformExt.activate();
     }
     const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports;
+    debug(`project url: ${projectRoot}`);
     if (platformExtAPI.getDirectoryComponents(projectRoot)?.length) {
         // push changes to repo if component for the directory already exists
         const hasChanges = await platformExtAPI.localRepoHasChanges(projectRoot);

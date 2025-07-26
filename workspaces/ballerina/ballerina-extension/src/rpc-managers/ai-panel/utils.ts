@@ -38,13 +38,13 @@ import { hasStopped } from "./rpc-manager";
 // import { StateMachineAI } from "../../views/ai-panel/aiMachine";
 import path from "path";
 import * as fs from 'fs';
-import { BACKEND_URL, DEVANT_API_KEY, DEVANT_STS_TOKEN } from "../../features/ai/utils";
+import { getAiConfig } from "../../features/ai/utils";
 import { getAccessToken, getRefreshedAccessToken } from "../../../src/utils/ai/auth";
 import { extensions } from 'vscode';
 import { AIStateMachine } from "../../../src/views/ai-panel/aiMachine";
 import { AIChatError } from "./utils/errors";
 
-const BACKEND_BASE_URL = BACKEND_URL.replace(/\/v2\.0$/, "");
+const BACKEND_BASE_URL = getAiConfig().BACKEND_URL.replace(/\/v2\.0$/, "");
 //TODO: Temp workaround as custom domain seem to block file uploads
 const CONTEXT_UPLOAD_URL_V1 = "https://e95488c8-8511-4882-967f-ec3ae2a0f86f-prod.e1-us-east-azure.choreoapis.dev/ballerina-copilot/context-upload-api/v1.0";
 // const CONTEXT_UPLOAD_URL_V1 = BACKEND_BASE_URL + "/context-api/v1.0";
@@ -1359,7 +1359,7 @@ export function notifyNoGeneratedMappings() {
 }
 
 async function sendDatamapperRequest(parameterDefinitions: ParameterMetadata | ErrorCode, accessToken: string | ErrorCode): Promise<Response | ErrorCode> {
-    const response = await fetchWithTimeout(BACKEND_URL + "/datamapper", {
+    const response = await fetchWithTimeout(getAiConfig().BACKEND_URL + "/datamapper", {
         method: "POST",
         headers: {
             'Accept': 'application/json',
@@ -2129,14 +2129,14 @@ function getBase64FromFile(filePath) {
 
 async function getDevantTokens(): Promise<DevantTokens> {
     return new Promise(async (resolve) => {
-        let stsToken = DEVANT_STS_TOKEN;
+        let stsToken = process.env.CLOUD_STS_TOKEN;
         
         try {
             // Try to get STS token from platform extension
             const platformExt = extensions.getExtension("wso2.wso2-platform");
             if (!platformExt) {
                 const tokens: DevantTokens = {
-                    apiKey: DEVANT_API_KEY,
+                    apiKey: getAiConfig().ASK_API_KEY,
                     stsToken: stsToken
                 };
                 resolve(tokens);
@@ -2158,7 +2158,7 @@ async function getDevantTokens(): Promise<DevantTokens> {
         }
         
         const tokens: DevantTokens = {
-            apiKey: DEVANT_API_KEY,
+            apiKey: getAiConfig().ASK_API_KEY,
             stsToken: stsToken
         };
         resolve(tokens);

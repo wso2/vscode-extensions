@@ -22,14 +22,39 @@ import { Uri, workspace } from 'vscode';
 
 import { StateMachine } from "../../stateMachine";
 
-const config = workspace.getConfiguration('ballerina');
-export const BACKEND_URL : string = config.get('rootUrl') || process.env.BALLERINA_ROOT_URL;
-export const AUTH_ORG : string = config.get('authOrg') || process.env.BALLERINA_AUTH_ORG;
-export const AUTH_CLIENT_ID : string = config.get('authClientID') || process.env.BALLERINA_AUTH_CLIENT_ID;
-export const AUTH_REDIRECT_URL : string = config.get('authRedirectURL') || process.env.BALLERINA_AUTH_REDIRECT_URL;
+interface AiConfig {
+    BACKEND_URL: string;
+    AUTH_ORG: string;
+    AUTH_CLIENT_ID: string;
+    AUTH_REDIRECT_URL: string;
+    CODE_API_KEY: string;
+    ASK_API_KEY: string;
+}
 
-export const DEVANT_API_KEY : string = config.get('devantApiKey') || process.env.DEVANT_API_KEY || '';
-export const DEVANT_STS_TOKEN : string = config.get('cloudStsToken') || process.env.CLOUD_STS_TOKEN || '';
+export const getAiConfig = () => {
+    const devAiCofig: AiConfig = {
+        BACKEND_URL: process.env.BALLERINA_DEV_COPLIOT_ROOT_URL ?? "",
+        AUTH_ORG: process.env.BALLERINA_DEV_COPLIOT_AUTH_ORG ?? "",
+        AUTH_CLIENT_ID: process.env.BALLERINA_DEV_COPLIOT_AUTH_CLIENT_ID ?? "",
+        AUTH_REDIRECT_URL: process.env.BALLERINA_DEV_COPLIOT_AUTH_REDIRECT_URL ?? "",
+        CODE_API_KEY: process.env.BALLERINA_DEV_COPLIOT_CODE_API_KEY ?? "",
+        ASK_API_KEY: process.env.BALLERINA_DEV_COPLIOT_ASK_API_KEY ?? ""
+    };
+    const prodAiConfig: AiConfig = {
+        BACKEND_URL: process.env.BALLERINA_DEFAULT_COPLIOT_ROOT_URL ?? "",
+        AUTH_ORG: process.env.BALLERINA_DEFAULT_COPLIOT_AUTH_ORG ?? "",
+        AUTH_CLIENT_ID: process.env.BALLERINA_DEFAULT_COPLIOT_AUTH_CLIENT_ID ?? "",
+        AUTH_REDIRECT_URL: process.env.BALLERINA_DEFAULT_COPLIOT_AUTH_REDIRECT_URL ?? "",
+        CODE_API_KEY: process.env.BALLERINA_DEFAULT_COPLIOT_CODE_API_KEY ?? "",
+        ASK_API_KEY: process.env.BALLERINA_DEFAULT_COPLIOT_ASK_API_KEY ?? ""
+    };
+
+    const selectedEnv = process.env.CLOUD_ENV || workspace.getConfiguration().get("ballerina.copilot.environment");
+    if(selectedEnv === "dev"){
+        return devAiCofig;
+    }
+    return prodAiConfig;
+};
 
 export async function closeAllBallerinaFiles(dirPath: string): Promise<void> {
     // Check if the directory exists
