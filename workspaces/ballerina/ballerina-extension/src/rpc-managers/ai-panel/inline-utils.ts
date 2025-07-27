@@ -12,7 +12,7 @@ import { fetchWithTimeout, filterResponse, generateBallerinaCode, isErrorCode, m
 import { getAccessToken, getRefreshedAccessToken } from "../../utils/ai/auth";
 import { NOT_LOGGED_IN, TIMEOUT } from "../../views/ai-panel/errorCodes";
 import { AIStateMachine } from "../../views/ai-panel/aiMachine";
-import { getAiConfig } from "src/features/ai/utils";
+import { getAiConfig } from "../../features/ai/utils";
 
 let abortController = new AbortController();
 
