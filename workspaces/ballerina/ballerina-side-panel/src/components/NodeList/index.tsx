@@ -136,6 +136,10 @@ namespace S {
     export const ComponentTitle = styled.div`
         white-space: nowrap;
         width: 124px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+        word-break: break-word;
     `;
 
     export const IconContainer = styled.div`
@@ -200,6 +204,31 @@ namespace S {
         gap: 10px;
         width: 100%;
         margin-top: 20px;
+    `;
+
+    export const ShowMoreContainer = styled.div`
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 35px;
+        cursor: pointer;
+        border: 1px dashed ${ThemeColors.OUTLINE_VARIANT};
+        border-radius: 5px;
+        &:hover {
+            background-color: ${ThemeColors.PRIMARY_CONTAINER};
+            border: 1px dashed ${ThemeColors.PRIMARY};
+            border-radius: 5px;
+        }
+    `;
+
+    export const ShowMoreTitle = styled.div`
+        white-space: nowrap;
+        justify-items: center;
+        align-items: center;
+        color: ${ThemeColors.ON_SURFACE_VARIANT};
+        opacity: 0.7;
     `;
 }
 
@@ -295,15 +324,7 @@ export function NodeList(props: NodeListProps) {
                         title={node.label}
                     >
                         <S.IconContainer>{node.icon || <LogIcon />}</S.IconContainer>
-                        <S.ComponentTitle
-                            ref={(el) => {
-                                if (el && el.scrollWidth > el.clientWidth) {
-                                    el.style.fontSize = "13px";
-                                    el.style.wordBreak = "break-word";
-                                    el.style.whiteSpace = "normal";
-                                }
-                            }}
-                        >
+                        <S.ComponentTitle>
                             {node.label}
                         </S.ComponentTitle>
                     </S.Component>
@@ -328,6 +349,9 @@ export function NodeList(props: NodeListProps) {
     );
 
     const getCategoryContainer = (groups: Category[], isSubCategory = false) => {
+        const callFunctionNode = groups
+            .flatMap((group) => group?.items)
+            .find((item) => "id" in item && item.id === "FUNCTION");
         const content = (
             <>
                 {groups.map((group, index) => {
@@ -444,6 +468,13 @@ export function NodeList(props: NodeListProps) {
                         </S.CategoryRow>
                     );
                 })}
+                {callFunctionNode && (
+                    <S.CategoryRow key={"showMoreFunctions"} showBorder={false}>
+                        <S.ShowMoreContainer onClick={() => handleAddNode(callFunctionNode as Node)}>
+                            <S.ShowMoreTitle>Show More Functions</S.ShowMoreTitle>
+                        </S.ShowMoreContainer>
+                    </S.CategoryRow>
+                )}
             </>
         );
 

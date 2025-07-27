@@ -21,7 +21,7 @@ import { Overview } from '../components/Overview';
 import path from "path";
 import { initTest, page, waitUntilPomContains, waitUntilPomNotContains } from '../Utils';
 const dataFolder = path.join(__dirname, '..', 'data');
-export const newProjectPath = path.join(dataFolder, 'new-project', 'testProject');
+export const newProjectPath = path.join(dataFolder, 'new-project', 'testProjectFolder');
 export const pomFilePath = path.join(newProjectPath, 'testProject', 'pom.xml');
 export const configFilePath = path.join(newProjectPath, 'testProject', 'src', 'main', 'wso2mi', 'resources', 'conf', 'config.properties');
 

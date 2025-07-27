@@ -17,7 +17,7 @@
  */
 
 import * as vscode from 'vscode';
-import { CancellationToken, DebugConfiguration, ProviderResult, Uri, workspace, WorkspaceFolder } from 'vscode';
+import { CancellationToken, DebugConfiguration, ProviderResult, Uri, window, workspace, WorkspaceFolder } from 'vscode';
 import { MiDebugAdapter } from './debugAdapter';
 import { COMMANDS } from '../constants';
 import { extension } from '../MIExtensionContext';
@@ -69,7 +69,11 @@ export function activateDebugger(context: vscode.ExtensionContext) {
             projectUri = await askForProject();
         }
         const dockerTask = getDockerTask(projectUri);
-        await vscode.tasks.executeTask(dockerTask);
+        if (dockerTask) {
+            await vscode.tasks.executeTask(dockerTask);
+        } else {
+            vscode.window.showErrorMessage('Failed to create Docker task.');
+        }
     });
 
     vscode.commands.registerCommand(COMMANDS.REMOTE_DEPLOY_PROJECT, async (postBuildTask?: Function) => {
@@ -77,14 +81,14 @@ export function activateDebugger(context: vscode.ExtensionContext) {
         await executeRemoteDeployTask(projectUri, postBuildTask);
     });
 
-    // Register command to change the Micro Integrator server path
+    // Register command to change the WSO2 Integrator: MI server path
     vscode.commands.registerCommand(COMMANDS.CHANGE_SERVER_PATH, async () => {
         const projectUri = await askForProject();
         if (!projectUri) {
             return;
         }
 
-        const addServerOptionLabel = "Add Micro Integrator Server";
+        const addServerOptionLabel = "Add WSO2 Integrator: MI Server";
         const currentServerPath: string | undefined = extension.context.globalState.get(SELECTED_SERVER_PATH);
         const quickPickItems: vscode.QuickPickItem[] = [];
 
@@ -100,8 +104,8 @@ export function activateDebugger(context: vscode.ExtensionContext) {
 
         const quickPickOptions: vscode.QuickPickOptions = {
             canPickMany: false,
-            title: "Select Micro Integrator Server Path",
-            placeHolder: currentServerPath ? `Selected Server: ${currentServerPath}` : "Add Micro Integrator Server",
+            title: "Select WSO2 Integrator: MI Server Path",
+            placeHolder: currentServerPath ? `Selected Server: ${currentServerPath}` : "Add WSO2 Integrator: MI Server",
         };
 
         const selected = await vscode.window.showQuickPick(quickPickItems, quickPickOptions);
@@ -131,7 +135,7 @@ export function activateDebugger(context: vscode.ExtensionContext) {
                 await setPathsInWorkSpace({ projectUri, type: 'MI', path: verifiedServerPath });
                 return true;
             } else {
-                vscode.window.showErrorMessage('Invalid Micro Integrator Server path or unsupported Micro Integrator version.');
+                vscode.window.showErrorMessage('Invalid WSO2 Integrator: MI server path or unsupported version detected.');
                 return false;
             }
         }
@@ -219,14 +223,14 @@ export function activateDebugger(context: vscode.ExtensionContext) {
 
         if (webview && webview?.getProjectUri()) {
             const projectUri = webview.getProjectUri();
-            const projectWorkspace = workspace.getWorkspaceFolder(Uri.parse(projectUri));
+            const projectWorkspace = workspace.getWorkspaceFolder(Uri.file(projectUri));
             const launchJsonPath = path.join(projectUri, '.vscode', 'launch.json');
             const envPath = path.join(projectUri, '.env');
             let config: vscode.DebugConfiguration | undefined = undefined;
 
             if (fs.existsSync(launchJsonPath)) {
                 // Read the configurations from launch.json
-                const configurations = vscode.workspace.getConfiguration('launch', Uri.parse(projectUri));
+                const configurations = vscode.workspace.getConfiguration('launch', Uri.file(projectUri));
                 const allConfigs = configurations.get<vscode.DebugConfiguration[]>('configurations');
 
                 if (allConfigs) {
@@ -321,7 +325,14 @@ export function activateDebugger(context: vscode.ExtensionContext) {
 class InlineDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory {
 
     createDebugAdapterDescriptor(session: vscode.DebugSession): ProviderResult<vscode.DebugAdapterDescriptor> {
-        const workspaceFolder = session.workspaceFolder;
-        return new vscode.DebugAdapterInlineImplementation(new MiDebugAdapter(workspaceFolder?.uri?.fsPath!));
+        const webview = [...webviews.values()].find(webview => webview.getWebview()?.active);
+        const projectUri = webview ? webview.getProjectUri() : vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!projectUri) {
+            const errorMessage = "No project found in the workspace";
+            console.error(errorMessage);
+            window.showErrorMessage(errorMessage);
+            return;
+        }
+        return new vscode.DebugAdapterInlineImplementation(new MiDebugAdapter(projectUri));
     }
 }

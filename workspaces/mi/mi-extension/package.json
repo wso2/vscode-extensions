@@ -1,6 +1,6 @@
 {
   "name": "micro-integrator",
-  "displayName": "Micro Integrator",
+  "displayName": "WSO2 Integrator: MI",
   "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
   "icon": "resources/images/wso2-micro-integrator-image.png",
   "version": "2.4.1",
@@ -99,7 +99,7 @@
     ],
     "configuration": {
       "type": "object",
-      "title": "Micro Integrator",
+      "title": "WSO2 Integrator: MI",
       "properties": {
         "MI.debugger.commandPort": {
           "type": "number",
@@ -158,7 +158,7 @@
       "activitybar": [
         {
           "id": "micro-integrator",
-          "title": "Micro Integrator",
+          "title": "WSO2 Integrator: MI",
           "icon": "assets/icon.svg"
         }
       ]
@@ -185,18 +185,8 @@
       },
       {
         "view": "MI.project-explorer",
-        "contents": "Welcome to Micro Integrator. You can open a folder containing a MI project or create a new project.\n[Open MI Project](command:MI.openProject)\n[Create New Project](command:MI.project-explorer.create-project)\nTo learn more about how to use Micro Integrator in VS Code, [read our docs](https://mi.docs.wso2.com/en/4.3.0/develop/mi-for-vscode/mi-for-vscode-overview/).",
+        "contents": "Welcome to WSO2 Integrator: MI. You can open a folder containing a MI project or create a new project.\n[Open MI Project](command:MI.openProject)\n[Create New Project](command:MI.project-explorer.create-project)\nTo learn more about how to use WSO2 Integrator: MI in VS Code, [read our docs](https://mi.docs.wso2.com/en/4.3.0/develop/mi-for-vscode/mi-for-vscode-overview/).",
         "when": "MI.status == 'unknownProject'"
-      },
-      {
-        "view": "MI.project-explorer",
-        "contents": "This project appears to have been created with Integration Studio. Please note that the VS Code extension offers limited support for these projects. To enhance compatibility, consider migrating your project using the provided migration tool.\n[Migrate Project](command:MI.migrateProject)",
-        "when": "MI.status == 'projectLoaded' && MI.projectType == 'oldProject' && MI.migrationStatus != 'migrating' && workspaceFolderCount == 1"
-      },
-      {
-        "view": "MI.project-explorer",
-        "contents": "Migrating project... Please wait.",
-        "when": "MI.status == 'projectLoaded' && MI.projectType == 'oldProject' && MI.migrationStatus == 'migrating' && workspaceFolderCount == 1"
       },
       {
         "view": "MI.project-explorer",
@@ -209,7 +199,7 @@
       },
       {
         "view": "MI.project-explorer",
-        "contents": "Micro Integrator is not set up. Please set up the MI server and Java home to continue.",
+        "contents": "WSO2 Integrator: MI is not set up. Please set up the MI server and Java home to continue.",
         "when": "MI.status == 'notSetUp'"
       }
     ],
@@ -872,14 +862,14 @@
         "description": "design-view",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f16b"
+          "fontCharacter": "\\f16c"
         }
       },
       "distro-build-package": {
         "description": "build-package",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f182"
+          "fontCharacter": "\\f183"
         }
       }
     }

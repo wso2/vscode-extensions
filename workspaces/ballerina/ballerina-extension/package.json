@@ -2,7 +2,7 @@
     "name": "ballerina",
     "displayName": "Ballerina",
     "description": "Ballerina Language support, debugging, graphical visualization, AI-based data-mapping and many more.",
-    "version": "5.2.0",
+    "version": "5.2.1",
     "publisher": "wso2",
     "icon": "resources/images/ballerina.png",
     "homepage": "https://wso2.com/ballerina/vscode/docs",
@@ -414,7 +414,7 @@
                 "icon": "$(distro-delete)"
             },
             {
-                "command": "ballerina.show.visualizer",
+                "command": "ballerina.showVisualizer",
                 "title": "Show Visualizer",
                 "icon": "$(distro-design-view)",
                 "category": "Ballerina"
@@ -537,7 +537,7 @@
                 "category": "Ballerina"
             },
             {
-                "command": "ballerina.tryit",
+                "command": "ballerina.tryIt",
                 "title": "Open Try It",
                 "category": "Ballerina",
                 "icon": "$(server)"
@@ -656,6 +656,13 @@
                 "category": "BI"
             },
             {
+                "command": "BI.project-explorer.view-configuration",
+                "title": "View Configurations",
+                "icon": "$(distro-design-view)",
+                "group": "navigation",
+                "category": "BI"
+            },
+            {
                 "command": "BI.project-explorer.switch-project",
                 "title": "Switch Project",
                 "icon": "$(distro-switch-project)",
@@ -762,7 +769,7 @@
                     "when": "resourceLangId == ballerina || isBallerinaDiagram"
                 },
                 {
-                    "command": "ballerina.tryit",
+                    "command": "ballerina.tryIt",
                     "group": "navigation@1",
                     "title": "Open Try It",
                     "when": "isBIProjectRunning"
@@ -781,7 +788,7 @@
                 },
                 {
                     "when": "resourceLangId == ballerina && !isPersistModelActive",
-                    "command": "ballerina.show.visualizer",
+                    "command": "ballerina.showVisualizer",
                     "group": "navigation@3"
                 },
                 {
@@ -870,7 +877,7 @@
                     "when": "editorLangId != ballerina && !isBallerinaDiagram"
                 },
                 {
-                    "command": "ballerina.show.visualizer",
+                    "command": "ballerina.showVisualizer",
                     "when": "editorLangId == ballerina"
                 },
                 {
@@ -950,7 +957,7 @@
                 "description": "design-view",
                 "default": {
                     "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-                    "fontCharacter": "\\f16b"
+                    "fontCharacter": "\\f16c"
                 }
             },
             "distro-start": {
@@ -964,7 +971,7 @@
                 "description": "debug",
                 "default": {
                     "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-                    "fontCharacter": "\\f16e"
+                    "fontCharacter": "\\f16f"
                 }
             },
             "distro-source-view": {
@@ -1187,7 +1194,7 @@
         "vscode-extension-tester": "^5.10.0",
         "vscode-messenger": "^0.4.4",
         "webpack": "^5.89.0",
-        "webpack-cli": "^5.1.4",
+        "webpack-cli": "^6.0.1",
         "webpack-merge-and-include-globally": "^2.3.4",
         "yarn": "^1.22.19",
         "adm-zip": "^0.5.16"

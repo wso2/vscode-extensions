@@ -1019,7 +1019,14 @@ export function FormGenerator(props: FormGeneratorProps) {
                 );
             }
             case 'connection':
+                if (isDisabled && getValues("configRef")) {
+                    field.value = getValues("configRef");
+                }
                 const onCreateButtonClick = async (name?: string, allowedConnectionTypes?: string[]) => {
+                    if (isDisabled) {
+                        setValue(name ?? 'configKey', getValues("configRef"));
+                    }
+
                     const fetchItems = async () => {
                         const connectionNames = await getConnectionNames(allowedConnectionTypes);
 
@@ -1196,6 +1203,7 @@ export function FormGenerator(props: FormGeneratorProps) {
         const isRequired = typeof element.value.required === 'boolean' ? element.value.required : element.value.required === 'true';
         const matchPattern = element.value.matchPattern;
         let validateType = element.value.validateType;
+        const isDisabled = disableFields?.includes(String(element.value.name));
         if (matchPattern) {
             validateType = 'regex';
         }
@@ -1218,7 +1226,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                     {
                         ...(isRequired) && {
                             validate: (value) => {
-                                if (value.fromAI) {
+                                if (value.fromAI || isDisabled) {
                                     return true;
                                 }
                                 if (!value || (typeof value === 'object' && !value.value)) {

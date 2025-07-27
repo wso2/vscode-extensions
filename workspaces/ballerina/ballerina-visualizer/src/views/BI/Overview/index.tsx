@@ -329,10 +329,17 @@ function DeploymentOption({
             onClick={onToggle}
         >
             <DeploymentHeader>
-                <Codicon
-                    name={'circle-outline'}
-                    sx={{ color: isExpanded ? 'var(--vscode-textLink-foreground)' : 'inherit' }}
-                />
+                {isExpanded ? (
+                    <Codicon
+                        name={'triangle-down'}
+                        sx={{ color: 'var(--vscode-textLink-foreground)' }}
+                    />
+                ) : (
+                    <Codicon
+                        name={'triangle-right'}
+                        sx={{ color: 'inherit' }}
+                    />
+                )}
                 <h3>{title}</h3>
             </DeploymentHeader>
             <DeploymentBody isExpanded={isExpanded}>
@@ -489,11 +496,15 @@ function IntegrationControlPlane({ enabled, handleICP }: IntegrationControlPlane
     );
 }
 
-function SaveAndDeployToDevantButton({ projectStructure, handleDeploy }: { projectStructure: ProjectStructureResponse, handleDeploy: () => void }) {
+function DevantDashboard({ projectStructure, handleDeploy, goToDevant, devantMetadata }: { projectStructure: ProjectStructureResponse, handleDeploy: () => void, goToDevant: () => void, devantMetadata: DevantMetadata }) {
     const { rpcClient } = useRpcContext();
 
     const handleSaveAndDeployToDevant = () => {
         handleDeploy();
+    }
+
+    const handlePushChanges = () => {
+        rpcClient.getCommonRpcClient().executeCommand({ commands: [BI_COMMANDS.DEVANT_PUSH_TO_CLOUD] });
     }
 
     // Check if project has automation or service
@@ -502,15 +513,73 @@ function SaveAndDeployToDevantButton({ projectStructure, handleDeploy }: { proje
         (projectStructure.directoryMap.SERVICE && projectStructure.directoryMap.SERVICE.length > 0)
     );
 
-    // Only render if there's an automation or service
-    if (!hasAutomationOrService) {
-        return null;
-    }
+    console.log(">>> devantMetadata", devantMetadata);
 
     return (
-        <Button appearance="primary" onClick={handleSaveAndDeployToDevant}>
-            <Codicon name="save" sx={{ marginRight: 8 }} /> Deploy
-        </Button>
+        <React.Fragment>
+            {devantMetadata?.hasComponent ? <Title variant="h3">Deployed in Devant</Title> : <Title variant="h3">Deploy to Devant</Title>}
+            {!hasAutomationOrService ? (
+                <Typography sx={{ color: "var(--vscode-descriptionForeground)" }}>
+                    Before you can deploy your integration to Devant, please add an artifact (such as a Service or Automation) to your project.
+                </Typography>
+            ) : (
+                <>
+                    {devantMetadata?.hasComponent ? (
+                        <>
+                            <Typography sx={{ color: "var(--vscode-descriptionForeground)" }}>
+                                This integration is deployed in Devant.
+                            </Typography>
+                            <Button
+                                appearance="secondary"
+                                disabled={!devantMetadata?.hasLocalChanges}
+                                onClick={handlePushChanges}
+                                sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    marginTop: "10px",
+                                    mx: "auto"
+                                }}
+                            >
+                                <Codicon name="save" sx={{ marginRight: 8 }} /> Push Changes to Devant
+                            </Button>
+                            <Button
+                                appearance="icon"
+                                onClick={goToDevant}
+                                sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    marginTop: "10px",
+                                    mx: "auto"
+                                }}
+                            >
+                                <Codicon name="link" sx={{ marginRight: 8 }} /> Open in Devant Console
+                            </Button>
+                        </>
+                    ) : (
+                        <React.Fragment>
+                            <Typography sx={{ color: "var(--vscode-descriptionForeground)" }}>
+                                Deploy your integration to Devant and run it in the cloud.
+                            </Typography>
+                            <Button
+                                appearance="primary"
+                                onClick={handleSaveAndDeployToDevant}
+                                sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    marginTop: "10px",
+                                    mx: "auto"
+                                }}
+                            >
+                                <Codicon name="save" sx={{ marginRight: 8 }} /> Save and Deploy
+                            </Button>
+                        </React.Fragment>
+                    )}
+                </>
+            )}
+        </React.Fragment>
     );
 }
 
@@ -535,7 +604,7 @@ export function Overview(props: ComponentDiagramProps) {
     const { data: devantMetadata } = useQuery({
         queryKey: ["devant-metadata", props.projectPath],
         queryFn: () => rpcClient.getBIDiagramRpcClient().getDevantMetadata(),
-        refetchInterval: 5000
+        refetchInterval: 60000 // TODO: remove this with an event
     })
     const [showAlert, setShowAlert] = React.useState(false);
 
@@ -887,7 +956,6 @@ export function Overview(props: ComponentDiagramProps) {
                     <ProjectSubtitle>Integration</ProjectSubtitle>
                 </TitleContainer>
                 <HeaderControls>
-                    {isDevantEditor && <SaveAndDeployToDevantButton projectStructure={projectStructure} handleDeploy={handleDeploy}/>}
                     <Button appearance="icon" onClick={handleLocalConfigure} buttonSx={{ padding: "4px 8px" }}>
                         <Codicon name="settings-gear" sx={{ marginRight: 5 }} /> Configure
                     </Button>
@@ -987,20 +1055,28 @@ export function Overview(props: ComponentDiagramProps) {
                     </FooterPanel>
                 </LeftContent>
                 <SidePanel>
-                    { !isDevantEditor && 
-                    <>
-                        <DeploymentOptions
-                            handleDockerBuild={handleDockerBuild}
-                            handleJarBuild={handleJarBuild}
+                    {!isDevantEditor &&
+                        <>
+                            <DeploymentOptions
+                                handleDockerBuild={handleDockerBuild}
+                                handleJarBuild={handleJarBuild}
+                                handleDeploy={handleDeploy}
+                                goToDevant={goToDevant}
+                                devantMetadata={devantMetadata}
+                                hasDeployableIntegration={deployableIntegrationTypes.length > 0}
+                            />
+                            <Divider sx={{ margin: "16px 0" }} />
+                            <IntegrationControlPlane enabled={enabled} handleICP={handleICP} />
+                        </>
+                    }
+                    {isDevantEditor &&
+                        <DevantDashboard
+                            projectStructure={projectStructure}
                             handleDeploy={handleDeploy}
                             goToDevant={goToDevant}
                             devantMetadata={devantMetadata}
-                            hasDeployableIntegration={deployableIntegrationTypes.length > 0}
                         />
-                        <Divider sx={{ margin: "16px 0" }} />
-                    </>
                     }
-                    <IntegrationControlPlane enabled={enabled} handleICP={handleICP} />
                 </SidePanel>
             </MainContent>
         </PageLayout>
