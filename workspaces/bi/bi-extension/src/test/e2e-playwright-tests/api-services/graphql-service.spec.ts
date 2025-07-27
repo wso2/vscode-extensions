@@ -19,6 +19,8 @@ import { test } from '@playwright/test';
 import { addArtifact, initTest, page } from '../utils';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../ProjectExplorer';
+import { addGraphQLOperation, clickButtonByTestId, TEST_DATA, addArgumentToGraphQLService, addOutputObject, createInputObjectFromScratch } from './graphqlUtils';
+
 
 export default function createTests() {
     test.describe('GraphQL Service Tests', {
@@ -34,7 +36,7 @@ export default function createTests() {
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
-            const sampleName = `/sample${testAttempt}`;
+            const sampleName = TEST_DATA.service.basePath(testAttempt);
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
             await form.fill({
@@ -77,7 +79,7 @@ export default function createTests() {
             await editBtn.click({ force: true });
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
-            const sampleName = `/editedSample${testAttempt}`;
+            const sampleName = TEST_DATA.service.editedBasePath(testAttempt);
             await form.fill({
                 values: {
                     'Service Base Path*': {
@@ -96,5 +98,84 @@ export default function createTests() {
             const context = artifactWebView.locator(`text=${sampleName}`).first();
             await context.waitFor();
         });
+
+        test('Create Operations in GraphQL Service', async ({ }, testInfo) => {
+            const testAttempt = testInfo.retry + 1;
+            console.log('Creating operations in test attempt: ', testAttempt);
+            const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
+            if (!artifactWebView) {
+                throw new Error('WSO2 Integrator: BI webview not found');
+            }
+
+
+            await clickButtonByTestId(artifactWebView, 'create-operation-button');
+            await addGraphQLOperation(artifactWebView, 'query', TEST_DATA.operations.query.name, TEST_DATA.operations.query.fieldType);
+            await addGraphQLOperation(artifactWebView, 'mutation', TEST_DATA.operations.mutation.name, TEST_DATA.operations.mutation.fieldType);
+            await addGraphQLOperation(artifactWebView, 'subscription', TEST_DATA.operations.subscription.name, TEST_DATA.operations.subscription.fieldType);
+            await clickButtonByTestId(artifactWebView, 'close-panel-btn');
+
+        });
+
+        test('Add types and arguments to GraphQL Service', async ({ }, testInfo) => {
+            const testAttempt = testInfo.retry + 1;
+            console.log('Adding types and arguments in test attempt: ', testAttempt);
+            const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
+            if (!artifactWebView) {
+                throw new Error('WSO2 Integrator: BI webview not found');
+            }
+                        
+            await clickButtonByTestId(artifactWebView, 'graphql-add-mutation-btn');
+            await addArgumentToGraphQLService(artifactWebView);
+            await createInputObjectFromScratch(artifactWebView);
+            await addOutputObject(artifactWebView);
+
+            await artifactWebView.getByRole('textbox', { name: 'Field Name*The name of the' }).fill(TEST_DATA.field.name);
+            await artifactWebView.waitForTimeout(5000); // Wait for the field name to be set
+            const saveButton = artifactWebView.getByRole('button', { name: 'Save' });
+            await saveButton.click();
+
+            // if the the button is not showing saving then again click on the save button
+            while (await saveButton.isVisible()) {
+                await saveButton.click();
+            }
     });
+
+    test('Edit and Delete Operations in GraphQL Service', async ({ }, testInfo) => {
+            const testAttempt = testInfo.retry + 1;
+            console.log('Adding types and arguments in test attempt: ', testAttempt);
+            const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
+            if (!artifactWebView) {
+                throw new Error('WSO2 Integrator: BI webview not found');
+            }
+
+            const saveButton = artifactWebView.getByRole('button', { name: 'Save' });
+            const editButton = await artifactWebView.getByTestId('edit-icon').nth(1);
+            await editButton.click();
+
+            // Fill mutation name
+            const mutationNameInput = artifactWebView.getByRole('textbox', { name: 'Mutation Name*The name of the mutation' });
+            await mutationNameInput.waitFor({ state: 'visible', timeout: 10000 });
+            await mutationNameInput.fill(TEST_DATA.mutationEdit.name);
+
+            // Click Save
+            await saveButton.waitFor({ state: 'visible', timeout: 10000 });
+            await saveButton.click();
+    });
+
+    test('Navigate to respective flow diagram', async ({ }, testInfo) => {
+        const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
+        if (!artifactWebView) {
+            throw new Error('WSO2 Integrator: BI webview not found');
+        }
+
+        const saveButton = artifactWebView.getByRole('button', { name: 'Save' });
+
+        await artifactWebView.getByTestId('side-panel').getByText(TEST_DATA.field.name).click();
+        await artifactWebView.getByTestId('link-add-button-undefined').click();
+        await artifactWebView.getByText('Return').click();
+        await artifactWebView.getByRole('textbox', { name: 'Expression' }).fill(TEST_DATA.expression);
+        await saveButton.click();
+        await artifactWebView.getByText('GraphQL Diagram').click();
+    });
+});
 }
