@@ -3,8 +3,8 @@
   "displayName": "WSO2 Platform",
   "description": "Manage WSO2 Choreo and Devant projects in VS Code.",
   "license": "Apache-2.0",
-  "version": "1.0.14-code-server-8",
-  "cliVersion": "v1.2.182507241600",
+  "version": "1.0.14-code-server-11",
+  "cliVersion": "v1.2.182507261100",
   "publisher": "wso2",
   "bugs": {
     "url": "https://github.com/wso2/choreo-vscode/issues"
@@ -161,14 +161,14 @@
             "dev"
           ],
           "default": "prod",
-          "description": "The WSO2 Platform Enviornment to use",
-          "scope": "window"
+          "description": "The WSO2 Platform Environment to use",
+          "scope": "machine"
         },
         "WSO2.WSO2-Platform.Advanced.RpcPath": {
           "type": "string",
           "default": "",
           "description": "The path to Choreo RPC server",
-          "scope": "machine"
+          "scope": "window"
         }
       }
     },

@@ -23,6 +23,7 @@ import {
 	type ICloneProjectCmdParams,
 	type Organization,
 	type Project,
+	type UserInfo,
 	getComponentKindRepoSource,
 	type openClonedDirReq,
 	parseGitURL,
@@ -32,7 +33,6 @@ import { ResponseError } from "vscode-jsonrpc";
 import { ErrorCode } from "./choreo-rpc/constants";
 import { getUserInfoForCmd, isRpcActive } from "./cmds/cmd-utils";
 import { updateContextFile } from "./cmds/create-directory-context-cmd";
-import { choreoEnvConfig } from "./config";
 import { ext } from "./extensionVariables";
 import { getGitRemotes, getGitRoot } from "./git/util";
 import { getLogger } from "./logger/logger";
@@ -41,7 +41,7 @@ import { contextStore, getContextKey, waitForContextStoreToLoad } from "./stores
 import { dataCacheStore } from "./stores/data-cache-store";
 import { locationStore } from "./stores/location-store";
 import { webviewStateStore } from "./stores/webview-state-store";
-import { delay, isSamePath, openDirectory } from "./utils";
+import { isSamePath, openDirectory } from "./utils";
 
 export function activateURIHandlers() {
 	window.registerUriHandler({
@@ -68,9 +68,12 @@ export function activateURIHandlers() {
 							async () => {
 								try {
 									const orgId = contextStore?.getState().state?.selected?.org?.id?.toString();
-									const callbackUrl = extName === "Devant" ? `${choreoEnvConfig.getDevantUrl()}/vscode-auth` : undefined;
-									const clientId = extName === "Devant" ? choreoEnvConfig.getDevantAsgardeoClientId() : undefined;
-									const userInfo = await ext.clients.rpcClient.signInWithAuthCode(authCode, region, orgId, callbackUrl, clientId);
+									let userInfo: UserInfo | undefined;
+									if (extName === "Devant") {
+										userInfo = await ext.clients.rpcClient.signInDevantWithAuthCode(authCode, region, orgId);
+									} else {
+										userInfo = await ext.clients.rpcClient.signInWithAuthCode(authCode, region, orgId);
+									}
 									if (userInfo) {
 										if (contextStore?.getState().state?.selected) {
 											const includesOrg = userInfo.organizations?.some((item) => item.handle === contextStore?.getState().state?.selected?.orgHandle);
@@ -78,7 +81,8 @@ export function activateURIHandlers() {
 												contextStore.getState().resetState();
 											}
 										}
-										authStore.getState().loginSuccess(userInfo);
+										const region = await ext.clients.rpcClient.getCurrentRegion();
+										authStore.getState().loginSuccess(userInfo, region);
 										window.showInformationMessage(`Successfully signed into ${extName}`);
 									}
 								} catch (error: any) {

@@ -212,6 +212,16 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Enable AI suggestions in the Flow Diagram View."
+                },
+                "ballerina.copilot.environment": {
+                    "type": "string",
+                    "enum": [
+                        "prod",
+                        "dev"
+                    ],
+                    "default": "prod",
+                    "description": "The Enviornment used by Copilot feature in Ballerina Extension",
+                    "scope": "machine"
                 }
             }
         },

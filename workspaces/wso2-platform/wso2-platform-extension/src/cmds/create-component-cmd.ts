@@ -38,7 +38,6 @@ import {
 	parseGitURL,
 } from "@wso2/wso2-platform-core";
 import { type ExtensionContext, ProgressLocation, type QuickPickItem, Uri, commands, env, window, workspace } from "vscode";
-import { choreoEnvConfig } from "../config";
 import { ext } from "../extensionVariables";
 import { initGit } from "../git/main";
 import { getGitRemotes, getGitRoot } from "../git/util";
@@ -389,7 +388,7 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 				if (resp === `Open in ${extensionName}`) {
 					commands.executeCommand(
 						"vscode.open",
-						`${extensionName === "Devant" ? choreoEnvConfig.getDevantUrl() : choreoEnvConfig.getConsoleUrl()}/organizations/${org.handle}/projects/${project.id}/components/${createdComponent.metadata.handler}/overview`,
+						`${extensionName === "Devant" ? ext.config?.devantConsoleUrl : ext.config?.choreoConsoleUrl}/organizations/${org.handle}/projects/${project.id}/components/${createdComponent.metadata.handler}/overview`,
 					);
 				}
 			});

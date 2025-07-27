@@ -48,6 +48,7 @@ import type {
 	GetBuildLogsForTypeReq,
 	GetBuildLogsReq,
 	GetBuildsReq,
+	GetCliRpcResp,
 	GetCommitsReq,
 	GetComponentEndpointsReq,
 	GetComponentItemReq,
@@ -279,21 +280,23 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		return response.userInfo;
 	}
 
-	async getSignInUrl({ baseUrl, callbackUrl, clientId }: { callbackUrl: string; baseUrl?: string; clientId?: string }): Promise<string | undefined> {
+	async getSignInUrl({ callbackUrl }: { callbackUrl: string }): Promise<string | undefined> {
 		if (!this.client) {
 			throw new Error("RPC client is not initialized");
 		}
-		const response = await this.client.sendRequest<{ loginUrl: string }>("auth/getSignInUrl", { callbackUrl, baseUrl, clientId }, 2000);
+		const response = await this.client.sendRequest<{ loginUrl: string }>("auth/getSignInUrl", { callbackUrl }, 2000);
 		return response.loginUrl;
 	}
 
-	async signInWithAuthCode(
-		authCode: string,
-		region?: string,
-		orgId?: string,
-		redirectUrl?: string,
-		clientId?: string,
-	): Promise<UserInfo | undefined> {
+	async getDevantSignInUrl({ callbackUrl }: { callbackUrl: string }): Promise<string | undefined> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response = await this.client.sendRequest<{ loginUrl: string }>("auth/getDevantSignInUrl", { callbackUrl }, 2000);
+		return response.loginUrl;
+	}
+
+	async signInWithAuthCode(authCode: string, region?: string, orgId?: string): Promise<UserInfo | undefined> {
 		if (!this.client) {
 			throw new Error("RPC client is not initialized");
 		}
@@ -301,8 +304,18 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 			authCode,
 			region,
 			orgId,
-			redirectUrl,
-			clientId,
+		});
+		return response.userInfo;
+	}
+
+	async signInDevantWithAuthCode(authCode: string, region?: string, orgId?: string): Promise<UserInfo | undefined> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response = await this.client.sendRequest<{ userInfo: UserInfo }>("auth/signInDevantWithAuthCode", {
+			authCode,
+			region,
+			orgId,
 		});
 		return response.userInfo;
 	}
@@ -312,6 +325,14 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 			throw new Error("RPC client is not initialized");
 		}
 		await this.client.sendRequest("auth/signOut", undefined, 2000);
+	}
+
+	async getCurrentRegion(): Promise<"US" | "EU"> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const resp: { region: "US" | "EU" } = await this.client.sendRequest("auth/getCurrentRegion");
+		return resp.region;
 	}
 
 	async changeOrgContext(orgId: string): Promise<void> {
@@ -582,6 +603,14 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 			throw new Error("RPC client is not initialized");
 		}
 		await this.client.sendRequest("component/updateCodeServer", params);
+	}
+
+	async getConfigFromCli(): Promise<GetCliRpcResp> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: GetCliRpcResp = await this.client.sendRequest("auth/getConfigs", {});
+		return response;
 	}
 }
 

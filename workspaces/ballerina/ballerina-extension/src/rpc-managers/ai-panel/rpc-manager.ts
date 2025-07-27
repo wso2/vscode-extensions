@@ -80,7 +80,7 @@ import { extension } from "../../BalExtensionContext";
 import { NOT_SUPPORTED } from "../../core";
 import { generateDataMapping, generateTypeCreation } from "../../features/ai/dataMapping";
 import { generateTest, getDiagnostics, getResourceAccessorDef, getResourceAccessorNames, getServiceDeclaration, getServiceDeclarationNames } from "../../features/ai/testGenerator";
-import { BACKEND_URL, closeAllBallerinaFiles, DEVANT_API_KEY, DEVANT_STS_TOKEN } from "../../features/ai/utils";
+import { closeAllBallerinaFiles, getAiConfig } from "../../features/ai/utils";
 import { getLLMDiagnosticArrayAsString, handleChatSummaryFailure } from "../../features/natural-programming/utils";
 import { StateMachine, updateView } from "../../stateMachine";
 import { getAccessToken, getRefreshedAccessToken, loginGithubCopilot } from "../../utils/ai/auth";
@@ -110,7 +110,7 @@ export class AiPanelRpcManager implements AIPanelAPI {
     // ==================================
     async getBackendUrl(): Promise<string> {
         return new Promise(async (resolve) => {
-            resolve(BACKEND_URL);
+            resolve(getAiConfig().BACKEND_URL);
         });
     }
 
@@ -779,7 +779,7 @@ export class AiPanelRpcManager implements AIPanelAPI {
                     diagnostics: cleanDiagnosticMessages(content.diagnostics)
                 };
 
-                const response = await fetchData(`${BACKEND_URL}/feedback`, {
+                const response = await fetchData(`${getAiConfig().BACKEND_URL}/feedback`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -802,14 +802,14 @@ export class AiPanelRpcManager implements AIPanelAPI {
 
     async getDevantTokens(): Promise<DevantTokens> {
         return new Promise(async (resolve) => {
-            let stsToken = DEVANT_STS_TOKEN;
+            let stsToken = process.env.CLOUD_STS_TOKEN;
             
             try {
                 // Try to get STS token from platform extension
                 const platformExt = extensions.getExtension("wso2.wso2-platform");
                 if (!platformExt) {
                     const tokens: DevantTokens = {
-                        apiKey: DEVANT_API_KEY,
+                        apiKey: getAiConfig().CODE_API_KEY,
                         stsToken: stsToken
                     };
                     resolve(tokens);
@@ -831,7 +831,7 @@ export class AiPanelRpcManager implements AIPanelAPI {
             }
             
             const tokens: DevantTokens = {
-                apiKey: DEVANT_API_KEY,
+                apiKey: getAiConfig().CODE_API_KEY,
                 stsToken: stsToken
             };
             resolve(tokens);

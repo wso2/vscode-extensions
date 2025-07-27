@@ -44,6 +44,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	getLogger().debug("Activating WSO2 Platform Extension");
 	ext.context = context;
 	ext.api = new PlatformExtensionApi();
+	ext.choreoEnv = getChoreoEnv();
 	setInitialEnv();
 
 	// Initialize stores
@@ -78,6 +79,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			activateMcp(context);
 			activateDevantFeatures();
 			getLogger().debug("WSO2 Platform Extension activated");
+			ext.config = await ext.clients.rpcClient.getConfigFromCli();
 		})
 		.catch((e) => {
 			getLogger().error("Failed to initialize rpc client", e);
@@ -90,6 +92,15 @@ export async function activate(context: vscode.ExtensionContext) {
 	activateStatusbar(context);
 	return ext.api;
 }
+
+const getChoreoEnv = (): string => {
+	return (
+		process.env.CHOREO_ENV ||
+		process.env.CLOUD_ENV ||
+		workspace.getConfiguration().get<string>("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") ||
+		"prod"
+	);
+};
 
 function setInitialEnv() {
 	const choreoEnv = process.env.CHOREO_ENV || process.env.CLOUD_ENV;

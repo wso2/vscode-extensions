@@ -17,8 +17,9 @@
  */
 
 import * as vscode from "vscode";
-import { getChoreoEnv, getChoreoExecPath } from "./choreo-rpc/cli-install";
+import { getChoreoExecPath } from "./choreo-rpc/cli-install";
 import { getUserInfoForCmd } from "./cmds/cmd-utils";
+import { ext } from "./extensionVariables";
 
 export function activateMcp(context: vscode.ExtensionContext) {
 	const didChangeEmitter = new vscode.EventEmitter<void>();
@@ -32,7 +33,7 @@ export function activateMcp(context: vscode.ExtensionContext) {
 						"Choreo MCP Server",
 						getChoreoExecPath(),
 						["start-mcp-server"],
-						{ CHOREO_ENV: getChoreoEnv() },
+						{ CHOREO_ENV: ext.choreoEnv, CHOREO_REGION: process.env.CLOUD_REGION || "" },
 						"1.0.0",
 					),
 				);

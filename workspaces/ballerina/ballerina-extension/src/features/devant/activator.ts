@@ -28,6 +28,7 @@ import { openView, StateMachine } from "../../stateMachine";
 import { commands, extensions, window } from "vscode";
 import * as path from "path";
 import * as fs from "fs";
+import { debug } from "../../utils";
 
 export function activateDevantFeatures(_ballerinaExtInstance: BallerinaExtension) {
     const cloudToken = process.env.CLOUD_STS_TOKEN;
@@ -59,6 +60,7 @@ const handleComponentPushToDevant = async () => {
             componentPath: projectRoot,
         } as ICommitAndPuhCmdParams);
     } else if (platformExtAPI.getDirectoryComponents(projectRoot)?.length) {
+        debug(`project url: ${projectRoot}`);
         // push changes to repo if component for the directory already exists
         const hasChanges = await platformExtAPI.localRepoHasChanges(projectRoot);
         if (!hasChanges) {

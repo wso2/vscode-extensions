@@ -17,10 +17,10 @@
  */
 
 import { type ChildProcessWithoutNullStreams, spawn } from "child_process";
-import { workspace } from "vscode";
 import { type MessageConnection, StreamMessageReader, StreamMessageWriter, createMessageConnection } from "vscode-jsonrpc/node";
+import { ext } from "../extensionVariables";
 import { getLogger } from "../logger/logger";
-import { getChoreoEnv, getChoreoExecPath } from "./cli-install";
+import { getChoreoExecPath } from "./cli-install";
 
 export class StdioConnection {
 	private _connection: MessageConnection;
@@ -33,7 +33,8 @@ export class StdioConnection {
 			env: {
 				...process.env,
 				SKIP_KEYRING: process.env.CLOUD_STS_TOKEN ? "true" : "",
-				CHOREO_ENV: getChoreoEnv(),
+				CHOREO_ENV: ext.choreoEnv,
+				CHOREO_REGION: process.env.CLOUD_REGION || "",
 			},
 		});
 		this._connection = createMessageConnection(

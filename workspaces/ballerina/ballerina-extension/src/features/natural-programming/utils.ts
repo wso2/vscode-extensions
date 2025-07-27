@@ -38,7 +38,7 @@ import {
 } from "./constants";
 import { isError, isNumber } from 'lodash';
 import { HttpStatusCode } from 'axios';
-import { BACKEND_URL } from '../ai/utils';
+import { getAiConfig } from '../ai/utils';
 import { AIMachineEventType, BallerinaProject } from '@wso2/ballerina-core';
 import { getCurrentBallerinaProjectFromContext } from '../config-generator/configGenerator';
 import { BallerinaExtension } from 'src/core';
@@ -518,7 +518,7 @@ export function getPluginConfig(): BallerinaPluginConfig {
 
 export async function getBackendURL(): Promise<string> {
     return new Promise(async (resolve) => {
-        resolve(BACKEND_URL);
+        resolve(getAiConfig().BACKEND_URL);
     });
 }
 
