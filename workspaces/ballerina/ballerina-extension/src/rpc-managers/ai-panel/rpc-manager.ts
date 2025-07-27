@@ -200,7 +200,7 @@ export class AiPanelRpcManager implements AIPanelAPI {
             fs.mkdirSync(directory, { recursive: true });
         }
 
-        writeBallerinaFileDidOpen(balFilePath, req.content);
+        await writeBallerinaFileDidOpen(balFilePath, req.content);
         updateView();
         const datamapperMetadata = StateMachine.context().dataMapperMetadata;
         await refreshDataMapper(balFilePath, datamapperMetadata.codeData, datamapperMetadata.name);
