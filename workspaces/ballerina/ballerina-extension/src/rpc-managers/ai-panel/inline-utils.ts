@@ -12,7 +12,7 @@ import { fetchWithTimeout, filterResponse, generateBallerinaCode, isErrorCode, m
 import { getAccessToken, getRefreshedAccessToken } from "../../utils/ai/auth";
 import { NOT_LOGGED_IN, TIMEOUT } from "../../views/ai-panel/errorCodes";
 import { AIStateMachine } from "../../views/ai-panel/aiMachine";
-import { BACKEND_URL } from "../../features/ai/utils";
+import { getAiConfig } from "src/features/ai/utils";
 
 let abortController = new AbortController();
 
@@ -408,7 +408,8 @@ export async function getInlineParamDefinitions(
 }
 
 async function sendInlineDatamapperRequest(inlineDataMapperResponse: InlineDataMapperModelResponse | ErrorCode, accessToken: string | ErrorCode): Promise<Response | ErrorCode> {
-    const response = await fetchWithTimeout(BACKEND_URL + "/inline/datamapper", {
+    const aiConfig = getAiConfig();
+    const response = await fetchWithTimeout(aiConfig.BACKEND_URL + "/inline/datamapper", {
         method: "POST",
         headers: {
             'Accept': 'application/json',
