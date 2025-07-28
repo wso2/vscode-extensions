@@ -23,7 +23,7 @@ The Ballerina Integrator Web Extension lets  view and edit your integration code
 
 ## Architecture Overview
 
-![BI Web Extension Architecture](https://github.com/wso2/vscode-extensions/blob/main/workspaces/ballerina/ballerina-extension/resources/images/bi-web-architecture-diagram.png?raw=true)
+![BI Web Extension Architecture](https://github.com/wso2/vscode-extensions/blob/bi-web-editor/workspaces/ballerina/ballerina-extension/resources/images/bi-web-architecture-diagram.png?raw=true)
 
 ### **Language Server Integration**
 - **Backend Server**: The extension starts the `bi-web-server` Node.js backend
