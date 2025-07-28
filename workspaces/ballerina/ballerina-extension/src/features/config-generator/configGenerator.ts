@@ -17,7 +17,7 @@
  */
 
 import { window, Uri, commands, workspace } from "vscode";
-import { existsSync, openSync, readFileSync, writeFile } from "fs";
+import { existsSync, readFileSync, writeFile } from "fs";
 import { BAL_TOML, BAL_CONFIG_FILE, PALETTE_COMMANDS, clearTerminal } from "../project";
 import { BallerinaExtension, ballerinaExtInstance, ExtendedLangClient } from "../../core";
 import { getCurrentBallerinaProject } from "../../utils/project-utils";

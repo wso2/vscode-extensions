@@ -126,14 +126,6 @@ async function getLLMResponses(sources: BallerinaSource[], token: string, backen
     }
 
     let extractedResponses: any[] = [];
-
-    // for (const response of filteredResponses) {
-    //     const extractedResponse = await extractResponseAsJsonFromString(await streamToString(response.body));
-    //     if (extractedResponse != null) {
-    //         extractedResponses.push(extractedResponse);
-    //     }
-    // }
-
     return extractedResponses;
 }
 

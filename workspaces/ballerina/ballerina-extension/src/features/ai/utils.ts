@@ -19,7 +19,6 @@
 import * as fs from 'fs';
 import path from "path";
 import { Uri, workspace } from 'vscode';
-
 import { StateMachine } from "../../stateMachine";
 
 const config = workspace.getConfiguration('ballerina');

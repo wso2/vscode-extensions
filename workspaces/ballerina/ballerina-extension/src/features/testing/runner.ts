@@ -24,7 +24,7 @@
 import { log } from "console";
 import fileUriToPath from "file-uri-to-path";
 import { ballerinaExtInstance, LANGUAGE } from "../../core";
-import { DEBUG_REQUEST, DEBUG_CONFIG, constructDebugConfig } from "../debugger";
+import { constructDebugConfig } from "../debugger";
 import { Uri, WorkspaceFolder, workspace, DebugConfiguration, debug, window, CancellationToken, TestItem, TestMessage, TestRunProfileKind, TestRunRequest } from "vscode";
 import child_process from 'child_process';
 

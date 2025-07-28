@@ -18,9 +18,6 @@
 
 import { ballerinaExtInstance, LANGUAGE } from "../../../core";
 import { commands, window } from "vscode";
-// import {
-//     TM_EVENT_PROJECT_BUILD, CMP_PROJECT_BUILD, sendTelemetryEvent, sendTelemetryException
-// } from "../../telemetry";
 import { runCommand, BALLERINA_COMMANDS, PROJECT_TYPE, PALETTE_COMMANDS, MESSAGES }
     from "./cmd-runner";
 import { getCurrentBallerinaProject, getCurrenDirectoryPath, getCurrentBallerinaFile }
@@ -31,8 +28,6 @@ export function activateBuildCommand() {
     // register run project build handler
     commands.registerCommand(PALETTE_COMMANDS.BUILD, async () => {
         try {
-           // sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_PROJECT_BUILD, CMP_PROJECT_BUILD);
-
             if (window.activeTextEditor && window.activeTextEditor.document.languageId != LANGUAGE.BALLERINA) {
                 window.showErrorMessage(MESSAGES.NOT_IN_PROJECT);
                 return;
@@ -58,7 +53,6 @@ export function activateBuildCommand() {
 
         } catch (error) {
             if (error instanceof Error) {
-                //sendTelemetryException(ballerinaExtInstance, error, CMP_PROJECT_BUILD);
                 window.showErrorMessage(error.message);
             } else {
                 window.showErrorMessage("Unkown error occurred.");

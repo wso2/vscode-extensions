@@ -17,7 +17,7 @@
  */
 
 import { commands, languages, Uri, window } from "vscode";
-import { BALLERINA_COMMANDS, getRunCommand, PALETTE_COMMANDS, runCommand } from "./cmd-runner";
+import { getRunCommand, PALETTE_COMMANDS, runCommand } from "./cmd-runner";
 import { ballerinaExtInstance } from "../../../core";
 import { prepareAndGenerateConfig } from "../../config-generator/configGenerator";
 import { getConfigCompletions } from "../../config-generator/utils";
