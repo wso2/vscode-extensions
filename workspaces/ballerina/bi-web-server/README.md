@@ -44,20 +44,13 @@ src/
 
 ## Installation
 
-1. Clone the repository:
+1. Navigate to the bi-web-server directory:
 
 ```bash
-git clone https://github.com/your-repo.git
-cd your-repo
+cd workspaces/ballerina/bi-web-server
 ```
 
-2. Install dependencies:
-
-```bash
-npm install
-```
-
-3. Run the server:
+2. Run the server:
 
 ```bash
 npm start
