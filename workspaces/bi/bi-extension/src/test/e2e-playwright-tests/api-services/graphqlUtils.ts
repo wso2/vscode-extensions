@@ -15,6 +15,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+import { Frame } from '@playwright/test';
 import { page } from '../utils';
 
 // Centralized test data for all GraphQL service E2E tests
@@ -23,35 +24,28 @@ export const TEST_DATA = {
         basePath: (attempt: number) => `/sample${attempt}`,
         editedBasePath: (attempt: number) => `/editedSample${attempt}`,
     },
-    operations: {
-        query: {
-            name: 'query1',
-            fieldType: 'string',
-        },
-        mutation: {
-            name: 'mutation1',
-            fieldType: 'boolean',
-        },
-        subscription: {
-            name: 'subscription1',
-            fieldType: 'float',
-        },
+    query: {
+    name: 'query1',
+    fieldType: 'string',
     },
-    arguments: [
-        { name: 'arg1', type: 'string' },
-        { name: 'arg2', type: 'mytype1' },
-    ],
-    types: {
-        inputObject: 'mytype1',
-        outputObject: 'outputtype1',
-    },
-    field: {
-        name: 'field1',
-    },
-    mutationEdit: {
+    mutation: [{
+        name: 'mutation1',
+        editedName: 'editedMutation1',
+        fieldType: 'boolean',
+        arguments: [
+            { name: 'arg1', type: 'string' },
+            { name: 'arg2', type: 'mytype1' },
+        ],
+        outputType: 'outputtype1',
+    },{
         name: 'mutation2',
+        fieldType: 'float',
+        expression: '"Hello World!"',
+    }],
+    subscription: {
+        name: 'subscription1',
+        fieldType: 'float',
     },
-    expression: '"Hello World!"',
 };
 
 /**
@@ -61,7 +55,7 @@ export const TEST_DATA = {
  * @param name - The name to use for the operation
  * @param fieldType - The type to use for the field (e.g., 'boolean', 'float', etc.)
  */
-export async function addGraphQLOperation(artifactWebView, operationType, name, fieldType) {
+export async function addGraphQLOperation(artifactWebView: Frame, operationType: string, name: string, fieldType: string) {
     const addBtnTestId = `graphql-add-${operationType}-btn`;
     await artifactWebView.getByTestId(addBtnTestId).waitFor({ state: 'visible', timeout: 10000 });
     const addBtn = artifactWebView.getByTestId(addBtnTestId);
@@ -95,24 +89,31 @@ export async function addGraphQLOperation(artifactWebView, operationType, name, 
  * @param artifactWebView - The Playwright frame/locator for the webview
  * @param testId - The test id of the button to click
  */
-export async function clickButtonByTestId(artifactWebView, testId: string) {
+export async function clickButtonByTestId(artifactWebView: Frame, testId: string) {
     const button = artifactWebView.getByTestId(testId);
     await button.waitFor({ state: 'visible', timeout: 10000 });
     await button.click();
 }
 
-
-export async function addOutputObject(artifactWebView) {
+/**
+ * Create an output object type in the GraphQL service
+ * @param artifactWebView - The Playwright frame/locator for the webview
+ */
+export async function addOutputObject(artifactWebView: Frame) {
     const createFromScratchTab = artifactWebView.getByTestId('create-from-scratch-tab');
     await artifactWebView.getByRole('textbox', { name: 'Field Type' }).click();
     await artifactWebView.getByText('Create New Type').click();
     await artifactWebView.getByTestId('type-kind-dropdown').locator('svg').click();
     await artifactWebView.getByRole('option', { name: 'Object' }).click();
-    await createFromScratchTab.getByRole('textbox', { name: 'Name' }).fill(TEST_DATA.types.outputObject);
+    await createFromScratchTab.getByRole('textbox', { name: 'Name' }).fill(TEST_DATA.mutation[0].outputType);
     await artifactWebView.getByTestId('type-create-save').getByRole('button', { name: 'Save' }).click();
 }
 
-export async function createInputObjectFromScratch(artifactWebView) {
+/**
+ * Create an input object type from scratch in the GraphQL service
+ * @param artifactWebView - The Playwright frame/locator for the webview
+ */
+export async function createInputObjectFromScratch(artifactWebView: Frame) {
     await artifactWebView.getByText('Add Argument').click();
     await artifactWebView.getByRole('textbox', { name: 'Argument Type' }).click();
     await artifactWebView.getByText('Create New Type').click();
@@ -121,17 +122,21 @@ export async function createInputObjectFromScratch(artifactWebView) {
 
     // Fill name for the new input object type
     const createFromScratchTab = artifactWebView.getByTestId('create-from-scratch-tab');
-    await createFromScratchTab.getByRole('textbox', { name: 'Name' }).fill(TEST_DATA.types.inputObject);
+    await createFromScratchTab.getByRole('textbox', { name: 'Name' }).fill(TEST_DATA.mutation[0].arguments[1].type);
     await artifactWebView.getByTestId('type-create-save').getByRole('button', { name: 'Save' }).click();
-    await artifactWebView.getByRole('textbox', { name: 'Argument Name*The name of the' }).fill(TEST_DATA.arguments[1].name);
+    await artifactWebView.getByRole('textbox', { name: 'Argument Name*The name of the' }).fill(TEST_DATA.mutation[0].arguments[1].name);
     await artifactWebView.getByRole('button', { name: 'Add' }).click();
 }
 
-export async function addArgumentToGraphQLService(artifactWebView) {
+/**
+ * Add an argument to a GraphQL service
+ * @param artifactWebView - The Playwright frame/locator for the webview
+ */
+export async function addArgumentToGraphQLService(artifactWebView: Frame) {
     await artifactWebView.getByText('Add Argument').click();
     await artifactWebView.getByRole('textbox', { name: 'Argument Type' }).click();
     await artifactWebView.getByTitle('string', { exact: true }).click();
-    await artifactWebView.getByRole('textbox', { name: 'Argument Name*The name of the' }).fill(TEST_DATA.arguments[0].name);
+    await artifactWebView.getByRole('textbox', { name: 'Argument Name*The name of the' }).fill(TEST_DATA.mutation[0].arguments[0].name);
     await artifactWebView.getByRole('button', { name: 'Add' }).click();
 }
 

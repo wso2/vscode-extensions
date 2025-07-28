@@ -108,9 +108,9 @@ export default function createTests() {
             }            
 
             await clickButtonByTestId(artifactWebView, 'create-operation-button');
-            await addGraphQLOperation(artifactWebView, 'query', TEST_DATA.operations.query.name, TEST_DATA.operations.query.fieldType);
-            await addGraphQLOperation(artifactWebView, 'mutation', TEST_DATA.operations.mutation.name, TEST_DATA.operations.mutation.fieldType);
-            await addGraphQLOperation(artifactWebView, 'subscription', TEST_DATA.operations.subscription.name, TEST_DATA.operations.subscription.fieldType);
+            await addGraphQLOperation(artifactWebView, 'query', TEST_DATA.query.name, TEST_DATA.query.fieldType);
+            await addGraphQLOperation(artifactWebView, 'mutation', TEST_DATA.mutation[0].name, TEST_DATA.mutation[0].fieldType);
+            await addGraphQLOperation(artifactWebView, 'subscription', TEST_DATA.subscription.name, TEST_DATA.subscription.fieldType);
             await clickButtonByTestId(artifactWebView, 'close-panel-btn');
 
         });
@@ -128,7 +128,7 @@ export default function createTests() {
             await createInputObjectFromScratch(artifactWebView);
             await addOutputObject(artifactWebView);
 
-            await artifactWebView.getByRole('textbox', { name: 'Field Name*The name of the' }).fill(TEST_DATA.field.name);
+            await artifactWebView.getByRole('textbox', { name: 'Field Name*The name of the' }).fill(TEST_DATA.mutation[1].name);
             await artifactWebView.waitForTimeout(5000); // Wait for the field name to be set
             const saveButton = artifactWebView.getByRole('button', { name: 'Save' });
             await saveButton.click();
@@ -148,17 +148,17 @@ export default function createTests() {
             }
 
             const saveButton = artifactWebView.getByRole('button', { name: 'Save' });
-            const editButton = await artifactWebView.getByTestId('edit-button-mutation1');
+            const editButton = await artifactWebView.getByTestId(`edit-button-${TEST_DATA.mutation[0].name}`);
             await editButton.click();
             
             // Fill mutation name
             const mutationNameInput = artifactWebView.getByRole('textbox', { name: 'Mutation Name*The name of the mutation' });
             await mutationNameInput.waitFor({ state: 'visible', timeout: 10000 });
-            await mutationNameInput.fill(TEST_DATA.mutationEdit.name);
+            await mutationNameInput.fill(TEST_DATA.mutation[0].editedName);
             await saveButton.click();
 
             // Delete the mutation
-            await artifactWebView.getByTestId('delete-button-mutation2').click();
+            await artifactWebView.getByTestId(`delete-button-${TEST_DATA.mutation[0].editedName}`).click();
             await artifactWebView.waitForTimeout(5000); // Wait for the delete confirmation dialog to appear
             await artifactWebView.getByRole('button', { name: 'Okay' }).click();
             await artifactWebView.waitForTimeout(5000); // Wait for the delete confirmation dialog to close
@@ -172,10 +172,10 @@ export default function createTests() {
 
         const saveButton = artifactWebView.getByRole('button', { name: 'Save' });
 
-        await artifactWebView.getByTestId('side-panel').getByText(TEST_DATA.field.name).click();
+        await artifactWebView.getByTestId('side-panel').getByText(TEST_DATA.mutation[1].name).click();
         await artifactWebView.getByTestId('link-add-button-undefined').click();
         await artifactWebView.getByText('Return').click();
-        await artifactWebView.getByRole('textbox', { name: 'Expression' }).fill(TEST_DATA.expression);
+        await artifactWebView.getByRole('textbox', { name: 'Expression' }).fill(TEST_DATA.mutation[1].expression);
         await saveButton.click();
         await artifactWebView.getByText('GraphQL Diagram').click();
     });
