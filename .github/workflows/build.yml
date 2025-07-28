@@ -335,14 +335,6 @@ jobs:
             exit 1
           fi
 
-      - name: Security scan diagnostics
-        if: failure()
-        run: |
-          echo "🔍 Security Scan Diagnostics:"
-          echo "Trivy version: $(trivy version --format json | jq -r '.Version' 2>/dev/null || trivy version)"
-          echo "Scan completed with vulnerabilities found"
-          echo "Review the vulnerability table above for details and remediation steps"
-
   ExtTest_Ballerina:
     name: Run Ballerina extension tests
     needs: Build_Stage
