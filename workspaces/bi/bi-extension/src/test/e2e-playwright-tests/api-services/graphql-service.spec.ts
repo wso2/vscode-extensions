@@ -19,7 +19,7 @@ import { test } from '@playwright/test';
 import { addArtifact, initTest, page } from '../utils';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../ProjectExplorer';
-import { addGraphQLOperation, clickButtonByTestId, TEST_DATA, addArgumentToGraphQLService, addOutputObject, createInputObjectFromScratch } from './graphqlUtils';
+import { TEST_DATA, GraphQLServiceUtils} from './graphqlUtils';
 
 
 export default function createTests() {
@@ -107,11 +107,13 @@ export default function createTests() {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }            
 
-            await clickButtonByTestId(artifactWebView, 'create-operation-button');
-            await addGraphQLOperation(artifactWebView, 'query', TEST_DATA.query.name, TEST_DATA.query.fieldType);
-            await addGraphQLOperation(artifactWebView, 'mutation', TEST_DATA.mutation[0].name, TEST_DATA.mutation[0].fieldType);
-            await addGraphQLOperation(artifactWebView, 'subscription', TEST_DATA.subscription.name, TEST_DATA.subscription.fieldType);
-            await clickButtonByTestId(artifactWebView, 'close-panel-btn');
+            const graphqlServiceUtils = new GraphQLServiceUtils(page.page,artifactWebView);
+
+            await graphqlServiceUtils.clickButtonByTestId( 'create-operation-button');
+            await graphqlServiceUtils.addGraphQLOperation( 'query', TEST_DATA.query.name, TEST_DATA.query.fieldType);
+            await graphqlServiceUtils.addGraphQLOperation( 'mutation', TEST_DATA.mutation[0].name, TEST_DATA.mutation[0].fieldType);
+            await graphqlServiceUtils.addGraphQLOperation( 'subscription', TEST_DATA.subscription.name, TEST_DATA.subscription.fieldType);
+            await graphqlServiceUtils.clickButtonByTestId( 'close-panel-btn');
 
         });
 
@@ -122,11 +124,13 @@ export default function createTests() {
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
-                        
-            await clickButtonByTestId(artifactWebView, 'graphql-add-mutation-btn');
-            await addArgumentToGraphQLService(artifactWebView);
-            await createInputObjectFromScratch(artifactWebView);
-            await addOutputObject(artifactWebView);
+
+            const graphqlServiceUtils = new GraphQLServiceUtils(page.page, artifactWebView);
+
+            await graphqlServiceUtils.clickButtonByTestId( 'graphql-add-mutation-btn');
+            await graphqlServiceUtils.addArgumentToGraphQLService();
+            await graphqlServiceUtils.createInputObjectFromScratch();
+            await graphqlServiceUtils.addOutputObject();
 
             await artifactWebView.getByRole('textbox', { name: 'Field Name*The name of the' }).fill(TEST_DATA.mutation[1].name);
             await artifactWebView.waitForTimeout(5000); // Wait for the field name to be set
