@@ -105,8 +105,7 @@ export default function createTests() {
             const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
-            }
-
+            }            
 
             await clickButtonByTestId(artifactWebView, 'create-operation-button');
             await addGraphQLOperation(artifactWebView, 'query', TEST_DATA.operations.query.name, TEST_DATA.operations.query.fieldType);
@@ -149,17 +148,20 @@ export default function createTests() {
             }
 
             const saveButton = artifactWebView.getByRole('button', { name: 'Save' });
-            const editButton = await artifactWebView.getByTestId('edit-icon').nth(1);
+            const editButton = await artifactWebView.getByTestId('edit-button-mutation1');
             await editButton.click();
-
+            
             // Fill mutation name
             const mutationNameInput = artifactWebView.getByRole('textbox', { name: 'Mutation Name*The name of the mutation' });
             await mutationNameInput.waitFor({ state: 'visible', timeout: 10000 });
             await mutationNameInput.fill(TEST_DATA.mutationEdit.name);
-
-            // Click Save
-            await saveButton.waitFor({ state: 'visible', timeout: 10000 });
             await saveButton.click();
+
+            // Delete the mutation
+            await artifactWebView.getByTestId('delete-button-mutation2').click();
+            await artifactWebView.waitForTimeout(5000); // Wait for the delete confirmation dialog to appear
+            await artifactWebView.getByRole('button', { name: 'Okay' }).click();
+            await artifactWebView.waitForTimeout(5000); // Wait for the delete confirmation dialog to close
     });
 
     test('Navigate to respective flow diagram', async ({ }, testInfo) => {
