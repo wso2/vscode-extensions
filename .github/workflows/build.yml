@@ -327,7 +327,6 @@ jobs:
               exit 1
             else
               echo "✅ SUCCESS: No security vulnerabilities detected"
-              echo "⚠️  WARNING: If axios 0.21.0 is installed, this result is INCORRECT"
             fi
           else
             echo "❌ ERROR: No scan results file generated!"

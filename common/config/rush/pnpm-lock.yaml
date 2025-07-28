@@ -2851,9 +2851,6 @@ importers:
       '@wso2/font-wso2-vscode':
         specifier: workspace:*
         version: link:../font-wso2-vscode
-      axios:
-        specifier: 0.21.0
-        version: 0.21.0
       classnames:
         specifier: ^2.5.1
         version: 2.5.1
@@ -10483,10 +10480,6 @@ packages:
   axe-core@4.10.3:
     resolution: {integrity: sha512-Xm7bpRXnDSX2YE2YFfBk2FnF0ep6tmG7xPh8iHee8MIcrgq762Nkce856dYtJYLkuIoYZvGfTs/PbZhideTcEg==}
     engines: {node: '>=4'}
-
-  axios@0.21.0:
-    resolution: {integrity: sha512-fmkJBknJKoZwem3/IKSSLpkdNXZeBu5Q7GA/aRsr2btgrptmSCxi2oFjZHqGdK9DoTil9PIHlPIZw2EcRJXRvw==}
-    deprecated: Critical security vulnerability fixed in v0.21.1. For more information, see https://github.com/axios/axios/pull/3410
 
   axios@1.9.0:
     resolution: {integrity: sha512-re4CqKTJaURpzbLHtIi6XpDv20/CnpXOtjRY5/CU32L8gU8ek9UIivcfvSWvmKEngmVbrUtPpdDwWDWL7DNHvg==}
@@ -34442,12 +34435,6 @@ snapshots:
 
   axe-core@4.10.3: {}
 
-  axios@0.21.0:
-    dependencies:
-      follow-redirects: 1.15.9
-    transitivePeerDependencies:
-      - debug
-
   axios@1.9.0:
     dependencies:
       follow-redirects: 1.15.9
@@ -47541,7 +47528,7 @@ snapshots:
       schema-utils: 4.3.2
       serialize-javascript: 6.0.2
       terser: 5.43.1
-      webpack: 5.100.2(webpack-cli@5.1.4)
+      webpack: 5.100.2(webpack-cli@6.0.1)
 
   terser@4.8.1:
     dependencies:
@@ -47862,7 +47849,7 @@ snapshots:
       semver: 7.7.2
       source-map: 0.7.4
       typescript: 5.8.3
-      webpack: 5.100.2(webpack-cli@5.1.4)
+      webpack: 5.100.2(webpack-cli@6.0.1)
 
   ts-mixer@6.0.4: {}
 
