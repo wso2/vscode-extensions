@@ -159,7 +159,7 @@ export default function createTests() {
         const diagram = new Diagram(page.page, 'Resource');
         await diagram.init();
 
-        await diagram.addConnectorOperation('CSV', 'csvToCsv');
+        await diagram.addConnectorOperation('CSV', 'CSV to CSV', 'CSV\\ to\\ CSV');
 
         // Fill connector form
         await diagram.fillConnectorForm({

@@ -409,7 +409,7 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 
 					if (confirmation === 'Yes') {
 						try {
-							await vscode.workspace.fs.delete(Uri.file(fileUri), { recursive: true, useTrash: true });
+							await vscode.workspace.fs.delete(Uri.file(fileUri.fsPath ?? fileUri), { recursive: true, useTrash: true });
 							window.showInformationMessage(`${item.label} has been deleted.`);
 
 							if (item.contextValue === 'api') {
