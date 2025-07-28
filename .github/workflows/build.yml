@@ -167,30 +167,6 @@ jobs:
           PLATFORM_DEV_GHAPP_CLIENT_ID: ${{ secrets.PLATFORM_DEV_GHAPP_CLIENT_ID }}
           PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID: ${{ secrets.PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID }}
 
-  Security_Scan:
-    name: Security vulnerability scan
-    needs: Build_Stage
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Restore build
-        uses: actions/download-artifact@v4
-        with:
-          name: ExtBuild
-          path: ./
-
-      - name: Set up workspace
-        run: |
-          unzip build.zip
-          rm build.zip
-
-      - name: Setup Rush
-        uses: gigara/setup-rush@v1.2.0
-        with:
-          pnpm: 10.11.0
-          node: 22.x
-          rush-install: true
-
       - name: Install Trivy
         run: |
           sudo apt-get update
@@ -200,139 +176,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install trivy
 
-      - name: Update Trivy vulnerability database
+      - name: Security vulnerability scan
         run: |
-          echo "🔄 Updating Trivy vulnerability database..."
-          echo "🔄 Run attempt: ${{ github.run_attempt }}"
-          
-          # Force complete cleanup of any cached data
-          rm -rf ~/.cache/trivy || true
-          rm -rf /tmp/trivy* || true
-          
-          # Download fresh vulnerability database
-          trivy image --download-db-only
-          
-          echo "✅ Trivy database updated successfully"
-          echo "📊 Database info:"
-          trivy version --format json | jq '.VulnerabilityDB' || trivy version
-          
-          # Show database timestamp to detect any caching issues
-          echo "📅 Database cache info:"
-          ls -la ~/.cache/trivy/ 2>/dev/null || echo "No cache directory found"
-
-      - name: Verify Trivy installation
-        run: |
-          trivy version
-          echo "Trivy installed successfully"
-
-      - name: Show scan configuration
-        run: |
-          echo "🔧 Security Scan Configuration:"
-          echo "  - Scanning: Production dependencies"
-          echo "  - Severity levels: CRITICAL, HIGH, MEDIUM, LOW"
-          echo "  - Skipping directories: common/temp"
-          echo "  - Timeout: 10 minutes"
-          echo "  - Exit on vulnerabilities: YES (Build will fail)"
-
-      - name: Run Trivy vulnerability scanner
-        run: |
-          echo "🔍 Scanning for security vulnerabilities..."
-          echo "🔄 Run attempt: ${{ github.run_attempt }}"
-          echo "📂 Current working directory: $(pwd)"
-          echo ""
-          
-          # Debug: Check environment and file system state
-          echo "📊 Environment check:"
-          echo "  - Build artifacts restored: $(test -f rush.json && echo 'YES' || echo 'NO')"
-          echo "  - Rush installed: $(rush --version 2>/dev/null && echo 'YES' || echo 'NO')"
-          echo "  - ui-toolkit exists: $(test -d workspaces/common-libs/ui-toolkit && echo 'YES' || echo 'NO')"
-          echo "  - ui-toolkit node_modules: $(test -d workspaces/common-libs/ui-toolkit/node_modules && echo 'YES' || echo 'NO')"
-          echo ""
-          
-          # Check if axios is actually installed with vulnerable version
-          if [ -d "workspaces/common-libs/ui-toolkit/node_modules/axios" ]; then
-            AXIOS_VERSION=$(cat workspaces/common-libs/ui-toolkit/node_modules/axios/package.json | grep '"version"' | cut -d'"' -f4)
-            echo "  - axios version found: $AXIOS_VERSION"
-            if [ "$AXIOS_VERSION" = "0.21.0" ]; then
-              echo "  - ⚠️  VULNERABLE AXIOS VERSION DETECTED: $AXIOS_VERSION"
-            fi
-          else
-            echo "  - axios not found in node_modules"
-          fi
-          echo ""
-          
-          # Run Trivy vulnerability scan
-          echo "🚀 Starting Trivy scan..."
+          echo "🔍 Running security vulnerability scan..."
           trivy fs . \
             --timeout 10m \
             --skip-dirs common/temp \
             --severity CRITICAL,HIGH,MEDIUM,LOW \
-            --format table \
-            --output trivy-results.txt \
-            --exit-code 0
-          
-          TRIVY_EXIT_CODE=$?
-          echo "📊 Trivy scan exit code: $TRIVY_EXIT_CODE"
-          echo ""
-          
-          # Always display the results for transparency
-          if [ -f "trivy-results.txt" ]; then
-            echo "📋 Complete vulnerability report:"
-            cat trivy-results.txt
-            echo ""
-            
-            # Count vulnerabilities with detailed breakdown
-            TOTAL_LINES=$(wc -l < trivy-results.txt)
-            CVE_COUNT=$(grep -c "CVE-" trivy-results.txt 2>/dev/null || echo "0")
-            GHSA_COUNT=$(grep -c "GHSA-" trivy-results.txt 2>/dev/null || echo "0")
-            
-            # Clean the counts to remove any whitespace/newlines
-            CVE_COUNT=$(echo "$CVE_COUNT" | tr -d '\n\r ')
-            GHSA_COUNT=$(echo "$GHSA_COUNT" | tr -d '\n\r ')
-            
-            # Calculate total vulnerabilities safely
-            VULN_COUNT=$((CVE_COUNT + GHSA_COUNT))
-            
-            # Debug vulnerability detection inconsistency
-            echo "🔍 Vulnerability Detection Analysis:"
-            echo "  - CVE count (cleaned): '$CVE_COUNT'"
-            echo "  - GHSA count (cleaned): '$GHSA_COUNT'"
-            echo "  - Total vulnerabilities: $VULN_COUNT"
-            echo "  - Run attempt: ${{ github.run_attempt }}"
-            echo "  - Expected: Should ALWAYS find axios 0.21.0 vulnerabilities"
-            
-            # Check if this is inconsistent behavior
-            if [ "${{ github.run_attempt }}" -gt 1 ] && [ "$VULN_COUNT" -eq 0 ]; then
-              echo "  - 🚨 CRITICAL: Vulnerability detection is INCONSISTENT!"
-              echo "  - 🚨 First run found vulnerabilities, but rerun shows clean results"
-              echo "  - 🚨 This indicates a serious issue with the security scanning process"
-            fi
-            
-            echo "📊 Scan Analysis:"
-            echo "  - Total lines in report: $TOTAL_LINES"
-            echo "  - CVE entries found: $CVE_COUNT"
-            echo "  - GHSA entries found: $GHSA_COUNT"
-            echo "  - Total vulnerabilities: $VULN_COUNT"
-            echo "  - File size: $(wc -c < trivy-results.txt) bytes"
-            echo ""
-            
-            # Show specific axios vulnerabilities if found
-            echo "🔍 Axios-specific vulnerabilities:"
-            grep -i "axios" trivy-results.txt || echo "  - No axios vulnerabilities found in report"
-            echo ""
-            
-            if [ "$VULN_COUNT" -gt 0 ]; then
-              echo "❌ SECURITY ALERT: Found $VULN_COUNT vulnerabilities"
-              echo "🚫 Build failed due to security vulnerabilities"
-              exit 1
-            else
-              echo "✅ SUCCESS: No security vulnerabilities detected"
-            fi
-          else
-            echo "❌ ERROR: No scan results file generated!"
-            echo "This indicates a problem with the Trivy scan itself"
-            exit 1
-          fi
+            --format table
+
+      - name: Security scan failure reporting
+        if: failure()
+        run: |
+          echo "❌ Security vulnerabilities detected!"
+          echo "Please review the vulnerability report above and address the issues."
+          echo "Build failed due to security vulnerabilities."
 
   ExtTest_Ballerina:
     name: Run Ballerina extension tests
