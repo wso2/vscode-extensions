@@ -36,7 +36,7 @@ import { createStore } from "zustand";
 import { persist } from "zustand/middleware";
 import { ext } from "../extensionVariables";
 import { getGitRemotes, getGitRoot } from "../git/util";
-import { isSubpath } from "../utils";
+import { isSamePath, isSubpath } from "../utils";
 import { authStore } from "./auth-store";
 import { dataCacheStore } from "./data-cache-store";
 import { locationStore } from "./location-store";
@@ -355,7 +355,8 @@ const mapComponentList = async (components: ComponentKind[], selected?: ContextI
 						if (hasMatchingRemote) {
 							const subPathDir = path.join(gitRoot, getComponentKindRepoSource(componentItem.spec.source)?.path);
 							const isSubPath = isSubpath(item.dirFsPath, subPathDir);
-							if (isSubPath && existsSync(subPathDir) && !comps.some((item) => item.component?.metadata?.id === componentItem.metadata?.id)) {
+							const isPathSame = isSamePath(item.dirFsPath, subPathDir);
+							if ((isPathSame || isSubPath) && existsSync(subPathDir) && !comps.some((item) => item.component?.metadata?.id === componentItem.metadata?.id)) {
 								comps.push({
 									component: componentItem,
 									workspaceName: item.workspaceName,

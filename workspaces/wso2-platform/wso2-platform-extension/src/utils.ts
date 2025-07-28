@@ -213,8 +213,16 @@ export const isSamePath = (parent: string, sub: string): boolean => {
 };
 
 export const isSubpath = (parent: string, sub: string): boolean => {
-	const normalizedParent = getNormalizedPath(parent).toLowerCase();
-	const normalizedSub = getNormalizedPath(sub).toLowerCase();
+	let normalizedParent = getNormalizedPath(parent).toLowerCase();
+	if (normalizedParent.endsWith("/")) {
+		normalizedParent = normalizedParent.slice(0, -1);
+	}
+
+	let normalizedSub = getNormalizedPath(sub).toLowerCase();
+	if (normalizedSub.endsWith("/")) {
+		normalizedSub = normalizedSub.slice(0, -1);
+	}
+	
 	if (normalizedParent === normalizedSub) {
 		return true;
 	}
