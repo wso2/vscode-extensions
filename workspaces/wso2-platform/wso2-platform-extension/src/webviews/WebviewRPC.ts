@@ -627,10 +627,8 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		if (existsSync(balTomlPath)) {
 			const fileContent = await fs.promises.readFile(balTomlPath, "utf-8");
 			const parsedToml: any = toml.parse(fileContent);
-			if (parsedToml?.package?.org) {
+			if (parsedToml?.package) {
 				parsedToml.package.org = params.org.handle;
-			}
-			if (parsedToml?.package?.name) {
 				parsedToml.package.name = params.componentName?.replaceAll("-", "_");
 			}
 			const updatedTomlContent = toml.stringify(parsedToml);
