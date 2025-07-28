@@ -29,6 +29,7 @@ type PanelPageProps = {
 
 type CategoryPageProps = {
     position: Position;
+    isHelperPaneHeightOverflow?: boolean;
     setCurrentPage: (page: Page) => void;
     onClose: () => void;
     onChange: (value: string) => void;
@@ -50,6 +51,7 @@ const DataPanel = ({ setCurrentPage }: PanelPageProps) => {
 
 export const CategoryPage = ({
     position,
+    isHelperPaneHeightOverflow = false,
     setCurrentPage,
     onChange,
     addFunction
@@ -65,10 +67,10 @@ export const CategoryPage = ({
                         <DataPanel setCurrentPage={setCurrentPage} />
                     </HelperPane.PanelView>
                     <HelperPane.PanelView id={1}>
-                        <FunctionsPage position={position} onChange={onChange} addFunction={addFunction} />
+                        <FunctionsPage position={position} hideSearch={isHelperPaneHeightOverflow} onChange={onChange} addFunction={addFunction} />
                     </HelperPane.PanelView>
                     <HelperPane.PanelView id={2}>
-                        <ConfigsPage position={position} onChange={onChange} />
+                        <ConfigsPage position={position} hideSearch={isHelperPaneHeightOverflow} onChange={onChange} />
                     </HelperPane.PanelView>
                 </HelperPane.Panels>
             </HelperPane.Body>

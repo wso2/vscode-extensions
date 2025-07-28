@@ -295,7 +295,7 @@ export class BallerinaExtension {
                 debug(`Feature flags - Experimental: ${this.enabledExperimentalFeatures()}, BI: ${this.biSupported}, NP: ${this.isNPSupported}`);
 
                 if (!this.ballerinaVersion.match(SWAN_LAKE_REGEX) || (this.ballerinaVersion.match(SWAN_LAKE_REGEX) &&
-                    !isSupportedVersion(ballerinaExtInstance, VERSION.BETA, 3))) {
+                    !isSupportedVersion(this, VERSION.BETA, 3))) {
                     this.showMessageOldBallerina();
                     const message = `Ballerina version ${this.ballerinaVersion} is not supported. 
                         The extension supports Ballerina Swan Lake Beta 3+ versions.`;
@@ -1677,7 +1677,7 @@ export class BallerinaExtension {
             if (download === selection) {
                 commands.executeCommand('vscode.open', Uri.parse(DOWNLOAD_BALLERINA));
             } else if (viewLogs === selection) {
-                const balOutput = ballerinaExtInstance.getOutPutChannel();
+                const balOutput = this.getOutPutChannel();
                 if (balOutput) {
                     balOutput.show();
                 }
@@ -2181,5 +2181,3 @@ function getShellEnvironment(): Promise<NodeJS.ProcessEnv> {
         });
     });
 }
-
-export const ballerinaExtInstance = new BallerinaExtension();

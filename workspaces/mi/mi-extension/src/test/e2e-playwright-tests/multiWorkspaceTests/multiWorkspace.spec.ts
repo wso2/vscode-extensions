@@ -21,9 +21,10 @@ import { clearNotificationAlerts, initTest, page, showNotifications, resumeVSCod
 import { ProjectExplorer } from '../components/ProjectExplorer';
 import { Overview } from '../components/Overview';
 import { AddArtifact } from '../components/AddArtifact';
-import { switchToIFrame } from '@wso2/playwright-vscode-tester';
+import { getVsCodeButton, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { Form } from '../components/Form';
 import path from 'path';
+import { MACHINE_VIEW } from "@wso2/mi-core";
 
 export default function createTests() {
     test.describe('Multi Workspace Tests', {
@@ -88,6 +89,13 @@ export default function createTests() {
                 console.log("Creating new project for second API");
                 multiWorkspaceName = `newMultiProjectTestAPI${testAttempt}`;
                 await page.page.getByRole('button', { name: 'Create New Project' }).click();
+                const webview = await switchToIFrame(MACHINE_VIEW.Welcome, page.page, 20000)
+                if (!webview) {
+                    throw new Error("Failed to switch to Design View iframe");
+                }
+                const container = webview.locator('div#root');
+                const newProjectbtn = await getVsCodeButton(container, 'Create New Project', 'primary');
+                await newProjectbtn.click();
                 console.log("Clicked on Create New Project button");
                 const apiWebView = await switchToIFrame('Project Creation Form', page.page);
                 if (!apiWebView) {
@@ -107,7 +115,7 @@ export default function createTests() {
                             type: 'input',
                             value: multiWorkspaceName,
                         },
-                        'Micro Integrator runtime version*': {
+                        'WSO2 Integrator: MI runtime version*': {
                             type: 'dropdown',
                             value: '4.4.0'
                         },

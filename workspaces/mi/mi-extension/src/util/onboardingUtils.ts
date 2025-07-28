@@ -61,8 +61,8 @@ export async function setupEnvironment(projectUri: string, isOldProject: boolean
         }
         const versions: string[] = ["4.0.0", "4.1.0", "4.2.0", "4.3.0"];
         if (miVersionFromPom && versions.includes(miVersionFromPom)) {
-            const config = vscode.workspace.getConfiguration('MI', vscode.Uri.parse(projectUri));
-            await config.update("LEGACY_EXPRESSION_ENABLED", true, vscode.ConfigurationTarget.Workspace);
+            const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
+            await config.update("LEGACY_EXPRESSION_ENABLED", true, vscode.ConfigurationTarget.WorkspaceFolder);
         }
         const isMISet = await isMISetup(projectUri, miVersionFromPom);
         const isJavaSet = await isJavaSetup(projectUri, miVersionFromPom);
@@ -99,7 +99,7 @@ export async function isMIUpToDate(): Promise<boolean> {
 export async function getProjectSetupDetails(projectUri: string): Promise<SetupDetails> {
     const miVersion = await getMIVersionFromPom();
     if (!miVersion) {
-        vscode.window.showErrorMessage('Failed to get Micro Integrator version from pom.xml.');
+        vscode.window.showErrorMessage('Failed to get WSO2 Integrator: MI version from pom.xml.');
         return { miVersionStatus: 'missing', javaDetails: { status: 'not-valid' }, miDetails: { status: 'not-valid' } };
     }
     if (isSupportedMIVersion(miVersion)) {
@@ -173,8 +173,8 @@ export function generateInitialDependencies(httpConnectorVersion: string): strin
     </dependencies>`
 }
 
-async function isMISetup(projectUri: string, miVersion: string): Promise<boolean> {
-    const config = vscode.workspace.getConfiguration('MI');
+export async function isMISetup(projectUri: string, miVersion: string): Promise<boolean> {
+    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
     const currentMIPath = config.get<string>(SELECTED_SERVER_PATH);
     if (currentMIPath) {
         const availableMIVersion = getMIVersion(currentMIPath);
@@ -184,7 +184,7 @@ async function isMISetup(projectUri: string, miVersion: string): Promise<boolean
             }
             return true;
         } else {
-            vscode.window.showErrorMessage('Invalid Micro Integrator path or Unsupported version found in the workspace. Please set a valid Micro Integrator path.');
+            vscode.window.showErrorMessage('Invalid WSO2 Integrator: MI path or Unsupported version found in the workspace. Please set a valid WSO2 Integrator: MI path.');
             return false;
         }
     }
@@ -200,7 +200,7 @@ async function isMISetup(projectUri: string, miVersion: string): Promise<boolean
 
         const miCachedPathInfo = getLatestMIPathFromCache(miVersion);
         if (miCachedPathInfo && miCachedPathInfo.path) {
-            await config.update(SELECTED_SERVER_PATH, miCachedPathInfo.path, vscode.ConfigurationTarget.Workspace);
+            await config.update(SELECTED_SERVER_PATH, miCachedPathInfo.path, vscode.ConfigurationTarget.WorkspaceFolder);
             return true;
         }
     }
@@ -214,13 +214,13 @@ async function isMISetup(projectUri: string, miVersion: string): Promise<boolean
             return;
         }
 
-        const downloadOption = 'Download Micro Integrator';
-        const changePathOption = 'Change Micro Integrator Path';
+        const downloadOption = 'Download WSO2 Integrator: MI';
+        const changePathOption = 'Change WSO2 Integrator: MI Path';
         const dontShowAgainOption = 'Don\'t Show Again';
 
         vscode.window
             .showWarningMessage(
-                'The selected Micro Integrator version is different from the version in the workspace. Do you want to change the Micro Integrator path?',
+                'The selected WSO2 Integrator: MI version is different from the version in the workspace. Do you want to change the WSO2 Integrator: MI path?',
                 downloadOption,
                 changePathOption,
                 dontShowAgainOption
@@ -234,13 +234,13 @@ async function isMISetup(projectUri: string, miVersion: string): Promise<boolean
                             }
                         });
                     } else if (selection === changePathOption) {
-                        selectFolderDialog('Select Micro Integrator Path').then((miPath) => {
+                        selectFolderDialog('Select WSO2 Integrator: MI Path').then((miPath) => {
                             if (miPath) {
                                 const validMIPath = verifyMIPath(miPath.fsPath);
                                 if (validMIPath) {
                                     setPathsInWorkSpace({ projectUri, type: 'MI', path: validMIPath });
                                 } else {
-                                    vscode.window.showErrorMessage('Invalid Micro Integrator path. Please set a valid Micro Integrator path and run the command again.');
+                                    vscode.window.showErrorMessage('Invalid WSO2 Integrator: MI path. Please set a valid WSO2 Integrator: MI path and run the command again.');
                                 }
                             }
                         });
@@ -251,8 +251,8 @@ async function isMISetup(projectUri: string, miVersion: string): Promise<boolean
             });
     }
 }
-async function isJavaSetup(projectUri: string, miVersion: string): Promise<boolean> {
-    const config = vscode.workspace.getConfiguration('MI');
+export async function isJavaSetup(projectUri: string, miVersion: string): Promise<boolean> {
+    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
     const currentJavaHome = config.get<string>(SELECTED_JAVA_HOME);
     if (currentJavaHome) {
         const currentJavaVersion = getJavaVersion(path.join(currentJavaHome, 'bin')) ?? '';
@@ -274,7 +274,7 @@ async function isJavaSetup(projectUri: string, miVersion: string): Promise<boole
             if (!isRecommendedJavaVersionForMI(javaVersion, miVersion)) {
                 showJavaHomeChangePrompt();
             }
-            await config.update(SELECTED_JAVA_HOME, globalJavaHome, vscode.ConfigurationTarget.Workspace);
+            await config.update(SELECTED_JAVA_HOME, globalJavaHome, vscode.ConfigurationTarget.WorkspaceFolder);
             return true;
         }
     }
@@ -282,7 +282,7 @@ async function isJavaSetup(projectUri: string, miVersion: string): Promise<boole
     const javaHome = getJavaHomeForMIVersionFromCache(miVersion);
 
     if (javaHome) {
-        await config.update(SELECTED_JAVA_HOME, path.normalize(javaHome), vscode.ConfigurationTarget.Workspace);
+        await config.update(SELECTED_JAVA_HOME, path.normalize(javaHome), vscode.ConfigurationTarget.WorkspaceFolder);
         return true;
     }
     if (process.env.JAVA_HOME) {
@@ -291,7 +291,7 @@ async function isJavaSetup(projectUri: string, miVersion: string): Promise<boole
             if (!isRecommendedJavaVersionForMI(javaVersion, miVersion)) {
                 showJavaHomeChangePrompt();
             }
-            await config.update(SELECTED_JAVA_HOME, process.env.JAVA_HOME, vscode.ConfigurationTarget.Workspace);
+            await config.update(SELECTED_JAVA_HOME, process.env.JAVA_HOME, vscode.ConfigurationTarget.WorkspaceFolder);
             return true;
         }
     }
@@ -311,7 +311,7 @@ async function isJavaSetup(projectUri: string, miVersion: string): Promise<boole
 
         vscode.window
             .showWarningMessage(
-                'The selected Java version is not recommended with the Micro Integrator version. Do you want to change the Java Home path?',
+                'The selected Java version is not recommended with the WSO2 Integrator: MI version. Do you want to change the Java Home path?',
                 downloadOption,
                 changePathOption,
                 dontShowAgainOption
@@ -508,20 +508,20 @@ export async function downloadMI(projectUri: string, miVersion: string, isUpdate
         const miDownloadPath = path.join(miPath, zipName!);
 
         if (!fs.existsSync(miDownloadPath)) {
-            await downloadWithProgress(projectUri, miDownloadUrl, miDownloadPath, 'Downloading Micro Integrator');
+            await downloadWithProgress(projectUri, miDownloadUrl, miDownloadPath, 'Downloading WSO2 Integrator: MI');
         } else {
-            vscode.window.showInformationMessage('Micro Integrator already downloaded.');
+            vscode.window.showInformationMessage('WSO2 Integrator: MI already downloaded.');
         }
-        await extractWithProgress(miDownloadPath, miPath, 'Extracting Micro Integrator');
+        await extractWithProgress(miDownloadPath, miPath, 'Extracting WSO2 Integrator: MI');
 
         return getLatestMIPathFromCache(miVersion)?.path!;
 
     } catch (error) {
         if ((error as Error).message?.includes('Error while extracting the archive')) {
-            vscode.window.showWarningMessage('The Micro Integrator archive is invalid. Attempting to redownload the Micro Integrator.');
+            vscode.window.showWarningMessage('The WSO2 Integrator: MI archive is invalid. Attempting to re-download the WSO2 Integrator: MI.');
             return downloadMI(projectUri, miVersion, isUpdatedPack);
         }
-        throw new Error('Failed to download Micro Integrator.');
+        throw new Error('Failed to download WSO2 Integrator: MI.');
     }
 }
 
@@ -589,7 +589,7 @@ export async function setPathsInWorkSpace(request: SetPathRequest): Promise<Path
 
     let response: PathDetailsResponse = { status: 'not-valid' };
     if (projectMIVersion) {
-        const config = vscode.workspace.getConfiguration('MI');
+        const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(request.projectUri));
         if (request.type === 'JAVA') {
             const validJavaHome = verifyJavaHomePath(request.path);
             if (validJavaHome) {
@@ -601,7 +601,7 @@ export async function setPathsInWorkSpace(request: SetPathRequest): Promise<Path
                 }
             }
             if (response.status !== 'not-valid') {
-                config.update(SELECTED_JAVA_HOME, validJavaHome, vscode.ConfigurationTarget.Workspace);
+                config.update(SELECTED_JAVA_HOME, validJavaHome, vscode.ConfigurationTarget.WorkspaceFolder);
                 extension.context.globalState.update(SELECTED_JAVA_HOME, validJavaHome);
 
             } else {
@@ -619,11 +619,11 @@ export async function setPathsInWorkSpace(request: SetPathRequest): Promise<Path
                 }
             }
             if (response.status !== 'not-valid') {
-                config.update(SELECTED_SERVER_PATH, validServerPath, vscode.ConfigurationTarget.Workspace);
+                config.update(SELECTED_SERVER_PATH, validServerPath, vscode.ConfigurationTarget.WorkspaceFolder);
                 extension.context.globalState.update(SELECTED_SERVER_PATH, validServerPath);
-                config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.Workspace);
+                config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.WorkspaceFolder);
             } else {
-                vscode.window.showErrorMessage('Invalid Micro Integrator path or Unsupported version. Please set a valid Micro Integrator path');
+                vscode.window.showErrorMessage('Invalid WSO2 Integrator: MI path or Unsupported version. Please set a valid WSO2 Integrator: MI path');
             }
 
         }
@@ -637,7 +637,7 @@ async function getJavaAndMIPathsFromWorkspace(projectUri: string, projectMiVersi
         miDetails: { status: 'not-valid', version: projectMiVersion }
     };
     if (projectMiVersion) {
-        const config = vscode.workspace.getConfiguration('MI', vscode.Uri.parse(projectUri));
+        const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
 
         const javaHome = config.get<string>(SELECTED_JAVA_HOME);
         const validJavaHome = javaHome && verifyJavaHomePath(javaHome) ||
@@ -990,7 +990,7 @@ function setupConfigFiles(projectUri: string): void {
 }
 
 export function getJavaHomeFromConfig(projectUri: string): string | undefined {
-    const config = vscode.workspace.getConfiguration('MI');
+    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
     const currentJavaHome = config.get<string>(SELECTED_JAVA_HOME);
 
     const projectName = path.basename(projectUri);
@@ -1029,7 +1029,7 @@ export function getJavaHomeFromConfig(projectUri: string): string | undefined {
 }
 
 export function getServerPathFromConfig(projectUri: string): string | undefined {
-    const config = vscode.workspace.getConfiguration('MI');
+    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
     const currentServerPath = config.get<string>(SELECTED_SERVER_PATH);
     return currentServerPath;
 }
@@ -1216,7 +1216,7 @@ export async function isServerUpdateRequested(projectUri: string): Promise<boole
                         const changeOption = 'Switch to Updated Version';
                         const cancelOption = 'Keep Current Version';
                         const selection = await vscode.window.showInformationMessage(
-                            'A newer version of the Micro Integrator is available locally. Would you like to switch to it?',
+                            'A newer version of the WSO2 Integrator: MI is available locally. Would you like to switch to it?',
                             { modal: true },
                             "Yes",
                             "No, Don't Ask Again"
@@ -1225,11 +1225,11 @@ export async function isServerUpdateRequested(projectUri: string): Promise<boole
                             setPathsInWorkSpace({ projectUri: projectUri, type: 'MI', path: cachedMIPath.path });
                         } else if (selection === "No, Don't Ask Again") {
                             const config = vscode.workspace.getConfiguration('MI', workspaceFolder.uri);
-                            config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.Workspace);
+                            config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.WorkspaceFolder);
                         }
                     } else {
                         const selection = await vscode.window.showInformationMessage(
-                            'A new version of the Micro Integrator is available. Would you like to update now?',
+                            'A new version of the WSO2 Integrator: MI is available. Would you like to update now?',
                             { modal: true },
                             "Yes",
                             "No, Don't Ask Again"
@@ -1238,7 +1238,7 @@ export async function isServerUpdateRequested(projectUri: string): Promise<boole
                             return true;
                         } else if (selection === "No, Don't Ask Again") {
                             const config = vscode.workspace.getConfiguration('MI', workspaceFolder.uri);
-                            config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.Workspace);
+                            config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.WorkspaceFolder);
                         }
                     }
                 }
@@ -1313,7 +1313,7 @@ async function updateMI(projectUri: string, miVersion: string, latestUpdateVersi
 
         const miZipFileName = miDownloadUrls[miVersion].split('/').pop();
         const miZipPath = path.join(updateTempFolder, miZipFileName!);
-        await downloadWithProgress(projectUri, miDownloadUrls[miVersion], miZipPath, 'Downloading Micro Integrator Update');
+        await downloadWithProgress(projectUri, miDownloadUrls[miVersion], miZipPath, 'Downloading WSO2 Integrator: MI Update');
 
         const miCachePath = path.join(CACHED_FOLDER, 'micro-integrator');
         const existingMIPath = getLatestMIPathFromCache(miVersion)?.path;
@@ -1322,29 +1322,29 @@ async function updateMI(projectUri: string, miVersion: string, latestUpdateVersi
             const replaceOption = 'Replace existing runtime';
             const createNewOption = 'Install as a separate runtime';
             const selection = await vscode.window.showWarningMessage(
-                'An existing Micro Integrator runtime was found. Would you like to replace it or install as a separate runtime? Note: Replacing will remove all existing configurations and CApps in the server.',
+                'An existing WSO2 Integrator: MI runtime was found. Would you like to replace it or install as a separate runtime? Note: Replacing will remove all existing configurations and CApps in the server.',
                 replaceOption,
                 createNewOption
             );
 
             if (selection === replaceOption) {
                 fs.rmSync(existingMIPath, { recursive: true, force: true });
-                await extractWithProgress(miZipPath, miCachePath, 'Extracting Micro Integrator Update');
+                await extractWithProgress(miZipPath, miCachePath, 'Extracting WSO2 Integrator: MI Update');
                 setPathsInWorkSpace({ projectUri, type: 'MI', path: path.join(miCachePath, rootFolderName!) });
             } else if (selection === createNewOption) {
                 const newFolderName = `wso2mi-${miVersion}-update-${latestUpdateVersion}`;
-                await extractWithProgress(miZipPath, updateTempFolder, 'Extracting Micro Integrator Update');
+                await extractWithProgress(miZipPath, updateTempFolder, 'Extracting WSO2 Integrator: MI Update');
                 fs.renameSync(path.join(updateTempFolder, rootFolderName!), path.join(miCachePath, newFolderName));
                 setPathsInWorkSpace({ projectUri, type: 'MI', path: path.join(miCachePath, newFolderName) });
             }
         } else {
-            await extractWithProgress(miZipPath, miCachePath, 'Extracting Micro Integrator Update');
+            await extractWithProgress(miZipPath, miCachePath, 'Extracting WSO2 Integrator: MI Update');
             setPathsInWorkSpace({ projectUri, type: 'MI', path: path.join(miCachePath, rootFolderName!) });
         }
         fs.rmSync(updateTempFolder, { recursive: true, force: true });
 
-        vscode.window.showInformationMessage('Micro Integrator has been updated successfully.');
+        vscode.window.showInformationMessage('WSO2 Integrator: MI has been updated successfully.');
     } catch (error) {
-        vscode.window.showErrorMessage(`Failed to update Micro Integrator: ${error instanceof Error ? error.message : error}`);
+        vscode.window.showErrorMessage(`Failed to update WSO2 Integrator: MI: ${error instanceof Error ? error.message : error}`);
     }
 }

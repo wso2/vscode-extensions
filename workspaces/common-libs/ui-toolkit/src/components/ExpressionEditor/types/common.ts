@@ -123,9 +123,12 @@ type ExpressionEditorBaseProps = {
     value: string;
     placeholder?: string;
     ariaLabel?: string;
+    className?: string;
+    id?: string;
     sx?: React.CSSProperties;
     completionSx?: React.CSSProperties;
     inputProps?: InputProps;
+    isUpdatingSource?: boolean;
     onChange: (value: string, updatedCursorPosition: number) => void | Promise<void>;
     onSelectionChange?: (value: string, updatedCursorPosition: number) => void | Promise<void>;
     onFocus?: (e?: any) => void | Promise<void>;
@@ -182,7 +185,7 @@ export type ExpressionEditorProps = ExpressionEditorBaseProps &
 export type ExpressionEditorRef = {
     shadowRoot: ShadowRoot;
     // Focuses the expression editor
-    focus: () => void;
+    focus: (manualTrigger?: boolean) => void;
     // Blurs the expression editor and optionally saves the expression with the provided value
     blur: (value?: string) => Promise<void>;
     // Saves the expression with the provided value
@@ -191,7 +194,7 @@ export type ExpressionEditorRef = {
 
 /* <------ Types related to the helper pane ------> */
 
-export type HelperPaneOrigin = 'bottom' | 'left' | 'right' | 'auto';
+export type HelperPaneOrigin = 'bottom' | 'top' | 'left' | 'right' | 'auto';
 
 export type HelperPaneHeight = 'full' | '3/4' | 'default';
 

@@ -51,9 +51,9 @@ interface FormFieldEditorProps {
     handleOnFieldFocus?: (key: string) => void;
     autoFocus?: boolean;
     handleOnTypeChange?: () => void;
-    visualizableFields?: string[];
     recordTypeFields?: RecordTypeField[];
     onIdentifierEditingStateChange?: (isEditing: boolean) => void;
+    setSubComponentEnabled?: (isAdding: boolean) => void;
 }
 
 export const EditorFactory = (props: FormFieldEditorProps) => {
@@ -66,9 +66,9 @@ export const EditorFactory = (props: FormFieldEditorProps) => {
         handleOnFieldFocus,
         autoFocus,
         handleOnTypeChange,
-        visualizableFields,
         recordTypeFields,
-        onIdentifierEditingStateChange
+        onIdentifierEditingStateChange,
+        setSubComponentEnabled
     } = props;
     if (!field.enabled || field.hidden) {
         return <></>;
@@ -93,7 +93,6 @@ export const EditorFactory = (props: FormFieldEditorProps) => {
                 subPanelView={subPanelView}
                 handleOnFieldFocus={handleOnFieldFocus}
                 autoFocus={autoFocus}
-                visualizable={visualizableFields?.includes(field.key)}
                 recordTypeField={recordTypeFields?.find(recordField => recordField.key === field.key)}
             />
         );
@@ -130,7 +129,6 @@ export const EditorFactory = (props: FormFieldEditorProps) => {
                 subPanelView={subPanelView}
                 handleOnFieldFocus={handleOnFieldFocus}
                 autoFocus={autoFocus}
-                visualizable={visualizableFields?.includes(field.key)}
                 recordTypeField={recordTypeFields?.find(recordField => recordField.key === field.key)}
             />
         );
@@ -145,7 +143,7 @@ export const EditorFactory = (props: FormFieldEditorProps) => {
         // Skip this property
         return <></>;
     } else if (field.type === "PARAM_MANAGER") {
-        return <ParamManagerEditor field={field} openRecordEditor={openRecordEditor} handleOnFieldFocus={handleOnFieldFocus} selectedNode={selectedNode} />;
+        return <ParamManagerEditor setSubComponentEnabled={setSubComponentEnabled} field={field} openRecordEditor={openRecordEditor} handleOnFieldFocus={handleOnFieldFocus} selectedNode={selectedNode} />;
     } else if (field.type === "REPEATABLE_PROPERTY") {
         return <FormMapEditor field={field} label={"Add Another Key-Value Pair"} />;
     } else if (field.type === "IDENTIFIER" && !field.editable && field?.lineRange) {

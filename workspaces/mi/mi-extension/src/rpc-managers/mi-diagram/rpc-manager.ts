@@ -3006,8 +3006,9 @@ ${endpointAttributes}
             const connectorStoreResponse = await this.getStoreConnectorJSON(miVersion);
             const httpConnectorVersion = filterConnectorVersion('HTTP', connectorStoreResponse.connectors);
             const initialDependencies = generateInitialDependencies(httpConnectorVersion);
+            const tempName = name.replace(/\./g, '');
             const folderStructure: FileStructure = {
-                [name]: { // Project folder
+                [tempName]: { // Project folder
                     'pom.xml': rootPomXmlContent(name, groupID ?? "com.example", (artifactID ?? name).toLowerCase(), projectUuid, version ?? DEFAULT_PROJECT_VERSION, miVersion, initialDependencies),
                     '.env': '',
                     'src': {
@@ -3053,17 +3054,21 @@ ${endpointAttributes}
             };
 
             await createFolderStructure(directory, folderStructure);
-            copyDockerResources(extension.context.asAbsolutePath(path.join('resources', 'docker-resources')), path.join(directory, name));
-            await copyMavenWrapper(extension.context.asAbsolutePath(path.join('resources', 'maven-wrapper')), path.join(directory, name));
-            await createGitignoreFile(path.join(directory, name));
+            copyDockerResources(extension.context.asAbsolutePath(path.join('resources', 'docker-resources')), path.join(directory, tempName));
+            await copyMavenWrapper(extension.context.asAbsolutePath(path.join('resources', 'maven-wrapper')), path.join(directory, tempName));
+            await createGitignoreFile(path.join(directory, tempName));
 
+            if ((name !== tempName)) {
+                await fs.promises.rename(path.join(directory, tempName), path.join(directory, name));
+            }
             window.showInformationMessage(`Successfully created ${name} project`);
             const projectOpened = getStateMachine(this.projectUri).context().projectOpened;
 
             if (open) {
                 if (projectOpened) {
-                    const answer = await window.showInformationMessage(
+                    const answer = await window.showWarningMessage(
                         "Do you want to open the created project in the current window or new window?",
+                        { modal: true },
                         "Current Window",
                         "New Window"
                     );
@@ -3128,8 +3133,15 @@ ${endpointAttributes}
     async getWorkspaceRoot(): Promise<ProjectRootResponse> {
         return new Promise(async (resolve) => {
             const workspaceFolders = workspace.workspaceFolders;
-            if (workspaceFolders) {
-                resolve({ path: this.projectUri });
+            if (workspaceFolders && this.projectUri) {
+                const existingProject = path.basename(this.projectUri);
+                const matched = workspaceFolders.find(folder => path.basename(folder.uri.fsPath) === existingProject);
+                if (matched) {
+                    const parentPath = path.dirname(this.projectUri);
+                    resolve({ path: parentPath });
+                } else {
+                    resolve({ path: this.projectUri });
+                }
             }
             resolve({ path: getDefaultProjectPath() });
         });
@@ -5472,7 +5484,7 @@ ${keyValuesXML}`;
 
     async saveConfig(params: SaveConfigRequest): Promise<SaveConfigResponse> {
         return new Promise(async (resolve, reject) => {
-            const { configName, configType } = params;
+            const { configName, configType, configValue } = params;
 
             try {
                 // Read the config file content
@@ -5498,6 +5510,18 @@ ${keyValuesXML}`;
 
                 // Write the updated config file content back to the file
                 fs.writeFileSync(configFilePath, updatedConfigFileContent, 'utf-8');
+
+                const envFilePath = [this.projectUri, '.env'].join(path.sep);
+                const envFileContent = fs.readFileSync(envFilePath, 'utf-8').trim();
+                let updatedEnvFileContent: string;
+                if (envFileContent.length > 0) {
+                    // Add a new line if the file is not empty
+                    updatedEnvFileContent = envFileContent + `\n${configName}=${configValue}`;
+                } else {
+                    updatedEnvFileContent = envFileContent + `${configName}=${configValue}`;
+                }
+                // Write the updated .env file content back to the file
+                fs.writeFileSync(envFilePath, updatedEnvFileContent, 'utf-8');
                 resolve({ success: true });
             } catch (e) {
                 reject(e);

@@ -26,6 +26,8 @@ import {
 import { BallerinaExtension } from "../../core";
 import { openView, StateMachine } from "../../stateMachine";
 import { commands, extensions, window } from "vscode";
+import * as path from "path";
+import * as fs from "fs";
 import { debug } from "../../utils";
 
 export function activateDevantFeatures(_ballerinaExtInstance: BallerinaExtension) {
@@ -52,8 +54,13 @@ const handleComponentPushToDevant = async () => {
         await platformExt.activate();
     }
     const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports;
-    debug(`project url: ${projectRoot}`);
-    if (platformExtAPI.getDirectoryComponents(projectRoot)?.length) {
+    if (isGitRepo(projectRoot)) {
+        // push changes to repo if component for the directory already exists
+        await commands.executeCommand(PlatformCommandIds.CommitAndPushToGit, {
+            componentPath: projectRoot,
+        } as ICommitAndPuhCmdParams);
+    } else if (platformExtAPI.getDirectoryComponents(projectRoot)?.length) {
+        debug(`project url: ${projectRoot}`);
         // push changes to repo if component for the directory already exists
         const hasChanges = await platformExtAPI.localRepoHasChanges(projectRoot);
         if (!hasChanges) {
@@ -119,3 +126,23 @@ const handleComponentPushToDevant = async () => {
         commands.executeCommand(PlatformCommandIds.CreateNewComponent, deployementParams);
     }
 };
+
+
+function isGitRepo(dir: string): boolean {
+    let currentDir = dir;
+    while (true) {
+        const gitDir = path.join(currentDir, ".git");
+        if (fs.existsSync(gitDir)) {
+            return true;
+        }
+        const parentDir = path.dirname(currentDir);
+        if (parentDir === currentDir) {
+            // Reached the root directory
+            break;
+        }
+        currentDir = parentDir;
+    }
+    return false;
+}
+
+

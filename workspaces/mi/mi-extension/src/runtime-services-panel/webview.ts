@@ -48,11 +48,6 @@ export class RuntimeServicesWebview {
 
     private createWebview(): vscode.WebviewPanel {
         let title = "Runtime Services";
-        const workspaces = vscode.workspace.workspaceFolders;
-        const projectName = workspaces && workspaces.length > 1 ? path.basename(this.projectUri) : '';
-        if (projectName) {
-            title = `${title} - ${projectName}`;
-        }
         const panel = vscode.window.createWebviewPanel(
             RuntimeServicesWebview.viewType,
             title,
@@ -85,7 +80,7 @@ export class RuntimeServicesWebview {
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
           <meta name="theme-color" content="#000000">
-          <title>Micro Integrator</title>
+          <title>WSO2 Integrator: MI</title>
          
           <style>
             body, html, #root {

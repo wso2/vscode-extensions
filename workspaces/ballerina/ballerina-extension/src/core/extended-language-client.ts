@@ -167,6 +167,7 @@ import {
     VisualizableFieldsRequest,
     VisualizableFieldsResponse,
     AddArrayElementRequest,
+    ConvertToQueryRequest,
     GetTestFunctionRequest,
     GetTestFunctionResponse,
     AddOrUpdateTestFunctionRequest,
@@ -217,6 +218,9 @@ import {
     MemoryManagersRequest,
     MemoryManagersResponse,
     ArtifactsNotification,
+    AddClausesRequest,
+    PropertyRequest,
+    PropertyResponse,
     OpenConfigTomlRequest,
     UpdateConfigVariableRequestV2,
     GetConfigVariableNodeTemplateRequest,
@@ -226,7 +230,15 @@ import {
     ResourceReturnTypesRequest,
     ResourceReturnTypesResponse,
     JsonToTypeRequest,
-    JsonToTypeResponse
+    JsonToTypeResponse,
+    FunctionFromSourceRequest,
+    FunctionFromSourceResponse,
+    GetInlineDataMapperCodedataRequest,
+    GetInlineDataMapperCodedataResponse,
+    GetSubMappingCodedataRequest,
+    AddSubMappingRequest,
+    DeleteMappingRequest,
+    MapWithCustomFnRequest
 } from "@wso2/ballerina-core";
 import { BallerinaExtension } from "./index";
 import { debug, handlePullModuleProgress } from "../utils";
@@ -302,6 +314,14 @@ enum EXTENDED_APIS {
     DATA_MAPPER_GET_SOURCE = 'dataMapper/getSource',
     DATA_MAPPER_VISUALIZABLE = 'dataMapper/visualizable',
     DATA_MAPPER_ADD_ELEMENT = 'dataMapper/addElement',
+    DATA_MAPPER_CONVERT_TO_QUERY = 'dataMapper/convertToQuery',
+    DATA_MAPPER_ADD_CLAUSES = 'dataMapper/addClauses',
+    DATA_MAPPER_ADD_SUB_MAPPING = 'dataMapper/addSubMapping',
+    DATA_MAPPER_DELETE_MAPPING = 'dataMapper/deleteMapping',
+    DATA_MAPPER_MAP_WITH_CUSTOM_FN = 'dataMapper/customFunction',
+    DATA_MAPPER_CODEDATA = 'dataMapper/nodePosition',
+    DATA_MAPPER_SUB_MAPPING_CODEDATA = 'dataMapper/subMapping',
+    DATA_MAPPER_PROPERTY = 'dataMapper/fieldPosition',
     VIEW_CONFIG_VARIABLES = 'configEditor/getConfigVariables',
     UPDATE_CONFIG_VARIABLES = 'configEditor/updateConfigVariables',
     VIEW_CONFIG_VARIABLES_V2 = 'configEditorV2/getConfigVariables',
@@ -351,6 +371,7 @@ enum EXTENDED_APIS {
     BI_SERVICE_ADD_FUNCTION = 'serviceDesign/addFunction',
     BI_SERVICE_UPDATE_RESOURCE = 'serviceDesign/updateFunction',
     BI_SERVICE_SERVICE_CLASS_MODEL = 'serviceDesign/getServiceClassModelFromSource',
+    BI_GET_FUNCTION_FROM_SOURCE = 'serviceDesign/getFunctionFromSource',
     BI_UPDATE_CLASS_FIELD = 'serviceDesign/updateClassField',
     BI_ADD_CLASS_FIELD = 'serviceDesign/addField',
     BI_DESIGN_MODEL = 'designModelService/getDesignModel',
@@ -659,7 +680,7 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
         return this.sendRequest<InlineDataMapperModelResponse>(EXTENDED_APIS.DATA_MAPPER_MAPPINGS, params);
     }
 
-    async getInlineDataMapperSource(params: InlineDataMapperSourceRequest): Promise<InlineDataMapperSourceResponse | NOT_SUPPORTED_TYPE> {
+    async getInlineDataMapperSource(params: InlineDataMapperSourceRequest): Promise<InlineDataMapperSourceResponse> {
         return this.sendRequest<InlineDataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_GET_SOURCE, params);
     }
 
@@ -667,8 +688,40 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
         return this.sendRequest<VisualizableFieldsResponse>(EXTENDED_APIS.DATA_MAPPER_VISUALIZABLE, params);
     }
 
-    async addArrayElement(params: AddArrayElementRequest): Promise<InlineDataMapperSourceResponse | NOT_SUPPORTED_TYPE> {
+    async addArrayElement(params: AddArrayElementRequest): Promise<InlineDataMapperSourceResponse> {
         return this.sendRequest<InlineDataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_ADD_ELEMENT, params);
+    }
+
+    async convertToQuery(params: ConvertToQueryRequest): Promise<InlineDataMapperSourceResponse> {
+        return this.sendRequest<InlineDataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_CONVERT_TO_QUERY, params);
+    }
+
+    async addClauses(params: AddClausesRequest): Promise<InlineDataMapperSourceResponse> {
+        return this.sendRequest<InlineDataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_ADD_CLAUSES, params);
+    }
+
+    async addSubMapping(params: AddSubMappingRequest): Promise<InlineDataMapperSourceResponse> {
+        return this.sendRequest<InlineDataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_ADD_SUB_MAPPING, params);
+    }
+
+    async deleteMapping(params: DeleteMappingRequest): Promise<InlineDataMapperSourceResponse> {
+        return this.sendRequest<InlineDataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_DELETE_MAPPING, params);
+    }
+
+    async mapWithCustomFn(params: MapWithCustomFnRequest): Promise<InlineDataMapperSourceResponse> {
+        return this.sendRequest<InlineDataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_MAP_WITH_CUSTOM_FN, params);
+    }
+
+    async getDataMapperCodedata(params: GetInlineDataMapperCodedataRequest): Promise<GetInlineDataMapperCodedataResponse> {
+        return this.sendRequest<GetInlineDataMapperCodedataResponse>(EXTENDED_APIS.DATA_MAPPER_CODEDATA, params);
+    }
+
+    async getSubMappingCodedata(params: GetSubMappingCodedataRequest): Promise<GetInlineDataMapperCodedataResponse> {
+        return this.sendRequest<GetInlineDataMapperCodedataResponse>(EXTENDED_APIS.DATA_MAPPER_SUB_MAPPING_CODEDATA, params);
+    }
+
+    async getProperty(params: PropertyRequest): Promise<PropertyResponse | NOT_SUPPORTED_TYPE> {
+        return this.sendRequest<PropertyResponse>(EXTENDED_APIS.DATA_MAPPER_PROPERTY, params);
     }
 
     async getGraphqlModel(params: GraphqlDesignServiceParams): Promise<GraphqlDesignService | NOT_SUPPORTED_TYPE> {
@@ -1013,6 +1066,10 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
 
     async getServiceClassModel(params: ModelFromCodeRequest): Promise<ServiceClassModelResponse> {
         return this.sendRequest<ServiceClassModelResponse>(EXTENDED_APIS.BI_SERVICE_SERVICE_CLASS_MODEL, params);
+    }
+
+    async getFunctionFromSource(params: FunctionFromSourceRequest): Promise<FunctionFromSourceResponse> {
+        return this.sendRequest<FunctionFromSourceResponse>(EXTENDED_APIS.BI_GET_FUNCTION_FROM_SOURCE, params);
     }
 
     async updateClassField(params: ClassFieldModifierRequest): Promise<SourceEditResponse> {
