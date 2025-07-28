@@ -143,7 +143,47 @@ jobs:
           echo "MI Tests: ${{ steps.diff.outputs.hasMIDiff }}"
           echo "runMIExtTests=${{ steps.diff.outputs.hasMIDiff }}" >> $GITHUB_OUTPUT
 
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy
+
+      - name: Security vulnerability scan
+        id: security-scan
+        run: |
+          echo "🔍 Running security vulnerability scan..."
+          trivy clean --all
+          echo "🔄 Downloading latest vulnerability database..."
+          trivy image --download-db-only alpine:latest || true
+          echo "🔍 Starting filesystem scan (matching local command exactly)..."
+          
+          # Run Trivy and capture output
+          TRIVY_OUTPUT=$(trivy fs . --timeout 10m --skip-dirs common/temp --format table)
+          echo "$TRIVY_OUTPUT"
+          
+          # Check if vulnerabilities were found (look for "Total:" line with non-zero counts)
+          if echo "$TRIVY_OUTPUT" | grep -q "Total:.*[1-9]"; then
+            echo "❌ Security vulnerabilities detected!"
+            echo "vulnerabilities_found=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ No security vulnerabilities found."
+            echo "vulnerabilities_found=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Security scan failure reporting
+        if: steps.security-scan.outputs.vulnerabilities_found == 'true'
+        run: |
+          echo "❌ Security vulnerabilities detected!"
+          echo "Please review the vulnerability report above and address the issues."
+          echo "Build failed due to security vulnerabilities."
+          exit 1
+
       - name: Build
+        if: steps.security-scan.outputs.vulnerabilities_found == 'false'
         uses: ./.github/actions/build
         with:
           isPreRelease: ${{ inputs.isPreRelease }}
@@ -166,31 +206,6 @@ jobs:
           PLATFORM_STAGE_DEVANT_ASGARDEO_CLIENT_ID: ${{ secrets.PLATFORM_STAGE_DEVANT_ASGARDEO_CLIENT_ID }}
           PLATFORM_DEV_GHAPP_CLIENT_ID: ${{ secrets.PLATFORM_DEV_GHAPP_CLIENT_ID }}
           PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID: ${{ secrets.PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID }}
-
-      - name: Install Trivy
-        run: |
-          sudo apt-get update
-          sudo apt-get install wget apt-transport-https gnupg lsb-release
-          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
-          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update
-          sudo apt-get install trivy
-
-      - name: Security vulnerability scan
-        run: |
-          echo "🔍 Running security vulnerability scan..."
-          trivy fs . \
-            --timeout 10m \
-            --skip-dirs common/temp \
-            --severity CRITICAL,HIGH,MEDIUM,LOW \
-            --format table
-
-      - name: Security scan failure reporting
-        if: failure()
-        run: |
-          echo "❌ Security vulnerabilities detected!"
-          echo "Please review the vulnerability report above and address the issues."
-          echo "Build failed due to security vulnerabilities."
 
   ExtTest_Ballerina:
     name: Run Ballerina extension tests
