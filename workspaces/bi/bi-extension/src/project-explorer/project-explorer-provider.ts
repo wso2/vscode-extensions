@@ -277,7 +277,7 @@ function getEntriesBI(components: ProjectStructureResponse): ProjectExplorerEntr
     // ---------- Configurations ----------
     const configs = new ProjectExplorerEntry(
         "Configurations",
-        vscode.TreeItemCollapsibleState.Expanded,
+        vscode.TreeItemCollapsibleState.None,
         null,
         'config',
         false

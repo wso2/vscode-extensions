@@ -18,7 +18,8 @@
  */
 
 import { InlineAllDataMapperSourceRequest, MetadataWithAttachments } from "../../interfaces/extended-lang-client";
-import { AddToProjectRequest, GetFromFileRequest, DeleteFromProjectRequest, GenerateMappingsRequest, GenerateMappingsResponse, NotifyAIMappingsRequest, ProjectSource, ProjectDiagnostics, GenerateMappingsFromRecordRequest, GenerateMappingFromRecordResponse, PostProcessRequest, PostProcessResponse, GenerateTypesFromRecordRequest, GenerateTypesFromRecordResponse, FetchDataRequest, FetchDataResponse, TestGenerationRequest, TestGenerationResponse, TestGenerationMentions, AIChatSummary, DeveloperDocument, RequirementSpecification, LLMDiagnostics, GetModuleDirParams, AIPanelPrompt, AIMachineSnapshot, SubmitFeedbackRequest, CodeSegment, DevantTokens } from "./interfaces";
+import { LoginMethod } from "../../state-machine-types";
+import { AddToProjectRequest, GetFromFileRequest, DeleteFromProjectRequest, GenerateMappingsRequest, GenerateMappingsResponse, NotifyAIMappingsRequest, ProjectSource, ProjectDiagnostics, GenerateMappingsFromRecordRequest, GenerateMappingFromRecordResponse, PostProcessRequest, PostProcessResponse, GenerateTypesFromRecordRequest, GenerateTypesFromRecordResponse, FetchDataRequest, FetchDataResponse, TestGenerationRequest, TestGenerationResponse, TestGenerationMentions, AIChatSummary, DeveloperDocument, RequirementSpecification, LLMDiagnostics, GetModuleDirParams, AIPanelPrompt, AIMachineSnapshot, SubmitFeedbackRequest, RelevantLibrariesAndFunctionsRequest, GenerateOpenAPIRequest, GenerateCodeRequest, TestPlanGenerationRequest, TestGeneratorIntermediaryState, RepairParams, RelevantLibrariesAndFunctionsResponse, CodeSegment, DevantTokens } from "./interfaces";
 
 export interface AIPanelAPI {
     // ==================================
@@ -26,6 +27,7 @@ export interface AIPanelAPI {
     // ==================================
     getBackendUrl: () => Promise<string>;
     getProjectUuid: () => Promise<string>;
+    getLoginMethod: () => Promise<LoginMethod>;
     getAccessToken: () => Promise<string>;
     getRefreshedAccessToken: () => Promise<string>;
     getDefaultPrompt: () => Promise<AIPanelPrompt>;
@@ -37,7 +39,7 @@ export interface AIPanelAPI {
     deleteFromProject: (params: DeleteFromProjectRequest) => void;
     generateMappings: (params: GenerateMappingsRequest) => Promise<GenerateMappingsResponse>;
     notifyAIMappings: (params: NotifyAIMappingsRequest) => Promise<boolean>;
-    getProjectSource: (params: string) => Promise<ProjectSource>;
+    stopAIMappings: () => Promise<GenerateMappingsResponse>;
     getShadowDiagnostics: (params: ProjectSource) => Promise<ProjectDiagnostics>;
     checkSyntaxError: (params: ProjectSource) => Promise<boolean>;
     clearInitialPrompt: () => void;
@@ -76,4 +78,12 @@ export interface AIPanelAPI {
     getContentFromFile: (params: GetFromFileRequest) => Promise<string>;
     submitFeedback: (params: SubmitFeedbackRequest) => Promise<boolean>;
     getDevantTokens: () => Promise<DevantTokens>;
+    getRelevantLibrariesAndFunctions: (params: RelevantLibrariesAndFunctionsRequest) => Promise<RelevantLibrariesAndFunctionsResponse>;
+    generateOpenAPI: (params: GenerateOpenAPIRequest) => void;
+    generateCode: (params: GenerateCodeRequest) => void;
+    repairGeneratedCode: (params: RepairParams) => void;
+    generateTestPlan: (params: TestPlanGenerationRequest) => void;
+    generateFunctionTests: (params: TestGeneratorIntermediaryState) => void;
+    generateHealthcareCode: (params: GenerateCodeRequest) => void;
+    abortAIGeneration: () => void;
 }
