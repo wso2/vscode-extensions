@@ -257,13 +257,13 @@ export class BallerinaExtension {
             this.updateBallerinaVisually();
         });
 
-         //activate language server for web mode
+         //Activate language server for web mode
         if (extension.isWebMode) {
             this.langClient = await activateLanguageServer();
             console.log("creating web lang client");
             _onBeforeInit(this.langClient);
         }
-        //activate language server for desktop mode
+        //Activate language server for desktop mode
         else{
             try {
             // Register pre init handlers.

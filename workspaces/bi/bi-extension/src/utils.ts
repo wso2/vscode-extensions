@@ -60,7 +60,7 @@ export async function fetchProjectInfo(): Promise<ProjectInfo> {
 export function checkIsBI(uri: Uri): boolean {
     const config = workspace.getConfiguration("ballerina", uri);
     const inspected = config.inspect<boolean>("isBI");
-    //manually true the biSupported value only for webmode
+    // Manually true the biSupported value only for webmode
     if (extension.isWebMode) {
         extension.biSupported = true;
     }

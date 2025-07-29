@@ -25,7 +25,6 @@ export async function activate(context: vscode.ExtensionContext) {
     try {
         await ballerinaExt.activate();
         if (ballerinaExt.exports.ballerinaExtInstance) {
-            console.log("inside bi,ballerina ext activated check");
             extension.context = context;
             extension.langClient = ballerinaExt.exports.ballerinaExtInstance.langClient;
             extension.biSupported = ballerinaExt.exports.ballerinaExtInstance.biSupported;

@@ -104,7 +104,7 @@ function onBeforeInit(langClient: ExtendedLangClient) {
 export async function activate(context: ExtensionContext) {
     console.log("Activating Ballerina VS Code extension...");
     extension.context = context;
-    // set the webmode or desktop mode
+    // Set the webmode or desktop mode
     extension.isWebMode = env.uiKind === UIKind.Web ? true : false;
     // Init RPC Layer methods
     RPCLayer.init();

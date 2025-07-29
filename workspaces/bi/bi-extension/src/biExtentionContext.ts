@@ -26,7 +26,7 @@ export class ExtensionVariables {
     public projectPath: string;
     public biSupported?: boolean;
     public isNPSupported?: boolean;
-	isWebMode: boolean;
+	public isWebMode: boolean;
 }
 
 export const extension = new ExtensionVariables();

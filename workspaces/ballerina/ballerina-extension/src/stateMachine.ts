@@ -424,7 +424,7 @@ const stateMachine = createMachine<MachineContext>(
                                         uid: nodeWithUpdatedUid[1]
                                     });
                                 } else {
-                                    // show identification failure message
+                                    // Show identification failure message
                                 }
                             }
                         } else {
@@ -592,7 +592,7 @@ function setBIContext(isBI: boolean) {
     commands.executeCommand('setContext', 'isBIProject', isBI);
 }
 
-//get workspace uri for artifacts
+// Get workspace uri for artifacts
 function getProjectUriForArtifacts():string {
     const workspaceFolders = workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -601,7 +601,7 @@ function getProjectUriForArtifacts():string {
     const projectUri = workspaceFolders[0].uri.toString();
     return projectUri;
 }
-//get project uri for a given file path
+// Get project uri for a given file path
 function getProjectUri(filePath: string) : string {
     console.log("parameter file path",filePath);
     const workspaceFolders = workspace.workspaceFolders;

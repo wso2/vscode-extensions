@@ -58,7 +58,7 @@ const stateMachine = createMachine<MachineContext>({
             entry: "activateExplorer"
         },
         disabled: {
-            // define what should happen when the project is not detected
+            // Define what should happen when the project is not detected
         },
     }
 }, {
