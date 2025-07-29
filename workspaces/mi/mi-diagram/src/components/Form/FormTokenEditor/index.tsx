@@ -106,7 +106,7 @@ export const FormTokenEditor = ({
             'default',
             () => handleChangeHelperPaneState(false),
             onChange,
-            undefined, // artifactPath - not available in FormTokenEditorte
+            undefined, // artifactPath - not available in FormTokenEditor
             addFunction,
             { width: 'auto', border: '1px solid var(--dropdown-border)' },
             height,

@@ -24,6 +24,7 @@ import { HelperPaneCompletionItem } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { Alert, COMPLETION_ITEM_KIND, getIcon, HelperPane, Icon } from '@wso2/ui-toolkit';
 import { filterHelperPaneCompletionItems, getHelperPaneCompletionItem } from '../FormExpressionField/utils';
+import { createHelperPaneRequestBody } from '../utils';
 import { PAGE, Page } from './index';
 
 const InfoMessage = styled.div`
@@ -77,21 +78,8 @@ export const PayloadPage = ({
         setIsLoading(true);
         setTimeout(() => {
             rpcClient.getVisualizerState().then((machineView) => {
-                let requestBody;
-                const documentUri = artifactPath ? artifactPath : machineView.documentUri;
-
-                if (machineView.documentUri.includes('src/test/')) {
-                    requestBody = {
-                        documentUri: documentUri,
-                        position: {line: 0, character: 0 },
-                        needLastMediator: true
-                    }
-                }else{
-                    requestBody = {
-                        documentUri: documentUri,
-                        position: position
-                    }
-                }
+                const requestBody = createHelperPaneRequestBody(machineView, position, artifactPath);
+                
                 rpcClient
                     .getMiDiagramRpcClient()
                     .getHelperPaneInfo(requestBody)
