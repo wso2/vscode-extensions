@@ -12,7 +12,6 @@ import { fetchWithTimeout, filterResponse, generateBallerinaCode, isErrorCode, m
 import { getAccessToken, getLoginMethod, getRefreshedAccessToken } from "../../utils/ai/auth";
 import { NOT_LOGGED_IN, TIMEOUT } from "../../views/ai-panel/errorCodes";
 import { AIStateMachine } from "../../views/ai-panel/aiMachine";
-import { getAiConfig } from "src/features/ai/utils";
 import { DatamapperResponse } from "../../../src/features/ai/service/datamapper/types";
 import { generateInlineAutoMappings } from "../../../src/features/ai/service/datamapper/inline_datamapper";
 
