@@ -166,7 +166,7 @@ const MainPanel = () => {
     const fetchContext = () => {
         setNavActive(true);
         rpcClient.getVisualizerLocation().then((value) => {
-            //need to check isWeb is false in desktop mode
+            // Need to check isWeb is false in desktop mode
             const isWeb = typeof window !== 'undefined' && window.location.protocol.startsWith('http');
             let defaultFunctionsFile: string;
             if (isWeb) {
@@ -360,11 +360,6 @@ const MainPanel = () => {
                                             return false;
                                         }
                                     );
-                                    // setViewComponent(
-                                    //     <ViewConfigurableVariables
-                                    //         isExternallauncher={true}
-                                    //         fileName={Utils.joinPath(URI.file(location.projectUri), 'config.bal').fsPath} />
-                                    // );
                                 }
                             });
                         });

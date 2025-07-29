@@ -17,28 +17,74 @@
  */
 
 import {
-    workspace, window, commands, languages, Uri, ConfigurationChangeEvent, extensions, Extension, ExtensionContext,
-    IndentAction, OutputChannel, StatusBarItem, StatusBarAlignment, env, TextEditor, ThemeColor,
-    ConfigurationTarget
+    workspace,
+    window,
+    commands,
+    languages,
+    Uri,
+    ConfigurationChangeEvent,
+    extensions,
+    Extension,
+    ExtensionContext,
+    IndentAction,
+    OutputChannel,
+    StatusBarItem,
+    StatusBarAlignment,
+    env,
+    TextEditor,
+    ThemeColor,
+    ConfigurationTarget,
 } from "vscode";
 import {
-    INVALID_HOME_MSG, INSTALL_BALLERINA, DOWNLOAD_BALLERINA, MISSING_SERVER_CAPABILITY, ERROR, COMMAND_NOT_FOUND,
-    NO_SUCH_FILE, CONFIG_CHANGED, OLD_BALLERINA_VERSION, INVALID_FILE, INVALID_PROJECT,
+    INVALID_HOME_MSG,
+    INSTALL_BALLERINA,
+    DOWNLOAD_BALLERINA,
+    MISSING_SERVER_CAPABILITY,
+    ERROR,
+    COMMAND_NOT_FOUND,
+    NO_SUCH_FILE,
+    CONFIG_CHANGED,
+    OLD_BALLERINA_VERSION,
+    INVALID_FILE,
+    INVALID_PROJECT,
     OLD_PLUGIN_INSTALLED,
     COOKIE_SETTINGS,
-    UPDATE_BALLERINA_VERSION
+    UPDATE_BALLERINA_VERSION,
 } from "./messages";
-import { join, sep } from 'path';
-import { exec, spawnSync } from 'child_process';
-import { LanguageClientOptions, State as LS_STATE, RevealOutputChannelOn, ServerOptions } from "vscode-languageclient/node";
-import { getServerOptions } from '../utils/server/server';
-import { ExtendedLangClient } from './extended-language-client';
-import { debug, log, getOutputChannel, outputChannel, isWindows, isSupportedVersion, VERSION, isSupportedSLVersion } from '../utils';
+import { join, sep } from "path";
+import { exec, spawnSync } from "child_process";
+import {
+    LanguageClientOptions,
+    State as LS_STATE,
+    RevealOutputChannelOn,
+    ServerOptions,
+} from "vscode-languageclient/node";
+import { getServerOptions } from "../utils/server/server";
+import { ExtendedLangClient } from "./extended-language-client";
+import {
+    debug,
+    log,
+    getOutputChannel,
+    outputChannel,
+    isWindows,
+    isSupportedVersion,
+    VERSION,
+    isSupportedSLVersion,
+} from "../utils";
 import { AssertionError } from "assert";
 import {
-    BALLERINA_HOME, ENABLE_ALL_CODELENS, ENABLE_SEMANTIC_HIGHLIGHTING, OVERRIDE_BALLERINA_HOME,
-    ENABLE_PERFORMANCE_FORECAST, ENABLE_DEBUG_LOG, ENABLE_BALLERINA_LS_DEBUG,
-    ENABLE_EXPERIMENTAL_FEATURES, ENABLE_NOTEBOOK_DEBUG, ENABLE_RUN_FAST, ENABLE_INLAY_HINTS, FILE_DOWNLOAD_PATH,
+    BALLERINA_HOME,
+    ENABLE_ALL_CODELENS,
+    ENABLE_SEMANTIC_HIGHLIGHTING,
+    OVERRIDE_BALLERINA_HOME,
+    ENABLE_PERFORMANCE_FORECAST,
+    ENABLE_DEBUG_LOG,
+    ENABLE_BALLERINA_LS_DEBUG,
+    ENABLE_EXPERIMENTAL_FEATURES,
+    ENABLE_NOTEBOOK_DEBUG,
+    ENABLE_RUN_FAST,
+    ENABLE_INLAY_HINTS,
+    FILE_DOWNLOAD_PATH,
     ENABLE_LIVE_RELOAD,
     ENABLE_AI_SUGGESTIONS,
     ENABLE_SEQUENCE_DIAGRAM_VIEW,
@@ -47,17 +93,16 @@ import {
     DEFINE_BALLERINA_INTEGRATOR_SCOPE,
     SHOW_LIBRARY_CONFIG_VARIABLES,
     LANG_SERVER_PATH,
-    USE_BALLERINA_CLI_LANG_SERVER
-}
-    from "./preferences";
+    USE_BALLERINA_CLI_LANG_SERVER,
+} from "./preferences";
 import { BALLERINA_COMMANDS, runCommand } from "../features/project";
 import { gitStatusBarItem } from "../features/editor-support/git-status";
 import { checkIsPersistModelFile } from "../views/persist-layer-diagram/activator";
 import { BallerinaProject, DownloadProgress, onDownloadProgress, SHARED_COMMANDS } from "@wso2/ballerina-core";
 import os from "os";
-import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
-import fs from 'fs';
-import path from 'path';
+import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
+import fs from "fs";
+import path from "path";
 import { RPCLayer } from "../RPCLayer";
 import { VisualizerWebview } from "../views/visualizer/webview";
 import { BalFileSystemProvider } from "src/web-activators/fs/BalFileSystemProvider";
@@ -67,11 +112,11 @@ import { activateLanguageServer } from "../web-activators/Ls/activateLs";
 
 const SWAN_LAKE_REGEX = /(s|S)wan( |-)(l|L)ake/g;
 
-export const EXTENSION_ID = 'wso2.ballerina';
-const PREV_EXTENSION_ID = 'ballerina.ballerina';
+export const EXTENSION_ID = "wso2.ballerina";
+const PREV_EXTENSION_ID = "ballerina.ballerina";
 export enum LANGUAGE {
-    BALLERINA = 'ballerina',
-    TOML = 'toml',
+    BALLERINA = "ballerina",
+    TOML = "toml",
     BAL_TOML = "Ballerina.toml",
 }
 
@@ -79,7 +124,7 @@ export enum WEBVIEW_TYPE {
     PERFORMANCE_FORECAST,
     SWAGGER,
     BBE,
-    CONFIGURABLE
+    CONFIGURABLE,
 }
 
 export interface ConstructIdentifier {
@@ -129,8 +174,8 @@ export interface WebviewContext {
     type?: WEBVIEW_TYPE;
 }
 
-const showMessageInstallBallerinaCommand = 'ballerina.showMessageInstallBallerina';
-const SDK_PREFIX = 'Ballerina ';
+const showMessageInstallBallerinaCommand = "ballerina.showMessageInstallBallerina";
+const SDK_PREFIX = "Ballerina ";
 export class BallerinaExtension {
     public ballerinaHome: string;
     private ballerinaCmd: string;
@@ -157,20 +202,21 @@ export class BallerinaExtension {
     private ballerinaInstallationDir: string;
     private updateToolServerUrl: string;
     private ballerinaUpdateToolUserAgent: string;
-    //web config
+    // Web config
     public activeBalFileUri?: string | undefined;
     public fsProvider?: BalFileSystemProvider;
 
     constructor() {
-        this.ballerinaHome = '';
-        this.ballerinaCmd = '';
-        this.ballerinaVersion = '';
+        this.ballerinaHome = "";
+        this.ballerinaCmd = "";
+        this.ballerinaVersion = "";
         this.biSupported = false;
         this.isNPSupported = false;
         this.isPersist = false;
-        this.ballerinaUserHomeName = '.ballerina';
+        this.ballerinaUserHomeName = ".ballerina";
         this.ballerinaUserHome = path.join(this.getUserHomeDirectory(), this.ballerinaUserHomeName);
-        this.ballerinaIntegratorReleaseUrl = "https://api.github.com/repos/ballerina-platform/ballerina-distribution/releases";
+        this.ballerinaIntegratorReleaseUrl =
+            "https://api.github.com/repos/ballerina-platform/ballerina-distribution/releases";
         this.ballerinaHomeCustomDirName = "ballerina-home";
         this.ballerinaInstallationDir = path.join(this.getBallerinaUserHome(), this.ballerinaHomeCustomDirName);
 
@@ -183,21 +229,24 @@ export class BallerinaExtension {
         // Load the extension
         this.extension = extensions.getExtension(EXTENSION_ID)!;
         this.clientOptions = {
-            documentSelector: [{ scheme: 'file', language: LANGUAGE.BALLERINA }, {
-                scheme: 'file', language:
-                    LANGUAGE.TOML
-            }],
+            documentSelector: [
+                { scheme: "file", language: LANGUAGE.BALLERINA },
+                {
+                    scheme: "file",
+                    language: LANGUAGE.TOML,
+                },
+            ],
             synchronize: { configurationSection: LANGUAGE.BALLERINA },
             outputChannel: getOutputChannel(),
             revealOutputChannelOn: RevealOutputChannelOn.Never,
             initializationOptions: {
-                "enableSemanticHighlighting": <string>workspace.getConfiguration().get(ENABLE_SEMANTIC_HIGHLIGHTING),
-                "enableBackgroundDriftCheck": <string>workspace.getConfiguration().get(ENABLE_BACKGROUND_DRIFT_CHECK),
-                "enableInlayHints": <string>workspace.getConfiguration().get(ENABLE_INLAY_HINTS),
-                "supportBalaScheme": "true",
-                "supportQuickPick": "true",
-                "supportPositionalRenamePopup": "true"
-            }
+                enableSemanticHighlighting: <string>workspace.getConfiguration().get(ENABLE_SEMANTIC_HIGHLIGHTING),
+                enableBackgroundDriftCheck: <string>workspace.getConfiguration().get(ENABLE_BACKGROUND_DRIFT_CHECK),
+                enableInlayHints: <string>workspace.getConfiguration().get(ENABLE_INLAY_HINTS),
+                supportBalaScheme: "true",
+                supportQuickPick: "true",
+                supportPositionalRenamePopup: "true",
+            },
         };
 
         this.documentContext = new DocumentContext();
@@ -206,21 +255,21 @@ export class BallerinaExtension {
             manageChoreoRedirectUri: process.env.VSCODE_CHOREO_DEPLOY_URI,
             infoMessageStatus: {
                 sourceControlMessage: true,
-                messageFirstEdit: true
-            }
+                messageFirstEdit: true,
+            },
         };
         if (this.isCodeServerEnv()) {
-            commands.executeCommand('workbench.action.closeAllEditors');
+            commands.executeCommand("workbench.action.closeAllEditors");
             this.showCookieConsentMessage();
             this.getCodeServerContext().telemetryTracker = new TelemetryTracker();
         }
         this.webviewContext = { isOpen: false };
         this.perfForecastContext = {
             infoMessageStatus: {
-                signinChoreo: true
-            }
+                signinChoreo: true,
+            },
         };
-        this.ballerinaConfigPath = '';
+        this.ballerinaConfigPath = "";
     }
 
     setContext(context: ExtensionContext) {
@@ -232,7 +281,7 @@ export class BallerinaExtension {
             this.showUninstallOldVersion();
         }
         // Register show logs command.
-        const showLogs = commands.registerCommand('ballerina.showLogs', () => {
+        const showLogs = commands.registerCommand("ballerina.showLogs", () => {
             outputChannel.show();
         });
         this.context!.subscriptions.push(showLogs);
@@ -241,121 +290,144 @@ export class BallerinaExtension {
             this.showMessageInstallBallerina();
         });
 
-        commands.registerCommand('ballerina.setup-ballerina', () => { // Install ballerina from central for new users. This should set the ballerina to system path
+        commands.registerCommand("ballerina.setup-ballerina", () => {
+            // Install ballerina from central for new users. This should set the ballerina to system path
             this.installBallerina();
         });
 
-        commands.registerCommand('ballerina.update-ballerina-dev-pack', () => { // Update developer pack from ballerina dev build and set to ballerina-home and enable plugin dev mode
+        commands.registerCommand("ballerina.update-ballerina-dev-pack", () => {
+            // Update developer pack from ballerina dev build and set to ballerina-home and enable plugin dev mode
             this.updateBallerinaDeveloperPack(true);
         });
 
-        commands.registerCommand('ballerina.update-ballerina', () => { // Update release pack from ballerina update tool with terminal
+        commands.registerCommand("ballerina.update-ballerina", () => {
+            // Update release pack from ballerina update tool with terminal
             this.updateBallerina();
         });
 
-        commands.registerCommand('ballerina.update-ballerina-visually', () => { // Update release pack from ballerina update tool with webview
+        commands.registerCommand("ballerina.update-ballerina-visually", () => {
+            // Update release pack from ballerina update tool with webview
             this.updateBallerinaVisually();
         });
 
-         //Activate language server for web mode
+        // Activate language server for web mode
         if (extension.isWebMode) {
             this.langClient = await activateLanguageServer();
             console.log("creating web lang client");
             _onBeforeInit(this.langClient);
         }
-        //Activate language server for desktop mode
-        else{
+        // Activate language server for desktop mode
+        else {
             try {
-            // Register pre init handlers.
-            this.registerPreInitHandlers();
+                // Register pre init handlers.
+                this.registerPreInitHandlers();
 
-            // Check if ballerina home is set.
-            if (this.overrideBallerinaHome()) {
-                if (!this.getConfiguredBallerinaHome()) {
-                    const message = "Trying to get ballerina version without setting ballerina home.";
-                    throw new AssertionError({
-                        message: message
-                    });
+                // Check if ballerina home is set.
+                if (this.overrideBallerinaHome()) {
+                    if (!this.getConfiguredBallerinaHome()) {
+                        const message = "Trying to get ballerina version without setting ballerina home.";
+                        throw new AssertionError({
+                            message: message,
+                        });
+                    }
+
+                    debug("Ballerina home is configured in settings.");
+                    this.ballerinaHome = this.getConfiguredBallerinaHome();
                 }
 
-                debug("Ballerina home is configured in settings.");
-                this.ballerinaHome = this.getConfiguredBallerinaHome();
-            }
+                // Validate the ballerina version.
+                return this.getBallerinaVersion(this.ballerinaHome, this.overrideBallerinaHome())
+                    .then(
+                        async (runtimeVersion) => {
+                            debug("=".repeat(60));
+                            this.ballerinaVersion = runtimeVersion;
+                            log(`Plugin version: ${this.getVersion()}`);
+                            log(`Ballerina version: ${this.ballerinaVersion}`);
 
-            // Validate the ballerina version.
-            return this.getBallerinaVersion(this.ballerinaHome, this.overrideBallerinaHome()).then(async runtimeVersion => {
-                debug("=".repeat(60));
-                this.ballerinaVersion = runtimeVersion;
-                log(`Plugin version: ${this.getVersion()}`);
-                log(`Ballerina version: ${this.ballerinaVersion}`);
+                            this.biSupported = isSupportedSLVersion(this, 2201123); // Minimum supported version for BI
+                            this.isNPSupported =
+                                isSupportedSLVersion(this, 2201130) && this.enabledExperimentalFeatures(); // Minimum supported requirements for NP
+                            const { home } = this.autoDetectBallerinaHome();
+                            this.ballerinaHome = home;
+                            debug(`Ballerina Home: ${this.ballerinaHome}`);
+                            debug(`Plugin Dev Mode: ${this.overrideBallerinaHome()}`);
+                            debug(`Debug Mode: ${this.enableLSDebug()}`);
+                            debug(
+                                `Feature flags - Experimental: ${this.enabledExperimentalFeatures()}, BI: ${
+                                    this.biSupported
+                                }, NP: ${this.isNPSupported}`
+                            );
 
-                this.biSupported = isSupportedSLVersion(this, 2201123); // Minimum supported version for BI
-                this.isNPSupported = isSupportedSLVersion(this, 2201130) && this.enabledExperimentalFeatures(); // Minimum supported requirements for NP
-                const { home } = this.autoDetectBallerinaHome();
-                this.ballerinaHome = home;
-                debug(`Ballerina Home: ${this.ballerinaHome}`);
-                debug(`Plugin Dev Mode: ${this.overrideBallerinaHome()}`);
-                debug(`Debug Mode: ${this.enableLSDebug()}`);
-                debug(`Feature flags - Experimental: ${this.enabledExperimentalFeatures()}, BI: ${this.biSupported}, NP: ${this.isNPSupported}`);
-
-                if (!this.ballerinaVersion.match(SWAN_LAKE_REGEX) || (this.ballerinaVersion.match(SWAN_LAKE_REGEX) &&
-                    !isSupportedVersion(ballerinaExtInstance, VERSION.BETA, 3))) {
-                    this.showMessageOldBallerina();
-                    const message = `Ballerina version ${this.ballerinaVersion} is not supported. 
+                            if (
+                                !this.ballerinaVersion.match(SWAN_LAKE_REGEX) ||
+                                (this.ballerinaVersion.match(SWAN_LAKE_REGEX) &&
+                                    !isSupportedVersion(ballerinaExtInstance, VERSION.BETA, 3))
+                            ) {
+                                this.showMessageOldBallerina();
+                                const message = `Ballerina version ${this.ballerinaVersion} is not supported. 
                         The extension supports Ballerina Swan Lake Beta 3+ versions.`;
-                    return;
+                                return;
+                            }
+
+                            // if Home is found load Language Server.
+                            let serverOptions: ServerOptions;
+                            serverOptions = getServerOptions(this);
+                            this.langClient = new ExtendedLangClient(
+                                "ballerina-vscode",
+                                "Ballerina LS Client",
+                                serverOptions,
+                                this.clientOptions,
+                                this,
+                                false
+                            );
+
+                            _onBeforeInit(this.langClient);
+
+                            await this.langClient.start();
+                            debug(`Language Server Started`);
+
+                            // Following was put in to handle server startup failures.
+                            if (this.langClient.state === LS_STATE.Stopped) {
+                                const message = "Couldn't establish language server connection.";
+                                log(message);
+                            } else if (this.langClient.state === LS_STATE.Running) {
+                                await this.langClient?.registerExtendedAPICapabilities();
+                                this.updateStatusBar(this.ballerinaVersion);
+                            }
+
+                            commands.registerCommand("ballerina.stopLangServer", () => {
+                                this.langClient.stop();
+                            });
+                            debug("=".repeat(60));
+                        },
+                        (reason) => {
+                            this.showMessageInstallBallerina();
+                            throw new Error(reason);
+                        }
+                    )
+                    .catch((e) => {
+                        const msg = `Error when checking ballerina version. ${e.message}`;
+                        throw new Error(msg);
+                    });
+            } catch (ex) {
+                let msg = "Error happened.";
+                if (ex instanceof Error) {
+                    msg = "Error while activating plugin. " + (ex.message ? ex.message : ex);
+                    // If any failure occurs while initializing show an error message
                 }
-
-                // if Home is found load Language Server.
-                let serverOptions: ServerOptions;
-                serverOptions = getServerOptions(this);
-                this.langClient = new ExtendedLangClient('ballerina-vscode', 'Ballerina LS Client', serverOptions,
-                    this.clientOptions, this, false);
-
-                _onBeforeInit(this.langClient);
-
-                await this.langClient.start();
-                debug(`Language Server Started`);
-
-                // Following was put in to handle server startup failures.
-                if (this.langClient.state === LS_STATE.Stopped) {
-                    const message = "Couldn't establish language server connection.";
-                    log(message);
-                } else if (this.langClient.state === LS_STATE.Running) {
-                    await this.langClient?.registerExtendedAPICapabilities();
-                    this.updateStatusBar(this.ballerinaVersion);
-                }
-
-                commands.registerCommand('ballerina.stopLangServer', () => {
-                    this.langClient.stop();
-                });
-                debug("=".repeat(60));
-            }, (reason) => {
-                this.showMessageInstallBallerina();
-                throw new Error(reason);
-            }).catch(e => {
-                const msg = `Error when checking ballerina version. ${e.message}`;
-                throw new Error(msg);
-            });
-        } catch (ex) {
-            let msg = "Error happened.";
-            if (ex instanceof Error) {
-                msg = "Error while activating plugin. " + (ex.message ? ex.message : ex);
-                // If any failure occurs while initializing show an error message
+                return Promise.reject(msg);
             }
-            return Promise.reject(msg);
         }
-    }
     }
 
     private getUpdateToolUserAgent(): string {
         const platform = os.platform();
-        if (platform === 'win32') {
+        if (platform === "win32") {
             return "ballerina/2201.11.0 (win-64) Updater/1.4.5";
-        } else if (platform === 'linux') {
+        } else if (platform === "linux") {
             return "ballerina/2201.11.0 (linux-64) Updater/1.4.5";
-        } else if (platform === 'darwin') {
-            if (os.arch() === 'arm64') {
+        } else if (platform === "darwin") {
+            if (os.arch() === "arm64") {
                 return "ballerina/2201.11.0 (macos-arm-64) Updater/1.4.5";
             }
             return "ballerina/2201.11.0 (macos-64) Updater/1.4.5";
@@ -366,25 +438,22 @@ export class BallerinaExtension {
     async getLatestBallerinaVersion(): Promise<string> {
         try {
             const latestDistributionVersionResponse = await this.axiosWithRetry({
-                method: 'get',
+                method: "get",
                 url: this.updateToolServerUrl + "/distributions/latest?version=2201.0.0&type=patch",
                 headers: {
-                    'Content-Type': 'application/json'
-                }
+                    "Content-Type": "application/json",
+                },
             });
             const latestDistributionVersion = latestDistributionVersionResponse.data.patch;
 
             return latestDistributionVersion.toString();
         } catch (error) {
-            window.showErrorMessage('Error getting the latest distribution version:', error);
+            window.showErrorMessage("Error getting the latest distribution version:", error);
             return null;
         }
     }
 
-    async axiosWithRetry(
-        config: AxiosRequestConfig,
-        maxRetries: number = 3
-    ): Promise<AxiosResponse> {
+    async axiosWithRetry(config: AxiosRequestConfig, maxRetries: number = 3): Promise<AxiosResponse> {
         let retries = 0;
 
         while (true) {
@@ -402,45 +471,53 @@ export class BallerinaExtension {
 
                 // Optional: add exponential backoff
                 const delay = 1000 * Math.pow(2, retries - 1);
-                await new Promise(resolve => setTimeout(resolve, delay));
+                await new Promise((resolve) => setTimeout(resolve, delay));
             }
         }
     }
 
-
     async updateBallerina(restartWindow?: boolean) {
-        this.getBallerinaVersion(this.ballerinaHome, false).then(async runtimeVersion => {
-            const currentBallerinaVersion = runtimeVersion.split('-')[0];
-            console.log('Current Ballerina version:', currentBallerinaVersion);
-            const terminal = window.createTerminal('Update Ballerina');
-            terminal.show();
-            terminal.sendText('bal dist update');
-            window.showInformationMessage('Please proceed with the bal command to update the ballerina distribution');
-        }, (reason) => {
-            console.error('Error getting the ballerina version:', reason.message);
-            this.showMessageSetupBallerina(restartWindow);
-        });
+        this.getBallerinaVersion(this.ballerinaHome, false).then(
+            async (runtimeVersion) => {
+                const currentBallerinaVersion = runtimeVersion.split("-")[0];
+                console.log("Current Ballerina version:", currentBallerinaVersion);
+                const terminal = window.createTerminal("Update Ballerina");
+                terminal.show();
+                terminal.sendText("bal dist update");
+                window.showInformationMessage(
+                    "Please proceed with the bal command to update the ballerina distribution"
+                );
+            },
+            (reason) => {
+                console.error("Error getting the ballerina version:", reason.message);
+                this.showMessageSetupBallerina(restartWindow);
+            }
+        );
     }
 
     async updateBallerinaVisually() {
         commands.executeCommand(SHARED_COMMANDS.OPEN_BI_WELCOME);
         const realPath = this.ballerinaHome ? fs.realpathSync.native(this.ballerinaHome) : "";
-        this.executeCommandWithProgress(realPath.includes("ballerina-home") ? 'bal dist update' : 'sudo bal dist update');
+        this.executeCommandWithProgress(
+            realPath.includes("ballerina-home") ? "bal dist update" : "sudo bal dist update"
+        );
     }
 
     private async executeCommandWithProgress(command: string) {
         // Check if this is a sudo command (for macOS/Linux) or needs admin rights (Windows)
-        const isSudoCommand = command.trim().startsWith('sudo');
+        const isSudoCommand = command.trim().startsWith("sudo");
         window.showInformationMessage(`Executing: ${command}`);
         if (isSudoCommand) {
             if (isWindows()) {
                 // Windows: Use PowerShell with "Run as Administrator"
                 return this.executeWindowsAdminCommand(command);
             } else {
-                const terminal = window.createTerminal('Update Ballerina');
+                const terminal = window.createTerminal("Update Ballerina");
                 terminal.show();
                 terminal.sendText(command);
-                window.showInformationMessage('Please proceed with the sudo command to update the ballerina distribution');
+                window.showInformationMessage(
+                    "Please proceed with the sudo command to update the ballerina distribution"
+                );
             }
         } else {
             // Regular non-elevated command
@@ -457,17 +534,21 @@ export class BallerinaExtension {
             message: `Starting execution of command...`,
             percentage: 0,
             success: false,
-            step: progressStep
+            step: progressStep,
         };
-        RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
+        RPCLayer._messenger.sendNotification(
+            onDownloadProgress,
+            { type: "webview", webviewType: VisualizerWebview.viewType },
+            res
+        );
 
         return new Promise((resolve, reject) => {
             // Use exec for regular commands
             const childProcess = exec(command, { maxBuffer: 1024 * 1024 });
             let percentage = 0;
-            childProcess.stdout.on('data', (data) => {
+            childProcess.stdout.on("data", (data) => {
                 const output = data.toString();
-                console.log('Command output:', output);
+                console.log("Command output:", output);
 
                 progressStep++;
 
@@ -481,38 +562,50 @@ export class BallerinaExtension {
                     message: message,
                     percentage: percentage,
                     success: false,
-                    step: progressStep
+                    step: progressStep,
                 };
-                RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
+                RPCLayer._messenger.sendNotification(
+                    onDownloadProgress,
+                    { type: "webview", webviewType: VisualizerWebview.viewType },
+                    res
+                );
             });
 
-            childProcess.stderr.on('data', (data) => {
+            childProcess.stderr.on("data", (data) => {
                 const errorOutput = data.toString();
-                console.error('Command error:', errorOutput);
+                console.error("Command error:", errorOutput);
 
                 res = {
                     message: `Error: ${errorOutput.trim()}`,
                     percentage: 0,
                     success: false,
-                    step: -1
+                    step: -1,
                 };
-                RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
+                RPCLayer._messenger.sendNotification(
+                    onDownloadProgress,
+                    { type: "webview", webviewType: VisualizerWebview.viewType },
+                    res
+                );
             });
 
-            childProcess.on('close', (code) => {
+            childProcess.on("close", (code) => {
                 console.log(`Command exited with code ${code}`);
 
                 res = {
-                    message: code === 0 ? 'Command completed successfully' : `Command failed with code ${code}`,
+                    message: code === 0 ? "Command completed successfully" : `Command failed with code ${code}`,
                     percentage: 100,
                     success: code === 0,
-                    step: code === 0 ? progressStep + 1 : -1
+                    step: code === 0 ? progressStep + 1 : -1,
                 };
-                RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
+                RPCLayer._messenger.sendNotification(
+                    onDownloadProgress,
+                    { type: "webview", webviewType: VisualizerWebview.viewType },
+                    res
+                );
 
                 if (code === 0) {
-                    window.showInformationMessage('Command executed successfully');
-                    commands.executeCommand('workbench.action.reloadWindow');
+                    window.showInformationMessage("Command executed successfully");
+                    commands.executeCommand("workbench.action.reloadWindow");
                     resolve();
                 } else {
                     window.showErrorMessage(`Command failed with exit code ${code}`);
@@ -527,7 +620,7 @@ export class BallerinaExtension {
         let progressStep = 0;
 
         // Remove 'sudo' prefix if present
-        const actualCommand = command.replace(/^sudo\s+/, '');
+        const actualCommand = command.replace(/^sudo\s+/, "");
 
         // Create PowerShell command to run as administrator
         const psCommand = `powershell -Command "Start-Process powershell.exe -Verb RunAs -Wait -ArgumentList '-NoProfile -ExecutionPolicy Bypass -Command \"${actualCommand}\"'"`;
@@ -536,45 +629,60 @@ export class BallerinaExtension {
             message: `Starting a powershell to update ballerina distribution...`,
             percentage: 0,
             success: false,
-            step: progressStep
+            step: progressStep,
         };
-        RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
+        RPCLayer._messenger.sendNotification(
+            onDownloadProgress,
+            { type: "webview", webviewType: VisualizerWebview.viewType },
+            res
+        );
 
         // Show a message to the user that they'll need to respond to the UAC prompt
-        window.showInformationMessage('Please confirm the User Account Control (UAC) prompt to run this command with administrator privileges');
+        window.showInformationMessage(
+            "Please confirm the User Account Control (UAC) prompt to run this command with administrator privileges"
+        );
         await new Promise((resolve, reject) => {
             try {
                 // Execute the PowerShell command
                 const childProcess = exec(psCommand, { maxBuffer: 1024 * 1024 });
-                childProcess.stderr.on('data', (data) => {
+                childProcess.stderr.on("data", (data) => {
                     const errorOutput = data.toString();
-                    console.error('Command error:', errorOutput);
+                    console.error("Command error:", errorOutput);
                     // Check for UAC cancellation
-                    if (errorOutput.includes('cancelled by the user') || errorOutput.includes('was canceled')) {
+                    if (errorOutput.includes("cancelled by the user") || errorOutput.includes("was canceled")) {
                         const errorMessage = `Administrator privileges were denied. Command cannot be executed.`;
                         throw new Error(errorMessage);
                     }
                 });
-                childProcess.on('close', async (code, signal) => {
+                childProcess.on("close", async (code, signal) => {
                     // Note: with Windows UAC, the actual admin process is detached, so this code
                     // only confirms the elevation request was successful, not the command itself
                     if (code === 0) {
                         // Check the versions
                         const initialVersion = this.ballerinaVersion;
                         // Get the current version
-                        const currentVersion = await this.getBallerinaVersion(this.ballerinaHome, this.overrideBallerinaHome());
+                        const currentVersion = await this.getBallerinaVersion(
+                            this.ballerinaHome,
+                            this.overrideBallerinaHome()
+                        );
                         // If version changed or timeout reached, we're done
                         if (currentVersion !== initialVersion) {
-                            console.log(`Update completed. Version changed from ${initialVersion} to ${currentVersion}`);
+                            console.log(
+                                `Update completed. Version changed from ${initialVersion} to ${currentVersion}`
+                            );
                             res = {
                                 message: `Successfully updated to version: ${currentVersion}`,
                                 percentage: 0,
                                 success: true,
-                                step: -1
+                                step: -1,
                             };
-                            RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
+                            RPCLayer._messenger.sendNotification(
+                                onDownloadProgress,
+                                { type: "webview", webviewType: VisualizerWebview.viewType },
+                                res
+                            );
                             setTimeout(() => {
-                                commands.executeCommand('workbench.action.reloadWindow');
+                                commands.executeCommand("workbench.action.reloadWindow");
                             }, 2000);
                         }
                     } else {
@@ -589,15 +697,19 @@ export class BallerinaExtension {
                 throw new Error(errorMessage);
             }
         }).catch((error) => {
-            console.error('Error executing Windows admin command:', error);
+            console.error("Error executing Windows admin command:", error);
             const errorMessage = error instanceof Error ? error.message : String(error);
             res = {
                 message: `${errorMessage}`,
                 percentage: 0,
                 success: false,
-                step: -1
+                step: -1,
             };
-            RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
+            RPCLayer._messenger.sendNotification(
+                onDownloadProgress,
+                { type: "webview", webviewType: VisualizerWebview.viewType },
+                res
+            );
             window.showErrorMessage(`Error executing admin command: ${errorMessage}`);
         });
     }
@@ -605,16 +717,15 @@ export class BallerinaExtension {
     // TODO: This can be removed.
     // Alternative method that uses a temporary script to execute sudo commands
     private async executeSudoCommandWithScript(command: string): Promise<void> {
-
         // macOS/Linux: Get password for sudo
         const password = await window.showInputBox({
-            prompt: 'Enter your sudo password',
+            prompt: "Enter your sudo password",
             password: true,
-            ignoreFocusOut: true
+            ignoreFocusOut: true,
         });
 
         if (password === undefined) {
-            window.showErrorMessage('Password required for sudo command');
+            window.showErrorMessage("Password required for sudo command");
             return;
         }
 
@@ -625,18 +736,22 @@ export class BallerinaExtension {
             message: `Starting execution of sudo command...`,
             percentage: 0,
             success: false,
-            step: progressStep
+            step: progressStep,
         };
-        RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
+        RPCLayer._messenger.sendNotification(
+            onDownloadProgress,
+            { type: "webview", webviewType: VisualizerWebview.viewType },
+            res
+        );
 
         return new Promise((resolve, reject) => {
             try {
                 // Create a temporary file for the command
-                const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-ballerina-'));
-                const scriptPath = path.join(tempDir, 'sudo-script.sh');
+                const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "vscode-ballerina-"));
+                const scriptPath = path.join(tempDir, "sudo-script.sh");
 
                 // Extract the actual command (remove 'sudo' prefix)
-                const actualCommand = command.replace(/^sudo\s+/, '');
+                const actualCommand = command.replace(/^sudo\s+/, "");
 
                 // Create a script file that will be executed with sudo
                 fs.writeFileSync(scriptPath, `#!/bin/bash\n${actualCommand}\n`, { mode: 0o755 });
@@ -648,9 +763,9 @@ export class BallerinaExtension {
                 const sudoCmd = `echo ${password} | sudo -S ${scriptPath}`;
                 const childProcess = exec(sudoCmd);
 
-                childProcess.stdout.on('data', (data) => {
+                childProcess.stdout.on("data", (data) => {
                     const output = data.toString();
-                    console.log('Command output:', output);
+                    console.log("Command output:", output);
 
                     progressStep++;
                     const percentage = Math.min(progressStep * 10, 90);
@@ -659,39 +774,54 @@ export class BallerinaExtension {
                         message: `Executing: ${output.trim()}`,
                         percentage: percentage,
                         success: false,
-                        step: progressStep
+                        step: progressStep,
                     };
-                    RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
+                    RPCLayer._messenger.sendNotification(
+                        onDownloadProgress,
+                        { type: "webview", webviewType: VisualizerWebview.viewType },
+                        res
+                    );
                 });
 
-                childProcess.stderr.on('data', (data) => {
+                childProcess.stderr.on("data", (data) => {
                     const errorOutput = data.toString();
-                    console.error('Command error:', errorOutput);
+                    console.error("Command error:", errorOutput);
 
                     // Handle common sudo errors
-                    if (errorOutput.includes('is not in the sudoers file') || errorOutput.includes('not allowed to execute')) {
+                    if (
+                        errorOutput.includes("is not in the sudoers file") ||
+                        errorOutput.includes("not allowed to execute")
+                    ) {
                         res = {
                             message: `Sudo permission error: You don't have sudo privileges for this command`,
                             percentage: 0,
                             success: false,
-                            step: -1
+                            step: -1,
                         };
-                        RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
+                        RPCLayer._messenger.sendNotification(
+                            onDownloadProgress,
+                            { type: "webview", webviewType: VisualizerWebview.viewType },
+                            res
+                        );
                         window.showErrorMessage(`Sudo permission error: You don't have privileges for this command`);
-                        reject(new Error('Sudo permission error: insufficient privileges'));
+                        reject(new Error("Sudo permission error: insufficient privileges"));
                         return;
                     }
 
-                    if (errorOutput.includes('incorrect password') || errorOutput.includes('Sorry, try again')) {
+                    if (errorOutput.includes("incorrect password") || errorOutput.includes("Sorry, try again")) {
                         res = {
                             message: `Sudo authentication failed: Incorrect password`,
                             percentage: 0,
                             success: false,
-                            step: -1
+                            step: -1,
                         };
-                        RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
+                        RPCLayer._messenger.sendNotification(
+                            onDownloadProgress,
+                            { type: "webview", webviewType: VisualizerWebview.viewType },
+                            res
+                        );
                         window.showErrorMessage(`Sudo authentication failed: Incorrect password`);
-                        reject(new Error('Sudo authentication failed: Incorrect password'));
+                        reject(new Error("Sudo authentication failed: Incorrect password"));
                         return;
                     }
 
@@ -699,12 +829,16 @@ export class BallerinaExtension {
                         message: `Error: ${errorOutput.trim()}`,
                         percentage: 0,
                         success: false,
-                        step: -1
+                        step: -1,
                     };
-                    RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
+                    RPCLayer._messenger.sendNotification(
+                        onDownloadProgress,
+                        { type: "webview", webviewType: VisualizerWebview.viewType },
+                        res
+                    );
                 });
 
-                childProcess.on('close', (code) => {
+                childProcess.on("close", (code) => {
                     console.log(`Command exited with code ${code}`);
 
                     // Clean up the temporary files
@@ -712,20 +846,24 @@ export class BallerinaExtension {
                         fs.unlinkSync(scriptPath);
                         fs.rmdirSync(tempDir);
                     } catch (err) {
-                        console.error('Error cleaning up temporary files:', err);
+                        console.error("Error cleaning up temporary files:", err);
                     }
 
                     res = {
-                        message: code === 0 ? 'Command completed successfully' : `Command failed with code ${code}`,
+                        message: code === 0 ? "Command completed successfully" : `Command failed with code ${code}`,
                         percentage: 100,
                         success: code === 0,
-                        step: code === 0 ? progressStep + 1 : -1
+                        step: code === 0 ? progressStep + 1 : -1,
                     };
-                    RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
+                    RPCLayer._messenger.sendNotification(
+                        onDownloadProgress,
+                        { type: "webview", webviewType: VisualizerWebview.viewType },
+                        res
+                    );
 
                     if (code === 0) {
-                        window.showInformationMessage('Command executed successfully');
-                        commands.executeCommand('workbench.action.reloadWindow');
+                        window.showInformationMessage("Command executed successfully");
+                        commands.executeCommand("workbench.action.reloadWindow");
                         resolve();
                     } else {
                         window.showErrorMessage(`Command failed with exit code ${code}`);
@@ -733,7 +871,7 @@ export class BallerinaExtension {
                     }
                 });
             } catch (error) {
-                console.error('Error executing sudo command with script:', error);
+                console.error("Error executing sudo command with script:", error);
                 const errorMessage = error instanceof Error ? error.message : String(error);
                 window.showErrorMessage(`Error executing sudo command: ${errorMessage}`);
 
@@ -741,9 +879,13 @@ export class BallerinaExtension {
                     message: `Error executing sudo command: ${errorMessage}`,
                     percentage: 0,
                     success: false,
-                    step: -1
+                    step: -1,
                 };
-                RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
+                RPCLayer._messenger.sendNotification(
+                    onDownloadProgress,
+                    { type: "webview", webviewType: VisualizerWebview.viewType },
+                    res
+                );
                 reject(error);
             }
         });
@@ -752,42 +894,45 @@ export class BallerinaExtension {
     // Install ballerina from the central
     private async installBallerina(restartWindow?: boolean) {
         try {
-            let continueInstallation = true;
             // Remove the existing Ballerina version
             fs.rmSync(this.ballerinaInstallationDir, { recursive: true, force: true });
             // Get the latest distribution version
             const latestDistributionVersion = await this.getLatestBallerinaVersion();
             if (latestDistributionVersion === null) {
-                window.showErrorMessage('Error getting the latest distribution version. Please try again.');
+                window.showErrorMessage("Error getting the latest distribution version. Please try again.");
                 return;
             }
 
             let supportedJreVersion;
             try {
-                if (this.updateToolServerUrl.includes('staging')) {
+                if (this.updateToolServerUrl.includes("staging")) {
                     supportedJreVersion = "jdk-21.0.5+11-jre";
                 } else {
                     // Get supported jre version
                     const distributionsResponse = await this.axiosWithRetry({
-                        method: 'get',
+                        method: "get",
                         url: this.updateToolServerUrl + "/distributions",
                         headers: {
-                            'User-Agent': this.ballerinaUpdateToolUserAgent,
-                            'Content-Type': 'application/json'
-                        }
+                            "User-Agent": this.ballerinaUpdateToolUserAgent,
+                            "Content-Type": "application/json",
+                        },
                     });
                     const distributions = distributionsResponse.data.list;
-                    console.log('Filtered Distributions:', distributions.filter((distribution: any) => distribution.version === latestDistributionVersion));
-                    supportedJreVersion = distributions.filter((distribution: any) => distribution.version === latestDistributionVersion)[0].dependencies[0].name;
+                    console.log(
+                        "Filtered Distributions:",
+                        distributions.filter((distribution: any) => distribution.version === latestDistributionVersion)
+                    );
+                    supportedJreVersion = distributions.filter(
+                        (distribution: any) => distribution.version === latestDistributionVersion
+                    )[0].dependencies[0].name;
                 }
             } catch (error) {
-                console.error('Error fetching Ballerina dependencies:', error);
-                window.showErrorMessage('Error fetching Ballerina dependencies (JRE version). Please try again.');
+                console.error("Error fetching Ballerina dependencies:", error);
+                window.showErrorMessage("Error fetching Ballerina dependencies (JRE version). Please try again.");
                 return;
             }
 
             if (supportedJreVersion !== undefined) {
-
                 // Set the Ballerina Home and Command for vscode
                 await this.setBallerinaHomeAndCommand();
 
@@ -795,7 +940,7 @@ export class BallerinaExtension {
                 await this.setExecutablePermissions();
 
                 // Set the Ballerina version
-                const filePath = path.join(this.ballerinaInstallationDir, 'distributions', 'ballerina-version');
+                const filePath = path.join(this.ballerinaInstallationDir, "distributions", "ballerina-version");
                 fs.writeFileSync(filePath, `ballerina-${latestDistributionVersion}`);
                 console.log(`Updated ${filePath} with version: ${latestDistributionVersion}`);
 
@@ -805,63 +950,81 @@ export class BallerinaExtension {
                 let res: DownloadProgress = {
                     message: `Success..`,
                     success: true,
-                    step: 5 // This is the last step
+                    step: 5, // This is the last step
                 };
-                RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
-                console.log('Ballerina has been installed successfully');
+                RPCLayer._messenger.sendNotification(
+                    onDownloadProgress,
+                    { type: "webview", webviewType: VisualizerWebview.viewType },
+                    res
+                );
+                console.log("Ballerina has been installed successfully");
                 if (restartWindow) {
-                    commands.executeCommand('workbench.action.reloadWindow');
+                    commands.executeCommand("workbench.action.reloadWindow");
                 } else {
-                    window.showInformationMessage(`Ballerina has been installed successfully. Please restart the window to apply the changes.`);
+                    window.showInformationMessage(
+                        `Ballerina has been installed successfully. Please restart the window to apply the changes.`
+                    );
                 }
             }
         } catch (error) {
-            console.error('Error downloading or setting up Ballerina:', error);
-            window.showErrorMessage('Error downloading or setting up Ballerina. Please restart the window and try again.');
+            console.error("Error downloading or setting up Ballerina:", error);
+            window.showErrorMessage(
+                "Error downloading or setting up Ballerina. Please restart the window and try again."
+            );
             throw error;
         }
     }
 
     private setBallerinaCommandForUser() {
-        const binFolderPath = path.join(this.getBallerinaHome(), 'bin');
+        const binFolderPath = path.join(this.getBallerinaHome(), "bin");
         // Update the configuration with the new Ballerina Home
         let res: DownloadProgress = {
             message: `Setting the environment variables for user...`,
             success: false,
-            step: 5
+            step: 5,
         };
-        RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
+        RPCLayer._messenger.sendNotification(
+            onDownloadProgress,
+            { type: "webview", webviewType: VisualizerWebview.viewType },
+            res
+        );
         const platform = os.platform();
-        if (platform === 'win32') {
+        if (platform === "win32") {
             const command = `Set-ItemProperty -Path 'HKCU:\\Environment' -Name 'Path' -Value ([System.Environment]::GetEnvironmentVariable('Path', 'User') + ';${binFolderPath}')`;
 
             exec(`powershell.exe -Command "${command}"`, (error, stdout, stderr) => {
                 if (error) {
                     window.showErrorMessage(`Failed to set command path: ${stderr}`);
                 } else {
-                    console.log(`Ballerina command path set successfully. You may need to restart your terminal for changes to take effect.`);
+                    console.log(
+                        `Ballerina command path set successfully. You may need to restart your terminal for changes to take effect.`
+                    );
                 }
             });
-        } else if (platform === 'darwin') {
-            const zshrcPath = path.join(os.homedir(), '.zshrc');
+        } else if (platform === "darwin") {
+            const zshrcPath = path.join(os.homedir(), ".zshrc");
             const exportCommand = `\nexport PATH="${binFolderPath}:$PATH"\n`;
 
             fs.appendFile(zshrcPath, exportCommand, (err) => {
                 if (err) {
                     window.showErrorMessage(`Failed to update .zshrc: ${err.message}`);
                 } else {
-                    console.log(`Ballerina command path set successfully. You may need to restart your terminal for changes to take effect.`);
+                    console.log(
+                        `Ballerina command path set successfully. You may need to restart your terminal for changes to take effect.`
+                    );
                 }
             });
-        } else if (platform === 'linux') {
-            const bashrcPath = path.join(os.homedir(), '.bashrc');
+        } else if (platform === "linux") {
+            const bashrcPath = path.join(os.homedir(), ".bashrc");
             const exportCommand = `\nexport PATH="${binFolderPath}:$PATH"\n`;
 
             fs.appendFile(bashrcPath, exportCommand, (err) => {
                 if (err) {
                     window.showErrorMessage(`Failed to update .bashrc: ${err.message}`);
                 } else {
-                    console.log(`Ballerina command path set successfully. You may need to restart your terminal for changes to take effect.`);
+                    console.log(
+                        `Ballerina command path set successfully. You may need to restart your terminal for changes to take effect.`
+                    );
                 }
             });
         } else {
@@ -874,7 +1037,7 @@ export class BallerinaExtension {
             if (this.langClient?.isRunning()) {
                 window.showInformationMessage(`Stopping the ballerina language server...`);
                 await this.langClient.stop();
-                await new Promise(resolve => setTimeout(resolve, 15000)); // Wait for 15 seconds
+                await new Promise((resolve) => setTimeout(resolve, 15000)); // Wait for 15 seconds
             }
 
             window.showInformationMessage(`Updating Ballerina version`);
@@ -888,19 +1051,23 @@ export class BallerinaExtension {
             let res: DownloadProgress = {
                 message: `Success..`,
                 success: true,
-                step: 6 // This is the last step
+                step: 6, // This is the last step
             };
-            RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
+            RPCLayer._messenger.sendNotification(
+                onDownloadProgress,
+                { type: "webview", webviewType: VisualizerWebview.viewType },
+                res
+            );
 
-            console.log('Ballerina home has been set successfully.');
+            console.log("Ballerina home has been set successfully.");
             if (restartWindow) {
-                commands.executeCommand('workbench.action.reloadWindow');
+                commands.executeCommand("workbench.action.reloadWindow");
             } else {
                 window.showInformationMessage("Ballerina has been set up successfully");
             }
         } catch (error) {
-            console.error('Error downloading or unzipping the Ballerina:', error);
-            window.showErrorMessage('Error downloading or unzipping the Ballerina:', error);
+            console.error("Error downloading or unzipping the Ballerina:", error);
+            window.showErrorMessage("Error downloading or unzipping the Ballerina:", error);
         }
     }
 
@@ -918,13 +1085,19 @@ export class BallerinaExtension {
         let res: DownloadProgress = {
             message: `Setting the configurable values in vscode...`,
             success: false,
-            step: 5
+            step: 5,
         };
-        RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
-        if (isDev) { // Set the vscode configurable values only for dev mode
+        RPCLayer._messenger.sendNotification(
+            onDownloadProgress,
+            { type: "webview", webviewType: VisualizerWebview.viewType },
+            res
+        );
+        if (isDev) {
+            // Set the vscode configurable values only for dev mode
             workspace.getConfiguration().update(BALLERINA_HOME, this.ballerinaHome, ConfigurationTarget.Global);
             workspace.getConfiguration().update(OVERRIDE_BALLERINA_HOME, true, ConfigurationTarget.Global);
-        } else { // Turn off the dev mode when using prod installation
+        } else {
+            // Turn off the dev mode when using prod installation
             workspace.getConfiguration().update(OVERRIDE_BALLERINA_HOME, false, ConfigurationTarget.Global);
         }
     }
@@ -934,25 +1107,29 @@ export class BallerinaExtension {
             let res: DownloadProgress = {
                 message: `Setting the Ballerina distribution permissions...`,
                 success: false,
-                step: 5
+                step: 5,
             };
-            RPCLayer._messenger.sendNotification(onDownloadProgress, { type: 'webview', webviewType: VisualizerWebview.viewType }, res);
+            RPCLayer._messenger.sendNotification(
+                onDownloadProgress,
+                { type: "webview", webviewType: VisualizerWebview.viewType },
+                res
+            );
 
             // Set permissions for the ballerina command
             await fs.promises.chmod(this.getBallerinaCmd(), 0o755);
 
             // Set permissions for lib
-            await this.setPermissionsForDirectory(path.join(this.getBallerinaHome(), 'lib'), 0o755);
+            await this.setPermissionsForDirectory(path.join(this.getBallerinaHome(), "lib"), 0o755);
 
             // Set permissions for all files in the distributions
-            await this.setPermissionsForDirectory(path.join(this.getBallerinaHome(), 'distributions'), 0o755);
+            await this.setPermissionsForDirectory(path.join(this.getBallerinaHome(), "distributions"), 0o755);
 
             // Set permissions for all files in the dependencies
-            await this.setPermissionsForDirectory(path.join(this.getBallerinaHome(), 'dependencies'), 0o755);
+            await this.setPermissionsForDirectory(path.join(this.getBallerinaHome(), "dependencies"), 0o755);
 
-            console.log('Command files are now executable.');
+            console.log("Command files are now executable.");
         } catch (error) {
-            console.error('Failed to set executable permissions:', error);
+            console.error("Failed to set executable permissions:", error);
         }
     }
 
@@ -983,11 +1160,11 @@ export class BallerinaExtension {
         this.sdkVersion.show();
 
         window.onDidChangeActiveTextEditor((editor) => {
-            this.sdkVersion.text = this.sdkVersion.text.replace(SDK_PREFIX, '');
+            this.sdkVersion.text = this.sdkVersion.text.replace(SDK_PREFIX, "");
             if (!editor) {
                 this.updateStatusBar(this.sdkVersion.text);
                 this.sdkVersion.show();
-            } else if (editor.document.uri.scheme === 'file' && editor.document.languageId === 'ballerina') {
+            } else if (editor.document.uri.scheme === "file" && editor.document.languageId === "ballerina") {
                 this.sdkVersion.show();
             } else {
                 this.sdkVersion.hide();
@@ -1006,41 +1183,42 @@ export class BallerinaExtension {
     registerPreInitHandlers(): any {
         // We need to restart VSCode if we change plugin configurations.
         workspace.onDidChangeConfiguration((params: ConfigurationChangeEvent) => {
-            if (params.affectsConfiguration(BALLERINA_HOME)
-                || params.affectsConfiguration(OVERRIDE_BALLERINA_HOME)
-                || params.affectsConfiguration(ENABLE_ALL_CODELENS)
-                || params.affectsConfiguration(ENABLE_DEBUG_LOG)
-                || params.affectsConfiguration(ENABLE_BALLERINA_LS_DEBUG)
-                || params.affectsConfiguration(ENABLE_EXPERIMENTAL_FEATURES)
-                || params.affectsConfiguration(ENABLE_NOTEBOOK_DEBUG)
-                || params.affectsConfiguration(ENABLE_LIVE_RELOAD)
-                || params.affectsConfiguration(ENABLE_BALLERINA_INTEGRATOR)
-                || params.affectsConfiguration(DEFINE_BALLERINA_INTEGRATOR_SCOPE)
-                || params.affectsConfiguration(LANG_SERVER_PATH)
-                || params.affectsConfiguration(USE_BALLERINA_CLI_LANG_SERVER)
+            if (
+                params.affectsConfiguration(BALLERINA_HOME) ||
+                params.affectsConfiguration(OVERRIDE_BALLERINA_HOME) ||
+                params.affectsConfiguration(ENABLE_ALL_CODELENS) ||
+                params.affectsConfiguration(ENABLE_DEBUG_LOG) ||
+                params.affectsConfiguration(ENABLE_BALLERINA_LS_DEBUG) ||
+                params.affectsConfiguration(ENABLE_EXPERIMENTAL_FEATURES) ||
+                params.affectsConfiguration(ENABLE_NOTEBOOK_DEBUG) ||
+                params.affectsConfiguration(ENABLE_LIVE_RELOAD) ||
+                params.affectsConfiguration(ENABLE_BALLERINA_INTEGRATOR) ||
+                params.affectsConfiguration(DEFINE_BALLERINA_INTEGRATOR_SCOPE) ||
+                params.affectsConfiguration(LANG_SERVER_PATH) ||
+                params.affectsConfiguration(USE_BALLERINA_CLI_LANG_SERVER)
             ) {
                 this.showMsgAndRestart(CONFIG_CHANGED);
             }
         });
 
-        languages.setLanguageConfiguration('ballerina', {
+        languages.setLanguageConfiguration("ballerina", {
             onEnterRules: [
                 {
-                    beforeText: new RegExp('^\\s*#'),
+                    beforeText: new RegExp("^\\s*#"),
                     action: {
-                        appendText: '# ',
+                        appendText: "# ",
                         indentAction: IndentAction.None,
-                    }
-                }
-            ]
+                    },
+                },
+            ],
         });
     }
 
     showMsgAndRestart(msg: string): void {
-        const action = 'Restart Now';
+        const action = "Restart Now";
         window.showInformationMessage(msg, action).then((selection) => {
             if (action === selection) {
-                commands.executeCommand('workbench.action.reloadWindow');
+                commands.executeCommand("workbench.action.reloadWindow");
             }
         });
     }
@@ -1063,9 +1241,9 @@ export class BallerinaExtension {
             exeExtension = ".bat";
         }
 
-        let ballerinaExecutor = '';
+        let ballerinaExecutor = "";
         return new Promise((resolve, reject) => {
-            exec(distPath + 'bal' + exeExtension + ' version', (err, stdout, stderr) => {
+            exec(distPath + "bal" + exeExtension + " version", (err, stdout, stderr) => {
                 if (stdout) {
                     debug(`bal command stdout: ${stdout}`);
                 }
@@ -1078,23 +1256,25 @@ export class BallerinaExtension {
                     return;
                 }
 
-                if (stdout.length === 0 || stdout.startsWith(ERROR) || stdout.includes(NO_SUCH_FILE) ||
-                    stdout.includes(COMMAND_NOT_FOUND)) {
+                if (
+                    stdout.length === 0 ||
+                    stdout.startsWith(ERROR) ||
+                    stdout.includes(NO_SUCH_FILE) ||
+                    stdout.includes(COMMAND_NOT_FOUND)
+                ) {
                     reject(stdout);
                     return;
                 }
 
-                ballerinaExecutor = 'bal';
+                ballerinaExecutor = "bal";
                 debug(`'bal' executor is picked up by the plugin.`);
 
                 this.ballerinaCmd = (distPath + ballerinaExecutor + exeExtension).trim();
                 try {
                     debug(`Ballerina version output: ${stdout}`);
-                    const implVersionLine = stdout.split('\n')[0];
-                    const replacePrefix = implVersionLine.startsWith("jBallerina")
-                        ? /jBallerina /
-                        : /Ballerina /;
-                    const parsedVersion = implVersionLine.replace(replacePrefix, '').replace(/[\n\t\r]/g, '');
+                    const implVersionLine = stdout.split("\n")[0];
+                    const replacePrefix = implVersionLine.startsWith("jBallerina") ? /jBallerina / : /Ballerina /;
+                    const parsedVersion = implVersionLine.replace(replacePrefix, "").replace(/[\n\t\r]/g, "");
                     return resolve(parsedVersion);
                 } catch (error) {
                     return reject(error);
@@ -1110,36 +1290,35 @@ export class BallerinaExtension {
     }
 
     showMessageInstallBallerina(): any {
-        const download: string = 'Download';
-        const viewLogs: string = 'View Logs';
+        const download: string = "Download";
+        const viewLogs: string = "View Logs";
         window.showWarningMessage(INSTALL_BALLERINA, download, viewLogs).then((selection) => {
             if (download === selection) {
-                commands.executeCommand('vscode.open', Uri.parse(DOWNLOAD_BALLERINA));
+                commands.executeCommand("vscode.open", Uri.parse(DOWNLOAD_BALLERINA));
             } else if (viewLogs === selection) {
                 const balOutput = ballerinaExtInstance.getOutPutChannel();
                 if (balOutput) {
                     balOutput.show();
                 }
             }
-
         });
     }
 
     showMessageUpdateBallerina(): any {
-        const update = 'Update';
-        window.showWarningMessage(UPDATE_BALLERINA_VERSION, update).then(selection => {
+        const update = "Update";
+        window.showWarningMessage(UPDATE_BALLERINA_VERSION, update).then((selection) => {
             if (selection === update) {
-                const terminal = window.createTerminal('Update Ballerina');
+                const terminal = window.createTerminal("Update Ballerina");
                 terminal.show();
-                terminal.sendText('bal dist update');
-                window.showInformationMessage('Ballerina update started. Please wait...');
+                terminal.sendText("bal dist update");
+                window.showInformationMessage("Ballerina update started. Please wait...");
             }
         });
     }
 
     showMessageSetupBallerina(restartWindow?: boolean): any {
-        const installBallerina = 'Install Ballerina';
-        window.showWarningMessage(INSTALL_BALLERINA, installBallerina).then(selection => {
+        const installBallerina = "Install Ballerina";
+        window.showWarningMessage(INSTALL_BALLERINA, installBallerina).then((selection) => {
             if (selection === installBallerina) {
                 this.installBallerina(restartWindow);
             }
@@ -1147,34 +1326,34 @@ export class BallerinaExtension {
     }
 
     showUninstallOldVersion(): void {
-        const action = 'Uninstall';
-        window.showErrorMessage(OLD_PLUGIN_INSTALLED, action).then(selection => {
+        const action = "Uninstall";
+        window.showErrorMessage(OLD_PLUGIN_INSTALLED, action).then((selection) => {
             if (selection === action) {
-                runCommand('', 'code', BALLERINA_COMMANDS.OTHER, '--uninstall-extension', PREV_EXTENSION_ID);
+                runCommand("", "code", BALLERINA_COMMANDS.OTHER, "--uninstall-extension", PREV_EXTENSION_ID);
             }
         });
     }
 
     showMessageInvalidBallerinaHome(): void {
-        const action = 'Open Settings';
+        const action = "Open Settings";
         window.showWarningMessage(INVALID_HOME_MSG, action).then((selection) => {
             if (action === selection) {
-                commands.executeCommand('workbench.action.openGlobalSettings');
+                commands.executeCommand("workbench.action.openGlobalSettings");
             }
         });
     }
 
     showMessageOldBallerina(): any {
-        const download: string = 'Download';
+        const download: string = "Download";
         window.showWarningMessage(OLD_BALLERINA_VERSION, download).then((selection) => {
             if (download === selection) {
-                commands.executeCommand('vscode.open', Uri.parse(DOWNLOAD_BALLERINA));
+                commands.executeCommand("vscode.open", Uri.parse(DOWNLOAD_BALLERINA));
             }
         });
     }
 
     showCookieConsentMessage(): any {
-        const go: string = 'Go to console';
+        const go: string = "Go to console";
         window.showInformationMessage(COOKIE_SETTINGS, go).then(async (selection) => {
             const url = process.env.VSCODE_CHOREO_DEPLOY_URI;
             if (go === selection && url) {
@@ -1185,10 +1364,10 @@ export class BallerinaExtension {
     }
 
     showMessageServerMissingCapability(): any {
-        const download: string = 'Download';
+        const download: string = "Download";
         window.showErrorMessage(MISSING_SERVER_CAPABILITY, download).then((selection) => {
             if (download === selection) {
-                commands.executeCommand('vscode.open', Uri.parse(DOWNLOAD_BALLERINA));
+                commands.executeCommand("vscode.open", Uri.parse(DOWNLOAD_BALLERINA));
             }
         });
     }
@@ -1216,11 +1395,11 @@ export class BallerinaExtension {
     }
 
     /**
-    * Get ballerina executor command.
-    *
-    * @returns {string}
-    * @memberof BallerinaExtension
-    */
+     * Get ballerina executor command.
+     *
+     * @returns {string}
+     * @memberof BallerinaExtension
+     */
     getBallerinaCmd(): string {
         return this.ballerinaCmd;
     }
@@ -1243,16 +1422,16 @@ export class BallerinaExtension {
         this.webviewContext = context;
     }
 
-    autoDetectBallerinaHome(): { home: string, isOldBallerinaDist: boolean, isBallerinaNotFound: boolean } {
+    autoDetectBallerinaHome(): { home: string; isOldBallerinaDist: boolean; isBallerinaNotFound: boolean } {
         let balHomeOutput = "",
             isBallerinaNotFound = false,
             isOldBallerinaDist = false;
         try {
-            const args = ['home'];
+            const args = ["home"];
             let response;
             if (isWindows()) {
                 // On Windows, use cmd.exe to run .bat files
-                response = spawnSync('cmd.exe', ['/c', this.ballerinaCmd, ...args], { shell: true });
+                response = spawnSync("cmd.exe", ["/c", this.ballerinaCmd, ...args], { shell: true });
             } else {
                 // On other platforms, use spawnSync directly
                 response = spawnSync(this.ballerinaCmd, args, { shell: false });
@@ -1264,9 +1443,10 @@ export class BallerinaExtension {
                 // ballerina is installed, but ballerina home command is not found
                 isOldBallerinaDist = message.includes("bal: unknown command 'home'");
                 // ballerina is not installed
-                isBallerinaNotFound = message.includes('command not found')
-                    || message.includes('unknown command')
-                    || message.includes('is not recognized as an internal or external command');
+                isBallerinaNotFound =
+                    message.includes("command not found") ||
+                    message.includes("unknown command") ||
+                    message.includes("is not recognized as an internal or external command");
                 log(`Error executing 'bal home'.\n<---- cmd output ---->\n${message}<---- cmd output ---->\n`);
             }
 
@@ -1280,17 +1460,18 @@ export class BallerinaExtension {
                 // ballerina is installed, but ballerina home command is not found
                 isOldBallerinaDist = message.includes("bal: unknown command 'home'");
                 // ballerina is not installed
-                isBallerinaNotFound = message.includes('command not found')
-                    || message.includes('unknown command')
-                    || message.includes('is not recognized as an internal or external command');
+                isBallerinaNotFound =
+                    message.includes("command not found") ||
+                    message.includes("unknown command") ||
+                    message.includes("is not recognized as an internal or external command");
                 log(`Error executing 'bal home'.\n<---- cmd output ---->\n${message}<---- cmd output ---->\n`);
             }
         }
 
         return {
-            home: isBallerinaNotFound || isOldBallerinaDist ? '' : balHomeOutput,
+            home: isBallerinaNotFound || isOldBallerinaDist ? "" : balHomeOutput,
             isBallerinaNotFound,
-            isOldBallerinaDist
+            isOldBallerinaDist,
         };
     }
 
@@ -1315,7 +1496,7 @@ export class BallerinaExtension {
     }
 
     public isCodeServerEnv(): boolean {
-        return process.env.CODE_SERVER_ENV === 'true';
+        return process.env.CODE_SERVER_ENV === "true";
     }
 
     public enableLSDebug(): boolean {
@@ -1375,7 +1556,7 @@ export class BallerinaExtension {
     }
 
     public setDiagramActiveContext(value: boolean) {
-        commands.executeCommand('setContext', 'isBallerinaDiagram', value);
+        commands.executeCommand("setContext", "isBallerinaDiagram", value);
         this.documentContext.setActiveDiagram(value);
     }
 
@@ -1384,21 +1565,21 @@ export class BallerinaExtension {
             const fileUri: Uri = textEditor.document.uri;
             if (checkIsPersistModelFile(fileUri)) {
                 this.isPersist = true;
-                commands.executeCommand('setContext', 'isPersistModelActive', true);
+                commands.executeCommand("setContext", "isPersistModelActive", true);
                 return;
             } else {
                 this.isPersist = false;
             }
         }
-        commands.executeCommand('setContext', 'isPersistModelActive', false);
+        commands.executeCommand("setContext", "isPersistModelActive", false);
     }
 
     public setChoreoAuthEnabled(value: boolean) {
-        commands.executeCommand('setContext', 'isChoreoAuthEnabled', value);
+        commands.executeCommand("setContext", "isChoreoAuthEnabled", value);
     }
     public getChoreoSession(): ChoreoSession {
         return {
-            loginStatus: false
+            loginStatus: false,
         };
     }
 
@@ -1423,11 +1604,11 @@ export class BallerinaExtension {
     }
 
     public setNotebookVariableViewEnabled(value: boolean) {
-        commands.executeCommand('setContext', 'isNotebookVariableViewEnabled', value);
+        commands.executeCommand("setContext", "isNotebookVariableViewEnabled", value);
     }
 
     public setNotebookDebugModeEnabled(value: boolean) {
-        commands.executeCommand('setContext', 'isNotebookDebugModeEnabled', value);
+        commands.executeCommand("setContext", "isNotebookDebugModeEnabled", value);
     }
 
     public getIsOpenedOnce(): boolean {
@@ -1438,7 +1619,6 @@ export class BallerinaExtension {
         this.isOpenedOnce = state;
     }
 
-
     /**
      * Synchronize process environment with the latest shell environment
      * This is especially important after Ballerina installation when PATH has been updated
@@ -1446,7 +1626,7 @@ export class BallerinaExtension {
     private async syncEnvironment(): Promise<void> {
         try {
             const freshEnv = await getShellEnvironment();
-            debug('Syncing process environment with shell environment');
+            debug("Syncing process environment with shell environment");
             updateProcessEnv(freshEnv);
         } catch (error) {
             debug(`Failed to sync environment: ${error}`);
@@ -1485,14 +1665,14 @@ class DocumentContext {
     }
 
     public setLatestDocument(uri: Uri | undefined) {
-        if (uri && (uri.scheme !== 'file' || uri.fsPath.split(sep).pop()?.split(".").pop() !== "bal")) {
+        if (uri && (uri.scheme !== "file" || uri.fsPath.split(sep).pop()?.split(".").pop() !== "bal")) {
             return;
         }
         this.latestDocument = uri;
     }
 
     public setCurrentProject(ballerinProject: BallerinaProject) {
-        commands.executeCommand('setContext', 'isBallerinaProject', true);
+        commands.executeCommand("setContext", "isBallerinaProject", true);
         this.ballerinProject = ballerinProject;
     }
 
@@ -1559,7 +1739,7 @@ function updateProcessEnv(newEnv: NodeJS.ProcessEnv): void {
     // Update other environment variables
     for (const key in newEnv) {
         // Skip PATH as we've already handled it, and skip some internal variables
-        if (key !== 'PATH' && key !== 'Path' && !key.startsWith('npm_') && !key.startsWith('_')) {
+        if (key !== "PATH" && key !== "Path" && !key.startsWith("npm_") && !key.startsWith("_")) {
             process.env[key] = newEnv[key];
         }
     }
@@ -1567,15 +1747,15 @@ function updateProcessEnv(newEnv: NodeJS.ProcessEnv): void {
 
 function getShellEnvironment(): Promise<NodeJS.ProcessEnv> {
     return new Promise((resolve, reject) => {
-        let command = '';
+        let command = "";
 
         if (isWindows()) {
             // Windows: use PowerShell to get environment
-            command = 'powershell.exe -Command "[Environment]::GetEnvironmentVariables(\'Process\') | ConvertTo-Json"';
+            command = "powershell.exe -Command \"[Environment]::GetEnvironmentVariables('Process') | ConvertTo-Json\"";
         } else {
             // Unix-like systems: source profile files and print environment
-            const shell = process.env.SHELL || '/bin/bash';
-            if (shell.includes('zsh')) {
+            const shell = process.env.SHELL || "/bin/bash";
+            if (shell.includes("zsh")) {
                 command = 'zsh -i -c "source ~/.zshrc > /dev/null 2>&1; env"';
             } else {
                 command = 'bash -i -c "source ~/.bashrc > /dev/null 2>&1; env"';
@@ -1594,12 +1774,12 @@ function getShellEnvironment(): Promise<NodeJS.ProcessEnv> {
                 if (isWindows()) {
                     // Parse PowerShell JSON output
                     const envVars = JSON.parse(stdout);
-                    Object.keys(envVars).forEach(key => {
+                    Object.keys(envVars).forEach((key) => {
                         env[key] = envVars[key].toString();
                     });
                 } else {
                     // Parse Unix env output (KEY=value format)
-                    stdout.split('\n').forEach(line => {
+                    stdout.split("\n").forEach((line) => {
                         const match = line.match(/^([^=]+)=(.*)$/);
                         if (match) {
                             env[match[1]] = match[2];
@@ -1607,7 +1787,7 @@ function getShellEnvironment(): Promise<NodeJS.ProcessEnv> {
                     });
                 }
 
-                debug('Successfully retrieved fresh environment variables');
+                debug("Successfully retrieved fresh environment variables");
                 resolve(env);
             } catch (parseError) {
                 debug(`Error parsing environment output: ${parseError}`);

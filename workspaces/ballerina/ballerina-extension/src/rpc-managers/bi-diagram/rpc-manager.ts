@@ -543,7 +543,6 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 try {
                     const fileData = await vscode.workspace.fs.readFile(readmeUri);
                     const content = new TextDecoder().decode(fileData);
-                    console.log(">>> Read content (Web):", content);
                     return { content };
                 } catch (error) {
                     if (error instanceof vscode.FileSystemError && error.code === 'Unknown') {
