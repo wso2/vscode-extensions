@@ -182,11 +182,6 @@ export async function importProject(params: ImportProjectRequest): Promise<Impor
 
         window.showInformationMessage(`Successfully imported ${projectName} project`);
 
-        if (open) {
-            commands.executeCommand("workbench.action.reloadWindow");
-            return { filePath: directory };
-        }
-
         return { filePath: directory };
     } else {
         window.showErrorMessage('Could not find the project details from the provided project: ', source);
@@ -391,7 +386,7 @@ export async function migrateConfigs(
         const projectDirToMetaFilesMap = generateProjectDirToMetaFilesMap(projectDirsWithType);
 
         const allUsedDependencyIds = new Set<string>();
-
+        const createdFolderUris: Uri[] = [];
         for (const { projectDir, projectType } of projectDirsWithType) {
             if (projectType === Nature.DISTRIBUTION && artifactIdToFileInfoMap) {
                 // Compute the relative path from source to projectDir, and map it to the target
@@ -407,21 +402,11 @@ export async function migrateConfigs(
                     projectDirToResolvedPomMap
                 );
                 usedDepIds.forEach(depId => allUsedDependencyIds.add(depId));
-                if (createdProjectCount <= MAX_PROJECTS_TO_OPEN) {
-                    await commands.executeCommand('vscode.openFolder', Uri.file(targetPath), true);
-                }
+                createdFolderUris.push(Uri.file(targetPath));
             }
         }
         writeUnusedFileInfos(allUsedDependencyIds, artifactIdToFileInfoMap, source)
-        if (createdProjectCount <= MAX_PROJECTS_TO_OPEN) {
-            await commands.executeCommand('workbench.action.closeWindow');
-        } else {
-            await window.showWarningMessage(
-                `Processed ${createdProjectCount} composite exporters and generated the relevant integration projects. Please open them from the file explorer.`,
-                { modal: true }
-            );
-            commands.executeCommand('workbench.view.explorer');
-        }
+        await handleWorkspaceAfterMigration(projectUri, createdFolderUris);
     } else if (projectType === Nature.LEGACY) {
         const items = fs.readdirSync(source, { withFileTypes: true });
         for (const item of items) {
@@ -443,6 +428,71 @@ export async function migrateConfigs(
         await updatePomForClassMediator(projectUri);
     }
     commands.executeCommand('setContext', 'MI.migrationStatus', 'done');
+}
+
+/**
+ * Handles post-migration workspace actions based on the number of created project folders.
+ *
+ * - If the number of created projects is within the allowed limit, it either opens the single project in a new window
+ *   or updates the current workspace with the new folders.
+ * - If the number exceeds the limit, it shows a warning message and prompts the user to open the projects manually.
+ *
+ * @param projectUri - The URI of the original project being migrated.
+ * @param createdFolderUris - An array of URIs representing the newly created project folders.
+ * @returns A promise that resolves when the workspace actions are complete.
+ */
+async function handleWorkspaceAfterMigration(projectUri: string, createdFolderUris: Uri[]) {
+    const createdProjectCount = createdFolderUris.length;
+    if (createdProjectCount <= MAX_PROJECTS_TO_OPEN) {
+        if (!workspace.workspaceFolders || workspace.workspaceFolders.length <= 1) {
+            if (createdProjectCount === 1) {
+                await commands.executeCommand('vscode.openFolder', createdFolderUris[0], true);
+                await commands.executeCommand('workbench.action.closeWindow');
+            } else {
+                await updateWorkspaceWithNewFolders(projectUri, createdFolderUris);
+            }
+        } else {
+            await updateWorkspaceWithNewFolders(projectUri, createdFolderUris);
+        }
+    } else {
+        await window.showWarningMessage(
+            `Processed ${createdProjectCount} composite exporters and generated the relevant integration projects. Please open them from the file explorer.`,
+            { modal: true }
+        );
+        commands.executeCommand('workbench.view.explorer');
+    }
+}
+
+/**
+ * Updates the current VS Code workspace by removing the specified project folder
+ * and adding any newly created folders that are not already part of the workspace.
+ *
+ * @param projectUri - The file system path of the current project folder to be removed from the workspace.
+ * @param createdFolderUris - An array of `Uri` objects representing the newly created folders to add to the workspace.
+ *
+ * @remarks
+ * - If any of the `createdFolderUris` are already present in the workspace, they will not be added again.
+ * - If the current project folder is not found in the workspace, no folders will be removed.
+ */
+async function updateWorkspaceWithNewFolders(projectUri: string, createdFolderUris: Uri[]) {
+    const workspaceFolders = workspace.workspaceFolders || [];
+    // Check if the folders are not already part of the workspace
+    const urisToAdd = createdFolderUris.filter(folderUri =>
+        !workspaceFolders.some(folder => folder.uri.fsPath === folderUri.fsPath)
+    );
+
+    if (urisToAdd.length > 0) {
+        // Remove the current project folder from workspaceFolders
+        const currentProjectIndex = workspaceFolders.findIndex(folder => folder.uri.fsPath === projectUri);
+        const foldersToAdd = urisToAdd.map(uri => ({ uri }));
+        const foldersToRemove = currentProjectIndex !== -1 ? [currentProjectIndex] : [];
+
+        workspace.updateWorkspaceFolders(
+            foldersToRemove[0] ?? workspaceFolders.length,
+            foldersToRemove.length,
+            ...foldersToAdd
+        );
+    }
 }
 
 /**
