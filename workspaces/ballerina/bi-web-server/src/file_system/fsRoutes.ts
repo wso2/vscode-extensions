@@ -113,25 +113,6 @@ fsRouter.get("/read", (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-// fsRouter.get("/exists", (req: Request, res: Response) => {
-//     const inputScheme = req.query.scheme as string;
-//     const inputUrl = req.query.url as string;
-//     const userRepoPath = inputScheme === SCHEME ? path.join(BASE_DIR, inputUrl) : inputUrl;
-//     console.log("Checking existence: ", userRepoPath);
-
-//     try {
-//         if (fs.existsSync(userRepoPath)) {
-//             const isDirectory = fs.statSync(userRepoPath).isDirectory();
-//             res.status(200).json({ exists: true, isDirectory });
-//         } else {
-//             res.status(200).json({ exists: false, isDirectory });
-//         }
-//     } catch (err) {
-//         console.error("Error checking existence:", err);
-//         res.status(500).send("Error while checking existence");
-//     }
-// });
-
 fsRouter.post("/write", (req: Request, res: Response) => {
   const userRepoPath = path.join(BASE_DIR, req.query.url as string);
   const { content } = req.body;
