@@ -139,7 +139,24 @@ const SYNAPSE_TO_MI_ARTIFACT_FOLDER_MAP: Record<string, string> = {
     'templates': 'templates'
 };
 
-export async function importProject(params: ImportProjectRequest): Promise<ImportProjectResponse> {
+export async function importProjects(params: ImportProjectRequest[]): Promise<ImportProjectResponse[]> {
+    const responses: ImportProjectResponse[] = [];
+    for (const param of params) {
+        try {
+            const createdFolderPaths = await importProject(param);
+            await handleWorkspaceAfterMigration(param.directory, createdFolderPaths.map(r => Uri.file(r.filePath)));
+            for (const folder of createdFolderPaths) {
+                responses.push({ filePath: folder.filePath });
+            }
+        } catch (error) {
+            console.error(`Failed to import project from ${param.source}:`, error);
+            responses.push({ filePath: '' });
+        }
+    }
+    return responses;
+}
+
+export async function importProject(params: ImportProjectRequest): Promise<ImportProjectResponse[]> {
     const { source, directory, open } = params;
     const projectUri = workspace.getWorkspaceFolder(Uri.file(source))?.uri?.fsPath;
     if (!projectUri) {
@@ -178,14 +195,18 @@ export async function importProject(params: ImportProjectRequest): Promise<Impor
             console.log("Created project structure for project: " + projectName);
         }
 
-        await migrateConfigs(projectUri, path.join(source, ".backup"), directory, projectDirToResolvedPomMap, projectDirsWithType, createdProjectCount);
+        const createdFolderUris = await migrateConfigs(projectUri, path.join(source, ".backup"), directory, projectDirToResolvedPomMap, projectDirsWithType, createdProjectCount);
 
         window.showInformationMessage(`Successfully imported ${projectName} project`);
 
-        return { filePath: directory };
+        if (createdFolderUris && createdFolderUris.length > 0) {
+            return createdFolderUris.map(uri => ({ filePath: uri.fsPath }));
+        } else {
+            return [{ filePath: directory }];
+        }
     } else {
-        window.showErrorMessage('Could not find the project details from the provided project: ', source);
-        return { filePath: "" };
+        window.showErrorMessage('Could not find the project details from the provided project: ' + source);
+        return [{ filePath: "" }];
     }
 }
 
@@ -375,10 +396,11 @@ export async function migrateConfigs(
     projectDirToResolvedPomMap: Map<string, string>,
     projectDirsWithType: { projectDir: string, projectType: Nature }[],
     createdProjectCount: number
-): Promise<void> {
+): Promise<Uri[]> {
     // determine the project type here
     const projectType = await determineProjectType(source);
     let hasClassMediatorModule = false;
+    const createdFolderUris: Uri[] = [];
 
     if (projectType === Nature.MULTIMODULE) {
         const artifactIdToFileInfoMap = generateArtifactIdToFileInfoMap(projectDirToResolvedPomMap, projectDirsWithType);
@@ -386,7 +408,6 @@ export async function migrateConfigs(
         const projectDirToMetaFilesMap = generateProjectDirToMetaFilesMap(projectDirsWithType);
 
         const allUsedDependencyIds = new Set<string>();
-        const createdFolderUris: Uri[] = [];
         for (const { projectDir, projectType } of projectDirsWithType) {
             if (projectType === Nature.DISTRIBUTION && artifactIdToFileInfoMap) {
                 // Compute the relative path from source to projectDir, and map it to the target
@@ -406,7 +427,6 @@ export async function migrateConfigs(
             }
         }
         writeUnusedFileInfos(allUsedDependencyIds, artifactIdToFileInfoMap, source)
-        await handleWorkspaceAfterMigration(projectUri, createdFolderUris);
     } else if (projectType === Nature.LEGACY) {
         const items = fs.readdirSync(source, { withFileTypes: true });
         for (const item of items) {
@@ -428,6 +448,7 @@ export async function migrateConfigs(
         await updatePomForClassMediator(projectUri);
     }
     commands.executeCommand('setContext', 'MI.migrationStatus', 'done');
+    return createdFolderUris;
 }
 
 /**
