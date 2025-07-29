@@ -618,7 +618,7 @@ function normalizeTypePath(inputPath: string): string {
     return inputPath;
 }
 function normalizeFilePathForSyntaxTree(inputPath: string): string {
-    const BASE_PREFIX = "file:///home/my-project/Cloud-editor/bal-server-for-web/repos/";
+    const BASE_PREFIX = "file://"+BASE_DIR+"/";
     // If path already starts with BASE_PREFIX, return as-is
     if (inputPath.startsWith(BASE_PREFIX)) {
         return inputPath;
