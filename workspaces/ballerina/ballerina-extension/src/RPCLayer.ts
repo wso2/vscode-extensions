@@ -33,7 +33,6 @@ import { registerBiDiagramRpcHandlers } from './rpc-managers/bi-diagram/rpc-hand
 import { registerAiPanelRpcHandlers } from './rpc-managers/ai-panel/rpc-handler';
 import { AiPanelWebview } from './views/ai-panel/webview';
 import { AIStateMachine } from './views/ai-panel/aiMachine';
-import path from 'path';
 import { StateMachinePopup } from './stateMachinePopup';
 import { registerAiAgentRpcHandlers } from './rpc-managers/ai-agent/rpc-handler';
 import { registerConnectorWizardRpcHandlers } from './rpc-managers/connector-wizard/rpc-handler';

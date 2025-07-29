@@ -323,14 +323,6 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         console.log(">>> requesting bi node template from ls", params);
         params.forceAssign = true; // TODO: remove this
 
-        // Check if the file exists
-        //need to handle in webmode
-        // if (!fs.existsSync(params.filePath)) {
-        //     // Create the file if it does not exist
-        //     fs.writeFileSync(params.filePath, "");
-        //     console.log(`>>> Created file at ${params.filePath}`);
-        // }
-
         return new Promise((resolve) => {
             StateMachine.langClient()
                 .getNodeTemplate(params)

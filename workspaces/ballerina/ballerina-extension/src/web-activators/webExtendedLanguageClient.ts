@@ -226,7 +226,6 @@ import {
 } from "@wso2/ballerina-core";
 import { BallerinaExtension } from "../core/extension";
 import { debug, handlePullModuleProgress } from "../utils";
-// import { CMP_LS_CLIENT_COMPLETIONS, CMP_LS_CLIENT_DIAGNOSTICS, getMessageObject, sendTelemetryEvent, TM_EVENT_LANG_CLIENT } from "../features/telemetry";
 import { updateProjectArtifacts } from "../utils/project-artifacts";
 import { ExtensionContext } from "vscode";
 
@@ -426,7 +425,6 @@ export class WebExtendedLanguageClient extends LanguageClient implements Extende
     ) {
         super(id, name, clientOptions, worker);
         this.isDynamicRegistrationSupported = true;
-        //  this.ballerinaExtInstance = ballerinaExtInstance;
         this.extensionContext = context;
         this.timeConsumption = { diagnostics: [], completion: [] };
     }
@@ -1240,27 +1238,17 @@ export class WebExtendedLanguageClient extends LanguageClient implements Extende
 
     public pushLSClientTelemetries() {
         if (this.timeConsumption.completion.length > 0) {
-          //  const completionValues = calculateTelemetryValues(this.timeConsumption.completion, "completion");
-            //  sendTelemetryEvent(this.ballerinaExtInstance!, TM_EVENT_LANG_CLIENT, CMP_LS_CLIENT_COMPLETIONS,
-            //   getMessageObject(process.env.HOSTNAME), completionValues);
             this.timeConsumption.completion = [];
         }
 
         if (this.timeConsumption.diagnostics.length > 0) {
-            //const diagnosticValues = calculateTelemetryValues(this.timeConsumption.diagnostics, "diagnostic");
             this.timeConsumption.diagnostics = [];
-            // sendTelemetryEvent(this.ballerinaExtInstance!, TM_EVENT_LANG_CLIENT, CMP_LS_CLIENT_DIAGNOSTICS,
-            //    getMessageObject(process.env.HOSTNAME), diagnosticValues);
         }
     }
 
     public close(): void {}
 
     public updateStatusBar() {
-        // if (!this.ballerinaExtInstance || !this.ballerinaExtInstance.getCodeServerContext().statusBarItem) {
-        //     return;
-        // }
-        // this.ballerinaExtInstance.getCodeServerContext().statusBarItem?.updateGitStatus();
     }
 
     public getDidOpenParams(): DidOpenParams {

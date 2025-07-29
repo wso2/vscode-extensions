@@ -26,8 +26,6 @@ import {
     TestSourceEditResponse,
 } from "@wso2/ballerina-core";
 import { ModulePart, NodePosition, STKindChecker } from "@wso2/syntax-tree";
-import * as fs from 'fs';
-import { existsSync, writeFileSync } from "fs";
 import { StateMachine } from "../../stateMachine";
 import { updateSourceCode } from "../../utils/source-utils";
 

@@ -21,7 +21,7 @@ import {
     Disposable, DocumentSelector, languages, Position, TextDocument,
 } from "vscode";
 import { CompletionItemKind as MonacoCompletionItemKind } from "monaco-languageclient";
-import { SyntaxTree, NotebookFileSource } from "@wso2/ballerina-core";
+import { NotebookFileSource } from "@wso2/ballerina-core";
 import { BallerinaExtension, ExtendedLangClient, LANGUAGE, NOT_SUPPORTED } from "../../core";
 import { filterCompletions, getInsertText, getLabel, translateCompletionItemKind } from "./utils";
 import { NOTEBOOK_TYPE } from "./constants";

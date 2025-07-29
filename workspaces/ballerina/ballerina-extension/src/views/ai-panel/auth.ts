@@ -35,9 +35,6 @@ const CommonReqHeaders = {
 };
 
 export async function getAuthUrl(callbackUri: string): Promise<string> {
-
-    // return `${this._config.loginUrl}?profile=vs-code&client_id=${this._config.clientId}`
-    //     + `&state=${stateBase64}&code_challenge=${this._challenge.code_challenge}`;
     const state = encodeURIComponent(btoa(JSON.stringify({ callbackUri })));
     return `https://api.asgardeo.io/t/${AUTH_ORG}/oauth2/authorize?response_type=code&redirect_uri=${AUTH_REDIRECT_URL}&client_id=${AUTH_CLIENT_ID}&scope=openid%20email&state=${state}`;
 }

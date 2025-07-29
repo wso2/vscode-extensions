@@ -21,8 +21,6 @@ import {
     CancellationToken, NotebookCellData, NotebookCellExecutionSummary, NotebookCellKind,
     NotebookCellOutput, NotebookCellOutputItem, NotebookData, NotebookSerializer
 } from 'vscode';
-import { ballerinaExtInstance } from "../../core";
-// import { CMP_NOTEBOOK, sendTelemetryEvent, TM_EVENT_CLOSE_NOTEBOOK, TM_EVENT_OPEN_NOTEBOOK } from "../../features/telemetry";
 
 /**
  * Data structure to store infomation of notebook cells

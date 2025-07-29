@@ -371,8 +371,6 @@ export class AiPanelRpcManager implements AIPanelAPI {
                     isGenerated: module.isGenerated
                 };
                 for (const [fileName, content] of Object.entries(module.sources)) {
-                    // const filePath = `modules/${module.moduleName}/${fileName}`;
-                    // projectSource.sourceFiles.push({ filePath, content });
                     projectModule.sourceFiles.push({ filePath: fileName, content });
                 }
                 projectSource.projectModules.push(projectModule);

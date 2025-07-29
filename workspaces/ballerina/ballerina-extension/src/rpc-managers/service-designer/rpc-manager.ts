@@ -48,12 +48,10 @@ import {
     TriggerModelsResponse,
     DIRECTORY_MAP
 } from "@wso2/ballerina-core";
-import { NodePosition } from "@wso2/syntax-tree";
 import * as fs from 'fs';
 import { existsSync, writeFileSync } from "fs";
 import * as yaml from 'js-yaml';
 import * as path from 'path';
-import * as vscode from "vscode";
 import { Uri, window, workspace } from "vscode";
 import { StateMachine } from "../../stateMachine";
 import { extension } from "../../BalExtensionContext";

@@ -22,10 +22,6 @@ import {
     NotebookDocument, NotebookDocumentContentChange, notebooks, window, workspace
 } from 'vscode';
 import { BallerinaExtension, ExtendedLangClient, NOT_SUPPORTED } from '../../core';
-// import {
-//     CMP_NOTEBOOK, sendTelemetryEvent, sendTelemetryException, TM_EVENT_RUN_NOTEBOOK, TM_EVENT_RUN_NOTEBOOK_BAL_CMD,
-//     TM_EVENT_RUN_NOTEBOOK_CODE_SNIPPET
-// } from '../../features/telemetry';
 import { isWindows } from '../../utils';
 import { CUSTOM_DESIGNED_MIME_TYPES, NOTEBOOK_TYPE } from './constants';
 import { VariableViewProvider } from './variableView';
@@ -105,7 +101,6 @@ export class BallerinaNotebookController {
     }
 
     private doNotSupportedExecution(cell: NotebookCell): void {
-      //  sendTelemetryEvent(this.ballerinaExtension, TM_EVENT_RUN_NOTEBOOK, CMP_NOTEBOOK);
         const execution = this.controller.createNotebookCellExecution(cell);
         execution.executionOrder = ++this.executionOrder;
         execution.start(Date.now());
@@ -117,7 +112,6 @@ export class BallerinaNotebookController {
     }
 
     private async doExecution(cell: NotebookCell): Promise<boolean> {
-      //  sendTelemetryEvent(this.ballerinaExtension, TM_EVENT_RUN_NOTEBOOK, CMP_NOTEBOOK);
         let langClient: ExtendedLangClient = <ExtendedLangClient>this.ballerinaExtension.langClient;
         const cellContent = cell.document.getText().trim();
 
@@ -169,7 +163,6 @@ export class BallerinaNotebookController {
         try {
             // bal cmds
             if (cellContent.startsWith("bal")) {
-              //  sendTelemetryEvent(this.ballerinaExtension, TM_EVENT_RUN_NOTEBOOK_BAL_CMD, CMP_NOTEBOOK);
                 // unlike linux, windows does not identify single quotes as separators
                 const regex = isWindows() ? /(?:[^\s"]+|"[^"]*")+/g : /(?:[^\s"']+|"[^"]*"|'[^']*')+/g;
                 const args = cellContent.substring("bal".length).trim().match(regex) || [];
@@ -188,7 +181,6 @@ export class BallerinaNotebookController {
             }
 
             // code snippets
-          //  sendTelemetryEvent(this.ballerinaExtension, TM_EVENT_RUN_NOTEBOOK_CODE_SNIPPET, CMP_NOTEBOOK);
             let response = await langClient.getBalShellResult({
                 source: cellContent
             });
@@ -242,7 +234,6 @@ export class BallerinaNotebookController {
             return !(output.diagnostics.length) && !(output.errors.length);
         } catch (error) {
             if (error instanceof Error) {
-             //   sendTelemetryException(this.ballerinaExtension, error, CMP_NOTEBOOK);
                 execution.appendOutput([new NotebookCellOutput([
                     NotebookCellOutputItem.error(error)
                 ])]);

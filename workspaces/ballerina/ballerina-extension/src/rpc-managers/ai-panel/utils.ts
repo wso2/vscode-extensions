@@ -18,7 +18,7 @@
 
 import { ArrayTypeDesc, FunctionDefinition, ModulePart, QualifiedNameReference, RequiredParam, STKindChecker } from "@wso2/syntax-tree";
 import { ErrorCode, FormField, STModification, SyntaxTree, Attachment, AttachmentStatus, RecordDefinitonObject, ParameterMetadata, ParameterDefinitions, MappingFileRecord, keywords, AIMachineEventType, DiagnosticEntry } from "@wso2/ballerina-core";
-import { QuickPickItem, QuickPickOptions, window, workspace } from 'vscode';
+import { QuickPickItem, window } from 'vscode';
 import { UNKNOWN_ERROR } from '../../views/ai-panel/errorCodes';
 
 import { StateMachine } from "../../stateMachine";

@@ -19,12 +19,6 @@
 import { ExtensionContext, commands, window, Location, Uri, TextEditor, extensions, UIKind, env } from "vscode";
 import { ballerinaExtInstance, BallerinaExtension } from "./core";
 import { activate as activateBBE } from "./views/bbe";
-// import {
-//     activate as activateTelemetryListener,
-//     CMP_EXTENSION_CORE,
-//     sendTelemetryEvent,
-//     TM_EVENT_EXTENSION_ACTIVATE,
-// } from "./features/telemetry";
 import { activateDebugConfigProvider } from "./features/debugger";
 import { activate as activateProjectFeatures } from "./features/project";
 import { activate as activateEditorSupport } from "./features/editor-support";
@@ -123,7 +117,6 @@ export async function activate(context: ExtensionContext) {
 
 export async function activateBallerina(): Promise<BallerinaExtension> {
     debug("Active the Ballerina VS Code extension.");
-   // sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_EXTENSION_ACTIVATE, CMP_EXTENSION_CORE);
     ballerinaExtInstance.setContext(extension.context);
     // Enable URI handlers
     activateUriHandlers(ballerinaExtInstance);
@@ -205,41 +198,9 @@ export async function activateBallerina(): Promise<BallerinaExtension> {
             commands.executeCommand("setContext", "BI.status", "noLS");
 
             if (e.message && e.message.includes("Error when checking ballerina version.")) {
-                // ballerinaExtInstance.showMessageInstallBallerina();
-                // ballerinaExtInstance.showMissingBallerinaErrInStatusBar();
-                // TODO: Fix this properly
-                // cmds.forEach((cmd) => {
-                //     const cmdID: string = cmd.command;
-                //     // This is to skip the command un-registration
-                //     if (!(cmdID.includes("ballerina-setup") || cmdID.includes(SHARED_COMMANDS.OPEN_BI_WELCOME))) {
-                //         commands.registerCommand(cmdID, () => {
-                //             ballerinaExtInstance.showMessageInstallBallerina();
-                //         });
-                //     }
-                // });
             }
             // When plugins fails to start, provide a warning upon each command execution
             else if (!ballerinaExtInstance.langClient) {
-                // TODO: Fix this properly
-                // cmds.forEach((cmd) => {
-                //     const cmdID: string = cmd.command;
-                //     // This is to skip the command un-registration
-                //     if (!(cmdID.includes("ballerina-setup") || cmdID.includes(SHARED_COMMANDS.OPEN_BI_WELCOME))) {
-                //         commands.registerCommand(cmdID, () => {
-                //             const actionViewLogs = "View Logs";
-                //             window.showWarningMessage("Ballerina extension did not start properly."
-                //                 + " Please check extension logs for more info.", actionViewLogs)
-                //                 .then((action) => {
-                //                     if (action === actionViewLogs) {
-                //                         const logs = ballerinaExtInstance.getOutPutChannel();
-                //                         if (logs) {
-                //                             logs.show();
-                //                         }
-                //                     }
-                //                 });
-                //         });
-                //     }
-                // });
             }
         })
         .finally(() => {
@@ -255,6 +216,5 @@ export function deactivate(): Thenable<void> | undefined {
     if (!langClient) {
         return;
     }
-  //  ballerinaExtInstance.telemetryReporter.dispose();
     return langClient.stop();
 }

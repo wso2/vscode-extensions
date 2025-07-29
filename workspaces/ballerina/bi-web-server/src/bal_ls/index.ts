@@ -47,9 +47,7 @@ import {
   resolveRequestPath,
   resolveResponseMessage,
 } from "./utils";
-import { URI } from "vscode-uri";
 import os from "os";
-import { BASE_DIR } from "../file_system/fsRoutes";
 
 export const runBalServer = async (httpServer: Server) => {
   let runCommand = "bal";
@@ -168,8 +166,6 @@ export const launchLanguageServer = (
       if (Message.isRequest(message)) {
         let reqMessage = resolveRequestPath(message);
         if (runconfig.logMessages ?? false) {
-          console.log(`${serverName} Server received: ${reqMessage.method}`);
-          console.log(reqMessage);
         }
         if (runconfig.requestMessageHandler !== undefined) {
           return runconfig.requestMessageHandler(reqMessage);
@@ -177,19 +173,13 @@ export const launchLanguageServer = (
       } else if (Message.isResponse(message)) {
         let resMessage = resolveResponseMessage(message);
         if (runconfig.logMessages ?? false) {
-          console.log("tring to sent response by server");
-          console.log(`${serverName} Servering sent:`);
-          console.log(resMessage);
         }
         if (runconfig.responseMessageHandler !== undefined) {
           return runconfig.responseMessageHandler(resMessage);
         }
       } else if (Message.isNotification(message)) {
         if (runconfig.logMessages ?? false) {
-          console.log(`${serverName} Server sent/received notification:`);
-          console.log(message);
           resolveNotification(message);
-          console.log("after resolveNotification", message);
         }
         if (runconfig.NotificationMessageHandler !== undefined) {
           return runconfig.NotificationMessageHandler(message);
