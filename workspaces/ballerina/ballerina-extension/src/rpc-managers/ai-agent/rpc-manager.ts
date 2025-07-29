@@ -38,12 +38,9 @@ import {
     SyntaxTree,
     TextEdit
 } from "@wso2/ballerina-core";
-import { writeFileSync } from "fs";
-import { Uri } from "vscode";
 import { URI, Utils } from "vscode-uri";
 import { StateMachine } from "../../stateMachine";
 import { updateSourceCode } from "../../utils/source-utils";
-
 
 interface EntryPosition {
     filePath: string;

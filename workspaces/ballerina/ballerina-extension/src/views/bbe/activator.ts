@@ -22,7 +22,6 @@ import { render } from './renderer';
 import { ExtendedLangClient } from '../../core/extended-language-client';
 import { ballerinaExtInstance, BallerinaExtension } from '../../core';
 import { getCommonWebViewOptions } from '../../utils';
-import { TM_EVENT_OPEN_EXAMPLES, CMP_EXAMPLES_VIEW, sendTelemetryEvent, sendTelemetryException } from '../../features/telemetry';
 import { PALETTE_COMMANDS } from '../../features/project';
 
 let examplesPanel: WebviewPanel | undefined;
@@ -70,28 +69,6 @@ function showExamples(context: ExtensionContext, langClient: ExtendedLangClient)
         { viewColumn: ViewColumn.One, preserveFocus: false },
         getCommonWebViewOptions()
     );
-    // const remoteMethods: WebViewMethod[] = [
-    //     {
-    //         methodName: "openExample",
-    //         handler: (args: any[]): Thenable<any> => {
-    //             const url = args[0];
-    //             const ballerinaHome = ballerinaExtInstance.getBallerinaHome();
-    //             if (ballerinaHome) {
-    //                 const folderPath = join(ballerinaHome, 'examples', url);
-    //                 const filePath = join(folderPath, exampleMaps.has(url) ? exampleMaps.get(url)!
-    //                     : `${url.replace(/-/g, '_')}.bal`);
-    //                 workspace.openTextDocument(Uri.file(filePath)).then(doc => {
-    //                     window.showTextDocument(doc);
-    //                 }, (err: Error) => {
-    //                     window.showErrorMessage(err.message);
-    //                     sendTelemetryException(ballerinaExtInstance, err, CMP_EXAMPLES_VIEW);
-    //                 });
-    //             }
-    //             return Promise.resolve();
-    //         }
-    //     }
-    // ];
-    // WebViewRPCHandler.create(examplesPanel, langClient, remoteMethods);
     if (examplesPanel) {
         const html = render(context, langClient, examplesPanel.webview);
         if (html) {
@@ -107,7 +84,6 @@ export function activate(ballerinaExtInstance: BallerinaExtension) {
     const context = <ExtensionContext>ballerinaExtInstance.context;
     const langClient = <ExtendedLangClient>ballerinaExtInstance.langClient;
     const examplesListRenderer = commands.registerCommand(PALETTE_COMMANDS.SHOW_EXAMPLES, () => {
-        sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_OPEN_EXAMPLES, CMP_EXAMPLES_VIEW);
         showExamples(context, langClient);
     });
 

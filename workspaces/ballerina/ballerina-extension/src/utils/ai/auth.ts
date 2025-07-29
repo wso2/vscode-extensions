@@ -21,7 +21,6 @@ import { extension } from "../../BalExtensionContext";
 import { AUTH_CLIENT_ID, AUTH_ORG } from '../../features/ai/utils';
 import axios from 'axios';
 import { jwtDecode, JwtPayload } from 'jwt-decode';
-// import { StateMachineAI } from '../../../src/views/ai-panel/aiMachine';
 
 export const ACCESS_TOKEN_SECRET_KEY = 'BallerinaAIUser';
 export const REFRESH_TOKEN_SECRET_KEY = 'BallerinaAIRefreshToken';
@@ -99,15 +98,6 @@ vscode.authentication.onDidChangeSessions(async e => {
             await extension.context.secrets.delete('GITHUB_COPILOT_TOKEN');
             await extension.context.secrets.delete('GITHUB_TOKEN');
         } else {
-            //it could be a login(which we havent captured) or a logout 
-            // vscode.window.showInformationMessage(
-            //     'WSO2 Integrator: BI supports completions with GitHub Copilot.',
-            //     'Login with GitHub Copilot'
-            // ).then(selection => {
-            //     if (selection === 'Login with GitHub Copilot') {
-            //         commands.executeCommand('ballerina.login.copilot');
-            //     }
-            // });
         }
     }
 });

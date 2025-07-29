@@ -17,13 +17,10 @@
  */
 
 import { TextEditor, Uri, ViewColumn, WebviewPanel, commands, window, workspace } from "vscode";
-import { debounce } from "lodash";
 import { basename, dirname, join } from "path";
 import { existsSync } from "fs";
-import { PALETTE_COMMANDS } from "../../features/project/cmds/cmd-runner";
 import { BallerinaExtension, ExtendedLangClient } from "../../core";
-import { getCommonWebViewOptions } from "../../utils";
-import { render } from "./renderer";
+import { extension } from "../../BalExtensionContext";
 
 const COMPATIBILITY_MESSAGE = "An incompatible Ballerina version was detected. Update Ballerina to 2201.6.0 or higher to use the feature.";
 
@@ -32,20 +29,6 @@ let filePath: string | undefined;
 
 export function activate(ballerinaExtInstance: BallerinaExtension) {
     const langClient = <ExtendedLangClient>ballerinaExtInstance.langClient;
-    // const designDiagramRenderer = commands.registerCommand(PALETTE_COMMANDS.SHOW_ENTITY_DIAGRAM, (selectedRecord = "") => {
-    //     if (isCompatible(ballerinaExtInstance.ballerinaVersion)) {
-    //         filePath = window.activeTextEditor?.document?.uri.fsPath;
-    //         if (filePath) {
-    //             showERDiagram(langClient, selectedRecord);
-    //         } else {
-    //             // Todo: Update error message
-    //             window.showErrorMessage("Error: Could not detect persist model.");
-    //         }
-    //     } else {
-    //         window.showErrorMessage(COMPATIBILITY_MESSAGE);
-    //     }
-    // });
-    // ballerinaExtInstance.context.subscriptions.push(designDiagramRenderer);
 
     if (window.activeTextEditor) {
         ballerinaExtInstance.setPersistStatusContext(window.activeTextEditor);
@@ -56,69 +39,9 @@ export function activate(ballerinaExtInstance: BallerinaExtension) {
     });
 }
 
-// function showERDiagram(langClient: ExtendedLangClient, selectedRecord: string) {
-//     if (!diagramWebview) {
-//         setupWebviewPanel(langClient);
-//     }
-
-//     if (diagramWebview) {
-//         const html = render(diagramWebview.webview, selectedRecord);
-//         if (html) {
-//             diagramWebview.webview.html = html;
-//             return;
-//         }
-//     }
-//     window.showErrorMessage("Error: Failed to generate the ER diagram.");
-// }
-
-// function setupWebviewPanel(langClient: ExtendedLangClient) {
-//     diagramWebview = window.createWebviewPanel(
-//         "persistERDiagram",
-//         "Entity Relationship Diagram",
-//         { viewColumn: ViewColumn.Beside, preserveFocus: false },
-//         getCommonWebViewOptions()
-//     );
-
-//     const refreshDiagram = debounce(() => {
-//         if (diagramWebview) {
-//             diagramWebview.webview.postMessage({ command: "refresh" });
-//         }
-//     }, 500);
-
-//     workspace.onDidChangeTextDocument((event) => {
-//         if (event.document.uri.fsPath === filePath) {
-//            refreshDiagram();
-//         }
-//     });
-
-//     const remoteMethods:  = [
-//         {
-//             methodName: "getPersistERModel",
-//             handler: (): Promise<GetPersistERModelResponse> => {
-//                 return langClient.getPersistERModel({
-//                     documentUri: filePath
-//                 });
-//             }
-//         },
-//         {
-//             methodName: "showProblemPanel",
-//             handler: async () => {
-//                 return await commands.executeCommand('workbench.action.problems.focus');
-//             }
-//         }
-//     ];
-
-//     WebViewRPCHandler.create(diagramWebview, langClient, remoteMethods);
-
-//     diagramWebview.onDidDispose(() => {
-//         diagramWebview = undefined;
-//     });
-// }
-
-// function isCompatible(ballerinaVersion: string) {
-//     return parseFloat(ballerinaVersion) >= 2201.6;
-// }
-
 export function checkIsPersistModelFile(fileUri: Uri): boolean {
-    return basename(dirname(fileUri.fsPath)) === 'persist' && existsSync(join(dirname(dirname(fileUri.fsPath)), 'Ballerina.toml'));
+    if(!extension.isWebMode)
+    {
+           return basename(dirname(fileUri.fsPath)) === 'persist' && existsSync(join(dirname(dirname(fileUri.fsPath)), 'Ballerina.toml'));
+    }
 }

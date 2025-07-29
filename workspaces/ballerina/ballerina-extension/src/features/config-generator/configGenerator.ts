@@ -17,7 +17,7 @@
  */
 
 import { window, Uri, commands, workspace } from "vscode";
-import { existsSync, openSync, readFileSync, writeFile } from "fs";
+import { existsSync, readFileSync, writeFile } from "fs";
 import { BAL_TOML, BAL_CONFIG_FILE, PALETTE_COMMANDS, clearTerminal } from "../project";
 import { BallerinaExtension, ballerinaExtInstance, ExtendedLangClient } from "../../core";
 import { getCurrentBallerinaProject } from "../../utils/project-utils";
@@ -30,6 +30,7 @@ import { fileURLToPath } from "url";
 import { startDebugging } from "../editor-support/codelens-provider";
 import { openView } from "../../stateMachine";
 import * as path from "path";
+import { WebExtendedLanguageClient } from "src/web-activators/webExtendedLanguageClient";
 
 const UNUSED_IMPORT_ERR_CODE = "BCE2002";
 
@@ -224,7 +225,7 @@ async function executeRunCommand(ballerinaExtInstance: BallerinaExtension, fileP
     }
 }
 
-export async function cleanAndValidateProject(langClient: ExtendedLangClient, path: string): Promise<boolean> {
+export async function cleanAndValidateProject(langClient: ExtendedLangClient|WebExtendedLanguageClient, path: string): Promise<boolean> {
     try {
         // Get initial project diagnostics
         const projectPath = ballerinaExtInstance?.getDocumentContext()?.getCurrentProject()?.path || path;

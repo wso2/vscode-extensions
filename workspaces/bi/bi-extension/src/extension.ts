@@ -16,22 +16,30 @@
  * under the License.
  */
 
-import * as vscode from 'vscode';
-import { extension } from './biExtentionContext';
-import { StateMachine } from './stateMachine';
+import * as vscode from "vscode";
+import { extension } from "./biExtentionContext";
+import { StateMachine } from "./stateMachine";
 
-export function activate(context: vscode.ExtensionContext) {
-	const ballerinaExt = vscode.extensions.getExtension('wso2.ballerina');
-	if (ballerinaExt) {
-		extension.context = context;
-		extension.langClient = ballerinaExt.exports.ballerinaExtInstance.langClient;
-		extension.biSupported = ballerinaExt.exports.ballerinaExtInstance.biSupported;
-		extension.isNPSupported = ballerinaExt.exports.ballerinaExtInstance.isNPSupported;
-		extension.projectPath = ballerinaExt.exports.projectPath;
-		StateMachine.initialize();
-		return;
-	}
-	vscode.window.showErrorMessage('Ballerina extension is required to operate WSO2 Integrator: BI extension effectively. Please install it from the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=wso2.ballerina).');
+export async function activate(context: vscode.ExtensionContext) {
+    const ballerinaExt = vscode.extensions.getExtension("wso2.ballerina");
+    try {
+        await ballerinaExt.activate();
+        if (ballerinaExt.exports.ballerinaExtInstance) {
+            extension.context = context;
+            extension.langClient = ballerinaExt.exports.ballerinaExtInstance.langClient;
+            extension.biSupported = ballerinaExt.exports.ballerinaExtInstance.biSupported;
+            extension.isNPSupported = ballerinaExt.exports.ballerinaExtInstance.isNPSupported;
+            extension.projectPath = ballerinaExt.exports.projectPath;
+            extension.isWebMode = ballerinaExt.exports.isWebMode;
+
+            await StateMachine.initialize();
+        }
+    } catch (error) {
+        console.error("Activation failed:", error);
+        vscode.window.showErrorMessage(
+            "Ballerina extension is required to operate WSO2 Integrator: BI extension effectively. Please install it from the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=wso2.ballerina)."
+        );
+    }
 }
 
-export function deactivate() { }
+export function deactivate() {}

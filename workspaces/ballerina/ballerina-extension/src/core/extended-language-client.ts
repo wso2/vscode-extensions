@@ -41,13 +41,8 @@ import {
     PersistERModelParams,
     PersistERModel,
     Diagnostics,
-    ExpressionType,
     ConnectorsParams,
-    TriggersParams,
-    Triggers,
     Connector,
-    TriggerParams,
-    Trigger,
     RecordParams,
     BallerinaRecord,
     BallerinaSTParams,
@@ -228,7 +223,6 @@ import {
 } from "@wso2/ballerina-core";
 import { BallerinaExtension } from "./index";
 import { debug, handlePullModuleProgress } from "../utils";
-import { CMP_LS_CLIENT_COMPLETIONS, CMP_LS_CLIENT_DIAGNOSTICS, getMessageObject, sendTelemetryEvent, TM_EVENT_LANG_CLIENT } from "../features/telemetry";
 import { DefinitionParams, InitializeParams, InitializeResult, Location, LocationLink, TextDocumentPositionParams } from 'vscode-languageserver-protocol';
 import { updateProjectArtifacts } from "../utils/project-artifacts";
 
@@ -1203,22 +1197,6 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
         return Promise.resolve((await this.registerExtendedAPICapabilities()).has(serviceName));
     }
 
-    public pushLSClientTelemetries() {
-        if (this.timeConsumption.completion.length > 0) {
-            const completionValues = calculateTelemetryValues(this.timeConsumption.completion, 'completion');
-            sendTelemetryEvent(this.ballerinaExtInstance!, TM_EVENT_LANG_CLIENT, CMP_LS_CLIENT_COMPLETIONS,
-                getMessageObject(process.env.HOSTNAME), completionValues);
-            this.timeConsumption.completion = [];
-        }
-
-        if (this.timeConsumption.diagnostics.length > 0) {
-            const diagnosticValues = calculateTelemetryValues(this.timeConsumption.diagnostics, 'diagnostic');
-            this.timeConsumption.diagnostics = [];
-            sendTelemetryEvent(this.ballerinaExtInstance!, TM_EVENT_LANG_CLIENT, CMP_LS_CLIENT_DIAGNOSTICS,
-                getMessageObject(process.env.HOSTNAME), diagnosticValues);
-        }
-    }
-
     public close(): void {
     }
 
@@ -1242,22 +1220,3 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
 
 }
 
-function calculateTelemetryValues(array: number[], name: string): any {
-    let values = {};
-    let total = 0;
-    let min = 99999999999;
-    let max = -1;
-    for (let i = 0; i < array.length; i++) {
-        total += array[i];
-        if (max < array[i]) {
-            max = array[i];
-        }
-        if (min > array[i]) {
-            min = array[i];
-        }
-    }
-    values[name + '-average'] = total / array.length;
-    values[name + '-min'] = min;
-    values[name + '-max'] = max;
-    return values;
-}

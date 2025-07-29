@@ -1,4 +1,3 @@
-
 /**
  * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
@@ -27,6 +26,8 @@ export class BalExtensionContext {
     public agentChatContext?: AgentChatContext;
     public hasPullModuleNotification = false;
     public hasPullModuleResolved = false;
+    //Web config
+    public isWebMode?:boolean;
 }
 
 export const extension = new BalExtensionContext();

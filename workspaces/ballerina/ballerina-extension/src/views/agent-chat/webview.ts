@@ -150,30 +150,3 @@ export class ChatPanel {
     }
 }
 
-// async function fetchTestData(url: string, payload: ChatRequest, signal: AbortSignal): Promise<ChatResponse> {
-//     try {
-//         const response = await fetch(url, {
-//             method: 'POST',
-//             headers: {
-//                 'Accept': 'application/json',
-//                 'Content-Type': 'application/json'
-//             },
-//             body: JSON.stringify(payload),
-//             signal,
-//         });
-
-//         if (!response.ok) {
-//             throw new Error(`HTTP error! Status: ${response.status}`);
-//         }
-
-//         const data = (await response.json()) as ChatResponse;
-//         return data;
-//     } catch (error) {
-//         let errorMessage = "An unknown error occurred";
-
-//         if (error instanceof Error) {
-//             errorMessage = error.message;
-//         }
-//         throw new Error(errorMessage);
-//     }
-// }

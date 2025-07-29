@@ -429,7 +429,7 @@ export function checkCommentMinutiae(minutiae: ReactNode[]): ReactNode[] {
     const checkedMinutiae = minutiae;
     const commentList: number[] = [];
     minutiae?.map((element, index) => {
-        if (element && element[0] === "/") {
+        if (typeof element === "string" && element[0] === "/") {
             commentList.push(index);
         }
     });
@@ -1313,4 +1313,8 @@ function findExactMatches(text: string, pattern: string): RegExpMatchArray {
     const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(escapedPattern, 'g');
     return text.match(regex);
+}
+
+export function isWebMode(): boolean {
+  return typeof window !== 'undefined' && window.location.protocol.startsWith('http');
 }

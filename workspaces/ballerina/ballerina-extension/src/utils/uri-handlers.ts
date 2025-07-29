@@ -19,7 +19,6 @@ import { URLSearchParams } from "url";
 import { window, Uri, ProviderResult, commands } from "vscode";
 import { BallerinaExtension } from "../core";
 import { handleOpenFile, handleOpenRepo } from ".";
-import { CMP_OPEN_VSCODE_URL, TM_EVENT_OPEN_FILE_URL_START, TM_EVENT_OPEN_REPO_URL_START, sendTelemetryEvent } from "../features/telemetry";
 import { exchangeAuthCode } from "../views/ai-panel/auth";
 import { IOpenCompSrcCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
 
@@ -32,7 +31,6 @@ export function activateUriHandlers(ballerinaExtInstance: BallerinaExtension) {
                     const gistId = urlParams.get('gist');
                     const fileName = urlParams.get('file');
                     const repoFileUrl = urlParams.get('repoFileUrl');
-                    sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_OPEN_FILE_URL_START, CMP_OPEN_VSCODE_URL);
                     if ((gistId && fileName) || repoFileUrl) {
                         handleOpenFile(ballerinaExtInstance, gistId, fileName, repoFileUrl);
                     } else {
@@ -42,7 +40,6 @@ export function activateUriHandlers(ballerinaExtInstance: BallerinaExtension) {
                 case '/open-repo':
                     const repoUrl = urlParams.get('repoUrl');
                     const openFile = urlParams.get('openFile');
-                    sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_OPEN_REPO_URL_START, CMP_OPEN_VSCODE_URL);
                     if (repoUrl) {
                         handleOpenRepo(ballerinaExtInstance, repoUrl, openFile);
                     } else {

@@ -18,7 +18,6 @@
 
 import { BallerinaExtension } from "../../core";
 import { Disposable, Position, Range, TextDocumentChangeEvent, TextDocumentContentChangeEvent, window, workspace } from "vscode";
-import { CMP_STRING_SPLIT, sendTelemetryEvent, TM_EVENT_STRING_SPLIT } from "../telemetry";
 import { isWindows } from "../../utils";
 import { traversNode } from "@wso2/syntax-tree";
 import { SplitProviderVisitor } from "./split-provider-visitor";
@@ -97,7 +96,6 @@ export class StringSplitter {
                     return;
                 }
                 if (response.kind === WHITESPACE) {
-                    sendTelemetryEvent(extension, TM_EVENT_STRING_SPLIT, CMP_STRING_SPLIT);
                     editor.edit(editBuilder => {
                         const startPosition = new Position(range.start.line, range.start.character);
                         const nextLinePosition = new Position(range.start.line + 1, documentChange!.text.length - 1);

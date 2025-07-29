@@ -48,12 +48,10 @@ import {
     TriggerModelsResponse,
     DIRECTORY_MAP
 } from "@wso2/ballerina-core";
-import { NodePosition } from "@wso2/syntax-tree";
 import * as fs from 'fs';
 import { existsSync, writeFileSync } from "fs";
 import * as yaml from 'js-yaml';
 import * as path from 'path';
-import * as vscode from "vscode";
 import { Uri, window, workspace } from "vscode";
 import { StateMachine } from "../../stateMachine";
 import { extension } from "../../BalExtensionContext";
@@ -97,8 +95,8 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
         return new Promise(async (resolve) => {
             const context = StateMachine.context();
             try {
-                const projectDir = path.join(StateMachine.context().projectUri);
-                const targetFile = path.join(projectDir, `main.bal`);
+                const projectDir = context.projectUri;
+                const targetFile = extension.isWebMode ? Uri.joinPath(Uri.parse(projectDir), 'main.bal').toString() : path.join(projectDir, 'main.bal');
                 this.ensureFileExists(targetFile);
                 params.filePath = targetFile;
                 const res: ListenersResponse = await context.langClient.getListeners(params);
@@ -162,8 +160,8 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
         return new Promise(async (resolve) => {
             const context = StateMachine.context();
             try {
-                const projectDir = path.join(StateMachine.context().projectUri);
-                const targetFile = path.join(projectDir, `main.bal`);
+                const projectDir = context.projectUri;
+                const targetFile = extension.isWebMode ? Uri.joinPath(Uri.parse(projectDir), 'main.bal').toString() : path.join(projectDir, 'main.bal');
                 this.ensureFileExists(targetFile);
                 params.filePath = targetFile;
                 const res: ListenerSourceCodeResponse = await context.langClient.updateListenerSourceCode(params);
@@ -182,8 +180,8 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
         return new Promise(async (resolve) => {
             const context = StateMachine.context();
             try {
-                const projectDir = path.join(StateMachine.context().projectUri);
-                const targetFile = path.join(projectDir, `main.bal`);
+                 const projectDir = context.projectUri;
+                 const targetFile = extension.isWebMode ? Uri.joinPath(Uri.parse(projectDir), 'main.bal').toString() : path.join(projectDir, 'main.bal');
                 this.ensureFileExists(targetFile);
                 params.filePath = targetFile;
                 const res: ServiceModelResponse = await context.langClient.getServiceModel(params);
@@ -198,8 +196,8 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
         return new Promise(async (resolve) => {
             const context = StateMachine.context();
             try {
-                const projectDir = path.join(StateMachine.context().projectUri);
-                const targetFile = path.join(projectDir, `main.bal`);
+                const projectDir = context.projectUri;
+                const targetFile = extension.isWebMode ? Uri.joinPath(Uri.parse(projectDir), 'main.bal').toString() : path.join(projectDir, 'main.bal');
                 this.ensureFileExists(targetFile);
                 params.filePath = targetFile;
                 const identifiers = [];
@@ -237,8 +235,8 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
         return new Promise(async (resolve) => {
             const context = StateMachine.context();
             try {
-                const projectDir = path.join(StateMachine.context().projectUri);
-                const targetFile = path.join(projectDir, `main.bal`);
+                const projectDir = context.projectUri;
+                const targetFile = extension.isWebMode ? Uri.joinPath(Uri.parse(projectDir), 'main.bal').toString() : path.join(projectDir, 'main.bal');
                 this.ensureFileExists(targetFile);
                 params.filePath = targetFile;
                 const identifiers = [];
@@ -294,9 +292,9 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
         return new Promise(async (resolve) => {
             const context = StateMachine.context();
             try {
-                const projectDir = path.join(StateMachine.context().projectUri);
+                const projectDir = context.projectUri;
                 if (!params.filePath) {
-                    const targetFile = path.join(projectDir, `main.bal`);
+                    const targetFile = extension.isWebMode ? Uri.joinPath(Uri.parse(projectDir), 'main.bal').toString() : path.join(projectDir, 'main.bal');
                     this.ensureFileExists(targetFile);
                     params.filePath = targetFile;
                 }

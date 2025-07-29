@@ -78,7 +78,14 @@ export class TypeDescriptorStore {
         const symbolNodesPositions = visitor.getSymbolNodesPositions();
 
         const noOfTypes = this.getNoOfTypes(visitor.getNoOfParams(), expressionNodesRanges.length, symbolNodesPositions.length);
-        const fileUri = URI.file(context.currentFile.path).toString();
+         let fileUri: string;
+        //need to check isWebMode is false in desktop mode
+        const isWebMode = typeof window !== 'undefined' && typeof window.document !== 'undefined';
+        if (typeof isWebMode !== 'undefined' && isWebMode) {
+            fileUri = URI.parse(context.currentFile.path).toString();
+        } else {
+            fileUri = URI.file(context.currentFile.path).toString();
+        }
 
         const promises = [
             await this.setTypesForFnParamsAndReturnType(fileUri, fnDefPositions, langServerRpcClient),

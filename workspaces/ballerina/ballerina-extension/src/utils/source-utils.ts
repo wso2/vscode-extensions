@@ -27,6 +27,7 @@ import { ArtifactsUpdated, ArtifactNotificationHandler } from './project-artifac
 import { existsSync, writeFileSync } from 'fs';
 import { notifyCurrentWebview } from '../RPCLayer';
 import { applyBallerinaTomlEdit } from '../rpc-managers/bi-diagram/utils';
+import { extension } from '../BalExtensionContext';
 
 export interface UpdateSourceCodeRequest {
     textEdits: {
@@ -40,9 +41,11 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
     StateMachine.setEditMode();
     const modificationRequests: Record<string, { filePath: string; modifications: STModification[] }> = {};
     for (const [key, value] of Object.entries(updateSourceCodeRequest.textEdits)) {
-        const fileUri = Uri.file(key);
+        const fileUri = extension.isWebMode ? vscode.Uri.parse(`web-bala:${key}`) : Uri.file(key);
         const fileUriString = fileUri.toString();
-        if (!existsSync(fileUri.fsPath)) {
+        //need to handle this in web mode as well for new file creating
+        if(!extension.isWebMode){
+            if (!existsSync(fileUri.fsPath)) {
             writeFileSync(fileUri.fsPath, '');
             await new Promise(resolve => setTimeout(resolve, 500)); // Add small delay to ensure file is created
             await StateMachine.langClient().didOpen({
@@ -53,6 +56,7 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                     version: 1
                 }
             });
+        }
         }
         const edits = value;
 
@@ -86,7 +90,7 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
             if (modificationRequests[fileUriString]) {
                 modificationRequests[fileUriString].modifications.push(...modificationList);
             } else {
-                modificationRequests[fileUriString] = { filePath: fileUri.fsPath, modifications: modificationList };
+                modificationRequests[fileUriString] = { filePath: extension.isWebMode ? fileUriString : fileUri.fsPath, modifications: modificationList };
             }
         }
     }
@@ -101,7 +105,7 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
             })) as SyntaxTree;
 
             if (parseSuccess) {
-                const fileUri = Uri.file(request.filePath);
+                const fileUri = extension.isWebMode ? vscode.Uri.parse(request.filePath) : Uri.file(request.filePath);
                 workspaceEdit.replace(
                     fileUri,
                     new vscode.Range(

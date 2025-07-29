@@ -18,26 +18,11 @@
 
 import { ballerinaExtInstance } from "./../../core";
 import { commands, window } from "vscode";
-import {
-    TM_EVENT_AUTH_COPILOT, CMP_AUTH_COPILOT, sendTelemetryEvent,
-    sendTelemetryException
-} from "./../telemetry";
 import { PALETTE_COMMANDS } from "./../project/cmds/cmd-runner";
 import { loginGithubCopilot } from '../../utils/ai/auth';
 
 export function activateCopilotLoginCommand() {
     commands.registerCommand(PALETTE_COMMANDS.LOGIN_COPILOT, async () => {
-        try {
-            sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_AUTH_COPILOT, CMP_AUTH_COPILOT);
-            await loginGithubCopilot();
-        } catch (error) {
-            if (error instanceof Error) {
-                sendTelemetryException(ballerinaExtInstance, error, CMP_AUTH_COPILOT);
-                window.showErrorMessage(error.message);
-            } else {
-                window.showErrorMessage("Unkown error occurred.");
-            }
-        }
     });
 }
 

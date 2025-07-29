@@ -1,3 +1,20 @@
+/**
+ * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
 import { ExtendedLangClient } from './core';
 import { createMachine, assign, interpret } from 'xstate';
@@ -9,13 +26,12 @@ import { commands, extensions, Uri, window, workspace, WorkspaceFolder } from 'v
 import { notifyCurrentWebview, RPCLayer } from './RPCLayer';
 import { generateUid, getComponentIdentifier, getNodeByIndex, getNodeByName, getNodeByUid, getView } from './utils/state-machine-utils';
 import * as path from 'path';
-import * as fs from 'fs';
 import { extension } from './BalExtensionContext';
-import { BiDiagramRpcManager } from './rpc-managers/bi-diagram/rpc-manager';
 import { AIStateMachine } from './views/ai-panel/aiMachine';
 import { StateMachinePopup } from './stateMachinePopup';
 import { checkIsBallerina, checkIsBI, fetchScope, getOrgPackageName } from './utils';
 import { buildProjectArtifactsStructure } from './utils/project-artifacts';
+import { activateFileSystemProvider } from './web-activators/fs/activateFs';
 
 interface MachineContext extends VisualizerLocation {
     langClient: ExtendedLangClient | null;
@@ -84,8 +100,8 @@ const stateMachine = createMachine<MachineContext>(
             activateLS: {
                 invoke: {
                     src: 'activateLanguageServer',
-                    onDone: {
-                        target: "fetchProjectStructure",
+                     onDone: {
+                        target: "activateFS",
                         actions: assign({
                             langClient: (context, event) => event.data.langClient,
                             isBISupported: (context, event) => event.data.isBISupported
@@ -93,6 +109,17 @@ const stateMachine = createMachine<MachineContext>(
                     },
                     onError: {
                         target: "lsError"
+                    }
+                }
+            },
+              activateFS: {
+                invoke: {
+                    src: 'activateFileSystemProvider',
+                    onDone: {
+                        target: "fetchProjectStructure",
+                         actions: assign({
+                            projectUri: (context, event) => getProjectUriForArtifacts()
+                        })
                     }
                 }
             },
@@ -128,7 +155,8 @@ const stateMachine = createMachine<MachineContext>(
                             type: (context, event) => event.viewLocation?.type,
                             isGraphql: (context, event) => event.viewLocation?.isGraphql,
                             metadata: (context, event) => event.viewLocation?.metadata,
-                            addType: (context, event) => event.viewLocation?.addType
+                            addType: (context, event) => event.viewLocation?.addType,
+                            projectUri: (context, event) => getProjectUri(event.viewLocation.documentUri),
                         })
                     }
                 }
@@ -261,12 +289,14 @@ const stateMachine = createMachine<MachineContext>(
                         history = new History();
                         undoRedoManager = new UndoRedoManager();
                         const webview = VisualizerWebview.currentPanel?.getWebview();
-                        if (webview && (context.isBI || context.view === MACHINE_VIEW.BIWelcome)) {
+                        if(!extension.isWebMode) {
+                            if (webview && (context.isBI || context.view === MACHINE_VIEW.BIWelcome)) {
                             const biExtension = extensions.getExtension('wso2.ballerina-integrator');
                             webview.iconPath = {
                                 light: Uri.file(path.join(extension.context.extensionPath, 'resources', 'icons', biExtension ? 'light-icon.svg' : 'ballerina.svg')),
                                 dark: Uri.file(path.join(extension.context.extensionPath, 'resources', 'icons', biExtension ? 'dark-icon.svg' : 'ballerina-inverse.svg'))
                             };
+                        }
                         }
                         resolve(true);
                     });
@@ -394,7 +424,7 @@ const stateMachine = createMachine<MachineContext>(
                                         uid: nodeWithUpdatedUid[1]
                                     });
                                 } else {
-                                    // show identification failure message
+                                    // Show identification failure message
                                 }
                             }
                         } else {
@@ -413,7 +443,27 @@ const stateMachine = createMachine<MachineContext>(
                 const lastView = getLastHistory().location;
                 return resolve(lastView);
             });
-        }
+        },
+         activateFileSystemProvider: (context, event) => {
+            return new Promise(async (resolve, reject) => {
+                if(extension.isWebMode)
+                {
+                    try {
+                        await activateFileSystemProvider();
+                        // Execute the openGithubRepository command after activating FS
+                        const result= await commands.executeCommand('ballerina.openGithubRepository');
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        resolve(true);
+                    } catch (error) {
+                        throw new Error("FS Activation failed.");
+                    }
+                }
+                else{
+                    console.log('not activating fs,this is desktop mode');
+                    resolve(true);
+                }             
+            });
+        },
     }
 });
 
@@ -540,4 +590,25 @@ async function handleSingleWorkspace(workspaceURI: any) {
 
 function setBIContext(isBI: boolean) {
     commands.executeCommand('setContext', 'isBIProject', isBI);
+}
+
+// Get workspace uri for artifacts
+function getProjectUriForArtifacts():string {
+    const workspaceFolders = workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        throw new Error("No workspace folders found");
+    }
+    const projectUri = workspaceFolders[0].uri.toString();
+    return projectUri;
+}
+// Get project uri for a given file path
+function getProjectUri(filePath: string) : string {
+    console.log("parameter file path",filePath);
+    const workspaceFolders = workspace.workspaceFolders;
+    console.log("workspace folders: ", workspaceFolders);
+    const projectUri =  workspaceFolders[0].uri.toString();
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        throw new Error("No workspace folders found");
+    }
+    return projectUri;
 }

@@ -21,6 +21,7 @@ import { Position, Range, Uri, WorkspaceEdit, workspace } from "vscode";
 import { URI } from "vscode-uri";
 import { writeFileSync } from "fs";
 import { StateMachine, updateView } from "../stateMachine";
+import { extension } from "../BalExtensionContext";
 
 interface UpdateFileContentRequest {
     filePath: string;
@@ -64,7 +65,16 @@ export async function modifyFileContent(params: UpdateFileContentRequest): Promi
 }
 
 export async function writeBallerinaFileDidOpen(filePath: string, content: string) {
-    writeFileSync(filePath, content.trim());
+    //need to handle web mode separately
+    if (!extension.isWebMode) {
+           writeFileSync(filePath, content.trim());
+    }
+    else {
+        // For web: use VS Code FileSystem API with the custom scheme
+        const uri = Uri.parse(filePath); // filePath should be a URI string like 'web-bala:/path/to/file.bal'
+        const encoder = new TextEncoder();
+        await workspace.fs.writeFile(uri, encoder.encode(content.trim()));
+    }
     StateMachine.langClient().didChange({
         textDocument: { uri: filePath, version: 1 },
         contentChanges: [

@@ -106,9 +106,6 @@ export function activate(context: BallerinaExtension) {
             await handleComponentDeletion(item.contextValue, item.label, item.info);
         }
     });
-
-    //HACK: Open all Ballerina files in the project
-    // openAllBallerinaFiles(context);
 }
 
 function openAllBallerinaFiles(context: BallerinaExtension) {

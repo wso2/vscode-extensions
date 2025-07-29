@@ -323,13 +323,6 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         console.log(">>> requesting bi node template from ls", params);
         params.forceAssign = true; // TODO: remove this
 
-        // Check if the file exists
-        if (!fs.existsSync(params.filePath)) {
-            // Create the file if it does not exist
-            fs.writeFileSync(params.filePath, "");
-            console.log(`>>> Created file at ${params.filePath}`);
-        }
-
         return new Promise((resolve) => {
             StateMachine.langClient()
                 .getNodeTemplate(params)
@@ -540,31 +533,50 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         });
     }
 
-    async handleReadmeContent(params: ReadmeContentRequest): Promise<ReadmeContentResponse> {
-        // console.log(">>> Savineadme.md", params);
-        return new Promise((resolve) => {
-            const projectUri = StateMachine.context().projectUri;
-            const readmePath = path.join(projectUri, README_FILE);
+      async handleReadmeContent(params: ReadmeContentRequest): Promise<ReadmeContentResponse> {
+        const projectUri = StateMachine.context().projectUri;
+
+        if (extension.isWebMode) {
+            // ===== WEB EXTENSION (vscode.workspace.fs) =====
+            const readmeUri = vscode.Uri.joinPath(vscode.Uri.parse(projectUri), README_FILE);
             if (params.read) {
-                if (!fs.existsSync(readmePath)) {
-                    resolve({ content: "" });
-                } else {
-                    const content = fs.readFileSync(readmePath, "utf8");
-                    console.log(">>> Read content:", content);
-                    resolve({ content });
+                try {
+                    const fileData = await vscode.workspace.fs.readFile(readmeUri);
+                    const content = new TextDecoder().decode(fileData);
+                    return { content };
+                } catch (error) {
+                    if (error instanceof vscode.FileSystemError && error.code === 'Unknown') {
+                        return { content: "" };
+                    }
+                    throw error;
                 }
             } else {
-                if (!fs.existsSync(readmePath)) {
-                    fs.writeFileSync(readmePath, params.content);
-                    console.log(">>> Created and saved readme.md with content:", params.content);
+                const contentBytes = new TextEncoder().encode(params.content);
+                await vscode.workspace.fs.writeFile(readmeUri, contentBytes);
+                console.log(">>> Saved readme.md (Web):", params.content);
+                return { content: params.content };
+            }
+        } else {
+            // ===== DESKTOP EXTENSION (Node.js fs) =====
+            const readmePath = path.join(projectUri, README_FILE); // Convert URI to filesystem path
+
+            return new Promise((resolve) => {
+                if (params.read) {
+                    if (!fs.existsSync(readmePath)) {
+                        resolve({ content: "" });
+                    } else {
+                        const content = fs.readFileSync(readmePath, "utf8");
+                        console.log(">>> Read content (Desktop):", content);
+                        resolve({ content });
+                    }
                 } else {
                     fs.writeFileSync(readmePath, params.content);
-                    console.log(">>> Updated readme.md with content:", params.content);
+                    console.log(">>> Saved readme.md (Desktop):", params.content);
+                    resolve({ content: params.content });
                 }
-            }
-        });
+            });
+        }
     }
-
     async getExpressionCompletions(params: ExpressionCompletionsRequest): Promise<ExpressionCompletionsResponse> {
         return new Promise((resolve, reject) => {
             if (!params.filePath) {
@@ -592,13 +604,17 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     async updateConfigVariables(params: UpdateConfigVariableRequest): Promise<UpdateConfigVariableResponse> {
         return new Promise(async (resolve) => {
             const req: UpdateConfigVariableRequest = params;
-
-            if (!fs.existsSync(params.configFilePath)) {
+            
+            //need to handle in webmode as well
+            if(!extension.isWebMode)
+            {
+              if (!fs.existsSync(params.configFilePath)) {
 
                 // Create config.bal if it doesn't exist
                 writeBallerinaFileDidOpen(params.configFilePath, "\n");
             }
-
+            }
+            
             const response = await StateMachine.langClient().updateConfigVariables(req) as BISourceCodeResponse;
             await updateSourceCode({ textEdits: response.textEdits }, { artifactType: DIRECTORY_MAP.CONFIGURABLE });
             resolve(response);
@@ -1085,7 +1101,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     async formDidOpen(params: FormDidOpenParams): Promise<void> {
         return new Promise(async (resolve, reject) => {
             const { filePath } = params;
-            const fileUri = Uri.file(filePath);
+            const fileUri = extension.isWebMode ? vscode.Uri.parse(`web-bala:${filePath}`) : Uri.file(filePath);
             const exprFileSchema = fileUri.with({ scheme: 'expr' });
 
             let languageId: string;
@@ -1354,7 +1370,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         // StateMachine.setTempData({
         //     identifier: params.newName
         // });
-        const fileUri = Uri.file(filePath).toString();
+         const fileUri = extension.isWebMode ? vscode.Uri.parse(filePath).toString() : Uri.file(filePath).toString();
         const request: RenameRequest = {
             textDocument: {
                 uri: fileUri
@@ -1397,7 +1413,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                         if (modificationRequests[fileUri]) {
                             modificationRequests[fileUri].modifications.push(...modificationList);
                         } else {
-                            modificationRequests[fileUri] = { filePath: Uri.parse(fileUri).fsPath, modifications: modificationList };
+                            modificationRequests[fileUri] = { filePath: extension.isWebMode ? fileUri : Uri.parse(fileUri).fsPath, modifications: modificationList };
                         }
                     }
                 }
@@ -1410,7 +1426,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                         })) as SyntaxTree;
 
                         if (parseSuccess) {
-                            const fileUri = Uri.file(request.filePath);
+                            const fileUri = extension.isWebMode ? Uri.parse(request.filePath) : Uri.file(request.filePath);
                             const workspaceEdit = new vscode.WorkspaceEdit();
                             workspaceEdit.replace(
                                 fileUri,
@@ -1740,18 +1756,48 @@ export async function fetchWithToken(url: string, options: RequestInit) {
 
 export async function getBallerinaFiles(dir: string): Promise<string[]> {
     let files: string[] = [];
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
 
-    for (const entry of entries) {
-        const entryPath = path.join(dir, entry.name);
-        if (entry.isDirectory()) {
-            files = files.concat(await getBallerinaFiles(entryPath));
-        } else if (entry.isFile() && entry.name.endsWith(".bal")) {
-            files.push(entryPath);
+    if (extension.isWebMode) {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders || workspaceFolders.length === 0) {
+            console.error("No workspace folder is open.");
+            return files;
+        }
+
+        const rootUri = workspaceFolders[0].uri;
+        const entries = await vscode.workspace.fs.readDirectory(rootUri);
+
+        for (const [name, type] of entries) {
+            if (name === '.git' || name === '.vscode') { continue; }
+
+            const entryPath = `${rootUri}/${name}`;
+            if (type === vscode.FileType.Directory) {
+                const subFiles = await getBallerinaFiles(entryPath);
+                files.push(...subFiles);
+            } else if (type === vscode.FileType.File && name.endsWith('.bal')) {
+                files.push(entryPath);
+            }
+        }
+
+    } else {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+        for (const entry of entries) {
+            if (entry.name === '.git' || entry.name === '.vscode') { continue; }
+
+            const entryPath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                const subFiles = await getBallerinaFiles(entryPath);
+                files.push(...subFiles);
+            } else if (entry.isFile() && entry.name.endsWith('.bal')) {
+                files.push(entryPath);
+            }
         }
     }
+
     return files;
 }
+
 
 export async function extractImports(content: string, filePath: string): Promise<ImportStatements> {
     const withoutSingleLineComments = content.replace(/\/\/.*$/gm, "");

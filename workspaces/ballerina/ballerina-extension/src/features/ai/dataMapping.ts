@@ -16,16 +16,15 @@
  * under the License.
  */
 
-import { Attachment, createFunctionSignature, DataMappingRecord, ErrorCode, GenerateMappingFromRecordResponse, GenerateMappingsFromRecordRequest, GenerateTypesFromRecordRequest, GenerateTypesFromRecordResponse, getSource, PartialST, ProjectSource, SyntaxTree } from "@wso2/ballerina-core";
-import { FunctionDefinition, ModulePart, RequiredParam, STKindChecker } from "@wso2/syntax-tree";
+import { Attachment, createFunctionSignature, DataMappingRecord, ErrorCode, GenerateMappingFromRecordResponse, GenerateMappingsFromRecordRequest, GenerateTypesFromRecordRequest, GenerateTypesFromRecordResponse, getSource, SyntaxTree } from "@wso2/ballerina-core";
+import { FunctionDefinition, ModulePart, STKindChecker } from "@wso2/syntax-tree";
 import { camelCase, memoize } from "lodash";
 import path from "path";
 import * as fs from 'fs';
 import * as os from 'os';
-import { Uri, workspace } from "vscode";
+import { Uri } from "vscode";
 import { langClient } from "./activator";
 import { getFunction, isErrorCode, processMappings, typesFileParameterDefinitions } from "../../rpc-managers/ai-panel/utils";
-import { MODIFIYING_ERROR } from "../../views/ai-panel/errorCodes";
 import { writeBallerinaFileDidOpen } from "../../utils/modification";
 
 
