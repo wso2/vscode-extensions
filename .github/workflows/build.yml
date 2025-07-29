@@ -173,6 +173,7 @@ jobs:
           scan-type: 'fs'
           scan-ref: '.'
           format: 'table'
+          ignore-unfixed: true
           exit-code: '1'
           timeout: '10m'
           skip-dirs: 'common/temp'

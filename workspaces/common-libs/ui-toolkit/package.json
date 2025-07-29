@@ -33,7 +33,6 @@
     "@vscode/codicons": "0.0.36",
     "@vscode/webview-ui-toolkit": "~1.4.0",
     "@wso2/font-wso2-vscode": "workspace:*",
-    "axios": "0.21.0",
     "classnames": "^2.5.1",
     "lodash": "~4.17.21",
     "monaco-editor": "~0.52.2",
