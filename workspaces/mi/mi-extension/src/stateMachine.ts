@@ -30,6 +30,7 @@ import { DMProject } from './datamapper/DMProject';
 import { setupEnvironment } from './util/onboardingUtils';
 import { getPopupStateMachine } from './stateMachinePopup';
 import { askForProject } from './util/workspace';
+import { extractNatureFromPomContent } from './util/migrationUtils';
 const fs = require('fs');
 
 interface MachineContext extends VisualizerLocation {
@@ -745,15 +746,25 @@ async function checkIfMiProject(projectUri) {
         // If not found, check for .project files
         if (!isProject) {
             const projectFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(projectUri, '.project'), '**/node_modules/**', 1);
+            const oldProjectNatures = [
+                'org.wso2.developerstudio.eclipse.mavenmultimodule.project.nature',
+                'org.eclipse.m2e.core.maven2Nature'
+            ];
             if (projectFiles.length > 0) {
-                const oldProjectNatures = [
-                    '<nature>org.wso2.developerstudio.eclipse.mavenmultimodule.project.nature</nature>',
-                    '<nature>org.eclipse.m2e.core.maven2Nature</nature>'
-                ];
                 const projectContent = await vscode.workspace.openTextDocument(projectFiles[0]);
-                if (oldProjectNatures.some(nature => projectContent.getText().includes(nature))) {
+                if (oldProjectNatures.some(nature => projectContent.getText().includes('<nature>' + nature + '</nature>'))) {
                     isOldProject = true;
                     log("Integration Studio project detected in " + projectUri);
+                }
+            } else {
+                if (fs.existsSync(pomFilePath)) {
+                    const pomContent = await fs.promises.readFile(pomFilePath, 'utf-8');
+                    const projectNature = await extractNatureFromPomContent(pomContent);
+
+                    if (projectNature && oldProjectNatures.includes(projectNature)) {
+                        isOldProject = true;
+                        log("Integration Studio project detected");
+                    }
                 }
             }
         }
