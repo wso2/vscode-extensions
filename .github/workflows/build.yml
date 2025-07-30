@@ -407,7 +407,7 @@ jobs:
     name: Run MI UI tests
     needs: Build_Stage
     if: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
