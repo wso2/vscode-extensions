@@ -252,7 +252,7 @@ async function startTestServer(serverPath: string, printToOutput?: (line: string
             const cp = runCommand(serverCommand, undefined, onData, onError, undefined, printer);
 
             function onData(data: string) {
-                if (data.includes("WSO2 Integrator: MI started in")) {
+                if (data.includes("WSO2 Micro Integrator started in")) {
                     serverStarted = true;
                     resolve({ cp });
                 }

@@ -41,15 +41,19 @@ import {
     ExpressionProperty,
     TRIGGER_CHARACTERS,
     TriggerCharacter,
-    TextEdit
+    TextEdit,
+    ParentMetadata,
+    UpdatedArtifactsResponse
 } from "@wso2/ballerina-core";
+import { PanelContainer } from "@wso2/ballerina-side-panel";
+import { ModelConfig } from "../AIChatAgent/ModelConfig";
 
 import {
     addDraftNodeToDiagram,
     convertBalCompletion,
     convertBICategoriesToSidePanelCategories,
     getFlowNodeForNaturalFunction,
-    getInfoFromExpressionValue,
+    calculateExpressionOffsets,
     isNaturalFunction,
     updateLineRange,
 } from "../../../utils/bi";
@@ -70,22 +74,22 @@ const SpinnerContainer = styled.div`
 `;
 
 export interface BIFocusFlowDiagramProps {
-    syntaxTree: STNode; // INFO: this is used to make the diagram rerender when code changes
     projectPath: string;
     filePath: string;
-    view: FocusFlowDiagramView;
     onUpdate: () => void;
-    onReady: (fileName: string) => void;
+    onReady: (fileName: string, parentMetadata?: ParentMetadata) => void;
 }
 
 export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
-    const { syntaxTree, projectPath, filePath, onUpdate, onReady, view } = props;
+    const { projectPath, filePath, onUpdate, onReady } = props;
     const { rpcClient } = useRpcContext();
 
     const [model, setModel] = useState<Flow>();
     const [suggestedModel, setSuggestedModel] = useState<Flow>();
     const [showProgressIndicator, setShowProgressIndicator] = useState(false);
     const [breakpointInfo, setBreakpointInfo] = useState<BreakpointInfo>();
+    const [showModelConfigPanel, setShowModelConfigPanel] = useState(false);
+    const [selectedNodeForModelConfig, setSelectedNodeForModelConfig] = useState<FlowNode | undefined>();
 
     const selectedNodeRef = useRef<FlowNode>();
     const nodeTemplateRef = useRef<FlowNode>();
@@ -105,8 +109,8 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
     const expressionOffsetRef = useRef<number>(0); // To track the expression offset on adding import statements
 
     useEffect(() => {
-        getFlowModel();
-    }, [syntaxTree]);
+        debouncedGetFlowModel();
+    }, []);
 
     useEffect(() => {
         rpcClient.onProjectContentUpdated((state: boolean) => {
@@ -121,6 +125,13 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
         });
     }, [rpcClient]);
 
+    const debouncedGetFlowModel = useCallback(
+        debounce(() => {
+            getFlowModel();
+        }, 1000),
+        [rpcClient]
+    );
+
     const getFlowModel = () => {
         setShowProgressIndicator(true);
         onUpdate();
@@ -133,22 +144,25 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                     .getBIDiagramRpcClient()
                     .getFlowModel()
                     .then(async (model) => {
+                        console.log(">>> focus diagram flow model", model);
                         if (model?.flowModel) {
-                            if (isNaturalFunction(syntaxTree, view)) {
-                                const node = await rpcClient.getBIDiagramRpcClient().getFunctionNode({
-                                    projectPath,
-                                    fileName: filePath,
-                                    functionName: syntaxTree.functionName.value
-                                });
+                            const functionName = (model.flowModel.nodes.find((node) => node.codedata.node === "EVENT_START")?.metadata.data as ParentMetadata).label || "";
+                            const node = await rpcClient.getBIDiagramRpcClient().getFunctionNode({
+                                projectPath,
+                                fileName: filePath,
+                                functionName: functionName
+                            });
 
-                                setSelectedNode(node.functionDefinition);
+                            setSelectedNode(node.functionDefinition);
 
-                                if (node?.functionDefinition) {
-                                    const flowNode = getFlowNodeForNaturalFunction(node.functionDefinition);
-                                    model.flowModel.nodes.push(flowNode);
-                                    setModel(model.flowModel);
-                                    onReady(filePath);
-                                }
+                            if (node?.functionDefinition) {
+                                const flowNode = getFlowNodeForNaturalFunction(node.functionDefinition);
+                                model.flowModel.nodes.push(flowNode);
+                                setModel(model.flowModel);
+                                const parentMetadata = model.flowModel.nodes.find(
+                                    (node) => node.codedata.node === "EVENT_START"
+                                )?.metadata.data as ParentMetadata | undefined;
+                                onReady(model.flowModel.fileName, parentMetadata);
                             }
                         }
                     })
@@ -171,7 +185,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
         if (originalFlowModel.current) {
             // const updatedModel = removeDraftNodeFromDiagram(model);
             // setModel(updatedModel);
-            getFlowModel();
+            debouncedGetFlowModel();
             originalFlowModel.current = undefined;
             setSuggestedModel(undefined);
             suggestedText.current = undefined;
@@ -313,6 +327,41 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
             });
     };
 
+    const updateCurrentArtifactLocation = async (artifacts: UpdatedArtifactsResponse) => {
+        console.log(">>> Updating current artifact location", { artifacts });
+        // Get the updated component and update the location
+        const currentIdentifier = (await rpcClient.getVisualizerLocation()).identifier;
+        // Find the correct artifact by currentIdentifier (id)
+        let currentArtifact = artifacts.artifacts.at(0);
+        artifacts.artifacts.forEach((artifact: any) => {
+            if (artifact.id === currentIdentifier || artifact.name === currentIdentifier) {
+                currentArtifact = artifact;
+            }
+            // Check if artifact has resources and find within those
+            if (artifact.resources && artifact.resources.length > 0) {
+                const resource = artifact.resources.find(
+                    (resource: any) => resource.id === currentIdentifier || resource.name === currentIdentifier
+                );
+                if (resource) {
+                    currentArtifact = resource;
+                }
+            }
+        });
+        
+        if (currentArtifact) {
+            console.log(">>> currentArtifact", currentArtifact);
+            await rpcClient.getVisualizerRpcClient().openView({
+                type: EVENT_TYPE.UPDATE_PROJECT_LOCATION,
+                location: {
+                    documentUri: currentArtifact.path,
+                    position: currentArtifact.position,
+                    identifier: currentIdentifier,
+                },
+            });
+        }
+        debouncedGetFlowModel();
+    };
+
     const handleOnEditNode = (node: FlowNode) => {
         console.log(">>> on edit node", node);
         selectedNodeRef.current = node;
@@ -432,13 +481,13 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                         })
                         .sort((a, b) => a.sortText.localeCompare(b.sortText));
                 } else {
-                    const { lineOffset, charOffset } = getInfoFromExpressionValue(value, offset);
+                    const { lineOffset, charOffset } = calculateExpressionOffsets(value, offset);
                     let completions = await rpcClient.getBIDiagramRpcClient().getExpressionCompletions({
                         filePath: filePath,
                         context: {
                             expression: value,
                             startLine: updateLineRange(
-                                selectedNode.properties['prompt'].codedata.lineRange, 
+                                selectedNode.properties['prompt'].codedata.lineRange,
                                 expressionOffsetRef.current
                             ).startLine,
                             lineOffset: lineOffset,
@@ -518,6 +567,25 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
         handleExpressionEditorCancel();
     };
 
+    const handleOnEditAgentModel = (node: FlowNode) => {
+        console.log(">>> on edit agent model", node);
+        setSelectedNodeForModelConfig(node);
+        setShowModelConfigPanel(true);
+    };
+
+    const handleSaveModelConfigPanel = (response: UpdatedArtifactsResponse) => {
+        setShowModelConfigPanel(false);
+        setSelectedNodeForModelConfig(undefined);
+        if (response) {
+            updateCurrentArtifactLocation(response);
+        }
+    };
+
+    const handleCloseModelConfigPanel = () => {
+        setShowModelConfigPanel(false);
+        setSelectedNodeForModelConfig(undefined);
+    };
+
     const memoizedDiagramProps = useMemo(
         () => ({
             model: flowModel,
@@ -537,7 +605,10 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                 onCompletionItemSelect: handleCompletionItemSelect,
                 onBlur: handleExpressionEditorBlur,
                 onCancel: handleExpressionEditorCancel
-            }
+            },
+            aiNodes: {
+                onModelSelect: handleOnEditAgentModel,
+            },
         }),
         [flowModel, projectPath, breakpointInfo, filteredCompletions]
     );
@@ -557,6 +628,19 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                     {model && <MemoizedDiagram {...memoizedDiagramProps} />}
                 </Container>
             </View>
+
+            {showModelConfigPanel && selectedNodeForModelConfig && (
+                <PanelContainer
+                    title="Configure LLM Model"
+                    show={showModelConfigPanel}
+                    onClose={handleCloseModelConfigPanel}
+                >
+                    <ModelConfig
+                        agentCallNode={selectedNodeForModelConfig}
+                        onSave={handleSaveModelConfigPanel}
+                    />
+                </PanelContainer>
+            )}
         </>
     );
 }

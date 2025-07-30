@@ -17,7 +17,7 @@
  */
 
 import * as vscode from 'vscode';
-import { CancellationToken, DebugConfiguration, ProviderResult, Uri, workspace, WorkspaceFolder } from 'vscode';
+import { CancellationToken, DebugConfiguration, ProviderResult, Uri, window, workspace, WorkspaceFolder } from 'vscode';
 import { MiDebugAdapter } from './debugAdapter';
 import { COMMANDS } from '../constants';
 import { extension } from '../MIExtensionContext';
@@ -69,7 +69,11 @@ export function activateDebugger(context: vscode.ExtensionContext) {
             projectUri = await askForProject();
         }
         const dockerTask = getDockerTask(projectUri);
-        await vscode.tasks.executeTask(dockerTask);
+        if (dockerTask) {
+            await vscode.tasks.executeTask(dockerTask);
+        } else {
+            vscode.window.showErrorMessage('Failed to create Docker task.');
+        }
     });
 
     vscode.commands.registerCommand(COMMANDS.REMOTE_DEPLOY_PROJECT, async (postBuildTask?: Function) => {
@@ -219,14 +223,14 @@ export function activateDebugger(context: vscode.ExtensionContext) {
 
         if (webview && webview?.getProjectUri()) {
             const projectUri = webview.getProjectUri();
-            const projectWorkspace = workspace.getWorkspaceFolder(Uri.parse(projectUri));
+            const projectWorkspace = workspace.getWorkspaceFolder(Uri.file(projectUri));
             const launchJsonPath = path.join(projectUri, '.vscode', 'launch.json');
             const envPath = path.join(projectUri, '.env');
             let config: vscode.DebugConfiguration | undefined = undefined;
 
             if (fs.existsSync(launchJsonPath)) {
                 // Read the configurations from launch.json
-                const configurations = vscode.workspace.getConfiguration('launch', Uri.parse(projectUri));
+                const configurations = vscode.workspace.getConfiguration('launch', Uri.file(projectUri));
                 const allConfigs = configurations.get<vscode.DebugConfiguration[]>('configurations');
 
                 if (allConfigs) {
@@ -321,7 +325,14 @@ export function activateDebugger(context: vscode.ExtensionContext) {
 class InlineDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory {
 
     createDebugAdapterDescriptor(session: vscode.DebugSession): ProviderResult<vscode.DebugAdapterDescriptor> {
-        const workspaceFolder = session.workspaceFolder;
-        return new vscode.DebugAdapterInlineImplementation(new MiDebugAdapter(workspaceFolder?.uri?.fsPath!));
+        const webview = [...webviews.values()].find(webview => webview.getWebview()?.active);
+        const projectUri = webview ? webview.getProjectUri() : vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!projectUri) {
+            const errorMessage = "No project found in the workspace";
+            console.error(errorMessage);
+            window.showErrorMessage(errorMessage);
+            return;
+        }
+        return new vscode.DebugAdapterInlineImplementation(new MiDebugAdapter(projectUri));
     }
 }

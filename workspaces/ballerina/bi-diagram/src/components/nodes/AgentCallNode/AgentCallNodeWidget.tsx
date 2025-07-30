@@ -33,25 +33,17 @@ import {
     NODE_PADDING,
     NODE_WIDTH,
 } from "../../../resources/constants";
-import { Button, Icon, Item, Menu, MenuItem, Popover, ThemeColors, Tooltip } from "@wso2/ui-toolkit";
-import {
-    MoreVertIcon,
-    OpenAiIcon,
-    AzureOpenAiIcon,
-    AnthropicIcon,
-    OllamaIcon,
-    DefaultLlmIcon,
-    MistralAIIcon,
-    DeepseekIcon
-} from "../../../resources/icons";
+import { Button, Icon, Item, Menu, MenuItem, Popover, ThemeColors } from "@wso2/ui-toolkit";
+import { MoreVertIcon } from "../../../resources/icons";
 import { AgentData, FlowNode, ToolData } from "../../../utils/types";
 import NodeIcon from "../../NodeIcon";
-import ConnectorIcon from "../../ConnectorIcon";
+import ConnectorIcon, { getLlmModelIcons } from "../../ConnectorIcon";
 import { useDiagramContext } from "../../DiagramContext";
 import { DiagnosticsPopUp } from "../../DiagnosticsPopUp";
 import { nodeHasError } from "../../../utils/node";
 import { css } from "@emotion/react";
 import { BreakpointMenu } from "../../BreakNodeMenu/BreakNodeMenu";
+import { NodeMetadata } from "@wso2/ballerina-core";
 
 export namespace NodeStyles {
     export const Node = styled.div`
@@ -363,14 +355,26 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     };
 
     const onToolClick = (tool: ToolData) => {
-        console.log(">>> onToolClick", tool);
-        agentNode?.onSelectTool && agentNode.onSelectTool(tool, model.node);
-        setAnchorEl(null);
+        console.log(">>> on Tool Click", tool);
+        const toolType = tool.type ?? "";
+        if (toolType === "MCP Server") {
+            agentNode?.onSelectMcpToolkit && agentNode.onSelectMcpToolkit(tool, model.node);
+            setAnchorEl(null);
+        } else {
+            agentNode?.onSelectTool && agentNode.onSelectTool(tool, model.node);
+            setAnchorEl(null);
+        }
     };
 
     const onAddToolClick = () => {
         console.log(">>> onAddToolClick", model.node);
         agentNode?.onAddTool && agentNode.onAddTool(model.node);
+        setAnchorEl(null);
+    };
+
+    const onAddMcpServerClick = () => {
+        console.log(">>> onAddMcpServerClick", model.node);
+        agentNode?.onAddMcpServer && agentNode.onAddMcpServer(model.node);
         setAnchorEl(null);
     };
 
@@ -479,9 +483,10 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     const disabled = model.node.suggested;
     const nodeTitle = "AI Agent";
     const hasError = nodeHasError(model.node);
-    const tools = model.node.metadata?.data?.tools || [];
-    if (model.node.metadata.data?.agent) {
-        model.node.metadata.data.agent = sanitizeAgentData(model.node.metadata.data.agent);
+    const nodeMetadata = model?.node.metadata.data as NodeMetadata;
+    const tools = nodeMetadata?.tools || [];
+    if (nodeMetadata?.agent) {
+        nodeMetadata.agent = sanitizeAgentData(nodeMetadata.agent);
     }
     let containerHeight =
         NODE_HEIGHT + AGENT_NODE_TOOL_SECTION_GAP + AGENT_NODE_ADD_TOOL_BUTTON_WIDTH + AGENT_NODE_TOOL_GAP * 2;
@@ -557,13 +562,13 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
 
                     <NodeStyles.MemoryContainer>
                         <NodeStyles.Row>
-                            {model.node.metadata?.data.memory ? (
+                            {nodeMetadata?.memory ? (
                                 <NodeStyles.MemoryCard onClick={onMemoryManagerClick}>
                                     <NodeStyles.Row>
                                         <div style={{ flex: 1 }}>
                                             <NodeStyles.MemoryTitle>Memory</NodeStyles.MemoryTitle>
                                             <NodeStyles.MemoryMeta>
-                                                {model.node.metadata.data.memory?.type ||
+                                                {nodeMetadata?.memory?.type ||
                                                     "MessageWindowChatMemory"}
                                             </NodeStyles.MemoryMeta>
                                         </div>
@@ -600,9 +605,9 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                         </Popover>
                     </NodeStyles.MemoryContainer>
 
-                    {model.node.metadata.data?.agent?.role ? (
+                    {nodeMetadata?.agent?.role ? (
                         <NodeStyles.Row onClick={handleOnClick}>
-                            <NodeStyles.Role>{model.node.metadata.data.agent.role}</NodeStyles.Role>
+                            <NodeStyles.Role>{nodeMetadata?.agent?.role}</NodeStyles.Role>
                         </NodeStyles.Row>
                     ) : (
                         <NodeStyles.Row onClick={handleOnClick}>
@@ -610,10 +615,10 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                         </NodeStyles.Row>
                     )}
 
-                    {model.node.metadata.data?.agent?.instructions ? (
+                    {nodeMetadata?.agent?.instructions ? (
                         <NodeStyles.InstructionsRow onClick={handleOnClick}>
                             <NodeStyles.Instructions>
-                                {model.node.metadata.data.agent.instructions}
+                                {nodeMetadata.agent.instructions}
                             </NodeStyles.Instructions>
                         </NodeStyles.InstructionsRow>
                     ) : (
@@ -660,7 +665,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                         fill={ThemeColors.ON_SURFACE}
                         style={{ pointerEvents: "none" }}
                     >
-                        {getLlmModelIcons(model.node.metadata.data.model?.type)}
+                        {getLlmModelIcons(nodeMetadata?.model?.type)}
                     </foreignObject>
                     <line
                         x1="0"
@@ -728,6 +733,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                                         url={tool.path}
                                         style={{ width: 24, height: 24, fontSize: 24 }}
                                         fallbackIcon={<Icon name="bi-function" sx={{ fontSize: "24px" }} />}
+                                        codedata={model.node?.codedata}
                                     />
                                 )}
                                 {!tool.path && <Icon name="bi-function" sx={{ fontSize: "24px" }} />}
@@ -883,7 +889,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                             }
                         `}
                     >
-                        <title>Add new tool</title>
+                        <title>Add new tool / MCP server</title>
                         <path
                             fill={ThemeColors.SURFACE_BRIGHT}
                             d="M12 0C5 0 0 5 0 12s5 12 12 12 12-5 12-12S19 0 12 0z"
@@ -913,7 +919,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                                 font-family: "GilmerRegular";
                             `}
                         >
-                            Add new tool
+                            Add new tool / MCP server
                         </div>
                     </foreignObject>
                 </g>
@@ -979,25 +985,4 @@ function sanitizeAgentData(data: AgentData) {
         data.instructions = data.instructions.replace(/^['"]|['"]$/g, "").replace(/^string `|`$/g, "");
     }
     return data;
-}
-
-// get llm model icons
-// this should replace with CDN icons
-function getLlmModelIcons(modelType: string) {
-    switch (modelType) {
-        case "OpenAiProvider":
-            return <OpenAiIcon />;
-        case "AzureOpenAiProvider":
-            return <AzureOpenAiIcon />;
-        case "AnthropicProvider":
-            return <AnthropicIcon />;
-        case "OllamaProvider":
-            return <OllamaIcon />;
-        case "MistralAiProvider":
-            return <MistralAIIcon />;
-        case "DeepseekProvider":
-            return <DeepseekIcon />;
-        default:
-            return <DefaultLlmIcon />;
-    }
 }

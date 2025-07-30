@@ -409,7 +409,7 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 
 					if (confirmation === 'Yes') {
 						try {
-							await vscode.workspace.fs.delete(Uri.parse(fileUri), { recursive: true, useTrash: true });
+							await vscode.workspace.fs.delete(Uri.file(fileUri.fsPath ?? fileUri), { recursive: true, useTrash: true });
 							window.showInformationMessage(`${item.label} has been deleted.`);
 
 							if (item.contextValue === 'api') {
@@ -459,7 +459,7 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 						return;
 					}
 					file = fileUri.fsPath;
-					const workspace = vscode.workspace.getWorkspaceFolder(Uri.parse(fileUri));
+					const workspace = vscode.workspace.getWorkspaceFolder(Uri.file(fileUri));
 					if (!workspace) {
 						window.showErrorMessage('Cannot find workspace folder');
 						return;
@@ -513,7 +513,7 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 				} else if (item.id) {
 					filePath = item.id;
 				}
-				const workspace = vscode.workspace.getWorkspaceFolder(Uri.parse(filePath));
+				const workspace = vscode.workspace.getWorkspaceFolder(Uri.file(filePath));
 				if (!workspace) {
 					window.showErrorMessage('Cannot find workspace folder');
 					return;
@@ -606,7 +606,7 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 			throw new Error('File path is not available');
 		}
 
-		const workspace = vscode.workspace.getWorkspaceFolder(Uri.parse(filePath));
+		const workspace = vscode.workspace.getWorkspaceFolder(Uri.file(filePath));
 		if (!workspace) {
 			window.showErrorMessage('Cannot find workspace folder');
 			throw new Error('Cannot find workspace folder');

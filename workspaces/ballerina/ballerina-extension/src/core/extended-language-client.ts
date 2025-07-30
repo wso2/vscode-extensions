@@ -167,6 +167,7 @@ import {
     VisualizableFieldsRequest,
     VisualizableFieldsResponse,
     AddArrayElementRequest,
+    ConvertToQueryRequest,
     GetTestFunctionRequest,
     GetTestFunctionResponse,
     AddOrUpdateTestFunctionRequest,
@@ -182,6 +183,8 @@ import {
     FunctionModelRequest,
     FunctionModelResponse,
     TypeDataWithReferences,
+    AiModuleOrgRequest,
+    AiModuleOrgResponse,
     AINodesResponse,
     AIModelsRequest,
     AIToolsRequest,
@@ -217,16 +220,35 @@ import {
     MemoryManagersRequest,
     MemoryManagersResponse,
     ArtifactsNotification,
+    AddClausesRequest,
+    PropertyRequest,
+    PropertyResponse,
     OpenConfigTomlRequest,
     UpdateConfigVariableRequestV2,
-    GetConfigVariableNodeTemplateRequest,
     UpdateConfigVariableResponseV2,
     DeleteConfigVariableRequestV2,
     DeleteConfigVariableResponseV2,
     ResourceReturnTypesRequest,
     ResourceReturnTypesResponse,
     JsonToTypeRequest,
-    JsonToTypeResponse
+    JsonToTypeResponse,
+    McpToolsRequest,
+    McpToolsResponse,
+    CopilotCompactLibrariesResponse,
+    CopilotAllLibrariesRequest,
+    CopilotFilterLibrariesResponse,
+    CopilotFilterLibrariesRequest,
+    GetConfigVariableNodeTemplateRequest,
+    FunctionFromSourceRequest,
+    FunctionFromSourceResponse,
+    GetInlineDataMapperCodedataRequest,
+    GetInlineDataMapperCodedataResponse,
+    GetSubMappingCodedataRequest,
+    AddSubMappingRequest,
+    DeleteMappingRequest,
+    MapWithCustomFnRequest,
+    AIToolResponse,
+    AIToolRequest
 } from "@wso2/ballerina-core";
 import { BallerinaExtension } from "./index";
 import { debug, handlePullModuleProgress } from "../utils";
@@ -291,6 +313,10 @@ enum EXTENDED_APIS {
     BI_DELETE_NODE = 'flowDesignService/deleteFlowNode',
     BI_DELETE_BY_COMPONENT_INFO = 'flowDesignService/deleteComponent',
     BI_AVAILABLE_NODES = 'flowDesignService/getAvailableNodes',
+    BI_AVAILABLE_MODEL_PROVIDERS = 'flowDesignService/getAvailableModelProviders',
+    BI_AVAILABLE_VECTOR_STORES = 'flowDesignService/getAvailableVectorStores',
+    BI_AVAILABLE_EMBEDDING_PROVIDERS = 'flowDesignService/getAvailableEmbeddingProviders',
+    BI_AVAILABLE_VECTOR_KNOWLEDGE_BASES = 'flowDesignService/getAvailableVectorKnowledgeBases',
     BI_NODE_TEMPLATE = 'flowDesignService/getNodeTemplate',
     BI_GEN_OPEN_API = 'flowDesignService/generateServiceFromOpenApiContract',
     BI_MODULE_NODES = 'flowDesignService/getModuleNodes',
@@ -302,6 +328,14 @@ enum EXTENDED_APIS {
     DATA_MAPPER_GET_SOURCE = 'dataMapper/getSource',
     DATA_MAPPER_VISUALIZABLE = 'dataMapper/visualizable',
     DATA_MAPPER_ADD_ELEMENT = 'dataMapper/addElement',
+    DATA_MAPPER_CONVERT_TO_QUERY = 'dataMapper/convertToQuery',
+    DATA_MAPPER_ADD_CLAUSES = 'dataMapper/addClauses',
+    DATA_MAPPER_ADD_SUB_MAPPING = 'dataMapper/addSubMapping',
+    DATA_MAPPER_DELETE_MAPPING = 'dataMapper/deleteMapping',
+    DATA_MAPPER_MAP_WITH_CUSTOM_FN = 'dataMapper/customFunction',
+    DATA_MAPPER_CODEDATA = 'dataMapper/nodePosition',
+    DATA_MAPPER_SUB_MAPPING_CODEDATA = 'dataMapper/subMapping',
+    DATA_MAPPER_PROPERTY = 'dataMapper/fieldPosition',
     VIEW_CONFIG_VARIABLES = 'configEditor/getConfigVariables',
     UPDATE_CONFIG_VARIABLES = 'configEditor/updateConfigVariables',
     VIEW_CONFIG_VARIABLES_V2 = 'configEditorV2/getConfigVariables',
@@ -351,6 +385,7 @@ enum EXTENDED_APIS {
     BI_SERVICE_ADD_FUNCTION = 'serviceDesign/addFunction',
     BI_SERVICE_UPDATE_RESOURCE = 'serviceDesign/updateFunction',
     BI_SERVICE_SERVICE_CLASS_MODEL = 'serviceDesign/getServiceClassModelFromSource',
+    BI_GET_FUNCTION_FROM_SOURCE = 'serviceDesign/getFunctionFromSource',
     BI_UPDATE_CLASS_FIELD = 'serviceDesign/updateClassField',
     BI_ADD_CLASS_FIELD = 'serviceDesign/addField',
     BI_DESIGN_MODEL = 'designModelService/getDesignModel',
@@ -362,11 +397,14 @@ enum EXTENDED_APIS {
     BI_ADD_TEST_FUNCTION = 'testManagerService/addTestFunction',
     BI_UPDATE_TEST_FUNCTION = 'testManagerService/updateTestFunction',
     BI_EDIT_FUNCTION_NODE = 'flowDesignService/functionDefinition',
+    BI_AI_AGENT_ORG = 'agentManager/getAiModuleOrg',
     BI_AI_ALL_AGENTS = 'agentManager/getAllAgents',
     BI_AI_ALL_MODELS = 'agentManager/getAllModels',
     BI_AI_ALL_MEMORY_MANAGERS = 'agentManager/getAllMemoryManagers',
     BI_AI_GET_MODELS = 'agentManager/getModels',
     BI_AI_GET_TOOLS = 'agentManager/getTools',
+    BI_AI_GET_TOOL = 'agentManager/getTool',
+    BI_AI_GET_MCP_TOOLS = 'agentManager/getMcpTools',
     BI_AI_GEN_TOOLS = 'agentManager/genTool',
     BI_IS_ICP_ENABLED = 'icpService/isIcpEnabled',
     BI_ADD_ICP = 'icpService/addICP',
@@ -376,7 +414,9 @@ enum EXTENDED_APIS {
     OPEN_API_GENERATED_MODULES = 'openAPIService/getModules',
     OPEN_API_CLIENT_DELETE = 'openAPIService/deleteModule',
     GET_ARTIFACTS = 'designModelService/artifacts',
-    PUBLISH_ARTIFACTS = 'designModelService/publishArtifacts'
+    PUBLISH_ARTIFACTS = 'designModelService/publishArtifacts',
+    COPILOT_ALL_LIBRARIES = 'copilotLibraryManager/getLibrariesList',
+    COPILOT_FILTER_LIBRARIES = 'copilotLibraryManager/getFilteredLibraries'
 }
 
 enum EXTENDED_APIS_ORG {
@@ -659,7 +699,7 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
         return this.sendRequest<InlineDataMapperModelResponse>(EXTENDED_APIS.DATA_MAPPER_MAPPINGS, params);
     }
 
-    async getInlineDataMapperSource(params: InlineDataMapperSourceRequest): Promise<InlineDataMapperSourceResponse | NOT_SUPPORTED_TYPE> {
+    async getInlineDataMapperSource(params: InlineDataMapperSourceRequest): Promise<InlineDataMapperSourceResponse> {
         return this.sendRequest<InlineDataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_GET_SOURCE, params);
     }
 
@@ -667,8 +707,40 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
         return this.sendRequest<VisualizableFieldsResponse>(EXTENDED_APIS.DATA_MAPPER_VISUALIZABLE, params);
     }
 
-    async addArrayElement(params: AddArrayElementRequest): Promise<InlineDataMapperSourceResponse | NOT_SUPPORTED_TYPE> {
+    async addArrayElement(params: AddArrayElementRequest): Promise<InlineDataMapperSourceResponse> {
         return this.sendRequest<InlineDataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_ADD_ELEMENT, params);
+    }
+
+    async convertToQuery(params: ConvertToQueryRequest): Promise<InlineDataMapperSourceResponse> {
+        return this.sendRequest<InlineDataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_CONVERT_TO_QUERY, params);
+    }
+
+    async addClauses(params: AddClausesRequest): Promise<InlineDataMapperSourceResponse> {
+        return this.sendRequest<InlineDataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_ADD_CLAUSES, params);
+    }
+
+    async addSubMapping(params: AddSubMappingRequest): Promise<InlineDataMapperSourceResponse> {
+        return this.sendRequest<InlineDataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_ADD_SUB_MAPPING, params);
+    }
+
+    async deleteMapping(params: DeleteMappingRequest): Promise<InlineDataMapperSourceResponse> {
+        return this.sendRequest<InlineDataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_DELETE_MAPPING, params);
+    }
+
+    async mapWithCustomFn(params: MapWithCustomFnRequest): Promise<InlineDataMapperSourceResponse> {
+        return this.sendRequest<InlineDataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_MAP_WITH_CUSTOM_FN, params);
+    }
+
+    async getDataMapperCodedata(params: GetInlineDataMapperCodedataRequest): Promise<GetInlineDataMapperCodedataResponse> {
+        return this.sendRequest<GetInlineDataMapperCodedataResponse>(EXTENDED_APIS.DATA_MAPPER_CODEDATA, params);
+    }
+
+    async getSubMappingCodedata(params: GetSubMappingCodedataRequest): Promise<GetInlineDataMapperCodedataResponse> {
+        return this.sendRequest<GetInlineDataMapperCodedataResponse>(EXTENDED_APIS.DATA_MAPPER_SUB_MAPPING_CODEDATA, params);
+    }
+
+    async getProperty(params: PropertyRequest): Promise<PropertyResponse | NOT_SUPPORTED_TYPE> {
+        return this.sendRequest<PropertyResponse>(EXTENDED_APIS.DATA_MAPPER_PROPERTY, params);
     }
 
     async getGraphqlModel(params: GraphqlDesignServiceParams): Promise<GraphqlDesignService | NOT_SUPPORTED_TYPE> {
@@ -866,6 +938,22 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
         return this.sendRequest<BIAvailableNodesResponse>(EXTENDED_APIS.BI_AVAILABLE_NODES, params);
     }
 
+    async getAvailableModelProviders(params: BIAvailableNodesRequest): Promise<BIAvailableNodesResponse> {
+        return this.sendRequest<BIAvailableNodesResponse>(EXTENDED_APIS.BI_AVAILABLE_MODEL_PROVIDERS, params);
+    }
+
+    async getAvailableVectorStores(params: BIAvailableNodesRequest): Promise<BIAvailableNodesResponse> {
+        return this.sendRequest<BIAvailableNodesResponse>(EXTENDED_APIS.BI_AVAILABLE_VECTOR_STORES, params);
+    }
+
+    async getAvailableEmbeddingProviders(params: BIAvailableNodesRequest): Promise<BIAvailableNodesResponse> {
+        return this.sendRequest<BIAvailableNodesResponse>(EXTENDED_APIS.BI_AVAILABLE_EMBEDDING_PROVIDERS, params);
+    }
+
+    async getAvailableVectorKnowledgeBases(params: BIAvailableNodesRequest): Promise<BIAvailableNodesResponse> {
+        return this.sendRequest<BIAvailableNodesResponse>(EXTENDED_APIS.BI_AVAILABLE_VECTOR_KNOWLEDGE_BASES, params);
+    }
+
     async getEnclosedFunctionDef(params: BIGetEnclosedFunctionRequest): Promise<BIGetEnclosedFunctionResponse> {
         return this.sendRequest<BIGetEnclosedFunctionResponse>(EXTENDED_APIS.BI_GET_ENCLOSED_FUNCTION, params);
     }
@@ -1015,6 +1103,10 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
         return this.sendRequest<ServiceClassModelResponse>(EXTENDED_APIS.BI_SERVICE_SERVICE_CLASS_MODEL, params);
     }
 
+    async getFunctionFromSource(params: FunctionFromSourceRequest): Promise<FunctionFromSourceResponse> {
+        return this.sendRequest<FunctionFromSourceResponse>(EXTENDED_APIS.BI_GET_FUNCTION_FROM_SOURCE, params);
+    }
+
     async updateClassField(params: ClassFieldModifierRequest): Promise<SourceEditResponse> {
         return this.sendRequest<SourceEditResponse>(EXTENDED_APIS.BI_UPDATE_CLASS_FIELD, params);
     }
@@ -1095,6 +1187,10 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
         return this.sendRequest<AddImportItemResponse>(EXTENDED_APIS.BI_ADD_FUNCTION, params);
     }
 
+    async getAiModuleOrg(params: AiModuleOrgRequest): Promise<AiModuleOrgResponse> {
+        return this.sendRequest<AiModuleOrgResponse>(EXTENDED_APIS.BI_AI_AGENT_ORG, params);
+    }
+
     async getAllAgents(params: AINodesRequest): Promise<AINodesResponse> {
         return this.sendRequest<AINodesResponse>(EXTENDED_APIS.BI_AI_ALL_AGENTS, params);
     }
@@ -1113,6 +1209,14 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
 
     async getTools(params: AIToolsRequest): Promise<AIToolsResponse> {
         return this.sendRequest<AIToolsResponse>(EXTENDED_APIS.BI_AI_GET_TOOLS, params);
+    }
+
+    async getTool(params: AIToolRequest): Promise<AIToolResponse> {
+        return this.sendRequest<AIToolResponse>(EXTENDED_APIS.BI_AI_GET_TOOL, params);
+    }
+
+    async getMcpTools(params: McpToolsRequest): Promise<McpToolsResponse> {
+        return this.sendRequest<McpToolsResponse>(EXTENDED_APIS.BI_AI_GET_MCP_TOOLS, params);
     }
 
     async genTool(params: AIGentToolsRequest): Promise<AIGentToolsResponse> {
@@ -1134,6 +1238,15 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
     async deleteOpenApiGeneratedModule(params: OpenAPIClientDeleteRequest): Promise<OpenAPIClientDeleteResponse> {
         return this.sendRequest<OpenAPIClientDeleteResponse>(EXTENDED_APIS.OPEN_API_CLIENT_DELETE, params);
     }
+
+    async getCopilotCompactLibraries(params: CopilotAllLibrariesRequest): Promise<CopilotCompactLibrariesResponse> {
+        return this.sendRequest<CopilotCompactLibrariesResponse>(EXTENDED_APIS.COPILOT_ALL_LIBRARIES, params);
+    }
+
+    async getCopilotFilteredLibraries(params: CopilotFilterLibrariesRequest): Promise<CopilotFilterLibrariesResponse> {
+        return this.sendRequest<CopilotFilterLibrariesResponse>(EXTENDED_APIS.COPILOT_FILTER_LIBRARIES, params);
+    }
+
 
     // <------------ BI APIS END --------------->
 

@@ -73,17 +73,28 @@ export type Metadata = {
     icon?: string;
     keywords?: string[];
     draft?: boolean; // for diagram draft nodes
-    data?: {
-        isDataMappedFunction?: boolean;
-        isAgentTool?: boolean;
-        isIsolatedFunction?: boolean;
-        tools?: ToolData[];
-        model?: ToolData;
-        memory?: MemoryData;
-        agent?: AgentData;
-        paramsToHide?: string[]; // List of properties keys to to hide from forms
-    };
+    data?: NodeMetadata | ParentMetadata;
     functionKind?: string;
+};
+
+export type NodeMetadata = {
+    isDataMappedFunction?: boolean;
+    isAgentTool?: boolean;
+    isIsolatedFunction?: boolean;
+    tools?: ToolData[];
+    model?: ToolData;
+    memory?: MemoryData;
+    agent?: AgentData;
+    paramsToHide?: string[]; // List of properties keys to to hide from forms
+    module?: string;
+};
+
+export type ParentMetadata = {
+    kind: string;
+    label: string;
+    accessor?: string;
+    parameters?: string[];
+    return?: string;
 };
 
 export type ToolData = {
@@ -155,6 +166,7 @@ export type CodeData = {
     node?: NodeKind;
     org?: string;
     module?: string;
+    packageName?: string;
     object?: string;
     symbol?: string;
     lineRange?: ELineRange;
@@ -223,6 +235,7 @@ export enum DIRECTORY_MAP {
     FUNCTION = "FUNCTION",
     LISTENER = "LISTENER",
     LOCAL_CONNECTORS = "localConnectors",
+    MODEL_PROVIDER = "MODEL_PROVIDER",
     NP_FUNCTION = "NP_FUNCTION",
     REMOTE = "REMOTE",
     RESOURCE = "RESOURCE",
@@ -302,10 +315,13 @@ export type NodePropertyKey =
     | "enableModelContext"
     | "expression"
     | "functionName"
+    | "functionNameDescription"
+    | "isIsolated"
     | "maxIter"
     | "memory"
     | "method"
     | "model"
+    | "modelProvider"
     | "msg"
     | "parameters"
     | "path"
@@ -320,8 +336,11 @@ export type NodePropertyKey =
     | "targetType"
     | "tools"
     | "type"
+    | "typeDescription"
     | "variable"
     | "verbose"
+    | "vectorStore"
+    | "embeddingModel"
     | "view";
 
 export type BranchKind = "block" | "worker";
@@ -364,6 +383,16 @@ export type NodeKind =
     | "LOCK"
     | "LV_EXPRESSION"
     | "MATCH"
+    | "METHOD_CALL"
+    | "MODEL_PROVIDER"
+    | "MODEL_PROVIDERS"
+    | "VECTOR_STORE"
+    | "VECTOR_STORES"
+    | "VECTOR_KNOWLEDGE_BASE"
+    | "VECTOR_KNOWLEDGE_BASE_CALL"
+    | "VECTOR_KNOWLEDGE_BASES"
+    | "EMBEDDING_PROVIDER"
+    | "EMBEDDING_PROVIDERS"
     | "NEW_CONNECTION"
     | "NEW_DATA"
     | "NP_FUNCTION"
