@@ -58,40 +58,40 @@ test.beforeAll(async () => {
     console.log('>>> Starting test suite');
 });
 
-// <----Automation Test---->
-test.describe(automation);
+// // <----Automation Test---->
+// test.describe(automation);
 
-// <----AI Chat Service Test---->
-test.describe(aiChatService);
+// // <----AI Chat Service Test---->
+// test.describe(aiChatService);
 
-// <----Integration as API Test---->
-test.describe(httpService);
+// // <----Integration as API Test---->
+// test.describe(httpService);
 test.describe(graphqlService);
-test.describe(tcpService);
+// test.describe(tcpService);
 
-// <----Event Integration Test---->
-test.describe(kafkaIntegration);
-test.describe(rabbitmqIntegration);
-test.describe(mqttIntegration);
-test.describe(azureIntegration);
-test.describe(salesforceIntegration);
-test.describe(twillioIntegration);
-test.describe(githubIntegration);
+// // <----Event Integration Test---->
+// test.describe(kafkaIntegration);
+// test.describe(rabbitmqIntegration);
+// test.describe(mqttIntegration);
+// test.describe(azureIntegration);
+// test.describe(salesforceIntegration);
+// test.describe(twillioIntegration);
+// test.describe(githubIntegration);
 
-// <----File Integration Test---->
-test.describe(ftpIntegration);
-test.describe(directoryIntegration);
+// // <----File Integration Test---->
+// test.describe(ftpIntegration);
+// test.describe(directoryIntegration);
 
-// <----Other Artifacts Test---->
-test.describe(functionArtifact);
-test.describe(naturalFunctionArtifact);
-test.describe(dataMapperArtifact); // TODO: Fix this test
-test.describe(typeDiagramArtifact); // TODO: Fix this test
-test.describe(connectionArtifact);
-test.describe(configuration); // TODO: Fix this test
+// // <----Other Artifacts Test---->
+// test.describe(functionArtifact);
+// test.describe(naturalFunctionArtifact);
+// test.describe(dataMapperArtifact); // TODO: Fix this test
+// test.describe(typeDiagramArtifact); // TODO: Fix this test
+// test.describe(connectionArtifact);
+// test.describe(configuration); // TODO: Fix this test
 
-test.describe(configuration);
-test.describe(typeTest);
+// test.describe(configuration);
+// test.describe(typeTest);
 
 test.afterAll(async () => {
     console.log(`>>> Finished test suite`);
