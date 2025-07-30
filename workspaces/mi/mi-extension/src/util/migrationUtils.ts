@@ -146,17 +146,21 @@ const OLD_MULTI_MODULE_PROJECT_NATURES = [
 
 export async function importProjects(params: ImportProjectRequest[]): Promise<ImportProjectResponse[]> {
     const responses: ImportProjectResponse[] = [];
+    const allCreatedFolderUris: Uri[] = [];
     for (const param of params) {
         try {
             const createdFolderPaths = await importProject(param);
-            await handleWorkspaceAfterMigration(param.directory, createdFolderPaths.map(r => Uri.file(r.filePath)));
             for (const folder of createdFolderPaths) {
                 responses.push({ filePath: folder.filePath });
+                allCreatedFolderUris.push(Uri.file(folder.filePath));
             }
         } catch (error) {
             console.error(`Failed to import project from ${param.source}:`, error);
             responses.push({ filePath: '' });
         }
+    }
+    if (allCreatedFolderUris.length > 0) {
+        await handleWorkspaceAfterMigration(params[0].directory, allCreatedFolderUris);
     }
     return responses;
 }
