@@ -56,6 +56,7 @@ import {
     getProjectStructure,
     getReadmeContent,
     getWorkspaces,
+    findOldProjects,
     goBack,
     goHome,
     goSelected,
@@ -118,6 +119,10 @@ export class MiVisualizerRpcClient implements MIVisualizerAPI {
 
     getWorkspaces(): Promise<WorkspacesResponse> {
         return this._messenger.sendRequest(getWorkspaces, HOST_EXTENSION);
+    }
+
+    findOldProjects(): Promise<string[]> {
+        return this._messenger.sendRequest(findOldProjects, HOST_EXTENSION);
     }
 
     getProjectStructure(params: ProjectStructureRequest): Promise<ProjectStructureResponse> {

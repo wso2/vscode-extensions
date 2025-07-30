@@ -43,6 +43,7 @@ import {
     getProjectStructure,
     getReadmeContent,
     getWorkspaces,
+    findOldProjects,
     goBack,
     goHome,
     goSelected,
@@ -97,6 +98,7 @@ import { MiVisualizerRpcManager } from "./rpc-manager";
 export function registerMiVisualizerRpcHandlers(messenger: Messenger, projectUri: string): void {
     const rpcManger = new MiVisualizerRpcManager(projectUri);
     messenger.onRequest(getWorkspaces, () => rpcManger.getWorkspaces());
+    messenger.onRequest(findOldProjects, () => rpcManger.findOldProjects());
     messenger.onRequest(getProjectStructure, (args: ProjectStructureRequest) => rpcManger.getProjectStructure(args));
     messenger.onRequest(getProjectOverview, (args: ProjectStructureRequest) => rpcManger.getProjectOverview(args));
     messenger.onRequest(getCurrentThemeKind, () => rpcManger.getCurrentThemeKind());

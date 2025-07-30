@@ -106,6 +106,55 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
         });
     }
 
+    /**
+     * Recursively searches for directories containing legacy project files (".project" or "pom.xml")
+     * starting from the given project URI. Returns a list of directory paths where such files are found.
+     *
+     * @returns {Promise<string[]>} A promise that resolves to an array of directory paths containing
+     * legacy project files.
+     *
+     * @remarks
+     * - The search is performed synchronously within the helper function, but the main method is asynchronous.
+     * - Only directories containing at least one of the specified project files are included in the result.
+     * - If the provided project URI is a file, its parent directory is used as the starting point.
+     */
+    async findOldProjects(): Promise<string[]> {
+        const foundProjects: string[] = [];
+
+        const checkForProjectFiles = (dir: string) => {
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+            let hasProjectFile = false;
+
+            for (const entry of entries) {
+                if (entry.isFile() && (entry.name === '.project' || entry.name === 'pom.xml')) {
+                    foundProjects.push(dir);
+                    hasProjectFile = true;
+                    break;
+                }
+            }
+
+            if (!hasProjectFile) {
+                for (const entry of entries) {
+                    if (entry.isDirectory()) {
+                        checkForProjectFiles(path.join(dir, entry.name));
+                    }
+                }
+            }
+        };
+
+        if (fs.existsSync(this.projectUri)) {
+            const stat = fs.statSync(this.projectUri);
+            if (stat.isDirectory()) {
+                checkForProjectFiles(this.projectUri);
+            } else {
+                const dir = path.dirname(this.projectUri);
+                checkForProjectFiles(dir);
+            }
+        }
+
+        return foundProjects;
+    }
+
     async getProjectStructure(params: ProjectStructureRequest): Promise<ProjectStructureResponse> {
         return new Promise(async (resolve) => {
             const langClient = getStateMachine(this.projectUri).context().langClient!;
