@@ -47,7 +47,7 @@ export class Welcome {
         await selectBtn?.click();
         await this.page.page.getByRole('button', { name: 'New Window' }).click();
         await this.page.page.getByRole('button', { name: "No, Don't Ask Again" })
-            .click({ timeout: 30000 }).catch(() => {});
+            .click({ timeout: 30000 }).catch(() => { });
     }
 
     public async waitUntilDeattached() {
@@ -66,46 +66,59 @@ export class Welcome {
 
         console.log('Setting up environment');
         const container = webview?.locator('div#root');
-        const javaErrorMessage = container?.locator('div:has-text("Java is not properly setup")');
-        await javaErrorMessage?.waitFor({ timeout: 8000 }).catch(() => { });
-        if (await javaErrorMessage!.count() > 0) {
-            console.log('Java is not setup');
-            const downloadJava = await getVsCodeButton(container!, 'Download Java', 'primary');
-            await downloadJava.click();
+        await container.waitFor();
 
-            // Wait for Java to be downloaded
-            await container?.locator('div:has-text("Java is setup")').first().waitFor({ timeout: 180000 });
-            console.log('Java setup done');
-        }
-        const microIntegratorErrorMessage = container?.locator('div:has-text("WSO2 Integrator: MI is not available")');
-        if (await microIntegratorErrorMessage!.count() > 0) {
-            console.log('WSO2 Integrator: MI is not setup');
-            const checkbox = container?.locator(`vscode-checkbox[aria-label="Download Latest Pack"]`);
-            if (await checkbox?.count() > 0) {
-                const isChecked = await checkbox.isChecked();
-                if (isChecked) {
-                    await checkbox.click();
-                }
+        //  if both Java and MI are not setup, we will download both
+        const downloadJavaAndMi = container.locator(`vscode-button:has-text("Download Java & MI")`);
+        if (await downloadJavaAndMi.count() > 0) {
+            console.log('Downloading Java and WSO2 Integrator: MI');
+            await downloadJavaAndMi.click();
+            // Wait for both Java and MI to be downloaded
+            await container.locator('div:has-text("Java is setup")').first().waitFor({ timeout: 180000 });
+            await container.locator('div:has-text("WSO2 Integrator: MI is setup")').first().waitFor({ timeout: 180000 });
+            console.log('Java and WSO2 Integrator: MI setup done');
+        } else {
+            const javaErrorMessage = container?.locator('div:has-text("Java is not properly setup")');
+            await javaErrorMessage?.waitFor({ timeout: 8000 }).catch(() => { });
+            if (await javaErrorMessage!.count() > 0) {
+                console.log('Java is not setup');
+                const downloadJava = await getVsCodeButton(container!, 'Download Java', 'primary');
+                await downloadJava.click();
+
+                // Wait for Java to be downloaded
+                await container?.locator('div:has-text("Java is setup")').first().waitFor({ timeout: 180000 });
+                console.log('Java setup done');
             }
-            const downloadMI = await getVsCodeButton(container!, 'Download WSO2 Integrator: MI', 'primary');
-            await downloadMI.click();
+            const microIntegratorErrorMessage = container?.locator('div:has-text("WSO2 Integrator: MI is not available")');
+            if (await microIntegratorErrorMessage!.count() > 0) {
+                console.log('WSO2 Integrator: MI is not setup');
+                const checkbox = container?.locator(`vscode-checkbox[aria-label="Download Latest Pack"]`);
+                if (await checkbox?.count() > 0) {
+                    const isChecked = await checkbox.isChecked();
+                    if (isChecked) {
+                        await checkbox.click();
+                    }
+                }
+                const downloadMI = await getVsCodeButton(container!, 'Download WSO2 Integrator: MI', 'primary');
+                await downloadMI.click();
 
-            // Wait for MI to be downloaded
-            await container!.locator('div:has-text("WSO2 Integrator: MI is setup")').first().waitFor({ timeout: 180000 });
-            console.log('WSO2 Integrator: MI setup done');
+                // Wait for MI to be downloaded
+                await container.locator('div:has-text("WSO2 Integrator: MI is setup")').first().waitFor({ timeout: 180000 });
+                console.log('WSO2 Integrator: MI setup done');
+            }
         }
 
         const continueAnywayBtn = await getVsCodeButton(container!, 'Continue Anyway', 'secondary').catch(() => null);
         if (continueAnywayBtn) {
-            await continueAnywayBtn.click({ timeout: 10000 }).catch(() => {});
+            await continueAnywayBtn.click({ timeout: 10000 }).catch(() => { });
         } else {
             const continueBtn = await getVsCodeButton(container!, 'Continue', 'primary').catch(() => null);
             if (continueBtn) {
-                await continueBtn.click({ timeout: 10000 }).catch(() => {});
+                await continueBtn.click({ timeout: 10000 }).catch(() => { });
             }
         }
         await container!.page().getByRole('button', { name: "No, Don't Ask Again" })
-            .click({ timeout: 10000 }).catch(() => {});
+            .click({ timeout: 10000 }).catch(() => { });
         console.log('Environment setup done');
     }
 }
