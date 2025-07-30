@@ -83,24 +83,25 @@ export class GraphQLServiceUtils {
         const { fieldName, fieldType } = params;
 
         const fieldNameBox = this.webView.getByRole('textbox', { name: fieldName.label });
-        await fieldNameBox.waitFor({ state: 'visible', timeout: 10000 });
+        await this.waitForElement(fieldNameBox);
         await fieldNameBox.fill(fieldName.value);
 
         const fieldTypeBox = this.webView.getByRole('textbox', { name: fieldType.label });
-        await fieldTypeBox.waitFor({ state: 'visible', timeout: 10000 });
+        await this.waitForElement(fieldTypeBox);
         await fieldTypeBox.fill(fieldType.value);
 
         // Wait a short moment to allow UI to register the value
         await this.page.waitForTimeout(10000);
         const fieldDefaultCompletion = this.webView.getByTestId('add-type-completion');
-        await fieldDefaultCompletion.waitFor({ state: 'visible', timeout: 10000 });
+        await this.waitForElement(fieldDefaultCompletion);
 
+        // TODO: https://github.com/wso2/product-ballerina-integrator/issues/917
         if (await fieldDefaultCompletion.isVisible()) {
             await fieldTypeBox.press('Escape');
         }
 
         const saveBtn = this.webView.getByRole('button', { name: 'Save' });
-        await saveBtn.waitFor({ state: 'visible', timeout: 10000 });
+        await this.waitForElement(saveBtn);
         await saveBtn.click();
         await this.page.waitForTimeout(2000);
         await this.page.waitForLoadState('domcontentloaded');  
@@ -108,7 +109,7 @@ export class GraphQLServiceUtils {
 
     async clickButtonByTestId(testId: string) {
         const button = this.webView.getByTestId(testId);
-        await button.waitFor({ state: 'visible', timeout: 10000 });
+        await this.waitForElement(button);
         await button.click();
     }
 

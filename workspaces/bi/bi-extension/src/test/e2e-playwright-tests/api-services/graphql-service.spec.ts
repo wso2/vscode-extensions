@@ -21,8 +21,6 @@ import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../ProjectExplorer';
 import { TEST_DATA, GraphQLServiceUtils} from './graphqlUtils';
 import { TypeEditorUtils } from '../type/TypeEditorUtils';
-import { t } from 'xstate';
-
 
 export default function createTests() {
     test.describe('GraphQL Service Tests', {
@@ -89,7 +87,7 @@ export default function createTests() {
 
             // Check if the type diagram canvas is visible
             const typeDiagram = artifactWebView.locator('[data-testid="type-diagram"]');
-            await typeDiagram.waitFor({ state: 'visible', timeout: 30000 });
+            await typeEditorUtils.waitForElement(typeDiagram);
 
             // Check if the service name is visible
             const context = artifactWebView.locator(`text=${sampleName}`).first();
@@ -122,6 +120,8 @@ export default function createTests() {
             const outputName = TEST_DATA.mutation[1].outputType;
             await typeEditorUtils.verifyTypeLink(TEST_DATA.editedBasePath(testAttempt), TEST_DATA.mutation[1].name, outputName);
             await typeEditorUtils.verifyTypeNodeExists(outputName);
+            // TODO: Verify the argument type node exists
+            // await typeEditorUtils.verifyTypeNodeExists(TEST_DATA.mutation[1].arguments[1].name);
 
             await artifactWebView.getByTestId(`type-node-${outputName}`).getByText(`${outputName}`).click();
             await artifactWebView.getByTestId('side-panel').getByText('function1').click();
@@ -140,7 +140,7 @@ export default function createTests() {
             
             // Fill mutation name
             const mutationNameInput = artifactWebView.getByRole('textbox', { name: 'Mutation Name*The name of the mutation' });
-            await mutationNameInput.waitFor({ state: 'visible', timeout: 10000 });
+            await typeEditorUtils.waitForElement(mutationNameInput);
             await mutationNameInput.fill(TEST_DATA.mutation[0].editedName);
             await artifactWebView.getByRole('button', { name: 'Save' }).click();
 
