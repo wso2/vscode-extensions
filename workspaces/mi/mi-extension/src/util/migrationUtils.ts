@@ -139,6 +139,11 @@ const SYNAPSE_TO_MI_ARTIFACT_FOLDER_MAP: Record<string, string> = {
     'templates': 'templates'
 };
 
+const OLD_MULTI_MODULE_PROJECT_NATURES = [
+    'org.wso2.developerstudio.eclipse.mavenmultimodule.project.nature',
+    'org.eclipse.m2e.core.maven2Nature'
+];
+
 export async function importProjects(params: ImportProjectRequest[]): Promise<ImportProjectResponse[]> {
     const responses: ImportProjectResponse[] = [];
     for (const param of params) {
@@ -1657,6 +1662,72 @@ function findProjectNature(node: any): string | undefined {
     }
 
     return undefined;
+}
+
+/**
+ * Checks if the specified project file contains any of the old multi-module project natures.
+ *
+ * @param filePath - The path to the project file to check.
+ * @returns A promise that resolves to `true` if the file contains any of the old multi-module project natures, otherwise `false`.
+ */
+export async function containsMultiModuelNatureInProjectFile(filePath: string): Promise<boolean> {
+    if (!fs.existsSync(filePath)) return false;
+    const content = await fs.promises.readFile(filePath, 'utf-8');
+    return OLD_MULTI_MODULE_PROJECT_NATURES.some(nature => content.includes(`<nature>${nature}</nature>`));
+}
+
+/**
+ * Checks if the given POM file contains a multi-module project nature.
+ *
+ * Reads the specified POM file, extracts its project nature, and determines
+ * whether it matches any of the known old multi-module project natures.
+ *
+ * @param filePath - The absolute path to the POM file to check.
+ * @returns A promise that resolves to `true` if the POM file contains a multi-module nature, or `false` otherwise.
+ */
+export async function containsMultiModuleNatureInPomFile(filePath: string): Promise<boolean> {
+    if (!fs.existsSync(filePath)) return false;
+    const pomContent = await fs.promises.readFile(filePath, 'utf-8');
+    const projectNature = await extractNatureFromPomContent(pomContent);
+    return OLD_MULTI_MODULE_PROJECT_NATURES.includes(projectNature ?? '');
+}
+
+/**
+ * Recursively searches the given workspace directory for subdirectories that represent multi-module projects.
+ * A multi-module project is identified by either:
+ * - A `.project` file containing multi-module nature, or
+ * - A `pom.xml` file containing multi-module nature.
+ *
+ * @param workspaceDir - The root directory of the workspace to search within.
+ * @returns A promise that resolves to an array of absolute paths to directories identified as multi-module projects.
+ */
+export async function findMultiModuleProjectsInWorkspaceDir(workspaceDir: string): Promise<string[]> {
+    const foundProjects: string[] = [];
+
+    async function checkSubDirsRecursively(dir: string) {
+        const dirs = fs.readdirSync(dir, { withFileTypes: true });
+        for (const dirent of dirs) {
+            if (dirent.isDirectory()) {
+                const subDir = path.join(dir, dirent.name);
+                const subProjectFile = path.join(subDir, '.project');
+                const subPomFile = path.join(subDir, 'pom.xml');
+                if (fs.existsSync(subProjectFile)) {
+                    if (await containsMultiModuelNatureInProjectFile(subProjectFile)) {
+                        foundProjects.push(subDir);
+                    }
+                } else if (fs.existsSync(subPomFile)) {
+                    if (await containsMultiModuleNatureInPomFile(subPomFile)) {
+                        foundProjects.push(subDir);
+                    }
+                } else {
+                    checkSubDirsRecursively(subDir);
+                }
+            }
+        }
+    }
+
+    await checkSubDirsRecursively(workspaceDir);
+    return foundProjects;
 }
 
 /**
