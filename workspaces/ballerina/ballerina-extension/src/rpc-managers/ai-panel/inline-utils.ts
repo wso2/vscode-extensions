@@ -410,8 +410,13 @@ export async function getInlineParamDefinitions(
 }
 
 async function sendInlineDatamapperRequest(inlineDataMapperResponse: InlineDataMapperModelResponse | ErrorCode): Promise<DatamapperResponse> {
-    const response: DatamapperResponse = await generateInlineAutoMappings(inlineDataMapperResponse as InlineDataMapperModelResponse);
-    return response;
+     try {
+        const response: DatamapperResponse = await generateInlineAutoMappings(inlineDataMapperResponse as InlineDataMapperModelResponse);
+        return response;
+    } catch (error) {
+        console.error(`Error in sendInlineDatamapperRequest: ${error}`);
+        throw error; 
+    }
 }
 
 async function getInlineDatamapperCode(inlineDataMapperResponse: InlineDataMapperModelResponse | ErrorCode, parameterDefinitions: ParameterMetadata | ErrorCode): Promise<object | ErrorCode> {
@@ -432,7 +437,7 @@ async function getInlineDatamapperCode(inlineDataMapperResponse: InlineDataMappe
         return finalCode;
     } catch (error) {
         console.error(error);
-        return TIMEOUT;
+        throw error; 
     }
 }
 
@@ -442,24 +447,29 @@ export async function processInlineMappings(
 ): Promise<MappingElement | ErrorCode> {
     let inlineDataMapperResponse = cleanInlineDataMapperModelResponse(request) as InlineDataMapperModelResponse;
 
-    let result = await getInlineParamDefinitions(inlineDataMapperResponse);
-    if (isErrorCode(result)) {
-        return result as ErrorCode;
-    }
-    let parameterDefinitions = (result as ParameterDefinitions).parameterMetadata;
-    if (file) {
-        let mappedResult = await mappingFileInlineDataMapperModel(file, inlineDataMapperResponse);
-        if (isErrorCode(mappedResult)) {
-            return mappedResult as ErrorCode;
+    try {
+        let result = await getInlineParamDefinitions(inlineDataMapperResponse);
+        if (isErrorCode(result)) {
+            return result as ErrorCode;
         }
-        inlineDataMapperResponse = mappedResult as InlineDataMapperModelResponse;
-    }
+        let parameterDefinitions = (result as ParameterDefinitions).parameterMetadata;
+        if (file) {
+            let mappedResult = await mappingFileInlineDataMapperModel(file, inlineDataMapperResponse);
+            if (isErrorCode(mappedResult)) {
+                return mappedResult as ErrorCode;
+            }
+            inlineDataMapperResponse = mappedResult as InlineDataMapperModelResponse;
+        }
 
-    const codeObject = await getInlineDatamapperCode(inlineDataMapperResponse, parameterDefinitions);
-    if (isErrorCode(codeObject) || Object.keys(codeObject).length === 0) {
-        return codeObject as ErrorCode;
-    }
+        const codeObject = await getInlineDatamapperCode(inlineDataMapperResponse, parameterDefinitions);
+        if (isErrorCode(codeObject) || Object.keys(codeObject).length === 0) {
+            return codeObject as ErrorCode;
+        }
 
-    const mappings: Mapping[] = transformCodeObjectToMappings(codeObject, inlineDataMapperResponse);
-    return { mappings };
+        const mappings: Mapping[] = transformCodeObjectToMappings(codeObject, inlineDataMapperResponse);
+        return { mappings };
+    } catch (error) {
+        console.error(error);
+        throw error; 
+    }
 }
