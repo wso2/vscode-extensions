@@ -54,6 +54,7 @@ import {
     convertModelProviderCategoriesToSidePanelCategories,
     convertVectorStoreCategoriesToSidePanelCategories,
     convertEmbeddingProviderCategoriesToSidePanelCategories,
+    convertVectorKnowledgeBaseCategoriesToSidePanelCategories,
 } from "../../../utils/bi";
 import { NodePosition, STNode } from "@wso2/syntax-tree";
 import { View, ProgressRing, ProgressIndicator, ThemeColors } from "@wso2/ui-toolkit";
@@ -69,7 +70,7 @@ import {
     removeAgentNode,
     removeToolFromAgentNode,
 } from "../AIChatAgent/utils";
-import { PROVIDER_NAME_MAP } from "../../../constants";
+import { GET_DEFAULT_MODEL_PROVIDER } from "../../../constants";
 
 const Container = styled.div`
     width: 100%;
@@ -115,6 +116,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const [updatedExpressionField, setUpdatedExpressionField] = useState<any>(undefined);
     const [breakpointInfo, setBreakpointInfo] = useState<BreakpointInfo>();
     const [selectedMcpToolkitName, setSelectedMcpToolkitName] = useState<string | undefined>(undefined);
+    const [forceUpdate, setForceUpdate] = useState(0);
 
     // Navigation stack for back navigation
     const [navigationStack, setNavigationStack] = useState<NavigationStackItem[]>([]);
@@ -245,12 +247,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                     filePath: model?.fileName,
                 });
                 console.log(">>> Refreshed model provider list", response);
-                setCategories(
-                    convertFunctionCategoriesToSidePanelCategories(
-                        response.categories as Category[],
-                        FUNCTION_TYPE.REGULAR
-                    )
-                );
+                setCategories(convertModelProviderCategoriesToSidePanelCategories(response.categories as Category[]));
                 setSidePanelView(SidePanelView.MODEL_PROVIDER_LIST);
                 setShowSidePanel(true);
             } catch (error) {
@@ -279,10 +276,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 });
                 console.log(">>> Refreshed vector store list", response);
                 setCategories(
-                    convertFunctionCategoriesToSidePanelCategories(
-                        response.categories as Category[],
-                        FUNCTION_TYPE.REGULAR
-                    )
+                    convertVectorStoreCategoriesToSidePanelCategories(response.categories as Category[])
                 );
                 setSidePanelView(SidePanelView.VECTOR_STORE_LIST);
                 setShowSidePanel(true);
@@ -312,10 +306,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 });
                 console.log(">>> Refreshed embedding provider list", response);
                 setCategories(
-                    convertFunctionCategoriesToSidePanelCategories(
-                        response.categories as Category[],
-                        FUNCTION_TYPE.REGULAR
-                    )
+                    convertEmbeddingProviderCategoriesToSidePanelCategories(response.categories as Category[])
                 );
                 setSidePanelView(SidePanelView.EMBEDDING_PROVIDER_LIST);
                 setShowSidePanel(true);
@@ -444,6 +435,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             if (matchingNode && matchingNode.id !== selectedNodeRef.current.id) {
                 selectedNodeRef.current = matchingNode;
                 targetRef.current = matchingNode.codedata.lineRange;
+                setForceUpdate(prev => prev + 1);
             }
         }
     }, [model]);
@@ -633,11 +625,11 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             filePath: model.fileName,
             queryMap: searchText.trim()
                 ? {
-                      q: searchText,
-                      limit: 12,
-                      offset: 0,
-                      includeAvailableFunctions: "true",
-                  }
+                    q: searchText,
+                    limit: 12,
+                    offset: 0,
+                    includeAvailableFunctions: "true",
+                }
                 : undefined,
             searchKind,
         };
@@ -712,10 +704,10 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         // await handleSearch(searchText, functionType, "VECTOR_KNOWLEDGE_BASE");
     };
 
-    const updateCurrentArtifactLocation = async (artifacts: UpdatedArtifactsResponse, identifier?: string) => {
-        console.log(">>> Updating current artifact location", { artifacts, identifier });
+    const updateCurrentArtifactLocation = async (artifacts: UpdatedArtifactsResponse) => {
+        console.log(">>> Updating current artifact location", { artifacts });
         // Get the updated component and update the location
-        const currentIdentifier = identifier || (await rpcClient.getVisualizerLocation()).identifier;
+        const currentIdentifier = (await rpcClient.getVisualizerLocation()).identifier;
         // Find the correct artifact by currentIdentifier (id)
         let currentArtifact = artifacts.artifacts.at(0);
         artifacts.artifacts.forEach((artifact) => {
@@ -734,22 +726,22 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         });
         if (currentArtifact) {
             console.log(">>> currentArtifact", currentArtifact);
-            if (identifier && isCreatingNewModelProvider.current) {
+            if (isCreatingNewModelProvider.current) {
                 isCreatingNewModelProvider.current = false;
                 await handleModelProviderAdded();
                 return;
             }
-            if (identifier && isCreatingNewVectorStore.current) {
+            if (isCreatingNewVectorStore.current) {
                 isCreatingNewVectorStore.current = false;
                 await handleVectorStoreAdded();
                 return;
             }
-            if (identifier && isCreatingNewEmbeddingProvider.current) {
+            if (isCreatingNewEmbeddingProvider.current) {
                 isCreatingNewEmbeddingProvider.current = false;
                 await handleEmbeddingProviderAdded();
                 return;
             }
-            if (identifier && isCreatingNewVectorKnowledgeBase.current) {
+            if (isCreatingNewVectorKnowledgeBase.current) {
                 isCreatingNewVectorKnowledgeBase.current = false;
                 await handleVectorKnowledgeBaseAdded();
                 return;
@@ -1034,9 +1026,12 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             .then(async (response) => {
                 console.log(">>> Updated source code", response);
                 if (response.artifacts.length > 0) {
+                    // If the selected model is the default WSO2 model provider, configure it
+                    if (updatedNode?.codedata?.symbol === GET_DEFAULT_MODEL_PROVIDER) {
+                        await rpcClient.getAIAgentRpcClient().configureDefaultModelProvider();
+                    }
                     selectedNodeRef.current = undefined;
-                    const identifier = (updatedNode.properties?.variable?.value || "") as string;
-                    await updateCurrentArtifactLocation(response, identifier);
+                    await updateCurrentArtifactLocation(response);
                 } else {
                     console.error(">>> Error updating source code", response);
                 }

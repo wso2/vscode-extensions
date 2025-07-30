@@ -49,7 +49,7 @@ module.exports = {
           pkg.dependencies['xmldom'] = 'npm:@xmldom/xmldom@^0.8.10';
         }
         if (pkg.dependencies['@eslint/plugin-kit']) {
-          pkg.dependencies['@eslint/plugin-kit'] = '^0.3.3';
+          pkg.dependencies['@eslint/plugin-kit'] = '^0.3.4';
         }
         if (pkg.dependencies['on-headers']) {
           pkg.dependencies['on-headers'] = '^1.1.0';
@@ -89,7 +89,7 @@ module.exports = {
           pkg.devDependencies['xmldom'] = 'npm:@xmldom/xmldom@^0.8.10';
         }
         if (pkg.devDependencies['@eslint/plugin-kit']) {
-          pkg.devDependencies['@eslint/plugin-kit'] = '^0.3.3';
+          pkg.devDependencies['@eslint/plugin-kit'] = '^0.3.4';
         }
         if (pkg.devDependencies['on-headers']) {
           pkg.devDependencies['on-headers'] = '^1.1.0';
