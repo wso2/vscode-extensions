@@ -240,7 +240,7 @@ export class API {
         console.log("Clicked on open project overview");
         const vscodeButton = webview.locator('vscode-button > svg').nth(1);
         await vscodeButton.waitFor();
-        // 2ms wait to avoid the intermittent issue of the button not being clickable
+        // 2s wait (2000ms) to avoid the intermittent issue of the button not being clickable
         console.log("Waiting for 2s before clicking on delete API button");
         await page.page.waitForTimeout(2000);
         await vscodeButton.click({force: true});
