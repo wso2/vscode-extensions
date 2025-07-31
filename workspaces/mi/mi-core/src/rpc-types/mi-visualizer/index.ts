@@ -57,7 +57,9 @@ import {
 import { GettingStartedData, SampleDownloadRequest } from "./types";
 
 export interface MIVisualizerAPI {
+    getProjectUri: () => Promise<string>;
     getWorkspaces: () => Promise<WorkspacesResponse>;
+    findOldProjects: () => Promise<string[]>;
     getProjectStructure: (params: ProjectStructureRequest) => Promise<ProjectStructureResponse>;
     getProjectOverview: (params: ProjectStructureRequest) => Promise<ProjectOverviewResponse>;
     getCurrentThemeKind: () => Promise<ColorThemeKind>;
