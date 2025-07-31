@@ -22,6 +22,7 @@ import { Position } from 'vscode-languageserver-types';
 import { HelperPaneCompletionItem } from '@wso2/mi-core';
 import { COMPLETION_ITEM_KIND, getIcon, HelperPane } from '@wso2/ui-toolkit';
 import { filterHelperPaneCompletionItems, getHelperPaneCompletionItem } from '../FormExpressionField/utils';
+import { createHelperPaneRequestBody } from '../utils';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { PAGE, Page } from './index';
 
@@ -30,13 +31,15 @@ type PropertiesPageProps = {
     setCurrentPage: (page: Page) => void;
     onClose: () => void;
     onChange: (value: string) => void;
+    artifactPath?: string;
 };
 
 export const PropertiesPage = ({
     position,
     setCurrentPage,
     onClose,
-    onChange
+    onChange,
+    artifactPath
 }: PropertiesPageProps) => {
     const { rpcClient } = useVisualizerContext();
     const firstRender = useRef<boolean>(true);
@@ -49,12 +52,11 @@ export const PropertiesPage = ({
         setIsLoading(true);
         setTimeout(() => {
             rpcClient.getVisualizerState().then((machineView) => {
+                const requestBody = createHelperPaneRequestBody(machineView, position, artifactPath);
+                
                 rpcClient
                     .getMiDiagramRpcClient()
-                    .getHelperPaneInfo({
-                        documentUri: machineView.documentUri,
-                        position: position,
-                    })
+                    .getHelperPaneInfo(requestBody)
                     .then((response) => {
                         if (response.properties?.length) {
                             setPropertiesInfo(response.properties);

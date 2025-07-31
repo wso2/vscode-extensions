@@ -803,7 +803,8 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
             setShowAddTestCase(false);
         };
         const availableTestCases = testCases.map((testCase) => testCase.name);
-        return <TestCaseForm onGoBack={goBack} onSubmit={onSubmit} testCase={currentTestCase} availableTestCases={availableTestCases} testSuiteType={getValues('artifactType') as TestSuiteType} />
+        const artifactType = getValues('artifactType') as TestSuiteType;
+        return <TestCaseForm onGoBack={goBack} onSubmit={onSubmit} filePath={path.join(projectUri, getValues('artifact'))} testCase={currentTestCase} availableTestCases={availableTestCases} testSuiteType={artifactType} />
     }
 
     if (showAddMockService) {
