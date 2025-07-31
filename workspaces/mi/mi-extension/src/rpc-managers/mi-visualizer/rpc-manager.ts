@@ -89,6 +89,7 @@ const fs = require('fs');
 import { TextEdit } from "vscode-languageclient";
 import { downloadJavaFromMI, downloadMI, getProjectSetupDetails, getSupportedMIVersionsHigherThan, setPathsInWorkSpace, updateRuntimeVersionsInPom, getMIVersionFromPom } from '../../util/onboardingUtils';
 import { extractCAppDependenciesAsProjects } from "../../visualizer/activate";
+import { findMultiModuleProjectsInWorkspaceDir } from "../../util/migrationUtils";
 
 Mustache.escape = escapeXml;
 export class MiVisualizerRpcManager implements MIVisualizerAPI {
@@ -107,52 +108,15 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     }
 
     /**
-     * Recursively searches for directories containing legacy project files (".project" or "pom.xml")
-     * starting from the given project URI. Returns a list of directory paths where such files are found.
+     * Searches for and retrieves a list of old multi-module project paths within the current workspace directory.
      *
-     * @returns {Promise<string[]>} A promise that resolves to an array of directory paths containing
-     * legacy project files.
-     *
-     * @remarks
-     * - The search is performed synchronously within the helper function, but the main method is asynchronous.
-     * - Only directories containing at least one of the specified project files are included in the result.
-     * - If the provided project URI is a file, its parent directory is used as the starting point.
+     * @returns {Promise<string[]>} A promise that resolves to an array of strings, each representing the path to a found project.
      */
     async findOldProjects(): Promise<string[]> {
-        const foundProjects: string[] = [];
-
-        const checkForProjectFiles = (dir: string) => {
-            const entries = fs.readdirSync(dir, { withFileTypes: true });
-            let hasProjectFile = false;
-
-            for (const entry of entries) {
-                if (entry.isFile() && (entry.name === '.project' || entry.name === 'pom.xml')) {
-                    foundProjects.push(dir);
-                    hasProjectFile = true;
-                    break;
-                }
-            }
-
-            if (!hasProjectFile) {
-                for (const entry of entries) {
-                    if (entry.isDirectory()) {
-                        checkForProjectFiles(path.join(dir, entry.name));
-                    }
-                }
-            }
-        };
-
-        if (fs.existsSync(this.projectUri)) {
-            const stat = fs.statSync(this.projectUri);
-            if (stat.isDirectory()) {
-                checkForProjectFiles(this.projectUri);
-            } else {
-                const dir = path.dirname(this.projectUri);
-                checkForProjectFiles(dir);
-            }
-        }
-
-        return foundProjects;
+        return new Promise(async (resolve) => {
+            const foundProjects = await findMultiModuleProjectsInWorkspaceDir(this.projectUri);
+            resolve(foundProjects);
+        });
     }
 
     async getProjectStructure(params: ProjectStructureRequest): Promise<ProjectStructureResponse> {
