@@ -1712,6 +1712,9 @@ export async function findMultiModuleProjectsInWorkspaceDir(workspaceDir: string
         const dirs = fs.readdirSync(dir, { withFileTypes: true });
         for (const dirent of dirs) {
             if (dirent.isDirectory()) {
+                if (dirent.name === '.backup') {
+                    continue; // Skip .backup directories
+                }
                 const subDir = path.join(dir, dirent.name);
                 const subProjectFile = path.join(subDir, '.project');
                 const subPomFile = path.join(subDir, 'pom.xml');
