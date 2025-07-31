@@ -1697,43 +1697,46 @@ export async function containsMultiModuleNatureInPomFile(filePath: string): Prom
 }
 
 /**
- * Recursively searches the given workspace directory for subdirectories that represent multi-module projects.
+ * Recursively searches the given workspace directory for multi-module projects.
+ * 
  * A multi-module project is identified by either:
- * - A `.project` file containing multi-module nature, or
- * - A `pom.xml` file containing multi-module nature.
- *
- * @param workspaceDir - The root directory of the workspace to search within.
- * @returns A promise that resolves to an array of absolute paths to directories identified as multi-module projects.
+ * - A `.project` file containing multi-module nature
+ * - A `pom.xml` file containing multi-module nature
+ * 
+ * Directories named `.backup` are skipped.
+ * 
+ * @param workspaceDir - The root directory of the workspace to search.
+ * @returns A promise that resolves to an array of directory paths containing multi-module projects.
  */
 export async function findMultiModuleProjectsInWorkspaceDir(workspaceDir: string): Promise<string[]> {
     const foundProjects: string[] = [];
 
-    async function checkSubDirsRecursively(dir: string) {
-        const dirs = fs.readdirSync(dir, { withFileTypes: true });
-        for (const dirent of dirs) {
-            if (dirent.isDirectory()) {
-                if (dirent.name === '.backup') {
-                    continue; // Skip .backup directories
-                }
-                const subDir = path.join(dir, dirent.name);
-                const subProjectFile = path.join(subDir, '.project');
-                const subPomFile = path.join(subDir, 'pom.xml');
-                if (fs.existsSync(subProjectFile)) {
-                    if (await containsMultiModuelNatureInProjectFile(subProjectFile)) {
-                        foundProjects.push(subDir);
-                    }
-                } else if (fs.existsSync(subPomFile)) {
-                    if (await containsMultiModuleNatureInPomFile(subPomFile)) {
-                        foundProjects.push(subDir);
-                    }
-                } else {
-                    checkSubDirsRecursively(subDir);
+    async function checkDir(dir: string) {
+        if (path.basename(dir) === '.backup') {
+            return; // Skip .backup directories
+        }
+        const projectFile = path.join(dir, '.project');
+        const pomFile = path.join(dir, 'pom.xml');
+        if (fs.existsSync(projectFile)) {
+            if (await containsMultiModuelNatureInProjectFile(projectFile)) {
+                foundProjects.push(dir);
+            }
+        } else if (fs.existsSync(pomFile)) {
+            if (await containsMultiModuleNatureInPomFile(pomFile)) {
+                foundProjects.push(dir);
+            }
+        } else {
+            // Recurse into subdirectories
+            const dirs = fs.readdirSync(dir, { withFileTypes: true });
+            for (const dirent of dirs) {
+                if (dirent.isDirectory()) {
+                    await checkDir(path.join(dir, dirent.name));
                 }
             }
         }
     }
 
-    await checkSubDirsRecursively(workspaceDir);
+    await checkDir(workspaceDir);
     return foundProjects;
 }
 
