@@ -95,6 +95,12 @@ Mustache.escape = escapeXml;
 export class MiVisualizerRpcManager implements MIVisualizerAPI {
     constructor(private projectUri: string) { }
 
+    async getProjectUri(): Promise<string> {
+        return new Promise((resolve) => {
+            resolve(this.projectUri);
+        });
+    }
+
     async getWorkspaces(): Promise<WorkspacesResponse> {
         return new Promise(async (resolve) => {
             const workspaces = workspace.workspaceFolders;
