@@ -461,35 +461,26 @@ export async function migrateConfigs(
 }
 
 /**
- * Handles post-migration workspace actions based on the number of created project folders.
+ * Handles workspace updates after a migration process by opening new folders or updating the workspace configuration.
  *
- * - If the number of created projects is within the allowed limit, it either opens the single project in a new window
- *   or updates the current workspace with the new folders.
- * - If the number exceeds the limit, it shows a warning message and prompts the user to open the projects manually.
+ * - If there is only one folder in workspace or none, and exactly one new folder was created, it opens that folder in a new window and closes the current one.
+ * - If multiple folders were created or the workspace already contains multiple folders, it updates the workspace with the new folders.
  *
  * @param projectUri - The URI of the original project being migrated.
- * @param createdFolderUris - An array of URIs representing the newly created project folders.
- * @returns A promise that resolves when the workspace actions are complete.
+ * @param createdFolderUris - An array of URIs representing the folders created during migration.
+ * @returns A promise that resolves when the workspace has been updated accordingly.
  */
 async function handleWorkspaceAfterMigration(projectUri: string, createdFolderUris: Uri[]) {
     const createdProjectCount = createdFolderUris.length;
-    if (createdProjectCount <= MAX_PROJECTS_TO_OPEN) {
-        if (!workspace.workspaceFolders || workspace.workspaceFolders.length <= 1) {
-            if (createdProjectCount === 1) {
-                await commands.executeCommand('vscode.openFolder', createdFolderUris[0], true);
-                await commands.executeCommand('workbench.action.closeWindow');
-            } else {
-                await updateWorkspaceWithNewFolders(projectUri, createdFolderUris);
-            }
+    if (!workspace.workspaceFolders || workspace.workspaceFolders.length <= 1) {
+        if (createdProjectCount === 1) {
+            await commands.executeCommand('vscode.openFolder', createdFolderUris[0], true);
+            await commands.executeCommand('workbench.action.closeWindow');
         } else {
             await updateWorkspaceWithNewFolders(projectUri, createdFolderUris);
         }
     } else {
-        await window.showWarningMessage(
-            `Processed ${createdProjectCount} composite exporters and generated the relevant integration projects. Please open them from the file explorer.`,
-            { modal: true }
-        );
-        commands.executeCommand('workbench.view.explorer');
+        await updateWorkspaceWithNewFolders(projectUri, createdFolderUris);
     }
 }
 
