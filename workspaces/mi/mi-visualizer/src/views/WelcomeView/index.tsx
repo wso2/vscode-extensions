@@ -25,6 +25,7 @@ import { Button, Codicon, ComponentCard } from "@wso2/ui-toolkit";
 import { ProjectWizard } from "../Forms/ProjectForm";
 import { VSCodeButton, VSCodeLink } from "@vscode/webview-ui-toolkit/react";
 import { ImportProjectWizard } from "../Forms/ImportProjectForm";
+import { COMMANDS } from "../../constants";
 
 const TextWrapper = styled.div`
     display: flex;
@@ -142,6 +143,10 @@ export function WelcomeView() {
         });
     }
 
+    const goToOpenProject = async () => {
+        await rpcClient.getMiDiagramRpcClient().executeCommand({ commands: [COMMANDS.OPEN_PROJECT] });
+    }
+
     const handleMoreSamples = () => {
         rpcClient.getMiVisualizerRpcClient().openView({
             type: EVENT_TYPE.OPEN_VIEW,
@@ -195,18 +200,18 @@ export function WelcomeView() {
                                 </div>
                             </Button>
                         </Tab>
-                        {/* <Tab>  this has to be given in the activity for an old project
-                                <SubTitle>Import</SubTitle>
-                                <span>Import an existing project.</span>
-                                <Button appearance="secondary" onClick={() => handleModeChange("ImportProject")}>
-                                    <div style={CreateBtnStyles}>
-                                        <IconWrapper>
-                                            <Codicon name="go-to-file" iconSx={{ fontSize: 20 }} />
-                                        </IconWrapper>
-                                        <TextWrapper>Import A Project</TextWrapper>
-                                    </div>
-                                </Button>
-                            </Tab> */}
+                        <Tab>
+                            <SubTitle>Open Project</SubTitle>
+                            <span>Open an existing integration project.</span>
+                            <Button appearance="primary" onClick={() => goToOpenProject()}>
+                                <div style={CreateBtnStyles}>
+                                    <IconWrapper>
+                                        <Codicon name="go-to-file" iconSx={{ fontSize: 20 }} />
+                                    </IconWrapper>
+                                    <TextWrapper>Open Project</TextWrapper>
+                                </div>
+                            </Button>
+                        </Tab>
                         <Tab>
                             <SubTitle>Troubleshooting</SubTitle>
                             <span>Experiencing problems? Start with our <VSCodeLink onClick={openTroubleshootGuide}>Troubleshooting Guide</VSCodeLink>.</span>

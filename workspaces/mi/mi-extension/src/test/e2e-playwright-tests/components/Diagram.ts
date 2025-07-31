@@ -237,6 +237,10 @@ class Mediator {
         await this.mediatotNode.click();
     }
 
+    public async clickOnImg() {
+        await this.mediatotNode.locator('i').click();
+    }
+
     public async getEditForm() : Promise<Form> {
         const sidePanel = new SidePanel(this.container);
         await sidePanel.init();

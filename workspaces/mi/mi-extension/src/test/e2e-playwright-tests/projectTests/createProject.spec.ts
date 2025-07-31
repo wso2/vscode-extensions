@@ -68,6 +68,9 @@ export default function createTests() {
                 await textInput?.fill(newProjectPath + '/newProject/');
                 const openBtn = await fileInput?.waitForSelector('a.monaco-button:has-text("Open MI Project")');
                 await openBtn?.click();
+                const newWindowButton = page.page.getByRole('button', { name: 'New Window' });
+                await newWindowButton.waitFor({ timeout: 10000 });
+                await newWindowButton.click();
                 const addArtifactSelector = '.tab-label:has-text("Add Artifact")';
                 await page.page.waitForSelector(addArtifactSelector, { state: 'visible' });
                 await page.page.waitForSelector(addArtifactSelector, { state: 'attached' });

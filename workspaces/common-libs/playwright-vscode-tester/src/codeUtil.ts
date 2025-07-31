@@ -52,18 +52,21 @@ export class CodeUtil {
     private cliEnv!: string;
     private availableVersions: string[];
     private extensionsFolder: string | undefined;
+    private profileName: string;
 
     /**
      * Create an instance of code handler 
      * @param folder Path to folder where all the artifacts will be stored.
      * @param extensionsFolder Path to use as extensions directory by VSCode
+     * @param profileName Custom profile name for VSCode user data directory (optional)
      */
-    constructor(folder = 'test-resources', type: ReleaseQuality = ReleaseQuality.Stable, extensionsFolder?: string) {
+    constructor(folder = 'test-resources', type: ReleaseQuality = ReleaseQuality.Stable, extensionsFolder?: string, profileName?: string) {
         this.availableVersions = [];
         this.downloadPlatform = this.getPlatform();
         this.downloadFolder = path.resolve(folder);
         this.extensionsFolder = extensionsFolder ? path.resolve(extensionsFolder) : undefined;
         this.releaseType = type;
+        this.profileName = profileName || `test-profile-${Date.now()}`;
 
         if (type === ReleaseQuality.Stable) {
             this.codeFolder = path.join(this.downloadFolder, (process.platform === 'darwin')
@@ -156,10 +159,12 @@ export class CodeUtil {
     }
 
     private installExt(pathOrID: string): void {
-        let command = `${this.cliEnv} "${this.executablePath}" "${this.cliPath}" --ms-enable-electron-run-as-node --force --install-extension "${pathOrID}"`;
+        let command = `${this.cliEnv} "${this.executablePath}" "${this.cliPath}" --ms-enable-electron-run-as-node --force --install-extension "${pathOrID}" --user-data-dir="${path.join(this.downloadFolder, 'settings', this.profileName, 'Code')}"`;
         if (this.extensionsFolder) {
             command += ` --extensions-dir=${this.extensionsFolder}`;
         }
+        // If no extensionsFolder is specified, extensions will be installed to the default location
+        // within the user data directory: {user-data-dir}/extensions/
         child_process.execSync(command, { stdio: 'inherit' });
     }
 
@@ -169,7 +174,7 @@ export class CodeUtil {
      */
     open(...paths: string[]): void {
         const segments = paths.map(f => `"${f}"`).join(' ');
-        const command = `${this.cliEnv} "${this.executablePath}" "${this.cliPath}" --ms-enable-electron-run-as-node -r ${segments} --user-data-dir="${path.join(this.downloadFolder, 'settings')}"`;
+        const command = `${this.cliEnv} "${this.executablePath}" "${this.cliPath}" --ms-enable-electron-run-as-node -r ${segments} --user-data-dir="${path.join(this.downloadFolder, 'settings', this.profileName, 'Code')}"`;
         child_process.execSync(command);
     }
 
@@ -211,10 +216,12 @@ export class CodeUtil {
         const extension = `${pjson.publisher}.${pjson.name}`;
 
         if (cleanup) {
-            let command = `${this.cliEnv} "${this.executablePath}" "${this.cliPath}" --ms-enable-electron-run-as-node --uninstall-extension "${extension}"`;
+            let command = `${this.cliEnv} "${this.executablePath}" "${this.cliPath}" --ms-enable-electron-run-as-node --uninstall-extension "${extension}" --user-data-dir="${path.join(this.downloadFolder, 'settings', this.profileName, 'Code')}"`;
             if (this.extensionsFolder) {
                 command += ` --extensions-dir=${this.extensionsFolder}`;
             }
+            // If no extensionsFolder is specified, uninstall from the default location
+            // within the user data directory: {user-data-dir}/extensions/
             child_process.execSync(command, { stdio: 'inherit' });
         }
     }
@@ -380,7 +387,7 @@ export class CodeUtil {
         const key = 'PATH';
         finalEnv[key] = [this.downloadFolder, process.env[key]].join(path.delimiter);
         
-        const browser = new VSBrowser(literalVersion, this.releaseType, runOptions.resources);
+        const browser = new VSBrowser(literalVersion, this.releaseType, runOptions.resources, {}, this.profileName, this.extensionsFolder);
         const launchArgs = await browser.getLaunchArgs()
         
         process.env = {

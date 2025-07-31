@@ -54,6 +54,7 @@ export const gitIssueUrl = "https://github.com/wso2/mi-vscode/issues";
 
 export const COMMANDS = {
     MIGRATE_PROJECT: "MI.migrateProject",
+    OPEN_PROJECT: "MI.openProject"
 }
 
 // Actions for service designer
