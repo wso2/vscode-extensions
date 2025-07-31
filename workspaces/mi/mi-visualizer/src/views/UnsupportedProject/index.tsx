@@ -23,7 +23,7 @@ import { Button, Typography } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { View, ViewContent, ViewHeader } from '../../components/View';
 import { VSCodeCheckbox } from '@vscode/webview-ui-toolkit/react';
-import { COMMANDS } from '../../constants';
+import path from 'path';
 
 const Container = styled.div`
   display: flex;
@@ -170,7 +170,7 @@ export function UnsupportedProject(props: UnsupportedProjectProps) {
   const WORKSPACE = 'Workspace';
   const { displayOverview = true } = props;
   const { rpcClient } = useVisualizerContext();
-  const [activeWorkspaces, setActiveWorkspaces] = React.useState<WorkspaceFolder>(undefined);
+  const [openedDirectory, setOpenedDirectory] = React.useState<string>(undefined);
   const [foundOldProjects, setFoundOldProjects] = React.useState<string[]>([]);
   const [projectType, setProjectType] = React.useState<string>(PROJECT); // 'Project' or 'Workspace'
   const [activeCard, setActiveCard] = React.useState<number>(0);
@@ -224,34 +224,31 @@ export function UnsupportedProject(props: UnsupportedProjectProps) {
   };
 
   const migrate = async () => {
-    if (activeWorkspaces) {
-      await rpcClient.getMiDiagramRpcClient().migrateProject({ dir: activeWorkspaces.fsPath, sources: foundOldProjects });
+    if (openedDirectory) {
+      await rpcClient.getMiDiagramRpcClient().migrateProject({ dir: openedDirectory, sources: foundOldProjects });
     }
   }
 
   useEffect(() => {
-    rpcClient
-      .getMiVisualizerRpcClient()
-      .getWorkspaces()
-      .then(response => {
-        setActiveWorkspaces(response.workspaces[0]);
-      });
+    rpcClient.getMiVisualizerRpcClient().getProjectUri().then((uri) => {
+      setOpenedDirectory(uri);
+    });
   }, []);
 
   useEffect(() => {
-    if (activeWorkspaces?.fsPath) {
+    if (openedDirectory) {
       rpcClient.getMiVisualizerRpcClient().findOldProjects().then((response) => {
         if (response && response.length > 0) {
           setFoundOldProjects(response);
           if (response.length > 1) {
             setProjectType(WORKSPACE);
-          } else if (response.length === 1 && activeWorkspaces.fsPath !== response[0]) {
+          } else if (response.length === 1 && openedDirectory !== response[0]) {
             setProjectType(WORKSPACE);
           }
         }
       });
     }
-  }, [activeWorkspaces]); // Runs when activeWorkspaces changes
+  }, [openedDirectory]); // Runs when openedDirectory changes
 
   // Set current theme
   useEffect(() => {
@@ -283,7 +280,7 @@ export function UnsupportedProject(props: UnsupportedProjectProps) {
 
   return (
     <View>
-      <ViewHeader title={`${projectType}: ` + activeWorkspaces?.name} icon='project' iconSx={{ fontSize: "15px" }} />
+      <ViewHeader title={`${projectType}: ` + path.basename(openedDirectory)} icon='project' iconSx={{ fontSize: "15px" }} />
       <ViewContent padding>
         <Container>
           <Block>
