@@ -18,7 +18,7 @@
 
 import { MutableRefObject } from "react";
 import { HelperPaneHeight, HelperPaneOrigin, HelperPanePosition } from "../types";
-import { HELPER_PANE_HEIGHT, HELPER_PANE_WIDTH, ARROW_HEIGHT, ARROW_OFFSET } from "../constants"
+import { HELPER_PANE_HEIGHT, HELPER_PANE_WIDTH, ARROW_HEIGHT, ARROW_OFFSET, VERTICAL_HELPERPANE_HEIGHT } from "../constants"
 
 export const convertHelperPaneHeightToCSS = (helperPaneHeight: HelperPaneHeight): string => {
     switch (helperPaneHeight) {
@@ -29,6 +29,11 @@ export const convertHelperPaneHeightToCSS = (helperPaneHeight: HelperPaneHeight)
         default:
             return `${HELPER_PANE_HEIGHT}px`;
     }
+}
+
+const getVerticalPosition = (expressionEditorRect: DOMRect) => {
+    if (window.innerHeight - (expressionEditorRect.top + expressionEditorRect.height) > VERTICAL_HELPERPANE_HEIGHT) return "bottom";
+    return "top"
 }
 
 /**
@@ -42,13 +47,19 @@ export const getHelperPaneOrigin = (
     helperPaneOrigin: HelperPaneOrigin
 ): HelperPaneOrigin => {
     // If the origin is specified, return it
-    if (helperPaneOrigin !== 'auto') {
+    if (helperPaneOrigin !== 'auto' && helperPaneOrigin !== 'vertical') {
         return helperPaneOrigin;
     }
 
-    // Rendering priority goes as left, right, bottom
     const expressionEditor = expressionEditorRef.current!;
     const rect = expressionEditor.getBoundingClientRect();
+
+    //if origin is vertical then priority is bottom > top
+    if (helperPaneOrigin === "vertical") {
+        return getVerticalPosition(rect)
+    }
+
+    //when auto, Rendering priority goes as left, right, bottom
     if (rect.left > HELPER_PANE_WIDTH + ARROW_HEIGHT) {
         return 'left';
     } else if (window.innerWidth - (rect.left + rect.width) > HELPER_PANE_WIDTH + ARROW_HEIGHT) {
@@ -70,6 +81,10 @@ export const getHelperPanePosition = (
         return { top: rect.top + rect.height, left: rect.left };
     }
 
+    if (helperPaneOrigin === 'top') {
+        return { top: rect.top - VERTICAL_HELPERPANE_HEIGHT, left: rect.left };
+    }
+
     const position: HelperPanePosition = { top: 0, left: 0 };
     /* In the best case scenario, the helper pane should be poping up on the right of left side
     of the expression editor, aligning to the center of the editor. In case, the viewport is
@@ -85,7 +100,7 @@ export const getHelperPanePosition = (
     if (helperPaneHeight === 'full') {
         return position;
     }
-    
+
     if (helperPaneHeight === '3/4') {
         position.top = window.innerHeight / 8;
         return position;
@@ -110,7 +125,7 @@ export const getHelperPaneArrowPosition = (
     helperPaneOrigin: HelperPaneOrigin,
     helperPanePosition: HelperPanePosition
 ): HelperPanePosition | undefined => {
-    if (helperPaneOrigin === 'bottom' || !helperPanePosition) {
+    if (helperPaneOrigin === 'bottom' || helperPaneOrigin === 'top' || !helperPanePosition) {
         return undefined;
     }
 
