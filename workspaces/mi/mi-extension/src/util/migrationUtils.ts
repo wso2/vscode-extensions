@@ -191,7 +191,7 @@ export async function importProject(params: ImportProjectRequest): Promise<Impor
 
         const createdProjectCount = await createFolderStructuresForDistributionProjects(
             destinationFolderPath,
-            directory,
+            source,
             projectUuid,
             projectDirToResolvedPomMap,
             projectDirsWithType
@@ -199,19 +199,19 @@ export async function importProject(params: ImportProjectRequest): Promise<Impor
         // If no folder structure was created, create one in the given directory
         if (createdProjectCount == 0) {
             const folderStructure = getFolderStructure(projectName, groupId, artifactId, projectUuid, version, runtimeVersion ?? LATEST_MI_VERSION);
-            await createFolderStructure(directory, folderStructure);
-            copyDockerResources(extension.context.asAbsolutePath(path.join('resources', 'docker-resources')), directory);
+            await createFolderStructure(source, folderStructure);
+            copyDockerResources(extension.context.asAbsolutePath(path.join('resources', 'docker-resources')), source);
             console.log("Created project structure for project: " + projectName);
         }
 
-        const createdFolderUris = await migrateConfigs(projectUri, path.join(source, ".backup"), directory, projectDirToResolvedPomMap, projectDirsWithType, createdProjectCount);
+        const createdFolderUris = await migrateConfigs(projectUri, path.join(source, ".backup"), source, projectDirToResolvedPomMap, projectDirsWithType, createdProjectCount);
 
         window.showInformationMessage(`Successfully imported ${projectName} project`);
 
         if (createdFolderUris && createdFolderUris.length > 0) {
             return createdFolderUris.map(uri => ({ filePath: uri.fsPath }));
         } else {
-            return [{ filePath: directory }];
+            return [{ filePath: source }];
         }
     } else {
         window.showErrorMessage('Could not find the project details from the provided project: ' + source);
