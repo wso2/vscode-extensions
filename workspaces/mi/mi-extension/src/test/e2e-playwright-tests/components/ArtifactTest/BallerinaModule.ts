@@ -145,11 +145,11 @@ export class BallerinaModule {
             values: {
                 'Name*': {
                     type: 'input',
-                    value: 'TestBallerinaAPI',
+                    value: moduleName + 'API',
                 },
                 'Context*': {
                     type: 'input',
-                    value: '/TestBallerinaAPI',
+                    value: '/' + moduleName + 'API',
                 },
             }
         });
