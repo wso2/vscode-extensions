@@ -1465,6 +1465,11 @@ export interface CreateBallerinaModuleResponse {
 export interface GetBackendRootUrlResponse {
     url: string;
 }
+
+export interface GetProxyRootUrlResponse {
+    url: string;
+}
+
 export interface ListRegistryArtifactsRequest {
     path: string;
     withAdditionalData?: boolean

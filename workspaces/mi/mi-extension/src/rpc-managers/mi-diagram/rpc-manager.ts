@@ -105,6 +105,7 @@ import {
     GetAvailableResourcesRequest,
     GetAvailableResourcesResponse,
     GetBackendRootUrlResponse,
+    GetProxyRootUrlResponse,
     GetConnectionFormRequest,
     GetConnectionFormResponse,
     GetConnectorConnectionsRequest,
@@ -4053,6 +4054,11 @@ ${endpointAttributes}
         const isVersionThresholdReached = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_THRESHOLD_VERSION) : -1;
 
         return isVersionThresholdReached < 0 ? { url: MI_COPILOT_BACKEND_V2 } : { url: MI_COPILOT_BACKEND_V3 };
+    }
+
+    async getProxyRootUrl(): Promise<GetProxyRootUrlResponse> {
+        const url = process.env.MI_COPILOT_PROXY_URL as string;
+        return { url: url };
     }
 
     async getAvailableRegistryResources(params: ListRegistryArtifactsRequest): Promise<RegistryArtifactNamesResponse> {

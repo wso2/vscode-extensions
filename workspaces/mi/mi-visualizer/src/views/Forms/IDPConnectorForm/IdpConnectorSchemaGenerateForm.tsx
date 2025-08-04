@@ -107,11 +107,11 @@ export function IdpConnectorSchemaGenerateForm({ onClose, path,fileContent }: Id
                 try {
                     const token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
                     if (token) {
-                        const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
-                        const endpoint = `${backendRootUri}/v1/chat/completions`;
+                        const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getProxyRootUrl()).url;
+                        const endpoint = `${backendRootUri}/proxy/openai/v1/chat/completions`;
                         
                         allConnections.push({
-                            name: "mi-copilot",
+                            name: "[Built-in]",
                             apiKey: token.token,
                             url: endpoint,
                             model: "gpt-4.1-mini"

@@ -181,6 +181,7 @@ import {
     getAvailableRegistryResources,
     getAvailableResources,
     getBackendRootUrl,
+    getProxyRootUrl,
     getConnectionForm,
     getConnector,
     getConnectorConnections,
@@ -403,6 +404,7 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(getSelectiveWorkspaceContext, () => rpcManger.getSelectiveWorkspaceContext());
     messenger.onRequest(getSelectiveArtifacts, (args: GetSelectiveArtifactsRequest) => rpcManger.getSelectiveArtifacts(args));
     messenger.onRequest(getBackendRootUrl, () => rpcManger.getBackendRootUrl());
+    messenger.onRequest(getProxyRootUrl, () => rpcManger.getProxyRootUrl());
     messenger.onRequest(getAvailableRegistryResources, (args: ListRegistryArtifactsRequest) => rpcManger.getAvailableRegistryResources(args));
     messenger.onRequest(updateRegistryMetadata, (args: UpdateRegistryMetadataRequest) => rpcManger.updateRegistryMetadata(args));
     messenger.onRequest(getMetadataOfRegistryResource, (args: GetRegistryMetadataRequest) => rpcManger.getMetadataOfRegistryResource(args));

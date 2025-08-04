@@ -80,7 +80,7 @@ import {
     XmlCode,
     UpdateAiDependenciesResponse,
     UpdateAiDependenciesRequest,
-    MavenDeployPluginDetails
+    MavenDeployPluginDetails,
 } from "@wso2/mi-core";
 import { readFileSync } from "fs";
 import { CancellationToken, FormattingOptions, Position, Uri, workspace } from "vscode";

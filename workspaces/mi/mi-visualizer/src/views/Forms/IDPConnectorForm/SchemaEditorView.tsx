@@ -182,7 +182,7 @@ export function SchemaEditorView({
             const response = await fetchWithCopilot({
                 rpcClient,
                 body: {
-                    endpoint: "generate",
+                    operation: "generate",
                     images: base64Images
                 },
                 controllerRef: controllerRef1,
@@ -260,7 +260,7 @@ export function SchemaEditorView({
             const response = await fetchWithCopilot({
                 rpcClient: rpcClient,
                 body: {
-                    endpoint: "finetune",
+                    operation: "finetune",
                     user_input: userInput,
                     json_schema: schema,
                     images: base64Images,

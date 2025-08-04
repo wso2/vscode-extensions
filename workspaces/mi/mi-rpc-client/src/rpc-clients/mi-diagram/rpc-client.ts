@@ -90,6 +90,7 @@ import {
     GetAvailableResourcesRequest,
     GetAvailableResourcesResponse,
     GetBackendRootUrlResponse,
+    GetProxyRootUrlResponse,
     GetConnectionFormRequest,
     GetConnectionFormResponse,
     GetConnectorConnectionsRequest,
@@ -254,6 +255,7 @@ import {
     getAvailableRegistryResources,
     getAvailableResources,
     getBackendRootUrl,
+    getProxyRootUrl,
     getConnectionForm,
     getConnector,
     getConnectorConnections,
@@ -723,7 +725,7 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
     convertPdfToBase64Images(params:string): Promise<string[]> {
         return this._messenger.sendRequest(convertPdfToBase64Images, HOST_EXTENSION, params);
     }
-    
+
     readSchemaFileContent(params: ReadSchemaFileContentRequest): Promise<ReadSchemaFileContentResponse> {
         return this._messenger.sendRequest(readSchemaFileContent, HOST_EXTENSION, params);
     }
@@ -798,6 +800,10 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     getBackendRootUrl(): Promise<GetBackendRootUrlResponse> {
         return this._messenger.sendRequest(getBackendRootUrl, HOST_EXTENSION);
+    }
+
+    getProxyRootUrl(): Promise<GetProxyRootUrlResponse> {
+        return this._messenger.sendRequest(getProxyRootUrl, HOST_EXTENSION);
     }
 
     getAvailableRegistryResources(params: ListRegistryArtifactsRequest): Promise<RegistryArtifactNamesResponse> {
