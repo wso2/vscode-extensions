@@ -1665,7 +1665,7 @@ function findProjectNature(node: any): string | undefined {
  * @param filePath - The path to the project file to check.
  * @returns A promise that resolves to `true` if the file contains any of the old multi-module project natures, otherwise `false`.
  */
-export async function containsMultiModuelNatureInProjectFile(filePath: string): Promise<boolean> {
+export async function containsMultiModuleNatureInProjectFile(filePath: string): Promise<boolean> {
     if (!fs.existsSync(filePath)) return false;
     const content = await fs.promises.readFile(filePath, 'utf-8');
     return OLD_MULTI_MODULE_PROJECT_NATURES.some(nature => content.includes(`<nature>${nature}</nature>`));
@@ -1709,7 +1709,7 @@ export async function findMultiModuleProjectsInWorkspaceDir(workspaceDir: string
         const projectFile = path.join(dir, '.project');
         const pomFile = path.join(dir, 'pom.xml');
         if (fs.existsSync(projectFile)) {
-            if (await containsMultiModuelNatureInProjectFile(projectFile)) {
+            if (await containsMultiModuleNatureInProjectFile(projectFile)) {
                 foundProjects.push(dir);
             }
         } else if (fs.existsSync(pomFile)) {

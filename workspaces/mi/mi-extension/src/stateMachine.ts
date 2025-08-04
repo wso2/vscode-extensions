@@ -31,7 +31,7 @@ import { DMProject } from './datamapper/DMProject';
 import { setupEnvironment } from './util/onboardingUtils';
 import { getPopupStateMachine } from './stateMachinePopup';
 import { askForProject } from './util/workspace';
-import { containsMultiModuelNatureInProjectFile, containsMultiModuleNatureInPomFile, extractNatureFromPomContent, findMultiModuleProjectsInWorkspaceDir } from './util/migrationUtils';
+import { containsMultiModuleNatureInProjectFile, containsMultiModuleNatureInPomFile, extractNatureFromPomContent, findMultiModuleProjectsInWorkspaceDir } from './util/migrationUtils';
 const fs = require('fs');
 
 interface MachineContext extends VisualizerLocation {
@@ -782,7 +782,7 @@ async function checkIfMiProject(projectUri) {
             const projectFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(projectUri, '.project'), '**/node_modules/**', 1);
 
             if (projectFiles.length > 0) {
-                if (await containsMultiModuelNatureInProjectFile(projectFiles[0].fsPath)) {
+                if (await containsMultiModuleNatureInProjectFile(projectFiles[0].fsPath)) {
                     isOldProject = true;
                     log("Integration Studio project detected");
                 }

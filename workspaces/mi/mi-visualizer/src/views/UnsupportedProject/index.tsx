@@ -280,7 +280,7 @@ export function UnsupportedProject(props: UnsupportedProjectProps) {
 
   return (
     <View>
-      <ViewHeader title={`${projectType}: ` + path.basename(openedDirectory)} icon='project' iconSx={{ fontSize: "15px" }} />
+      <ViewHeader title={`${projectType}: ${path.basename(openedDirectory)}`} icon='project' iconSx={{ fontSize: "15px" }} />
       <ViewContent padding>
         <Container>
           <Block>
