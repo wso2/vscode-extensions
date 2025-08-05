@@ -60,10 +60,9 @@ export async function setupEnvironment(projectUri: string, isOldProject: boolean
             return false;
         }
         const versions: string[] = ["4.0.0", "4.1.0", "4.2.0", "4.3.0"];
-        if (miVersionFromPom && versions.includes(miVersionFromPom)) {
-            const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
-            await config.update("LEGACY_EXPRESSION_ENABLED", true, vscode.ConfigurationTarget.WorkspaceFolder);
-        }
+        const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
+        await config.update("LEGACY_EXPRESSION_ENABLED", miVersionFromPom && versions.includes(miVersionFromPom),
+            vscode.ConfigurationTarget.WorkspaceFolder);
         const isMISet = await isMISetup(projectUri, miVersionFromPom);
         const isJavaSet = await isJavaSetup(projectUri, miVersionFromPom);
 
@@ -97,7 +96,7 @@ export async function isMIUpToDate(): Promise<boolean> {
 }
 
 export async function getProjectSetupDetails(projectUri: string): Promise<SetupDetails> {
-    const miVersion = await getMIVersionFromPom();
+    const miVersion = await getMIVersionFromPom(projectUri);
     if (!miVersion) {
         vscode.window.showErrorMessage('Failed to get WSO2 Integrator: MI version from pom.xml.');
         return { miVersionStatus: 'missing', javaDetails: { status: 'not-valid' }, miDetails: { status: 'not-valid' } };
@@ -110,8 +109,9 @@ export async function getProjectSetupDetails(projectUri: string): Promise<SetupD
 
     return { miVersionStatus: 'not-valid', javaDetails: { status: 'not-valid' }, miDetails: { status: 'not-valid' } };
 }
-export async function getMIVersionFromPom(): Promise<string | null> {
-    const pomFiles = await vscode.workspace.findFiles('pom.xml', '**/node_modules/**', 1);
+export async function getMIVersionFromPom(projectUri: string): Promise<string | null> {
+    const pattern = new vscode.RelativePattern(projectUri, 'pom.xml');
+    const pomFiles = await vscode.workspace.findFiles(pattern, '**/node_modules/**', 1);
     if (pomFiles.length === 0) {
         vscode.window.showErrorMessage('pom.xml not found.');
         return null;
@@ -585,7 +585,7 @@ function isMIInstalledAtPath(miPath: string): boolean {
     return fs.existsSync(path.join(miPath, 'bin', miExecutable));
 }
 export async function setPathsInWorkSpace(request: SetPathRequest): Promise<PathDetailsResponse> {
-    const projectMIVersion = await getMIVersionFromPom();
+    const projectMIVersion = await getMIVersionFromPom(request.projectUri);
 
     let response: PathDetailsResponse = { status: 'not-valid' };
     if (projectMIVersion) {

@@ -474,7 +474,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
 
     async getMIVersionFromPom(): Promise<MiVersionResponse> {
         return new Promise(async (resolve) => {
-            const res = await getMIVersionFromPom();
+            const res = await getMIVersionFromPom(this.projectUri);
             resolve({ version: res ?? '' });
         });
     }
@@ -3932,7 +3932,7 @@ ${endpointAttributes}
         const MI_COPILOT_BACKEND_V2 = process.env.MI_COPILOT_BACKEND_V2 as string;
         const MI_COPILOT_BACKEND_V3 = process.env.MI_COPILOT_BACKEND_V3 as string;
         const RUNTIME_THRESHOLD_VERSION = RUNTIME_VERSION_440;
-        const runtimeVersion = await getMIVersionFromPom();
+        const runtimeVersion = await getMIVersionFromPom(this.projectUri);
 
         const isVersionThresholdReached = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_THRESHOLD_VERSION) : -1;
 
@@ -4016,7 +4016,7 @@ ${endpointAttributes}
                     resolve({ inboundConnectors: connectorCache.get('inbound-connector-data'), outboundConnectors: connectorCache.get('outbound-connector-data'), connectors: connectorCache.get('connectors') });
                     return;
                 }
-                const runtimeVersion = miVersion ? miVersion : await getMIVersionFromPom();
+                const runtimeVersion = miVersion ? miVersion : await getMIVersionFromPom(this.projectUri);
 
                 const response = await fetch(APIS.MI_CONNECTOR_STORE);
                 const connectorStoreResponse = await fetch(APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? ''));
@@ -4549,9 +4549,9 @@ ${keyValuesXML}`;
             const workspaceFolderUri = vscode.Uri.file(path.resolve(this.projectUri));
             if (workspaceFolderUri) {
                 const config = vscode.workspace.getConfiguration('MI', workspaceFolderUri);
-                const isRemoteDeploymentEnabled = config.get<string>("REMOTE_DEPLOYMENT_ENABLED");
+                const isRemoteDeploymentEnabled = config.get<boolean>("REMOTE_DEPLOYMENT_ENABLED");
                 if (isRemoteDeploymentEnabled) {
-                    await commands.executeCommand(COMMANDS.REMOTE_DEPLOY_PROJECT, false);
+                    await commands.executeCommand(COMMANDS.REMOTE_DEPLOY_PROJECT, this.projectUri, false);
                 } else {
                     const configure = await vscode.window.showWarningMessage(
                         'Remote deployment is not enabled. Do you want to enable and configure it now?',
@@ -5588,7 +5588,7 @@ ${keyValuesXML}`;
 
 
     async fetchConnectors(name, operation: 'add' | 'remove') {
-        const runtimeVersion = await getMIVersionFromPom();
+        const runtimeVersion = await getMIVersionFromPom(this.projectUri);
 
         const connectorStoreResponse = await fetch(APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? ''));
         const connectorStoreData = await connectorStoreResponse.json();
