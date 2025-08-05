@@ -41,13 +41,19 @@ export function getBuildCommand(): string {
     return process.platform === 'win32' ? ".\\mvnw.cmd clean install -Dstyle.color=never" : "./mvnw clean install -Dstyle.color=never";
 }
 
-export function getDockerTask(projectUri: string): vscode.Task {
+export function getDockerTask(projectUri: string): vscode.Task | undefined {
     const commandToExecute = process.platform === 'win32' ? ".\\mvnw.cmd clean install -P docker" : "./mvnw clean install -P docker";
     const env = setJavaHomeInEnvironmentAndPath(projectUri);  
 
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(projectUri));
+    if (!workspaceFolder) {
+        console.error(`Workspace folder not found for projectUri: ${projectUri}`);
+        return undefined;
+    }
+
     const dockerTask = new vscode.Task(
         { type: 'mi-docker' },
-        vscode.TaskScope.Workspace,
+        workspaceFolder,
         'docker',
         'mi',
         new vscode.ShellExecution(commandToExecute,
