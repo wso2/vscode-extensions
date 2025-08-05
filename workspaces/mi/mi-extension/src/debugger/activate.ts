@@ -17,7 +17,7 @@
  */
 
 import * as vscode from 'vscode';
-import { CancellationToken, DebugConfiguration, ProviderResult, Uri, workspace, WorkspaceFolder } from 'vscode';
+import { CancellationToken, DebugConfiguration, ProviderResult, Uri, window, workspace, WorkspaceFolder } from 'vscode';
 import { MiDebugAdapter } from './debugAdapter';
 import { COMMANDS } from '../constants';
 import { extension } from '../MIExtensionContext';
@@ -69,7 +69,11 @@ export function activateDebugger(context: vscode.ExtensionContext) {
             projectUri = await askForProject();
         }
         const dockerTask = getDockerTask(projectUri);
-        await vscode.tasks.executeTask(dockerTask);
+        if (dockerTask) {
+            await vscode.tasks.executeTask(dockerTask);
+        } else {
+            vscode.window.showErrorMessage('Failed to create Docker task.');
+        }
     });
 
     vscode.commands.registerCommand(COMMANDS.REMOTE_DEPLOY_PROJECT, async (postBuildTask?: Function) => {
@@ -321,7 +325,14 @@ export function activateDebugger(context: vscode.ExtensionContext) {
 class InlineDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory {
 
     createDebugAdapterDescriptor(session: vscode.DebugSession): ProviderResult<vscode.DebugAdapterDescriptor> {
-        const workspaceFolder = session.workspaceFolder;
-        return new vscode.DebugAdapterInlineImplementation(new MiDebugAdapter(workspaceFolder?.uri?.fsPath!));
+        const webview = [...webviews.values()].find(webview => webview.getWebview()?.active);
+        const projectUri = webview ? webview.getProjectUri() : vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!projectUri) {
+            const errorMessage = "No project found in the workspace";
+            console.error(errorMessage);
+            window.showErrorMessage(errorMessage);
+            return;
+        }
+        return new vscode.DebugAdapterInlineImplementation(new MiDebugAdapter(projectUri));
     }
 }

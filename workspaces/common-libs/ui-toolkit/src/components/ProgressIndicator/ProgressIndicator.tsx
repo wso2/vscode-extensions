@@ -22,6 +22,7 @@ export interface ProgressBarProps {
     barWidth?: number;
     sx?: any;
     color?: string;
+    duration?: number;
 }
 
 const Container = styled.div<ProgressBarProps>`
@@ -60,7 +61,7 @@ const Container = styled.div<ProgressBarProps>`
 
     &.infinite .progress-bar {
         animation-name: progress;
-        animation-duration: 4s;
+        animation-duration: ${(props: ProgressBarProps) => props.duration || 4}s;
         animation-iteration-count: infinite;
         animation-timing-function: steps(100);
         transform: translateZ(0);
@@ -83,9 +84,8 @@ const Container = styled.div<ProgressBarProps>`
 `;
 
 export const ProgressIndicator = (props: ProgressBarProps) => {
-    const { sx, id, barWidth, color } = props;
     return (
-        <Container className="infinite active" role="progressbar" id={id} barWidth={barWidth} sx={sx} color={color}>
+        <Container className="infinite active" role="progressbar" {...props}>
             <div className="progress-bar" />
         </Container>
     );

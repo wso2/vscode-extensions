@@ -204,7 +204,7 @@ export default function createTests() {
         });
         await form.clickAddNewForField('Sequence Key');
         const sequence = new Sequence(page.page);
-        await sequence.createSequence('cacheSeq1', true);
+        await sequence.createSequence('cacheSeq' + testAttempt, true);
         await form.submit("Add");
         await diagram.getMediator("cache", 0, "group");
       });
@@ -220,7 +220,7 @@ export default function createTests() {
             },
             'Sequence Key': {
               type: 'combo',
-              value: 'cacheSeq1',
+              value: 'cacheSeq' + testAttempt,
             }
           }
         });
@@ -242,7 +242,7 @@ export default function createTests() {
         });
         await form.clickAddNewForField('Sequence Key');
         const sequence = new Sequence(page.page);
-        await sequence.createSequence('cacheSeq2', true);
+        await sequence.createSequence('cacheNewSeq' + testAttempt, true);
         await form.submit("Update");
       });
     });

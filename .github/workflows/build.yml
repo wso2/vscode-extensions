@@ -167,6 +167,17 @@ jobs:
           PLATFORM_DEV_GHAPP_CLIENT_ID: ${{ secrets.PLATFORM_DEV_GHAPP_CLIENT_ID }}
           PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID: ${{ secrets.PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID }}
 
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          ignore-unfixed: true
+          exit-code: '1'
+          timeout: '10m'
+          skip-dirs: 'common/temp'
+
   ExtTest_Ballerina:
     name: Run Ballerina extension tests
     needs: Build_Stage
@@ -401,7 +412,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [group1, group2, group3]
+        group: [group1, group2, group3, group4]
     steps:
       - name: Restore build
         uses: actions/download-artifact@v4

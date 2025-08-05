@@ -142,11 +142,11 @@ export class Diagram {
         await sidePanel.close();
     }
 
-    public async addConnectorOperation(connector: string, operation: string) {
+    public async addConnectorOperation(connector: string, operation: string, operationId?: string) {
         const sidePanel = new SidePanel(this.diagramWebView);
         await sidePanel.init();
         await sidePanel.search(operation);
-        await sidePanel.addConnector(connector, operation);
+        await sidePanel.addConnector(connector, operation, operationId);
     }
 
     public async fillConnectorForm(props: FormFillProps) {
@@ -237,6 +237,10 @@ class Mediator {
         await this.mediatotNode.click();
     }
 
+    public async clickOnImg() {
+        await this.mediatotNode.locator('i').click();
+    }
+
     public async getEditForm() : Promise<Form> {
         const sidePanel = new SidePanel(this.container);
         await sidePanel.init();
@@ -316,12 +320,12 @@ export class SidePanel {
         await this.sidePanel.waitFor({ state: 'detached' })
     }
 
-    public async addConnector(connectorName: string, operationName: string) {
+    public async addConnector(connectorName: string, operationName: string, operationId?: string) {
         const connector = this.sidePanel.locator(`#card-select-${connectorName}`).nth(0);
         await connector.waitFor();
         const connectorComponent = connector.locator(`..`);
 
-        const operation = connectorComponent.locator(`#card-select-${operationName}`);
+        const operation = connectorComponent.locator(`#card-select-${operationId ? operationId : operationName}`);
         await operation.waitFor();
         await operation.click();
     }
