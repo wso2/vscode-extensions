@@ -17,7 +17,7 @@
  */
 
 import * as vscode from 'vscode';
-import { commands, window } from 'vscode';
+import { commands, window, workspace } from 'vscode';
 import { getStateMachine, navigate, openView, refreshUI } from '../stateMachine';
 import { COMMANDS, REFRESH_ENABLED_DOCUMENTS, SWAGGER_LANG_ID, SWAGGER_REL_DIR } from '../constants';
 import { EVENT_TYPE, MACHINE_VIEW, onDocumentSave } from '@wso2/mi-core';
@@ -42,6 +42,22 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
             window.showOpenDialog({ canSelectFolders: true, canSelectFiles: true, filters: { 'CAPP': ['car', 'zip'] }, openLabel: 'Open MI Project' })
                 .then(uri => {
                     if (uri && uri[0]) {
+                        const handleOpenProject = (folderUri: vscode.Uri) => {
+                            window.showInformationMessage('Where would you like to open the project?',
+                                { modal: true },
+                                'Current Window',
+                                'New Window'
+                            ).then(selection => {
+                                if (selection === "Current Window") {
+                                    const workspaceFolders = workspace.workspaceFolders || [];
+                                    if (!workspaceFolders.some(folder => folder.uri.fsPath === folderUri.fsPath)) {
+                                        workspace.updateWorkspaceFolders(workspaceFolders.length, 0, { uri: folderUri });
+                                    }
+                                } else if (selection === "New Window") {
+                                    commands.executeCommand('vscode.openFolder', folderUri);
+                                }
+                            });
+                        };
                         if (uri[0].fsPath.endsWith('.car') || uri[0].fsPath.endsWith('.zip')) {
                             window.showInformationMessage('A car file (CAPP) is selected.\n Do you want to extract it?', { modal: true }, 'Extract')
                                 .then(option => {
@@ -50,12 +66,20 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                                             .then(extractUri => {
                                                 if (extractUri && extractUri[0]) {
                                                     importCapp({ source: uri[0].fsPath, directory: extractUri[0].fsPath, open: false });
+                                                    handleOpenProject(extractUri[0]);
                                                 }
                                             });
                                     }
                                 });
                         } else {
-                            commands.executeCommand('vscode.openFolder', uri[0]);
+                            const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
+                            const projectUri = webview ? webview.getProjectUri() : firstProject;
+                            const projectOpened = getStateMachine(projectUri).context().projectOpened;
+                            if (projectOpened) {
+                                handleOpenProject(uri[0]);
+                            } else {
+                                commands.executeCommand('vscode.openFolder', uri[0]);
+                            }
                         }
                     }
                 });
