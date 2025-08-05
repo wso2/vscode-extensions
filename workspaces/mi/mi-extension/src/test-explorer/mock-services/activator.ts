@@ -137,4 +137,47 @@ export function activateMockServiceTreeView(context: ExtensionContext): void {
 
         console.log('Update Mock Service');
     });
+
+    commands.registerCommand(COMMANDS.DELETE_MOCK_SERVICE, async (data: any) => {
+        if (data?.path) {
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Extract the mock service name from the file path
+            const mockServiceName = path.basename(data.path).split(".xml")[0];
+            
+            // Show confirmation dialog
+            const confirmation = await window.showWarningMessage(
+                `Are you sure you want to delete mock service "${mockServiceName}"?`,
+                { modal: true },
+                'Delete'
+            );
+            
+            if (confirmation !== 'Delete') {
+                return;
+            }
+            
+            try {
+                // Check if file exists before attempting deletion
+                if (fs.existsSync(data.path)) {
+                    // Delete the mock service file
+                    fs.unlinkSync(data.path);
+                    
+                    // Refresh the tree view to reflect the changes
+                    mockServiceTreeProvider.refresh();
+                    
+                    // Show success message
+                    window.showInformationMessage(`Mock service "${mockServiceName}" deleted successfully`);
+                    
+                    console.log('Deleted Mock Service:', data.path);
+                } else {
+                    console.warn('Mock service file not found:', data.path);
+                    window.showErrorMessage(`Mock service file not found: ${mockServiceName}`);
+                }
+            } catch (error) {
+                console.error('Error deleting mock service:', error);
+                window.showErrorMessage(`Failed to delete mock service "${mockServiceName}": ${error}`);
+            }
+        }
+    });
 }
