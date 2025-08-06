@@ -77,6 +77,8 @@ export default function createTests() {
         const diagram = new Diagram(page.page, 'Resource');
         await diagram.init();
         await diagram.addMediator('Cache');
+        // Wait for the cache mediator to be added
+        await page.page.waitForTimeout(2000);
         await diagram.getMediator('cache', 0, 'group');
       });
 
