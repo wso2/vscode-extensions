@@ -791,7 +791,7 @@ async function checkIfMiProject(projectUri) {
                     isOldProject = true;
                     log("Integration Studio project detected");
                 }
-            } else {
+            } else if (fs.existsSync(projectUri)) {
                 const foundOldProjects = await findMultiModuleProjectsInWorkspaceDir(projectUri);
                 if (foundOldProjects.length > 0) {
                     isOldWorkspace = true;
