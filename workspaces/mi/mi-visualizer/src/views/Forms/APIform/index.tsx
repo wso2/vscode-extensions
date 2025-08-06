@@ -353,7 +353,11 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
             path = ediResponse.path;
             rpcClient.getMiVisualizerRpcClient().log({ message: `Updated API: ${apiData.apiName}.` });
             let apiName = `${values.apiName}${values.version ? `_v${values.version}` : ''}`;
-            if (pathLib.basename(path).split('.xml')[0] !== apiName) {
+            // Normalize path separators and extract filename without extension
+            const normalizedPath = path.replace(/\\/g, '/'); // Convert backslashes to forward slashes
+            const fileName = normalizedPath.split('/').pop() || ''; // Get last part after final slash
+            const fileNameWithoutExt = fileName.replace(/\.xml$/, ''); // Remove .xml extension
+            if (fileNameWithoutExt.toLowerCase() !== apiName.toLowerCase()) {
                 rpcClient.getMiVisualizerRpcClient().openView({
                     type: EVENT_TYPE.OPEN_VIEW,
                     location: { view: MACHINE_VIEW.Overview }
