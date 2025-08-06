@@ -115,17 +115,11 @@ export default function createTests() {
 
             await artifactWebView.getByRole('textbox', { name: 'Field Name*The name of the' }).fill(TEST_DATA.mutation[1].name);
             await artifactWebView.getByRole('button', { name: 'Save' }).click();
+            await graphqlServiceUtils.closePanel();
 
-            await artifactWebView.getByTestId('close-panel-btn').click({ force: true });
             const outputName = TEST_DATA.mutation[1].outputType;
             await typeEditorUtils.verifyTypeLink(TEST_DATA.editedBasePath(testAttempt), TEST_DATA.mutation[1].name, outputName);
             await typeEditorUtils.verifyTypeNodeExists(outputName);
-            // TODO: Verify the argument type node exists
-            // await typeEditorUtils.verifyTypeNodeExists(TEST_DATA.mutation[1].arguments[1].name);
-
-            await artifactWebView.getByTestId(`type-node-${outputName}`).getByText(`${outputName}`).click();
-            await artifactWebView.getByTestId('side-panel').getByText('function1').click();
-            await artifactWebView.getByTestId('back-button').click();
             await graphqlServiceUtils.addFunction("function1", "string");
         });
 

@@ -66,7 +66,8 @@ export class GraphQLServiceUtils {
     }
 
     async addFunction(name: string, returnType: string) {
-        await this.webView.getByTestId('type-node-outputtype1').getByText('outputtype1').click();
+        const outputType = TEST_DATA.mutation[1].outputType;
+        await this.webView.getByTestId(`type-node-${outputType}`).getByText(`${outputType}`).click();
         await this.webView.getByRole('button', { name: '   Implement' }).click();
         await this.webView.getByTestId('add-variable-button').click({ force: true });
         await this.setSidePanel({
@@ -170,5 +171,17 @@ export class GraphQLServiceUtils {
 
     async waitForElement(locator: any, timeout = 10000) {
         await locator.waitFor({ state: 'visible', timeout });
+    }
+
+    async closePanel() {
+        await this.page.waitForTimeout(2000);
+        const closeButton = this.webView.getByTestId('close-panel-btn');
+        await this.waitForElement(closeButton);
+
+        await closeButton.click({ force: true });
+        await closeButton.waitFor({
+            state: 'detached',
+            timeout: 10000
+        });
     }
 }
