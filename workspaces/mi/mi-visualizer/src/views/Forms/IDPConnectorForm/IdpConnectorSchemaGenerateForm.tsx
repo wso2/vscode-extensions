@@ -107,7 +107,7 @@ export function IdpConnectorSchemaGenerateForm({ onClose, path,fileContent }: Id
                 try {
                     const token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
                     if (token) {
-                        const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getProxyRootUrl()).url;
+                        const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getProxyRootUrl()).openaiUrl;
                         const endpoint = `${backendRootUri}/proxy/openai/v1/chat/completions`;
                         
                         allConnections.push({

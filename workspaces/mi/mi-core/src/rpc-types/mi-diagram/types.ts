@@ -1467,7 +1467,8 @@ export interface GetBackendRootUrlResponse {
 }
 
 export interface GetProxyRootUrlResponse {
-    url: string;
+    openaiUrl: string;
+    anthropicUrl: string;
 }
 
 export interface ListRegistryArtifactsRequest {

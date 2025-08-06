@@ -86,7 +86,6 @@ export const fetchWithCopilot = async ({
     }
     const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
     const endpoint = `${backendRootUri}/idp-connector/generate`;
-    //const endpoint = `http://localhost:8000/idp-connector/generate`;
     controllerRef.current = new AbortController();
     const fetchWithRetry = async (): Promise<Response> => {
         let response = await fetch(endpoint, {
@@ -475,15 +474,13 @@ export const parameterConfigForFields = {
                     "none",
                     "date-time",
                     "date",
-                    "time",
-                    "email"
+                    "time"
                 ],
                 required: false,
                 helpTip: `Format of the field:
                     - date-time:(e.g., 2023-01-01T12:00:00Z)
                     - date:(e.g., 2023-01-01)
                     - time:(e.g., 12:00:00)
-                    - email: (e.g., user@example.com)
                     Choose "none" for no specific format.`,
                 enableCondition: [
                     {
@@ -599,15 +596,13 @@ export const parameterConfigForTables = {
                     "none",
                     "date-time",
                     "date",
-                    "time",
-                    "email"
+                    "time"
                 ],
                 required: false,
                 helpTip: `Format of the field:
                     - date-time:(e.g., 2023-01-01T12:00:00Z)
                     - date:(e.g., 2023-01-01)
                     - time:(e.g., 12:00:00)
-                    - email: (e.g., user@example.com)
                     Choose "none" for no specific format.`,
                 enableCondition: [
                     { itemType: "string" }
@@ -703,15 +698,13 @@ export const parameterConfigForTables = {
                                 "none",
                                 "date-time",
                                 "date",
-                                "time",
-                                "email"
+                                "time"
                             ],
                             required: false,
                             helpTip: `Format of the field:
                                 - date-time:(e.g., 2023-01-01T12:00:00Z)
                                 - date:(e.g., 2023-01-01)
                                 - time:(e.g., 12:00:00)
-                                - email: (e.g., user@example.com)
                                 Choose "none" for no specific format.`,
                             enableCondition: [
                                 { type: "string" }
