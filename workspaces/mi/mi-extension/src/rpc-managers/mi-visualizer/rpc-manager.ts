@@ -721,12 +721,12 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     }
 
     async updateProjectSettingsConfig(params: ProjectConfig): Promise<void> {
-        const config = workspace.getConfiguration('MI');
-        await config.update(params.configName, params.value, vscode.ConfigurationTarget.Workspace);
+        const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(this.projectUri));
+        await config.update(params.configName, params.value, vscode.ConfigurationTarget.WorkspaceFolder);
     }
 
     async isSupportEnabled(configName: string): Promise<boolean> {
-        const projectRuntimeVersion = await getMIVersionFromPom();
+        const projectRuntimeVersion = await getMIVersionFromPom(this.projectUri);
         return new Promise((resolve, reject) => {
             try {
                 if (configName === "LEGACY_EXPRESSION_ENABLED") {
@@ -736,8 +736,8 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                         return;
                     }
                 }
-                const config = workspace.getConfiguration('MI');
-                resolve(config.get(configName) || false);
+                const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(this.projectUri));
+                resolve(config.get<boolean>(configName) || false);
             } catch (error) {
                 reject(error);
             }
