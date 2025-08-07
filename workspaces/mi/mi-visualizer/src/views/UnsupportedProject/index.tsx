@@ -37,6 +37,11 @@ const Container = styled.div`
   * {
     box-sizing: border-box;
   }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
 `;
 
 const Block = styled.div`
@@ -176,6 +181,7 @@ export function UnsupportedProject(props: UnsupportedProjectProps) {
   const [activeCard, setActiveCard] = React.useState<number>(0);
   const [currentThemeKind, setCurrentThemeKind] = React.useState<ColorThemeKind>(undefined);
   const [displayOverviewOnStartup, setDisplayOverviewOnStartup] = React.useState<boolean>(displayOverview);
+  const [isMigrating, setIsMigrating] = React.useState<boolean>(false);
 
   const cards = [
     {
@@ -225,7 +231,14 @@ export function UnsupportedProject(props: UnsupportedProjectProps) {
 
   const migrate = async () => {
     if (openedDirectory) {
-      await rpcClient.getMiDiagramRpcClient().migrateProject({ dir: openedDirectory, sources: foundOldProjects });
+      setIsMigrating(true);
+      try {
+        await rpcClient.getMiDiagramRpcClient().migrateProject({ dir: openedDirectory, sources: foundOldProjects });
+        console.log('Migration completed successfully');
+      } catch (error) {
+        console.error('Migration failed:', error);
+        setIsMigrating(false);
+      }
     }
   }
 
@@ -313,7 +326,25 @@ export function UnsupportedProject(props: UnsupportedProjectProps) {
                 </div>
               )}
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                <Button onClick={() => migrate()}>{`Migrate ${projectType}`}</Button>
+                <Button onClick={() => migrate()} disabled={isMigrating}>
+                  {isMigrating ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div
+                        style={{
+                          width: '16px',
+                          height: '16px',
+                          border: '2px solid var(--vscode-button-foreground)',
+                          borderTop: '2px solid transparent',
+                          borderRadius: '50%',
+                          animation: 'spin 1s linear infinite',
+                        }}
+                      />
+                      Migrating...
+                    </div>
+                  ) : (
+                    `Migrate ${projectType}`
+                  )}
+                </Button>
               </div>
             </Body>
           </Block>
