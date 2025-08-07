@@ -371,7 +371,8 @@ export interface ImportProjectRequest {
 }
 
 export interface MigrateProjectRequest {
-    source: string;
+    dir: string;
+    sources: string[];
 }
 
 export interface Connector {
@@ -1231,7 +1232,7 @@ export interface ImportProjectResponse {
 }
 
 export interface MigrateProjectResponse {
-    filePath: string;
+    filePaths: string[];
 }
 
 export interface FileStructure {
