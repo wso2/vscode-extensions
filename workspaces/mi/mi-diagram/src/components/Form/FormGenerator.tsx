@@ -313,7 +313,6 @@ export function FormGenerator(props: FormGeneratorProps) {
                 else if (element.value.inputType === "idpSchemaGenerateView" && documentUri) {
                     const idpSchemas =await rpcClient.getMiDiagramRpcClient().getSchemaFiles();
                     setidpSchemaNames(idpSchemas.schemaFiles);
-
                 }
             }
         });
@@ -1158,43 +1157,35 @@ export function FormGenerator(props: FormGeneratorProps) {
                         setValue(name,value);
                     }
 
-                    openPopup(
-                        rpcClient,
-                        "idp",
-                        fetchItems,
-                        handleValueChange,
-                        props.documentUri,
-                        undefined,
-                        sidePanelContext
-                    );
+                    openPopup(rpcClient, "idp", fetchItems, handleValueChange, props.documentUri, undefined, sidePanelContext);
                 }
                 return (
                     <>
                         <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", width: '100%', gap: '10px' }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: '10px' }}>
-                                    <label>{element.displayName}{element.required === 'true' && '*'}</label>
-                                     {helpTipElement && <div style={{ paddingTop: '5px' }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: '10px' }}>
+                                <label>{element.displayName}{element.required === 'true' && '*'}</label>
+                                {helpTipElement && <div style={{ paddingTop: '5px' }}>
                                     {helpTipElement}
                                 </div>}
-                                </div>
-                                <LinkButton onClick={() => onCreateSchemaButtonClick(name)}>
-                                    <Codicon name="plus" />Add new schema
-                                </LinkButton>
+                            </div>
+                            <LinkButton onClick={() => onCreateSchemaButtonClick(name)}>
+                                <Codicon name="plus" />Add new schema
+                            </LinkButton>
                         </div>
 
                         <AutoComplete
-                                name={name}
-                                errorMsg={errors[getNameForController(name)] && errors[getNameForController(name)].message.toString()}
-                                items={
-                                    idpSchemaNames.map(schema => schema.fileName)
-                                }
-                                value={field.value}
-                                onValueChange={(e: any) => {
-                                    field.onChange(e);
-                                }}
-                                required={element.required === 'true'}
-                                allowItemCreate={false}
-                            />
+                            name={name}
+                            errorMsg={errors[getNameForController(name)] && errors[getNameForController(name)].message.toString()}
+                            items={
+                                idpSchemaNames.map(schema => schema.fileName)
+                            }
+                            value={field.value}
+                            onValueChange={(e: any) => {
+                                field.onChange(e);
+                            }}
+                            required={element.required === 'true'}
+                            allowItemCreate={false}
+                        />
                     </>
                 )
             default:

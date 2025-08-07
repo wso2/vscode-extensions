@@ -3340,18 +3340,15 @@ ${endpointAttributes}
 
     async writeFileToRegistry(params: WriteFileToRegistryRequest): Promise<WriteFileToRegistryResponse> {
         const { fileContent, schemaName, imageOrPdf, writeToArtifactFile} = params; 
-        const langClient = getStateMachine(this.projectUri).context().langClient!;
-        const projectDetailsRes = await langClient?.getProjectDetails();
-        const runtimeVersion = projectDetailsRes.primaryDetails.runtimeVersion.value;
-        const isRegistrySupported = compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0;
-        const directoryPath =this.projectUri;
+        const runtimeVersion =await this.getMIVersionFromPom();
+        const isRegistrySupported = compareVersions(runtimeVersion.version, RUNTIME_VERSION_440) < 0;
         //add 4.3.0 compatibility
         let folderPath ="";
         if(!isRegistrySupported){
-            folderPath = path.join(directoryPath ?? '', 'src', 'main', 'wso2mi', 'resources','idp-schemas', `${schemaName}`, path.sep);
+            folderPath = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi', 'resources','idp-schemas', `${schemaName}`, path.sep);
         }
         else{
-            folderPath = path.join(directoryPath ?? '', 'src', 'main', 'wso2mi',  'resources', 'registry', 'gov', 'idp-schemas', `${schemaName}`, path.sep);
+            folderPath = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi',  'resources', 'registry', 'gov', 'idp-schemas', `${schemaName}`, path.sep);
         }
         //write the content to a file, if file exists, overwrite else create new file
         try {
@@ -3374,24 +3371,21 @@ ${endpointAttributes}
             else{
                 artifactPath = '/_system/governance/idp-schemas/' + schemaName;
             }
-            await addNewEntryToArtifactXML(directoryPath ?? "",artifactName,file, artifactPath, "text/plain",false,isRegistrySupported )
+            await addNewEntryToArtifactXML(this.projectUri ?? "",artifactName,file, artifactPath, "text/plain",false,isRegistrySupported )
         }     
         return {status: true};
     }
 
     async getSchemaFiles(): Promise<GetSchemaFilesResponse> {
-        const langClient = getStateMachine(this.projectUri).context().langClient!;
-        const projectDetailsRes = await langClient?.getProjectDetails();
-        const runtimeVersion = projectDetailsRes.primaryDetails.runtimeVersion.value;
-        const isRegistrySupported = compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0;
-        const directoryPath =this.projectUri;
+        const runtimeVersion = await this.getMIVersionFromPom();
+        const isRegistrySupported = compareVersions(runtimeVersion.version, RUNTIME_VERSION_440) < 0;
         let schemaDirectory="";
 
         if(!isRegistrySupported){
-            schemaDirectory = path.join(directoryPath ?? '', 'src', 'main', 'wso2mi', 'resources','idp-schemas');
+            schemaDirectory = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi', 'resources','idp-schemas');
         }
         else{
-            schemaDirectory = path.join(directoryPath ?? '', 'src', 'main', 'wso2mi',  'resources', 'registry', 'gov', 'idp-schemas');
+            schemaDirectory = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi',  'resources', 'registry', 'gov', 'idp-schemas');
         }
         const schemaFiles: {fileName: string, documentUriWithFileName:string}[] = [];
         if (fs.existsSync(schemaDirectory)) {
@@ -3431,11 +3425,25 @@ ${endpointAttributes}
                 for (const file of folderFiles) {
                     const currentFilePath = path.join(folderPath, file);
                     let mimeType = '';
-                    if (file.endsWith('.png')) mimeType = 'image/png';
-                    else if (file.endsWith('.jpg') || file.endsWith('.jpeg')) mimeType = 'image/jpeg';
-                    else if (file.endsWith('.gif')) mimeType = 'image/gif';
-                    else if (file.endsWith('.webp')) mimeType = 'image/webp';
-                    else if (file.endsWith('.pdf')) mimeType = 'application/pdf';
+                    const ext = file.substring(file.lastIndexOf('.')).toLowerCase();
+                    switch (ext) {
+                        case '.png':
+                            mimeType = 'image/png';
+                            break;
+                        case '.jpg':
+                        case '.jpeg':
+                            mimeType = 'image/jpeg';
+                            break;
+                        case '.gif':
+                            mimeType = 'image/gif';
+                            break;
+                        case '.webp':
+                            mimeType = 'image/webp';
+                            break;
+                        case '.pdf':
+                            mimeType = 'application/pdf';
+                            break;
+                    }
                     if (mimeType) {
                         const fileContent = fs.readFileSync(currentFilePath, 'base64');
                         response.base64Content = `data:${mimeType};base64,${fileContent}`;
