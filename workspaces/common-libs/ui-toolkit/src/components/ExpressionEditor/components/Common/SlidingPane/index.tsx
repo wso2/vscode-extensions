@@ -3,7 +3,7 @@ import { SlidingPaneContext, useSlidingPane } from "./context";
 import styled from '@emotion/styled';
 import { Codicon } from "../../../../Codicon/Codicon";
 import { Divider } from "../../../../Divider/Divider";
-import {  VERTICAL_HELPERPANE_HEIGHT } from "../../../constants";
+import { VERTICAL_HELPERPANE_HEIGHT } from "../../../constants";
 
 const DEFAULT_SLIDING_WINDOW_HEIGHT = `${VERTICAL_HELPERPANE_HEIGHT}px`;
 const DEFAULT_SLIDING_WINDOW_WIDTH = 370;
@@ -30,23 +30,23 @@ export type VisitedPagesElement = {
     params: any
 }
 
-export const SlidingWindow = ({children}:SlidingWindowProps) => {
+export const SlidingWindow = ({ children }: SlidingWindowProps) => {
     const [visitedPages, setVisitedPages] = useState<VisitedPagesElement[]>([{
         name: "PAGE1",
         params: {}
-    }]); 
+    }]);
     const [prevPage, setPrevPage] = useState<VisitedPagesElement>();
     const [height, setHeight] = useState(DEFAULT_SLIDING_WINDOW_HEIGHT);
     const [width, setWidth] = useState(DEFAULT_SLIDING_WINDOW_WIDTH);
     const [clearAnimations, setClearAnimations] = useState(false);
 
 
-    const moveToNext = (nextPage:VisitedPagesElement) => {
+    const moveToNext = (nextPage: VisitedPagesElement) => {
         setVisitedPages([...visitedPages, nextPage]);
     };
 
     const getParams = () => {
-        if (visitedPages.length>0){
+        if (visitedPages.length > 0) {
             return visitedPages[visitedPages.length - 1].params;
         }
     }
@@ -59,8 +59,8 @@ export const SlidingWindow = ({children}:SlidingWindowProps) => {
         }
     };
     return (
-        <SlidingPaneContext.Provider 
-            value={{ 
+        <SlidingPaneContext.Provider
+            value={{
                 height: height,
                 width: width,
                 setWidth: setWidth,
@@ -82,7 +82,7 @@ export const SlidingWindow = ({children}:SlidingWindowProps) => {
     );
 }
 
-export const SlidingPaneContainer = styled.div<{ index: number; isCurrent?: boolean; width?: string , clearAnimations?: boolean }>`
+export const SlidingPaneContainer = styled.div<{ index: number; isCurrent?: boolean; width?: string, clearAnimations?: boolean }>`
   position: absolute;
   top: 0;
   left: 0;
@@ -91,12 +91,12 @@ export const SlidingPaneContainer = styled.div<{ index: number; isCurrent?: bool
   height: 100%;
   display: flex;
   flex-direction: column;
-  transition: ${({ clearAnimations }:{clearAnimations:boolean}) =>
+  transition: ${({ clearAnimations }: { clearAnimations: boolean }) =>
         clearAnimations ? 'none' : 'transform 0.3s ease-in-out, width 0.3s ease-in-out'};
   transform: ${({ index }: { index: number }) => `translateX(${index * 100}%)`};
 `;
 
-type SlidingPaneProps = { 
+type SlidingPaneProps = {
     name: string,
     paneHeight?: string,
     paneWidth?: number,
@@ -106,8 +106,8 @@ type SlidingPaneProps = {
     disableAnimation?: boolean
 }
 
-export const SlidingPane = ({  children, name, paneHeight, paneWidth}:SlidingPaneProps) => {
-    const {setHeight, setWidth, visitedPages, setClearAnimations, clearAnimations } = useSlidingPane();
+export const SlidingPane = ({ children, name, paneHeight, paneWidth }: SlidingPaneProps) => {
+    const { setHeight, setWidth, visitedPages, setClearAnimations, clearAnimations } = useSlidingPane();
     const [index, setIndex] = useState(1);
     const currentPage = visitedPages[visitedPages.length - 1];
     const prevVisitedPagesLength = useRef(visitedPages.length);
@@ -179,11 +179,12 @@ export const SlidingPaneCallbackCOntainer = styled.div`
 type SlidingPaneNavContainerProps = {
     children?: React.ReactNode;
     to?: string;
-    data?:any
+    data?: any;
+    endIcon?: ReactNode;
 }
 
-export const SlidingPaneNavContainer = ({children, to, data}: SlidingPaneNavContainerProps) => {
-    const { moveToNext  } = useSlidingPane();
+export const SlidingPaneNavContainer = ({ children, to, data, endIcon }: SlidingPaneNavContainerProps) => {
+    const { moveToNext } = useSlidingPane();
     const handleNavigation = () => {
         if (!to) return;
         moveToNext({
@@ -194,15 +195,19 @@ export const SlidingPaneNavContainer = ({children, to, data}: SlidingPaneNavCont
 
     return (
         <SlidingPaneNavContainerElm>
-            <InvisibleButton style={{width: '100%'}} onClick={handleNavigation}>
-                <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%'}}>
+            <InvisibleButton style={{ width: '100%' }} onClick={handleNavigation}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                     <div>
                         {children}
                     </div>
                     {
-                        to?<div style={{marginLeft: '8px', display: 'flex', alignItems: 'center'}}>
-                            <Codicon name="chevron-right" /> 
-                        </div>:null
+                        endIcon ? (
+                            <>{endIcon}</>
+                        ) : to ? (
+                            <div style={{ marginLeft: '8px', display: 'flex', alignItems: 'center' }}>
+                                <Codicon name="chevron-right" />
+                            </div>
+                        ) : null
                     }
                 </div>
             </InvisibleButton>
@@ -210,15 +215,15 @@ export const SlidingPaneNavContainer = ({children, to, data}: SlidingPaneNavCont
     )
 }
 
-export const SlidingPaneBackButton = ({children}:{children:ReactNode}) => {
+export const SlidingPaneBackButton = ({ children }: { children: ReactNode }) => {
     const { moveToPrev, setPrevPage, visitedPages } = useSlidingPane();
     const handleBackNavigation = () => {
-        const prevPage =  visitedPages[visitedPages.length - 2];
+        const prevPage = visitedPages[visitedPages.length - 2];
         setPrevPage(prevPage);
         setTimeout(() => {
             moveToPrev();
         }, 50);
-       
+
     }
     return (
         <>
@@ -240,16 +245,16 @@ const StickyHeader = styled.div`
 `;
 
 
-export const SlidingPaneHeader = ({children}: {children:ReactNode}) => {
+export const SlidingPaneHeader = ({ children }: { children: ReactNode }) => {
     return (
         <StickyHeader>
-            <div style={{display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'flex-start'}}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'flex-start' }}>
                 <SlidingPaneBackButton>
                     <Codicon name="chevron-left" />
                 </SlidingPaneBackButton>
                 {children}
             </div>
-            <Divider/>
+            <Divider />
         </StickyHeader>
     )
 }
