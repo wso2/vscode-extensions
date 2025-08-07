@@ -139,7 +139,33 @@ const SYNAPSE_TO_MI_ARTIFACT_FOLDER_MAP: Record<string, string> = {
     'templates': 'templates'
 };
 
-export async function importProject(params: ImportProjectRequest): Promise<ImportProjectResponse> {
+const OLD_MULTI_MODULE_PROJECT_NATURES = [
+    'org.wso2.developerstudio.eclipse.mavenmultimodule.project.nature',
+    'org.eclipse.m2e.core.maven2Nature'
+];
+
+export async function importProjects(params: ImportProjectRequest[]): Promise<ImportProjectResponse[]> {
+    const responses: ImportProjectResponse[] = [];
+    const allCreatedFolderUris: Uri[] = [];
+    for (const param of params) {
+        try {
+            const createdFolderPaths = await importProject(param);
+            for (const folder of createdFolderPaths) {
+                responses.push({ filePath: folder.filePath });
+                allCreatedFolderUris.push(Uri.file(folder.filePath));
+            }
+        } catch (error) {
+            console.error(`Failed to import project from ${param.source}:`, error);
+            responses.push({ filePath: '' });
+        }
+    }
+    if (allCreatedFolderUris.length > 0) {
+        await handleWorkspaceAfterMigration(params[0].directory, allCreatedFolderUris);
+    }
+    return responses;
+}
+
+export async function importProject(params: ImportProjectRequest): Promise<ImportProjectResponse[]> {
     const { source, directory, open } = params;
     const projectUri = workspace.getWorkspaceFolder(Uri.file(source))?.uri?.fsPath;
     if (!projectUri) {
@@ -165,7 +191,7 @@ export async function importProject(params: ImportProjectRequest): Promise<Impor
 
         const createdProjectCount = await createFolderStructuresForDistributionProjects(
             destinationFolderPath,
-            directory,
+            source,
             projectUuid,
             projectDirToResolvedPomMap,
             projectDirsWithType
@@ -173,19 +199,23 @@ export async function importProject(params: ImportProjectRequest): Promise<Impor
         // If no folder structure was created, create one in the given directory
         if (createdProjectCount == 0) {
             const folderStructure = getFolderStructure(projectName, groupId, artifactId, projectUuid, version, runtimeVersion ?? LATEST_MI_VERSION);
-            await createFolderStructure(directory, folderStructure);
-            copyDockerResources(extension.context.asAbsolutePath(path.join('resources', 'docker-resources')), directory);
+            await createFolderStructure(source, folderStructure);
+            copyDockerResources(extension.context.asAbsolutePath(path.join('resources', 'docker-resources')), source);
             console.log("Created project structure for project: " + projectName);
         }
 
-        await migrateConfigs(projectUri, path.join(source, ".backup"), directory, projectDirToResolvedPomMap, projectDirsWithType, createdProjectCount);
+        const createdFolderUris = await migrateConfigs(projectUri, path.join(source, ".backup"), source, projectDirToResolvedPomMap, projectDirsWithType, createdProjectCount);
 
         window.showInformationMessage(`Successfully imported ${projectName} project`);
 
-        return { filePath: directory };
+        if (createdFolderUris && createdFolderUris.length > 0) {
+            return createdFolderUris.map(uri => ({ filePath: uri.fsPath }));
+        } else {
+            return [{ filePath: source }];
+        }
     } else {
-        window.showErrorMessage('Could not find the project details from the provided project: ', source);
-        return { filePath: "" };
+        window.showErrorMessage('Could not find the project details from the provided project: ' + source);
+        return [{ filePath: "" }];
     }
 }
 
@@ -375,10 +405,11 @@ export async function migrateConfigs(
     projectDirToResolvedPomMap: Map<string, string>,
     projectDirsWithType: { projectDir: string, projectType: Nature }[],
     createdProjectCount: number
-): Promise<void> {
+): Promise<Uri[]> {
     // determine the project type here
     const projectType = await determineProjectType(source);
     let hasClassMediatorModule = false;
+    const createdFolderUris: Uri[] = [];
 
     if (projectType === Nature.MULTIMODULE) {
         const artifactIdToFileInfoMap = generateArtifactIdToFileInfoMap(projectDirToResolvedPomMap, projectDirsWithType);
@@ -386,7 +417,6 @@ export async function migrateConfigs(
         const projectDirToMetaFilesMap = generateProjectDirToMetaFilesMap(projectDirsWithType);
 
         const allUsedDependencyIds = new Set<string>();
-        const createdFolderUris: Uri[] = [];
         for (const { projectDir, projectType } of projectDirsWithType) {
             if (projectType === Nature.DISTRIBUTION && artifactIdToFileInfoMap) {
                 // Compute the relative path from source to projectDir, and map it to the target
@@ -406,7 +436,6 @@ export async function migrateConfigs(
             }
         }
         writeUnusedFileInfos(allUsedDependencyIds, artifactIdToFileInfoMap, source)
-        await handleWorkspaceAfterMigration(projectUri, createdFolderUris);
     } else if (projectType === Nature.LEGACY) {
         const items = fs.readdirSync(source, { withFileTypes: true });
         for (const item of items) {
@@ -428,38 +457,30 @@ export async function migrateConfigs(
         await updatePomForClassMediator(projectUri);
     }
     commands.executeCommand('setContext', 'MI.migrationStatus', 'done');
+    return createdFolderUris;
 }
 
 /**
- * Handles post-migration workspace actions based on the number of created project folders.
+ * Handles workspace updates after a migration process by opening new folders or updating the workspace configuration.
  *
- * - If the number of created projects is within the allowed limit, it either opens the single project in a new window
- *   or updates the current workspace with the new folders.
- * - If the number exceeds the limit, it shows a warning message and prompts the user to open the projects manually.
+ * - If there is only one folder in workspace or none, and exactly one new folder was created, it opens that folder in a new window and closes the current one.
+ * - If multiple folders were created or the workspace already contains multiple folders, it updates the workspace with the new folders.
  *
  * @param projectUri - The URI of the original project being migrated.
- * @param createdFolderUris - An array of URIs representing the newly created project folders.
- * @returns A promise that resolves when the workspace actions are complete.
+ * @param createdFolderUris - An array of URIs representing the folders created during migration.
+ * @returns A promise that resolves when the workspace has been updated accordingly.
  */
 async function handleWorkspaceAfterMigration(projectUri: string, createdFolderUris: Uri[]) {
     const createdProjectCount = createdFolderUris.length;
-    if (createdProjectCount <= MAX_PROJECTS_TO_OPEN) {
-        if (!workspace.workspaceFolders || workspace.workspaceFolders.length <= 1) {
-            if (createdProjectCount === 1) {
-                await commands.executeCommand('vscode.openFolder', createdFolderUris[0], true);
-                await commands.executeCommand('workbench.action.closeWindow');
-            } else {
-                await updateWorkspaceWithNewFolders(projectUri, createdFolderUris);
-            }
+    if (!workspace.workspaceFolders || workspace.workspaceFolders.length <= 1) {
+        if (createdProjectCount === 1) {
+            await commands.executeCommand('vscode.openFolder', createdFolderUris[0], true);
+            await commands.executeCommand('workbench.action.closeWindow');
         } else {
             await updateWorkspaceWithNewFolders(projectUri, createdFolderUris);
         }
     } else {
-        await window.showWarningMessage(
-            `Processed ${createdProjectCount} composite exporters and generated the relevant integration projects. Please open them from the file explorer.`,
-            { modal: true }
-        );
-        commands.executeCommand('workbench.view.explorer');
+        await updateWorkspaceWithNewFolders(projectUri, createdFolderUris);
     }
 }
 
@@ -1636,6 +1657,78 @@ function findProjectNature(node: any): string | undefined {
     }
 
     return undefined;
+}
+
+/**
+ * Checks if the specified project file contains any of the old multi-module project natures.
+ *
+ * @param filePath - The path to the project file to check.
+ * @returns A promise that resolves to `true` if the file contains any of the old multi-module project natures, otherwise `false`.
+ */
+export async function containsMultiModuleNatureInProjectFile(filePath: string): Promise<boolean> {
+    if (!fs.existsSync(filePath)) return false;
+    const content = await fs.promises.readFile(filePath, 'utf-8');
+    return OLD_MULTI_MODULE_PROJECT_NATURES.some(nature => content.includes(`<nature>${nature}</nature>`));
+}
+
+/**
+ * Checks if the given POM file contains a multi-module project nature.
+ *
+ * Reads the specified POM file, extracts its project nature, and determines
+ * whether it matches any of the known old multi-module project natures.
+ *
+ * @param filePath - The absolute path to the POM file to check.
+ * @returns A promise that resolves to `true` if the POM file contains a multi-module nature, or `false` otherwise.
+ */
+export async function containsMultiModuleNatureInPomFile(filePath: string): Promise<boolean> {
+    if (!fs.existsSync(filePath)) return false;
+    const pomContent = await fs.promises.readFile(filePath, 'utf-8');
+    const projectNature = await extractNatureFromPomContent(pomContent);
+    return OLD_MULTI_MODULE_PROJECT_NATURES.includes(projectNature ?? '');
+}
+
+/**
+ * Recursively searches the given workspace directory for multi-module projects.
+ * 
+ * A multi-module project is identified by either:
+ * - A `.project` file containing multi-module nature
+ * - A `pom.xml` file containing multi-module nature
+ * 
+ * Directories named `.backup` are skipped.
+ * 
+ * @param workspaceDir - The root directory of the workspace to search.
+ * @returns A promise that resolves to an array of directory paths containing multi-module projects.
+ */
+export async function findMultiModuleProjectsInWorkspaceDir(workspaceDir: string): Promise<string[]> {
+    const foundProjects: string[] = [];
+
+    async function checkDir(dir: string) {
+        if (path.basename(dir) === '.backup') {
+            return; // Skip .backup directories
+        }
+        const projectFile = path.join(dir, '.project');
+        const pomFile = path.join(dir, 'pom.xml');
+        if (fs.existsSync(projectFile)) {
+            if (await containsMultiModuleNatureInProjectFile(projectFile)) {
+                foundProjects.push(dir);
+            }
+        } else if (fs.existsSync(pomFile)) {
+            if (await containsMultiModuleNatureInPomFile(pomFile)) {
+                foundProjects.push(dir);
+            }
+        } else {
+            // Recurse into subdirectories
+            const dirs = fs.readdirSync(dir, { withFileTypes: true });
+            for (const dirent of dirs) {
+                if (dirent.isDirectory()) {
+                    await checkDir(path.join(dir, dirent.name));
+                }
+            }
+        }
+    }
+
+    await checkDir(workspaceDir);
+    return foundProjects;
 }
 
 /**

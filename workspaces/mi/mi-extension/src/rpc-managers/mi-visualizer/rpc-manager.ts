@@ -89,10 +89,17 @@ const fs = require('fs');
 import { TextEdit } from "vscode-languageclient";
 import { downloadJavaFromMI, downloadMI, getProjectSetupDetails, getSupportedMIVersionsHigherThan, setPathsInWorkSpace, updateRuntimeVersionsInPom, getMIVersionFromPom } from '../../util/onboardingUtils';
 import { extractCAppDependenciesAsProjects } from "../../visualizer/activate";
+import { findMultiModuleProjectsInWorkspaceDir } from "../../util/migrationUtils";
 
 Mustache.escape = escapeXml;
 export class MiVisualizerRpcManager implements MIVisualizerAPI {
     constructor(private projectUri: string) { }
+
+    async getProjectUri(): Promise<string> {
+        return new Promise((resolve) => {
+            resolve(this.projectUri);
+        });
+    }
 
     async getWorkspaces(): Promise<WorkspacesResponse> {
         return new Promise(async (resolve) => {
@@ -103,6 +110,18 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                 name: space.name
             }));
             resolve({ workspaces: response });
+        });
+    }
+
+    /**
+     * Searches for and retrieves a list of old multi-module project paths within the current workspace directory.
+     *
+     * @returns {Promise<string[]>} A promise that resolves to an array of strings, each representing the path to a found project.
+     */
+    async findOldProjects(): Promise<string[]> {
+        return new Promise(async (resolve) => {
+            const foundProjects = await findMultiModuleProjectsInWorkspaceDir(this.projectUri);
+            resolve(foundProjects);
         });
     }
 
@@ -721,12 +740,12 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     }
 
     async updateProjectSettingsConfig(params: ProjectConfig): Promise<void> {
-        const config = workspace.getConfiguration('MI');
-        await config.update(params.configName, params.value, vscode.ConfigurationTarget.Workspace);
+        const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(this.projectUri));
+        await config.update(params.configName, params.value, vscode.ConfigurationTarget.WorkspaceFolder);
     }
 
     async isSupportEnabled(configName: string): Promise<boolean> {
-        const projectRuntimeVersion = await getMIVersionFromPom();
+        const projectRuntimeVersion = await getMIVersionFromPom(this.projectUri);
         return new Promise((resolve, reject) => {
             try {
                 if (configName === "LEGACY_EXPRESSION_ENABLED") {
@@ -736,8 +755,8 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                         return;
                     }
                 }
-                const config = workspace.getConfiguration('MI');
-                resolve(config.get(configName) || false);
+                const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(this.projectUri));
+                resolve(config.get<boolean>(configName) || false);
             } catch (error) {
                 reject(error);
             }
