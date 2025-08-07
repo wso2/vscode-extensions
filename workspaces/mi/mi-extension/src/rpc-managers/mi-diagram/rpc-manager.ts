@@ -3371,7 +3371,7 @@ ${endpointAttributes}
             else{
                 artifactPath = '/_system/governance/idp-schemas/' + schemaName;
             }
-            await addNewEntryToArtifactXML(this.projectUri ?? "",artifactName,file, artifactPath, "text/plain",false,isRegistrySupported )
+            await addNewEntryToArtifactXML(this.projectUri ?? "",artifactName,file, artifactPath, "application/json",false,isRegistrySupported )
         }     
         return {status: true};
     }

@@ -43,6 +43,16 @@ export const validateJson = (value: string) => {
     }
 };
 
+export const SYSTEM_PROMPT = 
+            "You are an expert AI assistant specialized in analyzing multiple images and extracting structured data. " +
+            "Your task is to accurately populate the provided JSON schema using the given images. " +
+            "Each field in the schema has a description. Use it to infer the correct value if possible. " +
+            "If a field cannot be confidently inferred from the images or its description, return null for that field. " +
+            "Field names in the output must exactly match the keys in the schema, including case sensitivity. " +
+            "Return only a valid JSON object matching the schema structure. Do not include any other text, comments, or formatting.";
+export const USER_PROMPT = 
+            "Please analyze all the provided images thoroughly and populate the JSON schema based on the information extracted. ";
+
 export const COPILOT_ERROR_MESSAGES = {
     BAD_REQUEST: 'Bad Request. Schema is not valid.',
     UNAUTHORIZED: 'Unauthorized',

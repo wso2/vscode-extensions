@@ -11,7 +11,7 @@ import { UploadWindow } from "./UploadWindow";
 import { MonacoEditor } from "./MonacoEditor";
 import styled from "@emotion/styled";
 import { useEffect, useState, useRef } from "react";
-import { handleFetchError,SelectedConectionObject } from "./IdpUtills";
+import { handleFetchError, SelectedConectionObject, SYSTEM_PROMPT, USER_PROMPT } from "./IdpUtills";
 import { ImgAndPdfViewer } from "./ImgAndPdfViewer";
 import { Button } from "@wso2/ui-toolkit";
 import { ErrorAlert } from "./ErrorAlert";
@@ -118,16 +118,6 @@ export function TryOutView({
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState<string | null>(null);
     const controllerRef3 = useRef<any>(null);
-
-    const SYSTEM_PROMPT = 
-            "You are an expert AI assistant specialized in analyzing multiple images and extracting structured data. " +
-            "Your task is to accurately populate the provided JSON schema using the given images. " +
-            "Each field in the schema has a description. Use it to infer the correct value if possible. " +
-            "If a field cannot be confidently inferred from the images or its description, return null for that field. " +
-            "Field names in the output must exactly match the keys in the schema, including case sensitivity. " +
-            "Return only a valid JSON object matching the schema structure. Do not include any other text, comments, or formatting.";
-    const USER_PROMPT = 
-            "Please analyze all the provided images thoroughly and populate the JSON schema based on the information extracted. ";
 
     const extractLlmResponse = (llmResponse: any) => {
         try {
