@@ -652,7 +652,7 @@ export async function createMetadataFilesForRegistryCollection(collectionRoot: s
 export async function getAvailableRegistryResources(projectDir: string): Promise<ListRegistryArtifactsResponse> {
     const result: RegistryArtifact[] = [];
     
-    const miVersion = await getMIVersionFromPom();
+    const miVersion = await getMIVersionFromPom(projectDir);
     if (miVersion && compareVersions(miVersion, '4.4.0') >= 0) {
         var artifactXMLPath = path.join(projectDir, 'src', 'main', 'wso2mi', 'resources', 'artifact.xml');
     } else {
