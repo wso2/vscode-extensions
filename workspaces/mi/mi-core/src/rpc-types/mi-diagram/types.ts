@@ -1267,26 +1267,26 @@ export interface HandleFileResponse {
     content?: string;
 }
 
-export interface WriteFileToRegistryRequest {
+export interface WriteIdpSchemaFileToRegistryRequest {
     fileContent?: string;
     schemaName:string;
     imageOrPdf?: string;
     writeToArtifactFile?: boolean;
 }
 
-export interface WriteFileToRegistryResponse {
+export interface WriteIdpSchemaFileToRegistryResponse {
     status: boolean;
 }
 
-export interface GetSchemaFilesResponse {
+export interface GetIdpSchemaFilesResponse {
     schemaFiles:  {fileName: string; documentUriWithFileName?: string}[];
 }
 
-export interface ReadSchemaFileContentRequest{
+export interface ReadIdpSchemaFileContentRequest{
     filePath: string;
 }
 
-export interface ReadSchemaFileContentResponse{
+export interface ReadIdpSchemaFileContentResponse{
     fileContent: string;
     base64Content?: string;
 }

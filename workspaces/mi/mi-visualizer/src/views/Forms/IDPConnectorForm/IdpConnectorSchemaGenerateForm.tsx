@@ -74,7 +74,7 @@ export function IdpConnectorSchemaGenerateForm({ onClose, path,fileContent }: Id
             setErrors(null);
             setIsLoading(true);
             const fetchFile = async () => {
-                const response = await rpcClient.getMiDiagramRpcClient().readSchemaFileContent({
+                const response = await rpcClient.getMiDiagramRpcClient().readIdpSchemaFileContent({
                     filePath: path,
                 });
                 if (response.base64Content) {

@@ -57,13 +57,13 @@ export function CreateIdpConnectorSchema(props: CreateIdpConnectorSchemaProps) {
 
     useEffect(() => {
         (async () => {
-            const idpSchemas = await rpcClient.getMiDiagramRpcClient().getSchemaFiles();
+            const idpSchemas = await rpcClient.getMiDiagramRpcClient().getIdpSchemaFiles();
             setWorkspaceFileNames(idpSchemas.schemaFiles.map((file) => file.fileName));
         })();
     }, []);
 
     const handleCreateOutputSchema = async () => {
-        await rpcClient.getMiDiagramRpcClient().writeFileToRegistry({
+        await rpcClient.getMiDiagramRpcClient().writeIdpSchemaFileToRegistry({
             fileContent: "{}",
             schemaName: getValues("name"),
             writeToArtifactFile: true,

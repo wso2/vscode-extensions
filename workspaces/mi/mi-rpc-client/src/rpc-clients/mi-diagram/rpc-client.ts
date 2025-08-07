@@ -198,11 +198,11 @@ import {
     WriteContentToFileResponse,
     HandleFileRequest,
     HandleFileResponse,
-    WriteFileToRegistryRequest,
-    WriteFileToRegistryResponse,
-    GetSchemaFilesResponse,
-    ReadSchemaFileContentRequest,
-    ReadSchemaFileContentResponse,
+    WriteIdpSchemaFileToRegistryRequest,
+    WriteIdpSchemaFileToRegistryResponse,
+    GetIdpSchemaFilesResponse,
+    ReadIdpSchemaFileContentRequest,
+    ReadIdpSchemaFileContentResponse,
     applyEdit,
     askFileDirPath,
     askProjectDirPath,
@@ -332,10 +332,10 @@ import {
     updateWsdlEndpoint,
     writeContentToFile,
     handleFileWithFS,
-    writeFileToRegistry,
-    getSchemaFiles,
+    writeIdpSchemaFileToRegistry,
+    getIdpSchemaFiles,
     convertPdfToBase64Images,
-    readSchemaFileContent,
+    readIdpSchemaFileContent,
     StoreConnectorJsonResponse,
     getStoreConnectorJSON,
     TestDbConnectionRequest,
@@ -714,20 +714,20 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
         return this._messenger.sendRequest(handleFileWithFS, HOST_EXTENSION, params);
     }
 
-    writeFileToRegistry(params: WriteFileToRegistryRequest): Promise<WriteFileToRegistryResponse> {
-        return this._messenger.sendRequest(writeFileToRegistry, HOST_EXTENSION, params);
+    writeIdpSchemaFileToRegistry(params: WriteIdpSchemaFileToRegistryRequest): Promise<WriteIdpSchemaFileToRegistryResponse> {
+        return this._messenger.sendRequest(writeIdpSchemaFileToRegistry, HOST_EXTENSION, params);
     } 
 
-    getSchemaFiles(): Promise<GetSchemaFilesResponse> {
-        return this._messenger.sendRequest(getSchemaFiles, HOST_EXTENSION);
+    getIdpSchemaFiles(): Promise<GetIdpSchemaFilesResponse> {
+        return this._messenger.sendRequest(getIdpSchemaFiles, HOST_EXTENSION);
     }
 
     convertPdfToBase64Images(params:string): Promise<string[]> {
         return this._messenger.sendRequest(convertPdfToBase64Images, HOST_EXTENSION, params);
     }
 
-    readSchemaFileContent(params: ReadSchemaFileContentRequest): Promise<ReadSchemaFileContentResponse> {
-        return this._messenger.sendRequest(readSchemaFileContent, HOST_EXTENSION, params);
+    readIdpSchemaFileContent(params: ReadIdpSchemaFileContentRequest): Promise<ReadIdpSchemaFileContentResponse> {
+        return this._messenger.sendRequest(readIdpSchemaFileContent, HOST_EXTENSION, params);
     }
 
     highlightCode(params: HighlightCodeRequest): void {

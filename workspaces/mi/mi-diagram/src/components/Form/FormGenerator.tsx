@@ -311,7 +311,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                     }));
                 }
                 else if (element.value.inputType === "idpSchemaGenerateView" && documentUri) {
-                    const idpSchemas =await rpcClient.getMiDiagramRpcClient().getSchemaFiles();
+                    const idpSchemas =await rpcClient.getMiDiagramRpcClient().getIdpSchemaFiles();
                     setidpSchemaNames(idpSchemas.schemaFiles);
                 }
             }
@@ -1149,7 +1149,7 @@ export function FormGenerator(props: FormGeneratorProps) {
             case 'idpSchemaGenerateView':
                 const onCreateSchemaButtonClick = async (name?: string) => {
                     const fetchItems = async () => {
-                        const idpSchemas =await rpcClient.getMiDiagramRpcClient().getSchemaFiles();
+                        const idpSchemas =await rpcClient.getMiDiagramRpcClient().getIdpSchemaFiles();
                         setidpSchemaNames(idpSchemas.schemaFiles);
                     }
 

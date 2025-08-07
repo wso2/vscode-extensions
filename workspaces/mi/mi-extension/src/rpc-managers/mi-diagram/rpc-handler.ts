@@ -117,8 +117,8 @@ import {
     UpdateWsdlEndpointRequest,
     WriteContentToFileRequest,
     HandleFileRequest,
-    WriteFileToRegistryRequest,
-    ReadSchemaFileContentRequest,
+    WriteIdpSchemaFileToRegistryRequest,
+    ReadIdpSchemaFileContentRequest,
     addDBDriver,
     addDriverToLib,
     applyEdit,
@@ -268,10 +268,10 @@ import {
     updateWsdlEndpoint,
     writeContentToFile,
     handleFileWithFS,
-    writeFileToRegistry,
-    getSchemaFiles,
+    writeIdpSchemaFileToRegistry,
+    getIdpSchemaFiles,
     convertPdfToBase64Images,
-    readSchemaFileContent,
+    readIdpSchemaFileContent,
     tryOutMediator,
     MediatorTryOutRequest,
     saveInputPayload,
@@ -382,10 +382,10 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(getAIResponse, (args: AIUserInput) => rpcManger.getAIResponse(args));
     messenger.onRequest(writeContentToFile, (args: WriteContentToFileRequest) => rpcManger.writeContentToFile(args));
     messenger.onRequest(handleFileWithFS, (args: HandleFileRequest) => rpcManger.handleFileWithFS(args));
-    messenger.onRequest(writeFileToRegistry, (args: WriteFileToRegistryRequest) => rpcManger.writeFileToRegistry(args));
-    messenger.onRequest(getSchemaFiles,() => rpcManger.getSchemaFiles());
+    messenger.onRequest(writeIdpSchemaFileToRegistry, (args: WriteIdpSchemaFileToRegistryRequest) => rpcManger.writeIdpSchemaFileToRegistry(args));
+    messenger.onRequest(getIdpSchemaFiles,() => rpcManger.getIdpSchemaFiles());
     messenger.onRequest(convertPdfToBase64Images, (args: string) => rpcManger.convertPdfToBase64Images(args));
-    messenger.onRequest(readSchemaFileContent, (args: ReadSchemaFileContentRequest) => rpcManger.readSchemaFileContent(args));
+    messenger.onRequest(readIdpSchemaFileContent, (args: ReadIdpSchemaFileContentRequest) => rpcManger.readIdpSchemaFileContent(args));
     messenger.onNotification(highlightCode, (args: HighlightCodeRequest) => rpcManger.highlightCode(args));
     messenger.onRequest(getWorkspaceContext, () => rpcManger.getWorkspaceContext());
     messenger.onRequest(getProjectUuid, () => rpcManger.getProjectUuid());

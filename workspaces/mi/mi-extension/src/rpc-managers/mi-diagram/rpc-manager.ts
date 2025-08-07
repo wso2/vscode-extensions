@@ -230,11 +230,11 @@ import {
     UpdateWsdlEndpointRequest,
     UpdateWsdlEndpointResponse,
     WriteContentToFileRequest,
-    WriteFileToRegistryRequest,
-    ReadSchemaFileContentRequest,
-    ReadSchemaFileContentResponse,
-    WriteFileToRegistryResponse,
-    GetSchemaFilesResponse,
+    WriteIdpSchemaFileToRegistryRequest,
+    ReadIdpSchemaFileContentRequest,
+    ReadIdpSchemaFileContentResponse,
+    WriteIdpSchemaFileToRegistryResponse,
+    GetIdpSchemaFilesResponse,
     WriteContentToFileResponse,
     HandleFileRequest,
     HandleFileResponse,
@@ -3338,7 +3338,7 @@ ${endpointAttributes}
         }
     }
 
-    async writeFileToRegistry(params: WriteFileToRegistryRequest): Promise<WriteFileToRegistryResponse> {
+    async writeIdpSchemaFileToRegistry(params: WriteIdpSchemaFileToRegistryRequest): Promise<WriteIdpSchemaFileToRegistryResponse> {
         const { fileContent, schemaName, imageOrPdf, writeToArtifactFile} = params; 
         const runtimeVersion =await this.getMIVersionFromPom();
         const isRegistrySupported = compareVersions(runtimeVersion.version, RUNTIME_VERSION_440) < 0;
@@ -3376,7 +3376,7 @@ ${endpointAttributes}
         return {status: true};
     }
 
-    async getSchemaFiles(): Promise<GetSchemaFilesResponse> {
+    async getIdpSchemaFiles(): Promise<GetIdpSchemaFilesResponse> {
         const runtimeVersion = await this.getMIVersionFromPom();
         const isRegistrySupported = compareVersions(runtimeVersion.version, RUNTIME_VERSION_440) < 0;
         let schemaDirectory="";
@@ -3407,7 +3407,7 @@ ${endpointAttributes}
         });
     }
 
-    async readSchemaFileContent(params: ReadSchemaFileContentRequest): Promise<ReadSchemaFileContentResponse> {
+    async readIdpSchemaFileContent(params: ReadIdpSchemaFileContentRequest): Promise<ReadIdpSchemaFileContentResponse> {
         const { filePath } = params;
         const response = {
             fileContent: '',
