@@ -1321,6 +1321,7 @@ export interface Member {
     defaultValue?: string;
     optional?: boolean;
     imports?: Imports;
+    readonly?: boolean;
 }
 
 export interface GetGraphqlTypeRequest {
