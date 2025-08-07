@@ -862,14 +862,14 @@
         "description": "design-view",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f16c"
+          "fontCharacter": "\\f17b"
         }
       },
       "distro-build-package": {
         "description": "build-package",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f183"
+          "fontCharacter": "\\f156"
         }
       }
     }
@@ -953,7 +953,7 @@
     "node-loader": "~2.1.0",
     "to-json-schema": "0.2.5",
     "xml2js": "0.6.2",
-    "tmp": "~0.2.3",
+    "tmp": "~0.2.4",
     "fs-extra": "~11.3.0",
     "@iarna/toml": "^2.2.5",
     "@types/tmp": "~0.2.6",
