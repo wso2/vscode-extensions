@@ -304,7 +304,7 @@ import { UndoRedoManager } from "../../undoRedoManager";
 import { copyDockerResources, copyMavenWrapper, createFolderStructure, getAPIResourceXmlWrapper, getAddressEndpointXmlWrapper, getDataServiceXmlWrapper, getDefaultEndpointXmlWrapper, getDssDataSourceXmlWrapper, getFailoverXmlWrapper, getHttpEndpointXmlWrapper, getInboundEndpointXmlWrapper, getLoadBalanceXmlWrapper, getMessageProcessorXmlWrapper, getMessageStoreXmlWrapper, getProxyServiceXmlWrapper, getRegistryResourceContent, getTaskXmlWrapper, getTemplateEndpointXmlWrapper, getTemplateXmlWrapper, getWsdlEndpointXmlWrapper, createGitignoreFile, getEditTemplateXmlWrapper } from "../../util";
 import { addNewEntryToArtifactXML, createMetadataFilesForRegistryCollection, deleteRegistryResource, detectMediaType, getAvailableRegistryResources, getMediatypeAndFileExtension, getRegistryResourceMetadata, updateRegistryResourceMetadata } from "../../util/fileOperations";
 import { log } from "../../util/logger";
-import { importProject } from "../../util/migrationUtils";
+import { importProjects } from "../../util/migrationUtils";
 import { generateSwagger, getResourceInfo, isEqualSwaggers, mergeSwaggers } from "../../util/swagger";
 import { getDataSourceXml } from "../../util/template-engine/mustach-templates/DataSource";
 import { getClassMediatorContent } from "../../util/template-engine/mustach-templates/classMediator";
@@ -474,7 +474,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
 
     async getMIVersionFromPom(): Promise<MiVersionResponse> {
         return new Promise(async (resolve) => {
-            const res = await getMIVersionFromPom();
+            const res = await getMIVersionFromPom(this.projectUri);
             resolve({ version: res ?? '' });
         });
     }
@@ -3932,7 +3932,7 @@ ${endpointAttributes}
         const MI_COPILOT_BACKEND_V2 = process.env.MI_COPILOT_BACKEND_V2 as string;
         const MI_COPILOT_BACKEND_V3 = process.env.MI_COPILOT_BACKEND_V3 as string;
         const RUNTIME_THRESHOLD_VERSION = RUNTIME_VERSION_440;
-        const runtimeVersion = await getMIVersionFromPom();
+        const runtimeVersion = await getMIVersionFromPom(this.projectUri);
 
         const isVersionThresholdReached = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_THRESHOLD_VERSION) : -1;
 
@@ -3955,11 +3955,13 @@ ${endpointAttributes}
         });
     }
 
-    async migrateProject({ source }: MigrateProjectRequest): Promise<MigrateProjectResponse> {
+    async migrateProject({ dir, sources }: MigrateProjectRequest): Promise<MigrateProjectResponse> {
         return new Promise(async (resolve) => {
-            if (source) {
-                await importProject({ source, directory: source, open: true });
-                resolve({ filePath: source });
+            if (sources) {
+                const importList = sources.map(source => ({ source, directory: dir, open: false }));
+                const createdProjects = await importProjects(importList);
+                const filePaths = createdProjects.map(project => project.filePath);
+                resolve({ filePaths });
             }
         });
     }
@@ -4016,7 +4018,7 @@ ${endpointAttributes}
                     resolve({ inboundConnectors: connectorCache.get('inbound-connector-data'), outboundConnectors: connectorCache.get('outbound-connector-data'), connectors: connectorCache.get('connectors') });
                     return;
                 }
-                const runtimeVersion = miVersion ? miVersion : await getMIVersionFromPom();
+                const runtimeVersion = miVersion ? miVersion : await getMIVersionFromPom(this.projectUri);
 
                 const response = await fetch(APIS.MI_CONNECTOR_STORE);
                 const connectorStoreResponse = await fetch(APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? ''));
@@ -4549,9 +4551,9 @@ ${keyValuesXML}`;
             const workspaceFolderUri = vscode.Uri.file(path.resolve(this.projectUri));
             if (workspaceFolderUri) {
                 const config = vscode.workspace.getConfiguration('MI', workspaceFolderUri);
-                const isRemoteDeploymentEnabled = config.get<string>("REMOTE_DEPLOYMENT_ENABLED");
+                const isRemoteDeploymentEnabled = config.get<boolean>("REMOTE_DEPLOYMENT_ENABLED");
                 if (isRemoteDeploymentEnabled) {
-                    await commands.executeCommand(COMMANDS.REMOTE_DEPLOY_PROJECT, false);
+                    await commands.executeCommand(COMMANDS.REMOTE_DEPLOY_PROJECT, this.projectUri, false);
                 } else {
                     const configure = await vscode.window.showWarningMessage(
                         'Remote deployment is not enabled. Do you want to enable and configure it now?',
@@ -5588,7 +5590,7 @@ ${keyValuesXML}`;
 
 
     async fetchConnectors(name, operation: 'add' | 'remove') {
-        const runtimeVersion = await getMIVersionFromPom();
+        const runtimeVersion = await getMIVersionFromPom(this.projectUri);
 
         const connectorStoreResponse = await fetch(APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? ''));
         const connectorStoreData = await connectorStoreResponse.json();
