@@ -23,7 +23,7 @@ import { Button, Typography } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { View, ViewContent, ViewHeader } from '../../components/View';
 import { VSCodeCheckbox } from '@vscode/webview-ui-toolkit/react';
-import { COMMANDS } from '../../constants';
+import path from 'path';
 
 const Container = styled.div`
   display: flex;
@@ -166,9 +166,13 @@ const Card: React.FC<CardProps> = ({ title, description, expanded, onClick }) =>
 };
 
 export function UnsupportedProject(props: UnsupportedProjectProps) {
+  const PROJECT = 'Project';
+  const WORKSPACE = 'Workspace';
   const { displayOverview = true } = props;
   const { rpcClient } = useVisualizerContext();
-  const [activeWorkspaces, setActiveWorkspaces] = React.useState<WorkspaceFolder>(undefined);
+  const [openedDirectory, setOpenedDirectory] = React.useState<string>(undefined);
+  const [foundOldProjects, setFoundOldProjects] = React.useState<string[]>([]);
+  const [projectType, setProjectType] = React.useState<string>(PROJECT); // 'Project' or 'Workspace'
   const [activeCard, setActiveCard] = React.useState<number>(0);
   const [currentThemeKind, setCurrentThemeKind] = React.useState<ColorThemeKind>(undefined);
   const [displayOverviewOnStartup, setDisplayOverviewOnStartup] = React.useState<boolean>(displayOverview);
@@ -219,19 +223,32 @@ export function UnsupportedProject(props: UnsupportedProjectProps) {
     setDisplayOverviewOnStartup(!displayOverviewOnStartup);
   };
 
-  const migrateProject = async () => {
-    await rpcClient.getMiDiagramRpcClient()
-      .executeCommand({ commands: [COMMANDS.MIGRATE_PROJECT, { source: undefined }] });
+  const migrate = async () => {
+    if (openedDirectory) {
+      await rpcClient.getMiDiagramRpcClient().migrateProject({ dir: openedDirectory, sources: foundOldProjects });
+    }
   }
 
   useEffect(() => {
-    rpcClient
-      .getMiVisualizerRpcClient()
-      .getWorkspaces()
-      .then(response => {
-        setActiveWorkspaces(response.workspaces[0]);
-      });
+    rpcClient.getMiVisualizerRpcClient().getProjectUri().then((uri) => {
+      setOpenedDirectory(uri);
+    });
   }, []);
+
+  useEffect(() => {
+    if (openedDirectory) {
+      rpcClient.getMiVisualizerRpcClient().findOldProjects().then((response) => {
+        if (response && response.length > 0) {
+          setFoundOldProjects(response);
+          if (response.length > 1) {
+            setProjectType(WORKSPACE);
+          } else if (response.length === 1 && openedDirectory !== response[0]) {
+            setProjectType(WORKSPACE);
+          }
+        }
+      });
+    }
+  }, [openedDirectory]); // Runs when openedDirectory changes
 
   // Set current theme
   useEffect(() => {
@@ -263,24 +280,40 @@ export function UnsupportedProject(props: UnsupportedProjectProps) {
 
   return (
     <View>
-      <ViewHeader title={'Project: ' + activeWorkspaces?.name} icon='project' iconSx={{ fontSize: "15px" }} />
+      <ViewHeader title={`${projectType}: ${path.basename(openedDirectory)}`} icon='project' iconSx={{ fontSize: "15px" }} />
       <ViewContent padding>
         <Container>
           <Block>
-            <Headline>Unsupported Project Detected</Headline>
+            <Headline>
+                {`Unsupported ${projectType} Detected`}
+            </Headline>
             <Body variant='body3'>
-              This project was identified as being created with Integration Studio. The MI VSCode extension has limited
-              functionality for these projects.
+              {`This ${projectType} was identified as being created with Integration Studio. The MI VSCode extension has limited
+              functionality for these projects.`}
             </Body>
             <Body variant='body3'>
-              We recommend migrating your project to the latest format to unlock the full suite of features available.
+                {`We recommend migrating your ${projectType.toLowerCase()} to the latest format to unlock the full suite of features available.`}
               For more information, refer to the{' '}
               <a href='https://ei.docs.wso2.com' target='_blank' rel='noopener noreferrer'>
                 migration documentation
               </a>
               .
+              {foundOldProjects.length > 0 && projectType === WORKSPACE && (
+                <div style={{ marginTop: '1rem' }}>
+                  <Typography variant='body3' sx={{ fontWeight: 600 }}>
+                    Found projects:
+                  </Typography>
+                  <ul>
+                    {foundOldProjects.map((project, idx) => (
+                      <li key={idx}>
+                        <Typography variant='body3'>{project}</Typography>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                <Button onClick={() => migrateProject()}>Migrate Project</Button>
+                <Button onClick={() => migrate()}>{`Migrate ${projectType}`}</Button>
               </div>
             </Body>
           </Block>
