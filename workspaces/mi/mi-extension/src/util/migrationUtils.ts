@@ -178,10 +178,6 @@ export async function importProject(params: ImportProjectRequest): Promise<Impor
     let { projectName, groupId, artifactId, version, runtimeVersion } = getProjectDetails(source);
 
     if (projectName && groupId && artifactId && version) {
-        // Need to close all the opened editors before migrating the project
-        // if not, it will cause issues with the file operations
-        await commands.executeCommand('workbench.action.closeAllEditors');
-
         const destinationFolderPath = path.join(source, ".backup");
         moveFiles(source, destinationFolderPath);
         deleteEmptyFoldersInPath(source);
@@ -474,12 +470,15 @@ async function handleWorkspaceAfterMigration(projectUri: string, createdFolderUr
     const createdProjectCount = createdFolderUris.length;
     if (!workspace.workspaceFolders || workspace.workspaceFolders.length <= 1) {
         if (createdProjectCount === 1) {
-            await commands.executeCommand('vscode.openFolder', createdFolderUris[0], true);
             await commands.executeCommand('workbench.action.closeWindow');
+            await commands.executeCommand('vscode.openFolder', createdFolderUris[0], true);
         } else {
+            await commands.executeCommand('workbench.action.closeActiveEditor');
             await updateWorkspaceWithNewFolders(projectUri, createdFolderUris);
         }
     } else {
+        // If in a workspace with multiple folders, close the current open tab
+        await commands.executeCommand('workbench.action.closeActiveEditor');
         await updateWorkspaceWithNewFolders(projectUri, createdFolderUris);
     }
 }
