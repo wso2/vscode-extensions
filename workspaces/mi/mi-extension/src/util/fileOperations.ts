@@ -605,6 +605,28 @@ export function deleteDataMapperResources(filePath: string): Promise<{ status: b
     });
 }
 
+export function deleteSchemaResources(filePath: string): Promise<{ status: boolean, info: string }> {
+    const projectDir = workspace.getWorkspaceFolder(Uri.file(filePath))?.uri.fsPath;
+    const fileName = path.basename(filePath);
+
+    if (projectDir && (fileName.endsWith('.json') || fileName.endsWith('.xsd'))) {
+        const schemaName = fileName.replace('.json', '').replace('.xsd', '');
+        let artifactXmlSavePath = '';
+        let projectDirPath = '';
+        if (path.normalize(filePath).includes(path.normalize(path.join('resources', 'idp-schemas')))) {
+            artifactXmlSavePath = '/_system/governance/mi-resources/idp-schemas/' + schemaName
+            projectDirPath = path.join(projectDir, 'src', 'main', 'wso2mi', 'resources', 'idp-schemas', schemaName);
+        } else {
+            artifactXmlSavePath = '/_system/governance/idp-schemas/' + schemaName;
+            projectDirPath = path.join(projectDir, 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'idp-schemas', schemaName);
+        }
+        removeEntryFromArtifactXML(projectDir, artifactXmlSavePath, '');
+        fs.rmSync(projectDirPath, { recursive: true, force: true });
+        return Promise.resolve({ status: true, info: "Schema resources removed" });
+    }
+    return Promise.resolve({ status: false, info: "Schema resources not removed" });
+}
+
 /**
  * Create meta data files for the registry collection.
  * @param collectionRoot root folder of the collection.

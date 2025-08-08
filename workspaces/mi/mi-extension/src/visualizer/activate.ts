@@ -339,7 +339,7 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                 }
             }
 
-            if (currentView !== 'Connector Store Form' && document?.uri?.fsPath?.includes(artifactsDir)) {
+            if (currentView !== 'Connector Store Form' && document?.uri?.fsPath?.includes(artifactsDir) || currentView === MACHINE_VIEW.IdpConnectorSchemaGeneratorForm) {
                 refreshDiagram(projectUri!);
             }
         }, extension.context),

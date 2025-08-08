@@ -413,6 +413,17 @@ const stateMachine = createMachine<MachineContext>({
                 const langClient = context.langClient!;
                 const viewLocation = context;
 
+                 if( context.view === MACHINE_VIEW.IdpConnectorSchemaGeneratorForm){
+                    if( context.documentUri ) {
+                        const filePath = context.documentUri;
+                        const fileContent = fs.readFileSync(filePath, 'utf8');
+                        viewLocation.customProps = {
+                            fileContent: fileContent,
+                        }; 
+                        viewLocation.view = MACHINE_VIEW.IdpConnectorSchemaGeneratorForm;
+                    }
+                    return resolve(viewLocation);
+                }   
                 if (context.view?.includes("Form") && !context.view.includes("Test") && !context.view.includes("Mock")) {
                     return resolve(viewLocation);
                 }
