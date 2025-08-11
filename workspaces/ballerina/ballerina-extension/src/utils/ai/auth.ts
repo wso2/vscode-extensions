@@ -147,17 +147,26 @@ export const clearAuthCredentials = async (): Promise<void> => {
 // ==================================
 // BI Copilot Auth Utils
 // ==================================
-export const getLoginMethod = async (): Promise<LoginMethod | undefined> => {
-    const credentials = await getAuthCredentials();
-    if (credentials) {
-        return credentials.loginMethod;
-    }
-    return undefined;
-};
+// export const getLoginMethod = async (): Promise<LoginMethod | undefined> => {
+//     const credentials = await getAuthCredentials();
+//     if (credentials) {
+//         return credentials.loginMethod;
+//     }
+//     return undefined;
+// };
 
-export const getAccessToken = async (): Promise<string | undefined> => {
+export const getAccessToken = async (): Promise<AuthCredentials | undefined> => {
     return new Promise(async (resolve, reject) => {
         try {
+            // Priority 1: Check devant environment (highest priority)
+            const { checkDevantEnvironment } = await import('../../views/ai-panel/utils');
+            const devantCredentials = await checkDevantEnvironment();
+            if (devantCredentials) {
+                resolve(devantCredentials);
+                return;
+            }
+
+            // Priority 2: Check stored credentials
             const credentials = await getAuthCredentials();
 
             if (credentials) {
@@ -173,7 +182,13 @@ export const getAccessToken = async (): Promise<string | undefined> => {
                             if (decoded.exp && decoded.exp < now) {
                                 finalToken = await getRefreshedAccessToken();
                             }
-                            resolve(finalToken);
+                            resolve({
+                                loginMethod: LoginMethod.BI_INTEL,
+                                secrets: {
+                                    accessToken: finalToken,
+                                    refreshToken: credentials.secrets.refreshToken
+                                }
+                            });
                             return;
                         } catch (err) {
                             if (axios.isAxiosError(err)) {
@@ -188,7 +203,11 @@ export const getAccessToken = async (): Promise<string | undefined> => {
                         }
 
                     case LoginMethod.ANTHROPIC_KEY:
-                        resolve(credentials.secrets.apiKey);
+                        resolve(credentials);
+                        return;
+
+                    case LoginMethod.DEVANT_ENV:
+                        resolve(credentials);
                         return;
 
                     default:

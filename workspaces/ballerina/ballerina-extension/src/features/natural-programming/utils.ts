@@ -42,8 +42,8 @@ import { HttpStatusCode } from 'axios';
 import { OLD_BACKEND_URL } from '../ai/utils';
 import { AIMachineEventType, BallerinaProject, LoginMethod } from '@wso2/ballerina-core';
 import { getCurrentBallerinaProjectFromContext } from '../config-generator/configGenerator';
-import { BallerinaExtension } from 'src/core';
-import { getAccessToken as getAccesstokenFromUtils, getLoginMethod, getRefreshedAccessToken, REFRESH_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE, TOKEN_REFRESH_ONLY_SUPPORTED_FOR_BI_INTEL } from '../../../src/utils/ai/auth';
+import { BallerinaExtension } from '../../core';
+import { getAuthCredentials, getRefreshedAccessToken, REFRESH_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE, TOKEN_REFRESH_ONLY_SUPPORTED_FOR_BI_INTEL } from '../../../src/utils/ai/auth';
 import { AIStateMachine } from '../../../src/views/ai-panel/aiMachine';
 import { fetchWithAuth } from '../ai/service/connection';
 
@@ -510,9 +510,9 @@ export async function getBackendURL(): Promise<string> {
 export async function getAccessToken(): Promise<string> {
     return new Promise(async (resolve) => {
         let token: string;
-        const loginMethod = await getLoginMethod();
-        if (loginMethod === LoginMethod.BI_INTEL) {
-            token = await getAccesstokenFromUtils();
+        const authCredentials = await getAuthCredentials();
+        if (authCredentials.loginMethod === LoginMethod.BI_INTEL) {
+            token = authCredentials.secrets.accessToken;
         }
         resolve(token as string);
     });

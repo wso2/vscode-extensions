@@ -163,8 +163,12 @@ import { getCompleteSuggestions } from '../../utils/ai/completions';
 import { README_FILE, createBIAutomation, createBIFunction, createBIProjectPure } from "../../utils/bi";
 import { writeBallerinaFileDidOpen } from "../../utils/modification";
 import { updateSourceCode } from "../../utils/source-utils";
+<<<<<<< Updated upstream
 import { getAccessToken, getLoginMethod } from "../../utils/ai/auth";
 import { checkProjectDiagnostics, removeUnusedImports } from "../ai-panel/repair-utils";
+=======
+import { getAuthCredentials } from "../../utils/ai/auth";
+>>>>>>> Stashed changes
 export class BiDiagramRpcManager implements BIDiagramAPI {
     OpenConfigTomlRequest: (params: OpenConfigTomlRequest) => Promise<void>;
 
@@ -493,9 +497,9 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
             try {
                 if (prompt) {
                     let token: string;
-                    const loginMethod = await getLoginMethod();
-                    if (loginMethod === LoginMethod.BI_INTEL) {
-                        token = await getAccessToken();
+                    const authCredentials = await getAuthCredentials();
+                    if (authCredentials.loginMethod === LoginMethod.BI_INTEL) {
+                        token = authCredentials.secrets.accessToken;
                     }
 
                     if (!token) {
@@ -531,9 +535,9 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                     const copilot_token = await extension.context.secrets.get("GITHUB_COPILOT_TOKEN");
                     if (!copilot_token) {
                         let token: string;
-                        const loginMethod = await getLoginMethod();
-                        if (loginMethod === LoginMethod.BI_INTEL) {
-                            token = await getAccessToken();
+                        const authCredentials = await getAuthCredentials();
+                        if (authCredentials.loginMethod === LoginMethod.BI_INTEL) {
+                            token = authCredentials.secrets.accessToken;
                         }
                         if (!token) {
                             //TODO: Do we need to prompt to login here? If so what? Copilot or Ballerina AI?

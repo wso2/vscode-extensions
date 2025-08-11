@@ -72,7 +72,7 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                         target: 'Authenticated',
                         actions: assign({
                             loginMethod: (_ctx, event) => event.data.loginMethod,
-                            userToken: (_ctx, event) => ({ token: event.data.token }),
+                            userToken: (_ctx, event) => ({ credentials: event.data }),
                             errorMessage: (_ctx) => undefined,
                         })
                     },
@@ -214,7 +214,7 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                 src: 'getTokenAfterAuth',
                 onDone: {
                     actions: assign({
-                        userToken: (_ctx, event) => ({ token: event.data.token }),
+                        userToken: (_ctx, event) => ({ credentials: event.data }),
                         loginMethod: (_ctx, event) => event.data.loginMethod,
                         errorMessage: (_ctx) => undefined,
                     })

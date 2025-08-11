@@ -20,6 +20,7 @@ import vscode from 'vscode';
 import { ENABLE_BACKGROUND_DRIFT_CHECK } from "../../core/preferences";
 import { debounce } from 'lodash';
 import { StateMachine } from "../../stateMachine";
+<<<<<<< Updated upstream
 import { addConfigFile, getConfigFilePath, getLLMDiagnostics } from "./utils";
 import { NLCodeActionProvider } from './nl-code-action-provider';
 import { BallerinaExtension } from 'src/core';
@@ -30,6 +31,15 @@ import {
 } from './constants';
 import { isSupportedSLVersion } from "../../utils";
 import { CustomDiagnostic } from './custom-diagnostics';
+=======
+import { addConfigFile, getConfigFilePath, getLLMDiagnostics} from "./utils";
+import { NLCodeActionProvider, showTextOptions } from './nl-code-action-provider';
+import { BallerinaExtension } from '../../core';
+import { PROGRESS_BAR_MESSAGE_FOR_DRIFT, WARNING_MESSAGE, WARNING_MESSAGE_DEFAULT, 
+    MONITERED_EXTENSIONS
+ } from './constants';
+ import { isSupportedSLVersion } from "../../utils";
+>>>>>>> Stashed changes
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 const BALLERINA_UPDATE_13 = 2201130;

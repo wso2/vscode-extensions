@@ -425,11 +425,11 @@
       "projectFolder": "workspaces/wso2-platform/wso2-platform-extension",
       "versionPolicyName": "wso2-platform-extension"
     },
-    {
-      "packageName": "@wso2/wso2-platform-vscode-webviews",
-      "projectFolder": "workspaces/wso2-platform/wso2-platform-webviews",
-      "versionPolicyName": "wso2-platform-extension"
-    },
+    // {
+    //   "packageName": "@wso2/wso2-platform-vscode-webviews",
+    //   "projectFolder": "workspaces/wso2-platform/wso2-platform-webviews",
+    //   "versionPolicyName": "wso2-platform-extension"
+    // },
     {
       "packageName": "@wso2/choreo-core",
       "projectFolder": "workspaces/choreo/choreo-core",

@@ -9,7 +9,7 @@
 
 import { AIMachineEventType, Attachment, ErrorCode, ExpandedDMModel, FieldConfig, FormField, InlineDataMapperModelResponse, InputCategory, IOType, LoginMethod, Mapping, MappingElement, ParameterDefinitions, ParameterField, ParameterMetadata, RecordDefinitonObject, TypeKind } from "@wso2/ballerina-core";
 import { fetchWithTimeout, filterResponse, generateBallerinaCode, isErrorCode, mappingFileInlineDataMapperModel, navigateTypeInfo, REQUEST_TIMEOUT } from "./utils";
-import { getAccessToken, getLoginMethod, getRefreshedAccessToken } from "../../utils/ai/auth";
+import { getAccessToken, getAuthCredentials, getRefreshedAccessToken } from "../../utils/ai/auth";
 import { NOT_LOGGED_IN, TIMEOUT } from "../../views/ai-panel/errorCodes";
 import { AIStateMachine } from "../../views/ai-panel/aiMachine";
 import { BACKEND_URL } from "../../features/ai/utils";
@@ -421,12 +421,9 @@ async function getInlineDatamapperCode(inlineDataMapperResponse: InlineDataMappe
     let nestedKeyArray: string[] = [];
     try {
         let accessToken: string | ErrorCode;
-        const loginMethod = await getLoginMethod();
-        if (loginMethod === LoginMethod.BI_INTEL) {
-            accessToken = await getAccessToken().catch((error) => {
-                console.error(error);
-                return NOT_LOGGED_IN;
-            });
+        const authCredentials = await getAuthCredentials();
+        if (authCredentials.loginMethod === LoginMethod.BI_INTEL) {
+            accessToken = authCredentials.secrets.accessToken;
         }
         let response: DatamapperResponse = await sendInlineDatamapperRequest(inlineDataMapperResponse);
 

@@ -17,12 +17,13 @@
  */
 
 import * as vscode from 'vscode';
-import { AIUserToken, LoginMethod, AuthCredentials } from '@wso2/ballerina-core';
+import { LoginMethod, AuthCredentials, DevantEnvSecrets } from '@wso2/ballerina-core';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { generateText } from 'ai';
 import { getAuthUrl, getLogoutUrl } from './auth';
 import { extension } from '../../BalExtensionContext';
-import { getAccessToken, clearAuthCredentials, storeAuthCredentials, getLoginMethod } from '../../utils/ai/auth';
+import { getAccessToken, clearAuthCredentials, storeAuthCredentials, getAuthCredentials } from '../../utils/ai/auth';
+import { DEVANT_API_KEY, DEVANT_STS_TOKEN } from '../../features/ai/utils';
 
 const LEGACY_ACCESS_TOKEN_SECRET_KEY = 'BallerinaAIUser';
 const LEGACY_REFRESH_TOKEN_SECRET_KEY = 'BallerinaAIRefreshToken';
@@ -33,13 +34,42 @@ export const checkToken = async (): Promise<{ token: string; loginMethod: LoginM
             // Clean up any legacy tokens on initialization
             await cleanupLegacyTokens();
 
-            const token = await getAccessToken();
-            const loginMethod = await getLoginMethod();
-            if (!token || !loginMethod) {
+            // Priority 1: Check devant environment (highest priority)
+            const devantCredentials = await checkDevantEnvironment();
+            if (devantCredentials) {
+                const secrets = devantCredentials.secrets as DevantEnvSecrets;
+                resolve({ 
+                    token: secrets.apiKey, 
+                    loginMethod: LoginMethod.DEVANT_ENV 
+                });
+                return;
+            }
+
+            // Priority 2: Check stored credentials
+            const result = await getAccessToken();
+            if (!result) {
                 resolve(undefined);
                 return;
             }
-            resolve({ token, loginMethod });
+            
+            // Extract token based on login method
+            let token: string;
+            switch (result.loginMethod) {
+                case LoginMethod.BI_INTEL:
+                    token = result.secrets.accessToken;
+                    break;
+                case LoginMethod.ANTHROPIC_KEY:
+                    token = result.secrets.apiKey;
+                    break;
+                case LoginMethod.DEVANT_ENV:
+                    token = result.secrets.apiKey;
+                    break;
+                default:
+                    reject(new Error(`Unsupported login method: ${result["loginMethod"]}`));
+                    return;
+            }
+            
+            resolve({ token, loginMethod: result.loginMethod });
         } catch (error) {
             reject(error);
         }
@@ -82,7 +112,7 @@ export async function initiateInbuiltAuth() {
     return vscode.env.openExternal(vscode.Uri.parse(oauthURL));
 }
 
-export const validateApiKey = async (apiKey: string, loginMethod: LoginMethod): Promise<AIUserToken> => {
+export const validateApiKey = async (apiKey: string, loginMethod: LoginMethod): Promise<AuthCredentials> => {
     if (loginMethod !== LoginMethod.ANTHROPIC_KEY) {
         throw new Error('This login method is not supported. Please use SSO login instead.');
     }
@@ -112,7 +142,7 @@ export const validateApiKey = async (apiKey: string, loginMethod: LoginMethod): 
         };
         await storeAuthCredentials(credentials);
 
-        return { token: apiKey };
+        return credentials;
 
     } catch (error) {
         console.error('API key validation failed:', error);
@@ -128,4 +158,42 @@ export const validateApiKey = async (apiKey: string, loginMethod: LoginMethod): 
         }
         throw new Error('Validation failed. Please try again.');
     }
+};
+
+export const checkDevantEnvironment = async (): Promise<AuthCredentials | undefined> => {
+    // Check if both required devant environment variables are present and non-empty
+    if (!DEVANT_API_KEY || !DEVANT_STS_TOKEN ||
+        DEVANT_API_KEY.trim() === '' || DEVANT_STS_TOKEN.trim() === '') {
+        return undefined;
+    }
+
+    // Return devant credentials without storing (always read from env)
+    return {
+        loginMethod: LoginMethod.DEVANT_ENV,
+        secrets: {
+            apiKey: DEVANT_API_KEY,
+            stsToken: DEVANT_STS_TOKEN
+        }
+    };
+};
+
+export const getLoggedInAuthFlows = async (): Promise<LoginMethod[]> => {
+    const loggedInFlows: LoginMethod[] = [];
+
+    // Check if devant environment is available (highest priority)
+    const devantCredentials = await checkDevantEnvironment();
+    if (devantCredentials) {
+        loggedInFlows.push(LoginMethod.DEVANT_ENV);
+    }
+
+    // Check if stored credentials exist
+    const storedCredentials = await getAuthCredentials();
+    if (storedCredentials) {
+        // Add the stored flow if it's not already in the list
+        if (!loggedInFlows.includes(storedCredentials.loginMethod)) {
+            loggedInFlows.push(storedCredentials.loginMethod);
+        }
+    }
+
+    return loggedInFlows;
 };
