@@ -76,8 +76,10 @@ export function activateDebugger(context: vscode.ExtensionContext) {
         }
     });
 
-    vscode.commands.registerCommand(COMMANDS.REMOTE_DEPLOY_PROJECT, async (postBuildTask?: Function) => {
-        const projectUri = await askForProject();
+    vscode.commands.registerCommand(COMMANDS.REMOTE_DEPLOY_PROJECT, async (projectUri?: string, postBuildTask?: Function) => {
+        if (!projectUri) {
+            projectUri = await askForProject();
+        }
         await executeRemoteDeployTask(projectUri, postBuildTask);
     });
 
