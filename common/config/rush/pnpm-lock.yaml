@@ -3504,8 +3504,8 @@ importers:
         specifier: ^0.23.11
         version: 0.23.11
       tmp:
-        specifier: ~0.2.3
-        version: 0.2.3
+        specifier: ~0.2.4
+        version: 0.2.4
       to-json-schema:
         specifier: 0.2.5
         version: 0.2.5
@@ -20282,8 +20282,8 @@ packages:
     resolution: {integrity: sha512-jRCJlojKnZ3addtTOjdIqoRuPEKBvNXcGYqzO6zWZX8KfKEpnGY5jfggJQ3EjKuu8D4bJRr0y+cYJFmYbImXGw==}
     engines: {node: '>=0.6.0'}
 
-  tmp@0.2.3:
-    resolution: {integrity: sha512-nZD7m9iCPC5g0pYmcaxogYKggSfLsdxl8of3Q/oIbqCqLLIO9IAF0GWjX1z9NZRHPiXv8Wex4yDCaZsgEw0Y8w==}
+  tmp@0.2.4:
+    resolution: {integrity: sha512-UdiSoX6ypifLmrfQ/XfiawN6hkjSBpCjhKxxZcWlUUmoXLaCKQU0bx4HF/tdDK2uzRuchf1txGvrWBzYREssoQ==}
     engines: {node: '>=14.14'}
 
   tmpl@1.0.5:
@@ -33732,7 +33732,7 @@ snapshots:
       parse-semver: 1.1.1
       read: 1.0.7
       semver: 7.7.2
-      tmp: 0.2.3
+      tmp: 0.2.4
       typed-rest-client: 1.8.11
       url-join: 4.0.1
       xml2js: 0.5.0
@@ -33768,7 +33768,7 @@ snapshots:
       read: 1.0.7
       secretlint: 9.3.4
       semver: 7.7.2
-      tmp: 0.2.3
+      tmp: 0.2.4
       typed-rest-client: 1.8.11
       url-join: 4.0.1
       xml2js: 0.5.0
@@ -46315,7 +46315,7 @@ snapshots:
     dependencies:
       '@bazel/runfiles': 6.3.1
       jszip: 3.10.1
-      tmp: 0.2.3
+      tmp: 0.2.4
       ws: 8.18.3
     transitivePeerDependencies:
       - bufferutil
@@ -47746,7 +47746,7 @@ snapshots:
     dependencies:
       os-tmpdir: 1.0.2
 
-  tmp@0.2.3: {}
+  tmp@0.2.4: {}
 
   tmpl@1.0.5: {}
 
@@ -48842,7 +48842,7 @@ snapshots:
       parse-semver: 1.1.1
       read: 1.0.7
       semver: 5.7.2
-      tmp: 0.2.3
+      tmp: 0.2.4
       typed-rest-client: 1.8.11
       url-join: 4.0.1
       xml2js: 0.4.23
