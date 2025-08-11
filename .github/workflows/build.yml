@@ -486,12 +486,14 @@ jobs:
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             cd workspaces/mi/mi-extension
             # Start screen recording in background using FFmpeg
-            ffmpeg -f gdigrab -framerate 30 -i desktop -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart -hide_banner -loglevel error record.mp4 &
+            ffmpeg -f gdigrab -framerate 15 -video_size 1920x1080 -i desktop -c:v libx264 -preset medium -crf 23 -pix_fmt yuv420p -movflags +faststart -t 5400 record.mp4 &
             FFMPEG_PID=$!
             # Run tests
             npx playwright test --grep ${{ matrix.group }}
-            # Stop recording
-            kill $FFMPEG_PID 2>/dev/null || true
+            # Stop recording gracefully
+            taskkill //F //PID $FFMPEG_PID 2>/dev/null || true
+            # Wait a moment for file to be written
+            sleep 2
           else
             export $(dbus-launch)
             export DISPLAY=:98.0
@@ -506,12 +508,16 @@ jobs:
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             cd workspaces/mi/mi-extension
             # Start screen recording in background using FFmpeg
-            ffmpeg -f gdigrab -framerate 30 -i desktop -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart -hide_banner -loglevel error record.mp4 &
+            ffmpeg -f gdigrab -framerate 15 -video_size 1920x1080 -i desktop -c:v libx264 -preset medium -crf 23 -pix_fmt yuv420p -movflags +faststart -t 5400 record.mp4 &
             FFMPEG_PID=$!
             # Run failed tests
             npx playwright test --grep ${{ matrix.group }} --last-failed
-            # Stop recording
-            kill $FFMPEG_PID 2>/dev/null || true
+            # Stop recording gracefully
+            taskkill //F //PID $FFMPEG_PID 2>/dev/null || true
+            # Wait a moment for file to be written
+            sleep 2
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            cd workspaces/mi/mi-extension && npx playwright test --grep ${{ matrix.group }} --last-failed
           else
             export $(dbus-launch)
             export DISPLAY=:98.0
