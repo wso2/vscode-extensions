@@ -163,7 +163,7 @@ const SlidingPaneNavContainerElm = styled.div`
     display: flex;
     align-items: center;
     &:hover {
-        background-color:  var(--vscode-list-hoverBackground);
+        background-color: var(--vscode-list-activeSelectionBackground);
         cursor: pointer;
     }
 `
