@@ -486,8 +486,35 @@ jobs:
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             cd workspaces/mi/mi-extension
-            # Use same pattern as Linux - start recording and run tests in same command
-            ffmpeg -f gdigrab -framerate 15 -i desktop -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart -hide_banner -loglevel error record.mp4 & npx playwright test --grep ${{ matrix.group }}
+            # Use PowerShell to start screen recording
+            powershell -Command "
+            Add-Type -AssemblyName System.Windows.Forms
+            Add-Type -AssemblyName System.Drawing
+            \$rec = New-Object System.Diagnostics.Process
+            \$rec.StartInfo.FileName = 'ffmpeg'
+            \$rec.StartInfo.Arguments = '-y -f gdigrab -framerate 10 -i desktop -t 600 -c:v libx264 -preset fast -crf 30 record.mp4'
+            \$rec.StartInfo.UseShellExecute = \$false
+            \$rec.StartInfo.CreateNoWindow = \$true
+            \$rec.Start()
+            \$rec.Id | Out-File -FilePath 'ffmpeg_pid.txt' -Encoding ASCII
+            "
+            
+            # Run tests
+            npx playwright test --grep ${{ matrix.group }}
+            
+            # Stop recording
+            if [ -f "ffmpeg_pid.txt" ]; then
+              FFMPEG_PID=$(cat ffmpeg_pid.txt)
+              powershell -Command "Stop-Process -Id $FFMPEG_PID -Force" 2>/dev/null || true
+              sleep 3
+            fi
+            
+            # Check if video was created
+            if [ -f "record.mp4" ]; then
+              echo "Video created, size: $(du -h record.mp4)"
+            else
+              echo "No video file found"
+            fi
           else
             export $(dbus-launch)
             export DISPLAY=:98.0
@@ -501,8 +528,35 @@ jobs:
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             cd workspaces/mi/mi-extension
-            # Use same pattern as Linux - start recording and run tests in same command
-            ffmpeg -f gdigrab -framerate 15 -i desktop -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart -hide_banner -loglevel error record.mp4 & npx playwright test --grep ${{ matrix.group }} --last-failed
+            # Use PowerShell to start screen recording for rerun
+            powershell -Command "
+            Add-Type -AssemblyName System.Windows.Forms
+            Add-Type -AssemblyName System.Drawing
+            \$rec = New-Object System.Diagnostics.Process
+            \$rec.StartInfo.FileName = 'ffmpeg'
+            \$rec.StartInfo.Arguments = '-y -f gdigrab -framerate 10 -i desktop -t 600 -c:v libx264 -preset fast -crf 30 record.mp4'
+            \$rec.StartInfo.UseShellExecute = \$false
+            \$rec.StartInfo.CreateNoWindow = \$true
+            \$rec.Start()
+            \$rec.Id | Out-File -FilePath 'ffmpeg_pid.txt' -Encoding ASCII
+            "
+            
+            # Run failed tests
+            npx playwright test --grep ${{ matrix.group }} --last-failed
+            
+            # Stop recording
+            if [ -f "ffmpeg_pid.txt" ]; then
+              FFMPEG_PID=$(cat ffmpeg_pid.txt)
+              powershell -Command "Stop-Process -Id $FFMPEG_PID -Force" 2>/dev/null || true
+              sleep 3
+            fi
+            
+            # Check if video was created
+            if [ -f "record.mp4" ]; then
+              echo "Re-run video created, size: $(du -h record.mp4)"
+            else
+              echo "No re-run video file found"
+            fi
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
             cd workspaces/mi/mi-extension && npx playwright test --grep ${{ matrix.group }} --last-failed
           else
