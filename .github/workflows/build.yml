@@ -486,8 +486,37 @@ jobs:
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             cd workspaces/mi/mi-extension
-            # Use same pattern as Linux - start recording and run tests in same command
-            ffmpeg -f gdigrab -framerate 15 -i desktop -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart -hide_banner -loglevel error record.mp4 & npx playwright test --grep ${{ matrix.group }}
+            # Start recording with better Windows compatibility and proper cleanup
+            echo "Starting screen recording..."
+            ffmpeg -f gdigrab -framerate 15 -i desktop -c:v libx264 -preset ultrafast -pix_fmt yuv420p -f mp4 record.mp4 > ffmpeg.log 2>&1 &
+            FFMPEG_PID=$!
+            echo "FFmpeg started with PID: $FFMPEG_PID"
+            
+            # Run tests
+            npx playwright test --grep ${{ matrix.group }}
+            TEST_EXIT_CODE=$?
+            
+            # Stop recording properly and wait for file to be finalized
+            echo "Stopping recording and finalizing video..."
+            taskkill //PID $FFMPEG_PID //T //F > /dev/null 2>&1 || true
+            sleep 5
+            
+            # Check video file
+            if [ -f "record.mp4" ]; then
+              echo "Video file created, size: $(du -h record.mp4)"
+              # Try to get video info
+              ffprobe -v quiet -print_format json -show_format -show_streams record.mp4 > video_info.json 2>&1 || echo "Could not analyze video"
+            else
+              echo "No video file created"
+            fi
+            
+            # Show FFmpeg log if there were issues
+            if [ -f "ffmpeg.log" ]; then
+              echo "FFmpeg log:"
+              cat ffmpeg.log
+            fi
+            
+            exit $TEST_EXIT_CODE
           else
             export $(dbus-launch)
             export DISPLAY=:98.0
@@ -501,8 +530,31 @@ jobs:
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             cd workspaces/mi/mi-extension
-            # Use same pattern as Linux - start recording and run tests in same command
-            ffmpeg -f gdigrab -framerate 15 -i desktop -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart -hide_banner -loglevel error record.mp4 & npx playwright test --grep ${{ matrix.group }} --last-failed
+            # Start recording with better Windows compatibility and proper cleanup
+            echo "Starting screen recording for re-run..."
+            ffmpeg -f gdigrab -framerate 15 -i desktop -c:v libx264 -preset ultrafast -pix_fmt yuv420p -f mp4 record_rerun.mp4 > ffmpeg_rerun.log 2>&1 &
+            FFMPEG_PID=$!
+            echo "FFmpeg started with PID: $FFMPEG_PID"
+            
+            # Run failed tests
+            npx playwright test --grep ${{ matrix.group }} --last-failed
+            TEST_EXIT_CODE=$?
+            
+            # Stop recording properly and wait for file to be finalized
+            echo "Stopping recording and finalizing video..."
+            taskkill //PID $FFMPEG_PID //T //F > /dev/null 2>&1 || true
+            sleep 5
+            
+            # Check video file
+            if [ -f "record_rerun.mp4" ]; then
+              echo "Re-run video file created, size: $(du -h record_rerun.mp4)"
+              # Copy to standard name for upload
+              cp record_rerun.mp4 record.mp4
+            else
+              echo "No re-run video file created"
+            fi
+            
+            exit $TEST_EXIT_CODE
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
             cd workspaces/mi/mi-extension && npx playwright test --grep ${{ matrix.group }} --last-failed
           else
@@ -530,4 +582,8 @@ jobs:
             workspaces/mi/mi-extension/src/test/test-resources/videos/**
             workspaces/mi/mi-extension/src/test/test-resources/screenshots/**
             workspaces/mi/mi-extension/record.mp4
+            workspaces/mi/mi-extension/record_rerun.mp4
+            workspaces/mi/mi-extension/ffmpeg.log
+            workspaces/mi/mi-extension/ffmpeg_rerun.log
+            workspaces/mi/mi-extension/video_info.json
           retention-days: 5
