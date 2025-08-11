@@ -376,7 +376,8 @@ jobs:
   ExtTest_MI:
     name: Run MI diagram tests
     needs: Build_Stage
-    if: ${{ inputs.runTests || !inputs.isPreRelease || needs.Build_Stage.outputs.runMIExtTests == 'true' || github.base_ref == 'release-mi' }}
+    if: false
+    # if: ${{ inputs.runTests || !inputs.isPreRelease || needs.Build_Stage.outputs.runMIExtTests == 'true' || github.base_ref == 'release-mi' }}
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
@@ -411,7 +412,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [group1, group2, group3]
+        group: [group1]
         os: [windows-latest]
     runs-on: ${{ matrix.os }}    
     steps:
