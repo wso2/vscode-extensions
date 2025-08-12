@@ -182,7 +182,7 @@ export default function createTests() {
       });
       await test.step('Create Sequence from Project Explorer', async () => {
         console.log('Create Sequence from Project Explorer');
-        await sequence.createSequenceFromProjectExplorer("TestNewSequence" + testAttempt);
+        await sequence.createSequenceFromProjectExplorer("TestNewSequence" + testAttempt, "TestSequenceEdited" + testAttempt);
       });
       await test.step('Open Diagram View for Proxy', async () => {
         console.log('Opening Diagram View for Proxy');
