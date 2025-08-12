@@ -68,6 +68,7 @@ export async function setupEnvironment(projectUri: string, isOldProject: boolean
 
         if (isMISet && isJavaSet) {
             const isUpdateRequested = await isServerUpdateRequested(projectUri);
+            await updateCarPluginVersion(projectUri);
             return !isUpdateRequested;
         }
         return isMISet && isJavaSet;
@@ -1194,6 +1195,65 @@ function getCurrentUpdateVersion(miPath: string): string {
         return updateConfig["update-level"] || '0';
     }
     return '0';
+}
+
+export async function updateCarPluginVersion(projectUri: string): Promise<void> {
+    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
+    const isUpdatedDisabled = config.get<boolean>('supressCarPluginUpdateNotification');
+    if (isUpdatedDisabled) {
+        return;
+    }
+    const pomFiles = await vscode.workspace.findFiles(
+        new vscode.RelativePattern(projectUri, 'pom.xml'),
+        '**/node_modules/**',
+        1
+    );
+    if (pomFiles.length === 0) {
+        throw new Error('pom.xml not found in the specified project.');
+    }
+    const pomContent = await vscode.workspace.openTextDocument(pomFiles[0]);
+    const result = await parseStringPromise(pomContent.getText(), { explicitArray: false, ignoreAttrs: true });
+    const carPluginVersion = result.project.properties['car.plugin.version'];
+    if (!carPluginVersion) {
+        throw new Error('vscode-car-plugin version not found in pom.xml');
+    }
+    if(carPluginVersion === LATEST_CAR_PLUGIN_VERSION) {
+        return; // no need to updates
+    }
+    if(carPluginVersion < LATEST_CAR_PLUGIN_VERSION) {
+        const selection = await vscode.window.showInformationMessage(
+            `A new version of the WSO2 Vscode Car Plugin is available. Would you like to update to version ${LATEST_CAR_PLUGIN_VERSION}?`,
+            { modal: true },
+            "Yes",
+            "No, Don't Ask Again"
+        );
+        if (selection === "Yes") {
+            const parser = new XMLParser({
+                ignoreAttributes: false,
+                preserveOrder: true,
+                commentPropName: "#comment"
+            });
+            const parsedXml = parser.parse(pomContent.getText());
+            createTagIfNotFound(parsedXml, "project.properties");
+            updatePomXml(parsedXml, "project.properties.{car.plugin.version}", LATEST_CAR_PLUGIN_VERSION);
+
+            const builder = new XMLBuilder({
+                ignoreAttributes: false,
+                format: true,
+                preserveOrder: true,
+                commentPropName: "#comment",
+                indentBy: "    "
+            });
+            const updatedXml = builder.build(parsedXml);
+            await fs.promises.writeFile(pomFiles[0].fsPath, updatedXml);
+        }
+        else if (selection === "No, Don't Ask Again") {
+            config.update('supressCarPluginUpdateNotification', true, vscode.ConfigurationTarget.WorkspaceFolder);
+        }
+        else{
+            return; 
+        }
+    }
 }
 
 export async function isServerUpdateRequested(projectUri: string): Promise<boolean> {
