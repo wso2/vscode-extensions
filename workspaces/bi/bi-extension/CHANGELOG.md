@@ -1,6 +1,6 @@
 # Change log
 
-## Version 1.2.1 (2025-08-07)
+## Version 1.2.1 (2025-08-12)
 
 ### Fixed
 
