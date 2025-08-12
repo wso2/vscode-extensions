@@ -18,7 +18,7 @@
 
 import { MutableRefObject } from "react";
 import { HelperPaneHeight, HelperPaneOrigin, HelperPanePosition } from "../types";
-import { HELPER_PANE_HEIGHT, HELPER_PANE_WIDTH, ARROW_HEIGHT, ARROW_OFFSET, VERTICAL_HELPERPANE_HEIGHT } from "../constants"
+import { HELPER_PANE_HEIGHT, HELPER_PANE_WIDTH, ARROW_HEIGHT, ARROW_OFFSET, VERTICAL_HELPERPANE_HEIGHT, HELPER_PANE_EX_BTN_OFFSET } from "../constants"
 
 export const convertHelperPaneHeightToCSS = (helperPaneHeight: HelperPaneHeight): string => {
     switch (helperPaneHeight) {
@@ -78,7 +78,7 @@ export const getHelperPanePosition = (
     const expressionEditor = expressionEditorRef.current!;
     const rect = expressionEditor.getBoundingClientRect();
     if (helperPaneOrigin === 'bottom') {
-        return { top: rect.top + rect.height, left: rect.left };
+        return { top: rect.top + rect.height, left: rect.left + HELPER_PANE_EX_BTN_OFFSET + 2};
     }
 
     if (helperPaneOrigin === 'top') {
