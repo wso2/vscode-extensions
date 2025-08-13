@@ -337,7 +337,7 @@ export function FormGenerator(props: FormGeneratorProps) {
             currentValue?.forEach((param: any) => {
                 if (!Array.isArray(param)) {
                     valueObj.push(param);
-                } else if (Array.isArray(param)) {
+                } else {
                     const val: any = {};
                     value.elements.forEach((field: any, index: number) => {
                         const fieldName = getNameForController(field.value.name);

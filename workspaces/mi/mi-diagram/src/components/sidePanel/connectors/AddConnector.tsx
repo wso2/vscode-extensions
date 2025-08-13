@@ -212,10 +212,10 @@ const AddConnector = (props: AddConnectorProps) => {
             range: nodePosition
         });
 
-         if(sidePanelContext.newDataMapperName && sidePanelContext.newDataMapperName === values.idpSchema){
+         if(sidePanelContext.newResourceObject && sidePanelContext.newResourceObject === values.idpSchema){
             const idpSchemas = await rpcClient.getMiDiagramRpcClient().getIdpSchemaFiles();
             const matchingSchema = idpSchemas.schemaFiles.find(
-                schema => schema.fileName === sidePanelContext.newDataMapperName
+                schema => schema.fileName === sidePanelContext.newResourceObject
             ); 
             rpcClient.getMiVisualizerRpcClient().openView({
                 type: EVENT_TYPE.OPEN_VIEW,

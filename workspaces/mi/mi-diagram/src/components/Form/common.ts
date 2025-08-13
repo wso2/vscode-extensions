@@ -92,7 +92,7 @@ export const openPopup = (rpcClient: RpcClient, view: string, fetchItems: any, s
             setValue(data.recentIdentifier);
             sidePanelContext.setSidePanelState({
                 ...sidePanelContext,
-                newDataMapperName: data.recentIdentifier
+                newResourceObject: data.recentIdentifier
             });
         }
     });
