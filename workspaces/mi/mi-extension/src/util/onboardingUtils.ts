@@ -1057,10 +1057,12 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
         },
         async (progress, token) => await new Promise<void>((resolve, reject) => {
             progress.report({ increment: 10, message: "Pull dependencies..." });
-            const balHome = path.join(os.homedir(), '.ballerina', 'ballerina-home', 'bin').toString();
+            const balHome = path.normalize(path.join(os.homedir(), '.ballerina', 'ballerina-home', 'bin'));
+            const balCommand = path.join(balHome, 'bal');
 
-            runCommand(isBallerinaInstalled ? 'bal tool pull mi-module-gen' : `${balHome}${path.sep}bal tool pull mi-module-gen`, `"${projectPath}"`, onData, onError, buildModule);
-
+            // Quote the path if it contains spaces (Windows safety)
+            const quotedCommand = process.platform === 'win32' && balCommand.includes(' ') ? `"${balCommand}"` : balCommand;
+            runCommand(isBallerinaInstalled ? 'bal tool pull mi-module-gen' : `${quotedCommand} tool pull mi-module-gen`, `"${projectPath}"`, onData, onError, buildModule);
             let isModuleAlreadyInstalled = false, commandFailed = false;
             function onData(data: string) {
                 if (data.includes("is already available locally")) {

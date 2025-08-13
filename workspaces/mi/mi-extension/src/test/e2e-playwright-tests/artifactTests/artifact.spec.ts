@@ -35,6 +35,7 @@ import { API } from '../components/ArtifactTest/APITests';
 import { EventIntegration } from '../components/ArtifactTest/EventIntegration';
 import { ImportArtifact } from '../components/ImportArtifact';
 import path from 'path';
+import { ProjectExplorer } from '../components/ProjectExplorer';
 const filePath = path.join( __dirname, '..', 'components', 'ArtifactTest', 'data', 'importApi_v1.0.0.xml');
 
 export default function createTests() {
@@ -67,6 +68,9 @@ export default function createTests() {
       await test.step('Open Diagram View for Automation', async () => {
         console.log('Opening Diagram View for Automation');
         await automation.openDiagramView("NewTestTask" + testAttempt);
+        // Collapese Automations section
+        const projectExplorer = new ProjectExplorer(page.page);
+        await projectExplorer.findItem(['Project testProject', 'Automations']);
       });
     });
 
@@ -122,8 +126,12 @@ export default function createTests() {
         await api.createOpenApi("NewOpenAPI" + testAttempt, "/openAPI" + testAttempt);
       });
       await test.step('Open Diagram View for API', async () => {
-         console.log('Opening Diagram View for API');
-         await api.openDiagramView("NewOpenAPI" + testAttempt + ":v1.0.27-SNAPSHOT", "/pet/findByStatus");
+        console.log('Opening Diagram View for API');
+        await api.openDiagramView("NewOpenAPI" + testAttempt + ":v1.0.27-SNAPSHOT", "/pet/findByStatus");
+        // Collapese APIs section
+        const projectExplorer = new ProjectExplorer(page.page);
+        await projectExplorer.findItem(['Project testProject', 'APIs', "NewOpenAPI" + testAttempt + ":v1.0.27-SNAPSHOT"], true);
+        await projectExplorer.findItem(['Project testProject', 'APIs'], true);
       });
     });
 
@@ -163,6 +171,9 @@ export default function createTests() {
       await test.step('Edit Recipient List Endpoint', async () => {
         console.log('Editing Recipient List Endpoint');
         await lb.editRecipientListEndpoint("recipientListEP" + testAttempt, "newRecipientListEP" + testAttempt);
+        // Collapse Endpoints
+        const projectExplorer = new ProjectExplorer(page.page);
+        await projectExplorer.findItem(['Project testProject', 'Other Artifacts', 'Endpoints'], true);
       });
     });
 
@@ -187,6 +198,9 @@ export default function createTests() {
       await test.step('Open Diagram View for Proxy', async () => {
         console.log('Opening Diagram View for Proxy');
         await sequence.openDiagramView("TestNewSequence" + testAttempt);
+        // Collapse Sequences
+        const projectExplorer = new ProjectExplorer(page.page);
+        await projectExplorer.findItem(['Project testProject', 'Other Artifacts', 'Sequences'], true);
       });
     });
 
@@ -208,6 +222,9 @@ export default function createTests() {
       await test.step('Open Diagram View of Event Integration', async () => {
         console.log('Opening Diagram View');
         await eventIntegration.openDiagramView(name);
+        // Collapse Event integration
+        const projectExplorer = new ProjectExplorer(page.page);
+        await projectExplorer.findItem(['Project testProject', 'Event Integrations'], true);
       });
     });
 
@@ -224,6 +241,9 @@ export default function createTests() {
       console.log('Create Class Mediator from Project Explorer');
       await classMediator.createClassMediatorFromProjectExplorer(classNameForExplorer);
       await classMediator.clear([className, classNameForExplorer]);
+      // Collapse Event Integrations
+      const projectExplorer = new ProjectExplorer(page.page);
+      await projectExplorer.findItem(['Project testProject', 'Other Artifacts', 'Class Mediators'], true);
     });
 
     test('Ballerina Module Tests', async () => {
@@ -274,11 +294,14 @@ export default function createTests() {
         console.log('Creating new resource importing a file');
         const resource = new Resource(page.page);
         await resource.openNewFormFromArtifacts();
-        const filePath = path.join(__dirname, '..', 'data', 'new-project', 'testProject', 'testProject', 'src', 'main', 'wso2mi', 'resources', 'json', 'testResource1' + testAttempt + '.json');
+        const filePath = (path.join(process.cwd(), 'src', 'test', 'e2e-playwright-tests', 'data', 'new-project', 'testProjectFolder', 'testProject', 'src', 'main', 'wso2mi', 'resources', 'json', 'testResource1' + testAttempt + '.json'));
         await resource.addFromFileSystem({
-          filePath: filePath,
+          filePath: filePath.replace(/\\/g, '/'),
           registryPath: 'newJson' + testAttempt,
         })
+        // Collapse Resources
+        const projectExplorer = new ProjectExplorer(page.page);
+        await projectExplorer.findItem(['Project testProject', 'Resources'], true);
       });
     });
 
@@ -336,7 +359,11 @@ export default function createTests() {
         console.log('Create Message Store from Project Explorer');
         ms = new MessageStore(page.page);
         await ms.createMessageStoreFromProjectExplorer(msName);
+        // Close Message Stores
+        const projectExplorer = new ProjectExplorer(page.page);
+        await projectExplorer.findItem(['Project testProject',  'Other Artifacts', 'Message Stores'], true);
       });
+      
     });
 
     test('Message Processor Tests', async () => {
@@ -384,6 +411,9 @@ export default function createTests() {
         console.log('Create Message Processor from Project Explorer');
         mp = new MessageProcessor(page.page);
         await mp.createMessageProcessorFromProjectExplorer(mpName);
+        // Collapse Message Processor
+        const projectExplorer = new ProjectExplorer(page.page);
+        await projectExplorer.findItem(['Project testProject', 'Other Artifacts', 'Message Processors'], true);
       });
     });
 
@@ -462,6 +492,9 @@ export default function createTests() {
         console.log('Editing Carbon Data Service');
         const dataService = new DataService(page.page);
         await dataService.editCarbonDs("testCarbonDs" + testAttempt, "newTestCarbonDs" + testAttempt);
+        // Collapse Data Services
+        const projectExplorer = new ProjectExplorer(page.page);
+        await projectExplorer.findItem(['Project testProject', 'Data Services'], true);
       });
     });
 
@@ -494,6 +527,9 @@ export default function createTests() {
         console.log('Editing Local Entry from side panel');
         await localEntry.editSourceUrlLocalEntry("sourceUrlLocalEntry" + testAttempt, "newSourceUrlLocalEntry" + testAttempt);
       });
+      // Collapse Local Entries
+      const projectExplorer = new ProjectExplorer(page.page);
+      await projectExplorer.findItem(['Project testProject', 'Other Artifacts', 'Local Entries'], true);
     });
 
     test('Template tests', async () => {
@@ -536,6 +572,9 @@ export default function createTests() {
       await test.step('Add Sequence Template', async () => {
         console.log('Creating new Sequence Template');
         await template.addSequenceTemplate("sequenceTemp" + testAttempt);
+        // Collapse sequence templates
+        const projectExplorer = new ProjectExplorer(page.page);
+        await projectExplorer.findItem(['Project testProject', 'Other Artifacts', 'Templates'], true);
       });
       // TODO: Uncomment this when the edit sequence template issue is fixed
       // await test.step('Edit Sequence Template', async () => {
@@ -565,6 +604,9 @@ export default function createTests() {
         console.log('Opening Diagram View of Proxy');
         await proxyService.openDiagramView("testSidePanelProxyService" + testAttempt);
       });
+      // Collapse proxies
+      const projectExplorer = new ProjectExplorer(page.page);
+      await projectExplorer.findItem(['Project testProject', 'Other Artifacts', 'Proxy Services'], true);
     });
 
     test ('Import Artifact', async () => {

@@ -103,7 +103,7 @@ export class BallerinaModule {
             await showNotifications();
             await currentPage.getByRole('button', { name: 'Install Now' }).click();
             await clearNotificationAlerts();
-            const webview = await switchToIFrame('WSO2 Integrator: BI', this._page, 24000);
+            const webview = await switchToIFrame('WSO2 Integrator: BI', this._page, 60000);
             console.log("Switching to WSO2 Integrator: BI iframe");
             if (!webview) {
                 throw new Error("Failed to switch to the Ballerina Module Form iframe");
