@@ -157,12 +157,6 @@
           "default": false,
           "description": "Don't show server update notification",
           "scope": "resource"
-        },
-        "MI.supressCarPluginUpdateNotification": {
-          "type": "boolean",
-          "default": false,
-          "description": "Don't show car plugin update notification",
-          "scope": "resource"
         }
       }
     },
