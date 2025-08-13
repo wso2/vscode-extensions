@@ -20,6 +20,7 @@ import { type ChildProcessWithoutNullStreams, spawn } from "child_process";
 import { type MessageConnection, StreamMessageReader, StreamMessageWriter, createMessageConnection } from "vscode-jsonrpc/node";
 import { ext } from "../extensionVariables";
 import { getLogger } from "../logger/logger";
+import { parseJwt } from "../utils";
 import { getChoreoExecPath } from "./cli-install";
 
 export class StdioConnection {
@@ -29,12 +30,14 @@ export class StdioConnection {
 		const executablePath = getChoreoExecPath();
 		console.log("Starting RPC server, path:", executablePath);
 		getLogger().debug(`Starting RPC server${executablePath}`);
+		const region =
+			process.env.CLOUD_REGION || (process.env.CLOUD_STS_TOKEN && parseJwt(process.env.CLOUD_STS_TOKEN)?.iss?.includes(".eu.")) ? "EU" : "US";
 		this._serverProcess = spawn(executablePath, ["start-rpc-server"], {
 			env: {
 				...process.env,
 				SKIP_KEYRING: process.env.CLOUD_STS_TOKEN ? "true" : "",
 				CHOREO_ENV: ext.choreoEnv,
-				CHOREO_REGION: process.env.CLOUD_REGION || "",
+				CHOREO_REGION: region,
 			},
 		});
 		this._connection = createMessageConnection(

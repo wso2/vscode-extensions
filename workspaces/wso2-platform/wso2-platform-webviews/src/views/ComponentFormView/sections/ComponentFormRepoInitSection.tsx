@@ -47,6 +47,7 @@ interface Props extends NewComponentWebviewProps {
 
 const connectMoreRepoText = "Connect More Repositories";
 const createNewRpoText = "Create New Repository";
+const createNewCredText = "Create New Credential";
 
 export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organization, form, nextText, loadingNextText, initializingRepo }) => {
 	const [compDetailsSections] = useAutoAnimate();
@@ -57,6 +58,8 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 	const repo = form.watch("repo");
 	const subPath = form.watch("subPath");
 	const serverUrl = form.watch("serverUrl");
+	const provider = form.watch("gitProvider");
+	const credential = form.watch("credential");
 	const repoError = form.formState?.errors?.repo;
 	const repoName = [connectMoreRepoText, createNewRpoText].includes(repo) ? "" : repo;
 
@@ -70,17 +73,45 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 		data: gitOrgs,
 		isLoading: loadingGitOrgs,
 		error: errorFetchingGitOrg,
-	} = useGetAuthorizedGitOrgs(organization.id?.toString(), "", { refetchOnWindowFocus: true });
+	} = useGetAuthorizedGitOrgs(organization.id?.toString(), provider, credential, {
+		refetchOnWindowFocus: true,
+		enabled: provider === GitProvider.GITHUB || !!credential,
+	});
 	const matchingOrgItem = gitOrgs?.gitOrgs?.find((item) => item.orgName === orgName);
 
-	// todo: handle bitbucket and gitlab
-	const provider = GitProvider.GITHUB;
-	const repoUrl = matchingOrgItem && repoName && buildGitURL(matchingOrgItem?.orgHandler, repoName, provider, false, serverUrl);
-	const credential = "";
+	const { data: gitCredentials = [], isLoading: isLoadingGitCred } = useQuery({
+		queryKey: ["git-creds", { provider }],
+		queryFn: () =>
+			ChoreoWebViewAPI.getInstance().getChoreoRpcClient().getCredentials({ orgId: organization?.id?.toString(), orgUuid: organization.uuid }),
+		select: (gitData) => gitData?.filter((item) => item.type === provider),
+		refetchOnWindowFocus: true,
+		enabled: provider !== GitProvider.GITHUB,
+	});
+
+	const { isLoading: isLoadingGitlabCreds } = useQuery({
+		queryKey: ["gitlab-creds", { provider, credential }],
+		queryFn: () =>
+			ChoreoWebViewAPI.getInstance()
+				.getChoreoRpcClient()
+				.getCredentialDetails({ orgId: organization?.id?.toString(), orgUuid: organization.uuid, credentialId: credential }),
+		enabled: provider === GitProvider.GITLAB_SERVER && !!credential,
+		onSuccess: (data) => form.setValue("serverUrl", data?.serverUrl),
+	});
 
 	useEffect(() => {
-		if (gitOrgs?.gitOrgs.length > 0 && form.getValues("org") === "") {
+		if (gitCredentials.length > 0 && (form.getValues("credential") || !gitCredentials.some((item) => item.id === form.getValues("credential")))) {
+			form.setValue("credential", gitCredentials[0]?.id);
+		} else if (gitCredentials.length === 0 && form.getValues("credential") !== "") {
+			form.setValue("credential", "");
+		}
+	}, [gitCredentials]);
+
+	const repoUrl = matchingOrgItem && repoName && buildGitURL(matchingOrgItem?.orgHandler, repoName, provider, false, serverUrl);
+	useEffect(() => {
+		if (gitOrgs?.gitOrgs.length > 0 && (form.getValues("org") === "" || !gitOrgs?.gitOrgs.some((item) => item.orgName === form.getValues("org")))) {
 			form.setValue("org", gitOrgs?.gitOrgs[0]?.orgName);
+		} else if (gitOrgs?.gitOrgs.length === 0 && form.getValues("org") !== "") {
+			form.setValue("org", "");
 		}
 	}, [gitOrgs]);
 
@@ -99,7 +130,7 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 		provider === GitProvider.GITHUB ? "" : credential,
 		!errorFetchingGitOrg,
 		{
-			enabled: !!repoName && !!provider && (provider === GitProvider.GITHUB ? !errorFetchingGitOrg : !!credential),
+			enabled: !!repoName && !!provider && !!repoUrl && (provider === GitProvider.GITHUB ? !errorFetchingGitOrg : !!credential),
 			refetchOnWindowFocus: true,
 		},
 	);
@@ -121,13 +152,31 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 		// TODO: avoid using useEffect and try to override the onChange handler
 		if (repo === createNewRpoText) {
 			setTimeout(() => form.setValue("repo", ""), 1000);
-			ChoreoWebViewAPI.getInstance().openExternal("https://github.com/new");
+			let newRepoLink = "https://github.com/new";
+			if (provider === GitProvider.BITBUCKET) {
+				newRepoLink = `https://bitbucket.org/${orgName}/workspace/create/repository`;
+			} else if (provider === GitProvider.GITLAB_SERVER) {
+				newRepoLink = `${serverUrl}/projects/new`;
+			}
+			ChoreoWebViewAPI.getInstance().openExternal(newRepoLink);
 			setCreatingRepo(true);
 		} else if (repo === connectMoreRepoText) {
 			setTimeout(() => form.setValue("repo", ""), 1000);
 			ChoreoWebViewAPI.getInstance().triggerGithubInstallFlow(organization.id?.toString());
 		}
 	}, [repo]);
+
+	useEffect(() => {
+		// TODO: avoid using useEffect and try to override the onChange handler
+		if (credential === createNewCredText) {
+			setTimeout(() => form.setValue("credential", ""), 1000);
+			ChoreoWebViewAPI.getInstance().openExternalChoreo(`organizations/${organization.handle}/settings/credentials`);
+		}
+	}, [credential]);
+
+	useEffect(() => {
+		setCreatingRepo(false);
+	}, [provider]);
 
 	const debouncedUpdateName = useCallback(
 		debounce((subPath: string, repo: string) => {
@@ -154,13 +203,16 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 	const { mutateAsync: getRepoMetadata, isLoading: isValidatingPath } = useMutation({
 		mutationFn: (data: ComponentRepoInitSchemaType) => {
 			const subPath = data.subPath.startsWith("/") ? data.subPath.slice(1) : data.subPath;
-			return ChoreoWebViewAPI.getInstance().getChoreoRpcClient().getGitRepoMetadata({
-				branch: data.branch,
-				gitOrgName: data.org,
-				gitRepoName: data.repo,
-				relativePath: subPath,
-				orgId: organization?.id?.toString(),
-			});
+			return ChoreoWebViewAPI.getInstance()
+				.getChoreoRpcClient()
+				.getGitRepoMetadata({
+					branch: data.branch,
+					gitOrgName: data.org,
+					gitRepoName: data.repo,
+					relativePath: subPath,
+					orgId: organization?.id?.toString(),
+					secretRef: data.credential || "",
+				});
 		},
 	});
 
@@ -178,7 +230,10 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 		}
 	};
 
-	const repoDropdownItems = [{ value: createNewRpoText }, { value: connectMoreRepoText }];
+	const repoDropdownItems = [{ value: createNewRpoText }];
+	if (provider === GitProvider.GITHUB) {
+		repoDropdownItems.push({ value: connectMoreRepoText });
+	}
 	if (matchingOrgItem?.repositories?.length > 0) {
 		repoDropdownItems.push(
 			{ type: "separator", value: "" } as { value: string },
@@ -186,11 +241,32 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 		);
 	}
 
+	const credentialDropdownItems = [{ value: createNewCredText }];
+	if (gitCredentials?.length > 0) {
+		credentialDropdownItems.push(
+			{ type: "separator", value: "" } as { value: string },
+			...gitCredentials?.map((item) => ({ value: item.id, label: item.name })),
+		);
+	}
+
 	return (
 		<>
 			<div className="grid gap-4 md:grid-cols-2" ref={compDetailsSections}>
-				<label className="col-span-full mb-4 opacity-80">You integration must exist in a remote Git repository in order to continue</label>
-				{errorFetchingGitOrg && (
+				<label className="col-span-full mb-2 opacity-80">You integration must exist in a remote Git repository in order to continue</label>
+				<Dropdown
+					label="Git Provider"
+					key="gen-details-provider"
+					required
+					name="gitProvider"
+					control={form.control}
+					items={[
+						{ label: "GitHub", value: GitProvider.GITHUB },
+						{ label: "Bitbucket", value: GitProvider.BITBUCKET },
+						{ label: "GitLab", value: GitProvider.GITLAB_SERVER },
+					]}
+					wrapClassName="col-span-full"
+				/>
+				{provider === GitProvider.GITHUB && errorFetchingGitOrg && (
 					<Banner
 						type="info"
 						className="col-span-full"
@@ -199,66 +275,82 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 						actionLink={{ title: "Authorize", onClick: () => ChoreoWebViewAPI.getInstance().triggerGithubAuthFlow(organization.id?.toString()) }}
 					/>
 				)}
-				<Dropdown
-					label="Organization"
-					key="gen-details-org"
-					required
-					name="org"
-					control={form.control}
-					items={gitOrgs?.gitOrgs?.map((item) => ({ value: item.orgName }))}
-					loading={loadingGitOrgs}
-				/>
-				{creatingRepo ? (
-					<div className="flex w-full flex-col" key="connect-repo-btn">
-						<div className="flex justify-between gap-1">
-							<span className="flex gap-1">
-								<label className="font-light">{hasSubscriptions ? "Repository" : "Public Repository"}</label>
-								<RequiredFormInput />
-							</span>
-							{repoError?.message && (
-								<label className="line-clamp-1 flex-1 text-right text-vsc-errorForeground" title={repoError?.message}>
-									{repoError?.message}
-								</label>
-							)}
-						</div>
-						<div className="flex items-center gap-1">
-							<Button
-								onClick={() => {
-									ChoreoWebViewAPI.getInstance().triggerGithubInstallFlow(organization.id?.toString());
-									setCreatingRepo(false);
-								}}
-								appearance="secondary"
-								className="flex-1"
-							>
-								Connect Newly Created Repository
-							</Button>
-							<Button onClick={() => setCreatingRepo(false)} appearance="icon">
-								Cancel
-							</Button>
-						</div>
-					</div>
-				) : (
+				{provider !== GitProvider.GITHUB && (
 					<Dropdown
-						label={hasSubscriptions ? "Repository" : "Public Repository"}
-						key="gen-details-repo"
+						label="Credentials"
+						key="gen-details-credentials"
 						required
-						name="repo"
+						name="credential"
 						control={form.control}
-						items={repoDropdownItems}
-						disabled={!matchingOrgItem}
+						items={credentialDropdownItems}
+						loading={isLoadingGitCred}
 					/>
 				)}
-				{repoName && (branches?.length > 0 || isLoadingBranches) && (
-					<Dropdown
-						label="Branch"
-						key="gen-details-branch"
-						required
-						name="branch"
-						control={form.control}
-						items={branches}
-						loading={isLoadingBranches}
-					/>
+				{(provider === GitProvider.GITHUB || credential) && (
+					<>
+						<Dropdown
+							label="Organization"
+							key="gen-details-org"
+							required
+							name="org"
+							control={form.control}
+							items={gitOrgs?.gitOrgs?.map((item) => ({ value: item.orgName }))}
+							loading={loadingGitOrgs || (provider === GitProvider.GITLAB_SERVER ? isLoadingGitlabCreds : false)}
+						/>
+						{creatingRepo ? (
+							<div className="flex w-full flex-col" key="connect-repo-btn">
+								<div className="flex justify-between gap-1">
+									<span className="flex gap-1">
+										<label className="font-light">{hasSubscriptions ? "Repository" : "Public Repository"}</label>
+										<RequiredFormInput />
+									</span>
+									{repoError?.message && (
+										<label className="line-clamp-1 flex-1 text-right text-vsc-errorForeground" title={repoError?.message}>
+											{repoError?.message}
+										</label>
+									)}
+								</div>
+								<div className="flex items-center gap-1">
+									<Button
+										onClick={() => {
+											ChoreoWebViewAPI.getInstance().triggerGithubInstallFlow(organization.id?.toString());
+											setCreatingRepo(false);
+										}}
+										appearance="secondary"
+										className="flex-1"
+									>
+										Connect Newly Created Repository
+									</Button>
+									<Button onClick={() => setCreatingRepo(false)} appearance="icon">
+										Cancel
+									</Button>
+								</div>
+							</div>
+						) : (
+							<Dropdown
+								label={hasSubscriptions ? "Repository" : "Public Repository"}
+								key="gen-details-repo"
+								required
+								name="repo"
+								control={form.control}
+								items={repoDropdownItems}
+								disabled={!matchingOrgItem}
+							/>
+						)}
+						{repoName && branches?.length > 0 && (
+							<Dropdown
+								label="Branch"
+								key="gen-details-branch"
+								required
+								name="branch"
+								control={form.control}
+								items={branches}
+								loading={isLoadingBranches}
+							/>
+						)}
+					</>
 				)}
+
 				<TextField label="Path" key="gen-details-path" required name="subPath" placeholder="/directory-path" control={form.control} />
 				{repo && (
 					<div className="col-span-full" key="gen-details-name-wrap">

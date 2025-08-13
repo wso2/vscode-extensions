@@ -54,7 +54,7 @@ export const queryKeys = {
 	],
 	getSwaggerSpec: (apiRevisionId: string, org: Organization) => ["get-swagger-spec", { selectedEndpoint: apiRevisionId, org: org.uuid }],
 	getBuildPacks: (selectedType: string, org: Organization) => ["build-packs", { selectedType, orgId: org?.id }],
-	getAuthorizedGitOrgs: (orgId: string, credRef = "") => ["get-authorized-github-orgs", { orgId, credRef }],
+	getAuthorizedGitOrgs: (orgId: string, provider: string, credRef = "") => ["get-authorized-github-orgs", { orgId, provider, credRef }],
 	getGitBranches: (repoUrl: string, org: Organization, credRef: string, isAccessible: boolean) => [
 		"get-git-branches",
 		{ repo: repoUrl, orgId: org?.id, credRef, isAccessible },
@@ -153,9 +153,9 @@ export const useGetBuildPacks = (selectedType: string, org: Organization, option
 		options,
 	);
 
-export const useGetAuthorizedGitOrgs = (orgId: string, credRef = "", options?: UseQueryOptions<GetAuthorizedGitOrgsResp>) =>
+export const useGetAuthorizedGitOrgs = (orgId: string, provider: string, credRef = "", options?: UseQueryOptions<GetAuthorizedGitOrgsResp>) =>
 	useQuery<GetAuthorizedGitOrgsResp>(
-		queryKeys.getAuthorizedGitOrgs(orgId, credRef),
+		queryKeys.getAuthorizedGitOrgs(orgId, provider, credRef),
 		() => ChoreoWebViewAPI.getInstance().getChoreoRpcClient().getAuthorizedGitOrgs({ orgId, credRef }),
 		options,
 	);

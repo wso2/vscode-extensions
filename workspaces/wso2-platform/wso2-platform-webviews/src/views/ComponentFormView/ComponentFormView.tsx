@@ -226,7 +226,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 
 			const repoUrl = props.isGitInitialized
 				? genDetails.repoUrl
-				: buildGitURL(repoInitDetails.orgHandler, repoInitDetails.repo, repoInitDetails.gitProvider);
+				: buildGitURL(repoInitDetails.orgHandler, repoInitDetails.repo, repoInitDetails.gitProvider, false, repoInitDetails.serverUrl);
 
 			const createParams: Partial<CreateComponentReq> = {
 				orgId: organization.id.toString(),

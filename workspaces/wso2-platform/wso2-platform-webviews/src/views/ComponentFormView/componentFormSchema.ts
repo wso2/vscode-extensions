@@ -50,6 +50,7 @@ export const componentRepoInitSchema = z.object({
 		.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
 		.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters"),
 	gitProvider: z.string().min(1, "Required"),
+	credential: z.string(),
 	serverUrl: z.string(),
 });
 
@@ -224,6 +225,9 @@ export const getRepoInitSchemaGenDetails = (existingComponents: ComponentKind[])
 	componentRepoInitSchema.partial().superRefine(async (data, ctx) => {
 		if (existingComponents.some((item) => item.metadata.name === makeURLSafe(data.name))) {
 			ctx.addIssue({ path: ["name"], code: z.ZodIssueCode.custom, message: "Name already exists" });
+		}
+		if (data.gitProvider !== GitProvider.GITHUB && !data.credential) {
+			ctx.addIssue({ path: ["credential"], code: z.ZodIssueCode.custom, message: "Required" });
 		}
 	});
 

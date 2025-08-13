@@ -222,7 +222,7 @@ export const isSubpath = (parent: string, sub: string): boolean => {
 	if (normalizedSub.endsWith("/")) {
 		normalizedSub = normalizedSub.slice(0, -1);
 	}
-	
+
 	if (normalizedParent === normalizedSub) {
 		return true;
 	}
@@ -427,5 +427,13 @@ export const getConfigFileDrifts = async (
 	} catch (err) {
 		console.log(err);
 		return [];
+	}
+};
+
+export const parseJwt = (token: string): { iss: string } | null => {
+	try {
+		return JSON.parse(atob(token.split(".")[1]));
+	} catch (e) {
+		return null;
 	}
 };

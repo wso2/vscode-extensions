@@ -57,6 +57,7 @@ import type {
 	GetConnectionGuideResp,
 	GetConnectionItemReq,
 	GetConnectionsReq,
+	GetCredentialDetailsReq,
 	GetCredentialsReq,
 	GetDeploymentStatusReq,
 	GetDeploymentTracksReq,
@@ -270,6 +271,14 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		}
 		const response = await this.client.sendRequest<{ credentials: CredentialItem[] }>("repo/getCredentials", params);
 		return response?.credentials;
+	}
+
+	async getCredentialDetails(params: GetCredentialDetailsReq) {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: CredentialItem = await this.client.sendRequest("repo/getCredentialDetails", params);
+		return response;
 	}
 
 	async getUserInfo(): Promise<UserInfo> {

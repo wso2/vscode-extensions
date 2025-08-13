@@ -549,6 +549,7 @@ export interface CredentialItem {
 	organizationUuid: string;
 	type: string;
 	referenceToken: string;
+	serverUrl: string;
 }
 
 export interface SubscriptionItem {

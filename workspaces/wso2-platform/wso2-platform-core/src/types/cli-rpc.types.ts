@@ -56,6 +56,11 @@ export interface GetCredentialsReq {
 	orgId: string;
 	orgUuid: string;
 }
+export interface GetCredentialDetailsReq {
+	orgId: string;
+	orgUuid: string;
+	credentialId: string;
+}
 export interface IsRepoAuthorizedReq {
 	orgId: string;
 	repoUrl: string;
@@ -428,6 +433,7 @@ export interface GetGitMetadataReq {
 	gitRepoName: string;
 	branch: string;
 	relativePath: string;
+	secretRef: string;
 }
 
 export interface GetGitMetadataResp {
@@ -474,6 +480,7 @@ export interface IChoreoRPCClient {
 	isRepoAuthorized(params: IsRepoAuthorizedReq): Promise<IsRepoAuthorizedResp>;
 	getAuthorizedGitOrgs(params: GetAuthorizedGitOrgsReq): Promise<GetAuthorizedGitOrgsResp>;
 	getCredentials(params: GetCredentialsReq): Promise<CredentialItem[]>;
+	getCredentialDetails(params: GetCredentialDetailsReq): Promise<CredentialItem>;
 	deleteComponent(params: DeleteCompReq): Promise<void>;
 	getBuilds(params: GetBuildsReq): Promise<BuildKind[]>;
 	createBuild(params: CreateBuildReq): Promise<BuildKind>;
@@ -538,6 +545,9 @@ export class ChoreoRpcWebview implements IChoreoRPCClient {
 	}
 	getCredentials(params: GetCredentialsReq): Promise<CredentialItem[]> {
 		return this._messenger.sendRequest(ChoreoRpcGetCredentialsRequest, HOST_EXTENSION, params);
+	}
+	getCredentialDetails(params: GetCredentialDetailsReq): Promise<CredentialItem> {
+		return this._messenger.sendRequest(ChoreoRpcGetCredentialDetailsRequest, HOST_EXTENSION, params);
 	}
 	deleteComponent(params: DeleteCompReq): Promise<void> {
 		return this._messenger.sendRequest(ChoreoRpcDeleteComponentRequest, HOST_EXTENSION, params);
@@ -646,6 +656,7 @@ export const ChoreoRpcGetAuthorizedGitOrgsRequest: RequestType<GetAuthorizedGitO
 	method: "rpc/repo/getAuthorizedGitOrgs",
 };
 export const ChoreoRpcGetCredentialsRequest: RequestType<GetCredentialsReq, CredentialItem[]> = { method: "rpc/repo/getCredentials" };
+export const ChoreoRpcGetCredentialDetailsRequest: RequestType<GetCredentialDetailsReq, CredentialItem> = { method: "rpc/repo/getCredentialDetails" };
 export const ChoreoRpcDeleteComponentRequest: RequestType<DeleteCompReq, void> = { method: "rpc/component/delete" };
 export const ChoreoRpcCreateBuildRequest: RequestType<CreateBuildReq, BuildKind> = { method: "rpc/build/create" };
 export const ChoreoRpcGetDeploymentTracksRequest: RequestType<GetDeploymentTracksReq, DeploymentTrack[]> = {

@@ -334,9 +334,6 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 			const dotGit = await newGit?.getRepositoryDotGit(createParams.componentDir);
 			const projectCache = dataCacheStore.getState().getProjects(org.handle);
 			if (newGit && gitRoot && dotGit) {
-				updateContextFile(gitRoot, authStore.getState().state.userInfo!, project, org, projectCache);
-				contextStore.getState().refreshState();
-
 				if (process.env.CLOUD_STS_TOKEN) {
 					// update the code server, to attach itself to the created component
 					const repo = newGit.open(gitRoot, dotGit);
@@ -359,7 +356,17 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 						} catch (err) {
 							getLogger().error("Failed to updated code server after creating the component", err);
 						}
+
+						// Clear code server local storage data data
+						try {
+							await commands.executeCommand("devantEditor.clearLocalStorage");
+						} catch (err) {
+							getLogger().error(`Failed to execute devantEditor.clearLocalStorage command: ${err}`);
+						}
 					}
+				} else {
+					updateContextFile(gitRoot, authStore.getState().state.userInfo!, project, org, projectCache);
+					contextStore.getState().refreshState();
 				}
 			}
 		} catch (err) {
@@ -393,11 +400,12 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 				}
 			});
 		} else {
-			window.showInformationMessage(`${successMessage} Reload workspace to continue`, { modal: true }, "Continue").then((resp) => {
+			window.showInformationMessage(`${successMessage} Reload workspace to continue`, { modal: true }, "Continue").then(async (resp) => {
 				if (resp === "Continue") {
-					commands.executeCommand("vscode.openFolder", Uri.file(createParams.componentDir), {
-						forceNewWindow: false,
-					});
+					if (process.env.CLOUD_STS_TOKEN) {
+						await ext.context.globalState.update("code-server-component-id", createdComponent.metadata?.id);
+					}
+					commands.executeCommand("vscode.openFolder", Uri.file(createParams.componentDir), { forceNewWindow: false });
 				}
 			});
 		}

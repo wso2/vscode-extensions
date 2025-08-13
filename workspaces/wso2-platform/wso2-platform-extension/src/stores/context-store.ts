@@ -196,7 +196,7 @@ const getAllContexts = async (previousItems: { [key: string]: ContextItemEnriche
 };
 
 const getSelected = async (items: { [key: string]: ContextItemEnriched }, prevSelected?: ContextItemEnriched) => {
-	if (process.env.CLOUD_INITIAL_ORG_ID && process.env.CLOUD_INITIAL_PROJECT_ID) {
+	if (process.env.CLOUD_STS_TOKEN && process.env.CLOUD_INITIAL_ORG_ID && process.env.CLOUD_INITIAL_PROJECT_ID) {
 		// Give priority to project provided as env variable, when running in the cloud editor
 		const userOrgs = authStore.getState().state.userInfo?.organizations;
 		const matchingOrg = userOrgs?.find(
@@ -224,6 +224,12 @@ const getSelected = async (items: { [key: string]: ContextItemEnriched }, prevSe
 						})) ?? [],
 				} as ContextItemEnriched;
 			}
+		}
+
+		const globalCompId: string | null | undefined = ext.context.globalState.get("code-server-component-id");
+		if (globalCompId) {
+			await ext.context.globalState.update("code-server-component-id", null);
+			await ext.context.workspaceState.update("code-server-component-id", globalCompId);
 		}
 	}
 
@@ -331,9 +337,20 @@ const getComponentsInfo = async (selected?: ContextItemEnriched): Promise<Contex
 	return mapComponentList(components, selected);
 };
 
+const getFilteredComponents = (components: ComponentKind[]) => {
+	const workspaceCompId: string | null | undefined = ext.context.globalState.get("code-server-component-id") || process.env.CLOUD_COMPONENT_ID;
+	if (process.env.CLOUD_STS_TOKEN && workspaceCompId) {
+		const filteredComps = components.filter((item) => item.metadata?.id === workspaceCompId);
+		if (filteredComps.length === 1) {
+			return filteredComps;
+		}
+	}
+	return components;
+};
+
 const mapComponentList = async (components: ComponentKind[], selected?: ContextItemEnriched): Promise<ContextStoreComponentState[]> => {
 	const comps: ContextStoreComponentState[] = [];
-	for (const componentItem of components) {
+	for (const componentItem of getFilteredComponents(components)) {
 		if (selected?.contextDirs) {
 			// biome-ignore lint/correctness/noUnsafeOptionalChaining:
 			for (const item of selected?.contextDirs) {
@@ -356,7 +373,11 @@ const mapComponentList = async (components: ComponentKind[], selected?: ContextI
 							const subPathDir = path.join(gitRoot, getComponentKindRepoSource(componentItem.spec.source)?.path);
 							const isSubPath = isSubpath(item.dirFsPath, subPathDir);
 							const isPathSame = isSamePath(item.dirFsPath, subPathDir);
-							if ((isPathSame || isSubPath) && existsSync(subPathDir) && !comps.some((item) => item.component?.metadata?.id === componentItem.metadata?.id)) {
+							if (
+								(isPathSame || isSubPath) &&
+								existsSync(subPathDir) &&
+								!comps.some((item) => item.component?.metadata?.id === componentItem.metadata?.id)
+							) {
 								comps.push({
 									component: componentItem,
 									workspaceName: item.workspaceName,

@@ -44,6 +44,7 @@ import {
 	ChoreoRpcGetConnectionGuide,
 	ChoreoRpcGetConnectionItem,
 	ChoreoRpcGetConnections,
+	ChoreoRpcGetCredentialDetailsRequest,
 	ChoreoRpcGetCredentialsRequest,
 	ChoreoRpcGetDeploymentStatusRequest,
 	ChoreoRpcGetDeploymentTracksRequest,
@@ -74,6 +75,7 @@ import {
 	type GetConnectionGuideReq,
 	type GetConnectionItemReq,
 	type GetConnectionsReq,
+	type GetCredentialDetailsReq,
 	type GetCredentialsReq,
 	type GetDeploymentStatusReq,
 	type GetDeploymentTracksReq,
@@ -115,6 +117,7 @@ export function registerChoreoRpcResolver(messenger: Messenger, rpcClient: IChor
 	messenger.onRequest(ChoreoRpcIsRepoAuthorizedRequest, (params: IsRepoAuthorizedReq) => rpcClient.isRepoAuthorized(params));
 	messenger.onRequest(ChoreoRpcGetAuthorizedGitOrgsRequest, (params: GetAuthorizedGitOrgsReq) => rpcClient.getAuthorizedGitOrgs(params));
 	messenger.onRequest(ChoreoRpcGetCredentialsRequest, (params: GetCredentialsReq) => rpcClient.getCredentials(params));
+	messenger.onRequest(ChoreoRpcGetCredentialDetailsRequest, (params: GetCredentialDetailsReq) => rpcClient.getCredentialDetails(params));
 	messenger.onRequest(ChoreoRpcDeleteComponentRequest, async (params: Parameters<IChoreoRPCClient["deleteComponent"]>[0]) => {
 		const extName = webviewStateStore.getState().state.extensionName;
 		return window.withProgress(
