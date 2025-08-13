@@ -31,7 +31,7 @@ export const dataFolder = path.join(__dirname, 'data');
 const extensionsFolder = path.join(__dirname, '..', '..', '..', 'vsix');
 const vscodeVersion = 'latest';
 export const resourcesFolder = path.join(__dirname, '..', 'test-resources');
-export const newProjectPath = path.join(dataFolder, 'new-project', 'testProject');
+export const newProjectPath = path.join(dataFolder, 'new-project', 'testProjectFolder');
 export const screenShotsFolder = path.join(__dirname, '..', 'test-resources', 'screenshots');
 export const videosFolder = path.join(__dirname, '..', 'test-resources', 'videos');
 
@@ -42,7 +42,7 @@ async function initVSCode() {
     if (vscode && page) {
         await page.executePaletteCommand('Reload Window');
     } else {
-        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, newProjectPath);
+        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, newProjectPath, 'mi-test-profile');
     }
     page = new ExtendedPage(await vscode!.firstWindow({ timeout: 60000 }));
 }
@@ -114,7 +114,7 @@ export async function resumeVSCode() {
         await page.executePaletteCommand('Reload Window');
     } else {
         console.log('Starting VSCode');
-        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, path.join(newProjectPath, 'testProject'));
+        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, path.join(newProjectPath, 'testProject'), 'mi-test-profile');
         await new Promise(resolve => setTimeout(resolve, 5000));
     }
     page = new ExtendedPage(await vscode!.firstWindow({ timeout: 60000 }));
