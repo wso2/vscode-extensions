@@ -17,7 +17,7 @@
  */
 
 import { ArrayTypeDesc, FunctionDefinition, ModulePart, QualifiedNameReference, RequiredParam, STKindChecker } from "@wso2/syntax-tree";
-import { ErrorCode, FormField, STModification, SyntaxTree, Attachment, AttachmentStatus, RecordDefinitonObject, ParameterMetadata, ParameterDefinitions, MappingFileRecord, keywords, AIMachineEventType, DiagnosticEntry, InlineDataMapperModelResponse } from "@wso2/ballerina-core";
+import { ErrorCode, FormField, STModification, SyntaxTree, Attachment, AttachmentStatus, RecordDefinitonObject, ParameterMetadata, ParameterDefinitions, MappingFileRecord, keywords, AIMachineEventType, DiagnosticEntry, InlineDataMapperModelResponse, BIIntelSecrets } from "@wso2/ballerina-core";
 import { window } from 'vscode';
 
 import { StateMachine } from "../../stateMachine";
@@ -32,7 +32,6 @@ import {
     TOO_MANY_REQUESTS,
     INVALID_RECORD_UNION_TYPE
 } from "../../views/ai-panel/errorCodes";
-// import { StateMachineAI } from "../../views/ai-panel/aiMachine";
 import path from "path";
 import * as fs from 'fs';
 import { BACKEND_URL } from "../../features/ai/utils";
@@ -502,8 +501,8 @@ async function getMappingString(mapping: object, parameterDefinitions: Parameter
         modifiedInput = parameterDefinitions["inputMetadata"][recordObjectName]["fields"][paths[1]];
     } else {
         modifiedInput = parameterDefinitions["configurables"][recordObjectName] ||
-                parameterDefinitions["constants"][recordObjectName] ||
-                parameterDefinitions["variables"][recordObjectName] || parameterDefinitions["inputMetadata"][recordObjectName]["fields"][paths[0]];
+            parameterDefinitions["constants"][recordObjectName] ||
+            parameterDefinitions["variables"][recordObjectName] || parameterDefinitions["inputMetadata"][recordObjectName]["fields"][paths[0]];
     }
 
     // Resolve output metadata
@@ -1307,11 +1306,7 @@ export function getBalRecFieldName(fieldName: string) {
 export async function getDatamapperCode(parameterDefinitions: ErrorCode | ParameterMetadata): Promise<object | ErrorCode> {
     let nestedKeyArray: string[] = [];
     try {
-        const accessToken = await getAccessToken().catch((error) => {
-            console.error(error);
-            return NOT_LOGGED_IN;
-        });
-        let response: DatamapperResponse = await sendDatamapperRequest(parameterDefinitions, accessToken);
+        let response: DatamapperResponse = await sendDatamapperRequest(parameterDefinitions);
 
         let intermediateMapping = response.mappings;
         let finalCode = await generateBallerinaCode(intermediateMapping, parameterDefinitions, "", nestedKeyArray);
@@ -1364,7 +1359,7 @@ export function notifyNoGeneratedMappings() {
     window.showInformationMessage(msg);
 }
 
-async function sendDatamapperRequest(parameterDefinitions: ParameterMetadata | ErrorCode, accessToken: string | ErrorCode): Promise<DatamapperResponse> {
+async function sendDatamapperRequest(parameterDefinitions: ParameterMetadata | ErrorCode): Promise<DatamapperResponse> {
     const response: DatamapperResponse = await generateAutoMappings(parameterDefinitions as Payload);
     return response;
 }

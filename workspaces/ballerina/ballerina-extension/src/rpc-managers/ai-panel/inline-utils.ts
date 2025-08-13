@@ -408,26 +408,18 @@ export async function getInlineParamDefinitions(
 }
 
 async function sendInlineDatamapperRequest(inlineDataMapperResponse: InlineDataMapperModelResponse | ErrorCode): Promise<DatamapperResponse> {
-     try {
+    try {
         const response: DatamapperResponse = await generateInlineAutoMappings(inlineDataMapperResponse as InlineDataMapperModelResponse);
         return response;
     } catch (error) {
         console.error(`Error in sendInlineDatamapperRequest: ${error}`);
-        throw error; 
+        throw error;
     }
 }
 
 async function getInlineDatamapperCode(inlineDataMapperResponse: InlineDataMapperModelResponse | ErrorCode, parameterDefinitions: ParameterMetadata | ErrorCode): Promise<object> {
     let nestedKeyArray: string[] = [];
     try {
-        let accessToken: string | ErrorCode;
-        const loginMethod = await getLoginMethod();
-        if (loginMethod === LoginMethod.BI_INTEL) {
-            accessToken = await getAccessToken().catch((error) => {
-                console.error(error);
-                return NOT_LOGGED_IN;
-            });
-        }
         let response: DatamapperResponse = await sendInlineDatamapperRequest(inlineDataMapperResponse);
 
         let intermediateMapping = response.mappings;
@@ -435,7 +427,7 @@ async function getInlineDatamapperCode(inlineDataMapperResponse: InlineDataMappe
         return finalCode;
     } catch (error) {
         console.error(error);
-        throw error; 
+        throw error;
     }
 }
 
@@ -463,6 +455,6 @@ export async function processInlineMappings(
         return { mappings };
     } catch (error) {
         console.error(error);
-        throw error; 
+        throw error;
     }
 }
