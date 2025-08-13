@@ -1,12 +1,13 @@
 # Change log
 
-## Version 1.2.1 (2025-08-12)
+## **1.2.1** (2025-08-13)
 
 ### Fixed
 
 -   Resolved issues affecting Inline Data Mapper functionality and flow diagram rendering
 
-## Version 1.2.0 (2025-07-29)
+
+## **1.2.0** (2025-07-29)
 
 ### Major Updates
 
@@ -35,6 +36,7 @@
 -   **AI & Copilot:** Resolved re-rendering bugs and authentication flow issues.
 -   **Configuration:** Fixed issues with Config.toml management and fast-run command failures.
 -   **IDE Stability:** Addressed UI freezing, improved state management, and enhanced project handling in multi-root workspaces.
+
 
 ## **1.1.0** (2025-07-14)
 
