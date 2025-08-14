@@ -338,7 +338,7 @@ const getComponentsInfo = async (selected?: ContextItemEnriched): Promise<Contex
 };
 
 const getFilteredComponents = (components: ComponentKind[]) => {
-	const workspaceCompId: string | null | undefined = ext.context.globalState.get("code-server-component-id") || process.env.CLOUD_COMPONENT_ID;
+	const workspaceCompId: string | null | undefined = ext.context.globalState.get("code-server-component-id") || process.env.SOURCE_COMPONENT_ID;
 	if (process.env.CLOUD_STS_TOKEN && workspaceCompId) {
 		const filteredComps = components.filter((item) => item.metadata?.id === workspaceCompId);
 		if (filteredComps.length === 1) {
