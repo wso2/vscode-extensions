@@ -185,7 +185,24 @@ export function initTest(newProject: boolean = false, skipProjectCreation: boole
 
     test.afterAll(async ({ }, testInfo) => {
         if (cleanupAfter && fs.existsSync(newProjectPath)) {
-            fs.rmSync(newProjectPath, { recursive: true });
+            try {
+                // Add a small delay to allow handles to be released
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Try multiple times with increasing delays
+                for (let i = 0; i < 3; i++) {
+                    try {
+                        fs.rmSync(newProjectPath, { recursive: true, force: true });
+                        break;
+                    } catch (err) {
+                        if (i < 2) { // Don't wait on last iteration
+                            await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+                        }
+                    }
+                }
+            } catch (error: any) {
+                console.warn(`Warning: Could not remove directory ${newProjectPath}: ${error?.message || 'Unknown error'}`);
+            }
         }
         console.log(`>>> Finished ${testInfo.title} with status: ${testInfo.status}, Attempt: ${testInfo.retry + 1}`);
     });
