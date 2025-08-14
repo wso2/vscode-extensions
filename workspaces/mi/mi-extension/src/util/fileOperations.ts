@@ -184,16 +184,20 @@ export async function handleOpenFile(projectUri: string, sampleName: string, rep
             }
         }).on("close", () => {
             console.log("Extraction complete!");
-            let uri = Uri.file(path.join(selectedPath, sampleName));
             window.showInformationMessage('Where would you like to open the project?',
                 { modal: true },
-                'This Window',
+                'Current Window',
                 'New Window'
-            ).then((selection) => {
-                if (selection === undefined) {
-                    return;
+            ).then(selection => {
+                if (selection === "Current Window") {
+                    const folderUri = Uri.file(path.join(selectedPath, sampleName));
+                    const workspaceFolders = workspace.workspaceFolders || [];
+                    if (!workspaceFolders.some(folder => folder.uri.fsPath === folderUri.fsPath)) {
+                        workspace.updateWorkspaceFolders(workspaceFolders.length, 0, { uri: folderUri });
+                    }
+                } else if (selection === "New Window") {
+                    commands.executeCommand('vscode.openFolder', Uri.file(path.join(selectedPath, sampleName)));
                 }
-                commands.executeCommand("vscode.openFolder", uri, selection === 'New Window');
             });
         });
         window.showInformationMessage(
@@ -648,7 +652,7 @@ export async function createMetadataFilesForRegistryCollection(collectionRoot: s
 export async function getAvailableRegistryResources(projectDir: string): Promise<ListRegistryArtifactsResponse> {
     const result: RegistryArtifact[] = [];
     
-    const miVersion = await getMIVersionFromPom();
+    const miVersion = await getMIVersionFromPom(projectDir);
     if (miVersion && compareVersions(miVersion, '4.4.0') >= 0) {
         var artifactXMLPath = path.join(projectDir, 'src', 'main', 'wso2mi', 'resources', 'artifact.xml');
     } else {
