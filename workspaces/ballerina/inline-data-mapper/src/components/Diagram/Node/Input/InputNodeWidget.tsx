@@ -30,6 +30,7 @@ import { useIONodesStyles } from "../../../styles";
 import { useDMExpandedFieldsStore, useDMIOConfigPanelStore } from '../../../../store/store';
 import { getTypeName } from "../../utils/type-utils";
 import { useShallow } from "zustand/react/shallow";
+import { getNonNilUnionMember } from "../../utils/common-utils";
 
 export interface InputNodeWidgetProps {
     id: string; // this will be the root ID used to prepend for UUIDs of nested fields
@@ -70,6 +71,17 @@ export function InputNodeWidget(props: InputNodeWidgetProps) {
         fields = [ dmType.member ];
     } else if (dmType.kind === TypeKind.Enum) {
         fields = dmType.members;
+    } else if (dmType.kind === TypeKind.Union) {
+        const nonNilMember = getNonNilUnionMember(dmType);
+        if (nonNilMember) {
+            if (nonNilMember.kind === TypeKind.Record) {
+                fields = nonNilMember.fields;
+            } else if (nonNilMember.kind === TypeKind.Array) {
+                fields = [ nonNilMember.member ];
+            } else if (nonNilMember.kind === TypeKind.Enum) {
+                fields = nonNilMember.members;
+            }
+        }
     }
 
     let expanded = true;

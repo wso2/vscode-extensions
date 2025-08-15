@@ -29,6 +29,7 @@ import { useIONodesStyles } from "../../../styles";
 import { useDMCollapsedFieldsStore, useDMExpandedFieldsStore } from '../../../../store/store';
 import { getTypeName, isEnumMember } from "../../utils/type-utils";
 import { InputNode } from "../Input/InputNode";
+import { getNonNilUnionMember } from "../../utils/common-utils";
 
 export interface InputNodeTreeItemWidgetProps {
     parentId: string;
@@ -62,6 +63,17 @@ export function InputNodeTreeItemWidget(props: InputNodeTreeItemWidgetProps) {
         fields = dmType.fields;
     } else if (dmType.kind === TypeKind.Array) {
         fields = [ dmType.member ];
+    } else if (dmType.kind === TypeKind.Union) {
+        const nonNilMember = getNonNilUnionMember(dmType);
+        if (nonNilMember) {
+            if (nonNilMember.kind === TypeKind.Record) {
+                fields = nonNilMember.fields;
+            } else if (nonNilMember.kind === TypeKind.Array) {
+                fields = [ nonNilMember.member ];
+            } else if (nonNilMember.kind === TypeKind.Enum) {
+                fields = nonNilMember.members;
+            }
+        }
     }
 
     let expanded = true;

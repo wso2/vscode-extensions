@@ -27,6 +27,7 @@ import { InputSearchNoResultFound, SearchNoResultFoundKind } from "../commons/Se
 
 import { InputNode, INPUT_NODE_TYPE } from './InputNode';
 import { PrimitiveTypeInputWidget } from '../commons/PrimitiveTypeInputWidget';
+import { isNilableUnion } from '../../utils/common-utils';
 
 export class InputNodeFactory extends AbstractReactFactory<InputNode, DiagramEngine> {
     constructor() {
@@ -41,7 +42,8 @@ export class InputNodeFactory extends AbstractReactFactory<InputNode, DiagramEng
         } else if (event.model.filteredInputType &&
                 (event.model.filteredInputType.kind === TypeKind.Record ||
                     event.model.filteredInputType.kind === TypeKind.Array ||
-                    event.model.filteredInputType.kind === TypeKind.Enum
+                    event.model.filteredInputType.kind === TypeKind.Enum ||
+                    isNilableUnion(event.model.filteredInputType)
                 )
             ) {
             return (

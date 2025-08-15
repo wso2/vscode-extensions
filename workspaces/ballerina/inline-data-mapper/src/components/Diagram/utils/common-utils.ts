@@ -264,9 +264,28 @@ export function handleExpand(id: string, expanded: boolean) {
 export function isExpandable(field: IOType): boolean {
     return field?.kind === TypeKind.Record ||
         field?.kind === TypeKind.Array ||
-        field?.kind === TypeKind.Enum;
+        field?.kind === TypeKind.Enum ||
+        isNilableUnion(field);
 }
 
 export function getTargetField(viewId: string, outputId: string){
     return [...viewId.split("."), ...outputId.split(".").slice(1)].join(".");
+}
+
+export function isNilableUnion(field: IOType): boolean {
+    return field?.kind === TypeKind.Union &&
+        field?.members?.length === 2 &&
+        field?.members.some(member => member.kind === TypeKind.Nil);
+}
+
+export function getNonNilUnionMember(field: IOType): IOType | undefined {
+    if (!isNilableUnion(field)) {
+        return undefined;
+    }
+    const members = field.members || [];
+    const nilIndex = members.findIndex(member => member?.kind === TypeKind.Nil);
+    if (nilIndex === -1) {
+        return undefined;
+    }
+    return members[nilIndex === 0 ? 1 : 0];
 }

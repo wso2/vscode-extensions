@@ -22,7 +22,7 @@ import { IOType, Mapping, MappingElement, TypeKind } from '@wso2/ballerina-core'
 import { IDataMapperContext } from '../../../../utils/DataMapperContext/DataMapperContext';
 import { MappingMetadata } from '../../Mappings/MappingMetadata';
 import { InputOutputPortModel } from "../../Port";
-import { findMappingByOutput } from '../../utils/common-utils';
+import { findMappingByOutput, isNilableUnion } from '../../utils/common-utils';
 
 export interface DataMapperNodeModelGenerics {
 	PORT: InputOutputPortModel;
@@ -119,6 +119,7 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 		const isFocused = this.isFocusedField(focusedFieldFQNs, portName);
 		const isPreview = parent.attributes.isPreview || this.isPreviewPort(focusedFieldFQNs, parent.attributes.field);
 		const isCollapsed = this.isInputPortCollapsed(hidden, collapsedFields, expandedFields, portName, isArray, isFocused);
+		const isParentResolvedUnion = this.isParentResolvedUnion(parent, field.variableName);
 
 		const inputPort = new InputOutputPortModel({
 			field: field,
@@ -131,13 +132,16 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 			hidden: hidden,
 			isPreview: isPreview
 		});
-		this.addPort(inputPort);
+		if (!isParentResolvedUnion) {
+			// If the parent is a union, we don't add the resolved type as a port.
+			this.addPort(inputPort);
+		}
 
 		return this.createInputPortsForNestedFields({
 			...attributes,
-			parentId: fieldFQN,
-			unsafeParentId: unsafeFieldFQN,
-			parent: inputPort,
+			parentId: isParentResolvedUnion ? parentId : fieldFQN,
+			unsafeParentId: isParentResolvedUnion ? unsafeParentId : unsafeFieldFQN,
+			parent: isParentResolvedUnion ? parent : inputPort,
 			hidden: hidden,
 			collapsed: isCollapsed
 		});
@@ -326,6 +330,9 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 			case TypeKind.Array:
 				numberOfFields += this.createInputPortsForArrayField(attributes, isHidden);
 				break;
+			case TypeKind.Union:
+				numberOfFields += this.createInputPortsForUnionField(attributes, isHidden);
+				break;
 			default:
 				break;
 		}
@@ -358,6 +365,19 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 		});
 	}
 
+	private createInputPortsForUnionField(attributes: InputPortAttributes, isHidden: boolean): number {
+		const memberField = this.resolveUnionMemberField(attributes);
+		if (!memberField) {
+			return 0;
+		}
+		return this.addPortsForInputField({
+			...attributes,
+			hidden: isHidden,
+			field: memberField,
+			isOptional: memberField?.optional || attributes.isOptional
+		}) - 1;
+	}
+
 	private resolveArrayMemberField(attributes: InputPortAttributes): IOType | undefined {
 		const focusedMemberId = attributes.field?.focusedMemberId;
 		if (focusedMemberId) {
@@ -367,6 +387,19 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 			}
 		}
 		return attributes.field?.member;
+	}
+
+	private resolveUnionMemberField(attributes: InputPortAttributes): IOType | undefined {
+		const members = attributes.field?.members;
+		if (!members || members.length !== 2) {
+			return undefined;
+		}
+		const nilIndex = members.findIndex(member => member?.kind === TypeKind.Nil);
+		if (nilIndex === -1) {
+			return undefined;
+		}
+		// For a nilable union (T | nil), return the non-nil member to drill down into
+		return members[nilIndex === 0 ? 1 : 0];
 	}
 
 	private processFieldKind(attributes: OutputPortAttributes) {
@@ -429,5 +462,10 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 		// }
 		return new MappingMetadata([...currentFields, node], undefined, undefined);
 		// }
+	}
+
+	private isParentResolvedUnion(parent: InputOutputPortModel, fieldName: string): boolean {
+		return isNilableUnion(parent.attributes.field)
+			&& parent.attributes.field.variableName === fieldName;
 	}
 }

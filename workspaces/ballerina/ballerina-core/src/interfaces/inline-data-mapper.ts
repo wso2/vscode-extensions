@@ -29,6 +29,7 @@ export enum TypeKind {
     Boolean = "boolean",
     Enum = "enum",
     Union = "union",
+    Nil = "()",
     Unknown = "$CompilationError$",
     Anydata = "anydata",
     Byte = "byte",
@@ -87,7 +88,7 @@ export interface IOType {
     variableName?: string;
     fields?: IOType[];
     member?: IOType;
-    members?: EnumMember[];
+    members?: IOType[];
     defaultValue?: unknown;
     optional?: boolean;
     focusedMemberId?: string;
@@ -145,7 +146,7 @@ export interface RecordType {
 }
 
 export interface EnumType {
-    members?: EnumMember[];
+    members?: IOType[];
 }
 
 export interface IOTypeField {
@@ -156,12 +157,6 @@ export interface IOTypeField {
     defaultValue?: unknown;
     optional?: boolean;
     ref?: string;
-}
-
-export interface EnumMember {
-    id: string;
-    typeName: string;
-    optional?: boolean;
 }
 
 export interface MappingElement {
