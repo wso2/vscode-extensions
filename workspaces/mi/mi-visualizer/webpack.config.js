@@ -14,7 +14,7 @@ module.exports = {
         devtoolModuleFilenameTemplate: function (info) {
             return "file:///" + encodeURI(info.absoluteResourcePath);
         },
-        publicPath: "http://localhost:9000/",
+        publicPath: 'auto'
     },
     resolve: {
         extensions: [".js", ".jsx", ".json", ".ts", ".tsx"],
@@ -64,7 +64,15 @@ module.exports = {
                 generator: {
                     filename: './images/[name][ext]',
                 },
-            }
+            },
+             {
+                test:/pdf\.worker\.mjs$/,
+                type: "asset/resource",
+                generator: {
+                    filename: 'workers/[name][ext]',
+                },
+            } 
+
         ],
         noParse: [require.resolve("@ts-morph/common/dist/typescript.js")],
     },
