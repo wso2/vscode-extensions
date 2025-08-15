@@ -42,6 +42,11 @@ export function isValueExpression(stringValue: string): any {
     return stringValue != null && stringValue.startsWith('${') && stringValue.endsWith('}');
 }
 
+export function isTypeAwareEqual(currentVal: any, expectedVal: any) {
+    return currentVal === expectedVal || (typeof expectedVal === 'string' && String(currentVal) === expectedVal) ||
+                    (typeof expectedVal === 'boolean' && String(currentVal) === String(expectedVal));
+}
+
 /**
  * Check whether to use the legacy expression editor or not.
  *
