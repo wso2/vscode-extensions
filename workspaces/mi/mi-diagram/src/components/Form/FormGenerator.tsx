@@ -1303,7 +1303,8 @@ export function FormGenerator(props: FormGeneratorProps) {
                 const [key, subKey] = conditionKey.split('.');
                 const parentValue = watch(getNameForController(key));
                 const subKeyValue = parentValue?.[subKey] || currentVal;
-                return subKeyValue === expectedValue;
+                return subKeyValue === expectedValue || (typeof expectedValue === 'string' && String(subKeyValue) === expectedValue) ||
+                    (typeof expectedValue === 'boolean' && String(subKeyValue) === String(expectedValue));
             }
             return currentVal === condition[conditionKey] || (typeof condition[conditionKey] === 'string' && String(currentVal) === condition[conditionKey]) ||
                 (typeof condition[conditionKey] === 'boolean' && String(currentVal) === String(condition[conditionKey]));
