@@ -51,7 +51,7 @@ import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { Range } from "@wso2/mi-syntax-tree/lib/src";
 import ParameterManager from './GigaParamManager/ParameterManager';
 import { StringWithParamManagerComponent } from './StringWithParamManager';
-import { isLegacyExpression, isValueExpression } from './utils';
+import { isLegacyExpression, isTypeAwareEqual, isValueExpression } from './utils';
 import { Colors } from '../../resources/constants';
 import ReactMarkdown from 'react-markdown';
 import GenerateDiv from './GenerateComponents/GenerateDiv';
@@ -1303,11 +1303,9 @@ export function FormGenerator(props: FormGeneratorProps) {
                 const [key, subKey] = conditionKey.split('.');
                 const parentValue = watch(getNameForController(key));
                 const subKeyValue = parentValue?.[subKey] || currentVal;
-                return subKeyValue === expectedValue || (typeof expectedValue === 'string' && String(subKeyValue) === expectedValue) ||
-                    (typeof expectedValue === 'boolean' && String(subKeyValue) === String(expectedValue));
+                return isTypeAwareEqual(subKeyValue, expectedValue);
             }
-            return currentVal === condition[conditionKey] || (typeof condition[conditionKey] === 'string' && String(currentVal) === condition[conditionKey]) ||
-                (typeof condition[conditionKey] === 'boolean' && String(currentVal) === String(condition[conditionKey]));
+            return isTypeAwareEqual(currentVal, condition[conditionKey]);
         };
 
         if (Array.isArray(conditions)) {
