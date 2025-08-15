@@ -18,7 +18,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import styled from "@emotion/styled";
-import { FlowNode, LinePosition, LineRange, NodeProperties } from "@wso2/ballerina-core";
+import { AvailableNode, FlowNode, LinePosition, LineRange, NodeProperties } from "@wso2/ballerina-core";
 import { FormField, FormValues } from "@wso2/ballerina-side-panel";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { convertConfig } from "../../../utils/bi";
@@ -102,25 +102,44 @@ export function NewAgent(props: NewAgentProps): JSX.Element {
     }, [agentNode, defaultModelNode]);
 
     const fetchAgentNode = async () => {
-        // get the agent node
-        const allAgents = await rpcClient.getAIAgentRpcClient().getAllAgents({ filePath: agentFilePath.current, orgName: aiModuleOrg.current });
-        console.log(">>> allAgents", allAgents);
-        if (!allAgents.agents.length) {
+        // Search for agent node using search API
+        const agentSearchResponse = await rpcClient.getBIDiagramRpcClient().search({
+            filePath: agentFilePath.current,
+            position: { startLine: agentEndOfFile.current, endLine: agentEndOfFile.current },
+            queryMap: {
+                orgName: aiModuleOrg.current
+            },
+            searchKind: "AGENT"
+        });
+        console.log(">>> agentSearchResponse", agentSearchResponse);
+        
+        // Validate search response structure
+        if (!agentSearchResponse?.categories?.[0]?.items?.length) {
             console.log(">>> no agents found");
             return;
         }
-        const agentCodeData = allAgents.agents.at(0);
+        const agentCodeData = (agentSearchResponse.categories[0].items[0] as AvailableNode).codedata;
         // get agent node template
         const agentNodeTemplate = await getNodeTemplate(rpcClient, agentCodeData, agentFilePath.current);
         setAgentNode(agentNodeTemplate);
 
-        // get all llm models
-        const allModels = await rpcClient
-            .getAIAgentRpcClient()
-            .getAllModels({ agent: agentCodeData.object, filePath: agentFilePath.current, orgName: aiModuleOrg.current });
-        console.log(">>> allModels", allModels);
+        // Search for model providers using search API
+        const modelProviderSearchResponse = await rpcClient.getBIDiagramRpcClient().search({
+            filePath: agentFilePath.current,
+            position: { startLine: agentEndOfFile.current, endLine: agentEndOfFile.current },
+            queryMap: {
+                q: aiModuleOrg.current === BALLERINA ? "ai" : "OpenAiProvider"
+            },
+            searchKind: aiModuleOrg.current === BALLERINA ? "MODEL_PROVIDER" : "CLASS_INIT"
+        });
+        console.log(">>> modelProviderSearchResponse", modelProviderSearchResponse);
+        
+        const modelNodes = modelProviderSearchResponse.categories[0].items as AvailableNode[];
         // get openai model
-        const defaultModel = allModels.models.find((model) => model.object === "OpenAiProvider" || (model.org === BALLERINA && model.module === AI));
+        const defaultModelNode = modelNodes.find((model) => 
+            model.codedata.object === "OpenAiProvider" || (model.codedata.org === BALLERINA && model.codedata.module === AI)
+        );
+        const defaultModel = defaultModelNode?.codedata;
         if (!defaultModel) {
             console.log(">>> no default model found");
             return;
