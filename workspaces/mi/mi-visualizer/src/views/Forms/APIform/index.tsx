@@ -31,6 +31,7 @@ import * as yup from "yup";
 import { useForm } from "react-hook-form";
 import * as pathLib from "path";
 import { FormKeylookup } from "@wso2/mi-diagram";
+import { compareVersions } from "@wso2/mi-diagram/lib/utils/commons";
 import { max } from "lodash";
 
 const TitleBar = styled.div({
@@ -146,6 +147,7 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
     const [workspaceFileNames, setWorkspaceFileNames] = useState([]);
     const [APIContexts, setAPIContexts] = useState([]);
     const [prevName, setPrevName] = useState<string | null>(null);
+    const [runtimeVersion, setRuntimeVersion] = useState<string | null>(null);
 
     const schema = yup.object({
         apiName: yup.string().required("API Name is required").matches(/^[^@\\^+;:!%&,=*#[\]$?'"<>{}() /]*$/, "Invalid characters in name")
@@ -267,6 +269,9 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
         }
     }
 
+    // Check if CORS settings should be shown (runtime version >= 4.5.0)
+    const shouldShowCORSSettings = runtimeVersion && (compareVersions(runtimeVersion, "4.5.0") >= 0);
+
     // CORS handler class name constant
     const CORS_HANDLER_CLASS = "org.wso2.micro.integrator.security.handler.CORSRequestHandler";
 
@@ -339,6 +344,15 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
 
     useEffect(() => {
         (async () => {
+            // Fetch runtime version
+            try {
+                const versionResponse = await rpcClient.getMiDiagramRpcClient().getMIVersionFromPom();
+                setRuntimeVersion(versionResponse.version || null);
+            } catch (error) {
+                console.warn("Failed to fetch runtime version:", error);
+                setRuntimeVersion(null);
+            }
+
             const artifactRes = await rpcClient.getMiDiagramRpcClient().getAllArtifacts({
                 path: path,
             });
@@ -450,11 +464,13 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                 statistics: values.statistics ? "enable" : undefined,
             }
             const xml = getXML(ARTIFACT_TEMPLATES.EDIT_API, formValues);
-            // Combine regular handlers with CORS handler if enabled
+            // Combine regular handlers with CORS handler if enabled and version supports it
             const allHandlers = [...handlers];
-            const corsHandler = createCORSHandler(values.corsSettings);
-            if (corsHandler) {
-                allHandlers.push(corsHandler);
+            if (shouldShowCORSSettings) {
+                const corsHandler = createCORSHandler(values.corsSettings);
+                if (corsHandler) {
+                    allHandlers.push(corsHandler);
+                }
             }
             const handlersXML = getXML(ARTIFACT_TEMPLATES.EDIT_HANDLERS, { show: allHandlers.length > 0, handlers: allHandlers });
             const editAPIParams = {
@@ -654,43 +670,45 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                         label="Statistics Enabled"
                         control={control as any}
                     />
-                    <CORSSettingsContainer>
-                        <CORSTitle>CORS Settings</CORSTitle>
-                        <FormCheckBox
-                            name="corsSettings.enabled"
-                            label="Enable CORS"
-                            control={control as any}
-                        />
-                        {corsSettings?.enabled && (
-                            <>
-                                <TextField
-                                    label="Allowed Origins"
-                                    placeholder="https://example.com,https://another.com"
-                                    {...register("corsSettings.allowedOrigins")}
-                                />
-                                <TextField
-                                    label="Allowed Headers"
-                                    placeholder="authorization,Content-Type,SOAPAction"
-                                    {...register("corsSettings.allowHeaders")}
-                                />
-                                <TextField
-                                    label="Allowed Methods"
-                                    placeholder="GET,PUT,POST,DELETE,PATCH,OPTIONS"
-                                    {...register("corsSettings.allowedMethods")}
-                                />
-                                <TextField
-                                    label="Allow Credentials"
-                                    placeholder="true/false"
-                                    {...register("corsSettings.allowCredentials")}
-                                />
-                                <TextField
-                                    label="Max Age"
-                                    placeholder="3600"
-                                    {...register("corsSettings.maxAge")}
-                                />
-                            </>
-                        )}
-                    </CORSSettingsContainer>
+                    {shouldShowCORSSettings && (
+                        <CORSSettingsContainer>
+                            <CORSTitle>CORS Settings</CORSTitle>
+                            <FormCheckBox
+                                name="corsSettings.enabled"
+                                label="Enable CORS"
+                                control={control as any}
+                            />
+                            {corsSettings?.enabled && (
+                                <>
+                                    <TextField
+                                        label="Allowed Origins"
+                                        placeholder="https://example.com,https://another.com"
+                                        {...register("corsSettings.allowedOrigins")}
+                                    />
+                                    <TextField
+                                        label="Allowed Headers"
+                                        placeholder="authorization,Content-Type,SOAPAction"
+                                        {...register("corsSettings.allowHeaders")}
+                                    />
+                                    <TextField
+                                        label="Allowed Methods"
+                                        placeholder="GET,PUT,POST,DELETE,PATCH,OPTIONS"
+                                        {...register("corsSettings.allowedMethods")}
+                                    />
+                                    <TextField
+                                        label="Allow Credentials"
+                                        placeholder="true/false"
+                                        {...register("corsSettings.allowCredentials")}
+                                    />
+                                    <TextField
+                                        label="Max Age"
+                                        placeholder="3600"
+                                        {...register("corsSettings.maxAge")}
+                                    />
+                                </>
+                            )}
+                        </CORSSettingsContainer>
+                    )}
                     <FieldGroup>
                         <TitleBar>
                             <span>Handlers</span>
