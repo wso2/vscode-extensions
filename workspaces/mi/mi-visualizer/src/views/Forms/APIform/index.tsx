@@ -31,6 +31,8 @@ import * as yup from "yup";
 import { useForm } from "react-hook-form";
 import * as pathLib from "path";
 import { FormKeylookup } from "@wso2/mi-diagram";
+import { compareVersions } from "@wso2/mi-diagram/lib/utils/commons";
+import { max } from "lodash";
 
 const TitleBar = styled.div({
     display: 'flex',
@@ -46,9 +48,41 @@ const LocationText = styled.div`
     white-space: nowrap;
 `;
 
+const CORSSettingsContainer = styled.div`
+    background-color: var(--vscode-editor-inactiveSelectionBackground);
+    border: 1px solid var(--vscode-widget-border);
+    border-radius: 6px;
+    padding: 16px;
+    margin: 8px 0;
+    box-shadow: 0 2px 4px var(--vscode-widget-shadow);
+    
+    &:hover {
+        border-color: var(--vscode-focusBorder);
+        box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+        background-color: var(--vscode-list-hoverBackground);
+    }
+`;
+
+const CORSTitle = styled.div`
+    font-weight: 600;
+    color: var(--vscode-foreground);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--vscode-widget-border);
+`;
+
 export interface Region {
     label: string;
     value: string;
+}
+
+export interface CORSSettings {
+    enabled: boolean;
+    allowHeaders?: string;
+    allowedOrigins?: string;
+    allowedMethods?: string;
+    allowCredentials?: string;
+    maxAge?: string;
 }
 
 export interface APIData {
@@ -69,6 +103,7 @@ export interface APIData {
     apiRange?: Range;
     handlersRange?: Range;
     handlers?: any[];
+    corsSettings?: CORSSettings;
 }
 
 const initialAPI: APIData = {
@@ -88,7 +123,15 @@ const initialAPI: APIData = {
     wsdlEndpointName: "",
     apiRange: undefined,
     handlersRange: undefined,
-    handlers: []
+    handlers: [],
+    corsSettings: {
+        enabled: false,
+        allowHeaders: "authorization,Access-Control-Allow-Origin,Content-Type,SOAPAction,apikey,Internal-Key",
+        allowedOrigins: "",
+        allowedMethods: "GET,PUT,POST,DELETE,PATCH,OPTIONS",
+        allowCredentials: "",
+        maxAge: ""
+    }
 };
 
 export interface APIWizardProps {
@@ -104,6 +147,7 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
     const [workspaceFileNames, setWorkspaceFileNames] = useState([]);
     const [APIContexts, setAPIContexts] = useState([]);
     const [prevName, setPrevName] = useState<string | null>(null);
+    const [runtimeVersion, setRuntimeVersion] = useState<string | null>(null);
 
     const schema = yup.object({
         apiName: yup.string().required("API Name is required").matches(/^[^@\\^+;:!%&,=*#[\]$?'"<>{}() /]*$/, "Invalid characters in name")
@@ -178,7 +222,15 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
         }),
         apiRange: yup.object(),
         handlersRange: yup.object(),
-        handlers: yup.array()
+        handlers: yup.array(),
+        corsSettings: yup.object({
+            enabled: yup.boolean(),
+            allowHeaders: yup.string(),
+            allowedOrigins: yup.string(),
+            allowedMethods: yup.string(),
+            allowCredentials: yup.string(),
+            maxAge: yup.string()
+        })
     });
 
     const {
@@ -198,6 +250,7 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
 
     // Watchers
     const handlers = watch("handlers");
+    const corsSettings = watch("corsSettings");
     const versionType = watch("versionType");
     const apiCreateOption = watch("apiCreateOption");
     const swaggerDefPath = watch("swaggerDefPath");
@@ -214,13 +267,74 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
         }
     }
 
+    // Check if CORS settings should be shown (runtime version >= 4.5.0)
+    const shouldShowCORSSettings = runtimeVersion && (compareVersions(runtimeVersion, "4.5.0") >= 0);
+
+    // CORS handler class name constant
+    const CORS_HANDLER_CLASS = "org.wso2.micro.integrator.security.handler.CORSRequestHandler";
+
+    // Function to filter out CORS handlers from regular handlers
+    const filterCORSHandlers = (handlers: any[]): any[] => {
+        return handlers?.filter(handler => handler.name !== CORS_HANDLER_CLASS) || [];
+    };
+
+    // Function to extract CORS settings from handlers
+    const extractCORSSettings = (handlers: any[]): CORSSettings => {
+        const corsHandler = handlers?.find(handler => handler.name === CORS_HANDLER_CLASS);
+
+        if (!corsHandler) {
+            return initialAPI.corsSettings!;
+        }
+
+        const getPropertyValue = (propertyName: string): string => {
+            const property = corsHandler.properties?.find((prop: any) => prop.name === propertyName);
+            return property?.value || "";
+        };
+
+        return {
+            enabled: true,
+            allowHeaders: getPropertyValue("allowHeaders"),
+            allowedOrigins: getPropertyValue("allowedOrigins"),
+            allowedMethods: getPropertyValue("allowedMethods"),
+            allowCredentials: getPropertyValue("allowCredentials"),
+            maxAge: getPropertyValue("maxAge")
+        };
+    };
+
+    // Function to create CORS handler from settings
+    const createCORSHandler = (corsSettings: CORSSettings): any => {
+        if (!corsSettings.enabled) {
+            return null;
+        }
+
+        return {
+            name: CORS_HANDLER_CLASS,
+            properties: [
+                { name: "apiImplementationType", value: "ENDPOINT" },
+                { name: "allowHeaders", value: corsSettings.allowHeaders || "" },
+                { name: "allowedOrigins", value: corsSettings.allowedOrigins || "" },
+                { name: "allowCredentials", value: corsSettings.allowCredentials || "" },
+                { name: "maxAge", value: corsSettings.maxAge || "" },
+                { name: "allowedMethods", value: corsSettings.allowedMethods || "" }
+            ].filter(prop => prop.value !== "") // Remove empty properties
+        };
+    };
+
     useEffect(() => {
         if (apiData) {
             const versionType = identifyVersionType(apiData.version);
+            const allHandlers = apiData.handlers || [];
+
+            // Extract CORS settings from handlers
+            const corsSettings = extractCORSSettings(allHandlers);
+
+            // Filter out CORS handlers from regular handlers
+            const filteredHandlers = filterCORSHandlers(allHandlers);
 
             reset({ ...initialAPI, ...apiData });
             setValue("versionType", versionType);
-            setValue("handlers", apiData.handlers ?? []);
+            setValue("handlers", filteredHandlers);
+            setValue("corsSettings", corsSettings);
         } else {
             reset(initialAPI);
         }
@@ -228,6 +342,15 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
 
     useEffect(() => {
         (async () => {
+            // Fetch runtime version
+            try {
+                const versionResponse = await rpcClient.getMiDiagramRpcClient().getMIVersionFromPom();
+                setRuntimeVersion(versionResponse.version || null);
+            } catch (error) {
+                console.warn("Failed to fetch runtime version:", error);
+                setRuntimeVersion(null);
+            }
+
             const artifactRes = await rpcClient.getMiDiagramRpcClient().getAllArtifacts({
                 path: path,
             });
@@ -339,7 +462,15 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                 statistics: values.statistics ? "enable" : undefined,
             }
             const xml = getXML(ARTIFACT_TEMPLATES.EDIT_API, formValues);
-            const handlersXML = getXML(ARTIFACT_TEMPLATES.EDIT_HANDLERS, { show: handlers.length > 0, handlers });
+            // Combine regular handlers with CORS handler if enabled and version supports it
+            const allHandlers = [...handlers];
+            if (shouldShowCORSSettings) {
+                const corsHandler = createCORSHandler(values.corsSettings);
+                if (corsHandler) {
+                    allHandlers.push(corsHandler);
+                }
+            }
+            const handlersXML = getXML(ARTIFACT_TEMPLATES.EDIT_HANDLERS, { show: allHandlers.length > 0, handlers: allHandlers });
             const editAPIParams = {
                 documentUri: path,
                 apiName: values.apiName,
@@ -523,6 +654,45 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                         label="Statistics Enabled"
                         control={control as any}
                     />
+                    {shouldShowCORSSettings && (
+                        <CORSSettingsContainer>
+                            <CORSTitle>CORS Settings</CORSTitle>
+                            <FormCheckBox
+                                name="corsSettings.enabled"
+                                label="Enable CORS"
+                                control={control as any}
+                            />
+                            {corsSettings?.enabled && (
+                                <>
+                                    <TextField
+                                        label="Allowed Origins"
+                                        placeholder="https://example.com,https://another.com"
+                                        {...register("corsSettings.allowedOrigins")}
+                                    />
+                                    <TextField
+                                        label="Allowed Headers"
+                                        placeholder="authorization,Content-Type,SOAPAction"
+                                        {...register("corsSettings.allowHeaders")}
+                                    />
+                                    <TextField
+                                        label="Allowed Methods"
+                                        placeholder="GET,PUT,POST,DELETE,PATCH,OPTIONS"
+                                        {...register("corsSettings.allowedMethods")}
+                                    />
+                                    <TextField
+                                        label="Allow Credentials"
+                                        placeholder="true/false"
+                                        {...register("corsSettings.allowCredentials")}
+                                    />
+                                    <TextField
+                                        label="Max Age"
+                                        placeholder="3600"
+                                        {...register("corsSettings.maxAge")}
+                                    />
+                                </>
+                            )}
+                        </CORSSettingsContainer>
+                    )}
                     <FieldGroup>
                         <TitleBar>
                             <span>Handlers</span>
