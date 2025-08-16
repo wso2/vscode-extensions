@@ -47,6 +47,29 @@ const LocationText = styled.div`
     white-space: nowrap;
 `;
 
+const CORSSettingsContainer = styled.div`
+    background-color: var(--vscode-editor-inactiveSelectionBackground);
+    border: 1px solid var(--vscode-widget-border);
+    border-radius: 6px;
+    padding: 16px;
+    margin: 8px 0;
+    box-shadow: 0 2px 4px var(--vscode-widget-shadow);
+    
+    &:hover {
+        border-color: var(--vscode-focusBorder);
+        box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+        background-color: var(--vscode-list-hoverBackground);
+    }
+`;
+
+const CORSTitle = styled.div`
+    font-weight: 600;
+    color: var(--vscode-foreground);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--vscode-widget-border);
+`;
+
 export interface Region {
     label: string;
     value: string;
@@ -631,10 +654,8 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                         label="Statistics Enabled"
                         control={control as any}
                     />
-                    <FieldGroup>
-                        <TitleBar>
-                            <span>CORS Settings</span>
-                        </TitleBar>
+                    <CORSSettingsContainer>
+                        <CORSTitle>CORS Settings</CORSTitle>
                         <FormCheckBox
                             name="corsSettings.enabled"
                             label="Enable CORS"
@@ -669,7 +690,7 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                                 />
                             </>
                         )}
-                    </FieldGroup>
+                    </CORSSettingsContainer>
                     <FieldGroup>
                         <TitleBar>
                             <span>Handlers</span>
