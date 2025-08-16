@@ -708,7 +708,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                 }
             });
 
-            const metadataPath = path.join(this.projectUri, "src", "main", "wso2mi", "resources", "metadata", name + (apiVersion == "" ? "" : "_" + apiVersion) + "_metadata.yaml");
+            const metadataPath = path.join(this.projectUri, "src", "main", "wso2mi", "resources", "metadata", name + (apiVersion == "" ? "" : "_v" + apiVersion) + "_metadata.yaml");
             fs.writeFileSync(metadataPath, getAPIMetadata({ name: name, version: apiVersion == "" ? "1.0.0" : apiVersion, context: apiContext, versionType: apiVersionType ? (apiVersionType == "url" ? apiVersionType : false) : false }));
 
             //generate swagger
@@ -741,19 +741,28 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
             const sanitizedHandlersXmlData = handlersXmlData.replace(/^\s*[\r\n]/gm, '');
 
             let expectedFileName = `${apiName}${version ? `_v${version}` : ''}`;
-            if (path.basename(documentUri).split('.')[0] !== expectedFileName) {
+            if (path.basename(documentUri).split('.xml')[0] !== expectedFileName) {
+                //this is for api fileRename
                 const originalFileName = `${path.basename(documentUri, path.extname(documentUri))}.yaml`;
                 const originalFilePath = path.join(path.dirname(documentUri), originalFileName);
+                //rename api folder
                 await this.renameFile({ existingPath: documentUri, newPath: path.join(path.dirname(documentUri), `${expectedFileName}.xml`) });
                 documentUri = path.join(path.dirname(documentUri), `${expectedFileName}.xml`);
                 // Path to old API file
                 const projectDir = workspace.getWorkspaceFolder(Uri.file(originalFilePath))?.uri.fsPath;
+                //get swagger file name
                 const oldAPIXMLPath = path.join(projectDir ?? "", 'src', 'main', 'wso2mi', 'resources', 'api-definitions', originalFileName);
+                const oldMetadataPath = path.join(projectDir ?? "", 'src', 'main', 'wso2mi', 'resources', 'metadata', originalFileName.replace('.yaml', '_metadata.yaml'));
                 // Delete the old API from resources folder
                 if (fs.existsSync(oldAPIXMLPath)) {
                     fs.unlinkSync(oldAPIXMLPath);
                 }
+                if (fs.existsSync(oldMetadataPath)) {
+                    fs.unlinkSync(oldMetadataPath);
+                }
             }
+
+            //if I did this edit here, it wont update the file when user edit the API from the editor.not UI
 
             if (sanitizedHandlersXmlData) {
                 await this.applyEdit({ text: sanitizedHandlersXmlData, documentUri, range: handlersRange });

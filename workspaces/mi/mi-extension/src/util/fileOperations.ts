@@ -20,6 +20,7 @@ import { Progress, window, ProgressLocation, commands, workspace, Uri, TextEdito
 import * as fs from 'fs';
 import * as os from 'os';
 import axios from "axios";
+import * as vscode from 'vscode';
 import * as path from 'path';
 import { XMLParser, XMLBuilder } from "fast-xml-parser";
 import * as unzipper from 'unzipper';
@@ -31,6 +32,8 @@ import { RPCLayer } from "../RPCLayer";
 import { VisualizerWebview } from "../visualizer/webview";
 import { MiVisualizerRpcManager } from "../rpc-managers/mi-visualizer/rpc-manager";
 import { compareVersions, getMIVersionFromPom } from "./onboardingUtils";
+import { COMMANDS} from "../constants";
+import { getAPIMetadata } from "../util/template-engine/mustach-templates/API";
 
 interface ProgressMessage {
     message: string;
@@ -1102,3 +1105,104 @@ export function generatePathFromRegistryPath(registryPath: string, fileName: str
     }
     return path.join(registryPath.split("/").join(path.sep), fileName);
 }
+
+export function deleteSwaggerAndMetadata(apiPath: string) {
+    const projectRoot = workspace.getWorkspaceFolder(vscode.Uri.file(apiPath))?.uri.fsPath;
+    if (!projectRoot) {
+        return;
+    }
+    const swaggerDir = path.join(projectRoot!, "src", "main", "wso2mi", "resources", "api-definitions");
+    const metdataDir = path.join(projectRoot!, "src", "main", "wso2mi", "resources", "metadata");
+    const swaggerFilePath = path.join(swaggerDir, path.basename(apiPath, path.extname(apiPath)) + '.yaml');
+    const metadataFilePath = path.join(metdataDir, path.basename(apiPath, path.extname(apiPath)) + '_metadata.yaml');
+
+    if (fs.existsSync(swaggerFilePath)) {
+        window.showInformationMessage(`API file ${path.basename(apiPath)} has been deleted. Do you want to delete the related Swagger file and Metadata file?`, 'Yes', 'No').then(async answer => {
+            if (answer === 'Yes') {
+                await deleteRegistryResource(swaggerFilePath);
+                await deleteRegistryResource(metadataFilePath);
+                window.showInformationMessage(`Swagger file ${path.basename(swaggerFilePath)} and Metadata file ${path.basename(metadataFilePath)} have been deleted.`);
+                vscode.commands.executeCommand(COMMANDS.REFRESH_COMMAND);
+            }
+        });
+    }
+}
+
+export function generateMetaDataFile(apiPath: string): Promise<void> {
+    return new Promise(async (resolve) => {
+        const projectUri = workspace.getWorkspaceFolder(vscode.Uri.file(apiPath))?.uri.fsPath;
+        if (!projectUri) {
+            return;
+        }
+        const readXml = fs.readFileSync(apiPath, "utf8");
+        const options = {
+            ignoreAttributes: false,
+            allowBooleanAttributes: true,
+            attributeNamePrefix: "@_",
+            attributesGroupName: "@_"
+        };
+        const parser = new XMLParser(options);
+        const jsonObj = parser.parse(readXml);
+        const apiVersionType = jsonObj.api["@_"]['@_version-type'] ?? "";
+        const apiContext = jsonObj.api["@_"]['@_context'] ?? "";
+        const version = jsonObj.api["@_"]['@_version'] ?? "";
+        const apiName = jsonObj.api["@_"]['@_name'] ?? "";
+        const metadataPath = path.join(projectUri, "src", "main", "wso2mi", "resources", "metadata", apiName + (version == "" ? "" : "_v" + version) + "_metadata.yaml");
+        fs.writeFileSync(metadataPath, getAPIMetadata({ name: apiName, version: version || "1.0.0", context: apiContext, versionType: apiVersionType ? (apiVersionType == "url" ? apiVersionType : false) : false }));
+    });
+}
+
+export function renameApiFile(apiPath: string): Promise<{ newApiPath: string }> {
+    return new Promise(async (resolve) => {
+        const projectUri = workspace.getWorkspaceFolder(vscode.Uri.file(apiPath))?.uri.fsPath;
+        if (!projectUri) {
+            return;
+        }
+        const readXml = fs.readFileSync(apiPath, "utf8");
+        const options = {
+            ignoreAttributes: false,
+            allowBooleanAttributes: true,
+            attributeNamePrefix: "@_",
+            attributesGroupName: "@_"
+        };
+        const parser = new XMLParser(options);
+        const jsonObj = parser.parse(readXml);
+        const newVersion = jsonObj.api["@_"]['@_version'] ?? "";
+        const newApiName = jsonObj.api["@_"]['@_name'] ?? "";
+        // Generate new filename based on current API data
+        const newApiPath = path.join(path.dirname(apiPath), `${newApiName}${newVersion ? `_v${newVersion}` : ''}.xml`);
+        // Compare old and new filenames
+        if (apiPath !== newApiPath) {
+            try {
+                // Rename the API file
+                fs.renameSync(apiPath, newApiPath);
+
+                // Also delete associated swagger and metadata files if they exist
+                const swaggerDir = path.join(projectUri!, "src", "main", "wso2mi", "resources", "api-definitions");
+                const metadataDir = path.join(projectUri!, "src", "main", "wso2mi", "resources", "metadata");
+                const oldSwaggerPath = path.join(swaggerDir, oldFileNameWithoutExt + '.yaml');
+                const oldMetadataPath = path.join(metadataDir, oldFileNameWithoutExt + '_metadata.yaml');
+
+                // Delete old swagger file if exists
+                if (fs.existsSync(oldSwaggerPath)) {
+                    fs.unlinkSync(oldSwaggerPath);
+                }
+
+                // Delete old metadata file if exists
+                if (fs.existsSync(oldMetadataPath)) {
+                    fs.unlinkSync(oldMetadataPath);
+                }
+
+                console.log(`API file renamed from ${oldFileName} to ${newFileName}. Old swagger and metadata files deleted.`);
+                resolve({ newApiPath: newFilePath });
+                // ...existing code...
+            } catch (error) {
+                console.error(`Error renaming API file: ${error}`);
+            }
+        } else {
+            // No rename needed, return current path
+            resolve({ newApiPath: apiPath });
+        }
+    });
+}
+

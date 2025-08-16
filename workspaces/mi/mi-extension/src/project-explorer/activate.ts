@@ -23,13 +23,12 @@ import { EVENT_TYPE, MACHINE_VIEW, VisualizerLocation } from '@wso2/mi-core';
 import { COMMANDS } from '../constants';
 import { ExtensionContext, TreeItem, Uri, ViewColumn, commands, window, workspace } from 'vscode';
 import path = require("path");
-import { deleteRegistryResource, deleteDataMapperResources, deleteSchemaResources } from '../util/fileOperations';
+import { deleteRegistryResource, deleteDataMapperResources , deleteSwaggerAndMetadata} from '../util/fileOperations';
 import { extension } from '../MIExtensionContext';
 import { ExtendedLanguageClient } from '../lang-client/ExtendedLanguageClient';
 import { APIResource } from '../../../syntax-tree/lib/src';
 import { MiDiagramRpcManager } from '../rpc-managers/mi-diagram/rpc-manager';
 import { RUNTIME_VERSION_440 } from "../constants";
-import { deleteSwagger } from '../util/swagger';
 import { compareVersions } from '../util/onboardingUtils';
 import { removeFromHistory } from '../history';
 import * as fs from "fs";
@@ -434,7 +433,7 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 							window.showInformationMessage(`${item.label} has been deleted.`);
 
 							if (item.contextValue === 'api') {
-								deleteSwagger(fileUri);
+								deleteSwaggerAndMetadata(fileUri)
 							}
 						} catch (error) {
 							window.showErrorMessage(`Failed to delete ${item.label}: ${error}`);

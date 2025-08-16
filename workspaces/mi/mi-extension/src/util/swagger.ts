@@ -304,20 +304,4 @@ export function generateSwagger(apiPath: string): Promise<SwaggerFromAPIResponse
     });
 }
 
-export function deleteSwagger(apiPath: string) {
-    const projectRoot = workspace.getWorkspaceFolder(vscode.Uri.file(apiPath))?.uri.fsPath;
-    if (!projectRoot) {
-        return;
-    }
-    const swaggerDir = path.join(projectRoot!, SWAGGER_REL_DIR);
-    const swaggerFilePath = path.join(swaggerDir, path.basename(apiPath, path.extname(apiPath)) + '.yaml');
-    if (fs.existsSync(swaggerFilePath)) {
-        window.showInformationMessage(`API file ${path.basename(apiPath)} has been deleted. Do you want to delete the related Swagger file?`, 'Yes', 'No').then(async answer => {
-            if (answer === 'Yes') {
-                await deleteRegistryResource(swaggerFilePath);
-                window.showInformationMessage(`Swagger file ${path.basename(swaggerFilePath)} has been deleted.`);
-                vscode.commands.executeCommand(COMMANDS.REFRESH_COMMAND);
-            }
-        });
-    }
-}
+
