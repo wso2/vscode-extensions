@@ -28,13 +28,14 @@ import { debounce } from 'lodash';
 import path from 'path';
 import { removeFromHistory } from '../history';
 import { RPCLayer } from '../RPCLayer';
-import { deleteSwagger, generateSwagger } from '../util/swagger';
+import { generateSwagger } from '../util/swagger';
 import { VisualizerWebview, webviews } from './webview';
 import * as fs from 'fs';
 import { AiPanelWebview } from '../ai-panel/webview';
 import { MiDiagramRpcManager } from '../rpc-managers/mi-diagram/rpc-manager';
 import { log } from '../util/logger';
 import { CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR } from '../util/onboardingUtils';
+import { deleteSwaggerAndMetadata, generateMetaDataFile, renameApiFile } from '../util/fileOperations';
 
 export function activateVisualizer(context: vscode.ExtensionContext, firstProject: string) {
     context.subscriptions.push(
@@ -259,7 +260,7 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                     // Handle API file deletion
                     const apiDir = path.join(projectUri, 'src', 'main', "wso2mi", "artifacts", "apis");
                     if (filePath.fsPath?.includes(apiDir)) {
-                        deleteSwagger(filePath.fsPath);
+                        deleteSwaggerAndMetadata(filePath.fsPath);
                     }
 
                     removeFromHistory(filePath.fsPath);
@@ -330,12 +331,16 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                 const swaggerOriginalPath = path.join(dirPath, path.basename(document.uri.fsPath, path.extname(document.uri.fsPath)) + '_original.yaml');
                 const swaggerPath = path.join(dirPath, path.basename(document.uri.fsPath, path.extname(document.uri.fsPath)) + '.yaml');
                 if (fs.readFileSync(document.uri.fsPath, 'utf-8').split('\n').length > 3) {
+                    //rename file if user changed inside the api file
+                    const newApiFilePath= await renameApiFile(document.uri.fsPath);
+
                     if (fs.existsSync(swaggerOriginalPath)) {
                         fs.copyFileSync(swaggerOriginalPath, swaggerPath);
                         fs.rmSync(swaggerOriginalPath);
                     } else {
-                        generateSwagger(document.uri.fsPath);
+                        generateSwagger(newApiFilePath.newApiPath);
                     }
+                    generateMetaDataFile(newApiFilePath.newApiPath);
                 }
             }
 
