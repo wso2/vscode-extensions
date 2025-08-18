@@ -404,6 +404,7 @@ export interface GetBuildLogsForTypeReq {
 
 export interface GetSubscriptionsReq {
 	orgId: string;
+	cloudType?: string;
 }
 
 export interface UpdateCodeServerReq {

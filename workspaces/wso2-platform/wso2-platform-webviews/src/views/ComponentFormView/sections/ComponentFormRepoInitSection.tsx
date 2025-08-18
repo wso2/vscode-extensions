@@ -64,8 +64,14 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 	const repoName = [connectMoreRepoText, createNewRpoText].includes(repo) ? "" : repo;
 
 	const { data: hasSubscriptions = false } = useQuery({
-		queryKey: ["hasSubscriptions", { orgId: organization?.id }],
-		queryFn: () => ChoreoWebViewAPI.getInstance().getChoreoRpcClient().getSubscriptions({ orgId: organization?.id?.toString() }),
+		queryKey: ["hasSubscriptions", { orgId: organization?.id, extensionName }],
+		queryFn: () =>
+			ChoreoWebViewAPI.getInstance()
+				.getChoreoRpcClient()
+				.getSubscriptions({
+					orgId: organization?.id?.toString(),
+					cloudType: extensionName === "Devant" ? "devant" : "choreo",
+				}),
 		select: (data) => !!data.list?.length,
 	});
 

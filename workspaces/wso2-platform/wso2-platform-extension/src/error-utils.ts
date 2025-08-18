@@ -83,7 +83,10 @@ export function handlerError(err: any) {
 				w.showErrorMessage("Failed to create project due to reaching maximum number of projects allowed within the free tier.", "Upgrade").then(
 					(res) => {
 						if (res === "Upgrade") {
-							commands.executeCommand("vscode.open", `${ext.config?.billingConsoleUrl}/cloud/choreo/upgrade`);
+							commands.executeCommand(
+								"vscode.open",
+								`${ext.config?.billingConsoleUrl}/cloud/${extensionName === "Devant" ? "devant" : "choreo"}/upgrade`,
+							);
 						}
 					},
 				);
@@ -94,7 +97,10 @@ export function handlerError(err: any) {
 					"Upgrade",
 				).then((res) => {
 					if (res === "Upgrade") {
-						commands.executeCommand("vscode.open", `${ext.config?.billingConsoleUrl}/cloud/choreo/upgrade`);
+						commands.executeCommand(
+							"vscode.open",
+							`${ext.config?.billingConsoleUrl}/cloud/${extensionName === "Devant" ? "devant" : "choreo"}/upgrade`,
+						);
 					}
 				});
 				break;
