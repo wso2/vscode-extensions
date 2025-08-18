@@ -257,7 +257,9 @@ import {
     GetCodeDiagnosticsReqeust,
     GetCodeDiagnosticsResponse,
     GetConnectorIconRequest,
-    GetConnectorIconResponse
+    GetConnectorIconResponse,
+    ConfigureKubernetesRequest,
+    ConfigureKubernetesResponse
 } from "./types";
 
 export interface MiDiagramAPI {
@@ -430,4 +432,6 @@ export interface MiDiagramAPI {
     shouldDisplayPayloadAlert: () => Promise<boolean>;
     displayPayloadAlert: () => Promise<void>;
     closePayloadAlert: () => Promise<void>;
+    configureKubernetes: (params: ConfigureKubernetesRequest) => Promise<ConfigureKubernetesResponse>;
+    isKubernetesConfigured: () => Promise<boolean>;
 }
