@@ -18,7 +18,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import styled from "@emotion/styled";
-import { CodeData, FlowNode, NodeMetadata, NodeProperties, UpdatedArtifactsResponse } from "@wso2/ballerina-core";
+import { AvailableNode, CodeData, FlowNode, NodeMetadata, NodeProperties, UpdatedArtifactsResponse } from "@wso2/ballerina-core";
 import { FormField, FormValues } from "@wso2/ballerina-side-panel";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { convertConfig } from "../../../utils/bi";
@@ -183,11 +183,19 @@ export function ModelConfig(props: ModelConfigProps): JSX.Element {
             console.error("Agent name not found", agentCallNode);
             return;
         }
-        const models = await rpcClient
-            .getAIAgentRpcClient()
-            .getAllModels({ agent: agentName, filePath: agentFilePath.current, orgName: aiModuleOrg.current });
+        const modelProviderSearchResponse = await rpcClient.getBIDiagramRpcClient().search({
+            filePath: agentFilePath.current,
+            position: { startLine: { line: 0, offset: 0 }, endLine: { line: 0, offset: 0 } },
+            queryMap: {
+                q: aiModuleOrg.current === BALLERINA ? "" : "ai"
+            },
+            searchKind: aiModuleOrg.current === BALLERINA ? "MODEL_PROVIDER" : "CLASS_INIT"
+        });
+        const models = (modelProviderSearchResponse.categories[0].items as AvailableNode[]).map((item) => {
+            return item.codedata;
+        });
         console.log(">>> all models", models);
-        setModelsCodeData(models.models);
+        setModelsCodeData(models);
     };
 
     const fetchSelectedAgentModel = async () => {
