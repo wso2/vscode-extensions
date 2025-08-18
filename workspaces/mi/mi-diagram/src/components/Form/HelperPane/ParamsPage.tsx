@@ -53,7 +53,6 @@ export const ParamsPage = ({
         setTimeout(() => {
             rpcClient.getVisualizerState().then((machineView) => {
                 const requestBody = createHelperPaneRequestBody(machineView, position, artifactPath);
-
                 rpcClient
                     .getMiDiagramRpcClient()
                     .getHelperPaneInfo(requestBody)

@@ -317,7 +317,6 @@ const AIChatFooter: React.FC = () => {
                                         xmlCodes
                                     });
                                     
-                                    console.log("Diagnostics response:", diagnosticResponse);
                                     const hasAnyDiagnostics = diagnosticResponse.diagnostics.some(file => file.diagnostics.length > 0);
 
                                     // If there are diagnostics, send them to the LLM for analysis
