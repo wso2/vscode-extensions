@@ -18,7 +18,7 @@
 
 import styled from "@emotion/styled";
 import React, { useEffect, useState } from "react";
-import { Button, TextField, FormView, FormActions, Dropdown, FormCheckBox, RadioButtonGroup } from "@wso2/ui-toolkit";
+import { Button, TextField, FormView, FormActions, Dropdown, FormCheckBox, RadioButtonGroup, FormGroup } from "@wso2/ui-toolkit";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { FieldGroup } from "../Commons";
 import { CreateAPIRequest, EVENT_TYPE, MACHINE_VIEW } from "@wso2/mi-core";
@@ -32,7 +32,6 @@ import { useForm } from "react-hook-form";
 import * as pathLib from "path";
 import { FormKeylookup } from "@wso2/mi-diagram";
 import { compareVersions } from "@wso2/mi-diagram/lib/utils/commons";
-import { max } from "lodash";
 
 const TitleBar = styled.div({
     display: 'flex',
@@ -46,29 +45,6 @@ const LocationText = styled.div`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-`;
-
-const CORSSettingsContainer = styled.div`
-    background-color: var(--vscode-editor-inactiveSelectionBackground);
-    border: 1px solid var(--vscode-widget-border);
-    border-radius: 6px;
-    padding: 16px;
-    margin: 8px 0;
-    box-shadow: 0 2px 4px var(--vscode-widget-shadow);
-    
-    &:hover {
-        border-color: var(--vscode-focusBorder);
-        box-shadow: 0 2px 8px var(--vscode-widget-shadow);
-        background-color: var(--vscode-list-hoverBackground);
-    }
-`;
-
-const CORSTitle = styled.div`
-    font-weight: 600;
-    color: var(--vscode-foreground);
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--vscode-widget-border);
 `;
 
 export interface Region {
@@ -270,7 +246,7 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
     }
 
     // Check if CORS settings should be shown (runtime version >= 4.5.0)
-    const shouldShowCORSSettings = runtimeVersion && (compareVersions(runtimeVersion, "4.5.0") >= 0);
+    const shouldShowCORSSettings = runtimeVersion && (compareVersions(runtimeVersion, "4.4.0") >= 0);
 
     // CORS handler class name constant
     const CORS_HANDLER_CLASS = "org.wso2.micro.integrator.security.handler.CORSRequestHandler";
@@ -312,7 +288,6 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
         return {
             name: CORS_HANDLER_CLASS,
             properties: [
-                { name: "apiImplementationType", value: "ENDPOINT" },
                 { name: "allowHeaders", value: corsSettings.allowHeaders || "" },
                 { name: "allowedOrigins", value: corsSettings.allowedOrigins || "" },
                 { name: "allowCredentials", value: corsSettings.allowCredentials || "" },
@@ -670,9 +645,12 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                         label="Statistics Enabled"
                         control={control as any}
                     />
-                    {shouldShowCORSSettings && (
-                        <CORSSettingsContainer>
-                            <CORSTitle>CORS Settings</CORSTitle>
+                </>
+            )}
+            {apiData && (
+                <>
+                {shouldShowCORSSettings && (
+                        <FormGroup title="CORS Settings" isCollapsed={true}>
                             <FormCheckBox
                                 name="corsSettings.enabled"
                                 label="Enable CORS"
@@ -707,29 +685,31 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                                     />
                                 </>
                             )}
-                        </CORSSettingsContainer>
+                        </FormGroup>
                     )}
-                    <FieldGroup>
-                        <TitleBar>
-                            <span>Handlers</span>
-                            <Button
-                                appearance="primary"
-                                onClick={addNewHandler}
-                            >
-                                Add Handler
-                            </Button>
-                        </TitleBar>
-                        {handlers?.map((handler, index) => (
-                            <FormHandler
-                                key={index}
-                                handlerId={index}
-                                last={handlers.length - 1}
-                                handler={handler}
-                                name="handlers"
-                                control={control}
-                            />
-                        ))}
-                    </FieldGroup>
+                    <FormGroup title="Handlers" isCollapsed={true}>
+                        <FieldGroup>
+                            <TitleBar>
+                                <Button
+                                    appearance="primary"
+                                    onClick={addNewHandler}
+                                    sx={{ marginLeft: "auto" }}
+                                >
+                                    Add Handler
+                                </Button>
+                            </TitleBar>
+                            {handlers?.map((handler, index) => (
+                                <FormHandler
+                                    key={index}
+                                    handlerId={index}
+                                    last={handlers.length - 1}
+                                    handler={handler}
+                                    name="handlers"
+                                    control={control}
+                                />
+                            ))}
+                        </FieldGroup>
+                    </FormGroup>
                 </>
             )}
             {apiData ? (
