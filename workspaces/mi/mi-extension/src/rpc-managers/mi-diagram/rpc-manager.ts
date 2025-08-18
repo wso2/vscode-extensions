@@ -330,7 +330,6 @@ import { DevantScopes, IWso2PlatformExtensionAPI } from "@wso2/wso2-platform-cor
 import { ICreateComponentCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
 import { MiVisualizerRpcManager } from "../mi-visualizer/rpc-manager";
 import { DebuggerConfig } from "../../debugger/config";
-import { LanguageClient } from "vscode-languageclient/node";
 
 const AdmZip = require('adm-zip');
 
