@@ -627,8 +627,8 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
                     </DropdownContainer>,
                     document.body
                 )}
-            {isFocused && ((initialExpressionRef.current == null && value !== '') ||
-                (initialExpressionRef.current != null && value !== initialExpressionRef.current)) && getHelperPane && createPortal(getHelperPaneComponent(), document.body)}
+            {isFocused && ((initialExpressionRef.current === null && value !== '') ||
+                (initialExpressionRef.current !== null && value !== initialExpressionRef.current)) && getHelperPane && createPortal(getHelperPaneComponent(), document.body)}
             {isFocused &&
                 createPortal(
                     <DropdownContainer sx={fnSignatureElPosition} zIndex={helperPaneZIndex}>
