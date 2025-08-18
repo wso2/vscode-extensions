@@ -34,6 +34,7 @@ export enum MACHINE_VIEW {
     ADD_ARTIFACT = "Add Artifact",
     Overview = "Project Overview",
     UnsupportedProject = "Unsupported Project",
+    UnsupportedWorkspace = "Unsupported Workspace",
     Disabled = "MI Extension",
     Diagram = "MI Diagram",
     ResourceView = "Resource View",
@@ -91,6 +92,7 @@ export enum MACHINE_VIEW {
     ProjectInformationForm = "Project Information Form",
     SETUP_ENVIRONMENT = "Setup Environment",
     ImportConnectorForm = "Import Connector",
+    IdpConnectorSchemaGeneratorForm = "IDP Connector Schema Generator Form",
 }
 
 export enum AI_MACHINE_VIEW {
@@ -100,7 +102,7 @@ export enum AI_MACHINE_VIEW {
 }
 
 export type MachineStateValue =
-    | 'initialize' | 'projectDetected' | 'oldProjectDetected' | 'LSInit' | 'ready' | 'disabled'
+    | 'initialize' | 'projectDetected' | 'oldProjectDetected' | 'oldWorkspaceDetected' | 'LSInit' | 'ready' | 'disabled'
     | { ready: 'viewReady' } | { ready: 'viewEditing' }
     | { newProject: 'viewReady' }| { environmentSetup: 'viewReady' };
 

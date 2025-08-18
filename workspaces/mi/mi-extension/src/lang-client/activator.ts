@@ -53,6 +53,7 @@ import { getJavaHomeFromConfig, getProjectSetupDetails, isMISetup, isJavaSetup }
 import { SELECTED_SERVER_PATH } from '../debugger/constants';
 import { extension } from '../MIExtensionContext';
 import { extractCAppDependenciesAsProjects } from '../visualizer/activate';
+import vscode from "vscode";
 const exec = util.promisify(require('child_process').exec);
 
 export interface ScopeInfo {
@@ -173,6 +174,10 @@ export class MILanguageClient {
             }
             await isJavaSetup(projectUri, miVersionFromPom);
             await isMISetup(projectUri, miVersionFromPom);
+            const versions: string[] = ["4.0.0", "4.1.0", "4.2.0", "4.3.0"];
+            const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
+            await config.update("LEGACY_EXPRESSION_ENABLED", miVersionFromPom && versions.includes(miVersionFromPom),
+                vscode.ConfigurationTarget.WorkspaceFolder);
             const JAVA_HOME = getJavaHomeFromConfig(this.projectUri);
             if (JAVA_HOME) {
                 const isJDKCompatible = await this.checkJDKCompatibility(JAVA_HOME);

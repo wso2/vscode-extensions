@@ -28,6 +28,8 @@ import { activateMockServiceTreeView } from "./mock-services/activator";
 import { TagRange, TestCase, UnitTest } from "../../../syntax-tree/lib/src";
 import { normalize } from "upath";
 import { MILanguageClient } from "../lang-client/activator";
+import { webviews } from "../visualizer/webview";
+import vscode from "vscode";
 
 export let testController: TestController;
 const testDirNodes: string[] = [];
@@ -57,8 +59,9 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
     startWatchingWorkspace(testFileMatchPattern, createTestsForAllFiles);
 
     commands.registerCommand(COMMANDS.ADD_TEST_SUITE, (args: any) => {
-        const projectUri = getProjectRoot(Uri.parse(args?.id));
-        openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.TestSuite, projectUri });
+        const projectUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+        const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
+        openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.TestSuite, projectUri: webview ? webview.getProjectUri() : projectUri?.fsPath });
         console.log('Add Test suite');
     });
 
