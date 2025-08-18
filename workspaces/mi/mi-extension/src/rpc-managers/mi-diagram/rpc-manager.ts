@@ -330,6 +330,7 @@ import { DevantScopes, IWso2PlatformExtensionAPI } from "@wso2/wso2-platform-cor
 import { ICreateComponentCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
 import { MiVisualizerRpcManager } from "../mi-visualizer/rpc-manager";
 import { DebuggerConfig } from "../../debugger/config";
+import { LanguageClient } from "vscode-languageclient/node";
 
 const AdmZip = require('adm-zip');
 
@@ -5764,6 +5765,18 @@ ${keyValuesXML}`;
         }
     };
 
+    async getValueOfEnvVariable(variableName: string): Promise<string> {
+        return new Promise(async (resolve) => {
+            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const response = await langClient.getConfigurableList();
+            const envVariable = response.find(variable => variable.key === variableName);
+            if (envVariable) {
+                resolve(envVariable.value);
+            } else {
+                resolve("");
+            }
+        });
+    };
 }
 
 export function getRepoRoot(projectRoot: string): string | undefined {
