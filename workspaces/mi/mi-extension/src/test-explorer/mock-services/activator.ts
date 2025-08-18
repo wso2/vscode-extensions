@@ -21,6 +21,7 @@ export const mockSerivesFilesMatchPattern = '**/src/test/resources/mock-services
 import { TreeDataProvider, Event, EventEmitter, ExtensionContext, TreeItem, TreeItemCollapsibleState, workspace, RelativePattern, window, ThemeIcon, commands } from 'vscode';
 import { startWatchingWorkspace } from '../helper';
 import path = require('path');
+import fs = require('fs');
 import { COMMANDS } from '../../constants';
 import { EVENT_TYPE, MACHINE_VIEW } from '@wso2/mi-core';
 import { openView } from '../../stateMachine';
@@ -140,9 +141,6 @@ export function activateMockServiceTreeView(context: ExtensionContext): void {
 
     commands.registerCommand(COMMANDS.DELETE_MOCK_SERVICE, async (data: any) => {
         if (data?.path) {
-            const fs = require('fs');
-            const path = require('path');
-            
             // Extract the mock service name from the file path
             const mockServiceName = path.basename(data.path).split(".xml")[0];
             

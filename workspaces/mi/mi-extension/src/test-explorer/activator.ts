@@ -76,7 +76,7 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
             window.showErrorMessage('Test suite id is not available');
             return;
         }
-        const fileUri = Uri.parse(entry.id);
+        const fileUri = entry.uri || (id.startsWith('file://') ? Uri.parse(entry.id) : Uri.file(entry.id));
 
         const data = await getTestCaseNamesAndTestSuiteType(fileUri);
         if (!data) {
@@ -96,7 +96,7 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
         }
         const fileUri = `${id.split('.xml/')[0]}.xml`;
         const testCaseName = id.split('.xml/')[1];
-        const langClient = await MILanguageClient.getInstance(getProjectRoot(Uri.parse(fileUri))!);
+        const langClient = await MILanguageClient.getInstance(getProjectRoot(Uri.file(fileUri))!);
         const st = await langClient?.languageClient?.getSyntaxTree({
             documentIdentifier: {
                 uri: fileUri
@@ -126,7 +126,7 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
             },
         };
 
-        const data = await getTestCaseNamesAndTestSuiteType(Uri.parse(fileUri));
+        const data = await getTestCaseNamesAndTestSuiteType(Uri.file(fileUri));
         if (!data) {
             return;
         }
@@ -139,7 +139,7 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
 
     commands.registerCommand(COMMANDS.DELETE_TEST_CASE, async (entry: TestItem) => {
         const id = entry?.id;
-        if (!id || id.split('.xml/').length < 1) {
+        if (!id || id.split('.xml/').length < 2) {
             window.showErrorMessage('Test case id is not available');
             return;
         }
@@ -158,7 +158,7 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
         }
 
         try {
-            const projectRoot = getProjectRoot(Uri.parse(fileUri));
+            const projectRoot = getProjectRoot(Uri.file(fileUri));
             const langClient = await MILanguageClient.getInstance(projectRoot!);
             const st = await langClient?.languageClient?.getSyntaxTree({
                 documentIdentifier: {
@@ -180,7 +180,7 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
             }
 
             // Delete the test case from the file by removing its XML content
-            const document = await workspace.openTextDocument(Uri.parse(fileUri));
+            const document = await workspace.openTextDocument(Uri.file(fileUri));
             const edit = new WorkspaceEdit();
             
             // Calculate the range to delete (including the test case XML tags)
@@ -194,7 +194,7 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
                 new Position(endLine, endCharacter)
             );
             
-            edit.delete(Uri.parse(fileUri), deleteRange);
+            edit.delete(Uri.file(fileUri), deleteRange);
             
             const success = await workspace.applyEdit(edit);
             if (success) {
@@ -220,7 +220,7 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
         }
         
         const fileUri = id;
-        const testSuiteName = getProjectName(Uri.parse(fileUri));
+        const testSuiteName = getProjectName(Uri.file(fileUri));
         
         // Show confirmation dialog
         const confirmation = await window.showWarningMessage(
@@ -234,11 +234,11 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
         }
 
         try {
-            const projectRoot = getProjectRoot(Uri.parse(fileUri));
+            const projectRoot = getProjectRoot(Uri.file(fileUri));
             
             // Delete the entire test suite file
             const edit = new WorkspaceEdit();
-            edit.deleteFile(Uri.parse(fileUri), { recursive: false, ignoreIfNotExists: true });
+            edit.deleteFile(Uri.file(fileUri), { recursive: false, ignoreIfNotExists: true });
             
             const success = await workspace.applyEdit(edit);
             if (success) {
