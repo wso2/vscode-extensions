@@ -28,10 +28,12 @@ import { getTestCaseXML } from "../../../utils/template-engine/mustache-template
 import { ParameterManager } from "@wso2/mi-diagram";
 import { compareVersions } from "@wso2/mi-diagram/lib/utils/commons";
 import { getProjectRuntimeVersion } from "../../AIPanel/utils";
+
 export enum TestSuiteType {
     API = "API",
     SEQUENCE = "Sequence"
 }
+
 interface TestCaseFormProps {
     filePath?: string;
     range?: TagRange;

@@ -21,6 +21,7 @@ import { Position } from 'vscode-languageserver-types';
 import { Divider, HelperPane } from '@wso2/ui-toolkit';
 import { FunctionsPage } from './FunctionsPage';
 import { ConfigsPage } from './ConfigsPage';
+import { createHelperPaneRequestBody } from '../utils';
 import { PAGE, Page } from './index';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 
@@ -65,21 +66,8 @@ export const CategoryPage = ({
 
     const getHelperPaneInfo = useCallback(() => {
         rpcClient.getVisualizerState().then((machineView) => {
-             let requestBody;
-                const documentUri = artifactPath ? artifactPath : machineView.documentUri;
+            const requestBody = createHelperPaneRequestBody(machineView, position, artifactPath);
 
-                if (machineView.documentUri.includes('src/test/')) {
-                    requestBody = {
-                        documentUri: documentUri,
-                        position: {line: 0, character: 0 },
-                        needLastMediator: true
-                    }
-                }else{
-                    requestBody = {
-                        documentUri: documentUri,
-                        position: position
-                    }
-                }
             rpcClient
                 .getMiDiagramRpcClient()
                 .getHelperPaneInfo(requestBody)

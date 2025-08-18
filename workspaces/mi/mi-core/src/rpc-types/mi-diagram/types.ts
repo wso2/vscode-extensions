@@ -371,7 +371,8 @@ export interface ImportProjectRequest {
 }
 
 export interface MigrateProjectRequest {
-    source: string;
+    dir: string;
+    sources: string[];
 }
 
 export interface Connector {
@@ -1231,7 +1232,7 @@ export interface ImportProjectResponse {
 }
 
 export interface MigrateProjectResponse {
-    filePath: string;
+    filePaths: string[];
 }
 
 export interface FileStructure {
@@ -1265,6 +1266,30 @@ export interface HandleFileRequest {
 export interface HandleFileResponse {
     status: boolean;
     content?: string;
+}
+
+export interface WriteIdpSchemaFileToRegistryRequest {
+    fileContent?: string;
+    schemaName:string;
+    imageOrPdf?: string;
+    writeToArtifactFile?: boolean;
+}
+
+export interface WriteIdpSchemaFileToRegistryResponse {
+    status: boolean;
+}
+
+export interface GetIdpSchemaFilesResponse {
+    schemaFiles:  {fileName: string; documentUriWithFileName?: string}[];
+}
+
+export interface ReadIdpSchemaFileContentRequest{
+    filePath: string;
+}
+
+export interface ReadIdpSchemaFileContentResponse{
+    fileContent: string;
+    base64Content?: string;
 }
 
 export interface HighlightCodeRequest {
@@ -1441,6 +1466,12 @@ export interface CreateBallerinaModuleResponse {
 export interface GetBackendRootUrlResponse {
     url: string;
 }
+
+export interface GetProxyRootUrlResponse {
+    openaiUrl: string;
+    anthropicUrl: string;
+}
+
 export interface ListRegistryArtifactsRequest {
     path: string;
     withAdditionalData?: boolean

@@ -95,6 +95,7 @@ export const COMMANDS = {
     ADD_DATA_SOURCE_COMMAND: 'MI.project-explorer.add-data-source',
     SHOW_DATA_SOURCE: 'MI.show.data-source',
     SHOW_DATA_MAPPER: 'MI.show.data-mapper',
+    SHOW_IDP_SCHEMA: 'MI.show.idp-schema',
     ADD_TEST_SUITE: 'MI.test.add.suite',
     GEN_AI_TESTS: 'MI.test.gen.ai-test',
     EDIT_TEST_SUITE: 'MI.test.edit.suite',
@@ -118,7 +119,7 @@ export const DEFAULT_PROJECT_VERSION = "1.0.0";
 
 export const READONLY_MAPPING_FUNCTION_NAME = "mapFunction";
 
-export const REFRESH_ENABLED_DOCUMENTS = ["SynapseXml", "typescript", "markdown"];
+export const REFRESH_ENABLED_DOCUMENTS = ["SynapseXml", "typescript", "markdown", "json"];
 
 export enum EndpointTypes {
     DEFAULT_ENDPOINT = "DEFAULT_ENDPOINT",
