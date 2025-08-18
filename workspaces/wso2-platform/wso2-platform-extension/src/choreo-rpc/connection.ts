@@ -30,8 +30,10 @@ export class StdioConnection {
 		const executablePath = getChoreoExecPath();
 		console.log("Starting RPC server, path:", executablePath);
 		getLogger().debug(`Starting RPC server${executablePath}`);
-		const region =
-			process.env.CLOUD_REGION || (process.env.CLOUD_STS_TOKEN && parseJwt(process.env.CLOUD_STS_TOKEN)?.iss?.includes(".eu.")) ? "EU" : "US";
+		let region = process.env.CLOUD_REGION
+		if(!region && process.env.CLOUD_STS_TOKEN && parseJwt(process.env.CLOUD_STS_TOKEN)?.iss?.includes(".eu.")){
+			region = "EU"
+		};
 		this._serverProcess = spawn(executablePath, ["start-rpc-server"], {
 			env: {
 				...process.env,
