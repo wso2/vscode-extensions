@@ -76,7 +76,7 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
             window.showErrorMessage('Test suite id is not available');
             return;
         }
-        const fileUri = entry.uri || (id.startsWith('file://') ? Uri.parse(entry.id) : Uri.file(entry.id));
+        const fileUri = Uri.parse(entry.id);
 
         const data = await getTestCaseNamesAndTestSuiteType(fileUri);
         if (!data) {
@@ -96,7 +96,7 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
         }
         const fileUri = `${id.split('.xml/')[0]}.xml`;
         const testCaseName = id.split('.xml/')[1];
-        const langClient = await MILanguageClient.getInstance(getProjectRoot(Uri.file(fileUri))!);
+        const langClient = await MILanguageClient.getInstance(getProjectRoot(Uri.parse(fileUri))!);
         const st = await langClient?.languageClient?.getSyntaxTree({
             documentIdentifier: {
                 uri: fileUri
@@ -126,7 +126,7 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
             },
         };
 
-        const data = await getTestCaseNamesAndTestSuiteType(Uri.file(fileUri));
+        const data = await getTestCaseNamesAndTestSuiteType(Uri.parse(fileUri));
         if (!data) {
             return;
         }
