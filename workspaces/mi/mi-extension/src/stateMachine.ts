@@ -7,6 +7,7 @@ import { extension } from './MIExtensionContext';
 import {
     DM_FUNCTION_NAME,
     EVENT_TYPE,
+    findOldProjects,
     HistoryEntry,
     MACHINE_VIEW,
     MachineStateValue,
@@ -30,7 +31,7 @@ import { DMProject } from './datamapper/DMProject';
 import { setupEnvironment } from './util/onboardingUtils';
 import { getPopupStateMachine } from './stateMachinePopup';
 import { askForProject } from './util/workspace';
-import { extractNatureFromPomContent } from './util/migrationUtils';
+import { containsMultiModuleNatureInProjectFile, containsMultiModuleNatureInPomFile, extractNatureFromPomContent, findMultiModuleProjectsInWorkspaceDir } from './util/migrationUtils';
 const fs = require('fs');
 
 interface MachineContext extends VisualizerLocation {
@@ -70,6 +71,17 @@ const stateMachine = createMachine<MachineContext>({
                             view: (context, event) => MACHINE_VIEW.UnsupportedProject,
                             projectUri: (context, event) => event.data.projectUri,
                             isOldProject: (context, event) => true,
+                            displayOverview: (context, event) => true,
+                        })
+                    },
+                    {
+                        target: 'oldWorkspaceDetected',
+                        cond: (context, event) =>
+                            // Assuming true means old workspace detected
+                            event.data.isOldWorkspace === true && event.data.displayOverview === true,
+                        actions: assign({
+                            view: (context, event) => MACHINE_VIEW.UnsupportedWorkspace,
+                            projectUri: (context, event) => event.data.projectUri,
                             displayOverview: (context, event) => true,
                         })
                     },
@@ -117,6 +129,28 @@ const stateMachine = createMachine<MachineContext>({
                 src: 'openWebPanel',
                 onDone: {
                     target: 'lsInit'
+                }
+            }
+        },
+        oldWorkspaceDetected: {
+            initial: "viewLoading",
+            states: {
+                viewLoading: {
+                    invoke: [
+                        {
+                            src: 'openWebPanel',
+                            onDone: {
+                                target: 'viewReady'
+                            }
+                        }
+                    ]
+                },
+                viewReady: {
+                    on: {
+                        REFRESH_ENVIRONMENT: {
+                            target: '#mi.initialize'
+                        }
+                    }
                 }
             }
         },
@@ -379,6 +413,17 @@ const stateMachine = createMachine<MachineContext>({
                 const langClient = context.langClient!;
                 const viewLocation = context;
 
+                 if( context.view === MACHINE_VIEW.IdpConnectorSchemaGeneratorForm){
+                    if( context.documentUri ) {
+                        const filePath = context.documentUri;
+                        const fileContent = fs.readFileSync(filePath, 'utf8');
+                        viewLocation.customProps = {
+                            fileContent: fileContent,
+                        }; 
+                        viewLocation.view = MACHINE_VIEW.IdpConnectorSchemaGeneratorForm;
+                    }
+                    return resolve(viewLocation);
+                }   
                 if (context.view?.includes("Form") && !context.view.includes("Test") && !context.view.includes("Mock")) {
                     return resolve(viewLocation);
                 }
@@ -730,7 +775,7 @@ function updateProjectExplorer(location: VisualizerLocation | undefined) {
 async function checkIfMiProject(projectUri) {
     log(`Detecting project in ${projectUri} - ${new Date().toLocaleTimeString()}`);
 
-    let isProject = false, isOldProject = false, displayOverview = true, view = MACHINE_VIEW.Overview, isEnvironmentSetUp = false;
+    let isProject = false, isOldProject = false, isOldWorkspace = false, displayOverview = true, view = MACHINE_VIEW.Overview, isEnvironmentSetUp = false;
     const customProps: any = {};
     try {
         // Check for pom.xml files excluding node_modules directory
@@ -746,25 +791,22 @@ async function checkIfMiProject(projectUri) {
         // If not found, check for .project files
         if (!isProject) {
             const projectFiles = await vscode.workspace.findFiles(new vscode.RelativePattern(projectUri, '.project'), '**/node_modules/**', 1);
-            const oldProjectNatures = [
-                'org.wso2.developerstudio.eclipse.mavenmultimodule.project.nature',
-                'org.eclipse.m2e.core.maven2Nature'
-            ];
-            if (projectFiles.length > 0) {
-                const projectContent = await vscode.workspace.openTextDocument(projectFiles[0]);
-                if (oldProjectNatures.some(nature => projectContent.getText().includes('<nature>' + nature + '</nature>'))) {
-                    isOldProject = true;
-                    log("Integration Studio project detected in " + projectUri);
-                }
-            } else {
-                if (fs.existsSync(pomFilePath)) {
-                    const pomContent = await fs.promises.readFile(pomFilePath, 'utf-8');
-                    const projectNature = await extractNatureFromPomContent(pomContent);
 
-                    if (projectNature && oldProjectNatures.includes(projectNature)) {
-                        isOldProject = true;
-                        log("Integration Studio project detected");
-                    }
+            if (projectFiles.length > 0) {
+                if (await containsMultiModuleNatureInProjectFile(projectFiles[0].fsPath)) {
+                    isOldProject = true;
+                    log("Integration Studio project detected");
+                }
+            } else if (fs.existsSync(pomFilePath)) {
+                if (await containsMultiModuleNatureInPomFile(pomFilePath)) {
+                    isOldProject = true;
+                    log("Integration Studio project detected");
+                }
+            } else if (fs.existsSync(projectUri)) {
+                const foundOldProjects = await findMultiModuleProjectsInWorkspaceDir(projectUri);
+                if (foundOldProjects.length > 0) {
+                    isOldWorkspace = true;
+                    log("Integration Studio workspace detected");
                 }
             }
         }
@@ -806,6 +848,12 @@ async function checkIfMiProject(projectUri) {
         vscode.commands.executeCommand('setContext', 'MI.status', 'projectDetected');
         vscode.commands.executeCommand('setContext', 'MI.projectType', 'oldProject'); // for command enablements
         await extension.context.workspaceState.update('projectType', 'oldProject');
+    } else if (isOldWorkspace) {
+        const displayState: boolean | undefined = extension.context.workspaceState.get('displayOverview');
+        displayOverview = displayState === undefined ? true : displayState;
+        vscode.commands.executeCommand('setContext', 'MI.status', 'projectDetected');
+        vscode.commands.executeCommand('setContext', 'MI.projectType', 'oldWorkspace'); // for command enablements
+        await extension.context.workspaceState.update('projectType', 'oldWorkspace');
     } else {
         vscode.commands.executeCommand('setContext', 'MI.status', 'unknownProject');
     }
@@ -823,6 +871,7 @@ async function checkIfMiProject(projectUri) {
     return {
         isProject,
         isOldProject,
+        isOldWorkspace,
         displayOverview,
         projectUri, // Return the path of the detected project
         view,

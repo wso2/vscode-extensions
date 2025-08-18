@@ -90,6 +90,7 @@ import {
     GetAvailableResourcesRequest,
     GetAvailableResourcesResponse,
     GetBackendRootUrlResponse,
+    GetProxyRootUrlResponse,
     GetConnectionFormRequest,
     GetConnectionFormResponse,
     GetConnectorConnectionsRequest,
@@ -197,6 +198,11 @@ import {
     WriteContentToFileResponse,
     HandleFileRequest,
     HandleFileResponse,
+    WriteIdpSchemaFileToRegistryRequest,
+    WriteIdpSchemaFileToRegistryResponse,
+    GetIdpSchemaFilesResponse,
+    ReadIdpSchemaFileContentRequest,
+    ReadIdpSchemaFileContentResponse,
     applyEdit,
     askFileDirPath,
     askProjectDirPath,
@@ -249,6 +255,7 @@ import {
     getAvailableRegistryResources,
     getAvailableResources,
     getBackendRootUrl,
+    getProxyRootUrl,
     getConnectionForm,
     getConnector,
     getConnectorConnections,
@@ -325,6 +332,10 @@ import {
     updateWsdlEndpoint,
     writeContentToFile,
     handleFileWithFS,
+    writeIdpSchemaFileToRegistry,
+    getIdpSchemaFiles,
+    convertPdfToBase64Images,
+    readIdpSchemaFileContent,
     StoreConnectorJsonResponse,
     getStoreConnectorJSON,
     TestDbConnectionRequest,
@@ -703,6 +714,22 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
         return this._messenger.sendRequest(handleFileWithFS, HOST_EXTENSION, params);
     }
 
+    writeIdpSchemaFileToRegistry(params: WriteIdpSchemaFileToRegistryRequest): Promise<WriteIdpSchemaFileToRegistryResponse> {
+        return this._messenger.sendRequest(writeIdpSchemaFileToRegistry, HOST_EXTENSION, params);
+    } 
+
+    getIdpSchemaFiles(): Promise<GetIdpSchemaFilesResponse> {
+        return this._messenger.sendRequest(getIdpSchemaFiles, HOST_EXTENSION);
+    }
+
+    convertPdfToBase64Images(params:string): Promise<string[]> {
+        return this._messenger.sendRequest(convertPdfToBase64Images, HOST_EXTENSION, params);
+    }
+
+    readIdpSchemaFileContent(params: ReadIdpSchemaFileContentRequest): Promise<ReadIdpSchemaFileContentResponse> {
+        return this._messenger.sendRequest(readIdpSchemaFileContent, HOST_EXTENSION, params);
+    }
+
     highlightCode(params: HighlightCodeRequest): void {
         return this._messenger.sendNotification(highlightCode, HOST_EXTENSION, params);
     }
@@ -773,6 +800,10 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     getBackendRootUrl(): Promise<GetBackendRootUrlResponse> {
         return this._messenger.sendRequest(getBackendRootUrl, HOST_EXTENSION);
+    }
+
+    getProxyRootUrl(): Promise<GetProxyRootUrlResponse> {
+        return this._messenger.sendRequest(getProxyRootUrl, HOST_EXTENSION);
     }
 
     getAvailableRegistryResources(params: ListRegistryArtifactsRequest): Promise<RegistryArtifactNamesResponse> {

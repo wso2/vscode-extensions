@@ -315,10 +315,7 @@ export function ServiceClassDesigner(props: ServiceClassDesignerProps) {
                         line: serviceClassModel.codedata.lineRange.endLine.line,
                         offset: serviceClassModel.codedata.lineRange.endLine.offset
                     }
-                },
-                inListenerInit: false,
-                isBasePath: false,
-                inDisplayAnnotation: false
+                }
             },
             type: {
                 metadata: {
@@ -499,7 +496,7 @@ export function ServiceClassDesigner(props: ServiceClassDesignerProps) {
                             <Section style={{ maxHeight: '40%' }}>
                                 <SectionHeader>
                                     <SectionTitle>Class Variables</SectionTitle>
-                                    <VSCodeButton appearance="primary" title="Add Variable" onClick={() => handleAddVariable()}>
+                                    <VSCodeButton data-testid="add-variable-button" appearance="primary" title="Add Variable" onClick={() => handleAddVariable()}>
                                         <Codicon name="add" sx={{ marginRight: 8 }} /> Variable
                                     </VSCodeButton>
                                 </SectionHeader>
