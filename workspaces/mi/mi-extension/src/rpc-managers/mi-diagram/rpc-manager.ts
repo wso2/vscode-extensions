@@ -5770,7 +5770,7 @@ ${keyValuesXML}`;
             const langClient = getStateMachine(this.projectUri).context().langClient!;
             const response = await langClient.getConfigurableList();
             const envVariable = response.find(variable => variable.key === variableName);
-            if (envVariable) {
+            if (envVariable && envVariable.value != null && envVariable.value !== "") {
                 resolve(envVariable.value);
             } else {
                 resolve("");
