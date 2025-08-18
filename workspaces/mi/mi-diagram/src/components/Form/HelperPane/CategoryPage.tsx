@@ -66,6 +66,7 @@ export const CategoryPage = ({
 
     const getHelperPaneInfo = useCallback(() => {
         rpcClient.getVisualizerState().then((machineView) => {
+
             const requestBody = createHelperPaneRequestBody(machineView, position, artifactPath);
             rpcClient
                 .getMiDiagramRpcClient()
