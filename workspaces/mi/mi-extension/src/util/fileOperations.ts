@@ -34,6 +34,7 @@ import { MiVisualizerRpcManager } from "../rpc-managers/mi-visualizer/rpc-manage
 import { compareVersions, getMIVersionFromPom } from "./onboardingUtils";
 import { COMMANDS} from "../constants";
 import { getAPIMetadata } from "../util/template-engine/mustach-templates/API";
+import { getStateMachine } from "../stateMachine";
 
 interface ProgressMessage {
     message: string;
@@ -1134,19 +1135,19 @@ export function generateMetaDataFile(apiPath: string): Promise<void> {
         if (!projectUri) {
             return;
         }
-        const readXml = fs.readFileSync(apiPath, "utf8");
-        const options = {
-            ignoreAttributes: false,
-            allowBooleanAttributes: true,
-            attributeNamePrefix: "@_",
-            attributesGroupName: "@_"
-        };
-        const parser = new XMLParser(options);
-        const jsonObj = parser.parse(readXml);
-        const apiVersionType = jsonObj.api["@_"]['@_version-type'] ?? "";
-        const apiContext = jsonObj.api["@_"]['@_context'] ?? "";
-        const version = jsonObj.api["@_"]['@_version'] ?? "";
-        const apiName = jsonObj.api["@_"]['@_name'] ?? "";
+        const langClient = getStateMachine(projectUri).context().langClient;
+        if (!langClient) {
+            return;
+        }
+        const res = await langClient.getSyntaxTree({
+                documentIdentifier: {
+                    uri: apiPath
+                },
+            });
+        const apiVersionType = res.syntaxTree?.api?.versionType ?? "";
+        const apiContext = res.syntaxTree?.api?.context ?? "";
+        const version = res.syntaxTree?.api?.version ?? "";
+        const apiName = res.syntaxTree?.api?.name ?? "";
         const metadataPath = path.join(projectUri, "src", "main", "wso2mi", "resources", "metadata", apiName + (version == "" ? "" : "_v" + version) + "_metadata.yaml");
         fs.writeFileSync(metadataPath, getAPIMetadata({ name: apiName, version: version || "1.0.0", context: apiContext, versionType: apiVersionType ? (apiVersionType == "url" ? apiVersionType : false) : false }));
     });
@@ -1158,17 +1159,17 @@ export function renameApiFile(apiPath: string): Promise<{ newApiPath: string }> 
         if (!projectUri) {
             return;
         }
-        const readXml = fs.readFileSync(apiPath, "utf8");
-        const options = {
-            ignoreAttributes: false,
-            allowBooleanAttributes: true,
-            attributeNamePrefix: "@_",
-            attributesGroupName: "@_"
-        };
-        const parser = new XMLParser(options);
-        const jsonObj = parser.parse(readXml);
-        const newVersion = jsonObj.api["@_"]['@_version'] ?? "";
-        const newApiName = jsonObj.api["@_"]['@_name'] ?? "";
+        const langClient = getStateMachine(projectUri).context().langClient;
+        if (!langClient) {
+            return;
+        }
+        const res = await langClient.getSyntaxTree({
+                documentIdentifier: {
+                    uri: apiPath
+                },
+            });
+        const newVersion = res.syntaxTree?.api?.version ?? "";
+        const newApiName = res.syntaxTree?.api?.name ?? "";
         // Generate new filename based on current API data
         const newApiPath = path.join(path.dirname(apiPath), `${newApiName}${newVersion ? `_v${newVersion}` : ''}.xml`);
         // Compare old and new filenames
@@ -1176,31 +1177,25 @@ export function renameApiFile(apiPath: string): Promise<{ newApiPath: string }> 
             try {
                 // Rename the API file
                 fs.renameSync(apiPath, newApiPath);
-
                 // Also delete associated swagger and metadata files if they exist
                 const swaggerDir = path.join(projectUri!, "src", "main", "wso2mi", "resources", "api-definitions");
                 const metadataDir = path.join(projectUri!, "src", "main", "wso2mi", "resources", "metadata");
+                const oldFileNameWithoutExt = path.basename(apiPath, path.extname(apiPath));
                 const oldSwaggerPath = path.join(swaggerDir, oldFileNameWithoutExt + '.yaml');
                 const oldMetadataPath = path.join(metadataDir, oldFileNameWithoutExt + '_metadata.yaml');
-
                 // Delete old swagger file if exists
                 if (fs.existsSync(oldSwaggerPath)) {
                     fs.unlinkSync(oldSwaggerPath);
                 }
-
                 // Delete old metadata file if exists
                 if (fs.existsSync(oldMetadataPath)) {
                     fs.unlinkSync(oldMetadataPath);
                 }
-
-                console.log(`API file renamed from ${oldFileName} to ${newFileName}. Old swagger and metadata files deleted.`);
-                resolve({ newApiPath: newFilePath });
-                // ...existing code...
+                resolve({ newApiPath: newApiPath });
             } catch (error) {
                 console.error(`Error renaming API file: ${error}`);
             }
         } else {
-            // No rename needed, return current path
             resolve({ newApiPath: apiPath });
         }
     });
