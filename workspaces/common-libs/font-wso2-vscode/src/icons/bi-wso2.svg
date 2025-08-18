@@ -1,0 +1,70 @@
+<!--
+ ~ Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ ~
+ ~ WSO2 LLC. licenses this file to you under the Apache License,
+ ~ Version 2.0 (the "License"); you may not use this file except
+ ~ in compliance with the License.
+ ~ You may obtain a copy of the License at
+ ~
+ ~     http://www.apache.org/licenses/LICENSE-2.0
+ ~
+ ~ Unless required by applicable law or agreed to in writing,
+ ~ software distributed under the License is distributed on an
+ ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ ~ KIND, either express or implied. See the License for the
+ ~ specific language governing permissions and limitations
+ ~ under the License.
+-->
+
+
+<svg
+    version="1.1"
+    id="layer"
+    x="0px"
+    y="0px"
+    viewBox="0 0 652 652"
+    style="enable-background:new 0 0 652 652;"
+    xml:space="preserve"
+    sodipodi:docname="bi-wso2-2.svg"
+    inkscape:version="1.3.2 (091e20e, 2023-11-25)"
+    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+    xmlns="http://www.w3.org/2000/svg"
+    xmlns:svg="http://www.w3.org/2000/svg"><defs
+   id="defs2" /><sodipodi:namedview
+   id="namedview2"
+   pagecolor="#505050"
+   bordercolor="#eeeeee"
+   borderopacity="1"
+   inkscape:showpageshadow="0"
+   inkscape:pageopacity="0"
+   inkscape:pagecheckerboard="0"
+   inkscape:deskcolor="#505050"
+   inkscape:zoom="0.65191397"
+   inkscape:cx="258.46969"
+   inkscape:cy="96.638518"
+   inkscape:window-width="1728"
+   inkscape:window-height="1051"
+   inkscape:window-x="0"
+   inkscape:window-y="38"
+   inkscape:window-maximized="0"
+   inkscape:current-layer="layer" />
+<style
+   type="text/css"
+   id="style1">
+	.st0{fill:#FF7300;}
+	.st1{fill:#FFFFFF;}
+</style>
+
+<polygon
+   class="st1"
+   points="433.2,315.7 373.9,315.7 373.9,304.5 425.6,304.5 457.3,234 492.6,319.8 506.7,294.6 540.8,294.6 540.8,305.7 513.7,305.7 491.4,346.3 456.7,262.8 "
+   id="polygon1"
+   style="fill:#000000"
+   transform="matrix(2.9791676,0,0,2.9791676,-1034.035,-566.8927)" />
+<path
+   d="M 533.3051,123.38044 C 479.08425,67.372089 410.86132,39.367914 328.33837,39.367914 h -3.575 c -50.64585,0 -99.80211,12.214587 -143.59588,38.431262 -43.79377,26.216674 -78.65003,61.370854 -105.164621,106.654204 -26.514592,45.28333 -38.431262,94.4396 -38.431262,147.17086 0,78.65003 28.004175,147.17088 84.012523,203.17923 56.00835,56.00835 124.2313,84.01253 206.45633,84.01253 v 0 c 80.43752,0 148.95838,-28.00418 204.96673,-84.01253 56.00835,-56.00835 84.01252,-124.23129 84.01252,-204.96673 2.08542,-82.22502 -25.91875,-152.23545 -83.71461,-206.4563 z m -1.7875,323.83551 c -21.15209,36.64376 -49.15626,64.64793 -84.01252,85.80002 -36.64376,21.15209 -75.37294,31.57918 -117.37921,31.57918 h -1.7875 c -64.64793,0 -119.16671,-22.64167 -164.45006,-66.43544 -45.58126,-45.58126 -68.222935,-99.80211 -68.222935,-166.23755 0,-43.79376 10.427085,-84.01253 29.791675,-120.65628 21.15209,-35.15417 49.15627,-64.64793 85.80003,-85.80002 36.64377,-21.15209 75.37295,-31.579179 115.59171,-31.579179 h 1.7875 c 40.21876,0 80.43753,10.427089 115.5917,31.579179 36.64376,21.15209 64.64794,49.15626 85.80003,84.01252 21.15209,35.15417 29.79168,75.37293 29.79168,119.1667 1.48958,43.19793 -9.23542,83.41669 -28.3021,118.57087 z"
+   id="path2"
+   sodipodi:nodetypes="csssssssssccccsscscssscccc"
+   style="stroke-width:2.97917" />
+</svg>
