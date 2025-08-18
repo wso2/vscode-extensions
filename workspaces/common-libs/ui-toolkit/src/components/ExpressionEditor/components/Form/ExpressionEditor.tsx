@@ -564,12 +564,6 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
         };
     }, [handleSelectionChange]);
 
-    console.log(initialExpressionRef.current, "wxz")
-    console.log(value, "wxz 2")
-
-    console.log("bl", initialExpressionRef.current == null && value !== '')
-
-
     return (
         <Container ref={elementRef}>
             {/* Action buttons at the top of the expression editor */}
