@@ -147,6 +147,7 @@ const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen,
             handleFullscreenChange();
         }
     }, [isFullscreen]);
+    
     return (
         <div ref={panelRef}>
             <HelperPane helperPaneHeight={helperPaneHeight} sx={{ ' *': { boxSizing: 'border-box' }, ...sx, height: height, minHeight: 'unset' }}>
