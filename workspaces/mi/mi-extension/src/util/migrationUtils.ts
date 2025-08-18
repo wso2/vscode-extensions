@@ -43,33 +43,33 @@ enum Nature {
 }
 
 interface ArtifactItem {
-  file: string;
-  path: string;
-  mediaType: string;
-  properties: any;
+    file: string;
+    path: string;
+    mediaType: string;
+    properties: any;
 }
 
 interface ArtifactCollection {
-  directory: string;
-  path: string;
-  properties: any;
+    directory: string;
+    path: string;
+    properties: any;
 }
 
 interface Dependency {
-  groupId: string;
-  artifactId: string;
-  version: string;
+    groupId: string;
+    artifactId: string;
+    version: string;
 }
 
 interface Artifact {
-  '@_name': string;
-  '@_groupId': string;
-  '@_version': string;
-  '@_type': string;
-  '@_serverRole': string;
-  file: string;
-  item: ArtifactItem | ArtifactItem[];
-  collection: ArtifactCollection | ArtifactCollection[];
+    '@_name': string;
+    '@_groupId': string;
+    '@_version': string;
+    '@_type': string;
+    '@_serverRole': string;
+    file: string;
+    item: ArtifactItem | ArtifactItem[];
+    collection: ArtifactCollection | ArtifactCollection[];
 }
 
 type FileInfo = {
@@ -78,31 +78,37 @@ type FileInfo = {
     projectType?: Nature;
 };
 
+type PomResolutionResult = {
+    success: boolean;
+    content?: string;
+    error?: string;
+};
+
 interface ArtifactsRoot {
-  artifacts: {
-    artifact?: Artifact | Artifact[];
-  };
+    artifacts: {
+        artifact?: Artifact | Artifact[];
+    };
 }
 
 const xmlParserOptions = {
-  ignoreAttributes: false,
-  attributeNamePrefix: '@_',
-  parseAttributeValue: false,
-  trimValues: true,
-  parseTrueNumberOnly: false,
-  arrayMode: false,
-  parseTagValue: false,
-  parseNodeValue: false
+    ignoreAttributes: false,
+    attributeNamePrefix: '@_',
+    parseAttributeValue: false,
+    trimValues: true,
+    parseTrueNumberOnly: false,
+    arrayMode: false,
+    parseTagValue: false,
+    parseNodeValue: false
 };
 
 const xmlBuilderOptions = {
-  ignoreAttributes: false,
-  format: true,
-  indentBy: '  ',
-  suppressEmptyNode: true,
-  suppressBooleanAttributes: false,
-  attributeNamePrefix: '@_',
-  textNodeName: '#text'
+    ignoreAttributes: false,
+    format: true,
+    indentBy: '  ',
+    suppressEmptyNode: true,
+    suppressBooleanAttributes: false,
+    attributeNamePrefix: '@_',
+    textNodeName: '#text'
 };
 
 const BACKUP_DIR = '.backup';
@@ -133,7 +139,33 @@ const SYNAPSE_TO_MI_ARTIFACT_FOLDER_MAP: Record<string, string> = {
     'templates': 'templates'
 };
 
-export async function importProject(params: ImportProjectRequest): Promise<ImportProjectResponse> {
+const OLD_MULTI_MODULE_PROJECT_NATURES = [
+    'org.wso2.developerstudio.eclipse.mavenmultimodule.project.nature',
+    'org.eclipse.m2e.core.maven2Nature'
+];
+
+export async function importProjects(params: ImportProjectRequest[]): Promise<ImportProjectResponse[]> {
+    const responses: ImportProjectResponse[] = [];
+    const allCreatedFolderUris: Uri[] = [];
+    for (const param of params) {
+        try {
+            const createdFolderPaths = await importProject(param);
+            for (const folder of createdFolderPaths) {
+                responses.push({ filePath: folder.filePath });
+                allCreatedFolderUris.push(Uri.file(folder.filePath));
+            }
+        } catch (error) {
+            console.error(`Failed to import project from ${param.source}:`, error);
+            responses.push({ filePath: '' });
+        }
+    }
+    if (allCreatedFolderUris.length > 0) {
+        await handleWorkspaceAfterMigration(params[0].directory, allCreatedFolderUris);
+    }
+    return responses;
+}
+
+export async function importProject(params: ImportProjectRequest): Promise<ImportProjectResponse[]> {
     const { source, directory, open } = params;
     const projectUri = workspace.getWorkspaceFolder(Uri.file(source))?.uri?.fsPath;
     if (!projectUri) {
@@ -146,10 +178,6 @@ export async function importProject(params: ImportProjectRequest): Promise<Impor
     let { projectName, groupId, artifactId, version, runtimeVersion } = getProjectDetails(source);
 
     if (projectName && groupId && artifactId && version) {
-        // Need to close all the opened editors before migrating the project
-        // if not, it will cause issues with the file operations
-        await commands.executeCommand('workbench.action.closeAllEditors');
-
         const destinationFolderPath = path.join(source, ".backup");
         moveFiles(source, destinationFolderPath);
         deleteEmptyFoldersInPath(source);
@@ -159,7 +187,7 @@ export async function importProject(params: ImportProjectRequest): Promise<Impor
 
         const createdProjectCount = await createFolderStructuresForDistributionProjects(
             destinationFolderPath,
-            directory,
+            source,
             projectUuid,
             projectDirToResolvedPomMap,
             projectDirsWithType
@@ -167,24 +195,23 @@ export async function importProject(params: ImportProjectRequest): Promise<Impor
         // If no folder structure was created, create one in the given directory
         if (createdProjectCount == 0) {
             const folderStructure = getFolderStructure(projectName, groupId, artifactId, projectUuid, version, runtimeVersion ?? LATEST_MI_VERSION);
-            await createFolderStructure(directory, folderStructure);
-            copyDockerResources(extension.context.asAbsolutePath(path.join('resources', 'docker-resources')), directory);
+            await createFolderStructure(source, folderStructure);
+            copyDockerResources(extension.context.asAbsolutePath(path.join('resources', 'docker-resources')), source);
             console.log("Created project structure for project: " + projectName);
         }
 
-        await migrateConfigs(projectUri, path.join(source, ".backup"), directory, projectDirToResolvedPomMap, projectDirsWithType, createdProjectCount);
+        const createdFolderUris = await migrateConfigs(projectUri, path.join(source, ".backup"), source, projectDirToResolvedPomMap, projectDirsWithType, createdProjectCount);
 
         window.showInformationMessage(`Successfully imported ${projectName} project`);
 
-        if (open) {
-            commands.executeCommand("workbench.action.reloadWindow");
-            return { filePath: directory };
+        if (createdFolderUris && createdFolderUris.length > 0) {
+            return createdFolderUris.map(uri => ({ filePath: uri.fsPath }));
+        } else {
+            return [{ filePath: source }];
         }
-
-        return { filePath: directory };
     } else {
-        window.showErrorMessage('Could not find the project details from the provided project: ', source);
-        return { filePath: "" };
+        window.showErrorMessage('Could not find the project details from the provided project: ' + source);
+        return [{ filePath: "" }];
     }
 }
 
@@ -262,7 +289,14 @@ export async function generateProjectDirToResolvedPomMap(multiModuleProjectDir: 
     const projectDirToResolvedPomMap = new Map<string, string>();
 
     await copyMavenWrapper(extension.context.asAbsolutePath(path.join('resources', 'maven-wrapper')), multiModuleProjectDir);
-    const resolvedPomContent = await getResolvedPomXmlContent(path.join(multiModuleProjectDir, 'pom.xml'));
+    const pomResolvedResult = await getResolvedPomXmlContent(path.join(multiModuleProjectDir, 'pom.xml'));
+    if (!pomResolvedResult.success) {
+        await window.showWarningMessage(
+            `Migration may fail: Unable to resolve the root pom.xml in ${multiModuleProjectDir}.\nError: ${pomResolvedResult.error}`,
+            { modal: true }
+        );
+    }
+    const resolvedPomContent = pomResolvedResult.content || '';
 
     const projectRegex = /<project[\s\S]*?<\/project>/g;
     let match;
@@ -309,7 +343,7 @@ export function getProjectDetails(filePath: string, projectDirToResolvedPomMap?:
     const pomPath = path.join(filePath, "pom.xml");
 
     if (fs.existsSync(pomPath)) {
-        if (projectDirToResolvedPomMap) {
+        if (projectDirToResolvedPomMap && projectDirToResolvedPomMap.get(filePath)) {
             const resolvedPomContent = projectDirToResolvedPomMap.get(filePath);
             const parser = new XMLParser({ ignoreAttributes: false });
             const parsed = resolvedPomContent ? parser.parse(resolvedPomContent) : {};
@@ -367,10 +401,11 @@ export async function migrateConfigs(
     projectDirToResolvedPomMap: Map<string, string>,
     projectDirsWithType: { projectDir: string, projectType: Nature }[],
     createdProjectCount: number
-): Promise<void> {
+): Promise<Uri[]> {
     // determine the project type here
-    const projectType = determineProjectType(source);
+    const projectType = await determineProjectType(source);
     let hasClassMediatorModule = false;
+    const createdFolderUris: Uri[] = [];
 
     if (projectType === Nature.MULTIMODULE) {
         const artifactIdToFileInfoMap = generateArtifactIdToFileInfoMap(projectDirToResolvedPomMap, projectDirsWithType);
@@ -378,7 +413,6 @@ export async function migrateConfigs(
         const projectDirToMetaFilesMap = generateProjectDirToMetaFilesMap(projectDirsWithType);
 
         const allUsedDependencyIds = new Set<string>();
-
         for (const { projectDir, projectType } of projectDirsWithType) {
             if (projectType === Nature.DISTRIBUTION && artifactIdToFileInfoMap) {
                 // Compute the relative path from source to projectDir, and map it to the target
@@ -394,34 +428,23 @@ export async function migrateConfigs(
                     projectDirToResolvedPomMap
                 );
                 usedDepIds.forEach(depId => allUsedDependencyIds.add(depId));
-                if (createdProjectCount <= MAX_PROJECTS_TO_OPEN) {
-                    await commands.executeCommand('vscode.openFolder', Uri.file(targetPath), true);
-                }
+                createdFolderUris.push(Uri.file(targetPath));
             }
         }
         writeUnusedFileInfos(allUsedDependencyIds, artifactIdToFileInfoMap, source)
-        if (createdProjectCount <= MAX_PROJECTS_TO_OPEN) {
-            await commands.executeCommand('workbench.action.closeWindow');
-        } else {
-            await window.showWarningMessage(
-                `Processed ${createdProjectCount} composite exporters and generated the relevant integration projects. Please open them from the file explorer.`,
-                { modal: true }
-            );
-            commands.executeCommand('workbench.view.explorer');
-        }
     } else if (projectType === Nature.LEGACY) {
         const items = fs.readdirSync(source, { withFileTypes: true });
-        items.forEach(item => {
+        for (const item of items) {
             if (item.isDirectory()) {
                 const sourceAbsolutePath = path.join(source, item.name);
-                const moduleType = determineProjectType(path.join(source, item.name));
+                const moduleType = await determineProjectType(path.join(source, item.name));
                 if (moduleType === Nature.LEGACY) {
                     processArtifactsFolder(sourceAbsolutePath, target);
                     processMetaDataFolder(sourceAbsolutePath, target);
                     processTestsFolder(sourceAbsolutePath, target);
                 }
             }
-        });
+        }
     } else if (projectType === Nature.ESB || projectType === Nature.DS || projectType === Nature.DATASOURCE ||
         projectType === Nature.CONNECTOR || projectType === Nature.REGISTRY || projectType === Nature.CLASS) {
         copyConfigsToNewProjectStructure(projectType, source, target);
@@ -430,6 +453,66 @@ export async function migrateConfigs(
         await updatePomForClassMediator(projectUri);
     }
     commands.executeCommand('setContext', 'MI.migrationStatus', 'done');
+    return createdFolderUris;
+}
+
+/**
+ * Handles workspace updates after a migration process by opening new folders or updating the workspace configuration.
+ *
+ * - If there is only one folder in workspace or none, and exactly one new folder was created, it opens that folder in a new window and closes the current one.
+ * - If multiple folders were created or the workspace already contains multiple folders, it updates the workspace with the new folders.
+ *
+ * @param projectUri - The URI of the original project being migrated.
+ * @param createdFolderUris - An array of URIs representing the folders created during migration.
+ * @returns A promise that resolves when the workspace has been updated accordingly.
+ */
+async function handleWorkspaceAfterMigration(projectUri: string, createdFolderUris: Uri[]) {
+    const createdProjectCount = createdFolderUris.length;
+    if (!workspace.workspaceFolders || workspace.workspaceFolders.length <= 1) {
+        if (createdProjectCount === 1) {
+            await commands.executeCommand('workbench.action.closeWindow');
+            await commands.executeCommand('vscode.openFolder', createdFolderUris[0], true);
+        } else {
+            await commands.executeCommand('workbench.action.closeActiveEditor');
+            await updateWorkspaceWithNewFolders(projectUri, createdFolderUris);
+        }
+    } else {
+        // If in a workspace with multiple folders, close the current open tab
+        await commands.executeCommand('workbench.action.closeActiveEditor');
+        await updateWorkspaceWithNewFolders(projectUri, createdFolderUris);
+    }
+}
+
+/**
+ * Updates the current VS Code workspace by removing the specified project folder
+ * and adding any newly created folders that are not already part of the workspace.
+ *
+ * @param projectUri - The file system path of the current project folder to be removed from the workspace.
+ * @param createdFolderUris - An array of `Uri` objects representing the newly created folders to add to the workspace.
+ *
+ * @remarks
+ * - If any of the `createdFolderUris` are already present in the workspace, they will not be added again.
+ * - If the current project folder is not found in the workspace, no folders will be removed.
+ */
+async function updateWorkspaceWithNewFolders(projectUri: string, createdFolderUris: Uri[]) {
+    const workspaceFolders = workspace.workspaceFolders || [];
+    // Check if the folders are not already part of the workspace
+    const urisToAdd = createdFolderUris.filter(folderUri =>
+        !workspaceFolders.some(folder => folder.uri.fsPath === folderUri.fsPath)
+    );
+
+    if (urisToAdd.length > 0) {
+        // Remove the current project folder from workspaceFolders
+        const currentProjectIndex = workspaceFolders.findIndex(folder => folder.uri.fsPath === projectUri);
+        const foldersToAdd = urisToAdd.map(uri => ({ uri }));
+        const foldersToRemove = currentProjectIndex !== -1 ? [currentProjectIndex] : [];
+
+        workspace.updateWorkspaceFolders(
+            foldersToRemove[0] ?? workspaceFolders.length,
+            foldersToRemove.length,
+            ...foldersToAdd
+        );
+    }
 }
 
 /**
@@ -473,14 +556,14 @@ function writeUnusedFileInfos(
 function getProjectDirectoriesWithType(rootDir: string, items?: fs.Dirent[]): { projectDir: string, projectType: Nature }[] {
     const results: { projectDir: string, projectType: Nature }[] = [];
 
-    function traverse(dir: string) {
+    async function traverse(dir: string) {
         const items = fs.readdirSync(dir, { withFileTypes: true });
 
         for (const item of items) {
             const fullPath = path.join(dir, item.name);
 
             if (item.isDirectory()) {
-                const projectType = determineProjectType(fullPath);
+                const projectType = await determineProjectType(fullPath);
                 if (projectType !== undefined) {
                     results.push({ projectDir: fullPath, projectType });
                 }
@@ -555,7 +638,7 @@ function generateArtifactIdToFileInfoMap(
  */
 function generateConfigToTestAndMockServiceMaps(
     source: string,
-    projectDirsWithType: { projectDir: string, projectType: Nature }[] 
+    projectDirsWithType: { projectDir: string, projectType: Nature }[]
 ): {
     configToTests: Map<string, string[]>,
     configToMockServices: Map<string, string[]>
@@ -705,15 +788,15 @@ function getPomIdentifierStr(groupId: string, artifactId: string, version: strin
  * @returns The extracted XML string if found, or `null` if no `<project>` block is present.
  */
 function extractXmlFromMavenOutput(output: string): string | null {
-  const start = output.indexOf('<project');
-  const end = output.lastIndexOf('</project>');
+    const start = output.indexOf('<project');
+    const end = output.lastIndexOf('</project>');
 
-  if (start === -1 || end === -1) {
-    return null; // XML not found
-  }
+    if (start === -1 || end === -1) {
+        return null; // XML not found
+    }
 
-  // +10 to include length of '</project>'
-  return output.substring(start, end + 10);
+    // +10 to include length of '</project>'
+    return output.substring(start, end + 10);
 }
 
 /**
@@ -726,7 +809,7 @@ function extractXmlFromMavenOutput(output: string): string | null {
  * @param pomFilePath - The absolute path to the `pom.xml` file for which to resolve the effective POM.
  * @returns A promise that resolves to the effective POM XML content as a string, or an empty string if extraction fails.
  */
-export async function getResolvedPomXmlContent(pomFilePath: string): Promise<string> {
+export async function getResolvedPomXmlContent(pomFilePath: string): Promise<PomResolutionResult> {
     const mvnCmd = process.platform === "win32" ? ".\\mvnw.cmd" : "./mvnw";
     const command = `${mvnCmd} -f "${pomFilePath}" help:effective-pom`;
     const pomDir = path.dirname(pomFilePath);
@@ -757,20 +840,23 @@ export async function getResolvedPomXmlContent(pomFilePath: string): Promise<str
             if (code === 0) {
                 const xmlContent = extractXmlFromMavenOutput(output);
                 if (!xmlContent) {
-                    console.warn(`Maven output does not contain effective POM XML content for pom file: ${pomFilePath}`);
-                    resolve('');
+                    console.warn(`Output of 'mvn help:effective-pom -f ${pomFilePath}' might be corrupted.`);
+                    const warnMsg = `Failed to obtain effective-pom for '${pomFilePath}'. The obtained effective pom might be corrupted.`;
+                    resolve({ success: false, error: warnMsg });
                 } else {
-                    resolve(xmlContent);
+                    resolve({ success: true, content: xmlContent });
                 }
             } else {
-                console.error(`Failed to run Maven help:effective-pom for ${pomFilePath}. Exit code: ${code}\n${errorOutput}`);
-                resolve('');
+                console.error(`Failed to run 'mvn help:effective-pom -f ${pomFilePath}'. Exit code: ${code}\n${errorOutput}`);
+                const errMsg = `Failed to obtain effective-pom for '${pomFilePath}'. Exit code: ${code}\n${errorOutput}`;
+                resolve({ success: false, error: errMsg });
             }
         });
 
         child.on('error', (err) => {
-            console.error(`Failed to run Maven help:effective-pom for ${pomFilePath}`, err);
-            resolve('');
+            console.error(`Failed to run 'mvn help:effective-pom -f ${pomFilePath}'`, err);
+            const errMsg = `Failed to obtain effective-pom for '${pomFilePath}': ${err.message}`;
+            resolve({ success: false, error: errMsg });
         });
     });
 }
@@ -871,56 +957,63 @@ function getFolderStructure(
     };
 }
 
-function determineProjectType(source: string): Nature | undefined {
+async function determineProjectType(source: string): Promise<Nature | undefined> {
     const rootMetaDataFilePath = path.join(source, '.project');
+    const rootPomFilePath = path.join(source, 'pom.xml');
     let configType;
     if (fs.existsSync(rootMetaDataFilePath)) {
         const projectFileContent = fs.readFileSync(rootMetaDataFilePath, 'utf-8');
-        parseString(projectFileContent, { explicitArray: false, ignoreAttrs: true }, (err, result) => {
-            if (err) {
-                console.error('Error occured while reading ' + rootMetaDataFilePath, err);
-                return;
-            }
+        const result = await new Promise<any>((resolve, reject) => {
+            parseString(projectFileContent, { explicitArray: false, ignoreAttrs: true }, (err, result) => {
+                if (err) {
+                    console.error('Error occured while reading ' + rootMetaDataFilePath, err);
+                    resolve('');
+                } else {
+                    resolve(result);
+                }
+            });
+        });
+        if (result && result.projectDescription) {
             const projectDescription = result.projectDescription;
             if (projectDescription && projectDescription.natures && projectDescription.natures.nature) {
                 let nature = projectDescription.natures.nature;
                 if (Array.isArray(nature)) {
                     nature = nature.find(element => element.startsWith("org.wso2.developerstudio.eclipse"));
                 }
-
-                switch (nature) {
-                    case 'org.wso2.developerstudio.eclipse.mavenmultimodule.project.nature':
-                        configType = Nature.MULTIMODULE;
-                        break;
-                    case 'org.wso2.developerstudio.eclipse.esb.project.nature':
-                        configType = Nature.ESB;
-                        break;
-                    case 'org.wso2.developerstudio.eclipse.ds.project.nature':
-                        configType = Nature.DS;
-                        break;
-                    case 'org.wso2.developerstudio.eclipse.datasource.project.nature':
-                        configType = Nature.DATASOURCE;
-                        break;
-                    case 'org.wso2.developerstudio.eclipse.artifact.connector.project.nature':
-                        configType = Nature.CONNECTOR;
-                        break;
-                    case 'org.wso2.developerstudio.eclipse.general.project.nature':
-                        configType = Nature.REGISTRY;
-                        break;
-                    case 'org.wso2.developerstudio.eclipse.artifact.mediator.project.nature':
-                        configType = Nature.CLASS;
-                        break;
-                    case 'org.eclipse.m2e.core.maven2Nature':
-                        configType = Nature.LEGACY;
-                        break;
-                    case 'org.wso2.developerstudio.eclipse.distribution.project.nature':
-                        configType = Nature.DISTRIBUTION;
-                        break;
-                }
+                configType = getNatureFromString(nature);
             }
-        });
+        }
+    } else if (fs.existsSync(rootPomFilePath)) {
+        const pomContent = fs.readFileSync(rootPomFilePath, 'utf-8');
+        const fetchedNatureStr = await extractNatureFromPomContent(pomContent);
+        configType = getNatureFromString(fetchedNatureStr);
     }
     return configType;
+}
+
+function getNatureFromString(nature: string | undefined): Nature | undefined {
+    switch (nature) {
+        case 'org.wso2.developerstudio.eclipse.mavenmultimodule.project.nature':
+            return Nature.MULTIMODULE;
+        case 'org.wso2.developerstudio.eclipse.esb.project.nature':
+            return Nature.ESB;
+        case 'org.wso2.developerstudio.eclipse.ds.project.nature':
+            return Nature.DS;
+        case 'org.wso2.developerstudio.eclipse.datasource.project.nature':
+            return Nature.DATASOURCE;
+        case 'org.wso2.developerstudio.eclipse.artifact.connector.project.nature':
+            return Nature.CONNECTOR;
+        case 'org.wso2.developerstudio.eclipse.general.project.nature':
+            return Nature.REGISTRY;
+        case 'org.wso2.developerstudio.eclipse.artifact.mediator.project.nature':
+            return Nature.CLASS;
+        case 'org.eclipse.m2e.core.maven2Nature':
+            return Nature.LEGACY;
+        case 'org.wso2.developerstudio.eclipse.distribution.project.nature':
+            return Nature.DISTRIBUTION;
+        default:
+            return undefined;
+    }
 }
 
 function copyConfigToNewProjectStructure(sourceFileInfo: FileInfo, target: string) {
@@ -1352,19 +1445,19 @@ function processArtifactForWrite(artifact: Artifact): void {
         if (artifact.item) {
             const items = Array.isArray(artifact.item) ? artifact.item : [artifact.item];
             items.forEach(item => {
-            if (item.file && typeof item.file === 'string') {
-                const parts = item.file.split('/');
-                item.file = parts[parts.length - 1];
-            }
+                if (item.file && typeof item.file === 'string') {
+                    const parts = item.file.split('/');
+                    item.file = parts[parts.length - 1];
+                }
             });
             artifact.item = Array.isArray(artifact.item) ? items : items[0];
         } else if (artifact.collection) {
             const collections = Array.isArray(artifact.collection) ? artifact.collection : [artifact.collection];
             collections.forEach(collection => {
-            if (collection.directory && typeof collection.directory === 'string') {
-                const parts = collection.directory.split('/');
-                collection.directory = parts[parts.length - 1];
-            }
+                if (collection.directory && typeof collection.directory === 'string') {
+                    const parts = collection.directory.split('/');
+                    collection.directory = parts[parts.length - 1];
+                }
             });
             artifact.collection = Array.isArray(artifact.collection) ? collections : collections[0];
         }
@@ -1487,7 +1580,17 @@ function readPomDependencies(source: string, projectDirToResolvedPomMap: Map<str
         console.error(`pom.xml file not found in the source directory: ${source}`);
         return [];
     }
-    const resolvedPomContent = projectDirToResolvedPomMap.get(source) || '';
+    let resolvedPomContent = projectDirToResolvedPomMap.get(source) || '';
+    if (!resolvedPomContent) {
+        console.error(`Resolved POM content not found for the directory: ${source}`);
+        // Fallback: read the pom.xml directly if resolved content is missing
+        try {
+            resolvedPomContent = fs.readFileSync(pomFilePath, 'utf-8');
+        } catch (err) {
+            console.error(`Failed to read pom.xml from ${pomFilePath}:`, err);
+            return [];
+        }
+    }
 
     const parser = new XMLParser({ ignoreAttributes: false });
     const parsed = parser.parse(resolvedPomContent);
@@ -1501,6 +1604,130 @@ function readPomDependencies(source: string, projectDirToResolvedPomMap: Map<str
         artifactId: dep.artifactId,
         version: dep.version,
     }));
+}
+
+/**
+ * Extracts the first matching <projectnature> value from the given pom.xml content.
+ * Assumes <projectnatures> structure always contains one or more <projectnature> elements.
+ */
+export function extractNatureFromPomContent(pomXmlContent: string): Promise<string | undefined> {
+    return new Promise((resolve, reject) => {
+        parseString(pomXmlContent, { explicitArray: false, ignoreAttrs: true }, (err, result) => {
+            if (err) {
+                return reject('Failed to parse pom.xml: ' + err);
+            }
+
+            const nature = findProjectNature(result);
+            resolve(nature);
+        });
+    });
+}
+
+/**
+ * Recursively searches for <projectnatures><projectnature>...</projectnature></projectnatures>
+ * and returns the first matching value that starts with the expected prefix.
+ */
+function findProjectNature(node: any): string | undefined {
+    if (typeof node !== 'object' || node === null) return undefined;
+
+    for (const key of Object.keys(node)) {
+        const value = node[key];
+
+        if (key.toLowerCase() === 'projectnatures') {
+            const natures = value.projectnature;
+
+            if (typeof natures === 'string') {
+                if (natures.startsWith('org.wso2.developerstudio.eclipse')) {
+                    return natures;
+                }
+            } else if (Array.isArray(natures)) {
+                const match = natures.find(n =>
+                    typeof n === 'string' && n.startsWith('org.wso2.developerstudio.eclipse')
+                );
+                if (match) return match;
+            }
+        }
+
+        // Recurse into nested objects
+        if (typeof value === 'object') {
+            const nestedResult = findProjectNature(value);
+            if (nestedResult) return nestedResult;
+        }
+    }
+
+    return undefined;
+}
+
+/**
+ * Checks if the specified project file contains any of the old multi-module project natures.
+ *
+ * @param filePath - The path to the project file to check.
+ * @returns A promise that resolves to `true` if the file contains any of the old multi-module project natures, otherwise `false`.
+ */
+export async function containsMultiModuleNatureInProjectFile(filePath: string): Promise<boolean> {
+    if (!fs.existsSync(filePath)) return false;
+    const content = await fs.promises.readFile(filePath, 'utf-8');
+    return OLD_MULTI_MODULE_PROJECT_NATURES.some(nature => content.includes(`<nature>${nature}</nature>`));
+}
+
+/**
+ * Checks if the given POM file contains a multi-module project nature.
+ *
+ * Reads the specified POM file, extracts its project nature, and determines
+ * whether it matches any of the known old multi-module project natures.
+ *
+ * @param filePath - The absolute path to the POM file to check.
+ * @returns A promise that resolves to `true` if the POM file contains a multi-module nature, or `false` otherwise.
+ */
+export async function containsMultiModuleNatureInPomFile(filePath: string): Promise<boolean> {
+    if (!fs.existsSync(filePath)) return false;
+    const pomContent = await fs.promises.readFile(filePath, 'utf-8');
+    const projectNature = await extractNatureFromPomContent(pomContent);
+    return OLD_MULTI_MODULE_PROJECT_NATURES.includes(projectNature ?? '');
+}
+
+/**
+ * Recursively searches the given workspace directory for multi-module projects.
+ * 
+ * A multi-module project is identified by either:
+ * - A `.project` file containing multi-module nature
+ * - A `pom.xml` file containing multi-module nature
+ * 
+ * Directories named `.backup` are skipped.
+ * 
+ * @param workspaceDir - The root directory of the workspace to search.
+ * @returns A promise that resolves to an array of directory paths containing multi-module projects.
+ */
+export async function findMultiModuleProjectsInWorkspaceDir(workspaceDir: string): Promise<string[]> {
+    const foundProjects: string[] = [];
+
+    async function checkDir(dir: string) {
+        if (path.basename(dir) === '.backup') {
+            return; // Skip .backup directories
+        }
+        const projectFile = path.join(dir, '.project');
+        const pomFile = path.join(dir, 'pom.xml');
+        if (fs.existsSync(projectFile)) {
+            if (await containsMultiModuleNatureInProjectFile(projectFile)) {
+                foundProjects.push(dir);
+            }
+        } else if (fs.existsSync(pomFile)) {
+            if (await containsMultiModuleNatureInPomFile(pomFile)) {
+                foundProjects.push(dir);
+            }
+        } else {
+            // Recurse into subdirectories
+            const dirs = fs.readdirSync(dir, { withFileTypes: true });
+            for (const dirent of dirs) {
+                if (dirent.isDirectory()) {
+                    await checkDir(path.join(dir, dirent.name));
+                }
+            }
+        }
+    }
+
+    await checkDir(workspaceDir);
+    return foundProjects;
 }
 
 /**

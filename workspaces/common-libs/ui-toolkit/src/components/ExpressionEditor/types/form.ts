@@ -77,7 +77,6 @@ export type FormExpressionEditorProps = FormExpressionEditorElBaseProps & {
 };
 
 export type FormExpressionEditorRef = ExpressionEditorRef & {
-    focus: (manualTrigger?: boolean) => void;
     inputElement: HTMLTextAreaElement;
     parentElement: HTMLElement;
     setCursor: (value: string, cursorPosition: number) => void;

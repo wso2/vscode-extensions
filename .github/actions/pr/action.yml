@@ -99,7 +99,7 @@ runs:
         run: |
           git diff --staged --quiet || git commit -m "Update version to ${{ inputs.version }}"
           git checkout -b "${{ inputs.version }}"
-          git remote set-url origin https://${{ inputs.bot_username }}:$GITHUB_TOKEN@github.com/$GITHUB_REPOSITORY.git
+          git remote set-url origin https://${{ inputs.bot_username }}:${{ inputs.bot_token }}@github.com/$GITHUB_REPOSITORY.git
           git tag ${{ inputs.version }}
           git push origin "refs/heads/${{ inputs.version }}" "refs/tags/${{ inputs.version }}"
           baseBranch=""

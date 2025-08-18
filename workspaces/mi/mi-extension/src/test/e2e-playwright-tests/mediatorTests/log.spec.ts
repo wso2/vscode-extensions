@@ -160,6 +160,8 @@ export default function createTests() {
           }
         });
         console.log('Log mediator edited successfully');
+        // Wait for the mediator to be updated
+        await page.page.waitForTimeout(2000);
         const editedDescription = await mediator.getDescription();
         console.log('Edited log mediator description:', editedDescription);
         expect(editedDescription).toBe('log mediator edited');

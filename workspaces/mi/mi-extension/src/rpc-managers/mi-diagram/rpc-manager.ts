@@ -105,6 +105,7 @@ import {
     GetAvailableResourcesRequest,
     GetAvailableResourcesResponse,
     GetBackendRootUrlResponse,
+    GetProxyRootUrlResponse,
     GetConnectionFormRequest,
     GetConnectionFormResponse,
     GetConnectorConnectionsRequest,
@@ -229,6 +230,11 @@ import {
     UpdateWsdlEndpointRequest,
     UpdateWsdlEndpointResponse,
     WriteContentToFileRequest,
+    WriteIdpSchemaFileToRegistryRequest,
+    ReadIdpSchemaFileContentRequest,
+    ReadIdpSchemaFileContentResponse,
+    WriteIdpSchemaFileToRegistryResponse,
+    GetIdpSchemaFilesResponse,
     WriteContentToFileResponse,
     HandleFileRequest,
     HandleFileResponse,
@@ -302,9 +308,9 @@ import { testFileMatchPattern } from "../../test-explorer/discover";
 import { mockSerivesFilesMatchPattern } from "../../test-explorer/mock-services/activator";
 import { UndoRedoManager } from "../../undoRedoManager";
 import { copyDockerResources, copyMavenWrapper, createFolderStructure, getAPIResourceXmlWrapper, getAddressEndpointXmlWrapper, getDataServiceXmlWrapper, getDefaultEndpointXmlWrapper, getDssDataSourceXmlWrapper, getFailoverXmlWrapper, getHttpEndpointXmlWrapper, getInboundEndpointXmlWrapper, getLoadBalanceXmlWrapper, getMessageProcessorXmlWrapper, getMessageStoreXmlWrapper, getProxyServiceXmlWrapper, getRegistryResourceContent, getTaskXmlWrapper, getTemplateEndpointXmlWrapper, getTemplateXmlWrapper, getWsdlEndpointXmlWrapper, createGitignoreFile, getEditTemplateXmlWrapper } from "../../util";
-import { addNewEntryToArtifactXML, createMetadataFilesForRegistryCollection, deleteRegistryResource, detectMediaType, getAvailableRegistryResources, getMediatypeAndFileExtension, getRegistryResourceMetadata, updateRegistryResourceMetadata } from "../../util/fileOperations";
+import { addNewEntryToArtifactXML, createMetadataFilesForRegistryCollection, deleteRegistryResource, detectMediaType, getAvailableRegistryResources, getMediatypeAndFileExtension, getRegistryResourceMetadata, updateRegistryResourceMetadata} from "../../util/fileOperations";
 import { log } from "../../util/logger";
-import { importProject } from "../../util/migrationUtils";
+import { importProjects } from "../../util/migrationUtils";
 import { generateSwagger, getResourceInfo, isEqualSwaggers, mergeSwaggers } from "../../util/swagger";
 import { getDataSourceXml } from "../../util/template-engine/mustach-templates/DataSource";
 import { getClassMediatorContent } from "../../util/template-engine/mustach-templates/classMediator";
@@ -312,7 +318,7 @@ import { getBallerinaModuleContent, getBallerinaConfigContent } from "../../util
 import { generateXmlData, writeXmlDataToFile } from "../../util/template-engine/mustach-templates/createLocalEntry";
 import { getRecipientEPXml } from "../../util/template-engine/mustach-templates/recipientEndpoint";
 import { dockerfileContent, rootPomXmlContent } from "../../util/templates";
-import { replaceFullContentToFile } from "../../util/workspace";
+import { replaceFullContentToFile, saveIdpSchemaToFile } from "../../util/workspace";
 import { VisualizerWebview, webviews } from "../../visualizer/webview";
 import path = require("path");
 import { importCapp } from "../../util/importCapp";
@@ -474,7 +480,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
 
     async getMIVersionFromPom(): Promise<MiVersionResponse> {
         return new Promise(async (resolve) => {
-            const res = await getMIVersionFromPom();
+            const res = await getMIVersionFromPom(this.projectUri);
             resolve({ version: res ?? '' });
         });
     }
@@ -3006,8 +3012,9 @@ ${endpointAttributes}
             const connectorStoreResponse = await this.getStoreConnectorJSON(miVersion);
             const httpConnectorVersion = filterConnectorVersion('HTTP', connectorStoreResponse.connectors);
             const initialDependencies = generateInitialDependencies(httpConnectorVersion);
+            const tempName = name.replace(/\./g, '');
             const folderStructure: FileStructure = {
-                [name]: { // Project folder
+                [tempName]: { // Project folder
                     'pom.xml': rootPomXmlContent(name, groupID ?? "com.example", (artifactID ?? name).toLowerCase(), projectUuid, version ?? DEFAULT_PROJECT_VERSION, miVersion, initialDependencies),
                     '.env': '',
                     'src': {
@@ -3053,10 +3060,13 @@ ${endpointAttributes}
             };
 
             await createFolderStructure(directory, folderStructure);
-            copyDockerResources(extension.context.asAbsolutePath(path.join('resources', 'docker-resources')), path.join(directory, name));
-            await copyMavenWrapper(extension.context.asAbsolutePath(path.join('resources', 'maven-wrapper')), path.join(directory, name));
-            await createGitignoreFile(path.join(directory, name));
+            copyDockerResources(extension.context.asAbsolutePath(path.join('resources', 'docker-resources')), path.join(directory, tempName));
+            await copyMavenWrapper(extension.context.asAbsolutePath(path.join('resources', 'maven-wrapper')), path.join(directory, tempName));
+            await createGitignoreFile(path.join(directory, tempName));
 
+            if ((name !== tempName)) {
+                await fs.promises.rename(path.join(directory, tempName), path.join(directory, name));
+            }
             window.showInformationMessage(`Successfully created ${name} project`);
             const projectOpened = getStateMachine(this.projectUri).context().projectOpened;
 
@@ -3129,8 +3139,15 @@ ${endpointAttributes}
     async getWorkspaceRoot(): Promise<ProjectRootResponse> {
         return new Promise(async (resolve) => {
             const workspaceFolders = workspace.workspaceFolders;
-            if (workspaceFolders) {
-                resolve({ path: this.projectUri });
+            if (workspaceFolders && this.projectUri) {
+                const existingProject = path.basename(this.projectUri);
+                const matched = workspaceFolders.find(folder => path.basename(folder.uri.fsPath) === existingProject);
+                if (matched) {
+                    const parentPath = path.dirname(this.projectUri);
+                    resolve({ path: parentPath });
+                } else {
+                    resolve({ path: this.projectUri });
+                }
             }
             resolve({ path: getDefaultProjectPath() });
         });
@@ -3319,6 +3336,125 @@ ${endpointAttributes}
             console.error(`Error during file operation (${operation}) at ${filePath}:`, error);
             return { status: false, content: `Error during file operation: ${(error as Error).message}` };
         }
+    }
+
+    async writeIdpSchemaFileToRegistry(params: WriteIdpSchemaFileToRegistryRequest): Promise<WriteIdpSchemaFileToRegistryResponse> {
+        const { fileContent, schemaName, imageOrPdf, writeToArtifactFile} = params; 
+        const runtimeVersion =await this.getMIVersionFromPom();
+        const isRegistrySupported = compareVersions(runtimeVersion.version, RUNTIME_VERSION_440) < 0;
+        //add 4.3.0 compatibility
+        let folderPath ="";
+        if(!isRegistrySupported){
+            folderPath = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi', 'resources','idp-schemas', `${schemaName}`, path.sep);
+        }
+        else{
+            folderPath = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi',  'resources', 'registry', 'gov', 'idp-schemas', `${schemaName}`, path.sep);
+        }
+        //write the content to a file, if file exists, overwrite else create new file
+        try {
+            const status=await saveIdpSchemaToFile(folderPath, schemaName, fileContent, imageOrPdf);
+            if (!status) {
+                return { status: false };
+            }
+        } catch (error) {
+            console.error('Error writing content to file:', error);
+            return { status: false };
+        }
+        //write to artifcat.xml
+        if (writeToArtifactFile) {
+            const artifactName= "resources_idp_schemas_"+schemaName;
+            const file=schemaName+".json";
+            let artifactPath='';
+            if(!isRegistrySupported){
+                artifactPath = "/_system/governance/mi-resources/idp-schemas/" + schemaName;
+            }
+            else{
+                artifactPath = '/_system/governance/idp-schemas/' + schemaName;
+            }
+            await addNewEntryToArtifactXML(this.projectUri ?? "",artifactName,file, artifactPath, "application/json",false,isRegistrySupported )
+        }     
+        return {status: true};
+    }
+
+    async getIdpSchemaFiles(): Promise<GetIdpSchemaFilesResponse> {
+        const runtimeVersion = await this.getMIVersionFromPom();
+        const isRegistrySupported = compareVersions(runtimeVersion.version, RUNTIME_VERSION_440) < 0;
+        let schemaDirectory="";
+
+        if(!isRegistrySupported){
+            schemaDirectory = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi', 'resources','idp-schemas');
+        }
+        else{
+            schemaDirectory = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi',  'resources', 'registry', 'gov', 'idp-schemas');
+        }
+        const schemaFiles: {fileName: string, documentUriWithFileName:string}[] = [];
+        if (fs.existsSync(schemaDirectory)) {
+            const items = await fs.promises.readdir(schemaDirectory, { withFileTypes: true });
+            for (const item of items) {
+                if (item.isDirectory()) { 
+                    schemaFiles.push({ fileName: item.name, documentUriWithFileName: path.join(schemaDirectory, item.name, item.name + '.json') });
+                }
+            }
+        }
+        return { schemaFiles };
+    }
+
+    async convertPdfToBase64Images(params: string): Promise<string[]> {
+        return new Promise(async (resolve) => {
+            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const images = await langClient.pdfToImagesBase64(params)
+            resolve(images);
+        });
+    }
+
+    async readIdpSchemaFileContent(params: ReadIdpSchemaFileContentRequest): Promise<ReadIdpSchemaFileContentResponse> {
+        const { filePath } = params;
+        const response = {
+            fileContent: '',
+            base64Content: ''
+        };
+        try {
+            if (fs.existsSync(filePath)) {
+                response.fileContent = fs.readFileSync(filePath, 'utf8'); 
+            } else {
+                throw new Error(`File does not exist at path: ${filePath}`);
+            }
+            const folderPath = path.dirname(filePath);
+            if (fs.existsSync(folderPath)) {
+                const folderFiles = await fs.promises.readdir(folderPath); 
+                for (const file of folderFiles) {
+                    const currentFilePath = path.join(folderPath, file);
+                    let mimeType = '';
+                    const ext = file.substring(file.lastIndexOf('.')).toLowerCase();
+                    switch (ext) {
+                        case '.png':
+                            mimeType = 'image/png';
+                            break;
+                        case '.jpg':
+                        case '.jpeg':
+                            mimeType = 'image/jpeg';
+                            break;
+                        case '.gif':
+                            mimeType = 'image/gif';
+                            break;
+                        case '.webp':
+                            mimeType = 'image/webp';
+                            break;
+                        case '.pdf':
+                            mimeType = 'application/pdf';
+                            break;
+                    }
+                    if (mimeType) {
+                        const fileContent = fs.readFileSync(currentFilePath, 'base64');
+                        response.base64Content = `data:${mimeType};base64,${fileContent}`;
+                        break;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error reading schema file content:', error);
+        }
+        return response;
     }
 
     async highlightCode(params: HighlightCodeRequest) {
@@ -3921,11 +4057,17 @@ ${endpointAttributes}
         const MI_COPILOT_BACKEND_V2 = process.env.MI_COPILOT_BACKEND_V2 as string;
         const MI_COPILOT_BACKEND_V3 = process.env.MI_COPILOT_BACKEND_V3 as string;
         const RUNTIME_THRESHOLD_VERSION = RUNTIME_VERSION_440;
-        const runtimeVersion = await getMIVersionFromPom();
+        const runtimeVersion = await getMIVersionFromPom(this.projectUri);
 
         const isVersionThresholdReached = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_THRESHOLD_VERSION) : -1;
 
         return isVersionThresholdReached < 0 ? { url: MI_COPILOT_BACKEND_V2 } : { url: MI_COPILOT_BACKEND_V3 };
+    }
+
+    async getProxyRootUrl(): Promise<GetProxyRootUrlResponse> {
+        const openaiUrl = process.env.MI_COPILOT_OPENAI_PROXY_URL as string;
+        const anthropicUrl = process.env.MI_COPILOT_ANTHROPIC_PROXY_URL as string;
+        return { openaiUrl, anthropicUrl };
     }
 
     async getAvailableRegistryResources(params: ListRegistryArtifactsRequest): Promise<RegistryArtifactNamesResponse> {
@@ -3944,11 +4086,13 @@ ${endpointAttributes}
         });
     }
 
-    async migrateProject({ source }: MigrateProjectRequest): Promise<MigrateProjectResponse> {
+    async migrateProject({ dir, sources }: MigrateProjectRequest): Promise<MigrateProjectResponse> {
         return new Promise(async (resolve) => {
-            if (source) {
-                await importProject({ source, directory: source, open: true });
-                resolve({ filePath: source });
+            if (sources) {
+                const importList = sources.map(source => ({ source, directory: dir, open: false }));
+                const createdProjects = await importProjects(importList);
+                const filePaths = createdProjects.map(project => project.filePath);
+                resolve({ filePaths });
             }
         });
     }
@@ -4005,7 +4149,7 @@ ${endpointAttributes}
                     resolve({ inboundConnectors: connectorCache.get('inbound-connector-data'), outboundConnectors: connectorCache.get('outbound-connector-data'), connectors: connectorCache.get('connectors') });
                     return;
                 }
-                const runtimeVersion = miVersion ? miVersion : await getMIVersionFromPom();
+                const runtimeVersion = miVersion ? miVersion : await getMIVersionFromPom(this.projectUri);
 
                 const response = await fetch(APIS.MI_CONNECTOR_STORE);
                 const connectorStoreResponse = await fetch(APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? ''));
@@ -4538,9 +4682,9 @@ ${keyValuesXML}`;
             const workspaceFolderUri = vscode.Uri.file(path.resolve(this.projectUri));
             if (workspaceFolderUri) {
                 const config = vscode.workspace.getConfiguration('MI', workspaceFolderUri);
-                const isRemoteDeploymentEnabled = config.get<string>("REMOTE_DEPLOYMENT_ENABLED");
+                const isRemoteDeploymentEnabled = config.get<boolean>("REMOTE_DEPLOYMENT_ENABLED");
                 if (isRemoteDeploymentEnabled) {
-                    await commands.executeCommand(COMMANDS.REMOTE_DEPLOY_PROJECT, false);
+                    await commands.executeCommand(COMMANDS.REMOTE_DEPLOY_PROJECT, this.projectUri, false);
                 } else {
                     const configure = await vscode.window.showWarningMessage(
                         'Remote deployment is not enabled. Do you want to enable and configure it now?',
@@ -5577,7 +5721,7 @@ ${keyValuesXML}`;
 
 
     async fetchConnectors(name, operation: 'add' | 'remove') {
-        const runtimeVersion = await getMIVersionFromPom();
+        const runtimeVersion = await getMIVersionFromPom(this.projectUri);
 
         const connectorStoreResponse = await fetch(APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? ''));
         const connectorStoreData = await connectorStoreResponse.json();

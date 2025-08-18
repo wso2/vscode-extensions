@@ -809,7 +809,7 @@
         },
         {
           "command": "MI.project-explorer.delete",
-          "when": "view == MI.project-explorer && viewItem == api || viewItem == resource || viewItem == endpoint || viewItem == sequence || viewItem == proxy-service || viewItem == inboundEndpoint || viewItem == messageStore || viewItem == message-processor || viewItem == task || viewItem == localEntry || viewItem == template  || viewItem == dataSource || viewItem == data-service || viewItem == data-mapper || viewItem == connection || viewItem == registry-with-metadata || viewItem == registry-without-metadata || viewItem == class-mediator || viewItem == ballerina-module",
+          "when": "view == MI.project-explorer && viewItem == api || viewItem == resource || viewItem == endpoint || viewItem == sequence || viewItem == proxy-service || viewItem == inboundEndpoint || viewItem == messageStore || viewItem == message-processor || viewItem == task || viewItem == localEntry || viewItem == template  || viewItem == dataSource || viewItem == data-service || viewItem == data-mapper || viewItem == connection || viewItem == registry-with-metadata || viewItem == registry-without-metadata || viewItem == class-mediator || viewItem == ballerina-module || viewItem == idp-schema",
           "key": "delete"
         },
         {
@@ -862,14 +862,14 @@
         "description": "design-view",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f16b"
+          "fontCharacter": "\\f16c"
         }
       },
       "distro-build-package": {
         "description": "build-package",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f182"
+          "fontCharacter": "\\f183"
         }
       }
     }
@@ -953,7 +953,7 @@
     "node-loader": "~2.1.0",
     "to-json-schema": "0.2.5",
     "xml2js": "0.6.2",
-    "tmp": "~0.2.3",
+    "tmp": "~0.2.4",
     "fs-extra": "~11.3.0",
     "@iarna/toml": "^2.2.5",
     "@types/tmp": "~0.2.6",
