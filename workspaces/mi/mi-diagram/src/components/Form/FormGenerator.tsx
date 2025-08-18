@@ -129,6 +129,8 @@ export interface Element {
     expressionType?: 'xpath/jsonPath' | 'synapse';
     supportsAIValues?: boolean;
     rowCount?: number;
+    artifactPath?: string;
+    artifactType?: string;
 }
 
 interface ExpressionValueWithSetter {
@@ -585,6 +587,8 @@ export function FormGenerator(props: FormGeneratorProps) {
                 canChange={element.inputType !== 'expression'}
                 supportsAIValues={element.supportsAIValues}
                 errorMsg={errorMsg}
+                artifactPath={element.artifactPath}
+                artifactType={element.artifactType}
                 openExpressionEditor={(value, setValue) => {
                     setCurrentExpressionValue({ value, setValue });
                     setExpressionEditorField(name);
