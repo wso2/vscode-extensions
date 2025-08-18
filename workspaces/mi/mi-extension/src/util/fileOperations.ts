@@ -1117,7 +1117,7 @@ export function deleteSwaggerAndMetadata(apiPath: string) {
     const swaggerFilePath = path.join(swaggerDir, path.basename(apiPath, path.extname(apiPath)) + '.yaml');
     const metadataFilePath = path.join(metdataDir, path.basename(apiPath, path.extname(apiPath)) + '_metadata.yaml');
 
-    if (fs.existsSync(swaggerFilePath)) {
+    if (fs.existsSync(swaggerFilePath) && fs.existsSync(metadataFilePath)) {
         window.showInformationMessage(`API file ${path.basename(apiPath)} has been deleted. Do you want to delete the related Swagger file and Metadata file?`, 'Yes', 'No').then(async answer => {
             if (answer === 'Yes') {
                 await deleteRegistryResource(swaggerFilePath);
@@ -1140,10 +1140,13 @@ export function generateMetaDataFile(apiPath: string): Promise<void> {
             return;
         }
         const res = await langClient.getSyntaxTree({
-                documentIdentifier: {
-                    uri: apiPath
-                },
-            });
+            documentIdentifier: {
+                uri: apiPath
+            },
+        });
+        if (!res || !res.syntaxTree || !res.syntaxTree.api) {
+            return;
+        }
         const apiVersionType = res.syntaxTree?.api?.versionType ?? "";
         const apiContext = res.syntaxTree?.api?.context ?? "";
         const version = res.syntaxTree?.api?.version ?? "";
@@ -1164,30 +1167,30 @@ export function renameApiFile(apiPath: string): Promise<{ newApiPath: string }> 
             return;
         }
         const res = await langClient.getSyntaxTree({
-                documentIdentifier: {
-                    uri: apiPath
-                },
-            });
-        const newVersion = res.syntaxTree?.api?.version ?? "";
-        const newApiName = res.syntaxTree?.api?.name ?? "";
-        // Generate new filename based on current API data
+            documentIdentifier: {
+                uri: apiPath
+            },
+        });
+        if (!res || !res.syntaxTree || !res.syntaxTree.api) {
+            return;
+        }
+        const newVersion = res?.syntaxTree?.api?.version ?? "";
+        const newApiName = res?.syntaxTree?.api?.name ?? "";
+
         const newApiPath = path.join(path.dirname(apiPath), `${newApiName}${newVersion ? `_v${newVersion}` : ''}.xml`);
-        // Compare old and new filenames
         if (apiPath !== newApiPath) {
             try {
-                // Rename the API file
-                fs.renameSync(apiPath, newApiPath);
-                // Also delete associated swagger and metadata files if they exist
+                if( fs.existsSync(apiPath) ){
+                    fs.renameSync(apiPath, newApiPath);
+                }
                 const swaggerDir = path.join(projectUri!, "src", "main", "wso2mi", "resources", "api-definitions");
                 const metadataDir = path.join(projectUri!, "src", "main", "wso2mi", "resources", "metadata");
                 const oldFileNameWithoutExt = path.basename(apiPath, path.extname(apiPath));
                 const oldSwaggerPath = path.join(swaggerDir, oldFileNameWithoutExt + '.yaml');
                 const oldMetadataPath = path.join(metadataDir, oldFileNameWithoutExt + '_metadata.yaml');
-                // Delete old swagger file if exists
                 if (fs.existsSync(oldSwaggerPath)) {
                     fs.unlinkSync(oldSwaggerPath);
                 }
-                // Delete old metadata file if exists
                 if (fs.existsSync(oldMetadataPath)) {
                     fs.unlinkSync(oldMetadataPath);
                 }

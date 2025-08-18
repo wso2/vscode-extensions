@@ -331,7 +331,6 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                 const swaggerOriginalPath = path.join(dirPath, path.basename(document.uri.fsPath, path.extname(document.uri.fsPath)) + '_original.yaml');
                 const swaggerPath = path.join(dirPath, path.basename(document.uri.fsPath, path.extname(document.uri.fsPath)) + '.yaml');
                 if (fs.readFileSync(document.uri.fsPath, 'utf-8').split('\n').length > 3) {
-                    //rename file if user changed inside the api file
                     const newApiFilePath= await renameApiFile(document.uri.fsPath);
 
                     if (fs.existsSync(swaggerOriginalPath)) {
