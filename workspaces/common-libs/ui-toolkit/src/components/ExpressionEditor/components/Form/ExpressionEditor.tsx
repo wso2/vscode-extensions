@@ -124,7 +124,6 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
     const [fnSignatureElPosition, setFnSignatureElPosition] = useState<{ bottom: number; left: number }>();
     const [fnSignature, setFnSignature] = useState<FnSignatureProps | undefined>();
     const [isFocused, setIsFocused] = useState<boolean>(false);
-    const initialExpressionRef = useRef<string>(value);
     const SUGGESTION_REGEX = {
         prefix: /((?:\w|')*)$/,
         suffix: /^((?:\w|')*)/
@@ -627,8 +626,8 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
                     </DropdownContainer>,
                     document.body
                 )}
-            {isFocused && ((initialExpressionRef.current === null && value !== '') ||
-                (initialExpressionRef.current !== null && value !== initialExpressionRef.current)) && getHelperPane && createPortal(getHelperPaneComponent(), document.body)}
+                {isFocused && getHelperPane && createPortal(getHelperPaneComponent(), document.body)}
+
             {isFocused &&
                 createPortal(
                     <DropdownContainer sx={fnSignatureElPosition} zIndex={helperPaneZIndex}>

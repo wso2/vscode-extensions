@@ -78,7 +78,7 @@ export const getHelperPanePosition = (
     const expressionEditor = expressionEditorRef.current!;
     const rect = expressionEditor.getBoundingClientRect();
     if (helperPaneOrigin === 'bottom') {
-        return { top: rect.top + rect.height, left: rect.left + HELPER_PANE_EX_BTN_OFFSET + 2};
+        return { top: rect.top + rect.height, left: rect.left};
     }
 
     if (helperPaneOrigin === 'top') {
