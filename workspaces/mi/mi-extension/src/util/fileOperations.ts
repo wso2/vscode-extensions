@@ -1153,6 +1153,7 @@ export function generateMetaDataFile(apiPath: string): Promise<void> {
         const apiName = res.syntaxTree?.api?.name ?? "";
         const metadataPath = path.join(projectUri, "src", "main", "wso2mi", "resources", "metadata", apiName + (version == "" ? "" : "_v" + version) + "_metadata.yaml");
         fs.writeFileSync(metadataPath, getAPIMetadata({ name: apiName, version: version || "1.0.0", context: apiContext, versionType: apiVersionType ? (apiVersionType == "url" ? apiVersionType : false) : false }));
+        vscode.commands.executeCommand(COMMANDS.REFRESH_COMMAND);
     });
 }
 
@@ -1198,6 +1199,7 @@ export function renameApiFile(apiPath: string): Promise<string> {
                     fs.unlinkSync(oldMetadataPath);
                 }
                 resolve(newApiPath);
+                vscode.commands.executeCommand(COMMANDS.REFRESH_COMMAND);
             } catch (error) {
                 console.error(`Error renaming API file: ${error}`);
                 resolve(apiPath);
