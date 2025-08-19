@@ -626,7 +626,7 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
                     </DropdownContainer>,
                     document.body
                 )}
-                {isFocused && getHelperPane && createPortal(getHelperPaneComponent(), document.body)}
+            {isFocused && getHelperPane && createPortal(getHelperPaneComponent(), document.body)}
 
             {isFocused &&
                 createPortal(

@@ -18,7 +18,7 @@
 
 import { MutableRefObject } from "react";
 import { HelperPaneHeight, HelperPaneOrigin, HelperPanePosition } from "../types";
-import { HELPER_PANE_HEIGHT, HELPER_PANE_WIDTH, ARROW_HEIGHT, ARROW_OFFSET, VERTICAL_HELPERPANE_HEIGHT, HELPER_PANE_EX_BTN_OFFSET } from "../constants"
+import { HELPER_PANE_HEIGHT, HELPER_PANE_WIDTH, ARROW_HEIGHT, ARROW_OFFSET, VERTICAL_HELPERPANE_HEIGHT } from "../constants"
 
 export const convertHelperPaneHeightToCSS = (helperPaneHeight: HelperPaneHeight): string => {
     switch (helperPaneHeight) {
