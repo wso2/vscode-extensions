@@ -45,6 +45,7 @@ import { MessageStoreWizard } from './views/Forms/MessageStoreForm';
 import { DataServiceWizard } from './views/Forms/DataServiceForm/MainPanelForms';
 import { DataSourceWizard } from './views/Forms/DataSourceForm';
 import { ImportConnectorForm } from './views/Forms/ConnectionForm/ImportConnector';
+import { CreateIdpConnectorSchema } from './views/Forms/IDPConnectorForm/CreateIdpConnectorSchema';
 
 const ViewContainer = styled.div`
     
@@ -159,6 +160,9 @@ const PopupPanel = (props: { formState: PopupMachineStateValue, handleClose?: ()
                     break;
                 case MACHINE_VIEW.ImportConnectorForm:
                     setViewComponent(<ImportConnectorForm handlePopupClose={props.handleClose} isPopup={true} onImportSuccess={props.handleClose} goBack={null} />);
+                    break;
+                case MACHINE_VIEW.IdpConnectorSchemaGeneratorForm:
+                    setViewComponent(<CreateIdpConnectorSchema handlePopupClose={props.handleClose} isPopup={true} />);
                     break;
                 default:
                     setViewComponent(null);
