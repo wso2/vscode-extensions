@@ -332,14 +332,13 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                 const swaggerPath = path.join(dirPath, path.basename(document.uri.fsPath, path.extname(document.uri.fsPath)) + '.yaml');
                 if (fs.readFileSync(document.uri.fsPath, 'utf-8').split('\n').length > 3) {
                     const newApiFilePath= await renameApiFile(document.uri.fsPath);
-
                     if (fs.existsSync(swaggerOriginalPath)) {
                         fs.copyFileSync(swaggerOriginalPath, swaggerPath);
                         fs.rmSync(swaggerOriginalPath);
                     } else {
-                        generateSwagger(newApiFilePath.newApiPath);
+                        generateSwagger(newApiFilePath);
                     }
-                    generateMetaDataFile(newApiFilePath.newApiPath);
+                    generateMetaDataFile(newApiFilePath);
                 }
             }
 
