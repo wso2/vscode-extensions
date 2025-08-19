@@ -1227,7 +1227,6 @@ export async function updateCarPluginVersion(projectUri: string): Promise<void> 
     const pomContent = await vscode.workspace.openTextDocument(pomFiles[0]);
     const result = await parseStringPromise(pomContent.getText(), { explicitArray: false, ignoreAttrs: true });
     const carPluginVersion = result.project.properties['car.plugin.version'];
-    //if not loop through the pom.xml and find the car.plugin.version
     if (!carPluginVersion) {
         return;
     }
