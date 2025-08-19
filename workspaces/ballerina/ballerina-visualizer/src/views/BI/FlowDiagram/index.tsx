@@ -998,6 +998,37 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         }
     };
 
+    const handleOnSelectNewConnector = (nodeId: string, metadata?: any) => {
+        console.log(">>> on select new connector", { nodeId, metadata });
+        const { node } = metadata as { node: AvailableNode };
+
+        // Push current state to navigation stack before navigating
+        pushToNavigationStack(sidePanelView, categories, selectedNodeRef.current, selectedClientName.current);
+        setShowProgressIndicator(true);
+
+        rpcClient
+            .getBIDiagramRpcClient()
+            .getNodeTemplate({
+                position: targetRef.current?.startLine || { line: 0, offset: 0 },
+                filePath: model?.fileName,
+                id: node.codedata,
+            })
+            .then((response) => {
+                nodeTemplateRef.current = response.flowNode;
+                nodeTemplateRef.current.metadata = node.metadata;
+                switch (nodeId) {
+                    case "MODEL_PROVIDER":
+                    case "CLASS_INIT":
+                        setSidePanelView(SidePanelView.CREATE_AGENT_MODEL_PROVIDER);
+                        break;
+                }
+                setShowSidePanel(true);
+            })
+            .finally(() => {
+                setShowProgressIndicator(false);
+            });
+    };
+
     const handleOnFormSubmit = (updatedNode?: FlowNode, openInDataMapper?: boolean) => {
         if (!updatedNode) {
             console.log(">>> No updated node found");
@@ -1514,11 +1545,18 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     };
 
     // AI Agent callback handlers
-    const handleOnEditAgentModel = (node: FlowNode) => {
-        console.log(">>> Edit agent model called", node);
-        selectedNodeRef.current = node;
+    const handleOnEditAgentModel = async (agentCallNode: FlowNode) => {
+        console.log(">>> Edit agent model called", agentCallNode);
+
+        const moduleNodes = await rpcClient.getBIDiagramRpcClient().getModuleNodes();
+        const agentNode = moduleNodes.flowModel.connections.find((node) => node.properties.variable.value === agentCallNode.properties.connection.value);
+        if (!agentNode) {
+            console.error(`Agent node not found`, agentCallNode);
+        }
+
+        selectedNodeRef.current = agentNode;
         showEditForm.current = true;
-        setSidePanelView(SidePanelView.AGENT_MODEL);
+        setSidePanelView(SidePanelView.AGENT_MODEL_PROVIDER_CONFIG);
         setShowSidePanel(true);
     };
 
@@ -1704,6 +1742,13 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         }, 500);
     };
 
+    const updateNodeWithConnector = async (selectedNode: FlowNode) => {
+        await rpcClient
+            .getBIDiagramRpcClient()
+            .getSourceCode({ filePath: projectPath, flowNode: selectedNode });
+        handleOnCloseSidePanel();
+    };
+
     const handleOnDeleteTool = async (tool: ToolData, node: FlowNode) => {
         console.log(">>> Delete tool called", tool, node);
 
@@ -1858,7 +1903,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 onDeleteTool={handleOnDeleteTool}
                 onAddTool={handleOnAddTool}
                 onAddMcpServer={handleOnAddMcpServer}
+                onSelectNewConnector={handleOnSelectNewConnector}
                 selectedMcpToolkitName={selectedMcpToolkitName}
+                onUpdateNodeWithConnector={updateNodeWithConnector}
             />
         </>
     );

@@ -38,6 +38,7 @@ import { AddMcpServer } from "../AIChatAgent/AddMcpServer";
 import { NewTool, NewToolSelectionMode } from "../AIChatAgent/NewTool";
 import styled from "@emotion/styled";
 import { MemoryManagerConfig } from "../AIChatAgent/MemoryManagerConfig";
+import { ConnectorConfig, ConnectorCreator, ConnectorSelectionList } from "../../../components/ConnectorSelector";
 
 const Container = styled.div`
     display: flex;
@@ -66,7 +67,9 @@ export enum SidePanelView {
     ADD_MCP_SERVER = "ADD_MCP_SERVER",
     EDIT_MCP_SERVER = "EDIT_MCP_SERVER",
     AGENT_TOOL = "AGENT_TOOL",
-    AGENT_MODEL = "AGENT_MODEL",
+    SELECT_AGENT_MODEL_PROVIDER = "SELECT_AGENT_MODEL_PROVIDER",
+    CREATE_AGENT_MODEL_PROVIDER = "CREATE_AGENT_MODEL_PROVIDER",
+    AGENT_MODEL_PROVIDER_CONFIG = "AGENT_MODEL_PROVIDER_CONFIG",
     AGENT_MEMORY_MANAGER = "AGENT_MEMORY_MANAGER",
     AGENT_CONFIG = "AGENT_CONFIG",
 }
@@ -122,6 +125,8 @@ interface PanelManagerProps {
     onDeleteTool?: (tool: ToolData, node: FlowNode) => void;
     onAddTool?: (node: FlowNode) => void;
     onAddMcpServer?: (node: FlowNode) => void;
+    onSelectNewConnector?: (nodeId: string, metadata?: any) => void;
+    onUpdateNodeWithConnector?: (selectedNode: FlowNode) => void;
 }
 
 export function PanelManager(props: PanelManagerProps) {
@@ -165,6 +170,8 @@ export function PanelManager(props: PanelManagerProps) {
         onSearchVectorStore,
         onSearchEmbeddingProvider,
         onSearchVectorKnowledgeBase,
+        onSelectNewConnector,
+        onUpdateNodeWithConnector
     } = props;
 
     const handleOnAddTool = () => {
@@ -309,8 +316,21 @@ export function PanelManager(props: PanelManagerProps) {
                 );
                 return <ToolConfig agentCallNode={selectedNode} toolData={selectedTool} onSave={onClose} />;
 
-            case SidePanelView.AGENT_MODEL:
-                return <ModelConfig agentCallNode={selectedNode} onSave={onClose} />;
+            case SidePanelView.AGENT_MODEL_PROVIDER_CONFIG:
+                return <ConnectorConfig connectorType="MODEL_PROVIDER" selectedNode={selectedNode} onSave={onUpdateNodeWithConnector} onCreateNew={() => setSidePanelView(SidePanelView.SELECT_AGENT_MODEL_PROVIDER)} />;
+
+            case SidePanelView.SELECT_AGENT_MODEL_PROVIDER:
+                return <ConnectorSelectionList connectorType="MODEL_PROVIDER" selectedNode={selectedNode} onSelect={onSelectNewConnector} />;
+
+            case SidePanelView.CREATE_AGENT_MODEL_PROVIDER:
+                return (
+                    <ConnectorCreator
+                        connectorType="MODEL_PROVIDER"
+                        nodeFormTemplate={nodeFormTemplate}
+                        selectedNode={selectedNode}
+                        onSave={onUpdateNodeWithConnector}
+                    />
+                );
 
             case SidePanelView.AGENT_CONFIG:
                 return <AgentConfig agentCallNode={selectedNode} fileName={fileName} onSave={onClose} />;
@@ -484,17 +504,25 @@ export function PanelManager(props: PanelManagerProps) {
         }
     };
 
-    const onBackCallback =
-        sidePanelView === SidePanelView.NEW_TOOL ||
-        sidePanelView === SidePanelView.NEW_TOOL_FROM_CONNECTION ||
-        sidePanelView === SidePanelView.NEW_TOOL_FROM_FUNCTION ||
-        sidePanelView === SidePanelView.ADD_MCP_SERVER
-            ? handleOnBackToAddTool
-            : sidePanelView === SidePanelView.NEW_AGENT
-            ? onBack
-            : sidePanelView === SidePanelView.FORM && !showEditForm
-            ? onBack
-            : undefined;
+    const onBackCallback = (() => {
+        switch (sidePanelView) {
+            case SidePanelView.NEW_TOOL:
+            case SidePanelView.NEW_TOOL_FROM_CONNECTION:
+            case SidePanelView.NEW_TOOL_FROM_FUNCTION:
+            case SidePanelView.ADD_MCP_SERVER:
+                return handleOnBackToAddTool;
+            case SidePanelView.SELECT_AGENT_MODEL_PROVIDER:
+                return () => setSidePanelView(SidePanelView.AGENT_MODEL_PROVIDER_CONFIG);
+            case SidePanelView.CREATE_AGENT_MODEL_PROVIDER:
+                return onBack;
+            case SidePanelView.NEW_AGENT:
+                return onBack;
+            case SidePanelView.FORM:
+                return !showEditForm ? onBack : undefined;
+            default:
+                return undefined;
+        }
+    })();
 
     return (
         <PanelContainer

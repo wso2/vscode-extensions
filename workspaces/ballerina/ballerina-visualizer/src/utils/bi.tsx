@@ -341,8 +341,12 @@ export function getContainerTitle(view: SidePanelView, activeNode: FlowNode, cli
             return ""; // Show switch instead of title
         case SidePanelView.NEW_AGENT:
             return "AI Agent";
-        case SidePanelView.AGENT_MODEL:
-            return "Configure LLM Model";
+        case SidePanelView.AGENT_MODEL_PROVIDER_CONFIG:
+            return "Configure Agent Model Provider";
+        case SidePanelView.SELECT_AGENT_MODEL_PROVIDER:
+            return "Select Agent Model Provider";
+        case SidePanelView.CREATE_AGENT_MODEL_PROVIDER:
+            return "Create Agent Model Provider";
         case SidePanelView.AGENT_MEMORY_MANAGER:
             return "Configure Memory";
         case SidePanelView.AGENT_TOOL:
@@ -371,13 +375,11 @@ export function getContainerTitle(view: SidePanelView, activeNode: FlowNode, cli
             ) {
                 return `${clientName || activeNode.properties.connection.value} → ${activeNode.metadata.label}`;
             } else if (activeNode.codedata?.node === "DATA_MAPPER_CALL") {
-                return `${activeNode.codedata?.module ? activeNode.codedata?.module + " :" : ""} ${
-                    activeNode.codedata.symbol
-                }`;
+                return `${activeNode.codedata?.module ? activeNode.codedata?.module + " :" : ""} ${activeNode.codedata.symbol
+                    }`;
             }
-            return `${activeNode.codedata?.module ? activeNode.codedata?.module + " :" : ""} ${
-                activeNode.metadata.label
-            }`;
+            return `${activeNode.codedata?.module ? activeNode.codedata?.module + " :" : ""} ${activeNode.metadata.label
+                }`;
         default:
             return "";
     }
