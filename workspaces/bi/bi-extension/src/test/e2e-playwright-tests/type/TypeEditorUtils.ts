@@ -239,7 +239,6 @@ export class TypeEditorUtils {
         for (const field of fields) {
             await this.addRecordField(field.name, field.type);
         }
-
         return form;
     }
 
@@ -310,39 +309,4 @@ export class TypeEditorUtils {
             await checkbox.click();
         }
     }
-
-    /**
-     * Get checkbox state by its name
-     */
-    async getCheckboxState(checkboxName: string): Promise<boolean> {
-        const checkbox = this.webView.getByRole('checkbox', { name: checkboxName });
-        await this.waitForElement(checkbox);
-        
-        const ariaChecked = await checkbox.getAttribute('aria-checked');
-        return ariaChecked === 'true';
-    }
-
-    /**
-     * Verify multiple checkbox states at once
-     */
-    async verifyCheckboxStates( expectedStates: Record<string, boolean>): Promise<void> {
-        const errors: string[] = [];
-        
-        for (const [checkboxName, expectedState] of Object.entries(expectedStates)) {
-            try {
-                const actualState = await this.getCheckboxState(checkboxName);
-
-                if (actualState !== expectedState) {
-                    errors.push(`${checkboxName}: expected ${expectedState}, got ${actualState}`);
-                }
-            } catch (error) {
-                errors.push(`${checkboxName}: checkbox not found or not accessible`);
-            }
-        }
-        
-        if (errors.length > 0) {
-            throw new Error(`Checkbox verification failed:\n${errors.join('\n')}`);
-        }
-    }
-
 }
