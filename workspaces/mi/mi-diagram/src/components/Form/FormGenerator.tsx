@@ -51,7 +51,7 @@ import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { Range } from "@wso2/mi-syntax-tree/lib/src";
 import ParameterManager from './GigaParamManager/ParameterManager';
 import { StringWithParamManagerComponent } from './StringWithParamManager';
-import { isLegacyExpression, isValueExpression } from './utils';
+import { isLegacyExpression, isTypeAwareEqual, isValueExpression } from './utils';
 import { Colors } from '../../resources/constants';
 import ReactMarkdown from 'react-markdown';
 import GenerateDiv from './GenerateComponents/GenerateDiv';
@@ -129,6 +129,8 @@ export interface Element {
     expressionType?: 'xpath/jsonPath' | 'synapse';
     supportsAIValues?: boolean;
     rowCount?: number;
+    artifactPath?: string;
+    artifactType?: string;
 }
 
 interface ExpressionValueWithSetter {
@@ -585,6 +587,8 @@ export function FormGenerator(props: FormGeneratorProps) {
                 canChange={element.inputType !== 'expression'}
                 supportsAIValues={element.supportsAIValues}
                 errorMsg={errorMsg}
+                artifactPath={element.artifactPath}
+                artifactType={element.artifactType}
                 openExpressionEditor={(value, setValue) => {
                     setCurrentExpressionValue({ value, setValue });
                     setExpressionEditorField(name);
@@ -1347,10 +1351,9 @@ export function FormGenerator(props: FormGeneratorProps) {
                 const [key, subKey] = conditionKey.split('.');
                 const parentValue = watch(getNameForController(key));
                 const subKeyValue = parentValue?.[subKey] || currentVal;
-                return subKeyValue === expectedValue;
+                return isTypeAwareEqual(subKeyValue, expectedValue);
             }
-            return currentVal === condition[conditionKey] || (typeof condition[conditionKey] === 'string' && String(currentVal) === condition[conditionKey]) ||
-                (typeof condition[conditionKey] === 'boolean' && String(currentVal) === String(condition[conditionKey]));
+            return isTypeAwareEqual(currentVal, condition[conditionKey]);
         };
 
         if (Array.isArray(conditions)) {
