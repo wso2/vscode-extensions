@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { MutableRefObject } from "react";
+import { CSSProperties, MutableRefObject } from "react";
 import { HelperPaneHeight, HelperPaneOrigin, HelperPanePosition } from "../types";
 import { HELPER_PANE_HEIGHT, HELPER_PANE_WIDTH, ARROW_HEIGHT, ARROW_OFFSET, VERTICAL_HELPERPANE_HEIGHT } from "../constants"
 
@@ -74,7 +74,7 @@ export const getHelperPanePosition = (
     helperPaneOrigin: HelperPaneOrigin,
     helperPaneHeight: HelperPaneHeight,
     helperPaneWidth?: number
-): HelperPanePosition => {
+): HelperPanePosition & React.CSSProperties => {
     const expressionEditor = expressionEditorRef.current!;
     const rect = expressionEditor.getBoundingClientRect();
     if (helperPaneOrigin === 'bottom') {
@@ -82,7 +82,7 @@ export const getHelperPanePosition = (
     }
 
     if (helperPaneOrigin === 'top') {
-        return { top: rect.top - VERTICAL_HELPERPANE_HEIGHT, left: rect.left };
+        return { top: rect.top, left: rect.left, transform: 'translateY(-100%)' } as unknown as HelperPanePosition & CSSProperties;
     }
 
     const position: HelperPanePosition = { top: 0, left: 0 };
