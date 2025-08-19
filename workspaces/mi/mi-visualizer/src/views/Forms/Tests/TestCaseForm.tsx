@@ -137,7 +137,7 @@ export function TestCaseForm(props: TestCaseFormProps) {
                     displayName: "Assertion",
                     inputType: "combo",
                     required: true,
-                    comboValues: testSuiteType === TestSuiteType.SEQUENCE ? ["Payload", "Custom"] : ["Payload", "Status Code", "Transport Header", "HTTP Version"],
+                    comboValues: testSuiteType === TestSuiteType.SEQUENCE ? ["Payload", "Transport Header", "Custom"] : ["Payload", "Status Code", "Transport Header", "HTTP Version"],
                     defaultValue: "Payload",
                     helpTip: "",
                 },
@@ -182,6 +182,11 @@ export function TestCaseForm(props: TestCaseFormProps) {
                     inputType: "codeTextArea",
                     required: false,
                     helpTip: "",
+                    enableCondition: [
+                        {
+                            assertionType: "Assert Equals",
+                        }
+                    ]
                 },
             },
             {
