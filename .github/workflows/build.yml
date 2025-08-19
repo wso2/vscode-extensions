@@ -265,12 +265,24 @@ jobs:
         include:
           - name: MI
             path: mi/mi-extension
-            group: [group1, group2, group3, group4]
-            if: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
+            group: group1
+            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
+          - name: MI
+            path: mi/mi-extension
+            group: group2
+            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
+          - name: MI
+            path: mi/mi-extension
+            group: group3
+            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
+          - name: MI
+            path: mi/mi-extension
+            group: group4
+            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
           - name: BI
             path: bi/bi-extension
-            group: [group1]  
-            if: ${{ inputs.runE2ETests || github.base_ref == 'release-bi' }}
+            group: group1
+            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-bi' }}
     steps:
       - name: Restore build
         uses: actions/download-artifact@v4
