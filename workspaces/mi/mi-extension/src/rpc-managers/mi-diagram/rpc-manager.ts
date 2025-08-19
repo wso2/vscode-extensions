@@ -5764,6 +5764,18 @@ ${keyValuesXML}`;
         }
     };
 
+    async getValueOfEnvVariable(variableName: string): Promise<string> {
+        return new Promise(async (resolve) => {
+            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const response = await langClient.getConfigurableList();
+            const envVariable = response.find(variable => variable.key === variableName);
+            if (envVariable && envVariable.value != null && envVariable.value !== "") {
+                resolve(envVariable.value);
+            } else {
+                resolve("");
+            }
+        });
+    };
 }
 
 export function getRepoRoot(projectRoot: string): string | undefined {
