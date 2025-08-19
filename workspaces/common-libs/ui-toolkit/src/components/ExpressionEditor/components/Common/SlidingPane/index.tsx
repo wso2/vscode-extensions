@@ -181,9 +181,10 @@ type SlidingPaneNavContainerProps = {
     to?: string;
     data?: any;
     endIcon?: ReactNode;
+    onClick?: () => void;
 }
 
-export const SlidingPaneNavContainer = ({ children, to, data, endIcon }: SlidingPaneNavContainerProps) => {
+export const SlidingPaneNavContainer = ({ children, to, data, endIcon, onClick }: SlidingPaneNavContainerProps) => {
     const { moveToNext } = useSlidingPane();
     const handleNavigation = () => {
         if (!to) return;
@@ -195,7 +196,16 @@ export const SlidingPaneNavContainer = ({ children, to, data, endIcon }: Sliding
 
     return (
         <SlidingPaneNavContainerElm>
-            <InvisibleButton style={{ width: '100%' }} onClick={handleNavigation}>
+            <InvisibleButton
+                style={{ width: '100%' }}
+                onClick={() => {
+                    if (onClick) {
+                        onClick();
+                    } else {
+                        handleNavigation();
+                    }
+                }}
+            >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                     <div>
                         {children}
