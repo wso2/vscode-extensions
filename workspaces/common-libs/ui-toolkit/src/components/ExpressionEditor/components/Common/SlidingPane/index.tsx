@@ -19,7 +19,7 @@ const SlidingWindowContainer = styled.div`
     overflow-x: scroll;
     overflow-y: scroll;
     height: 200px;
-    padding: 8px;
+    padding: 0px;
     background-color: var(--vscode-dropdown-background);
     transition: height 0.3s ease-in-out, width 0.3s ease-in-out;
 `;
@@ -87,7 +87,7 @@ export const SlidingPaneContainer = styled.div<{ index: number; isCurrent?: bool
   top: 0;
   left: 0;
   width: 100%;
-  padding: 0 8px 8px 8px;
+  padding: 0 2px 2px 2px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -159,6 +159,7 @@ export const ScrollableContainer = styled.div`
 
 const SlidingPaneNavContainerElm = styled.div`
     width: 100%;
+    max-height: 30px;
     padding: 8px;
     display: flex;
     align-items: center;
