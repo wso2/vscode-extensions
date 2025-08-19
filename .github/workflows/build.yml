@@ -303,7 +303,7 @@ jobs:
         continue-on-error: true
         with:
           name: ${{ matrix.name }}-e2e-test-results-${{ matrix.group }}-${{ env.PREVIOUS_ATTEMPT }}
-          path: workspaces/${{ matrix.group }}/test-results
+          path: workspaces/${{ matrix.path }}/test-results
 
       - name: install packages
         run: |
@@ -313,14 +313,14 @@ jobs:
           sudo apt-get install -y gnome-keyring
           sudo apt-get install libsecret-1.0
           sudo apt install dbus-x11
-          cd workspaces/${{ matrix.group }} && npx playwright install
+          cd workspaces/${{ matrix.path }} && npx playwright install
           
       - name: Run Tests (First Attempt)
         if: github.run_attempt == 1 || steps.check-results.outcome == 'failure'
         run: |
           export $(dbus-launch)
           export DISPLAY=:98.0
-          cd workspaces/${{ matrix.group }}
+          cd workspaces/${{ matrix.path }}
           xvfb-run --server-num 98.0 -s "-ac -screen 0 1920x1080x24" bash -c "ffmpeg -f x11grab -r 30 -s 1920x1080 -i :98.0 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart -hide_banner -loglevel error record.mp4 & npx playwright test --grep ${{ matrix.group }}"
 
       - name: Run Failed Tests (Re-run)
@@ -328,7 +328,7 @@ jobs:
         run: |
           export $(dbus-launch)
           export DISPLAY=:98.0
-          cd workspaces/${{ matrix.group }}
+          cd workspaces/${{ matrix.path }}
           xvfb-run --server-num 98.0 -s "-ac -screen 0 1920x1080x24" bash -c "ffmpeg -f x11grab -r 30 -s 1920x1080 -i :98.0 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart -hide_banner -loglevel error record.mp4 & npx playwright test --grep ${{ matrix.group }} --last-failed"
 
       - name: Upload test results
@@ -336,7 +336,7 @@ jobs:
         if: always()
         with:
           name: ${{ matrix.name }}-e2e-test-results-${{ matrix.group }}-${{ github.run_attempt }}
-          path: workspaces/${{ matrix.group }}/test-results/**
+          path: workspaces/${{ matrix.path }}/test-results/**
           retention-days: 5
           include-hidden-files: true
           
@@ -346,7 +346,7 @@ jobs:
         with:
           name: ${{ matrix.name }}-e2e-test-recording-${{ matrix.group }}-${{ github.run_attempt }}
           path: | 
-            workspaces/${{ matrix.group }}/src/test/test-resources/videos/**
-            workspaces/${{ matrix.group }}/src/test/test-resources/screenshots/**
-            workspaces/${{ matrix.group }}/record.mp4
+            workspaces/${{ matrix.path }}/src/test/test-resources/videos/**
+            workspaces/${{ matrix.path }}/src/test/test-resources/screenshots/**
+            workspaces/${{ matrix.path }}/record.mp4
           retention-days: 5
