@@ -1120,7 +1120,7 @@ export function deleteSwaggerAndMetadata(apiPath: string) {
     if (fs.existsSync(swaggerFilePath) && fs.existsSync(metadataFilePath)) {
         window.showInformationMessage(`API file ${path.basename(apiPath)} has been deleted. Do you want to delete the related Swagger file and Metadata file?`, 'Yes', 'No').then(async answer => {
             if (answer === 'Yes') {
-                await deleteRegistryResource(swaggerFilePath);
+                fs.unlinkSync(swaggerFilePath);
                 fs.unlinkSync(metadataFilePath);
                 window.showInformationMessage(`Swagger file ${path.basename(swaggerFilePath)} and Metadata file ${path.basename(metadataFilePath)} have been deleted.`);
                 vscode.commands.executeCommand(COMMANDS.REFRESH_COMMAND);

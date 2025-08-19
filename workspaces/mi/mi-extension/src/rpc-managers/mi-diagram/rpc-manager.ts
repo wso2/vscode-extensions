@@ -688,11 +688,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                     fs.mkdirSync(path.dirname(swaggerRegPath), { recursive: true });
                     fs.copyFileSync(swaggerDefPath, swaggerRegPath);
                 }
-
-                if (!isRegistrySupported) {
-                    const swaggerArtifactName = `resources_api-definitions_${getSwaggerName(swaggerDefPath ?? '')}`.replace(/\./g, '_');
-                    addNewEntryToArtifactXML(projectDir ?? '', swaggerArtifactName, getSwaggerName(swaggerDefPath ?? ''), "/_system/governance/mi-resources/api-definitions", "application/yaml", false, false);
-                }
+                
             } else {
                 fileName = `${name}${version ? `_v${version}` : ''}`;
             }
