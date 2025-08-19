@@ -1121,7 +1121,7 @@ export function deleteSwaggerAndMetadata(apiPath: string) {
         window.showInformationMessage(`API file ${path.basename(apiPath)} has been deleted. Do you want to delete the related Swagger file and Metadata file?`, 'Yes', 'No').then(async answer => {
             if (answer === 'Yes') {
                 await deleteRegistryResource(swaggerFilePath);
-                await deleteRegistryResource(metadataFilePath);
+                fs.unlinkSync(metadataFilePath);
                 window.showInformationMessage(`Swagger file ${path.basename(swaggerFilePath)} and Metadata file ${path.basename(metadataFilePath)} have been deleted.`);
                 vscode.commands.executeCommand(COMMANDS.REFRESH_COMMAND);
             }
@@ -1156,14 +1156,16 @@ export function generateMetaDataFile(apiPath: string): Promise<void> {
     });
 }
 
-export function renameApiFile(apiPath: string): Promise<{ newApiPath: string }> {
+export function renameApiFile(apiPath: string): Promise<string> {
     return new Promise(async (resolve) => {
         const projectUri = workspace.getWorkspaceFolder(vscode.Uri.file(apiPath))?.uri.fsPath;
         if (!projectUri) {
+            resolve(apiPath);
             return;
         }
         const langClient = getStateMachine(projectUri).context().langClient;
         if (!langClient) {
+            resolve(apiPath);
             return;
         }
         const res = await langClient.getSyntaxTree({
@@ -1172,6 +1174,7 @@ export function renameApiFile(apiPath: string): Promise<{ newApiPath: string }> 
             },
         });
         if (!res || !res.syntaxTree || !res.syntaxTree.api) {
+            resolve(apiPath);
             return;
         }
         const newVersion = res?.syntaxTree?.api?.version ?? "";
@@ -1180,11 +1183,11 @@ export function renameApiFile(apiPath: string): Promise<{ newApiPath: string }> 
         const newApiPath = path.join(path.dirname(apiPath), `${newApiName}${newVersion ? `_v${newVersion}` : ''}.xml`);
         if (apiPath !== newApiPath) {
             try {
-                if( fs.existsSync(apiPath) ){
+                if (fs.existsSync(apiPath)) {
                     fs.renameSync(apiPath, newApiPath);
                 }
-                const swaggerDir = path.join(projectUri!, "src", "main", "wso2mi", "resources", "api-definitions");
-                const metadataDir = path.join(projectUri!, "src", "main", "wso2mi", "resources", "metadata");
+                const swaggerDir = path.join(projectUri, "src", "main", "wso2mi", "resources", "api-definitions");
+                const metadataDir = path.join(projectUri, "src", "main", "wso2mi", "resources", "metadata");
                 const oldFileNameWithoutExt = path.basename(apiPath, path.extname(apiPath));
                 const oldSwaggerPath = path.join(swaggerDir, oldFileNameWithoutExt + '.yaml');
                 const oldMetadataPath = path.join(metadataDir, oldFileNameWithoutExt + '_metadata.yaml');
@@ -1194,12 +1197,13 @@ export function renameApiFile(apiPath: string): Promise<{ newApiPath: string }> 
                 if (fs.existsSync(oldMetadataPath)) {
                     fs.unlinkSync(oldMetadataPath);
                 }
-                resolve({ newApiPath: newApiPath });
+                resolve(newApiPath);
             } catch (error) {
                 console.error(`Error renaming API file: ${error}`);
+                resolve(apiPath);
             }
         } else {
-            resolve({ newApiPath: apiPath });
+            resolve(apiPath);
         }
     });
 }
