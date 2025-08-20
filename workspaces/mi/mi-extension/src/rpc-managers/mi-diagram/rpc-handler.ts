@@ -309,6 +309,7 @@ import {
     getCodeDiagnostics,
     GetConnectorIconRequest,
     getConnectorIcon,
+    getValueOfEnvVariable,
     configureKubernetes,
     ConfigureKubernetesRequest,
     isKubernetesConfigured
@@ -490,6 +491,7 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(shouldDisplayPayloadAlert, () => rpcManger.shouldDisplayPayloadAlert());
     messenger.onRequest(displayPayloadAlert, () => rpcManger.displayPayloadAlert());
     messenger.onRequest(closePayloadAlert, () => rpcManger.closePayloadAlert());
+    messenger.onRequest(getValueOfEnvVariable, (args: string) => rpcManger.getValueOfEnvVariable(args));
     messenger.onRequest(configureKubernetes, (args: ConfigureKubernetesRequest) => rpcManger.configureKubernetes(args));
     messenger.onRequest(isKubernetesConfigured, () => rpcManger.isKubernetesConfigured());
 }

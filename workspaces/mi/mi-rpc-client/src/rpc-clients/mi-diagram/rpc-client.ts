@@ -435,6 +435,7 @@ import {
     GetConnectorIconRequest,
     GetConnectorIconResponse,
     getConnectorIcon,
+    getValueOfEnvVariable,
     configureKubernetes,
     ConfigureKubernetesRequest,
     ConfigureKubernetesResponse,
@@ -1140,6 +1141,10 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     closePayloadAlert(): Promise<void> {
         return this._messenger.sendRequest(closePayloadAlert, HOST_EXTENSION);
+    }
+  
+    getValueOfEnvVariable(params:string): Promise<string> { 
+        return this._messenger.sendRequest(getValueOfEnvVariable, HOST_EXTENSION, params);
     }
 
     configureKubernetes(params: ConfigureKubernetesRequest): Promise<ConfigureKubernetesResponse> {

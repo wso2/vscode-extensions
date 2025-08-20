@@ -2154,6 +2154,7 @@ export interface GenerateConnectorResponse {
 export interface GetHelperPaneInfoRequest {
     documentUri: string;
     position: Position;
+    needLastMediator?: boolean;
 }
 
 export type GetHelperPaneInfoResponse = HelperPaneData;
