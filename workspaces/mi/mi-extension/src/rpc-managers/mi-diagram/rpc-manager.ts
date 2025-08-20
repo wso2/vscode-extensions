@@ -4023,8 +4023,8 @@ ${endpointAttributes}
 
     async configureKubernetes(params: ConfigureKubernetesRequest): Promise<ConfigureKubernetesResponse> {
         return new Promise(async (resolve) => {
-            const hasEnvValues = params.envValues && Object.keys(params.envValues).length > 0;
-            const hasPorts = params.ports && Object.keys(params.ports).length > 0;
+            const hasEnvValues = params.envValues && params.envValues.length > 0;
+            const hasPorts = params.ports && params.ports.length > 0;
             const k8Configuration = getKubernetesConfiguration({ name: params.name, replicas: params.replicas, targetImage: params.targetImage, ports: params.ports, hasEnvValues: hasEnvValues, hasPorts: hasPorts });
             const k8Path = path.join(this.projectUri, 'deployment', 'kubernetes');
             fs.mkdirSync(k8Path, { recursive: true });
