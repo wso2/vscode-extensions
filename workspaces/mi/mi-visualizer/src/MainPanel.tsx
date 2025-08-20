@@ -56,6 +56,7 @@ import { InboundEPView } from './views/Diagram/InboundEndpoint';
 import { Overview } from './views/Overview';
 import { DatamapperForm } from './views/Forms/DatamapperForm';
 import { ImportArtfactForm } from './views/Forms/ImportArtifactForm';
+import { IdpConnectorSchemaGenerateForm }from './views/Forms/IDPConnectorForm/IdpConnectorSchemaGenerateForm';
 
 const MainContainer = styled.div`
     display: flex;
@@ -359,6 +360,9 @@ const MainPanel = (props: MainPanelProps) => {
                 break;
             case MACHINE_VIEW.Samples:
                 setViewComponent(<SamplesView />);
+                break;
+            case MACHINE_VIEW.IdpConnectorSchemaGeneratorForm:
+                setViewComponent(< IdpConnectorSchemaGenerateForm path={visualizerState.documentUri} fileContent={visualizerState.customProps?.fileContent}/>);
                 break;
             default:
                 setViewComponent(null);

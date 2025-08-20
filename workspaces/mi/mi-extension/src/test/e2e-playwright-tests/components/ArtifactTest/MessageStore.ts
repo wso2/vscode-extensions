@@ -282,7 +282,7 @@ export class MessageStore {
                     type: 'input',
                     value: msName,
                 },
-                'Pre configured Profiles': {
+                'Pre Configured Profiles': {
                     type: 'combo',
                     value: 'ActiveMQ',
                 },

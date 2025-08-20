@@ -117,6 +117,8 @@ import {
     UpdateWsdlEndpointRequest,
     WriteContentToFileRequest,
     HandleFileRequest,
+    WriteIdpSchemaFileToRegistryRequest,
+    ReadIdpSchemaFileContentRequest,
     addDBDriver,
     addDriverToLib,
     applyEdit,
@@ -179,6 +181,7 @@ import {
     getAvailableRegistryResources,
     getAvailableResources,
     getBackendRootUrl,
+    getProxyRootUrl,
     getConnectionForm,
     getConnector,
     getConnectorConnections,
@@ -265,6 +268,10 @@ import {
     updateWsdlEndpoint,
     writeContentToFile,
     handleFileWithFS,
+    writeIdpSchemaFileToRegistry,
+    getIdpSchemaFiles,
+    convertPdfToBase64Images,
+    readIdpSchemaFileContent,
     tryOutMediator,
     MediatorTryOutRequest,
     saveInputPayload,
@@ -301,7 +308,8 @@ import {
     GetCodeDiagnosticsResponse,
     getCodeDiagnostics,
     GetConnectorIconRequest,
-    getConnectorIcon
+    getConnectorIcon,
+    getValueOfEnvVariable
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
 import { MiDiagramRpcManager } from "./rpc-manager";
@@ -375,6 +383,10 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(getAIResponse, (args: AIUserInput) => rpcManger.getAIResponse(args));
     messenger.onRequest(writeContentToFile, (args: WriteContentToFileRequest) => rpcManger.writeContentToFile(args));
     messenger.onRequest(handleFileWithFS, (args: HandleFileRequest) => rpcManger.handleFileWithFS(args));
+    messenger.onRequest(writeIdpSchemaFileToRegistry, (args: WriteIdpSchemaFileToRegistryRequest) => rpcManger.writeIdpSchemaFileToRegistry(args));
+    messenger.onRequest(getIdpSchemaFiles,() => rpcManger.getIdpSchemaFiles());
+    messenger.onRequest(convertPdfToBase64Images, (args: string) => rpcManger.convertPdfToBase64Images(args));
+    messenger.onRequest(readIdpSchemaFileContent, (args: ReadIdpSchemaFileContentRequest) => rpcManger.readIdpSchemaFileContent(args));
     messenger.onNotification(highlightCode, (args: HighlightCodeRequest) => rpcManger.highlightCode(args));
     messenger.onRequest(getWorkspaceContext, () => rpcManger.getWorkspaceContext());
     messenger.onRequest(getProjectUuid, () => rpcManger.getProjectUuid());
@@ -393,6 +405,7 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(getSelectiveWorkspaceContext, () => rpcManger.getSelectiveWorkspaceContext());
     messenger.onRequest(getSelectiveArtifacts, (args: GetSelectiveArtifactsRequest) => rpcManger.getSelectiveArtifacts(args));
     messenger.onRequest(getBackendRootUrl, () => rpcManger.getBackendRootUrl());
+    messenger.onRequest(getProxyRootUrl, () => rpcManger.getProxyRootUrl());
     messenger.onRequest(getAvailableRegistryResources, (args: ListRegistryArtifactsRequest) => rpcManger.getAvailableRegistryResources(args));
     messenger.onRequest(updateRegistryMetadata, (args: UpdateRegistryMetadataRequest) => rpcManger.updateRegistryMetadata(args));
     messenger.onRequest(getMetadataOfRegistryResource, (args: GetRegistryMetadataRequest) => rpcManger.getMetadataOfRegistryResource(args));
@@ -475,4 +488,5 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(shouldDisplayPayloadAlert, () => rpcManger.shouldDisplayPayloadAlert());
     messenger.onRequest(displayPayloadAlert, () => rpcManger.displayPayloadAlert());
     messenger.onRequest(closePayloadAlert, () => rpcManger.closePayloadAlert());
+    messenger.onRequest(getValueOfEnvVariable, (args: string) => rpcManger.getValueOfEnvVariable(args));
 }

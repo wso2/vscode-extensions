@@ -23,6 +23,7 @@ import { HelperPaneCompletionItem } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { COMPLETION_ITEM_KIND, getIcon, HelperPane } from '@wso2/ui-toolkit';
 import { filterHelperPaneCompletionItems, getHelperPaneCompletionItem } from '../FormExpressionField/utils';
+import { createHelperPaneRequestBody } from '../utils';
 import { PAGE, Page } from './index';
 
 type ParamsPageProps = {
@@ -30,13 +31,15 @@ type ParamsPageProps = {
     setCurrentPage: (page: Page) => void;
     onClose: () => void;
     onChange: (value: string) => void;
+    artifactPath?: string;
 };
 
 export const ParamsPage = ({
     position,
     setCurrentPage,
     onClose,
-    onChange
+    onChange,
+    artifactPath
 }: ParamsPageProps) => {
     const { rpcClient } = useVisualizerContext();
     const firstRender = useRef<boolean>(true);
@@ -49,12 +52,11 @@ export const ParamsPage = ({
         setIsLoading(true);
         setTimeout(() => {
             rpcClient.getVisualizerState().then((machineView) => {
+                const requestBody = createHelperPaneRequestBody(machineView, position, artifactPath);
+                
                 rpcClient
                     .getMiDiagramRpcClient()
-                    .getHelperPaneInfo({
-                        documentUri: machineView.documentUri,
-                        position: position,
-                    })
+                    .getHelperPaneInfo(requestBody)
                     .then((response) => {
                         if (response.params?.length) {
                             setParamInfo(response.params);
