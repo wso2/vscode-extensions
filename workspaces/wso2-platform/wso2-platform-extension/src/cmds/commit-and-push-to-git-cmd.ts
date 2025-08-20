@@ -17,19 +17,24 @@
  */
 
 import { CommandIds, type ICommitAndPuhCmdParams, parseGitURL } from "@wso2/wso2-platform-core";
-import { type ExtensionContext, ProgressLocation, commands, window } from "vscode";
+import { type ExtensionContext, ProgressLocation, Uri, commands, window, workspace } from "vscode";
 import { ext } from "../extensionVariables";
 import { initGit } from "../git/main";
 import { hasDirtyRepo } from "../git/util";
 import { getLogger } from "../logger/logger";
 import { contextStore } from "../stores/context-store";
+import { delay } from "../utils";
 import { getUserInfoForCmd, isRpcActive, setExtensionName } from "./cmd-utils";
 
 export function commitAndPushToGitCommand(context: ExtensionContext) {
 	context.subscriptions.push(
 		commands.registerCommand(CommandIds.CommitAndPushToGit, async (params: ICommitAndPuhCmdParams) => {
-			if (!params.componentPath) {
-				throw new Error("component/integration path is required");
+			let componentPath = params?.componentPath;
+			if (!componentPath && workspace?.workspaceFolders?.[0]) {
+				componentPath = Uri.from(workspace.workspaceFolders[0].uri).fsPath;
+			}
+			if (!componentPath) {
+				throw new Error("component/integration(Git) path is required");
 			}
 			setExtensionName(params?.extName);
 			try {
@@ -41,7 +46,7 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 						throw new Error("project is not associated with a component directory");
 					}
 
-					const haveChanges = await hasDirtyRepo(params.componentPath, ext.context, ["context.yaml"]);
+					const haveChanges = await hasDirtyRepo(componentPath, ext.context, ["context.yaml"]);
 					if (!haveChanges) {
 						window.showErrorMessage("There are no new changes to push to cloud");
 						return;
@@ -51,8 +56,8 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 					if (!newGit) {
 						throw new Error("failed to initGit");
 					}
-					const dotGit = await newGit?.getRepositoryDotGit(params.componentPath);
-					const repoRoot = await newGit?.getRepositoryRoot(params.componentPath);
+					const dotGit = await newGit?.getRepositoryDotGit(componentPath);
+					const repoRoot = await newGit?.getRepositoryRoot(componentPath);
 					const repo = newGit.open(repoRoot, dotGit);
 
 					const remotes = await window.withProgress({ title: "Fetching remotes of the repo...", location: ProgressLocation.Notification }, () =>
@@ -119,12 +124,24 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 						return;
 					}
 
-					await window.withProgress({ title: "Committing and pushing changes to remote...", location: ProgressLocation.Notification }, async () => {
-						await repo.commit(commitMessage);
-						await repo.push(matchingRemote?.name);
-					});
+					const headRef = await window.withProgress(
+						{ title: "Fetching remote repo metadata...", location: ProgressLocation.Notification },
+						async () => {
+							await repo.fetch({ silent: true, remote: matchingRemote?.name });
+							await repo.commit(commitMessage);
+							await delay(500);
+							return repo.getHEADRef();
+						},
+					);
 
-					window.showInformationMessage("Your changes have been successfully pushed to cloud");
+					if (headRef?.ahead && (headRef?.behind === 0 || headRef?.behind === undefined)) {
+						await window.withProgress({ title: "Pushing changes to remote repository...", location: ProgressLocation.Notification }, () =>
+							repo.push(matchingRemote?.name),
+						);
+						window.showInformationMessage("Your changes have been successfully pushed to cloud");
+					} else {
+						await commands.executeCommand("git.sync");
+					}
 				}
 			} catch (err: any) {
 				console.error("Failed to push to remote", err);
