@@ -54,7 +54,7 @@ interface SidePanelContext {
     };
     pageStack: SidePanelPage[];
     setSidePanelState?: Dispatch<SetStateAction<any>>;
-    newDataMapperName?: string;
+    newResourceObject?: string;
     alertMessage?: string;
 }
 
