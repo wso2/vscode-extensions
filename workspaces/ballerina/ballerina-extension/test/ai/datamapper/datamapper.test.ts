@@ -20,6 +20,7 @@ import * as path from 'path';
 import { generateBallerinaCode } from '../../../src/rpc-managers/ai-panel/utils';
 import * as assert from 'assert';
 import * as fs from 'fs';
+import { cleanAndGetInlineParamDefinitions } from '../../../src/rpc-managers/ai-panel/inline-utils';
 
 const RESOURCES_PATH = path.resolve(__dirname, '../../../../test/ai/datamapper/resources');
 
@@ -49,17 +50,36 @@ suite.only("AI Datamapper Tests Suite", () => {
                     test(`Datamapper Test - ${folder}`, async () => {
                         const mappingFile = path.join(folderPath, 'mapping.json');
                         const paramDefFile = path.join(folderPath, 'param_def.json');
+                        const inlineDefFile = path.join(folderPath, 'inline_def.json');
                         const expectedFile = path.join(folderPath, 'expected.json');
 
                         assert.ok(fs.existsSync(mappingFile), `Missing mapping.json in ${folder}`);
-                        assert.ok(fs.existsSync(paramDefFile), `Missing param_def.json in ${folder}`);
                         assert.ok(fs.existsSync(expectedFile), `Missing expected.json in ${folder}`);
 
                         const mapping = JSON.parse(fs.readFileSync(mappingFile, 'utf8'));
-                        const paramDef = JSON.parse(fs.readFileSync(paramDefFile, 'utf8'));
                         const expected = JSON.parse(fs.readFileSync(expectedFile, 'utf8'));
-                        const resp = await generateBallerinaCode(mapping, paramDef, "", []);
-                        assert.deepStrictEqual(resp, expected);            
+                        if (fs.existsSync(inlineDefFile)) {
+                            // Only inline definition file is present - run inline test
+                            const inlineDef = JSON.parse(fs.readFileSync(inlineDefFile, 'utf8'));
+                            let { parameterDefinitions } = await cleanAndGetInlineParamDefinitions(inlineDef);
+
+                            // If param_def.json exists, assert that parameterDefinitions equals its content
+                            if (fs.existsSync(paramDefFile)) {
+                                const paramDef = JSON.parse(fs.readFileSync(paramDefFile, 'utf8'));
+                                assert.deepStrictEqual(parameterDefinitions, paramDef,
+                                    `parameterDefinitions from cleanAndGetInlineParamDefinitions should equal param_def.json content in ${folder}`);
+                            }
+
+                            const resp = await generateBallerinaCode(mapping, parameterDefinitions, "", []);
+                            assert.deepStrictEqual(resp, expected);
+                        } else if (fs.existsSync(paramDefFile)) {
+                            // Only param definition file is present - run reusable test
+                            const paramDef = JSON.parse(fs.readFileSync(paramDefFile, 'utf8'));
+                            const resp = await generateBallerinaCode(mapping, paramDef, "", []);
+                            assert.deepStrictEqual(resp, expected);
+                        } else {
+                            assert.fail(`Neither inline_def.json nor param_def.json found in ${folder}`);
+                        }
                     });
                 }
             });

@@ -41,6 +41,7 @@ import {
     OperationType,
     GENERATE_TEST_AGAINST_THE_REQUIREMENT,
     GENERATE_CODE_AGAINST_THE_REQUIREMENT,
+    InlineAllDataMapperSourceRequest,
 } from "@wso2/ballerina-core";
 
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
@@ -1352,6 +1353,7 @@ const AIChat: React.FC = () => {
     ) {
         let assistant_response = "";
         let finalContent = "";
+        let allMappingsRequest: InlineAllDataMapperSourceRequest;
 
         if (!metadata || Object.keys(metadata).length === 0) {
             throw new Error(`Please make sure variables are initialized, and then try again.`);
@@ -1363,49 +1365,49 @@ const AIChat: React.FC = () => {
 
         setIsLoading(true);
 
+        const requestPayload: any = {
+            metadata,
+        };
+        if (attachments && attachments.length > 0) {
+            requestPayload.attachment = attachments;
+        }
         try {
-            const requestPayload: any = {
-                metadata,
-            };
-            if (attachments && attachments.length > 0) {
-                requestPayload.attachment = attachments;
-            }
-            const allMappingsRequest = await rpcClient.getAiPanelRpcClient().getMappingsFromModel(requestPayload);
-            const sourceResponse = await rpcClient
-                .getInlineDataMapperRpcClient()
-                .getAllDataMapperSource(allMappingsRequest);
-
-            setIsLoading(false);
-
-            finalContent = sourceResponse.textEdits[allMappingsRequest.filePath]?.[0]?.newText;
-
-            assistant_response = `Here are the data mappings:\n\n`;
-            assistant_response += `\n**Note**: When you click **Add to Integration**, it will override your existing mappings.\n`;
-
-            const moduleInfo = metadata.mappingsModel.output.moduleInfo;
-            const hasModuleInfo = moduleInfo && moduleInfo.moduleName;
-
-            const typePrefix = hasModuleInfo ? `${moduleInfo.moduleName.split(".").pop()}:${typeName}` : typeName;
-
-            const formattedContent = `${typePrefix} ${variableName} = {\n${formatWithProperIndentation(
-                finalContent
-            )}\n};`;
-
-            assistant_response += `<code filename="${fileName}" type="ai_map_inline">\n\`\`\`ballerina\n${formattedContent}\n\`\`\`\n</code>`;
-
-            setMessages((prevMessages) => {
-                const newMessages = [...prevMessages];
-                newMessages[newMessages.length - 1].content = assistant_response;
-                return newMessages;
-            });
-            addChatEntry("user", message);
-            addChatEntry("assistant", assistant_response);
-
-            return { success: true, response: assistant_response };
+            allMappingsRequest = await rpcClient.getAiPanelRpcClient().getMappingsFromModel(requestPayload);
         } catch (error) {
             setIsLoading(false);
-            return { error: error instanceof Error ? error.message : "An unexpected error occurred" };
+            throw error;
         }
+        const sourceResponse = await rpcClient
+            .getInlineDataMapperRpcClient()
+            .getAllDataMapperSource(allMappingsRequest);
+
+        setIsLoading(false);
+
+        finalContent = sourceResponse.textEdits[allMappingsRequest.filePath]?.[0]?.newText;
+
+        assistant_response = `Here are the data mappings:\n\n`;
+        assistant_response += `\n**Note**: When you click **Add to Integration**, it will override your existing mappings.\n`;
+
+        const moduleInfo = metadata.mappingsModel.output.moduleInfo;
+        const hasModuleInfo = moduleInfo && moduleInfo.moduleName;
+
+        const typePrefix = hasModuleInfo ? `${moduleInfo.moduleName.split(".").pop()}:${typeName}` : typeName;
+
+        const formattedContent = `${typePrefix} ${variableName} = {\n${formatWithProperIndentation(
+            finalContent
+        )}\n};`;
+
+        assistant_response += `<code filename="${fileName}" type="ai_map_inline">\n\`\`\`ballerina\n${formattedContent}\n\`\`\`\n</code>`;
+
+        setMessages((prevMessages) => {
+            const newMessages = [...prevMessages];
+            newMessages[newMessages.length - 1].content = assistant_response;
+            return newMessages;
+        });
+        addChatEntry("user", message);
+        addChatEntry("assistant", assistant_response);
+
+        return { success: true, response: assistant_response };
     }
 
     async function processContextTypeCreation(message: string, attachments: Attachment[]) {
