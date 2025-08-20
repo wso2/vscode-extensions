@@ -116,6 +116,7 @@ import {
     UpdateTestSuiteRequest,
     UpdateWsdlEndpointRequest,
     WriteContentToFileRequest,
+    WriteMockServicesRequest,
     HandleFileRequest,
     WriteIdpSchemaFileToRegistryRequest,
     ReadIdpSchemaFileContentRequest,
@@ -267,6 +268,7 @@ import {
     updateTestSuite,
     updateWsdlEndpoint,
     writeContentToFile,
+    writeMockServices,
     handleFileWithFS,
     writeIdpSchemaFileToRegistry,
     getIdpSchemaFiles,
@@ -309,7 +311,10 @@ import {
     getCodeDiagnostics,
     GetConnectorIconRequest,
     getConnectorIcon,
-    getValueOfEnvVariable
+    getValueOfEnvVariable,
+    getPomFileContent,
+    getExternalConnectorDetails,
+    getMockServices
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
 import { MiDiagramRpcManager } from "./rpc-manager";
@@ -382,6 +387,7 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(migrateProject, (args: MigrateProjectRequest) => rpcManger.migrateProject(args));
     messenger.onRequest(getAIResponse, (args: AIUserInput) => rpcManger.getAIResponse(args));
     messenger.onRequest(writeContentToFile, (args: WriteContentToFileRequest) => rpcManger.writeContentToFile(args));
+    messenger.onRequest(writeMockServices, (args: WriteMockServicesRequest) => rpcManger.writeMockServices(args));
     messenger.onRequest(handleFileWithFS, (args: HandleFileRequest) => rpcManger.handleFileWithFS(args));
     messenger.onRequest(writeIdpSchemaFileToRegistry, (args: WriteIdpSchemaFileToRegistryRequest) => rpcManger.writeIdpSchemaFileToRegistry(args));
     messenger.onRequest(getIdpSchemaFiles,() => rpcManger.getIdpSchemaFiles());
@@ -489,4 +495,7 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(displayPayloadAlert, () => rpcManger.displayPayloadAlert());
     messenger.onRequest(closePayloadAlert, () => rpcManger.closePayloadAlert());
     messenger.onRequest(getValueOfEnvVariable, (args: string) => rpcManger.getValueOfEnvVariable(args));
+    messenger.onRequest(getPomFileContent, () => rpcManger.getPomFileContent());
+    messenger.onRequest(getExternalConnectorDetails, () => rpcManger.getExternalConnectorDetails());
+    messenger.onRequest(getMockServices, () => rpcManger.getMockServices());
 }

@@ -257,7 +257,12 @@ import {
     GetCodeDiagnosticsReqeust,
     GetCodeDiagnosticsResponse,
     GetConnectorIconRequest,
-    GetConnectorIconResponse
+    GetConnectorIconResponse,
+    GetPomFileContentResponse,
+    GetExternalConnectorDetailsResponse,
+    WriteMockServicesRequest,
+    WriteMockServicesResponse,
+    GetMockServicesResponse
 } from "./types";
 
 export interface MiDiagramAPI {
@@ -430,4 +435,8 @@ export interface MiDiagramAPI {
     shouldDisplayPayloadAlert: () => Promise<boolean>;
     displayPayloadAlert: () => Promise<void>;
     closePayloadAlert: () => Promise<void>;
+    getPomFileContent: () => Promise<GetPomFileContentResponse>;
+    getExternalConnectorDetails: () => Promise<GetExternalConnectorDetailsResponse>;
+    writeMockServices: (params: WriteMockServicesRequest) => Promise<WriteMockServicesResponse>;
+    getMockServices: () => Promise<GetMockServicesResponse>;
 }
