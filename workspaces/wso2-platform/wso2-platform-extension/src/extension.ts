@@ -45,7 +45,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	ext.context = context;
 	ext.api = new PlatformExtensionApi();
 	ext.choreoEnv = getChoreoEnv();
-	setInitialEnv();
 
 	// Initialize stores
 	await authStore.persist.rehydrate();
@@ -102,23 +101,9 @@ const getChoreoEnv = (): string => {
 	);
 };
 
-function setInitialEnv() {
-	const choreoEnv = process.env.CHOREO_ENV || process.env.CLOUD_ENV;
-	if (
-		choreoEnv &&
-		["dev", "stage", "prod"].includes(choreoEnv) &&
-		workspace.getConfiguration().get("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") !== choreoEnv
-	) {
-		workspace.getConfiguration().update("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment", choreoEnv);
-	}
-}
-
 function registerPreInitHandlers(): any {
 	workspace.onDidChangeConfiguration(async ({ affectsConfiguration }: ConfigurationChangeEvent) => {
-		if (
-			!process.env.CLOUD_STS_TOKEN &&
-			(affectsConfiguration("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") || affectsConfiguration("WSO2.WSO2-Platform.Advanced.RpcPath"))
-		) {
+		if (affectsConfiguration("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") || affectsConfiguration("WSO2.WSO2-Platform.Advanced.RpcPath")) {
 			// skip showing this if cloud sts env is available
 			const selection = await window.showInformationMessage(
 				"WSO2 Platform extension configuration changed. Please restart vscode for changes to take effect.",
