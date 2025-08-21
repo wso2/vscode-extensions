@@ -283,7 +283,8 @@ import {
     GetCodeDiagnosticsResponse,
     getCodeDiagnostics,
     ConfigureKubernetesRequest,
-    ConfigureKubernetesResponse
+    ConfigureKubernetesResponse,
+    UpdateRegistryPropertyRequest
 } from "@wso2/mi-core";
 import axios from 'axios';
 import { error } from "console";
@@ -310,7 +311,7 @@ import { testFileMatchPattern } from "../../test-explorer/discover";
 import { mockSerivesFilesMatchPattern } from "../../test-explorer/mock-services/activator";
 import { UndoRedoManager } from "../../undoRedoManager";
 import { copyDockerResources, copyMavenWrapper, createFolderStructure, getAPIResourceXmlWrapper, getAddressEndpointXmlWrapper, getDataServiceXmlWrapper, getDefaultEndpointXmlWrapper, getDssDataSourceXmlWrapper, getFailoverXmlWrapper, getHttpEndpointXmlWrapper, getInboundEndpointXmlWrapper, getLoadBalanceXmlWrapper, getMessageProcessorXmlWrapper, getMessageStoreXmlWrapper, getProxyServiceXmlWrapper, getRegistryResourceContent, getTaskXmlWrapper, getTemplateEndpointXmlWrapper, getTemplateXmlWrapper, getWsdlEndpointXmlWrapper, createGitignoreFile, getEditTemplateXmlWrapper } from "../../util";
-import { addNewEntryToArtifactXML, createMetadataFilesForRegistryCollection, deleteRegistryResource, detectMediaType, getAvailableRegistryResources, getMediatypeAndFileExtension, getRegistryResourceMetadata, updateRegistryResourceMetadata} from "../../util/fileOperations";
+import { addNewEntryToArtifactXML, createMetadataFilesForRegistryCollection, deleteRegistryResource, detectMediaType, getAvailableRegistryResources, getMediatypeAndFileExtension, getRegistryResourceMetadata, updateRegistryResourceMetadata, generatePathFromRegistryPath} from "../../util/fileOperations";
 import { log } from "../../util/logger";
 import { importProjects } from "../../util/migrationUtils";
 import { generateSwagger, getResourceInfo, isEqualSwaggers, mergeSwaggers } from "../../util/swagger";
@@ -333,6 +334,7 @@ import { ICreateComponentCmdParams, CommandIds as PlatformExtCommandIds } from "
 import { MiVisualizerRpcManager } from "../mi-visualizer/rpc-manager";
 import { DebuggerConfig } from "../../debugger/config";
 import { getKubernetesConfiguration, getKubernetesDataConfiguration } from "../../util/template-engine/mustach-templates/KubernetesConfiguration";
+import { parseStringPromise, Builder } from "xml2js";
 
 const AdmZip = require('adm-zip');
 
@@ -5813,6 +5815,97 @@ ${keyValuesXML}`;
             }
         });
     };
+
+    async updatePropertiesInArtifactXML(params: UpdateRegistryPropertyRequest): Promise<string> {
+        const possibleArtifactXMLPaths = [
+            path.join(this.projectUri, "src", "main", "wso2mi", "resources", "artifact.xml"),
+            path.join(this.projectUri, "src", "main", "wso2mi", "resources", "registry", "artifact.xml")
+        ];
+
+        let updatedXml = "";
+
+        for (const filePath of possibleArtifactXMLPaths) {
+            if (!fs.existsSync(filePath)) {
+                continue;
+            }
+
+            const xmlData = fs.readFileSync(filePath, "utf8");
+            const parsed = await parseStringPromise(xmlData);
+
+            let registryResourceFound = false;
+            parsed.artifacts.artifact.forEach((artifact: any) => {
+                const fileName = artifact.item[0].file[0];
+                if (params.targetFile.endsWith(generatePathFromRegistryPath(artifact.item[0].path[0], fileName))) {
+                    registryResourceFound = true;
+                    if (params.properties.length === 0) {
+                        artifact.item[0].properties = [""];
+                    } else {
+                        artifact.item[0].properties = [
+                            {
+                                property: params.properties.map(p => ({
+                                    $: { key: p.key, value: p.value }
+                                }))
+                            }
+                        ];
+                    }
+                }
+            });
+
+            if (registryResourceFound) {
+                const builder = new Builder({ xmldec: { version: "1.0", encoding: "UTF-8" } });
+                updatedXml = builder.buildObject(parsed);
+                await replaceFullContentToFile(filePath, updatedXml);
+                break;
+            }
+        }
+        return updatedXml;
+    }
+
+    async getPropertiesFromArtifactXML(targetFile: string): Promise<Property[] | undefined> {
+        if (!targetFile) {
+            await window.showInformationMessage(
+                "Registry properties cannot be added to the selected resource.",
+                { modal: true }
+            );
+            return undefined;
+        }
+
+        const possibleArtifactXMLPaths = [
+            path.join(this.projectUri, "src", "main", "wso2mi", "resources", "artifact.xml"),
+            path.join(this.projectUri, "src", "main", "wso2mi", "resources", "registry", "artifact.xml")
+        ];
+
+        for (const filePath of possibleArtifactXMLPaths) {
+            if (!fs.existsSync(filePath)) {
+                continue;
+            }
+
+            const xmlData = fs.readFileSync(filePath, "utf8");
+            const parsed = await parseStringPromise(xmlData);
+
+            for (const artifact of parsed.artifacts.artifact) {
+                const fileName = artifact.item[0].file[0];
+                if (targetFile.endsWith(generatePathFromRegistryPath(artifact.item[0].path[0], fileName))) {
+                    const propertiesBlock = artifact.item[0].properties?.[0];
+
+                    if (!propertiesBlock || !propertiesBlock.property) {
+                        return [];
+                    }
+
+                    return propertiesBlock.property.map((prop: any) => ({
+                        key: prop.$.key,
+                        value: prop.$.value
+                    }));
+                }
+            }
+        }
+
+        await window.showInformationMessage(
+            "Registry properties cannot be added to the selected resource.",
+            { modal: true }
+        );
+        return undefined;
+    }
 }
 
 export function getRepoRoot(projectRoot: string): string | undefined {
