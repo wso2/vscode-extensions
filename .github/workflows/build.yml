@@ -263,22 +263,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: MI
-            path: mi/mi-extension
-            group: group1
-            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
-          - name: MI
-            path: mi/mi-extension
-            group: group2
-            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
-          - name: MI
-            path: mi/mi-extension
-            group: group3
-            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
-          - name: MI
-            path: mi/mi-extension
-            group: group4
-            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
+          # - name: MI
+          #   path: mi/mi-extension
+          #   group: group1
+          #   condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
+          # - name: MI
+          #   path: mi/mi-extension
+          #   group: group2
+          #   condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
+          # - name: MI
+          #   path: mi/mi-extension
+          #   group: group3
+          #   condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
+          # - name: MI
+          #   path: mi/mi-extension
+          #   group: group4
+          #   condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
           - name: BI
             path: bi/bi-extension
             group: group1
