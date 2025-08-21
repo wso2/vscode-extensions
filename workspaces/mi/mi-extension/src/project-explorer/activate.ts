@@ -380,6 +380,17 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 		openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.DSSServiceDesigner, documentUri });
 	});
 
+	commands.registerCommand(COMMANDS.EDIT_K8_CONFIGURATION_COMMAND, async () => {
+		const webview = [...webviews.values()].find(webview => webview.getWebview()?.active);
+		if (webview && webview?.getProjectUri()) {
+			const filePath = path.join(webview.getProjectUri(), 'deployment', 'kubernetes', 'integration_k8s.yaml');
+			workspace.openTextDocument(filePath).then((doc) => {
+				window.showTextDocument(doc, { preview: false });
+			});
+			commands.executeCommand('workbench.files.action.focusFilesExplorer');
+		}
+	});
+
 	// delete
 	commands.registerCommand(COMMANDS.DELETE_PROJECT_EXPLORER_ITEM, async (item: TreeItem) => {
 		let file: string | undefined;
