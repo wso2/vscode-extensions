@@ -588,16 +588,21 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		const urlObj = new URL(_repoUrl);
 
 		if (process.env.CLOUD_STS_TOKEN) {
-			const gitPat = await window.withProgress({ title: `Accessing the repository ${_repoUrl}...`, location: ProgressLocation.Notification }, () =>
-				ext.clients.rpcClient.getGitTokenForRepository({
-					orgId: params.org.id?.toString(),
-					gitOrg: params.repo.orgName,
-					gitRepo: params.repo.repo,
-				}),
-			);
+			try {
+				const gitPat = await window.withProgress({ title: `Accessing the repository ${_repoUrl}...`, location: ProgressLocation.Notification }, () =>
+					ext.clients.rpcClient.getGitTokenForRepository({
+						orgId: params.org.id?.toString(),
+						gitOrg: params.repo.orgName,
+						gitRepo: params.repo.repo,
+						secretRef: params.repo.secretRef || "",
+					}),
+				);
 
-			urlObj.username = "x-access-token";
-			urlObj.password = gitPat.token;
+				urlObj.username = gitPat.username || "x-access-token";
+				urlObj.password = gitPat.token;
+			} catch {
+				getLogger().debug(`Failed to get token for ${params}`);
+			}
 		}
 
 		const repoUrl = urlObj.href;

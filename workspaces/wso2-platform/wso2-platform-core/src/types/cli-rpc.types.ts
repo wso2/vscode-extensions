@@ -420,12 +420,16 @@ export interface GetGitTokenForRepositoryReq {
 	orgId: string;
 	gitOrg: string;
 	gitRepo: string;
+	secretRef: string;
 }
 
 export interface GetGitTokenForRepositoryResp {
 	token: string;
 	gitOrganization: string;
 	gitRepository: string;
+	vendor: string;
+	username: string;
+	serverUrl: string;
 }
 
 export interface GetGitMetadataReq {

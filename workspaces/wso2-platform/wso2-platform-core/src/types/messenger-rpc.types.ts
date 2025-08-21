@@ -122,6 +122,7 @@ export interface CloneRepositoryIntoCompDirReq {
 		repo: string;
 		serverUrl?: string;
 		branch: string;
+		secretRef: string;
 	};
 }
 

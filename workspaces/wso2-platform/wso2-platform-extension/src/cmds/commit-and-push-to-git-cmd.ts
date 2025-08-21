@@ -16,27 +16,22 @@
  * under the License.
  */
 
-import { CommandIds, type ICommitAndPuhCmdParams, parseGitURL } from "@wso2/wso2-platform-core";
-import { type ExtensionContext, ProgressLocation, Uri, commands, window, workspace } from "vscode";
+import { CommandIds, ComponentKind, type ContextStoreComponentState, type ICommitAndPuhCmdParams, parseGitURL } from "@wso2/wso2-platform-core";
+import { type ExtensionContext, ProgressLocation, type QuickPickItem, Uri, commands, env, window, workspace } from "vscode";
 import { ext } from "../extensionVariables";
 import { initGit } from "../git/main";
 import { hasDirtyRepo } from "../git/util";
 import { getLogger } from "../logger/logger";
 import { contextStore } from "../stores/context-store";
-import { delay } from "../utils";
+import { webviewStateStore } from "../stores/webview-state-store";
+import { delay, isSamePath } from "../utils";
 import { getUserInfoForCmd, isRpcActive, setExtensionName } from "./cmd-utils";
 
 export function commitAndPushToGitCommand(context: ExtensionContext) {
 	context.subscriptions.push(
 		commands.registerCommand(CommandIds.CommitAndPushToGit, async (params: ICommitAndPuhCmdParams) => {
-			let componentPath = params?.componentPath;
-			if (!componentPath && workspace?.workspaceFolders?.[0]) {
-				componentPath = Uri.from(workspace.workspaceFolders[0].uri).fsPath;
-			}
-			if (!componentPath) {
-				throw new Error("component/integration(Git) path is required");
-			}
 			setExtensionName(params?.extName);
+			const extensionName = webviewStateStore.getState().state.extensionName;
 			try {
 				isRpcActive(ext);
 				const userInfo = await getUserInfoForCmd("commit and push changes to Git");
@@ -46,7 +41,42 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 						throw new Error("project is not associated with a component directory");
 					}
 
-					const haveChanges = await hasDirtyRepo(componentPath, ext.context, ["context.yaml"]);
+					let selectedComp: ContextStoreComponentState | undefined;
+					const getSelectedComponent = async (items: ContextStoreComponentState[]) => {
+						const componentItems: (QuickPickItem & { item?: ContextStoreComponentState })[] = items.map((item) => ({
+							label: item?.component?.metadata?.displayName!,
+							item: item,
+						}));
+						const selectedComp = await window.showQuickPick(componentItems, {
+							title: `Multiple ${extensionName === "Devant" ? "integrations" : "components"} detected. Please select ${extensionName === "Devant" ? "an integration" : "a component"} to push`,
+						});
+						return selectedComp?.item;
+					};
+
+					if (contextStore.getState().state?.components?.length === 0) {
+						throw new Error("No components in this workspace");
+					}
+
+					if (params?.componentPath) {
+						const matchingComponent = contextStore
+							.getState()
+							.state?.components?.filter((item) => isSamePath(item.componentFsPath, params?.componentPath));
+						if (matchingComponent?.length === 0) {
+							selectedComp = await getSelectedComponent(contextStore.getState().state?.components!);
+						} else if (matchingComponent?.length === 1) {
+							selectedComp = matchingComponent[0];
+						} else if (matchingComponent && matchingComponent?.length > 1) {
+							selectedComp = await getSelectedComponent(matchingComponent);
+						}
+					} else {
+						selectedComp = await getSelectedComponent(contextStore.getState().state?.components!);
+					}
+
+					if (!selectedComp) {
+						throw new Error("Failed to select component fo be pushed to remote");
+					}
+
+					const haveChanges = await hasDirtyRepo(selectedComp.componentFsPath, ext.context, ["context.yaml"]);
 					if (!haveChanges) {
 						window.showErrorMessage("There are no new changes to push to cloud");
 						return;
@@ -56,8 +86,8 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 					if (!newGit) {
 						throw new Error("failed to initGit");
 					}
-					const dotGit = await newGit?.getRepositoryDotGit(componentPath);
-					const repoRoot = await newGit?.getRepositoryRoot(componentPath);
+					const dotGit = await newGit?.getRepositoryDotGit(selectedComp.componentFsPath);
+					const repoRoot = await newGit?.getRepositoryRoot(selectedComp.componentFsPath);
 					const repo = newGit.open(repoRoot, dotGit);
 
 					const remotes = await window.withProgress({ title: "Fetching remotes of the repo...", location: ProgressLocation.Notification }, () =>
@@ -79,28 +109,33 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 					});
 
 					if (!matchingRemote && process.env.CLOUD_STS_TOKEN && remotes[0].fetchUrl) {
-						const repoUrl = remotes[0].fetchUrl;
-						const parsed = parseGitURL(repoUrl);
-						if (parsed) {
-							const [repoOrg, repoName] = parsed;
-							const urlObj = new URL(repoUrl);
-							getLogger().debug(`Fetching PAT for org ${repoOrg} and repo ${repoName}`);
-							const gitPat = await window.withProgress(
-								{ title: `Accessing the repository ${repoUrl}...`, location: ProgressLocation.Notification },
-								() =>
-									ext.clients.rpcClient.getGitTokenForRepository({
-										orgId: selected.org?.id?.toString()!,
-										gitOrg: repoOrg,
-										gitRepo: repoName,
-									}),
-							);
-							urlObj.username = "x-access-token";
-							urlObj.password = gitPat.token;
-							await window.withProgress({ title: "Setting new remote...", location: ProgressLocation.Notification }, async () => {
-								await repo.addRemote("cloud-editor-remote", urlObj.href);
-								const remotes = await repo.getRemotes();
-								matchingRemote = remotes.find((item) => item.name === "cloud-editor-remote");
-							});
+						try {
+							const repoUrl = remotes[0].fetchUrl;
+							const parsed = parseGitURL(repoUrl);
+							if (parsed) {
+								const [repoOrg, repoName] = parsed;
+								const urlObj = new URL(repoUrl);
+								getLogger().debug(`Fetching PAT for org ${repoOrg} and repo ${repoName}`);
+								const gitPat = await window.withProgress(
+									{ title: `Accessing the repository ${repoUrl}...`, location: ProgressLocation.Notification },
+									() =>
+										ext.clients.rpcClient.getGitTokenForRepository({
+											orgId: selected.org?.id?.toString()!,
+											gitOrg: repoOrg,
+											gitRepo: repoName,
+											secretRef: selectedComp.component?.spec?.source?.secretRef || "",
+										}),
+								);
+								urlObj.username = gitPat.username || "x-access-token";
+								urlObj.password = gitPat.token;
+								await window.withProgress({ title: "Setting new remote...", location: ProgressLocation.Notification }, async () => {
+									await repo.addRemote("cloud-editor-remote", urlObj.href);
+									const remotes = await repo.getRemotes();
+									matchingRemote = remotes.find((item) => item.name === "cloud-editor-remote");
+								});
+							}
+						} catch {
+							getLogger().debug(`Failed to get token for ${remotes[0].fetchUrl}`);
 						}
 					}
 

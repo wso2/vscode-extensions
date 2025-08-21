@@ -195,6 +195,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 						provider: repoInitDetails.gitProvider,
 						repo: repoInitDetails.repo,
 						serverUrl: repoInitDetails.serverUrl,
+						secretRef: repoInitDetails.credential || ""
 					},
 				});
 

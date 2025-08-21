@@ -68,6 +68,7 @@ export interface ComponentKindSource {
 	bitbucket?: ComponentKindGitProviderSource;
 	github?: ComponentKindGitProviderSource;
 	gitlab?: ComponentKindGitProviderSource;
+	secretRef?: string;
 }
 
 export interface ComponentKindBuildDocker {
