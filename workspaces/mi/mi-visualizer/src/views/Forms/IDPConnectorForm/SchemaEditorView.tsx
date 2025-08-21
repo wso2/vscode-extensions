@@ -306,7 +306,7 @@ export function SchemaEditorView({
     const handleFileWrite = (schema?: string, imageOrPdf?:string) => {
         rpcClient.getMiDiagramRpcClient().writeIdpSchemaFileToRegistry({
             fileContent: schema,
-            schemaName: path.split('/').pop()?.replace(/\.json$/, '') ?? '',
+            schemaName: path.replace(/\\/g, '/').split('/').pop()?.replace(/\.json$/, '') ?? '',
             imageOrPdf: imageOrPdf
         });
     };

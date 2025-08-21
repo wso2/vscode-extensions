@@ -308,7 +308,11 @@ import {
     GetCodeDiagnosticsResponse,
     getCodeDiagnostics,
     GetConnectorIconRequest,
-    getConnectorIcon
+    getConnectorIcon,
+    getValueOfEnvVariable,
+    configureKubernetes,
+    ConfigureKubernetesRequest,
+    isKubernetesConfigured
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
 import { MiDiagramRpcManager } from "./rpc-manager";
@@ -487,4 +491,7 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(shouldDisplayPayloadAlert, () => rpcManger.shouldDisplayPayloadAlert());
     messenger.onRequest(displayPayloadAlert, () => rpcManger.displayPayloadAlert());
     messenger.onRequest(closePayloadAlert, () => rpcManger.closePayloadAlert());
+    messenger.onRequest(getValueOfEnvVariable, (args: string) => rpcManger.getValueOfEnvVariable(args));
+    messenger.onRequest(configureKubernetes, (args: ConfigureKubernetesRequest) => rpcManger.configureKubernetes(args));
+    messenger.onRequest(isKubernetesConfigured, () => rpcManger.isKubernetesConfigured());
 }

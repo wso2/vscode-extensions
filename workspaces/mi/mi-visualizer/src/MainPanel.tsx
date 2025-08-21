@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { POPUP_EVENT_TYPE, PopupMachineStateValue, MACHINE_VIEW, Platform, VisualizerLocation } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { ServiceDesignerView } from './views/ServiceDesigner';
@@ -57,6 +57,7 @@ import { Overview } from './views/Overview';
 import { DatamapperForm } from './views/Forms/DatamapperForm';
 import { ImportArtfactForm } from './views/Forms/ImportArtifactForm';
 import { IdpConnectorSchemaGenerateForm }from './views/Forms/IDPConnectorForm/IdpConnectorSchemaGenerateForm';
+import { KubernetesConfigurationForm } from "./views/Forms/KubernetesConfigurationForm";
 
 const MainContainer = styled.div`
     display: flex;
@@ -318,6 +319,9 @@ const MainPanel = (props: MainPanelProps) => {
                 break;
             case MACHINE_VIEW.ImportArtifactForm:
                 setViewComponent(<ImportArtfactForm />);
+                break;
+            case MACHINE_VIEW.KubernetesConfigurationForm:
+                setViewComponent(<KubernetesConfigurationForm />);
                 break;
             case MACHINE_VIEW.ConnectorStore:
                 setViewComponent(
