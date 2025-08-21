@@ -281,7 +281,9 @@ import {
     DependencyDetails,
     GetCodeDiagnosticsReqeust,
     GetCodeDiagnosticsResponse,
-    getCodeDiagnostics
+    getCodeDiagnostics,
+    ConfigureKubernetesRequest,
+    ConfigureKubernetesResponse
 } from "@wso2/mi-core";
 import axios from 'axios';
 import { error } from "console";
@@ -330,6 +332,7 @@ import { DevantScopes, IWso2PlatformExtensionAPI } from "@wso2/wso2-platform-cor
 import { ICreateComponentCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
 import { MiVisualizerRpcManager } from "../mi-visualizer/rpc-manager";
 import { DebuggerConfig } from "../../debugger/config";
+import { getKubernetesConfiguration, getKubernetesDataConfiguration } from "../../util/template-engine/mustach-templates/KubernetesConfiguration";
 
 const AdmZip = require('adm-zip');
 
@@ -4015,6 +4018,40 @@ ${endpointAttributes}
             await configFile.save();
             commands.executeCommand(COMMANDS.REFRESH_COMMAND);
             resolve({ path: filePath });
+        });
+    }
+
+    async configureKubernetes(params: ConfigureKubernetesRequest): Promise<ConfigureKubernetesResponse> {
+        return new Promise(async (resolve) => {
+            const hasEnvValues = params.envValues && params.envValues.length > 0;
+            const hasPorts = params.ports && params.ports.length > 0;
+            const k8Configuration = getKubernetesConfiguration({ name: params.name, replicas: params.replicas, targetImage: params.targetImage, ports: params.ports, hasEnvValues: hasEnvValues, hasPorts: hasPorts });
+            const k8Path = path.join(this.projectUri, 'deployment', 'kubernetes');
+            fs.mkdirSync(k8Path, { recursive: true });
+            const configFilePath = path.join(k8Path, 'integration_k8s.yaml');
+            await replaceFullContentToFile(configFilePath, k8Configuration);
+            const configFile = await vscode.workspace.openTextDocument(configFilePath);
+            await configFile.save();
+            if (hasEnvValues) {
+                const envConfiguration = getKubernetesDataConfiguration(params.envValues);
+                const envDataFilePath = path.join(k8Path, "integration_data.yaml");
+                await replaceFullContentToFile(envDataFilePath, envConfiguration);
+                const envDataFile = await vscode.workspace.openTextDocument(envDataFilePath);
+                await envDataFile.save();
+            }
+            commands.executeCommand(COMMANDS.REFRESH_COMMAND);
+            resolve({ path: k8Path });
+        });
+    }
+
+    isKubernetesConfigured(): Promise<boolean> {
+        return new Promise(async (resolve) => {
+            const configFilePath = path.join(this.projectUri, 'deployment', 'kubernetes', 'integration_k8s.yaml');
+            if (fs.existsSync(configFilePath)) {
+                resolve(true);
+            } else {
+                resolve(false);
+            }
         });
     }
 
