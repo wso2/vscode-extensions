@@ -42,7 +42,7 @@ interface ConfigProps {
     fileName: string;
     isSaving: boolean;
     formFields: FormField[];
-    targetLineRange: LineRange;
+    targetLineRange?: LineRange;
     disableSaveButton?: boolean;
     onSubmit: (data: FormField[], rawData: FormValues) => void;
     onBack?: () => void;
