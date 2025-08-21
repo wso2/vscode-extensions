@@ -1463,6 +1463,18 @@ export interface CreateBallerinaModuleResponse {
     path: string;
 }
 
+export interface ConfigureKubernetesRequest {
+    name: string;
+    replicas: number;
+    targetImage: string;
+    ports: Array<{ port: number }>;
+    envValues: any[];
+}
+
+export interface ConfigureKubernetesResponse {
+    path: string;
+}
+
 export interface GetBackendRootUrlResponse {
     url: string;
 }
@@ -2142,6 +2154,7 @@ export interface GenerateConnectorResponse {
 export interface GetHelperPaneInfoRequest {
     documentUri: string;
     position: Position;
+    needLastMediator?: boolean;
 }
 
 export type GetHelperPaneInfoResponse = HelperPaneData;

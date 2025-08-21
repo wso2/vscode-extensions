@@ -434,7 +434,12 @@ import {
     UpdateMediatorResponse,
     GetConnectorIconRequest,
     GetConnectorIconResponse,
-    getConnectorIcon
+    getConnectorIcon,
+    getValueOfEnvVariable,
+    configureKubernetes,
+    ConfigureKubernetesRequest,
+    ConfigureKubernetesResponse,
+    isKubernetesConfigured
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -1136,5 +1141,17 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     closePayloadAlert(): Promise<void> {
         return this._messenger.sendRequest(closePayloadAlert, HOST_EXTENSION);
+    }
+  
+    getValueOfEnvVariable(params:string): Promise<string> { 
+        return this._messenger.sendRequest(getValueOfEnvVariable, HOST_EXTENSION, params);
+    }
+
+    configureKubernetes(params: ConfigureKubernetesRequest): Promise<ConfigureKubernetesResponse> {
+        return this._messenger.sendRequest(configureKubernetes, HOST_EXTENSION, params);
+    }
+
+    isKubernetesConfigured(): Promise<boolean> {
+        return this._messenger.sendRequest(isKubernetesConfigured, HOST_EXTENSION);
     }
 }
