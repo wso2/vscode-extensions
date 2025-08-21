@@ -1091,3 +1091,14 @@ export async function rangeFormat(req: RangeFormatRequest): Promise<ApplyEditRes
         resolve({ status: true });
     });
 }
+
+export function generatePathFromRegistryPath(registryPath: string, fileName: string): string {
+    if (registryPath.includes("/mi-resources/")) {
+        registryPath = registryPath.split("/mi-resources/")[1];
+    } else if (registryPath.includes("/config/")) {
+        registryPath = "conf/" + registryPath.split("/config/")[1];
+    } else {
+        registryPath = "gov/" + registryPath.split("/governance/")[1];
+    }
+    return path.join(registryPath.split("/").join(path.sep), fileName);
+}
