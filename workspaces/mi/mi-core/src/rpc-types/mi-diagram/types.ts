@@ -2212,3 +2212,8 @@ export interface XmlCode{
     fileName: string;
     code: string;
 }
+
+export interface UpdateRegistryPropertyRequest {
+    targetFile: string;
+    properties: Property[];
+}

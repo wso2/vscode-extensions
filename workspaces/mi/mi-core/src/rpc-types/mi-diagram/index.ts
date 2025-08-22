@@ -259,7 +259,9 @@ import {
     GetConnectorIconRequest,
     GetConnectorIconResponse,
     ConfigureKubernetesRequest,
-    ConfigureKubernetesResponse
+    ConfigureKubernetesResponse,
+    UpdateRegistryPropertyRequest,
+    Property
 } from "./types";
 
 export interface MiDiagramAPI {
@@ -434,4 +436,6 @@ export interface MiDiagramAPI {
     closePayloadAlert: () => Promise<void>;
     configureKubernetes: (params: ConfigureKubernetesRequest) => Promise<ConfigureKubernetesResponse>;
     isKubernetesConfigured: () => Promise<boolean>;
+    updatePropertiesInArtifactXML: (params: UpdateRegistryPropertyRequest) => Promise<string>;
+    getPropertiesFromArtifactXML: (params: string) => Promise<Property[] | undefined>;
 }
