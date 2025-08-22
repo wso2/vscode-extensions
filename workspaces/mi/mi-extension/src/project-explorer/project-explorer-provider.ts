@@ -282,25 +282,49 @@ function generateResources(data: RegistryResourcesFolder, resourceDetails: ListR
 		if (data.folders) {
 			for (const entry of data.folders) {
 				if (![".meta", "datamapper", "datamappers"].includes(entry.name)) {
-					const files = generateResources(entry, resourceDetails);
-					if (!files || files?.length === 0) {
-						continue;
+					if (entry.name.includes("idp-schemas")) {
+						const parentEntry = new ProjectExplorerEntry(entry.name, isCollapsibleState(entry.folders.length > 0), {name: entry.name,
+							type: 'resource', path: `${entry.path}`}, 'folder', true); 
+							parentEntry.contextValue = "idp-schemas";
+							parentEntry.id = "idp-schema";
+							parentEntry.children = entry.folders.map((folder:any)=>{
+								const explorerEntry = new ProjectExplorerEntry(
+									folder.name,
+									isCollapsibleState(false),
+									folder,
+									'file'
+								);
+								explorerEntry.contextValue = 'idp-schema';
+								explorerEntry.command = {
+									title: "Open IDP connector schema generation",
+									command: COMMANDS.SHOW_IDP_SCHEMA,
+									arguments: [folder.files.find((file: any) => file.name.endsWith(".json") || file.name.endsWith(".xsd"))?.path]
+								};
+								return explorerEntry;
+							})
+						result.push(parentEntry)
 					}
-					const explorerEntry = new ProjectExplorerEntry(entry.name,
+					else{
+						const files = generateResources(entry, resourceDetails);
+						if (!files || files?.length === 0) {
+							continue;
+						}
+						const explorerEntry = new ProjectExplorerEntry(entry.name,
 						isCollapsibleState(entry.files.length > 0 || entry.folders.length > 0),
 						{
 							name: entry.name,
 							type: 'resource',
 							path: `${entry.path}`
 						}, 'folder', true);
-					explorerEntry.children = generateResources(entry, resourceDetails);
-					result.push(explorerEntry);
-					const lastIndex = entry.path.indexOf(resPathPrefix) !== -1 ? entry.path.indexOf(resPathPrefix) + resPathPrefix.length : 0;
-					const resourcePath = entry.path.substring(lastIndex);
-					if (checkExistenceOfResource(resourcePath, resourceDetails)) {
-						explorerEntry.contextValue = "registry-with-metadata";
-					} else {
-						explorerEntry.contextValue = "registry-without-metadata";
+						explorerEntry.children = generateResources(entry, resourceDetails);
+						result.push(explorerEntry);
+						const lastIndex = entry.path.indexOf(resPathPrefix) !== -1 ? entry.path.indexOf(resPathPrefix) + resPathPrefix.length : 0;
+						const resourcePath = entry.path.substring(lastIndex);
+						if (checkExistenceOfResource(resourcePath, resourceDetails)) {
+							explorerEntry.contextValue = "registry-with-metadata-folder";
+						} else {
+							explorerEntry.contextValue = "registry-without-metadata-folder";
+						}
 					}
 				}
 			}

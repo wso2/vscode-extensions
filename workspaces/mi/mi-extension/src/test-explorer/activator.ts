@@ -17,7 +17,7 @@
  */
 
 import path = require("path");
-import { TestController, tests, TestRunProfileKind, Uri, TestItem, ExtensionContext, commands, Range, Position, window } from "vscode";
+import { TestController, tests, TestRunProfileKind, Uri, TestItem, ExtensionContext, commands, Range, Position, window, workspace, WorkspaceEdit } from "vscode";
 import { runHandler } from "./runner";
 import { createTestsForAllFiles, testFileMatchPattern } from "./discover";
 import { getProjectName, getProjectRoot, startWatchingWorkspace } from "./helper";
@@ -28,6 +28,8 @@ import { activateMockServiceTreeView } from "./mock-services/activator";
 import { TagRange, TestCase, UnitTest } from "../../../syntax-tree/lib/src";
 import { normalize } from "upath";
 import { MILanguageClient } from "../lang-client/activator";
+import { webviews } from "../visualizer/webview";
+import vscode from "vscode";
 
 export let testController: TestController;
 const testDirNodes: string[] = [];
@@ -57,8 +59,9 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
     startWatchingWorkspace(testFileMatchPattern, createTestsForAllFiles);
 
     commands.registerCommand(COMMANDS.ADD_TEST_SUITE, (args: any) => {
-        const projectUri = getProjectRoot(Uri.parse(args?.id));
-        openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.TestSuite, projectUri });
+        const projectUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+        const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
+        openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.TestSuite, projectUri: webview ? webview.getProjectUri() : projectUri?.fsPath });
         console.log('Add Test suite');
     });
 
@@ -132,6 +135,124 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
 
         openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.TestCase, documentUri: entry.uri?.fsPath, customProps: { testCase, availableTestCases: availableTestCasesFiltered, testSuiteType, range: unitTestST?.range } });
         console.log('Update Test Case');
+    });
+
+    commands.registerCommand(COMMANDS.DELETE_TEST_CASE, async (entry: TestItem) => {
+        const id = entry?.id;
+        if (!id || id.split('.xml/').length < 2) {
+            window.showErrorMessage('Test case id is not available');
+            return;
+        }
+        const fileUri = `${id.split('.xml/')[0]}.xml`;
+        const testCaseName = id.split('.xml/')[1];
+        
+        // Show confirmation dialog
+        const confirmation = await window.showWarningMessage(
+            `Are you sure you want to delete test case "${testCaseName}"?`,
+            { modal: true },
+            'Delete'
+        );
+        
+        if (confirmation !== 'Delete') {
+            return;
+        }
+
+        try {
+            const projectRoot = getProjectRoot(Uri.file(fileUri));
+            const langClient = await MILanguageClient.getInstance(projectRoot!);
+            const st = await langClient?.languageClient?.getSyntaxTree({
+                documentIdentifier: {
+                    uri: fileUri
+                },
+            });
+            
+            if (!st) {
+                window.showErrorMessage('Syntax tree is not available');
+                return;
+            }
+            
+            const unitTestsST: UnitTest = st?.syntaxTree["unit-test"];
+            const testCaseToDelete = unitTestsST?.testCases?.testCases.find((testCase) => testCase.name === testCaseName);
+            
+            if (!testCaseToDelete) {
+                window.showErrorMessage('Test case not found in syntax tree');
+                return;
+            }
+
+            // Delete the test case from the file by removing its XML content
+            const document = await workspace.openTextDocument(Uri.file(fileUri));
+            const edit = new WorkspaceEdit();
+            
+            // Calculate the range to delete (including the test case XML tags)
+            const startLine = testCaseToDelete.range.startTagRange.start.line;
+            const endLine = testCaseToDelete.range.endTagRange.end.line;
+            const startCharacter = testCaseToDelete.range.startTagRange.start.character;
+            const endCharacter = testCaseToDelete.range.endTagRange.end.character;
+            
+            const deleteRange = new Range(
+                new Position(startLine, startCharacter),
+                new Position(endLine, endCharacter)
+            );
+            
+            edit.delete(Uri.file(fileUri), deleteRange);
+            
+            const success = await workspace.applyEdit(edit);
+            if (success) {
+                await document.save();
+                window.showInformationMessage(`Test case "${testCaseName}" deleted successfully`);
+                
+                // Refresh the test explorer to update the UI
+                createTestsForAllFiles();
+            } else {
+                window.showErrorMessage('Failed to delete test case');
+            }
+        } catch (error) {
+            window.showErrorMessage(`Error deleting test case: ${error}`);
+            console.error('Delete test case error:', error);
+        }
+    });
+
+    commands.registerCommand(COMMANDS.DELETE_TEST_SUITE, async (entry: TestItem) => {
+        const id = entry?.id;
+        if (!id || !id.endsWith('.xml')) {
+            window.showErrorMessage('Test suite id is not available');
+            return;
+        }
+        
+        const fileUri = id;
+        const testSuiteName = getProjectName(Uri.file(fileUri));
+        
+        // Show confirmation dialog
+        const confirmation = await window.showWarningMessage(
+            `Are you sure you want to delete test suite "${testSuiteName}"?\nThis will delete the entire test suite file and all test cases within it.`,
+            { modal: true },
+            'Delete'
+        );
+        
+        if (confirmation !== 'Delete') {
+            return;
+        }
+
+        try {
+            const projectRoot = getProjectRoot(Uri.file(fileUri));
+            
+            // Delete the entire test suite file
+            const edit = new WorkspaceEdit();
+            edit.deleteFile(Uri.file(fileUri), { recursive: false, ignoreIfNotExists: true });
+            
+            const success = await workspace.applyEdit(edit);
+            if (success) {
+                window.showInformationMessage(`Test suite "${testSuiteName}" deleted successfully`);
+                
+                // Refresh the test explorer to update the UI
+                createTestsForAllFiles();
+            } else {
+                window.showErrorMessage('Failed to delete test suite file');
+            }
+        } catch (error) {
+            window.showErrorMessage(`Error deleting test suite: ${error}`);
+            console.error('Delete test suite error:', error);
+        }
     });
 
     commands.registerCommand(COMMANDS.GEN_AI_TESTS, () => {

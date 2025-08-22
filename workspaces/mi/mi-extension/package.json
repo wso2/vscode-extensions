@@ -413,7 +413,12 @@
       {
         "command": "MI.project-explorer.delete",
         "title": "Delete",
-        "icon": "$(delete)"
+        "icon": "$(trash)"
+      },
+      {
+        "command": "MI.manage-registry-property",
+        "title": "Manage Properties",
+        "icon": "$(add)"
       },
       {
         "command": "MI.project-explorer.markAsDefaultSequence",
@@ -502,6 +507,24 @@
         "command": "MI.test.refresh.mock-services",
         "title": "Refresh",
         "icon": "$(refresh)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.test.delete.mock-service",
+        "title": "Delete Mock Service",
+        "icon": "$(trash)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.test.delete.case",
+        "title": "Delete Test Case",
+        "icon": "$(trash)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.test.delete.suite",
+        "title": "Delete Test Suite",
+        "icon": "$(trash)",
         "category": "MI"
       }
     ],
@@ -592,6 +615,10 @@
           "when": "false"
         },
         {
+          "command": "MI.manage-registry-property",
+          "when": "false"
+        },
+        {
           "command": "MI.project-explorer.markAsDefaultSequence",
           "when": "false"
         },
@@ -641,6 +668,18 @@
         },
         {
           "command": "MI.test.refresh.mock-services",
+          "when": "false"
+        },
+        {
+          "command": "MI.test.delete.mock-service",
+          "when": "false"
+        },
+        {
+          "command": "MI.test.delete.case",
+          "when": "false"
+        },
+        {
+          "command": "MI.test.delete.suite",
           "when": "false"
         }
       ],
@@ -809,8 +848,13 @@
         },
         {
           "command": "MI.project-explorer.delete",
-          "when": "view == MI.project-explorer && viewItem == api || viewItem == resource || viewItem == endpoint || viewItem == sequence || viewItem == proxy-service || viewItem == inboundEndpoint || viewItem == messageStore || viewItem == message-processor || viewItem == task || viewItem == localEntry || viewItem == template  || viewItem == dataSource || viewItem == data-service || viewItem == data-mapper || viewItem == connection || viewItem == registry-with-metadata || viewItem == registry-without-metadata || viewItem == class-mediator || viewItem == ballerina-module",
+          "when": "view == MI.project-explorer && viewItem == api || viewItem == resource || viewItem == endpoint || viewItem == sequence || viewItem == proxy-service || viewItem == inboundEndpoint || viewItem == messageStore || viewItem == message-processor || viewItem == task || viewItem == localEntry || viewItem == template  || viewItem == dataSource || viewItem == data-service || viewItem == data-mapper || viewItem == connection || viewItem == registry-with-metadata || viewItem == registry-without-metadata || viewItem == class-mediator || viewItem == ballerina-module || viewItem == idp-schema",
           "key": "delete"
+        },
+        {
+          "command": "MI.manage-registry-property",
+          "when": "view == MI.project-explorer && (viewItem == resource || viewItem == registry-with-metadata || viewItem == registry-without-metadata)",
+          "key": "add-registry-property"
         },
         {
           "command": "MI.project-explorer.markAsDefaultSequence",
@@ -831,6 +875,11 @@
           "command": "MI.test.edit.mock-service",
           "group": "inline",
           "when": "view == MI.mock-services && viewItem == mockService"
+        },
+        {
+          "command": "MI.test.delete.mock-service",
+          "group": "inline",
+          "when": "view == MI.mock-services"
         }
       ],
       "testing/item/context": [
@@ -853,6 +902,16 @@
           "command": "MI.test.edit.case",
           "group": "inline",
           "when": "testId in test.cases"
+        },
+        {
+          "command": "MI.test.delete.case",
+          "group": "inline",
+          "when": "testId in test.cases"
+        },
+        {
+          "command": "MI.test.delete.suite",
+          "group": "inline",
+          "when": "testId in test.suites"
         }
       ],
       "testing/message/context": []
@@ -953,7 +1012,7 @@
     "node-loader": "~2.1.0",
     "to-json-schema": "0.2.5",
     "xml2js": "0.6.2",
-    "tmp": "~0.2.3",
+    "tmp": "~0.2.4",
     "fs-extra": "~11.3.0",
     "@iarna/toml": "^2.2.5",
     "@types/tmp": "~0.2.6",
