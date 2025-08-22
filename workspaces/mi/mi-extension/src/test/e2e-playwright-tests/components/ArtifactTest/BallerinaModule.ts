@@ -103,7 +103,7 @@ export class BallerinaModule {
             await showNotifications();
             await currentPage.getByRole('button', { name: 'Install Now' }).click();
             await clearNotificationAlerts();
-            const webview = await switchToIFrame('WSO2 Integrator: BI', this._page, 24000);
+            const webview = await switchToIFrame('WSO2 Integrator: BI', this._page, 60000);
             console.log("Switching to WSO2 Integrator: BI iframe");
             if (!webview) {
                 throw new Error("Failed to switch to the Ballerina Module Form iframe");
@@ -168,10 +168,21 @@ export class BallerinaModule {
     }
 
     public async removeBallerinaExtension() {
+        await page.page.waitForTimeout(1000);
+        await page.executePaletteCommand('View: Close All Editor Groups');
         await page.page.keyboard.press('Control+Shift+X');
         await page.page.keyboard.type('WSO2 Integrator BI');
-        await page.page.getByText('WSO2 Integrator: BI').click();
-        await page.page.getByRole('button', { name: 'Uninstall' }).click();
+        const biExt = page.page.getByText('WSO2 Integrator: BI');
+        await biExt.waitFor();
+        await biExt.click();
+        const unstallButton = page.page.getByRole('button', { name: 'Uninstall' });
+        try {
+            console.log("Found Unstall button clicking it");
+            await unstallButton.waitFor();
+            await unstallButton.click();
+        } catch {
+            console.log("Could not find Unstall button clicking it");
+        }
         await page.executePaletteCommand("Developer: Reload Window");
         await page.selectSidebarItem('WSO2 Integrator: MI');
     }
