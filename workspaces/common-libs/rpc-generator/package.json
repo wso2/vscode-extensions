@@ -4,7 +4,7 @@
   "description": "Generate rpc-manager,rpc-handler and rpc-client ts files in relevant libraries",
   "main": "index.js",
   "config": {
-    "CORE_RPC_TYPE_FILE": "ai-panel/index.ts",
+    "CORE_RPC_TYPE_FILE": "bi-diagram/index.ts",
     "CORE_RPC_TYPE_DIR": "../../ballerina/ballerina-core/",
     "EXT_RPC_MANAGER_DIR": "../../ballerina/ballerina-extension/",
     "RPC_CLIENT_DIR": "../../ballerina/ballerina-rpc-client/",
