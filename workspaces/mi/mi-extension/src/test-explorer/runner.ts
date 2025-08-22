@@ -20,7 +20,7 @@
  * Test explorer run and debug related funtions.
  */
 
-import { Uri, CancellationToken, TestItem, TestMessage, TestRunProfileKind, TestRunRequest, window, MarkdownString, TestRun, OutputChannel } from "vscode";
+import { Uri, CancellationToken, TestItem, TestMessage, TestRunProfileKind, TestRunRequest, window, MarkdownString, TestRun, OutputChannel, workspace } from "vscode";
 
 import { discoverTests, gatherTestItems } from "./discover";
 import { testController } from "./activator";
@@ -281,7 +281,8 @@ function printToOutput(runner: TestRun, line: string, isError: boolean = false) 
 
 async function compileProject(projectRoot: string, printToOutput?: (line: string, isError: boolean) => void): Promise<void> {
     return new Promise<void>(async (resolve, reject) => {
-        const mvnCmd = process.platform === "win32" ? ".\\mvnw.cmd" : "./mvnw";
+        const config = workspace.getConfiguration('MI', Uri.file(projectRoot));
+        const mvnCmd = config.get("USE_LOCAL_MAVEN") ? "mvn" : (process.platform === "win32" ? ".\\mvnw.cmd" : "./mvnw");
         const testRunCmd = `${mvnCmd} compile`;
 
         let finished = false;
@@ -311,7 +312,8 @@ async function compileProject(projectRoot: string, printToOutput?: (line: string
 
 async function runTests(testNames: string, projectRoot: string, triggerId: string, printToOutput?: (line: string, isError: boolean) => void): Promise<void> {
     return new Promise<void>(async (resolve, reject) => {
-        const mvnCmd = process.platform === "win32" ? ".\\mvnw.cmd" : "./mvnw";
+        const config = workspace.getConfiguration('MI', Uri.file(projectRoot));
+        const mvnCmd = config.get("USE_LOCAL_MAVEN") ? "mvn" : (process.platform === "win32" ? ".\\mvnw.cmd" : "./mvnw");
         const testLevel = triggerId.endsWith(".xml") ? "unitTest" : triggerId.includes(".xml") ? "testCase" : "testSuite";
         const basicTestCmd = `${mvnCmd} test -DtestServerType=remote -DtestServerHost=${TestRunnerConfig.getHost()} -DtestServerPort=${TestRunnerConfig.getServerPort()} -P test`;
 

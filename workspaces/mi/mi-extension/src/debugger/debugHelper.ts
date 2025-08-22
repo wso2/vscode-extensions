@@ -37,6 +37,7 @@ import treeKill = require('tree-kill');
 import { serverLog, showServerOutputChannel } from '../util/serverLogger';
 import { getJavaHomeFromConfig, getServerPathFromConfig } from '../util/onboardingUtils';
 import * as crypto from 'crypto';
+import { Uri, workspace } from "vscode";
 
 const child_process = require('child_process');
 const findProcess = require('find-process');
@@ -174,7 +175,7 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
             }
         }
 
-        const buildCommand = getBuildCommand();
+        const buildCommand = getBuildCommand(projectUri);
         const envVariables = {
             ...process.env,
             ...setJavaHomeInEnvironmentAndPath(projectUri)
@@ -260,8 +261,9 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
 export async function executeRemoteDeployTask(projectUri: string, postBuildTask?: Function) {
     return new Promise<void>(async (resolve, reject) => {
 
-        const buildCommand = process.platform === 'win32' ? ".\\mvnw.cmd clean deploy -Dmaven.deploy.skip=true -Dmaven.car.deploy.skip=false -Dstyle.color=never" :
-            "./mvnw clean deploy -Dmaven.deploy.skip=true -Dmaven.car.deploy.skip=false -Dstyle.color=never";;
+        const config = workspace.getConfiguration('MI', Uri.file(projectUri));
+        const mvnCmd = config.get("USE_LOCAL_MAVEN") ? "mvn" : (process.platform === "win32" ? ".\\mvnw.cmd" : "./mvnw");
+        const buildCommand = `${mvnCmd} clean deploy -Dmaven.deploy.skip=true -Dmaven.car.deploy.skip=false -Dstyle.color=never`;
         const envVariables = {
             ...process.env,
             ...setJavaHomeInEnvironmentAndPath(projectUri)
