@@ -525,7 +525,7 @@ function getTypeMetadataOfField(
 ): FieldMetadata | null {
     // STEP 1: Handle special parameter types (e.g., regex for SPLIT operation)
     if (paramName && operationName) {
-        if (operationName === SPLIT && paramName === PARAMETER_2) {
+        if (operationName === SPLIT && paramName === PARAMETER_1) {
             return { type: "regex", optional: false, nullable: false };
         }
     }
@@ -613,7 +613,7 @@ export async function generateAutoMappings(payload?: Payload): Promise<Datamappe
         return await mapData(payload);
     } catch (error) {
         console.error(`Error generating auto mappings: ${error}`);
-        throw new Error(`Failed to generate auto mappings: ${error}`);
+        throw new Error(`Failed to generate auto mappings`);
     }
 }
 

@@ -1,1 +1,5 @@
-{"id":"person.id","name":"person.name","courseName":"person.course.courseName"}
+{
+  "id":"person.id",
+  "name":"person.name",
+  "course":"{\n courseId: person.course.courseId,\ncourseName: person.course.courseName \n}"
+}

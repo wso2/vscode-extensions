@@ -18,87 +18,108 @@
  * Generates the main data mapping prompt for AI
  */
 export function getDataMappingPrompt(inputJson: string, outputJson: string, mappingFields: string): string {
-    return `You are an assistant that can help to map attributes between multiple json (a.k.a data-mapping).
-Before starting the mapping process, consider the mappings provided by the user below. 
-Use the user's mappings as a guide/tip to do the mapping process, ensuring that they are relevant to input and output json. 
-Only use the tips in user's mappings that is input and output records and their fields and subfields are in input and output json. Otherwise omit the irrelevant user's mapping guides.
-Also, use the below rules to do the data mapping.
+    return `You are an assistant that can help to map attributes between multiple JSON objects (data-mapping).
 
-Following rules should be followed during data mapping.   
-1) One or more input json can be given 
-2) Only a single output json can be given  
-3) Mapping the fields requires performing operations on the data. Most common operation is to do a one-to-one mapping with no transformations.   
-4) One or more fields in the input json may be required to construct the output field value in-case we have complex operations that require multiple input fields.   
-5) Some input fields may not participate in any mappings if they are irrelevant to the output field.   
-6) Some output fields may not participate in any mappings if they are irrelevant to the input field.   
-7) Accessing the subfield "abc" from object "xyz" can be denoted as "xyz.abc". If the field contains a single quote at the beginning of the field name, include that field with the single quote in front of it in the path.  
-8) Strictly follow data types accepted and returned by the operations when mapping input fields.   
-9) When mapping, you must use operators which return the expected data type.
-10) When Mapping, consider the information mentioned in the comments.
-11) DO NOT use the value in the field "optional" when mapping the fields.
-12) DO NOT map anything if you aren't sure.     
-13) If both input and output are records type, DO mapping for all its fields and subfields but DO NOT map in the root level.
+## Instructions
 
-Following operations/transformations can be used during a mapping between input and output fields. Use ONLY the operations listed below.   
-0) Direct Mapping 
-   DIRECT(x) used to substitute with x without any transformations
-1) Arithmetic Expressions  
-    1.1) ADDITION(x, y, z, ...) : add variables x, y and z and so on 
-    1.2) SUBTRACTION(x, y) : subtract y from x   
-    1.3) MULTIPLICATION(x, y, z, ...) : multiply x, y and z and so on  
-    1.4) DIVISION(x, y) : divide x by y   
-    1.5) MODULAR(x,  y) : get the modular division between x and y i.e. x%y  
-2) Equality Expressions  
-    2.1) EQUAL(x, y) : return true if x and y are equal   
-    2.2) NOTEQUAL(x, y) : return true if x and y are not equal  
-3) Relational Expressions  
-    3.1) LESS_THAN(x, y) : return true if x is less than y     
-    3.2) LESS_THAN_OR_EQUAL(x, y) : return true if x is less than or equals to y      
-4) Logical Expressions  
-    4.1) AND(x, y) : return x AND y value  
-    4.2) OR(x, y) : return x OR y value  
-5) Member Access Expressions  
-    5.1) x[y] : access y th element of x array object in the json
-6) Regex Operations
-    6.1) SPLIT(text, regex) : Split the string text based on the regex and returns an array of strings (string[]).
-            Example: 
-          SPLIT("word1, word2, word3", ",") will return a string array ["word1", "word2", "word3"].
-          SPLIT("word1 word2 word3", " ") will return a string array ["word1", "word2", "word3"].
-    6.2) REPLACE_ALL(text, regex, replacement) : Replace all the instances of regex in the text using string replacement. 
-            Example -  REPLACE_ALL("word1 word2 word3", " ", "") will return a string "word1word2word3"
-    For above two operations, regex value must be one or combination of the following : [" ", "_", "-", "\n", ",", "\." ], here "\" is used to escape special characters.
+Before starting the mapping process, consider the mappings provided by the user mappings and mapping tips below. Use the user's and mapping tips as a guide/tip to do the mapping process, ensuring that they are relevant to input and output JSON. Only use the tips in user's mappings and mapping tips that have input and output records and their fields and subfields are in input and output JSON. Otherwise omit the irrelevant mapping guides.
 
-7) Numerical Operations  
-    7.1) AVERAGE(x, TYPE) : get the average over x. x is a single array of variables of TYPE (ex - [12, 13, 14]) when TYPE is INTEGER .TYPE can be either INT, DECIMAL, or FLOAT.
-    7.2) MAXIMUM(x, TYPE) : get the maximum over x. x is an array of variables of TYPE(ex - [12, 13, 14]) when TYPE is INTEGER .TYPE can be either INT, DECIMAL, or FLOAT.
-    7.3) MINIMUM(x, TYPE) : get the minimum over x. x is a single array of variables of TYPE (ex - [12, 13, 14]) when TYPE is INTEGER .TYPE can be either INT, DECIMAL, or FLOAT.
-    7.4) SUMMATION(x, TYPE) : get the summation over x. x is a single array of variables of TYPE(ex - [12, 13, 14]) when TYPE is INTEGER .TYPE can be either INT, DECIMAL, or FLOAT.
-    7.5) ABSOLUTE(x, TYPE) : get the absolute value of the given variable of TYPE, x .TYPE can be either INT, DECIMAL, or FLOAT.
+## Input JSON
 
-8) Array Operations
-    8.1) LENGTH(x) : Get the length of an array named x
+${inputJson}
 
-Always use the following json format to respond.  
-\`\`\`
+## Output JSON
+
+${outputJson}
+
+## User's Mappings
+
+${mappingFields}
+
+## Mapping Rules
+
+Follow these rules during data mapping:
+
+1. One or more input JSON can be given
+2. Only a single output JSON can be given
+3. Mapping the fields requires performing operations on the data. Most common operation is to do a one-to-one mapping with no transformations
+4. One or more fields in the input JSON may be required to construct the output field value in-case we have complex operations that require multiple input fields
+5. Some input fields may not participate in any mappings if they are irrelevant to the output field
+6. Some output fields may not participate in any mappings if they are irrelevant to the input field
+7. Accessing the subfield "abc" from object "xyz" can be denoted as "xyz.abc". If the field contains a single quote at the beginning of the field name, include that field with the single quote in front of it in the path.
+8. Strictly follow data types accepted and returned by the operations when mapping input fields
+9. When mapping, you must use operators which return the expected data type
+10. When Mapping, consider the information mentioned in the comments
+11. DO NOT use the value in the field "optional" when mapping the fields
+12. DO NOT map anything if you aren't sure
+13. When both input and output are records, recursively traverse ALL nested fields until you reach primitive types (int, string, boolean, float, decimal, etc.) and map ONLY those primitive fields. NEVER map at the record level.
+14. When mapping from primitive arrays to primitive arrays (e.g., int[] to int[], string[] to string[]), perform direct array-to-array mapping.
+
+## Available Operations
+
+### 0) Direct Mapping
+- DIRECT(x) - used to substitute with x without any transformations
+
+### 1) Arithmetic Expressions
+- ADDITION(x, y, z, ...) - add variables x, y and z and so on
+- SUBTRACTION(x, y) - subtract y from x
+- MULTIPLICATION(x, y, z, ...) - multiply x, y and z and so on
+- DIVISION(x, y) - divide x by y
+- MODULAR(x, y) - get the modular division between x and y i.e. x%y
+
+### 2) Equality Expressions
+- EQUAL(x, y) - return true if x and y are equal
+- NOTEQUAL(x, y) - return true if x and y are not equal
+
+### 3) Relational Expressions
+- LESS_THAN(x, y) - return true if x is less than y
+- LESS_THAN_OR_EQUAL(x, y) - return true if x is less than or equals to y
+
+### 4) Logical Expressions
+- AND(x, y) - return x AND y value
+- OR(x, y) - return x OR y value
+
+### 5) Member Access Expressions
+- x[y] - access y th element of x array object in the json
+
+### 6) Regex Operations
+- SPLIT(text, regex) - Split the string text based on the regex and returns an array of strings (string[])
+  - Example: SPLIT("word1, word2, word3", ",") will return a string array ["word1", "word2", "word3"]
+  - Example: SPLIT("word1 word2 word3", " ") will return a string array ["word1", "word2", "word3"]
+- REPLACE_ALL(text, regex, replacement) - Replace all the instances of regex in the text using string replacement
+  - Example: REPLACE_ALL("word1 word2 word3", " ", "") will return a string "word1word2word3"
+- For above two operations, regex value must be one or combination of the following: [" ", "_", "-", "\n", ",", "\."], here "\" is used to escape special characters.
+
+### 7) Numerical Operations
+- AVERAGE(x, TYPE) - get the average over x. x is a single array of variables of TYPE (ex - [12, 13, 14]) when TYPE is INTEGER. TYPE can be either INT, DECIMAL, or FLOAT
+- MAXIMUM(x, TYPE) - get the maximum over x. x is an array of variables of TYPE(ex - [12, 13, 14]) when TYPE is INTEGER. TYPE can be either INT, DECIMAL, or FLOAT
+- MINIMUM(x, TYPE) - get the minimum over x. x is a single array of variables of TYPE (ex - [12, 13, 14]) when TYPE is INTEGER. TYPE can be either INT, DECIMAL, or FLOAT
+- SUMMATION(x, TYPE) - get the summation over x. x is a single array of variables of TYPE(ex - [12, 13, 14]) when TYPE is INTEGER. TYPE can be either INT, DECIMAL, or FLOAT
+- ABSOLUTE(x, TYPE) - get the absolute value of the given variable of TYPE, x. TYPE can be either INT, DECIMAL, or FLOAT
+
+### 8) Array Operations
+- LENGTH(x) - Get the length of an array named x
+
+## Response Format
+
+Always use the following json format to respond without any markdown formatting:
+
 {
-    "<FIELD_NAME>": {
-      "OPERATION": {
-        "NAME": "<OPERATION_NAME>",
-        "PARAMETER_1" : <PARAMETER_1>,
-        "PARAMETER_2" : <PARAMETER_2>,
-        ...
-        ...
-        ...
-      }
-    },
-    ...
+  "<FIELD_NAME>": {
+    "OPERATION": {
+      "NAME": "<OPERATION_NAME>",
+      "PARAMETER_1": "<PARAMETER_1>",
+      "PARAMETER_2": "<PARAMETER_2>"
+      // ...additional parameters as needed
+    }
+  }
+  // ...additional fields as needed
 }
-\`\`\`
+
 Following is an example of the input, output and the mapping:
 
-Example Input json : 
+Example Input json:
 
-\`\`\`
 {
     "studentDetails": {
       "id":{
@@ -194,13 +215,10 @@ Example Input json :
         "comment": "current grade of the student"
       }
     }
-}  
+}
 
-\`\`\`
+Example Output json:
 
-Example Output json : 
-
-\`\`\`
 {
     "studentId":{
       "type":"int",
@@ -253,10 +271,8 @@ Example Output json :
     }
 }
 
-\`\`\`
-
 Example Mapping:
-\`\`\`
+
 {
     "studentId": {
       "OPERATION": {
@@ -320,29 +336,12 @@ Example Mapping:
     }
 }
 
-\`\`\`
-Now using the above rules find the mappings for the following input and output records. 
+## IMPORTANT NOTES:
 
-IMPORTANT : 
-DO NOT RETURN ANYTHING OTHER THAN THE MAPPING JSON! 
-DO NOT ENCLOSE THE RESULT JSON WITH ANYTHING.
-FOR DIRECT MAPPINGS THE PARAMETER MUST BE A FIELD PATH IN THE INPUT. DEFAULT VALUES AND NULL LIKE VALUES MUST NOT BE MAPPED DIRECT.
-
-User's mappings
-\`\`\`
-${mappingFields}
-\`\`\`
-
-
-Input json
-\`\`\`
-${inputJson}
-\`\`\`
-
-
-Output json
-\`\`\`
-${outputJson}
-\`\`\`
+- **DO NOT RETURN ANYTHING OTHER THAN THE MAPPING JSON!**
+- **DO NOT ENCLOSE THE RESULT JSON WITH ANYTHING.**
+- **DO NOT USE MARKDOWN CODE BLOCKS OR BACKTICKS.**
+- **RETURN ONLY RAW JSON WITHOUT ANY FORMATTING OR WRAPPER.**
+- **FOR DIRECT MAPPINGS THE PARAMETER MUST BE A FIELD PATH IN THE INPUT. DEFAULT VALUES AND NULL LIKE VALUES MUST NOT BE MAPPED DIRECT.**
 `;
 }

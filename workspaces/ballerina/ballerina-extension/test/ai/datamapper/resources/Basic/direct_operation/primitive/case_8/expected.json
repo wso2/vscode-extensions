@@ -1,1 +1,6 @@
-{"id":"person.id","name":"person.name","courseName":"person.course.courseName"}
+{
+  "id":"person.id",
+  "name":"person.name",
+  "courseId":"course.courseId",
+  "courseName":"course.courseName"
+}

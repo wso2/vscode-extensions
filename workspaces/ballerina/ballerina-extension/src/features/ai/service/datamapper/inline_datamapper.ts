@@ -57,6 +57,15 @@ function findSchemaTypeByPath(inputs: IOType[], path: string): IOType | null {
                 return found;
             }
         }
+
+        // Recursively search in members (for enums, unions)
+        const members = inputSchema.members;
+        if (members && Array.isArray(members)) {
+            const found = findSchemaTypeByPath(members, path);
+            if (found) {
+                return found;
+            }
+        }
         
         // Recursively search in member
         const member = inputSchema.member;
@@ -202,14 +211,14 @@ async function processNestedMappings(
         }
         
         const newPath = [...path];
-        const cleanKey = removeOutputRecordPrefix(key, initialRecords.output);
+        let cleanKey = removeOutputRecordPrefix(key, initialRecords.output);
         newPath.push(key);
 
         const temporaryRecord = await evaluateInlineMappings(newPath, value, initialRecords);
         if (temporaryRecord) {
             if (isMappingRecord(temporaryRecord) || 
                 (typeof temporaryRecord === 'object' && Object.keys(temporaryRecord).length > 0)) {
-                returnRec[cleanKey] = temporaryRecord;
+                returnRec[removeArrayIndicesFromPath(cleanKey)] = temporaryRecord;
             }
         }
     }
@@ -298,7 +307,7 @@ function validateInlineMappingOperation(
             return {
                 operation: SPLIT,
                 targetType: outputType.type,
-                parameters: [removeArrayIndicesFromPath(paramOne.input), paramTwo]
+                parameters: [paramOne.input, paramTwo]
             };
         }
         
@@ -320,8 +329,8 @@ function getFieldMetadataFromSchemaType(
     operationName?: string
 ): FieldMetadata | null {
     if (paramName && operationName) {
-        if (operationName === SPLIT && paramName === PARAMETER_2) {
-            return { type: "regex", optional: false, nullable: false };
+        if (operationName === SPLIT && paramName === PARAMETER_1) {
+            return { type: "regex", optional: inputType.optional, nullable: false };
         }
     }
 
@@ -333,8 +342,8 @@ function getFieldMetadataFromSchemaType(
     }
 
     const typeString = typeName;
-    const isOptional = false; // TODO: Handle optional types
-    let isNullable = false; // TODO: Handle nullable types
+    const isOptional = inputType.optional;
+    let isNullable = false;
 
     // Check if type is nullable (contains ? or ())
     if (typeName.includes("?") || typeName.includes("()")) {
@@ -369,7 +378,7 @@ function getOutputFieldMetadata(output: IOType, path: string[]): FieldMetadata |
  * Finds a field within a schema type structure
  */
 function findFieldInSchemaType(schemaType: IOType, fieldId: string): IOType | null {
-    const fields = schemaType.fields;
+    const fields = schemaType.fields || schemaType.members;
     if (fields && Array.isArray(fields)) {
         for (const field of fields) {
             if (field.id === fieldId || field.variableName === fieldId) {

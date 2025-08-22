@@ -439,13 +439,19 @@ async function processMappingData(
 ): Promise<Record<string, string>> {
     const parameters = mappingData.parameters;
     const paths = parameters[0].split(".");
+    let path: string = "";
 
-    const path = await getMappingString(
-        mappingData,
-        parameterDefinitions,
-        nestedKey,
-        nestedKeyArray
-    );
+    try {
+        path = await getMappingString(
+            mappingData,
+            parameterDefinitions,
+            nestedKey,
+            nestedKeyArray
+        );
+    } catch (error) {
+        console.log(`Error in processMapping:`, error);
+        throw new Error(`Failed to process mappings`);
+    }
 
     if (typeof path !== "string" || path === "") {
         return {};
@@ -1035,7 +1041,7 @@ class TypeInfoVisitorImpl implements TypeInfoVisitor {
         if (member.hasOwnProperty("typeName")) {
             memberName = member.typeName;
 
-            if (member.hasOwnProperty("name")) {
+            if (member.hasOwnProperty("name") && !member.hasOwnProperty("id")) {
                 this.addNamedSimpleMember(member, memberName, context);
             } else {
                 this.addUnnamedSimpleMember(memberName, member, context);
