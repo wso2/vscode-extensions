@@ -19,7 +19,7 @@
 
 import * as vscode from 'vscode';
 import * as childprocess from 'child_process';
-import { COMMANDS } from '../constants';
+import { COMMANDS, MVN_COMMANDS } from '../constants';
 import { loadEnvVariables, getBuildCommand, getRunCommand, getStopCommand } from './tasks';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -262,8 +262,9 @@ export async function executeRemoteDeployTask(projectUri: string, postBuildTask?
     return new Promise<void>(async (resolve, reject) => {
 
         const config = workspace.getConfiguration('MI', Uri.file(projectUri));
-        const mvnCmd = config.get("USE_LOCAL_MAVEN") ? "mvn" : (process.platform === "win32" ? ".\\mvnw.cmd" : "./mvnw");
-        const buildCommand = `${mvnCmd} clean deploy -Dmaven.deploy.skip=true -Dmaven.car.deploy.skip=false -Dstyle.color=never`;
+        const mvnCmd = config.get("USE_LOCAL_MAVEN") ? "mvn" : (process.platform === "win32" ?
+            MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
+        const buildCommand = mvnCmd + MVN_COMMANDS.DEPLOY_COMMAND;
         const envVariables = {
             ...process.env,
             ...setJavaHomeInEnvironmentAndPath(projectUri)

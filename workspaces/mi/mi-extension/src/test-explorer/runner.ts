@@ -31,6 +31,7 @@ import { TestRunnerConfig } from "./config";
 import { ChildProcess } from "child_process";
 import treeKill = require("tree-kill");
 import { normalize } from "upath";
+import { MVN_COMMANDS } from "../constants";
 const fs = require('fs');
 const child_process = require('child_process');
 const readline = require('readline');
@@ -282,8 +283,9 @@ function printToOutput(runner: TestRun, line: string, isError: boolean = false) 
 async function compileProject(projectRoot: string, printToOutput?: (line: string, isError: boolean) => void): Promise<void> {
     return new Promise<void>(async (resolve, reject) => {
         const config = workspace.getConfiguration('MI', Uri.file(projectRoot));
-        const mvnCmd = config.get("USE_LOCAL_MAVEN") ? "mvn" : (process.platform === "win32" ? ".\\mvnw.cmd" : "./mvnw");
-        const testRunCmd = `${mvnCmd} compile`;
+        const mvnCmd = config.get("USE_LOCAL_MAVEN") ? "mvn" : (process.platform === "win32" ?
+            MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
+        const testRunCmd = mvnCmd + MVN_COMMANDS.COMPILE_COMMAND;
 
         let finished = false;
         const onData = (data: string) => {
@@ -313,9 +315,10 @@ async function compileProject(projectRoot: string, printToOutput?: (line: string
 async function runTests(testNames: string, projectRoot: string, triggerId: string, printToOutput?: (line: string, isError: boolean) => void): Promise<void> {
     return new Promise<void>(async (resolve, reject) => {
         const config = workspace.getConfiguration('MI', Uri.file(projectRoot));
-        const mvnCmd = config.get("USE_LOCAL_MAVEN") ? "mvn" : (process.platform === "win32" ? ".\\mvnw.cmd" : "./mvnw");
+        const mvnCmd = config.get("USE_LOCAL_MAVEN") ? "mvn" : (process.platform === "win32" ?
+            MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
         const testLevel = triggerId.endsWith(".xml") ? "unitTest" : triggerId.includes(".xml") ? "testCase" : "testSuite";
-        const basicTestCmd = `${mvnCmd} test -DtestServerType=remote -DtestServerHost=${TestRunnerConfig.getHost()} -DtestServerPort=${TestRunnerConfig.getServerPort()} -P test`;
+        const basicTestCmd = `${mvnCmd + MVN_COMMANDS.TEST_COMMAND} -DtestServerHost=${TestRunnerConfig.getHost()} -DtestServerPort=${TestRunnerConfig.getServerPort()} -P test`;
 
         let testRunCmd = basicTestCmd;
         switch (testLevel) {
