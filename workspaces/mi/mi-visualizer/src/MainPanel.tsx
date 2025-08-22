@@ -58,6 +58,7 @@ import { DatamapperForm } from './views/Forms/DatamapperForm';
 import { ImportArtfactForm } from './views/Forms/ImportArtifactForm';
 import { IdpConnectorSchemaGenerateForm }from './views/Forms/IDPConnectorForm/IdpConnectorSchemaGenerateForm';
 import { KubernetesConfigurationForm } from "./views/Forms/KubernetesConfigurationForm";
+import { RegistryPropertyForm } from "./views/Forms/RegistryPropertyForm";
 
 const MainContainer = styled.div`
     display: flex;
@@ -322,6 +323,9 @@ const MainPanel = (props: MainPanelProps) => {
                 break;
             case MACHINE_VIEW.KubernetesConfigurationForm:
                 setViewComponent(<KubernetesConfigurationForm />);
+                break;
+            case MACHINE_VIEW.RegistryForm:
+                setViewComponent(<RegistryPropertyForm path={visualizerState.documentUri} />);
                 break;
             case MACHINE_VIEW.ConnectorStore:
                 setViewComponent(
