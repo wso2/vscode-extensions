@@ -584,8 +584,4 @@ jobs:
             workspaces/mi/mi-extension/src/test/test-resources/videos/**
             workspaces/mi/mi-extension/src/test/test-resources/screenshots/**
             workspaces/mi/mi-extension/record.mp4
-            workspaces/mi/mi-extension/record_rerun.mp4
-            workspaces/mi/mi-extension/ffmpeg.log
-            workspaces/mi/mi-extension/ffmpeg_rerun.log
-            workspaces/mi/mi-extension/video_info.json
           retention-days: 5
