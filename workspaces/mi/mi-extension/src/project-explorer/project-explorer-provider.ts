@@ -321,9 +321,9 @@ function generateResources(data: RegistryResourcesFolder, resourceDetails: ListR
 						const lastIndex = entry.path.indexOf(resPathPrefix) !== -1 ? entry.path.indexOf(resPathPrefix) + resPathPrefix.length : 0;
 						const resourcePath = entry.path.substring(lastIndex);
 						if (checkExistenceOfResource(resourcePath, resourceDetails)) {
-							explorerEntry.contextValue = "registry-with-metadata";
+							explorerEntry.contextValue = "registry-with-metadata-folder";
 						} else {
-							explorerEntry.contextValue = "registry-without-metadata";
+							explorerEntry.contextValue = "registry-without-metadata-folder";
 						}
 					}
 				}

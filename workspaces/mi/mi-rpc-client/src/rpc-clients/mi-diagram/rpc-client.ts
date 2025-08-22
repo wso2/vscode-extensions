@@ -439,7 +439,11 @@ import {
     configureKubernetes,
     ConfigureKubernetesRequest,
     ConfigureKubernetesResponse,
-    isKubernetesConfigured
+    isKubernetesConfigured,
+    UpdateRegistryPropertyRequest,
+    Property,
+    updatePropertiesInArtifactXML,
+    getPropertiesFromArtifactXML
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -1153,5 +1157,13 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     isKubernetesConfigured(): Promise<boolean> {
         return this._messenger.sendRequest(isKubernetesConfigured, HOST_EXTENSION);
+    }
+
+    updatePropertiesInArtifactXML(params: UpdateRegistryPropertyRequest): Promise<string> {
+        return this._messenger.sendRequest(updatePropertiesInArtifactXML, HOST_EXTENSION, params);
+    }
+
+    getPropertiesFromArtifactXML(params: string): Promise<Property[] | undefined> {
+        return this._messenger.sendRequest(getPropertiesFromArtifactXML, HOST_EXTENSION, params);
     }
 }
