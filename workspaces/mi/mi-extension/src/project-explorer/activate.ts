@@ -391,6 +391,12 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 		}
 	});
 
+	commands.registerCommand(COMMANDS.MANAGE_REGISTRY_PROPERTIES_COMMAND, (item: TreeItem, beside: boolean = true) => {
+		const file = item.command?.arguments?.[0] || (item as any)?.info?.path
+		revealWebviewPanel(beside);
+		openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.RegistryForm, documentUri: file?.fsPath });
+	});
+
 	// delete
 	commands.registerCommand(COMMANDS.DELETE_PROJECT_EXPLORER_ITEM, async (item: TreeItem) => {
 		let file: string | undefined;
