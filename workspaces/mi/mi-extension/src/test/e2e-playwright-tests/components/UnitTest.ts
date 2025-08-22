@@ -273,7 +273,7 @@ export class UnitTest {
     }
 
     public async fillMockServiceBasicForm(mockServiceForm: Form, mockService: MockServiceData) {
-        console.log('Filling Mock Service Form');
+        console.log('Filling Basic Mock Service Form');
         await mockServiceForm.fill({
             values: {
                 'Name*': {
@@ -442,8 +442,10 @@ export class UnitTest {
         console.log('Opening Add Test Case view of Unit Test:', name);
         const testExplorer = new ProjectExplorer(this._page, 'Test Explorer');
         await testExplorer.init();
-        await testExplorer.findItem([`${this.projectName} (Not yet run)`, `${name} (Not yet run)`], true);
+        await this._page.waitForTimeout(1000);
+        await testExplorer.findItem([`${this.projectName} (Not yet run)`, `${name} (Not yet run)`]);
         console.log(`Expand the explorer to ensure the unit test "${name}" is visible`);
+        await this._page.getByLabel('Add test case').waitFor();
         await this._page.getByLabel('Add test case').click();
         console.log(`Clicked on "Add test case" button for unit test "${name}"`);
     }
@@ -470,6 +472,7 @@ export class UnitTest {
         const mockServiceExplorer = new ProjectExplorer(this._page, 'Mock Services'); 
         await mockServiceExplorer.init();
         await mockServiceExplorer.findItem([this.projectName + ' '], true);
+        await this._page.getByLabel('Add mock service').waitFor();
         await this._page.getByLabel('Add mock service').click();
         const form = await this.getMockServiceForm();
         await this.fillMockServiceForm(form, data, 'Mock Service');
