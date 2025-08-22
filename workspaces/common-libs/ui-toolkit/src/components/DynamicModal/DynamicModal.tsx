@@ -72,7 +72,7 @@ const Title = styled.h1`
 `;
 
 type TriggerProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-    children: ReactNode;
+    children?: ReactNode;
 };
 
 const Trigger: React.FC<TriggerProps> = ({ children, ...rest }) => (
