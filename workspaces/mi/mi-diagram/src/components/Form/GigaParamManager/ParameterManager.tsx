@@ -122,8 +122,10 @@ const ParameterManager = (props: ParameterManagerProps) => {
 
     const handleFormSubmit = (data: any) => {
         if (isUpdate && currentIndex !== null) {
-            parameters[currentIndex] = data;
-            setParameters(parameters);
+            const updatedParams = parameters.map((param, idx) =>
+                idx === currentIndex ? data : param
+            );
+            setParameters(updatedParams);
             setIsUpdate(false);
             setCurrentIndex(null);
             return;

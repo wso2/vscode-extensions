@@ -54,7 +54,8 @@ export const gitIssueUrl = "https://github.com/wso2/mi-vscode/issues";
 
 export const COMMANDS = {
     MIGRATE_PROJECT: "MI.migrateProject",
-    OPEN_PROJECT: "MI.openProject"
+    OPEN_PROJECT: "MI.openProject",
+    EDIT_K8_CONFIGURATION_COMMAND: 'MI.edit-k8-configuration'
 }
 
 // Actions for service designer

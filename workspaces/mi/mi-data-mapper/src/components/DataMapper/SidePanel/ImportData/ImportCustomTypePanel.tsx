@@ -179,7 +179,7 @@ export function ImportCustomTypePanel(props: ImportCustomTypePanelProps) {
                         label="Custom Type Name"
                         placeholder="Type name"
                         rows={1}
-                        sx={{ border: "#00ff00", marginBottom: 10 }}
+                        sx={{ marginBottom: 10 }}
                         errorMsg={errors && errors.typeName?.message.toString()}
                     />
                 )}
@@ -209,7 +209,6 @@ export function ImportCustomTypePanel(props: ImportCustomTypePanelProps) {
                         rows={payloadRows}
                         resize="vertical"
                         placeholder={generatePlaceholder}
-                        sx={{ border: "#00ff00" }}
                         errorMsg={errors && errors.payload?.message.toString()}
                     />
                 )}
