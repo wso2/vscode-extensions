@@ -29,7 +29,7 @@ import { MILanguageClient } from './lang-client/activator';
 import { activateUriHandlers } from './uri-handler';
 import { extensions, workspace } from 'vscode';
 import { StateMachineAI } from './ai-panel/aiMachine';
-import { getStateMachine } from './stateMachine';
+import { isOldProjectOrWorkspace, getStateMachine } from './stateMachine';
 import { webviews } from './visualizer/webview';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
@@ -45,14 +45,20 @@ export async function activate(context: vscode.ExtensionContext) {
 		.filter((tab) => (tab.input as any)?.viewType?.includes("micro-integrator."));
 	vscode.window.tabGroups.close(orphanedTabs);
 
-	let firstProject = workspace.workspaceFolders?.[0]?.uri?.fsPath;
-	if (firstProject) {
-		getStateMachine(firstProject);
-	} else {
-		// new project
-		// use a temporary directory to start the state machine
-		const projectUuid = uuidv4();
-		firstProject = path.join(os.tmpdir(), projectUuid);
+	const oldProjects = workspace.workspaceFolders?.filter(async folder => {
+		const isOld = await isOldProjectOrWorkspace(folder.uri.fsPath);
+		if (isOld) getStateMachine(folder.uri.fsPath);
+		return isOld;
+	}) ?? [];
+	const newProjects = workspace.workspaceFolders?.filter(folder => {
+		return !oldProjects.includes(folder);
+	}) ?? [];
+
+	const firstProject = newProjects?.[0]?.uri?.fsPath || 
+						 oldProjects?.[0]?.uri?.fsPath || 
+						 path.join(os.tmpdir(), uuidv4());
+	
+	if (!oldProjects.length) {
 		getStateMachine(firstProject);
 	}
 	workspace.onDidChangeWorkspaceFolders(async (event) => {
@@ -79,8 +85,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	activateDebugger(context);
 	activateMigrationSupport(context);
-	// activateActivityPanel(context);
-	// activateAiPrompt(context);
 	activateRuntimeService(context, firstProject);
 	activateVisualizer(context, firstProject);
 	activateAiPanel(context);
