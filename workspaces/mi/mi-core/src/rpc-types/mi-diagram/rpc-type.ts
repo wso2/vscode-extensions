@@ -265,7 +265,11 @@ import {
     GetExternalConnectorDetailsResponse,
     WriteMockServicesRequest,
     WriteMockServicesResponse,
-    GetMockServicesResponse
+    GetMockServicesResponse,
+    ConfigureKubernetesRequest,
+    ConfigureKubernetesResponse,
+    Property,
+    UpdateRegistryPropertyRequest
 } from "./types";
 import { RequestType, NotificationType } from "vscode-messenger-common";
 
@@ -448,3 +452,7 @@ export const getPomFileContent: RequestType<void, GetPomFileContentResponse> = {
 export const getExternalConnectorDetails: RequestType<void, GetExternalConnectorDetailsResponse> = { method: `${_preFix}/getExternalConnectorDetails` };
 export const writeMockServices: RequestType<WriteMockServicesRequest, WriteMockServicesResponse> = { method: `${_preFix}/writeMockServices` };
 export const getMockServices: RequestType<void, GetMockServicesResponse> = { method: `${_preFix}/getMockServices` };
+export const configureKubernetes: RequestType<ConfigureKubernetesRequest, ConfigureKubernetesResponse> = { method: `${_preFix}/configureKubernetes` };
+export const isKubernetesConfigured: RequestType<void, boolean> = { method: `${_preFix}/isKubernetesConfigured` };
+export const updatePropertiesInArtifactXML: RequestType<UpdateRegistryPropertyRequest, string> = { method: `${_preFix}/updatePropertiesInArtifactXML` };
+export const getPropertiesFromArtifactXML: RequestType<string, Property[] | undefined> = { method: `${_preFix}/getPropertiesFromArtifactXML` };

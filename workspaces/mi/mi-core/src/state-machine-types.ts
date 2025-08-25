@@ -76,6 +76,8 @@ export enum MACHINE_VIEW {
     BallerinaModuleForm = "Ballerina Module Creation Form",
     DataSourceForm = "Data Source Creation Form",
     ImportArtifactForm = "Add Artifact Form",
+    KubernetesConfigurationForm = "Configure Kubernetes Deployment Form",
+    RegistryForm = "Manage Registry Properties Form",
     AddDriverPopup = "Add Driver Popup",
     Samples = "Samples",
     ImportProject = "Import Project",

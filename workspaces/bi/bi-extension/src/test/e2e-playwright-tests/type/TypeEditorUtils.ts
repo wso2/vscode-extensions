@@ -239,7 +239,6 @@ export class TypeEditorUtils {
         for (const field of fields) {
             await this.addRecordField(field.name, field.type);
         }
-
         return form;
     }
 
@@ -255,5 +254,59 @@ export class TypeEditorUtils {
         }
 
         return form;
+    }
+
+    /**
+     * Toggle field options by clicking the chevron icon
+     * @param fieldIndex Index of the field to toggle (default is 0 for the first field)
+     */
+    async toggleFieldOptionsByChevron(fieldIndex: number = 0): Promise<void> {
+        // Find all field rows
+
+        const chevronIcons = this.webView.locator('[data-testid="field-expand-btn"]');
+        const chevronIcon = chevronIcons.nth(fieldIndex);
+
+        try {
+            await chevronIcon.waitFor({ state: 'visible', timeout: 3000 });
+
+            // Scroll and force click
+            await chevronIcon.scrollIntoViewIfNeeded();
+            await chevronIcon.click({ force: true });
+            console.log('Clicked chevron for field', fieldIndex);
+
+
+            await this.page.waitForTimeout(300);
+        } catch (error) {
+            throw new Error(`Could not click chevron icon at field index ${fieldIndex}: ${error}`);
+        }
+    }
+
+
+    /**
+     * Toggle any dropdown/collapsible section by text
+     */
+    async toggleDropdown(dropdownText: string, waitTime: number = 500): Promise<void> {
+        const dropdownToggle = this.webView.locator(`text=${dropdownText}`);
+        await this.waitForElement(dropdownToggle);
+        await dropdownToggle.click();
+        
+        // Wait for animation to complete
+        await this.page.waitForTimeout(waitTime);
+    }
+
+    /**
+     * Set any checkbox by its aria-label or name
+     */
+    async setCheckbox(checkboxName: string, checked: boolean): Promise<void> {
+        const checkbox = this.webView.getByRole('checkbox', { name: checkboxName });
+        console.log(`Setting checkbox "${checkboxName}" to ${checked}`);
+        await this.waitForElement(checkbox);
+        
+        const ariaChecked = await checkbox.getAttribute('aria-checked');
+        const isCurrentlyChecked = ariaChecked === 'true';
+        
+        if (isCurrentlyChecked !== checked) {
+            await checkbox.click();
+        }
     }
 }
