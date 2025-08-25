@@ -22,3 +22,4 @@ export * from './ExpressionField/ExpressionInput';
 export * from './CodeTextArea';
 export * from './FormExpressionField';
 export * from './FormTokenEditor';
+export { default as ParameterManager } from './GigaParamManager/ParameterManager';
