@@ -55,6 +55,7 @@ export type FormField = {
     metadata?: Metadata;
     codedata?: { [key: string]: any };
     imports?: { [key: string]: string };
+    actionCallback?: () => void;
     onValueChange?: (value: string) => void;
 };
 
