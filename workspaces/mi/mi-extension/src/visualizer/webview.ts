@@ -119,6 +119,7 @@ export class VisualizerWebview {
     }
 
     private getWebviewContent(webview: vscode.Webview) {
+        console.debug("Generating webview content for MI Visualizer");
         // The JS file from the React build output
         const scriptUri = getComposerJSFiles(extension.context, 'Visualizer', webview).map(jsFile =>
             '<script charset="UTF-8" src="' + jsFile + '"></script>').join('\n');
