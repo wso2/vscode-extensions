@@ -2,7 +2,6 @@ import React, { ReactNode, useEffect, useRef, useState } from "react";
 import { SlidingPaneContext, useSlidingPane } from "./context";
 import styled from '@emotion/styled';
 import { Codicon } from "../../../../Codicon/Codicon";
-import { Divider } from "../../../../Divider/Divider";
 import { VERTICAL_HELPERPANE_HEIGHT } from "../../../constants";
 
 const DEFAULT_SLIDING_WINDOW_HEIGHT = `${VERTICAL_HELPERPANE_HEIGHT}px`;
@@ -87,7 +86,6 @@ export const SlidingPaneContainer = styled.div<{ index: number; isCurrent?: bool
   top: 0;
   left: 0;
   width: 100%;
-  padding: 0 2px 2px 2px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -252,21 +250,20 @@ const StickyHeader = styled.div`
     padding: 8px;
     top: 0;
     z-index: 2;
+    width: 100%;
 `;
 
 
 export const SlidingPaneHeader = ({ children }: { children: ReactNode }) => {
     return (
-        <>
-            <StickyHeader>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'flex-start' }}>
-                    <SlidingPaneBackButton>
-                        <Codicon name="chevron-left" />
-                    </SlidingPaneBackButton>
-                    {children}
-                </div>
-            </StickyHeader>
-            <Divider sx={{ margin: '0px' }} /></>
+        <StickyHeader>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'flex-start' }}>
+                <SlidingPaneBackButton>
+                    <Codicon name="chevron-left" />
+                </SlidingPaneBackButton>
+                {children}
+            </div>
+        </StickyHeader>
     )
 }
 
