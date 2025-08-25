@@ -17,6 +17,7 @@
  */
 
 import axios, { Method } from "axios";
+import https from 'https';
 
 interface Request {
   url: string;
@@ -34,6 +35,7 @@ interface Response {
   headers?: Record<string, string>;
 }
 
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 const CONNECTION_REFUSED = 'ECONNREFUSED';
 const EAI_AGAIN = 'EAI_AGAIN';
 export class SwaggerServer {
@@ -45,7 +47,8 @@ export class SwaggerServer {
         method: data.method,
         headers,
         url: data.url,
-        data: data.body
+        data: data.body,
+        httpsAgent
       })
         .then(function (response) {
           const responseData = response.data;

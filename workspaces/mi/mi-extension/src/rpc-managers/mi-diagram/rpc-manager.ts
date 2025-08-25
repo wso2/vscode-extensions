@@ -678,7 +678,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                     const swaggerRegPath = path.join(
                         this.projectUri,
                         SWAGGER_REL_DIR,
-                        fileName + "_original" + path.extname(swaggerDefPath)
+                        fileName + path.extname(swaggerDefPath)
                     );
                     fs.mkdirSync(path.dirname(swaggerRegPath), { recursive: true });
                     fs.copyFileSync(swaggerDefPath, swaggerRegPath);
@@ -4929,7 +4929,7 @@ ${keyValuesXML}`;
             const openAPISpecPath = path.join(
                 this.projectUri,
                 SWAGGER_REL_DIR,
-                `${apiName}.yaml`
+                `${path.basename(params.apiPath, ".xml")}.yaml`
             );
 
             // Create directory if not exists
@@ -4958,8 +4958,12 @@ ${keyValuesXML}`;
                 });
             }
 
-            const response = await langClient.swaggerFromAPI({ apiPath: params.apiPath });
-            const generatedSwagger = response.swagger;
+            let swaggerContent;
+            if (fs.existsSync(openAPISpecPath)) {
+                swaggerContent = fs.readFileSync(openAPISpecPath, "utf8");
+            } else {
+                swaggerContent = swagger;
+            }
             const port = await getPortPromise({ port: 1000, stopPort: 3000 });
             const cors_proxy = require('cors-anywhere');
             cors_proxy.createServer({
@@ -4968,7 +4972,7 @@ ${keyValuesXML}`;
             }).listen(port, 'localhost');
 
             const swaggerData: SwaggerData = {
-                generatedSwagger: generatedSwagger,
+                generatedSwagger: swaggerContent,
                 port: port
             };
 
@@ -4979,15 +4983,11 @@ ${keyValuesXML}`;
     async compareSwaggerAndAPI(params: SwaggerTypeRequest): Promise<CompareSwaggerAndAPIResponse> {
         return new Promise(async (resolve) => {
 
-            // TODO: Remove below return statment after fixing issue
-            // https://github.com/wso2/mi-vscode/issues/968 
-            return resolve({ swaggerExists: false });
-
             const { apiPath, apiName } = params;
             const swaggerPath = path.join(
                 this.projectUri,
                 SWAGGER_REL_DIR,
-                `${apiName}.yaml`
+                `${path.basename(params.apiPath, ".xml")}.yaml`
             );
 
             if (!fs.existsSync(swaggerPath)) {
@@ -4995,7 +4995,7 @@ ${keyValuesXML}`;
             }
 
             const langClient = getStateMachine(this.projectUri).context().langClient!;
-            const { swagger: generatedSwagger } = await langClient.swaggerFromAPI({ apiPath });
+            const { swagger: generatedSwagger } = await langClient.swaggerFromAPI({ apiPath: apiPath, swaggerPath: swaggerPath });
             const swaggerContent = fs.readFileSync(swaggerPath, 'utf-8');
             const isEqualSwagger = isEqualSwaggers({
                 existingSwagger: parse(swaggerContent),
@@ -5016,14 +5016,14 @@ ${keyValuesXML}`;
             const swaggerPath = path.join(
                 this.projectUri,
                 SWAGGER_REL_DIR,
-                `${apiName}.yaml`
+                `${path.basename(params.apiPath, ".xml")}.yaml`
             );
 
             let generatedSwagger = params.generatedSwagger;
             let existingSwagger = params.existingSwagger;
             if (!generatedSwagger || !existingSwagger) {
                 const langClient = getStateMachine(this.projectUri).context().langClient!;
-                const response = await langClient.swaggerFromAPI({ apiPath });
+                const response = await langClient.swaggerFromAPI({ apiPath: apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
                 generatedSwagger = response.swagger;
                 existingSwagger = fs.readFileSync(swaggerPath, 'utf-8');
             }
@@ -5043,7 +5043,7 @@ ${keyValuesXML}`;
             const swaggerPath = path.join(
                 this.projectUri,
                 SWAGGER_REL_DIR,
-                `${apiName}.yaml`
+                `${path.basename(params.apiPath, ".xml")}.yaml`
             );
 
             let generatedSwagger = params.generatedSwagger;
@@ -5311,12 +5311,14 @@ ${keyValuesXML}`;
     }
 
     async getOpenAPISpec(params: SwaggerTypeRequest): Promise<SwaggerFromAPIResponse> {
+        const swaggerPath = path.join(this.projectUri, SWAGGER_REL_DIR,
+            `${path.basename(params.apiPath, ".xml")}.yaml`);
         const langClient = getStateMachine(this.projectUri).context().langClient!;
         let response;
         if (params.isRuntimeService) {
-            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, port: DebuggerConfig.getServerPort() });
+            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, port: DebuggerConfig.getServerPort(), ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         } else {
-            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath });
+            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         }
         const generatedSwagger = response.swagger;
         const port = await getPortPromise({ port: 1000, stopPort: 3000 });
