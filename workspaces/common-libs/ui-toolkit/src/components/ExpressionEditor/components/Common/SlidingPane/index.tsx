@@ -252,21 +252,21 @@ const StickyHeader = styled.div`
     padding: 8px;
     top: 0;
     z-index: 2;
-    background: var(--vscode-dropdown-background, #1e1e1e);
 `;
 
 
 export const SlidingPaneHeader = ({ children }: { children: ReactNode }) => {
     return (
-        <StickyHeader>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'flex-start' }}>
-                <SlidingPaneBackButton>
-                    <Codicon name="chevron-left" />
-                </SlidingPaneBackButton>
-                {children}
-            </div>
-            <Divider />
-        </StickyHeader>
+        <>
+            <StickyHeader>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'flex-start' }}>
+                    <SlidingPaneBackButton>
+                        <Codicon name="chevron-left" />
+                    </SlidingPaneBackButton>
+                    {children}
+                </div>
+            </StickyHeader>
+            <Divider sx={{ margin: '0px' }} /></>
     )
 }
 
