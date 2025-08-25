@@ -196,6 +196,9 @@ import {
     UpdateWsdlEndpointResponse,
     WriteContentToFileRequest,
     WriteContentToFileResponse,
+    WriteMockServicesRequest,
+    WriteMockServicesResponse,
+    GetMockServicesResponse,
     HandleFileRequest,
     HandleFileResponse,
     WriteIdpSchemaFileToRegistryRequest,
@@ -331,6 +334,8 @@ import {
     updateTestSuite,
     updateWsdlEndpoint,
     writeContentToFile,
+    writeMockServices,
+    getMockServices,
     handleFileWithFS,
     writeIdpSchemaFileToRegistry,
     getIdpSchemaFiles,
@@ -436,6 +441,10 @@ import {
     GetConnectorIconResponse,
     getConnectorIcon,
     getValueOfEnvVariable,
+    getPomFileContent,
+    GetPomFileContentResponse,
+    getExternalConnectorDetails,
+    GetExternalConnectorDetailsResponse,
     configureKubernetes,
     ConfigureKubernetesRequest,
     ConfigureKubernetesResponse,
@@ -717,6 +726,10 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     writeContentToFile(params: WriteContentToFileRequest): Promise<WriteContentToFileResponse> {
         return this._messenger.sendRequest(writeContentToFile, HOST_EXTENSION, params);
+    }
+
+    writeMockServices(params: WriteMockServicesRequest): Promise<WriteMockServicesResponse> {
+        return this._messenger.sendRequest(writeMockServices, HOST_EXTENSION, params);
     }
 
     handleFileWithFS(params: HandleFileRequest): Promise<HandleFileResponse> {
@@ -1151,6 +1164,18 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
         return this._messenger.sendRequest(getValueOfEnvVariable, HOST_EXTENSION, params);
     }
 
+    getPomFileContent(): Promise<GetPomFileContentResponse> {
+        return this._messenger.sendRequest(getPomFileContent, HOST_EXTENSION);
+    }
+
+    getExternalConnectorDetails(): Promise<GetExternalConnectorDetailsResponse> {
+        return this._messenger.sendRequest(getExternalConnectorDetails, HOST_EXTENSION);
+    }
+
+    getMockServices(): Promise<GetMockServicesResponse> {
+        return this._messenger.sendRequest(getMockServices, HOST_EXTENSION);
+    }
+  
     configureKubernetes(params: ConfigureKubernetesRequest): Promise<ConfigureKubernetesResponse> {
         return this._messenger.sendRequest(configureKubernetes, HOST_EXTENSION, params);
     }
