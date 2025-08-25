@@ -3,6 +3,7 @@ import { SlidingPaneContext, useSlidingPane } from "./context";
 import styled from '@emotion/styled';
 import { Codicon } from "../../../../Codicon/Codicon";
 import { VERTICAL_HELPERPANE_HEIGHT } from "../../../constants";
+import { ThemeColors } from "../../../../../styles";
 
 const DEFAULT_SLIDING_WINDOW_HEIGHT = `${VERTICAL_HELPERPANE_HEIGHT}px`;
 const DEFAULT_SLIDING_WINDOW_WIDTH = 370;
@@ -139,7 +140,7 @@ const InvisibleButton = styled.button`
     padding: 0;
     margin: 0;
     text-align: inherit;
-    color: inherit;
+    color: ${ThemeColors.ON_SURFACE_VARIANT};
     font: inherit;
     cursor: pointer;
     outline: none;
@@ -147,6 +148,9 @@ const InvisibleButton = styled.button`
     appearance: none;
     display: inline-flex;
     align-items: center;
+     &:hover {
+        color: ${ThemeColors.ON_PRIMARY} ;
+    }
 `;
 
 export const ScrollableContainer = styled.div`
@@ -164,6 +168,9 @@ const SlidingPaneNavContainerElm = styled.div`
     &:hover {
         background-color: var(--vscode-list-activeSelectionBackground) !important;
         cursor: pointer;
+    }
+    &:hover .sliding-pane-text {
+        color:  ${ThemeColors.ON_PRIMARY};
     }
 `
 export const SlidingPaneCallbackCOntainer = styled.div`
@@ -198,6 +205,7 @@ export const SlidingPaneNavContainer = ({ children, to, data, endIcon, onClick, 
     return (
         <SlidingPaneNavContainerElm ref={ref} style={sx}>
             <InvisibleButton
+                className="sliding-pane-text"
                 style={{ width: '100%' }}
                 onClick={() => {
                     if (onClick) {
