@@ -22,7 +22,7 @@ import { IOType, Mapping, MappingElement, TypeKind } from '@wso2/ballerina-core'
 import { IDataMapperContext } from '../../../../utils/DataMapperContext/DataMapperContext';
 import { MappingMetadata } from '../../Mappings/MappingMetadata';
 import { InputOutputPortModel } from "../../Port";
-import { findMappingByOutput } from '../../utils/common-utils';
+import { findMappingByOutput, hasChildMappingsForInput, hasChildMappingsForOutput } from '../../utils/common-utils';
 
 export interface DataMapperNodeModelGenerics {
 	PORT: InputOutputPortModel;
@@ -111,14 +111,28 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 			focusedFieldFQNs
 		} = attributes;
 
-		const fieldName = field?.variableName;
+		const fieldName = field?.name;
 		const isArray = this.isArrayTypedField(field);
 		const fieldFQN = this.getInputFieldFQN(field?.isFocused ? "" : parentId, fieldName, isOptional);
 		const unsafeFieldFQN = this.getUnsafeFieldFQN(field?.isFocused ? "" : unsafeParentId, fieldName);
 		const portName = this.getPortName(portPrefix, unsafeFieldFQN);
 		const isFocused = this.isFocusedField(focusedFieldFQNs, portName);
 		const isPreview = parent.attributes.isPreview || this.isPreviewPort(focusedFieldFQNs, parent.attributes.field);
-		const isCollapsed = this.isInputPortCollapsed(hidden, collapsedFields, expandedFields, portName, isArray, isFocused);
+
+		let collapseByDefault = false;
+		let isEnrichRequired = false;
+
+		if (field.isDeepNested){
+			isEnrichRequired = hasChildMappingsForInput(this.context.model.mappings, fieldFQN);
+			collapseByDefault = !isEnrichRequired;
+		}
+
+		const isCollapsed = this.isInputPortCollapsed(hidden, collapsedFields, expandedFields, 
+			portName, isArray, isFocused, collapseByDefault);
+
+		if ((!isCollapsed &&!hidden && field.isDeepNested) || isEnrichRequired){
+			this.context.enrichChildFields(field);
+		}
 
 		const inputPort = new InputOutputPortModel({
 			field: field,
@@ -166,7 +180,11 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 		if(fieldFQN.endsWith('>')) fieldFQN = fieldFQN.split('.').slice(0, -1).join('.');
 		const mapping = findMappingByOutput(mappings, fieldFQN);
 		const isCollapsed = this.isOutputPortCollapsed(hidden, collapsedFields, expandedFields, 
-			portName, type, isArray, false, mapping?.elements);
+			portName, isArray, field.isDeepNested, mapping, mappings, fieldFQN);
+
+		if (field.isDeepNested && !isCollapsed && !hidden) {
+			this.context.enrichChildFields(field);
+		}
 
 		const outputPort = new InputOutputPortModel({
 			field: field,
@@ -257,7 +275,7 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 		if (elementIndex !== undefined) {
 			return newParentId;
 		}
-		const fieldName = field?.variableName || '';
+		const fieldName = field?.name || '';
 		return newParentId !== '' ? fieldName !== '' ? `${newParentId}.${fieldName}` : newParentId : fieldName;
 	}
 
@@ -287,10 +305,14 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 		expandedFields: string[],
 		portName: string,
 		isArray: boolean,
-		isFocused: boolean
+		isFocused: boolean,
+		collapseByDefault: boolean
 	) {
 		if (isArray){
 			return isFocused ? false : expandedFields && !expandedFields.includes(portName);
+		}
+		if (collapseByDefault) {
+			return expandedFields && !expandedFields.includes(portName);
 		}
 		return !hidden && collapsedFields && collapsedFields.includes(portName);
 	}
@@ -300,12 +322,14 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 		collapsedFields: string[],
 		expandedFields: string[],
 		portName: string,
-		portType: "IN" | "OUT",
 		isArray: boolean,
-		isFocused: boolean,
-		mappingElements: MappingElement[]
+		isDeepNested: boolean,
+		mapping: Mapping,
+		mappings: Mapping[],
+		outputId: string
 	): boolean {
-		if (isArray && !mappingElements?.length && !isFocused) {
+		if ((isArray && !mapping?.elements?.length) ||
+			(isDeepNested && !hasChildMappingsForOutput(mappings, outputId))) {
 			return expandedFields && !expandedFields.includes(portName);
 		}
 		return !hidden && collapsedFields && collapsedFields.includes(portName);
