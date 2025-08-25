@@ -23,6 +23,7 @@ import { Button, ComponentCard, Dropdown, FormActions, FormView, ProgressIndicat
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { TagRange } from '@wso2/mi-syntax-tree/lib/src';
+import * as path from "path";
 import * as yup from "yup";
 import { getTestCaseXML } from "../../../utils/template-engine/mustache-templates/TestSuite";
 import { ParameterManager } from "@wso2/mi-diagram";
@@ -442,12 +443,12 @@ export function TestCaseForm(props: TestCaseFormProps) {
             // Read the current test suite file directly
             const testSuiteContent = await rpcClient.getMiDiagramRpcClient().handleFileWithFS({ 
                 filePath: props.filePath!, 
-                fileName: props.filePath!.split('/').pop()!,
+                fileName: path.basename(props.filePath!),
                 operation: 'read' 
             });
             
             // Extract test suite name from the file path
-            const testSuiteFileName = props.filePath!.split('/').pop()?.replace('.xml', '') || 'test-suite';
+            const testSuiteFileName = path.basename(props.filePath!, '.xml') || 'test-suite';
             
             // Use the artifact path for getting context
             const artifactPath = props.artifactPath || props.filePath!;
@@ -570,10 +571,8 @@ export function TestCaseForm(props: TestCaseFormProps) {
 
         } catch (error) {
             console.error('Error while generating test case:', error);
-            // You might want to show an error message to the user here
         } finally {
             setIsLoaded(true);
-            // Close the dialog even if there was an error
             setShowAIDialog(false);
             setAiPrompt("");
         }
