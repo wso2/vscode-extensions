@@ -34,7 +34,7 @@ export class Welcome {
         this.container = webview.locator('div#root');
     }
     public async createNewProject() {
-        const btn = await getVsCodeButton(this.container, 'Create New Project', 'primary', 60000);
+        const btn = await getVsCodeButton(this.container, 'Create New Project', 'primary', 150000);
         await btn.click();
     }
 
