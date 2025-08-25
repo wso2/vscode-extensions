@@ -314,7 +314,13 @@ import {
     getValueOfEnvVariable,
     getPomFileContent,
     getExternalConnectorDetails,
-    getMockServices
+    getMockServices,
+    configureKubernetes,
+    ConfigureKubernetesRequest,
+    isKubernetesConfigured,
+    UpdateRegistryPropertyRequest,
+    updatePropertiesInArtifactXML,
+    getPropertiesFromArtifactXML
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
 import { MiDiagramRpcManager } from "./rpc-manager";
@@ -498,4 +504,8 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(getPomFileContent, () => rpcManger.getPomFileContent());
     messenger.onRequest(getExternalConnectorDetails, () => rpcManger.getExternalConnectorDetails());
     messenger.onRequest(getMockServices, () => rpcManger.getMockServices());
+    messenger.onRequest(configureKubernetes, (args: ConfigureKubernetesRequest) => rpcManger.configureKubernetes(args));
+    messenger.onRequest(isKubernetesConfigured, () => rpcManger.isKubernetesConfigured());
+    messenger.onRequest(updatePropertiesInArtifactXML, (args: UpdateRegistryPropertyRequest) => rpcManger.updatePropertiesInArtifactXML(args));
+    messenger.onRequest(getPropertiesFromArtifactXML, (args: string) => rpcManger.getPropertiesFromArtifactXML(args));
 }

@@ -183,7 +183,8 @@ export function TestCaseForm(props: TestCaseFormProps) {
                         {
                             actualExpressionType: "Custom",
                         }
-                    ]
+                    ],
+                    isUnitTest: true
                 },
             },
             {
