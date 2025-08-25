@@ -3,8 +3,8 @@ import { CodeUtil, ReleaseQuality } from "./codeUtil";
 import { BrowserLaunchOptions, Browser } from "./types";
 import fs from "fs";
 
-export async function getBrowser(folder: string, version: string, quality: ReleaseQuality, extensionsFolder?: string): Promise<Browser> {
-    const codeUtil = new CodeUtil(folder, quality);
+export async function getBrowser(folder: string, version: string, quality: ReleaseQuality, extensionsFolder?: string, profileName?: string): Promise<Browser> {
+    const codeUtil = new CodeUtil(folder, quality, extensionsFolder, profileName);
     const vscodePath = path.join(folder, `Visual Studio Code.app`);
     if (!fs.existsSync(vscodePath)) {
         await codeUtil.downloadVSCode(version);
@@ -23,8 +23,8 @@ export async function getBrowser(folder: string, version: string, quality: Relea
     return browser;
 }
 
-export async function getBrowserLaunchOptions(folder: string, version: string, quality: ReleaseQuality, projectPath?: string, extensionsFolder?: string): Promise<BrowserLaunchOptions> {
-    const codeUtil = new CodeUtil(folder, quality, extensionsFolder);
+export async function getBrowserLaunchOptions(folder: string, version: string, quality: ReleaseQuality, projectPath?: string, extensionsFolder?: string, profileName?: string): Promise<BrowserLaunchOptions> {
+    const codeUtil = new CodeUtil(folder, quality, extensionsFolder, profileName);
     const resources = []
     if (projectPath) {
         resources.push(projectPath);

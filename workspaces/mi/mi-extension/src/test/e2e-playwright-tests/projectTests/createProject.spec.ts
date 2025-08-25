@@ -68,6 +68,9 @@ export default function createTests() {
                 await textInput?.fill(newProjectPath + '/newProject/');
                 const openBtn = await fileInput?.waitForSelector('a.monaco-button:has-text("Open MI Project")');
                 await openBtn?.click();
+                const newWindowButton = page.page.getByRole('button', { name: 'New Window' });
+                await newWindowButton.waitFor({ timeout: 10000 });
+                await newWindowButton.click();
                 const addArtifactSelector = '.tab-label:has-text("Add Artifact")';
                 await page.page.waitForSelector(addArtifactSelector, { state: 'visible' });
                 await page.page.waitForSelector(addArtifactSelector, { state: 'attached' });
@@ -82,10 +85,10 @@ export default function createTests() {
 
             await test.step("Create New Project with Advanced Config Tests", async () => {
                 console.log('Starting to create a new project with advanced configuration');
-                fs.rmSync(newProjectPath, { recursive: true });
-                await page.page.reload();
-                await page.executePaletteCommand("MI: Open MI Welcome");
+                await page.executePaletteCommand('Workspaces: Close Workspace');
+                console.log("Closed Workspace");
                 await createProject(page, 'newProjectWithAdConfig', '4.4.0', true);
+                console.log("Project Created");
                 await waitUntilPomContains(page.page, path.join(newProjectPath, 'newProjectWithAdConfig', 'pom.xml'), 
                 '<artifactId>test</artifactId>');
                 console.log('New project with advanced config created successfully');

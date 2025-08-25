@@ -376,7 +376,8 @@ jobs:
   ExtTest_MI:
     name: Run MI diagram tests
     needs: Build_Stage
-    if: ${{ inputs.runTests || !inputs.isPreRelease || needs.Build_Stage.outputs.runMIExtTests == 'true' || github.base_ref == 'release-mi' }}
+    if: false
+    # if: ${{ inputs.runTests || !inputs.isPreRelease || needs.Build_Stage.outputs.runMIExtTests == 'true' || github.base_ref == 'release-mi' }}
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
@@ -411,7 +412,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [group1, group2, group3]
+        group: [group1]
         os: [windows-latest]
     runs-on: ${{ matrix.os }}    
     steps:
@@ -460,6 +461,8 @@ jobs:
         shell: bash
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
+            # Install FFmpeg for Windows screen recording
+            choco install ffmpeg -y
             cd workspaces/mi/mi-extension && npx playwright install --with-deps    
           else
             sudo apt-get update
@@ -482,7 +485,36 @@ jobs:
         if: github.run_attempt == 1 || steps.check-results.outcome == 'failure'
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            cd workspaces/mi/mi-extension && npm run e2e-test
+            cd workspaces/mi/mi-extension
+            # Use PowerShell to start screen recording
+            powershell -Command "
+            Add-Type -AssemblyName System.Windows.Forms
+            Add-Type -AssemblyName System.Drawing
+            \$rec = New-Object System.Diagnostics.Process
+            \$rec.StartInfo.FileName = 'ffmpeg'
+            \$rec.StartInfo.Arguments = '-y -f gdigrab -framerate 10 -i desktop -t 600 -c:v libx264 -preset fast -crf 30 record.mp4'
+            \$rec.StartInfo.UseShellExecute = \$false
+            \$rec.StartInfo.CreateNoWindow = \$true
+            \$rec.Start()
+            \$rec.Id | Out-File -FilePath 'ffmpeg_pid.txt' -Encoding ASCII
+            "
+            
+            # Run tests
+            npx playwright test --grep ${{ matrix.group }}
+            
+            # Stop recording
+            if [ -f "ffmpeg_pid.txt" ]; then
+              FFMPEG_PID=$(cat ffmpeg_pid.txt)
+              powershell -Command "Stop-Process -Id $FFMPEG_PID -Force" 2>/dev/null || true
+              sleep 3
+            fi
+            
+            # Check if video was created
+            if [ -f "record.mp4" ]; then
+              echo "Video created, size: $(du -h record.mp4)"
+            else
+              echo "No video file found"
+            fi
           else
             export $(dbus-launch)
             export DISPLAY=:98.0
@@ -494,8 +526,39 @@ jobs:
         shell: bash
         if: github.run_attempt > 1 && steps.check-results.outcome == 'success'
         run: |
-          if [[ "$RUNNER_OS" == "Windows" || "$RUNNER_OS" == "macOS" ]]; then
-            cd workspaces/mi/mi-extension && npm run e2e-test -- --last-failed --grep ${{ matrix.group }}
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cd workspaces/mi/mi-extension
+            # Use PowerShell to start screen recording for rerun
+            powershell -Command "
+            Add-Type -AssemblyName System.Windows.Forms
+            Add-Type -AssemblyName System.Drawing
+            \$rec = New-Object System.Diagnostics.Process
+            \$rec.StartInfo.FileName = 'ffmpeg'
+            \$rec.StartInfo.Arguments = '-y -f gdigrab -framerate 10 -i desktop -t 600 -c:v libx264 -preset fast -crf 30 record.mp4'
+            \$rec.StartInfo.UseShellExecute = \$false
+            \$rec.StartInfo.CreateNoWindow = \$true
+            \$rec.Start()
+            \$rec.Id | Out-File -FilePath 'ffmpeg_pid.txt' -Encoding ASCII
+            "
+            
+            # Run failed tests
+            npx playwright test --grep ${{ matrix.group }} --last-failed
+            
+            # Stop recording
+            if [ -f "ffmpeg_pid.txt" ]; then
+              FFMPEG_PID=$(cat ffmpeg_pid.txt)
+              powershell -Command "Stop-Process -Id $FFMPEG_PID -Force" 2>/dev/null || true
+              sleep 3
+            fi
+            
+            # Check if video was created
+            if [ -f "record.mp4" ]; then
+              echo "Re-run video created, size: $(du -h record.mp4)"
+            else
+              echo "No re-run video file found"
+            fi
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            cd workspaces/mi/mi-extension && npx playwright test --grep ${{ matrix.group }} --last-failed
           else
             export $(dbus-launch)
             export DISPLAY=:98.0

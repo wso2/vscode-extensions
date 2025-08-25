@@ -30,6 +30,7 @@ import { RuntimeServicePanel } from "./RuntimeServicesPanel";
 import { SwaggerPanel } from "./SwaggerPanel";
 import { gitIssueUrl } from "./constants";
 import { EnvironmentSetup } from "./views/EnvironmentSetup";
+import { UnsupportedProject } from "./views/UnsupportedProject";
 
 const LoaderWrapper = styled.div`
     display: flex;
@@ -79,6 +80,8 @@ export function Visualizer({ mode, swaggerData }: { mode: string, swaggerData?: 
                     setCurrentView('welcome');
                 } else if ('environmentSetup' in newState && newState.environmentSetup === "viewReady") {
                     setCurrentView('environmentSetup');
+                } else if ('oldWorkspaceDetected' in newState && newState.oldWorkspaceDetected === "viewReady") {
+                    setCurrentView('oldWorkspaceDetected');
                 }
             } else if (newState === 'disabled') {
                 setCurrentView('disabled');
@@ -114,6 +117,9 @@ export function Visualizer({ mode, swaggerData }: { mode: string, swaggerData?: 
                     break;
                 case 'environmentSetup':
                     setView(<EnvironmentSetup />);
+                    break;
+                case 'oldWorkspaceDetected':
+                    setView(<UnsupportedProject />);
                     break;
                 case 'disabled':
                     setView(<DisabledView />);

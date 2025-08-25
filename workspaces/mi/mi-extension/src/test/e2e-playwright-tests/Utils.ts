@@ -33,6 +33,7 @@ const vscodeVersion = 'latest';
 export const resourcesFolder = path.join(__dirname, '..', 'test-resources');
 export const newProjectPath = path.join(dataFolder, 'new-project', 'testProjectFolder');
 export const screenShotsFolder = path.join(__dirname, '..', 'test-resources', 'screenshots');
+export const videosFolder = path.join(__dirname, '..', 'test-resources', 'videos');
 
 export let vscode: ElectronApplication | undefined;
 export let page: ExtendedPage;
@@ -41,7 +42,7 @@ async function initVSCode() {
     if (vscode && page) {
         await page.executePaletteCommand('Reload Window');
     } else {
-        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, newProjectPath);
+        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, newProjectPath, 'mi-test-profile');
     }
     page = new ExtendedPage(await vscode!.firstWindow({ timeout: 60000 }));
 }
@@ -113,7 +114,7 @@ export async function resumeVSCode() {
         await page.executePaletteCommand('Reload Window');
     } else {
         console.log('Starting VSCode');
-        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, path.join(newProjectPath, 'testProject'));
+        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, path.join(newProjectPath, 'testProject'), 'mi-test-profile');
         await new Promise(resolve => setTimeout(resolve, 5000));
     }
     page = new ExtendedPage(await vscode!.firstWindow({ timeout: 60000 }));
@@ -151,13 +152,61 @@ export async function closeEditorGroup() {
     await page.executePaletteCommand('Close Editor Group');
 }
 
+async function safeCleanup(directoryPath: string) {
+    // Add a small delay to allow any pending file operations to complete
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Use fs.promises for async file operations
+    const fsp = fs.promises;
+    
+    // Read directory contents first
+    const removeContents = async (dir: string) => {
+        try {
+            const items = await fsp.readdir(dir, { withFileTypes: true });
+            
+            // First remove all files and subdirectories
+            for (const item of items) {
+                const fullPath = path.join(dir, item.name);
+                if (item.isDirectory()) {
+                    await removeContents(fullPath); // Recurse for directories
+                    await fsp.rmdir(fullPath).catch(() => {}); // Ignore errors
+                } else {
+                    await fsp.unlink(fullPath).catch(() => {}); // Ignore errors
+                }
+            }
+            
+            // Then try to remove the directory itself
+            await fsp.rmdir(dir).catch(() => {}); // Ignore errors
+        } catch (err) {
+            console.warn(`Warning: Error while cleaning up ${dir}:`, err);
+        }
+    };
+
+    // Attempt cleanup multiple times with delay between attempts
+    for (let i = 0; i < 3; i++) {
+        try {
+            if (fs.existsSync(directoryPath)) {
+                await removeContents(directoryPath);
+                // Final verification
+                if (!fs.existsSync(directoryPath)) {
+                    break;
+                }
+            } else {
+                break;
+            }
+        } catch (err) {
+            if (i === 2) throw err; // Re-throw on last attempt
+            await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+        }
+    }
+}
+
 export function initTest(newProject: boolean = false, skipProjectCreation: boolean = false, cleanupAfter?: boolean, projectName?: string, runtimeVersion?: string) {
     test.beforeAll(async ({ }, testInfo) => {
         console.log(`>>> Starting tests. Title: ${testInfo.title}, Attempt: ${testInfo.retry + 1}`);
         if (!existsSync(path.join(newProjectPath, projectName ?? 'testProject')) || newProject) {
-            if (fs.existsSync(newProjectPath)) {
-                fs.rmSync(newProjectPath, { recursive: true });
-            }
+            // Safely cleanup and close VS Code before removing directory
+            await safeCleanup(newProjectPath);
             fs.mkdirSync(newProjectPath, { recursive: true });
             console.log('Starting VSCode');
             await initVSCode();
@@ -185,7 +234,11 @@ export function initTest(newProject: boolean = false, skipProjectCreation: boole
 
     test.afterAll(async ({ }, testInfo) => {
         if (cleanupAfter && fs.existsSync(newProjectPath)) {
-            fs.rmSync(newProjectPath, { recursive: true });
+            try {
+                await safeCleanup(newProjectPath);
+            } catch (error: any) {
+                console.warn(`Warning: Could not remove directory ${newProjectPath}: ${error?.message || 'Unknown error'}`);
+            }
         }
         console.log(`>>> Finished ${testInfo.title} with status: ${testInfo.status}, Attempt: ${testInfo.retry + 1}`);
     });

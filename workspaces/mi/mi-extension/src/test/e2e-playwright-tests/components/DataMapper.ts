@@ -52,6 +52,17 @@ export class DataMapper {
         this.tsFile = path.join(newProjectPath, 'testProject', 'src', 'main', 'wso2mi', 'resources', 'datamapper', this._name, `${this._name}.ts`);
     }
 
+    public async add(name: string) {
+        const seqWebView = await switchToIFrame('Resource View', this._page);
+        if (!seqWebView) {
+            throw new Error("Failed to switch to Resource Form iframe");
+        }
+        const seqFrame = seqWebView.locator('#popUpPanel');
+        await seqFrame.waitFor();
+        await seqFrame.getByRole('textbox', { name: 'Name' }).fill(name);
+        await seqFrame.getByRole('button', { name: 'Create' }).click();
+    }
+
     public getWebView() {
         return this.webView;
     }
@@ -229,9 +240,8 @@ export class DataMapper {
     }
 
     public compareFiles(file1: string, file2: string) {
-        const file1Content = fs.readFileSync(file1, 'utf8');
-        const file2Content = fs.readFileSync(file2, 'utf8');
-
+        const file1Content = fs.readFileSync(file1, 'utf8').replace(/\r\n/g, '\n');
+        const file2Content = fs.readFileSync(file2, 'utf8').replace(/\r\n/g, '\n');
         return file1Content === file2Content;
     }
 
