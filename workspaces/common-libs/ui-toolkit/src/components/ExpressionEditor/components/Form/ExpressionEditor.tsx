@@ -71,6 +71,24 @@ export const DropdownContainer = styled.div<StyleBase>`
   }
 `;
 
+export const ifCTRLandUP = (e: React.KeyboardEvent) => {
+    return (
+        (e.ctrlKey || e.metaKey) && e.key === "ArrowUp"
+    );
+};
+
+export const ifCTRLandDown = (e: React.KeyboardEvent) => {
+    return (
+        (e.ctrlKey || e.metaKey) && e.key === "ArrowDown"
+    );
+};
+
+export const ifCTRLandENTER = (e: React.KeyboardEvent) => {
+    return (
+        (e.ctrlKey || e.metaKey) && e.key === "Enter"
+    );
+};
+
 export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressionEditorElProps>((props, ref) => {
     const {
         containerRef,
@@ -370,9 +388,20 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
         );
     };
 
-    const handleInputKeyDown = async (e: React.KeyboardEvent) => {
-        changeHelperPaneState?.(false);
 
+
+    const isReservedKeyCombinationPressed = (e: React.KeyboardEvent) => {
+        return ( (e.ctrlKey || e.metaKey) ||
+            ifCTRLandDown(e) ||
+            ifCTRLandUP(e) ||
+            ifCTRLandENTER(e)
+        );
+    }
+
+    const handleInputKeyDown = async (e: React.KeyboardEvent) => {
+        if (!isReservedKeyCombinationPressed(e)) {
+            changeHelperPaneState?.(false);
+        }
         if (dropdownContainerRef.current) {
             const hoveredEl = dropdownContainerRef.current.querySelector('.hovered');
             if (dropdownRef.current) {

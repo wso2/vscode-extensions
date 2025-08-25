@@ -162,7 +162,7 @@ const SlidingPaneNavContainerElm = styled.div`
     display: flex;
     align-items: center;
     &:hover {
-        background-color: var(--vscode-list-activeSelectionBackground);
+        background-color: var(--vscode-list-activeSelectionBackground) !important;
         cursor: pointer;
     }
 `
@@ -181,9 +181,11 @@ type SlidingPaneNavContainerProps = {
     data?: any;
     endIcon?: ReactNode;
     onClick?: () => void;
+    sx?: React.CSSProperties;
+    ref?: React.Ref<HTMLDivElement> | null;
 }
 
-export const SlidingPaneNavContainer = ({ children, to, data, endIcon, onClick }: SlidingPaneNavContainerProps) => {
+export const SlidingPaneNavContainer = ({ children, to, data, endIcon, onClick, sx, ref }: SlidingPaneNavContainerProps) => {
     const { moveToNext } = useSlidingPane();
     const handleNavigation = () => {
         if (!to) return;
@@ -194,7 +196,7 @@ export const SlidingPaneNavContainer = ({ children, to, data, endIcon, onClick }
     }
 
     return (
-        <SlidingPaneNavContainerElm>
+        <SlidingPaneNavContainerElm ref={ref} style={sx}>
             <InvisibleButton
                 style={{ width: '100%' }}
                 onClick={() => {
