@@ -45,14 +45,18 @@ export async function activate(context: vscode.ExtensionContext) {
 		.filter((tab) => (tab.input as any)?.viewType?.includes("micro-integrator."));
 	vscode.window.tabGroups.close(orphanedTabs);
 
-	const oldProjects = workspace.workspaceFolders?.filter(async folder => {
-		const isOld = await isOldProjectOrWorkspace(folder.uri.fsPath);
-		if (isOld) getStateMachine(folder.uri.fsPath);
-		return isOld;
-	}) ?? [];
-	const newProjects = workspace.workspaceFolders?.filter(folder => {
-		return !oldProjects.includes(folder);
-	}) ?? [];
+	const oldProjects = workspace.workspaceFolders
+		? (await Promise.all(
+			workspace.workspaceFolders.map(async folder => {
+				const isOld = await isOldProjectOrWorkspace(folder.uri.fsPath);
+				if (isOld) getStateMachine(folder.uri.fsPath);
+				return isOld ? folder : null;
+			})
+		)).filter((folder): folder is vscode.WorkspaceFolder => folder !== null)
+		: [];
+	const newProjects = workspace.workspaceFolders
+		? workspace.workspaceFolders.filter(folder => !oldProjects.includes(folder))
+		: [];
 
 	const firstProject = newProjects?.[0]?.uri?.fsPath || 
 						 oldProjects?.[0]?.uri?.fsPath || 
