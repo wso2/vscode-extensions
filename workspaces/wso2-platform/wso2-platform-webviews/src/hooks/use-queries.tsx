@@ -90,7 +90,13 @@ export const queryKeys = {
 	],
 	getBuildsLogs: (component: ComponentKind, deploymentTrack: DeploymentTrack, project: Project, org: Organization, build: BuildKind) => [
 		"get-build-logs",
-		{ component: component.metadata.id, deploymentTrack: deploymentTrack.id, organization: org.uuid, project: project.id, build: build?.status?.runId },
+		{
+			component: component.metadata.id,
+			deploymentTrack: deploymentTrack.id,
+			organization: org.uuid,
+			project: project.id,
+			build: build?.status?.runId,
+		},
 	],
 	getComponentConnections: (component: ComponentKind, project: Project, org: Organization) => [
 		"get-component-connections",

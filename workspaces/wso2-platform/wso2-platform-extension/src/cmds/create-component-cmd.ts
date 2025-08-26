@@ -245,10 +245,7 @@ export function createNewComponentCommand(context: ExtensionContext) {
 						organization: selectedOrg!,
 						project: selectedProject!,
 						extensionName: webviewStateStore.getState().state.extensionName,
-						// todo: make this flow only work in code-server?
-						shouldAutoCommit:
-							isGitInitialized === false && webviewStateStore.getState().state.extensionName === "Devant" && !!process.env.CLOUD_STS_TOKEN,
-						isGitInitialized,
+						isNewCodeServerComp: isGitInitialized === false && !!process.env.CLOUD_STS_TOKEN,
 						initialValues: {
 							type: selectedType,
 							subType: selectedSubType,
@@ -374,7 +371,7 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 		}
 
 		if (extensionName !== "Devant") {
-			showComponentDetailsView(org, project, createdComponent, createParams?.componentDir);
+			showComponentDetailsView(org, project, createdComponent, createParams?.componentDir, undefined, true);
 		}
 
 		const successMessage = `${extensionName === "Devant" ? "Integration" : "Component"} '${createdComponent.metadata.name}' was successfully created.`;
@@ -395,7 +392,7 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 				if (resp === `Open in ${extensionName}`) {
 					commands.executeCommand(
 						"vscode.open",
-						`${extensionName === "Devant" ? ext.config?.devantConsoleUrl : ext.config?.choreoConsoleUrl}/organizations/${org.handle}/projects/${project.id}/components/${createdComponent.metadata.handler}/overview`,
+						`${extensionName === "Devant" ? ext.config?.devantConsoleUrl : ext.config?.choreoConsoleUrl}/organizations/${org.handle}/projects/${extensionName === "Devant" ? project.id : project.handler}/components/${createdComponent.metadata.handler}/overview`,
 					);
 				}
 			});

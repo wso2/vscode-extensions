@@ -123,6 +123,7 @@ export interface CloneRepositoryIntoCompDirReq {
 		serverUrl?: string;
 		branch: string;
 		secretRef: string;
+		isBareRepo: boolean;
 	};
 }
 

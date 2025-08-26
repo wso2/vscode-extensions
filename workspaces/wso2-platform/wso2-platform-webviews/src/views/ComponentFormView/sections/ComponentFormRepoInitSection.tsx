@@ -38,8 +38,6 @@ type ComponentRepoInitSchemaType = z.infer<typeof componentRepoInitSchema>;
 interface Props extends NewComponentWebviewProps {
 	onNextClick: () => void;
 	initializingRepo?: boolean;
-	nextText: string;
-	loadingNextText?: string;
 	initialFormValues?: ComponentRepoInitSchemaType;
 	form: UseFormReturn<ComponentRepoInitSchemaType>;
 	componentType: string;
@@ -49,7 +47,7 @@ const connectMoreRepoText = "Connect More Repositories";
 const createNewRpoText = "Create New Repository";
 const createNewCredText = "Create New Credential";
 
-export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organization, form, nextText, loadingNextText, initializingRepo }) => {
+export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organization, form, initializingRepo }) => {
 	const [compDetailsSections] = useAutoAnimate();
 	const { extensionName } = useExtWebviewContext();
 	const [creatingRepo, setCreatingRepo] = useState(false);
@@ -374,7 +372,7 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 
 			<div className="flex justify-end gap-3 pt-6 pb-2">
 				<Button onClick={form.handleSubmit(onSubmitForm)} disabled={isValidatingPath || initializingRepo}>
-					{isValidatingPath || initializingRepo ? (loadingNextText ?? nextText) : nextText}
+					{isValidatingPath || initializingRepo ? "Deploying..." : "Deploy"}
 				</Button>
 			</div>
 		</>

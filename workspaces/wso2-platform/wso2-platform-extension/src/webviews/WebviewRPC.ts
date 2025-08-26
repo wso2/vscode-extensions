@@ -577,6 +577,7 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		return getConfigFileDrifts(params.type, params.repoUrl, params.branch, params.repoDir, ext.context);
 	});
 	messenger.onRequest(CloneRepositoryIntoCompDir, async (params: CloneRepositoryIntoCompDirReq) => {
+		const extName = webviewStateStore.getState().state.extensionName;
 		const newGit = await initGit(ext.context);
 		if (!newGit) {
 			throw new Error("failed to retrieve Git details");
@@ -607,6 +608,33 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 
 		const repoUrl = urlObj.href;
 
+		// if ballerina toml exists, need to update the org and name
+		const balTomlPath = join(params.cwd, "Ballerina.toml");
+		if (existsSync(balTomlPath)) {
+			const fileContent = await fs.promises.readFile(balTomlPath, "utf-8");
+			const parsedToml: any = toml.parse(fileContent);
+			if (parsedToml?.package) {
+				parsedToml.package.org = params.org.handle;
+				parsedToml.package.name = params.componentName?.replaceAll("-", "_");
+			}
+			const updatedTomlContent = toml.stringify(parsedToml);
+			await fs.promises.writeFile(balTomlPath, updatedTomlContent, "utf-8");
+		}
+
+		if (params.repo?.isBareRepo && ["", "/", "."].includes(params.subpath)) {
+			// if component is to be created in the root of a bare repo,
+			// the we can initialize the current directory as the repo root
+			await newGit.init(params.cwd);
+			const dotGit = await newGit?.getRepositoryDotGit(params.cwd);
+			const repo = newGit.open(params.cwd, dotGit);
+			await repo.addRemote("origin", repoUrl);
+			await repo.add(["."]);
+			await repo.commit(`Add source for new ${extName} ${extName === "Devant" ? "Integration" : "Component"} (${params.componentName})`);
+			await repo.push("origin", "main");
+			await repo.fetch();
+			return params.cwd;
+		}
+
 		const clonedPath = await window.withProgress(
 			{
 				title: `Cloning repository ${params.repo?.orgHandler}/${params.repo.repo}`,
@@ -626,19 +654,6 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 					cancellationToken,
 				),
 		);
-
-		// if ballerina toml exists, need to update the org and name
-		const balTomlPath = join(params.cwd, "Ballerina.toml");
-		if (existsSync(balTomlPath)) {
-			const fileContent = await fs.promises.readFile(balTomlPath, "utf-8");
-			const parsedToml: any = toml.parse(fileContent);
-			if (parsedToml?.package) {
-				parsedToml.package.org = params.org.handle;
-				parsedToml.package.name = params.componentName?.replaceAll("-", "_");
-			}
-			const updatedTomlContent = toml.stringify(parsedToml);
-			await fs.promises.writeFile(balTomlPath, updatedTomlContent, "utf-8");
-		}
 
 		// Move everything into cloned dir
 		const cwdFiled = readdirSync(params.cwd);

@@ -30,8 +30,7 @@ export interface NewComponentWebviewProps {
 	existingComponents: ComponentKind[];
 	initialValues?: { type?: string; subType?: string; buildPackLang?: string; name?: string };
 	extensionName?: string;
-	isGitInitialized?: boolean;
-	shouldAutoCommit?: boolean;
+	isNewCodeServerComp?: boolean;
 }
 
 export interface ComponentsDetailsWebviewProps {
@@ -41,6 +40,7 @@ export interface ComponentsDetailsWebviewProps {
 	component: ComponentKind;
 	directoryFsPath?: string;
 	initialEnvs: Environment[];
+	isNewComponent?: boolean;
 }
 
 export interface ComponentsListActivityViewProps {
