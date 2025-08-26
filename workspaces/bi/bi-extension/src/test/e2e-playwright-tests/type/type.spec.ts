@@ -61,6 +61,26 @@ export default function createTests() {
             await typeUtils.saveAndWait(unionForm);
             await typeUtils.verifyTypeNodeExists(unionName);
 
+            // RECORD: Organization
+            await typeUtils.clickAddType();
+            const organizationName = `Organization${testAttempt}`;
+            const organizationForm = await typeUtils.createRecordType(organizationName, [
+                { name: 'id', type: unionName },
+                { name: 'name', type: 'string' },
+                { name: 'location', type: 'string' }
+            ]);
+            
+            // Test Advanced Options functionality
+            console.log('Expanding Advanced Options...');
+            await typeUtils.toggleDropdown('Advanced Options'); 
+        
+            console.log('Testing Allow Additional Fields checkbox...');
+            await typeUtils.setCheckbox('Allow Additional Fields', true); 
+            await typeUtils.saveAndWait(organizationForm);
+            await typeUtils.verifyTypeNodeExists(organizationName);
+            await typeUtils.verifyTypeLink(organizationName, 'id', unionName);
+
+
             // RECORD: Employee (initially with just id field)
             await typeUtils.clickAddType();
             const recordName = `Employee${testAttempt}`;
@@ -80,6 +100,24 @@ export default function createTests() {
             await typeUtils.saveAndWait(editForm);
             await typeUtils.verifyTypeLink(recordName, 'role', enumName);
 
+            // Add name field to Employee record
+            await typeUtils.editType(recordName);
+            await typeUtils.addRecordField('name', 'string' );
+
+            // Toggle drop down
+            await typeUtils.toggleFieldOptionsByChevron(2);
+            await typeUtils.setCheckbox('Readonly', true);
+        
+            // Test Advanced Options functionality
+            console.log('Expanding Advanced Options...');
+            await typeUtils.toggleDropdown('Advanced Options');      
+            
+            console.log('Testing Is Readonly Type checkbox...');
+            await typeUtils.setCheckbox('Is Readonly Type', true);
+
+            await typeUtils.saveAndWait(recordForm);
+            await typeUtils.verifyTypeNodeExists(recordName);
+
             // Create Service Class: Project
             await typeUtils.clickAddType();
             const serviceClassName = `Project${testAttempt}`;
@@ -92,7 +130,7 @@ export default function createTests() {
 
             // Verify the generated types.bal matches testOutput.bal
             const expectedFilePath = path.join(__dirname, 'testOutput.bal');
-            await verifyGeneratedSource('types.bal', expectedFilePath);
+            await verifyGeneratedSource('types.bal', expectedFilePath);                 
 
         });
     });
