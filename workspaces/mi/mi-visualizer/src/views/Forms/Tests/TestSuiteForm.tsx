@@ -855,7 +855,7 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
         return <TestCaseForm 
             onGoBack={goBack} 
             onSubmit={onSubmit} 
-            filePath={props.filePath} // Use the actual test suite file path
+            filePath={props.filePath}
             artifactPath={path.join(projectUri, getValues('artifact'))}
             testCase={currentTestCase} 
             availableTestCases={availableTestCases} 
