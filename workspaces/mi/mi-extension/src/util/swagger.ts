@@ -291,15 +291,14 @@ export function generateSwagger(apiPath: string): Promise<SwaggerFromAPIResponse
         if (!projectUri) {
             return;
         }
-        const langClient = getStateMachine(projectUri).context().langClient!;
-        const response = await langClient.swaggerFromAPI({ apiPath: apiPath });
-        const generatedSwagger = response.swagger;
-
         const dirPath = path.join(projectUri, SWAGGER_REL_DIR);
         const swaggerPath = path.join(dirPath, path.basename(apiPath, path.extname(apiPath)) + '.yaml');
         if (!fs.existsSync(dirPath)) {
             fs.mkdirSync(dirPath, { recursive: true });
         }
+        const langClient = getStateMachine(projectUri).context().langClient!;
+        const response = await langClient.swaggerFromAPI({ apiPath: apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
+        const generatedSwagger = response.swagger;
         fs.writeFileSync(swaggerPath, generatedSwagger);
         resolve({ generatedSwagger: generatedSwagger });
     });
