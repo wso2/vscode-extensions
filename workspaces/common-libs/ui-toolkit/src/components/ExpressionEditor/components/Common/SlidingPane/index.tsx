@@ -16,9 +16,9 @@ const SlidingWindowContainer = styled.div`
     display: flex;
     position: relative;
     width: 320px;
+    max-height: 350px;
     overflow-x: scroll;
     overflow-y: scroll;
-    height: 200px;
     padding: 0px;
     background-color: var(--vscode-dropdown-background);
     transition: height 0.3s ease-in-out, width 0.3s ease-in-out;
@@ -75,7 +75,7 @@ export const SlidingWindow = ({ children }: SlidingWindowProps) => {
                 setPrevPage: setPrevPage,
                 getParams: getParams
             }}>
-            <SlidingWindowContainer style={{ height: height, width: width }}>
+            <SlidingWindowContainer style={{  width: width }}>
                 {children}
             </SlidingWindowContainer>
         </SlidingPaneContext.Provider>
@@ -83,11 +83,7 @@ export const SlidingWindow = ({ children }: SlidingWindowProps) => {
 }
 
 export const SlidingPaneContainer = styled.div<{ index: number; isCurrent?: boolean; width?: string, clearAnimations?: boolean }>`
-  position: absolute;
-  top: 0;
-  left: 0;
   width: 100%;
-  height: 100%;
   display: flex;
   flex-direction: column;
   transition: ${({ clearAnimations }: { clearAnimations: boolean }) =>
@@ -126,7 +122,7 @@ export const SlidingPane = ({ children, name, paneHeight, paneWidth }: SlidingPa
         prevVisitedPagesLength.current = visitedPages.length;
     }, [visitedPages, name, currentPage, setClearAnimations, setHeight, setWidth, paneHeight, paneWidth]);
 
-    if (name !== currentPage.name) return;
+    if (name !== currentPage.name) return null;
     return (
         <SlidingPaneContainer index={index} clearAnimations={clearAnimations} >
             {children}
