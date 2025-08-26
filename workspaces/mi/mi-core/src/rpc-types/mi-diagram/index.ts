@@ -257,7 +257,9 @@ import {
     GetCodeDiagnosticsReqeust,
     GetCodeDiagnosticsResponse,
     GetConnectorIconRequest,
-    GetConnectorIconResponse
+    GetConnectorIconResponse,
+    SubmitFeedbackRequest,
+    SubmitFeedbackResponse,
 } from "./types";
 
 export interface MiDiagramAPI {
@@ -430,4 +432,5 @@ export interface MiDiagramAPI {
     shouldDisplayPayloadAlert: () => Promise<boolean>;
     displayPayloadAlert: () => Promise<void>;
     closePayloadAlert: () => Promise<void>;
+    submitFeedback: (params: SubmitFeedbackRequest) => Promise<SubmitFeedbackResponse>;
 }

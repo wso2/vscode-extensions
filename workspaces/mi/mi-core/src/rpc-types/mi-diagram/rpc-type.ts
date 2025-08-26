@@ -260,7 +260,9 @@ import {
     GetCodeDiagnosticsResponse,
     UpdateMediatorResponse,
     GetConnectorIconRequest,
-    GetConnectorIconResponse
+    GetConnectorIconResponse,
+    SubmitFeedbackRequest,
+    SubmitFeedbackResponse,
 } from "./types";
 import { RequestType, NotificationType } from "vscode-messenger-common";
 
@@ -439,3 +441,4 @@ export const shouldDisplayPayloadAlert: RequestType<void, boolean> = { method: `
 export const displayPayloadAlert: RequestType<void, void> = { method: `${_preFix}/displayPayloadAlert` };
 export const closePayloadAlert: RequestType<void, void> = { method: `${_preFix}/closePayloadAlert` };
 export const getValueOfEnvVariable: RequestType<string, string> = { method: `${_preFix}/getValueOfEnvVariable` };
+export const submitFeedback: RequestType<SubmitFeedbackRequest, SubmitFeedbackResponse> = { method: `${_preFix}/submitFeedback` };

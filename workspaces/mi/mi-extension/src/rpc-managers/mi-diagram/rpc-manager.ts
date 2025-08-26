@@ -281,7 +281,9 @@ import {
     DependencyDetails,
     GetCodeDiagnosticsReqeust,
     GetCodeDiagnosticsResponse,
-    getCodeDiagnostics
+    getCodeDiagnostics,
+    SubmitFeedbackRequest,
+    SubmitFeedbackResponse
 } from "@wso2/mi-core";
 import axios from 'axios';
 import { error } from "console";
@@ -5776,6 +5778,65 @@ ${keyValuesXML}`;
             }
         });
     };
+
+    async submitFeedback(params: SubmitFeedbackRequest): Promise<SubmitFeedbackResponse> {
+        try {
+            const { positive, messages, feedbackText, messageIndex, timestamp } = params;
+            
+            // Get the feedback backend URL from environment
+            const feedbackUrl = process.env.MI_COPILOT_FEEDBACK;
+            
+            if (!feedbackUrl) {
+                console.warn('MI_COPILOT_FEEDBACK URL not configured');
+                return {
+                    success: false,
+                    message: 'Feedback backend URL not configured'
+                };
+            }
+
+            // Transform the messages into the format expected by the backend
+            const chatHistory = messages.map((msg, index) => ({
+                content: msg.content,
+                role: msg.role === 'user' ? 'user' : 'assistant',
+                message_order: index + 1,
+                command: 'chat'
+            }));
+
+            // Create the payload matching the backend's AnalyticsPayload format
+            const payload = {
+                positive,
+                comment: feedbackText || '',
+                chat_history: chatHistory
+            };
+
+            // Send the feedback to the backend
+            const response = await axios.post(feedbackUrl, payload, {
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (response.status === 200) {
+                return {
+                    success: true,
+                    message: 'Feedback submitted successfully'
+                };
+            } else {
+                console.error('Failed to submit feedback, unexpected status:', response.status);
+                return {
+                    success: false,
+                    message: `Failed to submit feedback: HTTP ${response.status}`
+                };
+            }
+
+        } catch (error) {
+            console.error('Error submitting feedback:', error);
+            return {
+                success: false,
+                message: `Failed to submit feedback: ${(error as Error).message}`
+            };
+        }
+    }
 }
 
 export function getRepoRoot(projectRoot: string): string | undefined {

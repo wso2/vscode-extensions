@@ -309,7 +309,9 @@ import {
     getCodeDiagnostics,
     GetConnectorIconRequest,
     getConnectorIcon,
-    getValueOfEnvVariable
+    getValueOfEnvVariable,
+    SubmitFeedbackRequest,
+    submitFeedback
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
 import { MiDiagramRpcManager } from "./rpc-manager";
@@ -489,4 +491,5 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(displayPayloadAlert, () => rpcManger.displayPayloadAlert());
     messenger.onRequest(closePayloadAlert, () => rpcManger.closePayloadAlert());
     messenger.onRequest(getValueOfEnvVariable, (args: string) => rpcManger.getValueOfEnvVariable(args));
+    messenger.onRequest(submitFeedback, (args: SubmitFeedbackRequest) => rpcManger.submitFeedback(args));
 }

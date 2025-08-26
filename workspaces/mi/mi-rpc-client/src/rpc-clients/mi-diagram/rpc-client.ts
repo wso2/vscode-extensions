@@ -435,7 +435,10 @@ import {
     GetConnectorIconRequest,
     GetConnectorIconResponse,
     getConnectorIcon,
-    getValueOfEnvVariable
+    getValueOfEnvVariable,
+    submitFeedback,
+    SubmitFeedbackRequest,
+    SubmitFeedbackResponse
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -1141,5 +1144,9 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     getValueOfEnvVariable(params:string): Promise<string> { 
         return this._messenger.sendRequest(getValueOfEnvVariable, HOST_EXTENSION, params);
+    }
+
+    submitFeedback(params: SubmitFeedbackRequest): Promise<SubmitFeedbackResponse> {
+        return this._messenger.sendRequest(submitFeedback, HOST_EXTENSION, params);
     }
 }
