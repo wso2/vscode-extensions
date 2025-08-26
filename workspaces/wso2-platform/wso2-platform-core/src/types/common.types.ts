@@ -174,6 +174,8 @@ export interface BuildKind {
 		completedAt: string;
 		images: { id: string; createdAt: string; updatedAt: string }[];
 		gitCommit: { message: string; author: string; date: string; email: string };
+		clusterId: string;
+		buildRef: string;
 	};
 }
 

@@ -125,7 +125,7 @@ export const ComponentDetailsView: FC<ComponentsDetailsWebviewProps> = (props) =
 		refetchOnWindowFocus: true,
 	});
 
-	const buildLogsQueryData = useGetBuildLogs(component, organization, project, buildDetailsPanel?.build, {
+	const buildLogsQueryData = useGetBuildLogs(component, deploymentTrack, organization, project, buildDetailsPanel?.build, {
 		enabled: !!buildDetailsPanel?.build,
 	});
 

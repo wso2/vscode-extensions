@@ -88,9 +88,9 @@ export const queryKeys = {
 		"get-builds",
 		{ component: component.metadata.id, organization: org.uuid, project: project.id, branch: deploymentTrack?.branch },
 	],
-	getBuildsLogs: (component: ComponentKind, project: Project, org: Organization, build: BuildKind) => [
+	getBuildsLogs: (component: ComponentKind, deploymentTrack: DeploymentTrack, project: Project, org: Organization, build: BuildKind) => [
 		"get-build-logs",
-		{ component: component.metadata.id, organization: org.uuid, project: project.id, build: build?.status?.runId },
+		{ component: component.metadata.id, deploymentTrack: deploymentTrack.id, organization: org.uuid, project: project.id, build: build?.status?.runId },
 	],
 	getComponentConnections: (component: ComponentKind, project: Project, org: Organization) => [
 		"get-component-connections",
@@ -395,13 +395,14 @@ export const useGoToSource = () => {
 
 export const useGetBuildLogs = (
 	component: ComponentKind,
+	deploymentTrack: DeploymentTrack,
 	org: Organization,
 	project: Project,
 	build: BuildKind,
 	options?: UseQueryOptions<DeploymentLogsData>,
 ) =>
 	useQuery<DeploymentLogsData>(
-		queryKeys.getBuildsLogs(component, project, org, build),
+		queryKeys.getBuildsLogs(component, deploymentTrack, project, org, build),
 		async () => {
 			try {
 				const buildLog = await ChoreoWebViewAPI.getInstance().getChoreoRpcClient().getBuildLogs({
@@ -409,8 +410,12 @@ export const useGetBuildLogs = (
 					displayType: component.spec.type,
 					orgHandler: org.handle,
 					orgId: org.id.toString(),
+					orgUuid: org.uuid,
 					projectId: project.id,
 					buildId: build.status?.runId,
+					buildRef: build.status?.buildRef,
+					clusterId: build.status?.clusterId,
+					deploymentTrackId: deploymentTrack.id,
 				});
 				return buildLog ?? null;
 			} catch {

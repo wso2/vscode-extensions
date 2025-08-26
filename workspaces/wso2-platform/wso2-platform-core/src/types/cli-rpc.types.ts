@@ -393,6 +393,10 @@ export interface GetBuildLogsReq {
 	displayType: string;
 	projectId: string;
 	buildId: number;
+	orgUuid: string;
+	buildRef: string;
+	deploymentTrackId: string;
+	clusterId:string;
 }
 
 export interface GetBuildLogsForTypeReq {
