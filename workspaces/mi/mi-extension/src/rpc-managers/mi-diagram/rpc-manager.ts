@@ -236,6 +236,8 @@ import {
     WriteIdpSchemaFileToRegistryResponse,
     GetIdpSchemaFilesResponse,
     WriteContentToFileResponse,
+    WriteMockServicesRequest,
+    WriteMockServicesResponse,
     HandleFileRequest,
     HandleFileResponse,
     getAllDependenciesRequest,
@@ -282,6 +284,9 @@ import {
     GetCodeDiagnosticsReqeust,
     GetCodeDiagnosticsResponse,
     getCodeDiagnostics,
+    GetPomFileContentResponse,
+    GetExternalConnectorDetailsResponse,
+    GetMockServicesResponse,
     ConfigureKubernetesRequest,
     ConfigureKubernetesResponse,
     UpdateRegistryPropertyRequest
@@ -3293,6 +3298,52 @@ ${endpointAttributes}
 
     }
 
+    async writeMockServices(params: WriteMockServicesRequest): Promise<WriteMockServicesResponse> {
+        let status = true;
+        const { content, fileNames } = params;
+
+        for (let i = 0; i < content.length; i++) {
+            // Remove starting '''xml and ending '''
+            content[i] = content[i].replace(/```xml/g, '');
+            content[i] = content[i].replace(/```/g, '');
+
+            let serviceName: string;
+
+            if (fileNames && fileNames[i]) {
+                // Use the provided file name
+                serviceName = fileNames[i];
+            } else {
+                // Fallback to regex extraction for backward compatibility
+                const match = content[i].match(/<service-name>\s*([^<]+)\s*<\/service-name>/);
+                if (match) {
+                    serviceName = match[1].trim();
+                } else {
+                    console.warn('Could not extract service name from content and no fileName provided at index', i, ':', content[i].substring(0, 100));
+                    status = false;
+                    continue;
+                }
+            }
+
+            // Create full path for mock service in mock-services directory
+            const fullPath = path.join(this.projectUri, 'src', 'test', 'resources', 'mock-services', `${serviceName}.xml`);
+
+            try {
+                content[i] = content[i].trimStart();
+                await replaceFullContentToFile(fullPath, content[i]);
+            } catch (error) {
+                console.error('Error writing mock service to file:', error);
+                status = false;
+            }
+        }
+
+        if (status) {
+            window.showInformationMessage('Mock services written to file successfully');
+            return { status: true };
+        } else {
+            return { status: false };
+        }
+    }
+
     async handleFileWithFS(params: HandleFileRequest): Promise<HandleFileResponse> {
         const { fileName, filePath, operation, content } = params;
 
@@ -3479,7 +3530,38 @@ ${endpointAttributes}
 
     async getWorkspaceContext(): Promise<GetWorkspaceContextResponse> {
         const artifactDirPath = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'artifacts');
+        const resourcesDirPath = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'resources');
         const fileContents: string[] = [];
+        
+        // Helper function to recursively read files from a directory
+        const readFilesRecursively = async (dirPath: string, excludeFolders: string[] = []): Promise<void> => {
+            if (!fs.existsSync(dirPath)) {
+                return;
+            }
+
+            const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+
+            for (const entry of entries) {
+                const fullPath = path.join(dirPath, entry.name);
+
+                if (entry.isDirectory()) {
+                    // Skip excluded folders
+                    if (!excludeFolders.includes(entry.name)) {
+                        await readFilesRecursively(fullPath, excludeFolders);
+                    }
+                } else if (entry.isFile()) {
+                    try {
+                        const content = await fs.promises.readFile(fullPath, 'utf-8');
+                        fileContents.push(content);
+                    } catch (error) {
+                        // Skip files that can't be read as text
+                        console.warn(`Could not read file as text: ${fullPath}`);
+                    }
+                }
+            }
+        };
+
+        // Read artifacts folders
         var resourceFolders = ['apis', 'endpoints', 'inbound-endpoints', 'local-entries', 'message-processors', 'message-stores', 'proxy-services', 'sequences', 'tasks', 'templates'];
         for (const folder of resourceFolders) {
             const folderPath = path.join(artifactDirPath, folder);
@@ -3498,6 +3580,11 @@ ${endpointAttributes}
                 }
             }
         }
+
+        // Read resources folders recursively, excluding specified folders
+        const excludedFolders = ['api-definitions', 'metadata', 'connectors'];
+        await readFilesRecursively(resourcesDirPath, excludedFolders);
+
         return { context: fileContents, rootPath: this.projectUri };
     }
 
@@ -5817,6 +5904,78 @@ ${keyValuesXML}`;
             }
         });
     };
+
+    async getPomFileContent(): Promise<GetPomFileContentResponse> {
+        return new Promise((resolve, reject) => {
+            const pomPath = path.join(this.projectUri, 'pom.xml');
+            fs.readFile(pomPath, 'utf8', (err, data) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve({ content: data });
+                }
+            });
+        });
+    }
+
+    async getExternalConnectorDetails(): Promise<GetExternalConnectorDetailsResponse> {
+        return new Promise((resolve, reject) => {
+            const connectorsPath = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'resources', 'connectors');
+            
+            fs.readdir(connectorsPath, { withFileTypes: true }, (err, entries) => {
+                if (err) {
+                    // If directory doesn't exist or can't be read, return empty array
+                    resolve({ connectors: [] });
+                } else {
+                    // Filter only zip files and get their names without extension
+                    const connectorNames = entries
+                        .filter(entry => entry.isFile() && entry.name.endsWith('.zip'))
+                        .map(entry => entry.name.replace('.zip', ''));
+                    
+                    resolve({ connectors: connectorNames });
+                }
+            });
+        });
+    }
+
+    async getMockServices(): Promise<GetMockServicesResponse> {
+        return new Promise(async (resolve) => {
+            const mockServices: string[] = [];
+            const mockServiceNames: string[] = [];
+            
+            if (workspace.workspaceFolders) {
+                const mockServicesDirPath = path.join(this.projectUri, 'src', 'test', 'resources', 'mock-services');
+                
+                if (fs.existsSync(mockServicesDirPath)) {
+                    try {
+                        const files = fs.readdirSync(mockServicesDirPath);
+                        
+                        for (const file of files) {
+                            if (file.endsWith('.xml')) {
+                                const filePath = path.join(mockServicesDirPath, file);
+                                try {
+                                    const content = fs.readFileSync(filePath, 'utf8');
+                                    const fileName = path.parse(file).name;
+                                    
+                                    mockServices.push(content);
+                                    mockServiceNames.push(fileName);
+                                } catch (error) {
+                                    console.error(`Error reading mock service file ${filePath}:`, error);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error(`Error reading mock services directory ${mockServicesDirPath}:`, error);
+                    }
+                }
+            }
+
+            return resolve({ 
+                mockServices,
+                mockServiceNames
+            });
+        });
+    }
 
     async updatePropertiesInArtifactXML(params: UpdateRegistryPropertyRequest): Promise<string> {
         const possibleArtifactXMLPaths = [
