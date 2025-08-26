@@ -1463,6 +1463,18 @@ export interface CreateBallerinaModuleResponse {
     path: string;
 }
 
+export interface ConfigureKubernetesRequest {
+    name: string;
+    replicas: number;
+    targetImage: string;
+    ports: Array<{ port: number }>;
+    envValues: any[];
+}
+
+export interface ConfigureKubernetesResponse {
+    path: string;
+}
+
 export interface GetBackendRootUrlResponse {
     url: string;
 }
@@ -2199,4 +2211,9 @@ export interface GetCodeDiagnosticsResponse {
 export interface XmlCode{
     fileName: string;
     code: string;
+}
+
+export interface UpdateRegistryPropertyRequest {
+    targetFile: string;
+    properties: Property[];
 }

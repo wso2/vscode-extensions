@@ -62,7 +62,7 @@ export function IdpHeaderSchemaGeneration({
     return (
         <HeaderContainer>
             <Typography variant="h3">
-                {path.split("/").pop()?.replace(/\.json$/, "")}
+                {path.replace(/\\/g, "/").split("/").pop()?.replace(/\.json$/, "")}
             </Typography>
                 <RightSection>
                     { base64String && (

@@ -131,6 +131,7 @@ export interface Element {
     rowCount?: number;
     artifactPath?: string;
     artifactType?: string;
+    isUnitTest?: boolean;
 }
 
 interface ExpressionValueWithSetter {
@@ -589,6 +590,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                 errorMsg={errorMsg}
                 artifactPath={element.artifactPath}
                 artifactType={element.artifactType}
+                isUnitTest={element.isUnitTest || false}
                 openExpressionEditor={(value, setValue) => {
                     setCurrentExpressionValue({ value, setValue });
                     setExpressionEditorField(name);
