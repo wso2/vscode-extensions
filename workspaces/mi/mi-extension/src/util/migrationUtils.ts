@@ -29,6 +29,7 @@ import { extension } from '../MIExtensionContext';
 import { XMLParser, XMLBuilder } from "fast-xml-parser";
 import { updatePomForClassMediator, LATEST_MI_VERSION } from './onboardingUtils';
 import { setJavaHomeInEnvironmentAndPath } from '../debugger/debugHelper';
+import { MVN_COMMANDS } from "../constants";
 
 enum Nature {
     MULTIMODULE,
@@ -810,9 +811,11 @@ function extractXmlFromMavenOutput(output: string): string | null {
  * @returns A promise that resolves to the effective POM XML content as a string, or an empty string if extraction fails.
  */
 export async function getResolvedPomXmlContent(pomFilePath: string): Promise<PomResolutionResult> {
-    const mvnCmd = process.platform === "win32" ? ".\\mvnw.cmd" : "./mvnw";
-    const command = `${mvnCmd} -f "${pomFilePath}" help:effective-pom`;
     const pomDir = path.dirname(pomFilePath);
+    const config = workspace.getConfiguration('MI', Uri.file(pomDir));
+    const mvnCmd = config.get("USE_LOCAL_MAVEN") ? "mvn" : (process.platform === "win32" ?
+        MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
+    const command = `${mvnCmd} -f "${pomFilePath}" ${MVN_COMMANDS.GEN_POM_COMMAND}`;
     console.log(`Running command: ${command} in directory: ${pomDir}`);
 
     return new Promise((resolve, reject) => {
