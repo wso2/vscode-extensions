@@ -267,9 +267,9 @@ const StickyHeader = styled.div`
 export const SlidingPaneHeader = ({ children }: { children: ReactNode }) => {
     return (
         <StickyHeader>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'flex-start' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'flex-start', color: ThemeColors.ON_SURFACE_VARIANT }}>
                 <SlidingPaneBackButton>
-                    <Codicon name="chevron-left" />
+                    <Codicon sx={{ color: ThemeColors.ON_SURFACE_VARIANT }} name="chevron-left"/>
                 </SlidingPaneBackButton>
                 {children}
             </div>
