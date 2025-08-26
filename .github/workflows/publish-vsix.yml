@@ -90,7 +90,7 @@ jobs:
           elif [ "${{ github.event.inputs.extension }}" == "choreo" ]; then
             echo "repo=wso2/choreo-vscode" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.extension }}" == "wso2-platform" ]; then
-            echo "repo=wso2/wso2-platform-vscode" >> $GITHUB_OUTPUT
+            echo "repo=wso2/vscode-extensions" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.extension }}" == "apk" ]; then
             echo "repo=wso2/apk-vscode" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.extension }}" == "micro-integrator" ]; then
