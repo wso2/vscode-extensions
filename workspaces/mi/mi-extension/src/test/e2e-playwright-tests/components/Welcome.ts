@@ -73,6 +73,13 @@ export class Welcome {
         if (await downloadJavaAndMi.count() > 0) {
             console.log('Downloading Java and WSO2 Integrator: MI');
             await downloadJavaAndMi.click();
+            try {
+                console.log(`Waiting for I Agree button`);
+                const iAgreeBtn = await getVsCodeButton(container!, 'I Agree', 'primary');
+                await iAgreeBtn.click();
+            } catch (error) {
+                console.log('No terms and conditions to accept');
+            }
             // Wait for both Java and MI to be downloaded
             await container.locator('div:has-text("Java is setup")').first().waitFor({ timeout: 180000 });
             await container.locator('div:has-text("WSO2 Integrator: MI is setup")').first().waitFor({ timeout: 180000 });
