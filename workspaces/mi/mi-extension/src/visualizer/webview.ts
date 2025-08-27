@@ -72,7 +72,8 @@ export class VisualizerWebview {
                 enableScripts: true,
                 retainContextWhenHidden: true,
                 localResourceRoots: [
-                    vscode.Uri.file(os.homedir())
+                    vscode.Uri.file(os.homedir()),
+                    vscode.Uri.file(extension.context.extensionPath)
                 ]
             }
         );
@@ -121,8 +122,14 @@ export class VisualizerWebview {
     private getWebviewContent(webview: vscode.Webview) {
         console.debug("Generating webview content for MI Visualizer");
         // The JS file from the React build output
-        const scriptUri = getComposerJSFiles(extension.context, 'Visualizer', webview).map(jsFile =>
-            '<script charset="UTF-8" src="' + jsFile + '"></script>').join('\n');
+        const jsFiles = getComposerJSFiles(extension.context, 'Visualizer', webview);
+        console.debug('JS files to be included:', jsFiles);
+        
+        const scriptUri = jsFiles.map(jsFile => {
+            const scriptTag = '<script charset="UTF-8" src="' + jsFile + '"></script>';
+            console.debug('Generated script tag:', scriptTag);
+            return scriptTag;
+        }).join('\n');
 
         // const codiconUri = webview.asWebviewUri(Uri.joinPath(extension.context.extensionUri, "resources", "codicons", "codicon.css"));
         // const fontsUri = webview.asWebviewUri(Uri.joinPath(extension.context.extensionUri, "node_modules", "@wso2", "font-wso2-vscode", "dist", "wso2-vscode.css"));
