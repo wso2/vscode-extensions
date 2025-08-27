@@ -500,7 +500,7 @@ jobs:
             "
             
             # Run tests
-            npx playwright test --grep ${{ matrix.group }}
+            PWDEBUG=console npx playwright test --grep ${{ matrix.group }}
             
             # Stop recording
             if [ -f "ffmpeg_pid.txt" ]; then
