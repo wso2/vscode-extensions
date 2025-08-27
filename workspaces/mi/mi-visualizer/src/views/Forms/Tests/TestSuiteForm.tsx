@@ -18,7 +18,7 @@
 
 import styled from "@emotion/styled";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { EVENT_TYPE, MACHINE_VIEW, ProjectStructureArtifactResponse, GetSelectiveArtifactsResponse, GetUserAccessTokenResponse, ResourceType, RegistryArtifact, GetAvailableConnectorResponse } from "@wso2/mi-core";
+import { EVENT_TYPE, MACHINE_VIEW, ProjectStructureArtifactResponse, GetSelectiveArtifactsResponse, GetUserAccessTokenResponse, ResourceType, RegistryArtifact, GetAvailableConnectorResponse, GetWorkspaceContextResponse, GetPomFileContentResponse, GetExternalConnectorDetailsResponse, GetMockServicesResponse } from "@wso2/mi-core";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { Button, ComponentCard, ContainerProps, ContextMenu, Dropdown, FormActions, FormGroup, FormView, Item, ProgressIndicator, TextField, Typography, Icon } from "@wso2/ui-toolkit";
 import { useEffect, useState } from "react";
@@ -49,6 +49,8 @@ interface UnitTestApiResponse {
     event: string;
     error: string | null;
     tests: string;
+    mock_services?: string[];
+    mock_service_names?: string[];
 }
 
 const cardStyle = {
@@ -203,17 +205,46 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
                 context.push(response);
             });
 
+            var full_context: GetWorkspaceContextResponse[] = [];
+            await rpcClient?.getMiDiagramRpcClient()?.getWorkspaceContext().then((response: GetWorkspaceContextResponse) => {
+                full_context.push(response);
+            });
+
+            var pom_file_content: GetPomFileContentResponse;
+            await rpcClient?.getMiDiagramRpcClient()?.getPomFileContent().then((response: GetPomFileContentResponse) => {
+                pom_file_content = response;
+            });
+
+            var external_connector_details: GetExternalConnectorDetailsResponse;
+            await rpcClient?.getMiDiagramRpcClient()?.getExternalConnectorDetails().then((response: GetExternalConnectorDetailsResponse) => {
+                external_connector_details = response;
+            });
+
+            var mock_service_details: GetMockServicesResponse;
+            await rpcClient?.getMiDiagramRpcClient()?.getMockServices().then((response: GetMockServicesResponse) => {
+                mock_service_details = response;
+            });
+
             let retryCount = 0;
             const maxRetries = 2;
-
             const fetchUnitTests = async (): Promise<Response> => {
+                const requestBody = JSON.stringify({ 
+                    context: context[0].artifacts, 
+                    test_file_name: values.name, 
+                    num_suggestions: 1, 
+                    type: "generate_unit_tests" ,
+                    full_context: full_context[0].context,
+                    pom_file: pom_file_content.content,
+                    external_connectors: external_connector_details.connectors
+                });
+                
                 let response = await fetch(url, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token.token}`
                     },
-                    body: JSON.stringify({ context: context[0].artifacts, test_file_name: values.name, num_suggestions: 1, type: "generate_unit_tests" }),
+                    body: requestBody,
                 });
 
                 if (response.status === 401) {
@@ -257,8 +288,25 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
                     // Remove the Markdown code block delimiters
                     const cleanedXml = xml.map(xml => xml.replace(/```xml\n|```/g, ''));
                     rpcClient.getMiDiagramRpcClient().updateTestSuite({ path: props.filePath, content: cleanedXml[0], name: values.name, artifact }).then(() => {
-                        openOverview();
+                        // Calculate the file path for the newly created test suite
+                        let testSuiteFilePath = props.filePath;
+                        if (!testSuiteFilePath) {
+                            const testDir = path.join(projectUri, 'src', 'test', "wso2mi");
+                            testSuiteFilePath = path.join(testDir, `${values.name}.xml`);
+                        }
+                        
+                        // Open the newly created/updated test suite file
+                        rpcClient.getMiVisualizerRpcClient().openView({ 
+                            type: EVENT_TYPE.OPEN_VIEW, 
+                            location: { 
+                                view: MACHINE_VIEW.TestSuite, 
+                                documentUri: testSuiteFilePath 
+                            } 
+                        });
                     });
+                    if(data.mock_services && data.mock_services.length > 0) {
+                        rpcClient.getMiDiagramRpcClient().writeMockServices({ content: data.mock_services, fileNames:data.mock_service_names });
+                    }
                 } else {
                     console.error('No XMLs found in the response');
                 }
@@ -803,7 +851,16 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
             setShowAddTestCase(false);
         };
         const availableTestCases = testCases.map((testCase) => testCase.name);
-        return <TestCaseForm onGoBack={goBack} onSubmit={onSubmit} testCase={currentTestCase} availableTestCases={availableTestCases} testSuiteType={getValues('artifactType') as TestSuiteType} />
+        const artifactType = getValues('artifactType') as TestSuiteType;
+        return <TestCaseForm 
+            onGoBack={goBack} 
+            onSubmit={onSubmit} 
+            filePath={props.filePath}
+            artifactPath={path.join(projectUri, getValues('artifact'))}
+            testCase={currentTestCase} 
+            availableTestCases={availableTestCases} 
+            testSuiteType={artifactType} 
+        />
     }
 
     if (showAddMockService) {
