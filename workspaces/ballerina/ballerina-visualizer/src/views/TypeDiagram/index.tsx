@@ -17,7 +17,7 @@
  */
 
 import React, { useEffect, useRef } from "react";
-import { VisualizerLocation, NodePosition, Type, EVENT_TYPE, MACHINE_VIEW, TypeNodeKind } from "@wso2/ballerina-core";
+import { VisualizerLocation, NodePosition, Type, EVENT_TYPE, MACHINE_VIEW, TypeNodeKind, ComponentInfo } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { TypeDiagram as TypeDesignDiagram } from "@wso2/type-diagram";
 import { Button, Codicon, ProgressRing, ThemeColors, View, ViewContent } from "@wso2/ui-toolkit";
@@ -150,7 +150,7 @@ export function TypeDiagram(props: TypeDiagramProps) {
             return;
         }
         if (type?.codedata?.node === "CLASS") {
-            await rpcClient.getVisualizerRpcClient().openView({
+            rpcClient.getVisualizerRpcClient().openView({
                 type: EVENT_TYPE.OPEN_VIEW,
                 location: {
                     view: MACHINE_VIEW.BIServiceClassDesigner,
@@ -166,6 +166,62 @@ export function TypeDiagram(props: TypeDiagramProps) {
             editingTypeId: typeId,
         }));
         setHighlightedNodeId(typeId);
+    };
+
+    const verifyTypeDelete = async (typeId: string) => {
+        if (!visualizerLocation || !visualizerLocation.metadata?.recordFilePath) {
+            return false;
+        }
+        const component = typesModel?.find((type) => type.name === typeId);
+        if (!component) {
+            return false;
+        }
+        
+        try {
+            const response = await rpcClient.getBIDiagramRpcClient().verifyTypeDelete({
+            filePath: component.codedata?.lineRange?.fileName,
+            startPosition: component.codedata?.lineRange?.startLine,
+        });
+            
+            if (response.errorMsg) {
+                rpcClient.getCommonRpcClient().showErrorMessage({
+                    message: response.errorMsg || "Failed to find usages.",
+                });
+                throw new Error(response.errorMsg);
+            }
+            return !!response.canDelete;
+        } catch (error: any) {
+            rpcClient.getCommonRpcClient().showErrorMessage({
+                message: error?.message || "Failed to find usages.",
+            });
+            throw error;
+        }
+    };
+
+    // After user confirms in the diagram, delete without re-verifying.
+    const onTypeDelete = async (typeId:string) => {
+        const component = typesModel?.find((type) => type.name === typeId);
+        if (!component || !visualizerLocation?.metadata?.recordFilePath) {
+            return;
+        }
+        await rpcClient.getBIDiagramRpcClient().deleteType({
+            filePath: component.codedata?.lineRange?.fileName,
+            lineRange: {
+                startLine: component.codedata?.lineRange?.startLine,
+                endLine: component.codedata?.lineRange?.endLine,
+            }
+        }).then((response)=>{
+            if (response.errorMsg) {
+                rpcClient.getCommonRpcClient().showErrorMessage({
+                    message: response.errorMsg || "Failed to delete type. Please check the console for more details.",
+                });
+                throw new Error(response.errorMsg || "Failed to delete type. Please check the console for more details.");
+            }
+        }).catch((error) => {
+            rpcClient.getCommonRpcClient().showErrorMessage({
+                message: error.message || "Failed to delete type. Please check the console for more details.",
+            });
+        });
     };
 
     const onTypeEditorClosed = () => {
@@ -298,6 +354,8 @@ export function TypeDiagram(props: TypeDiagramProps) {
                             showProblemPanel={showProblemPanel}
                             goToSource={handleOnGoToSource}
                             onTypeEdit={onTypeEdit}
+                            onTypeDelete={onTypeDelete}
+                            verifyTypeDelete={verifyTypeDelete}
                         />
                     ) : (
                         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
