@@ -34,7 +34,7 @@ export class Welcome {
         this.container = webview.locator('div#root');
     }
     public async createNewProject() {
-        const btn = await getVsCodeButton(this.container, 'Create New Project', 'primary', 60000);
+        const btn = await getVsCodeButton(this.container, 'Create New Project', 'primary', 150000);
         await btn.click();
     }
 
@@ -73,6 +73,13 @@ export class Welcome {
         if (await downloadJavaAndMi.count() > 0) {
             console.log('Downloading Java and WSO2 Integrator: MI');
             await downloadJavaAndMi.click();
+            try {
+                console.log(`Waiting for I Agree button`);
+                const iAgreeBtn = await getVsCodeButton(container!, 'I Agree', 'primary', 60000);
+                await iAgreeBtn.click();
+            } catch (error) {
+                console.log('No terms and conditions to accept');
+            }
             // Wait for both Java and MI to be downloaded
             await container.locator('div:has-text("Java is setup")').first().waitFor({ timeout: 180000 });
             await container.locator('div:has-text("WSO2 Integrator: MI is setup")').first().waitFor({ timeout: 180000 });
