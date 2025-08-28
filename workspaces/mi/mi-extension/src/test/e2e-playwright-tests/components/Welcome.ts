@@ -75,7 +75,7 @@ export class Welcome {
             await downloadJavaAndMi.click();
             try {
                 console.log(`Waiting for I Agree button`);
-                const iAgreeBtn = await getVsCodeButton(container!, 'I Agree', 'primary');
+                const iAgreeBtn = await getVsCodeButton(container!, 'I Agree', 'primary', 60000);
                 await iAgreeBtn.click();
             } catch (error) {
                 console.log('No terms and conditions to accept');
