@@ -1216,6 +1216,15 @@ function getCurrentUpdateVersion(miPath: string): string {
 }
 
 export async function updateCarPluginVersion(projectUri: string): Promise<void> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        return;
+    }
+    const config = vscode.workspace.getConfiguration('MI', workspaceFolder.uri);
+    const isUpdateEnabled = config.get<boolean>('carPluginUpdate');
+    if (!isUpdateEnabled) {
+        return;
+    }
     const pomFiles = await vscode.workspace.findFiles(
         new vscode.RelativePattern(projectUri, 'pom.xml'),
         '**/node_modules/**',
@@ -1234,23 +1243,7 @@ export async function updateCarPluginVersion(projectUri: string): Promise<void> 
         return;
     }
     if(carPluginVersion < LATEST_CAR_PLUGIN_VERSION) {
-        const parser = new XMLParser({
-            ignoreAttributes: false,
-            preserveOrder: true,
-            commentPropName: "#comment"
-        });
-        const parsedXml = parser.parse(pomContent.getText());
-        createTagIfNotFound(parsedXml, "project.properties");
-        updatePomXml(parsedXml, "project.properties.{car.plugin.version}", LATEST_CAR_PLUGIN_VERSION);
-        const builder = new XMLBuilder({
-            ignoreAttributes: false,
-            format: true,
-            preserveOrder: true,
-            commentPropName: "#comment",
-            indentBy: "    "
-        });
-        const updatedXml = builder.build(parsedXml);
-        await fs.promises.writeFile(pomFiles[0].fsPath, updatedXml);
+        await updateRuntimeVersionsInPom(result.project.properties['project.runtime.version']);
     }
 }
 

@@ -1151,7 +1151,7 @@ export function generateMetaDataFile(apiPath: string): Promise<void> {
         const apiContext = res.syntaxTree?.api?.context ?? "";
         const version = res.syntaxTree?.api?.version ?? "";
         const apiName = res.syntaxTree?.api?.name ?? "";
-        const metadataPath = path.join(projectUri, "src", "main", "wso2mi", "resources", "metadata", apiName + (version == "" ? "" : "_v" + version) + "_metadata.yaml");
+        const metadataPath = path.join(projectUri, "src", "main", "wso2mi", "resources", "metadata", apiName + (version == "" ? "" : "v" + version) + "_metadata.yaml");
         fs.writeFileSync(metadataPath, getAPIMetadata({ name: apiName, version: version || "1.0.0", context: apiContext, versionType: apiVersionType ? (apiVersionType == "url" ? apiVersionType : false) : false }));
         vscode.commands.executeCommand(COMMANDS.REFRESH_COMMAND);
     });
@@ -1191,7 +1191,7 @@ export function renameApiFile(apiPath: string): Promise<string> {
                 const metadataDir = path.join(projectUri, "src", "main", "wso2mi", "resources", "metadata");
                 const oldFileNameWithoutExt = path.basename(apiPath, path.extname(apiPath));
                 const oldSwaggerPath = path.join(swaggerDir, oldFileNameWithoutExt + '.yaml');
-                const oldMetadataPath = path.join(metadataDir, oldFileNameWithoutExt + '_metadata.yaml');
+                const oldMetadataPath = path.join(metadataDir, oldFileNameWithoutExt + '_metadata.yaml'); //_v should replace with _
                 if (fs.existsSync(oldSwaggerPath)) {
                     fs.unlinkSync(oldSwaggerPath);
                 }

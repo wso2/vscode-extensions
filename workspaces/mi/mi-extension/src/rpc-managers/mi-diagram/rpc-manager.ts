@@ -704,7 +704,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                 }
             });
 
-            const metadataPath = path.join(this.projectUri, "src", "main", "wso2mi", "resources", "metadata", name + (apiVersion == "" ? "" : "_v" + apiVersion) + "_metadata.yaml");
+            const metadataPath = path.join(this.projectUri, "src", "main", "wso2mi", "resources", "metadata", name + (apiVersion == "" ? "" : "_" + apiVersion) + "_metadata.yaml");
             fs.writeFileSync(metadataPath, getAPIMetadata({ name: name, version: apiVersion == "" ? "1.0.0" : apiVersion, context: apiContext, versionType: apiVersionType ? (apiVersionType == "url" ? apiVersionType : false) : false }));
 
             await generateSwagger(filePath);
@@ -736,7 +736,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
             const sanitizedHandlersXmlData = handlersXmlData.replace(/^\s*[\r\n]/gm, '');
 
             let expectedFileName = `${apiName}${version ? `_v${version}` : ''}`;
-            if (path.basename(documentUri).split('.xml')[0] !== expectedFileName) {
+            if (path.basename(documentUri, path.extname(documentUri))!== expectedFileName) {
                 const originalFileName = `${path.basename(documentUri, path.extname(documentUri))}.yaml`;
                 const originalFilePath = path.join(path.dirname(documentUri), originalFileName);
                 await this.renameFile({ existingPath: documentUri, newPath: path.join(path.dirname(documentUri), `${expectedFileName}.xml`) });
