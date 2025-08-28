@@ -172,14 +172,14 @@ export class UnitTest {
             const propertiesParamManager = await form.getDefaultParamManager('Properties', 'Add Property', 'card-select-testCasePropertiesCard');
             const propertiesForm = await propertiesParamManager.getAddNewForm();
             await this.fillTestCasePropertyForm(propertiesForm, property);
-            await propertiesForm.submit('Save');
+            await propertiesForm.submit('Add');
         }
         console.log('Filling Test Case Assertions');
         for (const assertion of testCase.assertions ?? []) {
             const assertionsParamManager = await form.getDefaultParamManager('Assertions', 'Add Assertion', 'card-select-testCaseAssertionsCard');
             const assertionsForm = await assertionsParamManager.getAddNewForm();
             await this.fillTestCaseAssertionForm(assertionsForm, assertion);
-            await assertionsForm.submit('Save');
+            await assertionsForm.submit('Add');
         }
     }
 
@@ -219,8 +219,8 @@ export class UnitTest {
                     type: 'input',
                     value: property.name
                 },
-                'Property Scope*': {
-                    type: 'dropdown',
+                'Property Scope': {
+                    type: 'combo',
                     value: property.scope
                 },
                 'Property Value*': {
@@ -236,11 +236,11 @@ export class UnitTest {
         await form.fill({
             values: {
                 'Assertion Type': {
-                    type: 'dropdown',
+                    type: 'combo',
                     value: assertion.type
                 },
-                'Actual Expression*': {
-                    type: 'input',
+                '^Assertion$': {
+                    type: 'combo',
                     value: assertion.actualExpression
                 },
                 'Error Message*': {

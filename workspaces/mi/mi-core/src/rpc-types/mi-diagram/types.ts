@@ -1268,6 +1268,30 @@ export interface HandleFileResponse {
     content?: string;
 }
 
+export interface WriteIdpSchemaFileToRegistryRequest {
+    fileContent?: string;
+    schemaName:string;
+    imageOrPdf?: string;
+    writeToArtifactFile?: boolean;
+}
+
+export interface WriteIdpSchemaFileToRegistryResponse {
+    status: boolean;
+}
+
+export interface GetIdpSchemaFilesResponse {
+    schemaFiles:  {fileName: string; documentUriWithFileName?: string}[];
+}
+
+export interface ReadIdpSchemaFileContentRequest{
+    filePath: string;
+}
+
+export interface ReadIdpSchemaFileContentResponse{
+    fileContent: string;
+    base64Content?: string;
+}
+
 export interface HighlightCodeRequest {
     range: Range;
     force?: boolean;
@@ -1439,9 +1463,27 @@ export interface CreateBallerinaModuleResponse {
     path: string;
 }
 
+export interface ConfigureKubernetesRequest {
+    name: string;
+    replicas: number;
+    targetImage: string;
+    ports: Array<{ port: number }>;
+    envValues: any[];
+}
+
+export interface ConfigureKubernetesResponse {
+    path: string;
+}
+
 export interface GetBackendRootUrlResponse {
     url: string;
 }
+
+export interface GetProxyRootUrlResponse {
+    openaiUrl: string;
+    anthropicUrl: string;
+}
+
 export interface ListRegistryArtifactsRequest {
     path: string;
     withAdditionalData?: boolean
@@ -2112,6 +2154,7 @@ export interface GenerateConnectorResponse {
 export interface GetHelperPaneInfoRequest {
     documentUri: string;
     position: Position;
+    needLastMediator?: boolean;
 }
 
 export type GetHelperPaneInfoResponse = HelperPaneData;
@@ -2168,4 +2211,31 @@ export interface GetCodeDiagnosticsResponse {
 export interface XmlCode{
     fileName: string;
     code: string;
+}
+
+export interface GetPomFileContentResponse{
+    content: string;
+}
+
+export interface GetExternalConnectorDetailsResponse{
+    connectors: string[];
+}
+
+export interface WriteMockServicesRequest {
+    content: string[];
+    fileNames?: string[];
+}
+
+export interface WriteMockServicesResponse {
+    status: boolean;
+}
+
+export interface GetMockServicesResponse{
+    mockServices: string[];
+    mockServiceNames: string[];
+}
+
+export interface UpdateRegistryPropertyRequest {
+    targetFile: string;
+    properties: Property[];
 }

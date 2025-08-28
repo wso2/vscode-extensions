@@ -90,3 +90,47 @@ export async function askForProject(): Promise<string> {
     }
     return projects.get(quickPick)!;
 }
+
+export async function saveIdpSchemaToFile(folderPath: string, fileName:string, fileContent?: string,imageOrPdf?:string): Promise<boolean> {
+    const documentUri = path.join(folderPath, fileName +".json");
+    if (!fs.existsSync(folderPath)) {
+        fs.mkdirSync(folderPath, { recursive: true });
+    }
+    if(fileContent){
+        fs.writeFileSync(documentUri, fileContent, 'utf-8');
+    }
+    if (imageOrPdf) {
+        const extensionsToDelete = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp'];
+        const filesInFolder = await fs.promises.readdir(folderPath);
+        for (const file of filesInFolder) {
+            const ext = path.extname(file).toLowerCase();
+            if (extensionsToDelete.includes(ext)) {
+                await fs.promises.unlink(path.join(folderPath, file));
+            }
+        }
+        const mimeTypeMatch = imageOrPdf.match(/^data:(.*?);base64,/);
+        if (mimeTypeMatch) {
+            const mimeType = mimeTypeMatch[1]; 
+            let extension = "";
+            if (mimeType === "application/pdf") {
+                extension = ".pdf";
+            } else if (mimeType.startsWith("image/")) {
+                extension = mimeType.split("/")[1]; 
+                extension = `.${extension}`;
+            } else {
+                console.error("Unsupported MIME type:", mimeType);
+                return false; 
+            }
+            const base64Data = imageOrPdf.replace(/^data:.*;base64,/, ""); 
+            const binaryData = Buffer.from(base64Data, "base64");
+            const filePath = path.join(folderPath, fileName + extension);
+            fs.writeFileSync(filePath, binaryData);
+        } else {
+            console.error("Invalid base64 string format.");
+            return false; 
+        }
+    }
+    commands.executeCommand(COMMANDS.REFRESH_COMMAND);
+    return true;
+}
+

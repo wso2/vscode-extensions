@@ -99,7 +99,7 @@ runs:
         run: |
           git diff --staged --quiet || git commit -m "Update version to ${{ inputs.version }}"
           git checkout -b "${{ inputs.version }}"
-          git remote set-url origin https://${{ inputs.bot_username }}:$GITHUB_TOKEN@github.com/$GITHUB_REPOSITORY.git
+          git remote set-url origin https://x-access-token:${{ inputs.bot_token }}@github.com/${{ github.repository }}.git
           git tag ${{ inputs.version }}
           git push origin "refs/heads/${{ inputs.version }}" "refs/tags/${{ inputs.version }}"
           baseBranch=""
@@ -119,7 +119,7 @@ runs:
           pr=$(gh pr create -B "$baseBranch" -H "${{ inputs.version }}" --title "Merge \"${{ inputs.version }}\" into \"$baseBranch\"" --body '$subject')
           echo "prURL=$pr" >> $GITHUB_OUTPUT
         env:
-          GITHUB_TOKEN: ${{ inputs.bot_token }}
+          GH_TOKEN: ${{ inputs.bot_token }}
 
       - name: "PR Notification"
         shell: bash

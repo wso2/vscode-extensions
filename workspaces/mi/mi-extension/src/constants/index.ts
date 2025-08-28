@@ -95,27 +95,44 @@ export const COMMANDS = {
     ADD_DATA_SOURCE_COMMAND: 'MI.project-explorer.add-data-source',
     SHOW_DATA_SOURCE: 'MI.show.data-source',
     SHOW_DATA_MAPPER: 'MI.show.data-mapper',
+    SHOW_IDP_SCHEMA: 'MI.show.idp-schema',
     ADD_TEST_SUITE: 'MI.test.add.suite',
     GEN_AI_TESTS: 'MI.test.gen.ai-test',
     EDIT_TEST_SUITE: 'MI.test.edit.suite',
     ADD_TEST_CASE: 'MI.test.add.case',
     EDIT_TEST_CASE: 'MI.test.edit.case',
+    DELETE_TEST_CASE: 'MI.test.delete.case',
+    DELETE_TEST_SUITE: 'MI.test.delete.suite',
     ADD_MOCK_SERVICE: 'MI.test.add.mock-service',
     REFRESH_MOCK_SERVICES: 'MI.test.refresh.mock-services',
     EDIT_MOCK_SERVICE: 'MI.test.edit.mock-service',
+    DELETE_MOCK_SERVICE: 'MI.test.delete.mock-service',
     OPEN_RUNTIME_VIEW: 'MI.Open-runtime-service-view',
     REVEAL_TEST_PANE: 'MI.mock-services.focus',
+    EDIT_K8_CONFIGURATION_COMMAND: 'MI.edit-k8-configuration',
+    MANAGE_REGISTRY_PROPERTIES_COMMAND: 'MI.manage-registry-property',
 
     BI_EXTENSION: 'WSO2.ballerina-integrator',
     BI_OPEN_COMMAND: 'ballerina.open.bi.welcome',
     INSTALL_EXTENSION_COMMAND: 'workbench.extensions.installExtension'
 };
 
+export const MVN_COMMANDS = {
+    MVN_WRAPPER_COMMAND: "./mvnw",
+    MVN_WRAPPER_WIN_COMMAND: ".\\mvnw.cmd",
+    DEPLOY_COMMAND: " clean deploy -Dmaven.deploy.skip=true -Dmaven.car.deploy.skip=false -Dstyle.color=never",
+    BUILD_COMMAND: " clean install -Dstyle.color=never",
+    DOCKER_COMMAND: " clean install -P docker",
+    COMPILE_COMMAND: " compile -Dstyle.color=never",
+    TEST_COMMAND: " test -DtestServerType=remote",
+    GEN_POM_COMMAND: "help:effective-pom",
+}
+
 export const DEFAULT_PROJECT_VERSION = "1.0.0";
 
 export const READONLY_MAPPING_FUNCTION_NAME = "mapFunction";
 
-export const REFRESH_ENABLED_DOCUMENTS = ["SynapseXml", "typescript", "markdown"];
+export const REFRESH_ENABLED_DOCUMENTS = ["SynapseXml", "typescript", "markdown", "json"];
 
 export enum EndpointTypes {
     DEFAULT_ENDPOINT = "DEFAULT_ENDPOINT",
