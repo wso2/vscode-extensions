@@ -50,23 +50,23 @@ test.beforeAll(async () => {
 });
 
 test.describe(createProjectTests);
-// test.describe(artifactTests);
-// test.describe(multiWorkspaceTests);
-// test.describe(dataMapperTests);
-// test.describe(overviewPageTests);
-// test.describe(openEntryPointArtifact);
-// test.describe(connectionTests);
-// test.describe(connectorTests);
-// test.describe(inboundEpTests);
-// test.describe(logMediatorTests);
-// test.describe(cacheMediatorTests);
-// test.describe(throttleMediatorTests);
-// test.describe(callSequenceMediatorTests);
-// test.describe(validateMediatorTests);
-// test.describe(dataMapperMediatorTests);
-// test.describe(unitTestSuitTests);
-// test.describe(dbReportMediatorTests);
-// test.describe(artifact430Tests);
+test.describe(artifactTests);
+test.describe(multiWorkspaceTests);
+test.describe(dataMapperTests);
+test.describe(overviewPageTests);
+test.describe(openEntryPointArtifact);
+test.describe(connectionTests);
+test.describe(connectorTests);
+test.describe(inboundEpTests);
+test.describe(logMediatorTests);
+test.describe(cacheMediatorTests);
+test.describe(throttleMediatorTests);
+test.describe(callSequenceMediatorTests);
+test.describe(validateMediatorTests);
+test.describe(dataMapperMediatorTests);
+test.describe(unitTestSuitTests);
+test.describe(dbReportMediatorTests);
+test.describe(artifact430Tests);
 
 test.afterAll(async () => {
     console.log(`>>> Finished test suite`);

@@ -412,7 +412,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [group2]
+        group: [group1, group2, group3, group4]
         os: [windows-latest]
     runs-on: ${{ matrix.os }}    
     steps:
