@@ -326,20 +326,10 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
             // Generate Swagger file for API files
             const apiDir = path.join(projectUri!, 'src', 'main', "wso2mi", "artifacts", "apis");
             if (document?.uri.fsPath.includes(apiDir)) {
-                const dirPath = path.join(projectUri!, SWAGGER_REL_DIR);
-                const swaggerOriginalPath = path.join(dirPath, path.basename(document.uri.fsPath, path.extname(document.uri.fsPath)) + '_original.yaml');
-                const swaggerPath = path.join(dirPath, path.basename(document.uri.fsPath, path.extname(document.uri.fsPath)) + '.yaml');
-                if (fs.readFileSync(document.uri.fsPath, 'utf-8').split('\n').length > 3) {
-                    if (fs.existsSync(swaggerOriginalPath)) {
-                        fs.copyFileSync(swaggerOriginalPath, swaggerPath);
-                        fs.rmSync(swaggerOriginalPath);
-                    } else {
-                        generateSwagger(document.uri.fsPath);
-                    }
-                }
+                generateSwagger(document.uri.fsPath);
             }
 
-            if (currentView !== 'Connector Store Form' && document?.uri?.fsPath?.includes(artifactsDir)) {
+            if (currentView !== 'Connector Store Form' && document?.uri?.fsPath?.includes(artifactsDir) || currentView === MACHINE_VIEW.IdpConnectorSchemaGeneratorForm) {
                 refreshDiagram(projectUri!);
             }
         }, extension.context),

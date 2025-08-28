@@ -461,4 +461,12 @@ export class ExtendedLanguageClient extends LanguageClient {
     async updateAiDependencies(req: UpdateAiDependenciesRequest): Promise<UpdateAiDependenciesResponse> {
         return this.sendRequest('synapse/updateAiDependencies', req);
     }
+
+    async pdfToImagesBase64(req: string): Promise<string[]> {
+        return this.sendRequest('synapse/pdfToImagesBase64', {base64: req});
+    }
+
+    async getConfigurableList(): Promise<any[]> {
+        return this.sendRequest('synapse/getConfigurableList');
+    }
 }
