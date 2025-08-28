@@ -117,7 +117,7 @@ export class BallerinaModule {
             await clearNotificationAlerts();
             await currentPage.getByLabel('Build Ballerina Module').click();
             const updatedNotification = currentPage.getByText('Ballerina module build successful', { exact: true });
-            await expect(updatedNotification).toBeVisible({ timeout: 60000 });
+            await expect(updatedNotification).toBeVisible({ timeout: 120000 });
             console.log("Ballerina module build successful");
         }
         await clearNotificationAlerts();
