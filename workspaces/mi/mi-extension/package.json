@@ -140,6 +140,12 @@
           "description": "Enable remote server deployment support",
           "scope": "resource"
         },
+        "MI.USE_LOCAL_MAVEN": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use local Maven within the extension",
+          "scope": "resource"
+        },
         "MI.Scope": {
           "type": "string",
           "default": "",

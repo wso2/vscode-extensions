@@ -2213,6 +2213,28 @@ export interface XmlCode{
     code: string;
 }
 
+export interface GetPomFileContentResponse{
+    content: string;
+}
+
+export interface GetExternalConnectorDetailsResponse{
+    connectors: string[];
+}
+
+export interface WriteMockServicesRequest {
+    content: string[];
+    fileNames?: string[];
+}
+
+export interface WriteMockServicesResponse {
+    status: boolean;
+}
+
+export interface GetMockServicesResponse{
+    mockServices: string[];
+    mockServiceNames: string[];
+}
+
 export interface UpdateRegistryPropertyRequest {
     targetFile: string;
     properties: Property[];
