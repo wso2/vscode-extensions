@@ -122,7 +122,7 @@ export const MVN_COMMANDS = {
     MVN_WRAPPER_WIN_COMMAND: ".\\mvnw.cmd",
     DEPLOY_COMMAND: " clean deploy -Dmaven.deploy.skip=true -Dmaven.car.deploy.skip=false -Dstyle.color=never",
     BUILD_COMMAND: " clean install -Dstyle.color=never",
-    DOCKER_COMMAND: " clean install -P docker -Dstyle.color=never",
+    DOCKER_COMMAND: " clean install -P docker",
     COMPILE_COMMAND: " compile -Dstyle.color=never",
     TEST_COMMAND: " test -DtestServerType=remote",
     GEN_POM_COMMAND: "help:effective-pom",
