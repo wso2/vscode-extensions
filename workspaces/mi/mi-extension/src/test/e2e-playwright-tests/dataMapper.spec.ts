@@ -239,7 +239,6 @@ export default function createTests() {
       await editorTab.locator('.codicon-close').click();
       await editorTab.waitFor({ state: 'detached' });
 
-      await page.page.pause();
       expect(dm.verifyTsFileContent(path.join('basic', 'map.ts'))).toBeTruthy();
 
 
