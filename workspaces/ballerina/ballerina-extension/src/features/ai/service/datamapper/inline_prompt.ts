@@ -56,7 +56,7 @@ Follow these rules during data mapping:
 10. When Mapping, consider the information mentioned in the comments
 11. DO NOT use the value in the field "optional" when mapping the fields
 12. DO NOT map anything if you aren't sure
-13. If both input and output are records type, DO mapping for all its fields and subfields but DO NOT map in the root level
+13. When both input and output are records, recursively traverse ALL nested fields until you reach primitive types (int, string, boolean, float, decimal, etc.) and map ONLY those primitive fields. NEVER map at the record level.
 14. Consider constants, configurables, variables, enum values, and module variables when mapping fields
 15. Constants, variables, module variables and configurables can be mapped directly using their defined values
 16. Enum values should be mapped using their exact enum identifiers
@@ -94,13 +94,11 @@ Follow these rules during data mapping:
 - ${"x[y]"} - access y th element of x array object in the json
 
 ### 6) Regex Operations
-- ${"SPLIT(regex, text)"} - Split the string text based on the regex and returns an array of strings (string[])
-  - Example: ${"SPLIT(\",\", \"word1, word2, word3\")"} will return a string array ["word1", "word2", "word3"]
-  - Example: ${"SPLIT(\" \", \"word1 word2 word3\")"} will return a string array ["word1", "word2", "word3"]
+- ${"SPLIT(text, regex)"} - Split the string text based on the regex and returns an array of strings (string[])
+  - Example: ${"SPLIT(\"word1, word2, word3\", \",\")"} will return a string array ["word1", "word2", "word3"]
+  - Example: ${"SPLIT(\"word1, word2, word3\", \" \")"} will return a string array ["word1", "word2", "word3"]
 - ${"REPLACE_ALL(regex, text, replacement)"} - Replace all the instances of regex in the text using string replacement
   - Example: ${"REPLACE_ALL(\" \", \"word1 word2 word3\", \"\")"} will return a string "word1word2word3"
-
-For above two operations, regex value must be one or combination of the following: [" ", "_", "-", "\\n", ",", "\\."], here "\\" is used to escape special characters.
 
 ### 7) Numerical Operations
 - ${"AVERAGE(x, TYPE)"} - get the average over x. x is a single array of variables of TYPE (ex - [12, 13, 14]) when TYPE is INTEGER. TYPE can be either INT, DECIMAL, or FLOAT
@@ -126,6 +124,318 @@ Always use the following json format to respond without any markdown formatting:
     }
   }
   // ...additional fields as needed
+}
+
+Following is an example of the input, output and the mapping:
+
+Example Input json : 
+
+[
+  {
+    "fields":[
+      {
+        "id":"studentDetails.id",
+        "variableName":"id",
+        "typeName":"string",
+        "kind":"string",
+        "optional":false
+      },
+      {
+        "id":"studentDetails.tags",
+        "variableName":"tags",
+        "typeName":"string",
+        "kind":"string",
+        "optional":false
+      },
+      {
+        "fields":[
+          {
+            "id":"studentDetails.bio.firstName",
+            "variableName":"firstName",
+            "typeName":"string",
+            "kind":"string",
+            "optional":false
+          },
+          {
+            "id":"studentDetails.bio.lastName",
+            "variableName":"lastName",
+            "typeName":"string",
+            "kind":"string",
+            "optional":false
+          },
+          {
+            "id":"studentDetails.bio.age",
+            "variableName":"age",
+            "typeName":"int",
+            "kind":"int",
+            "optional":false
+          }
+        ],
+        "id":"studentDetails.bio",
+        "variableName":"bio",
+        "typeName":"Bio",
+        "kind":"record",
+        "optional":false
+      },
+      {
+        "fields":[
+          {
+            "id":"studentDetails.address.address1",
+            "variableName":"address1",
+            "typeName":"string",
+            "kind":"string",
+            "optional":false
+          },
+          {
+            "id":"studentDetails.address.address2",
+            "variableName":"address2",
+            "typeName":"string",
+            "kind":"string",
+            "optional":false
+          },
+          {
+            "id":"studentDetails.address.city",
+            "variableName":"city",
+            "typeName":"string",
+            "kind":"string",
+            "optional":false
+          },
+          {
+            "id":"studentDetails.address.country",
+            "variableName":"country",
+            "typeName":"string",
+            "kind":"string",
+            "optional":false
+          },
+          {
+            "id":"studentDetails.address.zipcode",
+            "variableName":"zipcode",
+            "typeName":"string",
+            "kind":"string",
+            "optional":false
+          }
+        ],
+        "id":"studentDetails.address",
+        "variableName":"address",
+        "typeName":"Address",
+        "kind":"record",
+        "optional":false
+      },
+      {
+        "fields":[
+          {
+            "id":"studentDetails.academicDetails.major",
+            "variableName":"major",
+            "typeName":"string",
+            "kind":"string",
+            "optional":false
+          },
+          {
+            "member":{
+              "id":"studentDetails.academicDetails.subjects.0",
+              "variableName":"<subjectsItem>",
+              "typeName":"string",
+              "kind":"string",
+              "optional":false
+            },
+            "id":"studentDetails.academicDetails.subjects",
+            "variableName":"subjects",
+            "typeName":"string[]",
+            "kind":"array",
+            "optional":false
+          }
+        ],
+        "id":"studentDetails.academicDetails",
+        "variableName":"academicDetails",
+        "typeName":"AcademicDetails",
+        "kind":"record",
+        "optional":false
+      },
+      {
+        "fields":[
+          {
+            "id":"studentDetails.studentProgress.studentId",
+            "variableName":"studentId",
+            "typeName":"string",
+            "kind":"string",
+            "optional":false
+          },
+          {
+            "id":"studentDetails.studentProgress.currentLevel",
+            "variableName":"currentLevel",
+            "typeName":"float",
+            "kind":"float",
+            "optional":false
+          }
+        ],
+        "id":"studentDetails.studentProgress",
+        "variableName":"studentProgress",
+        "typeName":"StudentProgress",
+        "kind":"record",
+        "optional":false
+      }
+    ],
+    "id":"studentDetails",
+    "variableName":"studentDetails",
+    "typeName":"StudentDetails",
+    "kind":"record",
+    "category":"parameter",
+    "optional":false
+  }
+]
+
+Example Output json : 
+
+{
+  "fields":[
+    {
+      "id":"student.studentId",
+      "variableName":"studentId",
+      "typeName":"int",
+      "kind":"int",
+      "optional":false
+    },
+    {
+      "member":{
+        "id":"student.studentTags",
+        "variableName":"<studentTagsItem>",
+        "typeName":"string",
+        "kind":"string",
+        "optional":false
+      },
+      "id":"student.studentTags",
+      "variableName":"studentTags",
+      "typeName":"string[]",
+      "kind":"array",
+      "optional":false
+    },
+    {
+      "fields":[
+        {
+          "id":"student.studentBio.fullName",
+          "variableName":"fullName",
+          "typeName":"string",
+          "kind":"string",
+          "optional":false
+        },
+        {
+          "id":"student.studentBio.age",
+          "variableName":"age",
+          "typeName":"int",
+          "kind":"int",
+          "optional":false
+        }
+      ],
+      "id":"student.studentBio",
+      "variableName":"studentBio",
+      "typeName":"StudentBio",
+      "kind":"record",
+      "optional":false
+    },
+    {
+      "id":"student.studentAddress",
+      "variableName":"studentAddress",
+      "typeName":"string",
+      "kind":"string",
+      "optional":false
+    },
+    {
+      "id":"student.academicMajor",
+      "variableName":"academicMajor",
+      "typeName":"string",
+      "kind":"string",
+      "optional":false
+    },
+    {
+      "member":{
+        "id":"student.subjects",
+        "variableName":"<subjectsItem>",
+        "typeName":"string",
+        "kind":"string",
+        "optional":false
+      },
+      "id":"student.subjects",
+      "variableName":"subjects",
+      "typeName":"string[]",
+      "kind":"array",
+      "optional":false
+    },
+    {
+      "id":"student.currentLevel",
+      "variableName":"currentLevel",
+      "typeName":"string",
+      "kind":"string",
+      "optional":false
+    }
+  ],
+  "id":"student",
+  "variableName":"student",
+  "typeName":"Student",
+  "kind":"record",
+  "optional":false
+}
+
+Example Mapping:
+
+{
+  "student.studentId":{
+    "OPERATION":{
+      "NAME":"DIRECT",
+      "PARAMETER_1":"studentDetails.id"
+    }
+  },
+  "student.studentTags":{
+    "OPERATION":{
+      "NAME":"DIRECT",
+      "PARAMETER_1":"studentDetails.tags"
+    }
+  },
+  "student.studentBio.fullName":{
+    "OPERATION":{
+      "NAME":"ADDITION",
+      "PARAMETER_1":"studentDetails.bio.firstName",
+      "PARAMETER_2":" ",
+      "PARAMETER_3":"studentDetails.bio.lastName"
+    }
+  },
+  "student.studentBio.age":{
+    "OPERATION":{
+      "NAME":"DIRECT",
+      "PARAMETER_1":"studentDetails.bio.age"
+    }
+  },
+  "student.studentAddress":{
+    "OPERATION":{
+      "NAME":"ADDITION",
+      "PARAMETER_1":"studentDetails.address.address1",
+      "PARAMETER_2":", ",
+      "PARAMETER_3":"studentDetails.address.address2",
+      "PARAMETER_4":", ",
+      "PARAMETER_5":"studentDetails.address.city",
+      "PARAMETER_6":", ",
+      "PARAMETER_7":"studentDetails.address.country",
+      "PARAMETER_8":" ",
+      "PARAMETER_9":"studentDetails.address.zipcode"
+    }
+  },
+  "student.academicMajor":{
+    "OPERATION":{
+      "NAME":"DIRECT",
+      "PARAMETER_1":"studentDetails.academicDetails.major"
+    }
+  },
+  "student.subjects":{
+    "OPERATION":{
+      "NAME":"DIRECT",
+      "PARAMETER_1":"studentDetails.academicDetails.subjects"
+    }
+  },
+  "student.currentLevel":{
+    "OPERATION":{
+      "NAME":"DIRECT",
+      "PARAMETER_1":"studentDetails.studentProgress.currentLevel"
+    }
+  }
 }
 
 ## IMPORTANT NOTES:

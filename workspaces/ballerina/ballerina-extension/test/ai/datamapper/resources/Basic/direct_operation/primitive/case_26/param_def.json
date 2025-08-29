@@ -1,0 +1,320 @@
+{
+    "inputs": {
+        "studentDetails": {
+            "id": {
+                "type": "string",
+                "comment": ""
+            },
+            "tags": {
+                "type": "string",
+                "comment": ""
+            },
+            "bio": {
+                "firstName": {
+                    "type": "string",
+                    "comment": ""
+                },
+                "lastName": {
+                    "type": "string",
+                    "comment": ""
+                },
+                "age": {
+                    "type": "int",
+                    "comment": ""
+                }
+            },
+            "address": {
+                "address1": {
+                    "type": "string",
+                    "comment": ""
+                },
+                "address2": {
+                    "type": "string",
+                    "comment": ""
+                },
+                "city": {
+                    "type": "string",
+                    "comment": ""
+                },
+                "country": {
+                    "type": "string",
+                    "comment": ""
+                },
+                "zipcode": {
+                    "type": "string",
+                    "comment": ""
+                }
+            },
+            "academicDetails": {
+                "major": {
+                    "type": "string",
+                    "comment": ""
+                },
+                "subjects": {
+                    "type": "string[]",
+                    "comment": ""
+                }
+            },
+            "studentProgress": {
+                "studentId": {
+                    "type": "string",
+                    "comment": ""
+                },
+                "currentLevel": {
+                    "type": "float",
+                    "comment": ""
+                }
+            }
+        }
+    },
+    "output": {
+        "studentId": {
+            "type": "int",
+            "comment": ""
+        },
+        "studentTags": {
+            "type": "string[]",
+            "comment": ""
+        },
+        "studentBio": {
+            "fullName": {
+                "type": "string",
+                "comment": ""
+            },
+            "age": {
+                "type": "int",
+                "comment": ""
+            }
+        },
+        "studentAddress": {
+            "type": "string",
+            "comment": ""
+        },
+        "academicMajor": {
+            "type": "string",
+            "comment": ""
+        },
+        "subjects": {
+            "type": "string[]",
+            "comment": ""
+        },
+        "currentLevel": {
+            "type": "string",
+            "comment": ""
+        }
+    },
+    "inputMetadata": {
+        "studentDetails": {
+            "isArrayType": false,
+            "parameterName": "studentDetails",
+            "parameterType": "StudentDetails",
+            "type": "record",
+            "fields": {
+                "id": {
+                    "typeName": "string",
+                    "type": "string",
+                    "typeInstance": "id",
+                    "nullable": false,
+                    "optional": false
+                },
+                "tags": {
+                    "typeName": "string",
+                    "type": "string",
+                    "typeInstance": "tags",
+                    "nullable": false,
+                    "optional": false
+                },
+                "bio": {
+                    "nullable": false,
+                    "optional": false,
+                    "type": "record",
+                    "typeInstance": "bio",
+                    "typeName": "record",
+                    "fields": {
+                        "firstName": {
+                            "typeName": "string",
+                            "type": "string",
+                            "typeInstance": "firstName",
+                            "nullable": false,
+                            "optional": false
+                        },
+                        "lastName": {
+                            "typeName": "string",
+                            "type": "string",
+                            "typeInstance": "lastName",
+                            "nullable": false,
+                            "optional": false
+                        },
+                        "age": {
+                            "typeName": "int",
+                            "type": "int",
+                            "typeInstance": "age",
+                            "nullable": false,
+                            "optional": false
+                        }
+                    }
+                },
+                "address": {
+                    "nullable": false,
+                    "optional": false,
+                    "type": "record",
+                    "typeInstance": "address",
+                    "typeName": "record",
+                    "fields": {
+                        "address1": {
+                            "typeName": "string",
+                            "type": "string",
+                            "typeInstance": "address1",
+                            "nullable": false,
+                            "optional": false
+                        },
+                        "address2": {
+                            "typeName": "string",
+                            "type": "string",
+                            "typeInstance": "address2",
+                            "nullable": false,
+                            "optional": false
+                        },
+                        "city": {
+                            "typeName": "string",
+                            "type": "string",
+                            "typeInstance": "city",
+                            "nullable": false,
+                            "optional": false
+                        },
+                        "country": {
+                            "typeName": "string",
+                            "type": "string",
+                            "typeInstance": "country",
+                            "nullable": false,
+                            "optional": false
+                        },
+                        "zipcode": {
+                            "typeName": "string",
+                            "type": "string",
+                            "typeInstance": "zipcode",
+                            "nullable": false,
+                            "optional": false
+                        }
+                    }
+                },
+                "academicDetails": {
+                    "nullable": false,
+                    "optional": false,
+                    "type": "record",
+                    "typeInstance": "academicDetails",
+                    "typeName": "record",
+                    "fields": {
+                        "major": {
+                            "typeName": "string",
+                            "type": "string",
+                            "typeInstance": "major",
+                            "nullable": false,
+                            "optional": false
+                        },
+                        "subjects": {
+                            "typeName": "string[]",
+                            "type": "string[]",
+                            "typeInstance": "subjects",
+                            "nullable": false,
+                            "optional": false
+                        }
+                    }
+                },
+                "studentProgress": {
+                    "nullable": false,
+                    "optional": false,
+                    "type": "record",
+                    "typeInstance": "studentProgress",
+                    "typeName": "record",
+                    "fields": {
+                        "studentId": {
+                            "typeName": "string",
+                            "type": "string",
+                            "typeInstance": "studentId",
+                            "nullable": false,
+                            "optional": false
+                        },
+                        "currentLevel": {
+                            "typeName": "float",
+                            "type": "float",
+                            "typeInstance": "currentLevel",
+                            "nullable": false,
+                            "optional": false
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "outputMetadata": {
+        "studentId": {
+            "typeName": "int",
+            "type": "int",
+            "typeInstance": "studentId",
+            "nullable": false,
+            "optional": false
+        },
+        "studentTags": {
+            "typeName": "string[]",
+            "type": "string[]",
+            "typeInstance": "studentTags",
+            "nullable": false,
+            "optional": false
+        },
+        "studentBio": {
+            "nullable": false,
+            "optional": false,
+            "type": "record",
+            "typeInstance": "studentBio",
+            "typeName": "record",
+            "fields": {
+                "fullName": {
+                    "typeName": "string",
+                    "type": "string",
+                    "typeInstance": "fullName",
+                    "nullable": false,
+                    "optional": false
+                },
+                "age": {
+                    "typeName": "int",
+                    "type": "int",
+                    "typeInstance": "age",
+                    "nullable": false,
+                    "optional": false
+                }
+            }
+        },
+        "studentAddress": {
+            "typeName": "string",
+            "type": "string",
+            "typeInstance": "studentAddress",
+            "nullable": false,
+            "optional": false
+        },
+        "academicMajor": {
+            "typeName": "string",
+            "type": "string",
+            "typeInstance": "academicMajor",
+            "nullable": false,
+            "optional": false
+        },
+        "subjects": {
+            "typeName": "string[]",
+            "type": "string[]",
+            "typeInstance": "subjects",
+            "nullable": false,
+            "optional": false
+        },
+        "currentLevel": {
+            "typeName": "string",
+            "type": "string",
+            "typeInstance": "currentLevel",
+            "nullable": false,
+            "optional": false
+        }
+    },
+    "constants": {},
+    "configurables": {},
+    "variables": {}
+}

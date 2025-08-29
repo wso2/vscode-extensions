@@ -1,0 +1,8 @@
+{
+  "studentId":"check int:fromString(studentDetails.id)",
+  "studentTags":"re `,`.split(studentDetails.tags)",
+  "studentBio":"{\n age: studentDetails.bio.age \n}",
+  "academicMajor":"studentDetails.academicDetails.major",
+  "subjects":"studentDetails.academicDetails.subjects",
+  "currentLevel":"(studentDetails.studentProgress.currentLevel).toString()"
+}

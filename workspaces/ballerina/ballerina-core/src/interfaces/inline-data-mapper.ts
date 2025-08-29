@@ -31,7 +31,8 @@ export enum TypeKind {
     Unknown = "$CompilationError$",
     Anydata = "anydata",
     Byte = "byte",
-    Json = "json"
+    Json = "json",
+    Union = "union"
 }
 
 export enum InputCategory {
@@ -86,7 +87,7 @@ export interface IOType {
     variableName?: string;
     fields?: IOType[];
     member?: IOType;
-    members?: EnumMember[];
+    members?: IOType[];
     defaultValue?: unknown;
     optional?: boolean;
     focusedMemberId?: string;
