@@ -16,14 +16,13 @@
  * under the License.
  */
 
-export * from "./lang-client/rpc-client";
-export * from "./library-browser/rpc-client";
-export * from "./service-designer/rpc-client";
-export * from "./common/rpc-client";
-export * from "./persist-diagram/rpc-client";
-export * from "./graphql-designer/rpc-client";
-export * from "./record-creator/rpc-client";
-export * from "./ai-panel/rpc-client";
-export * from "./connector-wizard/rpc-client";
-export * from "./test-manager/rpc-client";
-export * from "./migrate-integration/rpc-client";
+import { ImportIntegrationResponse } from "../../interfaces/extended-lang-client";
+import { GetMigrationToolsResponse, ImportIntegrationRPCRequest, MigrationToolPullRequest, OpenMigrationReportRequest, SaveMigrationReportRequest } from "./interfaces";
+
+export interface MigrateIntegrationAPI {
+    getMigrationTools: () => Promise<GetMigrationToolsResponse>;
+    pullMigrationTool: (params: MigrationToolPullRequest) => void;
+    importIntegration: (params: ImportIntegrationRPCRequest) => Promise<ImportIntegrationResponse>;
+    openMigrationReport: (params: OpenMigrationReportRequest) => void;
+    saveMigrationReport: (params: SaveMigrationReportRequest) => void;
+}
