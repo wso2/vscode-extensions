@@ -126,7 +126,7 @@ export const SlidingPane = ({ children, name, paneHeight, paneWidth }: SlidingPa
             }, 50);
         }
         prevVisitedPagesLength.current = visitedPages.length;
-    }, [visitedPages, name, currentPage, setClearAnimations, setHeight, setWidth, paneHeight, paneWidth]);
+    }, [visitedPages, name, currentPage, setClearAnimations, setHeight, setWidth, paneHeight, paneWidth, isInitialRender]);
 
     if (name !== currentPage.name) return null;
     return (
