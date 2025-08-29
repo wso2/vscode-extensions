@@ -1368,11 +1368,7 @@ async function updateMI(projectUri: string, miVersion: string, latestUpdateVersi
 }
 
 export async function updateCarPluginVersion(projectUri: string): Promise<void> {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
-        return;
-    }
-    const config = vscode.workspace.getConfiguration('MI', workspaceFolder.uri);
+    const config = vscode.workspace.getConfiguration("MI");
     const isUpdateCarPluginEnabled = config.get<boolean>('autoUpdateCarPlugin');
     if (!isUpdateCarPluginEnabled) {
         return;
