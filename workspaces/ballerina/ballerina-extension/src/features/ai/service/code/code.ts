@@ -131,6 +131,7 @@ export async function generateCodeCore(params: GenerateCodeRequest, eventHandler
 
     eventHandler({ type: "start" });
     let assistantResponse: string = "";
+    let assistantThinking: string = "";
 
     for await (const part of fullStream) {
         if (part.type === "tool-result") {
@@ -169,6 +170,12 @@ export async function generateCodeCore(params: GenerateCodeRequest, eventHandler
                 assistantResponse = lastAssistantMessage
                     ? (lastAssistantMessage.content as any[]).find((c) => c.type === "text")?.text || assistantResponse
                     : assistantResponse;
+
+            const assistantMessages = finalMessages
+                .filter((msg) => msg.role === "assistant" && msg !== lastAssistantMessage)
+                .map((msg) => (msg.content as any[]).find((c) => c.type === "text")?.text || "")
+                .filter((text) => text !== "");
+            assistantThinking = assistantMessages.join("\n");
 
                 const postProcessedResp: PostProcessResponse = await postProcess({
                     assistant_response: assistantResponse,
