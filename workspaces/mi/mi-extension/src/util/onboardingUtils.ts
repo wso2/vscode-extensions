@@ -1373,7 +1373,7 @@ export async function updateCarPluginVersion(projectUri: string): Promise<void> 
         return;
     }
     const config = vscode.workspace.getConfiguration('MI', workspaceFolder.uri);
-    const isUpdateCarPluginEnabled = config.get<boolean>('updateCarPlugin');
+    const isUpdateCarPluginEnabled = config.get<boolean>('autoUpdateCarPlugin');
     if (!isUpdateCarPluginEnabled) {
         return;
     }
