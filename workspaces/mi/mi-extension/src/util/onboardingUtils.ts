@@ -1,3 +1,20 @@
+/**
+ * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
@@ -68,6 +85,7 @@ export async function setupEnvironment(projectUri: string, isOldProject: boolean
 
         if (isMISet && isJavaSet) {
             const isUpdateRequested = await isServerUpdateRequested(projectUri);
+            await updateCarPluginVersion(projectUri);
             return !isUpdateRequested;
         }
         return isMISet && isJavaSet;
@@ -1346,5 +1364,34 @@ async function updateMI(projectUri: string, miVersion: string, latestUpdateVersi
         vscode.window.showInformationMessage('WSO2 Integrator: MI has been updated successfully.');
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to update WSO2 Integrator: MI: ${error instanceof Error ? error.message : error}`);
+    }
+}
+
+export async function updateCarPluginVersion(projectUri: string): Promise<void> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        return;
+    }
+    const config = vscode.workspace.getConfiguration('MI', workspaceFolder.uri);
+    const isUpdateCarPluginEnabled = config.get<boolean>('updateCarPlugin');
+    if (!isUpdateCarPluginEnabled) {
+        return;
+    }
+    const pomFiles = await vscode.workspace.findFiles(
+        new vscode.RelativePattern(projectUri, 'pom.xml'),
+        '**/node_modules/**',
+        1
+    );
+    if (pomFiles.length === 0) {
+        throw new Error('pom.xml not found in the specified project.');
+    }
+    const pomContent = await vscode.workspace.openTextDocument(pomFiles[0]);
+    const result = await parseStringPromise(pomContent.getText(), { explicitArray: false, ignoreAttrs: true });
+    const carPluginVersion = result.project.properties['car.plugin.version'];
+    if (!carPluginVersion || carPluginVersion === LATEST_CAR_PLUGIN_VERSION) {
+        return;
+    }
+    if(carPluginVersion < LATEST_CAR_PLUGIN_VERSION) {
+        await updateRuntimeVersionsInPom(result.project.properties['project.runtime.version']);
     }
 }
