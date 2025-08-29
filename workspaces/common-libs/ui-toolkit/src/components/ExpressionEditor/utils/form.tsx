@@ -27,7 +27,7 @@ export const convertHelperPaneHeightToCSS = (helperPaneHeight: HelperPaneHeight)
         case '3/4':
             return '75vh';
         default:
-            return `${HELPER_PANE_HEIGHT}px`;
+            return `${VERTICAL_HELPERPANE_HEIGHT}px`;
     }
 }
 
