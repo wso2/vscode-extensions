@@ -41,6 +41,7 @@ import { ContextAwareRawExpressionEditor } from "./RawExpressionEditor";
 import { IdentifierField } from "./IdentifierField";
 import { PathEditor } from "./PathEditor";
 import { HeaderSetEditor } from "./HeaderSetEditor";
+import { CompletionItem } from "@wso2/ui-toolkit";
 import { CustomDropdownEditor } from "./CustomDropdownEditor";
 
 interface FormFieldEditorProps {
@@ -55,6 +56,8 @@ interface FormFieldEditorProps {
     recordTypeFields?: RecordTypeField[];
     onIdentifierEditingStateChange?: (isEditing: boolean) => void;
     setSubComponentEnabled?: (isAdding: boolean) => void;
+    handleNewTypeSelected?: (type: CompletionItem) => void;
+
     scopeFieldAddon?: React.ReactNode;
     newServerUrl?: string;
     mcpTools?: { name: string; description?: string }[];
@@ -74,6 +77,7 @@ export const EditorFactory = (props: FormFieldEditorProps) => {
         recordTypeFields,
         onIdentifierEditingStateChange,
         setSubComponentEnabled,
+        handleNewTypeSelected,
         scopeFieldAddon,
         newServerUrl
     } = props;
@@ -130,6 +134,8 @@ export const EditorFactory = (props: FormFieldEditorProps) => {
                 handleOnFieldFocus={handleOnFieldFocus}
                 autoFocus={autoFocus}
                 handleOnTypeChange={handleOnTypeChange}
+                handleNewTypeSelected={handleNewTypeSelected}
+
             />
         );
     } else if (!field.items && (field.type === "EXPRESSION" || field.type === "LV_EXPRESSION" || field.type == "ACTION_OR_EXPRESSION") && field.editable) {

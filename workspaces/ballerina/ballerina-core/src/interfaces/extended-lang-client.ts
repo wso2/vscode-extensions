@@ -939,6 +939,7 @@ export type DeleteConfigVariableResponseV2 = {
 
 export interface GetConfigVariableNodeTemplateRequest {
     isNew: boolean;
+    isEnvVariable?: boolean;
 }
 
 export interface OpenConfigTomlRequest {

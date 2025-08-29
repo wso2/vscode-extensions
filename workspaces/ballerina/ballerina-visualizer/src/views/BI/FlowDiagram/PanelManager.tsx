@@ -39,6 +39,7 @@ import { useEffect, useState } from "react";
 import { NewTool, NewToolSelectionMode } from "../AIChatAgent/NewTool";
 import styled from "@emotion/styled";
 import { MemoryManagerConfig } from "../AIChatAgent/MemoryManagerConfig";
+import { FormSubmitOptions } from ".";
 
 const Container = styled.div`
     display: flex;
@@ -103,7 +104,7 @@ interface PanelManagerProps {
     onAddVectorStore?: () => void;
     onAddEmbeddingProvider?: () => void;
     onAddVectorKnowledgeBase?: () => void;
-    onSubmitForm: (updatedNode?: FlowNode, openInDataMapper?: boolean) => void;
+    onSubmitForm: (updatedNode?: FlowNode, openInDataMapper?: boolean, options?: FormSubmitOptions) => void;
     onDiscardSuggestions: () => void;
     onSubPanel: (subPanel: SubPanel) => void;
     onUpdateExpressionField: (updatedExpressionField: ExpressionFormField) => void;
@@ -481,6 +482,8 @@ export function PanelManager(props: PanelManagerProps) {
                         openSubPanel={onSubPanel}
                         updatedExpressionField={updatedExpressionField}
                         resetUpdatedExpressionField={onResetUpdatedExpressionField}
+                        //TODO: this should be merged with onSubmit prop
+                        handleOnFormSubmit={onSubmitForm}
                     />
                 );
 
