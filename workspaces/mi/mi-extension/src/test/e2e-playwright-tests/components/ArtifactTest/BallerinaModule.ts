@@ -92,6 +92,7 @@ export class BallerinaModule {
 
         const currentPage = this._page;
         await currentPage.getByLabel('Build Ballerina Module').click();
+        console.log("Clicked on Build Ballerina Module button");
         const successNotification = currentPage.getByText('Ballerina module build successful', { exact: true })
         const errorNotification = currentPage.getByText('Ballerina not found. Please download Ballerina and try again.', { exact: true })
         await Promise.race([
@@ -102,8 +103,10 @@ export class BallerinaModule {
         if (await errorNotification.isVisible()) {
             await showNotifications();
             await currentPage.getByRole('button', { name: 'Install Now' }).click();
+            console.log("Clicked on Install Now button to install Ballerina");
             await clearNotificationAlerts();
-            const webview = await switchToIFrame('WSO2 Integrator: BI', this._page, 60000);
+            console.log("Waiting for Ballerina download to complete");
+            const webview = await switchToIFrame('WSO2 Integrator: BI', this._page, 120000);
             console.log("Switching to WSO2 Integrator: BI iframe");
             if (!webview) {
                 throw new Error("Failed to switch to the Ballerina Module Form iframe");
@@ -116,6 +119,7 @@ export class BallerinaModule {
             await currentPage.getByRole('tab', { name: 'WSO2 Integrator: BI', exact: true }).getByLabel('Close').click();
             await clearNotificationAlerts();
             await currentPage.getByLabel('Build Ballerina Module').click();
+            console.log("Clicked on Build Ballerina Module button after installing Ballerina");
             const updatedNotification = currentPage.getByText('Ballerina module build successful', { exact: true });
             await expect(updatedNotification).toBeVisible({ timeout: 120000 });
             console.log("Ballerina module build successful");
