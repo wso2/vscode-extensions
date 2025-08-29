@@ -15,7 +15,8 @@ interface SlidingPaneContextType {
   setVisitedPages: (visitedPages:VisitedPagesElement[]) => void;
   clearAnimations: boolean;
   setClearAnimations: (clearAnimations:boolean) => void;
-  getParams: ()=>any
+  getParams: ()=>any;
+  isInitialRender: React.MutableRefObject<boolean>;
 }
 export const SlidingPaneContext = createContext<SlidingPaneContextType | undefined>(undefined);
 

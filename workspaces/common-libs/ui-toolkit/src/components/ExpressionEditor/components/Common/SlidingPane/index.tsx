@@ -21,7 +21,7 @@ const SlidingWindowContainer = styled.div`
     overflow-y: scroll;
     padding: 0px;
     background-color: var(--vscode-dropdown-background);
-    transition: height 0.3s ease-in-out, width 0.3s ease-in-out;
+    transition: height 0.3s ease-in-out;
 `;
 
 //TODO: move it a common place
@@ -39,6 +39,7 @@ export const SlidingWindow = ({ children }: SlidingWindowProps) => {
     const [height, setHeight] = useState(DEFAULT_SLIDING_WINDOW_HEIGHT);
     const [width, setWidth] = useState(DEFAULT_SLIDING_WINDOW_WIDTH);
     const [clearAnimations, setClearAnimations] = useState(false);
+    const isInitialRender = useRef(true);
 
 
     const moveToNext = (nextPage: VisitedPagesElement) => {
@@ -73,7 +74,8 @@ export const SlidingWindow = ({ children }: SlidingWindowProps) => {
                 setClearAnimations: setClearAnimations,
                 prevPage: prevPage,
                 setPrevPage: setPrevPage,
-                getParams: getParams
+                getParams: getParams,
+                isInitialRender: isInitialRender
             }}>
             <SlidingWindowContainer style={{  width: width }}>
                 {children}
@@ -82,13 +84,14 @@ export const SlidingWindow = ({ children }: SlidingWindowProps) => {
     );
 }
 
-export const SlidingPaneContainer = styled.div<{ index: number; isCurrent?: boolean; width?: string, clearAnimations?: boolean }>`
+export const SlidingPaneContainer = styled.div<{ index: number; isCurrent?: boolean; width?: string, clearAnimations?: boolean, isInitialRender?: React.MutableRefObject<boolean> }>`
   width: 100%;
   display: flex;
   flex-direction: column;
   transition: ${({ clearAnimations }: { clearAnimations: boolean }) =>
-        clearAnimations ? 'none' : 'transform 0.3s ease-in-out, width 0.3s ease-in-out'};
-  transform: ${({ index }: { index: number }) => `translateX(${index * 100}%)`};
+        clearAnimations ? 'none' : 'transform 0.3s ease-in-out, height 0.3s ease-in-out'};
+  transform: ${({ index, isInitialRender }: { index: number, isInitialRender?: React.MutableRefObject<boolean> }) => 
+        isInitialRender?.current ? 'none' : `translateX(${index * 100}%)`};
 `;
 
 type SlidingPaneProps = {
@@ -102,7 +105,7 @@ type SlidingPaneProps = {
 }
 
 export const SlidingPane = ({ children, name, paneHeight, paneWidth }: SlidingPaneProps) => {
-    const { setHeight, setWidth, visitedPages, setClearAnimations, clearAnimations } = useSlidingPane();
+    const { setHeight, setWidth, visitedPages, setClearAnimations, clearAnimations, isInitialRender } = useSlidingPane();
     const [index, setIndex] = useState(1);
     const currentPage = visitedPages[visitedPages.length - 1];
     const prevVisitedPagesLength = useRef(visitedPages.length);
@@ -117,6 +120,9 @@ export const SlidingPane = ({ children, name, paneHeight, paneWidth }: SlidingPa
             setWidth(paneWidth || DEFAULT_SLIDING_WINDOW_WIDTH);
             setTimeout(() => {
                 setIndex(0);
+                if (isInitialRender.current) {
+                    isInitialRender.current = false;
+                }
             }, 50);
         }
         prevVisitedPagesLength.current = visitedPages.length;
@@ -124,7 +130,7 @@ export const SlidingPane = ({ children, name, paneHeight, paneWidth }: SlidingPa
 
     if (name !== currentPage.name) return null;
     return (
-        <SlidingPaneContainer index={index} clearAnimations={clearAnimations} >
+        <SlidingPaneContainer index={index} clearAnimations={clearAnimations} isInitialRender={isInitialRender}>
             {children}
         </SlidingPaneContainer>
     );
