@@ -1057,12 +1057,24 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
         },
         async (progress, token) => await new Promise<void>((resolve, reject) => {
             progress.report({ increment: 10, message: "Pull dependencies..." });
+            
+            // Handle paths for different OS
+            const isWindows = process.platform === 'win32';
             const balHome = path.normalize(path.join(os.homedir(), '.ballerina', 'ballerina-home', 'bin'));
-            const balCommand = path.join(balHome, 'bal');
+            const balExecutable = isWindows ? 'bal.bat' : 'bal';
+            const balCommand = path.join(balHome, balExecutable);
 
-            // Quote the path if it contains spaces (Windows safety)
-            const quotedCommand = process.platform === 'win32' && balCommand.includes(' ') ? `"${balCommand}"` : balCommand;
-            runCommand(isBallerinaInstalled ? 'bal tool pull mi-module-gen' : `${quotedCommand} tool pull mi-module-gen`, `"${projectPath}"`, onData, onError, buildModule);
+            // Properly quote paths for Windows
+            const quotedProjectPath = isWindows ? `"${projectPath}"` : projectPath;
+            const quotedBalCommand = isWindows ? `"${balCommand}"` : balCommand;
+
+            // Use global bal if installed, otherwise use local installation
+            const pullCommand = isBallerinaInstalled 
+                ? (isWindows ? 'bal.bat tool pull mi-module-gen' : 'bal tool pull mi-module-gen')
+                : `${quotedBalCommand} tool pull mi-module-gen`;
+
+            console.debug('Running Ballerina command:', pullCommand, 'in directory:', quotedProjectPath);
+            runCommand(pullCommand, quotedProjectPath, onData, onError, buildModule);
             let isModuleAlreadyInstalled = false, commandFailed = false;
             function onData(data: string) {
                 if (data.includes("is already available locally")) {
@@ -1072,12 +1084,22 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
 
             function onError(data: string) {
                 if (data) {
-                    if (data.includes("spawn bal ENOENT") ||
-                        data.includes("The system cannot find the path specified") ||
-                        data.includes("'ba' is not recognized as an internal or external command, operable program or batch file.")) {
+                    const commonErrors = [
+                        "spawn bal ENOENT",
+                        "The system cannot find the path specified",
+                        "'bal' is not recognized",
+                        "'bal.bat' is not recognized",
+                        "bal.bat' is not recognized",
+                        "Cannot find module",
+                        "command not found"
+                    ];
+
+                    if (commonErrors.some(error => data.includes(error))) {
+                        console.error('Ballerina command failed:', data);
                         vscode.window.showErrorMessage("Ballerina not found. Please install and setup the Ballerina Extension and try again.");
                         showExtensionPrompt();
                     } else {
+                        console.error('Command error:', data);
                         vscode.window.showErrorMessage(`Error: ${data}`);
                     }
                     commandFailed = true;
@@ -1096,7 +1118,13 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
                     ballerinaOutputChannel = vscode.window.createOutputChannel('Ballerina Module Builder');
                 }
                 ballerinaOutputChannel.clear();
-                runBasicCommand(isBallerinaInstalled ? 'bal mi-module-gen -i .' : `${balHome}${path.sep}bal mi-module-gen -i .`, `${projectPath}`,
+                const isWindows = process.platform === 'win32';
+                const moduleGenCommand = isBallerinaInstalled 
+                    ? (isWindows ? 'bal.bat mi-module-gen -i .' : 'bal mi-module-gen -i .') 
+                    : `${path.join(balHome, isWindows ? 'bal.bat' : 'bal')} mi-module-gen -i .`;
+
+                console.debug('Running module gen command:', moduleGenCommand, 'in directory:', projectPath);
+                runBasicCommand(moduleGenCommand, projectPath,
                     onData, onError, onComplete, ballerinaOutputChannel
                 );
 
