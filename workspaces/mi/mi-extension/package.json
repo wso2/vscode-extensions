@@ -158,7 +158,7 @@
           "description": "Don't show server update notification",
           "scope": "resource"
         },
-        "MI.carPluginUpdate": {
+        "MI.updateCarPlugin": {
           "type": "boolean",
           "default": true,
           "description": "Update car plugin silently",

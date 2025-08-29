@@ -1221,8 +1221,8 @@ export async function updateCarPluginVersion(projectUri: string): Promise<void> 
         return;
     }
     const config = vscode.workspace.getConfiguration('MI', workspaceFolder.uri);
-    const isUpdateEnabled = config.get<boolean>('carPluginUpdate');
-    if (!isUpdateEnabled) {
+    const isUpdateCarPluginEnabled = config.get<boolean>('updateCarPlugin');
+    if (!isUpdateCarPluginEnabled) {
         return;
     }
     const pomFiles = await vscode.workspace.findFiles(
@@ -1236,10 +1236,7 @@ export async function updateCarPluginVersion(projectUri: string): Promise<void> 
     const pomContent = await vscode.workspace.openTextDocument(pomFiles[0]);
     const result = await parseStringPromise(pomContent.getText(), { explicitArray: false, ignoreAttrs: true });
     const carPluginVersion = result.project.properties['car.plugin.version'];
-    if (!carPluginVersion) {
-        return;
-    }
-    if(carPluginVersion === LATEST_CAR_PLUGIN_VERSION) {
+    if (!carPluginVersion || carPluginVersion === LATEST_CAR_PLUGIN_VERSION) {
         return;
     }
     if(carPluginVersion < LATEST_CAR_PLUGIN_VERSION) {
