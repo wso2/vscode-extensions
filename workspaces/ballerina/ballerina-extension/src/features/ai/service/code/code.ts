@@ -16,31 +16,57 @@
 
 import { CoreMessage, generateText, streamText } from "ai";
 import { getAnthropicClient, ANTHROPIC_SONNET_4 } from "../connection";
-import { GenerationType, getRelevantLibrariesAndFunctions } from "../libs/libs";
-import { getRewrittenPrompt, populateHistory, transformProjectSource, getErrorMessage, extractResourceDocumentContent } from "../utils";
-import { getMaximizedSelectedLibs, selectRequiredFunctions, toMaximizedLibrariesFromLibJson } from "./../libs/funcs";
-import { GetFunctionResponse } from "./../libs/funcs_inter_types";
+import { GenerationType, getAllLibraries } from "../libs/libs";
+import { getLibraryProviderTool } from "../libs/libraryProviderTool";
+import {
+    getRewrittenPrompt,
+    populateHistory,
+    transformProjectSource,
+    getErrorMessage,
+    extractResourceDocumentContent,
+} from "../utils";
 import { LANGLIBS } from "./../libs/langlibs";
 import { Library } from "./../libs/libs_types";
 import {
-    ChatNotify,
     DiagnosticEntry,
     FileAttatchment,
     GenerateCodeRequest,
-    onChatNotify,
     OperationType,
     PostProcessResponse,
-    ProjectDiagnostics,
     ProjectSource,
     RepairParams,
     RepairResponse,
     SourceFiles,
-    Command
+    Command,
 } from "@wso2/ballerina-core";
 import { getProjectSource, postProcess } from "../../../../rpc-managers/ai-panel/rpc-manager";
 import { CopilotEventHandler, createWebviewEventHandler } from "../event";
 import { AIPanelAbortController } from "../../../../../src/rpc-managers/ai-panel/utils";
 import { getRequirementAnalysisCodeGenPrefix, getRequirementAnalysisTestGenPrefix } from "./np_prompts";
+
+const ANTHROPIC_CACHE_BLOCK_LIMIT = 20;
+const knownIds = new Set<string>();
+
+function appendFinalMessages(history: CoreMessage[], finalMessages: CoreMessage[]): void {
+    for (let i = 0; i < finalMessages.length - 1; i++) {
+        const message = finalMessages[i];
+        const messageId = (message as any).id;
+
+        if ((message.role === "assistant" || message.role === "tool") && messageId && !knownIds.has(messageId)) {
+            knownIds.add(messageId);
+
+            if (i === finalMessages.length - 2) {
+                message.providerOptions = {
+                    anthropic: { cacheControl: { type: "ephemeral" } },
+                };
+            }
+
+            history.push(message);
+        }
+    }
+}
+
+let libraryDescriptions = "";
 
 // Core code generation function that emits events
 export async function generateCodeCore(params: GenerateCodeRequest, eventHandler: CopilotEventHandler): Promise<void> {
@@ -48,48 +74,75 @@ export async function generateCodeCore(params: GenerateCodeRequest, eventHandler
     const packageName = project.projectName;
     const sourceFiles: SourceFiles[] = transformProjectSource(project);
     const prompt = getRewrittenPrompt(params, sourceFiles);
-    const relevantTrimmedFuncs: Library[] = (
-        await getRelevantLibrariesAndFunctions({ query: prompt }, GenerationType.CODE_GENERATION)
-    ).libraries;
-
     const historyMessages = populateHistory(params.chatHistory);
+
+    // Fetch all libraries for tool description
+    const allLibraries = await getAllLibraries(GenerationType.CODE_GENERATION);
+    libraryDescriptions =
+        allLibraries.length > 0
+            ? allLibraries.map((lib) => `- ${lib.name}: ${lib.description}`).join("\n")
+            : "- No libraries available";
+
     const allMessages: CoreMessage[] = [
         {
             role: "system",
-            content: getSystemPromptPrefix(relevantTrimmedFuncs, sourceFiles, params.operationType),
+            content: getSystemPromptPrefix(sourceFiles, params.operationType, GenerationType.CODE_GENERATION),
         },
         {
             role: "system",
             content: getSystemPromptSuffix(LANGLIBS),
-            providerOptions: {
-                anthropic: { cacheControl: { type: "ephemeral" } },
-            },
+            providerOptions:
+                historyMessages.length >= ANTHROPIC_CACHE_BLOCK_LIMIT - 2
+                    ? {
+                          anthropic: { cacheControl: { type: "ephemeral" } },
+                      }
+                    : undefined,
         },
         ...historyMessages,
         {
             role: "user",
-            content: getUserPrompt(prompt, sourceFiles, params.fileAttachmentContents, packageName, params.operationType),
+            content: getUserPrompt(
+                prompt,
+                sourceFiles,
+                params.fileAttachmentContents,
+                packageName,
+                params.operationType
+            ),
             providerOptions: {
                 anthropic: { cacheControl: { type: "ephemeral" } },
             },
+            // Note: This cache control block can be removed if needed, as we use 3 out of 4 allowed cache blocks.
         },
     ];
 
-    const { fullStream } = streamText({
+    const tools = {
+        LibraryProviderTool: getLibraryProviderTool(libraryDescriptions, GenerationType.CODE_GENERATION),
+    };
+
+    const { fullStream, response } = streamText({
         model: await getAnthropicClient(ANTHROPIC_SONNET_4),
-        maxTokens: 4096*4,
+        maxTokens: 4096 * 4,
         temperature: 0,
         messages: allMessages,
+        maxSteps: 10,
+        tools,
         abortSignal: AIPanelAbortController.getInstance().signal,
     });
 
     eventHandler({ type: "start" });
     let assistantResponse: string = "";
+    let assistantThinking: string = "";
+
     for await (const part of fullStream) {
+        if (part.type === "tool-result") {
+            console.log(
+                "[LibraryProviderTool] Library Relevant trimmed functions By LibraryProviderTool Result: ",
+                part.result as Library[]
+            );
+        }
         switch (part.type) {
             case "text-delta": {
                 const textPart = part.textDelta;
-                assistantResponse += textPart;
                 eventHandler({ type: "content_block", content: textPart });
                 break;
             }
@@ -103,9 +156,27 @@ export async function generateCodeCore(params: GenerateCodeRequest, eventHandler
                 const finishReason = part.finishReason;
                 console.log("Finish reason: ", finishReason);
                 if (finishReason === "error") {
-                    // Already handled in error case. 
+                    // Already handled in error case.
                     break;
                 }
+
+                const { messages: finalMessages } = await response;
+                appendFinalMessages(allMessages, finalMessages);
+
+                const lastAssistantMessage = finalMessages
+                    .slice()
+                    .reverse()
+                    .find((msg) => msg.role === "assistant");
+                assistantResponse = lastAssistantMessage
+                    ? (lastAssistantMessage.content as any[]).find((c) => c.type === "text")?.text || assistantResponse
+                    : assistantResponse;
+
+            const assistantMessages = finalMessages
+                .filter((msg) => msg.role === "assistant" && msg !== lastAssistantMessage)
+                .map((msg) => (msg.content as any[]).find((c) => c.type === "text")?.text || "")
+                .filter((text) => text !== "");
+            assistantThinking = assistantMessages.join("\n");
+
                 const postProcessedResp: PostProcessResponse = await postProcess({
                     assistant_response: assistantResponse,
                 });
@@ -121,15 +192,13 @@ export async function generateCodeCore(params: GenerateCodeRequest, eventHandler
                     repair_attempt < MAX_REPAIR_ATTEMPTS
                 ) {
                     console.log("Repair iteration: ", repair_attempt);
-                    console.log("Diagnotsics trynna fix: ", diagnostics);
+                    console.log("Diagnostics trying to fix: ", diagnostics);
 
-                    const repairedResponse: RepairResponse = await repairCode(
-                        {
-                            previousMessages: allMessages,
-                            assistantResponse: diagnosticFixResp,
-                            diagnostics: diagnostics,
-                        }
-                    );
+                    const repairedResponse: RepairResponse = await repairCode({
+                        previousMessages: allMessages,
+                        assistantResponse: diagnosticFixResp,
+                        diagnostics: diagnostics,
+                    });
                     diagnosticFixResp = repairedResponse.repairResponse;
                     diagnostics = repairedResponse.diagnostics;
                     repair_attempt++;
@@ -156,40 +225,75 @@ export async function generateCode(params: GenerateCodeRequest): Promise<void> {
     }
 }
 
-function getSystemPromptPrefix(apidocs: Library[], sourceFiles: SourceFiles[], op: OperationType): string {
-    
+function getSystemPromptPrefix(sourceFiles: SourceFiles[], op: OperationType, generationType: GenerationType): string {
+    const basePrompt = `# QUESTION
+Analyze the user query provided in the user message to identify the relevant Ballerina libraries needed to fulfill the query. Use the LibraryProviderTool to fetch details (name, description, clients, functions, types) for only the selected libraries. The tool description contains all available libraries and their descriptions. Do not assume library contents unless provided by the tool.
+
+# Example
+**Context**:
+${JSON.stringify(
+    [
+        {
+            name: "ballerinax/azure.openai.chat",
+            description: "Provides a Ballerina client for the Azure OpenAI Chat API.",
+        },
+        {
+            name: "ballerinax/github",
+            description: "Provides a Ballerina client for the GitHub API.",
+        },
+        {
+            name: "ballerinax/slack",
+            description: "Provides a Ballerina client for the Slack API.",
+        },
+        {
+            name: "ballerinax/http",
+            description: "Allows to interact with HTTP services.",
+        },
+    ],
+    null,
+    2
+)}
+**Query**: Write an application to read GitHub issues, summarize them, and post the summary to a Slack channel.
+**LibraryProviderTool Call**: Call LibraryProviderTool with libraryNames: ["ballerinax/github", "ballerinax/slack", "ballerinax/azure.openai.chat"]
+
+# Instructions
+1. Analyze the user query to determine the required functionality.
+2. Select the minimal set of libraries that can fulfill the query based on their descriptions.
+3. Call the LibraryProviderTool with the selected libraryNames and the user query to fetch detailed information (clients, functions, types).
+4. Use the tool's output to generate accurate Ballerina code.
+5. Do not include libraries unless they are explicitly needed for the query.
+${
+    generationType === GenerationType.HEALTHCARE_GENERATION
+        ? "6. For healthcare-related queries, ALWAYS include the following libraries in the LibraryProviderTool call in addition to those selected based on the query: ballerinax/health.base, ballerinax/health.fhir.r4, ballerinax/health.fhir.r4.parser, ballerinax/health.fhir.r4utils, ballerinax/health.fhir.r4.international401, ballerinax/health.hl7v2commons, ballerinax/health.hl7v2."
+        : ""
+}
+You are an expert assistant specializing in Ballerina code generation.`;
+
     if (op === "CODE_FOR_USER_REQUIREMENT") {
-        return getRequirementAnalysisCodeGenPrefix(apidocs, extractResourceDocumentContent(sourceFiles));
+        return getRequirementAnalysisCodeGenPrefix([], extractResourceDocumentContent(sourceFiles)) + `\n${basePrompt}`;
     } else if (op === "TESTS_FOR_USER_REQUIREMENT") {
-        return getRequirementAnalysisTestGenPrefix(apidocs, extractResourceDocumentContent(sourceFiles));
+        return getRequirementAnalysisTestGenPrefix([], extractResourceDocumentContent(sourceFiles)) + `\n${basePrompt}`;
     }
-    return `You are an expert assistant who specializes in writing Ballerina code. Your goal is to ONLY answer Ballerina related queries. You should always answer with accurate and functional Ballerina code that addresses the specified query while adhering to the constraints of the given API documentation.
-
-You will be provided with following inputs:
-
-1. API_DOCS: A JSON string containing the API documentation for various Ballerina libraries and their functions, types, and clients.
-<api_docs>
-${JSON.stringify(apidocs)}
-</api_docs>
-`;
+    return basePrompt;
 }
 
 function getSystemPromptSuffix(langlibs: Library[]) {
-    return `2. Langlibs
+    return `You will be provided with default langlibs which are already imported in the Ballerina code.
+    Langlibs
 <langlibs>
 ${JSON.stringify(langlibs)}
-</langlibs> 
+</langlibs>
 
-If the query doesn't require code examples, answer the code by utilzing the api documentation. 
+If the query doesn't require code examples, answer the code by utilizing the api documentation.
 If the query requires code, Follow these steps to generate the Ballerina code:
 
 1. Carefully analyze the provided API documentation:
-   - Identify the available libraries, clients, their functions and their relavant types.
+   - Identify the available libraries, clients, their functions and their relevant types.
 
 2. Thoroughly read and understand the given query:
    - Identify the main requirements and objectives of the integration.
-   - Determine which libraries, functions and their relavant records and types from the API documentation which are needed to achieve the query and forget about unused API docs.
-   - Note the libraries needed to achieve the query and plan the control flow of the applicaiton based input and output parameters of each function of the connector according to the API documentation.
+   - Determine which libraries, functions and their relevant records and types from the API documentation which are needed to achieve the query and forget about unused API docs.
+   - Note the libraries needed to achieve the query and plan the control flow of the application based input and output parameters of each function of the connector according to the API documentation.
 
 3. Plan your code structure:
    - Decide which libraries need to be imported (Avoid importing lang.string, lang.boolean, lang.float, lang.decimal, lang.int, lang.map langlibs as they are already imported by default).
@@ -202,13 +306,13 @@ If the query requires code, Follow these steps to generate the Ballerina code:
 4. Generate the Ballerina code:
    - Start with the required import statements.
    - Define required configurables for the query. Use only string, int, boolean types in configurable variables.
-   - Initialize any necessary clients with the correct configuration at the module level(before any function or service declarations). 
+   - Initialize any necessary clients with the correct configuration at the module level(before any function or service declarations).
    - Implement the main function OR service to address the query requirements.
    - Use defined connectors based on the query by following the API documentation.
    - Use only the functions, types, and clients specified in the API documentation.
-   - Use dot donation to access a normal function. Use -> to access a remote function or resource function.
+   - Use dot notation to access a normal function. Use -> to access a remote function or resource function.
    - Ensure proper error handling and type checking.
-   - Do not invoke methods on json access expressions. Always Use seperate statements.
+   - Do not invoke methods on json access expressions. Always use separate statements.
    - Use langlibs ONLY IF REQUIRED.
 
 5. Review and refine your code:
@@ -216,7 +320,7 @@ If the query requires code, Follow these steps to generate the Ballerina code:
    - Verify that you're only using elements from the provided API documentation.
    - Ensure the code follows Ballerina best practices and conventions.
 
-Provide a brief explanation of how your code addresses the query and then output your generated ballerina code.
+Provide a brief explanation of how your code addresses the query and then output your generated Ballerina code.
 
 Important reminders:
 - Only use the libraries, functions, types, services and clients specified in the provided API documentation.
@@ -225,14 +329,14 @@ Important reminders:
 - Only use specified fields in records according to the api docs. this applies to array types of that record as well.
 - Ensure your code is syntactically correct and follows Ballerina conventions.
 - Do not use dynamic listener registrations.
-- Do not write code in a way that requires updating/assigning values of function parameters. 
+- Do not write code in a way that requires updating/assigning values of function parameters.
 - ALWAYS Use two words camel case identifiers (variable, function parameter, resource function parameter and field names).
 - If the library name contains a . Always use an alias in the import statement. (import org/package.one as one;)
-- Treat generated connectors/clients inside the generated folder as submodules. 
-- A submodule MUST BE imported before being used.  The import statement should only contain the package name and submodule name.  For package my_pkg, folder strucutre generated/fooApi the import should be \`import my_pkg.fooApi;\`
-- If the return parameter typedesc default value is marked as <> in the given API docs, define a custom record in the code that represents the data structure based on the use case and assign to it.  
-- Whenever you have a Json variable, NEVER access or manipulate Json variables. ALWAYS define a record and convert the Json to that record and use it. 
-- When invoking resource function from a client, use the correct paths with accessor and paramters. (eg: exampleClient->/path1/["param"]/path2.get(key="value"))
+- Treat generated connectors/clients inside the generated folder as submodules.
+- A submodule MUST BE imported before being used.  The import statement should only contain the package name and submodule name.  For package my_pkg, folder structure generated/fooApi the import should be \`import my_pkg.fooApi;\`
+- If the return parameter typedesc default value is marked as <> in the given API docs, define a custom record in the code that represents the data structure based on the use case and assign to it.
+- Whenever you have a Json variable, NEVER access or manipulate Json variables. ALWAYS define a record and convert the Json to that record and use it.
+- When invoking resource function from a client, use the correct paths with accessor and parameters. (eg: exampleClient->/path1/["param"]/path2.get(key="value"))
 - When you are accessing a field of a record, always assign it into new variable and use that variable in the next statement.
 - Avoid long comments in the code. Use // for single line comments.
 - Always use named arguments when providing values to any parameter. (eg: .get(key="value"))
@@ -240,18 +344,18 @@ Important reminders:
 - Do not modify the README.md file unless asked to be modified explicitly in the query.
 - Do not add/modify toml files(Config.toml/Ballerina.toml) unless asked.
 - In the library API documentation if the service type is specified as generic, adhere to the instructions specified there on writing the service.
-- For GraphQL service related queries, If the user haven't specified their own GraphQL Scehma, Write the proposed GraphQL schema for the user query right after explanation before generating the ballerina code. Use same names as the GraphQL Schema when defining record types.
+- For GraphQL service related queries, If the user haven't specified their own GraphQL Schema, Write the proposed GraphQL schema for the user query right after explanation before generating the Ballerina code. Use same names as the GraphQL Schema when defining record types.
 
-Begin your response with the explanation, once the entire explanation is finished only, include codeblock segments(if any) in the end of the response. 
+Begin your response with the explanation, once the entire explanation is finished only, include codeblock segments(if any) in the end of the response.
 The explanation should explain the control flow decided in step 2, along with the selected libraries and their functions.
 
-Each file which needs modifications, should have a codeblock segment and it MUST have complete file content with the proposed change. 
+Each file which needs modifications, should have a codeblock segment and it MUST have complete file content with the proposed change.
 The codeblock segments should only have .bal contents and it should not generate or modify any other file types. Politely decline if the query requests for such cases.
 
 Example Codeblock segment:
 <code filename="main.bal">
 \`\`\`ballerina
-//code goes here 
+//code goes here
 \`\`\`
 </code>
 `;
@@ -266,7 +370,7 @@ function getUserPrompt(
 ): string {
     let fileInstructions = "";
     if (fileUploadContents.length > 0) {
-        fileInstructions = `4. File Upload Contents. : Contents of the file which the user uploaded as addtional information for the query. 
+        fileInstructions = `4. File Upload Contents. : Contents of the file which the user uploaded as additional information for the query.
 
 ${fileUploadContents
     .map(
@@ -276,7 +380,7 @@ Content: ${file.content}`
     .join("\n")}`;
     }
 
-    return `QUERY: The query you need to answer using the provided api documentation. 
+    return `QUERY: The query you need to answer using the provided api documentation.
 <query>
 ${usecase}
 </query>
@@ -325,18 +429,23 @@ export async function repairCode(params: RepairParams): Promise<RepairResponse> 
         {
             role: "user",
             content:
-                "Generated code returns following errors. Double-check all functions, types, record field access against the API documentation again. Fix the compiler errors and return the new response. \n Errors: \n " +
+                "Generated code returns the following errors. Use the context from previous messages, including tool calls and tool results, to identify relevant library details (functions, types, clients). Double-check all functions, types, and record field access against these details to fix the compiler errors and return the corrected response. \n Errors: \n " +
                 params.diagnostics.map((d) => d.message).join("\n"),
         },
     ];
+
+    const tools = {
+        LibraryProviderTool: getLibraryProviderTool(libraryDescriptions, GenerationType.CODE_GENERATION),
+    };
 
     const { text, usage, providerMetadata } = await generateText({
         model: await getAnthropicClient(ANTHROPIC_SONNET_4),
         maxTokens: 4096 * 4,
         temperature: 0,
+        tools,
+        toolChoice: "none",
         messages: allMessages,
-        abortSignal: AIPanelAbortController.getInstance().signal
-
+        abortSignal: AIPanelAbortController.getInstance().signal,
     });
 
     // replace original response with new code blocks
