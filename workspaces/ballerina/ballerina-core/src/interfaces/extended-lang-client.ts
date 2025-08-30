@@ -837,15 +837,16 @@ export type SearchQueryParams = {
     q?: string;
     limit?: number;
     offset?: number;
+    orgName?: string;
     includeAvailableFunctions?: string;
     includeCurrentOrganizationInSearch?: boolean;
     filterByCurrentOrg?: boolean;
 }
 
-export type SearchKind = 'FUNCTION' | 'CONNECTOR' | 'TYPE' | "NP_FUNCTION" | "MODEL_PROVIDER" | "VECTOR_STORE" | "EMBEDDING_PROVIDER" | "VECTOR_KNOWLEDGE_BASE";
+export type SearchKind = 'FUNCTION' | 'CONNECTOR' | 'TYPE' | "NP_FUNCTION" | "MODEL_PROVIDER" | "VECTOR_STORE" | "EMBEDDING_PROVIDER" | "VECTOR_KNOWLEDGE_BASE" | "AGENT" | "CLASS_INIT" | "MEMORY_MANAGER" | "AGENT_TOOL";
 
 export type BISearchRequest = {
-    position: LineRange;
+    position?: LineRange;
     filePath: string;
     queryMap: SearchQueryParams;
     searchKind: SearchKind;

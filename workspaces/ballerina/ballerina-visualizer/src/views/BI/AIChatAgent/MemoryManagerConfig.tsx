@@ -26,7 +26,7 @@ import ConfigForm from "./ConfigForm";
 import { Dropdown } from "@wso2/ui-toolkit";
 import { cloneDeep } from "lodash";
 import { RelativeLoader } from "../../../components/RelativeLoader";
-import { getAgentFilePath, getAiModuleOrg, getNodeTemplate } from "./utils";
+import { getAgentFilePath, getAiModuleOrg, getNodeTemplate, searchNodes } from "./utils";
 
 const Container = styled.div`
     padding: 16px;
@@ -101,16 +101,22 @@ export function MemoryManagerConfig(props: MemoryManagerConfigProps): JSX.Elemen
             return;
         }
         try {
-            const memoryManagers = await rpcClient
-                .getAIAgentRpcClient()
-                .getAllMemoryManagers({ filePath: agentFilePath.current, orgName: aiModuleOrg.current });
-            console.log(">>> all memory managers", memoryManagers);
-            if (memoryManagers.memoryManagers) {
-                setMemoryManagersCodeData(memoryManagers.memoryManagers);
-                return memoryManagers.memoryManagers;
-            } else {
-                console.error("Memory managers not found", memoryManagers);
+            const memoryManagerSearchResponse = await searchNodes(
+                rpcClient,
+                agentFilePath.current,
+                { orgName: aiModuleOrg.current },
+                "MEMORY_MANAGER"
+            );
+
+            if (!memoryManagerSearchResponse?.categories?.[0]?.items) {
+                console.error("No memory managers found in search response");
+                return [];
             }
+
+            const memoryManagers = memoryManagerSearchResponse.categories[0].items.map((item: any) => item.codedata);
+            console.log(">>> all memory managers", memoryManagers);
+            setMemoryManagersCodeData(memoryManagers);
+            return memoryManagers;
         } catch (error) {
             console.error("Error fetching memory managers", error);
         }
