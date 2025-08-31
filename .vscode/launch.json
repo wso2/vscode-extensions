@@ -235,6 +235,22 @@
             "preLaunchTask": "watch-mi-tests"
         },
         {
+            "name": "Ballerina Extension AI Tests",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/workspaces/ballerina/ballerina-extension/scripts/test-ai.js",
+            "args": [],
+            "env": {
+                "LS_EXTENSIONS_PATH": "",
+                "LSDEBUG": "false",
+                "WEB_VIEW_WATCH_MODE": "false"
+            },
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "cwd": "${workspaceFolder}/workspaces/ballerina/ballerina-extension",
+            "envFile": "${workspaceFolder}/workspaces/ballerina/ballerina-extension/.env"
+        },
+        {
             "name": "APK Extension",
             "type": "extensionHost",
             "request": "launch",
