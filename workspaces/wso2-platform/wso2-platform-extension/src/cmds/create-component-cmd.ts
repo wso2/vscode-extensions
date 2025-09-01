@@ -378,6 +378,10 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 
 		const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSubpath(item.uri?.fsPath, createParams.componentDir));
 
+		if (process.env.CLOUD_STS_TOKEN) {
+			await ext.context.globalState.update("code-server-component-id", createdComponent.metadata?.id);
+		}
+
 		if (workspace.workspaceFile) {
 			const workspaceContent: WorkspaceConfig = JSON.parse(readFileSync(workspace.workspaceFile.fsPath, "utf8"));
 			workspaceContent.folders = [
@@ -399,9 +403,6 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 		} else {
 			window.showInformationMessage(`${successMessage} Reload workspace to continue`, { modal: true }, "Continue").then(async (resp) => {
 				if (resp === "Continue") {
-					if (process.env.CLOUD_STS_TOKEN) {
-						await ext.context.globalState.update("code-server-component-id", createdComponent.metadata?.id);
-					}
 					commands.executeCommand("vscode.openFolder", Uri.file(createParams.componentDir), { forceNewWindow: false });
 				}
 			});

@@ -624,14 +624,16 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		if (params.repo?.isBareRepo && ["", "/", "."].includes(params.subpath)) {
 			// if component is to be created in the root of a bare repo,
 			// the we can initialize the current directory as the repo root
-			await newGit.init(params.cwd);
-			const dotGit = await newGit?.getRepositoryDotGit(params.cwd);
-			const repo = newGit.open(params.cwd, dotGit);
-			await repo.addRemote("origin", repoUrl);
-			await repo.add(["."]);
-			await repo.commit(`Add source for new ${extName} ${extName === "Devant" ? "Integration" : "Component"} (${params.componentName})`);
-			await repo.push("origin", "main");
-			await repo.fetch();
+			await window.withProgress({ title: `Initializing currently opened directory as repository ${_repoUrl}...`, location: ProgressLocation.Notification }, async () => {
+				await newGit.init(params.cwd);
+				const dotGit = await newGit?.getRepositoryDotGit(params.cwd);
+				const repo = newGit.open(params.cwd, dotGit);
+				await repo.addRemote("origin", repoUrl);
+				await repo.add(["."]);
+				await repo.commit(`Add source for new ${extName} ${extName === "Devant" ? "Integration" : "Component"} (${params.componentName})`);
+				await repo.push("origin", "main");
+				await repo.fetch();
+			});
 			return params.cwd;
 		}
 

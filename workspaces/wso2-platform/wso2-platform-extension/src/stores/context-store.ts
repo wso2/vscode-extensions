@@ -64,6 +64,7 @@ export const contextStore = createStore(
 						set(({ state }) => ({ state: { ...state, loading: true } }));
 						let items = await getAllContexts(get().state?.items);
 						let selected = await getSelected(items, get().state?.selected);
+						set(({ state }) => ({ state: { ...state, items, selected } }));
 						let components = await getComponentsInfoCache(selected);
 						set(({ state }) => ({ state: { ...state, items, selected, components } }));
 						items = await getEnrichedContexts(get().state?.items);
@@ -338,8 +339,8 @@ const getComponentsInfo = async (selected?: ContextItemEnriched): Promise<Contex
 };
 
 const getFilteredComponents = (components: ComponentKind[]) => {
-	const workspaceCompId: string | null | undefined = ext.context.globalState.get("code-server-component-id") || process.env.SOURCE_COMPONENT_ID;
-	if (process.env.CLOUD_STS_TOKEN && workspaceCompId) {
+	const workspaceCompId: string | null | undefined = ext.context.workspaceState.get("code-server-component-id") || process.env.SOURCE_COMPONENT_ID; //
+	if (process.env.CLOUD_STS_TOKEN && process.env.CLOUD_INITIAL_ORG_ID && process.env.CLOUD_INITIAL_PROJECT_ID && workspaceCompId) {
 		const filteredComps = components.filter((item) => item.metadata?.id === workspaceCompId);
 		if (filteredComps.length === 1) {
 			return filteredComps;
