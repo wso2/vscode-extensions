@@ -96,4 +96,3 @@ export * from './components/Commons/Overlay';
 export * from './components/Banner/Banner';
 
 export * from './components/ImageWithFallback';
-export * from './components/DynamicModal/DynamicModal';

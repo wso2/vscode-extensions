@@ -16,13 +16,11 @@
  * under the License.
  */
 
-import React, {  cloneElement, isValidElement, ReactNode, ReactElement, useEffect } from "react";
+import React, { cloneElement, isValidElement, ReactNode, ReactElement } from "react";
 import { createPortal } from "react-dom";
 import styled from "@emotion/styled";
-import Typography from "../Typography/Typography";
-import { Divider } from "../Divider/Divider";
-import { Codicon } from "../Codicon/Codicon";
-import { ThemeColors } from "../../styles";
+import { Codicon, Divider, ThemeColors, Typography } from "@wso2/ui-toolkit";
+import { useVisualizerContext } from "../../Context";
 
 export type DynamicModalProps = {
     children: ReactNode;
@@ -45,16 +43,6 @@ const ModalContainer = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;
-`;
-
-const Overlay = styled.div`
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: ${ThemeColors.SURFACE_CONTAINER};
-    opacity: 0.4;
 `;
 
 const ModalBox = styled.div<{ width?: number; height?: number }>`
@@ -102,11 +90,14 @@ const DynamicModal: React.FC<DynamicModalProps> & { Trigger: typeof Trigger } = 
     children,
     onClose,
     title,
+    anchorRef,
     width,
     height,
     openState,
     setOpenState,
 }) => {
+    const { setShowOverlay } = useVisualizerContext();
+
 
     let trigger: ReactElement | null = null;
     const content: ReactNode[] = [];
@@ -123,22 +114,22 @@ const DynamicModal: React.FC<DynamicModalProps> & { Trigger: typeof Trigger } = 
 
     const handleClose = () => {
         setOpenState(false);
+        setShowOverlay(false);
         onClose && onClose();
     };
 
-    useEffect(() => {
-        setOpenState(openState)
-    }, [openState]);
+    if (openState) {
+        setShowOverlay(true);    
+    }
 
     return (
         <>
             {trigger}
             {openState && createPortal(
-                <ModalContainer className="unq-modal-overlay">
-                    <Overlay onClick={handleClose} />
+                <ModalContainer ref={anchorRef} className="unq-modal-overlay">
                     <ModalBox width={width} height={height}>
                         <ModalHeaderSection>
-                            <Typography variant="h2" sx={{ margin: 0}}>
+                            <Typography variant="h2" sx={{ margin: 0 }}>
                                 {title}
                             </Typography>
                             <Codicon name="close" onClick={handleClose} />
