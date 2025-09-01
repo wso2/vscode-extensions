@@ -473,6 +473,9 @@ export class UnitTest {
         await mockServiceExplorer.init();
         await mockServiceExplorer.findItem([this.projectName + ' '], true);
         await this._page.getByLabel('Add mock service').waitFor();
+        // Add 2s delay to ensure the button is clickable
+        await this._page.waitForTimeout(2000);
+        console.log('Clicking on Add Mock Service button');
         await this._page.getByLabel('Add mock service').click();
         const form = await this.getMockServiceForm();
         await this.fillMockServiceForm(form, data, 'Mock Service');

@@ -17,7 +17,7 @@
  */
 
 import { test } from '@playwright/test';
-import { clearNotificationAlerts, initTest, page, showNotifications, resumeVSCode } from '../Utils';
+import { clearNotificationAlerts, initTest, page, showNotifications } from '../Utils';
 import { ProjectExplorer } from '../components/ProjectExplorer';
 import { Overview } from '../components/Overview';
 import { AddArtifact } from '../components/AddArtifact';

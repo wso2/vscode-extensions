@@ -4,7 +4,7 @@ import { getBrowser, getBrowserLaunchOptions } from './utils';
 import { ReleaseQuality } from './codeUtil';
 
 export const startVSCode = async (resourcesFolder: string, vscodeVersion: string,
-    releaseType: ReleaseQuality = ReleaseQuality.Stable, enableRecorder = false, extensionsFolder?: string, projectPath?: string, profileName?: string) => {
+    releaseType: ReleaseQuality = ReleaseQuality.Stable, enableRecorder = false, extensionsFolder?: string, projectPath?: string, profileName?: string, title?: string, attempt = 1) => {
 
     const browser = await getBrowser(resourcesFolder, vscodeVersion, releaseType, extensionsFolder, profileName);
     const browserOptions = await getBrowserLaunchOptions(resourcesFolder, vscodeVersion, releaseType, projectPath, extensionsFolder, profileName);
@@ -34,7 +34,8 @@ export const startVSCode = async (resourcesFolder: string, vscodeVersion: string
 
     // Direct Electron console to Node terminal.
     const fs = require('fs');
-    const logFilePath = path.join(resourcesFolder, 'videos', 'extension.log');
+    const logFileName = title ? title.replace(/[^a-z0-9]/gi, '_').toLowerCase() : `extension_${new Date().toISOString().replace(/:/g, '-')}_attempt${attempt}`;
+    const logFilePath = path.join(resourcesFolder, 'videos', logFileName + '.log');
 
     window.on('console', (msg) => {
         if (!/^Received response for untracked message id:|^Received notification with unknown method:/.test(msg.text())) {
