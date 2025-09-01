@@ -187,55 +187,6 @@ export function initTest(newProject: boolean = false, skipProjectCreation: boole
     });
 }
 
-export async function setBallerinaLangServerPath(langServerPath: string) {
-    try {
-        await page.executePaletteCommand('Preferences: Open User Settings (JSON)');
-        await page.page.waitForTimeout(2000);
-
-        // Get the current content and add/modify the setting
-        const editor = page.page.locator('.monaco-editor textarea').first();
-        await editor.waitFor();
-
-        // Get existing content by reading the text content directly
-        const editorLines = page.page.locator('.monaco-editor .view-lines');
-        const rawSettings = await editorLines.textContent() || '{}';
-
-        // Clean up the text content - remove extra whitespace and fix formatting issues
-        const existingSettings = rawSettings.replace(/\s+/g, ' ').trim();
-        console.log('Raw settings content:', existingSettings);
-
-        let updatedSettings: string;
-        try {
-            // Parse existing JSON
-            const settings = JSON.parse(existingSettings);
-            // Add/update the ballerina setting
-            settings["ballerina.langServerPath"] = langServerPath;
-            updatedSettings = JSON.stringify(settings, null, 2);
-        } catch (error) {
-            // If parsing fails, create new JSON with existing content preserved
-            console.warn('Could not parse existing settings, creating new structure. Raw content was:', existingSettings);
-            updatedSettings = `{
-    "ballerina.langServerPath": "${langServerPath}"
-}`;
-        }
-
-        // remove last } 
-        updatedSettings = updatedSettings.trim().replace(/}$/, '').trim();
-
-        // Select all and replace with updated settings
-        await page.page.keyboard.press('Meta+A'); // Cmd+A on macOS
-        await page.page.keyboard.type(updatedSettings);
-        await page.page.keyboard.press('Meta+S'); // Save (Cmd+S on macOS)
-        await page.page.waitForTimeout(1000);
-
-        // Close the settings file
-        await page.page.keyboard.press('Meta+W'); // Cmd+W on macOS
-
-        console.log('Set ballerina.langServerPath setting via JSON');
-    } catch (error) {
-        console.warn('Could not set ballerina.langServerPath setting:', error);
-    }
-}
 
 export function initMigrationTest() {
     test.beforeAll(async ({ }, testInfo) => {
@@ -244,9 +195,6 @@ export function initMigrationTest() {
         await initVSCode();
         await page.page.waitForLoadState();
         await toggleNotifications(true);
-
-        // Set ballerina.langServerPath setting. Remove after LS release.
-        await setBallerinaLangServerPath("/Users/radith/work/repos/ballerina-language-server/build/ballerina-language-server-1.1.2.jar");
         
         // Reload VS Code to apply the language server setting
         await page.executePaletteCommand('Reload Window');
