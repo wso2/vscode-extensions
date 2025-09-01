@@ -260,7 +260,16 @@ import {
     GetCodeDiagnosticsResponse,
     UpdateMediatorResponse,
     GetConnectorIconRequest,
-    GetConnectorIconResponse
+    GetConnectorIconResponse,
+    GetPomFileContentResponse,
+    GetExternalConnectorDetailsResponse,
+    WriteMockServicesRequest,
+    WriteMockServicesResponse,
+    GetMockServicesResponse,
+    ConfigureKubernetesRequest,
+    ConfigureKubernetesResponse,
+    Property,
+    UpdateRegistryPropertyRequest
 } from "./types";
 import { RequestType, NotificationType } from "vscode-messenger-common";
 
@@ -439,3 +448,11 @@ export const shouldDisplayPayloadAlert: RequestType<void, boolean> = { method: `
 export const displayPayloadAlert: RequestType<void, void> = { method: `${_preFix}/displayPayloadAlert` };
 export const closePayloadAlert: RequestType<void, void> = { method: `${_preFix}/closePayloadAlert` };
 export const getValueOfEnvVariable: RequestType<string, string> = { method: `${_preFix}/getValueOfEnvVariable` };
+export const getPomFileContent: RequestType<void, GetPomFileContentResponse> = { method: `${_preFix}/getPomFileContent` };
+export const getExternalConnectorDetails: RequestType<void, GetExternalConnectorDetailsResponse> = { method: `${_preFix}/getExternalConnectorDetails` };
+export const writeMockServices: RequestType<WriteMockServicesRequest, WriteMockServicesResponse> = { method: `${_preFix}/writeMockServices` };
+export const getMockServices: RequestType<void, GetMockServicesResponse> = { method: `${_preFix}/getMockServices` };
+export const configureKubernetes: RequestType<ConfigureKubernetesRequest, ConfigureKubernetesResponse> = { method: `${_preFix}/configureKubernetes` };
+export const isKubernetesConfigured: RequestType<void, boolean> = { method: `${_preFix}/isKubernetesConfigured` };
+export const updatePropertiesInArtifactXML: RequestType<UpdateRegistryPropertyRequest, string> = { method: `${_preFix}/updatePropertiesInArtifactXML` };
+export const getPropertiesFromArtifactXML: RequestType<string, Property[] | undefined> = { method: `${_preFix}/getPropertiesFromArtifactXML` };
