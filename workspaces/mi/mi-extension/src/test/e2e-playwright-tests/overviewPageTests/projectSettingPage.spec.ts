@@ -29,7 +29,7 @@ export default function createTests() {
     test.describe("Project Settings tests", {
         tag: '@group2',
     }, async () => {
-        initTest();
+        initTest(true, true, false, undefined, undefined, 'group2');
 
         test('Project Summary Page Tests', async ({ }) => {
             await test.step('Create new API', async () => {

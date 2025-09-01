@@ -37,7 +37,7 @@ export default function createTests() {
   }, async () => {
     let dmName: string = "dm1";
 
-    initTest();
+    initTest(false, false, false, undefined, undefined, 'group2');
     test.beforeAll(setupDataMapper);
 
     test('Basic Mappings', testBasicMappings);

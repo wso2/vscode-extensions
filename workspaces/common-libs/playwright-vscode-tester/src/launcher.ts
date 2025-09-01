@@ -4,7 +4,7 @@ import { getBrowser, getBrowserLaunchOptions } from './utils';
 import { ReleaseQuality } from './codeUtil';
 
 export const startVSCode = async (resourcesFolder: string, vscodeVersion: string,
-    releaseType: ReleaseQuality = ReleaseQuality.Stable, enableRecorder = false, extensionsFolder?: string, projectPath?: string, profileName?: string, title?: string, attempt = 1) => {
+    releaseType: ReleaseQuality = ReleaseQuality.Stable, enableRecorder = false, extensionsFolder?: string, projectPath?: string, profileName?: string, groupName?: string, title?: string, attempt: number = 1) => {
 
     const browser = await getBrowser(resourcesFolder, vscodeVersion, releaseType, extensionsFolder, profileName);
     const browserOptions = await getBrowserLaunchOptions(resourcesFolder, vscodeVersion, releaseType, projectPath, extensionsFolder, profileName);
@@ -34,8 +34,14 @@ export const startVSCode = async (resourcesFolder: string, vscodeVersion: string
 
     // Direct Electron console to Node terminal.
     const fs = require('fs');
-    const logFileName = title ? `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_attempt${attempt}` : `extension_${new Date().toISOString().replace(/:/g, '-')}_attempt${attempt}`;
-    const logFilePath = path.join(resourcesFolder, 'videos', logFileName + '.log');
+    const logFileName = `vscode-${groupName ?? 'general'}${title ? `-${title.replace(/[^a-zA-Z0-9]/g, '')}` : ''}-attempt${attempt}`;
+    // Create logs directory if it doesn't exist
+    const logsDir = path.join(resourcesFolder, 'logs');
+    if (!fs.existsSync(logsDir)) {
+        fs.mkdirSync(logsDir, { recursive: true });
+    }
+    
+    const logFilePath = path.join(logsDir, logFileName + '.log');
 
     window.on('console', (msg) => {
         if (!/^Received response for untracked message id:|^Received notification with unknown method:/.test(msg.text())) {

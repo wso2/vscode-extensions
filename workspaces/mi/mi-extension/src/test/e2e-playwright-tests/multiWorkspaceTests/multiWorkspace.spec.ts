@@ -30,7 +30,7 @@ export default function createTests() {
     test.describe('Multi Workspace Tests', {
         tag: '@group1',
     }, async () => {
-        initTest(true, false, true, "project1");
+        initTest(true, false, true, "project1", undefined, 'group1');
 
         let multiWorkspaceName;
         test("Multi Workspace Tests", async ({ }) => {

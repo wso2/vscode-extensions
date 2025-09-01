@@ -592,5 +592,5 @@ jobs:
         with:
           name: MI-e2e-test-logs-${{ matrix.os }}-${{ matrix.group }}-${{ github.run_attempt }}
           path: | 
-            workspaces/mi/mi-extension/src/test/test-resources/videos/*.log
+            workspaces/mi/mi-extension/src/test/test-resources/logs/**
           retention-days: 5

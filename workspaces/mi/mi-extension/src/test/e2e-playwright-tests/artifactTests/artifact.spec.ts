@@ -42,7 +42,7 @@ export default function createTests() {
   test.describe('Artifact Tests', {
     tag: '@group1',
   }, async () => {
-    initTest();
+    initTest(false, false, false, undefined, undefined, 'group1');
 
     let currentTaskName: string = "TestTask";
     let automation: Automation;

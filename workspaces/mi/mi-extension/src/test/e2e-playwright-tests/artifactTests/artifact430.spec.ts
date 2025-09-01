@@ -25,7 +25,7 @@ export default function createTests() {
   test.describe('4.3.0 Project Tests', {
     tag: '@group3',
   }, async () => {
-    initTest(true, false, true, 'testProject430', '4.3.0'); 
+    initTest(true, false, true, 'testProject430', '4.3.0', 'group3');
 
     test('Registry Tests from 4.3.0 runtime', async () => {
       const testAttempt = test.info().retry + 1;
