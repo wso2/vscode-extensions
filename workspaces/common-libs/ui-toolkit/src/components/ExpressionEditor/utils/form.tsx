@@ -82,7 +82,7 @@ export const getHelperPanePosition = (
     }
 
     if (helperPaneOrigin === 'top') {
-        return { top: rect.top,  left: rect.left + HELPER_PANE_EX_BTN_OFFSET + 2, transform: 'translateY(-100%)' } as unknown as HelperPanePosition & CSSProperties;
+        return { top: rect.top,  left: rect.left + HELPER_PANE_EX_BTN_OFFSET + 2, transform: 'translateY(-100%)' } as HelperPanePosition & CSSProperties;
     }
 
     const position: HelperPanePosition = { top: 0, left: 0 };

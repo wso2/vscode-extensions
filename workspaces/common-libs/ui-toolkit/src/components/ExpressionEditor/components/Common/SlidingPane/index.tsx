@@ -45,7 +45,7 @@ const SlidingWindowContainer = styled.div`
 //TODO: move it a common place
 export type VisitedPagesElement = {
     name: string;
-    params: any
+    params: Record<string, unknown>;
 }
 
 export const SlidingWindow = ({ children }: SlidingWindowProps) => {
