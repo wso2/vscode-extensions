@@ -585,3 +585,12 @@ jobs:
             workspaces/mi/mi-extension/src/test/test-resources/screenshots/**
             workspaces/mi/mi-extension/record.mp4
           retention-days: 5
+
+      - name: Upload log files
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: MI-e2e-test-logs-${{ matrix.os }}-${{ matrix.group }}-${{ github.run_attempt }}
+          path: | 
+            workspaces/mi/mi-extension/src/test/test-resources/videos/*.log
+          retention-days: 5

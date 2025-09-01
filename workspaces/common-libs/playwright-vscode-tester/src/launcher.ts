@@ -34,7 +34,7 @@ export const startVSCode = async (resourcesFolder: string, vscodeVersion: string
 
     // Direct Electron console to Node terminal.
     const fs = require('fs');
-    const logFileName = title ? title.replace(/[^a-z0-9]/gi, '_').toLowerCase() : `extension_${new Date().toISOString().replace(/:/g, '-')}_attempt${attempt}`;
+    const logFileName = title ? `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_attempt${attempt}` : `extension_${new Date().toISOString().replace(/:/g, '-')}_attempt${attempt}`;
     const logFilePath = path.join(resourcesFolder, 'videos', logFileName + '.log');
 
     window.on('console', (msg) => {
