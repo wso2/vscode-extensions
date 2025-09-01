@@ -21,9 +21,6 @@ import styled from "@emotion/styled";
 import { colors } from "../Commons/Colors";
 
 const RightSign = styled.div`
-    position: relative;
-    top: 15%;
-    left: 35%;
     width: 5px;
     height: 12px;
     border: 2px solid white;
