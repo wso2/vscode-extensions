@@ -1,4 +1,3 @@
-
 /**
  * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
@@ -17,14 +16,23 @@
  * under the License.
  */
 
-import { ExtendedLangClientInterface } from "@wso2/ballerina-core";
-import { ExtensionContext } from "vscode";
+export { ConnectionConfig } from "./ConnectionConfig";
+export { ConnectionSelectionList } from "./ConnectionSelectionList";
+export { ConnectionCreator } from "./ConnectionCreator";
 
-export class ExtensionVariables {
-    public context!: ExtensionContext;
-    public langClient!: ExtendedLangClientInterface;
-    public biSupported?: boolean;
-    public isNPSupported?: boolean;
-}
+export type {
+    ConnectionKind,
+    ConnectionKindConfig,
+    ConnectionInfo,
+    ConnectionSpecialConfig,
+    ConnectionConfigProps,
+    ConnectionSelectionListProps,
+    ConnectionCreatorProps,
+} from "./types";
 
-export const extension = new ExtensionVariables();
+export {
+    CONNECTION_TYPE_CONFIGS,
+    CONNECTION_SPECIAL_CONFIGS,
+    getConnectionKindConfig,
+    getConnectionSpecialConfig
+} from "./config";
