@@ -19,7 +19,7 @@
 
 import * as vscode from 'vscode';
 import * as childprocess from 'child_process';
-import { COMMANDS } from '../constants';
+import { COMMANDS, MVN_COMMANDS } from '../constants';
 import { loadEnvVariables, getBuildCommand, getRunCommand, getStopCommand } from './tasks';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -37,6 +37,7 @@ import treeKill = require('tree-kill');
 import { serverLog, showServerOutputChannel } from '../util/serverLogger';
 import { getJavaHomeFromConfig, getServerPathFromConfig } from '../util/onboardingUtils';
 import * as crypto from 'crypto';
+import { Uri, workspace } from "vscode";
 
 const child_process = require('child_process');
 const findProcess = require('find-process');
@@ -174,7 +175,7 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
             }
         }
 
-        const buildCommand = getBuildCommand();
+        const buildCommand = getBuildCommand(projectUri);
         const envVariables = {
             ...process.env,
             ...setJavaHomeInEnvironmentAndPath(projectUri)
@@ -260,8 +261,10 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
 export async function executeRemoteDeployTask(projectUri: string, postBuildTask?: Function) {
     return new Promise<void>(async (resolve, reject) => {
 
-        const buildCommand = process.platform === 'win32' ? ".\\mvnw.cmd clean deploy -Dmaven.deploy.skip=true -Dmaven.car.deploy.skip=false -Dstyle.color=never" :
-            "./mvnw clean deploy -Dmaven.deploy.skip=true -Dmaven.car.deploy.skip=false -Dstyle.color=never";;
+        const config = workspace.getConfiguration('MI', Uri.file(projectUri));
+        const mvnCmd = config.get("USE_LOCAL_MAVEN") ? "mvn" : (process.platform === "win32" ?
+            MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
+        const buildCommand = mvnCmd + MVN_COMMANDS.DEPLOY_COMMAND;
         const envVariables = {
             ...process.env,
             ...setJavaHomeInEnvironmentAndPath(projectUri)
