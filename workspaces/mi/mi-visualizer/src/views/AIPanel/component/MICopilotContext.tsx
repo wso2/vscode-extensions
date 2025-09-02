@@ -26,6 +26,8 @@ import {
     CopilotChatEntry,
     MessageType,
     Role,
+} from "@wso2/mi-core";
+import {
     RpcClientType,
     FileHistoryEntry,
 } from "../types";
