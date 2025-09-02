@@ -181,7 +181,6 @@ import {
     getAvailableConnectors,
     getAvailableRegistryResources,
     getAvailableResources,
-    getBackendRootUrl,
     getProxyRootUrl,
     getConnectionForm,
     getConnector,
@@ -320,7 +319,7 @@ import {
     isKubernetesConfigured,
     UpdateRegistryPropertyRequest,
     updatePropertiesInArtifactXML,
-    getPropertiesFromArtifactXML
+    getPropertiesFromArtifactXML, getBackendRootUrl
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
 import { MiDiagramRpcManager } from "./rpc-manager";
@@ -416,7 +415,6 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(buildBallerinaModule, (args: string) => rpcManger.buildBallerinaModule(args));
     messenger.onRequest(getSelectiveWorkspaceContext, () => rpcManger.getSelectiveWorkspaceContext());
     messenger.onRequest(getSelectiveArtifacts, (args: GetSelectiveArtifactsRequest) => rpcManger.getSelectiveArtifacts(args));
-    messenger.onRequest(getBackendRootUrl, () => rpcManger.getBackendRootUrl());
     messenger.onRequest(getProxyRootUrl, () => rpcManger.getProxyRootUrl());
     messenger.onRequest(getAvailableRegistryResources, (args: ListRegistryArtifactsRequest) => rpcManger.getAvailableRegistryResources(args));
     messenger.onRequest(updateRegistryMetadata, (args: UpdateRegistryMetadataRequest) => rpcManger.updateRegistryMetadata(args));

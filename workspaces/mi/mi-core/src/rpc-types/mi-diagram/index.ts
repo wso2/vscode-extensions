@@ -149,7 +149,6 @@ import {
     GetSelectiveWorkspaceContextResponse,
     GetSelectiveArtifactsRequest,
     GetSelectiveArtifactsResponse,
-    GetBackendRootUrlResponse,
     RegistryArtifactNamesResponse,
     ListRegistryArtifactsRequest,
     RangeFormatRequest,
@@ -357,7 +356,6 @@ export interface MiDiagramAPI {
     buildBallerinaModule: (projectPath: string) => Promise<void>;
     getSelectiveWorkspaceContext: () => Promise<GetSelectiveWorkspaceContextResponse>;
     getSelectiveArtifacts: (params: GetSelectiveArtifactsRequest) => Promise<GetSelectiveArtifactsResponse>;
-    getBackendRootUrl: () => Promise<GetBackendRootUrlResponse>;
     getAvailableRegistryResources: (params: ListRegistryArtifactsRequest) => Promise<RegistryArtifactNamesResponse>;
     updateRegistryMetadata: (params: UpdateRegistryMetadataRequest) => Promise<UpdateRegistryMetadataResponse>;
     getMetadataOfRegistryResource: (params: GetRegistryMetadataRequest) => Promise<GetRegistryMetadataResponse>;

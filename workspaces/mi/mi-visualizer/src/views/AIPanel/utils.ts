@@ -16,7 +16,8 @@
  * under the License.
  */
 
-import { CopilotChatEntry, RpcClientType, Role, MessageType, ChatMessage, ApiResponse, BackendRequestType } from "./types";
+import { RpcClientType, ApiResponse, BackendRequestType } from "./types";
+import { CopilotChatEntry, Role, MessageType, ChatMessage } from "@wso2/mi-core";
 
 import { GetWorkspaceContextResponse, MACHINE_VIEW, EVENT_TYPE, FileObject, ImageObject} from "@wso2/mi-core";
 import {
@@ -41,7 +42,7 @@ export async function getProjectRuntimeVersion(rpcClient: RpcClientType): Promis
 
 export async function fetchBackendUrl(rpcClient:RpcClientType): Promise<string | undefined> {
         try {
-            return (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
+            return (await rpcClient.getMiAiPanelRpcClient().getBackendRootUrl()).url;
         } catch (error) {
             console.error('Failed to fetch backend URL:', error);
             return undefined;

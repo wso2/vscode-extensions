@@ -1475,10 +1475,6 @@ export interface ConfigureKubernetesResponse {
     path: string;
 }
 
-export interface GetBackendRootUrlResponse {
-    url: string;
-}
-
 export interface GetProxyRootUrlResponse {
     openaiUrl: string;
     anthropicUrl: string;

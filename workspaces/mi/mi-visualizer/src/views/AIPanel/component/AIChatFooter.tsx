@@ -24,7 +24,8 @@ import { useMICopilotContext } from "./MICopilotContext";
 import { handleFileAttach } from "../utils";
 import { USER_INPUT_PLACEHOLDER_MESSAGE, VALID_FILE_TYPES } from "../constants";
 import { generateSuggestions, generateId, getBackendUrlAndView, fetchCodeGenerationsWithRetry, getDiagnosticsReponseFromLlm, replaceCodeBlock } from "../utils";
-import { Role, MessageType, CopilotChatEntry, BackendRequestType, FixedConfigItem, CorrectedCodeItem, ChatMessage } from "../types";
+import { BackendRequestType, FixedConfigItem, CorrectedCodeItem, } from "../types";
+import { Role, MessageType, CopilotChatEntry, ChatMessage } from "@wso2/mi-core";
 import Attachments from "./Attachments";
 
 /**

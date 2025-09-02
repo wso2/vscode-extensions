@@ -27,6 +27,7 @@ import { StateMachineAI } from './ai-panel/aiMachine';
 import { registerMiDataMapperRpcHandlers } from './rpc-managers/mi-data-mapper/rpc-handler';
 import { extension } from './MIExtensionContext';
 import { registerMiDebuggerRpcHandlers } from './rpc-managers/mi-debugger/rpc-handler';
+import { registerMIAiPanelRpcHandlers } from './rpc-managers/ai-panel/rpc-handler';
 import path = require('path');
 import { getStateMachine } from './stateMachine';
 import { getPopupStateMachine } from './stateMachinePopup';
@@ -51,6 +52,7 @@ export class RPCLayer {
         registerMiDiagramRpcHandlers(messenger, projectUri);
         registerMiDataMapperRpcHandlers(messenger, projectUri);
         registerMiDebuggerRpcHandlers(messenger, projectUri);
+        registerMIAiPanelRpcHandlers(messenger, projectUri);
         // ----- AI Webview RPC Methods
         messenger.onRequest(getAIVisualizerState, () => getAIContext());
         messenger.onRequest(sendAIStateEvent, (event: AI_EVENT_TYPE) => StateMachineAI.sendEvent(event));
