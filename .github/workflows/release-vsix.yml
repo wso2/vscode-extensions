@@ -200,6 +200,7 @@ jobs:
     if: ${{ always() && contains(needs.*.result, 'failure') && github.repository == 'wso2/vscode-extensions'}}
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
       - name: "Failure Notification"
         uses: ./.github/actions/failure-notification
         with:
