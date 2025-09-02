@@ -44,10 +44,14 @@ export class Registry {
 
     public async openFormFromArtifacts() {
         const projectExplorer = new ProjectExplorer(this._page);
+        console.log("Navigating to add artifact");
         await projectExplorer.goToAddArtifact("testProject430");
+        console.log("Navigated to add artifact");
         const addArtifactPage = new AddArtifact(this._page);
         await addArtifactPage.init();
+        console.log("Initialized add artifact page");
         await addArtifactPage.add('Registry');
+        console.log("Clicked on Registry");
     }
 
     private getRegistryForm(): Form {
@@ -69,11 +73,14 @@ export class Registry {
 
     public async addFromFileSystem(data: RegistryDataFromFileSystem) {
         const resWebView = await switchToIFrame('Resource Creation Form', this._page);
+        console.log("Switched to Registry Form iframe");
         if (!resWebView) {
             throw new Error("Failed to switch to Registry Form iframe");
         }
         const registryForm = new Form(page.page, 'Resource Creation Form');
+        console.log("Initialized Registry form");
         await registryForm.switchToFormView();
+        console.log("Switched to form view");
         await registryForm.fill({
             values: {
                 'Import from file system': {
@@ -90,7 +97,9 @@ export class Registry {
                 }
             },
         });
+        console.log("Filled registry form");
         await registryForm.submit();
+        console.log("Submitted registry form");
     }
 
     public async addFromTemplate(data: RegistryDataFromTemplate) {

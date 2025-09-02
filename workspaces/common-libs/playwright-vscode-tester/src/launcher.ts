@@ -34,14 +34,19 @@ export const startVSCode = async (resourcesFolder: string, vscodeVersion: string
 
     // Direct Electron console to Node terminal.
     const fs = require('fs');
-    const logFileName = `vscode-${groupName ?? 'general'}${title ? `-${title.replace(/[^a-zA-Z0-9]/g, '')}` : ''}-attempt${attempt}`;
+    let logFileName = `vscode-${groupName ?? 'general'}${title ? `-${title.replace(/[^a-zA-Z0-9]/g, '')}` : ''}-attempt${attempt}`;
     // Create logs directory if it doesn't exist
     const logsDir = path.join(resourcesFolder, 'logs');
     if (!fs.existsSync(logsDir)) {
         fs.mkdirSync(logsDir, { recursive: true });
     }
     
-    const logFilePath = path.join(logsDir, logFileName + '.log');
+    let logFilePath = path.join(logsDir, logFileName + '.log');
+
+    if (fs.existsSync(logFilePath)) {
+        logFileName = logFileName + `-${Date.now()}`;
+        logFilePath = path.join(logsDir, logFileName + '.log');
+    }
 
     window.on('console', (msg) => {
         if (!/^Received response for untracked message id:|^Received notification with unknown method:/.test(msg.text())) {

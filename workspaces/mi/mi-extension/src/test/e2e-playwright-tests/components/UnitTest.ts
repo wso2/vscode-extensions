@@ -294,11 +294,13 @@ export class UnitTest {
                 }
             }
         });
+        console.log('Filled Mock Service Basic Form');
     }
 
     private async fillMockServiceForm(mockServiceForm: Form, mockService: MockServiceData, frame: string) {
         console.log('Filling Mock Service Form');
         await this.fillMockServiceBasicForm(mockServiceForm, mockService);
+        console.log('Filling Mock Service Resources');
         for (const resource of mockService.resources || []) {
             const resourceParamManager = await mockServiceForm.getParamManagerWithNewCreateForm('MockServiceResources', frame, 'card-select-mockServiceResourceCard');
             const resourceForm = await resourceParamManager.getAddNewForm();
