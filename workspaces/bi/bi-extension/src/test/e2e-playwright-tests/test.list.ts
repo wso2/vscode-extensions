@@ -49,6 +49,8 @@ import connectionArtifact from './other-artifacts/connection.spec';
 import configuration from './configuration/configuration.spec';
 import typeTest from './type/type.spec';
 
+import importIntegration from './import-integration/import-integration.spec';
+
 test.describe.configure({ mode: 'default' });
 
 test.beforeAll(async () => {
@@ -90,6 +92,9 @@ test.describe(typeDiagramArtifact); // TODO: Fix this test
 test.describe(connectionArtifact);
 test.describe(configuration); // TODO: Fix this test
 test.describe(typeTest);
+
+// <----Import Integration Test---->
+test.describe(importIntegration);
 
 test.afterAll(async () => {
     console.log(`>>> Finished test suite`);
