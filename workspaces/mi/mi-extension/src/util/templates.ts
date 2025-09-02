@@ -25,7 +25,7 @@ export function escapeXml(text: string) {
     .replace(/"/g, '&quot;');
 };
 
-export const LATEST_CAR_PLUGIN_VERSION = "5.3.3";
+export const LATEST_CAR_PLUGIN_VERSION = "5.4.2";
 
 export const rootPomXmlContent = (projectName: string, groupID: string, artifactID: string, projectUuid: string, version: string, miVersion: string, initialDependencies: string) => `<?xml version="1.0" encoding="UTF-8"?>
 <project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
