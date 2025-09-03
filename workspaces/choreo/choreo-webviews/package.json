@@ -7,7 +7,7 @@
   "scripts": {
     "lint": "biome check .",
     "lint:fix": "biome check --write --unsafe . ",
-    "start": "webpack serve --mode development",
+    "start": "webpack serve --mode development --port 3001",
     "build": "tsc --pretty && webpack && npm run copy:assets",
     "copy:assets": "copyfiles -u 1 \"src/**/*.scss\" \"src/**/*.svg\"  \"src/**/*.css\" \"src/**/*.png\" \"src/**/*.txt\" \"src/**/*.json\" \"src/assets/fonts/Gilmer/*.*\" lib/"
   },
