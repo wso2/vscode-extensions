@@ -71,7 +71,7 @@ module.exports = {
   plugins: [
       new webpack.DefinePlugin(envKeys),
   ],
-  devtool: 'nosources-source-map',
+  devtool: !process.env.CI ? "nosources-source-map" : undefined,
   infrastructureLogging: {
     level: "log",
   },
