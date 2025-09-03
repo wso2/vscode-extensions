@@ -208,11 +208,13 @@ type SlidingPaneNavContainerProps = {
     data?: any;
     endIcon?: ReactNode;
     onClick?: () => void;
+    onMouseEnter?: () => void;
+    onMouseLeave?: () => void;
     sx?: React.CSSProperties;
     ref?: React.Ref<HTMLDivElement> | null;
 }
 
-export const SlidingPaneNavContainer = ({ children, to, data, endIcon, onClick, sx, ref }: SlidingPaneNavContainerProps) => {
+export const SlidingPaneNavContainer = ({ children, to, data, endIcon, onClick, sx, ref, onMouseEnter, onMouseLeave }: SlidingPaneNavContainerProps) => {
     const { moveToNext } = useSlidingPane();
     const handleNavigation = () => {
         if (!to) return;
@@ -223,7 +225,7 @@ export const SlidingPaneNavContainer = ({ children, to, data, endIcon, onClick, 
     }
 
     return (
-        <SlidingPaneNavContainerElm ref={ref} style={sx}>
+        <SlidingPaneNavContainerElm onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} ref={ref} style={sx}>
             <InvisibleButton
                 className="sliding-pane-text"
                 style={{ width: '100%' }}
