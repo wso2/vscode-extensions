@@ -20,6 +20,7 @@ import { FileStructure, ImportProjectRequest, ImportProjectResponse } from '@wso
 import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 import { dockerfileContent, rootPomXmlContent } from './templates';
 import { createFolderStructure, copyDockerResources } from '.';
 import { commands, Uri, window } from 'vscode';
@@ -80,6 +81,47 @@ interface RegistryCollection {
     properties: string;
 }
 
+/**
+ * Converts a given byte array (Uint8Array) representing a message digest into a hexadecimal string.
+ * Pads the resulting hex string with leading zeros to ensure a minimum length of 32 characters.
+ *
+ * @param messageDigest - The byte array to convert to a hexadecimal string.
+ * @returns The hexadecimal string representation of the input byte array, padded to 32 characters.
+ */
+function convertToHex(messageDigest: Uint8Array): string {
+    // Convert byte array to BigInt (equivalent to Java's BigInteger(1, messageDigest))
+    let bigint = BigInt(0);
+    for (let i = 0; i < messageDigest.length; i++) {
+        bigint = (bigint << BigInt(8)) + BigInt(messageDigest[i]);
+    }
+    
+    // Convert to hex string (equivalent to bigint.toString(16))
+    let hexText = bigint.toString(16);
+    
+    // Pad with leading zeros to ensure 32 characters
+    while (hexText.length < 32) {
+        hexText = "0" + hexText;
+    }
+    
+    return hexText;
+}
+
+/**
+ * Generates an MD5 hash for the given input string and returns its hexadecimal representation.
+ *
+ * @param input - The input string to hash.
+ * @returns The hexadecimal string representation of the MD5 hash, or `null` if an error occurs.
+ */
+export function getHash(input: string): string | null {
+    try {
+        const hash = crypto.createHash('md5');
+        hash.update(input);
+        const messageDigest = new Uint8Array(hash.digest());
+        return convertToHex(messageDigest);
+    } catch (error) {
+        return null;
+    }
+}
 
 export async function importCapp(params: ImportProjectRequest): Promise<ImportProjectResponse> {
     const { directory, open } = params;
