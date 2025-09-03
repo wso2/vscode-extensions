@@ -486,43 +486,34 @@ jobs:
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             cd workspaces/mi/mi-extension
-            
-            # Start screen recording using background process
-            echo "Starting screen recording..."
-            ffmpeg -y -f gdigrab -framerate 5 -i desktop -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart -loglevel error record.mp4 </dev/null &
-            FFMPEG_PID=$!
-            echo "FFmpeg started with PID: $FFMPEG_PID"
-            
-            # Give FFmpeg a moment to start and verify it's running
-            sleep 5
-            if kill -0 $FFMPEG_PID 2>/dev/null; then
-              echo "FFmpeg is running (PID: $FFMPEG_PID)"
-            else
-              echo "FFmpeg process not found"
-            fi
+            # Use PowerShell to start screen recording
+            powershell -Command "
+            Add-Type -AssemblyName System.Windows.Forms
+            Add-Type -AssemblyName System.Drawing
+            \$rec = New-Object System.Diagnostics.Process
+            \$rec.StartInfo.FileName = 'ffmpeg'
+            \$rec.StartInfo.Arguments = '-y -f gdigrab -framerate 10 -i desktop -t 600 -c:v libx264 -preset fast -crf 30 record.mp4'
+            \$rec.StartInfo.UseShellExecute = \$false
+            \$rec.StartInfo.CreateNoWindow = \$true
+            \$rec.Start()
+            \$rec.Id | Out-File -FilePath 'ffmpeg_pid.txt' -Encoding ASCII
+            "
             
             # Run tests
-            npx playwright test --grep ${{ matrix.group }}
+            PWDEBUG=console npx playwright test --grep ${{ matrix.group }}
             
-            # Stop recording using the stored PID
-            echo "Stopping screen recording..."
-            if kill -0 $FFMPEG_PID 2>/dev/null; then
-              kill $FFMPEG_PID 2>/dev/null || true
+            # Stop recording
+            if [ -f "ffmpeg_pid.txt" ]; then
+              FFMPEG_PID=$(cat ffmpeg_pid.txt)
+              powershell -Command "Stop-Process -Id $FFMPEG_PID -Force" 2>/dev/null || true
               sleep 3
-              # Force kill if still running
-              kill -9 $FFMPEG_PID 2>/dev/null || true
             fi
-            sleep 2
             
-            # Check if video was created and get detailed info
+            # Check if video was created
             if [ -f "record.mp4" ]; then
               echo "Video created, size: $(du -h record.mp4)"
-              # Try to get video info using ffprobe if available
-              ffprobe -v quiet -print_format json -show_format -show_streams record.mp4 2>/dev/null || echo "Could not get video info"
             else
               echo "No video file found"
-              # List all files to see what was created
-              ls -la
             fi
           else
             export $(dbus-launch)
@@ -537,43 +528,34 @@ jobs:
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             cd workspaces/mi/mi-extension
-            
-            # Start screen recording for rerun using background process
-            echo "Starting screen recording for re-run..."
-            ffmpeg -y -f gdigrab -framerate 5 -i desktop -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart -loglevel error record.mp4 </dev/null &
-            FFMPEG_PID=$!
-            echo "FFmpeg started with PID: $FFMPEG_PID"
-            
-            # Give FFmpeg a moment to start and verify it's running
-            sleep 5
-            if kill -0 $FFMPEG_PID 2>/dev/null; then
-              echo "FFmpeg is running (PID: $FFMPEG_PID)"
-            else
-              echo "FFmpeg process not found"
-            fi
+            # Use PowerShell to start screen recording for rerun
+            powershell -Command "
+            Add-Type -AssemblyName System.Windows.Forms
+            Add-Type -AssemblyName System.Drawing
+            \$rec = New-Object System.Diagnostics.Process
+            \$rec.StartInfo.FileName = 'ffmpeg'
+            \$rec.StartInfo.Arguments = '-y -f gdigrab -framerate 10 -i desktop -t 600 -c:v libx264 -preset fast -crf 30 record.mp4'
+            \$rec.StartInfo.UseShellExecute = \$false
+            \$rec.StartInfo.CreateNoWindow = \$true
+            \$rec.Start()
+            \$rec.Id | Out-File -FilePath 'ffmpeg_pid.txt' -Encoding ASCII
+            "
             
             # Run failed tests
             npx playwright test --grep ${{ matrix.group }} --last-failed
             
-            # Stop recording using the stored PID
-            echo "Stopping screen recording..."
-            if kill -0 $FFMPEG_PID 2>/dev/null; then
-              kill $FFMPEG_PID 2>/dev/null || true
+            # Stop recording
+            if [ -f "ffmpeg_pid.txt" ]; then
+              FFMPEG_PID=$(cat ffmpeg_pid.txt)
+              powershell -Command "Stop-Process -Id $FFMPEG_PID -Force" 2>/dev/null || true
               sleep 3
-              # Force kill if still running
-              kill -9 $FFMPEG_PID 2>/dev/null || true
             fi
-            sleep 2
             
-            # Check if video was created and get detailed info
+            # Check if video was created
             if [ -f "record.mp4" ]; then
               echo "Re-run video created, size: $(du -h record.mp4)"
-              # Try to get video info using ffprobe if available
-              ffprobe -v quiet -print_format json -show_format -show_streams record.mp4 2>/dev/null || echo "Could not get video info"
             else
               echo "No re-run video file found"
-              # List all files to see what was created
-              ls -la
             fi
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
             cd workspaces/mi/mi-extension && npx playwright test --grep ${{ matrix.group }} --last-failed
