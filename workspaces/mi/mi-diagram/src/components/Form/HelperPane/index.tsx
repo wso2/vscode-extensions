@@ -35,7 +35,9 @@ export type HelperPaneProps = {
     onClose: () => void;
     onChange: (value: string) => void;
     addFunction?: (value: string) => void;
+    artifactPath?: string;
     sx?: CSSProperties;
+    isUnitTest?: boolean;
 };
 
 export const PAGE = {
@@ -54,7 +56,7 @@ const TOKEN_EDITOR_BOTTOM_OFFSET = 40;
 const FULLSCREEN_OFFSET = 160;
 const FULLSCREEN_DELAY = 200;
 
-const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen, height: componentDefaultHeight, sx, onClose, onChange, addFunction }: HelperPaneProps) => {
+const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen, height: componentDefaultHeight, sx, onClose, onChange, addFunction, artifactPath, isUnitTest }: HelperPaneProps) => {
     const [currentPage, setCurrentPage] = useState<Page>(PAGE.CATEGORY);
     const panelRef = useRef<HTMLDivElement>(null);
     const timeoutIds = useRef<NodeJS.Timeout[]>([]);
@@ -158,6 +160,8 @@ const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen,
                         onClose={onClose}
                         onChange={onChange}
                         addFunction={addFunction}
+                        artifactPath={artifactPath}
+                        isUnitTest={isUnitTest}
                     />
                 )}
                 {currentPage === PAGE.PAYLOAD && (
@@ -166,7 +170,8 @@ const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen,
                         setCurrentPage={setCurrentPage}
                         onClose={onClose}
                         onChange={onChange}
-                    />
+                        artifactPath={artifactPath}
+                />
                 )}
                 {currentPage === PAGE.VARIABLES && (
                     <VariablesPage
@@ -174,7 +179,8 @@ const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen,
                         setCurrentPage={setCurrentPage}
                         onClose={onClose}
                         onChange={onChange}
-                    />
+                        artifactPath={artifactPath}
+                />
                 )}
                 {currentPage === PAGE.HEADERS && (
                     <HeadersPage
@@ -182,10 +188,17 @@ const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen,
                         setCurrentPage={setCurrentPage}
                         onClose={onClose}
                         onChange={onChange}
-                    />
+                        artifactPath={artifactPath}
+                />
                 )}
                 {currentPage === PAGE.PARAMS && (
-                    <ParamsPage position={position} setCurrentPage={setCurrentPage} onClose={onClose} onChange={onChange} />
+                    <ParamsPage 
+                    position={position} 
+                    setCurrentPage={setCurrentPage} 
+                    onClose={onClose} 
+                    onChange={onChange}
+                    artifactPath={artifactPath}
+                />
                 )}
                 {currentPage === PAGE.PROPERTIES && (
                     <PropertiesPage
@@ -193,7 +206,8 @@ const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen,
                         setCurrentPage={setCurrentPage}
                         onClose={onClose}
                         onChange={onChange}
-                    />
+                        artifactPath={artifactPath}
+                />
                 )}
             </HelperPane>
         </div>
@@ -205,11 +219,13 @@ export const getHelperPane = (
     helperPaneHeight: HelperPaneHeight,
     onClose: () => void,
     onChange: (value: string) => void,
+    artifactPath?: string,
     addFunction?: (value: string) => void,
     sx?: CSSProperties,
     height?: number,
     isTokenEditor?: boolean,
-    isFullscreen?: boolean
+    isFullscreen?: boolean,
+    isUnitTest?: boolean
 ) => {
     return (
         <HelperPaneEl
@@ -222,6 +238,8 @@ export const getHelperPane = (
             isTokenEditor={isTokenEditor}
             isFullscreen={isFullscreen}
             height={height}
+            artifactPath={artifactPath}
+            isUnitTest={isUnitTest}
         />
     );
 };

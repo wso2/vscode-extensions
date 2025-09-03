@@ -51,7 +51,7 @@ import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { Range } from "@wso2/mi-syntax-tree/lib/src";
 import ParameterManager from './GigaParamManager/ParameterManager';
 import { StringWithParamManagerComponent } from './StringWithParamManager';
-import { isLegacyExpression, isValueExpression } from './utils';
+import { isLegacyExpression, isTypeAwareEqual, isValueExpression } from './utils';
 import { Colors } from '../../resources/constants';
 import ReactMarkdown from 'react-markdown';
 import GenerateDiv from './GenerateComponents/GenerateDiv';
@@ -129,6 +129,9 @@ export interface Element {
     expressionType?: 'xpath/jsonPath' | 'synapse';
     supportsAIValues?: boolean;
     rowCount?: number;
+    artifactPath?: string;
+    artifactType?: string;
+    isUnitTest?: boolean;
 }
 
 interface ExpressionValueWithSetter {
@@ -180,6 +183,7 @@ export function FormGenerator(props: FormGeneratorProps) {
     const [showGeneratedValuesIdenticalMessage, setShowGeneratedValuesIdenticalMessage] = useState<boolean>(false);
     const [isGeneratedValuesIdentical, setIsGeneratedValuesIdentical] = useState<boolean>(false);
     const [numberOfDifferent, setNumberOfDifferent] = useState<number>(0);
+    const [idpSchemaNames, setidpSchemaNames] = useState< {fileName: string; documentUriWithFileName?: string}[]>([]);
 
     useEffect(() => {
         if (generatedFormDetails) {
@@ -309,6 +313,10 @@ export function FormGenerator(props: FormGeneratorProps) {
                         [name]: connectionNames
                     }));
                 }
+                else if (element.value.inputType === "idpSchemaGenerateView" && documentUri) {
+                    const idpSchemas =await rpcClient.getMiDiagramRpcClient().getIdpSchemaFiles();
+                    setidpSchemaNames(idpSchemas.schemaFiles);
+                }
             }
         });
         return defaultValues;
@@ -329,22 +337,19 @@ export function FormGenerator(props: FormGeneratorProps) {
 
         if (type === 'table') {
             const valueObj: any[] = [];
-            currentValue?.forEach((param: any[]) => {
-                const val: any = {};
-
+            currentValue?.forEach((param: any) => {
                 if (!Array.isArray(param)) {
-                    param = Object.values(param);
+                    valueObj.push(param);
+                } else {
+                    const val: any = {};
+                    value.elements.forEach((field: any, index: number) => {
+                        const fieldName = getNameForController(field.value.name);
+                        val[fieldName] = param[index];
+                    });
+                    
+                    valueObj.push(val);
                 }
-
-                value.elements.forEach((field: any, index: number) => {
-                    const fieldName = getNameForController(field.value.name);
-                    const fieldValue = param[index];
-
-                    val[fieldName] = fieldValue;
-                });
-                valueObj.push(val);
             });
-
             return valueObj;
         } else if (expressionTypes.includes(inputType) &&
             (!currentValue || typeof currentValue !== 'object' || !('isExpression' in currentValue))) {
@@ -583,6 +588,9 @@ export function FormGenerator(props: FormGeneratorProps) {
                 canChange={element.inputType !== 'expression'}
                 supportsAIValues={element.supportsAIValues}
                 errorMsg={errorMsg}
+                artifactPath={element.artifactPath}
+                artifactType={element.artifactType}
+                isUnitTest={element.isUnitTest || false}
                 openExpressionEditor={(value, setValue) => {
                     setCurrentExpressionValue({ value, setValue });
                     setExpressionEditorField(name);
@@ -1144,6 +1152,48 @@ export function FormGenerator(props: FormGeneratorProps) {
                         </div>
                     </div>
                 );
+            case 'idpSchemaGenerateView':
+                const onCreateSchemaButtonClick = async (name?: string) => {
+                    const fetchItems = async () => {
+                        const idpSchemas =await rpcClient.getMiDiagramRpcClient().getIdpSchemaFiles();
+                        setidpSchemaNames(idpSchemas.schemaFiles);
+                    }
+
+                    const handleValueChange = (value: string) => {
+                        setValue(name,value);
+                    }
+
+                    openPopup(rpcClient, "idp", fetchItems, handleValueChange, props.documentUri, undefined, sidePanelContext);
+                }
+                return (
+                    <>
+                        <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", width: '100%', gap: '10px' }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: '10px' }}>
+                                <label>{element.displayName}{element.required === 'true' && '*'}</label>
+                                {helpTipElement && <div style={{ paddingTop: '5px' }}>
+                                    {helpTipElement}
+                                </div>}
+                            </div>
+                            <LinkButton onClick={() => onCreateSchemaButtonClick(name)}>
+                                <Codicon name="plus" />Add new schema
+                            </LinkButton>
+                        </div>
+
+                        <AutoComplete
+                            name={name}
+                            errorMsg={errors[getNameForController(name)] && errors[getNameForController(name)].message.toString()}
+                            items={
+                                idpSchemaNames.map(schema => schema.fileName)
+                            }
+                            value={field.value}
+                            onValueChange={(e: any) => {
+                                field.onChange(e);
+                            }}
+                            required={element.required === 'true'}
+                            allowItemCreate={false}
+                        />
+                    </>
+                )
             default:
                 return null;
         }
@@ -1303,10 +1353,9 @@ export function FormGenerator(props: FormGeneratorProps) {
                 const [key, subKey] = conditionKey.split('.');
                 const parentValue = watch(getNameForController(key));
                 const subKeyValue = parentValue?.[subKey] || currentVal;
-                return subKeyValue === expectedValue;
+                return isTypeAwareEqual(subKeyValue, expectedValue);
             }
-            return currentVal === condition[conditionKey] || (typeof condition[conditionKey] === 'string' && String(currentVal) === condition[conditionKey]) ||
-                (typeof condition[conditionKey] === 'boolean' && String(currentVal) === String(condition[conditionKey]));
+            return isTypeAwareEqual(currentVal, condition[conditionKey]);
         };
 
         if (Array.isArray(conditions)) {
