@@ -121,15 +121,19 @@ export class Welcome {
             }
         }
 
-        const continueAnywayBtn = await getVsCodeButton(container!, 'Continue Anyway', 'secondary').catch(() => null);
-        if (continueAnywayBtn) {
-            await continueAnywayBtn.click({ timeout: 10000 }).catch(() => { });
+        console.log('Finalizing environment setup');
+        const continueBtn = await getVsCodeButton(container!, 'Continue', 'primary').catch(() => null);
+        if (continueBtn) {
+            console.log('Clicking Continue button');
+            await continueBtn.click({ timeout: 10000 }).catch(() => { });
         } else {
-            const continueBtn = await getVsCodeButton(container!, 'Continue', 'primary').catch(() => null);
-            if (continueBtn) {
-                await continueBtn.click({ timeout: 10000 }).catch(() => { });
+            const continueAnywayBtn = await getVsCodeButton(container!, 'Continue Anyway', 'secondary').catch(() => null);
+            if (continueAnywayBtn) {
+                console.log('Clicking Continue Anyway button');
+                await continueAnywayBtn.click({ timeout: 10000 }).catch(() => { });
             }
         }
+        console.log('Clicking No, Don\'t Ask Again button');
         await container!.page().getByRole('button', { name: "No, Don't Ask Again" })
             .click({ timeout: 10000 }).catch(() => { });
         console.log('Environment setup done');

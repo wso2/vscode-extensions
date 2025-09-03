@@ -49,7 +49,7 @@ export default function createTests() {
         
         // Build file path with better Windows compatibility
         const fileName = `testRegistry11.json`;
-        const filePath = path.resolve(__dirname, '..', 'data', 'new-project', 'testProject', 'testProject430', 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'json', fileName).replace(/\\/g, '/');
+        const filePath = path.resolve(__dirname, '..', 'data', 'new-project', 'testProjectFolder', 'testProject430', 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'json', fileName).replace(/\\/g, '/');
         console.log('Importing file from path: ' + filePath);
         console.log('File path length:', filePath.length);
         
