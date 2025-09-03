@@ -304,7 +304,7 @@ function getEntriesBI(components: ProjectStructureResponse): ProjectExplorerEntr
 
     // ---------- Local Connectors ----------
     const localConnectors = new ProjectExplorerEntry(
-        "Local Connectors",
+        "Custom Connectors",
         vscode.TreeItemCollapsibleState.Expanded,
         null,
         'connection',
