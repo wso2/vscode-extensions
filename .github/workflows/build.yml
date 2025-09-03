@@ -486,27 +486,22 @@ jobs:
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             cd workspaces/mi/mi-extension
-            # Use PowerShell to start screen recording
-            powershell -Command "
-            Add-Type -AssemblyName System.Windows.Forms
-            Add-Type -AssemblyName System.Drawing
-            \$rec = New-Object System.Diagnostics.Process
-            \$rec.StartInfo.FileName = 'ffmpeg'
-            \$rec.StartInfo.Arguments = '-y -f gdigrab -framerate 10 -i desktop -t 600 -c:v libx264 -preset fast -crf 30 record.mp4'
-            \$rec.StartInfo.UseShellExecute = \$false
-            \$rec.StartInfo.CreateNoWindow = \$true
-            \$rec.Start()
-            \$rec.Id | Out-File -FilePath 'ffmpeg_pid.txt' -Encoding ASCII
-            "
+            
+            # Start FFmpeg with proper signal handling for clean shutdown
+            ffmpeg -f gdigrab -framerate 15 -i desktop -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -movflags +faststart -loglevel error -y record.mp4 &
+            FFMPEG_PID=$!
+            echo $FFMPEG_PID > ffmpeg_pid.txt
             
             # Run tests
             PWDEBUG=console npx playwright test --grep ${{ matrix.group }}
+            TEST_EXIT_CODE=$?
             
-            # Stop recording
             if [ -f "ffmpeg_pid.txt" ]; then
-              FFMPEG_PID=$(cat ffmpeg_pid.txt)
-              powershell -Command "Stop-Process -Id $FFMPEG_PID -Force" 2>/dev/null || true
-              sleep 3
+              echo "Sending interrupt signal to FFmpeg for clean shutdown..."
+              kill -INT $FFMPEG_PID 2>/dev/null || true
+              sleep 5
+              # If still running, force kill
+              kill -KILL $FFMPEG_PID 2>/dev/null || true
             fi
             
             # Check if video was created
@@ -515,6 +510,8 @@ jobs:
             else
               echo "No video file found"
             fi
+            
+            exit $TEST_EXIT_CODE
           else
             export $(dbus-launch)
             export DISPLAY=:98.0
@@ -534,7 +531,7 @@ jobs:
             Add-Type -AssemblyName System.Drawing
             \$rec = New-Object System.Diagnostics.Process
             \$rec.StartInfo.FileName = 'ffmpeg'
-            \$rec.StartInfo.Arguments = '-y -f gdigrab -framerate 10 -i desktop -t 600 -c:v libx264 -preset fast -crf 30 record.mp4'
+            \$rec.StartInfo.Arguments = '-y -f gdigrab -framerate 10 -i desktop -t 600 -c:v libx264 -preset fast -crf 30 -loglevel error record.mp4'
             \$rec.StartInfo.UseShellExecute = \$false
             \$rec.StartInfo.CreateNoWindow = \$true
             \$rec.Start()
