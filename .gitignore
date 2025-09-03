@@ -77,3 +77,4 @@ playwright-report/
 extensions.json
 
 !sample-mi-project.zip
+.claude/
