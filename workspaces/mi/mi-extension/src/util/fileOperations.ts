@@ -117,26 +117,6 @@ async function handleDownloadFile(projectUri: string, rawFileLink: string, defau
 }
 
 /**
- * Converts a given byte array (Uint8Array) representing a message digest into a hexadecimal string.
- * Pads the resulting hex string with leading zeros to ensure a minimum length of 32 characters.
- *
- * @param messageDigest - The byte array to convert to a hexadecimal string.
- * @returns The hexadecimal string representation of the input byte array, padded to 32 characters.
- */
-function convertToHex(messageDigest: Uint8Array): string {
-    let bigint = BigInt(0);
-    for (let i = 0; i < messageDigest.length; i++) {
-        bigint = (bigint << BigInt(8)) + BigInt(messageDigest[i]);
-    }
-    let hexText = bigint.toString(16);
-    // Pad with leading zeros to ensure 32 characters
-    while (hexText.length < 32) {
-        hexText = "0" + hexText;
-    }
-    return hexText;
-}
-
-/**
  * Generates an MD5 hash for the given input string and returns its hexadecimal representation.
  *
  * @param input - The input string to hash.
@@ -146,8 +126,7 @@ export function getHash(input: string): string | null {
     try {
         const hash = crypto.createHash('md5');
         hash.update(input);
-        const messageDigest = new Uint8Array(hash.digest());
-        return convertToHex(messageDigest);
+        return hash.digest('hex');
     } catch (error) {
         return null;
     }
