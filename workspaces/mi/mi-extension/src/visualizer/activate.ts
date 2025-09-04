@@ -22,7 +22,7 @@ import { getStateMachine, navigate, openView, refreshUI } from '../stateMachine'
 import { COMMANDS, REFRESH_ENABLED_DOCUMENTS, SWAGGER_LANG_ID, SWAGGER_REL_DIR } from '../constants';
 import { EVENT_TYPE, MACHINE_VIEW, onDocumentSave } from '@wso2/mi-core';
 import { extension } from '../MIExtensionContext';
-import { getHash, importCapp } from '../util/importCapp';
+import { importCapp } from '../util/importCapp';
 import { SELECTED_SERVER_PATH } from '../debugger/constants';
 import { debounce } from 'lodash';
 import path from 'path';
@@ -35,6 +35,7 @@ import { AiPanelWebview } from '../ai-panel/webview';
 import { MiDiagramRpcManager } from '../rpc-managers/mi-diagram/rpc-manager';
 import { log } from '../util/logger';
 import { CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR } from '../util/onboardingUtils';
+import { getHash } from '../util/fileOperations';
 
 export function activateVisualizer(context: vscode.ExtensionContext, firstProject: string) {
     context.subscriptions.push(
