@@ -343,7 +343,7 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
                         }
                     });
                 }
-                
+
                 // Close the popup if successful
                 if (props.handlePopupClose) {
                     props.handlePopupClose();
@@ -377,25 +377,25 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
     return (
         <FormView title="DataMapper Migration Required" onClose={handleBackButtonClick}>
             <MessageContainer>
-                
+
                 <Typography variant="body1">
-                    This DataMapper has been identified as one from a migrated project. 
+                    This DataMapper has been identified as one from a migrated project.
                     The configuration may need to be updated to work properly with the current version.
                 </Typography>
-                
+
                 <DetailText>
                     <strong>Config Name:</strong> {props.configName}
                 </DetailText>
-                
+
                 <DetailText>
                     <strong>File Path:</strong> {props.path}
                 </DetailText>
-                
+
                 <Typography variant="body2">
-                    Do you want to continue opening the DataMapper? By continuing, the existing DataMapper file will be converted to the new format. 
+                    Do you want to continue opening the DataMapper? By continuing, the existing DataMapper file will be converted to the new format.
                     This conversion process uses AI and may require you to review and update the configuration after opening.
                 </Typography>
-                
+
                 {isConverting && (
                     <LoadingContainer>
                         <Spinner />
@@ -405,7 +405,7 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
                         </LoadingSubText>
                     </LoadingContainer>
                 )}
-                
+
                 {errorMessage && (
                     <ErrorMessage>
                         {errorMessage}
@@ -414,15 +414,15 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
             </MessageContainer>
 
             <FormActions>
-                <Button 
-                    appearance="secondary" 
+                <Button
+                    appearance="secondary"
                     onClick={handleCancel}
                     disabled={isLoading || isConverting}
                 >
                     Cancel
                 </Button>
-                <Button 
-                    appearance="primary" 
+                <Button
+                    appearance="primary"
                     onClick={handleContinue}
                     disabled={isLoading || isConverting}
                 >

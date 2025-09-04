@@ -86,11 +86,11 @@ export class ReferenceNodeModel extends BaseNodeModel {
         if (!projectRoot) {
             return;
         }
-        
+
         const migratedDmcPath = path.join(projectRoot, 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'datamapper', `${dmName}.dmc`);
         const migratedInputSchemaPath = path.join(projectRoot, 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'datamapper', `${dmName}_inputSchema.json`);
         const migratedOutputSchemaPath = path.join(projectRoot, 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'datamapper', `${dmName}_outputSchema.json`);
-        
+
         const pathResponse = await rpcClient.getMiDataMapperRpcClient().convertRegPathToAbsPath(request);
         if (pathResponse && pathResponse.absPath) {
             // Check if file exists using RPC client
@@ -99,7 +99,7 @@ export class ReferenceNodeModel extends BaseNodeModel {
                 filePath: pathResponse.absPath,
                 operation: 'read'
             });
-            
+
             if (fileExistsResponse.status) {
                 const state = await rpcClient.getVisualizerState();
                 if (state) {
@@ -119,9 +119,8 @@ export class ReferenceNodeModel extends BaseNodeModel {
                     filePath: migratedDmcPath,
                     operation: 'read'
                 });
-                
+
                 if (migratedFileExistsResponse.status) {
-                    
                     rpcClient.getMiVisualizerRpcClient().openView({
                         type: POPUP_EVENT_TYPE.OPEN_VIEW,
                         location: {
