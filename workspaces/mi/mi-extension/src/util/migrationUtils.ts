@@ -299,7 +299,7 @@ export async function generateProjectDirToResolvedPomMap(multiModuleProjectDir: 
     }
     const resolvedPomContent = pomResolvedResult.content || '';
 
-    const projectRegex = /<project[\s\S]*?<\/project>/g;
+    const projectRegex = /<project [\s\S]*?<\/project>/g;
     let match;
     while ((match = projectRegex.exec(resolvedPomContent)) !== null) {
         const projectXml = match[0];
