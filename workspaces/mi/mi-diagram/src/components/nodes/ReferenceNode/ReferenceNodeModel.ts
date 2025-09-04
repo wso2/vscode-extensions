@@ -90,6 +90,7 @@ export class ReferenceNodeModel extends BaseNodeModel {
         const migratedDmcPath = path.join(projectRoot, 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'datamapper', `${dmName}.dmc`);
         const migratedInputSchemaPath = path.join(projectRoot, 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'datamapper', `${dmName}_inputSchema.json`);
         const migratedOutputSchemaPath = path.join(projectRoot, 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'datamapper', `${dmName}_outputSchema.json`);
+        const tsFilePath = path.join(projectRoot, 'src', 'main', 'wso2mi', 'resources', 'datamapper', `${dmName}`, `${dmName}.ts`);
 
         const pathResponse = await rpcClient.getMiDataMapperRpcClient().convertRegPathToAbsPath(request);
         if (pathResponse && pathResponse.absPath) {
@@ -97,7 +98,7 @@ export class ReferenceNodeModel extends BaseNodeModel {
             const fileExistsResponse = await rpcClient.getMiDiagramRpcClient().handleFileWithFS({
                 fileName: path.basename(pathResponse.absPath),
                 filePath: pathResponse.absPath,
-                operation: 'read'
+                operation: 'exists'
             });
 
             if (fileExistsResponse.status) {
@@ -117,7 +118,7 @@ export class ReferenceNodeModel extends BaseNodeModel {
                 const migratedFileExistsResponse = await rpcClient.getMiDiagramRpcClient().handleFileWithFS({
                     fileName: path.basename(migratedDmcPath),
                     filePath: migratedDmcPath,
-                    operation: 'read'
+                    operation: 'exists'
                 });
 
                 if (migratedFileExistsResponse.status) {
@@ -132,7 +133,8 @@ export class ReferenceNodeModel extends BaseNodeModel {
                                 migratedInputSchemaPath: migratedInputSchemaPath,
                                 migratedOutputSchemaPath: migratedOutputSchemaPath,
                                 range: this.stNode.range,
-                                documentUri: this.documentUri
+                                documentUri: this.documentUri,
+                                tsFilePath: tsFilePath
                             }
                         },
                         isPopup: true

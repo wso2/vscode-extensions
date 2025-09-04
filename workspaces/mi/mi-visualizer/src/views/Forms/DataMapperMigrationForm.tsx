@@ -21,7 +21,6 @@ import { Button, FormView, FormActions, Typography } from "@wso2/ui-toolkit";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { EVENT_TYPE, MACHINE_VIEW, IOType } from "@wso2/mi-core";
 import styled from "@emotion/styled";
-import * as path from "path";
 
 const MessageContainer = styled.div`
     display: flex;
@@ -101,6 +100,7 @@ export interface DataMapperMigrationFormProps {
     migratedOutputSchemaPath?: string;
     range?: any;
     documentUri?: string;
+    tsFilePath?: string;
 }
 
 export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
@@ -127,21 +127,20 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
             if (!projectRoot) {
                 return;
             }
-            const tsFilePath = path.join(projectRoot, 'src', 'main', 'wso2mi', 'resources', 'datamapper', `${props.configName}`, `${props.configName}.ts`);
 
             if (createDMResponse && createDMResponse.success) {
                 // First, handle input schema if it exists
                 if (props.migratedInputSchemaPath) {
                     try {
                         const inputSchemaResponse = await rpcClient.getMiDiagramRpcClient().handleFileWithFS({
-                            fileName: path.basename(props.migratedInputSchemaPath),
+                            fileName: props.migratedInputSchemaPath.split('/').pop() || props.migratedInputSchemaPath.split('\\').pop() || props.migratedInputSchemaPath,
                             filePath: props.migratedInputSchemaPath,
                             operation: 'read'
                         });
 
                         if (inputSchemaResponse.status && inputSchemaResponse.content) {
                             const browseInputSchemaRequest = {
-                                documentUri: tsFilePath,
+                                documentUri: props.tsFilePath,
                                 content: inputSchemaResponse.content,
                                 ioType: IOType.Input,
                                 schemaType: "jsonschema",
@@ -166,14 +165,14 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
                 if (props.migratedOutputSchemaPath) {
                     try {
                         const outputSchemaResponse = await rpcClient.getMiDiagramRpcClient().handleFileWithFS({
-                            fileName: path.basename(props.migratedOutputSchemaPath),
+                            fileName: props.migratedOutputSchemaPath.split('/').pop() || props.migratedOutputSchemaPath.split('\\').pop() || props.migratedOutputSchemaPath,
                             filePath: props.migratedOutputSchemaPath,
                             operation: 'read'
                         });
 
                         if (outputSchemaResponse.status && outputSchemaResponse.content) {
                             const browseOutputSchemaRequest = {
-                                documentUri: tsFilePath,
+                                documentUri: props.tsFilePath,
                                 content: outputSchemaResponse.content,
                                 ioType: IOType.Output,
                                 schemaType: "jsonschema",
@@ -203,7 +202,7 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
                     if (props.migratedDmcPath) {
                         try {
                             const dmcResponse = await rpcClient.getMiDiagramRpcClient().handleFileWithFS({
-                                fileName: path.basename(props.migratedDmcPath),
+                                fileName: props.migratedDmcPath.split('/').pop() || props.migratedDmcPath.split('\\').pop() || props.migratedDmcPath,
                                 filePath: props.migratedDmcPath,
                                 operation: 'read'
                             });
@@ -225,8 +224,8 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
                     // Read TS file content
                     try {
                         const tsResponse = await rpcClient.getMiDiagramRpcClient().handleFileWithFS({
-                            fileName: path.basename(tsFilePath),
-                            filePath: tsFilePath,
+                            fileName: props.tsFilePath.split('/').pop() || props.tsFilePath.split('\\').pop() || props.tsFilePath,
+                            filePath: props.tsFilePath,
                             operation: 'read'
                         });
 
@@ -277,8 +276,8 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
                         try {
                             // Overwrite the TS file with the mapping content
                             const writeResponse = await rpcClient.getMiDiagramRpcClient().handleFileWithFS({
-                                fileName: path.basename(tsFilePath),
-                                filePath: tsFilePath,
+                                fileName: props.tsFilePath.split('/').pop() || props.tsFilePath.split('\\').pop() || props.tsFilePath,
+                                filePath: props.tsFilePath,
                                 operation: 'write',
                                 content: conversionResult.mapping
                             });
@@ -287,7 +286,7 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
                                 // Format the written file using range format
                                 try {
                                     await rpcClient.getMiDiagramRpcClient().rangeFormat({
-                                        uri: tsFilePath
+                                        uri: props.tsFilePath
                                     });
                                 } catch (formatError) {
                                     console.warn('Failed to format the TypeScript file, but file was written successfully:', formatError);
@@ -338,7 +337,7 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
                         type: EVENT_TYPE.OPEN_VIEW,
                         location: {
                             ...state,
-                            documentUri: tsFilePath,
+                            documentUri: props.tsFilePath,
                             view: MACHINE_VIEW.DataMapperView
                         }
                     });

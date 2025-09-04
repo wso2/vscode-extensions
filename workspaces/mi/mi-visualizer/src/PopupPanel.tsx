@@ -165,6 +165,7 @@ const PopupPanel = (props: { formState: PopupMachineStateValue, handleClose?: ()
                         range={machineSate.customProps.range}
                         documentUri={machineSate.customProps.documentUri}
                         handlePopupClose={props.handleClose} 
+                        tsFilePath={machineSate.customProps.tsFilePath}
                         isPopup={true} 
                     />);
                     break;
