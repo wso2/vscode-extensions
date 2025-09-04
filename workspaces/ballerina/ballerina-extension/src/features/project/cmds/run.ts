@@ -24,7 +24,7 @@ import {
 import { runCommand, BALLERINA_COMMANDS, PROJECT_TYPE, PALETTE_COMMANDS, runCommandWithConf, MESSAGES, getRunCommand } from "./cmd-runner";
 import { getCurrentBallerinaProject, getCurrentBallerinaFile, getCurrenDirectoryPath } from "../../../utils/project-utils";
 import { prepareAndGenerateConfig } from '../../config-generator/configGenerator';
-import { getDevantStsToken } from "../../../utils/file-utils";
+import { getDevantStsToken } from "../../../utils/auth-utils";
 import { 
     isCloudEditorEnvironment, 
     getCurrentAccessToken, 

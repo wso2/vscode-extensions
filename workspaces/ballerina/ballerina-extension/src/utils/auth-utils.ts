@@ -19,6 +19,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { extensions } from 'vscode';
+import { IWso2PlatformExtensionAPI } from "@wso2/wso2-platform-core";
 
 /**
  * Checks if we're running in a cloud editor environment
@@ -125,7 +127,6 @@ export async function updateBallerinaSettingsWithStsToken(stsToken: string): Pro
             // Create new Settings.toml with STS token
             const newContent = `[central]\naccesstoken="${stsToken}"\n`;
             fs.writeFileSync(settingsPath, newContent, 'utf8');
-            console.log('Created new Settings.toml with STS token');
             return;
         }
 
@@ -152,4 +153,34 @@ export async function updateBallerinaSettingsWithStsToken(stsToken: string): Pro
         console.error('Failed to update Settings.toml with STS token:', error);
         throw error;
     }
+}
+
+/**
+ * Retrieves the STS token from the platform extension for authenticated requests
+ * @returns Promise<string | undefined> - The STS token if available, undefined otherwise
+ */
+export async function getDevantStsToken(): Promise<string | undefined> {
+    try {
+        // Try to get STS token from platform extension
+        const platformExt = extensions.getExtension("wso2.wso2-platform");
+        if (!platformExt) {
+            return undefined;
+        }
+
+        // Check if extension is already active before activating
+        if (!platformExt.isActive) {
+            await platformExt.activate();
+        }
+        
+        const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports;
+        
+        const platformStsToken = await platformExtAPI.getStsToken();
+        if (platformStsToken && platformStsToken.trim() !== "") {
+            return platformStsToken;
+        }
+    } catch (error) {
+        console.error("Failed to get STS token from platform extension:", error);
+    }
+    
+    return undefined;
 }

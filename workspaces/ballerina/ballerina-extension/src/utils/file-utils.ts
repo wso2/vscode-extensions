@@ -17,7 +17,6 @@
  */
 import { window, Uri, workspace, ProgressLocation, ConfigurationTarget, MessageItem, Progress, commands, StatusBarAlignment, languages, Range, Selection, ViewColumn, extensions } from "vscode";
 import { SyntaxTree } from "@wso2/ballerina-core";
-import { IWso2PlatformExtensionAPI } from "@wso2/wso2-platform-core";
 import axios from "axios";
 import { createHash } from "crypto";
 import * as fs from 'fs';
@@ -39,7 +38,7 @@ import {
 } from "../features/telemetry";
 import { NodePosition } from "@wso2/syntax-tree";
 import { existsSync } from "fs";
-import { updateBallerinaSettingsWithStsToken, getCurrentAccessToken, shouldUpdateToken } from "./auth-utils";
+import { updateBallerinaSettingsWithStsToken, getCurrentAccessToken, shouldUpdateToken, getDevantStsToken } from "./auth-utils";
 interface ProgressMessage {
     message: string;
     increment?: number;
@@ -386,10 +385,12 @@ function getGitHubRawFileUrl(githubFileUrl) {
 }
 
 async function resolveModules(langClient: ExtendedLangClient, pathValue) {
+    console.log("#### resolveModules");
     const isBallerinProject = findBallerinaTomlFile(pathValue);
     if (isBallerinProject) {
         // Update STS token for cloud editor before resolving modules
         if (process.env.CLOUD_STS_TOKEN) {
+            console.log('#### Updating STS token for cloud editor');
             try {
                 const stsToken = await getDevantStsToken();
                 if (stsToken && stsToken.trim() !== "") {
@@ -550,34 +551,4 @@ export async function goToSource(nodePosition: NodePosition, documentUri: string
         editor.selection = new Selection(range.start, range.end);
         editor.revealRange(range);
     }
-}
-
-/**
- * Retrieves the STS token from the platform extension for authenticated requests
- * @returns Promise<string | undefined> - The STS token if available, undefined otherwise
- */
-export async function getDevantStsToken(): Promise<string | undefined> {
-    try {
-        // Try to get STS token from platform extension
-        const platformExt = extensions.getExtension("wso2.wso2-platform");
-        if (!platformExt) {
-            return undefined;
-        }
-
-        // Check if extension is already active before activating
-        if (!platformExt.isActive) {
-            await platformExt.activate();
-        }
-        
-        const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports;
-        
-        const platformStsToken = await platformExtAPI.getStsToken();
-        if (platformStsToken && platformStsToken.trim() !== "") {
-            return platformStsToken;
-        }
-    } catch (error) {
-        console.error("Failed to get STS token from platform extension:", error);
-    }
-    
-    return undefined;
 }
