@@ -31,6 +31,7 @@ export interface TabPanelProps {
     onViewChange: (tabId: string) => void;
     children: ReactNode;
     childrenSx?: React.CSSProperties;
+    sx?: React.CSSProperties;
 }
 
 const TabContainer = styled.div`
@@ -110,10 +111,11 @@ export const TabPanel: React.FC<TabPanelProps> = ({
     currentViewId,
     onViewChange,
     children,
-    childrenSx
+    childrenSx,
+    sx
 }) => {
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', ...sx }}>
             <TabContainer>
                 {views.map(view => (
                     <TabButton
