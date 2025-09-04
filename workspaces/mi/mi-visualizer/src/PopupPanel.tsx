@@ -40,6 +40,7 @@ import { SequenceWizard } from './views/Forms/SequenceForm';
 import { RegistryResourceForm } from './views/Forms/RegistryResourceForm';
 import { TemplateWizard } from './views/Forms/TemplateForm';
 import { DatamapperForm } from './views/Forms/DatamapperForm';
+import { DataMapperMigrationForm } from './views/Forms/DataMapperMigrationForm';
 import { ManageConfigurables } from './views/Overview/ProjectInformation/ManageConfigurables';
 import { MessageStoreWizard } from './views/Forms/MessageStoreForm';
 import { DataServiceWizard } from './views/Forms/DataServiceForm/MainPanelForms';
@@ -153,6 +154,19 @@ const PopupPanel = (props: { formState: PopupMachineStateValue, handleClose?: ()
                     break;
                 case MACHINE_VIEW.DatamapperForm:
                     setViewComponent(<DatamapperForm path={machineSate.projectUri} handlePopupClose={props.handleClose} isPopup={true} />);
+                    break;
+                case MACHINE_VIEW.DataMapperMigrationForm:
+                    setViewComponent(<DataMapperMigrationForm 
+                        path={machineSate.customProps.path} 
+                        configName={machineSate.customProps.configName}
+                        migratedDmcPath={machineSate.customProps.migratedDmcPath}
+                        migratedInputSchemaPath={machineSate.customProps.migratedInputSchemaPath}
+                        migratedOutputSchemaPath={machineSate.customProps.migratedOutputSchemaPath}
+                        range={machineSate.customProps.range}
+                        documentUri={machineSate.customProps.documentUri}
+                        handlePopupClose={props.handleClose} 
+                        isPopup={true} 
+                    />);
                     break;
                 case MACHINE_VIEW.MessageStoreForm:
                     const dir = [machineSate.projectUri, "src", "main", "wso2mi", "artifacts", "messageStores"].join(machineSate.pathSeparator);
