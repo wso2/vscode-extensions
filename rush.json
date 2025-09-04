@@ -491,8 +491,8 @@
       "versionPolicyName": "ballerina-extension"
     },
     {
-      "packageName": "@wso2/data-mapper-view",
-      "projectFolder": "workspaces/ballerina/data-mapper-view",
+      "packageName": "@wso2/ballerina-data-mapper",
+      "projectFolder": "workspaces/ballerina/data-mapper",
       "versionPolicyName": "ballerina-extension"
     },
     {
@@ -590,12 +590,7 @@
       "packageName": "@wso2/type-editor",
       "projectFolder": "workspaces/ballerina/type-editor",
       "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/ballerina-inline-data-mapper",
-      "projectFolder": "workspaces/ballerina/inline-data-mapper",
-      "versionPolicyName": "ballerina-extension"
-    },
+    }
     // {
     //   "packageName": "@wso2/api-designer-core",
     //   "projectFolder": "workspaces/api-designer/api-designer-core"

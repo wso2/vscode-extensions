@@ -37,6 +37,7 @@ export type HelperPaneProps = {
     addFunction?: (value: string) => void;
     artifactPath?: string;
     sx?: CSSProperties;
+    isUnitTest?: boolean;
 };
 
 export const PAGE = {
@@ -55,7 +56,7 @@ const TOKEN_EDITOR_BOTTOM_OFFSET = 40;
 const FULLSCREEN_OFFSET = 160;
 const FULLSCREEN_DELAY = 200;
 
-const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen, height: componentDefaultHeight, sx, onClose, onChange, addFunction, artifactPath }: HelperPaneProps) => {
+const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen, height: componentDefaultHeight, sx, onClose, onChange, addFunction, artifactPath, isUnitTest }: HelperPaneProps) => {
     const [currentPage, setCurrentPage] = useState<Page>(PAGE.CATEGORY);
     const panelRef = useRef<HTMLDivElement>(null);
     const timeoutIds = useRef<NodeJS.Timeout[]>([]);
@@ -160,7 +161,8 @@ const HelperPaneEl = ({ position, helperPaneHeight, isTokenEditor, isFullscreen,
                         onChange={onChange}
                         addFunction={addFunction}
                         artifactPath={artifactPath}
-                />
+                        isUnitTest={isUnitTest}
+                    />
                 )}
                 {currentPage === PAGE.PAYLOAD && (
                     <PayloadPage
@@ -222,7 +224,8 @@ export const getHelperPane = (
     sx?: CSSProperties,
     height?: number,
     isTokenEditor?: boolean,
-    isFullscreen?: boolean
+    isFullscreen?: boolean,
+    isUnitTest?: boolean
 ) => {
     return (
         <HelperPaneEl
@@ -236,6 +239,7 @@ export const getHelperPane = (
             isFullscreen={isFullscreen}
             height={height}
             artifactPath={artifactPath}
+            isUnitTest={isUnitTest}
         />
     );
 };

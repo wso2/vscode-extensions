@@ -100,6 +100,7 @@ type FormExpressionFieldProps = {
     openExpressionEditor: (value: FormExpressionFieldValue, setValue: (value: FormExpressionFieldValue) => void) => void;
     errorMsg: string;
     sx?: CSSProperties;
+    isUnitTest?: boolean;
 };
 
 export namespace S {
@@ -183,7 +184,8 @@ export const FormExpressionField = (params: FormExpressionFieldProps) => {
         onFocus,
         onBlur,
         openExpressionEditor,
-        sx
+        sx,
+        isUnitTest = false
     } = params;
 
     const { rpcClient } = useVisualizerContext();
@@ -291,7 +293,9 @@ export const FormExpressionField = (params: FormExpressionFieldProps) => {
             undefined,
             undefined,
             380,
-            false
+            false,
+            false,
+            isUnitTest
         );
     }, [expressionRef.current, handleChangeHelperPaneState, nodeRange, getHelperPane]);
 

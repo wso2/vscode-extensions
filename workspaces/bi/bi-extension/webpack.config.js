@@ -47,7 +47,7 @@ const extensionConfig = {
       }]
     }]
   },
-  devtool: 'source-map',
+  devtool: !process.env.CI ? "source-map" : undefined,
   infrastructureLogging: {
     level: "log",
   },
@@ -73,7 +73,7 @@ const extensionConfig = {
         path: path.resolve(__dirname, 'out/'), // Everything under resources/ gets these modes
         fileMode: '755',
         dirMode: '755'
-      } ]
+      }]
     })
   ],
 

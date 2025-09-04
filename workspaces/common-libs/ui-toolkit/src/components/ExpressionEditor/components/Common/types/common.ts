@@ -19,6 +19,7 @@
 export type StyleBase = {
     className?: string;
     sx?: React.CSSProperties;
+    zIndex?: number;
 };
 
 export type DropdownContainerStyles = StyleBase & {
