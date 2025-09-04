@@ -216,7 +216,7 @@ export class MILanguageClient {
                         fileEvents: workspace.createFileSystemWatcher(new RelativePattern(workspaceFolder, '**/*.zip'))
                     },
                     // Register the server for synapse xml documents
-                    documentSelector: [{ scheme: 'file', language: 'SynapseXml', pattern: `${workspaceFolder.uri.fsPath}/**/*` }],
+                    documentSelector: [{ scheme: 'file', language: 'SynapseXml' }],
                     middleware: {
                         workspace: {
                             didChangeConfiguration: async () => {
