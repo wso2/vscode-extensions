@@ -347,9 +347,6 @@ export async function extractCAppDependenciesAsProjects(projectUri: string | und
         if (!fs.existsSync(path.join(dependenciesDir, selectedDependencyDir))) {
             return;
         }
-        if (!fs.existsSync(path.join(dependenciesDir, selectedDependencyDir))) {
-            return;
-        }
         const downloadedDir = path.join(dependenciesDir, selectedDependencyDir, 'Downloaded');
         const extractedDir = path.join(dependenciesDir, selectedDependencyDir, 'Extracted');
         const carFiles = fs.readdirSync(downloadedDir).filter(file => file.endsWith('.car'));
