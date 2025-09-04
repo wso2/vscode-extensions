@@ -24,7 +24,22 @@ import {
 import { runCommand, BALLERINA_COMMANDS, PROJECT_TYPE, PALETTE_COMMANDS, runCommandWithConf, MESSAGES, getRunCommand } from "./cmd-runner";
 import { getCurrentBallerinaProject, getCurrentBallerinaFile, getCurrenDirectoryPath } from "../../../utils/project-utils";
 import { prepareAndGenerateConfig } from '../../config-generator/configGenerator';
+import { getDevantStsToken } from "../../../utils/file-utils";
+import { 
+    isCloudEditorEnvironment, 
+    getCurrentAccessToken, 
+    shouldUpdateToken, 
+    updateBallerinaSettingsWithStsToken 
+} from "../../../utils/auth-utils";
 import { LANGUAGE } from "../../../core";
+
+async function shouldUpdateAuthToken(): Promise<boolean> {
+    // Only in cloud editor environment
+    if (!isCloudEditorEnvironment()) {
+        return false;
+    }
+    return true;
+}
 
 function activateRunCmdCommand() {
 
@@ -74,6 +89,33 @@ function activateRunCmdCommand() {
             if (!currentProject) {
                 window.showErrorMessage(MESSAGES.NOT_IN_PROJECT);
                 return;
+            }
+
+            // Check if we should update auth token (only in cloud editor with private package dependencies)
+            const shouldUpdate = await shouldUpdateAuthToken();
+            
+            if (shouldUpdate) {
+                try {
+                    // Get the STS token from platform extension for authenticated operations
+                    const stsToken = await getDevantStsToken();
+                    console.log("Cloud editor detected with dependencies, checking STS token...");
+                    
+                    // Only update Settings.toml if token needs updating
+                    if (stsToken && stsToken.trim() !== "") {
+                        const currentToken = await getCurrentAccessToken();
+                        
+                        if (shouldUpdateToken(currentToken, stsToken)) {
+                            await updateBallerinaSettingsWithStsToken(stsToken);
+                            console.log('Token updated in Settings.toml for cloud editor');
+                            // Don't show notification in cloud editor to avoid noise
+                        }
+                    } else {
+                        console.warn('Unable to retrieve STS token in cloud editor environment');
+                    }
+                } catch (error) {
+                    console.warn('Failed to update authentication token in cloud editor:', error);
+                    // Continue execution even if token update fails
+                }
             }
 
             if (currentProject.kind !== PROJECT_TYPE.SINGLE_FILE) {

@@ -15,8 +15,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { window, Uri, workspace, ProgressLocation, ConfigurationTarget, MessageItem, Progress, commands, StatusBarAlignment, languages, Range, Selection, ViewColumn } from "vscode";
+import { window, Uri, workspace, ProgressLocation, ConfigurationTarget, MessageItem, Progress, commands, StatusBarAlignment, languages, Range, Selection, ViewColumn, extensions } from "vscode";
 import { SyntaxTree } from "@wso2/ballerina-core";
+import { IWso2PlatformExtensionAPI } from "@wso2/wso2-platform-core";
 import axios from "axios";
 import { createHash } from "crypto";
 import * as fs from 'fs';
@@ -38,6 +39,7 @@ import {
 } from "../features/telemetry";
 import { NodePosition } from "@wso2/syntax-tree";
 import { existsSync } from "fs";
+import { updateBallerinaSettingsWithStsToken, getCurrentAccessToken, shouldUpdateToken } from "./auth-utils";
 interface ProgressMessage {
     message: string;
     increment?: number;
@@ -386,6 +388,25 @@ function getGitHubRawFileUrl(githubFileUrl) {
 async function resolveModules(langClient: ExtendedLangClient, pathValue) {
     const isBallerinProject = findBallerinaTomlFile(pathValue);
     if (isBallerinProject) {
+        // Update STS token for cloud editor before resolving modules
+        if (process.env.CLOUD_STS_TOKEN) {
+            try {
+                const stsToken = await getDevantStsToken();
+                if (stsToken && stsToken.trim() !== "") {
+                    const currentToken = await getCurrentAccessToken();
+                    
+                    // Only update if token needs updating
+                    if (shouldUpdateToken(currentToken, stsToken)) {
+                        await updateBallerinaSettingsWithStsToken(stsToken);
+                        console.log('STS token updated for module resolution in cloud editor');
+                    }
+                }
+            } catch (error) {
+                console.warn('Failed to update STS token for module resolution:', error);
+                // Continue with module resolution even if token update fails
+            }
+        }
+
         // Create a status bar item for the build notification
         buildStatusItem.text = "$(sync~spin) Pulling modules...";
         buildStatusItem.tooltip = "Pulling the missing ballerina modules.";
@@ -529,4 +550,34 @@ export async function goToSource(nodePosition: NodePosition, documentUri: string
         editor.selection = new Selection(range.start, range.end);
         editor.revealRange(range);
     }
+}
+
+/**
+ * Retrieves the STS token from the platform extension for authenticated requests
+ * @returns Promise<string | undefined> - The STS token if available, undefined otherwise
+ */
+export async function getDevantStsToken(): Promise<string | undefined> {
+    try {
+        // Try to get STS token from platform extension
+        const platformExt = extensions.getExtension("wso2.wso2-platform");
+        if (!platformExt) {
+            return undefined;
+        }
+
+        // Check if extension is already active before activating
+        if (!platformExt.isActive) {
+            await platformExt.activate();
+        }
+        
+        const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports;
+        
+        const platformStsToken = await platformExtAPI.getStsToken();
+        if (platformStsToken && platformStsToken.trim() !== "") {
+            return platformStsToken;
+        }
+    } catch (error) {
+        console.error("Failed to get STS token from platform extension:", error);
+    }
+    
+    return undefined;
 }
