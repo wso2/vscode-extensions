@@ -90,7 +90,8 @@ test.describe(naturalFunctionArtifact);
 test.describe(dataMapperArtifact); // TODO: Fix this test
 test.describe(typeDiagramArtifact); // TODO: Fix this test
 test.describe(connectionArtifact);
-test.describe(configuration); // TODO: Fix this test
+
+test.describe(configuration);
 test.describe(typeTest);
 
 // <----Import Integration Test---->
