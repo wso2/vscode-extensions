@@ -42,6 +42,11 @@ export function isValueExpression(stringValue: string): any {
     return stringValue != null && stringValue.startsWith('${') && stringValue.endsWith('}');
 }
 
+export function isTypeAwareEqual(currentVal: any, expectedVal: any) {
+    return currentVal === expectedVal || (typeof expectedVal === 'string' && String(currentVal) === expectedVal) ||
+                    (typeof expectedVal === 'boolean' && String(currentVal) === String(expectedVal));
+}
+
 /**
  * Check whether to use the legacy expression editor or not.
  *
@@ -76,4 +81,33 @@ export function isLegacyExpression(
 
     /* If non of the conditions are met -> enable the new expression editor */
     return false;
+}
+
+/**
+ * Creates a request body for helper pane information based on the document URI and context.
+ *
+ * @param machineView - The machine view containing document URI and other context.
+ * @param position - The position in the document.
+ * @param artifactPath - Optional artifact path to override the document URI.
+ * @returns - The request body object for getHelperPaneInfo RPC call.
+ */
+export function createHelperPaneRequestBody(
+    machineView: { documentUri?: string },
+    position: { line: number; character: number },
+    artifactPath?: string
+) {
+    const documentUri = artifactPath ? artifactPath : machineView.documentUri;
+
+    if (machineView.documentUri?.includes('src/test/')) {
+        return {
+            documentUri: documentUri,
+            position: { line: 0, character: 0 },
+            needLastMediator: true
+        };
+    } else {
+        return {
+            documentUri: documentUri,
+            position: position
+        };
+    }
 }

@@ -193,10 +193,8 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     async reloadDependencies(): Promise<boolean> {
         return new Promise(async (resolve) => {
             const langClient = getStateMachine(this.projectUri).context().langClient!;
-            const projectDetails = await langClient?.getProjectDetails();
-            const projectName = projectDetails.primaryDetails.projectName.value;
             await langClient?.updateConnectorDependencies();
-            await extractCAppDependenciesAsProjects(projectName);
+            await extractCAppDependenciesAsProjects(this.projectUri);
             const loadResult = await langClient?.loadDependentCAppResources();
             if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
                 await window.showWarningMessage(

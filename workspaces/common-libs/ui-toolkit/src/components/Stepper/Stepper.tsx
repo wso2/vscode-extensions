@@ -66,11 +66,11 @@ export const StepperContainer = styled.div<StepperContainerProps>`
 export const StepCard = styled.div`
     display: flex;
     flex-direction: row;
+    align-items: center;
 `;
 
 export const StepTitle = styled.div`
     font-size: 14px;
-    padding-top: 12px;
     padding-left: 5px;
     color: ${(props: TitleProps) => props.color};
     font-weight: 600;
@@ -104,23 +104,21 @@ export const StepStatus = styled.div`
 
 export const StepCircle = styled.div`
     display: flex;
-    align-self: center;
+    align-items: center;
+    justify-content: center;
     background-color: ${(props: StepperStyleProps) => props.color};
     width: 24px;
     height: 24px;
+    min-width: 24px;
+    min-height: 24px;
     border-radius: 50%;
-    position: relative;
-    left: 12px;
-    top: 18px;
-    transform: translate(-50%, -50%);
+    flex-shrink: 0;
 `;
 
 export const HorizontalBar = styled.div`
     width: 120px;
     background-color: var(--vscode-editorIndentGuide-activeBackground);
     height: 1px;
-    position: relative;
-    top: 20px;
     margin-left: 5px;
     margin-right: 5px;
 `;

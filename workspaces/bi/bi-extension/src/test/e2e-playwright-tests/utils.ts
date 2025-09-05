@@ -110,10 +110,10 @@ export async function getWebview(viewName: string, page: ExtendedPage) {
                 console.log(`Attempt ${retryCount + 1} failed to access iframe:`, message);
             }
         }
-        
+
         // Always increment retry count after each attempt
         retryCount++;
-        
+
         // Only retry if we haven't reached max retries
         if (retryCount < maxRetries) {
             await page.page.waitForTimeout(2000);
@@ -187,6 +187,32 @@ export function initTest(newProject: boolean = false, skipProjectCreation: boole
     });
 }
 
+
+export function initMigrationTest() {
+    test.beforeAll(async ({ }, testInfo) => {
+        console.log(`>>> Starting migration tests. Title: ${testInfo.title}, Attempt: ${testInfo.retry + 1}`);
+        console.log('Setting up BI extension for migration testing');
+        await initVSCode();
+        await page.page.waitForLoadState();
+        await toggleNotifications(true);
+        
+        // Reload VS Code to apply the language server setting
+        await page.executePaletteCommand('Reload Window');
+        await page.page.waitForLoadState();
+        await page.page.waitForTimeout(5000); // Give VS Code time to fully reload
+
+        // Select the BI sidebar item and navigate to Import External Integration
+        await page.selectSidebarItem('WSO2 Integrator: BI');
+        const webview = await getWebview('WSO2 Integrator: BI', page);
+        if (!webview) {
+            throw new Error('WSO2 Integrator: BI webview not found');
+        }
+
+        console.log('Migration test runner started');
+    });
+}
+
+
 export async function addArtifact(artifactName: string, testId: string) {
     console.log(`Adding artifact: ${artifactName}`);
     const artifactWebView = await getWebview('WSO2 Integrator: BI', page);
@@ -235,23 +261,23 @@ function normalizeSource(source: string): string {
  */
 export async function verifyGeneratedSource(generatedFileName: string, expectedFilePath: string): Promise<void> {
     const { expect } = await import('@playwright/test');
-    
+
     // Generated file is in the project sample folder
     const generatedFilePath = path.join(newProjectPath, 'sample', generatedFileName);
-    
+
     if (!fs.existsSync(generatedFilePath)) {
         throw new Error(`Generated file not found at: ${generatedFilePath}`);
     }
-    
+
     if (!fs.existsSync(expectedFilePath)) {
         throw new Error(`Expected file not found at: ${expectedFilePath}`);
     }
-    
+
     const actualContent = fs.readFileSync(generatedFilePath, 'utf-8');
     const expectedContent = fs.readFileSync(expectedFilePath, 'utf-8');
-    
+
     const normalizedActual = normalizeSource(actualContent);
     const normalizedExpected = normalizeSource(expectedContent);
-    
+
     expect(normalizedActual).toBe(normalizedExpected);
 }
