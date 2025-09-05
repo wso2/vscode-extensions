@@ -277,9 +277,7 @@ export class MILanguageClient {
                 this.languageClient = new ExtendedLanguageClient('synapseXML', 'Synapse Language Server', this.projectUri,
                     serverOptions, clientOptions);
                 await this.languageClient.start();
-                const projectDetails = await this.languageClient?.getProjectDetails();
-                const projectName = projectDetails.primaryDetails.projectName.value;
-                await extractCAppDependenciesAsProjects(projectName);
+                await extractCAppDependenciesAsProjects(this.projectUri);
                 await this.languageClient?.loadDependentCAppResources();
 
                 //Setup autoCloseTags
