@@ -314,7 +314,6 @@ export function ForkForm(props: ForkFormProps) {
                         <FormStyles.Row key={field.key}>
                             <ExpressionEditor
                                 {...expressionEditor}
-                                // ref={exprRef}
                                 control={control}
                                 field={field}
                                 watch={watch}
