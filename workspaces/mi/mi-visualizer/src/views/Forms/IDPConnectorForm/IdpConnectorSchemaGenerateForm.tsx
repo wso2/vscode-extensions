@@ -137,16 +137,27 @@ export function IdpConnectorSchemaGenerateForm({ onClose, path,fileContent }: Id
                 });
 
                 if (fetchedIdpConnections && fetchedIdpConnections.length > 0) {
-                    const transformedIdpConnections = fetchedIdpConnections.map((conn: any) => {
-                        const getParam = (paramName: string) =>
-                            conn.parameters?.find((p: any) => p.name === paramName)?.value || ""; 
-                        return {
-                            name: conn?.name,
-                            apiKey: getParam("apiKey"),
-                            url: getParam("endpointUrl"),
-                            model: getParam("model")
-                        };
-                    });
+                    const transformedIdpConnections = await Promise.all(
+                        fetchedIdpConnections.map(async (conn: any) => {
+                            const getParam = async (paramName: string) => {
+                                const paramObj = conn.parameters?.find((p: any) => p.name === paramName);
+                                if (paramObj?.expression) {
+                                    const match = paramObj.expression.match(/^\$\{configs\.([^\}]+)\}$/);
+                                    if (match) {
+                                        return await rpcClient.getMiDiagramRpcClient().getValueOfEnvVariable(match[1]);
+                                    }
+                                    return paramObj.expression;
+                                }
+                                return paramObj?.value || "";
+                            };
+                            return {
+                                name: conn?.name,
+                                apiKey: await getParam("apiKey"),
+                                url: await getParam("endpointUrl"),
+                                model: await getParam("model")
+                            };
+                        })
+                    );
                     allConnections.push(...transformedIdpConnections);
                 }
                 

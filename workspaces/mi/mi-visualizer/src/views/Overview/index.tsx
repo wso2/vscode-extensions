@@ -31,6 +31,7 @@ import { DeploymentOptions } from "./DeploymentStatus";
 import { useQuery } from "@tanstack/react-query";
 import { IOpenInConsoleCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
 import ProjectStructureView from "./ProjectStructureView";
+import { COMMANDS } from "../../constants";
 
 export interface DevantComponentResponse {
     org: string;
@@ -199,6 +200,15 @@ export function Overview(props: OverviewProps) {
         rpcClient.getMiDiagramRpcClient().buildProject({ buildType: "docker" });
     };
 
+    const handleConfigureKubernetes = async () => {
+        const conf = await rpcClient.getMiDiagramRpcClient().isKubernetesConfigured();
+        if (conf) {
+            await rpcClient.getMiDiagramRpcClient().executeCommand({ commands: [COMMANDS.EDIT_K8_CONFIGURATION_COMMAND] });
+        } else {
+            rpcClient.getMiVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: { view: MACHINE_VIEW.KubernetesConfigurationForm } });
+        }
+    };
+
     const handleCappBuild = () => {
         rpcClient.getMiDiagramRpcClient().buildProject({ buildType: "capp" });
     };
@@ -356,6 +366,7 @@ export function Overview(props: OverviewProps) {
                         <ProjectInfoColumn>
                             <DeploymentOptions
                                 handleDockerBuild={handleDockerBuild}
+                                handleConfigureKubernetes={handleConfigureKubernetes}
                                 handleCAPPBuild={handleCappBuild}
                                 handleRemoteDeploy={handleRemoteDeploy}
                                 handleDeploy={handleDeploy}

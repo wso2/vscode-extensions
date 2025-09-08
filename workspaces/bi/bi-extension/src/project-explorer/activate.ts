@@ -56,8 +56,12 @@ function createProjectTree(dataProvider: ProjectExplorerEntryProvider) {
 
 function registerBallerinaCommands(dataProvider: ProjectExplorerEntryProvider, isBI: boolean, isMultiRoot?: boolean) {
 	commands.registerCommand(BI_COMMANDS.REFRESH_COMMAND, () => dataProvider.refresh());
+
+	if (isMultiRoot) {
+		commands.executeCommand('setContext', 'BI.isMultiRoot', true);
+	}
 	if (isBI) {
-		registerBICommands(isMultiRoot);
+		registerBICommands();
 	}
 }
 
@@ -90,11 +94,8 @@ function handleNonBallerinaVisibility() {
 	commands.executeCommand(SHARED_COMMANDS.OPEN_BI_WELCOME);
 }
 
-function registerBICommands(isMultiRoot?: boolean) {
+function registerBICommands() {
 	commands.executeCommand(BI_COMMANDS.FOCUS_PROJECT_EXPLORER);
 	commands.executeCommand(SHARED_COMMANDS.SHOW_VISUALIZER);
 	commands.executeCommand('setContext', 'BI.project', true);
-	if (isMultiRoot) {
-		commands.executeCommand('setContext', 'BI.isMultiRoot', true);
-	}
 }
