@@ -29,6 +29,9 @@ import { Icon } from '../../../Icon/Icon';
 
 import { ThemeColors } from '../../../../styles';
 
+export const EXPR_ICON_WIDTH = 26;
+export const EXPR_ICON_HEIGHT = 26;
+
 // Styled Components
 namespace Ex {
     export const Container = styled.div`
