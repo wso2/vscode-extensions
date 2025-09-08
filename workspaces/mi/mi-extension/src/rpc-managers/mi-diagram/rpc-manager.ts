@@ -3384,6 +3384,9 @@ ${endpointAttributes}
                         return { status: false, content: "File not found" };
                     }
 
+                case 'exists':
+                    return { status: isExist, content: isExist ? "File exists" : "File does not exist" };
+
                 default:
                     console.error(`Invalid file operation: ${operation}`);
                     return { status: false, content: "Invalid file operation" };

@@ -1257,7 +1257,7 @@ export interface WriteContentToFileResponse {
 }
 
 export interface HandleFileRequest {
-    operation : "read" | "write" | "delete";
+    operation : "read" | "write" | "delete" | "exists";
     fileName : string;
     filePath : string;
     content?: string;
