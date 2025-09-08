@@ -412,7 +412,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [group1]
+        group: [group1, group2, group3, group4]
         os: [windows-latest]
     runs-on: ${{ matrix.os }}    
     steps:
@@ -488,15 +488,21 @@ jobs:
             cd workspaces/mi/mi-extension
             
             # Start FFmpeg with proper signal handling for clean shutdown
-            ffmpeg -f gdigrab -framerate 15 -i desktop -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -movflags +faststart -y record.mp4 &
+            ffmpeg -f gdigrab -framerate 15 -i desktop -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -movflags +faststart -loglevel error -y record.mp4 &
             FFMPEG_PID=$!
             echo $FFMPEG_PID > ffmpeg_pid.txt
             
             # Run tests
             PWDEBUG=console npx playwright test --grep ${{ matrix.group }}
             TEST_EXIT_CODE=$?
+            TEST_EXIT_CODE=$?
             
             if [ -f "ffmpeg_pid.txt" ]; then
+              echo "Sending interrupt signal to FFmpeg for clean shutdown..."
+              kill -INT $FFMPEG_PID 2>/dev/null || true
+              sleep 5
+              # If still running, force kill
+              kill -KILL $FFMPEG_PID 2>/dev/null || true
               echo "Sending interrupt signal to FFmpeg for clean shutdown..."
               kill -INT $FFMPEG_PID 2>/dev/null || true
               sleep 5
@@ -510,6 +516,8 @@ jobs:
             else
               echo "No video file found"
             fi
+            
+            exit $TEST_EXIT_CODE
             
             exit $TEST_EXIT_CODE
           else
@@ -531,7 +539,7 @@ jobs:
             Add-Type -AssemblyName System.Drawing
             \$rec = New-Object System.Diagnostics.Process
             \$rec.StartInfo.FileName = 'ffmpeg'
-            \$rec.StartInfo.Arguments = '-y -f gdigrab -framerate 10 -i desktop -t 600 -c:v libx264 -preset fast -crf 30 record.mp4'
+            \$rec.StartInfo.Arguments = '-y -f gdigrab -framerate 10 -i desktop -t 600 -c:v libx264 -preset fast -crf 30 -loglevel error record.mp4'
             \$rec.StartInfo.UseShellExecute = \$false
             \$rec.StartInfo.CreateNoWindow = \$true
             \$rec.Start()
@@ -581,4 +589,13 @@ jobs:
             workspaces/mi/mi-extension/src/test/test-resources/videos/**
             workspaces/mi/mi-extension/src/test/test-resources/screenshots/**
             workspaces/mi/mi-extension/record.mp4
+          retention-days: 5
+
+      - name: Upload log files
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: MI-e2e-test-logs-${{ matrix.os }}-${{ matrix.group }}-${{ github.run_attempt }}
+          path: | 
+            workspaces/mi/mi-extension/src/test/test-resources/logs/**
           retention-days: 5

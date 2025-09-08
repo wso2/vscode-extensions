@@ -38,11 +38,11 @@ export const videosFolder = path.join(__dirname, '..', 'test-resources', 'videos
 export let vscode: ElectronApplication | undefined;
 export let page: ExtendedPage;
 
-async function initVSCode() {
+async function initVSCode(groupName?: string, title?: string, attempt: number = 1) {
     if (vscode && page) {
         await page.executePaletteCommand('Reload Window');
     } else {
-        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, newProjectPath, 'mi-test-profile');
+        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, newProjectPath, 'mi-test-profile', groupName, title, attempt);
     }
     page = new ExtendedPage(await vscode!.firstWindow({ timeout: 60000 }));
 }
@@ -64,7 +64,7 @@ export async function stopRunningProject(page: ExtendedPage) {
 }
 
 export async function createProject(page: ExtendedPage, projectName?: string, runtimeVersino?: string, addAdvancedConfig: boolean = false) {
-    console.log('Creating new project');
+    console.log('Creating new project with runtime version ' + (runtimeVersino || '4.4.0'));
     await page.selectSidebarItem('WSO2 Integrator: MI');
     const welcomePage = new Welcome(page);
     await welcomePage.init();
@@ -107,14 +107,14 @@ export async function createProject(page: ExtendedPage, projectName?: string, ru
     console.log('Environment setup done');
 }
 
-export async function resumeVSCode() {
+export async function resumeVSCode(groupName?: string, title?: string, attempt: number = 1) {
     if (vscode && page) {
         console.log('Reloading VSCode');
         await page.page.waitForTimeout(1000);
         await page.executePaletteCommand('Reload Window');
     } else {
         console.log('Starting VSCode');
-        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, path.join(newProjectPath, 'testProject'), 'mi-test-profile');
+        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, path.join(newProjectPath, 'testProject'), 'mi-test-profile', groupName, title, attempt);
         await new Promise(resolve => setTimeout(resolve, 5000));
     }
     page = new ExtendedPage(await vscode!.firstWindow({ timeout: 60000 }));
@@ -201,7 +201,7 @@ async function safeCleanup(directoryPath: string) {
     }
 }
 
-export function initTest(newProject: boolean = false, skipProjectCreation: boolean = false, cleanupAfter?: boolean, projectName?: string, runtimeVersion?: string) {
+export function initTest(newProject: boolean = false, skipProjectCreation: boolean = false, cleanupAfter?: boolean, projectName?: string, runtimeVersion?: string, groupName?: string) {
     test.beforeAll(async ({ }, testInfo) => {
         console.log(`>>> Starting tests. Title: ${testInfo.title}, Attempt: ${testInfo.retry + 1}`);
         if (!existsSync(path.join(newProjectPath, projectName ?? 'testProject')) || newProject) {
@@ -209,14 +209,14 @@ export function initTest(newProject: boolean = false, skipProjectCreation: boole
             await safeCleanup(newProjectPath);
             fs.mkdirSync(newProjectPath, { recursive: true });
             console.log('Starting VSCode');
-            await initVSCode();
+            await initVSCode(groupName, testInfo.title, testInfo.retry + 1);
             await toggleNotifications(true);
             if (!skipProjectCreation) {
                 await createProject(page, projectName, runtimeVersion);
             }
         } else {
             console.log('Resuming VSCode');
-            await resumeVSCode();
+            await resumeVSCode(groupName, testInfo.title, testInfo.retry + 1);
             await page.page.waitForLoadState();
             await toggleNotifications(true);
         }

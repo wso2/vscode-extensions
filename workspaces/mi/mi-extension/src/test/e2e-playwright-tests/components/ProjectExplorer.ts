@@ -98,7 +98,7 @@ export class ProjectExplorer {
                 await currentItem.hover();
                 const plusBtn = currentItem.locator('div.monaco-action-bar').locator('a[aria-label^="Add"]')
                 await plusBtn.waitFor();
-                await this.page.waitForTimeout(500); // To fix intermittent issues
+                await this.page.waitForTimeout(1000); // To fix intermittent issues
                 await plusBtn.click();
             }
         }

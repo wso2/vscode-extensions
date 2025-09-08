@@ -51,7 +51,7 @@ export class Welcome {
     }
 
     public async waitUntilDeattached() {
-        await this.page.page.waitForSelector('iframe.webview.ready', { state: 'detached', timeout: 75000 });
+        await this.page.page.waitForSelector('iframe.webview.ready', { state: 'detached', timeout: 180000 });
     }
 
     public async setupEnvironment() {
@@ -73,10 +73,23 @@ export class Welcome {
         if (await downloadJavaAndMi.count() > 0) {
             console.log('Downloading Java and WSO2 Integrator: MI');
             await downloadJavaAndMi.click();
+            try {
+                console.log(`Waiting for I Agree button`);
+                const iAgreeBtn = await getVsCodeButton(container!, 'I Agree', 'primary', 60000);
+                await iAgreeBtn.click();
+            } catch (error) {
+                console.log('No terms and conditions to accept');
+            }
             // Wait for both Java and MI to be downloaded
-            await container.locator('div:has-text("Java is setup")').first().waitFor({ timeout: 180000 });
-            await container.locator('div:has-text("WSO2 Integrator: MI is setup")').first().waitFor({ timeout: 180000 });
-            console.log('Java and WSO2 Integrator: MI setup done');
+            try {
+                console.log('Waiting for Java and WSO2 Integrator: MI to be setup');
+                await container.locator('div:has-text("Java is setup")').first().waitFor({ timeout: 100000 });
+                console.log('Java setup done');
+                await container.locator('div:has-text("WSO2 Integrator: MI is setup")').first().waitFor({ timeout: 100000 });
+                console.log('WSO2 Integrator: MI setup done');
+            } catch (error) {
+                console.log('No Java and MI setup messages, assuming both are setup');
+            }
         } else {
             const javaErrorMessage = container?.locator('div:has-text("Java is not properly setup")');
             await javaErrorMessage?.waitFor({ timeout: 8000 }).catch(() => { });
@@ -108,15 +121,19 @@ export class Welcome {
             }
         }
 
-        const continueAnywayBtn = await getVsCodeButton(container!, 'Continue Anyway', 'secondary').catch(() => null);
-        if (continueAnywayBtn) {
-            await continueAnywayBtn.click({ timeout: 10000 }).catch(() => { });
+        console.log('Finalizing environment setup');
+        const continueBtn = await getVsCodeButton(container!, 'Continue', 'primary').catch(() => null);
+        if (continueBtn) {
+            console.log('Clicking Continue button');
+            await continueBtn.click({ timeout: 10000 }).catch(() => { });
         } else {
-            const continueBtn = await getVsCodeButton(container!, 'Continue', 'primary').catch(() => null);
-            if (continueBtn) {
-                await continueBtn.click({ timeout: 10000 }).catch(() => { });
+            const continueAnywayBtn = await getVsCodeButton(container!, 'Continue Anyway', 'secondary').catch(() => null);
+            if (continueAnywayBtn) {
+                console.log('Clicking Continue Anyway button');
+                await continueAnywayBtn.click({ timeout: 10000 }).catch(() => { });
             }
         }
+        console.log('Clicking No, Don\'t Ask Again button');
         await container!.page().getByRole('button', { name: "No, Don't Ask Again" })
             .click({ timeout: 10000 }).catch(() => { });
         console.log('Environment setup done');

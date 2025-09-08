@@ -32,7 +32,7 @@ export default function createTests() {
     test.describe("Create Project Tests", {
         tag: '@group2'
     }, async () => {
-        initTest(true, true, false);
+        initTest(true, true, false, undefined, undefined, 'group2');
 
         test("Create Project Tests", async () => {
             await test.step('Create New Project Tests', async () => {

@@ -42,7 +42,7 @@ export default function createTests() {
   test.describe('Artifact Tests', {
     tag: '@group1',
   }, async () => {
-    initTest();
+    initTest(false, false, false, undefined, undefined, 'group1');
 
     let currentTaskName: string = "TestTask";
     let automation: Automation;
@@ -240,9 +240,12 @@ export default function createTests() {
       await classMediator.openClassMediator(className);
       console.log('Create Class Mediator from Project Explorer');
       await classMediator.createClassMediatorFromProjectExplorer(classNameForExplorer);
+      console.log('Clear Class Mediator tabs');
       await classMediator.clear([className, classNameForExplorer]);
       // Collapse Event Integrations
+      console.log('Collapse Class Mediators section from Project Explorer');
       const projectExplorer = new ProjectExplorer(page.page);
+      console.log('Collapsing Class Mediators section');
       await projectExplorer.findItem(['Project testProject', 'Other Artifacts', 'Class Mediators'], true);
     });
 
