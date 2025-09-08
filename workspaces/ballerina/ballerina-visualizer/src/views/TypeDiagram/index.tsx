@@ -16,8 +16,8 @@
  * under the License.
  */
 
-import React, { useEffect, useRef, useState } from "react";
-import { VisualizerLocation, NodePosition, Type, EVENT_TYPE, MACHINE_VIEW, TypeNodeKind, ComponentInfo, Member } from "@wso2/ballerina-core";
+import React, { useEffect, useState } from "react";
+import { VisualizerLocation, NodePosition, Type, EVENT_TYPE, MACHINE_VIEW, TypeNodeKind, Member } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { TypeDiagram as TypeDesignDiagram } from "@wso2/type-diagram";
 import { Button, Codicon, ProgressRing, ThemeColors, View, ViewContent } from "@wso2/ui-toolkit";
@@ -29,6 +29,7 @@ import { FormTypeEditor } from "../BI/TypeEditor";
 import DynamicModal from "../../components/Modal";
 import { BreadcrumbContainer, BreadcrumbItem, BreadcrumbSeparator } from "../BI/Forms/FormGenerator";
 import { EditorContext, StackItem } from "@wso2/type-editor";
+import { NodeSelector } from "./NodeSelectorView/NodeSelector";
 
 const HeaderContainer = styled.div`
     align-items: center;
@@ -61,6 +62,8 @@ interface TypeEditorState {
     editingType: Type;
 }
 
+const MAX_TYPES_FOR_FULL_VIEW= 80;
+
 export function TypeDiagram(props: TypeDiagramProps) {
     const { selectedTypeId, projectUri, addType } = props;
     const { rpcClient } = useRpcContext();
@@ -69,6 +72,7 @@ export function TypeDiagram(props: TypeDiagramProps) {
     const [typesModel, setTypesModel] = React.useState<Type[]>(undefined);
     const [focusedNodeId, setFocusedNodeId] = React.useState<string | undefined>(undefined);
     const [highlightedNodeId, setHighlightedNodeId] = React.useState<string | undefined>(selectedTypeId);
+    const [isModelLoaded, setIsModelLoaded] = React.useState<boolean>(false);
     const [typeEditorState, setTypeEditorState] = React.useState<TypeEditorState>({
         isTypeCreatorOpen: false,
         editingTypeId: undefined,
@@ -137,6 +141,26 @@ export function TypeDiagram(props: TypeDiagramProps) {
     }
 
     useEffect(() => {
+        if (!typesModel) {
+            return;
+        }
+
+        if (typesModel.length > MAX_TYPES_FOR_FULL_VIEW) {
+            if (selectedTypeId) {
+                setFocusedNodeId(selectedTypeId);
+            } else {
+                setFocusedNodeId(undefined);
+            }
+
+        } else {
+            if (selectedTypeId) {
+                setHighlightedNodeId(selectedTypeId);
+            }
+            setFocusedNodeId(undefined);
+        }
+    }, [selectedTypeId, typesModel]);
+
+    useEffect(() => {
         if (addType) {
             setTypeEditorState((prevState) => ({
                 ...prevState,
@@ -154,19 +178,18 @@ export function TypeDiagram(props: TypeDiagramProps) {
     }, [rpcClient]);
 
     useEffect(() => {
+        setIsModelLoaded(false);
         getComponentModel();
     }, [visualizerLocation]);
 
     rpcClient?.onProjectContentUpdated((state: boolean) => {
         if (state) {
+            console.log("Project content updated, refreshing type model");
+            setIsModelLoaded(false);
             getComponentModel();
         }
     });
 
-    useEffect(() => {
-        setFocusedNodeId(undefined);
-        setHighlightedNodeId(selectedTypeId);
-    }, [selectedTypeId]);
 
 
     const setRefetchForCurrentModal = (shouldRefetch: boolean) => {
@@ -246,6 +269,13 @@ export function TypeDiagram(props: TypeDiagramProps) {
             .getBIDiagramRpcClient()
             .getTypes({ filePath: visualizerLocation?.metadata?.recordFilePath });
         setTypesModel(response.types);
+
+        // Set focused node immediately if we have selectedTypeId and more than 80 types
+        if (response.types && response.types.length > MAX_TYPES_FOR_FULL_VIEW && selectedTypeId) {
+            setFocusedNodeId(selectedTypeId);
+        }
+
+        setIsModelLoaded(true);
         console.log(response);
     };
 
@@ -370,30 +400,32 @@ export function TypeDiagram(props: TypeDiagramProps) {
         }])
     };
 
-    const onSwitchToTypeDiagram = () => {
-        setFocusedNodeId(undefined);
-    };
-
     const onFocusedNodeIdChange = (typeId: string) => {
         setFocusedNodeId(typeId);
         onTypeEditorClosed();
         setHighlightedNodeId(undefined);
     };
 
-    const Header = () => (
-        <HeaderContainer>
-            {focusedNodeId ? <Title>Type : {focusedNodeId}</Title> : <Title>Types</Title>}
-            {focusedNodeId ? (
-                <Button appearance="primary" onClick={onSwitchToTypeDiagram} tooltip="Switch to complete Type Diagram">
-                    <Codicon name="discard" sx={{ marginRight: 5 }} /> Switch to Type Diagram
-                </Button>
-            ) : (
-                <Button appearance="primary" onClick={addNewType} tooltip="Add New Type">
-                    <Codicon name="add" sx={{ marginRight: 5 }} /> Add Type
-                </Button>
-            )}
-        </HeaderContainer>
-    );
+    const findSelectedType = (typeId: string): Type => {
+        if (!typeId) {
+            return {
+                name: typeEditorState.newTypeName ?? "MyType",
+                editable: true,
+                metadata: {
+                    label: "",
+                    description: "",
+                },
+                codedata: {
+                    node: "RECORD",
+                },
+                properties: {},
+                members: [],
+                includes: [] as string[],
+                allowAdditionalFields: false
+            };
+        }
+        return typesModel.find((type: Type) => type.name === typeId);
+    };
 
     const onTypeChange = async (type: Type, rename?: boolean) => {
         if (rename) {
@@ -403,7 +435,6 @@ export function TypeDiagram(props: TypeDiagramProps) {
                 isTypeCreatorOpen: true,
                 newTypeName: undefined,
             });
-            setHighlightedNodeId(type.name);
             return;
         }
         setTypeEditorState({
@@ -412,7 +443,6 @@ export function TypeDiagram(props: TypeDiagramProps) {
             isTypeCreatorOpen: true,
             newTypeName: undefined,
         });
-        setHighlightedNodeId(type.name); // Highlight the newly created type
     };
 
     // Helper function to convert TypeNodeKind to display name
@@ -442,6 +472,35 @@ export function TypeDiagram(props: TypeDiagramProps) {
         }));
     };
 
+    const handleNodeSelect = (nodeId: string) => {
+        setFocusedNodeId(nodeId);
+    };
+
+    const renderView = () => {
+        if (typesModel && typesModel.length > MAX_TYPES_FOR_FULL_VIEW && focusedNodeId === undefined) {
+            return (
+                <NodeSelector
+                    nodes={typesModel || []}
+                    onNodeSelect={handleNodeSelect}
+                />
+            );
+        } else {
+            return (
+                <TypeDesignDiagram
+                    typeModel={typesModel}
+                    selectedNodeId={highlightedNodeId}
+                    focusedNodeId={focusedNodeId}
+                    updateFocusedNodeId={onFocusedNodeIdChange}
+                    showProblemPanel={showProblemPanel}
+                    goToSource={handleOnGoToSource}
+                    onTypeEdit={onTypeEdit}
+                    onTypeDelete={onTypeDelete}
+                    verifyTypeDelete={verifyTypeDelete}
+                />
+            );
+        }
+    }
+
     return (
         <>
             <View>
@@ -458,26 +517,22 @@ export function TypeDiagram(props: TypeDiagramProps) {
                     />
                 )}
                 {focusedNodeId && (
-                    <TitleBar title={focusedNodeId} subtitle="Type" onBack={() => setFocusedNodeId(undefined)} />
+                    <TitleBar
+                        title={focusedNodeId}
+                        subtitle="Type"
+                        onBack={() => {
+                            setFocusedNodeId(undefined);
+                        }}
+                    />
                 )}
                 <ViewContent>
-                    {typesModel ? (
-                        <TypeDesignDiagram
-                            typeModel={typesModel}
-                            selectedNodeId={highlightedNodeId}
-                            focusedNodeId={focusedNodeId}
-                            updateFocusedNodeId={onFocusedNodeIdChange}
-                            showProblemPanel={showProblemPanel}
-                            goToSource={handleOnGoToSource}
-                            onTypeEdit={onTypeEdit}
-                            onTypeDelete={onTypeDelete}
-                            verifyTypeDelete={verifyTypeDelete}
-                        />
-                    ) : (
-                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                            <ProgressRing color={ThemeColors.PRIMARY} />
-                        </div>
-                    )}
+                    <>
+                        {!isModelLoaded ? (
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                                <ProgressRing color={ThemeColors.PRIMARY} />
+                            </div>
+                        ) : renderView()}
+                    </>
                 </ViewContent>
             </View>
             {/* Panel for editing and creating types */}
@@ -545,6 +600,29 @@ export function TypeDiagram(props: TypeDiagramProps) {
                 })}
             </EditorContext.Provider>
 
+            {(typeEditorState.editingTypeId || typeEditorState.isTypeCreatorOpen) && typeEditorState.editingType?.codedata?.node !== "CLASS" && (
+                <PanelContainer
+                    title={typeEditorState.editingTypeId ?
+                        `Edit Type${getTypeKindDisplayName(typeEditorState.editingType?.codedata?.node) ?
+                            ` : ${getTypeKindDisplayName(typeEditorState.editingType?.codedata?.node)}` :
+                            ''}` :
+                        "New Type"
+                    }
+                    show={true}
+                    onClose={onTypeEditorClosed}
+                >
+                    <FormTypeEditor
+                        key={typeEditorState.editingTypeId ?? typeEditorState.newTypeName ?? 'new-type'}
+                        type={findSelectedType(typeEditorState.editingTypeId)}
+                        newType={typeEditorState.editingTypeId ? false : true}
+                        onTypeChange={onTypeChange}
+                        onTypeCreate={handleTypeCreate}
+                        getNewTypeCreateForm={getNewTypeCreateForm}
+                        onSaveType={onSaveType}
+                        refetchTypes={true}
+                     />
+                </PanelContainer>
+            )}
         </>
     );
 }

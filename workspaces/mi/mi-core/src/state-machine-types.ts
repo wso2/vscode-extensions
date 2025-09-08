@@ -95,6 +95,7 @@ export enum MACHINE_VIEW {
     SETUP_ENVIRONMENT = "Setup Environment",
     ImportConnectorForm = "Import Connector",
     IdpConnectorSchemaGeneratorForm = "IDP Connector Schema Generator Form",
+    DataMapperMigrationForm = "DataMapper Migration Form",
 }
 
 export enum AI_MACHINE_VIEW {

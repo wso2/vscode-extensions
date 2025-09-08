@@ -219,6 +219,41 @@ export function FormGeneratorNew(props: FormProps) {
         });
     };
 
+    const defaultType = (): Type => {
+        if (typeEditorState.field?.type === 'PARAM_MANAGER') {
+            return {
+                name: typeEditorState.newTypeValue || "MyType",
+                editable: true,
+                metadata: {
+                    label: "",
+                    description: "",
+                },
+                codedata: {
+                    node: "RECORD",
+                },
+                properties: {},
+                members: [],
+                includes: [] as string[],
+                allowAdditionalFields: false
+            };
+        } return {
+            name: typeEditorState.newTypeValue || "MyType",
+            editable: true,
+            metadata: {
+                label: "",
+                description: ""
+            },
+            codedata: {
+                node: "CLASS"
+            },
+            properties: {},
+            members: [],
+            includes: [] as string[],
+            functions: []
+        };
+    }
+
+
     useEffect(() => {
         if (rpcClient) {
             // Set current theme
@@ -663,26 +698,8 @@ export function FormGeneratorNew(props: FormProps) {
 
     const getNewTypeCreateForm = () => {
         pushTypeStack({
-            type: {
-                name: "",
-                members: [] as Member[],
-                editable: true,
-                metadata: {
-                    description: "",
-                    label: ""
-                },
-                properties: {},
-                codedata: {
-                    node: "RECORD" as TypeNodeKind
-                },
-                includes: [] as string[],
-                allowAdditionalFields: false
-            },
+            type: defaultType(), 
             isDirty: false
-        })
-        setTypeEditorState({
-            isOpen: true,
-            newTypeValue: "Haha Value"
         })
     }
 
@@ -809,15 +826,15 @@ export function FormGeneratorNew(props: FormProps) {
                             ))}
                         </BreadcrumbContainer>
                         <FormTypeEditor
-                            type={peekTypeStack()?.type}
+                            type={ isGraphqlEditor? defaultType() : undefined}
                             newType={peekTypeStack() ? peekTypeStack().isDirty : false}
                             newTypeValue={typeEditorState.newTypeValue}
-                            isGraphql={isGraphqlEditor}
                             onTypeChange={handleTypeChange}
                             onSaveType={onSaveType}
                             onTypeCreate={handleTypeCreate}
                             getNewTypeCreateForm={getNewTypeCreateForm}
                             refetchTypes={refetchStates[i]}
+                            isGraphql={isGraphqlEditor}
                         />
                     </div>
                 </DynamicModal>)

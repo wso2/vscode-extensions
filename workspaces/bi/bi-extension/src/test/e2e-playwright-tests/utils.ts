@@ -138,7 +138,7 @@ export async function createProject(page: ExtendedPage, projectName?: string) {
     await form.switchToFormView(false, webview);
     await form.fill({
         values: {
-            'Integration Name': {
+            'Integration Name*': {
                 type: 'input',
                 value: projectName ?? 'sample',
             },
