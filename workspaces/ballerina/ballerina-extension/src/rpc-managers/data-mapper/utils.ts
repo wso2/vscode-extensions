@@ -112,11 +112,11 @@ export async function updateSourceCodeIteratively(updateSourceCodeRequest: Updat
         return await updateSourceCode(updateSourceCodeRequest);
     }
 
-    // need to prioritize if file path ends with functions.bal
+    // need to prioritize if file path ends with functions.bal or data_mappings.bal
     filePaths.sort((a, b) => {
-        // Prioritize files ending with functions.bal
-        const aEndsWithFunctions = a.endsWith('functions.bal') ? 1 : 0;
-        const bEndsWithFunctions = b.endsWith('functions.bal') ? 1 : 0;
+        // Prioritize files ending with functions.bal or data_mappings.bal
+        const aEndsWithFunctions = (a.endsWith("functions.bal") || a.endsWith("data_mappings.bal")) ? 1 : 0;
+        const bEndsWithFunctions = (b.endsWith("functions.bal") || b.endsWith("data_mappings.bal")) ? 1 : 0;
         return bEndsWithFunctions - aEndsWithFunctions; // Sort descending
     });
 
@@ -568,6 +568,7 @@ function createBaseIOType(root: IORoot): IOType {
     return {
         id: root.name,
         name: root.name,
+        displayName: root.displayName,
         typeName: root.typeName,
         kind: root.kind,
         ...(root.category && { category: root.category }),
@@ -601,6 +602,7 @@ function processArray(
     const ioType: IOType = {
         id: fieldId,
         name: member.name,
+        displayName: member.displayName,
         typeName: member.typeName!,
         kind: member.kind,
         ...(isFocused && { isFocused }),
@@ -651,6 +653,7 @@ function processUnion(
         const unionMemberType: IOType = {
             id: generateFieldId(parentFieldId, unionMember.name || 'member'),
             name: unionMember.name,
+            displayName: unionMember.displayName,
             typeName: unionMember.typeName,
             kind: unionMember.kind,
             ...(unionMember.optional !== undefined && { optional: unionMember.optional })
@@ -731,6 +734,7 @@ function processTypeFields(
         const ioType: IOType = {
             id: fieldId,
             name: field.name,
+            displayName: field.displayName,
             typeName: field.typeName,
             kind: field.kind,
             ...(field.optional !== undefined && { optional: field.optional })
