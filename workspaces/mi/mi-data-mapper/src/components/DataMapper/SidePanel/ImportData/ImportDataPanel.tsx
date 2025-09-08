@@ -184,7 +184,6 @@ export function ImportDataPanel(props: ImportDataPanelProps) {
                         resize="vertical"
                         placeholder={generatePlaceholder}
                         value={fileContent}
-                        sx={{border: "#00ff00"}}
                         errorMsg={errors && errors.payload?.message.toString()}
                     />
                 )}
@@ -197,7 +196,6 @@ export function ImportDataPanel(props: ImportDataPanelProps) {
                         {...field}
                         placeholder=','
                         label="Delimiter"
-                        sx={{ border: "#00ff00" }}
                         errorMsg={errors && errors.delimiter?.message.toString()}
                     />
                 )}

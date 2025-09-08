@@ -21,6 +21,7 @@ import { Position } from 'vscode-languageserver-types';
 import { COMPLETION_ITEM_KIND, getIcon, HelperPane } from '@wso2/ui-toolkit';
 import { HelperPaneCompletionItem } from '@wso2/mi-core';
 import { filterHelperPaneCompletionItems, getHelperPaneCompletionItem } from '../FormExpressionField/utils';
+import { createHelperPaneRequestBody } from '../utils';
 import { debounce } from 'lodash';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { PAGE, Page } from './index';
@@ -30,13 +31,15 @@ type HeadersPageProps = {
     setCurrentPage: (page: Page) => void;
     onClose: () => void;
     onChange: (value: string) => void;
+    artifactPath?: string;
 };
 
 export const HeadersPage = ({
     position,
     setCurrentPage,
     onClose,
-    onChange
+    onChange,
+    artifactPath
 }: HeadersPageProps) => {
     const { rpcClient } = useVisualizerContext();
     const firstRender = useRef<boolean>(true);
@@ -49,12 +52,11 @@ export const HeadersPage = ({
         setIsLoading(true);
         setTimeout(() => {
             rpcClient.getVisualizerState().then((machineView) => {
+                const requestBody = createHelperPaneRequestBody(machineView, position, artifactPath);
+
                 rpcClient
                     .getMiDiagramRpcClient()
-                    .getHelperPaneInfo({
-                        documentUri: machineView.documentUri,
-                        position: position,
-                    })
+                    .getHelperPaneInfo(requestBody)
                     .then((response) => {
                         if (response.headers?.length) {
                             setHeaderInfo(response.headers);

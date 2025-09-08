@@ -135,6 +135,7 @@ function DeploymentOption({
 
 interface DeploymentOptionsProps {
     handleDockerBuild: () => void;
+    handleConfigureKubernetes: () => void;
     handleCAPPBuild: () => void;
     handleRemoteDeploy: () => void;
     handleDeploy: (params: DeployProjectRequest) => void;
@@ -142,7 +143,7 @@ interface DeploymentOptionsProps {
     devantMetadata?: DevantMetadata;
 }
 
-export function DeploymentOptions({ handleDockerBuild, handleCAPPBuild, handleRemoteDeploy, handleDeploy, goToDevant, devantMetadata }: DeploymentOptionsProps) {
+export function DeploymentOptions({ handleDockerBuild, handleConfigureKubernetes, handleCAPPBuild, handleRemoteDeploy, handleDeploy, goToDevant, devantMetadata }: DeploymentOptionsProps) {
     const [expandedOptions, setExpandedOptions] = useState<Set<string>>(new Set(['cloud', 'devant']));
     const { rpcClient } = useVisualizerContext();
 
@@ -204,6 +205,15 @@ export function DeploymentOptions({ handleDockerBuild, handleCAPPBuild, handleRe
                 isExpanded={expandedOptions.has('docker')}
                 onToggle={() => toggleOption('docker')}
                 onDeploy={handleDockerBuild}
+            />
+
+            <DeploymentOption
+                title="Configure Kubernetes Deployment"
+                description="Configure a Kubernetes deployment for your integration."
+                buttonText="Configure"
+                isExpanded={expandedOptions.has('kubernetes')}
+                onToggle={() => toggleOption('kubernetes')}
+                onDeploy={handleConfigureKubernetes}
             />
 
             <DeploymentOption

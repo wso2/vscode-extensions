@@ -78,7 +78,7 @@ export function IdpHeaderTryout({
     return (
         <HeaderContainer>
             <Typography variant="h3">
-                {path.split("/").pop()?.replace(/\.json$/, "")}
+                {path.replace(/\\/g, "/").split("/").pop()?.replace(/\.json$/, "")}
             </Typography>
             <RightSection>
                 {tryoutOutput !== "" && tryOutBase64String && (

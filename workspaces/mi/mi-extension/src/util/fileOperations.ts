@@ -21,6 +21,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import axios from "axios";
 import * as path from 'path';
+import crypto from 'crypto';
 import { XMLParser, XMLBuilder } from "fast-xml-parser";
 import * as unzipper from 'unzipper';
 import { DownloadProgressData, ListRegistryArtifactsResponse, onDownloadProgress, Range, RegistryArtifact, UpdateRegistryMetadataRequest, ApplyEditResponse, RangeFormatRequest} from "@wso2/mi-core";
@@ -113,6 +114,22 @@ async function handleDownloadFile(projectUri: string, rawFileLink: string, defau
         window.showErrorMessage(`Failed to download file: ${error}`);
     }
     progress.report({ message: "Download finished" });
+}
+
+/**
+ * Generates an MD5 hash for the given input string and returns its hexadecimal representation.
+ *
+ * @param input - The input string to hash.
+ * @returns The hexadecimal string representation of the MD5 hash, or `null` if an error occurs.
+ */
+export function getHash(input: string): string | null {
+    try {
+        const hash = crypto.createHash('md5');
+        hash.update(input);
+        return hash.digest('hex');
+    } catch (error) {
+        return null;
+    }
 }
 
 export function appendContent(path: string, content: string): Promise<boolean> {
@@ -1090,4 +1107,15 @@ export async function rangeFormat(req: RangeFormatRequest): Promise<ApplyEditRes
         await workspace.applyEdit(workspaceEdit);
         resolve({ status: true });
     });
+}
+
+export function generatePathFromRegistryPath(registryPath: string, fileName: string): string {
+    if (registryPath.includes("/mi-resources/")) {
+        registryPath = registryPath.split("/mi-resources/")[1];
+    } else if (registryPath.includes("/config/")) {
+        registryPath = "conf/" + registryPath.split("/config/")[1];
+    } else if (registryPath.includes("/governance/")) {
+        registryPath = "gov/" + registryPath.split("/governance/")[1];
+    }
+    return path.join(registryPath.split("/").join(path.sep), fileName);
 }

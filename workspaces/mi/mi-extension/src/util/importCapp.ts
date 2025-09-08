@@ -80,7 +80,6 @@ interface RegistryCollection {
     properties: string;
 }
 
-
 export async function importCapp(params: ImportProjectRequest): Promise<ImportProjectResponse> {
     const { directory, open } = params;
     const source = params.source.replace(/\.car(?=\.zip$)/, '');
