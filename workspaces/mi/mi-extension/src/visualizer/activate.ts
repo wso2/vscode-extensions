@@ -35,6 +35,7 @@ import { AiPanelWebview } from '../ai-panel/webview';
 import { MiDiagramRpcManager } from '../rpc-managers/mi-diagram/rpc-manager';
 import { log } from '../util/logger';
 import { CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR } from '../util/onboardingUtils';
+import { getHash } from '../util/fileOperations';
 
 export function activateVisualizer(context: vscode.ExtensionContext, firstProject: string) {
     context.subscriptions.push(
@@ -219,8 +220,6 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
             if (document.document.uri.fsPath.endsWith('pom.xml')) {
                 const projectUri = vscode.workspace.getWorkspaceFolder(document.document.uri)?.uri.fsPath;
                 const langClient = getStateMachine(projectUri!).context().langClient;
-                const projectDetails = await langClient?.getProjectDetails();
-                const projectName = projectDetails.primaryDetails.projectName.value;
                 
                 const confirmUpdate = await vscode.window.showInformationMessage(
                     'The pom.xml file has been modified. Do you want to update the dependencies?',
@@ -233,7 +232,7 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                     statusBarItem.text = '$(sync) Updating dependencies...';
                     statusBarItem.show();
                     await langClient?.updateConnectorDependencies();
-                    await extractCAppDependenciesAsProjects(projectName);
+                    await extractCAppDependenciesAsProjects(projectUri);
                     await langClient?.loadDependentCAppResources();
                     statusBarItem.hide();
                 }
@@ -336,18 +335,18 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
     );
 }
 
-export async function extractCAppDependenciesAsProjects(projectName: string) {
+export async function extractCAppDependenciesAsProjects(projectUri: string | undefined) {
     try {
-        const dependenciesDir = path.join(CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR);  
-        const dependencyDirs = fs.readdirSync(dependenciesDir, { withFileTypes: true })
-            .filter(dirent => dirent.isDirectory() && dirent.name.startsWith(projectName))
-            .map(dirent => dirent.name);
-
-        if (dependencyDirs.length === 0) {
+        if (!projectUri) {
             return;
         }
-
-        const selectedDependencyDir = dependencyDirs[0];
+        const dependenciesDir = path.join(CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR);
+        const hashedProjectPath = getHash(projectUri);
+        const projectName = path.basename(projectUri);
+        const selectedDependencyDir = `${projectName}_${hashedProjectPath}`;
+        if (!fs.existsSync(path.join(dependenciesDir, selectedDependencyDir))) {
+            return;
+        }
         const downloadedDir = path.join(dependenciesDir, selectedDependencyDir, 'Downloaded');
         const extractedDir = path.join(dependenciesDir, selectedDependencyDir, 'Extracted');
         const carFiles = fs.readdirSync(downloadedDir).filter(file => file.endsWith('.car'));
