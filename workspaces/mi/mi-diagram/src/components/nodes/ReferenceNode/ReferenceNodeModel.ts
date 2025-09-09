@@ -70,6 +70,7 @@ export class ReferenceNodeModel extends BaseNodeModel {
         }
 
         const dmName = config.split("/")[config.split("/").length - 1].split(".")[0];
+        const description = ((this.stNode as Datamapper)?.description) ?? "";
         if (dmName === "") {
             return;
         }
@@ -134,7 +135,8 @@ export class ReferenceNodeModel extends BaseNodeModel {
                                 migratedOutputSchemaPath: migratedOutputSchemaPath,
                                 range: this.stNode.range,
                                 documentUri: this.documentUri,
-                                tsFilePath: tsFilePath
+                                tsFilePath: tsFilePath,
+                                description: description
                             }
                         },
                         isPopup: true
