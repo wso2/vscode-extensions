@@ -101,6 +101,7 @@ export interface DataMapperMigrationFormProps {
     range?: any;
     documentUri?: string;
     tsFilePath?: string;
+    description?: string;
 }
 
 export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
@@ -292,10 +293,11 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
                                     console.warn('Failed to format the TypeScript file, but file was written successfully:', formatError);
                                 }
 
+                                const configNameWithoutExtension = props.configName.endsWith('.dmc') ? props.configName.slice(0, -4) : props.configName;
                                 const values = {
-                                    description: '',
+                                    description: props.description,
                                     inputType: '',
-                                    name: `resources:datamapper/${props.configName}`,
+                                    name: `resources:datamapper/${configNameWithoutExtension}`,
                                     outputType: ''
                                 };
 
