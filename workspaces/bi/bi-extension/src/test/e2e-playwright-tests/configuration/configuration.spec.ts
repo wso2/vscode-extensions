@@ -60,11 +60,13 @@ export default function createTests() {
                     },
                     'Variable Type': {
                         type: 'textarea',
-                        value: 'int'
+                        value: 'int',
+                        additionalProps: { clickLabel: true }
                     },
                     'Default Value': {
                         type: 'textarea',
-                        value: '100'
+                        value: '100',
+                        additionalProps: { clickLabel: true }
                     }
                 }
             });
@@ -83,7 +85,8 @@ export default function createTests() {
                 values: {
                     'Default Value': {
                         type: 'textarea',
-                        value: '200'
+                        value: '200',
+                        additionalProps: { clickLabel: true }
                     }
                 }
             });
@@ -107,7 +110,8 @@ export default function createTests() {
                     },
                     'Variable Type': {
                         type: 'textarea',
-                        value: 'string'
+                        value: 'string',
+                        additionalProps: { clickLabel: true }
                     }
                 }
             });
@@ -127,7 +131,8 @@ export default function createTests() {
                     },
                     'Variable Type': {
                         type: 'textarea',
-                        value: 'string'
+                        value: 'string',
+                        additionalProps: { clickLabel: true }
                     }
                 }
             });

@@ -17,7 +17,7 @@
  */
 
 import { Frame, Locator, Page } from '@playwright/test';
-import { Form } from '@wso2/playwright-vscode-tester';
+import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 
 /**
  * Utility class for type editor test operations
@@ -45,11 +45,18 @@ export class TypeEditorUtils {
     /**
      * Fill a type field (double-click and type)
      */
-    async fillTypeField(index: number = 0, value: string): Promise<void> {
+    async fillTypeField(index: number = 0, value: string, title?: string): Promise<void> {
         const field = this.webView.locator('[data-testid="type-field"]').nth(index);
         await this.waitForElement(field);
         await field.dblclick();
         await field.type(value);
+        if (title) {
+            const iframe = await switchToIFrame('WSO2 Integrator: BI', this.page);
+            if (!iframe) {
+                throw new Error('WSO2 Integrator: BI iframe not found');
+            }
+            await iframe.getByText(title).click();
+        }
     }
 
     /**
@@ -89,16 +96,18 @@ export class TypeEditorUtils {
         const lastIndex = fieldCount - 1;
 
         await this.fillIdentifierField(lastIndex, fieldName);
-        await this.fillTypeField(lastIndex, fieldType);
+        await this.fillTypeField(lastIndex, fieldType, 'Fields');
     }
 
     /**
      * Add a function to service class
      */
-    async addFunction(functionName: string, returnType: string): Promise<void> {
+    async addFunction(functionName: string, returnType: string, sectionName?: string): Promise<void> {
+        console.log(`Adding function: ${functionName} with return type: ${returnType}`);
         const addButton = this.webView.locator('[data-testid="function-add-button"]');
         await this.waitForElement(addButton);
         await addButton.click();
+        console.log('Clicked Add Function button');
 
         // Fill the newly added function (last in the form)
         const identifierFields = this.webView.locator('[data-testid="identifier-field"]');
@@ -107,7 +116,9 @@ export class TypeEditorUtils {
         const lastIndex = fieldCount - 1;
 
         await this.fillIdentifierField(lastIndex, functionName);
-        await this.fillTypeField(lastIndex, returnType);
+        console.log(`Filled function name: ${functionName}`);
+        await this.fillTypeField(lastIndex, returnType, sectionName);
+        console.log(`Filled return type: ${returnType}`);
     }
 
     /**
@@ -223,7 +234,7 @@ export class TypeEditorUtils {
 
         // Fill union types
         for (let i = 0; i < types.length; i++) {
-            await this.fillTypeField(i, types[i]);
+            await this.fillTypeField(i, types[i], 'Members');
         }
 
         return form;
@@ -250,7 +261,7 @@ export class TypeEditorUtils {
 
         // Add functions
         for (const func of functions) {
-            await this.addFunction(func.name, func.returnType);
+            await this.addFunction(func.name, func.returnType, 'Resource Methods');
         }
 
         return form;
