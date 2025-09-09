@@ -44,6 +44,8 @@ import {
     ParentMetadata,
     NodeMetadata,
     SearchKind,
+    Item,
+    ProjectStructureArtifactResponse,
 } from "@wso2/ballerina-core";
 
 import {
@@ -925,17 +927,27 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 await handleVectorKnowledgeBaseAdded();
                 return;
             }
-            if (isCreatingNewDataLoader.current) {
-                isCreatingNewDataLoader.current = false;
-                await handleDataLoaderAdded();
-                return;
-            }
-            if (isCreatingNewChunker.current) {
-                isCreatingNewChunker.current = false;
-                await handleChunkerAdded();
-                return;
-            }
+            await rpcClient.getVisualizerRpcClient().openView({
+                type: EVENT_TYPE.UPDATE_PROJECT_LOCATION,
+                location: {
+                    documentUri: currentArtifact.path,
+                    position: currentArtifact.position,
+                    identifier: currentIdentifier,
+                },
+            });
         }
+        handleOnCloseSidePanel();
+        if (isCreatingNewDataLoader.current) {
+            isCreatingNewDataLoader.current = false;
+            await handleDataLoaderAdded();
+            return;
+        }
+        if (isCreatingNewChunker.current) {
+            isCreatingNewChunker.current = false;
+            await handleChunkerAdded();
+            return;
+        }
+
         await rpcClient.getVisualizerRpcClient().openView({
             type: EVENT_TYPE.UPDATE_PROJECT_LOCATION,
             location: {
