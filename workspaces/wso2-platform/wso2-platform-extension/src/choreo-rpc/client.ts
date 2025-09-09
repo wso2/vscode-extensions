@@ -148,7 +148,6 @@ export class RPCClient {
 				await this.init();
 				return this.sendRequest(method, params, timeout, true);
 			}
-			getLogger().error("Error sending request", e);
 			handlerError(e);
 			throw e;
 		}
