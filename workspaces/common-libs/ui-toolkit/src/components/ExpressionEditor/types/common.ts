@@ -79,6 +79,11 @@ type TextEdit = {
     };
 };
 
+export type LabelInfo = {
+    detail?: string;
+    description?: string;
+}
+
 /**
  * Represents an item that can appear in the auto-completion dropdown
  *
@@ -102,6 +107,7 @@ export type CompletionItem = {
     sortText?: string;
     cursorOffset?: number;
     additionalTextEdits?: TextEdit[];
+    labelDetails?: LabelInfo;
 };
 
 /* <------ Types related to the expression editor ------> */
@@ -194,7 +200,7 @@ export type ExpressionEditorRef = {
 
 /* <------ Types related to the helper pane ------> */
 
-export type HelperPaneOrigin = 'bottom' | 'top' | 'left' | 'right' | 'auto';
+export type HelperPaneOrigin = 'bottom' | 'left' | 'right' | 'auto' | 'vertical' | 'top';
 
 export type HelperPaneHeight = 'full' | '3/4' | 'default';
 

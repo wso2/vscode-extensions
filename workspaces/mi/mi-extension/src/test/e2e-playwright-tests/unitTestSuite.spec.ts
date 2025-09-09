@@ -163,13 +163,13 @@ export default function createTests() {
               assertions: [
                 {
                   type: 'Assert Equals',
-                  actualExpression: 'var!=null',
-                  expectedValue: 'true',
+                  actualExpression: 'Payload',
+                  expectedValue: '{ "key": "value" }',
                   errorMessage: 'Assertion failed'
                 },
                 {
                   type: 'Assert Not Null',
-                  actualExpression: 'var==null',
+                  actualExpression: 'Status Code',
                   errorMessage: 'Assertion failed'
                 }
               ]

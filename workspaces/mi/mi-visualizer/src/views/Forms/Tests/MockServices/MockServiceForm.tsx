@@ -140,14 +140,20 @@ export function MockServiceForm(props: MockServiceFormProps) {
                                 ]
                             });
                         }
+                        // Strip CDATA tags if they exist to prevent duplication
+                        const requestPayload = resource?.request?.payload?.textNode;
+                        const responsePayload = resource?.response?.payload?.textNode;
+                        const expectedRequestPayload = requestPayload?.startsWith("<![CDATA[") ? requestPayload.slice(9, -3) : requestPayload;
+                        const expectedResponsePayload = responsePayload?.startsWith("<![CDATA[") ? responsePayload.slice(9, -3) : responsePayload;
+                        
                         return {
                             subContext: resource?.subContext?.textNode,
                             method: resource?.method?.textNode,
                             requestHeaders,
-                            expectedRequestPayload: resource?.request?.payload?.textNode,
+                            expectedRequestPayload,
                             responseStatusCode: resource?.response?.statusCode?.textNode,
                             responseHeaders,
-                            expectedResponsePayload: resource?.response?.payload?.textNode
+                            expectedResponsePayload
                         }
                     });
                     setMockResources(resources);
@@ -155,7 +161,7 @@ export function MockServiceForm(props: MockServiceFormProps) {
                 reset({
                     name: fileName,
                     endpointName: mockService.serviceName?.textNode,
-                    servicePort: parseInt(mockService?.port?.textNode || '0'),
+                    servicePort: parseInt(mockService?.port?.textNode || '9090'),
                     serviceContext: mockService?.context?.textNode
                 });
                 setIsLoaded(true);
@@ -163,9 +169,8 @@ export function MockServiceForm(props: MockServiceFormProps) {
             }
 
             reset({
-                name: "",
                 endpointName: "",
-                servicePort: 0,
+                servicePort: 9090,
                 serviceContext: "/"
             });
             setIsLoaded(true);
@@ -283,6 +288,7 @@ export function MockServiceForm(props: MockServiceFormProps) {
                     name="endpointName"
                     filterType="endpoint"
                     path={props.filePath}
+                    required
                     errorMsg={errors.endpointName?.message.toString()}
                     {...register("endpointName")}
                 />
