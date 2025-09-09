@@ -91,6 +91,19 @@ export async function importCapp(params: ImportProjectRequest): Promise<ImportPr
 
     let { projectName, groupId, artifactId, version } = getProjectDetails(path.basename(source));
 
+    // If extractFolderPath contains descriptor.xml get project details from there
+    const descriptorPath = path.join(extractFolderPath, "descriptor.xml");
+    if (fs.existsSync(descriptorPath)) {
+        const descriptorContent = fs.readFileSync(descriptorPath, "utf-8");
+        const descriptorInfo = xmlParser.parse(descriptorContent);
+        const id = descriptorInfo["project"]["id"];
+        const idMatch = id.match(/^(.+?)__(.+?)__(\d+(?:\.\d+){0,2}(?:-[\w\d]+)?)$/);
+        projectName = idMatch ? idMatch[2] : projectName;
+        groupId = idMatch ? idMatch[1] : groupId;
+        artifactId = projectName;
+        version = idMatch ? idMatch[3] : version;
+    }
+
     if (projectName && groupId && artifactId && version) {
         const folderStructure: FileStructure = {
             'pom.xml': rootPomXmlContent(projectName, groupId, artifactId, projectUuid, version, LATEST_MI_VERSION, ""),
