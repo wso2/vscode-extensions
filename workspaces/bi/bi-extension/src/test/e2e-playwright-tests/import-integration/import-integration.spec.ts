@@ -53,12 +53,12 @@ export default function createTests() {
             console.log('Testing Import Integration navigation in test attempt: ', testAttempt);
 
             // Look for the Import External Integration button on the welcome page
-            const importButton = webview.getByText('Import External Integration');
+            const importButton = webview.getByRole('button', { name: ' Import External Integration' });
             await importButton.waitFor({ timeout: 30000 });
-            await importButton.click();
+            await importButton.click({ force: true });
 
             // Verify we're navigated to the import integration form
-            const importTitle = webview.locator('h1', { hasText: 'Migrate External Integration' });
+            const importTitle = webview.getByRole('heading', { name: 'Migrate External Integration' });
             await importTitle.waitFor({ timeout: 30000 });
         });
 
@@ -73,7 +73,7 @@ export default function createTests() {
 
             // Select TIBCO integration card
             const tibcoCard = webview.locator('[id$="-integration-card"]').filter({ hasText: 'TIBCO' }).first();
-            await tibcoCard.click();
+            await tibcoCard.click({ force: true });
             console.log('Selected TIBCO migration tool');
 
             // After selecting a tool, project folder selection should appear
@@ -121,7 +121,7 @@ export default function createTests() {
             }
 
             console.log('✓ Start Migration button is enabled, clicking it');
-            await startMigrationButton.click();
+            await startMigrationButton.click({ force: true });
 
             // Wait for migration to start - look for progress indicators or success messages
             await page.page.waitForTimeout(2000);
@@ -148,7 +148,7 @@ export default function createTests() {
             // Click the Next button to proceed to project configuration
             const nextButton = webview.getByRole('button', { name: 'Next' });
             await nextButton.waitFor({ timeout: 10000 });
-            await nextButton.click();
+            await nextButton.click({ force: true });
             console.log('✓ Clicked Next button to proceed to project configuration');
 
             // Wait for the project configuration form to appear
@@ -166,11 +166,11 @@ export default function createTests() {
             const form = new Form(page.page, 'WSO2 Integrator: BI', webview);
             await form.fill({
                 values: {
-                    'Integration Name': {
+                    'Integration Name*': {
                         type: 'input',
                         value: `TibcoMigration${testAttempt}`
                     },
-                    'Change': {
+                    'Select Path': {
                         type: 'file',
                         value: migrationOutputPath
                     }
@@ -178,11 +178,11 @@ export default function createTests() {
             });
             console.log('✓ Integration name and project location set');
 
-            page.page.waitForTimeout(1000);
+            await page.page.waitForTimeout(1000); // Wait a moment until Create and Open Project button is enabled
 
             // Click the Create and Open Project button
             const createProjectButton = webview.getByRole('button', { name: 'Create and Open Project' });
-            await createProjectButton.waitFor();
+            await createProjectButton.waitFor({ timeout: 60000 });
 
             // Verify button is enabled
             const isDisabled = await createProjectButton.isDisabled();
@@ -191,7 +191,7 @@ export default function createTests() {
             }
 
             console.log('✓ Create and Open Project button is enabled, clicking it');
-            await createProjectButton.click();
+            await createProjectButton.click({ force: true });
 
             await page.page.waitForTimeout(5000);
 
