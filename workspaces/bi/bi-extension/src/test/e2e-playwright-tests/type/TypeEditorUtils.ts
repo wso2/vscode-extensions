@@ -50,11 +50,19 @@ export class TypeEditorUtils {
         await this.waitForElement(field);
         await field.dblclick();
         await field.type(value);
-        if (title) {
-            const iframe = await switchToIFrame('WSO2 Integrator: BI', this.page);
+        let iframe;
+        try {
+            // This is due to an implementation issue with the type dropdown in the type editor
+            iframe = await switchToIFrame('WSO2 Integrator: BI', this.page);
             if (!iframe) {
                 throw new Error('WSO2 Integrator: BI iframe not found');
             }
+            await iframe.getByRole('button', { name: ` ${value}`, exact: true }).click();
+        } catch (error) {
+            console.error('Error switching to iframe:', error);
+            throw error;
+        }
+        if (title) {
             await iframe.getByText(title).click();
         }
     }
