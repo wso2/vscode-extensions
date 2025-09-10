@@ -46,9 +46,6 @@ export default function createTests() {
             // Verify Configurable Variables view
             await configEditor.verifyPageLoaded();
 
-            // Create a new configurable variable
-            await configEditor.addNewConfigurableVariable();
-
             // Fill the form fields
             const form = new Form(page.page, 'WSO2 Integrator: BI', configurationWebView);
             await form.switchToFormView(false, configurationWebView);
