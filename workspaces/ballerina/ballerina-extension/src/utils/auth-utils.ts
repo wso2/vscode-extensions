@@ -21,6 +21,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { extensions } from 'vscode';
 import { IWso2PlatformExtensionAPI } from "@wso2/wso2-platform-core";
+import { extension } from 'src/BalExtensionContext';
 
 /**
  * Checks if we're running in a cloud editor environment
@@ -36,7 +37,7 @@ export function isCloudEditorEnvironment(): boolean {
  */
 export async function getCurrentAccessToken(): Promise<string | undefined> {
     try {
-        const settingsPath = path.join(os.homedir(), '.ballerina', 'Settings.toml');
+        const settingsPath = path.join(extension.ballerinaExtInstance.getBallerinaUserHome(), '.ballerina', 'Settings.toml');
         
         if (!fs.existsSync(settingsPath)) {
             return undefined;

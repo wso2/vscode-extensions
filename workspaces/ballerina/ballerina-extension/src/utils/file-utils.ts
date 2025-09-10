@@ -385,12 +385,10 @@ function getGitHubRawFileUrl(githubFileUrl) {
 }
 
 async function resolveModules(langClient: ExtendedLangClient, pathValue) {
-    console.log("#### resolveModules");
     const isBallerinProject = findBallerinaTomlFile(pathValue);
     if (isBallerinProject) {
         // Update STS token for cloud editor before resolving modules
         if (process.env.CLOUD_STS_TOKEN) {
-            console.log('#### Updating STS token for cloud editor');
             try {
                 const stsToken = await getDevantStsToken();
                 if (stsToken && stsToken.trim() !== "") {
