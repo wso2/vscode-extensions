@@ -350,6 +350,7 @@ const connectorsPath = path.join(".metadata", ".Connectors");
 const undoRedo = new UndoRedoManager();
 
 const connectorCache = new Map<string, any>();
+const legacyConnectorCache = new Map<string, any>();
 
 export class MiDiagramRpcManager implements MiDiagramAPI {
     constructor(private projectUri: string) { }
@@ -4274,21 +4275,34 @@ ${endpointAttributes}
     async getStoreConnectorJSON(miVersion?: string): Promise<StoreConnectorJsonResponse> {
         return new Promise(async (resolve) => {
             try {
-                if (connectorCache.has('inbound-connector-data') && connectorCache.has('outbound-connector-data') && connectorCache.has('connectors')) {
-                    resolve({ inboundConnectors: connectorCache.get('inbound-connector-data'), outboundConnectors: connectorCache.get('outbound-connector-data'), connectors: connectorCache.get('connectors') });
-                    return;
-                }
                 const runtimeVersion = miVersion ? miVersion : await getMIVersionFromPom(this.projectUri);
+                if (runtimeVersion) {
+                    const connectors = compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0 ? connectorCache : legacyConnectorCache;
+                    if (connectors.has('inbound-connector-data') && connectors.has('outbound-connector-data') && connectors.has('connectors')) {
+                        resolve({ inboundConnectors: connectors.get('inbound-connector-data'), outboundConnectors: connectors.get('outbound-connector-data'), connectors: connectors.get('connectors') });
+                        return;
+                    }
+                }
 
                 const response = await fetch(APIS.MI_CONNECTOR_STORE);
                 const connectorStoreResponse = await fetch(APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? ''));
                 const data = await response.json();
                 const connectorStoreData = await connectorStoreResponse.json();
                 if (data && data['inbound-connector-data'] && data['outbound-connector-data']) {
-                    connectorCache.set('inbound-connector-data', data['inbound-connector-data']);
-                    connectorCache.set('outbound-connector-data', data['outbound-connector-data']);
-                    if (connectorStoreData) {
-                        connectorCache.set('connectors', connectorStoreData);
+                    if (runtimeVersion) {
+                        if (compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0) {
+                            connectorCache.set('inbound-connector-data', data['inbound-connector-data']);
+                            connectorCache.set('outbound-connector-data', data['outbound-connector-data']);
+                            if (connectorStoreData) {
+                                connectorCache.set('connectors', connectorStoreData);
+                            }
+                        } else {
+                            legacyConnectorCache.set('inbound-connector-data', data['inbound-connector-data']);
+                            legacyConnectorCache.set('outbound-connector-data', data['outbound-connector-data']);
+                            if (connectorStoreData) {
+                                legacyConnectorCache.set('connectors', connectorStoreData);
+                            }
+                        }
                     }
                     resolve({ inboundConnectors: data['inbound-connector-data'], outboundConnectors: data['outbound-connector-data'], connectors: connectorStoreData });
                 } else {
@@ -4305,7 +4319,12 @@ ${endpointAttributes}
 
     async getConnectorIcon(params: GetConnectorIconRequest): Promise<GetConnectorIconResponse> {
         return new Promise(async (resolve) => {
-            const iconCache = connectorCache.get('connector-icon-data');
+            const runtimeVersion = await getMIVersionFromPom(this.projectUri);
+            let iconCache;
+            if (runtimeVersion) {
+                iconCache = compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0 ?
+                    connectorCache.get('connector-icon-data') : legacyConnectorCache.get('connector-icon-data');
+            }
 
             if (iconCache && iconCache.hasOwnProperty(params.connectorName) && iconCache[params.connectorName]) {
                 resolve({ iconPath: iconCache[params.connectorName] });
@@ -4325,11 +4344,22 @@ ${endpointAttributes}
                 }
 
                 // Get the latest cache state before updating
-                const latestIconCache = connectorCache.get('connector-icon-data') || {};
-                connectorCache.set('connector-icon-data', {
-                    ...latestIconCache,
-                    [params.connectorName]: connectorIcon
-                });
+                let latestIconCache;
+                if (runtimeVersion) {
+                    if(compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0) {
+                        latestIconCache = connectorCache.get('connector-icon-data') || {};
+                        connectorCache.set('connector-icon-data', {
+                            ...latestIconCache,
+                            [params.connectorName]: connectorIcon
+                        });
+                    } else {
+                        latestIconCache = legacyConnectorCache.get('connector-icon-data') || {};
+                        legacyConnectorCache.set('connector-icon-data', {
+                            ...latestIconCache,
+                            [params.connectorName]: connectorIcon
+                        });
+                    }
+                }
 
                 resolve ({ iconPath: connectorIcon });
             }

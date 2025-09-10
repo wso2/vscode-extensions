@@ -79,6 +79,11 @@ type TextEdit = {
     };
 };
 
+export type LabelInfo = {
+    detail?: string;
+    description?: string;
+}
+
 /**
  * Represents an item that can appear in the auto-completion dropdown
  *
@@ -102,6 +107,7 @@ export type CompletionItem = {
     sortText?: string;
     cursorOffset?: number;
     additionalTextEdits?: TextEdit[];
+    labelDetails?: LabelInfo;
 };
 
 /* <------ Types related to the expression editor ------> */
