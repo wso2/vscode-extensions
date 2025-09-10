@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { CommandIds, ComponentKind, type ContextStoreComponentState, type ICommitAndPuhCmdParams, parseGitURL } from "@wso2/wso2-platform-core";
+import { CommandIds, ComponentKind, type ContextStoreComponentState, GitProvider, type ICommitAndPuhCmdParams, parseGitURL } from "@wso2/wso2-platform-core";
 import { type ExtensionContext, ProgressLocation, type QuickPickItem, Uri, commands, env, window, workspace } from "vscode";
 import { ext } from "../extensionVariables";
 import { initGit } from "../git/main";
@@ -112,7 +112,7 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 						try {
 							const repoUrl = remotes[0].fetchUrl;
 							const parsed = parseGitURL(repoUrl);
-							if (parsed) {
+							if (parsed && parsed[2] === GitProvider.GITHUB) {
 								const [repoOrg, repoName] = parsed;
 								const urlObj = new URL(repoUrl);
 								getLogger().debug(`Fetching PAT for org ${repoOrg} and repo ${repoName}`);
