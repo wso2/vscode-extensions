@@ -48,6 +48,7 @@ import connectionArtifact from './other-artifacts/connection.spec';
 
 import configuration from './configuration/configuration.spec';
 import typeTest from './type/type.spec';
+import serviceTest from './service-class-designer/service-class.spec';
 
 import importIntegration from './import-integration/import-integration.spec';
 
@@ -92,6 +93,7 @@ test.describe(typeDiagramArtifact); // TODO: Fix this test
 test.describe(connectionArtifact);
 test.describe(configuration); // TODO: Fix this test
 test.describe(typeTest);
+test.describe(serviceTest);
 
 // <----Import Integration Test---->
 test.describe(importIntegration);
