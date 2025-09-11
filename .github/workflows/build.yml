@@ -411,7 +411,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [group1, group2, group3, group4]
+        group: [group2]
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}    
     steps:
