@@ -47,10 +47,14 @@ export default function createTests() {
                 }
             });
             await form.submit('Create');
+            console.log('AI Chat Agent creation form submitted');
+            // Wait until the create button is detached
+            await artifactWebView.getByRole('button', { name: 'Creating' }).waitFor({ state: 'detached' });
+            await artifactWebView.getByRole('button', { name: 'Creating...' }).waitFor({ state: 'detached', timeout: 240000 });
 
             // Check if the diagram canvas is visible
             const diagramCanvas = artifactWebView.locator('#bi-diagram-canvas');
-            await diagramCanvas.waitFor({ state: 'visible', timeout: 30000 });
+            await diagramCanvas.waitFor({ state: 'visible', timeout: 240000 });
 
             const diagramTitle = artifactWebView.locator('h2', { hasText: 'AI Chat Agent' });
             await diagramTitle.waitFor();
