@@ -130,6 +130,24 @@ export class DataMapper {
         await this.importSchema(IOType.Output, SchemaType.Json, outputJsonFile);
     }
 
+    /**
+     * Waits for the outline style of an element to not include 'none'.
+     */
+    public async waitForOutline(locator: Locator, timeout = 5000) {
+        const start = Date.now();
+        while (true) {
+            console.log('Checking outline style...');
+            const outline = await locator.evaluate(el => window.getComputedStyle(el).outline);
+            if (outline && !outline.includes('none')) {
+                return;
+            }
+            if (Date.now() - start > timeout) {
+                throw new Error('Timeout waiting for outline style to be set');
+            }
+            await new Promise(res => setTimeout(res, 100));
+        }
+    }
+
     public async mapFields(sourceFieldFQN: string, targetFieldFQN: string, menuOptionId?: string) {
 
         const sourceField = this.webView.locator(`div[id="recordfield-${sourceFieldFQN}"]`);
@@ -139,6 +157,7 @@ export class DataMapper {
         await sourceField.waitFor();
 
         await sourceField.click({force: true});
+        await this.waitForOutline(sourceField, 30000);
         await targetField.click({force: true});
 
         if (menuOptionId) {
