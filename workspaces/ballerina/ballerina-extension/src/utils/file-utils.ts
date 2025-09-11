@@ -15,7 +15,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { window, Uri, workspace, ProgressLocation, ConfigurationTarget, MessageItem, Progress, commands, StatusBarAlignment, languages, Range, Selection, ViewColumn } from "vscode";
+import { window, Uri, workspace, ProgressLocation, ConfigurationTarget, MessageItem, Progress, commands, StatusBarAlignment, languages, Range, Selection, ViewColumn, extensions } from "vscode";
 import { SyntaxTree } from "@wso2/ballerina-core";
 import axios from "axios";
 import { createHash } from "crypto";
@@ -38,6 +38,7 @@ import {
 } from "../features/telemetry";
 import { NodePosition } from "@wso2/syntax-tree";
 import { existsSync } from "fs";
+import { updateBallerinaSettingsWithStsToken, getCurrentAccessToken, shouldUpdateToken, getDevantStsToken } from "./auth-utils";
 interface ProgressMessage {
     message: string;
     increment?: number;
@@ -386,6 +387,25 @@ function getGitHubRawFileUrl(githubFileUrl) {
 async function resolveModules(langClient: ExtendedLangClient, pathValue) {
     const isBallerinProject = findBallerinaTomlFile(pathValue);
     if (isBallerinProject) {
+        // Update STS token for cloud editor before resolving modules
+        if (process.env.CLOUD_STS_TOKEN) {
+            try {
+                const stsToken = await getDevantStsToken();
+                if (stsToken && stsToken.trim() !== "") {
+                    const currentToken = await getCurrentAccessToken();
+                    
+                    // Only update if token needs updating
+                    if (shouldUpdateToken(currentToken, stsToken)) {
+                        await updateBallerinaSettingsWithStsToken(stsToken);
+                        console.log('STS token updated for module resolution in cloud editor');
+                    }
+                }
+            } catch (error) {
+                console.warn('Failed to update STS token for module resolution:', error);
+                // Continue with module resolution even if token update fails
+            }
+        }
+
         // Create a status bar item for the build notification
         buildStatusItem.text = "$(sync~spin) Pulling modules...";
         buildStatusItem.tooltip = "Pulling the missing ballerina modules.";
