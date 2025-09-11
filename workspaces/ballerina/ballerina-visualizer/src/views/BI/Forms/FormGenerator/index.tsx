@@ -19,7 +19,6 @@
 import { RefObject, useCallback, useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import {
     EVENT_TYPE,
-    ColorThemeKind,
     FlowNode,
     LineRange,
     NodePosition,
@@ -36,7 +35,10 @@ import {
     RecordTypeField,
     Imports,
     CodeData,
-    VisualizableField
+    VisualizableField,
+    Member,
+    TypeNodeKind,
+    NodeKind
 } from "@wso2/ballerina-core";
 import {
     FormField,
@@ -80,12 +82,19 @@ import {
     updateNodeWithProperties,
 } from "../form-utils";
 import ForkForm from "../ForkForm";
-import { getHelperPane } from "../../HelperPane";
 import { FormTypeEditor } from "../../TypeEditor";
 import { getTypeHelper } from "../../TypeHelper";
 import { EXPRESSION_EXTRACTION_REGEX } from "../../../../constants";
 import MatchForm from "../MatchForm";
+import { FormSubmitOptions } from "../../FlowDiagram";
+import { getHelperPaneNew } from "../../HelperPaneNew";
+import { VariableForm } from "../DeclareVariableForm";
 import VectorKnowledgeBaseForm from "../VectorKnowledgeBaseForm";
+import { EditorContext, StackItem } from "@wso2/type-editor";
+import DynamicModal from "../../../../components/Modal";
+import React from "react";
+import { SidePanelView } from "../../FlowDiagram/PanelManager";
+import { ConnectionKind } from "../../../../components/ConnectionSelector";
 
 interface TypeEditorState {
     isOpen: boolean;
@@ -116,11 +125,14 @@ interface FormProps {
         description?: string; // Optional description explaining what the action button does
         callback: () => void;
     };
+    handleOnFormSubmit?: (updatedNode?: FlowNode, openInDataMapper?: boolean, options?: FormSubmitOptions) => void;
+    isInModal?: boolean;
     scopeFieldAddon?: React.ReactNode;
     newServerUrl?: string;
     onChange?: (fieldKey: string, value: any, allValues: FormValues) => void;
     mcpTools?: { name: string; description?: string }[];
     onToolsChange?: (selectedTools: string[]) => void;
+    navigateToPanel?: (panel: SidePanelView, connectionKind?: ConnectionKind) => void;
 }
 
 // Styled component for the action button description
@@ -146,6 +158,30 @@ const StyledActionButton = styled(Button)`
     }
 `;
 
+export const BreadcrumbContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    background: ${ThemeColors.SURFACE_CONTAINER};
+    border-bottom: 1px solid ${ThemeColors.OUTLINE_VARIANT};
+`;
+
+export const BreadcrumbItem = styled.span`
+    color: ${ThemeColors.ON_SURFACE_VARIANT};
+    font-size: var(--vscode-font-size);
+    
+    &:last-child {
+        color: ${ThemeColors.ON_SURFACE};
+        font-weight: 500;
+    }
+`;
+
+export const BreadcrumbSeparator = styled.span`
+    color: ${ThemeColors.ON_SURFACE_VARIANT};
+    font-size: var(--vscode-font-size);
+`;
+
 export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(function FormGenerator(props: FormProps, ref: React.ForwardedRef<FormExpressionEditorRef>) {
     const {
         fileName,
@@ -165,6 +201,8 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         disableSaveButton,
         actionButtonConfig,
         submitText,
+        handleOnFormSubmit,
+        isInModal,
         scopeFieldAddon,
         newServerUrl,
         onChange,
@@ -172,12 +210,12 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
     } = props;
 
     const { rpcClient } = useRpcContext();
-
     const [fields, setFields] = useState<FormField[]>([]);
     const [formImports, setFormImports] = useState<FormImports>({});
     const [typeEditorState, setTypeEditorState] = useState<TypeEditorState>({ isOpen: false, newTypeValue: "" });
     const [visualizableField, setVisualizableField] = useState<VisualizableField>();
     const [recordTypeFields, setRecordTypeFields] = useState<RecordTypeField[]>([]);
+    const [valueTypeConstraints, setValueTypeConstraints] = useState<string | string[]>([]);
 
     /* Expression editor related state and ref variables */
     const prevCompletionFetchText = useRef<string>("");
@@ -186,7 +224,75 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
     const [types, setTypes] = useState<CompletionItem[]>([]);
     const [filteredTypes, setFilteredTypes] = useState<CompletionItem[]>([]);
     const expressionOffsetRef = useRef<number>(0); // To track the expression offset on adding import statements
+
+    const [selectedType, setSelectedType] = useState<CompletionItem | null>(null);
+
     const importsCodedataRef = useRef<any>(null); // To store codeData for getVisualizableFields
+
+    //stack for recursive type creation
+    const [stack, setStack] = useState<StackItem[]>([{
+        isDirty: false,
+        type: undefined
+    }]);
+    const [refetchStates, setRefetchStates] = useState<boolean[]>([false]);
+
+    const pushTypeStack = (item: StackItem) => {
+        setStack((prev) => [...prev, item]);
+        setRefetchStates((prev) => [...prev, false]);
+    };
+
+    const popTypeStack = () => {
+        setStack((prev) => {
+            const newStack = prev.slice(0, -1);
+            // If stack becomes empty, reset to initial state
+            if (newStack.length === 0) {
+                return [{
+                    isDirty: false,
+                    type: undefined
+                }];
+            }
+            return newStack;
+        });
+        setRefetchStates((prev) => {
+            const newStates = [...prev];
+            const currentState = newStates.pop();
+            if (currentState && newStates.length > 0) {
+                newStates[newStates.length - 1] = true;
+            }
+            // If no states left, add initial state
+            if (newStates.length === 0) {
+                newStates.push(false);
+            }
+            return newStates;
+        });
+    };
+
+    const peekTypeStack = (): StackItem | null => {
+        return stack.length > 0 ? stack[stack.length - 1] : null;
+    };
+
+    const replaceTop = (item: StackItem) => {
+        if (stack.length === 0) return;
+        setStack((prev) => {
+            const newStack = [...prev];
+            newStack[newStack.length - 1] = item;
+            return newStack;
+        });
+    }
+
+    const resetStack = () => {
+        setStack([getDefaultValue()]);
+    }
+
+    const setRefetchForCurrentModal = (shouldRefetch: boolean) => {
+        setRefetchStates((prev) => {
+            const newStates = [...prev];
+            if (newStates.length > 0) {
+                newStates[newStates.length - 1] = shouldRefetch;
+            }
+            return newStates;
+        });
+    };
 
     useEffect(() => {
         if (rpcClient) {
@@ -269,7 +375,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         if (node.codedata.node === "VARIABLE") {
             const codedata = importsCodedataRef.current || { symbol: formProperties?.type.value };
             rpcClient
-                .getInlineDataMapperRpcClient()
+                .getDataMapperRpcClient()
                 .getVisualizableFields({ filePath: fileName, codedata })
                 .then((res) => {
                     setVisualizableField(res.visualizableProperties);
@@ -344,6 +450,17 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         setFields(updatedFields);
         setTypeEditorState({ isOpen, fieldKey: editingField?.key, newTypeValue: f[editingField?.key] });
     };
+
+    const handleTypeEditorStateChange = (state: boolean) => {
+        if (!state) {
+            if (stack.length > 1) {
+                popTypeStack();
+                return;
+            }
+            resetStack();
+        }
+        setTypeEditorState({ ...typeEditorState, isOpen: state });
+    }
 
     const handleUpdateImports = (key: string, imports: Imports, codedata?: CodeData) => {
         importsCodedataRef.current = codedata;
@@ -604,10 +721,6 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         handleExpressionEditorCancel();
     };
 
-    const onTypeEditorClosed = () => {
-        setTypeEditorState({ isOpen: false });
-    };
-
     const onTypeChange = async (type: Type) => {
         const updatedFields = fields.map((field) => {
             if (field.key === typeEditorState.fieldKey) {
@@ -615,8 +728,8 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             }
             return field;
         });
+        handleSelectedTypeByName(type.name);
         setFields(updatedFields);
-        setTypeEditorState({ isOpen: false });
     };
 
     const handleGetHelperPane = (
@@ -629,7 +742,8 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         changeHelperPaneState: (isOpen: boolean) => void,
         helperPaneHeight: HelperPaneHeight,
         recordTypeField?: RecordTypeField,
-        isAssignIdentifier?: boolean
+        isAssignIdentifier?: boolean,
+        defaultValueTypeConstraint?: string,
     ) => {
         const handleHelperPaneClose = () => {
             debouncedRetrieveCompletions.cancel();
@@ -637,7 +751,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             handleExpressionEditorCancel();
         }
 
-        return getHelperPane({
+        return getHelperPaneNew({
             fieldKey: fieldKey,
             fileName: fileName,
             targetLineRange: updateLineRange(targetLineRange, expressionOffsetRef.current),
@@ -650,7 +764,16 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             helperPaneHeight: helperPaneHeight,
             recordTypeField: recordTypeField,
             isAssignIdentifier: isAssignIdentifier,
-            updateImports: handleUpdateImports
+            updateImports: handleUpdateImports,
+            completions: completions,
+            projectPath: projectPath,
+            handleOnFormSubmit: handleOnFormSubmit,
+            selectedType: selectedType,
+            filteredCompletions: filteredCompletions,
+            isInModal: isInModal,
+            valueTypeConstraint: defaultValueTypeConstraint,
+            handleRetrieveCompletions: handleRetrieveCompletions,
+            forcedValueTypeConstraint: valueTypeConstraints,
         });
     };
 
@@ -665,6 +788,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         changeHelperPaneState: (isOpen: boolean) => void,
         typeHelperHeight: HelperPaneHeight,
         onTypeCreate: () => void,
+        exprRef?: RefObject<FormExpressionEditorRef>,
     ) => {
         const handleCreateNewType = (typeName: string) => {
             onTypeCreate();
@@ -690,7 +814,8 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             changeTypeHelperState: changeHelperPaneState,
             updateImports: handleUpdateImports,
             onTypeCreate: handleCreateNewType,
-            onCloseCompletions: handleCloseCompletions
+            onCloseCompletions: handleCloseCompletions,
+            exprRef: exprRef,
         });
     }
 
@@ -709,8 +834,9 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             onCompletionItemSelect: handleCompletionItemSelect,
             onBlur: handleExpressionEditorBlur,
             onCancel: handleExpressionEditorCancel,
-            helperPaneOrigin: "left",
-            helperPaneHeight: "full",
+            helperPaneOrigin: "vertical",
+            helperPaneHeight: "default",
+            helperPaneZIndex: isInModal ? 40001 : undefined,
         } as FormExpressionEditorProps;
     }, [
         filteredCompletions,
@@ -729,15 +855,113 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
     const fetchVisualizableFields = async (filePath: string, typeName?: string) => {
         const codedata = importsCodedataRef.current || { symbol: typeName };
         const res = await rpcClient
-            .getInlineDataMapperRpcClient()
-            .getVisualizableFields({ filePath, codedata});
+            .getDataMapperRpcClient()
+            .getVisualizableFields({ filePath, codedata });
         setVisualizableField(res.visualizableProperties);
         importsCodedataRef.current = {};
     };
 
-    const handleTypeCreate = (typeName?: string) => {
-        setTypeEditorState({ isOpen: true, newTypeValue: typeName, fieldKey: typeEditorState.fieldKey });
+    const onSaveType = (type: Type) => {
+        if (stack.length > 0) {
+            setRefetchForCurrentModal(true);
+            popTypeStack();
+        }
+        setTypeEditorState({ ...typeEditorState, isOpen: stack.length !== 1 });
+    }
+
+    /**
+     * Updates record type fields and value type constraints when a type is selected.
+     * This is used in variable declaration forms where the variable type dynamically changes.
+     */
+    const updateRecordTypeFields = (type?: { label: string; labelDetails?: { description?: string } }) => {
+        if (!type) {
+            setValueTypeConstraints([]);
+            return;
+        }
+        setValueTypeConstraints(type.label);
+
+        // If not a Record, remove the 'expression' entry from recordTypeFields and return
+        if (type?.labelDetails?.description !== "Record") {
+            setRecordTypeFields(prevFields => prevFields.filter(f => f.key !== "expression"));
+            return;
+        }
+
+        // Find the Expression property
+        const expressionEntry = Object.entries(getFormProperties(node))
+            .find(([_, property]) => property.metadata?.label === "Expression");
+
+        if (!expressionEntry) return;
+
+        const [key, property] = expressionEntry;
+        const recordTypeField = {
+            key,
+            property,
+            recordTypeMembers: [{
+                kind: "RECORD_TYPE",
+                type: type.label || "",
+                packageInfo: '',
+                selected: false
+            }]
+        };
+
+        setRecordTypeFields(prevFields => {
+            const prevIndex = prevFields.findIndex(f => f.key === key);
+            if (prevIndex !== -1) {
+                const updated = [...prevFields];
+                updated[prevIndex] = recordTypeField;
+                return updated;
+            } else {
+                return [...prevFields, recordTypeField];
+            }
+        });
     };
+
+    /**
+     * Handles type selection from completion items (used in type editor)
+     */
+    const handleSelectedTypeChange = (type: CompletionItem) => {
+        setSelectedType(type);
+        updateRecordTypeFields(type);
+    };
+
+    /**
+     * Handles type selection by type name (used when type is created/changed)
+     */
+    const handleSelectedTypeByName = async (typeName: string) => {
+        const newTypes = await rpcClient.getBIDiagramRpcClient().getVisibleTypes({
+            filePath: fileName,
+            position: updateLineRange(targetLineRange, expressionOffsetRef.current).startLine
+        });
+        const type = newTypes.find(t => t.label === typeName);
+        if (!type) return;
+
+        updateRecordTypeFields(type);
+    };
+
+    const getDefaultValue = () => {
+        return ({
+            type: {
+                name: "MyType",
+                members: [] as Member[],
+                editable: true,
+                metadata: {
+                    description: "",
+                    label: ""
+                },
+                properties: {},
+                codedata: {
+                    node: "RECORD" as TypeNodeKind
+                },
+                includes: [] as string[],
+                allowAdditionalFields: false
+            },
+            isDirty: false
+        })
+    }
+
+    const getNewTypeCreateForm = () => {
+        pushTypeStack(getDefaultValue());
+    }
 
     // handle if node form
     if (node?.codedata.node === "IF") {
@@ -808,6 +1032,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                 resetUpdatedExpressionField={resetUpdatedExpressionField}
                 subPanelView={subPanelView}
                 disableSaveButton={disableSaveButton}
+                navigateToPanel={props.navigateToPanel}
             />
         );
     }
@@ -834,9 +1059,82 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         </ActionButtonContainer>
     ) : undefined;
 
+    // handle declare variable node form
+    if (node?.codedata.node === "VARIABLE") {
+        return (
+            <EditorContext.Provider value={{ stack, push: pushTypeStack, pop: popTypeStack, peek: peekTypeStack, replaceTop: replaceTop }}>
+                <VariableForm
+                    formFields={fields}
+                    projectPath={projectPath}
+                    selectedNode={node.codedata.node}
+                    openRecordEditor={handleOpenTypeEditor}
+                    onSubmit={handleOnSubmit}
+                    openView={handleOpenView}
+                    openSubPanel={openSubPanel}
+                    subPanelView={subPanelView}
+                    expressionEditor={expressionEditor}
+                    targetLineRange={targetLineRange}
+                    fileName={fileName}
+                    isSaving={showProgressIndicator}
+                    submitText={submitText}
+                    updatedExpressionField={updatedExpressionField}
+                    resetUpdatedExpressionField={resetUpdatedExpressionField}
+                    mergeFormDataWithFlowNode={mergeFormDataWithFlowNode}
+                    handleVisualizableFields={fetchVisualizableFields}
+                    visualizableField={visualizableField}
+                    infoLabel={infoLabel}
+                    disableSaveButton={disableSaveButton}
+                    actionButton={actionButton}
+                    recordTypeFields={recordTypeFields}
+                    isInferredReturnType={!!node.codedata?.inferredReturnType}
+                    formImports={formImports}
+                    handleSelectedTypeChange={handleSelectedTypeChange}
+                    preserveOrder={node.codedata.node === "VARIABLE" as NodeKind || node.codedata.node === "CONFIG_VARIABLE" as NodeKind}
+                />
+                {
+                    stack.map((item, i) => <DynamicModal
+                        key={i}
+                        width={420}
+                        height={600}
+                        anchorRef={undefined}
+                        title="Create New Type"
+                        openState={typeEditorState.isOpen}
+                        setOpenState={handleTypeEditorStateChange}>
+                        <div style={{ padding: '0px 15px' }}>
+                            {stack.slice(0, i + 1).length > 1 && (
+                                <BreadcrumbContainer>
+                                    {stack.slice(0, i + 1).map((stackItem, index) => (
+                                        <React.Fragment key={index}>
+                                            {index > 0 && <BreadcrumbSeparator>/</BreadcrumbSeparator>}
+                                            <BreadcrumbItem>
+                                                {stackItem?.type?.name || "New Type"}
+                                            </BreadcrumbItem>
+                                        </React.Fragment>
+                                    ))}
+                                </BreadcrumbContainer>
+                            )}
+                            <FormTypeEditor
+                                type={peekTypeStack()?.type}
+                                newType={peekTypeStack() ? peekTypeStack().isDirty : false}
+                                newTypeValue={typeEditorState.newTypeValue}
+                                isGraphql={isGraphql}
+                                onTypeChange={onTypeChange}
+                                onSaveType={onSaveType}
+                                onTypeCreate={()=>{}}
+                                isPopupTypeForm={true}
+                                getNewTypeCreateForm={getNewTypeCreateForm}
+                                refetchTypes={refetchStates[i]}
+                            />
+                        </div>
+                    </DynamicModal>)
+                }
+            </EditorContext.Provider>
+        );
+    }
+
     // default form
     return (
-        <>
+        <EditorContext.Provider value={{ stack, push: pushTypeStack, pop: popTypeStack, peek: peekTypeStack, replaceTop: replaceTop }}>
             {fields && fields.length > 0 && (
                 <Form
                     ref={ref}
@@ -864,7 +1162,8 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                     recordTypeFields={recordTypeFields}
                     isInferredReturnType={!!node.codedata?.inferredReturnType}
                     formImports={formImports}
-                    preserveOrder={node.codedata.node === "VARIABLE" || node.codedata.node === "CONFIG_VARIABLE"}
+                    handleSelectedTypeChange={handleSelectedTypeChange}
+                    preserveOrder={node.codedata.node === "VARIABLE" as NodeKind || node.codedata.node === "CONFIG_VARIABLE" as NodeKind}
                     scopeFieldAddon={scopeFieldAddon}
                     newServerUrl={newServerUrl}
                     onChange={onChange}
@@ -872,18 +1171,44 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                     onToolsChange={props.onToolsChange}
                 />
             )}
-            {typeEditorState.isOpen && (
-                <PanelContainer title={"New Type"} show={true} onClose={onTypeEditorClosed}>
-                    <FormTypeEditor
-                        newType={true}
-                        newTypeValue={typeEditorState.newTypeValue}
-                        isGraphql={isGraphql}
-                        onTypeChange={onTypeChange}
-                        onTypeCreate={handleTypeCreate}
-                    />
-                </PanelContainer>
-            )}
-        </>
+            {
+                stack.map((item, i) => <DynamicModal
+                    key={i}
+                    width={420}
+                    height={600}
+                    anchorRef={undefined}
+                    title="Create New Type"
+                    openState={typeEditorState.isOpen}
+                    setOpenState={handleTypeEditorStateChange}>
+                    <div style={{ padding: '0px 20px' }}>
+                        {stack.slice(0, i + 1).length > 2 && (
+                            <BreadcrumbContainer>
+                                {stack.slice(0, i + 1).map((stackItem, index) => (
+                                    <React.Fragment key={index}>
+                                        {index > 0 && <BreadcrumbSeparator>/</BreadcrumbSeparator>}
+                                        <BreadcrumbItem>
+                                            {stackItem?.type?.name || "NewType"}
+                                        </BreadcrumbItem>
+                                    </React.Fragment>
+                                ))}
+                            </BreadcrumbContainer>
+                        )}
+                        <FormTypeEditor
+                            type={peekTypeStack()?.type}
+                            newType={peekTypeStack() ? peekTypeStack().isDirty : false}
+                            newTypeValue={typeEditorState.newTypeValue}
+                            isPopupTypeForm={true}
+                            isGraphql={isGraphql}
+                            onTypeChange={onTypeChange}
+                            onSaveType={onSaveType}
+                            onTypeCreate={()=>{}}
+                            getNewTypeCreateForm={getNewTypeCreateForm}
+                            refetchTypes={refetchStates[i]}
+                        />
+                    </div>
+                </DynamicModal>)
+            }
+        </EditorContext.Provider>
     );
 });
 

@@ -140,6 +140,12 @@
           "description": "Enable remote server deployment support",
           "scope": "resource"
         },
+        "MI.USE_LOCAL_MAVEN": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use local Maven within the extension",
+          "scope": "resource"
+        },
         "MI.Scope": {
           "type": "string",
           "default": "",
@@ -151,6 +157,11 @@
           "default": false,
           "description": "Don't show server update notification",
           "scope": "resource"
+        },
+        "MI.autoUpdateCarPlugin": {
+          "type": "boolean",
+          "default": true,
+          "description": "Update car plugin version automatically"
         }
       }
     },
