@@ -33,6 +33,30 @@ export interface SequenceViewProps {
     diagnostics: Diagnostic[];
 }
 
+// Helper function to extract directory path when path.dirname fails
+const getDirectoryPath = (filePath: string): string => {
+    // Normalize Windows paths by converting backslashes to forward slashes
+    const normalizedPath = filePath.replace(/\\/g, '/');
+    
+    // Try Node.js path.dirname first
+    const dirname = path.dirname(normalizedPath);
+    
+    // If path.dirname returns '.' or empty, extract directory manually
+    if (dirname === '.' || !dirname || dirname.length === 0) {
+        const lastSeparatorIndex = normalizedPath.lastIndexOf('/');
+        
+        if (lastSeparatorIndex > 0) {
+            return normalizedPath.substring(0, lastSeparatorIndex);
+        }
+        
+        // Fallback: if no separators found, return the original path
+        // (this shouldn't happen with valid file paths)
+        return normalizedPath;
+    }
+    
+    return dirname;
+};
+
 export const SequenceView = ({ model: SequenceModel, documentUri, diagnostics }: SequenceViewProps) => {
     const { rpcClient } = useVisualizerContext();
 
@@ -46,9 +70,12 @@ export const SequenceView = ({ model: SequenceModel, documentUri, diagnostics }:
         let artifactNameChanged = false;
         let documentPath = documentUri;
         if (path.basename(documentUri).split('.')[0] !== data.name) {
-            rpcClient.getMiDiagramRpcClient().renameFile({ existingPath: documentUri, newPath: path.join(path.dirname(documentUri), `${data.name}.xml`) });
+            // Use robust directory extraction that handles Windows path issues
+            const dirName = getDirectoryPath(documentUri);
+            const newPath = path.normalize(path.join(dirName, `${data.name}.xml`));
+            rpcClient.getMiDiagramRpcClient().renameFile({ existingPath: documentUri, newPath });
             artifactNameChanged = true;
-            documentPath = path.join(path.dirname(documentUri), `${data.name}.xml`);
+            documentPath = newPath;
         }
         onSequenceEdit(data, model.range.startTagRange, documentPath, rpcClient);
         if (artifactNameChanged) {

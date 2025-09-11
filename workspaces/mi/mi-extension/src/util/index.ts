@@ -42,10 +42,17 @@ import child_process from "child_process";
 const isDevMode = process.env.WEB_VIEW_WATCH_MODE === "true";
 
 export function getComposerJSFiles(context: ExtensionContext, componentName: string, webView: Webview): string[] {
+	console.debug('Getting JS files for component:', componentName);
 	const filePath = path.join(context.extensionPath, 'resources', 'jslibs', componentName + '.js');
+	console.debug('Resolved file path:', filePath);
+	
+	// In dev mode, ensure URL path uses forward slashes for Windows compatibility
+	const devPath = isDevMode 
+		? new URL(componentName + '.js', process.env.WEB_VIEW_DEV_HOST).toString()
+		: webView.asWebviewUri(Uri.file(filePath)).toString();
+
 	return [
-		isDevMode ? path.join(process.env.WEB_VIEW_DEV_HOST!, componentName + '.js')
-			: webView.asWebviewUri(Uri.file(filePath)).toString(),
+		devPath,
 		isDevMode ? 'http://localhost:8097' : '' // For React Dev Tools
 	];
 }

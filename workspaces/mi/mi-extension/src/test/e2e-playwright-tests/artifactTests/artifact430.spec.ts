@@ -25,7 +25,7 @@ export default function createTests() {
   test.describe('4.3.0 Project Tests', {
     tag: '@group3',
   }, async () => {
-    initTest(true, false, true, 'testProject430', '4.3.0'); 
+    initTest(true, false, true, 'testProject430', '4.3.0', 'group3');
 
     test('Registry Tests from 4.3.0 runtime', async () => {
       const testAttempt = test.info().retry + 1;
@@ -34,7 +34,7 @@ export default function createTests() {
         const registry = new Registry(page.page);
         await registry.openFormFromArtifacts();
         await registry.addFromTemplate({
-          name: 'testRegistry1' + testAttempt,
+          name: 'testRegistry11',
           templateType: 'JSON File',
           registryType: 'gov',
           registryPath: 'json',
@@ -45,7 +45,21 @@ export default function createTests() {
         console.log('Create new registry importing a file');
         const registry = new Registry(page.page);
         await registry.openFormFromArtifacts();
-        const filePath = path.join(__dirname, '..', 'data', 'new-project', 'testProject', 'testProject430', 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'json', 'testRegistry1' + testAttempt + '.json');
+        console.log('Initialized registry form');
+        
+        // Build file path with better Windows compatibility
+        const fileName = `testRegistry11.json`;
+        const filePath = path.resolve(__dirname, '..', 'data', 'new-project', 'testProjectFolder', 'testProject430', 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'json', fileName).replace(/\\/g, '/');
+        console.log('Importing file from path: ' + filePath);
+        console.log('File path length:', filePath.length);
+        
+        // Verify file exists before attempting to use it
+        const fs = require('fs');
+        if (!fs.existsSync(filePath)) {
+          console.error('File does not exist at path:', filePath);
+          throw new Error(`Test file not found: ${filePath}`);
+        }
+        
         await registry.addFromFileSystem({
           filePath: filePath,
           registryType: 'conf',

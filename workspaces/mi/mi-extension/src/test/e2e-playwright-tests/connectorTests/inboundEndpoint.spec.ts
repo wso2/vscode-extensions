@@ -30,7 +30,7 @@ export default function createTests() {
     test.describe("Inbound Ep Tests", {
         tag: '@group',
     }, async () => {
-        initTest();
+        initTest(false, false, false, undefined, undefined, 'group');
 
         test("Inbuilt Inbound EP Tests", async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;

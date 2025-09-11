@@ -72,7 +72,8 @@ export class VisualizerWebview {
                 enableScripts: true,
                 retainContextWhenHidden: true,
                 localResourceRoots: [
-                    vscode.Uri.file(os.homedir())
+                    vscode.Uri.file(os.homedir()),
+                    vscode.Uri.file(extension.context.extensionPath)
                 ]
             }
         );
@@ -119,44 +120,153 @@ export class VisualizerWebview {
     }
 
     private getWebviewContent(webview: vscode.Webview) {
+        console.debug("Generating webview content for MI Visualizer");
         // The JS file from the React build output
-        const scriptUri = getComposerJSFiles(extension.context, 'Visualizer', webview).map(jsFile =>
-            '<script charset="UTF-8" src="' + jsFile + '"></script>').join('\n');
+        const jsFiles = getComposerJSFiles(extension.context, 'Visualizer', webview);
+        console.debug('JS files to be included:', jsFiles);
+        
+        const scriptUri = jsFiles.map(jsFile => {
+            const scriptTag = '<script charset="UTF-8" src="' + jsFile + '"></script>';
+            console.debug('Generated script tag:', scriptTag);
+            return scriptTag;
+        }).join('\n');
 
         // const codiconUri = webview.asWebviewUri(Uri.joinPath(extension.context.extensionUri, "resources", "codicons", "codicon.css"));
         // const fontsUri = webview.asWebviewUri(Uri.joinPath(extension.context.extensionUri, "node_modules", "@wso2", "font-wso2-vscode", "dist", "wso2-vscode.css"));
 
-        return /*html*/ `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
-          <meta name="theme-color" content="#000000">
-          <title>WSO2 Integrator: MI</title>
-         
-          <style>
-            body, html, #root {
-                height: 100%;
+        const body = `<div class="container" id="root">
+            <div class="loader-wrapper">
+                <div class="welcome-content">
+                    <div class="logo-container">
+                        <div class="loader"></div>
+                    </div>
+                    <h1 class="welcome-title">WSO2 Integrator: MI</h1>
+                    <p class="welcome-subtitle">Setting up your workspace and tools</p>
+                    <div class="loading-text">
+                        <span class="loading-dots">Loading</span>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+        const styles = `
+            .container {
+                background-color: var(--vscode-editor-background);
+                height: 100vh;
+                width: 100%;
                 margin: 0;
-                padding: 0px;
+                padding: 0;
                 overflow: hidden;
             }
-          </style>
-          ${scriptUri}
-        </head>
-        <body>
-            <noscript>You need to enable JavaScript to run this app.</noscript>
-            <div id="root">
-            </div>
-            <script>
+            .loader-wrapper {
+                display: flex;
+                justify-content: center;
+                align-items: flex-start;
+                height: 100%;
+                width: 100%;
+                padding-top: 30vh;
+            }
+            .loader {
+                width: 32px;
+                aspect-ratio: 1;
+                border-radius: 50%;
+                border: 4px solid var(--vscode-button-background);
+                animation:
+                    l20-1 0.8s infinite linear alternate,
+                    l20-2 1.6s infinite linear;
+            }
+            @keyframes l20-1{
+                0%    {clip-path: polygon(50% 50%,0       0,  50%   0%,  50%    0%, 50%    0%, 50%    0%, 50%    0% )}
+                12.5% {clip-path: polygon(50% 50%,0       0,  50%   0%,  100%   0%, 100%   0%, 100%   0%, 100%   0% )}
+                25%   {clip-path: polygon(50% 50%,0       0,  50%   0%,  100%   0%, 100% 100%, 100% 100%, 100% 100% )}
+                50%   {clip-path: polygon(50% 50%,0       0,  50%   0%,  100%   0%, 100% 100%, 50%  100%, 0%   100% )}
+                62.5% {clip-path: polygon(50% 50%,100%    0, 100%   0%,  100%   0%, 100% 100%, 50%  100%, 0%   100% )}
+                75%   {clip-path: polygon(50% 50%,100% 100%, 100% 100%,  100% 100%, 100% 100%, 50%  100%, 0%   100% )}
+                100%  {clip-path: polygon(50% 50%,50%  100%,  50% 100%,   50% 100%,  50% 100%, 50%  100%, 0%   100% )}
+            }
+            @keyframes l20-2{ 
+                0%    {transform:scaleY(1)  rotate(0deg)}
+                49.99%{transform:scaleY(1)  rotate(135deg)}
+                50%   {transform:scaleY(-1) rotate(0deg)}
+                100%  {transform:scaleY(-1) rotate(-135deg)}
+            }
+            .welcome-content {
+                text-align: center;
+                max-width: 500px;
+                padding: 2rem;
+                animation: fadeIn 1s ease-in-out;
+                font-family: var(--vscode-font-family);
+            }
+            .logo-container {
+                margin-bottom: 2rem;
+                display: flex;
+                justify-content: center;
+            }
+            .welcome-title {
+                color: var(--vscode-foreground);
+                margin: 0 0 0.5rem 0;
+                letter-spacing: -0.02em;
+                font-size: 1.5em;
+                font-weight: 400;
+                line-height: normal;
+            }
+            .welcome-subtitle {
+                color: var(--vscode-descriptionForeground);
+                font-size: 13px;
+                margin: 0 0 2rem 0;
+                opacity: 0.8;
+            }
+            .loading-text {
+                color: var(--vscode-foreground);
+                font-size: 13px;
+                font-weight: 500;
+            }
+            .loading-dots::after {
+                content: '';
+                animation: dots 1.5s infinite;
+            }
+            @keyframes fadeIn {
+                0% { 
+                    opacity: 0;
+                }
+                100% { 
+                    opacity: 1;
+                }
+            }
+            @keyframes dots {
+                0%, 20% { content: ''; }
+                40% { content: '.'; }
+                60% { content: '..'; }
+                80%, 100% { content: '...'; }
+            }
+        `;
+
+        const scripts = `
             function render() {
                 visualizerWebview.renderWebview(
                     document.getElementById("root"), "visualizer"
                 );
             }
             render();
-        </script>
+        `;
+
+        return /*html*/ `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
+            <meta name="theme-color" content="#000000">
+            <title>WSO2 Integrator: MI</title>
+            <style>
+                ${styles}
+            </style>
+        </head>
+        <body>
+            <noscript>You need to enable JavaScript to run this app.</noscript>
+            ${body}
+            ${scriptUri}
+            <script>${scripts}</script>
         </body>
         </html>
       `;

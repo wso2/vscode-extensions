@@ -37,7 +37,7 @@ export default function createTests() {
   }, async () => {
     let dmName: string = "dm1";
 
-    initTest();
+    initTest(false, false, false, undefined, undefined, 'group2');
     test.beforeAll(setupDataMapper);
 
     test('Basic Mappings', testBasicMappings);
@@ -86,8 +86,11 @@ export default function createTests() {
 
         const serviceDesigner = new ServiceDesigner(page.page);
         await serviceDesigner.init();
+        console.log('Initialized Service Designer');
         const resource = await serviceDesigner.resource('GET', '/');
+        console.log('Clicking on resource');
         await resource.click();
+        console.log('Clicked on resource');
       });
 
       await test.step('Add Data Mapper', async () => {
@@ -239,7 +242,7 @@ export default function createTests() {
       await editorTab.locator('.codicon-close').click();
       await editorTab.waitFor({ state: 'detached' });
 
-      expect(dm.verifyTsFileContent('basic/map.ts')).toBeTruthy();
+      expect(dm.verifyTsFileContent(path.join('basic', 'map.ts'))).toBeTruthy();
 
 
       console.log('- Test basic mapping delete');
@@ -317,6 +320,7 @@ export default function createTests() {
       const filterItem = dmWebView.getByText('Filter 1: iObjMapFn1DItem');
       await filterItem.waitFor();
       await expect(filterItem).toContainText('Filter 1: iObjMapFn1DItem !== null');
+      await dmWebView.locator('#expression-bar').waitFor();
       const expressionBar = dmWebView.locator('#expression-bar').getByRole('textbox', { name: 'Text field' });
       await expect(expressionBar).toBeFocused();
       const canvas = dmWebView.locator('#data-mapper-canvas-container');

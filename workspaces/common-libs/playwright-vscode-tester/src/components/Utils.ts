@@ -40,9 +40,9 @@ export async function switchToIFrame(
     return childFrame;
 }
 
-export async function getVsCodeButton(container: Locator | Frame, text: string, type: 'primary' | 'secondary'): Promise<Locator> {
+export async function getVsCodeButton(container: Locator | Frame, text: string, type: 'primary' | 'secondary', timeout?: number): Promise<Locator> {
     const btn = container.locator(`vscode-button:has-text("${text}")`);
-    await btn.waitFor();
+    await btn.waitFor({timeout});
     expect(btn).toHaveAttribute('appearance', type);
     return btn;
 }

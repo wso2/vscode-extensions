@@ -31,7 +31,7 @@ export default function createTests() {
   test.describe("Connector Tests", {
     tag: '@group2',
   }, async () => {
-    initTest();
+    initTest(false, false, false, undefined, undefined, 'group2');
 
     test("Connector Tests", async ({ }, testInfo) => {
       const testAttempt = testInfo.retry + 1;

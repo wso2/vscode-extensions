@@ -30,7 +30,7 @@ export default function createTests() {
   test.describe("Throttle Mediator Tests", {
     tag: '@group4',
   }, async () => {
-    initTest();
+    initTest(false, false, false, undefined, undefined, 'group4');
 
     test("Throttle Mediator Tests", async ({}, testInfo) => {
       const testAttempt = testInfo.retry + 1;
