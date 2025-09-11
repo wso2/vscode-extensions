@@ -105,17 +105,17 @@ jobs:
         if: ${{ github.event.inputs.openVSX == 'true' && github.event.inputs.isPreRelease == 'false' }}
         run: ovsx publish -p ${{ secrets.OPENVSX_TOKEN }} --packagePath ${{ steps.vsix.outputs.vsixName }} ${{ steps.vsix.outputs.releaseMode }}
 
-      - name: Create a release in wso2/${{ steps.repo.outputs.repo }} repo
-        if: ${{ steps.repo.outputs.repo != '' }}
+      - name: Update release in ${{ steps.repo.outputs.repo }} repo
+        if: ${{ steps.repo.outputs.repo != '' && github.event.inputs.isPreRelease == 'false' }}
         run: |
           id=`curl -X GET  -H "Accept: application/vnd.github.v3+json" \
           -H "Authorization:token ${{ secrets.CHOREO_BOT_TOKEN }}" \
-          https://api.github.com/repos/wso2/${{ steps.repo.outputs.repo }}/releases/tags/v${{ steps.vsix.outputs.version }} \
+          https://api.github.com/repos/${{ steps.repo.outputs.repo }}/releases/tags/v${{ steps.vsix.outputs.version }} \
            | jq -r .id` && \
            updateResponse=`curl -X PATCH -H "Accept: application/vnd.github.v3+json" \
           -H "Authorization:token ${{ secrets.CHOREO_BOT_TOKEN }}" \
             -d '{"draft":false,"prerelease":false}' \
-            https://api.github.com/repos/wso2/${{ steps.repo.outputs.repo }}/releases/$id`         
+            https://api.github.com/repos/${{ steps.repo.outputs.repo }}/releases/$id`         
 
       - name: Set Chat API
         id: chat
