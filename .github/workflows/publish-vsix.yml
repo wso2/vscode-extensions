@@ -106,16 +106,46 @@ jobs:
         run: ovsx publish -p ${{ secrets.OPENVSX_TOKEN }} --packagePath ${{ steps.vsix.outputs.vsixName }} ${{ steps.vsix.outputs.releaseMode }}
 
       - name: Create a release in wso2/${{ steps.repo.outputs.repo }} repo
+        id: create_release
         if: ${{ steps.repo.outputs.repo != '' }}
         run: |
-          id=`curl -X GET  -H "Accept: application/vnd.github.v3+json" \
+          id=`curl -X GET -H "Accept: application/vnd.github.v3+json" \
           -H "Authorization:token ${{ secrets.CHOREO_BOT_TOKEN }}" \
           https://api.github.com/repos/wso2/${{ steps.repo.outputs.repo }}/releases/tags/v${{ steps.vsix.outputs.version }} \
            | jq -r .id` && \
            updateResponse=`curl -X PATCH -H "Accept: application/vnd.github.v3+json" \
           -H "Authorization:token ${{ secrets.CHOREO_BOT_TOKEN }}" \
             -d '{"draft":false,"prerelease":false}' \
-            https://api.github.com/repos/wso2/${{ steps.repo.outputs.repo }}/releases/$id`         
+            https://api.github.com/repos/wso2/${{ steps.repo.outputs.repo }}/releases/$id`
+          
+          # Verify the release was created/updated successfully
+          if [ $? -eq 0 ]; then
+            echo "release_created=true" >> $GITHUB_OUTPUT
+            echo "Release successfully created/updated for version v${{ steps.vsix.outputs.version }}"
+          else
+            echo "release_created=false" >> $GITHUB_OUTPUT
+            echo "Failed to create/update release for version v${{ steps.vsix.outputs.version }}"
+            exit 1
+          fi
+      - name: Trigger external repo workflow for ballerina release
+        if: ${{ github.event.inputs.extension == 'ballerina' && github.event.inputs.isPreRelease == 'false' && steps.create_release.outputs.release_created == 'true' }}
+        run: |
+          echo "Triggering external repository workflow for ballerina v${{ steps.vsix.outputs.version }}"
+          response=$(curl -s -w "%{http_code}" -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.IMAGE_BUILDER_TOKEN }}" \
+            https://api.github.com/repos/${{ secrets.TARGET_ORG }}/${{ secrets.TARGET_REPO }}/dispatches \
+            -d '{"event_type": "extension_published", "client_payload": {"extension": "${{ github.event.inputs.extension }}", "version": "${{ steps.vsix.outputs.version }}", "release_url": "https://github.com/wso2/${{ steps.repo.outputs.repo }}/releases/tag/v${{ steps.vsix.outputs.version }}"}}')
+          
+          http_code=$(echo "$response" | tail -c 4)
+          
+          if [ "$http_code" -eq 204 ]; then
+            echo "Successfully triggered external repository workflow"
+          else
+            echo "Failed to trigger external repository workflow. HTTP code: $http_code"
+            echo "Response: $response"
+            exit 1
+          fi        
 
       - name: Set Chat API
         id: chat
