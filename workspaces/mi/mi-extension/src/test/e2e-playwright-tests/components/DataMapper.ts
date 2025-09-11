@@ -132,7 +132,7 @@ export class DataMapper {
 
     public async mapFields(sourceFieldFQN: string, targetFieldFQN: string, menuOptionId?: string) {
 
-        const sourceField = this.webView.locator(`div[id="recordfield-${sourceFieldFQN}"] .port`);
+        const sourceField = this.webView.locator(`div[id="recordfield-${sourceFieldFQN}"]`);
         const targetField = this.webView.locator(`div[id="recordfield-${targetFieldFQN}"] .port`);
 
         await targetField.waitFor();
