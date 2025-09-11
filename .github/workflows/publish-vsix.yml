@@ -133,8 +133,8 @@ jobs:
           echo "Triggering external repository workflow for ballerina v${{ steps.vsix.outputs.version }}"
           response=$(curl -s -w "%{http_code}" -X POST \
             -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.IMAGE_BUILDER_TOKEN }}" \
-            https://api.github.com/repos/${{ secrets.TARGET_ORG }}/${{ secrets.TARGET_REPO }}/dispatches \
+            -H "Authorization: Bearer ${{ secrets.CLOUD_EDITOR_BUILDER_REPO_TOKEN }}" \
+            https://api.github.com/repos/${{ secrets.CLOUD_EDITOR_BUILDER_REPO }}/dispatches \
             -d '{"event_type": "extension_published", "client_payload": {"extension": "${{ github.event.inputs.extension }}", "version": "${{ steps.vsix.outputs.version }}", "release_url": "https://github.com/wso2/${{ steps.repo.outputs.repo }}/releases/tag/v${{ steps.vsix.outputs.version }}"}}')
           
           http_code=$(echo "$response" | tail -c 4)
