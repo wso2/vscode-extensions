@@ -75,6 +75,7 @@ export default function createTests() {
                     'Return Type': {
                         type: 'textarea',
                         value: 'string',
+                        additionalProps: { clickLabel: true }
                     }
                 }
             });

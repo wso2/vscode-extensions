@@ -73,7 +73,7 @@ export function MediatorForm(props: MediatorFormProps) {
         if (mediatorData.onSubmit) {
             switch (mediatorData.onSubmit) {
                 case "openDataMapperEditor":
-                    if (sidePanelContext?.newDataMapperName === values.name) {
+                    if (sidePanelContext?.newResourceObject === values.name) {
                         const projectDetails = await rpcClient.getMiVisualizerRpcClient().getProjectDetails();
                         const runtimeVersion = await projectDetails.primaryDetails.runtimeVersion.value;
                         createAndopenDataMapper(documentUri, values, rpcClient, runtimeVersion)();

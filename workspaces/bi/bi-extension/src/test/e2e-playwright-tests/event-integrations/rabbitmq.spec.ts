@@ -49,14 +49,16 @@ export default function createTests() {
                     'host': {
                         type: 'textarea',
                         value: `"localhost"`,
+                        additionalProps: { clickLabel: true }
                     },
                     'port': {
                         type: 'textarea',
                         value: '5676',
+                        additionalProps: { clickLabel: true }
                     }
                 }
             });
-            await form.submit('Next');
+            await form.submit('Next', true);
 
             // Check for title
             const configTitle = artifactWebView.locator('h3', { hasText: 'RabbitMQ Event Handler Configuration' });
@@ -74,7 +76,7 @@ export default function createTests() {
                 }
             });
 
-            await form.submit('Create');
+            await form.submit('Create', true);
 
             const onMessage = artifactWebView.locator(`text="onMessage"`);
             await onMessage.waitFor();

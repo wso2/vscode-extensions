@@ -76,10 +76,14 @@ export class Form {
         await cancelBtn.click();
     }
 
-    public async submit(btnText: string = "Create") {
+    public async submit(btnText: string = "Create", forceClick: boolean = false) {
         const submitBtn = await getVsCodeButton(this.container, btnText, "primary");
         expect(await submitBtn.isEnabled()).toBeTruthy();
-        await submitBtn.click();
+        if (forceClick) {
+            await submitBtn.click({ force: true });
+        } else {
+            await submitBtn.click();
+        }
     }
 
     public async fill(props: FormFillProps) {
@@ -98,6 +102,9 @@ export class Form {
                     case 'textarea': {
                         const input = this.container.locator(`textarea[aria-label="${key}"]`);
                         await input.fill(data.value);
+                        if (data.additionalProps?.clickLabel) {
+                            await this.container.locator(`label:text("${key}")`).click();
+                        }
                         break;
                     }
                     case 'dropdown': {
