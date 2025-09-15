@@ -107,12 +107,15 @@ export default function createTests() {
         test('Add types and arguments to GraphQL Service', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
             console.log('Adding types and arguments in test attempt: ', testAttempt);
+            console.log('Adding Query');
 
             await graphqlServiceUtils.clickButtonByTestId('graphql-add-mutation-btn');
+            console.log('Clicked on Add Mutation button');
             await graphqlServiceUtils.addArgumentToGraphQLService();
+            console.log('Added argument to the mutation');
             await graphqlServiceUtils.createInputObjectFromScratch();
+            console.log('Created input object from scratch');
             await graphqlServiceUtils.addOutputObject();
-
             await artifactWebView.getByRole('textbox', { name: 'Field Name*The name of the' }).fill(TEST_DATA.mutation[1].name);
             await artifactWebView.getByRole('button', { name: 'Save' }).click();
             await graphqlServiceUtils.closePanel();

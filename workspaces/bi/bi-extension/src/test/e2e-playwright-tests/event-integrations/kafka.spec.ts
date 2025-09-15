@@ -50,10 +50,11 @@ export default function createTests() {
                     'bootstrapServers': {
                         type: 'textarea',
                         value: bootstrapServers,
+                        additionalProps: { clickLabel: true }
                     }
                 }
             });
-            await form.submit('Next');
+            await form.submit('Next', true);
 
             // Check for title
             const configTitle = artifactWebView.locator('h3', { hasText: 'Kafka Event Handler Configuration' });
@@ -62,7 +63,7 @@ export default function createTests() {
             const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
             await selectedListener.waitFor();
 
-            await form.submit('Create');
+            await form.submit('Create', true);
 
             const onConsumerRecord = artifactWebView.locator(`text="onConsumerRecord"`);
             await onConsumerRecord.waitFor();
