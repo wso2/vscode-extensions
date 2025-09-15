@@ -90,11 +90,15 @@ export class GraphQLServiceUtils {
         const fieldTypeBox = this.webView.getByRole('textbox', { name: fieldType.label });
         await this.waitForElement(fieldTypeBox);
         await fieldTypeBox.fill(fieldType.value);
+        console.log(`Filled ${fieldType.label} with value: ${fieldType.value}`);
 
         // Wait a short moment to allow UI to register the value
         await this.page.waitForTimeout(10000);
-        const fieldDefaultCompletion = this.webView.getByTestId('add-type-completion');
+        const fieldDefaultCompletion = this.webView.getByRole('button', { name: ` ${fieldType.value}`, exact: true });
         await this.waitForElement(fieldDefaultCompletion);
+        console.log(`Field default completion is visible: ${await fieldDefaultCompletion.isVisible()}`);
+        // Click on Field Type label to move focus out of the input box
+        await this.webView.getByText(fieldType.label).click();
 
         // TODO: https://github.com/wso2/product-ballerina-integrator/issues/917
         if (await fieldDefaultCompletion.isVisible()) {
@@ -117,10 +121,12 @@ export class GraphQLServiceUtils {
     async addOutputObject() {
         const createFromScratchTab = this.webView.getByTestId('create-from-scratch-tab');
         await this.webView.getByRole('textbox', { name: 'Field Type' }).click();
+        console.log('Clicked on Field Type textbox');
         await this.webView.getByText('Create New Type').click();
 
         const form = new Form(this.page, 'WSO2 Integrator: BI', this.webView);
         await form.switchToFormView(false, this.webView);
+        console.log('Switched to form view for creating new type');
         await form.fill({
             values: {
                 'Name': {
@@ -133,9 +139,12 @@ export class GraphQLServiceUtils {
                 }
             }
         });
+        console.log('Filled form for new output object type');
         const typeEditorUtils = new TypeEditorUtils(this.page, this.webView);
         await typeEditorUtils.addFunction("function1", "string");
+        console.log('Added function to the new type');
         await this.webView.getByTestId('type-create-save').getByRole('button', { name: 'Save' }).click();
+        console.log('Saved the new output object type');
     }
 
     async createInputObjectFromScratch() {
@@ -164,8 +173,10 @@ export class GraphQLServiceUtils {
     async addArgumentToGraphQLService() {
         await this.webView.getByText('Add Argument').click();
         await this.webView.getByRole('textbox', { name: 'Argument Type' }).click();
-        await this.webView.getByTitle('string', { exact: true }).click();
+        await this.webView.getByRole('button', { name: ' string', exact: true }).click();
+        await this.webView.getByText('Argument Type*').click();
         await this.webView.getByRole('textbox', { name: 'Argument Name*The name of the' }).fill(TEST_DATA.mutation[1].arguments[0].name);
+        await this.webView.getByText('Argument Name*').click();
         await this.webView.getByRole('button', { name: 'Add' }).click();
     }
 
