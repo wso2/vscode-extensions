@@ -49,17 +49,17 @@ test.beforeAll(async () => {
     console.log('>>> Starting test suite');
 });
 
-// test.describe(createProjectTests);
+test.describe(createProjectTests);
 // test.describe(artifactTests);
 // test.describe(multiWorkspaceTests);
 test.describe(dataMapperTests);
-// test.describe(overviewPageTests);
-// test.describe(openEntryPointArtifact);
-// test.describe(connectionTests);
-// test.describe(connectorTests);
-// test.describe(inboundEpTests);
-// test.describe(logMediatorTests);
-// test.describe(cacheMediatorTests);
+test.describe(overviewPageTests);
+test.describe(openEntryPointArtifact);
+test.describe(connectionTests);
+test.describe(connectorTests);
+test.describe(inboundEpTests);
+test.describe(logMediatorTests);
+test.describe(cacheMediatorTests);
 // test.describe(throttleMediatorTests);
 // test.describe(callSequenceMediatorTests);
 // test.describe(validateMediatorTests);

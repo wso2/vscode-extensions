@@ -305,37 +305,26 @@ export default function createTests() {
 
       console.log('- Test mapping function');
       // primitive array mapping with mapping function, PrimMapFn1D
-      console.log("---Test1")
       await dm.mapFields('input.iPrimMapFn1D', 'objectOutput.oPrimMapFn1D', 'menu-item-a2a-inner');
-      console.log("---Test2")
 
       await dm.mapFields('focusedInput.iPrimMapFn1DItem', 'primitiveOutput.number');
-      console.log("---Test3")
       await dmWebView.getByTestId('link-from-focusedInput.iPrimMapFn1DItem.OUT-to-primitiveOutput.number.IN').waitFor({ state: 'attached' });
-      console.log("---Test4")
       await dm.gotoPreviousView();
      
       // object array mapping with mapping function, ObjMapFn1D
-      console.log("---Test5")
       await dm.mapFields('input.iObjMapFn1D', 'objectOutput.oObjMapFn1D', 'menu-item-a2a-inner');
-      console.log("---Test6")
 
       // filter
       await dmWebView.getByText('Add Filter').click();
       const filterItem = dmWebView.getByText('Filter 1: iObjMapFn1DItem');
       await filterItem.waitFor();
-      console.log("---Test7")
       await expect(filterItem).toContainText('Filter 1: iObjMapFn1DItem !== null');
       await dmWebView.locator('#expression-bar').waitFor();
       // Fails here
       const expressionBar = dmWebView.locator('#expression-bar').getByRole('textbox', { name: 'Text field' });
-      console.log("---Test8")
-      await expect(expressionBar).toBeFocused();
-      console.log("---Test9")
       const canvas = dmWebView.locator('#data-mapper-canvas-container');
       await canvas.click();
       await expect(expressionBar).not.toBeFocused();
-      console.log("---Test10")
 
       await dm.mapFields('focusedInput.iObjMapFn1DItem.p1', 'objectOutput.q1');
       await dmWebView.getByTestId('link-from-focusedInput.iObjMapFn1DItem.p1.OUT-to-objectOutput.q1.IN').waitFor({ state: 'attached' });

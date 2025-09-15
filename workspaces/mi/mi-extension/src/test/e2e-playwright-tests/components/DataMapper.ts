@@ -134,18 +134,10 @@ export class DataMapper {
      * Waits for the outline style of an element to not include 'none'.
      */
     public async waitForOutline(locator: Locator, timeout = 5000) {
-        const start = Date.now();
-        while (true) {
-            console.log('Checking outline style...');
+        await expect(async () => {
             const outline = await locator.evaluate(el => window.getComputedStyle(el).outline);
-            if (outline && !outline.includes('none')) {
-                return;
-            }
-            if (Date.now() - start > timeout) {
-                throw new Error('Timeout waiting for outline style to be set');
-            }
-            await new Promise(res => setTimeout(res, 100));
-        }
+            expect(outline && !outline.includes('none')).toBeTruthy();
+        }).toPass({ timeout });
     }
 
     public async mapFields(sourceFieldFQN: string, targetFieldFQN: string, menuOptionId?: string) {
