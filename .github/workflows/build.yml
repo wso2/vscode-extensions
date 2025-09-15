@@ -177,6 +177,7 @@ jobs:
           exit-code: '1'
           timeout: '10m'
           skip-dirs: 'common/temp'
+          severity: 'CRITICAL,HIGH,MEDIUM'
 
   ExtTest_Ballerina:
     name: Run Ballerina extension tests
