@@ -55,6 +55,7 @@ import { TaskView } from './views/Diagram/Task';
 import { InboundEPView } from './views/Diagram/InboundEndpoint';
 import { Overview } from './views/Overview';
 import { DatamapperForm } from './views/Forms/DatamapperForm';
+import { DataMapperMigrationForm } from './views/Forms/DataMapperMigrationForm';
 import { ImportArtfactForm } from './views/Forms/ImportArtifactForm';
 import { IdpConnectorSchemaGenerateForm }from './views/Forms/IDPConnectorForm/IdpConnectorSchemaGenerateForm';
 import { KubernetesConfigurationForm } from "./views/Forms/KubernetesConfigurationForm";
@@ -241,6 +242,19 @@ const MainPanel = (props: MainPanelProps) => {
                 break;
             case MACHINE_VIEW.DatamapperForm:
                 setViewComponent(<DatamapperForm path={visualizerState.documentUri} />);
+                break;
+            case MACHINE_VIEW.DataMapperMigrationForm:
+                setViewComponent(<DataMapperMigrationForm 
+                    path={visualizerState.documentUri}
+                    configName={visualizerState.customProps?.configName}
+                    migratedDmcPath={visualizerState.customProps?.migratedDmcPath}
+                    migratedInputSchemaPath={visualizerState.customProps?.migratedInputSchemaPath}
+                    migratedOutputSchemaPath={visualizerState.customProps?.migratedOutputSchemaPath}
+                    range={visualizerState.customProps?.range}
+                    documentUri={visualizerState.customProps?.documentUri}
+                    tsFilePath={visualizerState.customProps?.tsFilePath}
+                    description={visualizerState.customProps?.description}
+                />);
                 break;
             case MACHINE_VIEW.InboundEPForm:
                 setViewComponent(<InboundEPWizard

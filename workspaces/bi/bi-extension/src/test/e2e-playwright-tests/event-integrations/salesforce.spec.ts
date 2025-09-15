@@ -49,14 +49,15 @@ export default function createTests() {
                     'auth': {
                         type: 'textarea',
                         value: `{ username: "test", password: "test" }`,
+                        additionalProps: { clickLabel: true }
                     }
                 }
             });
-            await form.submit('Next');
+            await form.submit('Next', true);
 
             // Check for title
             const configTitle = artifactWebView.locator('h3', { hasText: 'Salesforce Event Handler Configuration' });
-            await configTitle.waitFor();
+            await configTitle.waitFor({ timeout: 90000 });
 
             const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
             await selectedListener.waitFor();
@@ -100,7 +101,7 @@ export default function createTests() {
             await form.switchToFormView(false, artifactWebView);
 
             const configTitle = artifactWebView.locator('h3', { hasText: 'Salesforce Event Handler Configuration' });
-            await configTitle.waitFor();
+            await configTitle.waitFor({ timeout: 90000 });
 
             const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
             await selectedListener.waitFor();

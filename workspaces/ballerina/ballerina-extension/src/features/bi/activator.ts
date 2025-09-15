@@ -55,6 +55,10 @@ export function activate(context: BallerinaExtension) {
         openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.AddConnectionWizard });
     });
 
+    commands.registerCommand(BI_COMMANDS.ADD_CUSTOM_CONNECTOR, () => {
+        openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.AddCustomConnector });
+    });
+
     commands.registerCommand(BI_COMMANDS.ADD_ENTRY_POINT, () => {
         openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.BIComponentView });
     });
@@ -77,7 +81,7 @@ export function activate(context: BallerinaExtension) {
 
     commands.registerCommand(BI_COMMANDS.VIEW_CONFIGURATION, () => {
         openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.ViewConfigVariables });
-    }); 
+    });
 
     commands.registerCommand(BI_COMMANDS.SHOW_OVERVIEW, () => {
         openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.Overview });
@@ -98,7 +102,7 @@ export function activate(context: BallerinaExtension) {
     commands.registerCommand(BI_COMMANDS.SWITCH_PROJECT, async () => {
         // Hack to switch the project. This will reload the window and prompt the user to select the project.
         // This is a temporary solution until we provide the support for multi root workspaces.
-        commands.executeCommand('workbench.action.reloadWindow');
+        StateMachine.sendEvent("SWITCH_PROJECT" as any);
     });
 
     commands.registerCommand(BI_COMMANDS.TOGGLE_TRACE_LOGS, toggleTraceLogs);
@@ -115,8 +119,32 @@ export function activate(context: BallerinaExtension) {
         }
     });
 
-    //HACK: Open all Ballerina files in the project
-    openAllBallerinaFiles(context);
+    // Open the ballerina toml file as the first file for LS to trigger the project loading
+    openBallerinaTomlFile(context);
+}
+
+
+function openBallerinaTomlFile(context: BallerinaExtension) {
+    const projectRoot = StateMachine.context().projectUri;
+    const ballerinaTomlFile = path.join(projectRoot, "Ballerina.toml");
+    try {
+        const content = readFileSync(ballerinaTomlFile, "utf8");
+        if (content) {
+            context.langClient.didOpen({
+                textDocument: {
+                    uri: Uri.file(ballerinaTomlFile).toString(),
+                    languageId: "toml",
+                    version: 1,
+                    text: content,
+                },
+            });
+            console.log(`>>> Opened file: ${ballerinaTomlFile}`);
+        } else {
+            console.error(`>>> No content found for file ${ballerinaTomlFile}`);
+        }
+    } catch (error) {
+        console.error(`Error opening file ${ballerinaTomlFile}:`, error);
+    }
 }
 
 function openAllBallerinaFiles(context: BallerinaExtension) {
@@ -303,13 +331,13 @@ function isFilePathsEqual(filePath1: string, filePath2: string) {
 
 function toggleTraceLogs() {
     const config = workspace.getConfiguration();
-    
+
     const currentTraceServer = config.get<string>(TRACE_SERVER);
     const currentDebugLog = config.get<boolean>(ENABLE_DEBUG_LOG);
     const currentTraceLog = config.get<boolean>(ENABLE_TRACE_LOG);
-    
+
     const isTraceEnabled = currentTraceServer === TRACE_SERVER_VERBOSE && currentDebugLog && currentTraceLog;
-    
+
     if (isTraceEnabled) {
         config.update(TRACE_SERVER, TRACE_SERVER_OFF, ConfigurationTarget.Global);
         config.update(ENABLE_DEBUG_LOG, false, ConfigurationTarget.Global);

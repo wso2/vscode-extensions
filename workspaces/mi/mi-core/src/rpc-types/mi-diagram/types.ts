@@ -1257,7 +1257,7 @@ export interface WriteContentToFileResponse {
 }
 
 export interface HandleFileRequest {
-    operation : "read" | "write" | "delete";
+    operation : "read" | "write" | "delete" | "exists";
     fileName : string;
     filePath : string;
     content?: string;
@@ -2211,6 +2211,28 @@ export interface GetCodeDiagnosticsResponse {
 export interface XmlCode{
     fileName: string;
     code: string;
+}
+
+export interface GetPomFileContentResponse{
+    content: string;
+}
+
+export interface GetExternalConnectorDetailsResponse{
+    connectors: string[];
+}
+
+export interface WriteMockServicesRequest {
+    content: string[];
+    fileNames?: string[];
+}
+
+export interface WriteMockServicesResponse {
+    status: boolean;
+}
+
+export interface GetMockServicesResponse{
+    mockServices: string[];
+    mockServiceNames: string[];
 }
 
 export interface UpdateRegistryPropertyRequest {
