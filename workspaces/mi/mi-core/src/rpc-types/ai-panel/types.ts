@@ -17,6 +17,8 @@
  */
 
 import { AI_MACHINE_VIEW } from "../../state-machine-types";
+import { FileObject, ImageObject } from "../../interfaces/mi-copilot";
+import { CopilotChatEntry } from "../../interfaces/mi-copilot";
 
 export interface AIMachineSnapshot {
     state: AI_MACHINE_VIEW;
@@ -25,4 +27,14 @@ export interface AIMachineSnapshot {
 
 export interface GetBackendRootUrlResponse {
     url: string;
+}
+
+export interface GenerateSuggestionsRequest {
+    chatHistory: CopilotChatEntry[];
+}
+
+export interface GenerateSuggestionsResponse {
+    response: string;
+    files: FileObject[];
+    images: ImageObject[];
 }

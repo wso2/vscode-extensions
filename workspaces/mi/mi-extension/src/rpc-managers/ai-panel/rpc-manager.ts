@@ -18,10 +18,23 @@
 
 import {
     GetBackendRootUrlResponse,
-    MIAIPanelAPI
+    GenerateSuggestionsRequest,
+    GenerateSuggestionsResponse,
+    MIAIPanelAPI,
+    CopilotChatEntry
 } from '@wso2/mi-core';
 import {RUNTIME_VERSION_440} from "../../constants";
 import {compareVersions, getMIVersionFromPom} from "../../util/onboardingUtils";
+import {
+    generateSuggestions as generateSuggestionsUtil,
+    fetchBackendUrl,
+    MI_SUGGESTIVE_QUESTIONS_BACKEND_URL,
+    fetchCodeGenerationsWithRetry,
+    getDiagnosticsReponseFromLlm,
+    getBackendUrlAndView,
+    getUserAccessToken,
+    refreshUserAccessToken
+} from "./utils";
 
 export class MIAIPanelRpcManager implements MIAIPanelAPI {
     constructor(private projectUri: string) { }
@@ -35,5 +48,105 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
         const isVersionThresholdReached = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_THRESHOLD_VERSION) : -1;
 
         return isVersionThresholdReached < 0 ? { url: MI_COPILOT_BACKEND_V2 } : { url: MI_COPILOT_BACKEND_V3 };
+    }
+
+    async generateSuggestions(request: GenerateSuggestionsRequest): Promise<GenerateSuggestionsResponse> {
+        try {
+            const controller = new AbortController();
+            
+            // Use the utility function to generate suggestions
+            const suggestions = await generateSuggestionsUtil(
+                this.projectUri,
+                request.chatHistory,
+                controller
+            );
+
+            // Convert the suggestions to the expected format
+            return {
+                response: suggestions.length > 0 ? suggestions[0].content : "",
+                files: [], // This would need to be populated based on your specific requirements
+                images: [] // This would need to be populated based on your specific requirements
+            };
+        } catch (error) {
+            console.error('Error generating suggestions:', error);
+            throw new Error(`Failed to generate suggestions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    // Additional utility methods that can be used by the AI panel
+
+    /**
+     * Fetches code generations from the backend
+     */
+    async fetchCodeGenerations(
+        chatHistory: CopilotChatEntry[],
+        files: any[] = [],
+        images: any[] = [],
+        selective: boolean = false,
+        thinking?: boolean
+    ): Promise<Response> {
+        try {
+            const controller = new AbortController();
+            const { backendUrl } = await getBackendUrlAndView(this.projectUri);
+            const backendRootUri = await fetchBackendUrl(this.projectUri);
+            const url = backendRootUri + backendUrl;
+
+            return await fetchCodeGenerationsWithRetry(
+                url,
+                chatHistory,
+                files,
+                images,
+                this.projectUri,
+                controller,
+                selective,
+                thinking
+            );
+        } catch (error) {
+            console.error('Error fetching code generations:', error);
+            throw new Error(`Failed to fetch code generations: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Sends diagnostics to LLM and gets response
+     */
+    async analyzeDiagnostics(diagnostics: any, xmlCodes: any): Promise<Response> {
+        try {
+            const controller = new AbortController();
+            return await getDiagnosticsReponseFromLlm(
+                diagnostics,
+                xmlCodes,
+                this.projectUri,
+                controller
+            );
+        } catch (error) {
+            console.error('Error analyzing diagnostics:', error);
+            throw new Error(`Failed to analyze diagnostics: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Checks if user is authenticated
+     */
+    async isUserAuthenticated(): Promise<boolean> {
+        try {
+            await getUserAccessToken();
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    /**
+     * Refreshes user authentication token
+     */
+    async refreshAuthentication(): Promise<boolean> {
+        try {
+            await refreshUserAccessToken();
+            return true;
+        } catch (error) {
+            console.error('Error refreshing authentication:', error);
+            return false;
+        }
     }
 }

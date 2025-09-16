@@ -262,44 +262,33 @@ export function compareVersions(v1: string, v2: string): number {
     }
 
 export async function generateSuggestions(
-    backendRootUri: string,
     chatHistory: CopilotChatEntry[],
     rpcClient: RpcClientType,
     controller: AbortController
 ): Promise<ChatMessage[]> {
     try {
-        const url = backendRootUri + MI_SUGGESTIVE_QUESTIONS_BACKEND_URL;
-        const context = await getContext(rpcClient);
-        const response = await fetchWithRetry(
-            BackendRequestType.Suggestions,
-            url,
-            {
-                messages: chatHistory,
-                context: context[0].context,
-                num_suggestions: 1,
-                type: "artifact_gen",
-            },
-            rpcClient,
-            controller,
-            chatHistory
-        );
+        // Use RPC call to extension - extension handles all backend communication
+        const response = await rpcClient.getMiAiPanelRpcClient().generateSuggestions({
+            chatHistory: chatHistory
+        });
 
-        const data = (await response.json()) as ApiResponse;
-
-        if (data.event === "suggestion_generation_success") {
-            return data.questions.map((question) => ({
+        // Check if we got a valid response
+        if (response.response) {
+            // If the response contains a single suggestion, convert it to the expected format
+            return [{
                 id: generateId(),
                 role: Role.default,
-                content: question,
+                content: response.response,
                 type: MessageType.Question,
-            }));
+            }];
         } else {
-            console.error("Error generating suggestions:", data.error);
-            throw new Error("Failed to generate suggestions: " + data.error);
+            console.error("Error generating suggestions: Empty response from extension");
+            return [];
         }
     } catch (error) {
-        console.error(error);
-        return [];
+        console.error("Error generating suggestions via RPC:", error);
+        // No fallback - all backend communication should go through extension
+        throw new Error(`Failed to generate suggestions: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
 
