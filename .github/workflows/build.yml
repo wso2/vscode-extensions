@@ -148,6 +148,7 @@ jobs:
         with:
           isPreRelease: ${{ inputs.isPreRelease }}
           enableCache: ${{ inputs.enableCache }}
+          enableLSCache: ${{ !inputs.isReleaseBuild }}
           ballerina: ${{ inputs.ballerina }}
           choreo: ${{ inputs.choreo }}
           wso2-platform: ${{ inputs.wso2-platform }}
@@ -172,11 +173,18 @@ jobs:
         with:
           scan-type: 'fs'
           scan-ref: '.'
-          format: 'table'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
           ignore-unfixed: true
           exit-code: '1'
           timeout: '10m'
-          skip-dirs: 'common/temp'
+          scanners: 'vuln'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
 
   ExtTest_Ballerina:
     name: Run Ballerina extension tests
