@@ -146,6 +146,7 @@ runs:
           GH_TOKEN: ${{ inputs.bot_token }}
 
       - name: "PR Notification"
+        if: ${{ inputs.isPreRelease == 'false' }}
         shell: bash
         run: |
           body=$(cat << EOF
