@@ -18,6 +18,7 @@
 
 import React, { ReactNode } from 'react';
 import styled from '@emotion/styled';
+import { ThemeColors } from '../../styles';
 
 export interface TabView {
     id: string;
@@ -94,7 +95,7 @@ const TabButton = styled.button<{ isActive: boolean }>`
 `;
 
 const TabContent = styled.div`
-    background-color: var(--vscode-editor-background, #ffffff);
+    background-color: ${ThemeColors.SURFACE_DIM};
     color: var(--vscode-editor-foreground, #333333);
     flex: 1;
     overflow: auto;
