@@ -122,17 +122,22 @@ export class Welcome {
         }
 
         console.log('Finalizing environment setup');
-        const continueBtn = await getVsCodeButton(container!, 'Continue', 'secondary').catch(() => null);
-        if (continueBtn) {
+        
+        try {
+            const continueBtn = container.locator(`vscode-button:has-text("Continue")`);
             console.log('Clicking Continue button');
-            await continueBtn.click({ timeout: 10000 }).catch(() => { });
-        } else {
-            const continueAnywayBtn = await getVsCodeButton(container!, 'Continue Anyway', 'secondary').catch(() => null);
-            if (continueAnywayBtn) {
+            await continueBtn.click({ timeout: 10000 });
+        } catch (error) {
+            console.log('Continue button not found, trying Continue Anyway button');
+            try {
+                const continueAnywayBtn = await getVsCodeButton(container!, 'Continue Anyway', 'secondary');
                 console.log('Clicking Continue Anyway button');
-                await continueAnywayBtn.click({ timeout: 10000 }).catch(() => { });
+                await continueAnywayBtn.click({ timeout: 10000 });
+            } catch (innerError) {
+                console.log('No continue buttons found, proceeding without clicking');
             }
         }
+        
         console.log('Clicking No, Don\'t Ask Again button');
         await container!.page().getByRole('button', { name: "No, Don't Ask Again" })
             .click({ timeout: 10000 }).catch(() => { });

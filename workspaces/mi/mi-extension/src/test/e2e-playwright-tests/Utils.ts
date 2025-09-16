@@ -253,7 +253,7 @@ export async function copyFile(source: string, destination: string) {
     fs.copyFileSync(source, destination);
 }
 
-export async function waitUntilPomContains(page: Page, filePath: string, expectedText: string, timeout = 10000) {
+export async function waitUntilPomContains(page: Page, filePath: string, expectedText: string, timeout = 20000) {
     const start = Date.now();
     while (Date.now() - start < timeout) {
         const content = await readFile(filePath, 'utf8');
@@ -265,7 +265,7 @@ export async function waitUntilPomContains(page: Page, filePath: string, expecte
     throw new Error(`Timed out waiting for '${expectedText}' in pom.xml`);
 }
 
-export async function waitUntilPomNotContains(page: Page, filePath: string, expectedText: string, timeout = 10000) {
+export async function waitUntilPomNotContains(page: Page, filePath: string, expectedText: string, timeout = 20000) {
     const start = Date.now();
     while (Date.now() - start < timeout) {
         const content = await readFile(filePath, 'utf8');

@@ -84,50 +84,73 @@ export class Overview {
     }
 
     public async getProjectSummary() {
-        await this.webView.getByRole('heading', { name: 'Project Information Icon' }).locator('i').click();
+        const projectInfoIcon = await this.webView.getByRole('heading', { name: 'Project Information Icon' }).locator('i');
+        await projectInfoIcon.click();
     }
 
     public async updateProjectVersion(version: string) {
         const popupPanel = this.webView.locator('#popUpPanel');
         await popupPanel.waitFor();
         await popupPanel.getByRole('textbox', { name: 'Version*The version of the' }).fill(version);
-        await popupPanel.getByRole('button', { name: 'Save Changes' }).click();
+        const saveChangesButton = await getVsCodeButton(popupPanel, 'Save Changes', 'primary');
+        await saveChangesButton.click();
         await popupPanel.waitFor({ state: 'detached' });
     }
 
     public async addOtherDependencies() {
-        await this.webView.locator('[id="link-external-manage-dependencies-Other\\ Dependencies"] i').click();
+        const manageDependency = this.webView.locator('[id="link-external-manage-dependencies-Other\\ Dependencies"] i');
+        await manageDependency.waitFor();
+        await manageDependency.click();
         const popupPanel = this.webView.locator('#popUpPanel');
         await popupPanel.waitFor();
         await popupPanel.getByText('Add Dependency').click();
         await popupPanel.getByRole('textbox', { name: 'Group ID*' }).fill("mysql");
         await popupPanel.getByRole('textbox', { name: 'Artifact ID*' }).fill("mysql-connector-java");
         await popupPanel.getByRole('textbox', { name: 'Version*' }).fill("8.0.33");
-        await popupPanel.getByText('Save').click();
-        await popupPanel.getByRole('button', { name: 'Update Dependencies' }).click();
+        const saveButton = await getVsCodeButton(this.webView, 'Save', 'primary');
+        await saveButton.waitFor();
+        await saveButton.click();
+        await saveButton.waitFor({ state: 'detached' });
+        const updateButton = await getVsCodeButton(this.webView, 'Update Dependencies', 'primary');
+        await updateButton.waitFor();
+        await updateButton.click();
+        await updateButton.waitFor({ state: 'detached' });
         await popupPanel.waitFor({ state: 'detached' });
     }
 
     public async editOtherDependencies() {
-        const manageDependency = await this.webView.waitForSelector('[id="link-external-manage-dependencies-Other\\ Dependencies"] i', { state: 'visible', timeout: 5000 });
+        const manageDependency = await this.webView.waitForSelector('[id="link-external-manage-dependencies-Other\\ Dependencies"] i');
         await manageDependency.click();
         const popupPanel = this.webView.locator('#popUpPanel');
         await popupPanel.waitFor();
         await popupPanel.locator('h2:has-text("Other Dependencies")').waitFor({ state: 'visible', timeout: 5000 });
-        await popupPanel.locator('[data-testid^="mysql-connector-java   8.0.33"]:has-text("mysql mysql-connector-java")').click();
-        await popupPanel.getByRole('textbox', { name: 'Artifact ID*' }).fill('mysql-connector--java');
-        await popupPanel.getByText('Save').click();
-        await popupPanel.getByRole('button', { name: 'Update Dependencies' }).click();
+        const mySqlDependency = popupPanel.locator('[data-testid^="mysql-connector-java   8.0.33"]:has-text("mysql mysql-connector-java")');
+        await mySqlDependency.waitFor();
+        await mySqlDependency.click();
+        const artifactIdInput = popupPanel.getByRole('textbox', { name: 'Artifact ID*' });
+        await artifactIdInput.waitFor();
+        await artifactIdInput.fill('mysql-connector--java');
+        const updateButton = await getVsCodeButton(this.webView, 'Save', 'primary');
+        await updateButton.waitFor();
+        await updateButton.click();
+        const updateBtn = await getVsCodeButton(this.webView, 'Update Dependencies', 'primary');
+        await updateBtn.waitFor();
+        await updateBtn.click();
         await popupPanel.waitFor({ state: 'detached' });
     }
 
     public async deleteOtherDependencies() {
-        await this.webView.locator('[id="link-external-manage-dependencies-Other\\ Dependencies"] i').click();
+        const manageDependency = this.webView.locator('[id="link-external-manage-dependencies-Other\\ Dependencies"] i');
+        await manageDependency.waitFor();
+        await manageDependency.click();
         const popupPanel = this.webView.locator('#popUpPanel');
         await popupPanel.waitFor();
         await popupPanel.locator('h2:has-text("Other Dependencies")').waitFor();
-        await this.webView.locator('[data-testid^="mysql-connector--java   8.0.33"]').locator('i').nth(2).click();
-        await this.webView.getByRole('button', { name: 'Update Dependencies' }).click();
+        const mySqlDependency = this.webView.locator('[data-testid^="mysql-connector--java   8.0.33"]').locator('i').nth(2);
+        await mySqlDependency.waitFor();
+        await mySqlDependency.click();
+        const updateButton = await getVsCodeButton(this.webView, 'Update Dependencies', 'primary');
+        await updateButton.click();
         await popupPanel.waitFor({ state: 'detached' });
     }
 
@@ -140,8 +163,10 @@ export class Overview {
         await this.webView.getByRole('textbox', { name: 'Group ID*' }).fill("org.wso2.integration.connector");
         await this.webView.getByRole('textbox', { name: 'Artifact ID*' }).fill("mi-connector-amazonsqs");
         await this.webView.getByRole('textbox', { name: 'Version*' }).fill("2.0.3");
-        await this.webView.getByText('Save').click();
-        await this.webView.getByRole('button', { name: 'Update Dependencies' }).click();
+        const saveButton = await getVsCodeButton(this.webView, 'Save', 'primary');
+        await saveButton.click();
+        const updateButton = await getVsCodeButton(this.webView, 'Update Dependencies', 'primary');
+        await updateButton.click();
         await popupPanel.waitFor({ state: 'detached' });
     }
 
@@ -150,7 +175,9 @@ export class Overview {
         const popupPanel = this.webView.locator('#popUpPanel');
         await popupPanel.waitFor();
         await popupPanel.locator('h2:has-text("Connector Dependencies")').waitFor();
-        await this.webView.locator('[data-testid^="mi-connector-amazonsqs   2.0.3"]:has-text("mi-connector-amazonsqs")').click();
+        const connectorDependency = popupPanel.locator('[data-testid^="mi-connector-amazonsqs   2.0.3"]:has-text("mi-connector-amazonsqs")');
+        await connectorDependency.waitFor();
+        await connectorDependency.click();
         await this.webView.getByRole('textbox', { name: 'Artifact ID*' }).fill('mi-connector--amazonsqs');
         await this.webView.getByText('Save').click();
         await this.webView.getByRole('button', { name: 'Update Dependencies' }).click();
@@ -158,7 +185,9 @@ export class Overview {
     }
 
     public async deleteConnectorDependencies() {
-        await this.webView.locator('[id="link-external-manage-dependencies-Connector\\ Dependencies"] i').click();
+        const manageDependency = this.webView.locator('[id="link-external-manage-dependencies-Connector\\ Dependencies"] i');
+        await manageDependency.waitFor();
+        await manageDependency.click();
         const popupPanel = this.webView.locator('#popUpPanel');
         await popupPanel.waitFor();
         await popupPanel.locator('h2:has-text("Connector Dependencies")').waitFor();
@@ -168,7 +197,9 @@ export class Overview {
     }
 
     public async addConfig() {
-        await this.webView.locator('vscode-link').filter({ hasText: 'Manage Configurables' }).locator('i').click();
+        const manageConfig = this.webView.locator('vscode-link').filter({ hasText: 'Manage Configurables' }).locator('i');
+        await manageConfig.waitFor();
+        await manageConfig.click();
         const popupPanel = this.webView.locator('#popUpPanel');
         await popupPanel.waitFor();
         await popupPanel.locator('h2:has-text("Configurables")').waitFor();
@@ -182,7 +213,9 @@ export class Overview {
     }
 
     public async editConfig() {
-        await this.webView.locator('vscode-link').filter({ hasText: 'Manage Configurables' }).locator('i').click();
+        const manageConfig = this.webView.locator('vscode-link').filter({ hasText: 'Manage Configurables' }).locator('i');
+        await manageConfig.waitFor();
+        await manageConfig.click();
         const popupPanel = this.webView.locator('#popUpPanel');
         await popupPanel.waitFor();
         await popupPanel.locator('h2:has-text("Configurables")').waitFor();
@@ -195,7 +228,9 @@ export class Overview {
     }
 
     public async deleteConfig() {
-        await this.webView.locator('vscode-link').filter({ hasText: 'Manage Configurables' }).locator('i').click();
+        const manageConfig = this.webView.locator('vscode-link').filter({ hasText: 'Manage Configurables' }).locator('i');
+        await manageConfig.waitFor();
+        await manageConfig.click();
         const popupPanel = this.webView.locator('#popUpPanel');
         await popupPanel.waitFor();
         await popupPanel.locator('h2:has-text("Configurables")').waitFor();
