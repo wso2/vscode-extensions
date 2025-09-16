@@ -493,32 +493,6 @@ jobs:
             
             # Run tests
             PWDEBUG=console npx playwright test --grep ${{ matrix.group }}
-            TEST_EXIT_CODE=$?
-            TEST_EXIT_CODE=$?
-            
-            if [ -f "ffmpeg_pid.txt" ]; then
-              echo "Sending interrupt signal to FFmpeg for clean shutdown..."
-              kill -INT $FFMPEG_PID 2>/dev/null || true
-              sleep 5
-              # If still running, force kill
-              kill -KILL $FFMPEG_PID 2>/dev/null || true
-              echo "Sending interrupt signal to FFmpeg for clean shutdown..."
-              kill -INT $FFMPEG_PID 2>/dev/null || true
-              sleep 5
-              # If still running, force kill
-              kill -KILL $FFMPEG_PID 2>/dev/null || true
-            fi
-            
-            # Check if video was created
-            if [ -f "record.mp4" ]; then
-              echo "Video created, size: $(du -h record.mp4)"
-            else
-              echo "No video file found"
-            fi
-            
-            exit $TEST_EXIT_CODE
-            
-            exit $TEST_EXIT_CODE
           else
             export $(dbus-launch)
             export DISPLAY=:98.0
