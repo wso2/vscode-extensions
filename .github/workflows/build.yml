@@ -486,8 +486,8 @@ jobs:
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             cd workspaces/mi/mi-extension
             
-            # Start FFmpeg with proper signal handling for clean shutdown
-            ffmpeg -f gdigrab -framerate 15 -i desktop -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -movflags +faststart -loglevel error -y record.mp4 &
+            # Start FFmpeg recording
+            ffmpeg -f gdigrab -framerate 15 -s 1920x1080 -i desktop -c:v libx264 -preset ultrafast -crf 23 -pix_fmt yuv420p -movflags +faststart -loglevel error -y record.mp4 &
             FFMPEG_PID=$!
             echo $FFMPEG_PID > ffmpeg_pid.txt
             
@@ -498,8 +498,9 @@ jobs:
             if [ -f "ffmpeg_pid.txt" ]; then
               FFMPEG_PID=$(cat ffmpeg_pid.txt)
               echo "Stopping FFmpeg process: $FFMPEG_PID"
-              taskkill //PID $FFMPEG_PID //F 2>/dev/null || true
+              taskkill //PID $FFMPEG_PID 2>/dev/null || true
               sleep 2
+              taskkill //PID $FFMPEG_PID //F 2>/dev/null || true
               rm -f ffmpeg_pid.txt
             fi
           else
@@ -533,7 +534,7 @@ jobs:
             cd workspaces/mi/mi-extension
             
             # Start simple FFmpeg recording for rerun
-            ffmpeg -f gdigrab -framerate 10 -i desktop -c:v libx264 -preset fast -crf 30 -loglevel error -y record.mp4 &
+            ffmpeg -f gdigrab -framerate 10 -s 1920x1080 -i desktop -c:v libx264 -preset ultrafast -crf 30 -pix_fmt yuv420p -movflags +faststart -loglevel error -y record.mp4 &
             FFMPEG_PID=$!
             echo $FFMPEG_PID > ffmpeg_pid.txt
             
@@ -544,10 +545,10 @@ jobs:
             if [ -f "ffmpeg_pid.txt" ]; then
               FFMPEG_PID=$(cat ffmpeg_pid.txt)
               echo "Stopping FFmpeg process: $FFMPEG_PID"
-              taskkill //PID $FFMPEG_PID //F 2>/dev/null || true
+              taskkill //PID $FFMPEG_PID 2>/dev/null || true
               sleep 2
+              taskkill //PID $FFMPEG_PID //F 2>/dev/null || true
               rm -f ffmpeg_pid.txt
-              echo "Re-run recording completed"
             fi
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
             cd workspaces/mi/mi-extension && npx playwright test --grep ${{ matrix.group }} --last-failed
