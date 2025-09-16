@@ -186,6 +186,12 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
+      - name: Scan for secrets
+        if: always()
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: 'secret'    
+
   ExtTest_Ballerina:
     name: Run Ballerina extension tests
     needs: Build_Stage
