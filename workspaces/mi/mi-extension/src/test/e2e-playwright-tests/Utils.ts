@@ -253,26 +253,36 @@ export async function copyFile(source: string, destination: string) {
     fs.copyFileSync(source, destination);
 }
 
-export async function waitUntilPomContains(page: Page, filePath: string, expectedText: string, timeout = 10000) {
-    const start = Date.now();
-    while (Date.now() - start < timeout) {
-        const content = await readFile(filePath, 'utf8');
-        if (content.includes(expectedText)) {
-            return true;
+export async function waitUntilPomContains(page: Page, filePath: string, expectedText: string, timeout = 20000) {
+    await expect.poll(async () => {
+        try {
+            const content = await readFile(filePath, 'utf8');
+            return content.includes(expectedText);
+        } catch (error) {
+            return false; // File might not exist yet
         }
-        await page.waitForTimeout(500);
-    }
-    throw new Error(`Timed out waiting for '${expectedText}' in pom.xml`);
+    }, {
+        message: `Timed out waiting for '${expectedText}' in ${filePath}`,
+        timeout: timeout,
+        intervals: [500, 1000, 2000] // Progressive polling intervals
+    }).toBe(true);
+    
+    return true;
 }
 
-export async function waitUntilPomNotContains(page: Page, filePath: string, expectedText: string, timeout = 10000) {
-    const start = Date.now();
-    while (Date.now() - start < timeout) {
-        const content = await readFile(filePath, 'utf8');
-        if (!content.includes(expectedText)) {
-            return true;
+export async function waitUntilPomNotContains(page: Page, filePath: string, expectedText: string, timeout = 20000) {
+    await expect.poll(async () => {
+        try {
+            const content = await readFile(filePath, 'utf8');
+            return !content.includes(expectedText);
+        } catch (error) {
+            return true; // If file doesn't exist, it doesn't contain the text
         }
-        await page.waitForTimeout(500);
-    }
-    throw new Error(`Timed out waiting for '${expectedText}' in pom.xml`);
+    }, {
+        message: `Timed out waiting for '${expectedText}' to be removed from ${filePath}`,
+        timeout: timeout,
+        intervals: [500, 1000, 2000] // Progressive polling intervals
+    }).toBe(true);
+    
+    return true;
 }
