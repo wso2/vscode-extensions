@@ -122,7 +122,7 @@ export class Welcome {
         }
 
         console.log('Finalizing environment setup');
-        const continueBtn = await getVsCodeButton(container!, 'Continue', 'primary').catch(() => null);
+        const continueBtn = await getVsCodeButton(container!, 'Continue', 'secondary').catch(() => null);
         if (continueBtn) {
             console.log('Clicking Continue button');
             await continueBtn.click({ timeout: 10000 }).catch(() => { });

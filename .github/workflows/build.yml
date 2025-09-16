@@ -492,7 +492,16 @@ jobs:
             echo $FFMPEG_PID > ffmpeg_pid.txt
             
             # Run tests
-            PWDEBUG=console npx playwright test --grep ${{ matrix.group }}
+            npx playwright test --grep ${{ matrix.group }}
+            
+            # Stop FFmpeg recording
+            if [ -f "ffmpeg_pid.txt" ]; then
+              FFMPEG_PID=$(cat ffmpeg_pid.txt)
+              echo "Stopping FFmpeg process: $FFMPEG_PID"
+              taskkill //PID $FFMPEG_PID //F 2>/dev/null || true
+              sleep 2
+              rm -f ffmpeg_pid.txt
+            fi
           else
             export $(dbus-launch)
             export DISPLAY=:98.0
@@ -500,24 +509,33 @@ jobs:
             xvfb-run --server-num 98.0 -s "-ac -screen 0 1920x1080x24" bash -c "ffmpeg -f x11grab -r 30 -s 1920x1080 -i :98.0 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart -hide_banner -loglevel error record.mp4 & npx playwright test --grep ${{ matrix.group }}"
           fi
 
+      - name: Cleanup FFmpeg processes
+        shell: bash
+        if: always() && matrix.os == 'windows-latest'
+        run: |
+          # Clean up any running FFmpeg processes
+          if [ -f "workspaces/mi/mi-extension/ffmpeg_pid.txt" ]; then
+            cd workspaces/mi/mi-extension
+            FFMPEG_PID=$(cat ffmpeg_pid.txt)
+            echo "Terminating FFmpeg process: $FFMPEG_PID"
+            taskkill //PID $FFMPEG_PID //F 2>/dev/null || true
+            rm -f ffmpeg_pid.txt
+          fi
+          # Kill any remaining ffmpeg processes as backup
+          taskkill //IM ffmpeg.exe //F 2>/dev/null || true
+          echo "FFmpeg cleanup completed"
+
       - name: Run Failed Tests (Re-run)
         shell: bash
         if: github.run_attempt > 1 && steps.check-results.outcome == 'success'
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             cd workspaces/mi/mi-extension
-            # Use PowerShell to start screen recording for rerun
-            powershell -Command "
-            Add-Type -AssemblyName System.Windows.Forms
-            Add-Type -AssemblyName System.Drawing
-            \$rec = New-Object System.Diagnostics.Process
-            \$rec.StartInfo.FileName = 'ffmpeg'
-            \$rec.StartInfo.Arguments = '-y -f gdigrab -framerate 10 -i desktop -t 600 -c:v libx264 -preset fast -crf 30 -loglevel error record.mp4'
-            \$rec.StartInfo.UseShellExecute = \$false
-            \$rec.StartInfo.CreateNoWindow = \$true
-            \$rec.Start()
-            \$rec.Id | Out-File -FilePath 'ffmpeg_pid.txt' -Encoding ASCII
-            "
+            
+            # Start simple FFmpeg recording for rerun
+            ffmpeg -f gdigrab -framerate 10 -i desktop -c:v libx264 -preset fast -crf 30 -loglevel error -y record.mp4 &
+            FFMPEG_PID=$!
+            echo $FFMPEG_PID > ffmpeg_pid.txt
             
             # Run failed tests
             npx playwright test --grep ${{ matrix.group }} --last-failed
@@ -525,15 +543,11 @@ jobs:
             # Stop recording
             if [ -f "ffmpeg_pid.txt" ]; then
               FFMPEG_PID=$(cat ffmpeg_pid.txt)
-              powershell -Command "Stop-Process -Id $FFMPEG_PID -Force" 2>/dev/null || true
-              sleep 3
-            fi
-            
-            # Check if video was created
-            if [ -f "record.mp4" ]; then
-              echo "Re-run video created, size: $(du -h record.mp4)"
-            else
-              echo "No re-run video file found"
+              echo "Stopping FFmpeg process: $FFMPEG_PID"
+              taskkill //PID $FFMPEG_PID //F 2>/dev/null || true
+              sleep 2
+              rm -f ffmpeg_pid.txt
+              echo "Re-run recording completed"
             fi
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
             cd workspaces/mi/mi-extension && npx playwright test --grep ${{ matrix.group }} --last-failed
