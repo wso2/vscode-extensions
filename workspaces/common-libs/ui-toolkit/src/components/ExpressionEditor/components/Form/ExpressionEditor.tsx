@@ -239,6 +239,7 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
     }, [extractArgsFromFunction]);
 
     const handleChange = async (text: string, cursorPosition?: number) => {
+        changeHelperPaneState?.(false);
         const updatedCursorPosition =
             cursorPosition ?? textAreaRef.current.shadowRoot.querySelector('textarea').selectionStart;
         // Update the text field value
