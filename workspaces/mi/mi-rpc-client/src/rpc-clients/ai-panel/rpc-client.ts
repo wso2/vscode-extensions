@@ -19,7 +19,10 @@
 import {
     MIAIPanelAPI,
     GetBackendRootUrlResponse,
-    getBackendRootUrl
+    getBackendRootUrl,
+    GenerateSuggestionsRequest,
+    GenerateSuggestionsResponse,
+    generateSuggestions
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -36,6 +39,13 @@ export class MiAiPanelRpcClient implements MIAIPanelAPI {
     // ==================================
     getBackendRootUrl(): Promise<GetBackendRootUrlResponse> {
         return this._messenger.sendRequest(getBackendRootUrl, HOST_EXTENSION);
+    }
+
+    // ==================================
+    // AI Functions
+    // ==================================
+    generateSuggestions(request: GenerateSuggestionsRequest): Promise<GenerateSuggestionsResponse> {
+        return this._messenger.sendRequest(generateSuggestions, HOST_EXTENSION, request);
     }
 
 }

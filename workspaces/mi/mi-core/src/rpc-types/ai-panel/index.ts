@@ -17,6 +17,7 @@
  */
 
 import {
+    GenerateSuggestionsRequest, GenerateSuggestionsResponse,
     GetBackendRootUrlResponse,
     // GenerateSuggestionsRequest,
     // GenerateSuggestionsResponse
@@ -31,5 +32,5 @@ export interface MIAIPanelAPI {
     // ==================================
     // AI Functions
     // ==================================
-    // generateSuggestions: (request: GenerateSuggestionsRequest) => Promise<GenerateSuggestionsResponse>;
+    generateSuggestions: (request: GenerateSuggestionsRequest) => Promise<GenerateSuggestionsResponse>;
 }

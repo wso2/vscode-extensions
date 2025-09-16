@@ -134,7 +134,7 @@ const AIChatFooter: React.FC = () => {
         });
 
         // Generate suggestions based on chat history
-        await generateSuggestions(backendUri, copilotChat, rpcClient, new AbortController()).then((response) => {
+        await generateSuggestions(copilotChat, rpcClient, new AbortController()).then((response) => {
             setMessages((prevMessages) => [...prevMessages, ...response]);
         });
 

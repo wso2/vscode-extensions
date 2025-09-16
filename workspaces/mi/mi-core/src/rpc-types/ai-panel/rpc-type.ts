@@ -18,9 +18,11 @@
 
 import { RequestType } from "vscode-messenger-common";
 import {
+    GenerateSuggestionsRequest, GenerateSuggestionsResponse,
     GetBackendRootUrlResponse
 } from "./types";
 
 const _prefix = "mi-ai-panel";
 
 export const getBackendRootUrl: RequestType<void, GetBackendRootUrlResponse> = { method: `${_prefix}/getBackendRootUrl` };
+export const generateSuggestions: RequestType<GenerateSuggestionsRequest, GenerateSuggestionsResponse> = { method: `${_prefix}/generateSuggestions` };

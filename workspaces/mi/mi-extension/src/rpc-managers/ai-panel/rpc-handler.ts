@@ -19,7 +19,9 @@
 import { MessengerAPI } from "vscode-messenger-common";
 import { MIAIPanelRpcManager } from "./rpc-manager";
 import {
-    getBackendRootUrl
+    getBackendRootUrl,
+    generateSuggestions,
+    GenerateSuggestionsRequest
 } from "@wso2/mi-core";
 
 export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri: string) {
@@ -29,4 +31,5 @@ export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri
     // General Functions
     // ==================================
     messenger.onRequest(getBackendRootUrl, () => rpcManager.getBackendRootUrl());
+    messenger.onRequest(generateSuggestions, (request: GenerateSuggestionsRequest) => rpcManager.generateSuggestions(request));
 }

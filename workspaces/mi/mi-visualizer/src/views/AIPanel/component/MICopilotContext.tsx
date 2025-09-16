@@ -211,7 +211,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                                 { role: Role.default, content: storedQuestion, type: MessageType.Question },
                             ]);
                         } else {
-                            generateSuggestions(url, copilotChat, rpcClient, controller).then((response) => {
+                            generateSuggestions(copilotChat, rpcClient, controller).then((response) => {
                                 response.length > 0
                                     ? setMessages((prevMessages) => [...prevMessages, ...response])
                                     : null;
@@ -276,7 +276,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
             localStorage.removeItem(localStorageKeys.questionFile);
             localStorage.removeItem(localStorageKeys.codeBlocks);
             localStorage.removeItem(localStorageKeys.fileHistory);
-            generateSuggestions(backendUri, copilotChat, rpcClient, controller).then((response) => {
+            generateSuggestions(copilotChat, rpcClient, controller).then((response) => {
                 response.length > 0 ? setMessages((prevMessages) => [...prevMessages, ...response]) : null;
                 setChatClearEventTriggered(false);
             });
