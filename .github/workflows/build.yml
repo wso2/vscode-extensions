@@ -174,7 +174,7 @@ jobs:
           PLATFORM_DEV_GHAPP_CLIENT_ID: ${{ secrets.PLATFORM_DEV_GHAPP_CLIENT_ID }}
           PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID: ${{ secrets.PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID }}
 
-      - name: Run Trivy secrets scanner
+      - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.33.1
         with:
           scan-type: 'fs'
@@ -183,19 +183,6 @@ jobs:
           exit-code: '1'
           timeout: '10m'
           skip-dirs: 'common/temp'
-          scanners: 'secret'    
-
-      # Use action when https://github.com/aquasecurity/trivy-action/issues/386 is resolved
-      - name: Run Trivy vulnerability scanner
-        if: always()
-        run: |
-          trivy fs --timeout 10m --scanners vuln --format sarif --output trivy-results.sarif --exit-code 1 .  
-
-      - name: Upload Trivy scan results to GitHub Security tab
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'trivy-results.sarif'
 
   ExtTest_Ballerina:
     name: Run Ballerina extension tests
