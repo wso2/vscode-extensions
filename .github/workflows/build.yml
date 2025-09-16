@@ -168,16 +168,6 @@ jobs:
           PLATFORM_DEV_GHAPP_CLIENT_ID: ${{ secrets.PLATFORM_DEV_GHAPP_CLIENT_ID }}
           PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID: ${{ secrets.PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID }}
 
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: 'javascript,typescript'
-    
-      - name: Scan for secrets
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: 'secret'    
-
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.28.0
         with:
@@ -185,10 +175,21 @@ jobs:
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-results.sarif'
-          ignore-unfixed: true
           exit-code: '1'
           timeout: '10m'
           scanners: 'vuln'
+
+      - name: Run Trivy secrets scanner
+        if: always()
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '1'
+          timeout: '10m'
+          skip-dirs: 'common/temp'
+          scanners: 'secret'    
 
       - name: Upload Trivy scan results to GitHub Security tab
         if: always()
