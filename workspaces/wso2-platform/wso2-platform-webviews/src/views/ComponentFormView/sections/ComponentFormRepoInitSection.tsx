@@ -61,18 +61,6 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 	const repoError = form.formState?.errors?.repo;
 	const repoName = [connectMoreRepoText, createNewRpoText].includes(repo) ? "" : repo;
 
-	const { data: hasSubscriptions = false } = useQuery({
-		queryKey: ["hasSubscriptions", { orgId: organization?.id, extensionName }],
-		queryFn: () =>
-			ChoreoWebViewAPI.getInstance()
-				.getChoreoRpcClient()
-				.getSubscriptions({
-					orgId: organization?.id?.toString(),
-					cloudType: extensionName === "Devant" ? "devant" : "choreo",
-				}),
-		select: (data) => !!data.list?.length,
-	});
-
 	const {
 		data: gitOrgs,
 		isLoading: loadingGitOrgs,
@@ -305,7 +293,7 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 							<div className="flex w-full flex-col" key="connect-repo-btn">
 								<div className="flex justify-between gap-1">
 									<span className="flex gap-1">
-										<label className="font-light">{hasSubscriptions ? "Repository" : "Public Repository"}</label>
+										<label className="font-light">Repository</label>
 										<RequiredFormInput />
 									</span>
 									{repoError?.message && (
@@ -332,7 +320,7 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 							</div>
 						) : (
 							<Dropdown
-								label={hasSubscriptions ? "Repository" : "Public Repository"}
+								label="Repository"
 								key="gen-details-repo"
 								required
 								name="repo"
