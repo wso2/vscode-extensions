@@ -22,7 +22,7 @@ import { ProjectExplorer } from '../ProjectExplorer';
 import { ServiceClassEditorUtils } from './serviceEditorUtils';
 
 export default function createTests() {
-    test.describe('AI Chat Agent Tests', {
+    test.describe('Service Class Tests', {
         tag: '@group1',
     }, async () => {
         initTest();
