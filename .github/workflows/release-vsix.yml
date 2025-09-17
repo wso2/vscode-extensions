@@ -182,6 +182,7 @@ jobs:
         uses: ./.github/actions/pr
         with:
           version: ${{ steps.vsix.outputs.version }}
+          isPreRelease: ${{ github.event.inputs.isPreRelease }}
           threadId: ${{ github.run_id }}
           bot_username: ${{ secrets.CHOREO_BOT_USERNAME }}
           bot_email: ${{ secrets.CHOREO_BOT_EMAIL }}

@@ -3,6 +3,12 @@ name: Build and run Tests
 on: 
   workflow_call:
     inputs: 
+      runOnAWS:
+        default: false
+        type: boolean
+      awsRunnerId:
+        default: 'codebuild-wso2_vscode-extensions-${{ github.run_id }}-${{ github.run_attempt }}'
+        type: string  
       isPreRelease:
         default: true
         type: boolean  
@@ -64,7 +70,7 @@ jobs:
   Build_Stage:
     name: Build repo
     timeout-minutes: 45
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
     outputs:
       runBalExtTests: ${{ steps.testMatrix.outputs.runBalExtTests }}
       runChoreoExtTests: ${{ steps.testMatrix.outputs.runChoreoExtTests }}
@@ -148,6 +154,7 @@ jobs:
         with:
           isPreRelease: ${{ inputs.isPreRelease }}
           enableCache: ${{ inputs.enableCache }}
+          enableLSCache: ${{ !inputs.isReleaseBuild }}
           ballerina: ${{ inputs.ballerina }}
           choreo: ${{ inputs.choreo }}
           wso2-platform: ${{ inputs.wso2-platform }}
@@ -168,16 +175,14 @@ jobs:
           PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID: ${{ secrets.PLATFORM_DEV_DEVANT_ASGARDEO_CLIENT_ID }}
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.33.1
         with:
           scan-type: 'fs'
           scan-ref: '.'
           format: 'table'
-          ignore-unfixed: true
           exit-code: '1'
           timeout: '10m'
           skip-dirs: 'common/temp'
-          severity: 'CRITICAL,HIGH,MEDIUM'
 
   ExtTest_Ballerina:
     name: Run Ballerina extension tests
@@ -185,7 +190,7 @@ jobs:
     if: false
     # if: ${{ inputs.runTests || !inputs.isPreRelease || needs.Build_Stage.outputs.runBalExtTests == 'true' || github.base_ref == 'release-ballerina' }}
     timeout-minutes: 45
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
     steps:
       - name: Restore build
         uses: actions/download-artifact@v4
@@ -231,7 +236,7 @@ jobs:
     if: false
     # if: ${{ inputs.runE2ETests || github.base_ref == 'release-ballerina' }}
     timeout-minutes: 45
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
     steps:
       - name: Restore build
         uses: actions/download-artifact@v4
@@ -302,7 +307,7 @@ jobs:
     # if: ${{ !inputs.skipUiTests || github.base_ref == 'release-choreo' }}
     needs: Build_Stage
     timeout-minutes: 120
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
     steps:
       - name: Restore build
         uses: actions/download-artifact@v4
@@ -379,7 +384,7 @@ jobs:
     needs: Build_Stage
     if: ${{ inputs.runTests || !inputs.isPreRelease || needs.Build_Stage.outputs.runMIExtTests == 'true' || github.base_ref == 'release-mi' }}
     timeout-minutes: 30
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
     steps:
       - name: Restore build
         uses: actions/download-artifact@v4
@@ -409,7 +414,7 @@ jobs:
     needs: Build_Stage
     if: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
     timeout-minutes: 60
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
