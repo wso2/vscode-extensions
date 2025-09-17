@@ -164,7 +164,7 @@ export class ServiceClassEditorUtils {
         // Handle return type
         const returnBox = await this.waitForTextbox('Return Type');
         await returnBox.click();
-        await this.artifactWebView.getByTitle(returnType, { exact: true }).click();
+        await this.artifactWebView.getByText(returnType, { exact: true }).click();
 
         await this.handleTypeCompletion(returnBox);
 
@@ -182,7 +182,8 @@ export class ServiceClassEditorUtils {
         const typeField = await this.waitForTextbox('Variable Type');
         await typeField.fill(type);
         await typeField.click();
-        await this.artifactWebView.getByTitle(type, { exact: true }).click();
+        await this.page.waitForTimeout(WAIT_CONFIG.SHORT);
+        await this.artifactWebView.getByText(type, { exact: true }).click();
 
         await this.handleTypeCompletion(typeField);
 

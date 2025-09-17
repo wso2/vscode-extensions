@@ -51,12 +51,12 @@ export default function createTests() {
                 { name: 'age', returnType: 'int', type: 'Remote'}
             ], [
                 { name: 'firstName', type: 'string' },
-                {name: 'lastName', type: 'string' }
+                {name: 'id', type: 'int' }
             ]);
             
             await serviceClassUtils.renameServiceClass(`Service${testAttempt}`);
             await serviceClassUtils.editMethod('name', 'fullName');
-            await serviceClassUtils.deleteVariable('lastName');
+            await serviceClassUtils.deleteVariable('id');
         })
     });
 }
