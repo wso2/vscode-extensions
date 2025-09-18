@@ -17,7 +17,7 @@
  */
 
 import { Page } from "@playwright/test";
-import { switchToIFrame } from "@wso2/playwright-vscode-tester";
+import { Form, switchToIFrame } from "@wso2/playwright-vscode-tester";
 import { ProjectExplorer } from "../ProjectExplorer";
 import { AddArtifact } from "../AddArtifact";
 
@@ -152,9 +152,21 @@ export class Endpoint {
         await foEPFrame.getByRole('textbox', { name: 'Description' }).fill('Description');
         await foEPFrame.getByText('Add Parameter').click();
         await foEPFrame.locator('#txt-field-0').getByPlaceholder('parameter_key').fill('testProperty');
-        await foEPFrame.getByRole('textbox', { name: 'Value*' }).first().fill('testValue');
-        await foEPFrame.locator('slot').filter({ hasText: /^default$/ }).click({ force: true });
-        await foEPFrame.getByLabel('transport').click({ force: true });
+        const messageProcessorForm = new Form(this._page, 'Failover Endpoint Form');
+        await messageProcessorForm.switchToFormView();
+        await messageProcessorForm.fill({
+            values: {
+                'Value*': {
+                    type: 'input',
+                    value: 'testValue',
+                },
+                'Scope*': {
+                    type: 'dropdown',
+                    value: 'transport',
+                }
+            }
+        });
+        await messageProcessorForm.submit('Save');
         await foEPFrame.getByRole('button', { name: 'Create' }).click({ force: true });
     }
 
