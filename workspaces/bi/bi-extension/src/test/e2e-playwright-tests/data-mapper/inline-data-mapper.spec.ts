@@ -21,7 +21,7 @@ import { addArtifact, initTest, page } from '../utils';
 import { switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { Diagram } from '../components/Diagram';
 import { SidePanel } from '../components/SidePanel';
-import { updateProjectFileSync } from './DataMapper';
+import { DataMapperUtils, updateProjectFileSync } from './DataMapper';
 import { ProjectExplorer } from '../ProjectExplorer';
 
 export default function createTests() {
@@ -77,15 +77,15 @@ export default function createTests() {
             console.log('Inline Data Mapper - Basic mapping: ', testAttempt);
 
 
-            updateProjectFileSync('basic_init.bal', 'automation.bal');
-            updateProjectFileSync('types.bal', 'types.bal');
+            updateProjectFileSync('basic_init.bal.txt', 'automation.bal');
+            updateProjectFileSync('types.bal.txt', 'types.bal');
 
             // Added to wait until project sync with file changes
             await page.page.waitForTimeout(2000);
 
             const explorer = new ProjectExplorer(page.page);
             await explorer.refresh('sample');
-            await explorer.findItem(['sample', 'Entry Points','main'], true);
+            await explorer.findItem(['sample', 'Entry Points', 'main'], true);
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
@@ -96,14 +96,16 @@ export default function createTests() {
             await webView.getByText('var2 = {}').click();
             await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
 
-          
-            await webView.locator('#data-mapper-canvas-container').waitFor();
 
-            await page.page.pause();
+            page.page.on("console", msg => {
+                console.log("PAGE LOG:", msg.text());
+            });
+            const dmu = new DataMapperUtils(webView);
+            await dmu.waitFor();
 
-          
+            await dmu.expandField('var1');
 
-           
+            await dmu.mapFields('var1.iStr', 'objectOutput.var2.oStr');
 
         });
     });

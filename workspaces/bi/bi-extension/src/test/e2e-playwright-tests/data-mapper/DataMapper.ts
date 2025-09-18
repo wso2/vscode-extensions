@@ -26,32 +26,13 @@ import path from "path";
 
 const dmDataFolder = path.join(__dirname, 'data');
 
-export class DataMapper {
+export class DataMapperUtils {
 
-    public webView!: Frame;
-    tsFile!: string;
-
-    constructor(private _page: Page, private _name: string) {
+    constructor(private webView: Frame) {
     }
 
-    public async init() {
-        const webview = await switchToIFrame("Data Mapper View", this._page)
-        if (!webview) {
-            throw new Error("Failed to switch to Data Mapper View iframe");
-        }
-        this.webView = webview;
-        this.tsFile = path.join(newProjectPath, 'testProject', 'src', 'main', 'wso2mi', 'resources', 'datamapper', this._name, `${this._name}.ts`);
-    }
-
-    public async add(name: string) {
-        const seqWebView = await switchToIFrame('Resource View', this._page);
-        if (!seqWebView) {
-            throw new Error("Failed to switch to Resource Form iframe");
-        }
-        const seqFrame = seqWebView.locator('#popUpPanel');
-        await seqFrame.waitFor();
-        await seqFrame.getByRole('textbox', { name: 'Name' }).fill(name);
-        await seqFrame.getByRole('button', { name: 'Create' }).click();
+    public async waitFor() {
+        await this.webView.locator('#data-mapper-canvas-container').waitFor();
     }
 
     public getWebView() {
@@ -121,29 +102,36 @@ export class DataMapper {
     //     await this.importSchema(IOType.Output, SchemaType.Json, outputJsonFile);
     // }
 
+    public async expandField(fieldFQN: string) {
+        const expandButton = this.webView.locator(`div[id="recordfield-${fieldFQN}"]`).getByTitle('Expand/Collapse');
+        await expandButton.click();
+    }
+
     public async mapFields(sourceFieldFQN: string, targetFieldFQN: string, menuOptionId?: string) {
 
-        const sourceField = this.webView.locator(`div[id="recordfield-${sourceFieldFQN}"] .port`);
+        const sourceField = this.webView.locator(`div[id="recordfield-${sourceFieldFQN}"]`);
         const targetField = this.webView.locator(`div[id="recordfield-${targetFieldFQN}"] .port`);
 
         await targetField.waitFor();
         await sourceField.waitFor();
 
         await sourceField.click({force: true});
+
+        await expect(sourceField).toHaveCSS('outline-style', 'solid'); 
+
         await targetField.click({force: true});
 
         if (menuOptionId) {
             const menuItem = this.webView.locator(`#${menuOptionId}`);
             await menuItem.click();
             await menuItem.waitFor({ state: 'detached' });
-        } else {
-            try {
-                await this.webView.waitForSelector('vscode-progress-ring', { state: 'attached' });
-            } catch (error) {}
-            try {
-                await this.webView.waitForSelector('vscode-progress-ring', { state: 'detached' });
-            } catch (error) {}
-        }
+        } 
+        try {
+            await this.webView.waitForSelector('vscode-progress-ring', { state: 'attached' });
+        } catch (error) {}
+        try {
+            await this.webView.waitForSelector('vscode-progress-ring', { state: 'detached' });
+        } catch (error) {}
         
     }
 
@@ -226,9 +214,9 @@ export class DataMapper {
         expect(hasDiagnostic).toBeTruthy();
     }
 
-    public verifyTsFileContent(comparingFile: string) {
-        return this.compareFiles(this.tsFile, path.join(dmDataFolder, comparingFile));
-    }
+    // public verifyTsFileContent(comparingFile: string) {
+    //     return this.compareFiles(this.tsFile, path.join(dmDataFolder, comparingFile));
+    // }
 
     public compareFiles(file1: string, file2: string) {
         const file1Content = fs.readFileSync(file1, 'utf8');
@@ -246,13 +234,13 @@ export class DataMapper {
     //     return fs.existsSync(operatorsFile) && fs.existsSync(this.tsFile);
     // }
 
-    public overwriteTsFile(newTsFile: string) {
-        fs.writeFileSync(this.tsFile, fs.readFileSync(newTsFile, 'utf8'));
-    }
+    // public overwriteTsFile(newTsFile: string) {
+    //     fs.writeFileSync(this.tsFile, fs.readFileSync(newTsFile, 'utf8'));
+    // }
 
-    public resetTsFile() {
-        this.overwriteTsFile(path.join(dmDataFolder, 'reset.ts'));
-    }
+    // public resetTsFile() {
+    //     this.overwriteTsFile(path.join(dmDataFolder, 'reset.ts'));
+    // }
 
     public writeFile(sourceFile: string, targetFile: string) {
         const sourcePath = path.join(dmDataFolder, sourceFile);

@@ -2,7 +2,7 @@ import ballerina/log;
 
 public function main() returns error? {
     do {
-        BasicOut var1 = {};
+        BasicIn var1 = {};
         BasicOut var2 = {};
 
     } on fail error e {
