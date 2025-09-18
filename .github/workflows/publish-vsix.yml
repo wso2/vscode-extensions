@@ -40,7 +40,7 @@ on:
 jobs:
   publish:
     name: Publish vsix to marketplaces
-    runs-on: ubuntu-latest
+    runs-on: codebuild-wso2_vscode-extensions-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Download artifact
         id: download-artifact
