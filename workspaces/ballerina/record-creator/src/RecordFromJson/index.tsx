@@ -18,7 +18,7 @@
 // tslint:disable: jsx-no-multiline-js
 import React, { useContext, useEffect, useReducer } from "react";
 
-import { DIAGNOSTIC_SEVERITY, JsonToRecord } from "@wso2/ballerina-core";
+import { DIAGNOSTIC_SEVERITY, JsonToRecord, IUndoRedoManager } from "@wso2/ballerina-core";
 import { ModulePart, NodePosition, STKindChecker, STNode, TypeDefinition } from "@wso2/syntax-tree";
 import debounce from "lodash.debounce";
 
@@ -34,7 +34,6 @@ import {
 import { FileSelector } from "../components/FileSelector";
 import { FormActionButtons } from "../components/FormComponents/FormFieldComponents/FormActionButtons";
 import { FormTextArea } from "../components/FormComponents/FormFieldComponents/TextField/FormTextArea";
-import { UndoRedoManager } from "../components/UndoRedoManager";
 import { checkDiagnostics, getUpdatedSource } from "../components/FormComponents/Utils";
 import { RecordOverview } from "../RecordOverview";
 import { Context } from "../Context";
@@ -54,7 +53,7 @@ interface RecordState {
 }
 
 interface RecordFromJsonProps {
-    undoRedoManager?: UndoRedoManager;
+    undoRedoManager?: IUndoRedoManager;
     onSave: (recordString: string, modifiedPosition: NodePosition) => void;
     onCancel: (createdRecordName?: string) => void;
     isHeaderHidden?: boolean;

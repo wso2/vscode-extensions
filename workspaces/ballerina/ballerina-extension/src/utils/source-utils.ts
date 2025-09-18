@@ -22,7 +22,7 @@ import { workspace } from 'vscode';
 import { Uri, Position } from 'vscode';
 import { ArtifactData, EVENT_TYPE, LinePosition, MACHINE_VIEW, ProjectStructureArtifactResponse, STModification, SyntaxTree, TextEdit } from '@wso2/ballerina-core';
 import path from 'path';
-import { openView, StateMachine } from '../stateMachine';
+import { openView, StateMachine, undoRedoManager } from '../stateMachine';
 import { ArtifactsUpdated, ArtifactNotificationHandler } from './project-artifacts-handler';
 import { existsSync, writeFileSync } from 'fs';
 import { notifyCurrentWebview } from '../RPCLayer';
@@ -38,6 +38,7 @@ export interface UpdateSourceCodeRequest {
 export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCodeRequest, artifactData?: ArtifactData): Promise<ProjectStructureArtifactResponse[]> {
     let tomlFilesUpdated = false;
     StateMachine.setEditMode();
+    undoRedoManager.startBatchOperation();
     const modificationRequests: Record<string, { filePath: string; modifications: STModification[] }> = {};
     for (const [key, value] of Object.entries(updateSourceCodeRequest.textEdits)) {
         const fileUri = Uri.file(key);
@@ -64,6 +65,11 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
             }
             continue;
         }
+
+        // Get the before content of the file by using the workspace api
+        const document = await workspace.openTextDocument(fileUri);
+        const beforeContent = document.getText();
+        undoRedoManager.addFileToBatch(fileUri.fsPath, beforeContent, beforeContent);
 
         if (edits && edits.length > 0) {
             const modificationList: STModification[] = [];
@@ -133,8 +139,10 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                     ),
                     formattedSource.newText
                 );
+                undoRedoManager.addFileToBatch(fileUri.fsPath, formattedSource.newText, formattedSource.newText);
             }
         }
+        undoRedoManager.commitBatchOperation(artifactData ? `Change in ${artifactData.artifactType} ${artifactData.identifier}` : "Update Source Code");
 
         // Apply all formatted changes at once
         await workspace.applyEdit(formattedWorkspaceEdit);
