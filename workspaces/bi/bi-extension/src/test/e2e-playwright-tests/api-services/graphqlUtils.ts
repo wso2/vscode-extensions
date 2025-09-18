@@ -17,6 +17,7 @@
  */
 import { Frame,Page } from '@playwright/test';
 import { Form } from '@wso2/playwright-vscode-tester';
+import { TypeEditorUtils } from '../type/TypeEditorUtils';
 
 export class GraphQLServiceUtils {
     /**
@@ -111,6 +112,9 @@ export class GraphQLServiceUtils {
             }
         });
         console.log('Filled form for new output object type');
+        const typeEditorUtils = new TypeEditorUtils(this.page, this.webView);
+        await typeEditorUtils.addFunction("function1", "string");
+        console.log('Added function to the new type');
         await this.webView.getByTestId('type-create-save').getByRole('button', { name: 'Save' }).click();
         console.log('Saved the new output object type');
     }

@@ -63,7 +63,7 @@ export class TypeEditorUtils {
             if (optionCount === 1) {
                 await dropdownOptions.first().click();
             } else if (optionCount > 1) {
-                // You can refine this logic as needed, here we click the second one
+                // In case of dropdown appear
                 await dropdownOptions.nth(1).click();
             } else {
                 throw new Error(`No dropdown option found for value: ${value}`);
