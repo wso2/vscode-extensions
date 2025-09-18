@@ -153,9 +153,9 @@ export class Endpoint {
         await foEPFrame.getByText('Add Parameter').click();
         await foEPFrame.locator('#txt-field-0').getByPlaceholder('parameter_key').fill('testProperty');
         await foEPFrame.getByRole('textbox', { name: 'Value*' }).first().fill('testValue');
-        await foEPFrame.locator('slot').filter({ hasText: /^default$/ }).click();
-        await foEPFrame.getByLabel('transport').click();
-        await foEPFrame.getByRole('button', { name: 'Create' }).click();
+        await foEPFrame.locator('slot').filter({ hasText: /^default$/ }).click({ force: true });
+        await foEPFrame.getByLabel('transport').click({ force: true });
+        await foEPFrame.getByRole('button', { name: 'Create' }).click({ force: true });
     }
 
     public async editFailoverEndpoint(prevName: string, newName: string) {
@@ -168,9 +168,9 @@ export class Endpoint {
         }
         const foEPFrame = foEPWebview.locator('div#root');
         await foEPFrame.getByRole('textbox', { name: 'Name*' }).fill(newName);
-        await foEPFrame.locator('slot').filter({ hasText: /^True$/ }).click();
-        await foEPFrame.getByLabel('False').click();        
-        await foEPFrame.getByRole('button', { name: 'Save Changes' }).click();
+        await foEPFrame.locator('slot').filter({ hasText: /^True$/ }).click({ force: true });
+        await foEPFrame.getByLabel('False').click({ force: true });        
+        await foEPFrame.getByRole('button', { name: 'Save Changes' }).click({ force: true });
     }
 
     public async addRecipientListEndpoint(name: string) {
