@@ -95,7 +95,7 @@ export const SlidingWindow = ({ children }: SlidingWindowProps) => {
                 getParams: getParams,
                 isInitialRender: isInitialRender
             }}>
-            <SlidingWindowContainer style={{  width: width }}>
+            <SlidingWindowContainer style={{ width: width }}>
                 {children}
             </SlidingWindowContainer>
         </SlidingPaneContext.Provider>
@@ -108,7 +108,7 @@ export const SlidingPaneContainer = styled.div<{ index: number; isCurrent?: bool
   flex-direction: column;
   transition: ${({ clearAnimations }: { clearAnimations: boolean }) =>
         clearAnimations ? 'none' : 'transform 0.3s ease-in-out, height 0.3s ease-in-out'};
-  transform: ${({ index, isInitialRender }: { index: number, isInitialRender?: React.MutableRefObject<boolean> }) => 
+  transform: ${({ index, isInitialRender }: { index: number, isInitialRender?: React.MutableRefObject<boolean> }) =>
         isInitialRender?.current ? 'none' : `translateX(${index * 100}%)`};
 `;
 
@@ -187,10 +187,8 @@ const SlidingPaneNavContainerElm = styled.div`
     align-items: center;
     &:hover {
         background-color: var(--vscode-list-activeSelectionBackground) !important;
-        cursor: pointer;
-    }
-    &:hover .sliding-pane-text {
         color:  ${ThemeColors.ON_PRIMARY};
+        cursor: pointer;
     }
 `
 export const SlidingPaneCallbackCOntainer = styled.div`
@@ -225,33 +223,27 @@ export const SlidingPaneNavContainer = ({ children, to, data, endIcon, onClick, 
     }
 
     return (
-        <SlidingPaneNavContainerElm onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} ref={ref} style={sx}>
-            <InvisibleButton
-                className="sliding-pane-text"
-                style={{ width: '100%' }}
-                onClick={() => {
-                    if (onClick) {
-                        onClick();
-                    } else {
-                        handleNavigation();
-                    }
-                }}
-            >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                    <div>
-                        {children}
-                    </div>
-                    {
-                        endIcon ? (
-                            <>{endIcon}</>
-                        ) : to ? (
-                            <div style={{ marginLeft: '8px', display: 'flex', alignItems: 'center' }}>
-                                <Codicon name="chevron-right" />
-                            </div>
-                        ) : null
-                    }
+        <SlidingPaneNavContainerElm onClick={() => {
+            if (onClick) {
+                onClick();
+            } else {
+                handleNavigation();
+            }
+        }} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} ref={ref} style={sx}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <div>
+                    {children}
                 </div>
-            </InvisibleButton>
+                {
+                    endIcon ? (
+                        <>{endIcon}</>
+                    ) : to ? (
+                        <div style={{ marginLeft: '8px', display: 'flex', alignItems: 'center' }}>
+                            <Codicon name="chevron-right" />
+                        </div>
+                    ) : null
+                }
+            </div>
         </SlidingPaneNavContainerElm>
     )
 }
@@ -291,7 +283,7 @@ export const SlidingPaneHeader = ({ children }: { children: ReactNode }) => {
         <StickyHeader>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'flex-start', color: ThemeColors.ON_SURFACE_VARIANT }}>
                 <SlidingPaneBackButton>
-                    <Codicon sx={{ color: ThemeColors.ON_SURFACE_VARIANT }} name="chevron-left"/>
+                    <Codicon sx={{ color: ThemeColors.ON_SURFACE_VARIANT }} name="chevron-left" />
                 </SlidingPaneBackButton>
                 {children}
             </div>
