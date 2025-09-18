@@ -22,13 +22,14 @@ import { switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { Diagram } from '../components/Diagram';
 import { SidePanel } from '../components/SidePanel';
 import { updateProjectFileSync } from './DataMapper';
+import { ProjectExplorer } from '../ProjectExplorer';
 
 export default function createTests() {
     test.describe('Inline Data Mapper Tests', {
         tag: '@group1',
     }, async () => {
         initTest();
-        test('Adding Declare Variable Node', async ({ }, testInfo) => {
+        test.skip('Open In Data Mapper option', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
             console.log('Update types.bal');
@@ -63,22 +64,47 @@ export default function createTests() {
             
             await webView.locator('#expression-editor-close i').click();
             
-            // await webView.getByRole('textbox', { name: 'Expression' }).press('Escape');
-
-            await webView.getByRole('button', { name: 'Save' }).click();
-            await webView.getByTestId('side-panel').waitFor({ state: 'detached' });
-            
-            await webView.getByTestId('diagram-link-1').locator('foreignobject').click();
-
-            await page.page.pause();
-
-            await webView.getByText('Declare Variable').click();
-            await webView.getByRole('textbox', { name: 'Type' }).click();
-            await webView.getByText('BasicOut').click();
             await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
 
-            await page.page.pause();
+            console.log('Waiting for Data Mapper to open');
+            await webView.locator('#data-mapper-canvas-container').waitFor();
+            
+        });
+
+        test('Inline Data Mapper - Basic In to Basic Out mapping', async ({ }, testInfo) => {
+            const testAttempt = testInfo.retry + 1;
+
+            console.log('Inline Data Mapper - Basic mapping: ', testAttempt);
+
+
+            updateProjectFileSync('basic_init.bal', 'automation.bal');
+            updateProjectFileSync('types.bal', 'types.bal');
+
+            // Added to wait until project sync with file changes
+            await page.page.waitForTimeout(2000);
+
+            const explorer = new ProjectExplorer(page.page);
+            await explorer.refresh('sample');
+            await explorer.findItem(['sample', 'Entry Points','main'], true);
+
+            const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
+            if (!webView) {
+                throw new Error('WSO2 Integrator: BI webview not found');
+            }
+
+            await webView.getByRole('heading', { name: 'Automation' }).waitFor();
+            await webView.getByText('var2 = {}').click();
+            await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
+
           
+            await webView.locator('#data-mapper-canvas-container').waitFor();
+
+            await page.page.pause();
+
+          
+
+           
+
         });
     });
 }
