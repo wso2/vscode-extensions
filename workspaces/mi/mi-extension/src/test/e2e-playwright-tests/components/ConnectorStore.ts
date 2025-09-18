@@ -97,8 +97,10 @@ export class ConnectorStore {
         const filePath = path.join(dataFolder, fileName);
         await this.fillLocationPath(filePath);
 
-        const submitBtn = await this.webView.waitForSelector(`vscode-button:text("Import")`);
-        await submitBtn.click();
+        await this._page.waitForTimeout(2000); // Wait for the file path to be processed
+        const importBtn = await getVsCodeButton(this.webView, "Import", "primary");
+        await importBtn.waitFor();
+        await importBtn.click({ force: true });
 
         const loader = this.webView.locator(`div:text("Importing Connector...")`);
         await loader.waitFor();

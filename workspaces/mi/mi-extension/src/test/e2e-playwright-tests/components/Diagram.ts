@@ -363,7 +363,7 @@ export class SidePanel {
         await this.confirmDownloadDependency();
 
         const loader = this.sidePanel.locator(`span:text("Downloading Module...")`);
-        await loader.waitFor();
+        await loader.waitFor({ state: "detached", timeout: 300000 });
 
         const downloadedConnector = drawer.locator(`#card-select-${name}`);
         await downloadedConnector.waitFor();

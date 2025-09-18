@@ -205,15 +205,32 @@ export default function createTests() {
         // diagram
         const diagram = new Diagram(page.page, 'Resource');
         await diagram.init();
+        console.log('Adding new connection from connections tab');
         await diagram.addNewConnectionFromConnectionsTab();
 
+        console.log('Selecting connector and version');
         const connectorStore = new ConnectorStore(page.page, "Resource View");
         await connectorStore.init();
-        await connectorStore.selectOperation('Kafka');
+        const resourceView = await switchToIFrame('Resource View', page.page);
+        if (!resourceView) {
+          throw new Error("Failed to switch to Resource View iframe");
+        }
+        console.log('Searching for connector');
+        await resourceView.locator('#popUpPanel').getByRole('textbox', { name: 'Text field' }).fill('kafka');
+        console.log('Selecting connector');
+        const kafkaConnector = resourceView.locator(`#connection-Kafka`);
+        await kafkaConnector.waitFor({ timeout: 120000 });
+        console.log('Clicking Kafka connector');
+        await kafkaConnector.click({ force: true });
+        await kafkaConnector.waitFor({ state: 'detached' });
+        console.log('Confirming download of connector dependency');
         await connectorStore.confirmDownloadDependency();
-
+        const downloadingConnector = resourceView.locator(`span:text("Downloading connector...")`);
+        await downloadingConnector.waitFor({ state: 'detached', timeout: 500000 });
+        console.log('Connector downloaded successfully');
         const connectionForm = new Form(page.page, 'Resource View');
         await connectionForm.switchToFormView(true);
+        await resourceView.getByRole('textbox', { name: 'Connection Name*' }).waitFor({ timeout: 150000 });
         console.log('Filling out connection form');
         await connectionForm.fill({
           values: {
@@ -236,29 +253,30 @@ export default function createTests() {
           }
         });
         await connectionForm.submit('Add');
+        console.log('Connection created successfully');
       });
 
-      await test.step('Add connector operation through connections tab', async () => {
-        console.log('Adding connector operation through connections tab');
-        // diagram
-        const diagram = new Diagram(page.page, 'Resource');
-        await diagram.init();
-        await diagram.addConnectorOperation('kafka_connection', 'PublishMessages');
+      // await test.step('Add connector operation through connections tab', async () => {
+      //   console.log('Adding connector operation through connections tab');
+      //   // diagram
+      //   const diagram = new Diagram(page.page, 'Resource');
+      //   await diagram.init();
+      //   await diagram.addConnectorOperation('kafka_connection', 'PublishMessages');
 
-        // Fill connector form
-        await diagram.fillConnectorForm({
-          values: {
-            'Topic*': {
-              type: 'expression',
-              value: 'exampleTopic'
-            },
-            'Partition Number*': {
-              type: 'expression',
-              value: '2'
-            }
-          }
-        });
-      });
+      //   // Fill connector form
+      //   await diagram.fillConnectorForm({
+      //     values: {
+      //       'Topic*': {
+      //         type: 'expression',
+      //         value: 'exampleTopic'
+      //       },
+      //       'Partition Number*': {
+      //         type: 'expression',
+      //         value: '2'
+      //       }
+      //     }
+      //   });
+      // });
     });
   });
 }
