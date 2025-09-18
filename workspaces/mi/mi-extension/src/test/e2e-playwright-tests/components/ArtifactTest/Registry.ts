@@ -98,7 +98,7 @@ export class Registry {
             },
         });
         console.log("Filled registry form");
-        await registryForm.submit();
+        await registryForm.submit("Create", true);
         console.log("Submitted registry form");
     }
 
