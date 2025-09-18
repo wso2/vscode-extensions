@@ -170,7 +170,7 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
         await handleChange(newTextValue, newCursorPosition);
         onCompletionSelect && await onCompletionSelect(newTextValue, item);
         setCursor(inputRef, 'input', newTextValue, newCursorPosition, manualFocusTrigger);
-        handleClose();
+        handleCancel();
     };
 
     const handleExpressionSave = async (value: string, ref?: React.MutableRefObject<string>) => {
