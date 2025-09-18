@@ -119,19 +119,18 @@ export default function createTests() {
             await typeUtils.verifyTypeNodeExists(recordName);
 
             // Create Service Class: Project
-            // https://github.com/wso2/product-ballerina-integrator/issues/1308
-            // await typeUtils.clickAddType();
-            // const serviceClassName = `Project${testAttempt}`;
-            // const serviceForm = await typeUtils.createServiceClass(serviceClassName, [
-            //     { name: 'employeeDetails', returnType: recordName }
-            // ]);
-            // await typeUtils.saveAndWait(serviceForm);
-            // await typeUtils.verifyTypeNodeExists(serviceClassName);
-            // await typeUtils.verifyTypeLink(serviceClassName, 'employeeDetails', recordName);
+            await typeUtils.clickAddType();
+            const serviceClassName = `Project${testAttempt}`;
+            const serviceForm = await typeUtils.createServiceClass(serviceClassName, [
+                { name: 'employeeDetails', returnType: recordName }
+            ]);
+            await typeUtils.saveAndWait(serviceForm);
+            await typeUtils.verifyTypeNodeExists(serviceClassName);
+            await typeUtils.verifyTypeLink(serviceClassName, 'employeeDetails', recordName);
 
-            // // Verify the generated types.bal matches testOutput.bal
-            // const expectedFilePath = path.join(__dirname, 'testOutput.bal');
-            // await verifyGeneratedSource('types.bal', expectedFilePath);                 
+            // Verify the generated types.bal matches testOutput.bal
+            const expectedFilePath = path.join(__dirname, 'testOutput.bal');
+            await verifyGeneratedSource('types.bal', expectedFilePath);                 
 
         });
     });
