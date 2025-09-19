@@ -59,9 +59,6 @@ export function openInConsoleCommand(context: ExtensionContext) {
 					}
 
 					let projectBaseUrl = `${ext.config?.choreoConsoleUrl}/organizations/${selectedOrg?.handle}/projects/${selectedProject.handler}`;
-					if (extensionName === "Devant") {
-						projectBaseUrl = `${ext.config?.devantConsoleUrl}/organizations/${selectedOrg?.handle}/projects/${selectedProject.id}`;
-					}
 
 					if (params?.component) {
 						env.openExternal(Uri.parse(`${projectBaseUrl}/components/${params?.component.metadata.handler}/overview`));
