@@ -128,7 +128,7 @@ export class Resource {
                 }
             },
         });
-        await resourceForm.submit();
+        await resourceForm.submit("Create", true);
         console.log("Resource Form submitted from file system");
     }
 
