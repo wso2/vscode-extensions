@@ -49,14 +49,16 @@ export default function createTests() {
                     'connectionString': {
                         type: 'textarea',
                         value: '"Endpoint=sb://test.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=test"',
+                        additionalProps: { clickLabel: true }
                     },
                     'entityConfig': {
                         type: 'textarea',
                         value: `{ queueName: "testQueue" }`,
+                        additionalProps: { clickLabel: true }
                     }
                 }
             });
-            await form.submit('Next');
+            await form.submit('Next', true);
 
             // Check for title
             const configTitle = artifactWebView.locator('h3', { hasText: 'Azure Service Bus Event Handler Configuration' });

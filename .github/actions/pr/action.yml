@@ -3,6 +3,9 @@ inputs:
   version:
     description: 'Publish version'
     required: true 
+  isPreRelease:
+    default: true
+    type: boolean    
   chatAPI:
     description: 'Google chat API'
     required: true
@@ -100,9 +103,29 @@ runs:
           mv .git/config .git/config-old 
           git remote add origin https://${{ inputs.bot_token }}@github.com/${{ github.repository }}.git
           git diff --staged --quiet || git commit -m "Update version to ${{ inputs.version }}"
-          git checkout -b "${{ inputs.version }}"
+        env:
+          GH_TOKEN: ${{ inputs.bot_token }}
+
+      - name: Create tag
+        shell: bash
+        id: create_tag
+        run: |
           git tag ${{ inputs.version }}
-          git push origin "refs/heads/${{ inputs.version }}" "refs/tags/${{ inputs.version }}"
+          git push origin "refs/tags/${{ inputs.version }}"
+
+      - name: Create release branch
+        shell: bash
+        if: ${{ inputs.isPreRelease == 'false' }}
+        id: create_branch
+        run: |
+          git checkout -b "${{ inputs.version }}"
+          git push origin "refs/heads/${{ inputs.version }}"
+
+      - name: Create Pull Request
+        shell: bash
+        if: ${{ inputs.isPreRelease == 'false' }}
+        id: pr
+        run: |
           baseBranch=""
           if [ "${{ inputs.ballerina }}" == 'true' ]; then
             baseBranch="release-ballerina"
@@ -123,6 +146,7 @@ runs:
           GH_TOKEN: ${{ inputs.bot_token }}
 
       - name: "PR Notification"
+        if: ${{ inputs.isPreRelease == 'false' }}
         shell: bash
         run: |
           body=$(cat << EOF
