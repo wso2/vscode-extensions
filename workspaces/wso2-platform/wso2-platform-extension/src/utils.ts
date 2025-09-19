@@ -437,3 +437,8 @@ export const parseJwt = (token: string): { iss: string } | null => {
 		return null;
 	}
 };
+
+export const getExtVersion = (context: ExtensionContext): string => {
+	const packageJson = JSON.parse(readFileSync(path.join(context.extensionPath, "package.json"), "utf8"));
+	return packageJson?.version;
+};

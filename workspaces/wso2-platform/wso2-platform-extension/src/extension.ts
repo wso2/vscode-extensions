@@ -37,11 +37,16 @@ import { ChoreoConfigurationProvider, addTerminalHandlers } from "./tarminal-han
 import { activateTelemetry } from "./telemetry/telemetry";
 import { activateURIHandlers } from "./uri-handlers";
 import { registerYamlLanguageServer } from "./yaml-ls";
+import { getCliVersion } from "./choreo-rpc/cli-install";
+import { getExtVersion } from "./utils";
 
 export async function activate(context: vscode.ExtensionContext) {
 	activateTelemetry(context);
 	await initLogger(context);
-	getLogger().debug("Activating WSO2 Platform Extension");
+	getLogger().info("Activating WSO2 Platform Extension");
+	getLogger().info(`Extension version: ${getExtVersion(context)}`);
+	getLogger().info(`CLI version: ${getCliVersion()}`);
+
 	ext.context = context;
 	ext.api = new PlatformExtensionApi();
 	ext.choreoEnv = getChoreoEnv();
