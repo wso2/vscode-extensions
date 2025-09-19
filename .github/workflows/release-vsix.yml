@@ -53,6 +53,7 @@ jobs:
     uses: ./.github/workflows/build.yml
     secrets: inherit
     with:
+      runOnAWS: true
       isPreRelease: ${{ inputs.isPreRelease }}
       enableCache: false
       ballerina: ${{ inputs.ballerina }}
@@ -68,7 +69,7 @@ jobs:
     name: Release VSIX
     needs: Build
     timeout-minutes: 45
-    runs-on: ubuntu-latest
+    runs-on: codebuild-wso2_vscode-extensions-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Restore build
         uses: actions/download-artifact@v4
@@ -182,6 +183,7 @@ jobs:
         uses: ./.github/actions/pr
         with:
           version: ${{ steps.vsix.outputs.version }}
+          isPreRelease: ${{ github.event.inputs.isPreRelease }}
           threadId: ${{ github.run_id }}
           bot_username: ${{ secrets.CHOREO_BOT_USERNAME }}
           bot_email: ${{ secrets.CHOREO_BOT_EMAIL }}
@@ -198,7 +200,7 @@ jobs:
   Notify:
     needs: [Release]
     if: ${{ always() && contains(needs.*.result, 'failure') && github.repository == 'wso2/vscode-extensions'}}
-    runs-on: ubuntu-latest
+    runs-on: codebuild-wso2_vscode-extensions-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v2
       - name: "Failure Notification"

@@ -116,7 +116,7 @@ export async function isMIUpToDate(): Promise<boolean> {
 export async function getProjectSetupDetails(projectUri: string): Promise<SetupDetails> {
     const miVersion = await getMIVersionFromPom(projectUri);
     if (!miVersion) {
-        vscode.window.showErrorMessage('Failed to get WSO2 Integrator: MI version from pom.xml.');
+        vscode.window.showWarningMessage('Failed to get WSO2 Integrator: MI version from pom.xml.');
         return { miVersionStatus: 'missing', javaDetails: { status: 'not-valid' }, miDetails: { status: 'not-valid' } };
     }
     if (isSupportedMIVersion(miVersion)) {

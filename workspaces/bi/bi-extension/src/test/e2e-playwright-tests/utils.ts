@@ -62,7 +62,15 @@ export async function toggleNotifications(disable: boolean) {
 
 export async function setupBallerinaIntegrator() {
     await page.selectSidebarItem('WSO2 Integrator: BI');
-    const webview = await getWebview('WSO2 Integrator: BI', page);
+    console.log('Selecting WSO2 Integrator: BI sidebar item');
+    let webview;
+    try {
+        webview = await switchToIFrame('WSO2 Integrator: BI', page.page, 20000);
+    } catch (error) {
+        console.log('Failed to get webview on first attempt, retrying...');
+        await page.selectSidebarItem('WSO2 Integrator: BI');
+        webview = await getWebview('WSO2 Integrator: BI', page);
+    }
     if (!webview) {
         throw new Error('WSO2 Integrator: BI webview not found');
     }
@@ -138,7 +146,7 @@ export async function createProject(page: ExtendedPage, projectName?: string) {
     await form.switchToFormView(false, webview);
     await form.fill({
         values: {
-            'Integration Name': {
+            'Integration Name*': {
                 type: 'input',
                 value: projectName ?? 'sample',
             },
@@ -192,6 +200,18 @@ export function initMigrationTest() {
     test.beforeAll(async ({ }, testInfo) => {
         console.log(`>>> Starting migration tests. Title: ${testInfo.title}, Attempt: ${testInfo.retry + 1}`);
         console.log('Setting up BI extension for migration testing');
+        if (!existsSync(path.join(newProjectPath, 'testProject'))) {
+            if (fs.existsSync(newProjectPath)) {
+                fs.rmSync(newProjectPath, { recursive: true });
+            }
+            fs.mkdirSync(newProjectPath, { recursive: true });
+            console.log('Starting VSCode');
+        } else {
+            console.log('Resuming VSCode');
+            await resumeVSCode();
+            await page.page.waitForLoadState();
+            await toggleNotifications(true);
+        }
         await initVSCode();
         await page.page.waitForLoadState();
         await toggleNotifications(true);
@@ -207,7 +227,6 @@ export function initMigrationTest() {
         if (!webview) {
             throw new Error('WSO2 Integrator: BI webview not found');
         }
-
         console.log('Migration test runner started');
     });
 }
