@@ -55,7 +55,7 @@ jobs:
     with:
       runOnAWS: true
       isPreRelease: ${{ inputs.isPreRelease }}
-      enableLSCache: false
+      enableCache: false
       ballerina: ${{ inputs.ballerina }}
       wso2-platform: ${{ inputs.wso2-platform }}
       choreo: ${{ inputs.choreo }}

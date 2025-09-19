@@ -7,7 +7,7 @@ inputs:
     default: true
     type: boolean
   enableLSCache:
-    default: true
+    default: false
     type: boolean
   ballerina:
     description: Update Ballerina extension version
