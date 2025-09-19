@@ -67,7 +67,7 @@ test.describe(aiChatService);
 
 // <----Integration as API Test---->
 test.describe(httpService);
-test.describe(graphqlService); // TODO: This tests is failing fix it
+test.describe(graphqlService);
 test.describe(tcpService);
 
 // <----Event Integration Test---->
