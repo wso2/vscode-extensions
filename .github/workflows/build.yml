@@ -15,6 +15,9 @@ on:
       enableCache:
         default: true
         type: boolean  
+      enableLSCache:
+        default: false
+        type: boolean  
       ballerina:
         description: Update Ballerina extension version
         type: boolean
@@ -154,7 +157,7 @@ jobs:
         with:
           isPreRelease: ${{ inputs.isPreRelease }}
           enableCache: ${{ inputs.enableCache }}
-          enableLSCache: ${{ !inputs.isReleaseBuild }}
+          enableLSCache: ${{ inputs.enableLSCache || !inputs.isReleaseBuild }}
           ballerina: ${{ inputs.ballerina }}
           choreo: ${{ inputs.choreo }}
           wso2-platform: ${{ inputs.wso2-platform }}
