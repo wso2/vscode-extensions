@@ -328,6 +328,7 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
     }
 
     const selectStoreConnectionType = async (connector: any, connectionType: string) => {
+        console.debug("Selected store connection type: ", connectionType);
         setConOnconfirmation({ connector, connectionType });
     }
 
@@ -345,6 +346,7 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
     }
 
     const handleDependencyResponse = async (response: boolean) => {
+        console.debug("Dependency response: ", response);
         if (response) {
             // Add dependencies to pom
             setIsDownloading(true);
@@ -357,20 +359,28 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
                     version: conOnconfirmation.connector.version.tagName,
                     type: 'zip' as 'zip'
                 });
+                console.debug("Adding dependencies: ", dependencies);
+                dependencies.forEach(dep => console.debug(dep));
                 await rpcClient.getMiVisualizerRpcClient().updateDependencies({
                     dependencies
                 });
+                console.debug("Dependencies updated successfully.");
             }
 
             await updateDependencies();
 
             // Format pom
+            console.debug("Formatting pom.xml");
             const projectDir = (await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path: props.path })).path;
+            console.debug("Project directory: ", projectDir);
             const pomPath = path.join(projectDir, 'pom.xml');
+            console.debug("Pom path: ", pomPath);
             await rpcClient.getMiDiagramRpcClient().rangeFormat({ uri: pomPath });
+            console.debug("Pom.xml formatted successfully.");
 
             // Download Connector
             const response = await rpcClient.getMiVisualizerRpcClient().updateConnectorDependencies();
+            console.debug("Download Connector response: ", response);
 
             setIsDownloading(false);
 
@@ -378,20 +388,71 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
             setIsGeneratingForm(true);
 
             if (response === "Success" || !response.includes(conOnconfirmation.connector.mavenArtifactId)) {
+                console.debug("Rendering connection form for: ", conOnconfirmation);
                 const connectorName = conOnconfirmation.connector.connectorName;
                 const connectionType = conOnconfirmation.connectionType;
-                const connector = await rpcClient.getMiDiagramRpcClient().getAvailableConnectors({ documentUri: props.path, connectorName: connectorName.toLowerCase() });
-
-                if (connector) {
-                    setSelectedConnectionType({ connector, connectionType });
+                
+                // Add delay to ensure file system operations complete (especially important on Windows)
+                console.debug("Adding delay for file system operations to complete...");
+                
+                console.debug("Attempting to get available connectors with name: ", connectorName.toLowerCase());
+                console.debug("Document URI: ", props.path);
+                
+                // Ensure proper URI format for cross-platform compatibility
+                const documentUri = props.path.replace(/\\/g, '/');
+                console.debug("Normalized document URI: ", documentUri);
+                
+                let connector = await rpcClient.getMiDiagramRpcClient().getAvailableConnectors({ documentUri: documentUri, connectorName: connectorName.toLowerCase() });
+                console.debug("Available connector (lowercase): ", connector);
+                
+                // If lowercase doesn't work, try the original name (case sensitivity issue)
+                if (!connector) {
+                    console.debug("Retrying with original connector name case: ", connectorName);
+                    connector = await rpcClient.getMiDiagramRpcClient().getAvailableConnectors({ documentUri: documentUri, connectorName: connectorName });
+                    console.debug("Available connector (original case): ", connector);
                 }
+                
+                // If still no connector, try with empty name to get all connectors and filter
+                if (!connector) {
+                    console.debug("Retrying with empty name to get all connectors...");
+                    const allConnectors = await rpcClient.getMiDiagramRpcClient().getAvailableConnectors({ documentUri: documentUri, connectorName: "" });
+                    console.debug("All available connectors: ", allConnectors);
+                    
+                    // logging all available connector names for debugging
+                    allConnectors.connectors.forEach((c: any) => {
+                        console.debug("Available connector names: ", c.name, c.displayName);
+                    });
+                    if (allConnectors && allConnectors.connectors) {
+                        // Try to find the connector by name (case insensitive)
+                        const foundConnector = allConnectors.connectors.find((c: any) => 
+                            c.name.toLowerCase() === connectorName.toLowerCase() ||
+                            c.displayName?.toLowerCase() === connectorName.toLowerCase()
+                        );
+                        if (foundConnector) {
+                            console.debug("Found connector in all connectors list: ", foundConnector);
+                            connector = { connectors: [foundConnector] };
+                        }
+                    }
+                }
+                
+                if (connector && (connector.connectors || connector.name)) {
+                    // Handle both single connector and connector list responses
+                    const actualConnector = connector.connectors ? connector.connectors[0] : connector;
+                    setSelectedConnectionType({ connector: actualConnector, connectionType });
+                    console.debug("Successfully set connection type with connector: ", actualConnector);
+                } else {
+                    console.error("Failed to find connector after all retry attempts");
+                }
+                console.debug("Fetching local connector data");
                 fetchLocalConnectorData();
+                console.debug("Clearing connection confirmation");
                 setConOnconfirmation(undefined);
             } else {
                 setIsFailedDownload(true);
             }
             setIsGeneratingForm(false);
         } else {
+            console.debug("Dependency response was negative.");
             setIsFailedDownload(false);
             setConOnconfirmation(undefined);
         }
