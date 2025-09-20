@@ -48,6 +48,8 @@ import { Divider } from '../../../Divider/Divider';
 import { MonacoEditor } from '../MonacoEditor';
 import { ThemeColors } from '../../../../styles/Theme';
 
+const heleperPaneEditorOffset = 50;
+
 /* Styles */
 namespace S {
     export const Container = styled.div`
@@ -230,6 +232,7 @@ export const TokenEditor = ({
     const [calculatedHelperPaneOrigin, setCalculatedHelperPaneOrigin] = useState<HelperPaneOrigin>('auto');
     const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
     const monacoEditorRef = useRef();
+    const helperPaneEditorRef = useRef<HTMLDivElement>(null);
 
     let helperPaneStyle: StyleBase;
     if (height) {
@@ -550,10 +553,36 @@ export const TokenEditor = ({
         }
     }
 
+    const checkAndUpdateFullscreen = React.useCallback(() => {
+        if (!enableFullscreen || !isHelperPaneOpen || !monacoEditorRef.current || !helperPaneEditorRef.current) return;
+
+        const editorRect = helperPaneEditorRef.current.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+
+        if ((editorRect.bottom + heleperPaneEditorOffset) > viewportHeight
+            && !isFullscreen) {
+            setIsFullscreen(true);
+        }
+    }, [enableFullscreen, isHelperPaneOpen, isFullscreen]);
+
     const handleFullscreenToggle = () => {
         setIsFullscreen(!isFullscreen);
     };
 
+    // Check fullscreen on mount and when dependencies change
+    useEffect(() => {
+        // Initial check with a small delay to ensure DOM is ready
+        const timeoutId = setTimeout(checkAndUpdateFullscreen, 100);
+
+        // Listen for window resize events
+        window.addEventListener('resize', checkAndUpdateFullscreen);
+
+        return () => {
+            clearTimeout(timeoutId);
+            window.removeEventListener('resize', checkAndUpdateFullscreen);
+        };
+    }, [enableFullscreen, isFullscreen, isHelperPaneOpen, checkAndUpdateFullscreen]);
+    
     const fullScreenStyle: StyleBase = isFullscreen ? {
         sx: {
             top: 0,
@@ -608,7 +637,7 @@ export const TokenEditor = ({
                 <Divider sx={{ margin: 0 }} />
 
                 {/* Editor to edit the token */}
-                <S.HelperPaneEditor>
+                <S.HelperPaneEditor ref={helperPaneEditorRef}>
                     <S.Adornment>
                         {startAdornment}
                     </S.Adornment>

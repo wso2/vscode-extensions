@@ -75,10 +75,10 @@ export class Form {
         await cancelBtn.click();
     }
 
-    public async submit(btnText: string = "Create") {
+    public async submit(btnText: string = "Create", forceClick: boolean = false) {
         const submitBtn = await getVsCodeButton(this.container, btnText, "primary");
         expect(await submitBtn.isEnabled()).toBeTruthy();
-        await submitBtn.click();
+        await submitBtn.click({ force: forceClick });
     }
 
     public async fill(props: FormFillProps) {
@@ -127,9 +127,9 @@ export class Form {
                     case 'combo': {
                         let parentDiv;
                         if (data.additionalProps?.nthValue !== undefined) {
-                            parentDiv = this.container.locator(`label:text("${key}")`).nth(data.additionalProps?.nthValue).locator('../../..');
+                            parentDiv = this.container.locator(`label:text-matches("${key}")`).nth(data.additionalProps?.nthValue).locator('../../..');
                         } else {
-                            parentDiv = this.container.locator(`label:text("${key}")`).locator('../../..');
+                            parentDiv = this.container.locator(`label:text-matches("${key}")`).locator('../../..');
                         }
                         await parentDiv.waitFor();
                         const input = parentDiv.locator('input[role="combobox"]');

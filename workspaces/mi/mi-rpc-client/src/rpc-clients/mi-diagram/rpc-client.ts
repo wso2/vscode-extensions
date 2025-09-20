@@ -90,6 +90,7 @@ import {
     GetAvailableResourcesRequest,
     GetAvailableResourcesResponse,
     GetBackendRootUrlResponse,
+    GetProxyRootUrlResponse,
     GetConnectionFormRequest,
     GetConnectionFormResponse,
     GetConnectorConnectionsRequest,
@@ -195,8 +196,16 @@ import {
     UpdateWsdlEndpointResponse,
     WriteContentToFileRequest,
     WriteContentToFileResponse,
+    WriteMockServicesRequest,
+    WriteMockServicesResponse,
+    GetMockServicesResponse,
     HandleFileRequest,
     HandleFileResponse,
+    WriteIdpSchemaFileToRegistryRequest,
+    WriteIdpSchemaFileToRegistryResponse,
+    GetIdpSchemaFilesResponse,
+    ReadIdpSchemaFileContentRequest,
+    ReadIdpSchemaFileContentResponse,
     applyEdit,
     askFileDirPath,
     askProjectDirPath,
@@ -249,6 +258,7 @@ import {
     getAvailableRegistryResources,
     getAvailableResources,
     getBackendRootUrl,
+    getProxyRootUrl,
     getConnectionForm,
     getConnector,
     getConnectorConnections,
@@ -324,7 +334,13 @@ import {
     updateTestSuite,
     updateWsdlEndpoint,
     writeContentToFile,
+    writeMockServices,
+    getMockServices,
     handleFileWithFS,
+    writeIdpSchemaFileToRegistry,
+    getIdpSchemaFiles,
+    convertPdfToBase64Images,
+    readIdpSchemaFileContent,
     StoreConnectorJsonResponse,
     getStoreConnectorJSON,
     TestDbConnectionRequest,
@@ -423,7 +439,20 @@ import {
     UpdateMediatorResponse,
     GetConnectorIconRequest,
     GetConnectorIconResponse,
-    getConnectorIcon
+    getConnectorIcon,
+    getValueOfEnvVariable,
+    getPomFileContent,
+    GetPomFileContentResponse,
+    getExternalConnectorDetails,
+    GetExternalConnectorDetailsResponse,
+    configureKubernetes,
+    ConfigureKubernetesRequest,
+    ConfigureKubernetesResponse,
+    isKubernetesConfigured,
+    UpdateRegistryPropertyRequest,
+    Property,
+    updatePropertiesInArtifactXML,
+    getPropertiesFromArtifactXML
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -699,8 +728,28 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
         return this._messenger.sendRequest(writeContentToFile, HOST_EXTENSION, params);
     }
 
+    writeMockServices(params: WriteMockServicesRequest): Promise<WriteMockServicesResponse> {
+        return this._messenger.sendRequest(writeMockServices, HOST_EXTENSION, params);
+    }
+
     handleFileWithFS(params: HandleFileRequest): Promise<HandleFileResponse> {
         return this._messenger.sendRequest(handleFileWithFS, HOST_EXTENSION, params);
+    }
+
+    writeIdpSchemaFileToRegistry(params: WriteIdpSchemaFileToRegistryRequest): Promise<WriteIdpSchemaFileToRegistryResponse> {
+        return this._messenger.sendRequest(writeIdpSchemaFileToRegistry, HOST_EXTENSION, params);
+    } 
+
+    getIdpSchemaFiles(): Promise<GetIdpSchemaFilesResponse> {
+        return this._messenger.sendRequest(getIdpSchemaFiles, HOST_EXTENSION);
+    }
+
+    convertPdfToBase64Images(params:string): Promise<string[]> {
+        return this._messenger.sendRequest(convertPdfToBase64Images, HOST_EXTENSION, params);
+    }
+
+    readIdpSchemaFileContent(params: ReadIdpSchemaFileContentRequest): Promise<ReadIdpSchemaFileContentResponse> {
+        return this._messenger.sendRequest(readIdpSchemaFileContent, HOST_EXTENSION, params);
     }
 
     highlightCode(params: HighlightCodeRequest): void {
@@ -773,6 +822,10 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     getBackendRootUrl(): Promise<GetBackendRootUrlResponse> {
         return this._messenger.sendRequest(getBackendRootUrl, HOST_EXTENSION);
+    }
+
+    getProxyRootUrl(): Promise<GetProxyRootUrlResponse> {
+        return this._messenger.sendRequest(getProxyRootUrl, HOST_EXTENSION);
     }
 
     getAvailableRegistryResources(params: ListRegistryArtifactsRequest): Promise<RegistryArtifactNamesResponse> {
@@ -1105,5 +1158,37 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     closePayloadAlert(): Promise<void> {
         return this._messenger.sendRequest(closePayloadAlert, HOST_EXTENSION);
+    }
+  
+    getValueOfEnvVariable(params:string): Promise<string> { 
+        return this._messenger.sendRequest(getValueOfEnvVariable, HOST_EXTENSION, params);
+    }
+
+    getPomFileContent(): Promise<GetPomFileContentResponse> {
+        return this._messenger.sendRequest(getPomFileContent, HOST_EXTENSION);
+    }
+
+    getExternalConnectorDetails(): Promise<GetExternalConnectorDetailsResponse> {
+        return this._messenger.sendRequest(getExternalConnectorDetails, HOST_EXTENSION);
+    }
+
+    getMockServices(): Promise<GetMockServicesResponse> {
+        return this._messenger.sendRequest(getMockServices, HOST_EXTENSION);
+    }
+  
+    configureKubernetes(params: ConfigureKubernetesRequest): Promise<ConfigureKubernetesResponse> {
+        return this._messenger.sendRequest(configureKubernetes, HOST_EXTENSION, params);
+    }
+
+    isKubernetesConfigured(): Promise<boolean> {
+        return this._messenger.sendRequest(isKubernetesConfigured, HOST_EXTENSION);
+    }
+
+    updatePropertiesInArtifactXML(params: UpdateRegistryPropertyRequest): Promise<string> {
+        return this._messenger.sendRequest(updatePropertiesInArtifactXML, HOST_EXTENSION, params);
+    }
+
+    getPropertiesFromArtifactXML(params: string): Promise<Property[] | undefined> {
+        return this._messenger.sendRequest(getPropertiesFromArtifactXML, HOST_EXTENSION, params);
     }
 }
