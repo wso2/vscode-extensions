@@ -162,13 +162,13 @@ runs:
                       {
                         "keyValue": {
                           "topLabel": "Pull Request",
-                          "content": "${{ steps.commit.outputs.prURL }}",
+                          "content": "${{ steps.pr.outputs.prURL }}",
                           "button": {
                             "textButton": {
                               "text": "Merge",
                               "onClick": {
                                 "openLink": {
-                                  "url": "${{ steps.commit.outputs.prURL }}"
+                                  "url": "${{ steps.pr.outputs.prURL }}"
                                 }
                               }
                             }
