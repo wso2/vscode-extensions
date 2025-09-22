@@ -81,25 +81,28 @@ export default function createTests() {
             updateProjectFileSync('types.bal.txt', 'types.bal');
 
             // Added to wait until project sync with file changes
-            await page.page.waitForTimeout(2000);
+            // await page.page.waitForTimeout(5000);
+            // await page.page.pause();
 
-            const explorer = new ProjectExplorer(page.page);
-            await explorer.refresh('sample');
-            await explorer.findItem(['sample', 'Entry Points', 'main'], true);
+            // const explorer = new ProjectExplorer(page.page);
+            // await explorer.refresh('sample');
+            // await explorer.findItem(['sample', 'Entry Points', 'main'], true);
+
+            // await page.page.pause();
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
 
+            await webView.getByRole('heading', { name: 'sample' }).waitFor();
+
+            await page.page.getByRole('treeitem', { name: 'main' }).click();
+
             await webView.getByRole('heading', { name: 'Automation' }).waitFor();
             await webView.getByText('var2 = {}').click();
             await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
 
-
-            page.page.on("console", msg => {
-                console.log("PAGE LOG:", msg.text());
-            });
             const dmu = new DataMapperUtils(webView);
             await dmu.waitFor();
 
