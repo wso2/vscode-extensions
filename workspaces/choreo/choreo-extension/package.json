@@ -3,7 +3,7 @@
   "displayName": "Choreo",
   "description": "An extension for managing your Choreo projects and components",
   "license": "Apache-2.0",
-  "version": "2.2.5-2",
+  "version": "2.2.6",
   "cliVersion": "v1.2.92505041530",
   "publisher": "wso2",
   "bugs": {
