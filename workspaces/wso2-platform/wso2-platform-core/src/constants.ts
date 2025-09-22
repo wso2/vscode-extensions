@@ -35,6 +35,7 @@ export const CommandIds = {
 	CreateComponentDependency: "wso2.wso2-platform.component.create.dependency",
 	ViewDependency: "wso2.wso2-platform.component.view.dependency",
 	OpenCompSrcDir: "wso2.wso2-platform.open.component.src",
+	CommitAndPushToGit: "wso2.wso2-platform.push-to-git",
 	// TODO: add command & code lens to delete dependency
 };
 

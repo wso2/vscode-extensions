@@ -23,9 +23,12 @@ import {
 	ChoreoBuildPackNames,
 	ChoreoComponentType,
 	CommandIds,
+	type ComponentKind,
 	DevantScopes,
 	type ExtensionName,
 	type ICreateComponentCmdParams,
+	type Organization,
+	type Project,
 	type SubmitComponentCreateReq,
 	type WorkspaceConfig,
 	getComponentKindRepoSource,
@@ -34,15 +37,16 @@ import {
 	getTypeOfIntegrationType,
 	parseGitURL,
 } from "@wso2/wso2-platform-core";
-import { type ExtensionContext, ProgressLocation, type QuickPickItem, Uri, commands, window, workspace } from "vscode";
-import { choreoEnvConfig } from "../config";
+import { type ExtensionContext, ProgressLocation, type QuickPickItem, Uri, commands, env, window, workspace } from "vscode";
 import { ext } from "../extensionVariables";
+import { initGit } from "../git/main";
 import { getGitRemotes, getGitRoot } from "../git/util";
+import { getLogger } from "../logger/logger";
 import { authStore } from "../stores/auth-store";
-import { contextStore } from "../stores/context-store";
+import { contextStore, waitForContextStoreToLoad } from "../stores/context-store";
 import { dataCacheStore } from "../stores/data-cache-store";
 import { webviewStateStore } from "../stores/webview-state-store";
-import { convertFsPathToUriPath, isSamePath, isSubpath, openDirectory } from "../utils";
+import { convertFsPathToUriPath, delay, isSamePath, isSubpath, openDirectory } from "../utils";
 import { showComponentDetailsView } from "../webviews/ComponentDetailsView";
 import { ComponentFormView, type IComponentCreateFormParams } from "../webviews/ComponentFormView";
 import { getUserInfoForCmd, isRpcActive, selectOrg, selectProjectWithCreateNew, setExtensionName } from "./cmd-utils";
@@ -59,6 +63,7 @@ export function createNewComponentCommand(context: ExtensionContext) {
 				isRpcActive(ext);
 				const userInfo = await getUserInfoForCmd(`create ${extName === "Devant" ? "an integration" : "a component"}`);
 				if (userInfo) {
+					await waitForContextStoreToLoad();
 					const selected = contextStore.getState().state.selected;
 					let selectedProject = selected?.project;
 					let selectedOrg = selected?.org;
@@ -172,8 +177,10 @@ export function createNewComponentCommand(context: ExtensionContext) {
 					dataCacheStore.getState().setComponents(selectedOrg.handle, selectedProject.handler, components);
 
 					let gitRoot: string | undefined;
+					let isGitInitialized = false;
 					try {
 						gitRoot = await getGitRoot(context, selectedUri.fsPath);
+						isGitInitialized = true;
 					} catch (err) {
 						// ignore error
 					}
@@ -222,6 +229,15 @@ export function createNewComponentCommand(context: ExtensionContext) {
 
 					const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSubpath(item.uri?.fsPath, selectedUri?.fsPath));
 
+					let compInitialName = params?.name || dirName || selectedType;
+					const existingNames = components.map((c) => c.metadata?.name?.toLowerCase?.());
+					const baseName = compInitialName;
+					let counter = 1;
+					while (existingNames.includes(compInitialName.toLowerCase())) {
+						compInitialName = `${baseName}-${counter}`;
+						counter++;
+					}
+
 					const createCompParams: IComponentCreateFormParams = {
 						directoryUriPath: selectedUri.path,
 						directoryFsPath: selectedUri.fsPath,
@@ -229,11 +245,12 @@ export function createNewComponentCommand(context: ExtensionContext) {
 						organization: selectedOrg!,
 						project: selectedProject!,
 						extensionName: webviewStateStore.getState().state.extensionName,
+						isNewCodeServerComp: isGitInitialized === false && !!process.env.CLOUD_STS_TOKEN,
 						initialValues: {
 							type: selectedType,
 							subType: selectedSubType,
 							buildPackLang: params?.buildPackLang,
-							name: params?.name || dirName || "",
+							name: compInitialName,
 						},
 					};
 
@@ -304,37 +321,65 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 		}
 		*/
 
-		if (extensionName !== "Devant") {
-			showComponentDetailsView(org, project, createdComponent, createParams?.componentDir);
-		}
-
-		window
-			.showInformationMessage(
-				`${extensionName === "Devant" ? "Integration" : "Component"} '${createdComponent.metadata.name}' was successfully created`,
-				`Open in ${extensionName}`,
-			)
-			.then(async (resp) => {
-				if (resp === `Open in ${extensionName}`) {
-					commands.executeCommand(
-						"vscode.open",
-						`${extensionName === "Devant" ? choreoEnvConfig.getDevantUrl() : choreoEnvConfig.getConsoleUrl()}/organizations/${org.handle}/projects/${project.id}/components/${createdComponent.metadata.handler}/overview`,
-					);
-				}
-			});
-
 		const compCache = dataCacheStore.getState().getComponents(org.handle, project.handler);
 		dataCacheStore.getState().setComponents(org.handle, project.handler, [createdComponent, ...compCache]);
 
 		// update the context file if needed
 		try {
-			const gitRoot = await getGitRoot(ext.context, createParams.componentDir);
+			const newGit = await initGit(ext.context);
+			const gitRoot = await newGit?.getRepositoryRoot(createParams.componentDir);
+			const dotGit = await newGit?.getRepositoryDotGit(createParams.componentDir);
 			const projectCache = dataCacheStore.getState().getProjects(org.handle);
-			if (gitRoot) {
-				updateContextFile(gitRoot, authStore.getState().state.userInfo!, project, org, projectCache);
-				contextStore.getState().refreshState();
+			if (newGit && gitRoot && dotGit) {
+				if (process.env.CLOUD_STS_TOKEN) {
+					// update the code server, to attach itself to the created component
+					const repo = newGit.open(gitRoot, dotGit);
+					const head = await repo.getHEAD();
+					if (head.name) {
+						const commit = await repo.getCommit(head.name);
+						try {
+							await window.withProgress(
+								{ title: "Updating cloud editor with newly created component...", location: ProgressLocation.Notification },
+								() =>
+									ext.clients.rpcClient.updateCodeServer({
+										componentId: createdComponent.metadata.id,
+										orgHandle: org.handle,
+										orgId: org.id.toString(),
+										orgUuid: org.uuid,
+										projectId: project.id,
+										sourceCommitHash: commit.hash,
+									}),
+							);
+						} catch (err) {
+							getLogger().error("Failed to updated code server after creating the component", err);
+						}
+
+						// Clear code server local storage data data
+						try {
+							await commands.executeCommand("devantEditor.clearLocalStorage");
+						} catch (err) {
+							getLogger().error(`Failed to execute devantEditor.clearLocalStorage command: ${err}`);
+						}
+					}
+				} else {
+					updateContextFile(gitRoot, authStore.getState().state.userInfo!, project, org, projectCache);
+					contextStore.getState().refreshState();
+				}
 			}
 		} catch (err) {
 			console.error("Failed to get git details of ", createParams.componentDir);
+		}
+
+		if (extensionName !== "Devant") {
+			showComponentDetailsView(org, project, createdComponent, createParams?.componentDir, undefined, true);
+		}
+
+		const successMessage = `${extensionName === "Devant" ? "Integration" : "Component"} '${createdComponent.metadata.name}' was successfully created.`;
+
+		const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSubpath(item.uri?.fsPath, createParams.componentDir));
+
+		if (process.env.CLOUD_STS_TOKEN) {
+			await ext.context.globalState.update("code-server-component-id", createdComponent.metadata?.id);
 		}
 
 		if (workspace.workspaceFile) {
@@ -346,9 +391,24 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 					path: path.normalize(path.relative(path.dirname(workspace.workspaceFile.fsPath), createParams.componentDir)),
 				},
 			];
+		} else if (isWithinWorkspace) {
+			window.showInformationMessage(successMessage, `Open in ${extensionName}`).then(async (resp) => {
+				if (resp === `Open in ${extensionName}`) {
+					commands.executeCommand(
+						"vscode.open",
+						`${extensionName === "Devant" ? ext.config?.devantConsoleUrl : ext.config?.choreoConsoleUrl}/organizations/${org.handle}/projects/${extensionName === "Devant" ? project.id : project.handler}/components/${createdComponent.metadata.handler}/overview`,
+					);
+				}
+			});
 		} else {
-			contextStore.getState().refreshState();
+			window.showInformationMessage(`${successMessage} Reload workspace to continue`, { modal: true }, "Continue").then(async (resp) => {
+				if (resp === "Continue") {
+					commands.executeCommand("vscode.openFolder", Uri.file(createParams.componentDir), { forceNewWindow: false });
+				}
+			});
 		}
+
+		contextStore.getState().refreshState();
 	}
 
 	return createdComponent;

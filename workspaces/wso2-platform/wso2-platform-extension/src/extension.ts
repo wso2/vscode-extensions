@@ -24,8 +24,10 @@ import { initRPCServer } from "./choreo-rpc/activate";
 import { activateCmds } from "./cmds";
 import { continueCreateComponent } from "./cmds/create-component-cmd";
 import { activateCodeLenses } from "./code-lens";
+import { activateDevantFeatures } from "./devant-utils";
 import { ext } from "./extensionVariables";
 import { getLogger, initLogger } from "./logger/logger";
+import { activateMcp } from "./mcp";
 import { activateStatusbar } from "./status-bar";
 import { authStore } from "./stores/auth-store";
 import { contextStore } from "./stores/context-store";
@@ -35,14 +37,20 @@ import { ChoreoConfigurationProvider, addTerminalHandlers } from "./tarminal-han
 import { activateTelemetry } from "./telemetry/telemetry";
 import { activateURIHandlers } from "./uri-handlers";
 import { registerYamlLanguageServer } from "./yaml-ls";
+import { getCliVersion } from "./choreo-rpc/cli-install";
+import { getExtVersion } from "./utils";
 
 export async function activate(context: vscode.ExtensionContext) {
 	activateTelemetry(context);
 	await initLogger(context);
-	getLogger().debug("Activating WSO2 Platform Extension");
+
 	ext.context = context;
 	ext.api = new PlatformExtensionApi();
-	setInitialEnv();
+	ext.choreoEnv = getChoreoEnv();
+
+	getLogger().info("Activating WSO2 Platform Extension");
+	getLogger().info(`Extension version: ${getExtVersion(context)}`);
+	getLogger().info(`CLI version: ${getCliVersion()}`);
 
 	// Initialize stores
 	await authStore.persist.rehydrate();
@@ -73,12 +81,14 @@ export async function activate(context: vscode.ExtensionContext) {
 			continueCreateComponent();
 			addTerminalHandlers();
 			context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("*", new ChoreoConfigurationProvider()));
+			activateMcp(context);
+			activateDevantFeatures();
 			getLogger().debug("WSO2 Platform Extension activated");
+			ext.config = await ext.clients.rpcClient.getConfigFromCli();
 		})
 		.catch((e) => {
 			getLogger().error("Failed to initialize rpc client", e);
 		});
-
 	activateCmds(context);
 	activateURIHandlers();
 	activateCodeLenses(context);
@@ -88,24 +98,19 @@ export async function activate(context: vscode.ExtensionContext) {
 	return ext.api;
 }
 
-function setInitialEnv() {
-	const choreoEnv = process.env.CHOREO_ENV || process.env.CLOUD_ENV;
-	if (
-		choreoEnv &&
-		["dev", "stage", "prod"].includes(choreoEnv) &&
-		workspace.getConfiguration().get("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") !== choreoEnv
-	) {
-		workspace.getConfiguration().update("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment", choreoEnv);
-	}
-}
+const getChoreoEnv = (): string => {
+	return (
+		process.env.CHOREO_ENV ||
+		process.env.CLOUD_ENV ||
+		workspace.getConfiguration().get<string>("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") ||
+		"prod"
+	);
+};
 
 function registerPreInitHandlers(): any {
 	workspace.onDidChangeConfiguration(async ({ affectsConfiguration }: ConfigurationChangeEvent) => {
-		if (
-			affectsConfiguration("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") ||
-			affectsConfiguration("WSO2.WSO2-Platform.Advanced.RpcPath") ||
-			affectsConfiguration("WSO2.WSO2-Platform.Advanced.StsToken")
-		) {
+		if (affectsConfiguration("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") || affectsConfiguration("WSO2.WSO2-Platform.Advanced.RpcPath")) {
+			// skip showing this if cloud sts env is available
 			const selection = await window.showInformationMessage(
 				"WSO2 Platform extension configuration changed. Please restart vscode for changes to take effect.",
 				"Restart Now",

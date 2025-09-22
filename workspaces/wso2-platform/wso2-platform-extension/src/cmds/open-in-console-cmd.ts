@@ -16,16 +16,8 @@
  * under the License.
  */
 
-import {
-	CommandIds,
-	type ComponentKind,
-	type ICreateComponentCmdParams,
-	type IOpenInConsoleCmdParams,
-	type Organization,
-	type Project,
-} from "@wso2/wso2-platform-core";
+import { CommandIds, type ComponentKind, type ICreateComponentCmdParams, type IOpenInConsoleCmdParams } from "@wso2/wso2-platform-core";
 import { type ExtensionContext, ProgressLocation, type QuickPickItem, QuickPickItemKind, Uri, commands, env, window } from "vscode";
-import { choreoEnvConfig } from "../config";
 import { ext } from "../extensionVariables";
 import { contextStore } from "../stores/context-store";
 import { dataCacheStore } from "../stores/data-cache-store";
@@ -66,10 +58,7 @@ export function openInConsoleCommand(context: ExtensionContext) {
 						}
 					}
 
-					let projectBaseUrl = `${choreoEnvConfig.getConsoleUrl()}/organizations/${selectedOrg?.handle}/projects/${selectedProject.handler}`;
-					if (extensionName === "Devant") {
-						projectBaseUrl = `${choreoEnvConfig.getDevantUrl()}/organizations/${selectedOrg?.handle}/projects/${selectedProject.id}`;
-					}
+					let projectBaseUrl = `${ext.config?.choreoConsoleUrl}/organizations/${selectedOrg?.handle}/projects/${selectedProject.handler}`;
 
 					if (params?.component) {
 						env.openExternal(Uri.parse(`${projectBaseUrl}/components/${params?.component.metadata.handler}/overview`));
