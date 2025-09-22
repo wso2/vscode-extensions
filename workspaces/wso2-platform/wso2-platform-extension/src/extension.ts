@@ -43,13 +43,14 @@ import { getExtVersion } from "./utils";
 export async function activate(context: vscode.ExtensionContext) {
 	activateTelemetry(context);
 	await initLogger(context);
-	getLogger().info("Activating WSO2 Platform Extension");
-	getLogger().info(`Extension version: ${getExtVersion(context)}`);
-	getLogger().info(`CLI version: ${getCliVersion()}`);
 
 	ext.context = context;
 	ext.api = new PlatformExtensionApi();
 	ext.choreoEnv = getChoreoEnv();
+
+	getLogger().info("Activating WSO2 Platform Extension");
+	getLogger().info(`Extension version: ${getExtVersion(context)}`);
+	getLogger().info(`CLI version: ${getCliVersion()}`);
 
 	// Initialize stores
 	await authStore.persist.rehydrate();
