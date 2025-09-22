@@ -260,6 +260,15 @@ import {
     GetConnectorIconResponse,
     SubmitFeedbackRequest,
     SubmitFeedbackResponse,
+    GetPomFileContentResponse,
+    GetExternalConnectorDetailsResponse,
+    WriteMockServicesRequest,
+    WriteMockServicesResponse,
+    GetMockServicesResponse,
+    ConfigureKubernetesRequest,
+    ConfigureKubernetesResponse,
+    UpdateRegistryPropertyRequest,
+    Property
 } from "./types";
 
 export interface MiDiagramAPI {
@@ -433,4 +442,12 @@ export interface MiDiagramAPI {
     displayPayloadAlert: () => Promise<void>;
     closePayloadAlert: () => Promise<void>;
     submitFeedback: (params: SubmitFeedbackRequest) => Promise<SubmitFeedbackResponse>;
+    getPomFileContent: () => Promise<GetPomFileContentResponse>;
+    getExternalConnectorDetails: () => Promise<GetExternalConnectorDetailsResponse>;
+    writeMockServices: (params: WriteMockServicesRequest) => Promise<WriteMockServicesResponse>;
+    getMockServices: () => Promise<GetMockServicesResponse>;
+    configureKubernetes: (params: ConfigureKubernetesRequest) => Promise<ConfigureKubernetesResponse>;
+    isKubernetesConfigured: () => Promise<boolean>;
+    updatePropertiesInArtifactXML: (params: UpdateRegistryPropertyRequest) => Promise<string>;
+    getPropertiesFromArtifactXML: (params: string) => Promise<Property[] | undefined>;
 }

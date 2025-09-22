@@ -75,10 +75,10 @@ export class Form {
         await cancelBtn.click();
     }
 
-    public async submit(btnText: string = "Create") {
+    public async submit(btnText: string = "Create", forceClick: boolean = false) {
         const submitBtn = await getVsCodeButton(this.container, btnText, "primary");
         expect(await submitBtn.isEnabled()).toBeTruthy();
-        await submitBtn.click();
+        await submitBtn.click({ force: forceClick });
     }
 
     public async fill(props: FormFillProps) {
