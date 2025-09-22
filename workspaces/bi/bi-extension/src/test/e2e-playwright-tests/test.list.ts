@@ -50,9 +50,6 @@ import typeTest from './type/type.spec';
 
 import importIntegration from './import-integration/import-integration.spec';
 
-import inlineDataMapper from './data-mapper/inline-data-mapper.spec';
-import expressionEditor from './expression-editor/expression-editor.spec';
-
 test.describe.configure({ mode: 'default' });
 
 test.beforeAll(async () => {
@@ -62,45 +59,41 @@ test.beforeAll(async () => {
     console.log('>>> Starting test suite');
 });
 
-test.describe(inlineDataMapper);
-
-// test.describe(expressionEditor);
-
 // <----Automation Test---->
-// test.describe(automation);
+test.describe(automation);
 
-// // <----AI Chat Service Test---->
-// test.describe(aiChatService);
+// <----AI Chat Service Test---->
+test.describe(aiChatService);
 
-// // <----Integration as API Test---->
-// test.describe(httpService);
-// test.describe(graphqlService); // TODO: This tests is failing fix it
-// test.describe(tcpService);
+// <----Integration as API Test---->
+test.describe(httpService);
+test.describe(graphqlService);
+test.describe(tcpService);
 
-// // <----Event Integration Test---->
-// test.describe(kafkaIntegration);
-// test.describe(rabbitmqIntegration);
-// test.describe(mqttIntegration);
-// test.describe(azureIntegration);
-// test.describe(salesforceIntegration);
-// test.describe(twillioIntegration);
-// test.describe(githubIntegration);
+// <----Event Integration Test---->
+test.describe(kafkaIntegration);
+test.describe(rabbitmqIntegration);
+test.describe(mqttIntegration);
+test.describe(azureIntegration);
+test.describe(salesforceIntegration);
+test.describe(twillioIntegration);
+test.describe(githubIntegration);
 
-// // <----File Integration Test---->
-// test.describe(ftpIntegration);
-// test.describe(directoryIntegration);
+// <----File Integration Test---->
+test.describe(ftpIntegration);
+test.describe(directoryIntegration);
 
-// // <----Other Artifacts Test---->
-// test.describe(functionArtifact);
-// // test.describe(naturalFunctionArtifact); // TODO: Enable this once the ballerina version is switchable
-// // test.describe(dataMapperArtifact); // TODO: Enable this later once tests are improved
-// test.describe(typeDiagramArtifact);
-// test.describe(connectionArtifact);
-// test.describe(configuration); // TODO: This tests is failing due to https://github.com/wso2/product-ballerina-integrator/issues/1231. Enable after fixing the issue.
-// test.describe(typeTest); // TODO: This tests is failing due to https://github.com/wso2/product-ballerina-integrator/issues/1222. Enable after fixing the issue.
+// <----Other Artifacts Test---->
+test.describe(functionArtifact);
+// test.describe(naturalFunctionArtifact); // TODO: Enable this once the ballerina version is switchable
+// test.describe(dataMapperArtifact); // TODO: Enable this later once tests are improved
+test.describe(typeDiagramArtifact);
+test.describe(connectionArtifact);
+test.describe(configuration); // TODO: This tests is failing due to https://github.com/wso2/product-ballerina-integrator/issues/1231. Enable after fixing the issue.
+test.describe(typeTest); // TODO: This tests is failing due to https://github.com/wso2/product-ballerina-integrator/issues/1222. Enable after fixing the issue.
 
-// // <----Import Integration Test---->
-// test.describe(importIntegration);
+// <----Import Integration Test---->
+test.describe(importIntegration);
 
 test.afterAll(async () => {
     console.log(`>>> Finished test suite`);
