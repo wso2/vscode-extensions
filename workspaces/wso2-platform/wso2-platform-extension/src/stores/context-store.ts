@@ -36,7 +36,7 @@ import { createStore } from "zustand";
 import { persist } from "zustand/middleware";
 import { ext } from "../extensionVariables";
 import { getGitRemotes, getGitRoot } from "../git/util";
-import { isSubpath } from "../utils";
+import { isSamePath, isSubpath } from "../utils";
 import { authStore } from "./auth-store";
 import { dataCacheStore } from "./data-cache-store";
 import { locationStore } from "./location-store";
@@ -63,11 +63,12 @@ export const contextStore = createStore(
 					if (authStore.getState().state?.userInfo) {
 						set(({ state }) => ({ state: { ...state, loading: true } }));
 						let items = await getAllContexts(get().state?.items);
-						let selected = getSelected(items, get().state?.selected);
+						let selected = await getSelected(items, get().state?.selected);
+						set(({ state }) => ({ state: { ...state, items, selected } }));
 						let components = await getComponentsInfoCache(selected);
 						set(({ state }) => ({ state: { ...state, items, selected, components } }));
 						items = await getEnrichedContexts(get().state?.items);
-						selected = getSelected(items, selected);
+						selected = await getSelected(items, selected);
 						components = await getComponentsInfoCache(selected);
 						set(({ state }) => ({ state: { ...state, items, selected, components } }));
 						components = await getComponentsInfo(selected);
@@ -195,7 +196,44 @@ const getAllContexts = async (previousItems: { [key: string]: ContextItemEnriche
 	return contextItems;
 };
 
-const getSelected = (items: { [key: string]: ContextItemEnriched }, prevSelected?: ContextItemEnriched) => {
+const getSelected = async (items: { [key: string]: ContextItemEnriched }, prevSelected?: ContextItemEnriched) => {
+	if (process.env.CLOUD_STS_TOKEN && process.env.CLOUD_INITIAL_ORG_ID && process.env.CLOUD_INITIAL_PROJECT_ID) {
+		// Give priority to project provided as env variable, when running in the cloud editor
+		const userOrgs = authStore.getState().state.userInfo?.organizations;
+		const matchingOrg = userOrgs?.find(
+			(item) => item.uuid === process.env.CLOUD_INITIAL_ORG_ID || item.id?.toString() === process.env.CLOUD_INITIAL_ORG_ID,
+		);
+		if (matchingOrg) {
+			let projectsCache = dataCacheStore.getState().getProjects(matchingOrg.handle);
+			if (projectsCache.length === 0) {
+				const projects = await ext.clients.rpcClient.getProjects(matchingOrg.id.toString());
+				dataCacheStore.getState().setProjects(matchingOrg.handle, projects);
+				projectsCache = projects;
+			}
+			const matchingProject = projectsCache.find((item) => item.id === process.env.CLOUD_INITIAL_PROJECT_ID);
+			if (matchingProject) {
+				return {
+					orgHandle: matchingOrg.handle,
+					projectHandle: matchingProject.handler,
+					org: matchingOrg,
+					project: matchingProject,
+					contextDirs:
+						workspace.workspaceFolders?.map((item) => ({
+							workspaceName: item.name,
+							projectRootFsPath: item.uri.fsPath,
+							dirFsPath: item.uri.fsPath,
+						})) ?? [],
+				} as ContextItemEnriched;
+			}
+		}
+
+		const globalCompId: string | null | undefined = ext.context.globalState.get("code-server-component-id");
+		if (globalCompId) {
+			await ext.context.globalState.update("code-server-component-id", null);
+			await ext.context.workspaceState.update("code-server-component-id", globalCompId);
+		}
+	}
+
 	let selected: ContextItemEnriched | undefined = undefined;
 	const matchingItem = Object.values(items).find(
 		(item) =>
@@ -300,9 +338,20 @@ const getComponentsInfo = async (selected?: ContextItemEnriched): Promise<Contex
 	return mapComponentList(components, selected);
 };
 
+const getFilteredComponents = (components: ComponentKind[]) => {
+	const workspaceCompId: string | null | undefined = ext.context.workspaceState.get("code-server-component-id") || process.env.SOURCE_COMPONENT_ID; //
+	if (process.env.CLOUD_STS_TOKEN && process.env.CLOUD_INITIAL_ORG_ID && process.env.CLOUD_INITIAL_PROJECT_ID && workspaceCompId) {
+		const filteredComps = components.filter((item) => item.metadata?.id === workspaceCompId);
+		if (filteredComps.length === 1) {
+			return filteredComps;
+		}
+	}
+	return components;
+};
+
 const mapComponentList = async (components: ComponentKind[], selected?: ContextItemEnriched): Promise<ContextStoreComponentState[]> => {
 	const comps: ContextStoreComponentState[] = [];
-	for (const componentItem of components) {
+	for (const componentItem of getFilteredComponents(components)) {
 		if (selected?.contextDirs) {
 			// biome-ignore lint/correctness/noUnsafeOptionalChaining:
 			for (const item of selected?.contextDirs) {
@@ -324,7 +373,12 @@ const mapComponentList = async (components: ComponentKind[], selected?: ContextI
 						if (hasMatchingRemote) {
 							const subPathDir = path.join(gitRoot, getComponentKindRepoSource(componentItem.spec.source)?.path);
 							const isSubPath = isSubpath(item.dirFsPath, subPathDir);
-							if (isSubPath && existsSync(subPathDir) && !comps.some((item) => item.component?.metadata?.id === componentItem.metadata?.id)) {
+							const isPathSame = isSamePath(item.dirFsPath, subPathDir);
+							if (
+								(isPathSame || isSubPath) &&
+								existsSync(subPathDir) &&
+								!comps.some((item) => item.component?.metadata?.id === componentItem.metadata?.id)
+							) {
 								comps.push({
 									component: componentItem,
 									workspaceName: item.workspaceName,
