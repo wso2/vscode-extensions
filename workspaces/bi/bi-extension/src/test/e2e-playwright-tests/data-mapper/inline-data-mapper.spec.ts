@@ -21,7 +21,7 @@ import { addArtifact, initTest, page } from '../utils';
 import { switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { Diagram } from '../components/Diagram';
 import { SidePanel } from '../components/SidePanel';
-import { DataMapperUtils, updateProjectFileSync } from './DataMapper';
+import { DataMapperUtils, updateProjectFileSync } from './DataMapperUtils';
 import { ProjectExplorer } from '../ProjectExplorer';
 
 export default function createTests() {
