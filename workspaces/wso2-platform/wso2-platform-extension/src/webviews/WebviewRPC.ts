@@ -75,8 +75,6 @@ import {
 	OpenExternalChoreo,
 	OpenSubDialogRequest,
 	type ProxyConfig,
-	PushEverythingToRemoteRepo,
-	type PushEverythingToRemoteRepoReq,
 	ReadFile,
 	ReadLocalEndpointsConfig,
 	ReadLocalProxyConfig,
@@ -620,10 +618,10 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 			const updatedTomlContent = toml.stringify(parsedToml);
 			await fs.promises.writeFile(balTomlPath, updatedTomlContent, "utf-8");
 		}
-
+		
 		if (params.repo?.isBareRepo && ["", "/", "."].includes(params.subpath)) {
 			// if component is to be created in the root of a bare repo,
-			// the we can initialize the current directory as the repo root
+			// then we can initialize the current directory as the repo root
 			await window.withProgress({ title: `Initializing currently opened directory as repository ${_repoUrl}...`, location: ProgressLocation.Notification }, async () => {
 				await newGit.init(params.cwd);
 				const dotGit = await newGit?.getRepositoryDotGit(params.cwd);
@@ -631,8 +629,8 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 				await repo.addRemote("origin", repoUrl);
 				await repo.add(["."]);
 				await repo.commit(`Add source for new ${extName} ${extName === "Devant" ? "Integration" : "Component"} (${params.componentName})`);
-				await repo.push("origin", "main");
-				await repo.fetch();
+				const headRef = await repo.getHEADRef()
+				await repo.push("origin", headRef?.name);
 			});
 			return params.cwd;
 		}
@@ -668,23 +666,18 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 			fs.cpSync(cwdFilePath, destFilePath, { recursive: true });
 		}
 
-		return newPath;
-	});
-
-	messenger.onRequest(PushEverythingToRemoteRepo, async (params: PushEverythingToRemoteRepoReq) => {
-		const newGit = await initGit(ext.context);
-		if (!newGit) {
-			throw new Error("failed to initGit");
-		}
-		const extName = webviewStateStore.getState().state.extensionName;
-		const repoRoot = await newGit?.getRepositoryRoot(params.dirPath);
-		const dotGit = await newGit?.getRepositoryDotGit(params.dirPath);
+		const repoRoot = await newGit?.getRepositoryRoot(newPath);
+		const dotGit = await newGit?.getRepositoryDotGit(newPath);
 		const repo = newGit.open(repoRoot, dotGit);
+
 		await window.withProgress({ title: "Pushing the changes to your remote repository...", location: ProgressLocation.Notification }, async () => {
 			await repo.add(["."]);
 			await repo.commit(`Add source for new ${extName} ${extName === "Devant" ? "Integration" : "Component"} (${params.componentName})`);
-			await repo.push();
+			const headRef = await repo.getHEADRef()
+			await repo.push(headRef?.upstream?.remote || "origin", headRef?.name || params.repo.branch);
 		});
+
+		return newPath;
 	});
 
 	// Register Choreo CLL RPC handler
