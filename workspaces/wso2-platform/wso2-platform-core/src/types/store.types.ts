@@ -20,7 +20,7 @@ import type { CommitHistory, ComponentKind, Environment, ExtensionName, Organiza
 
 export interface DataCacheState {
 	orgs?: {
-		[orgHandle: string]: {
+		[orgRegionHandle: string]: {
 			projects?: {
 				[projectHandle: string]: {
 					data?: Project;
@@ -41,6 +41,7 @@ export interface DataCacheState {
 
 export interface AuthState {
 	userInfo: UserInfo | null;
+	region: "US" | "EU";
 }
 
 export interface WebviewState {
