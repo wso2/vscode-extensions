@@ -23,7 +23,6 @@ import {
     SourceFile,
     MappingParameters,
     DataMappingRecord,
-    PostProcessResponse,
     TestGenerationTarget,
     LLMDiagnostics,
     ImportStatement,
@@ -36,11 +35,19 @@ import {
     GenerateCodeRequest,
     TestPlanGenerationRequest,
     TestGeneratorIntermediaryState,
+    DocumentationGeneratorIntermediaryState,
     SourceFiles,
     ChatEntry,
     OperationType,
     GENERATE_TEST_AGAINST_THE_REQUIREMENT,
     GENERATE_CODE_AGAINST_THE_REQUIREMENT,
+    ComponentInfo,
+    ImportInfo,
+    MetadataWithAttachments,
+    ExtendedDataMapperMetadata,
+    DocGenerationRequest,
+    DocGenerationType,
+    FileChanges,
 } from "@wso2/ballerina-core";
 
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
@@ -50,29 +57,21 @@ import { AIChatInputRef } from "../AIChatInput";
 import ProgressTextSegment from "../ProgressTextSegment";
 import RoleContainer from "../RoleContainter";
 import { Attachment, AttachmentStatus } from "@wso2/ballerina-core";
-import { findRegexMatches, formatWithProperIndentation } from "../../../../utils/utils";
+import { formatWithProperIndentation } from "../../../../utils/utils";
 
 import { AIChatView, Header, HeaderButtons, ChatMessage, Badge } from "../../styles";
 import ReferenceDropdown from "../ReferenceDropdown";
 import AccordionItem from "../TestScenarioSegment";
 import { VSCodeButton } from "@vscode/webview-ui-toolkit/react";
-import {
-    CopilotContentBlockContent,
-    CopilotErrorContent,
-    CopilotEvent,
-    hasCodeBlocks,
-    parseCopilotSSEEvent,
-} from "../../utils/sseUtils";
 import MarkdownRenderer from "../MarkdownRenderer";
 import { CodeSection } from "../CodeSection";
 import ErrorBox from "../ErrorBox";
-import { Input, parseBadgeString, parseInput, stringifyInputArrayWithBadges } from "../AIChatInput/utils/inputUtils";
+import { Input, parseInput, stringifyInputArrayWithBadges } from "../AIChatInput/utils/inputUtils";
 import { commandTemplates, NATURAL_PROGRAMMING_TEMPLATES } from "../../commandTemplates/data/commandTemplates.const";
 import { placeholderTags } from "../../commandTemplates/data/placeholderTags.const";
 import {
     getTemplateById,
     getTemplateTextById,
-    injectTags,
     removeTemplate,
     upsertTemplate,
 } from "../../commandTemplates/utils/utils";
@@ -89,17 +88,6 @@ import { getOnboardingOpens, incrementOnboardingOpens } from "./utils/utils";
 
 import FeedbackBar from "./../FeedbackBar";
 import { useFeedback } from "./utils/useFeedback";
-
-interface CodeBlock {
-    filePath: string;
-    content: string;
-}
-
-interface ApiResponse {
-    event: string;
-    error: string | null;
-    questions: string[];
-}
 
 interface ChatIndexes {
     integratedChatIndex: number;
@@ -155,6 +143,9 @@ const AIChat: React.FC = () => {
     const [testGenIntermediaryState, setTestGenIntermediaryState] = useState<TestGeneratorIntermediaryState | null>(
         null
     );
+    const [docGenIntermediaryState, setDocGenIntermediaryState] =
+        useState<DocumentationGeneratorIntermediaryState | null>(null);
+    const [isAddingToWorkspace, setIsAddingToWorkspace] = useState(false);
 
     const [showSettings, setShowSettings] = useState(false);
 
@@ -177,7 +168,7 @@ const AIChat: React.FC = () => {
 
     const { feedbackGiven, setFeedbackGiven, handleFeedback } = useFeedback({
         messages,
-        currentDiagnosticsRef
+        currentDiagnosticsRef,
     });
 
     /**
@@ -203,9 +194,9 @@ const AIChat: React.FC = () => {
     /* REFACTORED CODE END [2] */
 
     let codeSegmentRendered = false;
-    let tempStorage: { [filePath: string]: string } = {};
-    const initialFiles = new Set<string>();
-    const emptyFiles = new Set<string>();
+    const [tempStorage, setTempStorage] = useState<{ [filePath: string]: string }>({});
+    const [initialFiles, setInitialFiles] = useState<Set<string>>(new Set<string>());
+    const [emptyFiles, setEmptyFiles] = useState<Set<string>>(new Set<string>());
 
     async function fetchBackendUrl() {
         try {
@@ -213,8 +204,8 @@ const AIChat: React.FC = () => {
             chatLocation = (await rpcClient.getVisualizerLocation()).projectUri;
             setIsReqFileExists(
                 chatLocation != null &&
-                chatLocation != undefined &&
-                (await rpcClient.getAiPanelRpcClient().isRequirementsSpecificationFileExist(chatLocation))
+                    chatLocation != undefined &&
+                    (await rpcClient.getAiPanelRpcClient().isRequirementsSpecificationFileExist(chatLocation))
             );
 
             generateNaturalProgrammingTemplate(isReqFileExists);
@@ -300,7 +291,12 @@ const AIChat: React.FC = () => {
             });
         } else if (type === "intermediary_state") {
             const state = response.state;
-            setTestGenIntermediaryState(state);
+            // Check if it's a documentation state by looking for specific properties
+            if ("serviceName" in state && "documentation" in state) {
+                setDocGenIntermediaryState(state as DocumentationGeneratorIntermediaryState);
+            } else {
+                setTestGenIntermediaryState(state as TestGeneratorIntermediaryState);
+            }
         } else if (type === "diagnostics") {
             const content = response.diagnostics;
             currentDiagnosticsRef.current = content;
@@ -312,14 +308,49 @@ const AIChat: React.FC = () => {
             setIsCodeLoading(false);
             setIsLoading(false);
             const command = response.command;
-            addChatEntry("user", messages[messages.length - 2].content, command != undefined && command == Command.Code ); // Handle this in input layer?
+            addChatEntry(
+                "user",
+                messages[messages.length - 2].content,
+                command != undefined && command == Command.Code
+            ); // Handle this in input layer?
             addChatEntry("assistant", messages[messages.length - 1].content);
         } else if (type === "error") {
             console.log("Received error signal");
             const errorTemplate = `\n\n<error data-system="true" data-auth="${SYSTEM_ERROR_SECRET}">${response.content}</error>`;
             setMessages((prevMessages) => {
                 const newMessages = [...prevMessages];
-                newMessages[newMessages.length - 1].content += errorTemplate;
+                let content = newMessages[newMessages.length - 1].content;
+
+                // Check if there's an unclosed code block and close it properly
+                const codeBlockPattern = /<code filename="[^"]+">[\s]*```\w+/g;
+                const openCodeBlocks = (content.match(codeBlockPattern) || []).length;
+                const closedCodeBlocks = (content.match(/<\/code>/g) || []).length;
+
+                if (openCodeBlocks > closedCodeBlocks) {
+                    // Check what's missing at the end
+                    const endsWithPartialClose = /```\s*<\/cod?e?$/.test(content.trim());
+                    const endsWithBackticks = /```\s*$/.test(content.trim());
+                    const endsWithPartialBackticks = /`{1,2}$/.test(content.trim());
+
+                    if (endsWithPartialClose) {
+                        // Remove partial closing and add complete one
+                        content = content.replace(/```\s*<\/cod?e?$/, "");
+                        content += "\n```\n</code>";
+                    } else if (endsWithBackticks) {
+                        // Already has ```, just need </code>
+                        content += "\n</code>";
+                    } else if (endsWithPartialBackticks) {
+                        // Remove partial backticks and add complete closing
+                        content = content.replace(/`{1,2}$/, "");
+                        content += "\n```\n</code>";
+                    } else {
+                        // No closing elements, add both
+                        content += "\n```\n</code>";
+                    }
+                }
+
+                newMessages[newMessages.length - 1].content = content + errorTemplate;
+                console.log(newMessages);
                 return newMessages;
             });
             setIsCodeLoading(false);
@@ -396,7 +427,11 @@ const AIChat: React.FC = () => {
         }
     }, [messages]);
 
-    async function handleSendQuery(content: { input: Input[]; attachments: Attachment[] }) {
+    async function handleSendQuery(content: {
+        input: Input[];
+        attachments: Attachment[];
+        metadata?: Record<string, any>;
+    }) {
         // Clear previous generation refs
         currentDiagnosticsRef.current = [];
         functionsRef.current = [];
@@ -470,7 +505,11 @@ const AIChat: React.FC = () => {
         }, message);
     }
 
-    async function processContent(content: { input: Input[]; attachments: Attachment[]; metadata?: Record<string, any> }) {
+    async function processContent(content: {
+        input: Input[];
+        attachments: Attachment[];
+        metadata?: Record<string, any>;
+    }) {
         const inputText = stringifyInputArrayWithBadges(content.input);
         const parsedInput = parseInput(content.input, commandTemplates);
         const attachments = content.attachments;
@@ -479,10 +518,7 @@ const AIChat: React.FC = () => {
         if (parsedInput && "type" in parsedInput && parsedInput.type === "error") {
             throw new Error(parsedInput.message);
         } else if ("text" in parsedInput && !("command" in parsedInput)) {
-            await processCodeGeneration(
-                [parsedInput.text, attachments, CodeGenerationType.CODE_GENERATION],
-                inputText
-            );
+            await processCodeGeneration([parsedInput.text, attachments, CodeGenerationType.CODE_GENERATION], inputText);
         } else if ("command" in parsedInput) {
             switch (parsedInput.command) {
                 case Command.NaturalProgramming: {
@@ -548,10 +584,7 @@ const AIChat: React.FC = () => {
                             );
                             break;
                     }
-                    await processCodeGeneration(
-                        [useCase, attachments, CodeGenerationType.CODE_GENERATION],
-                        inputText
-                    );
+                    await processCodeGeneration([useCase, attachments, CodeGenerationType.CODE_GENERATION], inputText);
                     break;
                 }
                 case Command.Tests: {
@@ -591,6 +624,7 @@ const AIChat: React.FC = () => {
                                     outputRecord: parsedInput.placeholderValues.outputRecord,
                                     functionName: parsedInput.placeholderValues.functionName,
                                 },
+                                metadata as ExtendedDataMapperMetadata,
                                 attachments
                             );
                             break;
@@ -602,14 +636,15 @@ const AIChat: React.FC = () => {
                                     outputRecord: "",
                                     functionName: parsedInput.placeholderValues.functionName,
                                 },
+                                metadata as ExtendedDataMapperMetadata,
                                 attachments
                             );
                             break;
                         case "inline-mappings":
                             await processInlineMappingParameters(
                                 inputText,
-                                metadata,
-                                attachments,
+                                metadata as ExtendedDataMapperMetadata,
+                                attachments
                             );
                             break;
                     }
@@ -647,6 +682,14 @@ const AIChat: React.FC = () => {
                     switch (parsedInput.templateId) {
                         case TemplateId.Wildcard:
                             await processOpenAPICodeGeneration(parsedInput.text, inputText);
+                            break;
+                    }
+                    break;
+                }
+                case Command.Doc: {
+                    switch (parsedInput.templateId) {
+                        case "generate-user-doc":
+                            await processUserDocGeneration(parsedInput.placeholderValues.servicename);
                             break;
                     }
                     break;
@@ -700,10 +743,10 @@ const AIChat: React.FC = () => {
             usecase: useCase,
             chatHistory: chatArray,
             operationType,
-            fileAttachmentContents: fileAttatchments
+            fileAttachmentContents: fileAttatchments,
         };
 
-        await rpcClient.getAiPanelRpcClient().generateCode(requestBody)
+        await rpcClient.getAiPanelRpcClient().generateCode(requestBody);
     }
 
     // Helper function to escape regex special characters in a string
@@ -770,163 +813,184 @@ const AIChat: React.FC = () => {
         command: string
     ) => {
         console.log("Add to integration called. Command: ", command);
-        for (let { segmentText, filePath } of codeSegments) {
-            let originalContent = "";
-            if (!tempStorage[filePath]) {
-                try {
-                    originalContent = await rpcClient.getAiPanelRpcClient().getFromFile({ filePath: filePath });
-                    tempStorage[filePath] = originalContent;
-                    if (originalContent === "") {
-                        emptyFiles.add(filePath);
-                    } else {
-                        initialFiles.add(filePath);
-                    }
-                } catch (error) {
-                    tempStorage[filePath] = "";
-                }
-            }
+        setIsAddingToWorkspace(true);
 
-            if (command === "ai_map") {
-                const importRegex = /import\s+[^;]+;/g;
-                const commentRegex = /^(?:(\/\/.*|#.*)\n)+/; // Matches both `//` and `#` comment blocks at the top
-                const functionRegex =
-                    /function\s+(\w+)\s*\(([^)]*)\)\s*returns\s+([^={|]+)(?:\|error)?\s*=>\s*(?:\{([\s\S]*?)\}|([\s\S]*?));/;
-
-                let existingFunctionRegex;
-
-                // Check if we're dealing with a function that should be merged
-                const functionMatch = segmentText.match(functionRegex);
-                let shouldMergeFunction = false;
-                let functionName = "";
-                let functionBody = "";
-                let returnType = "";
-                let hasErrorType = false;
-                let updatedContent = "";
-
-                if (functionMatch) {
-                    functionName = functionMatch[1];
-                    const params = functionMatch[2];
-                    returnType = functionMatch[3].trim();
-                    functionBody = functionMatch[4] ? functionMatch[4].trim() : functionMatch[5]?.trim();
-
-                    // Check if new function has error return type
-                    hasErrorType = segmentText.includes(`returns ${returnType}|error`);
-                    existingFunctionRegex = createExistingFunctionSignatureRegex(functionName);
-                    const existingFunctionMatch = originalContent.match(existingFunctionRegex);
-
-                    if (existingFunctionMatch) {
-                        shouldMergeFunction = true;
+        try {
+            const fileChanges: FileChanges[] = [];
+            for (let { segmentText, filePath } of codeSegments) {
+                let originalContent = "";
+                if (!tempStorage[filePath]) {
+                    try {
+                        originalContent = await rpcClient.getAiPanelRpcClient().getFromFile({ filePath: filePath });
+                        setTempStorage((prev) => ({ ...prev, [filePath]: originalContent }));
+                        if (originalContent === "") {
+                            setEmptyFiles((prev) => new Set([...prev, filePath]));
+                        } else {
+                            setInitialFiles((prev) => new Set([...prev, filePath]));
+                        }
+                    } catch (error) {
+                        setTempStorage((prev) => ({ ...prev, [filePath]: "" }));
                     }
                 }
 
-                const imports = segmentText.match(importRegex) || [];
-                const codeWithoutImports = segmentText.replace(importRegex, "").trim();
+                if (command === "ai_map") {
+                    const importRegex = /import\s+[^;]+;/g;
+                    const commentRegex = /^(?:(\/\/.*|#.*)\n)+/; // Matches both `//` and `#` comment blocks at the top
+                    const functionRegex =
+                        /function\s+(\w+)\s*\(([^)]*)\)\s*returns\s+([^={|]+)(?:\|error)?\s*=>\s*(?:\{([\s\S]*?)\}|([\s\S]*?));/;
 
-                updatedContent = removeFunctionBody(originalContent, functionName);
+                    let existingFunctionRegex;
 
-                // Extract existing comments at the top
-                const commentMatch = updatedContent.match(commentRegex);
-                const existingComments = commentMatch ? commentMatch[0].trim() + "\n\n" : "";
-                updatedContent = updatedContent.replace(commentRegex, "").trim();
+                    // Check if we're dealing with a function that should be merged
+                    const functionMatch = segmentText.match(functionRegex);
+                    let shouldMergeFunction = false;
+                    let functionName = "";
+                    let functionBody = "";
+                    let returnType = "";
+                    let hasErrorType = false;
+                    let updatedContent = "";
 
-                // Find any additional `#` comments that may exist before imports
-                const additionalCommentMatch = updatedContent.match(commentRegex);
-                const additionalComments = additionalCommentMatch ? additionalCommentMatch[0].trim() + "\n\n" : "";
-                updatedContent = updatedContent.replace(commentRegex, "").trim();
+                    if (functionMatch) {
+                        functionName = functionMatch[1];
+                        const params = functionMatch[2];
+                        returnType = functionMatch[3].trim();
+                        functionBody = functionMatch[4] ? functionMatch[4].trim() : functionMatch[5]?.trim();
 
-                // Ensure new imports are added after all comments
-                let updatedImports = "";
-                imports.forEach((imp: string) => {
-                    if (!updatedContent.includes(imp)) {
-                        updatedImports += `${imp}\n`;
-                    }
-                });
+                        // Check if new function has error return type
+                        hasErrorType = segmentText.includes(`returns ${returnType}|error`);
+                        existingFunctionRegex = createExistingFunctionSignatureRegex(functionName);
+                        const existingFunctionMatch = originalContent.match(existingFunctionRegex);
 
-                if (shouldMergeFunction) {
-                    const existingFunctionWithoutErrorRegex = createFunctionWithoutErrorTypeRegex(
-                        functionName,
-                        returnType
-                    );
-                    const missingErrorType = existingFunctionWithoutErrorRegex.test(updatedContent) && hasErrorType;
-
-                    if (missingErrorType) {
-                        const addErrorTypeRegex = createAddErrorTypeRegex(functionName, returnType);
-                        updatedContent = updatedContent.replace(addErrorTypeRegex, `$1|error $2`);
+                        if (existingFunctionMatch) {
+                            shouldMergeFunction = true;
+                        }
                     }
 
-                    const arrowFunctionSignatureRegex = createArrowFunctionSignatureRegex(functionName, returnType);
-                    const regularFunctionSignatureRegex = createRegularFunctionSignatureRegex(functionName, returnType);
-                    const isExpressionBody = /^\s*from\b/.test(functionBody);
+                    const imports = segmentText.match(importRegex) || [];
+                    const codeWithoutImports = segmentText.replace(importRegex, "").trim();
 
-                    if (arrowFunctionSignatureRegex.test(updatedContent)) {
-                        updatedContent = updatedContent.replace(arrowFunctionSignatureRegex, (match, signature) => {
-                            return isExpressionBody
-                                ? `${signature} => ${functionBody}`
-                                : `${signature} => {\n    ${functionBody}\n}`;
-                        });
-                    } else if (regularFunctionSignatureRegex.test(updatedContent)) {
-                        updatedContent = updatedContent.replace(regularFunctionSignatureRegex, (match, signature) => {
-                            return `${signature} {\n    ${functionBody}\n}`;
-                        });
-                    }
+                    updatedContent = removeFunctionBody(originalContent, functionName);
 
-                    updatedContent = `${existingComments}${additionalComments}${updatedImports}${updatedContent}`;
-                } else {
-                    updatedContent = `${existingComments}${additionalComments}${updatedImports}${updatedContent}\n${codeWithoutImports}`;
-                }
+                    // Extract existing comments at the top
+                    const commentMatch = updatedContent.match(commentRegex);
+                    const existingComments = commentMatch ? commentMatch[0].trim() + "\n\n" : "";
+                    updatedContent = updatedContent.replace(commentRegex, "").trim();
 
-                segmentText = updatedContent.trim();
-            } else if (command === "ai_map_inline") {
-                rpcClient.getAiPanelRpcClient().addInlineCodeSegmentToWorkspace({ segmentText, filePath });
-                continue;
-            } else if (command === "test") {
-                segmentText = `${originalContent}\n\n${segmentText}`;
-            } else {
-                segmentText = `${segmentText}`;
-            }
+                    // Find any additional `#` comments that may exist before imports
+                    const additionalCommentMatch = updatedContent.match(commentRegex);
+                    const additionalComments = additionalCommentMatch ? additionalCommentMatch[0].trim() + "\n\n" : "";
+                    updatedContent = updatedContent.replace(commentRegex, "").trim();
 
-            let isTestCode = false;
-            if (command === "test") {
-                isTestCode = true;
-            }
+                    // Ensure new imports are added after all comments
+                    let updatedImports = "";
+                    imports.forEach((imp: string) => {
+                        if (!updatedContent.includes(imp)) {
+                            updatedImports += `${imp}\n`;
+                        }
+                    });
 
-            await rpcClient
-                .getAiPanelRpcClient()
-                .addToProject({ filePath: filePath, content: segmentText, isTestCode: isTestCode });
-        }
+                    if (shouldMergeFunction) {
+                        const existingFunctionWithoutErrorRegex = createFunctionWithoutErrorTypeRegex(
+                            functionName,
+                            returnType
+                        );
+                        const missingErrorType = existingFunctionWithoutErrorRegex.test(updatedContent) && hasErrorType;
 
-        const developerMdContent = await rpcClient.getAiPanelRpcClient().readDeveloperMdFile(chatLocation);
-        const updatedChatHistory = generateChatHistoryForSummarize(chatArray);
-        setIsCodeAdded(true);
+                        if (missingErrorType) {
+                            const addErrorTypeRegex = createAddErrorTypeRegex(functionName, returnType);
+                            updatedContent = updatedContent.replace(addErrorTypeRegex, `$1|error $2`);
+                        }
 
-        if (await rpcClient.getAiPanelRpcClient().isNaturalProgrammingDirectoryExists(chatLocation)) {
-            fetchWithAuth({
-                url: backendRootUri + "/prompt/summarize",
-                method: "POST",
-                body: { chats: updatedChatHistory, existingChatSummary: developerMdContent },
-                rpcClient: rpcClient,
-            })
-                .then(async (response) => {
-                    const chatSummaryResponseStr = await streamToString(response.body);
-                    await rpcClient
-                        .getAiPanelRpcClient()
-                        .addChatSummary({ summary: chatSummaryResponseStr, filepath: chatLocation })
-                        .then(() => {
-                            previouslyIntegratedChatIndex = integratedChatIndex;
-                            integratedChatIndex = chatArray.length;
-                            localStorage.setItem(
-                                `chatArray-AIGenerationChat-${projectUuid}-developer-index`,
-                                JSON.stringify({ integratedChatIndex, previouslyIntegratedChatIndex })
+                        const arrowFunctionSignatureRegex = createArrowFunctionSignatureRegex(functionName, returnType);
+                        const regularFunctionSignatureRegex = createRegularFunctionSignatureRegex(
+                            functionName,
+                            returnType
+                        );
+                        const isExpressionBody = /^\s*from\b/.test(functionBody);
+
+                        if (arrowFunctionSignatureRegex.test(updatedContent)) {
+                            updatedContent = updatedContent.replace(arrowFunctionSignatureRegex, (match, signature) => {
+                                return isExpressionBody
+                                    ? `${signature} => ${functionBody}`
+                                    : `${signature} => {\n    ${functionBody}\n}`;
+                            });
+                        } else if (regularFunctionSignatureRegex.test(updatedContent)) {
+                            updatedContent = updatedContent.replace(
+                                regularFunctionSignatureRegex,
+                                (match, signature) => {
+                                    return `${signature} {\n    ${functionBody}\n}`;
+                                }
                             );
-                            previousDevelopmentDocumentContent = developerMdContent;
-                        })
-                        .catch((error: any) => {
-                            rpcClient.getAiPanelRpcClient().handleChatSummaryError(UPDATE_CHAT_SUMMARY_FAILED);
-                        });
+                        }
+
+                        updatedContent = `${existingComments}${additionalComments}${updatedImports}${updatedContent}`;
+                    } else {
+                        updatedContent = `${existingComments}${additionalComments}${updatedImports}${updatedContent}\n${codeWithoutImports}`;
+                    }
+
+                    segmentText = updatedContent.trim();
+                } else if (command === "ai_map_inline") {
+                    rpcClient.getAiPanelRpcClient().addInlineCodeSegmentToWorkspace({
+                        segmentText,
+                        filePath,
+                    });
+                    continue;
+                } else if (command === "test") {
+                    segmentText = `${originalContent}\n\n${segmentText}`;
+                } else {
+                    segmentText = `${segmentText}`;
+                }
+
+                let isTestCode = false;
+                if (command === "test") {
+                    isTestCode = true;
+                }
+
+                fileChanges.push({ filePath, content: segmentText });
+            }
+
+            if (fileChanges.length > 0) {
+                await rpcClient.getAiPanelRpcClient().addFilesToProject({ fileChanges });
+            }
+
+            const developerMdContent = await rpcClient.getAiPanelRpcClient().readDeveloperMdFile(chatLocation);
+            const updatedChatHistory = generateChatHistoryForSummarize(chatArray);
+            setIsCodeAdded(true);
+            setIsAddingToWorkspace(false);
+
+            if (await rpcClient.getAiPanelRpcClient().isNaturalProgrammingDirectoryExists(chatLocation)) {
+                fetchWithAuth({
+                    url: backendRootUri + "/prompt/summarize",
+                    method: "POST",
+                    body: { chats: updatedChatHistory, existingChatSummary: developerMdContent },
+                    rpcClient: rpcClient,
                 })
-                .catch((error: any) => {
-                    rpcClient.getAiPanelRpcClient().handleChatSummaryError(UPDATE_CHAT_SUMMARY_FAILED);
-                });
+                    .then(async (response) => {
+                        const chatSummaryResponseStr = await streamToString(response.body);
+                        await rpcClient
+                            .getAiPanelRpcClient()
+                            .addChatSummary({ summary: chatSummaryResponseStr, filepath: chatLocation })
+                            .then(() => {
+                                previouslyIntegratedChatIndex = integratedChatIndex;
+                                integratedChatIndex = chatArray.length;
+                                localStorage.setItem(
+                                    `chatArray-AIGenerationChat-${projectUuid}-developer-index`,
+                                    JSON.stringify({ integratedChatIndex, previouslyIntegratedChatIndex })
+                                );
+                                previousDevelopmentDocumentContent = developerMdContent;
+                            })
+                            .catch((error: any) => {
+                                rpcClient.getAiPanelRpcClient().handleChatSummaryError(UPDATE_CHAT_SUMMARY_FAILED);
+                            });
+                    })
+                    .catch((error: any) => {
+                        rpcClient.getAiPanelRpcClient().handleChatSummaryError(UPDATE_CHAT_SUMMARY_FAILED);
+                    });
+            }
+        } catch (error) {
+            console.error("Error in handleAddAllCodeSegmentsToWorkspace:", error);
+            setIsAddingToWorkspace(false);
+            throw error;
         }
     };
 
@@ -952,38 +1016,50 @@ const AIChat: React.FC = () => {
         command: string
     ) => {
         console.log("Revert gration called. Command: ", command);
+        setIsAddingToWorkspace(true);
 
-        for (const { filePath } of codeSegments) {
-            let originalContent = tempStorage[filePath];
-            if (originalContent === "" && !initialFiles.has(filePath) && !emptyFiles.has(filePath)) {
-                // Delete the file if it didn't initially exist in the workspace
-                try {
-                    await rpcClient.getAiPanelRpcClient().deleteFromProject({ filePath: filePath });
-                } catch (error) {
-                    console.error(`Error deleting file ${filePath}:`, error);
+        try {
+            const fileChanges: FileChanges[] = [];
+            for (const { filePath } of codeSegments) {
+                let originalContent = tempStorage[filePath];
+                if (originalContent === "" && !initialFiles.has(filePath) && !emptyFiles.has(filePath)) {
+                    // Delete the file if it didn't initially exist in the workspace
+                    try {
+                        await rpcClient.getAiPanelRpcClient().deleteFromProject({ filePath: filePath });
+                    } catch (error) {
+                        console.error(`Error deleting file ${filePath}:`, error);
+                    }
+                } else {
+                    let isTestCode = false;
+                    if (command === "test") {
+                        isTestCode = true;
+                    }
+                    const revertContent = emptyFiles.has(filePath) ? "" : originalContent;
+                    fileChanges.push({ filePath, content: revertContent });
                 }
-            } else {
-                let isTestCode = false;
-                if (command === "test") {
-                    isTestCode = true;
-                }
-                const revertContent = emptyFiles.has(filePath) ? "" : originalContent;
-                await rpcClient
-                    .getAiPanelRpcClient()
-                    .addToProject({ filePath: filePath, content: revertContent, isTestCode: isTestCode });
             }
+            if (fileChanges.length > 0) {
+                await rpcClient.getAiPanelRpcClient().addFilesToProject({ fileChanges });
+            }
+            rpcClient.getAiPanelRpcClient().updateDevelopmentDocument({
+                content: previousDevelopmentDocumentContent,
+                filepath: chatLocation,
+            });
+            integratedChatIndex = previouslyIntegratedChatIndex;
+            localStorage.setItem(
+                `chatArray-AIGenerationChat-${projectUuid}-developer-index`,
+                JSON.stringify({ integratedChatIndex, previouslyIntegratedChatIndex })
+            );
+            setTempStorage({});
+            setInitialFiles(new Set<string>());
+            setEmptyFiles(new Set<string>());
+            setIsCodeAdded(false);
+            setIsAddingToWorkspace(false);
+        } catch (error) {
+            console.error("Error in handleRevertChanges:", error);
+            setIsAddingToWorkspace(false);
+            throw error;
         }
-        rpcClient.getAiPanelRpcClient().updateDevelopmentDocument({
-            content: previousDevelopmentDocumentContent,
-            filepath: chatLocation,
-        });
-        integratedChatIndex = previouslyIntegratedChatIndex;
-        localStorage.setItem(
-            `chatArray-AIGenerationChat-${projectUuid}-developer-index`,
-            JSON.stringify({ integratedChatIndex, previouslyIntegratedChatIndex })
-        );
-        tempStorage = {};
-        setIsCodeAdded(false);
     };
 
     async function processTestGeneration(
@@ -1000,7 +1076,7 @@ const AIChat: React.FC = () => {
             const requestBody: TestPlanGenerationRequest = {
                 targetType: targetType === "service" ? TestGenerationTarget.Service : TestGenerationTarget.Function,
                 targetSource: targetSource,
-                target: target
+                target: target,
             };
 
             await rpcClient.getAiPanelRpcClient().generateTestPlan(requestBody);
@@ -1017,13 +1093,33 @@ const AIChat: React.FC = () => {
         }
     }
 
+    async function processUserDocGeneration(serviceName: string) {
+        try {
+            const requestBody: DocGenerationRequest = {
+                type: DocGenerationType.User,
+                serviceName: serviceName,
+            };
+
+            await rpcClient.getAiPanelRpcClient().getGeneratedDocumentation(requestBody);
+        } catch (error: any) {
+            setIsLoading(false);
+            const errorName = error instanceof Error ? error.name : "Unknown error";
+            const errorMessage = "message" in error ? error.message : "Unknown error";
+
+            if (errorName === "AbortError") {
+                throw new Error("Failed: The user cancelled the request.");
+            } else {
+                throw new Error(errorMessage);
+            }
+        }
+    }
 
     // Process records from another package
     function processRecordReference(
         recordName: string,
         recordMap: Map<string, any>,
-        allImports: Array<{ moduleName: string; alias?: string }>,
-        importsMap: Map<string, { moduleName: string; alias?: string; recordName: string }>
+        allImports: Array<ImportInfo>,
+        importsMap: Map<string, ImportInfo>
     ): DataMappingRecord | Error {
         const isArray = recordName.endsWith("[]");
         const cleanedRecordName = recordName.replace(/\[\]$/, "");
@@ -1086,14 +1182,14 @@ const AIChat: React.FC = () => {
             });
 
             const fileName = func.filePath.split("/").pop();
-            const contentLines = functionContent.split('\n');
+            const contentLines = functionContent.split("\n");
             // Filter out commented lines (both // and # style comments)
-            const nonCommentedLines = contentLines.filter(line => {
+            const nonCommentedLines = contentLines.filter((line) => {
                 const trimmedLine = line.trim();
-                return !(trimmedLine.startsWith('//') || trimmedLine.startsWith('#'));
+                return !(trimmedLine.startsWith("//") || trimmedLine.startsWith("#"));
             });
-            const cleanContent = nonCommentedLines.join('\n');
-            
+            const cleanContent = nonCommentedLines.join("\n");
+
             const signatureRegex = /function\s+(\w+)\s*\(([^)]*)\)\s*returns\s+([^{=]+)(?:\s*=>\s*)?/g;
 
             // Use matchAll to find all function signatures in the content
@@ -1142,7 +1238,7 @@ const AIChat: React.FC = () => {
     function processOutput(
         outputParam: string,
         recordMap: Map<any, any>,
-        allImports: { moduleName: string; alias?: string }[],
+        allImports: ImportInfo[],
         importsMap: Map<any, any>
     ) {
         const parts = outputParam.split("|");
@@ -1163,6 +1259,7 @@ const AIChat: React.FC = () => {
     async function processMappingParameters(
         message: string,
         parameters: MappingParameters,
+        metadata?: ExtendedDataMapperMetadata,
         attachments?: Attachment[]
     ) {
         let assistant_response = "";
@@ -1175,6 +1272,7 @@ const AIChat: React.FC = () => {
         let outputParam;
         let inputNames: string[] = [];
         let result;
+        let finalContent: string = "";
         setIsLoading(true);
 
         const functionName = parameters.functionName;
@@ -1192,7 +1290,7 @@ const AIChat: React.FC = () => {
             }
         });
 
-        const existingFunctions: { name: string; filePath: string; startLine: number; endLine: number }[] = [];
+        const existingFunctions: ComponentInfo[] = [];
 
         for (const pkg of projectComponents.components.packages || []) {
             for (const mod of pkg.modules || []) {
@@ -1215,7 +1313,9 @@ const AIChat: React.FC = () => {
                         name: func.name,
                         filePath: filepath + func.filePath,
                         startLine: func.startLine,
+                        startColumn: func.startColumn,
                         endLine: func.endLine,
+                        endColumn: func.endColumn,
                     });
                 });
             }
@@ -1242,6 +1342,12 @@ const AIChat: React.FC = () => {
                     `A function named "${functionName}" was not found in the project. Please provide a valid function name.`
                 );
             }
+
+            if (result.match[2] === "") {
+                throw new Error(
+                    `A function named "${functionName}" is not a valid datamapper function.`
+                );
+            }
             const params = result.match[2].split(/,\s*/).map((param) => param.trim().split(/\s+/));
             inputParams = params.map((parts) => parts[0]);
             inputNames = params.map((parts) => parts[1]);
@@ -1252,32 +1358,46 @@ const AIChat: React.FC = () => {
         output = processOutput(outputParam, recordMap, allImports, importsMap);
 
         const requestPayload: any = {
-            backendUri: "",
-            token: "",
             inputRecordTypes: inputs,
             outputRecordType: output,
             functionName,
             imports: Array.from(importsMap.values()),
             inputNames: inputNames,
+            model: metadata,
         };
         if (attachments && attachments.length > 0) {
             requestPayload.attachment = attachments;
         }
-        const response = await rpcClient.getAiPanelRpcClient().getMappingsFromRecord(requestPayload);
+
+        let allMappingsRequest;
+        const tempFileMetadata = await rpcClient.getAiPanelRpcClient().createTempFileAndGenerateMetadata({
+            inputs,
+            output,
+            functionName,
+            inputNames,
+            imports: Array.from(importsMap.values()),
+        });
+        allMappingsRequest = await rpcClient.getAiPanelRpcClient().generateMappings({
+            metadata: tempFileMetadata,
+            attachments,
+            useTemporaryFile: true,
+        });
+
+        const response = await rpcClient.getDataMapperRpcClient().getAllDataMapperSource(allMappingsRequest);
+        finalContent = response.textEdits[allMappingsRequest.filePath]?.[0]?.newText;
+
+        await rpcClient.getAiPanelRpcClient().addCodeSegmentToWorkspace({
+            segmentText: finalContent,
+            filePath: tempFileMetadata.codeData.lineRange.fileName,
+            metadata: tempFileMetadata,
+            textEdit: response,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        finalContent = await rpcClient.getAiPanelRpcClient().getContentFromFile({
+            filePath: tempFileMetadata.codeData.lineRange.fileName,
+        });
+
         setIsLoading(false);
-
-        assistant_response = `Mappings consist of the following:\n`;
-        if (inputParams.length === 1) {
-            assistant_response += `- **Input Record**: ${inputParams[0]}\n`;
-        } else {
-            assistant_response += `- **Input Records**: ${inputParams.join(", ")}\n`;
-        }
-        assistant_response += `- **Output Record**: ${outputParam}\n`;
-        assistant_response += `- **Function Name**: ${functionName}\n`;
-
-        if (result.functionNameMatch) {
-            assistant_response += `\n**Note**: When you click **Add to Integration**, it will override your existing mappings.\n`;
-        }
 
         let filePath;
         if (result.functionNameMatch) {
@@ -1287,7 +1407,6 @@ const AIChat: React.FC = () => {
         } else {
             filePath = "data_mappings.bal";
         }
-        let finalContent = response.mappingCode;
         const needsImports = Array.from(importsMap.values()).length > 0;
 
         if (needsImports) {
@@ -1304,7 +1423,20 @@ const AIChat: React.FC = () => {
                 })
                 .join("\n");
 
-            finalContent = `${newImports}\n${response.mappingCode}`;
+            finalContent = `${newImports}\n${finalContent}`;
+        }
+
+        assistant_response = `Mappings consist of the following:\n`;
+        if (inputParams.length === 1) {
+            assistant_response += `- **Input Record**: ${inputParams[0]}\n`;
+        } else {
+            assistant_response += `- **Input Records**: ${inputParams.join(", ")}\n`;
+        }
+        assistant_response += `- **Output Record**: ${outputParam}\n`;
+        assistant_response += `- **Function Name**: ${functionName}\n`;
+
+        if (result.functionNameMatch) {
+            assistant_response += `\n**Note**: When you click **Add to Integration**, it will override your existing mappings.\n`;
         }
         assistant_response += `<code filename="${filePath}" type="ai_map">\n\`\`\`ballerina\n${finalContent}\n\`\`\`\n</code>`;
 
@@ -1317,51 +1449,66 @@ const AIChat: React.FC = () => {
         addChatEntry("assistant", assistant_response);
     }
 
-    async function processInlineMappingParameters(message: string, metadata?: Record<string, any>, attachments?: Attachment[],) {
+    async function processInlineMappingParameters(
+        message: string,
+        metadata?: ExtendedDataMapperMetadata,
+        attachments?: Attachment[]
+    ) {
         let assistant_response = "";
         let finalContent = "";
-        let fileName = metadata.codeData.lineRange.fileName
+
+        if (!metadata || Object.keys(metadata).length === 0) {
+            throw new Error(`Please make sure variables are initialized, and then try again.`);
+        }
+
+        let fileName = metadata.codeData.lineRange.fileName;
         const variableName = metadata.name;
         const typeName = metadata.mappingsModel.output.typeName;
 
         setIsLoading(true);
 
-        const requestPayload: any = {
-            backendUri: "",
-            token: "",
-            metadata
-        };
-        if (attachments && attachments.length > 0) {
-            requestPayload.attachment = attachments;
+        try {
+            const requestPayload: MetadataWithAttachments = {
+                metadata,
+                useTemporaryFile: false,
+            };
+            if (attachments && attachments.length > 0) {
+                requestPayload.attachments = attachments;
+            }
+            const allMappingsRequest = await rpcClient.getAiPanelRpcClient().generateMappings(requestPayload);
+            const sourceResponse = await rpcClient.getDataMapperRpcClient().getAllDataMapperSource(allMappingsRequest);
+
+            setIsLoading(false);
+
+            finalContent = sourceResponse.textEdits[allMappingsRequest.filePath]?.[0]?.newText;
+
+            assistant_response = `Here are the data mappings:\n\n`;
+            assistant_response += `\n**Note**: When you click **Add to Integration**, it will override your existing mappings.\n`;
+
+            const moduleInfo = metadata.mappingsModel.output.moduleInfo;
+            const hasModuleInfo = moduleInfo && moduleInfo.moduleName;
+
+            const typePrefix = hasModuleInfo ? `${moduleInfo.moduleName.split(".").pop()}:${typeName}` : typeName;
+
+            const formattedContent = `${typePrefix} ${variableName} = {\n${formatWithProperIndentation(
+                finalContent
+            )}\n};`;
+
+            assistant_response += `<code filename="${fileName}" type="ai_map_inline">\n\`\`\`ballerina\n${formattedContent}\n\`\`\`\n</code>`;
+
+            setMessages((prevMessages) => {
+                const newMessages = [...prevMessages];
+                newMessages[newMessages.length - 1].content = assistant_response;
+                return newMessages;
+            });
+            addChatEntry("user", message);
+            addChatEntry("assistant", assistant_response);
+
+            return { success: true, response: assistant_response };
+        } catch (error) {
+            setIsLoading(false);
+            return { error: error instanceof Error ? error.message : "An unexpected error occurred" };
         }
-        const allMappingsRequest = await rpcClient.getAiPanelRpcClient().getMappingsFromModel(requestPayload);
-        const sourceResponse = await rpcClient.getInlineDataMapperRpcClient().getAllDataMapperSource(allMappingsRequest);
-
-        setIsLoading(false);
-
-        finalContent = sourceResponse.textEdits[allMappingsRequest.filePath]?.[0]?.newText;
-
-        assistant_response = `Here are the data mappings:\n\n`;
-        assistant_response += `\n**Note**: When you click **Add to Integration**, it will override your existing mappings.\n`;
-        
-        const moduleInfo = metadata.mappingsModel.output.moduleInfo;
-        const hasModuleInfo = moduleInfo && moduleInfo.moduleName;
-
-        const typePrefix = hasModuleInfo
-            ? `${moduleInfo.moduleName.split('.').pop()}:${typeName}`
-            : typeName;
-
-        const formattedContent = `${typePrefix} ${variableName} = {\n${formatWithProperIndentation(finalContent)}\n};`;
-        
-        assistant_response += `<code filename="${fileName}" type="ai_map_inline">\n\`\`\`ballerina\n${formattedContent}\n\`\`\`\n</code>`;
-
-        setMessages((prevMessages) => {
-            const newMessages = [...prevMessages];
-            newMessages[newMessages.length - 1].content = assistant_response;
-            return newMessages;
-        });
-        addChatEntry("user", message);
-        addChatEntry("assistant", assistant_response);
     }
 
     async function processContextTypeCreation(message: string, attachments: Attachment[]) {
@@ -1429,17 +1576,17 @@ const AIChat: React.FC = () => {
         let formatted_response = ";";
         setIsLoading(true);
         try {
-            assistant_response = await rpcClient.getAiPanelRpcClient().getFromDocumentation(messageBody);            
+            assistant_response = await rpcClient.getAiPanelRpcClient().getFromDocumentation(messageBody);
             formatted_response = assistant_response.replace(
                 /^([ \t]*)```ballerina\s*\n([\s\S]*?)^[ \t]*```/gm,
                 (_, indent, codeBlock) => {
-                  // Remove the common indent from all lines in the code block
-                  const cleanedCode = codeBlock
-                    .split('\n')
-                    .map((line: string) => line.startsWith(indent) ? line.slice(indent.length) : line)
-                    .join('\n');
-                    
-                  return `<inlineCode>\n${cleanedCode}\n<inlineCode>`;
+                    // Remove the common indent from all lines in the code block
+                    const cleanedCode = codeBlock
+                        .split("\n")
+                        .map((line: string) => (line.startsWith(indent) ? line.slice(indent.length) : line))
+                        .join("\n");
+
+                    return `<inlineCode>\n${cleanedCode}\n<inlineCode>`;
                 }
             );
 
@@ -1467,14 +1614,13 @@ const AIChat: React.FC = () => {
     }
 
     async function processHealthcareCodeGeneration(useCase: string, message: string) {
-
         const requestBody: GenerateCodeRequest = {
             usecase: useCase,
             chatHistory: chatArray,
             fileAttachmentContents: [],
             operationType: CodeGenerationType.CODE_GENERATION,
         };
-        await rpcClient.getAiPanelRpcClient().generateHealthcareCode(requestBody)
+        await rpcClient.getAiPanelRpcClient().generateHealthcareCode(requestBody);
     }
 
     async function processOpenAPICodeGeneration(useCase: string, message: string) {
@@ -1651,6 +1797,56 @@ const AIChat: React.FC = () => {
         });
     };
 
+    const saveDocumentation = async () => {
+        if (!docGenIntermediaryState) return;
+
+        setIsAddingToWorkspace(true);
+        try {
+            rpcClient.getAiPanelRpcClient().addFilesToProject({
+                fileChanges: [
+                    {
+                        filePath: `docs/api_doc.md`,
+                        content: docGenIntermediaryState.documentation,
+                    },
+                ],
+            });
+
+            // Update the message content to show "Saved" state
+            setMessages((prevMessages) => {
+                const newMessages = [...prevMessages];
+                const lastMessage = newMessages[newMessages.length - 1];
+                if (lastMessage && lastMessage.content) {
+                    lastMessage.content = lastMessage.content.replace(
+                        /<button type="save_documentation">Save Documentation<\/button>/g,
+                        '<button type="documentation_saved">Saved</button>'
+                    );
+                    addChatEntry("assistant", messages[messages.length - 1].content);
+                }
+                return newMessages;
+            });
+        } catch (error) {
+            console.error("Error saving documentation:", error);
+        } finally {
+            setIsAddingToWorkspace(false);
+        }
+    };
+
+    const regenerateDocumentation = async () => {
+        if (!docGenIntermediaryState) return;
+
+        setMessages((prevMessages) => {
+            const newMessages = [...prevMessages];
+            newMessages[newMessages.length - 1].content = "";
+            return newMessages;
+        });
+
+        setIsLoading(true);
+        await rpcClient.getAiPanelRpcClient().getGeneratedDocumentation({
+            type: DocGenerationType.User,
+            serviceName: docGenIntermediaryState.serviceName,
+        });
+    };
+
     const handleRetryRepair = async () => {
         const currentDiagnostics = currentDiagnosticsRef.current;
         if (currentDiagnostics.length === 0) return;
@@ -1661,7 +1857,7 @@ const AIChat: React.FC = () => {
         await rpcClient.getAiPanelRpcClient().repairGeneratedCode({
             diagnostics: currentDiagnostics,
             assistantResponse: messages[messages.length - 1].content,
-            previousMessages: messagesRef.current
+            previousMessages: messagesRef.current,
         });
     };
 
@@ -1699,7 +1895,7 @@ const AIChat: React.FC = () => {
                             const showGeneratingFiles = !codeSegmentRendered && index === currentGeneratingPromptIndex;
                             const isLastResponse = index === currentGeneratingPromptIndex;
                             const isAssistantMessage = message.role === "Copilot";
-                            const lastAssistantIndex = otherMessages.map(m => m.role).lastIndexOf("Copilot");
+                            const lastAssistantIndex = otherMessages.map((m) => m.role).lastIndexOf("Copilot");
                             const isLatestAssistantMessage = isAssistantMessage && index === lastAssistantIndex;
                             codeSegmentRendered = false;
 
@@ -1763,7 +1959,9 @@ const AIChat: React.FC = () => {
                                                         isReady={!isCodeLoading}
                                                         message={message}
                                                         buttonsActive={showGeneratingFiles}
-                                                        isSyntaxError={isContainsSyntaxError(currentDiagnosticsRef.current)}
+                                                        isSyntaxError={isContainsSyntaxError(
+                                                            currentDiagnosticsRef.current
+                                                        )}
                                                         command={segment.command}
                                                         diagnostics={currentDiagnosticsRef.current}
                                                         onRetryRepair={handleRetryRepair}
@@ -1771,6 +1969,7 @@ const AIChat: React.FC = () => {
                                                             isPromptExecutedInCurrentWindow
                                                         }
                                                         isErrorChunkReceived={isErrorChunkReceivedRef.current}
+                                                        isAddingToWorkspace={isAddingToWorkspace}
                                                     />
                                                 );
                                             }
@@ -1867,6 +2066,39 @@ const AIChat: React.FC = () => {
                                                         </VSCodeButton>
                                                     </div>
                                                 );
+                                            } else if (
+                                                "buttonType" in segment &&
+                                                segment.buttonType === "save_documentation" &&
+                                                !isCodeLoading &&
+                                                isLastResponse &&
+                                                !isLoading
+                                            ) {
+                                                return (
+                                                    <div style={{ display: "flex", gap: "10px" }}>
+                                                        <VSCodeButton
+                                                            title="Save Documentation"
+                                                            onClick={saveDocumentation}
+                                                        >
+                                                            {"Save Documentation"}
+                                                        </VSCodeButton>
+                                                        <VSCodeButton
+                                                            title="Regenerate documentation"
+                                                            appearance="secondary"
+                                                            onClick={regenerateDocumentation}
+                                                        >
+                                                            <Codicon name="refresh" />
+                                                        </VSCodeButton>
+                                                    </div>
+                                                );
+                                            } else if (
+                                                "buttonType" in segment &&
+                                                segment.buttonType === "documentation_saved"
+                                            ) {
+                                                return (
+                                                    <VSCodeButton title="Documentation has been saved" disabled>
+                                                        {"Saved"}
+                                                    </VSCodeButton>
+                                                );
                                             }
                                         } else {
                                             if (message.type === "Error") {
@@ -1875,14 +2107,14 @@ const AIChat: React.FC = () => {
                                             return <MarkdownRenderer key={i} markdownContent={segment.text} />;
                                         }
                                     })}
-                                                            {/* Show feedback bar only for the latest assistant message and when loading is complete */}
-                            {isAssistantMessage && isLatestAssistantMessage && !isLoading && !isCodeLoading && (
-                                <FeedbackBar 
-                                    messageIndex={index}
-                                    onFeedback={handleFeedback}
-                                    currentFeedback={feedbackGiven}
-                                />
-                            )}
+                                    {/* Show feedback bar only for the latest assistant message and when loading is complete */}
+                                    {isAssistantMessage && isLatestAssistantMessage && !isLoading && !isCodeLoading && (
+                                        <FeedbackBar
+                                            messageIndex={index}
+                                            onFeedback={handleFeedback}
+                                            currentFeedback={feedbackGiven}
+                                        />
+                                    )}
                                 </ChatMessage>
                             );
                         })}
@@ -2260,18 +2492,16 @@ function transformProjectSource(project: ProjectSource): SourceFiles[] {
     return sourceFiles;
 }
 
-
 function isContainsSyntaxError(diagnostics: DiagnosticEntry[]): boolean {
     return diagnostics.some((diag) => {
-            if (typeof diag.code === "string" && diag.code.startsWith("BCE")) {
-                const match = diag.code.match(/^BCE(\d+)$/);
-                if (match) {
-                    const codeNumber = Number(match[1]);
-                    if (codeNumber < 2000) {
-                        return true;
-                    }
+        if (typeof diag.code === "string" && diag.code.startsWith("BCE")) {
+            const match = diag.code.match(/^BCE(\d+)$/);
+            if (match) {
+                const codeNumber = Number(match[1]);
+                if (codeNumber < 2000) {
+                    return true;
                 }
             }
         }
-    );
+    });
 }

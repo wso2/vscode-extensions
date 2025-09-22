@@ -54,6 +54,7 @@ type ConfigsPageProps = {
     position: Position;
     hideSearch?: boolean;
     onChange: (value: string) => void;
+    artifactPath?: string;
 };
 
 /* Validation schema for the config form */
@@ -65,7 +66,7 @@ const schema = yup.object({
 
 type ConfigFormData = yup.InferType<typeof schema>;
 
-export const ConfigsPage = ({ position, onChange, hideSearch }: ConfigsPageProps) => {
+export const ConfigsPage = ({ position, onChange, hideSearch, artifactPath }: ConfigsPageProps) => {
     const { rpcClient } = useVisualizerContext();
     const firstRender = useRef<boolean>(true);
     const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -89,7 +90,7 @@ export const ConfigsPage = ({ position, onChange, hideSearch }: ConfigsPageProps
                 rpcClient
                     .getMiDiagramRpcClient()
                     .getHelperPaneInfo({
-                        documentUri: machineView.documentUri,
+                        documentUri: artifactPath ? artifactPath : machineView.documentUri,
                         position: position,
                     })
                     .then((response) => {

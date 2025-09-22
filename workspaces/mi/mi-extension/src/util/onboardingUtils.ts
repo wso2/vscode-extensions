@@ -1,3 +1,20 @@
+/**
+ * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
@@ -60,15 +77,15 @@ export async function setupEnvironment(projectUri: string, isOldProject: boolean
             return false;
         }
         const versions: string[] = ["4.0.0", "4.1.0", "4.2.0", "4.3.0"];
-        if (miVersionFromPom && versions.includes(miVersionFromPom)) {
-            const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
-            await config.update("LEGACY_EXPRESSION_ENABLED", true, vscode.ConfigurationTarget.WorkspaceFolder);
-        }
+        const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
+        await config.update("LEGACY_EXPRESSION_ENABLED", miVersionFromPom && versions.includes(miVersionFromPom),
+            vscode.ConfigurationTarget.WorkspaceFolder);
         const isMISet = await isMISetup(projectUri, miVersionFromPom);
         const isJavaSet = await isJavaSetup(projectUri, miVersionFromPom);
 
         if (isMISet && isJavaSet) {
             const isUpdateRequested = await isServerUpdateRequested(projectUri);
+            await updateCarPluginVersion(projectUri);
             return !isUpdateRequested;
         }
         return isMISet && isJavaSet;
@@ -97,9 +114,9 @@ export async function isMIUpToDate(): Promise<boolean> {
 }
 
 export async function getProjectSetupDetails(projectUri: string): Promise<SetupDetails> {
-    const miVersion = await getMIVersionFromPom();
+    const miVersion = await getMIVersionFromPom(projectUri);
     if (!miVersion) {
-        vscode.window.showErrorMessage('Failed to get WSO2 Integrator: MI version from pom.xml.');
+        vscode.window.showWarningMessage('Failed to get WSO2 Integrator: MI version from pom.xml.');
         return { miVersionStatus: 'missing', javaDetails: { status: 'not-valid' }, miDetails: { status: 'not-valid' } };
     }
     if (isSupportedMIVersion(miVersion)) {
@@ -110,8 +127,9 @@ export async function getProjectSetupDetails(projectUri: string): Promise<SetupD
 
     return { miVersionStatus: 'not-valid', javaDetails: { status: 'not-valid' }, miDetails: { status: 'not-valid' } };
 }
-export async function getMIVersionFromPom(): Promise<string | null> {
-    const pomFiles = await vscode.workspace.findFiles('pom.xml', '**/node_modules/**', 1);
+export async function getMIVersionFromPom(projectUri: string): Promise<string | null> {
+    const pattern = new vscode.RelativePattern(projectUri, 'pom.xml');
+    const pomFiles = await vscode.workspace.findFiles(pattern, '**/node_modules/**', 1);
     if (pomFiles.length === 0) {
         vscode.window.showErrorMessage('pom.xml not found.');
         return null;
@@ -585,7 +603,7 @@ function isMIInstalledAtPath(miPath: string): boolean {
     return fs.existsSync(path.join(miPath, 'bin', miExecutable));
 }
 export async function setPathsInWorkSpace(request: SetPathRequest): Promise<PathDetailsResponse> {
-    const projectMIVersion = await getMIVersionFromPom();
+    const projectMIVersion = await getMIVersionFromPom(request.projectUri);
 
     let response: PathDetailsResponse = { status: 'not-valid' };
     if (projectMIVersion) {
@@ -1346,5 +1364,30 @@ async function updateMI(projectUri: string, miVersion: string, latestUpdateVersi
         vscode.window.showInformationMessage('WSO2 Integrator: MI has been updated successfully.');
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to update WSO2 Integrator: MI: ${error instanceof Error ? error.message : error}`);
+    }
+}
+
+export async function updateCarPluginVersion(projectUri: string): Promise<void> {
+    const config = vscode.workspace.getConfiguration("MI");
+    const isUpdateCarPluginEnabled = config.get<boolean>('autoUpdateCarPlugin');
+    if (!isUpdateCarPluginEnabled) {
+        return;
+    }
+    const pomFiles = await vscode.workspace.findFiles(
+        new vscode.RelativePattern(projectUri, 'pom.xml'),
+        '**/node_modules/**',
+        1
+    );
+    if (pomFiles.length === 0) {
+        throw new Error('pom.xml not found in the specified project.');
+    }
+    const pomContent = await vscode.workspace.openTextDocument(pomFiles[0]);
+    const result = await parseStringPromise(pomContent.getText(), { explicitArray: false, ignoreAttrs: true });
+    const carPluginVersion = result.project.properties['car.plugin.version'];
+    if (!carPluginVersion || carPluginVersion === LATEST_CAR_PLUGIN_VERSION) {
+        return;
+    }
+    if(carPluginVersion < LATEST_CAR_PLUGIN_VERSION) {
+        await updateRuntimeVersionsInPom(result.project.properties['project.runtime.version']);
     }
 }

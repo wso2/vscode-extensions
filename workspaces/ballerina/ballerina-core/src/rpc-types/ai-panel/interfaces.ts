@@ -20,7 +20,7 @@
 import { NodePosition } from "@wso2/syntax-tree";
 import { AIMachineContext, AIMachineStateValue } from "../../state-machine-types";
 import { Command, TemplateId } from "../../interfaces/ai-panel";
-import { FormField } from "../../interfaces/config-spec";
+import { DataMapperSourceResponse, ExtendedDataMapperMetadata } from "../../interfaces/extended-lang-client";
 
 // ==================================
 // General Interfaces
@@ -87,12 +87,25 @@ export interface AddToProjectRequest {
     content: string;
     isTestCode: boolean;
 }
+
+export interface AddFilesToProjectRequest {
+    fileChanges: FileChanges[];
+}
+
+export interface FileChanges {
+    filePath: string;
+    content: string;
+}
+
 export interface GetFromFileRequest {
     filePath: string;
 }
+
 export interface DeleteFromProjectRequest {
     filePath: string;
 }
+
+// Data-mapper related interfaces
 export interface GenerateMappingsRequest {
     position: NodePosition;
     filePath: string;
@@ -111,54 +124,37 @@ export interface NotifyAIMappingsRequest {
     filePath: string;
 }
 
-export interface ParameterMetadata {
-    inputs: object;
-    output: object;
-    inputMetadata: object;
-    outputMetadata: object;
-    mapping_fields?: object;
-    constants?: Record<string, FieldConfig>;
-    configurables?: Record<string, FieldConfig>;
-    variables?: Record<string, FieldConfig>;
-}
-
-export interface RecordDefinitonObject {
-    recordFields: object;
-    recordFieldsMetadata: object;
-}
-
-export interface MappingFileRecord {
-    mapping_fields: object;
-}
-
-export interface ParameterDefinitions {
-    parameterMetadata: ParameterMetadata,
-    errorStatus: boolean
-}
-
-export interface ParameterField {
-    isArrayType: boolean;
-    parameterName: string;
-    parameterType: string;
-    type: string;
-}
-
-export interface FieldDescriptor {
-    type: string;
-    comment: string;
-}
-
-export interface FieldConfig {
-    typeName: string;
-    type: string;
-    typeInstance: string;
-    nullable: boolean;
-    optional: boolean;
-}
-
 export interface CodeSegment {
     segmentText: string;
     filePath: string;
+    metadata?: ExtendedDataMapperMetadata;
+    textEdit?: DataMapperSourceResponse;
+}
+
+export interface DataMappingRecord {
+    type: string;
+    isArray: boolean;
+    filePath: string;
+}
+
+export interface GenerateTypesFromRecordRequest {
+    attachment?: Attachment[]
+}
+
+export interface GenerateTypesFromRecordResponse {
+    typesCode: string;
+}
+
+export interface MappingParameters {
+    inputRecord: string[];
+    outputRecord: string,
+    functionName?: string;
+}
+
+export interface ImportInfo {
+    moduleName: string;
+    alias?: string;
+    recordName?: string;
 }
 
 // Test-generator related interfaces
@@ -196,42 +192,12 @@ export interface TestGeneratorIntermediaryState {
     testPlan: string;
 }
 
-
-export interface DataMappingRecord {
-    type: string;
-    isArray: boolean;
-    filePath: string;
+export interface DocumentationGeneratorIntermediaryState {
+    serviceName: string;
+    documentation: string;
+    projectSource: ProjectSource;
+    openApiSpec?: string;
 }
-
-export interface GenerateMappingsFromRecordRequest {
-    backendUri: string;
-    token: string;
-    inputRecordTypes: DataMappingRecord[];
-    outputRecordType: DataMappingRecord;
-    functionName: string;
-    imports: { moduleName: string; alias?: string }[];
-    inputNames?: string[];
-    attachment?: Attachment[]
-}
-
-export interface GenerateTypesFromRecordRequest {
-    backendUri: string;
-    token: string;
-    attachment?: Attachment[]
-}
-
-export interface GenerateMappingFromRecordResponse {
-    mappingCode: string;
-}
-export interface GenerateTypesFromRecordResponse {
-    typesCode: string;
-}
-export interface MappingParameters {
-    inputRecord: string[];
-    outputRecord: string,
-    functionName?: string;
-}
-
 
 export interface PostProcessRequest {
     assistant_response: string;
@@ -381,6 +347,18 @@ export interface CopilotFilterLibrariesRequest {
 
 export interface CopilotFilterLibrariesResponse {
     libraries: any[];
+}
+
+// ==================================
+// Doc Generation Related Interfaces
+// ==================================
+export enum DocGenerationType {
+    User = "user",
+}
+
+export interface DocGenerationRequest {
+    type: DocGenerationType;
+    serviceName: string;
 }
 
 export const GENERATE_TEST_AGAINST_THE_REQUIREMENT = "Generate tests against the requirements";

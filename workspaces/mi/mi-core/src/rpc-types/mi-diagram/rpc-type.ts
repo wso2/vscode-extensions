@@ -50,6 +50,11 @@ import {
     AIUserInput,
     WriteContentToFileRequest,
     WriteContentToFileResponse,
+    WriteIdpSchemaFileToRegistryRequest,
+    WriteIdpSchemaFileToRegistryResponse,
+    GetIdpSchemaFilesResponse,
+    ReadIdpSchemaFileContentRequest,
+    ReadIdpSchemaFileContentResponse,
     CreateLocalEntryRequest,
     CreateLocalEntryResponse,
     FileDirResponse,
@@ -142,6 +147,7 @@ import {
     GetSelectiveArtifactsRequest,
     GetSelectiveArtifactsResponse,
     GetBackendRootUrlResponse,
+    GetProxyRootUrlResponse,
     RegistryArtifactNamesResponse,
     ListRegistryArtifactsRequest, RangeFormatRequest,
     MigrateProjectRequest,
@@ -254,7 +260,16 @@ import {
     GetCodeDiagnosticsResponse,
     UpdateMediatorResponse,
     GetConnectorIconRequest,
-    GetConnectorIconResponse
+    GetConnectorIconResponse,
+    GetPomFileContentResponse,
+    GetExternalConnectorDetailsResponse,
+    WriteMockServicesRequest,
+    WriteMockServicesResponse,
+    GetMockServicesResponse,
+    ConfigureKubernetesRequest,
+    ConfigureKubernetesResponse,
+    Property,
+    UpdateRegistryPropertyRequest
 } from "./types";
 import { RequestType, NotificationType } from "vscode-messenger-common";
 
@@ -326,6 +341,10 @@ export const migrateProject: RequestType<MigrateProjectRequest, MigrateProjectRe
 export const getAIResponse: RequestType<AIUserInput, string> = { method: `${_preFix}/getAIResponse` };
 export const writeContentToFile: RequestType<WriteContentToFileRequest, WriteContentToFileResponse> = { method: `${_preFix}/writeContentToFile` };
 export const handleFileWithFS: RequestType<HandleFileRequest, HandleFileResponse> = { method: `${_preFix}/handleFileWithFS` };
+export const writeIdpSchemaFileToRegistry: RequestType<WriteIdpSchemaFileToRegistryRequest, WriteIdpSchemaFileToRegistryResponse> = { method: `${_preFix}/writeIdpSchemaFileToRegistry` };
+export const getIdpSchemaFiles: RequestType<void, GetIdpSchemaFilesResponse> = { method: `${_preFix}/getIdpSchemaFiles` };
+export const convertPdfToBase64Images: RequestType<string, string[]> = { method: `${_preFix}/convertPdfToBase64Images` };
+export const readIdpSchemaFileContent: RequestType<ReadIdpSchemaFileContentRequest, ReadIdpSchemaFileContentResponse> = { method: `${_preFix}/readIdpSchemaFileContent` };
 export const highlightCode: NotificationType<HighlightCodeRequest> = { method: `${_preFix}/highlightCode` };
 export const getWorkspaceContext: RequestType<void, GetWorkspaceContextResponse> = { method: `${_preFix}/getWorkspaceContext` };
 export const getProjectUuid: RequestType<void, GetProjectUuidResponse> = { method: `${_preFix}/getProjectUuid` };
@@ -344,6 +363,7 @@ export const buildBallerinaModule: RequestType<string, void> = { method: `${_pre
 export const getSelectiveWorkspaceContext: RequestType<void, GetSelectiveWorkspaceContextResponse> = { method: `${_preFix}/getSelectiveWorkspaceContext` };
 export const getSelectiveArtifacts: RequestType<GetSelectiveArtifactsRequest, GetSelectiveArtifactsResponse> = { method: `${_preFix}/getSelectiveArtifacts` };
 export const getBackendRootUrl: RequestType<void, GetBackendRootUrlResponse> = { method: `${_preFix}/getBackendRootUrl` };
+export const getProxyRootUrl: RequestType<void, GetProxyRootUrlResponse> = { method: `${_preFix}/getProxyRootUrl` };
 export const getAvailableRegistryResources: RequestType<ListRegistryArtifactsRequest, RegistryArtifactNamesResponse> = { method: `${_preFix}/getAvailableRegistryResources` };
 export const updateRegistryMetadata: RequestType<UpdateRegistryMetadataRequest, UpdateRegistryMetadataResponse> = { method: `${_preFix}/updateRegistryMetadata` };
 export const getMetadataOfRegistryResource: RequestType<GetRegistryMetadataRequest, GetRegistryMetadataResponse> = { method: `${_preFix}/getMetadataOfRegistryResource` };
@@ -427,3 +447,12 @@ export const getCodeDiagnostics: RequestType<GetCodeDiagnosticsReqeust, GetCodeD
 export const shouldDisplayPayloadAlert: RequestType<void, boolean> = { method: `${_preFix}/shouldDisplayPayloadAlert` };
 export const displayPayloadAlert: RequestType<void, void> = { method: `${_preFix}/displayPayloadAlert` };
 export const closePayloadAlert: RequestType<void, void> = { method: `${_preFix}/closePayloadAlert` };
+export const getValueOfEnvVariable: RequestType<string, string> = { method: `${_preFix}/getValueOfEnvVariable` };
+export const getPomFileContent: RequestType<void, GetPomFileContentResponse> = { method: `${_preFix}/getPomFileContent` };
+export const getExternalConnectorDetails: RequestType<void, GetExternalConnectorDetailsResponse> = { method: `${_preFix}/getExternalConnectorDetails` };
+export const writeMockServices: RequestType<WriteMockServicesRequest, WriteMockServicesResponse> = { method: `${_preFix}/writeMockServices` };
+export const getMockServices: RequestType<void, GetMockServicesResponse> = { method: `${_preFix}/getMockServices` };
+export const configureKubernetes: RequestType<ConfigureKubernetesRequest, ConfigureKubernetesResponse> = { method: `${_preFix}/configureKubernetes` };
+export const isKubernetesConfigured: RequestType<void, boolean> = { method: `${_preFix}/isKubernetesConfigured` };
+export const updatePropertiesInArtifactXML: RequestType<UpdateRegistryPropertyRequest, string> = { method: `${_preFix}/updatePropertiesInArtifactXML` };
+export const getPropertiesFromArtifactXML: RequestType<string, Property[] | undefined> = { method: `${_preFix}/getPropertiesFromArtifactXML` };

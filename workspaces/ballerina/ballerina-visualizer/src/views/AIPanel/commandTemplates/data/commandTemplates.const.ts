@@ -105,6 +105,7 @@ export const commandTemplates = {
             id: TemplateId.InlineMappings,
             text: 'generate mappings using record fields and external values',
             placeholders: [],
+            defaultVisibility: false
         },
     ],
     [Command.TypeCreator]: [
@@ -138,6 +139,19 @@ export const commandTemplates = {
             placeholders: [],
         },
     ],
+    [Command.Doc]: [
+        {
+            id: TemplateId.GenerateUserDoc,
+            text: 'generate user documentation for <servicename> service',
+            placeholders: [
+                {
+                    id: 'servicename',
+                    text: '<servicename>',
+                    multiline: false,
+                }
+            ],
+        }
+    ]
 } as const;
 
 export type CommandTemplates = typeof commandTemplates;

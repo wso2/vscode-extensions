@@ -24,6 +24,7 @@ export const MI_ARTIFACT_EDIT_BACKEND_URL = `/chat/artifact-editing`;
 export const MI_SUGGESTIVE_QUESTIONS_INITIAL_BACKEND_URL = `/suggestions/initial`;
 export const MI_SUGGESTIVE_QUESTIONS_BACKEND_URL = `/suggestions`;
 export const MI_UNIT_TEST_GENERATION_BACKEND_URL = `/unit-test/generate`;
+export const MI_UNIT_TEST_CASE_GENERATE_BACKEND_URL = `/unit-test/generate-case`;
 
 // MI Copilot Error Messages
 export const COPILOT_ERROR_MESSAGES = {
@@ -54,6 +55,8 @@ export const gitIssueUrl = "https://github.com/wso2/mi-vscode/issues";
 
 export const COMMANDS = {
     MIGRATE_PROJECT: "MI.migrateProject",
+    OPEN_PROJECT: "MI.openProject",
+    EDIT_K8_CONFIGURATION_COMMAND: 'MI.edit-k8-configuration'
 }
 
 // Actions for service designer

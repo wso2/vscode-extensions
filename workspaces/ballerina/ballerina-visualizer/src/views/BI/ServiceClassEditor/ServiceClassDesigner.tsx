@@ -189,7 +189,10 @@ export function ServiceClassDesigner(props: ServiceClassDesignerProps) {
         const lineRange: LineRange = func.codedata.lineRange;
         const currentFilePath = await rpcClient.getVisualizerRpcClient().joinProjectPath(type.codedata.lineRange.fileName);
         const nodePosition: NodePosition = { startLine: lineRange.startLine.line, startColumn: lineRange.startLine.offset, endLine: lineRange.endLine.line, endColumn: lineRange.endLine.offset }
-        await rpcClient.getVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: { position: nodePosition, documentUri: currentFilePath } })
+        await rpcClient.getVisualizerRpcClient().openView({
+            type: EVENT_TYPE.OPEN_VIEW,
+            location: { position: nodePosition, documentUri: currentFilePath, type: type, identifier: func.name.value }
+        });
     }
 
     const handleFunctionSave = async (updatedFunction: FunctionModel) => {
@@ -315,10 +318,7 @@ export function ServiceClassDesigner(props: ServiceClassDesignerProps) {
                         line: serviceClassModel.codedata.lineRange.endLine.line,
                         offset: serviceClassModel.codedata.lineRange.endLine.offset
                     }
-                },
-                inListenerInit: false,
-                isBasePath: false,
-                inDisplayAnnotation: false
+                }
             },
             type: {
                 metadata: {
@@ -499,7 +499,7 @@ export function ServiceClassDesigner(props: ServiceClassDesignerProps) {
                             <Section style={{ maxHeight: '40%' }}>
                                 <SectionHeader>
                                     <SectionTitle>Class Variables</SectionTitle>
-                                    <VSCodeButton appearance="primary" title="Add Variable" onClick={() => handleAddVariable()}>
+                                    <VSCodeButton data-testid="add-variable-button" appearance="primary" title="Add Variable" onClick={() => handleAddVariable()}>
                                         <Codicon name="add" sx={{ marginRight: 8 }} /> Variable
                                     </VSCodeButton>
                                 </SectionHeader>

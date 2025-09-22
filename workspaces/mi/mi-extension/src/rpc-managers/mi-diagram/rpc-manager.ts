@@ -105,6 +105,7 @@ import {
     GetAvailableResourcesRequest,
     GetAvailableResourcesResponse,
     GetBackendRootUrlResponse,
+    GetProxyRootUrlResponse,
     GetConnectionFormRequest,
     GetConnectionFormResponse,
     GetConnectorConnectionsRequest,
@@ -229,7 +230,14 @@ import {
     UpdateWsdlEndpointRequest,
     UpdateWsdlEndpointResponse,
     WriteContentToFileRequest,
+    WriteIdpSchemaFileToRegistryRequest,
+    ReadIdpSchemaFileContentRequest,
+    ReadIdpSchemaFileContentResponse,
+    WriteIdpSchemaFileToRegistryResponse,
+    GetIdpSchemaFilesResponse,
     WriteContentToFileResponse,
+    WriteMockServicesRequest,
+    WriteMockServicesResponse,
     HandleFileRequest,
     HandleFileResponse,
     getAllDependenciesRequest,
@@ -275,7 +283,13 @@ import {
     DependencyDetails,
     GetCodeDiagnosticsReqeust,
     GetCodeDiagnosticsResponse,
-    getCodeDiagnostics
+    getCodeDiagnostics,
+    GetPomFileContentResponse,
+    GetExternalConnectorDetailsResponse,
+    GetMockServicesResponse,
+    ConfigureKubernetesRequest,
+    ConfigureKubernetesResponse,
+    UpdateRegistryPropertyRequest
 } from "@wso2/mi-core";
 import axios from 'axios';
 import { error } from "console";
@@ -302,9 +316,9 @@ import { testFileMatchPattern } from "../../test-explorer/discover";
 import { mockSerivesFilesMatchPattern } from "../../test-explorer/mock-services/activator";
 import { UndoRedoManager } from "../../undoRedoManager";
 import { copyDockerResources, copyMavenWrapper, createFolderStructure, getAPIResourceXmlWrapper, getAddressEndpointXmlWrapper, getDataServiceXmlWrapper, getDefaultEndpointXmlWrapper, getDssDataSourceXmlWrapper, getFailoverXmlWrapper, getHttpEndpointXmlWrapper, getInboundEndpointXmlWrapper, getLoadBalanceXmlWrapper, getMessageProcessorXmlWrapper, getMessageStoreXmlWrapper, getProxyServiceXmlWrapper, getRegistryResourceContent, getTaskXmlWrapper, getTemplateEndpointXmlWrapper, getTemplateXmlWrapper, getWsdlEndpointXmlWrapper, createGitignoreFile, getEditTemplateXmlWrapper } from "../../util";
-import { addNewEntryToArtifactXML, createMetadataFilesForRegistryCollection, deleteRegistryResource, detectMediaType, getAvailableRegistryResources, getMediatypeAndFileExtension, getRegistryResourceMetadata, updateRegistryResourceMetadata } from "../../util/fileOperations";
+import { addNewEntryToArtifactXML, createMetadataFilesForRegistryCollection, deleteRegistryResource, detectMediaType, getAvailableRegistryResources, getMediatypeAndFileExtension, getRegistryResourceMetadata, updateRegistryResourceMetadata, generatePathFromRegistryPath} from "../../util/fileOperations";
 import { log } from "../../util/logger";
-import { importProject } from "../../util/migrationUtils";
+import { importProjects } from "../../util/migrationUtils";
 import { generateSwagger, getResourceInfo, isEqualSwaggers, mergeSwaggers } from "../../util/swagger";
 import { getDataSourceXml } from "../../util/template-engine/mustach-templates/DataSource";
 import { getClassMediatorContent } from "../../util/template-engine/mustach-templates/classMediator";
@@ -312,7 +326,7 @@ import { getBallerinaModuleContent, getBallerinaConfigContent } from "../../util
 import { generateXmlData, writeXmlDataToFile } from "../../util/template-engine/mustach-templates/createLocalEntry";
 import { getRecipientEPXml } from "../../util/template-engine/mustach-templates/recipientEndpoint";
 import { dockerfileContent, rootPomXmlContent } from "../../util/templates";
-import { replaceFullContentToFile } from "../../util/workspace";
+import { replaceFullContentToFile, saveIdpSchemaToFile } from "../../util/workspace";
 import { VisualizerWebview, webviews } from "../../visualizer/webview";
 import path = require("path");
 import { importCapp } from "../../util/importCapp";
@@ -324,6 +338,8 @@ import { DevantScopes, IWso2PlatformExtensionAPI } from "@wso2/wso2-platform-cor
 import { ICreateComponentCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
 import { MiVisualizerRpcManager } from "../mi-visualizer/rpc-manager";
 import { DebuggerConfig } from "../../debugger/config";
+import { getKubernetesConfiguration, getKubernetesDataConfiguration } from "../../util/template-engine/mustach-templates/KubernetesConfiguration";
+import { parseStringPromise, Builder } from "xml2js";
 
 const AdmZip = require('adm-zip');
 
@@ -334,6 +350,7 @@ const connectorsPath = path.join(".metadata", ".Connectors");
 const undoRedo = new UndoRedoManager();
 
 const connectorCache = new Map<string, any>();
+const legacyConnectorCache = new Map<string, any>();
 
 export class MiDiagramRpcManager implements MiDiagramAPI {
     constructor(private projectUri: string) { }
@@ -474,7 +491,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
 
     async getMIVersionFromPom(): Promise<MiVersionResponse> {
         return new Promise(async (resolve) => {
-            const res = await getMIVersionFromPom();
+            const res = await getMIVersionFromPom(this.projectUri);
             resolve({ version: res ?? '' });
         });
     }
@@ -667,7 +684,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                     const swaggerRegPath = path.join(
                         this.projectUri,
                         SWAGGER_REL_DIR,
-                        fileName + "_original" + path.extname(swaggerDefPath)
+                        fileName + path.extname(swaggerDefPath)
                     );
                     fs.mkdirSync(path.dirname(swaggerRegPath), { recursive: true });
                     fs.copyFileSync(swaggerDefPath, swaggerRegPath);
@@ -3282,6 +3299,52 @@ ${endpointAttributes}
 
     }
 
+    async writeMockServices(params: WriteMockServicesRequest): Promise<WriteMockServicesResponse> {
+        let status = true;
+        const { content, fileNames } = params;
+
+        for (let i = 0; i < content.length; i++) {
+            // Remove starting '''xml and ending '''
+            content[i] = content[i].replace(/```xml/g, '');
+            content[i] = content[i].replace(/```/g, '');
+
+            let serviceName: string;
+
+            if (fileNames && fileNames[i]) {
+                // Use the provided file name
+                serviceName = fileNames[i];
+            } else {
+                // Fallback to regex extraction for backward compatibility
+                const match = content[i].match(/<service-name>\s*([^<]+)\s*<\/service-name>/);
+                if (match) {
+                    serviceName = match[1].trim();
+                } else {
+                    console.warn('Could not extract service name from content and no fileName provided at index', i, ':', content[i].substring(0, 100));
+                    status = false;
+                    continue;
+                }
+            }
+
+            // Create full path for mock service in mock-services directory
+            const fullPath = path.join(this.projectUri, 'src', 'test', 'resources', 'mock-services', `${serviceName}.xml`);
+
+            try {
+                content[i] = content[i].trimStart();
+                await replaceFullContentToFile(fullPath, content[i]);
+            } catch (error) {
+                console.error('Error writing mock service to file:', error);
+                status = false;
+            }
+        }
+
+        if (status) {
+            window.showInformationMessage('Mock services written to file successfully');
+            return { status: true };
+        } else {
+            return { status: false };
+        }
+    }
+
     async handleFileWithFS(params: HandleFileRequest): Promise<HandleFileResponse> {
         const { fileName, filePath, operation, content } = params;
 
@@ -3322,6 +3385,9 @@ ${endpointAttributes}
                         return { status: false, content: "File not found" };
                     }
 
+                case 'exists':
+                    return { status: isExist, content: isExist ? "File exists" : "File does not exist" };
+
                 default:
                     console.error(`Invalid file operation: ${operation}`);
                     return { status: false, content: "Invalid file operation" };
@@ -3330,6 +3396,125 @@ ${endpointAttributes}
             console.error(`Error during file operation (${operation}) at ${filePath}:`, error);
             return { status: false, content: `Error during file operation: ${(error as Error).message}` };
         }
+    }
+
+    async writeIdpSchemaFileToRegistry(params: WriteIdpSchemaFileToRegistryRequest): Promise<WriteIdpSchemaFileToRegistryResponse> {
+        const { fileContent, schemaName, imageOrPdf, writeToArtifactFile} = params; 
+        const runtimeVersion =await this.getMIVersionFromPom();
+        const isRegistrySupported = compareVersions(runtimeVersion.version, RUNTIME_VERSION_440) < 0;
+        //add 4.3.0 compatibility
+        let folderPath ="";
+        if(!isRegistrySupported){
+            folderPath = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi', 'resources','idp-schemas', `${schemaName}`, path.sep);
+        }
+        else{
+            folderPath = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi',  'resources', 'registry', 'gov', 'idp-schemas', `${schemaName}`, path.sep);
+        }
+        //write the content to a file, if file exists, overwrite else create new file
+        try {
+            const status=await saveIdpSchemaToFile(folderPath, schemaName, fileContent, imageOrPdf);
+            if (!status) {
+                return { status: false };
+            }
+        } catch (error) {
+            console.error('Error writing content to file:', error);
+            return { status: false };
+        }
+        //write to artifcat.xml
+        if (writeToArtifactFile) {
+            const artifactName= "resources_idp_schemas_"+schemaName;
+            const file=schemaName+".json";
+            let artifactPath='';
+            if(!isRegistrySupported){
+                artifactPath = "/_system/governance/mi-resources/idp-schemas/" + schemaName;
+            }
+            else{
+                artifactPath = '/_system/governance/idp-schemas/' + schemaName;
+            }
+            await addNewEntryToArtifactXML(this.projectUri ?? "",artifactName,file, artifactPath, "application/json",false,isRegistrySupported )
+        }     
+        return {status: true};
+    }
+
+    async getIdpSchemaFiles(): Promise<GetIdpSchemaFilesResponse> {
+        const runtimeVersion = await this.getMIVersionFromPom();
+        const isRegistrySupported = compareVersions(runtimeVersion.version, RUNTIME_VERSION_440) < 0;
+        let schemaDirectory="";
+
+        if(!isRegistrySupported){
+            schemaDirectory = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi', 'resources','idp-schemas');
+        }
+        else{
+            schemaDirectory = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi',  'resources', 'registry', 'gov', 'idp-schemas');
+        }
+        const schemaFiles: {fileName: string, documentUriWithFileName:string}[] = [];
+        if (fs.existsSync(schemaDirectory)) {
+            const items = await fs.promises.readdir(schemaDirectory, { withFileTypes: true });
+            for (const item of items) {
+                if (item.isDirectory()) { 
+                    schemaFiles.push({ fileName: item.name, documentUriWithFileName: path.join(schemaDirectory, item.name, item.name + '.json') });
+                }
+            }
+        }
+        return { schemaFiles };
+    }
+
+    async convertPdfToBase64Images(params: string): Promise<string[]> {
+        return new Promise(async (resolve) => {
+            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const images = await langClient.pdfToImagesBase64(params)
+            resolve(images);
+        });
+    }
+
+    async readIdpSchemaFileContent(params: ReadIdpSchemaFileContentRequest): Promise<ReadIdpSchemaFileContentResponse> {
+        const { filePath } = params;
+        const response = {
+            fileContent: '',
+            base64Content: ''
+        };
+        try {
+            if (fs.existsSync(filePath)) {
+                response.fileContent = fs.readFileSync(filePath, 'utf8'); 
+            } else {
+                throw new Error(`File does not exist at path: ${filePath}`);
+            }
+            const folderPath = path.dirname(filePath);
+            if (fs.existsSync(folderPath)) {
+                const folderFiles = await fs.promises.readdir(folderPath); 
+                for (const file of folderFiles) {
+                    const currentFilePath = path.join(folderPath, file);
+                    let mimeType = '';
+                    const ext = file.substring(file.lastIndexOf('.')).toLowerCase();
+                    switch (ext) {
+                        case '.png':
+                            mimeType = 'image/png';
+                            break;
+                        case '.jpg':
+                        case '.jpeg':
+                            mimeType = 'image/jpeg';
+                            break;
+                        case '.gif':
+                            mimeType = 'image/gif';
+                            break;
+                        case '.webp':
+                            mimeType = 'image/webp';
+                            break;
+                        case '.pdf':
+                            mimeType = 'application/pdf';
+                            break;
+                    }
+                    if (mimeType) {
+                        const fileContent = fs.readFileSync(currentFilePath, 'base64');
+                        response.base64Content = `data:${mimeType};base64,${fileContent}`;
+                        break;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error reading schema file content:', error);
+        }
+        return response;
     }
 
     async highlightCode(params: HighlightCodeRequest) {
@@ -3349,7 +3534,38 @@ ${endpointAttributes}
 
     async getWorkspaceContext(): Promise<GetWorkspaceContextResponse> {
         const artifactDirPath = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'artifacts');
+        const resourcesDirPath = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'resources');
         const fileContents: string[] = [];
+        
+        // Helper function to recursively read files from a directory
+        const readFilesRecursively = async (dirPath: string, excludeFolders: string[] = []): Promise<void> => {
+            if (!fs.existsSync(dirPath)) {
+                return;
+            }
+
+            const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+
+            for (const entry of entries) {
+                const fullPath = path.join(dirPath, entry.name);
+
+                if (entry.isDirectory()) {
+                    // Skip excluded folders
+                    if (!excludeFolders.includes(entry.name)) {
+                        await readFilesRecursively(fullPath, excludeFolders);
+                    }
+                } else if (entry.isFile()) {
+                    try {
+                        const content = await fs.promises.readFile(fullPath, 'utf-8');
+                        fileContents.push(content);
+                    } catch (error) {
+                        // Skip files that can't be read as text
+                        console.warn(`Could not read file as text: ${fullPath}`);
+                    }
+                }
+            }
+        };
+
+        // Read artifacts folders
         var resourceFolders = ['apis', 'endpoints', 'inbound-endpoints', 'local-entries', 'message-processors', 'message-stores', 'proxy-services', 'sequences', 'tasks', 'templates'];
         for (const folder of resourceFolders) {
             const folderPath = path.join(artifactDirPath, folder);
@@ -3368,6 +3584,11 @@ ${endpointAttributes}
                 }
             }
         }
+
+        // Read resources folders recursively, excluding specified folders
+        const excludedFolders = ['api-definitions', 'metadata', 'connectors'];
+        await readFilesRecursively(resourcesDirPath, excludedFolders);
+
         return { context: fileContents, rootPath: this.projectUri };
     }
 
@@ -3893,6 +4114,40 @@ ${endpointAttributes}
         });
     }
 
+    async configureKubernetes(params: ConfigureKubernetesRequest): Promise<ConfigureKubernetesResponse> {
+        return new Promise(async (resolve) => {
+            const hasEnvValues = params.envValues && params.envValues.length > 0;
+            const hasPorts = params.ports && params.ports.length > 0;
+            const k8Configuration = getKubernetesConfiguration({ name: params.name, replicas: params.replicas, targetImage: params.targetImage, ports: params.ports, hasEnvValues: hasEnvValues, hasPorts: hasPorts });
+            const k8Path = path.join(this.projectUri, 'deployment', 'kubernetes');
+            fs.mkdirSync(k8Path, { recursive: true });
+            const configFilePath = path.join(k8Path, 'integration_k8s.yaml');
+            await replaceFullContentToFile(configFilePath, k8Configuration);
+            const configFile = await vscode.workspace.openTextDocument(configFilePath);
+            await configFile.save();
+            if (hasEnvValues) {
+                const envConfiguration = getKubernetesDataConfiguration(params.envValues);
+                const envDataFilePath = path.join(k8Path, "integration_data.yaml");
+                await replaceFullContentToFile(envDataFilePath, envConfiguration);
+                const envDataFile = await vscode.workspace.openTextDocument(envDataFilePath);
+                await envDataFile.save();
+            }
+            commands.executeCommand(COMMANDS.REFRESH_COMMAND);
+            resolve({ path: k8Path });
+        });
+    }
+
+    isKubernetesConfigured(): Promise<boolean> {
+        return new Promise(async (resolve) => {
+            const configFilePath = path.join(this.projectUri, 'deployment', 'kubernetes', 'integration_k8s.yaml');
+            if (fs.existsSync(configFilePath)) {
+                resolve(true);
+            } else {
+                resolve(false);
+            }
+        });
+    }
+
     async getSelectiveWorkspaceContext(): Promise<GetSelectiveWorkspaceContextResponse> {
         var currentFile = getStateMachine(this.projectUri).context().documentUri;
         //get the current file's content
@@ -3932,11 +4187,17 @@ ${endpointAttributes}
         const MI_COPILOT_BACKEND_V2 = process.env.MI_COPILOT_BACKEND_V2 as string;
         const MI_COPILOT_BACKEND_V3 = process.env.MI_COPILOT_BACKEND_V3 as string;
         const RUNTIME_THRESHOLD_VERSION = RUNTIME_VERSION_440;
-        const runtimeVersion = await getMIVersionFromPom();
+        const runtimeVersion = await getMIVersionFromPom(this.projectUri);
 
         const isVersionThresholdReached = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_THRESHOLD_VERSION) : -1;
 
         return isVersionThresholdReached < 0 ? { url: MI_COPILOT_BACKEND_V2 } : { url: MI_COPILOT_BACKEND_V3 };
+    }
+
+    async getProxyRootUrl(): Promise<GetProxyRootUrlResponse> {
+        const openaiUrl = process.env.MI_COPILOT_OPENAI_PROXY_URL as string;
+        const anthropicUrl = process.env.MI_COPILOT_ANTHROPIC_PROXY_URL as string;
+        return { openaiUrl, anthropicUrl };
     }
 
     async getAvailableRegistryResources(params: ListRegistryArtifactsRequest): Promise<RegistryArtifactNamesResponse> {
@@ -3955,11 +4216,13 @@ ${endpointAttributes}
         });
     }
 
-    async migrateProject({ source }: MigrateProjectRequest): Promise<MigrateProjectResponse> {
+    async migrateProject({ dir, sources }: MigrateProjectRequest): Promise<MigrateProjectResponse> {
         return new Promise(async (resolve) => {
-            if (source) {
-                await importProject({ source, directory: source, open: true });
-                resolve({ filePath: source });
+            if (sources) {
+                const importList = sources.map(source => ({ source, directory: dir, open: false }));
+                const createdProjects = await importProjects(importList);
+                const filePaths = createdProjects.map(project => project.filePath);
+                resolve({ filePaths });
             }
         });
     }
@@ -4012,21 +4275,34 @@ ${endpointAttributes}
     async getStoreConnectorJSON(miVersion?: string): Promise<StoreConnectorJsonResponse> {
         return new Promise(async (resolve) => {
             try {
-                if (connectorCache.has('inbound-connector-data') && connectorCache.has('outbound-connector-data') && connectorCache.has('connectors')) {
-                    resolve({ inboundConnectors: connectorCache.get('inbound-connector-data'), outboundConnectors: connectorCache.get('outbound-connector-data'), connectors: connectorCache.get('connectors') });
-                    return;
+                const runtimeVersion = miVersion ? miVersion : await getMIVersionFromPom(this.projectUri);
+                if (runtimeVersion) {
+                    const connectors = compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0 ? connectorCache : legacyConnectorCache;
+                    if (connectors.has('inbound-connector-data') && connectors.has('outbound-connector-data') && connectors.has('connectors')) {
+                        resolve({ inboundConnectors: connectors.get('inbound-connector-data'), outboundConnectors: connectors.get('outbound-connector-data'), connectors: connectors.get('connectors') });
+                        return;
+                    }
                 }
-                const runtimeVersion = miVersion ? miVersion : await getMIVersionFromPom();
 
                 const response = await fetch(APIS.MI_CONNECTOR_STORE);
                 const connectorStoreResponse = await fetch(APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? ''));
                 const data = await response.json();
                 const connectorStoreData = await connectorStoreResponse.json();
                 if (data && data['inbound-connector-data'] && data['outbound-connector-data']) {
-                    connectorCache.set('inbound-connector-data', data['inbound-connector-data']);
-                    connectorCache.set('outbound-connector-data', data['outbound-connector-data']);
-                    if (connectorStoreData) {
-                        connectorCache.set('connectors', connectorStoreData);
+                    if (runtimeVersion) {
+                        if (compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0) {
+                            connectorCache.set('inbound-connector-data', data['inbound-connector-data']);
+                            connectorCache.set('outbound-connector-data', data['outbound-connector-data']);
+                            if (connectorStoreData) {
+                                connectorCache.set('connectors', connectorStoreData);
+                            }
+                        } else {
+                            legacyConnectorCache.set('inbound-connector-data', data['inbound-connector-data']);
+                            legacyConnectorCache.set('outbound-connector-data', data['outbound-connector-data']);
+                            if (connectorStoreData) {
+                                legacyConnectorCache.set('connectors', connectorStoreData);
+                            }
+                        }
                     }
                     resolve({ inboundConnectors: data['inbound-connector-data'], outboundConnectors: data['outbound-connector-data'], connectors: connectorStoreData });
                 } else {
@@ -4043,7 +4319,12 @@ ${endpointAttributes}
 
     async getConnectorIcon(params: GetConnectorIconRequest): Promise<GetConnectorIconResponse> {
         return new Promise(async (resolve) => {
-            const iconCache = connectorCache.get('connector-icon-data');
+            const runtimeVersion = await getMIVersionFromPom(this.projectUri);
+            let iconCache;
+            if (runtimeVersion) {
+                iconCache = compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0 ?
+                    connectorCache.get('connector-icon-data') : legacyConnectorCache.get('connector-icon-data');
+            }
 
             if (iconCache && iconCache.hasOwnProperty(params.connectorName) && iconCache[params.connectorName]) {
                 resolve({ iconPath: iconCache[params.connectorName] });
@@ -4063,11 +4344,22 @@ ${endpointAttributes}
                 }
 
                 // Get the latest cache state before updating
-                const latestIconCache = connectorCache.get('connector-icon-data') || {};
-                connectorCache.set('connector-icon-data', {
-                    ...latestIconCache,
-                    [params.connectorName]: connectorIcon
-                });
+                let latestIconCache;
+                if (runtimeVersion) {
+                    if(compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0) {
+                        latestIconCache = connectorCache.get('connector-icon-data') || {};
+                        connectorCache.set('connector-icon-data', {
+                            ...latestIconCache,
+                            [params.connectorName]: connectorIcon
+                        });
+                    } else {
+                        latestIconCache = legacyConnectorCache.get('connector-icon-data') || {};
+                        legacyConnectorCache.set('connector-icon-data', {
+                            ...latestIconCache,
+                            [params.connectorName]: connectorIcon
+                        });
+                    }
+                }
 
                 resolve ({ iconPath: connectorIcon });
             }
@@ -4549,9 +4841,9 @@ ${keyValuesXML}`;
             const workspaceFolderUri = vscode.Uri.file(path.resolve(this.projectUri));
             if (workspaceFolderUri) {
                 const config = vscode.workspace.getConfiguration('MI', workspaceFolderUri);
-                const isRemoteDeploymentEnabled = config.get<string>("REMOTE_DEPLOYMENT_ENABLED");
+                const isRemoteDeploymentEnabled = config.get<boolean>("REMOTE_DEPLOYMENT_ENABLED");
                 if (isRemoteDeploymentEnabled) {
-                    await commands.executeCommand(COMMANDS.REMOTE_DEPLOY_PROJECT, false);
+                    await commands.executeCommand(COMMANDS.REMOTE_DEPLOY_PROJECT, this.projectUri, false);
                 } else {
                     const configure = await vscode.window.showWarningMessage(
                         'Remote deployment is not enabled. Do you want to enable and configure it now?',
@@ -4757,7 +5049,7 @@ ${keyValuesXML}`;
             const openAPISpecPath = path.join(
                 this.projectUri,
                 SWAGGER_REL_DIR,
-                `${apiName}.yaml`
+                `${path.basename(params.apiPath, ".xml")}.yaml`
             );
 
             // Create directory if not exists
@@ -4786,8 +5078,12 @@ ${keyValuesXML}`;
                 });
             }
 
-            const response = await langClient.swaggerFromAPI({ apiPath: params.apiPath });
-            const generatedSwagger = response.swagger;
+            let swaggerContent;
+            if (fs.existsSync(openAPISpecPath)) {
+                swaggerContent = fs.readFileSync(openAPISpecPath, "utf8");
+            } else {
+                swaggerContent = swagger;
+            }
             const port = await getPortPromise({ port: 1000, stopPort: 3000 });
             const cors_proxy = require('cors-anywhere');
             cors_proxy.createServer({
@@ -4796,7 +5092,7 @@ ${keyValuesXML}`;
             }).listen(port, 'localhost');
 
             const swaggerData: SwaggerData = {
-                generatedSwagger: generatedSwagger,
+                generatedSwagger: swaggerContent,
                 port: port
             };
 
@@ -4807,15 +5103,11 @@ ${keyValuesXML}`;
     async compareSwaggerAndAPI(params: SwaggerTypeRequest): Promise<CompareSwaggerAndAPIResponse> {
         return new Promise(async (resolve) => {
 
-            // TODO: Remove below return statment after fixing issue
-            // https://github.com/wso2/mi-vscode/issues/968 
-            return resolve({ swaggerExists: false });
-
             const { apiPath, apiName } = params;
             const swaggerPath = path.join(
                 this.projectUri,
                 SWAGGER_REL_DIR,
-                `${apiName}.yaml`
+                `${path.basename(params.apiPath, ".xml")}.yaml`
             );
 
             if (!fs.existsSync(swaggerPath)) {
@@ -4823,7 +5115,7 @@ ${keyValuesXML}`;
             }
 
             const langClient = getStateMachine(this.projectUri).context().langClient!;
-            const { swagger: generatedSwagger } = await langClient.swaggerFromAPI({ apiPath });
+            const { swagger: generatedSwagger } = await langClient.swaggerFromAPI({ apiPath: apiPath, swaggerPath: swaggerPath });
             const swaggerContent = fs.readFileSync(swaggerPath, 'utf-8');
             const isEqualSwagger = isEqualSwaggers({
                 existingSwagger: parse(swaggerContent),
@@ -4844,14 +5136,14 @@ ${keyValuesXML}`;
             const swaggerPath = path.join(
                 this.projectUri,
                 SWAGGER_REL_DIR,
-                `${apiName}.yaml`
+                `${path.basename(params.apiPath, ".xml")}.yaml`
             );
 
             let generatedSwagger = params.generatedSwagger;
             let existingSwagger = params.existingSwagger;
             if (!generatedSwagger || !existingSwagger) {
                 const langClient = getStateMachine(this.projectUri).context().langClient!;
-                const response = await langClient.swaggerFromAPI({ apiPath });
+                const response = await langClient.swaggerFromAPI({ apiPath: apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
                 generatedSwagger = response.swagger;
                 existingSwagger = fs.readFileSync(swaggerPath, 'utf-8');
             }
@@ -4871,7 +5163,7 @@ ${keyValuesXML}`;
             const swaggerPath = path.join(
                 this.projectUri,
                 SWAGGER_REL_DIR,
-                `${apiName}.yaml`
+                `${path.basename(params.apiPath, ".xml")}.yaml`
             );
 
             let generatedSwagger = params.generatedSwagger;
@@ -5139,12 +5431,14 @@ ${keyValuesXML}`;
     }
 
     async getOpenAPISpec(params: SwaggerTypeRequest): Promise<SwaggerFromAPIResponse> {
+        const swaggerPath = path.join(this.projectUri, SWAGGER_REL_DIR,
+            `${path.basename(params.apiPath, ".xml")}.yaml`);
         const langClient = getStateMachine(this.projectUri).context().langClient!;
         let response;
         if (params.isRuntimeService) {
-            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, port: DebuggerConfig.getServerPort() });
+            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, port: DebuggerConfig.getServerPort(), ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         } else {
-            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath });
+            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         }
         const generatedSwagger = response.swagger;
         const port = await getPortPromise({ port: 1000, stopPort: 3000 });
@@ -5588,7 +5882,7 @@ ${keyValuesXML}`;
 
 
     async fetchConnectors(name, operation: 'add' | 'remove') {
-        const runtimeVersion = await getMIVersionFromPom();
+        const runtimeVersion = await getMIVersionFromPom(this.projectUri);
 
         const connectorStoreResponse = await fetch(APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? ''));
         const connectorStoreData = await connectorStoreResponse.json();
@@ -5631,6 +5925,181 @@ ${keyValuesXML}`;
         }
     };
 
+    async getValueOfEnvVariable(variableName: string): Promise<string> {
+        return new Promise(async (resolve) => {
+            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const response = await langClient.getConfigurableList();
+            const envVariable = response.find(variable => variable.key === variableName);
+            if (envVariable && envVariable.value != null && envVariable.value !== "") {
+                resolve(envVariable.value);
+            } else {
+                resolve("");
+            }
+        });
+    };
+
+    async getPomFileContent(): Promise<GetPomFileContentResponse> {
+        return new Promise((resolve, reject) => {
+            const pomPath = path.join(this.projectUri, 'pom.xml');
+            fs.readFile(pomPath, 'utf8', (err, data) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve({ content: data });
+                }
+            });
+        });
+    }
+
+    async getExternalConnectorDetails(): Promise<GetExternalConnectorDetailsResponse> {
+        return new Promise((resolve, reject) => {
+            const connectorsPath = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'resources', 'connectors');
+            
+            fs.readdir(connectorsPath, { withFileTypes: true }, (err, entries) => {
+                if (err) {
+                    // If directory doesn't exist or can't be read, return empty array
+                    resolve({ connectors: [] });
+                } else {
+                    // Filter only zip files and get their names without extension
+                    const connectorNames = entries
+                        .filter(entry => entry.isFile() && entry.name.endsWith('.zip'))
+                        .map(entry => entry.name.replace('.zip', ''));
+                    
+                    resolve({ connectors: connectorNames });
+                }
+            });
+        });
+    }
+
+    async getMockServices(): Promise<GetMockServicesResponse> {
+        return new Promise(async (resolve) => {
+            const mockServices: string[] = [];
+            const mockServiceNames: string[] = [];
+            
+            if (workspace.workspaceFolders) {
+                const mockServicesDirPath = path.join(this.projectUri, 'src', 'test', 'resources', 'mock-services');
+                
+                if (fs.existsSync(mockServicesDirPath)) {
+                    try {
+                        const files = fs.readdirSync(mockServicesDirPath);
+                        
+                        for (const file of files) {
+                            if (file.endsWith('.xml')) {
+                                const filePath = path.join(mockServicesDirPath, file);
+                                try {
+                                    const content = fs.readFileSync(filePath, 'utf8');
+                                    const fileName = path.parse(file).name;
+                                    
+                                    mockServices.push(content);
+                                    mockServiceNames.push(fileName);
+                                } catch (error) {
+                                    console.error(`Error reading mock service file ${filePath}:`, error);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error(`Error reading mock services directory ${mockServicesDirPath}:`, error);
+                    }
+                }
+            }
+
+            return resolve({ 
+                mockServices,
+                mockServiceNames
+            });
+        });
+    }
+
+    async updatePropertiesInArtifactXML(params: UpdateRegistryPropertyRequest): Promise<string> {
+        const possibleArtifactXMLPaths = [
+            path.join(this.projectUri, "src", "main", "wso2mi", "resources", "artifact.xml"),
+            path.join(this.projectUri, "src", "main", "wso2mi", "resources", "registry", "artifact.xml")
+        ];
+
+        let updatedXml = "";
+
+        for (const filePath of possibleArtifactXMLPaths) {
+            if (!fs.existsSync(filePath)) {
+                continue;
+            }
+
+            const xmlData = fs.readFileSync(filePath, "utf8");
+            const parsed = await parseStringPromise(xmlData);
+
+            let registryResourceFound = false;
+            parsed.artifacts.artifact.forEach((artifact: any) => {
+                const fileName = artifact.item[0].file[0];
+                if (params.targetFile.endsWith(generatePathFromRegistryPath(artifact.item[0].path[0], fileName))) {
+                    registryResourceFound = true;
+                    if (params.properties.length === 0) {
+                        artifact.item[0].properties = [""];
+                    } else {
+                        artifact.item[0].properties = [
+                            {
+                                property: params.properties.map(p => ({
+                                    $: { key: p.key, value: p.value }
+                                }))
+                            }
+                        ];
+                    }
+                }
+            });
+
+            if (registryResourceFound) {
+                const builder = new Builder({ xmldec: { version: "1.0", encoding: "UTF-8" } });
+                updatedXml = builder.buildObject(parsed);
+                await replaceFullContentToFile(filePath, updatedXml);
+                break;
+            }
+        }
+        return updatedXml;
+    }
+
+    async getPropertiesFromArtifactXML(targetFile: string): Promise<Property[] | undefined> {
+        if (!targetFile) {
+            await window.showInformationMessage(
+                "Registry properties cannot be added to the selected resource.",
+                { modal: true }
+            );
+            return undefined;
+        }
+
+        const possibleArtifactXMLPaths = [
+            path.join(this.projectUri, "src", "main", "wso2mi", "resources", "artifact.xml"),
+            path.join(this.projectUri, "src", "main", "wso2mi", "resources", "registry", "artifact.xml")
+        ];
+
+        for (const filePath of possibleArtifactXMLPaths) {
+            if (!fs.existsSync(filePath)) {
+                continue;
+            }
+
+            const xmlData = fs.readFileSync(filePath, "utf8");
+            const parsed = await parseStringPromise(xmlData);
+
+            for (const artifact of parsed.artifacts.artifact) {
+                const fileName = artifact.item[0].file[0];
+                if (targetFile.endsWith(generatePathFromRegistryPath(artifact.item[0].path[0], fileName))) {
+                    const propertiesBlock = artifact.item[0].properties?.[0];
+
+                    if (!propertiesBlock || !propertiesBlock.property) {
+                        return [];
+                    }
+
+                    return propertiesBlock.property.map((prop: any) => ({
+                        key: prop.$.key,
+                        value: prop.$.value
+                    }));
+                }
+            }
+        }
+
+        await window.showInformationMessage(
+            "Registry properties cannot be added to the selected resource.",
+            { modal: true }
+        );
+        return undefined;
+    }
 }
 
 export function getRepoRoot(projectRoot: string): string | undefined {
