@@ -264,31 +264,37 @@ jobs:
     name: Run UI tests
     needs: Build_Stage
     timeout-minutes: 60
-    runs-on: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
         include:
+          # Ubuntu runners
           - name: MI
             path: mi/mi-extension
             group: group1
+            os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
             condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
           - name: MI
             path: mi/mi-extension
             group: group2
+            os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
             condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
           - name: MI
             path: mi/mi-extension
             group: group3
+            os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
             condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
           - name: MI
             path: mi/mi-extension
             group: group4
+            os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
             condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
           - name: BI
             path: bi/bi-extension
             group: group1
+            os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
             condition: ${{ inputs.runE2ETests || github.base_ref == 'release-bi' }}
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Restore build
         uses: actions/download-artifact@v4
