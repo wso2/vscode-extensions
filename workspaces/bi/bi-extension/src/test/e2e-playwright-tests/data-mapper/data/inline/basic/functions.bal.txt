@@ -1,0 +1,3 @@
+
+function mapRecordToRecord1(InCustomFn iCustomFn) returns OutCustomFn {
+}
