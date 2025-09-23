@@ -80,6 +80,7 @@ export default function createTests() {
 
             updateProjectFileSync('inline/init.bal.txt', 'automation.bal');
             updateProjectFileSync('inline/basic/types.bal.txt', 'types.bal');
+            updateProjectFileSync('empty.txt', 'functions.bal');
 
             // Added to wait until project sync with file changes
             // await page.page.waitForTimeout(5000);
@@ -118,66 +119,66 @@ async function testBasicMappings(dmWebView: Frame, projectFile: string, compDir:
     console.log('- Test direct mappings');
     await dm.expandField('input');
 
-    // // direct mapping
-    // // objectOutput.output.oPrimDirect = input.iPrimDirect;
-    // await dm.mapFields('input.iPrimDirect', 'objectOutput.output.oPrimDirect');
-    // const loc0 = dmWebView.getByTestId('link-from-input.iPrimDirect.OUT-to-objectOutput.output.oPrimDirect.IN');
-    // await loc0.waitFor({ state: 'attached' });
+    // direct mapping
+    // objectOutput.output.oPrimDirect = input.iPrimDirect;
+    await dm.mapFields('input.iPrimDirect', 'objectOutput.output.oPrimDirect');
+    const loc0 = dmWebView.getByTestId('link-from-input.iPrimDirect.OUT-to-objectOutput.output.oPrimDirect.IN');
+    await loc0.waitFor({ state: 'attached' });
 
-    // // direct mapping with error
-    // // objectOutput.output.oPrimDirectErr = input.iPrimDirectErr;
-    // await dm.mapFields('input.iPrimDirectErr', 'objectOutput.output.oPrimDirectErr', 'direct');
-    // const loc1 = dmWebView.getByTestId('link-from-input.iPrimDirectErr.OUT-to-objectOutput.output.oPrimDirectErr.IN')
-    // await dm.expectErrorLink(loc1);
+    // direct mapping with error
+    // objectOutput.output.oPrimDirectErr = input.iPrimDirectErr;
+    await dm.mapFields('input.iPrimDirectErr', 'objectOutput.output.oPrimDirectErr', 'direct');
+    const loc1 = dmWebView.getByTestId('link-from-input.iPrimDirectErr.OUT-to-objectOutput.output.oPrimDirectErr.IN')
+    await dm.expectErrorLink(loc1);
 
-    // // await clearNotificationsByCloseButton(page);
+    // await clearNotificationsByCloseButton(page);
 
-    // // many-one mapping
-    // // objectOutput.output.oManyOne = input.iManyOne1 + input.iManyOne2 + input.iManyOne3;
-    // await dm.mapFields('input.iManyOne1', 'objectOutput.output.oManyOne');
-    // await dm.mapFields('input.iManyOne2', 'objectOutput.output.oManyOne');
-    // await dm.mapFields('input.iManyOne3', 'objectOutput.output.oManyOne');
+    // many-one mapping
+    // objectOutput.output.oManyOne = input.iManyOne1 + input.iManyOne2 + input.iManyOne3;
+    await dm.mapFields('input.iManyOne1', 'objectOutput.output.oManyOne');
+    await dm.mapFields('input.iManyOne2', 'objectOutput.output.oManyOne');
+    await dm.mapFields('input.iManyOne3', 'objectOutput.output.oManyOne');
 
-    // await dmWebView.getByTestId('link-from-input.iManyOne1.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
-    // await dmWebView.getByTestId('link-from-input.iManyOne2.OUT-to-datamapper-intermediate-port').first().waitFor({ state: 'attached' });
-    // await dmWebView.getByTestId('link-from-input.iManyOne3.OUT-to-datamapper-intermediate-port').first().waitFor({ state: 'attached' });
-    // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oManyOne.IN').waitFor({ state: 'attached' });
-    // const loc2 = dmWebView.getByTestId('link-connector-node-objectOutput.output.oManyOne.IN')
-    // await loc2.waitFor();
+    await dmWebView.getByTestId('link-from-input.iManyOne1.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
+    await dmWebView.getByTestId('link-from-input.iManyOne2.OUT-to-datamapper-intermediate-port').first().waitFor({ state: 'attached' });
+    await dmWebView.getByTestId('link-from-input.iManyOne3.OUT-to-datamapper-intermediate-port').first().waitFor({ state: 'attached' });
+    await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oManyOne.IN').waitFor({ state: 'attached' });
+    const loc2 = dmWebView.getByTestId('link-connector-node-objectOutput.output.oManyOne.IN')
+    await loc2.waitFor();
 
-    // // many-one mapping with error
-    // // objectOutput.output.oManyOneErr = input.iManyOne2 + input.iManyOneErr + input.iManyOne3
-    // await dm.mapFields('input.iManyOne2', 'objectOutput.output.oManyOneErr', 'direct');
-    // await dm.mapFields('input.iManyOneErr', 'objectOutput.output.oManyOneErr', 'direct');
-    // await dm.mapFields('input.iManyOne3', 'objectOutput.output.oManyOneErr', 'direct');
+    // many-one mapping with error
+    // objectOutput.output.oManyOneErr = input.iManyOne2 + input.iManyOneErr + input.iManyOne3
+    await dm.mapFields('input.iManyOne2', 'objectOutput.output.oManyOneErr', 'direct');
+    await dm.mapFields('input.iManyOneErr', 'objectOutput.output.oManyOneErr', 'direct');
+    await dm.mapFields('input.iManyOne3', 'objectOutput.output.oManyOneErr', 'direct');
 
-    // await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iManyOne2.OUT-to-datamapper-intermediate-port').nth(1));
-    // await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iManyOne3.OUT-to-datamapper-intermediate-port').nth(1));
-    // await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iManyOneErr.OUT-to-datamapper-intermediate-port'));
-    // await dm.expectErrorLink(dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oManyOneErr.IN'));
-    // const loc3 = dmWebView.getByTestId('link-connector-node-objectOutput.output.oManyOneErr.IN');
-    // await loc3.waitFor();
+    await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iManyOne2.OUT-to-datamapper-intermediate-port').nth(1));
+    await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iManyOne3.OUT-to-datamapper-intermediate-port').nth(1));
+    await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iManyOneErr.OUT-to-datamapper-intermediate-port'));
+    await dm.expectErrorLink(dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oManyOneErr.IN'));
+    const loc3 = dmWebView.getByTestId('link-connector-node-objectOutput.output.oManyOneErr.IN');
+    await loc3.waitFor();
 
 
 
-    // // object direct mapping
-    // // objectOutput.output.oObjDirect= input.iObjDirect;
-    // await dm.mapFields('input.iObjDirect', 'objectOutput.output.oObjDirect', 'direct');
-    // await dmWebView.getByTestId('link-from-input.iObjDirect.OUT-to-objectOutput.output.oObjDirect.IN').waitFor({ state: 'attached' });
+    // object direct mapping
+    // objectOutput.output.oObjDirect= input.iObjDirect;
+    await dm.mapFields('input.iObjDirect', 'objectOutput.output.oObjDirect', 'direct');
+    await dmWebView.getByTestId('link-from-input.iObjDirect.OUT-to-objectOutput.output.oObjDirect.IN').waitFor({ state: 'attached' });
 
-    // // object direct mapping with error
-    // // objectOutput.output.oObjDirectErr = input.iObjDirect
-    // await dm.mapFields('input.iObjDirect', 'objectOutput.output.oObjDirectErr', 'direct');
-    // await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iObjDirect.OUT-to-objectOutput.output.oObjDirectErr.IN'));
+    // object direct mapping with error
+    // objectOutput.output.oObjDirectErr = input.iObjDirect
+    await dm.mapFields('input.iObjDirect', 'objectOutput.output.oObjDirectErr', 'direct');
+    await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iObjDirect.OUT-to-objectOutput.output.oObjDirectErr.IN'));
 
     // object properties mapping
     // objectOutput.output.oObjProp.p1 = input.iObjDirect.d1;
-    // await dm.mapFields('input.iObjDirect.d1', 'objectOutput.output.oObjProp.p1');
-    // await dmWebView.getByTestId('link-from-input.iObjDirect.d1.OUT-to-objectOutput.output.oObjProp.p1.IN').waitFor({ state: 'attached' });
+    await dm.mapFields('input.iObjDirect.d1', 'objectOutput.output.oObjProp.p1');
+    await dmWebView.getByTestId('link-from-input.iObjDirect.d1.OUT-to-objectOutput.output.oObjProp.p1.IN').waitFor({ state: 'attached' });
 
-    // // objectOutput.output.oObjProp.p2 = input.iObjProp.d2;
-    // await dm.mapFields('input.iObjProp.op2', 'objectOutput.output.oObjProp.p2', 'direct');
-    // await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iObjProp.op2.OUT-to-objectOutput.output.oObjProp.p2.IN'));
+    // objectOutput.output.oObjProp.p2 = input.iObjProp.d2;
+    await dm.mapFields('input.iObjProp.op2', 'objectOutput.output.oObjProp.p2', 'direct');
+    await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iObjProp.op2.OUT-to-objectOutput.output.oObjProp.p2.IN'));
 
 
     console.log('- Test expression bar');
@@ -222,24 +223,25 @@ async function testBasicMappings(dmWebView: Frame, projectFile: string, compDir:
     // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oObjProp.p1.IN').waitFor({ state: 'attached' });
     // await dmWebView.getByTestId('link-connector-node-objectOutput.output.oObjProp.p1.IN').waitFor();
 
-    // // WORKED
 
     console.log('- Test custom function');
     // custom function mapping
     // objectOutput.output.oCustomFn = input.iCustomFn;
-    await dm.mapFields('input.iCustomFn', 'objectOutput.output.oCustomFn', 'o2o-func');
+    await dm.mapFields('input.iCustomFn', 'objectOutput.output.oCustomFn', 'custom-func');
 
     await dmWebView.getByTestId('link-from-input.iCustomFn.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
     await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oCustomFn.IN').waitFor({ state: 'attached' });
-    await dmWebView.getByTestId('link-connector-node-objectOutput.output.oCustomFn.IN').waitFor();
+    const linkConnCustomFn = dmWebView.getByTestId('link-connector-node-objectOutput.output.oCustomFn.IN');
+    await linkConnCustomFn.waitFor();
 
-    const editorTab = page.page.getByRole('tab', { name: `${projectFile}, Editor Group` });
-    await editorTab.waitFor({ state: 'attached' });
+    await linkConnCustomFn.getByTitle('Custom Function Call Expression').click();
+    await dmWebView.getByRole('heading', { name: 'Function' }).waitFor();
+    await dmWebView.getByTestId('back-button').click();
+    await dm.waitFor();
 
-    await editorTab.locator('.codicon-close').click();
-    await editorTab.waitFor({ state: 'detached' });
+    // // // WORKED
 
-    expect(verifyFileContentSync(`${compDir}/basic/map.ts`, projectFile)).toBeTruthy();
+    expect(verifyFileContentSync(`${compDir}/basic/map.bal.txt`, projectFile)).toBeTruthy();
 
     // console.log('- Test basic mapping delete');
 

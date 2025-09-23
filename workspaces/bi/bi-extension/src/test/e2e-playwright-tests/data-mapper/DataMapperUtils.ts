@@ -22,9 +22,8 @@ import * as fs from 'fs';
 import { newProjectPath, page } from '../utils';
 import path from "path";
 
-
-
-const dmDataFolder = path.join(__dirname, 'data');
+const dmDataDir = path.join(__dirname, 'data');
+const projectDir = path.join(newProjectPath, 'sample');
 
 export class DataMapperUtils {
 
@@ -122,12 +121,12 @@ export class DataMapperUtils {
         await targetField.click({force: true});
 
         if (menuOptionId) {
-            const menuItem = this.webView.locator(`#${menuOptionId}`);
+            const menuItem = this.webView.locator(`#menu-item-${menuOptionId}`);
             await menuItem.click();
-            await menuItem.waitFor({ state: 'detached' });
+            await menuItem.waitFor({ state: 'hidden' });
         } 
         try {
-            await this.webView.waitForSelector('vscode-progress-ring', { state: 'attached' });
+            await this.webView.waitForSelector('vscode-progress-ring', { state: 'attached', timeout : 3000 });
         } catch (error) {}
         try {
             await this.webView.waitForSelector('vscode-progress-ring', { state: 'detached' });
@@ -214,16 +213,7 @@ export class DataMapperUtils {
         expect(hasDiagnostic).toBeTruthy();
     }
 
-    // public verifyTsFileContent(comparingFile: string) {
-    //     return this.compareFiles(this.tsFile, path.join(dmDataFolder, comparingFile));
-    // }
-
-    public compareFiles(file1: string, file2: string) {
-        const file1Content = fs.readFileSync(file1, 'utf8');
-        const file2Content = fs.readFileSync(file2, 'utf8');
-
-        return file1Content === file2Content;
-    }
+   
 
     // public verifyFileCreation() {
     //     const configFolder = path.join(
@@ -243,47 +233,29 @@ export class DataMapperUtils {
     // }
 
     public writeFile(sourceFile: string, targetFile: string) {
-        const sourcePath = path.join(dmDataFolder, sourceFile);
+        const sourcePath = path.join(dmDataDir, sourceFile);
         const targetPath = path.join(newProjectPath, 'sample')
         
     }
 
 }
 
-class ImportForm {
-    private sidePanel!: Locator;
-
-    constructor(private container: Frame) {
-    }
-
-    public async init() {
-        this.sidePanel = this.container.getByTestId("import-data-form");
-        await this.sidePanel.waitFor();
-    }
-
-    // public async importData(importTypeLabel: SchemaType, content: string) {
-    //     const typeButton = this.sidePanel.getByText(`Import from ${importTypeLabel}`, { exact: true });
-    //     await typeButton.waitFor();
-    //     await typeButton.click();
-
-    //     const textArea = this.sidePanel.locator(`textarea`);
-    //     await textArea.waitFor();
-    //     await textArea.fill(content);
-
-    //     const submitBtn = this.sidePanel.locator(`vscode-button:text("Save")`);
-    //     await submitBtn.waitFor();
-    //     await submitBtn.click();
-    // }
-
-    public async close() {
-        const closeIcon = this.sidePanel.locator('i.codicon.codicon-close');
-        await closeIcon.waitFor();
-        await closeIcon.click();
-    }
-}
-
 export function updateProjectFileSync(sourceFile: string, targetFile: string) {
-    const sourcePath = path.join(dmDataFolder, sourceFile);
+    const sourcePath = path.join(dmDataDir, sourceFile);
     const targetPath = path.join(newProjectPath, 'sample', targetFile)
     fs.writeFileSync(targetPath, fs.readFileSync(sourcePath, 'utf8'));
+}
+
+export function verifyFileContentSync(comparingFile: string, projectFile: string) {
+    return compareFilesSync(
+        path.join(dmDataDir, comparingFile),
+        path.join(projectDir, projectFile)
+    );
+}
+
+export function compareFilesSync(file1: string, file2: string) {
+    const file1Content = fs.readFileSync(file1, 'utf8');
+    const file2Content = fs.readFileSync(file2, 'utf8');
+
+    return file1Content === file2Content;
 }
