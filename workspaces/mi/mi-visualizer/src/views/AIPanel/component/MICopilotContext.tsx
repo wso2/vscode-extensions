@@ -52,9 +52,9 @@ interface MICopilotContextType {
 
     // State for showing communication in UI
     messages: ChatMessage[];
-    setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
     questions: ChatMessage[];
-    conversations: ChatMessage[];
+    setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
+    setQuestions: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 
     // State for communication with backend
     copilotChat: CopilotChatEntry[];
@@ -128,7 +128,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     // UI related Data
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [questions, setQuestions] = useState<ChatMessage[]>([]);
-    const [conversations, setConversations] = useState<ChatMessage[]>([]);
     // Backend related Data
     const [copilotChat, setCopilotChat] = useState<CopilotChatEntry[]>([]);
     const [codeBlocks, setCodeBlocks] = useState<string[]>([]);
@@ -213,7 +212,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                         } else {
                             generateSuggestions(copilotChat, rpcClient, controller).then((response) => {
                                 response.length > 0
-                                    ? setMessages((prevMessages) => [...prevMessages, ...response])
+                                    ? setQuestions((prevMessages) => [...prevMessages, ...response])
                                     : null;
                                 setBackendRequestTriggered(false);
                             });
@@ -267,6 +266,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         if (chatClearEventTriggered) {
             setMessages([]);
             setCopilotChat([]);
+            setQuestions([]);
             setFiles([]);
             setImages([]);
             setCodeBlocks([]);
@@ -277,7 +277,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
             localStorage.removeItem(localStorageKeys.codeBlocks);
             localStorage.removeItem(localStorageKeys.fileHistory);
             generateSuggestions(copilotChat, rpcClient, controller).then((response) => {
-                response.length > 0 ? setMessages((prevMessages) => [...prevMessages, ...response]) : null;
+                response.length > 0 ? setQuestions((prevMessages) => [...prevMessages, ...response]) : null;
                 setChatClearEventTriggered(false);
             });
         }
@@ -298,12 +298,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         }
     }, [FileHistory]);
 
-    // Update questions and conversations whenever messages change
-    useMemo(() => {
-        setQuestions(messages.filter((message) => message.type === MessageType.Question));
-        setConversations(messages.filter((message) => message.type !== MessageType.Question));
-    }, [messages]);
-
     const currentContext: MICopilotContextType = {
         rpcClient,
         backendUri,
@@ -311,9 +305,9 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         isRuntimeVersionThresholdReached,
         projectUUID,
         messages,
-        setMessages,
         questions,
-        conversations,
+        setMessages,
+        setQuestions,
         copilotChat,
         setCopilotChat,
         files,

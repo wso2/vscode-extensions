@@ -22,7 +22,10 @@ import {
     getBackendRootUrl,
     GenerateSuggestionsRequest,
     GenerateSuggestionsResponse,
-    generateSuggestions
+    generateSuggestions,
+    GenerateCodeRequest,
+    GenerateCodeResponse,
+    generateCode
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -46,6 +49,10 @@ export class MiAiPanelRpcClient implements MIAIPanelAPI {
     // ==================================
     generateSuggestions(request: GenerateSuggestionsRequest): Promise<GenerateSuggestionsResponse> {
         return this._messenger.sendRequest(generateSuggestions, HOST_EXTENSION, request);
+    }
+
+    generateCode(request: GenerateCodeRequest): Promise<GenerateCodeResponse> {
+        return this._messenger.sendRequest(generateCode, HOST_EXTENSION, request);
     }
 
 }

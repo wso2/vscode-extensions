@@ -38,3 +38,43 @@ export interface GenerateSuggestionsResponse {
     files: FileObject[];
     images: ImageObject[];
 }
+
+// Code generation streaming types
+export interface GenerateCodeRequest {
+    chatHistory: CopilotChatEntry[];
+    files: FileObject[];
+    images: ImageObject[];
+    view?: string;
+    thinking?: boolean;
+}
+
+export interface GenerateCodeResponse {
+    success: boolean;
+}
+
+// Event types for streaming
+export type CodeGenerationEventType = 
+    | "start"
+    | "content_block" 
+    | "content_replace"
+    | "diagnostics"
+    | "messages"
+    | "error"
+    | "stop";
+
+export interface CodeGenerationEvent {
+    type: CodeGenerationEventType;
+    content?: string;
+    diagnostics?: DiagnosticEntry[];
+    messages?: unknown[];
+    error?: string;
+    command?: string;
+}
+
+// Diagnostics types
+export interface DiagnosticEntry {
+    message: string;
+    severity: string;
+    range?: unknown;
+    source?: string;
+}

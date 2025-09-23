@@ -77,6 +77,10 @@ export class RPCLayer {
             messenger.sendNotification(aiStateChanged, { type: 'webview', webviewType: AiPanelWebview.viewType }, state.value);
         });
     }
+
+    static getMessenger(projectUri: string): Messenger | undefined {
+        return this._messengers.get(projectUri);
+    }
 }
 
 async function getContext(projectUri: string): Promise<VisualizerLocation> {
