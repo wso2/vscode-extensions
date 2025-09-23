@@ -16,8 +16,7 @@
  * under the License.
  */
 import { yupResolver } from "@hookform/resolvers/yup";
-import { EVENT_TYPE, MACHINE_VIEW } from "@wso2/mi-core";
-import { ParamManager, ParamValue, getParamManagerFromValues, getParamManagerValues } from "@wso2/mi-diagram";
+import { EVENT_TYPE, MACHINE_VIEW, AI_EVENT_TYPE } from "@wso2/mi-core";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { Button, ComponentCard, Dropdown, FormActions, FormView, ProgressIndicator, TextArea, TextField, Typography, Dialog, Icon } from "@wso2/ui-toolkit";
 import { useEffect, useState } from "react";
@@ -86,6 +85,8 @@ export function TestCaseForm(props: TestCaseFormProps) {
     const [assertions, setAssertions] = useState<any[]>([]);
     const [showAIDialog, setShowAIDialog] = useState(false);
     const [aiPrompt, setAiPrompt] = useState("");
+    const [showSignInConfirm, setShowSignInConfirm] = useState(false);
+    const [pendingOperation, setPendingOperation] = useState<any>(null);
 
     // Form data configurations for ParameterManager
     const inputPropertiesFormData = {
@@ -415,9 +416,11 @@ export function TestCaseForm(props: TestCaseFormProps) {
         });
     }
 
-    const handleAIGeneration = async () => {
-        if (!aiPrompt.trim()) {
-            console.error("AI prompt is required");
+    const handleAIGeneration = async (promptValue?: string) => {
+        const currentPrompt = promptValue || aiPrompt;
+        
+        if (!currentPrompt || typeof currentPrompt !== 'string' || !currentPrompt.trim()) {
+            console.error("AI prompt is required or invalid");
             return;
         }
 
@@ -429,12 +432,13 @@ export function TestCaseForm(props: TestCaseFormProps) {
                 token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
             } catch (error) {
                 console.error('User not signed in', error);
-                openSignInView();
+                openSignInView({ aiPrompt: currentPrompt });
                 return;
             }
 
             if (!token) {
-                openSignInView();
+                openSignInView({ aiPrompt: currentPrompt });
+                setIsLoaded(true);
                 return;
             }
 
@@ -472,7 +476,7 @@ export function TestCaseForm(props: TestCaseFormProps) {
                     context: context[0]?.artifacts || [],
                     test_file_name: testSuiteFileName,
                     test_suite_file: testSuiteContent?.content || '',
-                    test_case_description: aiPrompt,
+                    test_case_description: currentPrompt,
                     existing_mock_services: mock_service_details?.mockServices || [],
                     existing_mock_service_names: mock_service_details?.mockServiceNames || [],
                     num_suggestions: 1,
@@ -504,6 +508,9 @@ export function TestCaseForm(props: TestCaseFormProps) {
                         },
                         body: requestBody,
                     });
+                } else if (response.status === 403) {
+                    openSignInView({ aiPrompt: currentPrompt });
+                    return response;
                 } else if (response.status === 404) {
                     if (retryCount < maxRetries) {
                         retryCount++;
@@ -524,7 +531,6 @@ export function TestCaseForm(props: TestCaseFormProps) {
 
             const response = await fetchTestCaseGeneration();
             const responseBody = await response.clone().json();
-            console.log('Test case generation response body:', responseBody);
             const data = await response.json() as UnitTestCaseApiResponse;
             
             if (data.event === "test_generation_success") {
@@ -569,9 +575,12 @@ export function TestCaseForm(props: TestCaseFormProps) {
             } else {
                 throw new Error("Failed to generate test case: " + (data.error || "Unknown error"));
             }
+            
+            setIsLoaded(true);
 
         } catch (error) {
             console.error('Error while generating test case:', error);
+            setIsLoaded(true);
         } finally {
             setIsLoaded(true);
             setShowAIDialog(false);
@@ -579,8 +588,91 @@ export function TestCaseForm(props: TestCaseFormProps) {
         }
     };
 
-    const openSignInView = () => {
-        rpcClient.getMiVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: { view: MACHINE_VIEW.LoggedOut } });
+
+    // Monitor for successful sign-in and retry pending operations
+    useEffect(() => {
+        const checkAndRetryPendingOperation = async () => {
+            if (pendingOperation && isLoaded) {
+                try {
+                    const token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
+                    if (token && pendingOperation.viewType === 'generateTestCase') {         
+                        const formValues = pendingOperation.formValues;
+                        
+                        // Clear the pending operation and dialog
+                        setPendingOperation(null);
+                        setShowSignInConfirm(false);
+                        
+                        // Setting a timeout for the view to load
+                        setTimeout(async () => {
+                            const storedPrompt = formValues?.aiPrompt;
+                            await handleAIGeneration(storedPrompt);
+                        }, 1000);
+                    }
+                } catch (error) {
+                    console.error('Error checking authentication status:', error);
+                }
+            }
+        };
+
+        let interval: NodeJS.Timeout | null = null;
+        
+        // Only start checking if we have a pending operation
+        //Continously check every 2 seconds
+        if (pendingOperation && isLoaded) {
+            interval = setInterval(checkAndRetryPendingOperation, 2000);
+        }
+        
+        return () => {
+            if (interval) {
+                clearInterval(interval);
+            }
+        };
+    }, [pendingOperation, isLoaded]);
+
+    const openSignInView = (formValues?: any) => {
+        // Store the form values for retry after successful sign-in
+        if (formValues) {
+            // Store temporarily when user confirms
+            sessionStorage.setItem('pendingTestCaseOperation', JSON.stringify({
+                formValues,
+                viewType: 'generateTestCase',
+                timestamp: Date.now()
+            }));
+        }
+        setShowSignInConfirm(true);
+    };
+
+    const handleSignInConfirm = async () => {
+        // Set the pending operation since user confirmed they want to sign in
+        const storedOperation = sessionStorage.getItem('pendingTestCaseOperation');
+        if (storedOperation) {
+            setPendingOperation(JSON.parse(storedOperation));
+            sessionStorage.removeItem('pendingTestCaseOperation');
+        }
+        
+        setShowSignInConfirm(false);
+        
+        try {
+            rpcClient.sendAIStateEvent(AI_EVENT_TYPE.LOGIN);
+            setShowSignInConfirm(true);
+            
+        } catch (error) {
+            console.error('Failed to initiate authentication:', error);
+            setPendingOperation(null);
+        }
+    };
+
+    const handleSignInCancel = () => {
+        setShowSignInConfirm(false);
+        setPendingOperation(null); // Clear pending operation when user cancels
+        sessionStorage.removeItem('pendingTestCaseOperation');
+        
+        // Reset the AI state machine back to logged out state
+        try {
+            rpcClient.sendAIStateEvent(AI_EVENT_TYPE.CANCEL);
+        } catch (error) {
+            console.error('Failed to cancel AI authentication state:', error);
+        }
     };
 
     const openUpdateExtensionView = () => {
@@ -736,7 +828,7 @@ export function TestCaseForm(props: TestCaseFormProps) {
                             </Button>
                             <Button 
                                 appearance="primary" 
-                                onClick={handleAIGeneration}
+                                onClick={() => handleAIGeneration()}
                                 disabled={!aiPrompt.trim()}
                             >
                                 <Icon name="wand-magic-sparkles-solid" sx="marginRight:5px" />&nbsp;
@@ -746,6 +838,39 @@ export function TestCaseForm(props: TestCaseFormProps) {
                     </div>
                 </Dialog>
             )}
+
+            <Dialog isOpen={showSignInConfirm} onClose={pendingOperation ? undefined : handleSignInCancel}>
+                <Typography variant="h4" sx={{ marginBottom: '16px' }}>
+                    {pendingOperation ? 'Waiting for Sign In' : 'Sign In Required'}
+                </Typography>
+                <Typography variant="body1" sx={{ marginBottom: '20px' }}>
+                    {pendingOperation 
+                        ? 'Please complete the sign-in process. Your unit test generation will continue automatically after successful authentication.'
+                        : 'You need to sign in to MI Copilot to use AI features. Would you like to sign in?'
+                    }
+                </Typography>
+                {!pendingOperation && (
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                        <Button appearance="primary" onClick={handleSignInConfirm}>
+                            Sign In
+                        </Button>
+                        <Button appearance="secondary" onClick={handleSignInCancel}>
+                            Cancel
+                        </Button>
+                    </div>
+                )}
+                {pendingOperation && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                        <ProgressIndicator />
+                        <Typography variant="body2" sx={{ textAlign: 'center', color: 'var(--vscode-descriptionForeground)' }}>
+                            Waiting for authentication completion...
+                        </Typography>
+                        <Button appearance="secondary" onClick={handleSignInCancel}>
+                            Cancel
+                        </Button>
+                    </div>
+                )}
+            </Dialog>
         </FormView>
     );
 }
