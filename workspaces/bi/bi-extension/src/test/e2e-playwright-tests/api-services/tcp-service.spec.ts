@@ -41,6 +41,7 @@ export default function createTests() {
             const listenerPort = `6060`;
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
+            console.log('Filling TCP Service form');
             await form.fill({
                 values: {
                     'Name*The name of the listener': {
@@ -50,10 +51,12 @@ export default function createTests() {
                     'localPort': {
                         type: 'textarea',
                         value: listenerPort,
+                        additionalProps: { clickLabel: true }
                     }
                 }
             });
-            await form.submit('Next');
+            console.log('Submitting TCP Service form');
+            await form.submit('Next', true);
 
             const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
             await selectedListener.waitFor();
@@ -62,7 +65,7 @@ export default function createTests() {
             const configTitle = artifactWebView.locator('h3', { hasText: 'TCP Service Configuration' });
             await configTitle.waitFor();
 
-            await form.submit('Create');
+            await form.submit('Create', true);
 
             const context = artifactWebView.locator(`text="onConnect"`);
             await context.waitFor();
@@ -94,7 +97,7 @@ export default function createTests() {
             const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
             await selectedListener.waitFor();
 
-            await form.submit('Save');
+            await form.submit('Save', true);
 
             const context = artifactWebView.locator(`text="onConnect"`);
             await context.waitFor();

@@ -16,3 +16,4 @@ jobs:
     secrets: inherit  
     with:
       runE2ETests: ${{ contains(github.event.pull_request.labels.*.name, 'Checks/Run with UI Tests') }}
+      runOnAWS: ${{ contains(github.event.pull_request.labels.*.name, 'Runner/AWS') }}

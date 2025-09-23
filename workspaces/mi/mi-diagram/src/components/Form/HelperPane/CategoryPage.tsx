@@ -38,6 +38,7 @@ type CategoryPageProps = {
     onChange: (value: string) => void;
     addFunction?: (value: string) => void;
     artifactPath?: string;
+    isUnitTest?: boolean;
 };
 
 const DataPanel = ({ setCurrentPage, helperPaneResponse }: PanelPageProps) => {
@@ -59,7 +60,8 @@ export const CategoryPage = ({
     setCurrentPage,
     onChange,
     addFunction,
-    artifactPath
+    artifactPath,
+    isUnitTest = false
 }: CategoryPageProps) => {
     const { rpcClient } = useVisualizerContext();
     const [helperPaneResponse, setHelperPaneResponse] = useState<any>(null);
@@ -87,7 +89,7 @@ export const CategoryPage = ({
                 <HelperPane.Panels>
                     <HelperPane.PanelTab id={0} title="Data" />
                     <HelperPane.PanelTab id={1} title="Functions" />
-                    {helperPaneResponse?.configs && helperPaneResponse.configs.length > 0 && (
+                    {!isUnitTest && (
                         <HelperPane.PanelTab id={2} title="Configs" />
                     )}
                     <HelperPane.PanelView id={0}>
@@ -96,7 +98,7 @@ export const CategoryPage = ({
                     <HelperPane.PanelView id={1}>
                         <FunctionsPage position={position} hideSearch={isHelperPaneHeightOverflow} onChange={onChange} addFunction={addFunction} artifactPath={artifactPath} />
                     </HelperPane.PanelView>
-                    {helperPaneResponse?.configs && helperPaneResponse.configs.length > 0 && (
+                    {!isUnitTest && (
                         <HelperPane.PanelView id={2}>
                             <ConfigsPage position={position} hideSearch={isHelperPaneHeightOverflow} onChange={onChange} artifactPath={artifactPath} />
                         </HelperPane.PanelView>
