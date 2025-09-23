@@ -464,7 +464,9 @@ jobs:
           cd workspaces/mi/mi-extension && npx playwright install
           
       - name: Run Tests (First Attempt)
+        id: run-tests-first
         if: github.run_attempt == 1 || steps.check-results.outcome == 'failure'
+        continue-on-error: true
         run: |
           export $(dbus-launch)
           export DISPLAY=:98.0
@@ -472,8 +474,9 @@ jobs:
           xvfb-run --server-num 98.0 -s "-ac -screen 0 1920x1080x24" bash -c "ffmpeg -f x11grab -r 30 -s 1920x1080 -i :98.0 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart -hide_banner -loglevel error record.mp4 & npx playwright test --grep ${{ matrix.group }}"
 
       - name: Run Failed Tests (Re-run)
-        if: github.run_attempt > 1 && steps.check-results.outcome == 'success'
+        if: (github.run_attempt == 1 && steps.run-tests-first.outcome == 'failure') || (github.run_attempt > 1 && steps.check-results.outcome == 'success')
         run: |
+          rm -rf workspaces/mi/mi-extension/src/test/e2e-playwright-tests/data/new-project
           export $(dbus-launch)
           export DISPLAY=:98.0
           cd workspaces/mi/mi-extension
