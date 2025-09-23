@@ -135,7 +135,7 @@ export class Overview {
         await updateButton.click();
         await updateButton.waitFor({ state: 'detached' });
         await popupPanel.waitFor({ state: 'detached' });
-        await page.page.waitForTimeout(2000);
+        await page.page.waitForTimeout(4000);
     }
 
     public async editOtherDependencies() {
@@ -227,7 +227,7 @@ export class Overview {
         await updateButton.click();
         await updateButton.waitFor({ state: 'detached' });
         await popupPanel.waitFor({ state: 'detached' });
-        await page.page.waitForTimeout(2000);
+        await page.page.waitForTimeout(4000);
     }
 
     public async editConnectorDependencies() {
