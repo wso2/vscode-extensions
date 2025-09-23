@@ -217,34 +217,18 @@ export default function createTests() {
         }
         console.log('Searching for connector');
         await resourceView.locator('#popUpPanel').getByRole('textbox', { name: 'Text field' }).fill('kafka');
-        console.log('Selecting connector');
-        const kafkaConnector = resourceView.locator(`#connection-Kafka`);
-        await kafkaConnector.waitFor({ timeout: 120000 });
-        console.log('Clicking Kafka connector');
-        await kafkaConnector.click({ force: true });
-        await kafkaConnector.waitFor({ state: 'detached' });
-        console.log('Confirming download of connector dependency');
-        await connectorStore.confirmDownloadDependency();
-        const downloadingConnector = resourceView.locator(`span:text("Downloading connector...")`);
-        await downloadingConnector.waitFor({ state: 'detached', timeout: 500000 });
-        console.log('Connector downloaded successfully');
-        //
+        await connectorStore.downloadConnector('Kafka', resourceView);
         try {
-          await kafkaConnector.waitFor({ timeout: 120000 });
-          console.log('Clicking Kafka connector');
-          await kafkaConnector.click({ force: true });
-          await kafkaConnector.waitFor({ state: 'detached' });
-          console.log('Confirming download of connector dependency');
-          await connectorStore.confirmDownloadDependency();
-          await downloadingConnector.waitFor({ state: 'detached', timeout: 500000 });
+          await resourceView.getByRole('textbox', { name: 'Connection Name*' }).waitFor({ timeout: 150000 });
         } catch (error) {
-          console.log('Kafka connector already added, proceeding to fill the form');
+          console.log('Connection Name textbox not found, retrying to download connector');
+          await connectorStore.downloadConnector('Kafka', resourceView);
+          await resourceView.getByRole('textbox', { name: 'Connection Name*' }).waitFor({ timeout: 150000 });
         }
-        //
+        console.log('Connector downloaded successfully');
+        console.log('Filling out connection form');
         const connectionForm = new Form(page.page, 'Resource View');
         await connectionForm.switchToFormView(true);
-        await resourceView.getByRole('textbox', { name: 'Connection Name*' }).waitFor({ timeout: 150000 });
-        console.log('Filling out connection form');
         await connectionForm.fill({
           values: {
             'Connection Name*': {
