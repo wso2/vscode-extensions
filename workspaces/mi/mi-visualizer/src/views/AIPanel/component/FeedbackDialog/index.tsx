@@ -146,18 +146,6 @@ const FeedbackDialog: React.FC<FeedbackDialogProps> = ({ isPositive, messageInde
             <DialogContainer>
                 <Title>We value your feedback</Title>
                 <Text>Help us understand what went wrong or share your thoughts:</Text>
-                {/* TODO: Enable this after finalzing predefined feedbacks */}
-                {/* <div style={{ display: 'flex', gap: 8, marginBottom: 8 , flexWrap: 'wrap'}}>
-          {predefinedFeedbacks.map((item) => (
-            <PredefinedButton
-              key={item}
-              selected={selectedFeedback === item}
-              onClick={() => handlePredefinedClick(item)}
-            >
-              {item}
-            </PredefinedButton>
-          ))}
-        </div> */}
                 <TextArea
                     value={feedbackText}
                     onChange={(e) => {
