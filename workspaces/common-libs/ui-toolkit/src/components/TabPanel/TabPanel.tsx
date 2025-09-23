@@ -18,6 +18,7 @@
 
 import React, { ReactNode } from 'react';
 import styled from '@emotion/styled';
+import { ThemeColors } from '../../styles';
 
 export interface TabView {
     id: string;
@@ -31,6 +32,7 @@ export interface TabPanelProps {
     onViewChange: (tabId: string) => void;
     children: ReactNode;
     childrenSx?: React.CSSProperties;
+    sx?: React.CSSProperties;
 }
 
 const TabContainer = styled.div`
@@ -93,7 +95,7 @@ const TabButton = styled.button<{ isActive: boolean }>`
 `;
 
 const TabContent = styled.div`
-    background-color: var(--vscode-editor-background, #ffffff);
+    background-color: ${ThemeColors.SURFACE_DIM};
     color: var(--vscode-editor-foreground, #333333);
     flex: 1;
     overflow: auto;
@@ -110,10 +112,11 @@ export const TabPanel: React.FC<TabPanelProps> = ({
     currentViewId,
     onViewChange,
     children,
-    childrenSx
+    childrenSx,
+    sx
 }) => {
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', ...sx }}>
             <TabContainer>
                 {views.map(view => (
                     <TabButton
