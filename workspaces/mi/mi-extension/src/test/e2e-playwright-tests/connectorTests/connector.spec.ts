@@ -228,6 +228,19 @@ export default function createTests() {
         const downloadingConnector = resourceView.locator(`span:text("Downloading connector...")`);
         await downloadingConnector.waitFor({ state: 'detached', timeout: 500000 });
         console.log('Connector downloaded successfully');
+        //
+        try {
+          await kafkaConnector.waitFor({ timeout: 120000 });
+          console.log('Clicking Kafka connector');
+          await kafkaConnector.click({ force: true });
+          await kafkaConnector.waitFor({ state: 'detached' });
+          console.log('Confirming download of connector dependency');
+          await connectorStore.confirmDownloadDependency();
+          await downloadingConnector.waitFor({ state: 'detached', timeout: 500000 });
+        } catch (error) {
+          console.log('Kafka connector already added, proceeding to fill the form');
+        }
+        //
         const connectionForm = new Form(page.page, 'Resource View');
         await connectionForm.switchToFormView(true);
         await resourceView.getByRole('textbox', { name: 'Connection Name*' }).waitFor({ timeout: 150000 });
