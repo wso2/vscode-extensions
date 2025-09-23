@@ -75,26 +75,26 @@ export function ProjectInformation(props: ProjectInformationProps) {
             paramValues: dependencies.map((dep, index) => (
                 {
                     id: index,
-                    key: dep.groupId,
-                    value: dep.artifact,
+                    key: dep.artifact,
+                    value: dep.version,
                     icon: 'package',
                     paramValues: [
-                        { value: dep.groupId },
                         { value: dep.artifact },
+                        { value: dep.version },
                     ]
                 }
             )) || [],
             paramFields: [
                 {
                     "type": "TextField" as "TextField",
-                    "label": "Group ID",
+                    "label": "Artifact ID",
                     "defaultValue": "",
                     "isRequired": false,
                     "canChange": false
                 },
                 {
                     "type": "TextField" as "TextField",
-                    "label": "Artifact ID",
+                    "label": "Version",
                     "defaultValue": "",
                     "isRequired": false,
                     "canChange": false
