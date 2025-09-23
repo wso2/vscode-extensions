@@ -1,0 +1,59 @@
+type InRoot record {|
+    string iPrimDirect;
+    string iPrimDirectErr;
+    string iManyOne1;
+    string iManyOne2;
+    string iManyOne3;
+    boolean iManyOneErr;
+    InObjDirect iObjDirect;
+    InObjProp iObjProp;
+    InCustomFn iCustomFn;
+    string iExp;
+|};
+
+type InObjDirect record {|
+    string d1;
+    int d2;
+|};
+
+type InObjProp record {|
+    string op1;
+    string op2;
+|};
+
+type InCustomFn record {|
+    string k1;
+    int k2;
+|};
+
+type OutRoot record {|
+    string oPrimDirect;
+    int oPrimDirectErr;
+    string oManyOne;
+    int oManyOneErr;
+    OutObjDirect oObjDirect;
+    OutObjDirectErr oObjDirectErr;
+    OutObjProp oObjProp;
+    OutCustomFn oCustomFn;
+    string oExp;
+|};
+
+type OutObjDirect record {|
+    string d1;
+    int d2;
+|};
+
+type OutObjDirectErr record {|
+    string d1;
+    string d2;
+|};
+
+type OutObjProp record {|
+    string p1;
+    int p2;
+|};
+
+type OutCustomFn record {|
+    string k1;
+    int k3;
+|};

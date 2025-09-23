@@ -1,0 +1,11 @@
+import ballerina/log;
+
+public function main() returns error? {
+    do {
+        InRoot input = {};
+        OutRoot output = {oPrimDirect: input.iPrimDirect, oPrimDirectErr: input.iPrimDirectErr, oManyOne: input.iManyOne1 + input.iManyOne2 + input.iManyOne3, oManyOneErr: input.iManyOne2 + input.iManyOneErr + input.iManyOne3, oObjDirect: input.iObjDirect, oObjDirectErr: input.iObjDirect, oObjProp: {p1: input.iObjDirect.d1 + "HI", p2: input.iObjProp.op2}, oExp: input.iExp.toUpperAscii(), oCustomFn: mapRecordToRecord1(input.iCustomFn)};
+    } on fail error e {
+        log:printError("Error occurred", 'error = e);
+        return e;
+    }
+}
