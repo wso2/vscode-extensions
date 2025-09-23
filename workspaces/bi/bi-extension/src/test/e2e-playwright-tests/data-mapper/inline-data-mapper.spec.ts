@@ -214,7 +214,7 @@ async function testBasicMappings(dmWebView: Frame, projectFile: string, compDir:
     // expression bar - edit existing
     await dmWebView.locator('[id="recordfield-objectOutput\\.output\\.oObjProp\\.p1"]').click();
     await expect(expressionBar).toBeFocused();
-    await expressionBar.fill('input.iObjDirect.d1 + "HI"');
+    await expressionBar.pressSequentially(' + "HI"');
     await canvas.click();
     await expect(expressionBar).not.toBeFocused();
 
@@ -238,36 +238,37 @@ async function testBasicMappings(dmWebView: Frame, projectFile: string, compDir:
     await dmWebView.getByRole('heading', { name: 'Function' }).waitFor();
     await dmWebView.getByTestId('back-button').click();
     await dm.waitFor();
+    await dm.expandField('input');
 
-    // // // WORKED
+    // expect(verifyFileContentSync(`${compDir}/basic/map.bal.txt`, projectFile)).toBeTruthy();
+    // working
 
-    expect(verifyFileContentSync(`${compDir}/basic/map.bal.txt`, projectFile)).toBeTruthy();
+    console.log('- Test basic mapping delete');
 
-    // console.log('- Test basic mapping delete');
+    await loc0.click({ force: true });
+    await dmWebView.getByTestId('expression-label-for-input.iPrimDirect.OUT-to-objectOutput.output.oPrimDirect.IN')
+        .locator('.codicon-trash').click({ force: true });
+    await loc0.waitFor({ state: 'detached' });
 
-    // await loc0.click({ force: true });
-    // await dmWebView.getByTestId('expression-label-for-input.iPrimDirect.OUT-to-objectOutput.output.oPrimDirect.IN')
-    //     .locator('.codicon-trash').click({ force: true });
-    // await loc0.waitFor({ state: 'detached' });
+    await loc1.click({ force: true });
+    await dmWebView.getByTestId('expression-label-for-input.iPrimDirectErr.OUT-to-objectOutput.output.oPrimDirectErr.IN')
+        .locator('.codicon-trash').click({ force: true });
+    await loc1.waitFor({ state: 'detached' });
 
-    // await loc1.click({ force: true });
-    // await dmWebView.getByTestId('expression-label-for-input.iPrimDirectErr.OUT-to-objectOutput.output.oPrimDirectErr.IN')
-    //     .locator('.codicon-trash').click({ force: true });
-    // await loc1.waitFor({ state: 'detached' });
+    await loc2.locator('.codicon-trash').click({ force: true });
+    await loc2.waitFor({ state: 'detached' });
 
-    // await loc2.locator('.codicon-trash').click({ force: true });
-    // await loc2.waitFor({ state: 'detached' });
+    await loc4.click({ force: true });
+    await dmWebView.getByTestId('expression-label-for-input.iExp.OUT-to-objectOutput.output.oExp.IN')
+        .locator('.codicon-trash').click({ force: true });
+    await loc4.waitFor({ state: 'detached' });
 
-    // const loc3_ = dmWebView.getByTestId('link-from-input.iManyOne3.OUT-to-datamapper-intermediate-port');
-    // await loc3_.click({ force: true });
-    // await dmWebView.locator('div[data-testid^="sub-link-label-for-input.iManyOne3.OUT-to-"]')
-    //     .locator('.codicon-trash').click({ force: true });
-    // await loc3_.waitFor({ state: 'detached' });
+    await linkConnCustomFn.locator('.codicon-trash').click({ force: true });
+    await linkConnCustomFn.waitFor({ state: 'detached' });
 
-    // await loc4.locator('.codicon-trash').click({ force: true });
-    // await loc4.waitFor({ state: 'detached' });
+    await page.page.pause();
 
-    // expect(verifyFileContentSync(`${compDir}/basic/del.ts`, projectFile)).toBeTruthy();
+    expect(verifyFileContentSync(`${compDir}/basic/del.ts`, projectFile)).toBeTruthy();
 
     console.log('Finished Testing Basic Mappings');
 
