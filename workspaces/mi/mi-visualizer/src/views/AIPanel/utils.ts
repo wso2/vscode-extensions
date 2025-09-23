@@ -261,6 +261,21 @@ export function compareVersions(v1: string, v2: string): number {
         return 0;
     }
 
+/**
+ * Sets up event listener for code generation streaming events
+ */
+export function setupCodeGenerationEventListener(
+    rpcClient: RpcClientType,
+    onEvent: (event: any) => void
+): void {
+    try {
+        // Use the proper RpcClient method for code generation events
+        rpcClient.onCodeGenerationEvent(onEvent);
+    } catch (error) {
+        console.error("Error setting up code generation event listener:", error);
+    }
+}
+
 export async function generateSuggestions(
     chatHistory: CopilotChatEntry[],
     rpcClient: RpcClientType,
@@ -382,19 +397,33 @@ export async function fetchCodeGenerationsWithRetry(
     view?: string,
     thinking?: boolean
 ): Promise<Response> {
+    // Use RPC call to extension for streaming code generation
+    console.log("Generating code with streaming: visualizer -> extension");
+    try {
+        const response = await rpcClient.getMiAiPanelRpcClient().generateCode({
+            chatHistory: chatHistory,
+            files: files,
+            images: images,
+            view: view,
+            thinking: thinking
+        });
 
-    const context = await getContext(rpcClient, view);
-    const imageList = images.map((image) => image.imageBase64);
-    const defaultPayloads = await rpcClient.getMiDiagramRpcClient().getAllInputDefaultPayloads();
-    const fileList = isRutimeVersionThresholdReached ? files : files.map((file) => JSON.stringify(file));
-
-    return fetchWithRetry(BackendRequestType.UserPrompt, url, {
-        messages: chatHistory,
-        context: context[0].context,
-        files: fileList,
-        images: imageList,
-        payloads: defaultPayloads,
-    }, rpcClient, controller, chatHistory, thinking);
+        // Return a mock Response object since we're now using streaming via events
+        // The actual streaming data will come through RPC notifications
+        return new Response(JSON.stringify(response), {
+            status: 200,
+            statusText: 'OK',
+            headers: { 'Content-Type': 'application/json' }
+        });
+    } catch (error) {
+        console.error('Error in code generation RPC call:', error);
+        // Return error response
+        return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
+            status: 500,
+            statusText: 'Internal Server Error',
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
 }
 
 export async function fetchWithRetry(

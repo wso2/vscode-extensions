@@ -16,13 +16,19 @@
  * under the License.
  */
 
-import { RequestType } from "vscode-messenger-common";
+import { RequestType, NotificationType } from "vscode-messenger-common";
 import {
     GenerateSuggestionsRequest, GenerateSuggestionsResponse,
-    GetBackendRootUrlResponse
+    GetBackendRootUrlResponse,
+    GenerateCodeRequest, GenerateCodeResponse,
+    CodeGenerationEvent
 } from "./types";
 
 const _prefix = "mi-ai-panel";
 
 export const getBackendRootUrl: RequestType<void, GetBackendRootUrlResponse> = { method: `${_prefix}/getBackendRootUrl` };
 export const generateSuggestions: RequestType<GenerateSuggestionsRequest, GenerateSuggestionsResponse> = { method: `${_prefix}/generateSuggestions` };
+export const generateCode: RequestType<GenerateCodeRequest, GenerateCodeResponse> = { method: `${_prefix}/generateCode` };
+
+// Notification for streaming events
+export const codeGenerationEvent: NotificationType<CodeGenerationEvent> = { method: `${_prefix}/codeGenerationEvent` };

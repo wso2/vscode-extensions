@@ -19,9 +19,19 @@
 import {
     GenerateSuggestionsRequest, GenerateSuggestionsResponse,
     GetBackendRootUrlResponse,
-    // GenerateSuggestionsRequest,
-    // GenerateSuggestionsResponse
+    GenerateCodeRequest, GenerateCodeResponse,
+    CodeGenerationEvent
 } from "./types";
+
+// Export types for external use
+export type {
+    GenerateSuggestionsRequest,
+    GenerateSuggestionsResponse,
+    GetBackendRootUrlResponse,
+    GenerateCodeRequest,
+    GenerateCodeResponse,
+    CodeGenerationEvent
+};
 
 export interface MIAIPanelAPI {
     // ==================================
@@ -33,4 +43,5 @@ export interface MIAIPanelAPI {
     // AI Functions
     // ==================================
     generateSuggestions: (request: GenerateSuggestionsRequest) => Promise<GenerateSuggestionsResponse>;
+    generateCode: (request: GenerateCodeRequest) => Promise<GenerateCodeResponse>;
 }

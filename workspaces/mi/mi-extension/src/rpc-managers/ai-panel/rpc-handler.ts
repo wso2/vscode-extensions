@@ -21,7 +21,9 @@ import { MIAIPanelRpcManager } from "./rpc-manager";
 import {
     getBackendRootUrl,
     generateSuggestions,
-    GenerateSuggestionsRequest
+    generateCode,
+    GenerateSuggestionsRequest,
+    GenerateCodeRequest
 } from "@wso2/mi-core";
 
 export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri: string) {
@@ -31,5 +33,10 @@ export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri
     // General Functions
     // ==================================
     messenger.onRequest(getBackendRootUrl, () => rpcManager.getBackendRootUrl());
+    
+    // ==================================
+    // AI Functions
+    // ==================================
     messenger.onRequest(generateSuggestions, (request: GenerateSuggestionsRequest) => rpcManager.generateSuggestions(request));
+    messenger.onRequest(generateCode, (request: GenerateCodeRequest) => rpcManager.generateCode(request));
 }

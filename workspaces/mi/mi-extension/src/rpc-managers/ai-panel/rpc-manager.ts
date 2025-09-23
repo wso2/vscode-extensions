@@ -20,6 +20,8 @@ import {
     GetBackendRootUrlResponse,
     GenerateSuggestionsRequest,
     GenerateSuggestionsResponse,
+    GenerateCodeRequest,
+    GenerateCodeResponse,
     MIAIPanelAPI,
     CopilotChatEntry
 } from '@wso2/mi-core';
@@ -35,9 +37,14 @@ import {
     getUserAccessToken,
     refreshUserAccessToken
 } from "./utils";
+import { CopilotEventHandler } from "./event-handler";
 
 export class MIAIPanelRpcManager implements MIAIPanelAPI {
-    constructor(private projectUri: string) { }
+    private eventHandler: CopilotEventHandler;
+
+    constructor(private projectUri: string) {
+        this.eventHandler = this.createEventHandler();
+     }
 
     async getBackendRootUrl(): Promise<GetBackendRootUrlResponse> {
         const MI_COPILOT_BACKEND_V2 = process.env.MI_COPILOT_BACKEND_V2 as string;
@@ -148,5 +155,97 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             console.error('Error refreshing authentication:', error);
             return false;
         }
+    }
+
+    /**
+     * Generates code with streaming response
+     */
+    async generateCode(request: GenerateCodeRequest): Promise<GenerateCodeResponse> {
+        try {
+            await this.generateCodeCore(request);
+            return { success: true };
+        } catch (error) {
+            console.error('Error during code generation:', error);
+            this.eventHandler.handleError(error instanceof Error ? error.message : "Unknown error occurred during code generation");
+            throw new Error(`Failed to generate code: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Core code generation logic with streaming
+     */
+    private async generateCodeCore(request: GenerateCodeRequest): Promise<void> {
+        // TODO: Can make this global if needed instead of creating per request
+        
+        try {
+            this.eventHandler.handleStart();
+
+            // Get backend URL and construct the request URL
+            const { backendUrl } = await getBackendUrlAndView(this.projectUri, request.view);
+            const backendRootUri = await fetchBackendUrl(this.projectUri);
+            const url = backendRootUri + backendUrl;
+
+            // Make the request to backend
+            const response = await fetchCodeGenerationsWithRetry(
+                url,
+                request.chatHistory,
+                request.files,
+                request.images,
+                this.projectUri,
+                new AbortController(), // TODO: Use proper abort controller
+                request.view === "selective",
+                request.thinking
+            );
+
+            if (!response.ok) {
+                throw new Error(`Backend request failed with status ${response.status}`);
+            }
+
+            // Check if response has streaming data
+            if (response.body) { 
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let assistantResponse = "";
+
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        const chunk = decoder.decode(value, { stream: true });
+                        assistantResponse += chunk;
+
+                        console.log("chunk", chunk);
+                        
+                        // Send content block event
+                        this.eventHandler.handleContentBlock(chunk);
+                    }
+                } finally {
+                    reader.releaseLock();
+                }
+
+                // Send final response
+                this.eventHandler.handleContentReplace(assistantResponse);
+            } else {
+                // Fallback: non-streaming response
+                const text = await response.text();
+                this.eventHandler.handleContentBlock(text);
+                this.eventHandler.handleContentReplace(text);
+            }
+
+            this.eventHandler.handleStop("generateCode");
+
+        } catch (error) {
+            console.error("Error during code generation:", error);
+            this.eventHandler.handleError(error instanceof Error ? error.message : "Unknown error occurred");
+            throw error;
+        }
+    }
+
+    /**
+     * Creates an event handler that sends events to the visualizer
+     */
+    private createEventHandler(): CopilotEventHandler {
+        return new CopilotEventHandler(this.projectUri);
     }
 }
