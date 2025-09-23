@@ -539,3 +539,11 @@ jobs:
           path: | 
             workspaces/mi/mi-extension/src/test/test-resources/logs/**
           retention-days: 5
+      - name: Upload Project Data Directory
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: MI-e2e-test-project-${{ matrix.os }}-${{ matrix.group }}-${{ github.run_attempt }}
+          path: |
+            workspaces/mi/mi-extension/src/test/e2e-playwright-tests/data/new-project/**
+          retention-days: 5
