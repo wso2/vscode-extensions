@@ -62,12 +62,31 @@ export const transformExpressions = (content: string): string => {
     });
 };
 
-export const setValue = (element: HTMLDivElement, value: string) => {
-    // First sanitize the input value to remove any HTML tags
-    const sanitizedValue = sanitizeHtml(value);
+export const setValue = (element: HTMLDivElement, value: string, skipSanitization: boolean = false) => {
+    if (!element) return;
+    
+    // First sanitize the input value to remove any HTML tags (unless skipped)
+    const sanitizedValue = skipSanitization ? value : sanitizeHtml(value);
     
     // Then transform the sanitized value
-    element.innerHTML = transformExpressions(sanitizedValue);
+    const transformedValue = transformExpressions(sanitizedValue);
+    
+    // If skipSanitization is true and the content doesn't contain expressions,
+    // we need to handle XML/HTML content properly
+    if (skipSanitization && transformedValue === sanitizedValue && !/\$\{([^}]+)\}/g.test(sanitizedValue)) {
+        // Check if the content is already escaped (contains &lt; &gt; etc.)
+        const isAlreadyEscaped = /&lt;|&gt;|&amp;|&quot;|&#39;/.test(sanitizedValue);
+        
+        if (isAlreadyEscaped) {
+            // If already escaped, use innerHTML to decode it properly
+            element.innerHTML = sanitizedValue;
+        } else {
+            // If not escaped, use textContent to display as plain text
+            element.textContent = sanitizedValue;
+        }
+    } else {
+        element.innerHTML = transformedValue;
+    }
 }
 
 export const extractExpressions = (content: string): string => {
