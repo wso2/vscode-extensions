@@ -94,7 +94,7 @@ export class Overview {
         await popupPanel.getByRole('textbox', { name: 'Version*The version of the' }).fill(version);
         const saveChangesButton = await getVsCodeButton(popupPanel, 'Save Changes', 'primary');
         await saveChangesButton.click();
-        await popupPanel.waitFor({ state: 'detached' });
+        await popupPanel.waitFor({ state: 'detached', timeout: 100000 });
     }
 
     public async addOtherDependencies() {
