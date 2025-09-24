@@ -62,6 +62,44 @@ export const transformExpressions = (content: string): string => {
     });
 };
 
+/**
+ * Escapes XML/HTML content while preserving expression token HTML as actual HTML elements
+ * @param content - Content that may contain expression tokens and XML
+ * @returns Content with XML escaped but expression tokens preserved as HTML
+ */
+const escapeXmlPreserveTokens = (content: string): string => {
+    // Split content by expression tokens to separate XML from token HTML
+    // Use the 's' flag equivalent by using [\s\S] instead of . to match newlines
+    const tokenRegex = /<div class="expression-token"[^>]*>[\s\S]*?<\/div>/g;
+    
+    // Use split with capturing groups to get both text and token parts
+    const parts = content.split(tokenRegex);
+    const tokens = content.match(tokenRegex) || [];
+    
+    const processedParts: string[] = [];
+    
+    // Interleave text parts and token parts
+    for (let i = 0; i < parts.length; i++) {
+        // Process text part (escape XML/HTML)
+        if (parts[i]) {
+            const escapedText = parts[i]
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+            processedParts.push(escapedText);
+        }
+        
+        // Add corresponding token (keep as-is)
+        if (tokens[i]) {
+            processedParts.push(tokens[i]);
+        }
+    }
+    
+    return processedParts.join('');
+};
+
 export const setValue = (element: HTMLDivElement, value: string, skipSanitization: boolean = false) => {
     if (!element) return;
     
@@ -71,23 +109,51 @@ export const setValue = (element: HTMLDivElement, value: string, skipSanitizatio
     // Then transform the sanitized value
     const transformedValue = transformExpressions(sanitizedValue);
     
-    // If skipSanitization is true and the content doesn't contain expressions,
-    // we need to handle XML/HTML content properly
-    if (skipSanitization && transformedValue === sanitizedValue && !/\$\{([^}]+)\}/g.test(sanitizedValue)) {
-        // Check if the content is already escaped (contains &lt; &gt; etc.)
-        const isAlreadyEscaped = /&lt;|&gt;|&amp;|&quot;|&#39;/.test(sanitizedValue);
+    // If skipSanitization is true, we need to handle XML/HTML content properly
+    if (skipSanitization) {
+        // Check if content contains expressions (transformed into tokens)
+        const hasExpressionTokens = transformedValue !== sanitizedValue;
         
-        if (isAlreadyEscaped) {
-            // If already escaped, use innerHTML to decode it properly
-            element.innerHTML = sanitizedValue;
+        if (hasExpressionTokens) {
+            // Content has expression tokens - check if the original value has XML to escape
+            const hasXmlTags = /<[^>]+>/g.test(value);
+            
+            if (hasXmlTags) {
+                // Mixed content: XML + expression tokens
+                // We need to escape the XML parts while preserving the token HTML
+                const finalContent = escapeXmlPreserveTokens(transformedValue);
+                element.innerHTML = finalContent;
+            } else {
+                // Only expression tokens, no XML to escape
+                element.innerHTML = transformedValue;
+            }
         } else {
-            // If not escaped, use textContent to display as plain text
-            element.textContent = sanitizedValue;
+            // Pure XML content without expressions
+            const isAlreadyEscaped = /&lt;|&gt;|&amp;|&quot;|&#39;/.test(sanitizedValue);
+            
+            if (isAlreadyEscaped) {
+                // If already escaped, use innerHTML to decode it properly
+                element.innerHTML = sanitizedValue;
+            } else {
+                // If not escaped, use textContent to display as plain text
+                element.textContent = sanitizedValue;
+            }
         }
     } else {
         element.innerHTML = transformedValue;
     }
 }
+
+/**
+ * Decodes HTML entities back to their original characters
+ * @param text - The text containing HTML entities
+ * @returns The decoded text
+ */
+const decodeHtmlEntities = (text: string): string => {
+    const temp = document.createElement('div');
+    temp.innerHTML = text;
+    return temp.textContent || temp.innerText || '';
+};
 
 export const extractExpressions = (content: string): string => {
     let updatedContent;
@@ -99,6 +165,9 @@ export const extractExpressions = (content: string): string => {
 
     // Remove div tags
     updatedContent = updatedContent.replace(/<div>|<\/div>/g, '');
+
+    // Decode HTML entities back to original characters (e.g., &lt; -> <, &gt; -> >)
+    updatedContent = decodeHtmlEntities(updatedContent);
 
     return updatedContent;
 }
