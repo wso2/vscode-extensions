@@ -619,6 +619,8 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 			await fs.promises.writeFile(balTomlPath, updatedTomlContent, "utf-8");
 		}
 		
+		// TODO: Enable this after fixing component creation from root
+		/*
 		if (params.repo?.isBareRepo && ["", "/", "."].includes(params.subpath)) {
 			// if component is to be created in the root of a bare repo,
 			// then we can initialize the current directory as the repo root
@@ -634,6 +636,7 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 			});
 			return params.cwd;
 		}
+		*/
 
 		const clonedPath = await window.withProgress(
 			{
