@@ -392,8 +392,8 @@ export async function testBasicMappings(dmWebView: Frame, projectFile: string, c
     await dmWebView.getByTestId('back-button').click();
     await dm.waitFor();
 
-    expect(verifyFileContentSync(`${compDir}/basic/map.bal.txt`, projectFile)).toBeTruthy();
-    expect(verifyFileContentSync(`${compDir}/basic/functions.bal.txt`, "functions.bal")).toBeTruthy();
+    expect(verifyFileContentSync(`basic/${compDir}/map.bal.txt`, projectFile)).toBeTruthy();
+    expect(verifyFileContentSync(`basic/functions.bal.txt`, "functions.bal")).toBeTruthy();
 
     console.log('- Test basic mapping delete');
     await dm.expandField('input');
@@ -424,7 +424,7 @@ export async function testBasicMappings(dmWebView: Frame, projectFile: string, c
     await loc6.locator('.codicon-trash').click({ force: true });
     await loc6.waitFor({ state: 'detached' });
 
-    expect(verifyFileContentSync(`${compDir}/basic/del.bal.txt`, projectFile)).toBeTruthy();
+    expect(verifyFileContentSync(`basic/${compDir}/del.bal.txt`, projectFile)).toBeTruthy();
 
     console.log('Finished Testing Basic Mappings');
 

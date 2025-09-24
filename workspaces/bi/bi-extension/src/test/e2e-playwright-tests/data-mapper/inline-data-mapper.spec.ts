@@ -72,14 +72,14 @@ export default function createTests() {
 
         });
 
-        test('Inline Data Mapper - Basic In to Basic Out mapping', async ({ }, testInfo) => {
+        test('Inline Data Mapper - Basic', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
             console.log('Inline Data Mapper - Basic mapping: ', testAttempt);
 
 
-            updateProjectFileSync('inline/init.bal.txt', 'automation.bal');
-            updateProjectFileSync('inline/basic/types.bal.txt', 'types.bal');
+            updateProjectFileSync('init-inline.bal.txt', 'automation.bal');
+            updateProjectFileSync('basic/types.bal.txt', 'types.bal');
             updateProjectFileSync('empty.txt', 'functions.bal');
 
             // Added to wait until project sync with file changes
