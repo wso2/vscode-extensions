@@ -227,10 +227,9 @@ export function DependencyItem(props: DependencyItemProps) {
                                             appearance="icon"
                                             onClick={() => handleUpdateDependencyVersion()}
                                             tooltip="Update Dependency"
+                                            buttonSx={{ color: 'var(--vscode-charts-blue)' }}
                                         >
-                                            <Codicon name="desktop-download" sx={{
-                                                '&:hover': { color: 'var(--vscode-charts-blue)' }
-                                            }} />
+                                            <Codicon name="desktop-download" />
                                         </Button>
                                     </div>
                                 )}
@@ -242,10 +241,9 @@ export function DependencyItem(props: DependencyItemProps) {
                                         appearance="icon"
                                         onClick={() => handleEditDependencyClick()}
                                         tooltip="Edit Dependency"
+                                        buttonSx={{ color: 'var(--vscode-charts-green)' }}
                                     >
-                                        <Codicon name="edit" sx={{
-                                            '&:hover': { color: 'var(--vscode-charts-green)' }
-                                        }} />
+                                        <Codicon name="edit" />
                                     </Button>
                                 </div>
                                 <div className="action-button-container" style={{ 
@@ -256,10 +254,9 @@ export function DependencyItem(props: DependencyItemProps) {
                                         appearance="icon"
                                         onClick={() => handleDeleteDependency()}
                                         tooltip="Remove Dependency"
+                                        buttonSx={{ color: 'var(--vscode-charts-red)' }}
                                     >
-                                        <Codicon name="trash" sx={{
-                                            '&:hover': { color: 'var(--vscode-charts-red)' }
-                                        }} />
+                                        <Codicon name="trash" />
                                     </Button>
                                 </div>
                             </div>
