@@ -34,43 +34,50 @@ export default function createTests() {
             const testAttempt = testInfo.retry + 1;
 
             console.log('Update types.bal');
-            updateProjectFileSync('types.bal', 'types.bal');
+            updateProjectFileSync('reusable/basic/types.bal.txt', 'types.bal');
+            updateProjectFileSync('empty.txt', 'data_mappings.bal');
 
             console.log('Creating ', testAttempt);
 
-            await page.page.pause();
-
-            // Create an automation
-            await addArtifact('Automation', 'automation');
-
-            /* Uncomment this code if the timeout issue persists */
-            // // FIXME:Remove this once timeout issue is fixed
-            // await new Promise((resolve) => setTimeout(resolve, 3000));
+            console.log('Waiting for the page to load');
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
-            await webView.getByRole('button', { name: 'Create' }).click();
 
-            // Add a node to the diagram
-            const diagram = new Diagram(page.page);
-            await diagram.init();
-            await diagram.clickAddButtonByIndex(1);
+            console.log('Pageloaded');
+            await page.page.getByRole('treeitem', { name: 'Data Mappers' }).hover();
 
-            await webView.getByText('Declare Variable').click();
-            await webView.getByRole('textbox', { name: 'Type' }).click();
-            await webView.getByText('BasicIn').click();
 
-            await webView.getByRole('textbox', { name: 'Expression' }).click();
-            await webView.getByRole('textbox', { name: 'Expression' }).fill('{}');
+            await page.page.getByLabel('Add Data Mapper').click();
+            await webView.getByText('Add Input').click();
 
-            await webView.locator('#expression-editor-close i').click();
+            const inputType = webView.getByRole('textbox', { name: 'Type' });
+            await inputType.click();
+            await webView.getByText('InRoot').click();
+            await expect(inputType).toHaveValue('InRoot');
 
-            await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
+            await webView.getByRole('textbox', { name: 'Name*Name of the parameter' }).click();
+            await webView.getByRole('textbox', { name: 'Name*Name of the parameter' }).fill('input');
+            await webView.getByRole('button', { name: 'Add' }).click();
+            await webView.getByTestId('input-item').waitFor();
+
+            const outputType = webView.getByRole('textbox', { name: 'Output' });
+            await outputType.click();
+            await webView.getByText('OutRoot').click();
+            await expect(outputType).toHaveValue('OutRoot');
+
+            await webView.getByRole('button', { name: 'Create', exact: true }).click();
+
+            /* Uncomment this code if the timeout issue persists */
+            // // FIXME:Remove this once timeout issue is fixed
+            // await new Promise((resolve) => setTimeout(resolve, 3000));
 
             console.log('Waiting for Data Mapper to open');
             await webView.locator('#data-mapper-canvas-container').waitFor();
+
+            await page.page.pause();
 
         });
 
