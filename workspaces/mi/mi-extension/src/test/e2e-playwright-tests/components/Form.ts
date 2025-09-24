@@ -79,7 +79,6 @@ export class Form {
         const submitBtn = await getVsCodeButton(this.container, btnText, "primary");
         expect(await submitBtn.isEnabled()).toBeTruthy();
         await submitBtn.click({ force: forceClick });
-        await submitBtn.waitFor({ state: 'detached' });
     }
 
     public async fill(props: FormFillProps) {
