@@ -161,12 +161,12 @@ export function DependencyManager(props: ManageDependenciesProps) {
         if (dependencyList.length !== dependencies.length) {
             return true;
         }
-        
+
         return dependencyList.some((dep, index) => {
             const originalDep = dependencies[index];
             return dep.groupId !== originalDep.groupId ||
-                   dep.artifact !== originalDep.artifact ||
-                   dep.version !== originalDep.version;
+                dep.artifact !== originalDep.artifact ||
+                dep.version !== originalDep.version;
         });
     };
 
@@ -186,12 +186,19 @@ export function DependencyManager(props: ManageDependenciesProps) {
                     }}
                 />
             ) : (
-                <>
+                <div style={{ marginTop: '10px' }}>
+                    < LinkButton
+                        sx={{ padding: '0 5px', margin: '20px 0' }}
+                        onClick={() => setIsAddFormOpen(true)}
+                    >
+                        <Codicon name="add" />
+                        Add Dependency
+                    </LinkButton>
                     {
                         dependencyList.length === 0 ? (
                             <Typography>No dependencies found</Typography>
                         ) : (
-                            <div style={{ marginTop: '30px' }}>
+                            <div>
                                 {dependencyList.map((dependency, index) => (
                                     <DependencyItem
                                         key={`${dependency.groupId}-${dependency.artifact}-${index}`}
@@ -207,14 +214,7 @@ export function DependencyManager(props: ManageDependenciesProps) {
                             </div>
                         )
                     }
-                    < LinkButton
-                        sx={{ padding: '0 5px' }}
-                        onClick={() => setIsAddFormOpen(true)}
-                    >
-                        <Codicon name="add" />
-                        Add Dependency
-                    </LinkButton>
-                </>
+                </div>
             )}
             <FormActions>
                 <Button
