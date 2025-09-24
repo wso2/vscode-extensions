@@ -117,7 +117,7 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 								const urlObj = new URL(repoUrl);
 								getLogger().debug(`Fetching PAT for org ${repoOrg} and repo ${repoName}`);
 								const gitPat = await window.withProgress(
-									{ title: `Accessing the repository ${repoUrl}...`, location: ProgressLocation.Notification },
+									{ title: `Accessing the repository ${repoOrg}/${repoName}...`, location: ProgressLocation.Notification },
 									() =>
 										ext.clients.rpcClient.getGitTokenForRepository({
 											orgId: selected.org?.id?.toString()!,

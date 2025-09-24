@@ -588,7 +588,7 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 
 		if (process.env.CLOUD_STS_TOKEN) {
 			try {
-				const gitPat = await window.withProgress({ title: `Accessing the repository ${_repoUrl}...`, location: ProgressLocation.Notification }, () =>
+				const gitPat = await window.withProgress({ title: `Accessing the repository ${params.repo.orgName}/${params.repo.repo}...`, location: ProgressLocation.Notification }, () =>
 					ext.clients.rpcClient.getGitTokenForRepository({
 						orgId: params.org.id?.toString(),
 						gitOrg: params.repo.orgName,
