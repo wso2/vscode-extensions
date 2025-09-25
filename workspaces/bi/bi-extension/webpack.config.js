@@ -21,7 +21,7 @@ const extensionConfig = {
     extension: './src/extension.ts'
   },
   output: {
-    path: path.resolve(__dirname, 'out'),
+    path: path.resolve(__dirname, 'dist'),
     filename: '[name].js',
     libraryTarget: 'commonjs2',
     devtoolModuleFilenameTemplate: '../[resource-path]'
@@ -70,7 +70,7 @@ const extensionConfig = {
   plugins: [
     new PermissionsOutputPlugin({
       buildFolders: [{
-        path: path.resolve(__dirname, 'out/'), // Everything under resources/ gets these modes
+        path: path.resolve(__dirname, 'dist/'), // Everything under dist/ gets these modes
         fileMode: '755',
         dirMode: '755'
       }]
