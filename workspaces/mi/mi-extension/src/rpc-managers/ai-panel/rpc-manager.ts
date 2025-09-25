@@ -208,29 +208,42 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 let assistantResponse = "";
 
                 try {
+                    let buffer = "";
                     while (true) {
                         const { done, value } = await reader.read();
                         if (done) break;
 
-                        const chunk = decoder.decode(value, { stream: true });
-                        assistantResponse += chunk;
+                        buffer += decoder.decode(value, { stream: true });
 
-                        console.log("chunk", chunk);
-                        
-                        // Send content block event
-                        this.eventHandler.handleContentBlock(chunk);
+                        const lines = buffer.split("\n");
+                        buffer = lines.pop() ?? "";
+
+                        for (const line of lines) {
+                            if (!line.trim()) continue;
+                            try {
+                                const obj = JSON.parse(line);
+                                assistantResponse += obj.content;
+                                this.eventHandler.handleContentBlock(line);
+                            } catch (err) {
+                                console.error("JSON parse error:", err, "line:", line);
+                            }
+                        }
                     }
                 } finally {
                     reader.releaseLock();
                 }
 
                 // Send final response
-                this.eventHandler.handleContentReplace(assistantResponse);
+                this.eventHandler.handleEnd(assistantResponse);
+
+                // For now we are not doing code diagnostics
+                // await this.handleCodeDiagnostics(assistantResponse);
+
             } else {
                 // Fallback: non-streaming response
                 const text = await response.text();
                 this.eventHandler.handleContentBlock(text);
-                this.eventHandler.handleContentReplace(text);
+                this.eventHandler.handleEnd(text);
             }
 
             this.eventHandler.handleStop("generateCode");
@@ -247,5 +260,112 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
      */
     private createEventHandler(): CopilotEventHandler {
         return new CopilotEventHandler(this.projectUri);
+    }
+
+    /**
+     * Handles code diagnostics for the generated content
+     */
+    private async handleCodeDiagnostics(assistantResponse: string): Promise<void> {
+        try {
+            // Extract XML code blocks from the response
+            const xmlCodes = this.extractXmlCodeBlocks(assistantResponse);
+            console.log("Extracted XML Codes for Diagnostics:", xmlCodes);
+            console.log(assistantResponse);
+            
+            if (xmlCodes.length === 0) {
+                return; // No XML code blocks to process
+            }
+
+            // Start diagnostics process - send xmlCodes via content block
+            this.eventHandler.handleCodeDiagnosticStart(xmlCodes);  
+
+            // Get diagnostics using existing RPC infrastructure
+            const { getStateMachine } = await import('../../stateMachine');
+            const stateMachine = getStateMachine(this.projectUri);
+            if (!stateMachine) {
+                throw new Error('State machine not found for project');
+            }
+
+            const langClient = stateMachine.context().langClient;
+            if (!langClient) {
+                throw new Error('Language client not available');
+            }
+
+            // Get diagnostics for each XML file
+            const diagnosticsResults: Array<{fileName: string, diagnostics: any[]}> = [];
+            for (const xmlCode of xmlCodes) {
+                const res = await langClient.getCodeDiagnostics(xmlCode);
+                diagnosticsResults.push({
+                    fileName: xmlCode.fileName,
+                    diagnostics: res.diagnostics
+                });
+            }
+
+            // Check if there are any diagnostics
+            const hasAnyDiagnostics = diagnosticsResults.some(file => file.diagnostics.length > 0);
+
+            if (hasAnyDiagnostics) {
+                // Send diagnostics to LLM for corrections
+                const llmResponse = await getDiagnosticsReponseFromLlm(
+                    { diagnostics: diagnosticsResults },
+                    xmlCodes,
+                    this.projectUri,
+                    new AbortController()
+                );
+
+                const llmResponseData = await llmResponse.json();
+
+                // Process corrections
+                if (llmResponseData.fixed_config && Array.isArray(llmResponseData.fixed_config)) {
+                    const correctedCodes = llmResponseData.fixed_config
+                        .filter((item: any) => item.name && (item.configuration || item.code))
+                        .map((item: any) => ({
+                            name: item.name,
+                            configuration: item.configuration,
+                            code: item.code
+                        }));
+
+                    // End diagnostics with corrections
+                    this.eventHandler.handleCodeDiagnosticEnd(correctedCodes);
+                } else {
+                    // End diagnostics without corrections
+                    this.eventHandler.handleCodeDiagnosticEnd();
+                }
+            } else {
+                // No diagnostics found, end process
+                this.eventHandler.handleCodeDiagnosticEnd();
+            }
+        } catch (error) {
+            console.error('Error during code diagnostics:', error);
+            // End diagnostics on error
+            this.eventHandler.handleCodeDiagnosticEnd();
+        }
+    }
+
+    /**
+     * Extracts XML code blocks from assistant response
+     */
+    private extractXmlCodeBlocks(content: string): Array<{fileName: string, code: string}> {
+        const codeBlockRegex = /```([\w#+]*)\s*\n([\s\S]*?)```/g;
+        const xmlCodes: Array<{fileName: string, code: string}> = [];
+        let match;
+
+        while ((match = codeBlockRegex.exec(content)) !== null) {
+            const language = match[1].trim().toLowerCase();
+            const code = match[2];
+
+            // Check if this is XML code
+            if (language === 'xml') {
+                const nameMatch = code.match(/name=["']([^"']+)["']/);
+                const fileName = nameMatch ? `${nameMatch[1]}.xml` : `code_${xmlCodes.length}.xml`;
+                
+                xmlCodes.push({
+                    fileName,
+                    code
+                });
+            }
+        }
+
+        return xmlCodes;
     }
 }

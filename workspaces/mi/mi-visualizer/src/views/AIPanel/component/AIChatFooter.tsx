@@ -109,7 +109,7 @@ const AIChatFooter: React.FC = () => {
     // Handle code generation streaming events from extension
     const handleCodeGenerationEvent = (event: any) => {
         switch (event.type) {
-            case "start":
+            case "code_generation_start":
                 // Start of code generation - could show loading indicator
                 console.log("Code generation started");
                 setAssistantResponse("");
@@ -119,15 +119,7 @@ const AIChatFooter: React.FC = () => {
                 // Handle streaming content blocks
                 if (event.content) {
                     const response = JSON.parse(event.content); 
-                    if (response.questions.length > 0) {
-                        setQuestions((prevQuestions) => [...prevQuestions, {
-                            id: currentChatId || generateId(),
-                            role: Role.MICopilot,
-                            content: response.questions[0],
-                            type: MessageType.Question
-                        }]);
-                    }
-                    else if (response.content !== null && response.content !== undefined) {
+                    if (response.content !== null && response.content !== undefined) {
                         setAssistantResponse(prev => {
                             const content = response.content;
                             // Update the last copilot message in real-time
@@ -153,11 +145,58 @@ const AIChatFooter: React.FC = () => {
                 }
                 break;
             
-            case "content_replace":
+            case "code_generation_end":
                 // Final content replacement
+                console.log("Code generation completed");
                 if (event.content) {
                     setAssistantResponse(event.content);
                     handleCodeGenerationComplete(event.content);
+                }
+                break;
+
+            case "code_diagnostics_start":
+                console.log("Code diagnostics started");
+                setIsValidating(true);
+                break;
+
+            case "code_diagnostics_end":
+                console.log("Code diagnostics completed");
+                setIsValidating(false);
+                
+                // Handle corrected codes if available
+                if (event.correctedCodes && event.correctedCodes.length > 0) {
+                    const fileCorrections = new Map<string, string>();
+                    
+                    event.correctedCodes.forEach((item: any) => {
+                        if (item.name && (item.configuration || item.code)) {
+                            const correctedCode = item.configuration || item.code;
+                            const fileName = item.name;
+                            fileCorrections.set(fileName, correctedCode);
+                        }
+                    });
+
+                    // Update messages with corrected code
+                    if (fileCorrections.size > 0) {
+                        setMessages((prevMessages) => {
+                            const newMessages = [...prevMessages];
+                            const lastMessage = newMessages[newMessages.length - 1];
+                            
+                            if (lastMessage && lastMessage.role === Role.MICopilot) {
+                                let updatedContent = lastMessage.content;
+                                
+                                fileCorrections.forEach((correctedCode, fileName) => {
+                                    updatedContent = replaceCodeBlock(updatedContent, fileName, correctedCode);
+                                });
+                                
+                                newMessages[newMessages.length - 1] = {
+                                    ...lastMessage,
+                                    content: updatedContent
+                                };
+                            }
+                            
+                            return newMessages;
+                        });
+                    }
                 }
                 break;
             
@@ -170,6 +209,7 @@ const AIChatFooter: React.FC = () => {
                     type: MessageType.Error
                 }]);
                 setBackendRequestTriggered(false);
+                setIsValidating(false);
                 break;
             
             case "stop":
@@ -190,86 +230,10 @@ const AIChatFooter: React.FC = () => {
             { id: currentChatId || generateId(), role: Role.CopilotAssistant, content: finalContent },
         ]);
 
-        // Filter XML code blocks and pass them to getCodeDiagnostics
-        const xmlCodes = currentChatCodeBlocksRef.current
-            .filter(codeBlock => {
-                const languageMatch = codeBlock.match(/\/\/ Language: (\w+)/);
-                return languageMatch && languageMatch[1].toLowerCase() === 'xml';
-            })
-            .map((xmlCodeBlock, index) => {
-                const code = xmlCodeBlock.replace(/\/\/ Language: \w+\n/, '');
-                const nameMatch = code.match(/name=["']([^"']+)["']/);
-                const fileName = nameMatch ? `${nameMatch[1]}.xml` : `code_${index}.xml`;
-                
-                return {
-                    fileName,
-                    code
-                };
-            });
-        
-        // Only call getCodeDiagnostics if there are XML code blocks
-        if (xmlCodes.length > 0) {
-            try {
-                setIsValidating(true);
-                
-                const diagnosticResponse = await rpcClient.getMiDiagramRpcClient().getCodeDiagnostics({
-                    xmlCodes
-                });
-                
-                const hasAnyDiagnostics = diagnosticResponse.diagnostics.some(file => file.diagnostics.length > 0);
-
-                if (hasAnyDiagnostics) {
-                    const llmResponse = await getDiagnosticsReponseFromLlm(
-                        diagnosticResponse,
-                        xmlCodes,
-                        rpcClient,
-                        new AbortController()
-                    );
-                    
-                    const llmResponseData = await llmResponse.json();
-                    
-                    if (llmResponseData.fixed_config && Array.isArray(llmResponseData.fixed_config)) {
-                        const fileCorrections = new Map<string, string>();
-                        
-                        llmResponseData.fixed_config.forEach((item: FixedConfigItem) => {
-                            if (item.name && (item.configuration || item.code)) {
-                                const correctedCode = item.configuration || item.code;
-                                const fileName = item.name;
-                                fileCorrections.set(fileName, correctedCode);
-                            }
-                        });
-
-                        // Update messages with corrected code
-                        if (fileCorrections.size > 0) {
-                            setMessages((prevMessages) => {
-                                const newMessages = [...prevMessages];
-                                const lastMessage = newMessages[newMessages.length - 1];
-                                
-                                if (lastMessage && lastMessage.role === Role.MICopilot) {
-                                    let updatedContent = lastMessage.content;
-                                    
-                                    fileCorrections.forEach((correctedCode, fileName) => {
-                                        updatedContent = replaceCodeBlock(updatedContent, fileName, correctedCode);
-                                    });
-                                    
-                                    newMessages[newMessages.length - 1] = {
-                                        ...lastMessage,
-                                        content: updatedContent
-                                    };
-                                }
-                                
-                                return newMessages;
-                            });
-                        }
-                    }
-                }
-                
-                setIsValidating(false);
-            } catch (error) {
-                console.error('Error during diagnostics:', error);
-                setIsValidating(false);
-            }
-        }
+        // Generate suggestions
+        generateSuggestions(copilotChat, rpcClient, new AbortController()).then((response) => {
+            setMessages((prevMessages) => [...prevMessages, ...response]);
+        });
 
         setBackendRequestTriggered(false);
     };

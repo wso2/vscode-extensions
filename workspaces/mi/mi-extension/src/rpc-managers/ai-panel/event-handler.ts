@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { CodeGenerationEvent } from "@wso2/mi-core";
+import { CodeGenerationEvent, XmlCodeEntry, CorrectedCodeItem } from "@wso2/mi-core";
 import { RPCLayer } from "../../RPCLayer";
 import { AiPanelWebview } from '../../ai-panel/webview';
 import { codeGenerationEvent } from "@wso2/mi-core";
@@ -32,19 +32,15 @@ export class CopilotEventHandler {
     }
 
     handleStart(): void {
-        this.sendEventToVisualizer({ type: "start" });
+        this.sendEventToVisualizer({ type: "code_generation_start" });
     }
 
     handleContentBlock(content: string): void {
         this.sendEventToVisualizer({ type: "content_block", content });
     }
 
-    handleContentReplace(content: string): void {
-        this.sendEventToVisualizer({ type: "content_replace", content });
-    }
-
-    handleDiagnostics(diagnostics: any[]): void {
-        this.sendEventToVisualizer({ type: "diagnostics", diagnostics });
+    handleEnd(content: string): void {
+        this.sendEventToVisualizer({ type: "code_generation_end", content });
     }
 
     handleMessages(messages: any[]): void {
@@ -57,6 +53,20 @@ export class CopilotEventHandler {
 
     handleStop(command?: string): void {
         this.sendEventToVisualizer({ type: "stop", command });
+    }
+
+    handleCodeDiagnosticStart(xmlCodes: XmlCodeEntry[]): void {
+        this.sendEventToVisualizer({ 
+            type: "code_diagnostic_start", 
+            xmlCodes 
+        });
+    }
+
+    handleCodeDiagnosticEnd(correctedCodes?: CorrectedCodeItem[]): void {
+        this.sendEventToVisualizer({ 
+            type: "code_diagnostic_end", 
+            correctedCodes 
+        });
     }
 
     private sendEventToVisualizer(event: CodeGenerationEvent): void {
