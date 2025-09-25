@@ -187,10 +187,8 @@ const SlidingPaneNavContainerElm = styled.div`
     align-items: center;
     &:hover {
         background-color: var(--vscode-list-activeSelectionBackground) !important;
-        cursor: pointer;
-    }
-    &:hover .sliding-pane-text {
         color:  ${ThemeColors.ON_PRIMARY};
+        cursor: pointer;
     }
 `
 export const SlidingPaneCallbackCOntainer = styled.div`

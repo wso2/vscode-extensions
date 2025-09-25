@@ -99,7 +99,7 @@ export class Registry {
         });
         console.log("Filled registry form");
         await registryForm.submit("Create", true);
-        console.log("Submitted registry form");
+        console.log("Registry Form submitted from file system");
     }
 
     public async addFromTemplate(data: RegistryDataFromTemplate) {
