@@ -54,10 +54,11 @@ export interface GenerateCodeResponse {
 
 // Event types for streaming
 export type CodeGenerationEventType = 
-    | "start"
-    | "content_block" 
-    | "content_replace"
-    | "diagnostics"
+    | "code_generation_start"
+    | "content_block"
+    | "code_generation_end"
+    | "code_diagnostic_start"
+    | "code_diagnostic_end"
     | "messages"
     | "error"
     | "stop";
@@ -69,6 +70,8 @@ export interface CodeGenerationEvent {
     messages?: unknown[];
     error?: string;
     command?: string;
+    xmlCodes?: XmlCodeEntry[];
+    correctedCodes?: CorrectedCodeItem[];
 }
 
 // Diagnostics types
@@ -77,4 +80,17 @@ export interface DiagnosticEntry {
     severity: string;
     range?: unknown;
     source?: string;
+}
+
+// XML code entry for diagnostics
+export interface XmlCodeEntry {
+    fileName: string;
+    code: string;
+}
+
+// Corrected code item from LLM response
+export interface CorrectedCodeItem {
+    name: string;
+    configuration?: string;
+    code?: string;
 }

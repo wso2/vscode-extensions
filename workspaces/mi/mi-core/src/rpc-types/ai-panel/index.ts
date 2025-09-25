@@ -19,19 +19,19 @@
 import {
     GenerateSuggestionsRequest, GenerateSuggestionsResponse,
     GetBackendRootUrlResponse,
-    GenerateCodeRequest, GenerateCodeResponse,
-    CodeGenerationEvent
+    GenerateCodeRequest, GenerateCodeResponse
 } from "./types";
 
 // Export types for external use
 export type {
     GenerateSuggestionsRequest,
     GenerateSuggestionsResponse,
-    GetBackendRootUrlResponse,
     GenerateCodeRequest,
     GenerateCodeResponse,
-    CodeGenerationEvent
-};
+    CodeGenerationEvent,
+    XmlCodeEntry,
+    CorrectedCodeItem
+} from './types';
 
 export interface MIAIPanelAPI {
     // ==================================
