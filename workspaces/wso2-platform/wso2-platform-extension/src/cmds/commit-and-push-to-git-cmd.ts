@@ -16,7 +16,15 @@
  * under the License.
  */
 
-import { CommandIds, ComponentKind, type ContextStoreComponentState, GitProvider, type ICommitAndPuhCmdParams, parseGitURL } from "@wso2/wso2-platform-core";
+import {
+	CommandIds,
+	ComponentKind,
+	type ContextStoreComponentState,
+	GitProvider,
+	type ICommitAndPuhCmdParams,
+	type Organization,
+	parseGitURL,
+} from "@wso2/wso2-platform-core";
 import { type ExtensionContext, ProgressLocation, type QuickPickItem, Uri, commands, env, window, workspace } from "vscode";
 import { ext } from "../extensionVariables";
 import { initGit } from "../git/main";
@@ -108,34 +116,26 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 						}
 					});
 
-					if (!matchingRemote && process.env.CLOUD_STS_TOKEN && remotes[0].fetchUrl) {
-						try {
-							const repoUrl = remotes[0].fetchUrl;
-							const parsed = parseGitURL(repoUrl);
-							if (parsed && parsed[2] === GitProvider.GITHUB) {
-								const [repoOrg, repoName] = parsed;
-								const urlObj = new URL(repoUrl);
-								getLogger().debug(`Fetching PAT for org ${repoOrg} and repo ${repoName}`);
-								const gitPat = await window.withProgress(
-									{ title: `Accessing the repository ${repoOrg}/${repoName}...`, location: ProgressLocation.Notification },
-									() =>
-										ext.clients.rpcClient.getGitTokenForRepository({
-											orgId: selected.org?.id?.toString()!,
-											gitOrg: repoOrg,
-											gitRepo: repoName,
-											secretRef: selectedComp.component?.spec?.source?.secretRef || "",
-										}),
-								);
-								urlObj.username = gitPat.username || "x-access-token";
-								urlObj.password = gitPat.token;
-								await window.withProgress({ title: "Setting new remote...", location: ProgressLocation.Notification }, async () => {
-									await repo.addRemote("cloud-editor-remote", urlObj.href);
-									const remotes = await repo.getRemotes();
-									matchingRemote = remotes.find((item) => item.name === "cloud-editor-remote");
-								});
-							}
-						} catch {
-							getLogger().debug(`Failed to get token for ${remotes[0].fetchUrl}`);
+					if (!matchingRemote && remotes[0].fetchUrl) {
+						const repoUrl = remotes[0].fetchUrl;
+						const parsed = parseGitURL(repoUrl);
+						if (parsed) {
+							const [repoOrg, repoName, provider] = parsed;
+							const urlObj = new URL(repoUrl);
+							await enrichGitUsernamePassword(
+								selected.org!,
+								repoOrg,
+								repoName,
+								provider,
+								urlObj,
+								repoUrl,
+								selectedComp.component?.spec?.source?.secretRef || "",
+							);
+							await window.withProgress({ title: "Setting new remote...", location: ProgressLocation.Notification }, async () => {
+								await repo.addRemote("cloud-editor-remote", urlObj.href);
+								const remotes = await repo.getRemotes();
+								matchingRemote = remotes.find((item) => item.name === "cloud-editor-remote");
+							});
 						}
 					}
 
@@ -185,3 +185,69 @@ export function commitAndPushToGitCommand(context: ExtensionContext) {
 		}),
 	);
 }
+
+export const enrichGitUsernamePassword = async (
+	org: Organization,
+	repoOrg: string,
+	repoName: string,
+	provider: string,
+	urlObj: URL,
+	fetchUrl: string,
+	secretRef: string,
+) => {
+	if (process.env.CLOUD_STS_TOKEN && provider === GitProvider.GITHUB && !urlObj.password) {
+		try {
+			getLogger().debug(`Fetching PAT for org ${repoOrg} and repo ${repoName}`);
+			const gitPat = await window.withProgress(
+				{ title: `Accessing the repository ${repoOrg}/${repoName}...`, location: ProgressLocation.Notification },
+				() =>
+					ext.clients.rpcClient.getGitTokenForRepository({
+						orgId: org?.id?.toString()!,
+						gitOrg: repoOrg,
+						gitRepo: repoName,
+						secretRef: secretRef,
+					}),
+			);
+			urlObj.username = gitPat.username || "x-access-token";
+			urlObj.password = gitPat.token;
+		} catch {
+			getLogger().debug(`Failed to get token for ${fetchUrl}`);
+		}
+	}
+
+	if (!urlObj.username) {
+		const username = await window.showInputBox({
+			title: "Git Username",
+			ignoreFocusOut: true,
+			placeHolder: "username",
+			validateInput: (val) => {
+				if (!val) {
+					return "Git username is required";
+				}
+				return null;
+			},
+		});
+		if (!username) {
+			throw new Error("Git username is required");
+		}
+		urlObj.username = username;
+	}
+	if (!urlObj.password) {
+		const password = await window.showInputBox({
+			title: "Git Password",
+			ignoreFocusOut: true,
+			placeHolder: "password",
+			password: true,
+			validateInput: (val) => {
+				if (!val) {
+					return "Git password is required";
+				}
+				return null;
+			},
+		});
+		if (!password) {
+			throw new Error("Git password is required");
+		}
+		urlObj.password = password;
+	}
+};
