@@ -270,49 +270,49 @@ jobs:
         include:
           # Ubuntu runners
           - name: MI
-            path: mi/mi-extension
             group: group1
+            path: mi/mi-extension
             os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
             condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
           - name: MI
-            path: mi/mi-extension
             group: group2
+            path: mi/mi-extension
             os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
             condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
           - name: MI
-            path: mi/mi-extension
             group: group3
+            path: mi/mi-extension
             os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
             condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
           - name: MI
-            path: mi/mi-extension
             group: group4
+            path: mi/mi-extension
             os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
             condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
           - name: BI
-            path: bi/bi-extension
             group: group1
+            path: bi/bi-extension
             os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
             condition: false
           # Windows runners
           - name: MI
-            path: mi/mi-extension
             group: group1
+            path: mi/mi-extension
             os: 'windows-latest'
             condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
           - name: MI
-            path: mi/mi-extension
             group: group2
+            path: mi/mi-extension
             os: 'windows-latest'
             condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
           - name: MI
-            path: mi/mi-extension
             group: group3
+            path: mi/mi-extension
             os: 'windows-latest'
             condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
           - name: MI
-            path: mi/mi-extension
             group: group4
+            path: mi/mi-extension
             os: 'windows-latest'
             condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}  
     runs-on: ${{ matrix.os }}
@@ -419,7 +419,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: MI-e2e-test-results-${{ matrix.os }}-${{ matrix.group }}-${{ github.run_attempt }}
+          name: ${{ matrix.name }}I-e2e-test-results-${{ matrix.os }}-${{ matrix.group }}-${{ github.run_attempt }}
           path: workspaces/${{ matrix.path }}/test-results/**
           retention-days: 5
           include-hidden-files: true
@@ -428,7 +428,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ${{ matrix.name }}-e2e-test-recording-${{ matrix.group }}-${{ github.run_attempt }}
+          name: ${{ matrix.name }}-e2e-test-recording-${{ matrix.os }}-${{ matrix.group }}-${{ github.run_attempt }}
           path: | 
             workspaces/${{ matrix.path }}/src/test/test-resources/videos/**
             workspaces/${{ matrix.path }}/src/test/test-resources/screenshots/**
@@ -439,7 +439,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: MI-e2e-test-logs-${{ matrix.os }}-${{ matrix.group }}-${{ github.run_attempt }}
+          name: ${{ matrix.name }}-e2e-test-logs-${{ matrix.os }}-${{ matrix.group }}-${{ github.run_attempt }}
           path: | 
             workspaces/mi/mi-extension/src/test/test-resources/logs/**
           retention-days: 5
@@ -447,7 +447,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: MI-e2e-test-project-${{ matrix.os }}-${{ matrix.group }}-${{ github.run_attempt }}
+          name: ${{ matrix.name }}-e2e-test-project-${{ matrix.os }}-${{ matrix.group }}-${{ github.run_attempt }}
           path: |
             workspaces/mi/mi-extension/src/test/e2e-playwright-tests/data/new-project/**
           retention-days: 5
