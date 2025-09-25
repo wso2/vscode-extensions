@@ -64,6 +64,7 @@ import {
 	GetLocalGitData,
 	GetSubPath,
 	GetWebviewStoreState,
+	GitProvider,
 	GoToSource,
 	HasDirtyLocalGitRepo,
 	JoinFsFilePaths,
@@ -106,6 +107,7 @@ import {
 	deepEqual,
 	getShortenedHash,
 	makeURLSafe,
+	parseGitURL,
 } from "@wso2/wso2-platform-core";
 import * as yaml from "js-yaml";
 import { ProgressLocation, QuickPickItemKind, Uri, type WebviewPanel, type WebviewView, commands, env, window, workspace } from "vscode";
@@ -115,6 +117,7 @@ import { BROADCAST } from "vscode-messenger-common";
 import { registerChoreoRpcResolver } from "../choreo-rpc";
 import { getChoreoExecPath } from "../choreo-rpc/cli-install";
 import { quickPickWithLoader } from "../cmds/cmd-utils";
+import { enrichGitUsernamePassword } from "../cmds/commit-and-push-to-git-cmd";
 import { submitCreateComponentHandler } from "../cmds/create-component-cmd";
 import { ext } from "../extensionVariables";
 import { initGit } from "../git/main";
@@ -586,22 +589,10 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		}
 		const urlObj = new URL(_repoUrl);
 
-		if (process.env.CLOUD_STS_TOKEN) {
-			try {
-				const gitPat = await window.withProgress({ title: `Accessing the repository ${params.repo.orgName}/${params.repo.repo}...`, location: ProgressLocation.Notification }, () =>
-					ext.clients.rpcClient.getGitTokenForRepository({
-						orgId: params.org.id?.toString(),
-						gitOrg: params.repo.orgName,
-						gitRepo: params.repo.repo,
-						secretRef: params.repo.secretRef || "",
-					}),
-				);
-
-				urlObj.username = gitPat.username || "x-access-token";
-				urlObj.password = gitPat.token;
-			} catch {
-				getLogger().debug(`Failed to get token for ${params}`);
-			}
+		const parsed = parseGitURL(_repoUrl);
+		if (parsed) {
+			const [repoOrg, repoName, provider] = parsed;
+			await enrichGitUsernamePassword(params.org, repoOrg, repoName, provider, urlObj, _repoUrl, params.repo.secretRef || "");
 		}
 
 		const repoUrl = urlObj.href;
@@ -618,13 +609,13 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 			const updatedTomlContent = toml.stringify(parsedToml);
 			await fs.promises.writeFile(balTomlPath, updatedTomlContent, "utf-8");
 		}
-		
+
 		// TODO: Enable this after fixing component creation from root
 		/*
 		if (params.repo?.isBareRepo && ["", "/", "."].includes(params.subpath)) {
 			// if component is to be created in the root of a bare repo,
 			// then we can initialize the current directory as the repo root
-			await window.withProgress({ title: `Initializing currently opened directory as repository ${_repoUrl}...`, location: ProgressLocation.Notification }, async () => {
+			await window.withProgress({ title: `Initializing currently opened directory as repository...`, location: ProgressLocation.Notification }, async () => {
 				await newGit.init(params.cwd);
 				const dotGit = await newGit?.getRepositoryDotGit(params.cwd);
 				const repo = newGit.open(params.cwd, dotGit);
@@ -676,7 +667,7 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		await window.withProgress({ title: "Pushing the changes to your remote repository...", location: ProgressLocation.Notification }, async () => {
 			await repo.add(["."]);
 			await repo.commit(`Add source for new ${extName} ${extName === "Devant" ? "Integration" : "Component"} (${params.componentName})`);
-			const headRef = await repo.getHEADRef()
+			const headRef = await repo.getHEADRef();
 			await repo.push(headRef?.upstream?.remote || "origin", headRef?.name || params.repo.branch);
 		});
 

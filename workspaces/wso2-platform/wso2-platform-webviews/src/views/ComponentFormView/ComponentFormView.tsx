@@ -242,7 +242,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 			};
 
 			if (provider !== GitProvider.GITHUB) {
-				createParams.gitCredRef = genDetails?.credential;
+				createParams.gitCredRef = props.isNewCodeServerComp ? repoInitDetails.credential : genDetails?.credential;
 			}
 
 			if (buildDetails.buildPackLang === ChoreoImplementationType.Docker) {

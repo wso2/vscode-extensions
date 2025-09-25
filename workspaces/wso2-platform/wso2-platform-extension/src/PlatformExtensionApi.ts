@@ -24,6 +24,7 @@ import { contextStore } from "./stores/context-store";
 import { webviewStateStore } from "./stores/webview-state-store";
 import { openClonedDir } from "./uri-handlers";
 import { isSamePath } from "./utils";
+
 export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 	public isLoggedIn = () => !!authStore.getState().state?.userInfo;
 	public getDirectoryComponents = (fsPath: string) =>

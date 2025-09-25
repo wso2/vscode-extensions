@@ -21,6 +21,7 @@ import { type ConfigurationChangeEvent, commands, window, workspace } from "vsco
 import { PlatformExtensionApi } from "./PlatformExtensionApi";
 import { ChoreoRPCClient } from "./choreo-rpc";
 import { initRPCServer } from "./choreo-rpc/activate";
+import { getCliVersion } from "./choreo-rpc/cli-install";
 import { activateCmds } from "./cmds";
 import { continueCreateComponent } from "./cmds/create-component-cmd";
 import { activateCodeLenses } from "./code-lens";
@@ -36,9 +37,8 @@ import { locationStore } from "./stores/location-store";
 import { ChoreoConfigurationProvider, addTerminalHandlers } from "./tarminal-handlers";
 import { activateTelemetry } from "./telemetry/telemetry";
 import { activateURIHandlers } from "./uri-handlers";
-import { registerYamlLanguageServer } from "./yaml-ls";
-import { getCliVersion } from "./choreo-rpc/cli-install";
 import { getExtVersion } from "./utils";
+import { registerYamlLanguageServer } from "./yaml-ls";
 
 export async function activate(context: vscode.ExtensionContext) {
 	activateTelemetry(context);
