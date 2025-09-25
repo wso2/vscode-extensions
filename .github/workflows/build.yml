@@ -273,27 +273,39 @@ jobs:
             path: mi/mi-extension
             group: group1
             os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
-            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
           - name: MI
             path: mi/mi-extension
             group: group2
             os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
-            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
           - name: MI
             path: mi/mi-extension
             group: group3
             os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
-            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
           - name: MI
             path: mi/mi-extension
             group: group4
             os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
-            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
           - name: BI
             path: bi/bi-extension
             group: group1
             os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
-            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-bi' }}
+        exclude:
+          # Exclude MI jobs if not running E2E tests and not on release-mi
+          - name: MI
+            group: group1
+            if: ${{ !inputs.runE2ETests && github.base_ref != 'release-mi' }}
+          - name: MI
+            group: group2
+            if: ${{ !inputs.runE2ETests && github.base_ref != 'release-mi' }}
+          - name: MI
+            group: group3
+            if: ${{ !inputs.runE2ETests && github.base_ref != 'release-mi' }}
+          - name: MI
+            group: group4
+            if: ${{ !inputs.runE2ETests && github.base_ref != 'release-mi' }}
+          - name: BI
+            group: group1
+            if: true
     runs-on: ${{ matrix.os }}
     steps:
       - name: Restore build
