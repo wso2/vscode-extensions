@@ -80,7 +80,6 @@ export default function createTests() {
 
             updateProjectFileSync('init-inline.bal.txt', 'automation.bal');
             updateProjectFileSync('basic/types.bal.txt', 'types.bal');
-            updateProjectFileSync('empty.txt', 'functions.bal');
 
             // Added to wait until project sync with file changes
             // await page.page.waitForTimeout(5000);

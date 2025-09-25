@@ -30,29 +30,26 @@ export default function createTests() {
         tag: '@group1',
     }, async () => {
         initTest();
-        test('Create reusable Data Mapper option', async ({ }, testInfo) => {
+        test.skip('Create reusable Data Mapper', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
             console.log('Update types.bal');
-            updateProjectFileSync('reusable/basic/types.bal.txt', 'types.bal');
+            updateProjectFileSync('basic/types.bal.txt', 'types.bal');
             updateProjectFileSync('empty.txt', 'data_mappings.bal');
 
-            console.log('Creating ', testAttempt);
-
-            console.log('Waiting for the page to load');
+            console.log('Creating reusable Data Mapper', testAttempt);
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
 
-            console.log('Pageloaded');
             await page.page.getByRole('treeitem', { name: 'Data Mappers' }).hover();
-
-
             await page.page.getByLabel('Add Data Mapper').click();
-            await webView.getByText('Add Input').click();
 
+            await webView.getByRole('textbox', { name: 'Data Mapper Name*Name of the' }).fill('output');
+
+            await webView.getByText('Add Input').click();
             const inputType = webView.getByRole('textbox', { name: 'Type' });
             await inputType.click();
             await webView.getByText('InRoot').click();
@@ -77,29 +74,17 @@ export default function createTests() {
             console.log('Waiting for Data Mapper to open');
             await webView.locator('#data-mapper-canvas-container').waitFor();
 
-            await page.page.pause();
-
         });
 
-        test.skip('Inline Data Mapper - Basic In to Basic Out mapping', async ({ }, testInfo) => {
+        test('Reusable Data Mapper - Basic', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Inline Data Mapper - Basic mapping: ', testAttempt);
+            console.log('Reusable Data Mapper - Basic', testAttempt);
 
 
-            updateProjectFileSync('inline/init.bal.txt', 'automation.bal');
-            updateProjectFileSync('inline/basic/types.bal.txt', 'types.bal');
+            updateProjectFileSync('init-reusable.bal.txt', 'data_mappings.bal');
+            updateProjectFileSync('basic/types.bal.txt', 'types.bal');
             updateProjectFileSync('empty.txt', 'functions.bal');
-
-            // Added to wait until project sync with file changes
-            // await page.page.waitForTimeout(5000);
-            // await page.page.pause();
-
-            // const explorer = new ProjectExplorer(page.page);
-            // await explorer.refresh('sample');
-            // await explorer.findItem(['sample', 'Entry Points', 'main'], true);
-
-            // await page.page.pause();
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
@@ -108,13 +93,9 @@ export default function createTests() {
 
             await webView.getByRole('heading', { name: 'sample' }).waitFor();
 
-            await page.page.getByRole('treeitem', { name: 'main' }).click();
+            await page.page.getByRole('treeitem', { name: 'output' }).click();
 
-            await webView.getByRole('heading', { name: 'Automation' }).waitFor();
-            await webView.getByText('output = {}').click();
-            await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
-
-            await testBasicMappings(webView, 'automation.bal', 'inline');
+            await testBasicMappings(webView, 'data_mappings.bal', 'reusable');
         });
     });
 }

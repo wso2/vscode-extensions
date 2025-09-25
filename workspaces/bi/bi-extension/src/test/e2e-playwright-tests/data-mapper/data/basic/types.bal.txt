@@ -4,11 +4,10 @@ type InRoot record {|
     string iManyOne1;
     string iManyOne2;
     string iManyOne3;
-    boolean iManyOneErr;
+    int iManyOneErr1;
+    boolean iManyOneErr2;
     InObjDirect iObjDirect;
     InObjProp iObjProp;
-    InCustomFn iCustomFn;
-    string iExp;
 |};
 
 type InObjDirect record {|
@@ -21,11 +20,6 @@ type InObjProp record {|
     string op2;
 |};
 
-type InCustomFn record {|
-    string k1;
-    int k2;
-|};
-
 type OutRoot record {|
     string oPrimDirect;
     int oPrimDirectErr;
@@ -34,8 +28,6 @@ type OutRoot record {|
     OutObjDirect oObjDirect;
     OutObjDirectErr oObjDirectErr;
     OutObjProp oObjProp;
-    OutCustomFn oCustomFn;
-    string oExp;
 |};
 
 type OutObjDirect record {|
@@ -51,9 +43,4 @@ type OutObjDirectErr record {|
 type OutObjProp record {|
     string p1;
     int p2;
-|};
-
-type OutCustomFn record {|
-    string k1;
-    int k3;
 |};

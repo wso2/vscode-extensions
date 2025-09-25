@@ -1,0 +1,7 @@
+function output(InRoot input) returns OutRoot => {
+    oCustomFn: {k1: "", k3: 0},
+    oObjDirect: input.iObjDirect,
+    oObjDirectErr: input.iObjDirect,
+    oExp: "",
+    oObjProp: {p2: input.iObjProp.op2}
+};

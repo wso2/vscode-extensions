@@ -1,0 +1,11 @@
+function output(InRoot input) returns OutRoot => {
+    oManyOneErr: input.iManyOneErr1 + input.iPrimDirectErr + input.iManyOneErr2,
+    oCustomFn: {k1: "", k3: 0},
+    oPrimDirect: input.iPrimDirect,
+    oObjDirect: input.iObjDirect,
+    oManyOne: input.iManyOne1 + input.iManyOne2 + input.iManyOne3,
+    oPrimDirectErr: input.iPrimDirectErr,
+    oObjDirectErr: input.iObjDirect,
+    oExp: "",
+    oObjProp: {p1: input.iObjDirect.d1, p2: input.iObjProp.op2}
+};

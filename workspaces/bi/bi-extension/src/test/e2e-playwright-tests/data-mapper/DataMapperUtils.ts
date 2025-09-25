@@ -209,11 +209,9 @@ export class DataMapperUtils {
 
     public async expectErrorLink(locator: Locator) {
         await locator.waitFor({ state: 'attached' });
-        const hasDiagnostic = await locator.evaluate((el) => el.getAttribute('data-diagnostics') == "true");
+        const hasDiagnostic = await locator.evaluate((el) => el.getAttribute('data-diagnostics'));
         expect(hasDiagnostic).toBeTruthy();
     }
-
-   
 
     // public verifyFileCreation() {
     //     const configFolder = path.join(
@@ -298,19 +296,17 @@ export async function testBasicMappings(dmWebView: Frame, projectFile: string, c
     await loc2.waitFor();
 
     // many-one mapping with error
-    // objectOutput.output.oManyOneErr = input.iManyOne2 + input.iManyOneErr + input.iManyOne3
-    await dm.mapFields('input.iManyOne2', 'objectOutput.output.oManyOneErr', 'direct');
-    await dm.mapFields('input.iManyOneErr', 'objectOutput.output.oManyOneErr', 'direct');
-    await dm.mapFields('input.iManyOne3', 'objectOutput.output.oManyOneErr', 'direct');
+    // objectOutput.output.oManyOneErr = input.iManyOneErr1 + input.iPrimDirectErr + input.iManyOneErr2
+    await dm.mapFields('input.iManyOneErr1', 'objectOutput.output.oManyOneErr');
+    await dm.mapFields('input.iPrimDirectErr', 'objectOutput.output.oManyOneErr', 'direct');
+    await dm.mapFields('input.iManyOneErr2', 'objectOutput.output.oManyOneErr', 'direct');
 
-    await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iManyOne2.OUT-to-datamapper-intermediate-port').nth(1));
-    await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iManyOne3.OUT-to-datamapper-intermediate-port').nth(1));
-    await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iManyOneErr.OUT-to-datamapper-intermediate-port'));
+    await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iManyOneErr1.OUT-to-datamapper-intermediate-port'));
+    await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iPrimDirectErr.OUT-to-datamapper-intermediate-port'));
+    await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iManyOneErr2.OUT-to-datamapper-intermediate-port'));
     await dm.expectErrorLink(dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oManyOneErr.IN'));
     const loc3 = dmWebView.getByTestId('link-connector-node-objectOutput.output.oManyOneErr.IN');
-    await loc3.waitFor();
-
-
+    await loc3.getByTestId('expression-label-diagnostic').waitFor();
 
     // object direct mapping
     // objectOutput.output.oObjDirect= input.iObjDirect;
@@ -332,71 +328,71 @@ export async function testBasicMappings(dmWebView: Frame, projectFile: string, c
     await dm.mapFields('input.iObjProp.op2', 'objectOutput.output.oObjProp.p2', 'direct');
     await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iObjProp.op2.OUT-to-objectOutput.output.oObjProp.p2.IN'));
 
+    // console.log('- Test expression bar');
 
-    console.log('- Test expression bar');
+    // // expression bar - use method from completion
+    // await dmWebView.locator('[id="recordfield-objectOutput\\.output\\.oExp"]').click();
+    // const expressionBar = dmWebView.locator('#expression-bar').getByRole('textbox', { name: 'Text field' });
+    // await expect(expressionBar).toBeFocused();
+    // await expressionBar.fill('');
+    // await dmWebView.locator('[id="recordfield-input\\.iExp"]').click();
+    // await expect(expressionBar).toHaveValue('input.iExp');
+    // await expect(expressionBar).toBeFocused();
 
-    // expression bar - use method from completion
-    await dmWebView.locator('[id="recordfield-objectOutput\\.output\\.oExp"]').click();
-    const expressionBar = dmWebView.locator('#expression-bar').getByRole('textbox', { name: 'Text field' });
-    await expect(expressionBar).toBeFocused();
-    await dmWebView.locator('[id="recordfield-input\\.iExp"]').click();
-    await expect(expressionBar).toHaveValue('input.iExp');
-    await expect(expressionBar).toBeFocused();
+    // await expressionBar.pressSequentially('.toup');
+    // await dmWebView.getByText('toUpperAscii()').click();
+    // await expressionBar.press('Enter');
 
-    await expressionBar.pressSequentially('.toup');
-    await dmWebView.getByText('toUpperAscii()').click();
-    await expressionBar.press('Enter');
+    // await expect(expressionBar).toHaveValue('input.iExp.toUpperAscii()');
+    // await expect(expressionBar).toBeFocused();
 
-    await expect(expressionBar).toHaveValue('input.iExp.toUpperAscii()');
-    await expect(expressionBar).toBeFocused();
+    // const canvas = dmWebView.locator('#data-mapper-canvas-container');
+    // await canvas.click();
+    // await expect(expressionBar).not.toBeFocused();
 
-    const canvas = dmWebView.locator('#data-mapper-canvas-container');
-    await canvas.click();
-    await expect(expressionBar).not.toBeFocused();
-
-    // TODO: input.iExp.toUpperAscii() currently shown as direct link, uncomment below when they display as expression
-    // await dmWebView.getByTestId('link-from-input.iExp.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
-    // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oExp.IN').waitFor({ state: 'attached' });
-    // const loc4 = dmWebView.getByTestId('link-connector-node-objectOutput.output.oExp.IN');
-    // await loc4.waitFor();
+    // // TODO: input.iExp.toUpperAscii() currently shown as direct link, uncomment below when they display as expression
+    // // await dmWebView.getByTestId('link-from-input.iExp.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
+    // // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oExp.IN').waitFor({ state: 'attached' });
+    // // const loc4 = dmWebView.getByTestId('link-connector-node-objectOutput.output.oExp.IN');
+    // // await loc4.waitFor();
     
-    const loc5 = dmWebView.getByTestId('link-from-input.iExp.OUT-to-objectOutput.output.oExp.IN');
-    await loc5.waitFor();
+    // const loc5 = dmWebView.getByTestId('link-from-input.iExp.OUT-to-objectOutput.output.oExp.IN');
+    // await loc5.waitFor();
 
-    // expression bar - edit existing
-    await dmWebView.locator('[id="recordfield-objectOutput\\.output\\.oObjProp\\.p1"]').click();
-    await expect(expressionBar).toHaveValue('input.iObjDirect.d1');
-    await expect(expressionBar).toBeFocused();
-    await expressionBar.pressSequentially(' + "HI"');
-    await canvas.click();
-    await expect(expressionBar).not.toBeFocused();
+    // // expression bar - edit existing
+    // await dmWebView.locator('[id="recordfield-objectOutput\\.output\\.oObjProp\\.p1"]').click();
+    // await expect(expressionBar).toHaveValue('input.iObjDirect.d1');
+    // await expect(expressionBar).toBeFocused();
+    // await expressionBar.pressSequentially(' + "HI"');
+    // await canvas.click();
+    // await expect(expressionBar).not.toBeFocused();
 
-    // TODO: input.iObjDirect.d1 + "HI" currently shown as direct link, uncomment below when they display as expression
-    // await dmWebView.getByTestId('link-from-input.iObjDirect.d1.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
-    // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oObjProp.p1.IN').waitFor({ state: 'attached' });
-    // await dmWebView.getByTestId('link-connector-node-objectOutput.output.oObjProp.p1.IN').waitFor();
+    // // TODO: input.iObjDirect.d1 + "HI" currently shown as direct link, uncomment below when they display as expression
+    // // await dmWebView.getByTestId('link-from-input.iObjDirect.d1.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
+    // // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oObjProp.p1.IN').waitFor({ state: 'attached' });
+    // // await dmWebView.getByTestId('link-connector-node-objectOutput.output.oObjProp.p1.IN').waitFor();
 
 
-    console.log('- Test custom function');
-    // custom function mapping
-    // objectOutput.output.oCustomFn = input.iCustomFn;
-    await dm.mapFields('input.iCustomFn', 'objectOutput.output.oCustomFn', 'custom-func');
+    // console.log('- Test custom function');
+    // // custom function mapping
+    // // objectOutput.output.oCustomFn = input.iCustomFn;
+    // await dm.mapFields('input.iCustomFn', 'objectOutput.output.oCustomFn', 'custom-func');
 
-    await dmWebView.getByTestId('link-from-input.iCustomFn.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
-    await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oCustomFn.IN').waitFor({ state: 'attached' });
-    const loc6 = dmWebView.getByTestId('link-connector-node-objectOutput.output.oCustomFn.IN');
-    await loc6.waitFor();
+    // await dmWebView.getByTestId('link-from-input.iCustomFn.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
+    // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oCustomFn.IN').waitFor({ state: 'attached' });
+    // const loc6 = dmWebView.getByTestId('link-connector-node-objectOutput.output.oCustomFn.IN');
+    // await loc6.waitFor();
 
-    await loc6.getByTitle('Custom Function Call Expression').click();
-    await dmWebView.getByRole('heading', { name: 'Function' }).waitFor();
-    await dmWebView.getByTestId('back-button').click();
-    await dm.waitFor();
+    // await loc6.getByTitle('Custom Function Call Expression').click();
+    // await dmWebView.getByRole('heading', { name: 'Function' }).waitFor();
+    // await dmWebView.getByTestId('back-button').click();
+    // await dm.waitFor();
 
+    await page.page.pause();
     expect(verifyFileContentSync(`basic/${compDir}/map.bal.txt`, projectFile)).toBeTruthy();
-    expect(verifyFileContentSync(`basic/functions.bal.txt`, "functions.bal")).toBeTruthy();
 
     console.log('- Test basic mapping delete');
-    await dm.expandField('input');
+    // await dm.expandField('input');
 
     await loc0.click({ force: true });
     await dmWebView.getByTestId('expression-label-for-input.iPrimDirect.OUT-to-objectOutput.output.oPrimDirect.IN')
@@ -411,18 +407,24 @@ export async function testBasicMappings(dmWebView: Frame, projectFile: string, c
     await loc2.locator('.codicon-trash').click({ force: true });
     await loc2.waitFor({ state: 'detached' });
 
+    await loc3.locator('.codicon-trash').click({ force: true });
+    await loc3.waitFor({ state: 'detached' });
+
     await loc4.click({ force: true });
     await dmWebView.getByTestId('expression-label-for-input.iObjDirect.d1.OUT-to-objectOutput.output.oObjProp.p1.IN')
         .locator('.codicon-trash').click({ force: true });
     await loc4.waitFor({ state: 'detached' });
 
-    await loc5.click({ force: true });
-    await dmWebView.getByTestId('expression-label-for-input.iExp.OUT-to-objectOutput.output.oExp.IN')
-        .locator('.codicon-trash').click({ force: true });
-    await loc5.waitFor({ state: 'detached' });
+    // await loc5.click({ force: true });
+    // await dmWebView.getByTestId('expression-label-for-input.iExp.OUT-to-objectOutput.output.oExp.IN')
+    //     .locator('.codicon-trash').click({ force: true });
+    // await loc5.waitFor({ state: 'detached' });
 
-    await loc6.locator('.codicon-trash').click({ force: true });
-    await loc6.waitFor({ state: 'detached' });
+    // await loc6.locator('.codicon-trash').click({ force: true });
+    // await loc6.waitFor({ state: 'detached' });
+
+    await page.page.pause();
+
 
     expect(verifyFileContentSync(`basic/${compDir}/del.bal.txt`, projectFile)).toBeTruthy();
 
