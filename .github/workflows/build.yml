@@ -267,45 +267,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # Ubuntu runners
-          - name: MI
-            path: mi/mi-extension
-            group: group1
-            os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
-          - name: MI
-            path: mi/mi-extension
-            group: group2
-            os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
-          - name: MI
-            path: mi/mi-extension
-            group: group3
-            os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
-          - name: MI
-            path: mi/mi-extension
-            group: group4
-            os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
-          - name: BI
-            path: bi/bi-extension
-            group: group1
-            os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
+        os:
+          - ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
+        values:
+          - { name: 'MI', path: 'mi/mi-extension' , group: 'group1' }
+          - { name: 'MI', path: 'mi/mi-extension' , group: 'group2' }
+          - { name: 'MI', path: 'mi/mi-extension' , group: 'group3' }
+          - { name: 'MI', path: 'mi/mi-extension' , group: 'group4' }
+          - { name: 'BI', path: 'bi/bi-extension' , group: 'group1' }  
         exclude:
           # Exclude MI jobs if not running E2E tests and not on release-mi
-          - name: MI
-            group: group1
-            if: ${{ !inputs.runE2ETests || github.base_ref != 'release-mi' }}
-          - name: MI
-            group: group2
-            if: ${{ !inputs.runE2ETests || github.base_ref != 'release-mi' }}
-          - name: MI
-            group: group3
-            if: ${{ !inputs.runE2ETests || github.base_ref != 'release-mi' }}
-          - name: MI
-            group: group4
-            if: ${{ !inputs.runE2ETests || github.base_ref != 'release-mi' }}
-          - name: BI
-            group: group1
-            if: true
+          - { values: { name: 'BI', path: 'bi/bi-extension' , group: 'group1' } }
     runs-on: ${{ matrix.os }}
     steps:
       - name: Restore build
@@ -338,8 +310,8 @@ jobs:
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: ${{ matrix.name }}-e2e-test-results-${{ matrix.group }}-${{ env.PREVIOUS_ATTEMPT }}
-          path: workspaces/${{ matrix.path }}/test-results
+          name: ${{ matrix.values.name }}-e2e-test-results-${{ matrix.values.group }}-${{ env.PREVIOUS_ATTEMPT }}
+          path: workspaces/${{ matrix.values.path }}/test-results
 
       - name: install packages
         run: |
@@ -349,7 +321,7 @@ jobs:
           sudo apt-get install -y gnome-keyring
           sudo apt-get install libsecret-1.0
           sudo apt install dbus-x11
-          cd workspaces/${{ matrix.path }} && npx playwright install
+          cd workspaces/${{ matrix.values.path }} && npx playwright install
           
       - name: Run Tests (First Attempt)
         id: run-tests-first
@@ -358,8 +330,8 @@ jobs:
         run: |
           export $(dbus-launch)
           export DISPLAY=:98.0
-          cd workspaces/${{ matrix.path }}
-          xvfb-run --server-num 98.0 -s "-ac -screen 0 1920x1080x24" bash -c "ffmpeg -f x11grab -r 30 -s 1920x1080 -i :98.0 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart -hide_banner -loglevel error record.mp4 & npx playwright test --grep ${{ matrix.group }}"
+          cd workspaces/${{ matrix.values.path }}
+          xvfb-run --server-num 98.0 -s "-ac -screen 0 1920x1080x24" bash -c "ffmpeg -f x11grab -r 30 -s 1920x1080 -i :98.0 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart -hide_banner -loglevel error record.mp4 & npx playwright test --grep ${{ matrix.values.group }}"
 
       - name: Run Failed Tests (Re-run)
         if: (github.run_attempt == 1 && steps.run-tests-first.outcome == 'failure') || (github.run_attempt > 1 && steps.check-results.outcome == 'success')
@@ -367,15 +339,15 @@ jobs:
           rm -rf workspaces/mi/mi-extension/src/test/e2e-playwright-tests/data/new-project
           export $(dbus-launch)
           export DISPLAY=:98.0
-          cd workspaces/${{ matrix.path }}
-          xvfb-run --server-num 98.0 -s "-ac -screen 0 1920x1080x24" bash -c "ffmpeg -f x11grab -r 30 -s 1920x1080 -i :98.0 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart -hide_banner -loglevel error record.mp4 & npx playwright test --grep ${{ matrix.group }} --last-failed"
+          cd workspaces/${{ matrix.values.path }}
+          xvfb-run --server-num 98.0 -s "-ac -screen 0 1920x1080x24" bash -c "ffmpeg -f x11grab -r 30 -s 1920x1080 -i :98.0 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart -hide_banner -loglevel error record.mp4 & npx playwright test --grep ${{ matrix.values.group }} --last-failed"
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ${{ matrix.name }}-e2e-test-results-${{ matrix.group }}-${{ github.run_attempt }}
-          path: workspaces/${{ matrix.path }}/test-results/**
+          name: ${{ matrix.values.name }}-e2e-test-results-${{ matrix.values.group }}-${{ github.run_attempt }}
+          path: workspaces/${{ matrix.values.path }}/test-results/**
           retention-days: 5
           include-hidden-files: true
           
@@ -383,9 +355,9 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ${{ matrix.name }}-e2e-test-recording-${{ matrix.group }}-${{ github.run_attempt }}
+          name: ${{ matrix.values.name }}-e2e-test-recording-${{ matrix.values.group }}-${{ github.run_attempt }}
           path: | 
-            workspaces/${{ matrix.path }}/src/test/test-resources/videos/**
-            workspaces/${{ matrix.path }}/src/test/test-resources/screenshots/**
-            workspaces/${{ matrix.path }}/record.mp4
+            workspaces/${{ matrix.values.path }}/src/test/test-resources/videos/**
+            workspaces/${{ matrix.values.path }}/src/test/test-resources/screenshots/**
+            workspaces/${{ matrix.values.path }}/record.mp4
           retention-days: 5
