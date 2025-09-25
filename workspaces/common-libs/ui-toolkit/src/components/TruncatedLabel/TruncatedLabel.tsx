@@ -34,7 +34,6 @@ const TruncatedLabelContainer = styled.span`
 // Container for multiple labels with equal distribution
 const TruncatedLabelGroupContainer = styled.div`
     display: flex;
-    width: 100%;
     overflow: hidden;
 `;
 
