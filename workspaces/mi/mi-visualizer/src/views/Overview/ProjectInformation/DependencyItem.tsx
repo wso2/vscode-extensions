@@ -107,7 +107,7 @@ interface DependencyFormData {
 interface DependencyItemProps {
     dependency: DependencyDetails;
     onClose: () => void;
-    onEdit?: (prevDependency: DependencyDetails, updatedDependency: {
+    onEdit?: (updatedDependency: {
         groupId: string; artifact: string; version: string
     }) => void;
     onDelete?: (dependency: DependencyDetails) => void;
@@ -157,7 +157,7 @@ export function DependencyItem(props: DependencyItemProps) {
     };
 
     const handleUpdateDependencyVersion = () => {
-        onEdit(dependency, {
+        onEdit({
             groupId: dependency.groupId,
             artifact: dependency.artifact,
             version: latestVersion
@@ -174,7 +174,7 @@ export function DependencyItem(props: DependencyItemProps) {
                     title="Edit Dependency"
                     onClose={() => setIsEditFormOpen(false)}
                     onUpdate={(updatedDependency) => {
-                        onEdit(dependency, updatedDependency);
+                        onEdit(updatedDependency);
                         setIsEditFormOpen(false);
                     }}
                 />
@@ -194,46 +194,48 @@ export function DependencyItem(props: DependencyItemProps) {
                                         <span className="value">{dependency.version}</span>
                                     </DependencyField>
                                     {latestVersion && latestVersion > dependency.version && (
-                                        <Tooltip content="A new version is available">
-                                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                                                <Codicon name="warning"
-                                                    sx={{
-                                                        marginLeft: 5,
-                                                        fontSize: '0.8em',
-                                                        color: 'var(--vscode-editorWarning-foreground)'
-                                                    }}
-                                                />
-                                                <span style={{
-                                                    marginLeft: '4px',
-                                                    fontSize: '11px',
-                                                    fontWeight: '300',
-                                                    color: 'var(--vscode-editorWarning-foreground)',
-                                                    opacity: 0,
-                                                    transition: 'opacity 0.2s ease'
-                                                }} className="update-text">
-                                                    Update available: {latestVersion}
-                                                </span>
+                                        <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                                            <Tooltip content="A new version is available">
+
+                                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                    <Codicon name="warning"
+                                                        sx={{
+                                                            marginLeft: 5,
+                                                            fontSize: '0.8em',
+                                                            color: 'var(--vscode-editorWarning-foreground)'
+                                                        }}
+                                                    />
+                                                    <span style={{
+                                                        marginLeft: '4px',
+                                                        fontSize: '11px',
+                                                        fontWeight: '300',
+                                                        color: 'var(--vscode-editorWarning-foreground)',
+                                                        opacity: 0,
+                                                        transition: 'opacity 0.2s ease'
+                                                    }} className="update-text">
+                                                        Update available: {latestVersion}
+                                                    </span>
+                                                </div>
+                                            </Tooltip>
+                                            <div className="action-button-container" style={{
+                                                opacity: 0,
+                                                transition: 'opacity 0.2s ease'
+                                            }}>
+                                                <Button
+                                                    appearance="icon"
+                                                    onClick={() => handleUpdateDependencyVersion()}
+                                                    tooltip="Update Dependency"
+                                                    buttonSx={{ color: 'var(--vscode-charts-blue)' }}
+                                                >
+                                                    <Codicon name="sync" />
+                                                </Button>
                                             </div>
-                                        </Tooltip>)}
+                                        </div>
+                                    )}
                                 </div>
                             </>
                             <div style={{ display: 'flex', gap: '5px' }}>
-                                {latestVersion && latestVersion > dependency.version && (
-                                    <div className="action-button-container" style={{ 
-                                        opacity: 0,
-                                        transition: 'opacity 0.2s ease'
-                                    }}>
-                                        <Button
-                                            appearance="icon"
-                                            onClick={() => handleUpdateDependencyVersion()}
-                                            tooltip="Update Dependency"
-                                            buttonSx={{ color: 'var(--vscode-charts-blue)' }}
-                                        >
-                                            <Codicon name="desktop-download" />
-                                        </Button>
-                                    </div>
-                                )}
-                                <div className="action-button-container" style={{ 
+                                <div className="action-button-container" style={{
                                     opacity: 0,
                                     transition: 'opacity 0.2s ease'
                                 }}>
@@ -246,7 +248,7 @@ export function DependencyItem(props: DependencyItemProps) {
                                         <Codicon name="edit" />
                                     </Button>
                                 </div>
-                                <div className="action-button-container" style={{ 
+                                <div className="action-button-container" style={{
                                     opacity: 0,
                                     transition: 'opacity 0.2s ease'
                                 }}>

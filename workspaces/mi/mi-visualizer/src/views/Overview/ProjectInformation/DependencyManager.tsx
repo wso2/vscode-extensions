@@ -19,7 +19,7 @@
 import React, { useEffect, useState } from "react";
 import { DependencyDetails } from "@wso2/mi-core";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
-import { Button, FormActions, FormView, Typography, Codicon, LinkButton, ProgressRing } from "@wso2/ui-toolkit";
+import { Button, FormActions, FormView, Typography, Codicon, LinkButton, ProgressRing, Overlay } from "@wso2/ui-toolkit";
 import { DependencyItem } from "./DependencyItem";
 import { DependencyForm } from "./DependencyForm";
 import { Range } from "../../../../../syntax-tree/lib/src";
@@ -34,25 +34,46 @@ const LoadingContainer = styled.div`
     gap: 12px;
 `;
 
+const LoaderContainer = styled.div`
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    color: white;
+    position: absolute;
+    justify-self: anchor-center;
+    margin-top: 200px;
+`;
+
 interface ManageDependenciesProps {
     title: string;
-    dependencies: DependencyDetails[];
     type: string;
     onClose: () => void;
 }
 
 export function DependencyManager(props: ManageDependenciesProps) {
-    const { title, dependencies, type, onClose } = props;
+    const { title, type, onClose } = props;
     const { rpcClient } = useVisualizerContext();
-    const [dependencyList, setDependencyList] = useState<DependencyDetails[]>(dependencies);
+    const [dependencies, setDependencies] = useState<DependencyDetails[]>([]);
     const [isAddFormOpen, setIsAddFormOpen] = useState(false);
     const [connectors, setConnectors] = React.useState(undefined as any[]);
     const [inboundConnectors, setInboundConnectors] = React.useState([] as any[]);
     const [isUpdating, setIsUpdating] = useState(false);
+    const [isAddingDependency, setIsAddingDependency] = useState(false);
 
     useEffect(() => {
+        fetchDependencies();
         fetchConnectors();
     }, []);
+
+    const fetchDependencies = async () => {
+        const projectDetails = await rpcClient.getMiVisualizerRpcClient().getProjectDetails();
+        const dependencyList = title === 'Connector Dependencies' ? 
+            projectDetails.dependencies.connectorDependencies : title === 'Integration Project Dependencies' ? 
+            projectDetails.dependencies.integrationProjectDependencies : projectDetails.dependencies.otherDependencies;
+        setDependencies(dependencyList);
+    };
 
     const fetchConnectors = async () => {
         try {
@@ -70,172 +91,131 @@ export function DependencyManager(props: ManageDependenciesProps) {
         }
     };
 
-    const handleDeleteDependency = (dependency: DependencyDetails) => {
-        setDependencyList(prev => prev.filter(dep => dep !== dependency));
-    };
-
-    const handleUpdateDependencies = async () => {
+    const handleDeleteDependency = async (dependency: DependencyDetails) => {
         setIsUpdating(true);
-        const values = dependencyList;
 
-        const isSameRange = (range1: Range, range2: Range) => {
-            return range1?.start?.line === range2?.start?.line &&
-                range1?.start?.character === range2?.start?.character &&
-                range1?.end?.line === range2?.end?.line &&
-                range1?.end?.character === range2?.end?.character;
-        }
-
-        const updatedDependencies: any[] = [];
-        const removedDependencies: any[] = [];
-        for (const d of dependencies) {
-            let found = false;
-            for (const newDep of values as any[]) {
-                if (isSameRange(d.range, newDep.range)) {
-                    found = true;
-                    if (d.groupId !== newDep.groupId || d.artifact !== newDep.artifact || d.version !== newDep.version) {
-                        updatedDependencies.push({
-                            groupId: newDep.groupId,
-                            artifact: newDep.artifact,
-                            version: newDep.version,
-                            range: newDep.range,
-                            type: type
-                        });
-                    }
-                }
-            }
-            if (!found) {
-                removedDependencies.push(d);
-            }
-        }
-
-        const addedDependencies = (values as any[]).filter((dep) => { return dep.range === undefined }).map((dep) => {
-            return {
-                groupId: dep.groupId,
-                artifact: dep.artifact,
-                version: dep.version,
-                type: type
-            };
+        await rpcClient.getMiVisualizerRpcClient().updatePomValues({
+            pomValues: [{ range: dependency.range, value: '' }]
         });
 
-        const dependenciesToUpdate = [...updatedDependencies, ...addedDependencies];
-        if (dependenciesToUpdate.length > 0) {
-            await rpcClient.getMiVisualizerRpcClient().updateDependenciesFromOverview({
-                dependencies: dependenciesToUpdate
-            });
-        }
-        if (removedDependencies.length > 0) {
-            await rpcClient.getMiVisualizerRpcClient().updatePomValues({
-                pomValues: removedDependencies.map(dep => ({ range: dep.range, value: '' }))
-            });
-        }
         await rpcClient.getMiVisualizerRpcClient().reloadDependencies();
         await rpcClient.getMiDiagramRpcClient().formatPomFile();
 
-        setIsUpdating(false);
+        await fetchDependencies();
 
-        onClose();
+        setIsUpdating(false);
     };
 
-    const handleEditDependency = (
+
+    const handleEditDependency = async (
         prevDependency: DependencyDetails,
         updatedDependency: {
             groupId: string;
             artifact: string;
             version: string
         }) => {
-        setDependencyList(prev =>
-            prev.map(dep =>
-                dep === prevDependency
-                    ? {
-                        ...dep,
-                        groupId: updatedDependency.groupId,
-                        artifact: updatedDependency.artifact,
-                        version: updatedDependency.version
-                    }
-                    : dep
-            )
-        );
+
+        setIsUpdating(true);
+
+        const dependencyToUpdate = {
+            ...prevDependency,
+            groupId: updatedDependency.groupId,
+            artifact: updatedDependency.artifact,
+            version: updatedDependency.version
+        };
+
+        await rpcClient.getMiVisualizerRpcClient().updateDependenciesFromOverview({
+            dependencies: [dependencyToUpdate]
+        });
+        await rpcClient.getMiVisualizerRpcClient().reloadDependencies();
+        await rpcClient.getMiDiagramRpcClient().formatPomFile();
+
+        await fetchDependencies();
+
+        setIsUpdating(false);
     };
 
-    const isChanged = () => {
-        if (dependencyList.length !== dependencies.length) {
-            return true;
+    const handleAddDependency = async (
+        newDependency: { groupId: string; artifact: string; version: string }
+    ) => {
+
+        setIsAddingDependency(true);
+
+        const addedDependency = {
+            groupId: newDependency.groupId,
+            artifact: newDependency.artifact,
+            version: newDependency.version,
+            type: type as "zip" | "jar"
         }
 
-        return dependencyList.some((dep, index) => {
-            const originalDep = dependencies[index];
-            return dep.groupId !== originalDep.groupId ||
-                dep.artifact !== originalDep.artifact ||
-                dep.version !== originalDep.version;
+        await rpcClient.getMiVisualizerRpcClient().updateDependenciesFromOverview({
+            dependencies: [addedDependency]
         });
+
+        await rpcClient.getMiVisualizerRpcClient().reloadDependencies();
+        await rpcClient.getMiDiagramRpcClient().formatPomFile();
+
+        await fetchDependencies();
+
+        setIsAddingDependency(false);
+        setIsAddFormOpen(false);
     };
 
     return (
         <FormView title={title} onClose={onClose}>
-
             {isAddFormOpen ? (
                 <DependencyForm
                     groupId=""
                     artifact=""
                     version=""
                     title="Add Dependency"
+                    showLoader={isAddingDependency}
                     onClose={() => setIsAddFormOpen(false)}
                     onUpdate={(updatedDependency) => {
-                        setDependencyList(prev => [...prev, updatedDependency]);
-                        setIsAddFormOpen(false);
+                        handleAddDependency(updatedDependency);
                     }}
                 />
             ) : (
-                <div style={{ marginTop: '10px' }}>
-                    < LinkButton
-                        sx={{ padding: '0 5px', margin: '20px 0' }}
-                        onClick={() => setIsAddFormOpen(true)}
-                    >
-                        <Codicon name="add" />
-                        Add Dependency
-                    </LinkButton>
-                    {
-                        dependencyList.length === 0 ? (
-                            <Typography>No dependencies found</Typography>
-                        ) : (
-                            <div>
-                                {dependencyList.map((dependency, index) => (
-                                    <DependencyItem
-                                        key={`${dependency.groupId}-${dependency.artifact}-${index}`}
-                                        onEdit={(prevDependency, updatedDependency) =>
-                                            handleEditDependency(prevDependency, updatedDependency)
-                                        }
-                                        onDelete={(dependency) => handleDeleteDependency(dependency)}
-                                        onClose={onClose}
-                                        dependency={dependency}
-                                        connectors={connectors}
-                                        inboundConnectors={inboundConnectors} />
-                                ))}
-                            </div>
-                        )
-                    }
-                </div>
+                <>
+                    <div style={{ marginTop: '10px' }}>
+                        < LinkButton
+                            sx={{ padding: '0 5px', margin: '20px 0' }}
+                            onClick={() => setIsAddFormOpen(true)}
+                        >
+                            <Codicon name="add" />
+                            Add Dependency
+                        </LinkButton>
+                        {
+                            dependencies.length === 0 ? (
+                                <Typography>No dependencies found</Typography>
+                            ) : (
+                                <div>
+                                    {dependencies.map((dependency, index) => (
+                                        <DependencyItem
+                                            key={`${dependency.groupId}-${dependency.artifact}-${index}`}
+                                            onEdit={(updatedDependency) =>
+                                                handleEditDependency(dependency, updatedDependency)
+                                            }
+                                            onDelete={(dependency) => handleDeleteDependency(dependency)}
+                                            onClose={onClose}
+                                            dependency={dependency}
+                                            connectors={connectors}
+                                            inboundConnectors={inboundConnectors} />
+                                    ))}
+                                </div>
+                            )
+                        }
+                    </div>
+                    {isUpdating && (
+                        <>
+                            <Overlay sx={{ background: `${Colors.SURFACE_CONTAINER}`, opacity: `0.3`, zIndex: 2000 }} />
+                            <LoaderContainer>
+                                <ProgressRing sx={{ height: '32px', width: '32px' }} />
+                            </LoaderContainer>
+                        </>
+                    )}
+                </>
             )}
-            <FormActions>
-                <Button
-                    appearance="secondary"
-                    onClick={onClose}
-                >
-                    Cancel
-                </Button>
-                <Button
-                    appearance="primary"
-                    onClick={handleUpdateDependencies}
-                    disabled={isUpdating || !isChanged()}
-                >
-                    {isUpdating ? (
-                        <LoadingContainer style={{ padding: '0', justifyContent: 'flex-start' }}>
-                            <ProgressRing color={Colors.ON_PRIMARY} sx={{ height: '16px', width: '16px' }} />
-                            <span>Updating...</span>
-                        </LoadingContainer>
-                    ) : "Update Dependencies"}
-                </Button>
-            </FormActions>
         </FormView >
     );
 }

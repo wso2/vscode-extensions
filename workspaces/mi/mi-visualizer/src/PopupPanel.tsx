@@ -34,7 +34,6 @@ import path from 'path';
 import { ConnectionWizard } from './views/Forms/ConnectionForm';
 import AddConnection from './views/Forms/ConnectionForm/ConnectionFormGenerator';
 import { AddDriver } from './views/Popup/AddDriver';
-import { ManageDependencies } from './views/Overview/ProjectInformation/ManageDependencies';
 import { ProjectInformationForm } from './views/Overview/ProjectInformation/ProjectInformationForm';
 import { SequenceWizard } from './views/Forms/SequenceForm';
 import { RegistryResourceForm } from './views/Forms/RegistryResourceForm';
@@ -131,7 +130,6 @@ const PopupPanel = (props: { formState: PopupMachineStateValue, handleClose?: ()
                 case MACHINE_VIEW.ManageDependencies:
                     setViewComponent(<DependencyManager
                         onClose={props.handleClose}
-                        dependencies={machineSate.customProps.dependencies}
                         title={machineSate.customProps.title}
                         type={machineSate.customProps.type}
                     />

@@ -16,24 +16,9 @@
  * under the License.
  */
 import styled from "@emotion/styled";
-import { Button, Typography, Codicon, TextField } from "@wso2/ui-toolkit";
+import { Colors } from "@wso2/mi-diagram/lib/resources/constants";
+import { Button, Typography, Codicon, TextField, ProgressRing, Overlay } from "@wso2/ui-toolkit";
 import { useForm } from "react-hook-form";
-
-
-interface DependencyFormData {
-    groupId: string;
-    artifact: string;
-    version: string;
-}
-
-interface DependencyFormProps {
-    groupId: string;
-    artifact: string;
-    version: string;
-    title: string;
-    onClose: () => void;
-    onUpdate?: (updatedDependency: { groupId: string; artifact: string; version: string }) => void;
-}
 
 const FormContainer = styled.div`
     margin: 16px 0;
@@ -75,8 +60,36 @@ const FormActions = styled.div`
     border-top: 1px solid var(--vscode-editorWidget-border);
 `;
 
+const LoaderContainer = styled.div`
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    color: white;
+    position: absolute;
+    justify-self: anchor-center;
+    margin-top: 150px;
+`;
+
+interface DependencyFormData {
+    groupId: string;
+    artifact: string;
+    version: string;
+}
+
+interface DependencyFormProps {
+    groupId: string;
+    artifact: string;
+    version: string;
+    title: string;
+    onClose: () => void;
+    showLoader?: boolean;
+    onUpdate?: (updatedDependency: { groupId: string; artifact: string; version: string }) => void;
+}
+
 export function DependencyForm(props: DependencyFormProps) {
-    const { groupId, artifact, version, title, onClose, onUpdate } = props;
+    const { groupId, artifact, version, title, onClose, onUpdate, showLoader } = props;
 
     const { register, handleSubmit, formState: { errors } } = useForm<DependencyFormData>({
         defaultValues: {
@@ -112,32 +125,45 @@ export function DependencyForm(props: DependencyFormProps) {
                             label="Group ID"
                             {...register("groupId", { required: "Group ID is required" })}
                             errorMsg={errors.groupId?.message}
+                            disabled={showLoader}
                         />
                         <TextField
                             label="Artifact ID"
                             {...register("artifact", { required: "Artifact ID is required" })}
                             errorMsg={errors.artifact?.message}
+                            disabled={showLoader}
                         />
                         <TextField
                             label="Version"
                             {...register("version", { required: "Version is required" })}
                             errorMsg={errors.version?.message}
+                            disabled={showLoader}
                         />
                     </FormFieldsContainer>
 
                     <FormActions>
-                        <Button appearance="secondary" onClick={handleFormClose}>
+                        <Button appearance="secondary" onClick={handleFormClose} disabled={showLoader}>
                             Cancel
                         </Button>
                         <Button
                             appearance="primary"
                             onClick={handleSubmit(onSubmit)}
+                            disabled={showLoader}
                         >
                             {title === "Add Dependency" ? "Add Dependency" : "Save Changes"}
                         </Button>
                     </FormActions>
                 </FormContainer>
             </form>
+
+            {showLoader && (
+                <>
+                    <Overlay sx={{ background: `${Colors.SURFACE_CONTAINER}`, opacity: `0.3`, zIndex: 2000 }} />
+                    <LoaderContainer>
+                        <ProgressRing sx={{ height: '32px', width: '32px' }} />
+                    </LoaderContainer>
+                </>
+            )}
         </>
     );
 }

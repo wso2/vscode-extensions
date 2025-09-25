@@ -103,10 +103,10 @@ export function ProjectInformation(props: ProjectInformationProps) {
         });
     };
 
-    const openManageDependencies = (title: string, dependencies: DependencyDetails[], type: string) => {
+    const openManageDependencies = (title: string, type: string) => {
         rpcClient.getMiVisualizerRpcClient().openView({
             type: POPUP_EVENT_TYPE.OPEN_VIEW,
-            location: { view: MACHINE_VIEW.ManageDependencies, customProps: { title, dependencies, type } },
+            location: { view: MACHINE_VIEW.ManageDependencies, customProps: { title, type } },
             isPopup: true
         });
     }
@@ -144,7 +144,7 @@ export function ProjectInformation(props: ProjectInformationProps) {
                         onChange(values);
                     }}
                 />}
-            <VSCodeLink onClick={() => openManageDependencies(title, dependencies, type)}>
+            <VSCodeLink onClick={() => openManageDependencies(title, type)}>
                 <div style={{
                     display: 'flex',
                     padding: '10px 0 0'
