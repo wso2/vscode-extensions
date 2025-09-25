@@ -293,16 +293,16 @@ jobs:
           # Exclude MI jobs if not running E2E tests and not on release-mi
           - name: MI
             group: group1
-            if: ${{ !inputs.runE2ETests && github.base_ref != 'release-mi' }}
+            if: ${{ !inputs.runE2ETests || github.base_ref != 'release-mi' }}
           - name: MI
             group: group2
-            if: ${{ !inputs.runE2ETests && github.base_ref != 'release-mi' }}
+            if: ${{ !inputs.runE2ETests || github.base_ref != 'release-mi' }}
           - name: MI
             group: group3
-            if: ${{ !inputs.runE2ETests && github.base_ref != 'release-mi' }}
+            if: ${{ !inputs.runE2ETests || github.base_ref != 'release-mi' }}
           - name: MI
             group: group4
-            if: ${{ !inputs.runE2ETests && github.base_ref != 'release-mi' }}
+            if: ${{ !inputs.runE2ETests || github.base_ref != 'release-mi' }}
           - name: BI
             group: group1
             if: true
