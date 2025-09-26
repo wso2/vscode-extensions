@@ -29,8 +29,8 @@ import {
 import { CodeSegment } from "./CodeSegment";
 import { splitContent } from "../utils";
 import { useMICopilotContext } from "./MICopilotContext";
-import { MarkdownRendererProps, ChatMessage, CopilotChatEntry } from "../types";
-import { Role, MessageType } from "../types";
+import { MarkdownRendererProps } from "../types";
+import { Role, MessageType, ChatMessage, CopilotChatEntry } from "@wso2/mi-core";
 import Attachments from "./Attachments";
 
 // Markdown renderer component
