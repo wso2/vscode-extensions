@@ -112,19 +112,6 @@ const ButtonContainer = styled.div`
     margin-top: 4px;
 `;
 
-const PredefinedButton = styled(Button)<{ selected?: boolean }>`
-    background: ${({ selected = false }: { selected?: boolean }) =>
-        selected ? "var(--vscode-button-background)" : "var(--vscode-editorWidget-background)"};
-    color: var(--vscode-button-foreground);
-    border: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.1));
-    box-shadow: none;
-    &:hover {
-        background: var(--vscode-button-hoverBackground);
-    }
-`;
-
-const predefinedFeedbacks = ["The code has errors", "The response is too long", "The response was too slow"];
-
 interface FeedbackDialogProps {
     isPositive: boolean;
     messageIndex: number;
@@ -135,11 +122,6 @@ interface FeedbackDialogProps {
 const FeedbackDialog: React.FC<FeedbackDialogProps> = ({ isPositive, messageIndex, onCancel, onSubmit }) => {
     const [feedbackText, setFeedbackText] = useState("");
     const [selectedFeedback, setSelectedFeedback] = useState<string | null>(null);
-
-    const handlePredefinedClick = (feedback: string) => {
-        setSelectedFeedback(feedback);
-        setFeedbackText(feedback);
-    };
 
     return (
         <Overlay>

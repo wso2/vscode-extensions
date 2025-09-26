@@ -5942,7 +5942,7 @@ ${keyValuesXML}`;
 
     async submitFeedback(params: SubmitFeedbackRequest): Promise<SubmitFeedbackResponse> {
         try {
-            const { positive, messages, feedbackText, messageIndex, timestamp } = params;
+            const { positive, messages, feedbackText } = params;
             
             // Get the feedback backend URL from environment
             const feedbackUrl = process.env.MI_COPILOT_FEEDBACK;
@@ -5960,7 +5960,7 @@ ${keyValuesXML}`;
                 content: msg.content,
                 role: msg.role === 'user' ? 'user' : 'assistant',
                 message_order: index + 1,
-                command: 'chat'
+                command: msg.command ?? 'chat'
             }));
 
             // Create the payload matching the backend's AnalyticsPayload format

@@ -16,12 +16,12 @@
  * under the License.
  */
 
-import { ChatMessage, CopilotChatEntry, Role } from '../types';
+import { ChatMessage, CopilotChatEntry, Role, FeedbackMessage } from '../types';
 
 /**
  * Helper function to convert conversation history for feedback submission
  */
-export const getConversationHistoryForFeedback = (messages: ChatMessage[], messageIndex: number, isPositive: boolean): any[] => {
+export const getConversationHistoryForFeedback = (messages: ChatMessage[], messageIndex: number): FeedbackMessage[] => {
     // Get all messages up to the specified index
     const messagesToInclude = messages.slice(0, messageIndex + 1);
 
@@ -40,7 +40,7 @@ export const getConversationHistoryForFeedback = (messages: ChatMessage[], messa
 /**
  * Helper function to extract relevant information from copilot chat entries for feedback
  */
-export const getCopilotChatForFeedback = (copilotChat: CopilotChatEntry[], messageIndex: number): any[] => {
+export const getCopilotChatForFeedback = (copilotChat: CopilotChatEntry[], messageIndex: number): FeedbackMessage[] => {
     // Get all copilot chat entries up to the message index
     const entriesToInclude = copilotChat.slice(0, messageIndex + 1);
 
