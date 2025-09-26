@@ -197,31 +197,32 @@ export async function createProject(page: ExtendedPage, projectName?: string) {
 
 export function initTest(newProject: boolean = false, skipProjectCreation: boolean = false, cleanupAfter?: boolean, projectName?: string) {
     test.beforeAll(async ({ }, testInfo) => {
-        console.log(`>>> Starting tests. Title: ${testInfo.title}, Attempt: ${testInfo.retry + 1}`);
+        console.log(`\n▶️  STARTING TEST: ${testInfo.title} (Attempt ${testInfo.retry + 1})`);
         if (!existsSync(path.join(newProjectPath, projectName ?? 'testProject')) || newProject) {
             if (fs.existsSync(newProjectPath)) {
                 fs.rmSync(newProjectPath, { recursive: true });
             }
             fs.mkdirSync(newProjectPath, { recursive: true });
-            console.log('Starting VSCode');
+            console.log('  📦 Starting VSCode...');
             await initVSCode();
             if (!skipProjectCreation) {
                 await createProject(page, projectName);
             }
         } else {
-            console.log('Resuming VSCode');
+            console.log('  🔄 Resuming VSCode...');
             await resumeVSCode();
             await page.page.waitForLoadState();
             await toggleNotifications(true);
         }
-        console.log('Test runner started');
+        console.log('  ✅ Test environment ready');
     });
 
     test.afterAll(async ({ }, testInfo) => {
         if (cleanupAfter && fs.existsSync(newProjectPath)) {
             fs.rmSync(newProjectPath, { recursive: true });
         }
-        console.log(`>>> Finished ${testInfo.title} with status: ${testInfo.status}, Attempt: ${testInfo.retry + 1}`);
+        const statusEmoji = testInfo.status === 'passed' ? '✅' : testInfo.status === 'failed' ? '❌' : '⏭️';
+        console.log(`${statusEmoji} FINISHED TEST: ${testInfo.title} (${testInfo.status.toUpperCase()}, Attempt ${testInfo.retry + 1})\n`);
     });
 }
 
@@ -245,7 +246,7 @@ export function initMigrationTest() {
         await initVSCode();
         await page.page.waitForLoadState();
         await toggleNotifications(true);
-        
+
         // Reload VS Code to apply the language server setting
         await page.executePaletteCommand('Reload Window');
         await page.page.waitForLoadState();
