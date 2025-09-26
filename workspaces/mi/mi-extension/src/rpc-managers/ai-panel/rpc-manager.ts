@@ -269,8 +269,6 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
         try {
             // Extract XML code blocks from the response
             const xmlCodes = this.extractXmlCodeBlocks(assistantResponse);
-            console.log("Extracted XML Codes for Diagnostics:", xmlCodes);
-            console.log(assistantResponse);
             
             if (xmlCodes.length === 0) {
                 return; // No XML code blocks to process
