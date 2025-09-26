@@ -508,7 +508,6 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                             const values = getValues();
                             schema.validate(values, { abortEarly: false })
                                 .then(() => clearErrors())
-                                .catch(err => { console.log(err);});
                         }
                     })}
                 />
@@ -523,7 +522,6 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                                 const values = getValues();
                                 schema.validate(values, { abortEarly: false })
                                     .then(() => clearErrors())
-                                    .catch(err => {console.log(err);});
                             }
                         })}
                     />
