@@ -2213,6 +2213,26 @@ export interface XmlCode{
     code: string;
 }
 
+export interface SubmitFeedbackRequest {
+    positive: boolean;
+    messages: FeedbackMessage[];
+    feedbackText?: string;
+    messageIndex?: number;
+    conversationId?: string;
+    timestamp?: number;
+}
+
+export interface SubmitFeedbackResponse {
+    success: boolean;
+    message?: string;
+}
+
+export interface FeedbackMessage {
+    content: string;
+    role: 'user' | 'assistant';
+    id?: number;
+}
+
 export interface GetPomFileContentResponse{
     content: string;
 }

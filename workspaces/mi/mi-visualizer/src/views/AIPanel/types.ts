@@ -105,3 +105,9 @@ export interface CorrectedCodeItem {
     fileName: string;
     code: string;
 }
+
+export interface FeedbackMessage {
+    content: string;
+    role: string;
+    id?: number;
+}
