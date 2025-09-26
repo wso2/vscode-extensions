@@ -34,7 +34,6 @@ import path from 'path';
 import { ConnectionWizard } from './views/Forms/ConnectionForm';
 import AddConnection from './views/Forms/ConnectionForm/ConnectionFormGenerator';
 import { AddDriver } from './views/Popup/AddDriver';
-import { ManageDependencies } from './views/Overview/ProjectInformation/ManageDependencies';
 import { ProjectInformationForm } from './views/Overview/ProjectInformation/ProjectInformationForm';
 import { SequenceWizard } from './views/Forms/SequenceForm';
 import { RegistryResourceForm } from './views/Forms/RegistryResourceForm';
@@ -47,6 +46,7 @@ import { DataServiceWizard } from './views/Forms/DataServiceForm/MainPanelForms'
 import { DataSourceWizard } from './views/Forms/DataSourceForm';
 import { ImportConnectorForm } from './views/Forms/ConnectionForm/ImportConnector';
 import { CreateIdpConnectorSchema } from './views/Forms/IDPConnectorForm/CreateIdpConnectorSchema';
+import { DependencyManager } from './views/Overview/ProjectInformation/DependencyManager';
 
 const ViewContainer = styled.div`
     
@@ -128,9 +128,8 @@ const PopupPanel = (props: { formState: PopupMachineStateValue, handleClose?: ()
                     setViewComponent(<AddDriver handlePopupClose={props.handleClose} path={machineSate.documentUri} identifier={machineSate.customProps.identifier} />);
                     break;
                 case MACHINE_VIEW.ManageDependencies:
-                    setViewComponent(<ManageDependencies
+                    setViewComponent(<DependencyManager
                         onClose={props.handleClose}
-                        dependencies={machineSate.customProps.dependencies}
                         title={machineSate.customProps.title}
                         type={machineSate.customProps.type}
                     />

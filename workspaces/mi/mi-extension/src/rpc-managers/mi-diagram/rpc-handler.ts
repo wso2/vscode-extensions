@@ -320,7 +320,8 @@ import {
     isKubernetesConfigured,
     UpdateRegistryPropertyRequest,
     updatePropertiesInArtifactXML,
-    getPropertiesFromArtifactXML
+    getPropertiesFromArtifactXML,
+    formatPomFile
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
 import { MiDiagramRpcManager } from "./rpc-manager";
@@ -470,6 +471,7 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(getMIVersionFromPom, () => rpcManger.getMIVersionFromPom());
     messenger.onNotification(openDependencyPom, (args: OpenDependencyPomRequest) => rpcManger.openDependencyPom(args));
     messenger.onRequest(getAllDependencies, (args: getAllDependenciesRequest) => rpcManger.getAllDependencies(args));
+    messenger.onRequest(formatPomFile, () => rpcManger.formatPomFile());
     messenger.onRequest(testDbConnection, (args: TestDbConnectionRequest) => rpcManger.testDbConnection(args));
     messenger.onNotification(markAsDefaultSequence, (args: MarkAsDefaultSequenceRequest) => rpcManger.markAsDefaultSequence(args));
     messenger.onRequest(getSubFolderNames, (args: GetSubFoldersRequest) => rpcManger.getSubFolderNames(args));
