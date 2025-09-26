@@ -16,14 +16,10 @@
  * under the License.
  */
 
-import { expect, Frame, test } from '@playwright/test';
-import { addArtifact, initTest, page } from '../utils';
+import { expect, test } from '@playwright/test';
+import { initTest, page } from '../utils';
 import { switchToIFrame } from '@wso2/playwright-vscode-tester';
-import { Diagram } from '../components/Diagram';
-import { SidePanel } from '../components/SidePanel';
-import { DataMapperUtils, testBasicMappings, updateProjectFileSync, verifyFileContentSync } from './DataMapperUtils';
-import { ProjectExplorer } from '../ProjectExplorer';
-import path from 'path';
+import { testBasicMappings, updateProjectFileSync } from './DataMapperUtils';
 
 export default function createTests() {
     test.describe('Reusable Data Mapper Tests', {

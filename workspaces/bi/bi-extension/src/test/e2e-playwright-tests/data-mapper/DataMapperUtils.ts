@@ -104,6 +104,7 @@ export class DataMapperUtils {
     public async expandField(fieldFQN: string) {
         const expandButton = this.webView.locator(`div[id="recordfield-${fieldFQN}"]`).getByTitle('Expand/Collapse');
         await expandButton.click();
+        await expandButton.locator('.codicon-chevron-down').waitFor();
     }
 
     public async mapFields(sourceFieldFQN: string, targetFieldFQN: string, menuOptionId?: string) {
@@ -244,7 +245,12 @@ export function updateProjectFileSync(sourceFile: string, targetFile: string) {
     fs.writeFileSync(targetPath, fs.readFileSync(sourcePath, 'utf8'));
 }
 
-export function verifyFileContentSync(comparingFile: string, projectFile: string) {
+export async function verifyFileContent(comparingFile: string, projectFile: string) {
+
+    // // Uncomment this blcok for update data files
+    // console.log({comparingFile, projectFile});
+    // await page.page.pause();
+
     return compareFilesSync(
         path.join(dmDataDir, comparingFile),
         path.join(projectDir, projectFile)
@@ -252,8 +258,8 @@ export function verifyFileContentSync(comparingFile: string, projectFile: string
 }
 
 export function compareFilesSync(file1: string, file2: string) {
-    const file1Content = fs.readFileSync(file1, 'utf8');
-    const file2Content = fs.readFileSync(file2, 'utf8');
+    const file1Content =  fs.readFileSync(file1, 'utf8').replaceAll('\r\n', '\n');
+    const file2Content =  fs.readFileSync(file2, 'utf8').replaceAll('\r\n', '\n');
 
     return file1Content === file2Content;
 }
@@ -266,8 +272,26 @@ export async function testBasicMappings(dmWebView: Frame, projectFile: string, c
     await dm.waitFor();
 
     console.log('- Test direct mappings');
+
+
     await dm.expandField('input');
 
+    console.log(' - Test direct - root');
+
+    // root mapping
+    await dm.mapFields('input', 'objectOutput.output', 'direct');
+    const locRoot = dmWebView.getByTestId('link-from-input.OUT-to-objectOutput.output.IN');
+    await dm.expectErrorLink(locRoot);
+
+    expect(await verifyFileContent(`basic/${compDir}/map1.bal.txt`, projectFile)).toBeTruthy();
+    // delete root mapping
+    await locRoot.click({ force: true });
+    await dmWebView.getByTestId('expression-label-for-input.OUT-to-objectOutput.output.IN').locator('.codicon-trash').click({ force: true });
+    await locRoot.waitFor({ state: 'detached' });
+
+    expect(await verifyFileContent(`basic/${compDir}/del1.bal.txt`, projectFile)).toBeTruthy();
+
+    console.log(' - Test direct - fields');
     // direct mapping
     // objectOutput.output.oPrimDirect = input.iPrimDirect;
     await dm.mapFields('input.iPrimDirect', 'objectOutput.output.oPrimDirect');
@@ -388,8 +412,8 @@ export async function testBasicMappings(dmWebView: Frame, projectFile: string, c
     // await dmWebView.getByTestId('back-button').click();
     // await dm.waitFor();
 
-    await page.page.pause();
-    expect(verifyFileContentSync(`basic/${compDir}/map.bal.txt`, projectFile)).toBeTruthy();
+    // await page.page.pause();
+    expect(await verifyFileContent(`basic/${compDir}/map2.bal.txt`, projectFile)).toBeTruthy();
 
     console.log('- Test basic mapping delete');
     // await dm.expandField('input');
@@ -423,10 +447,10 @@ export async function testBasicMappings(dmWebView: Frame, projectFile: string, c
     // await loc6.locator('.codicon-trash').click({ force: true });
     // await loc6.waitFor({ state: 'detached' });
 
-    await page.page.pause();
+    // await page.page.pause();
 
 
-    expect(verifyFileContentSync(`basic/${compDir}/del.bal.txt`, projectFile)).toBeTruthy();
+    expect(await verifyFileContent(`basic/${compDir}/del2.bal.txt`, projectFile)).toBeTruthy();
 
     console.log('Finished Testing Basic Mappings');
 
