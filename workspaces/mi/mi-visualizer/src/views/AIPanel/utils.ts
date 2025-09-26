@@ -56,14 +56,7 @@ export async function getProjectUUID(rpcClient: RpcClientType): Promise<string |
             console.error('Failed to fetch project UUID:', error);
             return undefined;
         }
-    }
-
-// Add set of code blocks to the workspace
-export async function handleAddtoWorkspace(rpcClient: RpcClientType, codeBlocks: string[]) {
-    await rpcClient.getMiDiagramRpcClient().writeContentToFile({ content: codeBlocks })
-
-    rpcClient.getMiDiagramRpcClient().executeCommand({ commands: ["MI.project-explorer.refresh"] });
-};    
+    }   
 
 // Add a selected code to the workspace
 export async function handleAddSelectiveCodetoWorkspace(rpcClient: RpcClientType, codeSegment: string) {
@@ -280,7 +273,7 @@ export async function generateSuggestions(
     chatHistory: CopilotChatEntry[],
     rpcClient: RpcClientType,
     controller: AbortController
-): Promise<ChatMessage[]> {
+): Promise<string[]> {
     try {
         // Use RPC call to extension - extension handles all backend communication
         const response = await rpcClient.getMiAiPanelRpcClient().generateSuggestions({
@@ -290,12 +283,7 @@ export async function generateSuggestions(
         // Check if we got a valid response
         if (response.response) {
             // If the response contains a single suggestion, convert it to the expected format
-            return [{
-                id: generateId(),
-                role: Role.default,
-                content: response.response,
-                type: MessageType.Question,
-            }];
+            return [response.response];
         } else {
             console.error("Error generating suggestions: Empty response from extension");
             return [];
@@ -387,8 +375,6 @@ export function convertChat(entry: CopilotChatEntry): ChatMessage {
 }
 
 export async function fetchCodeGenerationsWithRetry(
-    url: string,
-    isRutimeVersionThresholdReached: boolean,
     chatHistory: CopilotChatEntry[],
     files: FileObject[],
     images: ImageObject[],

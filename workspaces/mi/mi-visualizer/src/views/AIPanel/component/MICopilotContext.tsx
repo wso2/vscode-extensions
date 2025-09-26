@@ -44,16 +44,15 @@ import {
 // MI Copilot context type
 interface MICopilotContextType {
     rpcClient: RpcClientType;
-    backendUri: string;
     projectRuntimeVersion: string;
     isRuntimeVersionThresholdReached: boolean;
     projectUUID: string;
 
     // State for showing communication in UI
     messages: ChatMessage[];
-    questions: ChatMessage[];
+    questions: string[];
     setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
-    setQuestions: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
+    setQuestions: React.Dispatch<React.SetStateAction<string[]>>;
 
     // State for communication with backend
     copilotChat: CopilotChatEntry[];
@@ -113,7 +112,6 @@ const localStorageKeys = {
 export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     const { rpcClient } = useVisualizerContext();
 
-    const [backendUri, setBackendUri] = useState("");
     const [projectRuntimeVersion, setProjectRuntimeVersion] = useState("");
     const [isRuntimeVersionThresholdReached, setIsRuntimeVersionThresholdReached] = useState(false);
     const [projectUUID, setProjectUUID] = useState("");
@@ -121,7 +119,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
 
     // UI related Data
     const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [questions, setQuestions] = useState<ChatMessage[]>([]);
+    const [questions, setQuestions] = useState<string[]>([]);
     // Backend related Data
     const [copilotChat, setCopilotChat] = useState<CopilotChatEntry[]>([]);
     const [codeBlocks, setCodeBlocks] = useState<string[]>([]);
@@ -148,8 +146,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     useEffect(() => {
         const initializeContext = async () => {
             if (rpcClient) {
-                const url = await fetchBackendUrl(rpcClient);
-                setBackendUri(url);
 
                 const runtimeVersion = await getProjectRuntimeVersion(rpcClient);
                 setProjectRuntimeVersion(runtimeVersion);
@@ -192,15 +188,12 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
 
                     const getQuestions = async () => {
                         if (storedQuestion) {
-                            setMessages((prevMessages) => [
-                                ...prevMessages,
-                                { role: Role.default, content: storedQuestion, type: MessageType.Question },
-                            ]);
+                            setQuestions((prevMessages) => [...prevMessages, storedQuestion]);
                         } else {
                             generateSuggestions(copilotChat, rpcClient, controller).then((response) => {
                                 response.length > 0
                                     ? setQuestions((prevMessages) => [...prevMessages, ...response])
-                                    : null;
+                                    : "";
                                 setBackendRequestTriggered(false);
                             });
                         }
@@ -274,7 +267,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     useMemo(() => {
         if (!isLoading && !backendRequestTriggered) {
             localStorage.setItem(localStorageKeys.chatFile, JSON.stringify(copilotChat));
-            localStorage.setItem(localStorageKeys.questionFile, questions[questions.length - 1]?.content || "");
+            localStorage.setItem(localStorageKeys.questionFile, questions[questions.length - 1] || "");
             localStorage.setItem(localStorageKeys.codeBlocks, JSON.stringify(codeBlocks));
         }
     }, [isLoading, backendRequestTriggered]);
@@ -287,7 +280,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
 
     const currentContext: MICopilotContextType = {
         rpcClient,
-        backendUri,
         projectRuntimeVersion,
         isRuntimeVersionThresholdReached,
         projectUUID,

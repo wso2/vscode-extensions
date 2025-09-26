@@ -34,21 +34,18 @@ import { json } from "stream/consumers";
  */
 const AIChatFooter: React.FC = () => {
     const {
-        backendUri,
         rpcClient,
+        messages,
         setMessages,
         setQuestions,
         copilotChat,
         setCopilotChat,
-        codeBlocks,
-        setCodeBlocks,
         currentUserPrompt,
         setCurrentUserprompt,
         backendRequestTriggered,
         setBackendRequestTriggered,
         isInitialPromptLoaded,
         setIsInitialPromptLoaded,
-        isRuntimeVersionThresholdReached,
         questions,
         files,
         setFiles,
@@ -81,27 +78,6 @@ const AIChatFooter: React.FC = () => {
     const [currentChatId, setCurrentChatId] = useState<number | null>(null);
     const [assistantResponse, setAssistantResponse] = useState<string>("");
 
-    // List of programming languages to filter for actual code files (Kept it as a list for extensibility)
-    const codeLanguages = [
-        'xml'
-    ];
-
-    // Function to extract code content from a code block
-    const extractCodeContent = (codeBlock: string): { language: string, code: string } | null => {
-        // Match the language identifier and code content
-        const match = codeBlock.match(/```([\w#+]*)\s*\n([\s\S]*?)```/);
-        if (!match) return null;
-
-        const language = match[1].trim().toLowerCase();
-        const code = match[2];
-
-        // Check if this is an actual code file (not JSON examples or other non-code content)
-        if (codeLanguages.includes(language)) {
-            return { language, code };
-        }
-        return null;
-    };
-
     const toggleThinkingSelection = () => {
         setChecked(!thinkingChecked);
     };
@@ -118,31 +94,24 @@ const AIChatFooter: React.FC = () => {
             case "content_block":
                 // Handle streaming content blocks
                 if (event.content) {
-                    const response = JSON.parse(event.content); 
+                    const response = JSON.parse(event.content);
                     if (response.content !== null && response.content !== undefined) {
                         setAssistantResponse(prev => {
                             const content = response.content;
                             // Update the last copilot message in real-time
                             setMessages((prevMessages) => {
                                 const newMessages = [...prevMessages];
-                                if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === Role.MICopilot) {
-                                    // Update the last copilot message
-                                    newMessages[newMessages.length - 1].content += content;
-                                } else {
-                                    // Add new copilot message
-                                    newMessages.push({
-                                        id: currentChatId || generateId(),
-                                        role: Role.MICopilot,
-                                        content: content,
-                                        type: MessageType.AssistantMessage
-                                    });
-                                }
+                                newMessages[newMessages.length - 1].content += content;
                                 return newMessages;
                             });
                             return content;
                         });
+                    } 
+                    else if (response.questions.length > 0) {
+                        console.log(response.questions);
+                        setQuestions((prevQuestions) => [...prevQuestions, ...response.questions]);
                     }
-                }
+                } 
                 break;
             
             case "code_generation_end":
@@ -231,11 +200,14 @@ const AIChatFooter: React.FC = () => {
         ]);
 
         // Generate suggestions
-        generateSuggestions(copilotChat, rpcClient, new AbortController()).then((response) => {
-            setMessages((prevMessages) => [...prevMessages, ...response]);
-        });
+        // Disable suggestion generation for now
+        // generateSuggestions(copilotChat, rpcClient, new AbortController()).then((response) => {
+        //     setQuestions((prevMessages) => [...prevMessages, ...response]);
+        // });
 
         setBackendRequestTriggered(false);
+
+        console.log(questions);
     };
 
     // Handle text input keydown events
@@ -360,14 +332,11 @@ const AIChatFooter: React.FC = () => {
         }
 
         const { backendUrl, view } = await getBackendUrlAndView(rpcClient);
-        const url = backendUri + backendUrl;
 
         try {
             // Call the RPC method for streaming code generation
             // The streaming will be handled via events in handleCodeGenerationEvent
             await fetchCodeGenerationsWithRetry(
-                url,
-                isRuntimeVersionThresholdReached,
                 currentCopilotChat,
                 files,
                 images,
