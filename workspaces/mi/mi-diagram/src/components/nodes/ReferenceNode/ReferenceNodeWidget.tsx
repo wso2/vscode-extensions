@@ -98,6 +98,7 @@ export function ReferenceNodeWidget(props: ReferenceNodeWidgetProps) {
     const tooltip = hasDiagnotics ? node.getDiagnostics().map(diagnostic => diagnostic.message).join("\n") : undefined;
     const [definition, setDefinition] = useState<GetDefinitionResponse>(undefined);
     const [canOpenView, setCanOpenView] = useState(false);
+    const [fromDepenndency, setFromDependency] = useState(false);
     const referenceKey = node.referenceName?.split("=")[0];
     const referenceValue = node.referenceName?.split("=")[1];
     const isClickable = referenceKey !== "sequence" && referenceKey !== "inSequence" && referenceKey !== "outSequence" && referenceKey !== "faultSequence" && node.stNode.tag !== "target";
@@ -161,9 +162,11 @@ export function ReferenceNodeWidget(props: ReferenceNodeWidgetProps) {
                 },
                 position: definitionPosition
             });
-            if (definition) {
+            if (definition.uri && definition.range) {
                 setDefinition(definition);
                 setCanOpenView(true);
+            } else if (definition.fromDependency) {
+                setFromDependency(true);
             }
         }
     }
@@ -236,7 +239,7 @@ export function ReferenceNodeWidget(props: ReferenceNodeWidgetProps) {
                                 </Header>
                                 <Body>
                                     <Tooltip content={description} position={'bottom'} >
-                                        <Description onClick={handleOpenView} isError={!canOpenView} selectable={canOpenView}>{description}</Description>
+                                        <Description onClick={handleOpenView} isError={!canOpenView && !fromDepenndency} selectable={canOpenView && !fromDepenndency}>{description}</Description>
                                     </Tooltip>
                                 </Body>
                             </Content>
