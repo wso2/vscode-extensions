@@ -77,6 +77,7 @@ jobs:
       runMIExtTests: ${{ steps.testMatrix.outputs.runMIExtTests }}
       runAPKExtTests: ${{ steps.testMatrix.outputs.runAPKExtTests }}
       runBIExtTests: ${{ steps.testMatrix.outputs.runBIExtTests }}
+      uiTestMatrix: ${{ steps.testMatrix.outputs.uiTestMatrix }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -150,21 +151,21 @@ jobs:
           echo "runMIExtTests=${{ steps.diff.outputs.hasMIDiff }}" >> $GITHUB_OUTPUT
 
           # Dynamically set the matrix for UI tests
-          matrix=$(jq -n --arg os "${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}" '{"include": [], "os": [$os]}')
+          matrix=$(jq -n '{"include": []}')
 
           if [[ "${{ inputs.runE2ETests }}" == "true" || "${{ github.base_ref }}" == "release-mi" ]]; then
             echo "Including MI UI tests in the matrix"
             matrix=$(echo "$matrix" | jq '.include += [
-              {"name": "MI", "group": "group1", "path": "mi/mi-extension"},
-              {"name": "MI", "group": "group2", "path": "mi/mi-extension"},
-              {"name": "MI", "group": "group3", "path": "mi/mi-extension"},
-              {"name": "MI", "group": "group4", "path": "mi/mi-extension"}
+              {"name": "MI", "group": "group1", "path": "mi/mi-extension", "os": 'linux' }}},
+              {"name": "MI", "group": "group2", "path": "mi/mi-extension", "os": 'linux' }}},
+              {"name": "MI", "group": "group3", "path": "mi/mi-extension", "os": 'linux' }}},
+              {"name": "MI", "group": "group4", "path": "mi/mi-extension", "os": 'linux' }}}
             ]')
           fi
 
           # if [[ "${{ inputs.runE2ETests }}" == "true" || "${{ github.base_ref }}" == "release-bi" || "${{ github.base_ref }}" == "release-ballerina" ]]; then
           #   echo "Including BI UI tests in the matrix"
-          #   matrix=$(echo "$matrix" | jq '.include += [{"name": "BI", "group": "group1", "path": "bi/bi-extension"}]')
+          #   matrix=$(echo "$matrix" | jq '.include += [{"name": "BI", "group": "group1", "path": "bi/bi-extension", "os": 'linux' }}}]')
           # fi
 
           # Write the matrix as a single-line JSON to GITHUB_OUTPUT
@@ -289,7 +290,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.Build_Stage.outputs.uiTestMatrix) }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ ((matrix.os == 'linux' && inputs.runOnAWS) && inputs.awsRunnerId )|| (matrix.os == 'linux' && 'ubuntu-latest') || (matrix.os == 'windows' && 'windows-latest') }}
     steps:
       - name: Restore build
         uses: actions/download-artifact@v4
