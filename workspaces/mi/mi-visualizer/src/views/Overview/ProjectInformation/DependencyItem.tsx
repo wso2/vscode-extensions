@@ -179,7 +179,9 @@ export function DependencyItem(props: DependencyItemProps) {
                     }}
                 />
             ) : (
-                <Container key={`${dependency.groupId}-${dependency.artifact}-${dependency.version}`}>
+                <Container
+                    key={`${dependency.groupId}-${dependency.artifact}-${dependency.version}`}
+                    data-testid={`${dependency.groupId}-${dependency.artifact}-${dependency.version}`}>
                     <IconContainer>
                         <Codicon name="package" sx={{ color: 'var(--vscode-badge-background)' }} iconSx={{ fontSize: 20 }} />
                     </IconContainer>
