@@ -96,19 +96,21 @@ const AIChatFooter: React.FC = () => {
                 if (event.content) {
                     const response = JSON.parse(event.content);
                     if (response.content !== null && response.content !== undefined) {
-                        setAssistantResponse(prev => {
-                            const content = response.content;
-                            // Update the last copilot message in real-time
-                            setMessages((prevMessages) => {
-                                const newMessages = [...prevMessages];
+                        const content = response.content;
+                        
+                        // Update assistant response state
+                        setAssistantResponse(prev => prev + content);
+                        
+                        // Update the last copilot message in real-time
+                        setMessages((prevMessages) => {
+                            const newMessages = [...prevMessages];
+                            if (newMessages.length > 0) {
                                 newMessages[newMessages.length - 1].content += content;
-                                return newMessages;
-                            });
-                            return content;
+                            }
+                            return newMessages;
                         });
                     } 
-                    else if (response.questions.length > 0) {
-                        console.log(response.questions);
+                    else if (response.questions && response.questions.length > 0) {
                         setQuestions((prevQuestions) => [...prevQuestions, ...response.questions]);
                     }
                 } 
@@ -206,8 +208,6 @@ const AIChatFooter: React.FC = () => {
         // });
 
         setBackendRequestTriggered(false);
-
-        console.log(questions);
     };
 
     // Handle text input keydown events
