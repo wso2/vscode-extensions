@@ -97,7 +97,18 @@ const AIChatFooter: React.FC = () => {
                     const response = JSON.parse(event.content);
                     if (response.content !== null && response.content !== undefined) {
                         const content = response.content;
-                        
+                        const usage = response.usage;
+
+                        if (usage.max_usage == -1) {
+                            setRemainingTokenPercentage(-1);
+                        } else {
+                            const remainingTokens = Number(usage.remaining_tokens);
+                            const maxTokens = Number(usage.max_usage);
+                            let percentage = Math.round((remainingTokens / maxTokens) * 100);
+                            if (percentage < 0) percentage = 0;
+                            setRemainingTokenPercentage(percentage);
+                        }
+                    
                         // Update assistant response state
                         setAssistantResponse(prev => prev + content);
                         
