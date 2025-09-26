@@ -17,10 +17,11 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { Button, FormView, FormActions, Typography, Dialog, ProgressIndicator } from "@wso2/ui-toolkit";
+import { Button, FormView, FormActions, Typography, ProgressIndicator } from "@wso2/ui-toolkit";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { EVENT_TYPE, MACHINE_VIEW, IOType, AI_EVENT_TYPE } from "@wso2/mi-core";
 import styled from "@emotion/styled";
+import { AuthenticationDialog, useAuthentication } from "../../components/AuthenticationDialog";
 
 const MessageContainer = styled.div`
     display: flex;
@@ -113,8 +114,24 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
     const { rpcClient } = useVisualizerContext();
     const [isConverting, setIsConverting] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    const [showSignInConfirm, setShowSignInConfirm] = useState(false);
-    const [pendingOperation, setPendingOperation] = useState<any>(null);
+
+    // Use the authentication hook
+    const {
+        showSignInConfirm,
+        checkAuthentication,
+        openSignInView,
+        closeSignInView
+    } = useAuthentication({
+        operationType: 'dataMapperMigration',
+        sessionStorageKey: 'pendingDataMapperMigrationOperation'
+    });
+
+    const handleAuthenticationSuccess = async (formValues: any) => {
+        // Setting a timeout for the view to load
+        setTimeout(async () => {
+            await handleContinue();
+        }, 1000);
+    };
 
     const handleContinue = async () => {
         setIsConverting(true);
@@ -251,21 +268,16 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
 
                     setIsConverting(true);
                     const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
-                    let token: any;
-                    try {
-                        token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
-                    } catch (error) {
-                        console.error('User not signed in', error);
+                    
+                    // Check authentication first
+                    const isAuthenticated = await checkAuthentication();
+                    if (!isAuthenticated) {
                         openSignInView({ migration: true });
                         setIsConverting(false);
                         return;
                     }
 
-                    if (!token) {
-                        openSignInView({ migration: true });
-                        setIsConverting(false);
-                        return;
-                    }
+                    const token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
                     let fetchResponse = await fetch(`${backendRootUri}/data-mapper/dmc-to-ts`, {
                         method: 'POST',
                         headers: {
@@ -412,97 +424,6 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
         }
     };
 
-
-    // Monitor for successful sign-in and retry pending operations
-    useEffect(() => {
-        const checkAndRetryPendingOperation = async () => {
-            if (pendingOperation && !isConverting) {
-                try {
-                    const token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
-                    if (token && pendingOperation.viewType === 'dataMapperMigration') {         
-                        
-                        // Clear the pending operation and dialog
-                        setPendingOperation(null);
-                        setShowSignInConfirm(false);
-                        
-                        // Setting a timeout for the view to load
-                        setTimeout(async () => {
-                            await handleContinue();
-                        }, 1000);
-                    }
-                } catch (error) {
-                    console.error('Error checking authentication status:', error);
-                }
-            }
-        };
-
-        let interval: NodeJS.Timeout | null = null;
-        
-        // Only start checking if we have a pending operation
-        //Continously check every 2 seconds
-        if (pendingOperation && !isConverting) {
-            interval = setInterval(checkAndRetryPendingOperation, 2000);
-        }
-        
-        return () => {
-            if (interval) {
-                clearInterval(interval);
-            }
-        };
-    }, [pendingOperation, isConverting]);
-
-    const openSignInView = (formValues?: any) => {
-        // Store the form values for retry after successful sign-in
-        if (formValues) {
-            // Store temporarily when user confirms
-            sessionStorage.setItem('pendingDataMapperMigrationOperation', JSON.stringify({
-                formValues,
-                viewType: 'dataMapperMigration',
-                timestamp: Date.now()
-            }));
-        }
-        setShowSignInConfirm(true);
-    };
-
-    const handleSignInConfirm = async () => {
-        // Set the pending operation since user confirmed they want to sign in
-        const storedOperation = sessionStorage.getItem('pendingDataMapperMigrationOperation');
-        if (storedOperation) {
-            setPendingOperation(JSON.parse(storedOperation));
-            sessionStorage.removeItem('pendingDataMapperMigrationOperation');
-        } else {
-            // If no stored operation, create a pending operation for migration
-            setPendingOperation({
-                formValues: { migration: true },
-                viewType: 'dataMapperMigration',
-                timestamp: Date.now()
-            });
-        }
-        
-        try {
-            rpcClient.sendAIStateEvent(AI_EVENT_TYPE.LOGIN);
-            // Keep the dialog open but show the waiting state
-            
-        } catch (error) {
-            console.error('Failed to initiate authentication:', error);
-            setPendingOperation(null);
-            setShowSignInConfirm(false);
-        }
-    };
-
-    const handleSignInCancel = () => {
-        setShowSignInConfirm(false);
-        setPendingOperation(null); // Clear pending operation when user cancels
-        sessionStorage.removeItem('pendingDataMapperMigrationOperation');
-        
-        // Reset the AI state machine back to logged out state
-        try {
-            rpcClient.sendAIStateEvent(AI_EVENT_TYPE.CANCEL);
-        } catch (error) {
-            console.error('Failed to cancel AI authentication state:', error);
-        }
-    };
-
     return (
         <FormView title="DataMapper Migration Required" onClose={handleBackButtonClick}>
             <MessageContainer>
@@ -560,38 +481,16 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
             </FormActions>
 
             {/* Sign-in confirmation dialog */}
-            <Dialog isOpen={showSignInConfirm} onClose={pendingOperation ? undefined : handleSignInCancel}>
-                <Typography variant="h4" sx={{ marginBottom: '16px' }}>
-                    {pendingOperation ? 'Waiting for Sign In' : 'Sign In Required'}
-                </Typography>
-                <Typography variant="body1" sx={{ marginBottom: '20px' }}>
-                    {pendingOperation 
-                        ? 'Please complete the sign-in process. Your DataMapper migration will continue automatically after successful authentication.'
-                        : 'You need to sign in to MI Copilot to use AI-powered migration features. Would you like to sign in?'
-                    }
-                </Typography>
-                {!pendingOperation && (
-                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                        <Button appearance="primary" onClick={handleSignInConfirm}>
-                            Sign In
-                        </Button>
-                        <Button appearance="secondary" onClick={handleSignInCancel}>
-                            Cancel
-                        </Button>
-                    </div>
-                )}
-                {pendingOperation && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                        <ProgressIndicator />
-                        <Typography variant="body2" sx={{ textAlign: 'center', color: 'var(--vscode-descriptionForeground)' }}>
-                            Waiting for authentication completion...
-                        </Typography>
-                        <Button appearance="secondary" onClick={handleSignInCancel}>
-                            Cancel
-                        </Button>
-                    </div>
-                )}
-            </Dialog>
+            <AuthenticationDialog
+                isOpen={showSignInConfirm}
+                operationType="dataMapperMigration"
+                sessionStorageKey="pendingDataMapperMigrationOperation"
+                formValues={{ migration: true }}
+                signInMessage="You need to sign in to MI Copilot to use AI-powered migration features."
+                waitingMessage="Please complete the sign-in process. Your DataMapper migration will continue automatically after successful authentication."
+                onCancel={closeSignInView}
+                onAuthenticationSuccess={handleAuthenticationSuccess}
+            />
         </FormView>
     );
 }

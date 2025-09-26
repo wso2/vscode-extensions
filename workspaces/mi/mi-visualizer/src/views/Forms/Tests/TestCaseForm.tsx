@@ -18,7 +18,7 @@
 import { yupResolver } from "@hookform/resolvers/yup";
 import { EVENT_TYPE, MACHINE_VIEW, AI_EVENT_TYPE } from "@wso2/mi-core";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
-import { Button, ComponentCard, Dropdown, FormActions, FormView, ProgressIndicator, TextArea, TextField, Typography, Dialog, Icon } from "@wso2/ui-toolkit";
+import { Button, ComponentCard, Dialog, Dropdown, FormActions, FormView, ProgressIndicator, TextArea, TextField, Typography, Icon } from "@wso2/ui-toolkit";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { TagRange } from '@wso2/mi-syntax-tree/lib/src';
@@ -28,6 +28,7 @@ import { getTestCaseXML } from "../../../utils/template-engine/mustache-template
 import { ParameterManager } from "@wso2/mi-diagram";
 import { compareVersions } from "@wso2/mi-diagram/lib/utils/commons";
 import { getProjectRuntimeVersion } from "../../AIPanel/utils";
+import { AuthenticationDialog, useAuthentication } from "../../../components/AuthenticationDialog";
 import { MI_UNIT_TEST_CASE_GENERATE_BACKEND_URL } from "../../../constants";
 
 export enum TestSuiteType {
@@ -85,8 +86,17 @@ export function TestCaseForm(props: TestCaseFormProps) {
     const [assertions, setAssertions] = useState<any[]>([]);
     const [showAIDialog, setShowAIDialog] = useState(false);
     const [aiPrompt, setAiPrompt] = useState("");
-    const [showSignInConfirm, setShowSignInConfirm] = useState(false);
-    const [pendingOperation, setPendingOperation] = useState<any>(null);
+
+    // Use the authentication hook
+    const {
+        showSignInConfirm,
+        checkAuthentication,
+        openSignInView,
+        closeSignInView
+    } = useAuthentication({
+        operationType: 'generateTestCase',
+        sessionStorageKey: 'pendingTestCaseOperation'
+    });
 
     // Form data configurations for ParameterManager
     const inputPropertiesFormData = {
@@ -427,21 +437,15 @@ export function TestCaseForm(props: TestCaseFormProps) {
         setIsLoaded(false);
 
         try {
-            let token;
-            try {
-                token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
-            } catch (error) {
-                console.error('User not signed in', error);
-                openSignInView({ aiPrompt: currentPrompt });
-                return;
-            }
-
-            if (!token) {
+            // Check authentication first
+            const isAuthenticated = await checkAuthentication();
+            if (!isAuthenticated) {
                 openSignInView({ aiPrompt: currentPrompt });
                 setIsLoaded(true);
                 return;
             }
 
+            const token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
             const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
             const url = backendRootUri + MI_UNIT_TEST_CASE_GENERATE_BACKEND_URL;
 
@@ -589,90 +593,13 @@ export function TestCaseForm(props: TestCaseFormProps) {
     };
 
 
-    // Monitor for successful sign-in and retry pending operations
-    useEffect(() => {
-        const checkAndRetryPendingOperation = async () => {
-            if (pendingOperation && isLoaded) {
-                try {
-                    const token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
-                    if (token && pendingOperation.viewType === 'generateTestCase') {         
-                        const formValues = pendingOperation.formValues;
-                        
-                        // Clear the pending operation and dialog
-                        setPendingOperation(null);
-                        setShowSignInConfirm(false);
-                        
-                        // Setting a timeout for the view to load
-                        setTimeout(async () => {
-                            const storedPrompt = formValues?.aiPrompt;
-                            await handleAIGeneration(storedPrompt);
-                        }, 1000);
-                    }
-                } catch (error) {
-                    console.error('Error checking authentication status:', error);
-                }
-            }
-        };
-
-        let interval: NodeJS.Timeout | null = null;
-        
-        // Only start checking if we have a pending operation
-        //Continously check every 2 seconds
-        if (pendingOperation && isLoaded) {
-            interval = setInterval(checkAndRetryPendingOperation, 2000);
-        }
-        
-        return () => {
-            if (interval) {
-                clearInterval(interval);
-            }
-        };
-    }, [pendingOperation, isLoaded]);
-
-    const openSignInView = (formValues?: any) => {
-        // Store the form values for retry after successful sign-in
-        if (formValues) {
-            // Store temporarily when user confirms
-            sessionStorage.setItem('pendingTestCaseOperation', JSON.stringify({
-                formValues,
-                viewType: 'generateTestCase',
-                timestamp: Date.now()
-            }));
-        }
-        setShowSignInConfirm(true);
-    };
-
-    const handleSignInConfirm = async () => {
-        // Set the pending operation since user confirmed they want to sign in
-        const storedOperation = sessionStorage.getItem('pendingTestCaseOperation');
-        if (storedOperation) {
-            setPendingOperation(JSON.parse(storedOperation));
-            sessionStorage.removeItem('pendingTestCaseOperation');
-        }
-        
-        setShowSignInConfirm(false);
-        
-        try {
-            rpcClient.sendAIStateEvent(AI_EVENT_TYPE.LOGIN);
-            setShowSignInConfirm(true);
-            
-        } catch (error) {
-            console.error('Failed to initiate authentication:', error);
-            setPendingOperation(null);
-        }
-    };
-
-    const handleSignInCancel = () => {
-        setShowSignInConfirm(false);
-        setPendingOperation(null); // Clear pending operation when user cancels
-        sessionStorage.removeItem('pendingTestCaseOperation');
-        
-        // Reset the AI state machine back to logged out state
-        try {
-            rpcClient.sendAIStateEvent(AI_EVENT_TYPE.CANCEL);
-        } catch (error) {
-            console.error('Failed to cancel AI authentication state:', error);
-        }
+    // Handler for authentication success - this will be called when authentication is successful
+    const handleAuthenticationSuccess = async (formValues: any) => {
+        // Setting a timeout for the view to load
+        setTimeout(async () => {
+            const storedPrompt = formValues?.aiPrompt;
+            await handleAIGeneration(storedPrompt);
+        }, 1000);
     };
 
     const openUpdateExtensionView = () => {
@@ -839,38 +766,17 @@ export function TestCaseForm(props: TestCaseFormProps) {
                 </Dialog>
             )}
 
-            <Dialog isOpen={showSignInConfirm} onClose={pendingOperation ? undefined : handleSignInCancel}>
-                <Typography variant="h4" sx={{ marginBottom: '16px' }}>
-                    {pendingOperation ? 'Waiting for Sign In' : 'Sign In Required'}
-                </Typography>
-                <Typography variant="body1" sx={{ marginBottom: '20px' }}>
-                    {pendingOperation 
-                        ? 'Please complete the sign-in process. Your unit test generation will continue automatically after successful authentication.'
-                        : 'You need to sign in to MI Copilot to use AI features. Would you like to sign in?'
-                    }
-                </Typography>
-                {!pendingOperation && (
-                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                        <Button appearance="primary" onClick={handleSignInConfirm}>
-                            Sign In
-                        </Button>
-                        <Button appearance="secondary" onClick={handleSignInCancel}>
-                            Cancel
-                        </Button>
-                    </div>
-                )}
-                {pendingOperation && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                        <ProgressIndicator />
-                        <Typography variant="body2" sx={{ textAlign: 'center', color: 'var(--vscode-descriptionForeground)' }}>
-                            Waiting for authentication completion...
-                        </Typography>
-                        <Button appearance="secondary" onClick={handleSignInCancel}>
-                            Cancel
-                        </Button>
-                    </div>
-                )}
-            </Dialog>
+            {/* Authentication dialog */}
+            <AuthenticationDialog
+                isOpen={showSignInConfirm}
+                operationType="generateTestCase"
+                sessionStorageKey="pendingTestCaseOperation"
+                signInMessage="You need to sign in to MI Copilot to use AI features. Would you like to sign in?"
+                waitingMessage="Please complete the sign-in process. Your unit test generation will continue automatically after successful authentication."
+                dependencies={[isLoaded]}
+                onCancel={closeSignInView}
+                onAuthenticationSuccess={handleAuthenticationSuccess}
+            />
         </FormView>
     );
 }
