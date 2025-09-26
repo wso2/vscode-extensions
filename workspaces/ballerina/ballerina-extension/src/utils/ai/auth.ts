@@ -148,6 +148,7 @@ export const clearAuthCredentials = async (): Promise<void> => {
 // BI Copilot Auth Utils
 // ==================================
 export const getLoginMethod = async (): Promise<LoginMethod | undefined> => {
+    
     const credentials = await getAuthCredentials();
     if (credentials) {
         return credentials.loginMethod;
