@@ -58,8 +58,6 @@ interface MICopilotContextType {
     // State for communication with backend
     copilotChat: CopilotChatEntry[];
     setCopilotChat: React.Dispatch<React.SetStateAction<CopilotChatEntry[]>>;
-    codeBlocks: string[];
-    setCodeBlocks: React.Dispatch<React.SetStateAction<string[]>>;
 
     // State for file and image uploads to define context
     files: FileObject[];
@@ -111,7 +109,6 @@ interface MICopilotProviderProps {
 const localStorageKeys = {
     chatFile: "",
     questionFile: "",
-    codeBlocks: "",
     fileHistory: "",
 };
 
@@ -128,7 +125,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     const [questions, setQuestions] = useState<string[]>([]);
     // Backend related Data
     const [copilotChat, setCopilotChat] = useState<CopilotChatEntry[]>([]);
-    const [codeBlocks, setCodeBlocks] = useState<string[]>([]);
     const [files, setFiles] = useState<FileObject[]>([]);
     const [images, setImages] = useState<ImageObject[]>([]);
     const [currentUserPrompt, setCurrentUserprompt] = useState("");
@@ -172,7 +168,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                 // Update localStorageKeys with the UUID
                 localStorageKeys.chatFile = `chatArray-AIGenerationChat-${uuid}`;
                 localStorageKeys.questionFile = `Question-AIGenerationChat-${uuid}`;
-                localStorageKeys.codeBlocks = `codeBlocks-AIGenerationChat-${uuid}`;
                 localStorageKeys.fileHistory = `fileHistory-AIGenerationChat-${uuid}`;
 
                 const machineView = await rpcClient.getAIVisualizerState();
@@ -196,7 +191,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                     // Load the stored data from local storage in session reload
                     const storedChatArray = localStorage.getItem(localStorageKeys.chatFile);
                     const storedQuestion = localStorage.getItem(localStorageKeys.questionFile);
-                    const storedCodeBlocks = localStorage.getItem(localStorageKeys.codeBlocks);
                     const storedFileHistory = localStorage.getItem(localStorageKeys.fileHistory);
 
                     const getQuestions = async () => {
@@ -215,12 +209,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                     if (storedChatArray) {
                         // 1. Load questions
                         getQuestions();
-
-                        // 2, Load codeblock
-                        if (storedCodeBlocks) {
-                            const codeBlocksFromStorage = JSON.parse(storedCodeBlocks);
-                            codeBlocks.push(...codeBlocksFromStorage);
-                        }
 
                         // 3. Load Chats
                         const chatArray = JSON.parse(storedChatArray);
@@ -262,12 +250,10 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
             setQuestions([]);
             setFiles([]);
             setImages([]);
-            setCodeBlocks([]);
             setCurrentUserprompt("");
             // Clear the local storage
             localStorage.removeItem(localStorageKeys.chatFile);
             localStorage.removeItem(localStorageKeys.questionFile);
-            localStorage.removeItem(localStorageKeys.codeBlocks);
             localStorage.removeItem(localStorageKeys.fileHistory);
             generateSuggestions(copilotChat, rpcClient, controller).then((response) => {
                 response.length > 0 ? setQuestions((prevMessages) => [...prevMessages, ...response]) : null;
@@ -281,7 +267,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         if (!isLoading && !backendRequestTriggered) {
             localStorage.setItem(localStorageKeys.chatFile, JSON.stringify(copilotChat));
             localStorage.setItem(localStorageKeys.questionFile, questions[questions.length - 1] || "");
-            localStorage.setItem(localStorageKeys.codeBlocks, JSON.stringify(codeBlocks));
         }
     }, [isLoading, backendRequestTriggered]);
 
@@ -316,8 +301,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         setBackendRequestTriggered,
         controller,
         resetController,
-        codeBlocks,
-        setCodeBlocks,
         setRemainingTokenPercentage,
         tokenInfo: {
             remainingPercentage: remainingTokenPercentage,
