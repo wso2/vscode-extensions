@@ -56,10 +56,18 @@ on:
         type: boolean
         required: false
         default: false
-      runE2ETests:
+      enableE2ETests:
+        type: boolean
+        required: false
+        default: false 
+      runBIE2ETests:
         type: boolean
         required: false
         default: false  
+      runMIE2ETests:
+        type: boolean
+        required: false
+        default: false 
 
 env:
   ballerina_version: 2201.7.2
@@ -77,6 +85,7 @@ jobs:
       runMIExtTests: ${{ steps.testMatrix.outputs.runMIExtTests }}
       runAPKExtTests: ${{ steps.testMatrix.outputs.runAPKExtTests }}
       runBIExtTests: ${{ steps.testMatrix.outputs.runBIExtTests }}
+      uiTestMatrix: ${{ steps.testMatrix.outputs.uiTestMatrix }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -149,6 +158,33 @@ jobs:
           echo "MI Tests: ${{ steps.diff.outputs.hasMIDiff }}"
           echo "runMIExtTests=${{ steps.diff.outputs.hasMIDiff }}" >> $GITHUB_OUTPUT
 
+          # Dynamically set the matrix for UI tests
+          matrix=$(jq -n '{"include": []}')
+
+          if [[ "${{ inputs.runMIE2ETests }}" == "true" || ("${{ inputs.enableE2ETests }}" == "true" && "${{ steps.diff.outputs.hasMIDiff }}" == "true") || ("${{ inputs.isReleaseBuild}}" == "true" && "${{ inputs.mi }}" == "true") ]]; then
+            echo "Including MI UI tests in the matrix"
+            matrix=$(echo "$matrix" | jq '.include += [
+              { "name": "MI", "group": "group1", "path": "mi/mi-extension", "os": "linux" },
+              { "name": "MI", "group": "group2", "path": "mi/mi-extension", "os": "linux" },
+              { "name": "MI", "group": "group3", "path": "mi/mi-extension", "os": "linux" },
+              { "name": "MI", "group": "group4", "path": "mi/mi-extension", "os": "linux" }
+            ]')
+          fi
+
+          if [[ "${{ inputs.runBIE2ETests }}" == "true" || ("${{ inputs.enableE2ETests }}" == "true" && "${{ steps.diff.outputs.hasBIDiff }}" == "true")  ]]; then
+            echo "Including BI UI tests in the matrix"
+            matrix=$(echo "$matrix" | jq '.include += [{ "name": "BI", "group": "group1", "path": "bi/bi-extension", "os": "linux" }]')
+          fi
+
+          # Remove "include" from matrix if it is empty to avoid GitHub Actions errors
+          if [[ "$(echo "$matrix" | jq '.include | length')" == "0" ]]; then
+            matrix=$(echo "$matrix" | jq 'del(.include)')
+          fi
+
+          # Write the matrix as a single-line JSON to GITHUB_OUTPUT
+          echo "uiTestMatrix=$(echo "$matrix" | jq -c .)" >> $GITHUB_OUTPUT
+          echo "Matrix: $(echo "$matrix" | jq -c .)"
+
       - name: Build
         uses: ./.github/actions/build
         with:
@@ -188,7 +224,7 @@ jobs:
     name: Run Ballerina extension tests
     needs: Build_Stage
     if: false
-    # if: ${{ inputs.runTests || !inputs.isPreRelease || needs.Build_Stage.outputs.runBalExtTests == 'true' || github.base_ref == 'release-ballerina' }}
+    # if: ${{ inputs.runTests || (inputs.isReleaseBuild && (inputs.ballerina || inputs.bi)) || needs.Build_Stage.outputs.runBalExtTests == 'true' || github.base_ref == 'release-ballerina' }}
     timeout-minutes: 45
     runs-on: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
     steps:
@@ -211,6 +247,7 @@ jobs:
           rush-install: true
 
       - name: Set up Ballerina
+        id: set-version
         run: |
           cd workspaces/ballerina/ballerina-extension
           mkdir extractedDistribution
@@ -219,6 +256,8 @@ jobs:
           rm ballerina-${{ env.ballerina_version }}-swan-lake.zip
           balVersion=$(ls ./extractedDistribution)
           balHome=./extractedDistribution/$balVersion
+          echo "balVersion=$balVersion" >> $GITHUB_OUTPUT
+          echo "balHome=$balHome" >> $GITHUB_OUTPUT
 
           echo "$balHome/bin" >> $GITHUB_PATH
 
@@ -233,7 +272,7 @@ jobs:
   ExtTest_MI:
     name: Run MI diagram tests
     needs: Build_Stage
-    if: ${{ inputs.runTests || !inputs.isPreRelease || needs.Build_Stage.outputs.runMIExtTests == 'true' || github.base_ref == 'release-mi' }}
+    if: ${{ inputs.runTests || (inputs.isReleaseBuild && inputs.mi) || needs.Build_Stage.outputs.runMIExtTests == 'true' || github.base_ref == 'release-mi' }}
     timeout-minutes: 30
     runs-on: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
     steps:
@@ -264,58 +303,11 @@ jobs:
     name: Run UI tests
     needs: Build_Stage
     timeout-minutes: 60
+    if: ${{ needs.Build_Stage.outputs.uiTestMatrix != '{}' }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          # Ubuntu runners
-          - name: MI
-            group: group1
-            path: mi/mi-extension
-            os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
-            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
-          - name: MI
-            group: group2
-            path: mi/mi-extension
-            os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
-            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
-          - name: MI
-            group: group3
-            path: mi/mi-extension
-            os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
-            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
-          - name: MI
-            group: group4
-            path: mi/mi-extension
-            os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
-            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
-          - name: BI
-            group: group1
-            path: bi/bi-extension
-            os: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
-            condition: false
-          # Windows runners
-          - name: MI
-            group: group1
-            path: mi/mi-extension
-            os: 'windows-latest'
-            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
-          - name: MI
-            group: group2
-            path: mi/mi-extension
-            os: 'windows-latest'
-            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
-          - name: MI
-            group: group3
-            path: mi/mi-extension
-            os: 'windows-latest'
-            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}
-          - name: MI
-            group: group4
-            path: mi/mi-extension
-            os: 'windows-latest'
-            condition: ${{ inputs.runE2ETests || github.base_ref == 'release-mi' }}  
-    runs-on: ${{ matrix.os }}
+      matrix: ${{ fromJson(needs.Build_Stage.outputs.uiTestMatrix) }}
+    runs-on: ${{ ((matrix.os == 'linux' && inputs.runOnAWS) && inputs.awsRunnerId )|| (matrix.os == 'linux' && 'ubuntu-latest') || (matrix.os == 'windows' && 'windows-latest') }}
     steps:
       - name: Restore build
         uses: actions/download-artifact@v4
@@ -366,12 +358,8 @@ jobs:
             choco install ffmpeg -y
             cd workspaces/${{ matrix.path }} && npx playwright install --with-deps    
           else
-            sudo apt-get update
-            sudo apt-get install xvfb
-            sudo apt-get install ffmpeg
-            sudo apt-get install -y gnome-keyring
-            sudo apt-get install libsecret-1.0
-            sudo apt install dbus-x11
+            sudo apt-get update -y
+            sudo apt-get install -y xvfb ffmpeg gnome-keyring libsecret-1.0 dbus-x11
             cd workspaces/${{ matrix.path }} && npx playwright install
           fi
           
