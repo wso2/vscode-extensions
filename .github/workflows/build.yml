@@ -56,10 +56,18 @@ on:
         type: boolean
         required: false
         default: false
-      runE2ETests:
+      enableE2ETests:
+        type: boolean
+        required: false
+        default: false 
+      runBIE2ETests:
         type: boolean
         required: false
         default: false  
+      runMIE2ETests:
+        type: boolean
+        required: false
+        default: false 
 
 env:
   ballerina_version: 2201.7.2
@@ -153,7 +161,7 @@ jobs:
           # Dynamically set the matrix for UI tests
           matrix=$(jq -n '{"include": []}')
 
-          if [[ "${{ inputs.runE2ETests }}" == "true" || "${{ github.base_ref }}" == "release-mi" ]]; then
+          if [[ "${{ inputs.runMIE2ETests }}" == "true" || ("${{ inputs.enableE2ETests }}" == "true" && "${{ steps.diff.outputs.hasMIDiff }}" == "true") || ("${{ inputs.isReleaseBuild}}" == "true" && "${{ inputs.mi }}" == "true") ]]; then
             echo "Including MI UI tests in the matrix"
             matrix=$(echo "$matrix" | jq '.include += [
               { "name": "MI", "group": "group1", "path": "mi/mi-extension", "os": "linux" },
@@ -163,10 +171,10 @@ jobs:
             ]')
           fi
 
-          # if [[ "${{ inputs.runE2ETests }}" == "true" || "${{ github.base_ref }}" == "release-bi" || "${{ github.base_ref }}" == "release-ballerina" ]]; then
-          #   echo "Including BI UI tests in the matrix"
-          #   matrix=$(echo "$matrix" | jq '.include += [{ "name": "BI", "group": "group1", "path": "bi/bi-extension", "os": "linux" }]')
-          # fi
+          if [[ "${{ inputs.runBIE2ETests }}" == "true" || ("${{ inputs.enableE2ETests }}" == "true" && "${{ steps.diff.outputs.hasBIDiff }}" == "true")  ]]; then
+            echo "Including BI UI tests in the matrix"
+            matrix=$(echo "$matrix" | jq '.include += [{ "name": "BI", "group": "group1", "path": "bi/bi-extension", "os": "linux" }]')
+          fi
 
           # Write the matrix as a single-line JSON to GITHUB_OUTPUT
           echo "uiTestMatrix=$(echo "$matrix" | jq -c .)" >> $GITHUB_OUTPUT
@@ -211,7 +219,7 @@ jobs:
     name: Run Ballerina extension tests
     needs: Build_Stage
     if: false
-    # if: ${{ inputs.runTests || !inputs.isPreRelease || needs.Build_Stage.outputs.runBalExtTests == 'true' || github.base_ref == 'release-ballerina' }}
+    # if: ${{ inputs.runTests || (inputs.isReleaseBuild && (inputs.ballerina || inputs.bi)) || needs.Build_Stage.outputs.runBalExtTests == 'true' || github.base_ref == 'release-ballerina' }}
     timeout-minutes: 45
     runs-on: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
     steps:
@@ -234,6 +242,7 @@ jobs:
           rush-install: true
 
       - name: Set up Ballerina
+        id: set-version
         run: |
           cd workspaces/ballerina/ballerina-extension
           mkdir extractedDistribution
@@ -242,6 +251,8 @@ jobs:
           rm ballerina-${{ env.ballerina_version }}-swan-lake.zip
           balVersion=$(ls ./extractedDistribution)
           balHome=./extractedDistribution/$balVersion
+          echo "balVersion=$balVersion" >> $GITHUB_OUTPUT
+          echo "balHome=$balHome" >> $GITHUB_OUTPUT
 
           echo "$balHome/bin" >> $GITHUB_PATH
 
@@ -256,7 +267,7 @@ jobs:
   ExtTest_MI:
     name: Run MI diagram tests
     needs: Build_Stage
-    if: ${{ inputs.runTests || !inputs.isPreRelease || needs.Build_Stage.outputs.runMIExtTests == 'true' || github.base_ref == 'release-mi' }}
+    if: ${{ inputs.runTests || (inputs.isReleaseBuild && inputs.mi) || needs.Build_Stage.outputs.runMIExtTests == 'true' || github.base_ref == 'release-mi' }}
     timeout-minutes: 30
     runs-on: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
     steps:
