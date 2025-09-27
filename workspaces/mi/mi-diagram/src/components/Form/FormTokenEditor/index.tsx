@@ -161,6 +161,7 @@ export const FormTokenEditor = ({
                     </S.AdornmentContainer>
                 }
                 editorSx={editorSx}
+                helperPaneSx={{ position: 'fixed' }}
             />
             {errorMsg && <ErrorBanner errorMsg={errorMsg} />}
         </S.Container>
