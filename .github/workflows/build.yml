@@ -327,12 +327,8 @@ jobs:
 
       - name: install packages
         run: |
-          sudo apt-get update
-          sudo apt-get install xvfb
-          sudo apt-get install ffmpeg
-          sudo apt-get install -y gnome-keyring
-          sudo apt-get install libsecret-1.0
-          sudo apt install dbus-x11
+          sudo apt-get update -y
+          sudo apt-get install -y xvfb ffmpeg gnome-keyring libsecret-1.0 dbus-x11
           cd workspaces/${{ matrix.path }} && npx playwright install
           
       - name: Run Tests (First Attempt)
