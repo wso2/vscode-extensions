@@ -176,6 +176,11 @@ jobs:
             matrix=$(echo "$matrix" | jq '.include += [{ "name": "BI", "group": "group1", "path": "bi/bi-extension", "os": "linux" }]')
           fi
 
+          # Remove "include" from matrix if it is empty to avoid GitHub Actions errors
+          if [[ "$(echo "$matrix" | jq '.include | length')" == "0" ]]; then
+            matrix=$(echo "$matrix" | jq 'del(.include)')
+          fi
+
           # Write the matrix as a single-line JSON to GITHUB_OUTPUT
           echo "uiTestMatrix=$(echo "$matrix" | jq -c .)" >> $GITHUB_OUTPUT
           echo "Matrix: $(echo "$matrix" | jq -c .)"
