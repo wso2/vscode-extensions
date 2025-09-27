@@ -157,7 +157,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                 const response = await rpcClient?.getMiVisualizerRpcClient().getProjectDetails();
 
                 const isLegacyExpressionEnabled = await rpcClient.getMiVisualizerRpcClient().isSupportEnabled("LEGACY_EXPRESSION_ENABLED");
-                const useLocalMaven = await rpcClient.getMiVisualizerRpcClient().isSupportEnabled("USE_LOCAL_MAVEN");
+                const useLocalMaven = await rpcClient.getMiVisualizerRpcClient().isSupportEnabled("useLocalMaven");
                 let isRemoteDeploymentEnabled = await rpcClient.getMiVisualizerRpcClient().isSupportEnabled("REMOTE_DEPLOYMENT_ENABLED");
                 let pluginDetails = null;
                 if (isRemoteDeploymentEnabled) {
@@ -258,7 +258,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
 
                 if (field === "advanced-useLocalMaven") {
                     let useLocalMaven = getValues("advanced-useLocalMaven");
-                    await rpcClient.getMiVisualizerRpcClient().updateProjectSettingsConfig({ configName: "USE_LOCAL_MAVEN", value: useLocalMaven });
+                    await rpcClient.getMiVisualizerRpcClient().updateProjectSettingsConfig({ configName: "useLocalMaven", value: useLocalMaven });
                 }
 
                 const fieldValue = getValues(field as any);

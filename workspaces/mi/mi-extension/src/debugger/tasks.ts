@@ -26,7 +26,7 @@ import { MVN_COMMANDS } from "../constants";
 
 export function getBuildTask(projectUri: string): vscode.Task {
     const config = workspace.getConfiguration('MI', Uri.file(projectUri));
-    const mvnCmd = config.get("USE_LOCAL_MAVEN") ? "mvn" : (process.platform === "win32" ?
+    const mvnCmd = config.get("useLocalMaven") ? "mvn" : (process.platform === "win32" ?
         MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
     const commandToExecute = mvnCmd + MVN_COMMANDS.BUILD_COMMAND
     const env = setJavaHomeInEnvironmentAndPath(projectUri);  
@@ -44,14 +44,14 @@ export function getBuildTask(projectUri: string): vscode.Task {
 
 export function getBuildCommand(projectUri: string): string {
     const config = workspace.getConfiguration('MI', Uri.file(projectUri));
-    const mvnCmd = config.get("USE_LOCAL_MAVEN") ? "mvn" : (process.platform === "win32" ?
+    const mvnCmd = config.get("useLocalMaven") ? "mvn" : (process.platform === "win32" ?
         MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
     return mvnCmd + MVN_COMMANDS.BUILD_COMMAND;
 }
 
 export function getDockerTask(projectUri: string): vscode.Task | undefined {
     const config = workspace.getConfiguration('MI', Uri.file(projectUri));
-    const mvnCmd = config.get("USE_LOCAL_MAVEN") ? "mvn" : (process.platform === "win32" ?
+    const mvnCmd = config.get("useLocalMaven") ? "mvn" : (process.platform === "win32" ?
         MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
     const commandToExecute = mvnCmd + MVN_COMMANDS.DOCKER_COMMAND;
     const env = setJavaHomeInEnvironmentAndPath(projectUri);  

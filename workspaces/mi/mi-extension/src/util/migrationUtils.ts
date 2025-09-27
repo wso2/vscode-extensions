@@ -813,7 +813,7 @@ function extractXmlFromMavenOutput(output: string): string | null {
 export async function getResolvedPomXmlContent(pomFilePath: string): Promise<PomResolutionResult> {
     const pomDir = path.dirname(pomFilePath);
     const config = workspace.getConfiguration('MI', Uri.file(pomDir));
-    const mvnCmd = config.get("USE_LOCAL_MAVEN") ? "mvn" : (process.platform === "win32" ?
+    const mvnCmd = config.get("useLocalMaven") ? "mvn" : (process.platform === "win32" ?
         MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
     const command = `${mvnCmd} -f "${pomFilePath}" ${MVN_COMMANDS.GEN_POM_COMMAND}`;
     console.log(`Running command: ${command} in directory: ${pomDir}`);

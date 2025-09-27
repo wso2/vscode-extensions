@@ -86,6 +86,11 @@ export async function setupEnvironment(projectUri: string, isOldProject: boolean
         if (isMISet && isJavaSet) {
             const isUpdateRequested = await isServerUpdateRequested(projectUri);
             await updateCarPluginVersion(projectUri);
+            const config = vscode.workspace.getConfiguration('MI', vscode.Uri.parse(projectUri));
+            const currentState = config.inspect<string>("useLocalMaven");
+            if (currentState?.workspaceValue === undefined) {
+                config.update("useLocalMaven", currentState?.globalValue ?? false, vscode.ConfigurationTarget.Workspace);
+            }
             return !isUpdateRequested;
         }
         return isMISet && isJavaSet;

@@ -3020,9 +3020,14 @@ ${endpointAttributes}
         return new Promise(async (resolve) => {
             const projectUuid = uuidv4();
             const { directory, name, open, groupID, artifactID, version, miVersion } = params;
-            const connectorStoreResponse = await this.getStoreConnectorJSON(miVersion);
-            const httpConnectorVersion = filterConnectorVersion('HTTP', connectorStoreResponse.connectors);
-            const initialDependencies = generateInitialDependencies(httpConnectorVersion);
+            let initialDependencies = '';
+            try {
+                const connectorStoreResponse = await this.getStoreConnectorJSON(miVersion);
+                const httpConnectorVersion = filterConnectorVersion('HTTP', connectorStoreResponse.connectors);
+                initialDependencies = generateInitialDependencies(httpConnectorVersion);
+            } catch (err) {
+                console.error("Could not fetch connectors:", err);
+            }
             const tempName = name.replace(/\./g, '');
             const folderStructure: FileStructure = {
                 [tempName]: { // Project folder
@@ -4273,48 +4278,59 @@ ${endpointAttributes}
     }
 
     async getStoreConnectorJSON(miVersion?: string): Promise<StoreConnectorJsonResponse> {
-        return new Promise(async (resolve) => {
-            try {
-                const runtimeVersion = miVersion ? miVersion : await getMIVersionFromPom(this.projectUri);
-                if (runtimeVersion) {
-                    const connectors = compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0 ? connectorCache : legacyConnectorCache;
-                    if (connectors.has('inbound-connector-data') && connectors.has('outbound-connector-data') && connectors.has('connectors')) {
-                        resolve({ inboundConnectors: connectors.get('inbound-connector-data'), outboundConnectors: connectors.get('outbound-connector-data'), connectors: connectors.get('connectors') });
-                        return;
-                    }
-                }
+        try {
+            const runtimeVersion = miVersion ?? await getMIVersionFromPom(this.projectUri);
+            if (runtimeVersion) {
+                const connectors = compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0
+                    ? connectorCache : legacyConnectorCache;
 
-                const response = await fetch(APIS.MI_CONNECTOR_STORE);
-                const connectorStoreResponse = await fetch(APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? ''));
-                const data = await response.json();
-                const connectorStoreData = await connectorStoreResponse.json();
-                if (data && data['inbound-connector-data'] && data['outbound-connector-data']) {
-                    if (runtimeVersion) {
-                        if (compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0) {
-                            connectorCache.set('inbound-connector-data', data['inbound-connector-data']);
-                            connectorCache.set('outbound-connector-data', data['outbound-connector-data']);
-                            if (connectorStoreData) {
-                                connectorCache.set('connectors', connectorStoreData);
-                            }
-                        } else {
-                            legacyConnectorCache.set('inbound-connector-data', data['inbound-connector-data']);
-                            legacyConnectorCache.set('outbound-connector-data', data['outbound-connector-data']);
-                            if (connectorStoreData) {
-                                legacyConnectorCache.set('connectors', connectorStoreData);
-                            }
+                if (connectors.has('inbound-connector-data') && connectors.has('outbound-connector-data') && connectors.has('connectors')) {
+                    return {
+                        inboundConnectors: connectors.get('inbound-connector-data'),
+                        outboundConnectors: connectors.get('outbound-connector-data'),
+                        connectors: connectors.get('connectors'),
+                    };
+                }
+            }
+
+            const response = await fetch(APIS.MI_CONNECTOR_STORE);
+            const connectorStoreResponse = await fetch(
+                APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? '')
+            );
+
+            const data = await response.json();
+            const connectorStoreData = await connectorStoreResponse.json();
+
+            if (data && data['inbound-connector-data'] && data['outbound-connector-data']) {
+                if (runtimeVersion) {
+                    if (compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0) {
+                        connectorCache.set('inbound-connector-data', data['inbound-connector-data']);
+                        connectorCache.set('outbound-connector-data', data['outbound-connector-data']);
+                        if (connectorStoreData) {
+                            connectorCache.set('connectors', connectorStoreData);
+                        }
+                    } else {
+                        legacyConnectorCache.set('inbound-connector-data', data['inbound-connector-data']);
+                        legacyConnectorCache.set('outbound-connector-data', data['outbound-connector-data']);
+                        if (connectorStoreData) {
+                            legacyConnectorCache.set('connectors', connectorStoreData);
                         }
                     }
-                    resolve({ inboundConnectors: data['inbound-connector-data'], outboundConnectors: data['outbound-connector-data'], connectors: connectorStoreData });
-                } else {
-                    console.log("Failed to fetch connectors. Status: " + data.status + ", Reason: " + data.reason);
-                    reject("Failed to fetch connectors.");
                 }
-            } catch (error) {
-                console.log("User is offline.", error);
-                reject("Failed to fetch connectors.");
-            }
-        });
 
+                return {
+                    inboundConnectors: data['inbound-connector-data'],
+                    outboundConnectors: data['outbound-connector-data'],
+                    connectors: connectorStoreData,
+                };
+            } else {
+                console.log("Failed to fetch connectors. Status: " + data.status + ", Reason: " + data.reason);
+                throw new Error("Failed to fetch connectors.");
+            }
+        } catch (error) {
+            console.log("User is offline.", error);
+            throw new Error("Failed to fetch connectors.");
+        }
     }
 
     async getConnectorIcon(params: GetConnectorIconRequest): Promise<GetConnectorIconResponse> {
