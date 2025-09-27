@@ -156,16 +156,16 @@ jobs:
           if [[ "${{ inputs.runE2ETests }}" == "true" || "${{ github.base_ref }}" == "release-mi" ]]; then
             echo "Including MI UI tests in the matrix"
             matrix=$(echo "$matrix" | jq '.include += [
-              {"name": "MI", "group": "group1", "path": "mi/mi-extension", "os": 'linux' }}},
-              {"name": "MI", "group": "group2", "path": "mi/mi-extension", "os": 'linux' }}},
-              {"name": "MI", "group": "group3", "path": "mi/mi-extension", "os": 'linux' }}},
-              {"name": "MI", "group": "group4", "path": "mi/mi-extension", "os": 'linux' }}}
+              { "name": "MI", "group": "group1", "path": "mi/mi-extension", "os": "linux" },
+              { "name": "MI", "group": "group2", "path": "mi/mi-extension", "os": "linux" },
+              { "name": "MI", "group": "group3", "path": "mi/mi-extension", "os": "linux" },
+              { "name": "MI", "group": "group4", "path": "mi/mi-extension", "os": "linux" }
             ]')
           fi
 
           # if [[ "${{ inputs.runE2ETests }}" == "true" || "${{ github.base_ref }}" == "release-bi" || "${{ github.base_ref }}" == "release-ballerina" ]]; then
           #   echo "Including BI UI tests in the matrix"
-          #   matrix=$(echo "$matrix" | jq '.include += [{"name": "BI", "group": "group1", "path": "bi/bi-extension", "os": 'linux' }}}]')
+          #   matrix=$(echo "$matrix" | jq '.include += [{ "name": "BI", "group": "group1", "path": "bi/bi-extension", "os": "linux" }]')
           # fi
 
           # Write the matrix as a single-line JSON to GITHUB_OUTPUT
