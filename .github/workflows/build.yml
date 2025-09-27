@@ -167,7 +167,11 @@ jobs:
               { "name": "MI", "group": "group1", "path": "mi/mi-extension", "os": "linux" },
               { "name": "MI", "group": "group2", "path": "mi/mi-extension", "os": "linux" },
               { "name": "MI", "group": "group3", "path": "mi/mi-extension", "os": "linux" },
-              { "name": "MI", "group": "group4", "path": "mi/mi-extension", "os": "linux" }
+              { "name": "MI", "group": "group4", "path": "mi/mi-extension", "os": "linux" },
+              { "name": "MI", "group": "group1", "path": "mi/mi-extension", "os": "windows" },
+              { "name": "MI", "group": "group2", "path": "mi/mi-extension", "os": "windows" },
+              { "name": "MI", "group": "group3", "path": "mi/mi-extension", "os": "windows" },
+              { "name": "MI", "group": "group4", "path": "mi/mi-extension", "os": "windows" }
             ]')
           fi
 
