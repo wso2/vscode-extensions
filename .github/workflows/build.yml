@@ -303,6 +303,7 @@ jobs:
     name: Run UI tests
     needs: Build_Stage
     timeout-minutes: 60
+    if: ${{ needs.Build_Stage.outputs.uiTestMatrix != '{}' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.Build_Stage.outputs.uiTestMatrix) }}
