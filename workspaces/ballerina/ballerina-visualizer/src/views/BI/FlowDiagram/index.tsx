@@ -1189,13 +1189,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                         selectedNodeRef.current = response.flowNode;
                         nodeTemplateRef.current = response.flowNode;
                         showEditForm.current = false;
-
-                        // if agent_call node, then show agent config panel
-                        if (node.codedata.node === "AGENT_CALL") {
-                            setSidePanelView(SidePanelView.NEW_AGENT);
-                        } else {
-                            setSidePanelView(SidePanelView.FORM);
-                        }
+                        setSidePanelView(SidePanelView.FORM);
                         setShowSidePanel(true);
                     })
                     .finally(() => {
@@ -1300,7 +1294,8 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             .then(async (response) => {
                 console.log(">>> Updated source code", response);
                 if (response.artifacts.length > 0) {
-                    if (updatedNode?.codedata?.symbol === GET_DEFAULT_MODEL_PROVIDER) {
+                    if (updatedNode?.codedata?.symbol === GET_DEFAULT_MODEL_PROVIDER
+                        || (updatedNode?.codedata?.node === "AGENT_CALL" && updatedNode?.properties?.model?.value === "")) {
                         await rpcClient.getAIAgentRpcClient().configureDefaultModelProvider();
                     }
                     if (noFormSubmitOptions) {
@@ -1420,13 +1415,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             setTargetLineRange(node.codedata.lineRange)
         }
         if (!targetRef.current) {
-            return;
-        }
-
-        // if agent_call node, then show agent config panel
-        if (node.codedata.node === "AGENT_CALL") {
-            setSidePanelView(SidePanelView.AGENT_CONFIG);
-            setShowSidePanel(true);
             return;
         }
 
