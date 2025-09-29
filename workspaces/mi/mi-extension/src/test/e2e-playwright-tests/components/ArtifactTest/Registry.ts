@@ -90,7 +90,8 @@ export class Registry {
                 }
             },
         });
-        await registryForm.submit();
+        await registryForm.submit("Create", true);
+        console.log("Registry Form submitted from file system");
     }
 
     public async addFromTemplate(data: RegistryDataFromTemplate) {
