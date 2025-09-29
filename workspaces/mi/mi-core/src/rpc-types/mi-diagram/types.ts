@@ -2231,6 +2231,7 @@ export interface FeedbackMessage {
     content: string;
     role: 'user' | 'assistant';
     id?: number;
+    command?: string;
 }
 
 export interface GetPomFileContentResponse{

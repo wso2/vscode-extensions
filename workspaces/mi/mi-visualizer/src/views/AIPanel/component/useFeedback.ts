@@ -36,7 +36,7 @@ export const useFeedback = ({ messages, copilotChat, rpcClient }: UseFeedbackOpt
 
         try {
             // Parse all messages up to the current index to extract conversation history
-            const conversationHistory = getConversationHistoryForFeedback(messages, index, isPositive);
+            const conversationHistory = getConversationHistoryForFeedback(messages, index);
             const copilotHistory = getCopilotChatForFeedback(copilotChat, index);
 
             // Submit feedback via RPC client

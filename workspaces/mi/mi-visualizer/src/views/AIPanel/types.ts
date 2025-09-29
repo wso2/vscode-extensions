@@ -108,6 +108,7 @@ export interface CorrectedCodeItem {
 
 export interface FeedbackMessage {
     content: string;
-    role: string;
+    role: "user" | "assistant";
     id?: number;
+    command?: string;
 }
