@@ -19,8 +19,35 @@ import { Frame, test } from '@playwright/test';
 import { addArtifact, initTest, page } from '../utils';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../ProjectExplorer';
-import { TEST_DATA, GraphQLServiceUtils} from './graphqlUtils';
+import { GraphQLServiceUtils} from './graphqlUtils';
 import { TypeEditorUtils } from '../type/TypeEditorUtils';
+
+const TEST_DATA = {
+    editedBasePath: (attempt: number) => `/editedSample${attempt}`,
+    query: {
+    name: 'query1',
+    fieldType: 'string',
+    },
+    mutation: [{
+        name: 'mutation1',
+        editedName: 'editedMutation1',
+        fieldType: 'boolean',
+    },{
+        name: 'mutation2',
+        fieldType: 'float',
+        expression: '"Hello World!"',
+        arguments: [
+            { name: 'arg1', type: 'int' },
+            { name: 'arg2', type: 'mytype1' },
+        ],
+        outputType: 'outputtype1',
+    }],
+    subscription: {
+        name: 'subscription1',
+        fieldType: 'float',
+    },
+};
+
 
 export default function createTests() {
     test.describe('GraphQL Service Tests', {
@@ -53,7 +80,7 @@ export default function createTests() {
             await form.submit('Create');
 
             // Check if the type diagram canvas is visible
-            const typeDiagram = artifactWebView.locator('[data-testid="type-diagram"]');
+            const typeDiagram = artifactWebView.getByTestId('type-diagram');
             await typeDiagram.waitFor();
 
             // Check if the AI Chat Agent is created in the project explorer
@@ -69,7 +96,7 @@ export default function createTests() {
         test('Editing GraphQL Service', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
             console.log('Editing a service in test attempt: ', testAttempt);
-            const editBtn = artifactWebView.locator('[data-testid="edit-service-btn"]');
+            const editBtn = artifactWebView.getByTestId('edit-service-btn');
             await editBtn.waitFor();
             await editBtn.click({ force: true });
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
@@ -86,7 +113,7 @@ export default function createTests() {
             await form.submit('Save');
 
             // Check if the type diagram canvas is visible
-            const typeDiagram = artifactWebView.locator('[data-testid="type-diagram"]');
+            const typeDiagram = artifactWebView.getByTestId('type-diagram');
             await typeEditorUtils.waitForElement(typeDiagram);
 
             // Check if the service name is visible
@@ -111,11 +138,11 @@ export default function createTests() {
 
             await graphqlServiceUtils.clickButtonByTestId('graphql-add-mutation-btn');
             console.log('Clicked on Add Mutation button');
-            await graphqlServiceUtils.addArgumentToGraphQLService();
+            await graphqlServiceUtils.addArgumentToGraphQLService(TEST_DATA.mutation[1].arguments[0]);
             console.log('Added argument to the mutation');
-            await graphqlServiceUtils.createInputObjectFromScratch();
+            await graphqlServiceUtils.createInputObjectFromScratch(TEST_DATA.mutation[1].arguments[1]);
             console.log('Created input object from scratch');
-            await graphqlServiceUtils.addOutputObject();
+            await graphqlServiceUtils.addOutputObject(TEST_DATA.mutation[1].outputType);
             await artifactWebView.getByRole('textbox', { name: 'Field Name*The name of the' }).fill(TEST_DATA.mutation[1].name);
             await artifactWebView.getByRole('button', { name: 'Save' }).click();
             await graphqlServiceUtils.closePanel();
@@ -123,7 +150,7 @@ export default function createTests() {
             const outputName = TEST_DATA.mutation[1].outputType;
             await typeEditorUtils.verifyTypeLink(TEST_DATA.editedBasePath(testAttempt), TEST_DATA.mutation[1].name, outputName);
             await typeEditorUtils.verifyTypeNodeExists(outputName);
-            await graphqlServiceUtils.addFunction("function1", "string");
+            await graphqlServiceUtils.addFunction(TEST_DATA.mutation[1].outputType, TEST_DATA.mutation[1].arguments[0]);
         });
 
         test('Edit and Delete Operations in GraphQL Service', async ({ }, testInfo) => {

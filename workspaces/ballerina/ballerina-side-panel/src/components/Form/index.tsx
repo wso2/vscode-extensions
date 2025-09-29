@@ -243,14 +243,12 @@ namespace S {
             font-family: var(--vscode-font-family);
         }
 
-        code {
-            // hide code blocks
+        pre {
             display: none;
         }
 
-        pre {
-            // hide code blocks
-            display: none;
+        code {
+            display: inline;
         }
 
         ul,
@@ -343,7 +341,7 @@ export interface FormProps {
     concertMessage?: string;
     formImports?: FormImports;
     preserveOrder?: boolean;
-    handleSelectedTypeChange?: (type: CompletionItem) => void;
+    handleSelectedTypeChange?: (type: string | CompletionItem) => void;
     scopeFieldAddon?: React.ReactNode;
     newServerUrl?: string;
     onChange?: (fieldKey: string, value: any, allValues: FormValues) => void;
@@ -535,7 +533,7 @@ export const Form = forwardRef((props: FormProps, ref) => {
         getVisualiableFields();
     };
 
-    const handleNewTypeSelected = (type: CompletionItem) => {
+    const handleNewTypeSelected = (type: string | CompletionItem) => {
         handleSelectedTypeChange && handleSelectedTypeChange(type);
     }
 

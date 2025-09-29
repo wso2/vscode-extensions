@@ -380,7 +380,6 @@ export interface ProcessTypeReferenceRequest {
     ref: string;
     fieldId: string;
     model: DMModel;
-    visitedRefs?: Set<string>;
 }
 
 export interface ProcessTypeReferenceResponse {
@@ -397,7 +396,8 @@ export interface AddArrayElementRequest {
     filePath: string;
     codedata: CodeData;
     varName?: string;
-    targetField?: string;
+    outputId: string;
+    targetField: string;
     propertyKey?: string;
     subMappingName?: string;
 }
@@ -424,6 +424,15 @@ export interface AddClausesRequest {
     subMappingName?: string;
 }
 
+export interface DeleteClauseRequest {
+    filePath: string;
+    codedata: CodeData;
+    index: number;
+    varName?: string;
+    targetField: string;
+    subMappingName?: string;
+}
+
 export interface AddSubMappingRequest {
     filePath: string;
     codedata: CodeData;
@@ -437,6 +446,15 @@ export interface DeleteMappingRequest {
     filePath: string;
     codedata: CodeData;
     mapping: Mapping;
+    varName?: string;
+    targetField: string;
+    subMappingName?: string;
+}
+
+export interface DeleteSubMappingRequest {
+    filePath: string;
+    codedata: CodeData;
+    index: number;
     varName?: string;
     targetField: string;
     subMappingName?: string;
