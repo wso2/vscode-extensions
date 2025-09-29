@@ -28,6 +28,13 @@ const TruncatedLabelContainer = styled.span`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    min-width: 0; // Important for flex items to allow truncation
+`;
+
+// Container for multiple labels with equal distribution
+const TruncatedLabelGroupContainer = styled.div`
+    display: flex;
+    overflow: hidden;
 `;
 
 export const TruncatedLabel: React.FC<PropsWithChildren<TruncatedLabelProps>> = ({ children, ...props }) => {
@@ -67,3 +74,17 @@ export const TruncatedLabel: React.FC<PropsWithChildren<TruncatedLabelProps>> = 
         </TruncatedLabelContainer>
     );
 }
+
+// Component for grouping multiple truncated labels with equal distribution
+export interface TruncatedLabelGroupProps {
+    className?: string;
+    style?: CSSProperties;
+}
+
+export const TruncatedLabelGroup: React.FC<PropsWithChildren<TruncatedLabelGroupProps>> = ({ children, ...props }) => {
+    return (
+        <TruncatedLabelGroupContainer {...props}>
+            {children}
+        </TruncatedLabelGroupContainer>
+    );
+};
