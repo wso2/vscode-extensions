@@ -98,7 +98,7 @@ export function ReferenceNodeWidget(props: ReferenceNodeWidgetProps) {
     const tooltip = hasDiagnotics ? node.getDiagnostics().map(diagnostic => diagnostic.message).join("\n") : undefined;
     const [definition, setDefinition] = useState<GetDefinitionResponse>(undefined);
     const [canOpenView, setCanOpenView] = useState(false);
-    const [fromDepenndency, setFromDependency] = useState(false);
+    const [fromDependency, setFromDependency] = useState(false);
     const referenceKey = node.referenceName?.split("=")[0];
     const referenceValue = node.referenceName?.split("=")[1];
     const isClickable = referenceKey !== "sequence" && referenceKey !== "inSequence" && referenceKey !== "outSequence" && referenceKey !== "faultSequence" && node.stNode.tag !== "target";
@@ -239,7 +239,7 @@ export function ReferenceNodeWidget(props: ReferenceNodeWidgetProps) {
                                 </Header>
                                 <Body>
                                     <Tooltip content={description} position={'bottom'} >
-                                        <Description onClick={handleOpenView} isError={!canOpenView && !fromDepenndency} selectable={canOpenView && !fromDepenndency}>{description}</Description>
+                                        <Description onClick={handleOpenView} isError={!canOpenView && !fromDependency} selectable={canOpenView && !fromDependency}>{description}</Description>
                                     </Tooltip>
                                 </Body>
                             </Content>
