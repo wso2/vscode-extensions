@@ -476,6 +476,7 @@ jobs:
       - name: Run Failed Tests (Re-run)
         if: (github.run_attempt == 1 && steps.run-tests-first.outcome == 'failure') || (github.run_attempt > 1 && steps.check-results.outcome == 'success')
         run: |
+          rm -rf workspaces/mi/mi-extension/src/test/e2e-playwright-tests/data/new-project
           export $(dbus-launch)
           export DISPLAY=:98.0
           cd workspaces/mi/mi-extension
