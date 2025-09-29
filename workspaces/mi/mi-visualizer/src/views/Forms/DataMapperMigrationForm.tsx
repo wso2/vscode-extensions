@@ -127,10 +127,8 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
     });
 
     const handleAuthenticationSuccess = async (formValues: any) => {
-        // Setting a timeout for the view to load
-        setTimeout(async () => {
-            await handleContinue();
-        }, 1000);
+        closeSignInView();
+        await handleContinue();
     };
 
     const handleContinue = async () => {

@@ -595,11 +595,8 @@ export function TestCaseForm(props: TestCaseFormProps) {
 
     // Handler for authentication success - this will be called when authentication is successful
     const handleAuthenticationSuccess = async (formValues: any) => {
-        // Setting a timeout for the view to load
-        setTimeout(async () => {
-            const storedPrompt = formValues?.aiPrompt;
-            await handleAIGeneration(storedPrompt);
-        }, 1000);
+        const storedPrompt = formValues?.aiPrompt;
+        await handleAIGeneration(storedPrompt);
     };
 
     const openUpdateExtensionView = () => {

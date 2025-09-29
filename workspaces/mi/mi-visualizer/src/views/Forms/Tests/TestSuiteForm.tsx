@@ -498,10 +498,7 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
             location: { view: MACHINE_VIEW.TestSuite, documentUri: props.filePath } 
         });
         
-        // Setting a timeout for the view to load
-        setTimeout(async () => {
-            await handleCreateUnitTests(formValues);
-        }, 1000);
+        await handleCreateUnitTests(formValues);
     };
 
     useEffect(() => {
