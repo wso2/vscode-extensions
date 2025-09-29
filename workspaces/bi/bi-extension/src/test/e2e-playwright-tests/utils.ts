@@ -19,6 +19,8 @@ import { ExtendedPage, Form, startVSCode, switchToIFrame } from "@wso2/playwrigh
 import { test } from '@playwright/test';
 import fs, { existsSync } from 'fs';
 import path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 
 const dataFolder = path.join(__dirname, 'data');
 const extensionsFolder = path.join(__dirname, '..', '..', '..', 'vsix');
@@ -27,6 +29,30 @@ export const resourcesFolder = path.join(__dirname, '..', 'test-resources');
 export const newProjectPath = path.join(dataFolder, 'new-project', 'testProject');
 export let vscode;
 export let page: ExtendedPage;
+
+const execAsync = promisify(exec);
+
+/**
+ * Execute bal pull command to download Ballerina packages before project creation
+ * This is done to fix "Language server has stopped working due to unresolved modules in your project. Please resolve them to proceed." issue
+ * This is a temporary solution until Ballerina 2201.13.0 release
+ */
+async function executeBallPullCommand(): Promise<void> {
+    console.log('Executing bal pull ballerina/task:2.7.0...');
+    try {
+        const { stdout, stderr } = await execAsync('bal pull ballerina/task:2.7.0');
+        console.log('bal pull stdout:', stdout);
+        if (stderr) {
+            console.warn('bal pull stderr:', stderr);
+        }
+        console.log('✓ Successfully executed bal pull ballerina/task:2.7.0');
+    } catch (error) {
+        console.error('Failed to execute bal pull command:', error);
+        // Don't throw error - continue with project creation even if bal pull fails
+        // This ensures tests don't fail due to network issues or package availability
+        console.warn('Continuing with project creation despite bal pull failure...');
+    }
+}
 
 async function initVSCode() {
     if (vscode && page) {
@@ -57,7 +83,7 @@ export async function toggleNotifications(disable: boolean) {
         await page.executePaletteCommand("Notifications: Toggle Do Not Disturb Mode");
         console.log("Toggled notifications");
     }
-    console.log("Finished")
+    console.log("Finished");
 }
 
 export async function setupBallerinaIntegrator() {
@@ -84,7 +110,7 @@ export async function setupBallerinaIntegrator() {
         await createNewIntegrationBtn.click({ force: true });
     } catch (error) {
         console.log('Create New Integration button not found, will use Set up Ballerina distribution button');
-        const setupButton = webview.getByRole('button', { name: 'Set up Ballerina distribution' })
+        const setupButton = webview.getByRole('button', { name: 'Set up Ballerina distribution' });
         await setupButton.waitFor();
         await setupButton.click({ force: true });
         const restartButton = webview.getByRole('button', { name: 'Restart VS Code' });
@@ -137,6 +163,10 @@ export async function getWebview(viewName: string, page: ExtendedPage) {
 
 export async function createProject(page: ExtendedPage, projectName?: string) {
     console.log('Creating new project');
+    
+    // Execute bal pull command before project creation
+    await executeBallPullCommand();
+    
     await setupBallerinaIntegrator();
     const webview = await getWebview('WSO2 Integrator: BI', page);
     if (!webview) {
@@ -167,31 +197,32 @@ export async function createProject(page: ExtendedPage, projectName?: string) {
 
 export function initTest(newProject: boolean = false, skipProjectCreation: boolean = false, cleanupAfter?: boolean, projectName?: string) {
     test.beforeAll(async ({ }, testInfo) => {
-        console.log(`>>> Starting tests. Title: ${testInfo.title}, Attempt: ${testInfo.retry + 1}`);
+        console.log(`\n▶️  STARTING TEST: ${testInfo.title} (Attempt ${testInfo.retry + 1})`);
         if (!existsSync(path.join(newProjectPath, projectName ?? 'sample')) || newProject) {
             if (fs.existsSync(newProjectPath)) {
                 fs.rmSync(newProjectPath, { recursive: true });
             }
             fs.mkdirSync(newProjectPath, { recursive: true });
-            console.log('Starting VSCode');
+            console.log('  📦 Starting VSCode...');
             await initVSCode();
             if (!skipProjectCreation) {
                 await createProject(page, projectName);
             }
         } else {
-            console.log('Resuming VSCode');
+            console.log('  🔄 Resuming VSCode...');
             await resumeVSCode();
             await page.page.waitForLoadState();
             await toggleNotifications(true);
         }
-        console.log('Test runner started');
+        console.log('  ✅ Test environment ready');
     });
 
     test.afterAll(async ({ }, testInfo) => {
         if (cleanupAfter && fs.existsSync(newProjectPath)) {
             fs.rmSync(newProjectPath, { recursive: true });
         }
-        console.log(`>>> Finished ${testInfo.title} with status: ${testInfo.status}, Attempt: ${testInfo.retry + 1}`);
+        const statusEmoji = testInfo.status === 'passed' ? '✅' : testInfo.status === 'failed' ? '❌' : '⏭️';
+        console.log(`${statusEmoji} FINISHED TEST: ${testInfo.title} (${testInfo.status.toUpperCase()}, Attempt ${testInfo.retry + 1})\n`);
     });
 }
 
@@ -215,7 +246,7 @@ export function initMigrationTest() {
         await initVSCode();
         await page.page.waitForLoadState();
         await toggleNotifications(true);
-        
+
         // Reload VS Code to apply the language server setting
         await page.executePaletteCommand('Reload Window');
         await page.page.waitForLoadState();
