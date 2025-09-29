@@ -3027,6 +3027,13 @@ ${endpointAttributes}
                 initialDependencies = generateInitialDependencies(httpConnectorVersion);
             } catch (err) {
                 console.error("Could not fetch connectors:", err);
+                const confirmation = await window.showWarningMessage(
+                                        "Unable to download the default modules. Do you wish to proceed with the project creation?",
+                                        { modal: true }, 'Yes');
+                if (confirmation === undefined) {
+                    resolve({filePath: "Error"});
+                    return;
+                }
             }
             const tempName = name.replace(/\./g, '');
             const folderStructure: FileStructure = {
