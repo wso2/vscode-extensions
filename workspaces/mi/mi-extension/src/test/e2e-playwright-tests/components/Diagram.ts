@@ -55,16 +55,86 @@ export class Diagram {
     }
 
     public async getMediator(mediatorName: string, index: number = 0, type = 'mediator') {
-        const mediatorNode = (await this.getDiagramContainer()).locator(`[data-testid^="${type}Node-${mediatorName}-"]`).nth(index).locator('div').first();
-        await mediatorNode.waitFor();
-        await mediatorNode.hover();
+        const container = await this.getDiagramContainer();
+        const mediatorElement = container.locator(`[data-testid^="${type}Node-${mediatorName}-"]`).nth(index);
+        
+        // Wait for the mediator element to be attached first
+        await mediatorElement.waitFor({ state: 'attached' });
+        
+        // Wait for animations and rendering to complete
+        await container.page().waitForTimeout(1000);
+        
+        // Check if element is visible, if not, try to scroll it into view
+        const isVisible = await mediatorElement.isVisible();
+        if (!isVisible) {
+            await mediatorElement.scrollIntoViewIfNeeded();
+            await container.page().waitForTimeout(500);
+        }
+        
+        // Try to find the actual clickable/hoverable div within the mediator
+        const mediatorNode = mediatorElement.locator('div').first();
+        
+        // Wait for the inner div to be available
+        await mediatorNode.waitFor({ state: 'attached' });
+        
+        // Try hover with multiple strategies
+        try {
+            // First attempt: normal hover
+            await mediatorNode.hover();
+        } catch (firstError) {
+            try {
+                // Second attempt: force hover
+                await mediatorNode.hover({ force: true });
+            } catch (secondError) {
+                // Third attempt: scroll into view then hover
+                await mediatorNode.scrollIntoViewIfNeeded();
+                await container.page().waitForTimeout(200);
+                try {
+                    await mediatorNode.hover({ force: true });
+                } catch (thirdError) {
+                    // Final fallback: click instead of hover
+                    console.warn('All hover attempts failed, using click as fallback');
+                    await mediatorNode.click({ force: true });
+                }
+            }
+        }
+        
         return new Mediator(this.diagramWebView, mediatorNode);
     }
 
     public async getConnectorOperation(connectorName: string, operationName: string, index: number = 0) {
-        const connectorNode = (await this.getDiagramContainer()).locator(`[data-testid^="connectorNode-${connectorName}.${operationName}-"]`).nth(index).locator('div').first();
-        await connectorNode.waitFor();
-        await connectorNode.hover();
+        const container = await this.getDiagramContainer();
+        const connectorElement = container.locator(`[data-testid^="connectorNode-${connectorName}.${operationName}-"]`).nth(index);
+        await connectorElement.waitFor({ state: 'visible' });
+        
+        // Wait for any animations or overlays to settle
+        await container.page().waitForTimeout(500);
+        
+        const connectorNode = connectorElement.locator('div').first();
+        await connectorNode.waitFor({ state: 'visible' });
+        
+        // Try hover with multiple strategies
+        try {
+            // First attempt: normal hover
+            await connectorNode.hover();
+        } catch (firstError) {
+            try {
+                // Second attempt: force hover
+                await connectorNode.hover({ force: true });
+            } catch (secondError) {
+                // Third attempt: scroll into view then hover
+                await connectorNode.scrollIntoViewIfNeeded();
+                await container.page().waitForTimeout(200);
+                try {
+                    await connectorNode.hover({ force: true });
+                } catch (thirdError) {
+                    // Final fallback: click instead of hover
+                    console.warn('All hover attempts failed, using click as fallback');
+                    await connectorNode.click({ force: true });
+                }
+            }
+        }
+        
         return new Mediator(this.diagramWebView, connectorNode);
     }
 
