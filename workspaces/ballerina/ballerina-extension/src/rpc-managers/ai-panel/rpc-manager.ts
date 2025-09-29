@@ -118,6 +118,7 @@ import {
 import { attemptRepairProject, checkProjectDiagnostics } from "./repair-utils";
 import { AIPanelAbortController, addToIntegration, cleanDiagnosticMessages, handleStop, isErrorCode, processMappings, requirementsSpecification, searchDocumentation } from "./utils";
 import { fetchData } from "./utils/fetch-data-utils";
+import { CLOSE_AI_PANEL_COMMAND, OPEN_AI_PANEL_COMMAND } from "../../../src/features/ai/constants";
 
 export class AiPanelRpcManager implements AIPanelAPI {
 
@@ -494,7 +495,7 @@ export class AiPanelRpcManager implements AIPanelAPI {
             };
 
             const resp: BISourceCodeResponse = await StateMachine.langClient().addErrorHandler(req);
-            await updateSourceCode({ textEdits: resp.textEdits });
+            await updateSourceCode({ textEdits: resp.textEdits }, null, 'Error Handler Creation');
         }
     }
 
@@ -835,7 +836,8 @@ export class AiPanelRpcManager implements AIPanelAPI {
                 offset: dataMapperMetadata.codeData.lineRange.startLine.offset
             };
 
-            if (dataMapperMetadata.codeData.node !== "VARIABLE") {
+            if (!dataMapperMetadata.codeData.hasOwnProperty('node') ||
+                dataMapperMetadata.codeData.node !== "VARIABLE") {
                 const fileUri = Uri.file(filePath).toString();
                 const fnSTByRange = await StateMachine.langClient().getSTByRange({
                     lineRange: {
@@ -918,7 +920,7 @@ export class AiPanelRpcManager implements AIPanelAPI {
                     [filePath]: [textEdit]
                 };
             }
-            await updateSourceCode({ textEdits: allTextEdits });
+            await updateSourceCode({ textEdits: allTextEdits }, null, 'AI Code Segment Creation');
             return true;
         } catch (error) {
             console.error(">>> Failed to add code segment to the workspace", error);
@@ -931,8 +933,8 @@ export class AiPanelRpcManager implements AIPanelAPI {
             const context = StateMachine.context();
             const { identifier, dataMapperMetadata } = context;
 
-            commands.executeCommand("ballerina.close.ai.panel");
-            commands.executeCommand("ballerina.open.ai.panel", {
+            commands.executeCommand(CLOSE_AI_PANEL_COMMAND);
+            commands.executeCommand(OPEN_AI_PANEL_COMMAND, {
                 type: 'command-template',
                 command: Command.DataMap,
                 templateId: identifier ? TemplateId.MappingsForFunction : TemplateId.InlineMappings,
@@ -980,7 +982,7 @@ export class AiPanelRpcManager implements AIPanelAPI {
 
     async addInlineCodeSegmentToWorkspace(params: CodeSegment): Promise<void> {
         try {
-            let filePath =  StateMachine.context().documentUri;
+            let filePath = StateMachine.context().documentUri;
             const datamapperMetadata = StateMachine.context().dataMapperMetadata;
             const textEdit: TextEdit = {
                 newText: params.segmentText,

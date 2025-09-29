@@ -111,9 +111,8 @@ export class RPCLayer {
             // Get the notification handler instance
             const notificationHandler = ArtifactNotificationHandler.getInstance();
             // Subscribe to notifications
-            const artifactUpdateUnsubscribe = notificationHandler.subscribe(ArtifactsUpdated.method, artifactData, (payload) => {
+            notificationHandler.subscribe(ArtifactsUpdated.method, artifactData, (payload) => {
                 RPCLayer._messenger.sendNotification(onArtifactUpdatedNotification, { type: 'webview', webviewType: VisualizerWebview.viewType }, payload.data);
-                artifactUpdateUnsubscribe();
             });
         });
     }
@@ -136,6 +135,7 @@ async function getContext(): Promise<VisualizerLocation> {
             isGraphql: context.isGraphql,
             addType: context.addType,
             focusFlowDiagramView: context.focusFlowDiagramView,
+            rootDiagramId: context.rootDiagramId,
             metadata: {
                 isBISupported: context.isBISupported,
                 haveLS: StateMachine.langClient() && true,
@@ -160,6 +160,7 @@ async function getPopupContext(): Promise<PopupVisualizerLocation> {
             recentIdentifier: context.recentIdentifier,
             identifier: context.identifier,
             metadata: context.metadata,
+            dataMapperMetadata: context.dataMapperMetadata
         });
     });
 }
