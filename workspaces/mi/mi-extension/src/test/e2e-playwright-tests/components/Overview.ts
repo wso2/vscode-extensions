@@ -121,6 +121,8 @@ export class Overview {
         await popupPanel.getByRole('textbox', { name: 'Artifact ID' }).fill("mysql-connector-java");
         await popupPanel.getByRole('textbox', { name: 'Version' }).fill("8.0.33");
         await popupPanel.getByRole('button', { name: 'Add Dependency' }).click();
+        const loader = this.webView.locator('[data-testid="dependency-manager-loader"]');
+        await loader.waitFor({ state: 'detached', timeout: 10000 });
     }
 
     public async editOtherDependencies() {
@@ -133,6 +135,8 @@ export class Overview {
         await dependencyItemComponent.locator('.codicon-edit').click();
         await popupPanel.getByRole('textbox', { name: 'Artifact ID' }).fill('mysql-connector--java');
         await popupPanel.getByText('Save Changes').click();
+        const loader = this.webView.locator('[data-testid="dependency-manager-loader"]');
+        await loader.waitFor({ state: 'detached', timeout: 10000 });
     }
 
     public async deleteOtherDependencies() {
@@ -143,6 +147,8 @@ export class Overview {
         await dependencyItemComponent.waitFor({ state: 'visible', timeout: 10000 });
         await dependencyItemComponent.hover();
         await dependencyItemComponent.locator('.codicon-trash').click();
+        const loader = this.webView.locator('[data-testid="dependency-manager-loader"]');
+        await loader.waitFor({ state: 'detached', timeout: 10000 });
     }
 
     public async closeDependencyManager() {
@@ -160,6 +166,8 @@ export class Overview {
         await this.webView.getByRole('textbox', { name: 'Artifact ID' }).fill("mi-connector-amazonsqs");
         await this.webView.getByRole('textbox', { name: 'Version' }).fill("2.0.3");
         await popupPanel.getByRole('button', { name: 'Add Dependency' }).click();
+        const loader = this.webView.locator('[data-testid="dependency-manager-loader"]');
+        await loader.waitFor({ state: 'detached', timeout: 10000 });
     }
 
     public async editConnectorDependencies() {
@@ -171,6 +179,8 @@ export class Overview {
         await dependencyItemComponent.locator('.codicon-edit').click();
         await this.webView.getByRole('textbox', { name: 'Artifact ID' }).fill('mi-connector--amazonsqs');
         await popupPanel.getByText('Save Changes').click();
+        const loader = this.webView.locator('[data-testid="dependency-manager-loader"]');
+        await loader.waitFor({ state: 'detached', timeout: 10000 });
     }
 
     public async deleteConnectorDependencies() {
@@ -181,6 +191,8 @@ export class Overview {
         await dependencyItemComponent.waitFor({ state: 'visible', timeout: 10000 });
         await dependencyItemComponent.hover();
         await dependencyItemComponent.locator('.codicon-trash').click();
+        const loader = this.webView.locator('[data-testid="dependency-manager-loader"]');
+        await loader.waitFor({ state: 'detached', timeout: 10000 });
     }
 
     public async addConfig() {

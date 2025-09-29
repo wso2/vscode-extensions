@@ -209,7 +209,7 @@ export function DependencyManager(props: ManageDependenciesProps) {
                     {isUpdating && (
                         <>
                             <Overlay sx={{ background: `${Colors.SURFACE_CONTAINER}`, opacity: `0.3`, zIndex: 2000 }} />
-                            <LoaderContainer>
+                            <LoaderContainer data-testid="dependency-manager-loader">
                                 <ProgressRing sx={{ height: '32px', width: '32px' }} />
                             </LoaderContainer>
                         </>
