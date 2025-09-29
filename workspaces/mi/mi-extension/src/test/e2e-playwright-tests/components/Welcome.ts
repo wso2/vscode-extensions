@@ -39,7 +39,7 @@ export class Welcome {
     }
 
     public async createNewProjectFromSample(projectName: string, path: string) {
-        await this.container.getByText(projectName).click();
+        await this.container.getByText(projectName).click({ force: true });
         const fileInput = await this.page.page?.waitForSelector('.quick-input-header');
         const textInput = await fileInput?.waitForSelector('input[type="text"]');
         await textInput?.fill(path);
