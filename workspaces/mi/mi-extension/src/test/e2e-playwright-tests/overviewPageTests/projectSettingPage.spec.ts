@@ -57,6 +57,7 @@ export default function createTests() {
                 const overviewPage = new Overview(page.page);
                 await waitUntilPomNotContains(page.page, pomFilePath, '<artifactId>mysql-connector-java</artifactId>');
                 await overviewPage.init();
+                await overviewPage.openOtherDependenciesManager();
                 await overviewPage.addOtherDependencies();
                 console.log('Waiting for pom.xml to contain mysql-connector-java dependency');
                 await waitUntilPomContains(page.page, pomFilePath, '<artifactId>mysql-connector-java</artifactId>')
@@ -81,6 +82,7 @@ export default function createTests() {
                 await overviewPage.deleteOtherDependencies();
                 console.log('Waiting for pom.xml to not contain mysql-connector--java dependency');
                 await waitUntilPomNotContains(page.page, pomFilePath, '<artifactId>mysql-connector--java</artifactId>');
+                await overviewPage.closeDependencyManager();
             });
 
             await test.step('Add Connector Dependencies', async () => {
@@ -89,6 +91,7 @@ export default function createTests() {
                     '<artifactId>mi-connector-amazonsqs</artifactId>');
                 const overviewPage = new Overview(page.page);
                 await overviewPage.init();
+                await overviewPage.openConnectorDependenciesManager();
                 await overviewPage.addConnectorDependencies();
                 console.log('Waiting for pom.xml to contain mi-connector-amazonsqs dependency');
                 await waitUntilPomContains(page.page, pomFilePath, '<artifactId>mi-connector-amazonsqs</artifactId>');
@@ -111,6 +114,7 @@ export default function createTests() {
                 await overviewPage.deleteConnectorDependencies();
                 console.log('Waiting for pom.xml to not contain mi-connector--amazonsqs dependency');
                 await waitUntilPomNotContains(page.page, pomFilePath, '<artifactId>mi-connector--amazonsqs</artifactId>');
+                await overviewPage.closeDependencyManager();
             });
 
             await test.step('Add Config', async () => {
