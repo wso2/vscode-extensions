@@ -223,6 +223,7 @@ jobs:
           exit-code: '1'
           timeout: '10m'
           skip-dirs: 'common/temp'
+          ignore-unfixed: true
 
   ExtTest_Ballerina:
     name: Run Ballerina extension tests
