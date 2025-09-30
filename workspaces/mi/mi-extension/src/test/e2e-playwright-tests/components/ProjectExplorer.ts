@@ -67,6 +67,13 @@ export class ProjectExplorer {
             // If project not found, try to refresh the explorer or wait a bit more
             console.warn(`Project ${projectName} not found, waiting additional time...`);
             await this.page.waitForTimeout(2000);
+            try {
+                // Click sidebar and select WSO2 Integrator: MI to refresh the explorer
+                await this.page.waitForSelector(`a[aria-label="WSO2 Integrator: MI"]`);
+                return await this.page.click(`a[aria-label="WSO2 Integrator: MI"]`);
+            } catch (error) {
+                console.error(`Failed to select sidebar item: ${error}`);
+            }
             await projectExplorerRoot.waitFor({ state: 'visible', timeout: waitTimeout });
         }
         
