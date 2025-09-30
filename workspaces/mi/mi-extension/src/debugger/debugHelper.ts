@@ -94,7 +94,7 @@ function checkServerLiveness(): Promise<boolean> {
 
 export function checkServerReadiness(): Promise<void> {
     const startTime = Date.now();
-    const maxTimeout = 45000;
+    const maxTimeout = 120000;
     const retryInterval = 2000;
 
     return new Promise((resolve, reject) => {
@@ -262,7 +262,7 @@ export async function executeRemoteDeployTask(projectUri: string, postBuildTask?
     return new Promise<void>(async (resolve, reject) => {
 
         const config = workspace.getConfiguration('MI', Uri.file(projectUri));
-        const mvnCmd = config.get("USE_LOCAL_MAVEN") ? "mvn" : (process.platform === "win32" ?
+        const mvnCmd = config.get("useLocalMaven") ? "mvn" : (process.platform === "win32" ?
             MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
         const buildCommand = mvnCmd + MVN_COMMANDS.DEPLOY_COMMAND;
         const envVariables = {
@@ -408,7 +408,7 @@ export async function stopServer(projectUri: string, serverPath: string, isWindo
 }
 
 export async function executeTasks(projectUri: string, serverPath: string, isDebug: boolean): Promise<void> {
-    const maxTimeout = 45000;
+    const maxTimeout = 120000;
     return new Promise<void>(async (resolve, reject) => {
         const isTerminated = await getStateMachine(projectUri).context().langClient?.shutdownTryoutServer();
         if (!isTerminated) {
