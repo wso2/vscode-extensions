@@ -41,6 +41,7 @@ export let page: ExtendedPage;
 async function initVSCode(groupName?: string, title?: string, attempt: number = 1) {
     if (vscode && page) {
         await page.executePaletteCommand('Reload Window');
+        await page.executePaletteCommand('View: Toggle Secondary Side Bar Visibility');
     } else {
         vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, newProjectPath, 'mi-test-profile', groupName, title, attempt);
     }
