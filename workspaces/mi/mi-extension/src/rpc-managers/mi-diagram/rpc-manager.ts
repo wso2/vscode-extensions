@@ -1512,6 +1512,11 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
             const resp = await langClient.getProjectStructure(this.projectUri);
             const artifacts = (resp.directoryMap as any).src.main.wso2mi.artifacts;
 
+            const sequenceList = await langClient.getAvailableResources({
+                documentIdentifier: this.projectUri,
+                resourceType: "sequence",
+            });
+
             const endpoints: string[] = [];
             const sequences: string[] = [];
 
@@ -1519,8 +1524,11 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                 endpoints.push(endpoint.name);
             }
 
-            for (const sequence of artifacts.sequences) {
+            for (const sequence of sequenceList.resources) {
                 sequences.push(sequence.name);
+            }
+            for (const sequence of sequenceList.registryResources) {
+                sequences.push(sequence.registryKey);
             }
 
             resolve({ data: [endpoints, sequences] });
