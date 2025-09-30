@@ -319,7 +319,10 @@ import {
     isKubernetesConfigured,
     UpdateRegistryPropertyRequest,
     updatePropertiesInArtifactXML,
-    getPropertiesFromArtifactXML, getBackendRootUrl
+    getPropertiesFromArtifactXML,
+    setAnthropicApiKey,
+    getAnthropicApiKey,
+    getBackendRootUrl
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
 import { MiDiagramRpcManager } from "./rpc-manager";
@@ -506,4 +509,6 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(isKubernetesConfigured, () => rpcManger.isKubernetesConfigured());
     messenger.onRequest(updatePropertiesInArtifactXML, (args: UpdateRegistryPropertyRequest) => rpcManger.updatePropertiesInArtifactXML(args));
     messenger.onRequest(getPropertiesFromArtifactXML, (args: string) => rpcManger.getPropertiesFromArtifactXML(args));
+    messenger.onRequest(setAnthropicApiKey, () => rpcManger.setAnthropicApiKey());
+    messenger.onRequest(getAnthropicApiKey, () => rpcManger.getAnthropicApiKey());
 }
