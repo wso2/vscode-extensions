@@ -38,7 +38,7 @@ import {
 } from "@wso2/wso2-platform-core";
 import React, { type FC, useState } from "react";
 import { useForm } from "react-hook-form";
-import type { z } from "zod";
+import type { z } from "zod/v3";
 import { HeaderSection } from "../../components/HeaderSection";
 import type { HeaderTag } from "../../components/HeaderSection/HeaderSection";
 import { type StepItem, VerticalStepper } from "../../components/VerticalStepper";
@@ -91,13 +91,13 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 	const { data: existingComponents = [] } = useComponentList(project, organization, { initialData: existingComponentsCache });
 
 	const genDetailsForm = useForm<ComponentFormGenDetailsType>({
-		resolver: zodResolver(getComponentFormSchemaGenDetails(existingComponents), { async: true }, { mode: "async" }),
+		resolver: zodResolver(getComponentFormSchemaGenDetails(existingComponents)),
 		mode: "all",
 		defaultValues: { name: initialValues?.name || "", subPath: "", gitRoot: "", repoUrl: "", branch: "", credential: "", gitProvider: "" },
 	});
 
 	const repoInitForm = useForm<ComponentRepoInitType>({
-		resolver: zodResolver(getRepoInitSchemaGenDetails(existingComponents), { async: true }, { mode: "async" }),
+		resolver: zodResolver(getRepoInitSchemaGenDetails(existingComponents)),
 		mode: "all",
 		defaultValues: {
 			org: "",
@@ -115,7 +115,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 	const subPath = genDetailsForm.watch("subPath");
 
 	const buildDetailsForm = useForm<ComponentFormBuildDetailsType>({
-		resolver: zodResolver(getComponentFormSchemaBuildDetails(type, directoryFsPath, gitRoot), { async: true }, { mode: "async" }),
+		resolver: zodResolver(getComponentFormSchemaBuildDetails(type, directoryFsPath, gitRoot)),
 		mode: "all",
 		defaultValues: {
 			buildPackLang: initialValues?.buildPackLang ?? "",
@@ -133,14 +133,14 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 	const useDefaultEndpoints = buildDetailsForm.watch("useDefaultEndpoints");
 	const buildPackLang = buildDetailsForm.watch("buildPackLang");
 
-	const endpointDetailsForm = useForm<ComponentFormEndpointsType, any, undefined>({
-		resolver: zodResolver(getComponentEndpointsFormSchema(directoryFsPath), { async: true }, { mode: "async" }),
+	const endpointDetailsForm = useForm<ComponentFormEndpointsType, any, ComponentFormEndpointsType>({
+		resolver: zodResolver(getComponentEndpointsFormSchema(directoryFsPath)),
 		mode: "all",
 		defaultValues: { endpoints: [] },
 	});
 
 	const gitProxyForm = useForm<ComponentFormGitProxyType>({
-		resolver: zodResolver(getComponentGitProxyFormSchema(directoryFsPath), { async: true }, { mode: "async" }),
+		resolver: zodResolver(getComponentGitProxyFormSchema(directoryFsPath)),
 		mode: "all",
 		defaultValues: {
 			proxyTargetUrl: "",
