@@ -395,6 +395,7 @@ jobs:
         shell: bash
         if: steps.run-tests-first.outcome == 'failure' || steps.check-results.outcome == 'success'
         run: |
+          rm -rf workspaces/mi/mi-extension/src/test/e2e-playwright-tests/data/new-project
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             cd workspaces/${{ matrix.path }}
             # Run failed tests
