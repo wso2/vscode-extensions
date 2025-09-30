@@ -59,11 +59,17 @@ export class ProjectExplorer {
     public async goToOverview(projectName: string, timeout?: number) {
         // wait for 1s
         const projectExplorerRoot = this.explorer.locator(`div[role="treeitem"][aria-label="Project ${projectName}"]`);
-        if (timeout) {
-            await projectExplorerRoot.waitFor({ timeout });
-        } else {
-            await projectExplorerRoot.waitFor();
+        const waitTimeout = timeout || 30000;
+        
+        try {
+            await projectExplorerRoot.waitFor({ state: 'visible', timeout: waitTimeout });
+        } catch (error) {
+            // If project not found, try to refresh the explorer or wait a bit more
+            console.warn(`Project ${projectName} not found, waiting additional time...`);
+            await this.page.waitForTimeout(2000);
+            await projectExplorerRoot.waitFor({ state: 'visible', timeout: waitTimeout });
         }
+        
         await projectExplorerRoot.first().hover();
         const locator = projectExplorerRoot.getByLabel('Open Project Overview');
         await locator.waitFor();

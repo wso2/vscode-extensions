@@ -51,8 +51,10 @@ export default function createTests() {
                 await welcomePage.init();
                 console.log('Creating new project from sample');
                 await welcomePage.createNewProjectFromSample('Hello World ServiceA simple', newProjectPath);
+                // Wait for project to be fully loaded in explorer
+                await page.page.waitForTimeout(3000);
                 const projectExplorer = new ProjectExplorer(page.page);
-                await projectExplorer.goToOverview("HelloWorldService");
+                await projectExplorer.goToOverview("HelloWorldService", 45000);
                 const overview = new Overview(page.page);
                 await overview.init();
                 await overview.diagramRenderingForApi('HelloWorldAPI');
