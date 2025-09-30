@@ -93,6 +93,13 @@ export async function getUserAccessToken(): Promise<string> {
 }
 
 /**
+ * Gets the Anthropic API key from extension secrets
+ */
+export async function getAnthropicApiKey(): Promise<string | undefined> {
+    return await extension.context.secrets.get('AnthropicApiKey');
+}
+
+/**
  * Refreshes the user access token
  */
 export async function refreshUserAccessToken(): Promise<string> {
@@ -157,18 +164,26 @@ export async function fetchWithRetry(
     let retryCount = 0;
     const maxRetries = 2;
     let token = await getUserAccessToken();
+    const anthropicApiKey = await getAnthropicApiKey();
 
     const bodyWithThinking = {
         ...body,
         thinking: thinking || false
     };
 
+    const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+    };
+
+    // Add Anthropic API key header if available
+    if (anthropicApiKey) {
+        headers["X-ANTHROPIC-KEY"] = anthropicApiKey;
+    }
+
     let response = await fetch(url, {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-        },
+        headers: headers,
         body: JSON.stringify(bodyWithThinking),
         signal: controller.signal,
     });
@@ -177,12 +192,13 @@ export async function fetchWithRetry(
     if (response.status === 401) {
         try {
             token = await refreshUserAccessToken();
+            
+            // Update headers with new token
+            headers.Authorization = `Bearer ${token}`;
+            
             response = await fetch(url, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
+                headers: headers,
                 body: JSON.stringify(bodyWithThinking),
                 signal: controller.signal,
             });

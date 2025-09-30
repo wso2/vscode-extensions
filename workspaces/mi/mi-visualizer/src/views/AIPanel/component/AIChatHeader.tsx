@@ -32,6 +32,10 @@ const AIChatHeader: React.FC = () => {
     await rpcClient?.getMiDiagramRpcClient().logoutFromMIAccount();
   };
 
+  const handleSetApiKey = async () => {
+    await rpcClient?.getMiDiagramRpcClient().setAnthropicApiKey();
+  };
+
   const isLoading = chatClearEventTriggered || backendRequestTriggered;
 
   return (
@@ -60,6 +64,15 @@ const AIChatHeader: React.FC = () => {
               >
                   <Codicon name="clear-all" />
                   &nbsp;&nbsp;Clear
+              </Button>
+              <Button 
+                  appearance="icon" 
+                  onClick={handleSetApiKey} 
+                  tooltip="Set Anthropic API Key for Unlimited Usage" 
+                  disabled={isLoading}
+              >
+                  <Codicon name="key" />
+                  &nbsp;&nbsp;API Key
               </Button>
               <Button appearance="icon" onClick={handleLogout} tooltip="Logout" disabled={isLoading}>
                   <Codicon name="sign-out" />
