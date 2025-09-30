@@ -17,7 +17,7 @@
  */
 
 import { window } from "vscode";
-import { z } from "zod";
+import { z } from "zod/v3";
 import { ext } from "./extensionVariables";
 
 const envSchemaItem = z.object({});

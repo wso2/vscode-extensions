@@ -23,7 +23,7 @@ import { GitProvider, type NewComponentWebviewProps, buildGitURL } from "@wso2/w
 import debounce from "lodash.debounce";
 import React, { type FC, useCallback, useEffect, useState } from "react";
 import type { SubmitHandler, UseFormReturn } from "react-hook-form";
-import type { z } from "zod";
+import type { z } from "zod/v3";
 import { Banner } from "../../../components/Banner";
 import { Button } from "../../../components/Button";
 import { Dropdown } from "../../../components/FormElements/Dropdown";

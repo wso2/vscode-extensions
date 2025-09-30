@@ -33,7 +33,7 @@ import {
 	parseGitURL,
 } from "@wso2/wso2-platform-core";
 import * as yaml from "js-yaml";
-import { z } from "zod";
+import { z } from "zod/v3";
 import { ChoreoWebViewAPI } from "../../utilities/vscode-webview-rpc";
 
 export const componentRepoInitSchema = z.object({
@@ -45,7 +45,7 @@ export const componentRepoInitSchema = z.object({
 	name: z
 		.string()
 		.min(1, "Required")
-		.min(3, "Needs to be at least characters")
+		.min(3, "Needs to be at least 3 characters")
 		.max(60, "Max length exceeded")
 		.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
 		.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters"),
@@ -58,7 +58,7 @@ export const componentGeneralDetailsSchema = z.object({
 	name: z
 		.string()
 		.min(1, "Required")
-		.min(3, "Needs to be at least characters")
+		.min(3, "Needs to be at least 3 characters")
 		.max(60, "Max length exceeded")
 		.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
 		.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters"),
