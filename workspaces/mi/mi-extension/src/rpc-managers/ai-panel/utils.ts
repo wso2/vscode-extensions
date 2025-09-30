@@ -140,6 +140,25 @@ function showSignedOutNotification(projectUri: string) {
 }
 
 /**
+ * Shows notification when user's free quota is exceeded
+ */
+function showQuotaExceededNotification(projectUri: string) {
+    vscode.window.showWarningMessage(
+        "Your free usage quota has been exceeded. Set your own Anthropic API key to continue using MI Copilot with unlimited access.",
+        "Set API Key",
+        "Learn More"
+    ).then(selection => {
+        if (selection === "Set API Key") {
+            // Trigger the API key input dialog
+            const miDiagramRpcManager = new MiDiagramRpcManager(projectUri);
+            miDiagramRpcManager.setAnthropicApiKey();
+        } else if (selection === "Learn More") {
+            vscode.env.openExternal(vscode.Uri.parse("https://console.anthropic.com/"));
+        }
+    });
+}
+
+/**
  * Opens update extension view
  */
 export function openUpdateExtensionView(projectUri: string) {
@@ -208,6 +227,21 @@ export async function fetchWithRetry(
             throw new Error("Authentication failed");
         }
     } 
+    // Handle 429 - Quota Exceeded (must be checked before 404)
+    else if (response.status === 429) {
+        // Quota exceeded - show notification to user
+        showQuotaExceededNotification(projectUri);
+        let error = "Free usage quota exceeded. Please set your own Anthropic API key to continue.";
+        try {
+            const responseBody = await response.json();
+            if (responseBody.detail) {
+                error += ` ${responseBody.detail}`;
+            }
+        } catch (e) {
+            // Ignore JSON parsing error
+        }
+        throw new Error(error);
+    }
     // Handle 404 - Not Found (retry with exponential backoff)
     else if (response.status === 404) {
         if (retryCount < maxRetries) {
@@ -225,14 +259,7 @@ export async function fetchWithRetry(
         const statusText = getStatusText(response.status);
         let error = `Failed to fetch response. Status: ${statusText}`;
 
-        if (response.status === 429) {
-            try {
-                const responseBody = await response.json();
-                error += responseBody.detail || "";
-            } catch (e) {
-                // Ignore JSON parsing error
-            }
-        } else if (response.status === 422) {
+        if (response.status === 422) {
             error = getStatusText(422);
         }
 
