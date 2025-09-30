@@ -452,7 +452,8 @@ import {
     UpdateRegistryPropertyRequest,
     Property,
     updatePropertiesInArtifactXML,
-    getPropertiesFromArtifactXML
+    getPropertiesFromArtifactXML,
+    formatPomFile
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -1030,6 +1031,10 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     getAllDependencies(params: getAllDependenciesRequest): Promise<GetAllDependenciesResponse> {
         return this._messenger.sendRequest(getAllDependencies, HOST_EXTENSION, params);
+    }
+
+    formatPomFile(): Promise<void> {
+        return this._messenger.sendRequest(formatPomFile, HOST_EXTENSION);
     }
 
     testDbConnection(params: TestDbConnectionRequest): Promise<TestDbConnectionResponse> {

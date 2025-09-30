@@ -75,26 +75,26 @@ export function ProjectInformation(props: ProjectInformationProps) {
             paramValues: dependencies.map((dep, index) => (
                 {
                     id: index,
-                    key: dep.groupId,
-                    value: dep.artifact,
+                    key: dep.artifact,
+                    value: dep.version,
                     icon: 'package',
                     paramValues: [
-                        { value: dep.groupId },
                         { value: dep.artifact },
+                        { value: dep.version },
                     ]
                 }
             )) || [],
             paramFields: [
                 {
                     "type": "TextField" as "TextField",
-                    "label": "Group ID",
+                    "label": "Artifact ID",
                     "defaultValue": "",
                     "isRequired": false,
                     "canChange": false
                 },
                 {
                     "type": "TextField" as "TextField",
-                    "label": "Artifact ID",
+                    "label": "Version",
                     "defaultValue": "",
                     "isRequired": false,
                     "canChange": false
@@ -103,10 +103,10 @@ export function ProjectInformation(props: ProjectInformationProps) {
         });
     };
 
-    const openManageDependencies = (title: string, dependencies: DependencyDetails[], type: string) => {
+    const openManageDependencies = (title: string, type: string) => {
         rpcClient.getMiVisualizerRpcClient().openView({
             type: POPUP_EVENT_TYPE.OPEN_VIEW,
-            location: { view: MACHINE_VIEW.ManageDependencies, customProps: { title, dependencies, type } },
+            location: { view: MACHINE_VIEW.ManageDependencies, customProps: { title, type } },
             isPopup: true
         });
     }
@@ -144,7 +144,7 @@ export function ProjectInformation(props: ProjectInformationProps) {
                         onChange(values);
                     }}
                 />}
-            <VSCodeLink onClick={() => openManageDependencies(title, dependencies, type)}>
+            <VSCodeLink onClick={() => openManageDependencies(title, type)}>
                 <div style={{
                     display: 'flex',
                     padding: '10px 0 0'
