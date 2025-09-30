@@ -56,7 +56,9 @@ test.beforeAll(async () => {
     if (fs.existsSync(videosFolder)) {
         fs.rmSync(videosFolder, { recursive: true, force: true });
     }
-    console.log('>>> Starting test suite');
+    console.log('\n' + '='.repeat(80));
+    console.log('🚀 STARTING BI EXTENSION E2E TEST SUITE');
+    console.log('='.repeat(80) + '\n');
 });
 
 // <----Automation Test---->
@@ -96,10 +98,13 @@ test.describe(typeTest); // TODO: This tests is failing due to https://github.co
 test.describe(importIntegration);
 
 test.afterAll(async () => {
-    console.log(`>>> Finished test suite`);
+    console.log('\n' + '='.repeat(80));
+    console.log('✅ BI EXTENSION E2E TEST SUITE COMPLETED');
+    console.log('='.repeat(80));
+
     const dateTime = new Date().toISOString().replace(/:/g, '-');
-    console.log('>>> Saving video');
+    console.log('💾 Saving test video...');
     await page.page?.close();
     page.page.video()?.saveAs(path.join(videosFolder, `test_${dateTime}.webm`));
-    console.log('>>> Video saved');
+    console.log('✅ Video saved successfully\n');
 });
