@@ -310,7 +310,7 @@ import { DiagramService, APIResource, NamedSequence, UnitTest, Proxy } from "../
 import { extension } from '../../MIExtensionContext';
 import { RPCLayer } from "../../RPCLayer";
 import { StateMachineAI } from '../../ai-panel/aiMachine';
-import { APIS, COMMANDS, DEFAULT_ICON, DEFAULT_PROJECT_VERSION, LAST_EXPORTED_CAR_PATH, RUNTIME_VERSION_440, SWAGGER_REL_DIR } from "../../constants";
+import { APIS, COMMANDS, DEFAULT_ICON, DEFAULT_PROJECT_VERSION, LAST_EXPORTED_CAR_PATH, RUNTIME_VERSION_440, SWAGGER_REL_DIR, ERROR_MESSAGES } from "../../constants";
 import { getStateMachine, navigate, openView } from "../../stateMachine";
 import { openPopupView } from "../../stateMachinePopup";
 import { openSwaggerWebview } from "../../swagger/activate";
@@ -318,7 +318,7 @@ import { testFileMatchPattern } from "../../test-explorer/discover";
 import { mockSerivesFilesMatchPattern } from "../../test-explorer/mock-services/activator";
 import { UndoRedoManager } from "../../undoRedoManager";
 import { copyDockerResources, copyMavenWrapper, createFolderStructure, getAPIResourceXmlWrapper, getAddressEndpointXmlWrapper, getDataServiceXmlWrapper, getDefaultEndpointXmlWrapper, getDssDataSourceXmlWrapper, getFailoverXmlWrapper, getHttpEndpointXmlWrapper, getInboundEndpointXmlWrapper, getLoadBalanceXmlWrapper, getMessageProcessorXmlWrapper, getMessageStoreXmlWrapper, getProxyServiceXmlWrapper, getRegistryResourceContent, getTaskXmlWrapper, getTemplateEndpointXmlWrapper, getTemplateXmlWrapper, getWsdlEndpointXmlWrapper, createGitignoreFile, getEditTemplateXmlWrapper } from "../../util";
-import { addNewEntryToArtifactXML, createMetadataFilesForRegistryCollection, deleteRegistryResource, detectMediaType, getAvailableRegistryResources, getMediatypeAndFileExtension, getRegistryResourceMetadata, updateRegistryResourceMetadata, generatePathFromRegistryPath} from "../../util/fileOperations";
+import { addNewEntryToArtifactXML, createMetadataFilesForRegistryCollection, deleteRegistryResource, detectMediaType, getAvailableRegistryResources, getMediatypeAndFileExtension, getRegistryResourceMetadata, updateRegistryResourceMetadata, generatePathFromRegistryPath } from "../../util/fileOperations";
 import { log } from "../../util/logger";
 import { importProjects } from "../../util/migrationUtils";
 import { generateSwagger, getResourceInfo, isEqualSwaggers, mergeSwaggers } from "../../util/swagger";
@@ -342,7 +342,6 @@ import { MiVisualizerRpcManager } from "../mi-visualizer/rpc-manager";
 import { DebuggerConfig } from "../../debugger/config";
 import { getKubernetesConfiguration, getKubernetesDataConfiguration } from "../../util/template-engine/mustach-templates/KubernetesConfiguration";
 import { parseStringPromise, Builder } from "xml2js";
-
 const AdmZip = require('adm-zip');
 
 const { XMLParser, XMLBuilder } = require("fast-xml-parser");
@@ -1515,6 +1514,11 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
             const resp = await langClient.getProjectStructure(this.projectUri);
             const artifacts = (resp.directoryMap as any).src.main.wso2mi.artifacts;
 
+            const sequenceList = await langClient.getAvailableResources({
+                documentIdentifier: this.projectUri,
+                resourceType: "sequence",
+            });
+
             const endpoints: string[] = [];
             const sequences: string[] = [];
 
@@ -1522,8 +1526,11 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                 endpoints.push(endpoint.name);
             }
 
-            for (const sequence of artifacts.sequences) {
+            for (const sequence of sequenceList.resources) {
                 sequences.push(sequence.name);
+            }
+            for (const sequence of sequenceList.registryResources) {
+                sequences.push(sequence.registryKey);
             }
 
             resolve({ data: [endpoints, sequences] });
@@ -3022,9 +3029,19 @@ ${endpointAttributes}
         return new Promise(async (resolve) => {
             const projectUuid = uuidv4();
             const { directory, name, open, groupID, artifactID, version, miVersion } = params;
-            const connectorStoreResponse = await this.getStoreConnectorJSON(miVersion);
-            const httpConnectorVersion = filterConnectorVersion('HTTP', connectorStoreResponse.connectors);
-            const initialDependencies = generateInitialDependencies(httpConnectorVersion);
+            let initialDependencies = '';
+            try {
+                const connectorStoreResponse = await this.getStoreConnectorJSON(miVersion);
+                const httpConnectorVersion = filterConnectorVersion('HTTP', connectorStoreResponse.connectors);
+                initialDependencies = generateInitialDependencies(httpConnectorVersion);
+            } catch (err) {
+                console.error("Could not fetch connectors:", err);
+                const confirmation = await window.showWarningMessage(ERROR_MESSAGES.ERROR_DOWNLOADING_MODULES,{ modal: true }, 'Yes');
+                if (confirmation === undefined) {
+                    resolve({filePath: "Error"});
+                    return;
+                }
+            }
             const tempName = name.replace(/\./g, '');
             const folderStructure: FileStructure = {
                 [tempName]: { // Project folder
@@ -3401,20 +3418,20 @@ ${endpointAttributes}
     }
 
     async writeIdpSchemaFileToRegistry(params: WriteIdpSchemaFileToRegistryRequest): Promise<WriteIdpSchemaFileToRegistryResponse> {
-        const { fileContent, schemaName, imageOrPdf, writeToArtifactFile} = params; 
-        const runtimeVersion =await this.getMIVersionFromPom();
+        const { fileContent, schemaName, imageOrPdf, writeToArtifactFile } = params;
+        const runtimeVersion = await this.getMIVersionFromPom();
         const isRegistrySupported = compareVersions(runtimeVersion.version, RUNTIME_VERSION_440) < 0;
         //add 4.3.0 compatibility
-        let folderPath ="";
-        if(!isRegistrySupported){
-            folderPath = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi', 'resources','idp-schemas', `${schemaName}`, path.sep);
+        let folderPath = "";
+        if (!isRegistrySupported) {
+            folderPath = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi', 'resources', 'idp-schemas', `${schemaName}`, path.sep);
         }
-        else{
-            folderPath = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi',  'resources', 'registry', 'gov', 'idp-schemas', `${schemaName}`, path.sep);
+        else {
+            folderPath = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'idp-schemas', `${schemaName}`, path.sep);
         }
         //write the content to a file, if file exists, overwrite else create new file
         try {
-            const status=await saveIdpSchemaToFile(folderPath, schemaName, fileContent, imageOrPdf);
+            const status = await saveIdpSchemaToFile(folderPath, schemaName, fileContent, imageOrPdf);
             if (!status) {
                 return { status: false };
             }
@@ -3424,36 +3441,36 @@ ${endpointAttributes}
         }
         //write to artifcat.xml
         if (writeToArtifactFile) {
-            const artifactName= "resources_idp_schemas_"+schemaName;
-            const file=schemaName+".json";
-            let artifactPath='';
-            if(!isRegistrySupported){
+            const artifactName = "resources_idp_schemas_" + schemaName;
+            const file = schemaName + ".json";
+            let artifactPath = '';
+            if (!isRegistrySupported) {
                 artifactPath = "/_system/governance/mi-resources/idp-schemas/" + schemaName;
             }
-            else{
+            else {
                 artifactPath = '/_system/governance/idp-schemas/' + schemaName;
             }
-            await addNewEntryToArtifactXML(this.projectUri ?? "",artifactName,file, artifactPath, "application/json",false,isRegistrySupported )
-        }     
-        return {status: true};
+            await addNewEntryToArtifactXML(this.projectUri ?? "", artifactName, file, artifactPath, "application/json", false, isRegistrySupported)
+        }
+        return { status: true };
     }
 
     async getIdpSchemaFiles(): Promise<GetIdpSchemaFilesResponse> {
         const runtimeVersion = await this.getMIVersionFromPom();
         const isRegistrySupported = compareVersions(runtimeVersion.version, RUNTIME_VERSION_440) < 0;
-        let schemaDirectory="";
+        let schemaDirectory = "";
 
-        if(!isRegistrySupported){
-            schemaDirectory = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi', 'resources','idp-schemas');
+        if (!isRegistrySupported) {
+            schemaDirectory = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi', 'resources', 'idp-schemas');
         }
-        else{
-            schemaDirectory = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi',  'resources', 'registry', 'gov', 'idp-schemas');
+        else {
+            schemaDirectory = path.join(this.projectUri ?? '', 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'idp-schemas');
         }
-        const schemaFiles: {fileName: string, documentUriWithFileName:string}[] = [];
+        const schemaFiles: { fileName: string, documentUriWithFileName: string }[] = [];
         if (fs.existsSync(schemaDirectory)) {
             const items = await fs.promises.readdir(schemaDirectory, { withFileTypes: true });
             for (const item of items) {
-                if (item.isDirectory()) { 
+                if (item.isDirectory()) {
                     schemaFiles.push({ fileName: item.name, documentUriWithFileName: path.join(schemaDirectory, item.name, item.name + '.json') });
                 }
             }
@@ -3477,13 +3494,13 @@ ${endpointAttributes}
         };
         try {
             if (fs.existsSync(filePath)) {
-                response.fileContent = fs.readFileSync(filePath, 'utf8'); 
+                response.fileContent = fs.readFileSync(filePath, 'utf8');
             } else {
                 throw new Error(`File does not exist at path: ${filePath}`);
             }
             const folderPath = path.dirname(filePath);
             if (fs.existsSync(folderPath)) {
-                const folderFiles = await fs.promises.readdir(folderPath); 
+                const folderFiles = await fs.promises.readdir(folderPath);
                 for (const file of folderFiles) {
                     const currentFilePath = path.join(folderPath, file);
                     let mimeType = '';
@@ -3538,7 +3555,7 @@ ${endpointAttributes}
         const artifactDirPath = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'artifacts');
         const resourcesDirPath = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'resources');
         const fileContents: string[] = [];
-        
+
         // Helper function to recursively read files from a directory
         const readFilesRecursively = async (dirPath: string, excludeFolders: string[] = []): Promise<void> => {
             if (!fs.existsSync(dirPath)) {
@@ -4275,48 +4292,59 @@ ${endpointAttributes}
     }
 
     async getStoreConnectorJSON(miVersion?: string): Promise<StoreConnectorJsonResponse> {
-        return new Promise(async (resolve) => {
-            try {
-                const runtimeVersion = miVersion ? miVersion : await getMIVersionFromPom(this.projectUri);
-                if (runtimeVersion) {
-                    const connectors = compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0 ? connectorCache : legacyConnectorCache;
-                    if (connectors.has('inbound-connector-data') && connectors.has('outbound-connector-data') && connectors.has('connectors')) {
-                        resolve({ inboundConnectors: connectors.get('inbound-connector-data'), outboundConnectors: connectors.get('outbound-connector-data'), connectors: connectors.get('connectors') });
-                        return;
-                    }
-                }
+        try {
+            const runtimeVersion = miVersion ?? await getMIVersionFromPom(this.projectUri);
+            if (runtimeVersion) {
+                const connectors = compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0
+                    ? connectorCache : legacyConnectorCache;
 
-                const response = await fetch(APIS.MI_CONNECTOR_STORE);
-                const connectorStoreResponse = await fetch(APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? ''));
-                const data = await response.json();
-                const connectorStoreData = await connectorStoreResponse.json();
-                if (data && data['inbound-connector-data'] && data['outbound-connector-data']) {
-                    if (runtimeVersion) {
-                        if (compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0) {
-                            connectorCache.set('inbound-connector-data', data['inbound-connector-data']);
-                            connectorCache.set('outbound-connector-data', data['outbound-connector-data']);
-                            if (connectorStoreData) {
-                                connectorCache.set('connectors', connectorStoreData);
-                            }
-                        } else {
-                            legacyConnectorCache.set('inbound-connector-data', data['inbound-connector-data']);
-                            legacyConnectorCache.set('outbound-connector-data', data['outbound-connector-data']);
-                            if (connectorStoreData) {
-                                legacyConnectorCache.set('connectors', connectorStoreData);
-                            }
+                if (connectors.has('inbound-connector-data') && connectors.has('outbound-connector-data') && connectors.has('connectors')) {
+                    return {
+                        inboundConnectors: connectors.get('inbound-connector-data'),
+                        outboundConnectors: connectors.get('outbound-connector-data'),
+                        connectors: connectors.get('connectors'),
+                    };
+                }
+            }
+
+            const response = await fetch(APIS.MI_CONNECTOR_STORE);
+            const connectorStoreResponse = await fetch(
+                APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? '')
+            );
+
+            const data = await response.json();
+            const connectorStoreData = await connectorStoreResponse.json();
+
+            if (data && data['inbound-connector-data'] && data['outbound-connector-data']) {
+                if (runtimeVersion) {
+                    if (compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0) {
+                        connectorCache.set('inbound-connector-data', data['inbound-connector-data']);
+                        connectorCache.set('outbound-connector-data', data['outbound-connector-data']);
+                        if (connectorStoreData) {
+                            connectorCache.set('connectors', connectorStoreData);
+                        }
+                    } else {
+                        legacyConnectorCache.set('inbound-connector-data', data['inbound-connector-data']);
+                        legacyConnectorCache.set('outbound-connector-data', data['outbound-connector-data']);
+                        if (connectorStoreData) {
+                            legacyConnectorCache.set('connectors', connectorStoreData);
                         }
                     }
-                    resolve({ inboundConnectors: data['inbound-connector-data'], outboundConnectors: data['outbound-connector-data'], connectors: connectorStoreData });
-                } else {
-                    console.log("Failed to fetch connectors. Status: " + data.status + ", Reason: " + data.reason);
-                    reject("Failed to fetch connectors.");
                 }
-            } catch (error) {
-                console.log("User is offline.", error);
-                reject("Failed to fetch connectors.");
-            }
-        });
 
+                return {
+                    inboundConnectors: data['inbound-connector-data'],
+                    outboundConnectors: data['outbound-connector-data'],
+                    connectors: connectorStoreData,
+                };
+            } else {
+                console.log("Failed to fetch connectors. Status: " + data.status + ", Reason: " + data.reason);
+                throw new Error("Failed to fetch connectors.");
+            }
+        } catch (error) {
+            console.log("User is offline.", error);
+            throw new Error("Failed to fetch connectors.");
+        }
     }
 
     async getConnectorIcon(params: GetConnectorIconRequest): Promise<GetConnectorIconResponse> {
@@ -4348,7 +4376,7 @@ ${endpointAttributes}
                 // Get the latest cache state before updating
                 let latestIconCache;
                 if (runtimeVersion) {
-                    if(compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0) {
+                    if (compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0) {
                         latestIconCache = connectorCache.get('connector-icon-data') || {};
                         connectorCache.set('connector-icon-data', {
                             ...latestIconCache,
@@ -4363,7 +4391,7 @@ ${endpointAttributes}
                     }
                 }
 
-                resolve ({ iconPath: connectorIcon });
+                resolve({ iconPath: connectorIcon });
             }
         });
     }
@@ -5493,6 +5521,14 @@ ${keyValuesXML}`;
         });
     }
 
+    async formatPomFile(): Promise<void> {
+        return new Promise(async (resolve) => {
+            const pomPath = path.join(this.projectUri, 'pom.xml');
+            await this.rangeFormat({ uri: pomPath });
+            resolve();
+        });
+    }
+
     async getAllDependencies(params: getAllDependenciesRequest): Promise<GetAllDependenciesResponse> {
         const { file } = params;
         const workspaceFolder = workspace.getWorkspaceFolder(Uri.file(file));
@@ -5891,8 +5927,8 @@ ${keyValuesXML}`;
 
         const searchMavenArtifactIdConnector = name.startsWith('mi-connector-') ? name : `mi-connector-${name}`;
         const searchMavenArtifactIdModule = name.startsWith('mi-module-') ? name : `mi-module-${name}`;
-        const artifactMatch = connectorStoreData?.find(artifact => 
-            artifact.mavenArtifactId === searchMavenArtifactIdConnector || 
+        const artifactMatch = connectorStoreData?.find(artifact =>
+            artifact.mavenArtifactId === searchMavenArtifactIdConnector ||
             artifact.mavenArtifactId === searchMavenArtifactIdModule
         );
 
@@ -6015,7 +6051,7 @@ ${keyValuesXML}`;
     async getExternalConnectorDetails(): Promise<GetExternalConnectorDetailsResponse> {
         return new Promise((resolve, reject) => {
             const connectorsPath = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'resources', 'connectors');
-            
+
             fs.readdir(connectorsPath, { withFileTypes: true }, (err, entries) => {
                 if (err) {
                     // If directory doesn't exist or can't be read, return empty array
@@ -6025,7 +6061,7 @@ ${keyValuesXML}`;
                     const connectorNames = entries
                         .filter(entry => entry.isFile() && entry.name.endsWith('.zip'))
                         .map(entry => entry.name.replace('.zip', ''));
-                    
+
                     resolve({ connectors: connectorNames });
                 }
             });
@@ -6036,21 +6072,21 @@ ${keyValuesXML}`;
         return new Promise(async (resolve) => {
             const mockServices: string[] = [];
             const mockServiceNames: string[] = [];
-            
+
             if (workspace.workspaceFolders) {
                 const mockServicesDirPath = path.join(this.projectUri, 'src', 'test', 'resources', 'mock-services');
-                
+
                 if (fs.existsSync(mockServicesDirPath)) {
                     try {
                         const files = fs.readdirSync(mockServicesDirPath);
-                        
+
                         for (const file of files) {
                             if (file.endsWith('.xml')) {
                                 const filePath = path.join(mockServicesDirPath, file);
                                 try {
                                     const content = fs.readFileSync(filePath, 'utf8');
                                     const fileName = path.parse(file).name;
-                                    
+
                                     mockServices.push(content);
                                     mockServiceNames.push(fileName);
                                 } catch (error) {
@@ -6064,7 +6100,7 @@ ${keyValuesXML}`;
                 }
             }
 
-            return resolve({ 
+            return resolve({
                 mockServices,
                 mockServiceNames
             });

@@ -410,6 +410,7 @@ export interface MiDiagramAPI {
     getAllMockServices: () => Promise<GetAllMockServicesResponse>;
     openDependencyPom: (params: OpenDependencyPomRequest) => void;
     getAllDependencies: (params: getAllDependenciesRequest) => Promise<GetAllDependenciesResponse>;
+    formatPomFile: () => Promise<void>;
     testDbConnection: (params: TestDbConnectionRequest) => Promise<TestDbConnectionResponse>;
     markAsDefaultSequence: (params: MarkAsDefaultSequenceRequest) => void;
     getSubFolderNames: (path: GetSubFoldersRequest) => Promise<GetSubFoldersResponse>;

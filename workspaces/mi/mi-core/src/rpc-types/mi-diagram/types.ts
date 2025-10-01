@@ -1330,7 +1330,8 @@ export interface GetDefinitionRequest {
 
 export interface GetDefinitionResponse {
     uri: string,
-    range: Range
+    range: Range,
+    fromDependency: boolean;
 }
 
 export interface GetTextAtRangeRequest {
