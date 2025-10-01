@@ -235,41 +235,49 @@ const AIChatFooter: React.FC = () => {
     const handleStop = async () => {
         isStopButtonClicked.current = true;
 
-        // Abort the fetch
-        controller.abort();
+        try {
+            // Request the extension to abort code generation
+            await rpcClient.getMiAiPanelRpcClient().abortCodeGeneration();
 
-        // Create a new AbortController for future fetches
-        resetController();
+            // Abort the local controller (for any local operations)
+            controller.abort();
 
-        // If we're in the validation phase, reset the validation state
-        if (isValidating) {
-            setIsValidating(false);
+            // Create a new AbortController for future fetches
+            resetController();
+
+            // If we're in the validation phase, reset the validation state
+            if (isValidating) {
+                setIsValidating(false);
+            }
+
+            // Remove the last user and copilot messages
+            setMessages((prevMessages) => {
+                const newMessages = [...prevMessages];
+                newMessages.pop(); // Remove the last copilot message
+                newMessages.pop(); // Remove the last user message
+                return newMessages;
+            });
+
+            // Generate suggestions based on chat history
+            await generateSuggestions(copilotChat, rpcClient, new AbortController()).then((response) => {
+                setQuestions((prevMessages) => [...prevMessages, ...response]);
+            });
+
+            // Explicitly adjust the textarea height after suggestion generation
+            if (textAreaRef.current) {
+                setTimeout(() => {
+                    textAreaRef.current.style.height = "auto";
+                    textAreaRef.current.style.height = `${textAreaRef.current.scrollHeight}px`;
+                }, 0);
+            }
+        } catch (error) {
+            console.error("Error stopping code generation:", error);
+        } finally {
+            isStopButtonClicked.current = false;
+            
+            // Reset backend request triggered state
+            setBackendRequestTriggered(false);
         }
-
-        // Remove the last user and copilot messages
-        setMessages((prevMessages) => {
-            const newMessages = [...prevMessages];
-            newMessages.pop(); // Remove the last user message
-            newMessages.pop(); // Remove the last copilot message
-            return newMessages;
-        });
-
-        // Generate suggestions based on chat history
-        await generateSuggestions(copilotChat, rpcClient, new AbortController()).then((response) => {
-            setQuestions((prevMessages) => [...prevMessages, ...response]);
-        });
-
-        // Explicitly adjust the textarea height after suggestion generation
-        if (textAreaRef.current) {
-            setTimeout(() => {
-                textAreaRef.current.style.height = "auto";
-                textAreaRef.current.style.height = `${textAreaRef.current.scrollHeight}px`;
-            }, 0);
-        }
-        isStopButtonClicked.current = false;
-        
-        // Reset backend request triggered state
-        setBackendRequestTriggered(false);
     };
 
     // File handling

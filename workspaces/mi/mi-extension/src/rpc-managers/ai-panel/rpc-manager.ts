@@ -22,6 +22,7 @@ import {
     GenerateSuggestionsResponse,
     GenerateCodeRequest,
     GenerateCodeResponse,
+    AbortCodeGenerationResponse,
     MIAIPanelAPI,
     CopilotChatEntry
 } from '@wso2/mi-core';
@@ -41,6 +42,7 @@ import { CopilotEventHandler } from "./event-handler";
 
 export class MIAIPanelRpcManager implements MIAIPanelAPI {
     private eventHandler: CopilotEventHandler;
+    private currentController: AbortController | null = null;
 
     constructor(private projectUri: string) {
         this.eventHandler = this.createEventHandler();
@@ -172,13 +174,34 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
     }
 
     /**
+     * Aborts the current code generation
+     */
+    async abortCodeGeneration(): Promise<AbortCodeGenerationResponse> {
+        try {
+            if (this.currentController) {
+                console.log('Aborting code generation...');
+                this.currentController.abort();
+                this.currentController = null;
+                return { success: true };
+            }
+            console.log('No active code generation to abort');
+            return { success: false };
+        } catch (error) {
+            console.error('Error aborting code generation:', error);
+            return { success: false };
+        }
+    }
+
+    /**
      * Core code generation logic with streaming
      */
     private async generateCodeCore(request: GenerateCodeRequest): Promise<void> {
-        // TODO: Can make this global if needed instead of creating per request
         
         try {
             this.eventHandler.handleStart();
+
+            // Create a new abort controller for this request
+            this.currentController = new AbortController();
 
             // Get backend URL and construct the request URL
             const { backendUrl } = await getBackendUrlAndView(this.projectUri, request.view);
@@ -192,7 +215,7 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 request.files,
                 request.images,
                 this.projectUri,
-                new AbortController(), // TODO: Use proper abort controller
+                this.currentController,
                 request.view === "selective",
                 request.thinking
             );
@@ -210,6 +233,13 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 try {
                     let buffer = "";
                     while (true) {
+                        // Check if abort was requested
+                        if (this.currentController?.signal.aborted) {
+                            console.log('Code generation aborted by user');
+                            reader.cancel();
+                            break;
+                        }
+
                         const { done, value } = await reader.read();
                         if (done) break;
 
@@ -236,7 +266,8 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 // Send final response
                 this.eventHandler.handleEnd(assistantResponse);
 
-                // For now we are not doing code diagnostics
+                // Code diagnostics functionality is temporarily disabled due to pending re-implementation in the extension side
+                // Plan: We will re-implement this in the extension side
                 // await this.handleCodeDiagnostics(assistantResponse);
 
             } else {
@@ -249,9 +280,18 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             this.eventHandler.handleStop("generateCode");
 
         } catch (error) {
-            console.error("Error during code generation:", error);
-            this.eventHandler.handleError(error instanceof Error ? error.message : "Unknown error occurred");
-            throw error;
+            // Check if error is due to abort
+            if (error instanceof Error && error.name === 'AbortError') {
+                console.log('Code generation aborted');
+                this.eventHandler.handleStop("generateCode");
+            } else {
+                console.error("Error during code generation:", error);
+                this.eventHandler.handleError(error instanceof Error ? error.message : "Unknown error occurred");
+                throw error;
+            }
+        } finally {
+            // Clean up the controller reference
+            this.currentController = null;
         }
     }
 

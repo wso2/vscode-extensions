@@ -25,7 +25,9 @@ import {
     generateSuggestions,
     GenerateCodeRequest,
     GenerateCodeResponse,
-    generateCode
+    generateCode,
+    AbortCodeGenerationResponse,
+    abortCodeGeneration
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -53,6 +55,10 @@ export class MiAiPanelRpcClient implements MIAIPanelAPI {
 
     generateCode(request: GenerateCodeRequest): Promise<GenerateCodeResponse> {
         return this._messenger.sendRequest(generateCode, HOST_EXTENSION, request);
+    }
+
+    abortCodeGeneration(): Promise<AbortCodeGenerationResponse> {
+        return this._messenger.sendRequest(abortCodeGeneration, HOST_EXTENSION);
     }
 
 }

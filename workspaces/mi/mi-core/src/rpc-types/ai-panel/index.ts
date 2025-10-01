@@ -19,7 +19,8 @@
 import {
     GenerateSuggestionsRequest, GenerateSuggestionsResponse,
     GetBackendRootUrlResponse,
-    GenerateCodeRequest, GenerateCodeResponse
+    GenerateCodeRequest, GenerateCodeResponse,
+    AbortCodeGenerationResponse
 } from "./types";
 
 // Export types for external use
@@ -28,6 +29,7 @@ export type {
     GenerateSuggestionsResponse,
     GenerateCodeRequest,
     GenerateCodeResponse,
+    AbortCodeGenerationResponse,
     CodeGenerationEvent,
     XmlCodeEntry,
     CorrectedCodeItem
@@ -37,11 +39,8 @@ export interface MIAIPanelAPI {
     // ==================================
     // General Functions
     // ==================================
-    getBackendRootUrl: () => Promise<GetBackendRootUrlResponse>;
-
-    // ==================================
-    // AI Functions
-    // ==================================
-    generateSuggestions: (request: GenerateSuggestionsRequest) => Promise<GenerateSuggestionsResponse>;
-    generateCode: (request: GenerateCodeRequest) => Promise<GenerateCodeResponse>;
+    getBackendRootUrl: () => Promise<GetBackendRootUrlResponse>
+    generateSuggestions: (request: GenerateSuggestionsRequest) => Promise<GenerateSuggestionsResponse>
+    generateCode: (request: GenerateCodeRequest) => Promise<GenerateCodeResponse>
+    abortCodeGeneration: () => Promise<AbortCodeGenerationResponse>
 }
