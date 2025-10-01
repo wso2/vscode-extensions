@@ -246,7 +246,7 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
     }
 
     // Check if CORS settings should be shown (runtime version >= 4.5.0)
-    const shouldShowCORSSettings = runtimeVersion && (compareVersions(runtimeVersion, "4.4.0") >= 0);
+    const shouldShowCORSSettings = runtimeVersion && (compareVersions(runtimeVersion, "4.5.0") >= 0);
 
     // CORS handler class name constant
     const CORS_HANDLER_CLASS = "org.wso2.micro.integrator.security.handler.CORSRequestHandler";
