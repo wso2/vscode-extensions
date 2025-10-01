@@ -41,7 +41,6 @@ const LoaderContainer = styled.div`
     align-items: center;
     gap: 12px;
     color: white;
-    position: absolute;
     justify-self: anchor-center;
     margin-top: 200px;
 `;
