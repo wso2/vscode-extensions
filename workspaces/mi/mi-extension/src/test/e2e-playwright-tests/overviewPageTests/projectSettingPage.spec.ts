@@ -112,14 +112,14 @@ export default function createTests() {
 
             await test.step('Update Connector Dependencies', async () => {
                 console.log('Starting to update connector dependencies');
-                await waitUntilPomNotContains(page.page, pomFilePath, '<artifactId>mi-connector--amazonsqs</artifactId>');
+                await waitUntilPomNotContains(page.page, pomFilePath, '<version>3.0.1</version>');
                 const overviewPage = new Overview(page.page);
                 await overviewPage.init();
                 await overviewPage.editConnectorDependencies();
                 // Wait for 8s to let the pom.xml update
                 await page.page.waitForTimeout(8000);
-                console.log('Waiting for pom.xml to contain mi-connector--amazonsqs dependency');
-                await waitUntilPomContains(page.page, pomFilePath, '<artifactId>mi-connector--amazonsqs</artifactId>');
+                console.log('Waiting for pom.xml to contain 3.0.1 as version in mi-connector-amazonsqs dependency');
+                await waitUntilPomContains(page.page, pomFilePath, '<version>3.0.1</version>');
             });
 
             await test.step('Delete Connector Dependencies', async () => {
@@ -129,8 +129,8 @@ export default function createTests() {
                 await overviewPage.deleteConnectorDependencies();
                 // Wait for 8s to let the pom.xml update
                 await page.page.waitForTimeout(8000);
-                console.log('Waiting for pom.xml to not contain mi-connector--amazonsqs dependency');
-                await waitUntilPomNotContains(page.page, pomFilePath, '<artifactId>mi-connector--amazonsqs</artifactId>');
+                console.log('Waiting for pom.xml to not contain mi-connector-amazonsqs dependency');
+                await waitUntilPomNotContains(page.page, pomFilePath, '<artifactId>mi-connector-amazonsqs</artifactId>');
                 await overviewPage.closeDependencyManager();
             });
 

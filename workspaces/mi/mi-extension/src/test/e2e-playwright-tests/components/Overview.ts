@@ -179,7 +179,7 @@ export class Overview {
         await dependencyItemComponent.waitFor({ state: 'visible', timeout: 10000 });
         await dependencyItemComponent.hover();
         await dependencyItemComponent.locator('.codicon-edit').click();
-        await this.webView.getByRole('textbox', { name: 'Artifact ID' }).fill('mi-connector--amazonsqs');
+        await this.webView.getByRole('textbox', { name: 'Version' }).fill("3.0.1");
         await popupPanel.getByText('Save Changes').click();
         const loader = this.webView.locator('[data-testid="dependency-manager-loader"]');
         await loader.waitFor({ state: 'detached', timeout: 10000 });
@@ -189,7 +189,7 @@ export class Overview {
         const popupPanel = this.webView.locator('#popUpPanel');
         await popupPanel.waitFor();
         await popupPanel.locator('h2:has-text("Connector Dependencies")').waitFor();
-        const dependencyItemComponent = popupPanel.locator('[data-testid="org.wso2.integration.connector-mi-connector--amazonsqs-2.0.3"]');
+        const dependencyItemComponent = popupPanel.locator('[data-testid="org.wso2.integration.connector-mi-connector-amazonsqs-3.0.1"]');
         await dependencyItemComponent.waitFor({ state: 'visible', timeout: 10000 });
         await dependencyItemComponent.hover();
         await dependencyItemComponent.locator('.codicon-trash').click();
