@@ -1,4 +1,4 @@
-import { Frame, FrameLocator, Page } from '@playwright/test';
+import { Frame, Page } from '@playwright/test';
 import { Form } from '@wso2/playwright-vscode-tester';
 
 export interface ServiceMethod {
