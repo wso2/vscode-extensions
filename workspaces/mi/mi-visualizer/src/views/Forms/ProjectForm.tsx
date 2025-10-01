@@ -117,8 +117,12 @@ export function ProjectWizard({ cancelView }: { cancelView: MACHINE_VIEW }) {
             open: true,
         }
         setFormSaved(true);
-        await rpcClient.getMiDiagramRpcClient().createProject(createProjectParams);
-        rpcClient.getMiDiagramRpcClient().closeWebView();
+        const response = await rpcClient.getMiDiagramRpcClient().createProject(createProjectParams);
+        if (response.filePath === "Error") {
+            setFormSaved(false);
+        } else {
+            rpcClient.getMiDiagramRpcClient().closeWebView();
+        }
     };
 
     const handleCancel = () => {
