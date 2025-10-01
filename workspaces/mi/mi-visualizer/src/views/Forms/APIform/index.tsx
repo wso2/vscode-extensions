@@ -108,8 +108,8 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
     const schema = yup.object({
         apiName: yup.string().required("API Name is required").matches(/^[^@\\^+;:!%&,=*#[\]$?'"<>{}() /]*$/, "Invalid characters in name")
             .test('validateApiName', 'An artifact with same file name already exists', function (value) {
-                const { version } = this.parent;
-                const fileName = version ? `${value}_v${version}` : value;
+                const { version, versionType } = this.parent;
+                const fileName = versionType !== "none" ? `${value}_v${version}` : value;
                 return (value === apiData?.apiName) || !(workspaceFileNames.includes(fileName.toLowerCase()));
             }).test('validateArtifactName',
                 'A registry resource with this artifact name already exists', function (value) {
@@ -119,7 +119,8 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                 }),
         apiContext: yup.string().required("API Context is required")
             .test('validateApiContext', 'An artifact with same context already exists', function (value) {
-                return !APIContexts.includes(value);
+                const { versionType } = this.parent;
+                return versionType !== "none" || !APIContexts.includes(value);
             }),
         hostName: yup.string(),
         port: yup.string(),
@@ -189,7 +190,8 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
         watch,
         setValue,
         control,
-        setError
+        clearErrors,
+        getValues
     } = useForm({
         defaultValues: initialAPI,
         resolver: yupResolver(schema),
@@ -505,13 +507,27 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                     id="version-type"
                     label="Version Type"
                     items={versionLabels}
-                    {...register("versionType")}
+                    {...register("versionType", {
+                        onChange: () => {
+                            const values = getValues();
+                            schema.validate(values, { abortEarly: false })
+                                .then(() => clearErrors())
+                        }
+                    })}
                 />
                 {versionType !== "none" && (
                     <TextField
+                        id="Version"
                         label="Version"
-                        placeholder={"1.0.0"}
-                        {...renderProps("version")}
+                        placeholder="1.0.0"
+                        errorMsg={errors.version?.message}
+                        {...register("version", {
+                            onChange: () => {
+                                const values = getValues();
+                                schema.validate(values, { abortEarly: false })
+                                    .then(() => clearErrors())
+                            }
+                        })}
                     />
                 )}
             </FieldGroup>

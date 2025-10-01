@@ -441,6 +441,9 @@ import {
     GetConnectorIconResponse,
     getConnectorIcon,
     getValueOfEnvVariable,
+    submitFeedback,
+    SubmitFeedbackRequest,
+    SubmitFeedbackResponse,
     getPomFileContent,
     GetPomFileContentResponse,
     getExternalConnectorDetails,
@@ -1169,6 +1172,10 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
         return this._messenger.sendRequest(getValueOfEnvVariable, HOST_EXTENSION, params);
     }
 
+    submitFeedback(params: SubmitFeedbackRequest): Promise<SubmitFeedbackResponse> {
+        return this._messenger.sendRequest(submitFeedback, HOST_EXTENSION, params);
+    }
+  
     getPomFileContent(): Promise<GetPomFileContentResponse> {
         return this._messenger.sendRequest(getPomFileContent, HOST_EXTENSION);
     }

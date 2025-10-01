@@ -17,10 +17,11 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { Button, FormView, FormActions, Typography } from "@wso2/ui-toolkit";
+import { Button, FormView, FormActions, Typography, ProgressIndicator } from "@wso2/ui-toolkit";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
-import { EVENT_TYPE, MACHINE_VIEW, IOType } from "@wso2/mi-core";
+import { EVENT_TYPE, MACHINE_VIEW, IOType, AI_EVENT_TYPE } from "@wso2/mi-core";
 import styled from "@emotion/styled";
+import { AuthenticationDialog, useAuthentication } from "../../components/AuthenticationDialog";
 
 const MessageContainer = styled.div`
     display: flex;
@@ -41,6 +42,9 @@ const DetailText = styled.div`
     font-style: italic;
     color: #666;
     font-size: 14px;
+    word-break: break-all;
+    white-space: normal;
+    overflow-wrap: break-word;
 `;
 
 const ErrorMessage = styled.div`
@@ -102,16 +106,33 @@ export interface DataMapperMigrationFormProps {
     documentUri?: string;
     tsFilePath?: string;
     description?: string;
+    inputType?: string;
+    outputType?: string;
 }
 
 export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
     const { rpcClient } = useVisualizerContext();
-    const [isLoading, setIsLoading] = useState(false);
     const [isConverting, setIsConverting] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+    // Use the authentication hook
+    const {
+        showSignInConfirm,
+        checkAuthentication,
+        openSignInView,
+        closeSignInView
+    } = useAuthentication({
+        operationType: 'dataMapperMigration',
+        sessionStorageKey: 'pendingDataMapperMigrationOperation'
+    });
+
+    const handleAuthenticationSuccess = async (formValues: any) => {
+        closeSignInView();
+        await handleContinue();
+    };
+
     const handleContinue = async () => {
-        setIsLoading(true);
+        setIsConverting(true);
         setErrorMessage(null);
         try {
             // First create the DM files
@@ -245,14 +266,17 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
 
                     setIsConverting(true);
                     const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
-                    let token: any;
-                    try {
-                        token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
-                    } catch (error) {
-                        rpcClient.getMiDiagramRpcClient().executeCommand({ commands: ["MI.openAiPanel"] }).catch(console.error);
-                        throw new Error("No access token.");
+                    
+                    // Check authentication first
+                    const isAuthenticated = await checkAuthentication();
+                    if (!isAuthenticated) {
+                        openSignInView({ migration: true });
+                        setIsConverting(false);
+                        return;
                     }
-                    const fetchResponse = await fetch(`${backendRootUri}/data-mapper/dmc-to-ts`, {
+
+                    const token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
+                    let fetchResponse = await fetch(`${backendRootUri}/data-mapper/dmc-to-ts`, {
                         method: 'POST',
                         headers: {
                             "Content-Type": "application/json",
@@ -263,6 +287,29 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
                             ts_file: tsFileContent
                         })
                     });
+
+                    if (fetchResponse.status === 401) {
+                        // Retrieve a new token
+                        await rpcClient.getMiDiagramRpcClient().refreshAccessToken();
+                        const newToken = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
+
+                        // Make the request again with the new token
+                        fetchResponse = await fetch(`${backendRootUri}/data-mapper/dmc-to-ts`, {
+                            method: 'POST',
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${newToken.token}`,
+                            },
+                            body: JSON.stringify({
+                                dmc_content: dmcContent,
+                                ts_file: tsFileContent
+                            })
+                        });
+                    } else if (fetchResponse.status === 403) {
+                        openSignInView({ migration: true });
+                        setIsConverting(false);
+                        return;
+                    }
 
                     if (!fetchResponse.ok) {
                         console.error('Failed to convert DMC to TS:', fetchResponse.statusText);
@@ -296,9 +343,9 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
                                 const configNameWithoutExtension = props.configName.endsWith('.dmc') ? props.configName.slice(0, -4) : props.configName;
                                 const values = {
                                     description: props.description,
-                                    inputType: '',
+                                    inputType: props.inputType || '',
                                     name: `resources:datamapper/${configNameWithoutExtension}`,
-                                    outputType: ''
+                                    outputType: props.outputType || ''
                                 };
 
                                 const edits = await rpcClient.getMiDiagramRpcClient().updateMediator({
@@ -357,7 +404,7 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
             setErrorMessage('An error occurred while creating DataMapper files. Please try again.');
             console.error('Error creating DataMapper files or opening DataMapper:', error);
         } finally {
-            setIsLoading(false);
+            setIsConverting(false);
         }
     };
 
@@ -418,18 +465,30 @@ export function DataMapperMigrationForm(props: DataMapperMigrationFormProps) {
                 <Button
                     appearance="secondary"
                     onClick={handleCancel}
-                    disabled={isLoading || isConverting}
+                    disabled={isConverting}
                 >
                     Cancel
                 </Button>
                 <Button
                     appearance="primary"
                     onClick={handleContinue}
-                    disabled={isLoading || isConverting}
+                    disabled={isConverting}
                 >
-                    {isConverting ? 'Converting...' : isLoading ? 'Opening...' : 'Continue'}
+                    {isConverting ? 'Converting...' : 'Continue'}
                 </Button>
             </FormActions>
+
+            {/* Sign-in confirmation dialog */}
+            <AuthenticationDialog
+                isOpen={showSignInConfirm}
+                operationType="dataMapperMigration"
+                sessionStorageKey="pendingDataMapperMigrationOperation"
+                formValues={{ migration: true }}
+                signInMessage="You need to sign in to MI Copilot to use AI-powered migration features."
+                waitingMessage="Please complete the sign-in process. Your DataMapper migration will continue automatically after successful authentication."
+                onCancel={closeSignInView}
+                onAuthenticationSuccess={handleAuthenticationSuccess}
+            />
         </FormView>
     );
 }
