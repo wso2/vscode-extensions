@@ -18,9 +18,10 @@
 
 import styled from "@emotion/styled";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { EVENT_TYPE, MACHINE_VIEW, ProjectStructureArtifactResponse, GetSelectiveArtifactsResponse, GetUserAccessTokenResponse, ResourceType, RegistryArtifact, GetAvailableConnectorResponse, GetWorkspaceContextResponse, GetPomFileContentResponse, GetExternalConnectorDetailsResponse, GetMockServicesResponse } from "@wso2/mi-core";
+import { EVENT_TYPE, MACHINE_VIEW, ProjectStructureArtifactResponse, GetSelectiveArtifactsResponse, GetUserAccessTokenResponse, ResourceType, RegistryArtifact, GetAvailableConnectorResponse, GetWorkspaceContextResponse, GetPomFileContentResponse, GetExternalConnectorDetailsResponse, GetMockServicesResponse, AI_EVENT_TYPE } from "@wso2/mi-core";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { Button, ComponentCard, ContainerProps, ContextMenu, Dropdown, FormActions, FormGroup, FormView, Item, ProgressIndicator, TextField, Typography, Icon } from "@wso2/ui-toolkit";
+import { AuthenticationDialog, useAuthentication } from "../../../components/AuthenticationDialog";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import * as yup from "yup";
@@ -89,6 +90,17 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
     const [filteredArtifacts, setFilteredArtifacts] = useState([]);
     const [showAddTestCase, setShowAddTestCase] = useState(false);
     const [showAddMockService, setShowAddMockService] = useState(false);
+
+    // Use the authentication hook
+    const {
+        showSignInConfirm,
+        checkAuthentication,
+        openSignInView,
+        closeSignInView
+    } = useAuthentication({
+        operationType: 'createUnitTests',
+        sessionStorageKey: 'pendingTestSuiteOperation'
+    });
 
     const [testCases, setTestCases] = useState<TestCaseEntry[]>([]);
     const [mockServices, setMockServices] = useState<MockServiceEntry[]>([]);
@@ -185,17 +197,15 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
         setIsLoaded(false);
 
         try {
-
-            let token: GetUserAccessTokenResponse;
-            try {
-                token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
-            } catch (error) {
-                console.error('User not signed in', error);
+            // Check authentication first
+            const isAuthenticated = await checkAuthentication();
+            if (!isAuthenticated) {
+                openSignInView(values);
+                setIsLoaded(true);
+                return;
             }
 
-            if (!token) {
-                openSignInView();
-            }
+            const token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
             const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
             const url = backendRootUri + MI_UNIT_TEST_GENERATION_BACKEND_URL;
             const artifact = isWindows ? path.win32.join(projectUri, values.artifact) : path.join(projectUri, values.artifact);
@@ -261,6 +271,9 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
                         },
                         body: JSON.stringify({ context: context[0].artifacts, testFileName: values.name, num_suggestions: 1, type: "generate_unit_tests" }),
                     });
+                } else if (response.status === 403) {
+                    openSignInView(values);
+                    return response;
                 } else if (response.status === 404) {
                     if (retryCount < maxRetries) {
                         retryCount++;
@@ -317,6 +330,7 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
 
         } catch (error) {
             console.error('Error while generating unit tests:', error);
+            setIsLoaded(true);
         }
     };
 
@@ -460,6 +474,33 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
         })();
     }, [filePath, syntaxTree]);
 
+    const handleBackButtonClick = () => {
+        rpcClient.getMiVisualizerRpcClient().goBack();
+    }
+
+    const openOverview = () => {
+        rpcClient.getMiVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: { view: MACHINE_VIEW.Overview } });
+    };
+
+    const openAddTestCase = () => {
+        setShowAddTestCase(true);
+    }
+
+    const openMockService = () => {
+        setShowAddMockService(true);
+    }
+
+    // Handler for authentication success - this will be called when authentication is successful
+    const handleAuthenticationSuccess = async (formValues: any) => {
+        // Close the AI panel by navigating back to test suite form
+        await rpcClient.getMiVisualizerRpcClient().openView({ 
+            type: EVENT_TYPE.OPEN_VIEW, 
+            location: { view: MACHINE_VIEW.TestSuite, documentUri: props.filePath } 
+        });
+        
+        await handleCreateUnitTests(formValues);
+    };
+
     useEffect(() => {
         if (!artifacts || artifacts.length === 0) {
             return;
@@ -479,25 +520,6 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
         }
         setValue("artifact", filteredArtifacts[0].value);
     }, [artifacts, watch("artifactType")]);
-
-    const handleBackButtonClick = () => {
-        rpcClient.getMiVisualizerRpcClient().goBack();
-    }
-
-    const openOverview = () => {
-        rpcClient.getMiVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: { view: MACHINE_VIEW.Overview } });
-    };
-    const openSignInView = () => {
-        rpcClient.getMiVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: { view: MACHINE_VIEW.LoggedOut } });
-    };
-
-    const openAddTestCase = () => {
-        setShowAddTestCase(true);
-    }
-
-    const openMockService = () => {
-        setShowAddMockService(true);
-    }
 
     function getConnectorResources(connectorResources: any[]): string[] {
         return connectorResources.map(item => {
@@ -1042,6 +1064,18 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
                     Cancel
                 </Button>
             </FormActions>
+
+            {/* Authentication dialog */}
+            <AuthenticationDialog
+                isOpen={showSignInConfirm}
+                operationType="createUnitTests"
+                sessionStorageKey="pendingTestSuiteOperation"
+                signInMessage="You need to sign in to MI Copilot to use AI features. Would you like to sign in?"
+                waitingMessage="Please complete the sign-in process. Your unit test generation will continue automatically after successful authentication."
+                dependencies={[isLoaded, props.filePath]}
+                onCancel={closeSignInView}
+                onAuthenticationSuccess={handleAuthenticationSuccess}
+            />
         </FormView >
     );
 

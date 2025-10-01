@@ -16,20 +16,5 @@
  * under the License.
  */
 
-import * as vscode from 'vscode';
-
-export const outputServerChannel = vscode.window.createOutputChannel("WSO2 Integrator: MI Server");
-
-export function showServerOutputChannel() {
-    outputServerChannel.show(true);
-}
-
-// This function will log the value to the MI server output channel
-export function serverLog(value: string): void {
-    outputServerChannel.append(value);
-}
-
-export function getOutputChannel() {
-    return outputServerChannel;
-}
-
+export * from './AuthenticationDialog';
+export * from './useAuthentication';
