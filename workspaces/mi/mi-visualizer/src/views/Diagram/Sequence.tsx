@@ -33,28 +33,11 @@ export interface SequenceViewProps {
     diagnostics: Diagnostic[];
 }
 
-// Helper function to extract directory path when path.dirname fails
+// Helper function to extract directory path with consistent cross-platform behavior
 const getDirectoryPath = (filePath: string): string => {
-    // Normalize Windows paths by converting backslashes to forward slashes
+    // Use path.posix.dirname for consistent forward-slash handling across platforms
     const normalizedPath = filePath.replace(/\\/g, '/');
-    
-    // Try Node.js path.dirname first
-    const dirname = path.dirname(normalizedPath);
-    
-    // If path.dirname returns '.' or empty, extract directory manually
-    if (dirname === '.' || !dirname || dirname.length === 0) {
-        const lastSeparatorIndex = normalizedPath.lastIndexOf('/');
-        
-        if (lastSeparatorIndex > 0) {
-            return normalizedPath.substring(0, lastSeparatorIndex);
-        }
-        
-        // Fallback: if no separators found, return the original path
-        // (this shouldn't happen with valid file paths)
-        return normalizedPath;
-    }
-    
-    return dirname;
+    return path.posix.dirname(normalizedPath);
 };
 
 export const SequenceView = ({ model: SequenceModel, documentUri, diagnostics }: SequenceViewProps) => {

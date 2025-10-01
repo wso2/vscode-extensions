@@ -77,25 +77,27 @@ export class Diagram {
         // Wait for the inner div to be available
         await mediatorNode.waitFor({ state: 'attached' });
         
-        // Try hover with multiple strategies
-        try {
-            // First attempt: normal hover
-            await mediatorNode.hover();
-        } catch (firstError) {
-            try {
-                // Second attempt: force hover
-                await mediatorNode.hover({ force: true });
-            } catch (secondError) {
-                // Third attempt: scroll into view then hover
+        // Try hover with multiple strategies using a cleaner retry mechanism
+        const hoverStrategies = [
+            () => mediatorNode.hover(),
+            () => mediatorNode.hover({ force: true }),
+            async () => {
                 await mediatorNode.scrollIntoViewIfNeeded();
                 await container.page().waitForTimeout(200);
-                try {
-                    await mediatorNode.hover({ force: true });
-                } catch (thirdError) {
-                    // Final fallback: click instead of hover
-                    console.warn('All hover attempts failed, using click as fallback');
-                    await mediatorNode.click({ force: true });
-                }
+                await mediatorNode.hover({ force: true });
+            },
+            () => {
+                console.warn('All hover attempts failed, using click as fallback');
+                return mediatorNode.click({ force: true });
+            }
+        ];
+
+        for (const strategy of hoverStrategies) {
+            try {
+                await strategy();
+                break;
+            } catch (error) {
+                // Continue to next strategy
             }
         }
         

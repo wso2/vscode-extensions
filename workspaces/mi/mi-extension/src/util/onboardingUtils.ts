@@ -1138,17 +1138,8 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
 
             function onError(data: any) {
                 if (data) {
-                    // Convert Buffer to string if needed
-                    let errorMessage: string;
-                    if (Buffer.isBuffer(data)) {
-                        errorMessage = data.toString();
-                    } else if (typeof data === 'object' && data.type === 'Buffer' && Array.isArray(data.data)) {
-                        errorMessage = Buffer.from(data.data).toString();
-                    } else if (typeof data === 'object') {
-                        errorMessage = JSON.stringify(data);
-                    } else {
-                        errorMessage = String(data);
-                    }
+                    // Convert data to string with simplified logic
+                    const errorMessage: string = data?.toString?.() ?? String(data);
 
                     console.debug('[Ballerina Build] Error encountered:', errorMessage);
                     const commonErrors = [

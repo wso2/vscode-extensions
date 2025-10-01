@@ -47,9 +47,9 @@ export default function createTests() {
         await registry.openFormFromArtifacts();
         console.log('Initialized registry form');
         
-        // Build file path with better Windows compatibility
+        // Build file path with proper cross-platform compatibility
         const fileName = `testRegistry11.json`;
-        const filePath = path.resolve(__dirname, '..', 'data', 'new-project', 'testProjectFolder', 'testProject430', 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'json', fileName).replace(/\\/g, '/');
+        const filePath = path.resolve(__dirname, '..', 'data', 'new-project', 'testProjectFolder', 'testProject430', 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'json', fileName);
         console.log('Importing file from path: ' + filePath);
         console.log('File path length:', filePath.length);
         

@@ -157,37 +157,11 @@ async function safeCleanup(directoryPath: string) {
     // Add a small delay to allow any pending file operations to complete
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Use fs.promises for async file operations
-    const fsp = fs.promises;
-    
-    // Read directory contents first
-    const removeContents = async (dir: string) => {
-        try {
-            const items = await fsp.readdir(dir, { withFileTypes: true });
-            
-            // First remove all files and subdirectories
-            for (const item of items) {
-                const fullPath = path.join(dir, item.name);
-                if (item.isDirectory()) {
-                    await removeContents(fullPath); // Recurse for directories
-                    await fsp.rmdir(fullPath).catch(() => {}); // Ignore errors
-                } else {
-                    await fsp.unlink(fullPath).catch(() => {}); // Ignore errors
-                }
-            }
-            
-            // Then try to remove the directory itself
-            await fsp.rmdir(dir).catch(() => {}); // Ignore errors
-        } catch (err) {
-            console.warn(`Warning: Error while cleaning up ${dir}:`, err);
-        }
-    };
-
     // Attempt cleanup multiple times with delay between attempts
     for (let i = 0; i < 3; i++) {
         try {
             if (fs.existsSync(directoryPath)) {
-                await removeContents(directoryPath);
+                await fs.promises.rm(directoryPath, { recursive: true, force: true });
                 // Final verification
                 if (!fs.existsSync(directoryPath)) {
                     break;
