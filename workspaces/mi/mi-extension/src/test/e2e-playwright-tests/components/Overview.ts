@@ -17,7 +17,7 @@
  */
 
 import { Frame, Page } from "@playwright/test";
-import { getVsCodeButton, switchToIFrame } from "@wso2/playwright-vscode-tester";
+import { Form, getVsCodeButton, switchToIFrame } from "@wso2/playwright-vscode-tester";
 import { ProjectExplorer } from "./ProjectExplorer";
 import { MACHINE_VIEW } from '@wso2/mi-core';
 import { page } from '../Utils';
@@ -84,15 +84,17 @@ export class Overview {
     }
 
     public async getProjectSummary() {
-        await this.webView.getByRole('heading', { name: 'Project Information Icon' }).locator('i').click();
+        const projectInfoIcon = await this.webView.getByRole('heading', { name: 'Project Information Icon' }).locator('i');
+        await projectInfoIcon.click();
     }
 
     public async updateProjectVersion(version: string) {
         const popupPanel = this.webView.locator('#popUpPanel');
         await popupPanel.waitFor();
         await popupPanel.getByRole('textbox', { name: 'Version*The version of the' }).fill(version);
-        await popupPanel.getByRole('button', { name: 'Save Changes' }).click();
-        await popupPanel.waitFor({ state: 'detached' });
+        const saveChangesButton = await getVsCodeButton(popupPanel, 'Save Changes', 'primary');
+        await saveChangesButton.click();
+        await popupPanel.waitFor({ state: 'detached', timeout: 100000 });
     }
 
     public async openOtherDependenciesManager() {
@@ -210,7 +212,9 @@ export class Overview {
     }
 
     public async addConfig() {
-        await this.webView.locator('vscode-link').filter({ hasText: 'Manage Configurables' }).locator('i').click();
+        const manageConfig = this.webView.locator('vscode-link').filter({ hasText: 'Manage Configurables' }).locator('i');
+        await manageConfig.waitFor();
+        await manageConfig.click();
         const popupPanel = this.webView.locator('#popUpPanel');
         await popupPanel.waitFor();
         await popupPanel.locator('h2:has-text("Configurables")').waitFor();
@@ -224,7 +228,9 @@ export class Overview {
     }
 
     public async editConfig() {
-        await this.webView.locator('vscode-link').filter({ hasText: 'Manage Configurables' }).locator('i').click();
+        const manageConfig = this.webView.locator('vscode-link').filter({ hasText: 'Manage Configurables' }).locator('i');
+        await manageConfig.waitFor();
+        await manageConfig.click();
         const popupPanel = this.webView.locator('#popUpPanel');
         await popupPanel.waitFor();
         await popupPanel.locator('h2:has-text("Configurables")').waitFor();
@@ -237,7 +243,9 @@ export class Overview {
     }
 
     public async deleteConfig() {
-        await this.webView.locator('vscode-link').filter({ hasText: 'Manage Configurables' }).locator('i').click();
+        const manageConfig = this.webView.locator('vscode-link').filter({ hasText: 'Manage Configurables' }).locator('i');
+        await manageConfig.waitFor();
+        await manageConfig.click();
         const popupPanel = this.webView.locator('#popUpPanel');
         await popupPanel.waitFor();
         await popupPanel.locator('h2:has-text("Configurables")').waitFor();
