@@ -112,7 +112,7 @@ export default function createTests() {
 
             await test.step('Update Connector Dependencies', async () => {
                 console.log('Starting to update connector dependencies');
-                await waitUntilPomNotContains(page.page, pomFilePath, '<artifactId>mi-connector-amazonsqs</artifactId>');
+                await waitUntilPomNotContains(page.page, pomFilePath, '<version>3.0.1</version>');
                 const overviewPage = new Overview(page.page);
                 await overviewPage.init();
                 await overviewPage.editConnectorDependencies();
