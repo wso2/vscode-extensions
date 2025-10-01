@@ -123,6 +123,7 @@ export interface PrimaryDetails {
 export interface BuildDetails {
     dockerDetails: DockerDetails;
     enableFatCar: PomNodeDetails;
+    deploymentType: PomNodeDetails;
     advanceDetails: AdvanceDetails;
 }
 

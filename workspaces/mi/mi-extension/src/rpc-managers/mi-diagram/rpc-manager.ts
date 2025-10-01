@@ -284,6 +284,8 @@ import {
     GetCodeDiagnosticsReqeust,
     GetCodeDiagnosticsResponse,
     getCodeDiagnostics,
+    SubmitFeedbackRequest,
+    SubmitFeedbackResponse,
     GetPomFileContentResponse,
     GetExternalConnectorDetailsResponse,
     GetMockServicesResponse,
@@ -308,7 +310,7 @@ import { DiagramService, APIResource, NamedSequence, UnitTest, Proxy } from "../
 import { extension } from '../../MIExtensionContext';
 import { RPCLayer } from "../../RPCLayer";
 import { StateMachineAI } from '../../ai-panel/aiMachine';
-import { APIS, COMMANDS, DEFAULT_ICON, DEFAULT_PROJECT_VERSION, LAST_EXPORTED_CAR_PATH, RUNTIME_VERSION_440, SWAGGER_REL_DIR } from "../../constants";
+import { APIS, COMMANDS, DEFAULT_ICON, DEFAULT_PROJECT_VERSION, LAST_EXPORTED_CAR_PATH, RUNTIME_VERSION_440, SWAGGER_REL_DIR, ERROR_MESSAGES } from "../../constants";
 import { getStateMachine, navigate, openView } from "../../stateMachine";
 import { openPopupView } from "../../stateMachinePopup";
 import { openSwaggerWebview } from "../../swagger/activate";
@@ -340,7 +342,6 @@ import { MiVisualizerRpcManager } from "../mi-visualizer/rpc-manager";
 import { DebuggerConfig } from "../../debugger/config";
 import { getKubernetesConfiguration, getKubernetesDataConfiguration } from "../../util/template-engine/mustach-templates/KubernetesConfiguration";
 import { parseStringPromise, Builder } from "xml2js";
-
 const AdmZip = require('adm-zip');
 
 const { XMLParser, XMLBuilder } = require("fast-xml-parser");
@@ -1513,6 +1514,11 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
             const resp = await langClient.getProjectStructure(this.projectUri);
             const artifacts = (resp.directoryMap as any).src.main.wso2mi.artifacts;
 
+            const sequenceList = await langClient.getAvailableResources({
+                documentIdentifier: this.projectUri,
+                resourceType: "sequence",
+            });
+
             const endpoints: string[] = [];
             const sequences: string[] = [];
 
@@ -1520,8 +1526,11 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                 endpoints.push(endpoint.name);
             }
 
-            for (const sequence of artifacts.sequences) {
+            for (const sequence of sequenceList.resources) {
                 sequences.push(sequence.name);
+            }
+            for (const sequence of sequenceList.registryResources) {
+                sequences.push(sequence.registryKey);
             }
 
             resolve({ data: [endpoints, sequences] });
@@ -3020,9 +3029,19 @@ ${endpointAttributes}
         return new Promise(async (resolve) => {
             const projectUuid = uuidv4();
             const { directory, name, open, groupID, artifactID, version, miVersion } = params;
-            const connectorStoreResponse = await this.getStoreConnectorJSON(miVersion);
-            const httpConnectorVersion = filterConnectorVersion('HTTP', connectorStoreResponse.connectors);
-            const initialDependencies = generateInitialDependencies(httpConnectorVersion);
+            let initialDependencies = '';
+            try {
+                const connectorStoreResponse = await this.getStoreConnectorJSON(miVersion);
+                const httpConnectorVersion = filterConnectorVersion('HTTP', connectorStoreResponse.connectors);
+                initialDependencies = generateInitialDependencies(httpConnectorVersion);
+            } catch (err) {
+                console.error("Could not fetch connectors:", err);
+                const confirmation = await window.showWarningMessage(ERROR_MESSAGES.ERROR_DOWNLOADING_MODULES,{ modal: true }, 'Yes');
+                if (confirmation === undefined) {
+                    resolve({filePath: "Error"});
+                    return;
+                }
+            }
             const tempName = name.replace(/\./g, '');
             const folderStructure: FileStructure = {
                 [tempName]: { // Project folder
@@ -4273,48 +4292,59 @@ ${endpointAttributes}
     }
 
     async getStoreConnectorJSON(miVersion?: string): Promise<StoreConnectorJsonResponse> {
-        return new Promise(async (resolve) => {
-            try {
-                const runtimeVersion = miVersion ? miVersion : await getMIVersionFromPom(this.projectUri);
-                if (runtimeVersion) {
-                    const connectors = compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0 ? connectorCache : legacyConnectorCache;
-                    if (connectors.has('inbound-connector-data') && connectors.has('outbound-connector-data') && connectors.has('connectors')) {
-                        resolve({ inboundConnectors: connectors.get('inbound-connector-data'), outboundConnectors: connectors.get('outbound-connector-data'), connectors: connectors.get('connectors') });
-                        return;
-                    }
-                }
+        try {
+            const runtimeVersion = miVersion ?? await getMIVersionFromPom(this.projectUri);
+            if (runtimeVersion) {
+                const connectors = compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0
+                    ? connectorCache : legacyConnectorCache;
 
-                const response = await fetch(APIS.MI_CONNECTOR_STORE);
-                const connectorStoreResponse = await fetch(APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? ''));
-                const data = await response.json();
-                const connectorStoreData = await connectorStoreResponse.json();
-                if (data && data['inbound-connector-data'] && data['outbound-connector-data']) {
-                    if (runtimeVersion) {
-                        if (compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0) {
-                            connectorCache.set('inbound-connector-data', data['inbound-connector-data']);
-                            connectorCache.set('outbound-connector-data', data['outbound-connector-data']);
-                            if (connectorStoreData) {
-                                connectorCache.set('connectors', connectorStoreData);
-                            }
-                        } else {
-                            legacyConnectorCache.set('inbound-connector-data', data['inbound-connector-data']);
-                            legacyConnectorCache.set('outbound-connector-data', data['outbound-connector-data']);
-                            if (connectorStoreData) {
-                                legacyConnectorCache.set('connectors', connectorStoreData);
-                            }
+                if (connectors.has('inbound-connector-data') && connectors.has('outbound-connector-data') && connectors.has('connectors')) {
+                    return {
+                        inboundConnectors: connectors.get('inbound-connector-data'),
+                        outboundConnectors: connectors.get('outbound-connector-data'),
+                        connectors: connectors.get('connectors'),
+                    };
+                }
+            }
+
+            const response = await fetch(APIS.MI_CONNECTOR_STORE);
+            const connectorStoreResponse = await fetch(
+                APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? '')
+            );
+
+            const data = await response.json();
+            const connectorStoreData = await connectorStoreResponse.json();
+
+            if (data && data['inbound-connector-data'] && data['outbound-connector-data']) {
+                if (runtimeVersion) {
+                    if (compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0) {
+                        connectorCache.set('inbound-connector-data', data['inbound-connector-data']);
+                        connectorCache.set('outbound-connector-data', data['outbound-connector-data']);
+                        if (connectorStoreData) {
+                            connectorCache.set('connectors', connectorStoreData);
+                        }
+                    } else {
+                        legacyConnectorCache.set('inbound-connector-data', data['inbound-connector-data']);
+                        legacyConnectorCache.set('outbound-connector-data', data['outbound-connector-data']);
+                        if (connectorStoreData) {
+                            legacyConnectorCache.set('connectors', connectorStoreData);
                         }
                     }
-                    resolve({ inboundConnectors: data['inbound-connector-data'], outboundConnectors: data['outbound-connector-data'], connectors: connectorStoreData });
-                } else {
-                    console.log("Failed to fetch connectors. Status: " + data.status + ", Reason: " + data.reason);
-                    reject("Failed to fetch connectors.");
                 }
-            } catch (error) {
-                console.log("User is offline.", error);
-                reject("Failed to fetch connectors.");
-            }
-        });
 
+                return {
+                    inboundConnectors: data['inbound-connector-data'],
+                    outboundConnectors: data['outbound-connector-data'],
+                    connectors: connectorStoreData,
+                };
+            } else {
+                console.log("Failed to fetch connectors. Status: " + data.status + ", Reason: " + data.reason);
+                throw new Error("Failed to fetch connectors.");
+            }
+        } catch (error) {
+            console.log("User is offline.", error);
+            throw new Error("Failed to fetch connectors.");
+        }
     }
 
     async getConnectorIcon(params: GetConnectorIconRequest): Promise<GetConnectorIconResponse> {
@@ -5945,6 +5975,65 @@ ${keyValuesXML}`;
             }
         });
     };
+
+    async submitFeedback(params: SubmitFeedbackRequest): Promise<SubmitFeedbackResponse> {
+        try {
+            const { positive, messages, feedbackText } = params;
+            
+            // Get the feedback backend URL from environment
+            const feedbackUrl = process.env.MI_COPILOT_FEEDBACK;
+            
+            if (!feedbackUrl) {
+                console.warn('MI_COPILOT_FEEDBACK URL not configured');
+                return {
+                    success: false,
+                    message: 'Feedback backend URL not configured'
+                };
+            }
+
+            // Transform the messages into the format expected by the backend
+            const chatHistory = messages.map((msg, index) => ({
+                content: msg.content,
+                role: msg.role === 'user' ? 'user' : 'assistant',
+                message_order: index + 1,
+                command: msg.command ?? 'chat'
+            }));
+
+            // Create the payload matching the backend's AnalyticsPayload format
+            const payload = {
+                positive,
+                comment: feedbackText || '',
+                chat_history: chatHistory
+            };
+
+            // Send the feedback to the backend
+            const response = await axios.post(feedbackUrl, payload, {
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (response.status === 200) {
+                return {
+                    success: true,
+                    message: 'Feedback submitted successfully'
+                };
+            } else {
+                console.error('Failed to submit feedback, unexpected status:', response.status);
+                return {
+                    success: false,
+                    message: `Failed to submit feedback: HTTP ${response.status}`
+                };
+            }
+
+        } catch (error) {
+            console.error('Error submitting feedback:', error);
+            return {
+                success: false,
+                message: `Failed to submit feedback: ${(error as Error).message}`
+            };
+        } 
+    }
 
     async getPomFileContent(): Promise<GetPomFileContentResponse> {
         return new Promise((resolve, reject) => {
