@@ -73,6 +73,11 @@ const DisabledCell = styled(TableCell)`
     background-color: var(--vscode-tab-unselectedBackground);
 `;
 
+const TableBody = styled.div`
+    max-height: 500px;
+    overflow-y: scroll;
+`;
+
 export const Table = <T extends FieldValues>({ control, name }: TableProps<T>) => {
     const {
         field: { value: entries }
@@ -87,35 +92,37 @@ export const Table = <T extends FieldValues>({ control, name }: TableProps<T>) =
                 <TableCell>PUT</TableCell>
                 <TableCell>DELETE</TableCell>
             </TableHeader>
-            {entries.map((entry: Entry, index: number) => (
-                <TableRow key={index}>
-                    <TableName>{entry.name}</TableName>
-                    <TableCell>
-                        <FormCheckBox name={`${entry.id}.get`} control={control as any} />
-                    </TableCell>
-                    <TableCell>
-                        {entry.post !== undefined ? (
-                            <FormCheckBox name={`${entry.id}.post`} control={control as any} />
-                        ) : (
-                            <DisabledCell />
-                        )}
-                    </TableCell>
-                    <TableCell>
-                        {entry.put !== undefined ? (
-                            <FormCheckBox name={`${entry.id}.put`} control={control as any} />
-                        ) : (
-                            <DisabledCell />
-                        )}
-                    </TableCell>
-                    <TableCell>
-                        {entry.delete !== undefined ? (
-                            <FormCheckBox name={`${entry.id}.delete`} control={control as any} />
-                        ) : (
-                            <DisabledCell />
-                        )}
-                    </TableCell>
-                </TableRow>
-            ))}
+            <TableBody>
+                {entries.map((entry: Entry, index: number) => (
+                    <TableRow key={index}>
+                        <TableName title={entry.name}>{entry.name}</TableName>
+                        <TableCell>
+                            <FormCheckBox name={`${entry.id}.get`} control={control as any} />
+                        </TableCell>
+                        <TableCell>
+                            {entry.post !== undefined ? (
+                                <FormCheckBox name={`${entry.id}.post`} control={control as any} />
+                            ) : (
+                                <DisabledCell />
+                            )}
+                        </TableCell>
+                        <TableCell>
+                            {entry.put !== undefined ? (
+                                <FormCheckBox name={`${entry.id}.put`} control={control as any} />
+                            ) : (
+                                <DisabledCell />
+                            )}
+                        </TableCell>
+                        <TableCell>
+                            {entry.delete !== undefined ? (
+                                <FormCheckBox name={`${entry.id}.delete`} control={control as any} />
+                            ) : (
+                                <DisabledCell />
+                            )}
+                        </TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
         </TableContainer>
     );
 };
