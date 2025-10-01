@@ -167,6 +167,8 @@ const PopupPanel = (props: { formState: PopupMachineStateValue, handleClose?: ()
                         tsFilePath={machineSate.customProps.tsFilePath}
                         isPopup={true}
                         description={machineSate.customProps.description}
+                        inputType={machineSate.customProps.inputType}
+                        outputType={machineSate.customProps.outputType}
                     />);
                     break;
                 case MACHINE_VIEW.MessageStoreForm:

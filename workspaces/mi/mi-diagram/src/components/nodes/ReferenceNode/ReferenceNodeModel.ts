@@ -71,6 +71,8 @@ export class ReferenceNodeModel extends BaseNodeModel {
 
         const dmName = config.split("/")[config.split("/").length - 1].split(".")[0];
         const description = ((this.stNode as Datamapper)?.description) ?? "";
+        const inputType = (this.stNode as Datamapper)?.inputType;
+        const outputType = (this.stNode as Datamapper)?.outputType;
         if (dmName === "") {
             return;
         }
@@ -136,7 +138,9 @@ export class ReferenceNodeModel extends BaseNodeModel {
                                 range: this.stNode.range,
                                 documentUri: this.documentUri,
                                 tsFilePath: tsFilePath,
-                                description: description
+                                description: description,
+                                inputType: inputType,
+                                outputType: outputType
                             }
                         },
                         isPopup: true

@@ -284,6 +284,8 @@ import {
     GetCodeDiagnosticsReqeust,
     GetCodeDiagnosticsResponse,
     getCodeDiagnostics,
+    SubmitFeedbackRequest,
+    SubmitFeedbackResponse,
     GetPomFileContentResponse,
     GetExternalConnectorDetailsResponse,
     GetMockServicesResponse,
@@ -1512,6 +1514,11 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
             const resp = await langClient.getProjectStructure(this.projectUri);
             const artifacts = (resp.directoryMap as any).src.main.wso2mi.artifacts;
 
+            const sequenceList = await langClient.getAvailableResources({
+                documentIdentifier: this.projectUri,
+                resourceType: "sequence",
+            });
+
             const endpoints: string[] = [];
             const sequences: string[] = [];
 
@@ -1519,8 +1526,11 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                 endpoints.push(endpoint.name);
             }
 
-            for (const sequence of artifacts.sequences) {
+            for (const sequence of sequenceList.resources) {
                 sequences.push(sequence.name);
+            }
+            for (const sequence of sequenceList.registryResources) {
+                sequences.push(sequence.registryKey);
             }
 
             resolve({ data: [endpoints, sequences] });
@@ -5965,6 +5975,65 @@ ${keyValuesXML}`;
             }
         });
     };
+
+    async submitFeedback(params: SubmitFeedbackRequest): Promise<SubmitFeedbackResponse> {
+        try {
+            const { positive, messages, feedbackText } = params;
+            
+            // Get the feedback backend URL from environment
+            const feedbackUrl = process.env.MI_COPILOT_FEEDBACK;
+            
+            if (!feedbackUrl) {
+                console.warn('MI_COPILOT_FEEDBACK URL not configured');
+                return {
+                    success: false,
+                    message: 'Feedback backend URL not configured'
+                };
+            }
+
+            // Transform the messages into the format expected by the backend
+            const chatHistory = messages.map((msg, index) => ({
+                content: msg.content,
+                role: msg.role === 'user' ? 'user' : 'assistant',
+                message_order: index + 1,
+                command: msg.command ?? 'chat'
+            }));
+
+            // Create the payload matching the backend's AnalyticsPayload format
+            const payload = {
+                positive,
+                comment: feedbackText || '',
+                chat_history: chatHistory
+            };
+
+            // Send the feedback to the backend
+            const response = await axios.post(feedbackUrl, payload, {
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (response.status === 200) {
+                return {
+                    success: true,
+                    message: 'Feedback submitted successfully'
+                };
+            } else {
+                console.error('Failed to submit feedback, unexpected status:', response.status);
+                return {
+                    success: false,
+                    message: `Failed to submit feedback: HTTP ${response.status}`
+                };
+            }
+
+        } catch (error) {
+            console.error('Error submitting feedback:', error);
+            return {
+                success: false,
+                message: `Failed to submit feedback: ${(error as Error).message}`
+            };
+        } 
+    }
 
     async getPomFileContent(): Promise<GetPomFileContentResponse> {
         return new Promise((resolve, reject) => {
