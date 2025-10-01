@@ -73,26 +73,26 @@ export default function createTests() {
             await test.step('Update Other Dependencies', async () => {
                 console.log('Starting to update other dependencies');
                 const overviewPage = new Overview(page.page);
-                console.log('Waiting for pom.xml to not contain mysql-connector--java dependency');
-                await waitUntilPomNotContains(page.page, pomFilePath, '<artifactId>mysql-connector--java</artifactId>');
+                console.log('Waiting for pom.xml to not contain mysql-connector-java dependency');
+                await waitUntilPomNotContains(page.page, pomFilePath, '<version>8.0.32</version>');
                 await overviewPage.init();
                 await overviewPage.editOtherDependencies();
                 // Wait for 8s to let the pom.xml update
                 await page.page.waitForTimeout(8000);
-                console.log('Waiting for pom.xml to contain mysql-connector--java dependency');
-                await waitUntilPomContains(page.page, pomFilePath, '<artifactId>mysql-connector--java</artifactId>');
+                console.log('Waiting for pom.xml to contain 8.0.32 as version of mysql-connector-java dependency');
+                await waitUntilPomContains(page.page, pomFilePath, '<version>8.0.32</version>');
             });
 
             await test.step('Delete Other Dependencies', async () => {
                 console.log('Starting to delete other dependencies');
                 const overviewPage = new Overview(page.page);
                 await overviewPage.init();
-                console.log('Deleting mysql-connector--java dependency');
+                console.log('Deleting mysql-connector-java dependency');
                 await overviewPage.deleteOtherDependencies();
                 // Wait for 8s to let the pom.xml update
                 await page.page.waitForTimeout(8000);
-                console.log('Waiting for pom.xml to not contain mysql-connector--java dependency');
-                await waitUntilPomNotContains(page.page, pomFilePath, '<artifactId>mysql-connector--java</artifactId>');
+                console.log('Waiting for pom.xml to not contain mysql-connector-java dependency');
+                await waitUntilPomNotContains(page.page, pomFilePath, '<artifactId>mysql-connector-java</artifactId>');
                 await overviewPage.closeDependencyManager();
             });
 

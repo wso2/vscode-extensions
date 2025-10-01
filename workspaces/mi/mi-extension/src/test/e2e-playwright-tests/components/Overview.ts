@@ -135,7 +135,7 @@ export class Overview {
         await dependencyItemComponent.waitFor({ state: 'visible', timeout: 10000 });
         await dependencyItemComponent.hover();
         await dependencyItemComponent.locator('.codicon-edit').click();
-        await popupPanel.getByRole('textbox', { name: 'Artifact ID' }).fill('mysql-connector--java');
+        await popupPanel.getByRole('textbox', { name: 'Version' }).fill("8.0.32");
         await popupPanel.getByText('Save Changes').click();
         const loader = this.webView.locator('[data-testid="dependency-manager-loader"]');
         await loader.waitFor({ state: 'detached', timeout: 10000 });
@@ -145,7 +145,7 @@ export class Overview {
         const popupPanel = this.webView.locator('#popUpPanel');
         await popupPanel.waitFor();
         await popupPanel.locator('h2:has-text("Other Dependencies")').waitFor();
-        const dependencyItemComponent = popupPanel.locator('[data-testid="mysql-mysql-connector--java-8.0.33"]');
+        const dependencyItemComponent = popupPanel.locator('[data-testid="mysql-mysql-connector-java-8.0.32"]');
         await dependencyItemComponent.waitFor({ state: 'visible', timeout: 10000 });
         await dependencyItemComponent.hover();
         await dependencyItemComponent.locator('.codicon-trash').click();
