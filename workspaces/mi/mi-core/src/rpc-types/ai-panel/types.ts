@@ -52,6 +52,10 @@ export interface GenerateCodeResponse {
     success: boolean;
 }
 
+export interface AbortCodeGenerationResponse {
+    success: boolean;
+}
+
 // Event types for streaming
 export type CodeGenerationEventType = 
     | "code_generation_start"

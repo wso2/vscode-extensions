@@ -21,6 +21,7 @@ import {
     GenerateSuggestionsRequest, GenerateSuggestionsResponse,
     GetBackendRootUrlResponse,
     GenerateCodeRequest, GenerateCodeResponse,
+    AbortCodeGenerationResponse,
     CodeGenerationEvent
 } from "./types";
 
@@ -29,6 +30,7 @@ const _prefix = "mi-ai-panel";
 export const getBackendRootUrl: RequestType<void, GetBackendRootUrlResponse> = { method: `${_prefix}/getBackendRootUrl` };
 export const generateSuggestions: RequestType<GenerateSuggestionsRequest, GenerateSuggestionsResponse> = { method: `${_prefix}/generateSuggestions` };
 export const generateCode: RequestType<GenerateCodeRequest, GenerateCodeResponse> = { method: `${_prefix}/generateCode` };
+export const abortCodeGeneration: RequestType<void, AbortCodeGenerationResponse> = { method: `${_prefix}/abortCodeGeneration` };
 
 // Notification for streaming events
 export const codeGenerationEvent: NotificationType<CodeGenerationEvent> = { method: `${_prefix}/codeGenerationEvent` };
