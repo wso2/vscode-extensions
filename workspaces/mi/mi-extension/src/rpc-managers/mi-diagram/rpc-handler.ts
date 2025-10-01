@@ -312,6 +312,8 @@ import {
     GetConnectorIconRequest,
     getConnectorIcon,
     getValueOfEnvVariable,
+    SubmitFeedbackRequest,
+    submitFeedback,
     getPomFileContent,
     getExternalConnectorDetails,
     getMockServices,
@@ -503,6 +505,7 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(displayPayloadAlert, () => rpcManger.displayPayloadAlert());
     messenger.onRequest(closePayloadAlert, () => rpcManger.closePayloadAlert());
     messenger.onRequest(getValueOfEnvVariable, (args: string) => rpcManger.getValueOfEnvVariable(args));
+    messenger.onRequest(submitFeedback, (args: SubmitFeedbackRequest) => rpcManger.submitFeedback(args));
     messenger.onRequest(getPomFileContent, () => rpcManger.getPomFileContent());
     messenger.onRequest(getExternalConnectorDetails, () => rpcManger.getExternalConnectorDetails());
     messenger.onRequest(getMockServices, () => rpcManger.getMockServices());
