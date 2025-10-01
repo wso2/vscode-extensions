@@ -137,7 +137,11 @@ export function MessageProcessorWizard(props: MessageProcessorWizardProps) {
             then: (schema) => schema.required("Sequence is required"),
             otherwise: (schema) => schema.notRequired().default(""),
         }),
-        replySequence: yup.string().notRequired().default(""),
+        replySequence: yup.string().when('messageProcessorType', {
+            is: 'Scheduled Message Forwarding Processor',
+            then: (schema) => schema.required("Reply Sequence is required"),
+            otherwise: (schema) => schema.notRequired().default(""),
+        }),
         faultSequence: yup.string().notRequired().default(""),
         deactivateSequence: yup.string().notRequired().default(""),
         samplingInterval: yup.number().typeError('Sampling Interval must be a number').min(1, "Sampling Interval must be greater than 0").notRequired().default(1000),

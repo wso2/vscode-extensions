@@ -35,14 +35,16 @@ import { XMLParser, XMLBuilder } from "fast-xml-parser";
 const AdmZip = require('adm-zip');
 // Add Latest MI version as the first element in the array
 export const supportedJavaVersionsForMI: { [key: string]: string } = {
+    '4.5.0': '21',
     '4.4.0': '21',
     '4.3.0': '17',
     '4.2.0': '17',
     '4.1.0': '11',
 };
-export const LATEST_MI_VERSION = "4.4.0";
+export const LATEST_MI_VERSION = "4.5.0";
 const COMPATIBLE_JDK_VERSION = "11";
 const miDownloadUrls: { [key: string]: string } = {
+    '4.5.0': 'https://mi-distribution.wso2.com/4.5.0/wso2mi-4.5.0.zip',
     '4.4.0-UPDATED': 'https://mi-distribution.wso2.com/4.4.0/wso2mi-4.4.0-UPDATED.zip',
     '4.4.0': 'https://mi-distribution.wso2.com/4.4.0/wso2mi-4.4.0.zip',
     '4.3.0': 'https://mi-distribution.wso2.com/4.3.0/wso2mi-4.3.0.zip'

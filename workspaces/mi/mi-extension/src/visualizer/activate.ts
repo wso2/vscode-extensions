@@ -94,7 +94,7 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                             directory: path.dirname(args.path),
                             name: path.basename(args.path),
                             open: false,
-                            miVersion: "4.4.0"
+                            miVersion: "4.5.0"
                         }
                     );
                     await createSettingsFile(args);
