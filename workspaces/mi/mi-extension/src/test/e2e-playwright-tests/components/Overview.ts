@@ -125,6 +125,8 @@ export class Overview {
         await popupPanel.getByRole('button', { name: 'Add Dependency' }).click();
         const loader = this.webView.locator('[data-testid="dependency-manager-loader"]');
         await loader.waitFor({ state: 'detached', timeout: 10000 });
+        const dependencyItemComponent = popupPanel.locator('[data-testid="mysql-mysql-connector-java-8.0.33"]');
+        await dependencyItemComponent.waitFor({ state: 'visible', timeout: 10000 });
     }
 
     public async editOtherDependencies() {
@@ -139,6 +141,8 @@ export class Overview {
         await popupPanel.getByText('Save Changes').click();
         const loader = this.webView.locator('[data-testid="dependency-manager-loader"]');
         await loader.waitFor({ state: 'detached', timeout: 10000 });
+        const newDependencyItemComponent = popupPanel.locator('[data-testid="mysql-mysql-connector--java-8.0.33"]');
+        await newDependencyItemComponent.waitFor({ state: 'visible', timeout: 10000 });
     }
 
     public async deleteOtherDependencies() {
@@ -151,6 +155,7 @@ export class Overview {
         await dependencyItemComponent.locator('.codicon-trash').click();
         const loader = this.webView.locator('[data-testid="dependency-manager-loader"]');
         await loader.waitFor({ state: 'detached', timeout: 10000 });
+        await dependencyItemComponent.waitFor({ state: 'detached', timeout: 10000 });
     }
 
     public async closeDependencyManager() {
@@ -170,6 +175,10 @@ export class Overview {
         await popupPanel.getByRole('button', { name: 'Add Dependency' }).click();
         const loader = this.webView.locator('[data-testid="dependency-manager-loader"]');
         await loader.waitFor({ state: 'detached', timeout: 10000 });
+        const dependencyItemComponent = popupPanel.locator(
+            '[data-testid="org.wso2.integration.connector-mi-connector-amazonsqs-2.0.3"]'
+        );
+        await dependencyItemComponent.waitFor({ state: 'visible', timeout: 10000 });
     }
 
     public async editConnectorDependencies() {
@@ -183,6 +192,10 @@ export class Overview {
         await popupPanel.getByText('Save Changes').click();
         const loader = this.webView.locator('[data-testid="dependency-manager-loader"]');
         await loader.waitFor({ state: 'detached', timeout: 10000 });
+        const newDependencyItemComponent = popupPanel.locator(
+            '[data-testid="org.wso2.integration.connector-mi-connector--amazonsqs-2.0.3"]'
+        );
+        await newDependencyItemComponent.waitFor({ state: 'visible', timeout: 10000 });
     }
 
     public async deleteConnectorDependencies() {
@@ -195,6 +208,7 @@ export class Overview {
         await dependencyItemComponent.locator('.codicon-trash').click();
         const loader = this.webView.locator('[data-testid="dependency-manager-loader"]');
         await loader.waitFor({ state: 'detached', timeout: 10000 });
+        await dependencyItemComponent.waitFor({ state: 'detached', timeout: 10000 });
     }
 
     public async addConfig() {
