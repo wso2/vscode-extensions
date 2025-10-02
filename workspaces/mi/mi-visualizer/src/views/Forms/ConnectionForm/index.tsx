@@ -538,7 +538,7 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
                                                                 </IconContainer>
                                                                 <CardLabel>
                                                                     <LabelContainer>
-                                                                        <NameLabel>
+                                                                        <NameLabel id={`connection-${capitalizeFirstChar(connection.name)}`}>
                                                                             {capitalizeFirstChar(connection.name)}
                                                                         </NameLabel>
                                                                     </LabelContainer>
