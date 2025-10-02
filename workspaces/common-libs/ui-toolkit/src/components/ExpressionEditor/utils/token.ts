@@ -109,7 +109,7 @@ export const setValue = (element: HTMLDivElement, value: string, skipSanitizatio
     // Then transform the sanitized value
     const transformedValue = transformExpressions(sanitizedValue);
     
-    // If skipSanitization is true, we need to handle XML/HTML content properly
+    // Handle XML/HTML content if skipSanitization is true
     if (skipSanitization) {
         // Check if content contains expressions (transformed into tokens)
         const hasExpressionTokens = transformedValue !== sanitizedValue;
