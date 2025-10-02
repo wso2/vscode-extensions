@@ -35,7 +35,7 @@ import {
 } from "@wso2/wso2-platform-core";
 import React, { useEffect, type FC } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
-import { z } from "zod";
+import { z } from "zod/v3";
 import { queryKeys } from "../../../hooks/use-queries";
 import { ChoreoWebViewAPI } from "../../../utilities/vscode-webview-rpc";
 import { Button } from "../../Button";
