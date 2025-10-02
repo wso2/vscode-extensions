@@ -1254,7 +1254,6 @@ export function FormGenerator(props: FormGeneratorProps) {
                     </>
                 );
             } else {
-                // attribute comes here
                 if (element.value.hidden) {
                     return;
                 }
