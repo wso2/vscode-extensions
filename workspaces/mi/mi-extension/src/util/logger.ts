@@ -32,14 +32,12 @@ function withNewLine(value: string) {
 // This function will log the value to the MI output channel
 export function log(value: string): void {
     const output = withNewLine(value);
-    console.log(output);
     outputChannel.append(output);
 }
 
 export function logWithDebugLevel(message: string, debugLabel: string, logLevel: string): void {
     const formattedMessage = `[${new Date().toLocaleString()}] [${debugLabel}] [${logLevel}] ${message}`;
     const output = withNewLine(formattedMessage);
-    console.log(output);
     outputChannel.append(output);
 }
 
