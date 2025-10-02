@@ -91,7 +91,10 @@ export class VSBrowser {
             "files.simpleDialog.enable": true,
             "terminal.integrated.copyOnSelection": true,
             "extensions.ignoreRecommendations": true,
-            "extensions.autoUpdate": false
+            "extensions.autoUpdate": false,
+            "chat.disableAIFeatures": true,
+            "github.copilot.enable": false,
+            "github.copilot.chat.enable": false
         };
         if (Object.keys(this.customSettings).length > 0) {
             console.log('Detected user defined code settings');

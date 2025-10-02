@@ -22,7 +22,7 @@ import { VSCodeLink } from "@vscode/webview-ui-toolkit/react";
 import { EndpointType, type NewComponentWebviewProps } from "@wso2/wso2-platform-core";
 import React, { type FC, type ReactNode } from "react";
 import { type SubmitHandler, type UseFieldArrayAppend, type UseFieldArrayRemove, type UseFormReturn, useFieldArray, useWatch } from "react-hook-form";
-import type { z } from "zod";
+import type { z } from "zod/v3";
 import { Button } from "../../../components/Button";
 import { Codicon } from "../../../components/Codicon";
 import { Divider } from "../../../components/Divider";
@@ -43,7 +43,7 @@ interface Props extends NewComponentWebviewProps {
 	isSaving?: boolean;
 	onNextClick: (data: ComponentFormEndpointsType) => void;
 	onBackClick: () => void;
-	form: UseFormReturn<ComponentFormEndpointsType, any, undefined>;
+	form: UseFormReturn<ComponentFormEndpointsType>;
 }
 
 export const ComponentFormEndpointsSection: FC<Props> = ({
@@ -95,7 +95,7 @@ export const ComponentFormEndpointsSection: FC<Props> = ({
 interface ComponentEndpointItemProps extends Pick<Props, "componentName" | "directoryFsPath" | "directoryUriPath"> {
 	item: ComponentFormEndpointItemType & { id: string };
 	endpoints: ComponentFormEndpointItemType[];
-	form: UseFormReturn<ComponentFormEndpointsType, any, undefined>;
+	form: UseFormReturn<ComponentFormEndpointsType>;
 	index: number;
 	append: UseFieldArrayAppend<ComponentFormEndpointsType, "endpoints">;
 	remove: UseFieldArrayRemove;
