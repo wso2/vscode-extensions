@@ -58,6 +58,9 @@ import GenerateDiv from './GenerateComponents/GenerateDiv';
 import { HelperPaneCompletionItem, HelperPaneData } from '@wso2/mi-core';
 import AIAutoFillBox from './AIAutoFillBox/AIAutoFillBox';
 
+// Constants
+const XML_VALUE = 'xml';
+
 const Field = styled.div`
     margin-bottom: 12px;
 `;
@@ -1217,7 +1220,7 @@ export function FormGenerator(props: FormGeneratorProps) {
             if (element.type === 'attributeGroup' && !element.value.hidden) {
                 // Check if any attribute in this group has comboValues containing 'xml'
                 const hasXmlComboValue = element.value.elements?.some((attr: any) => 
-                    attr.value?.comboValues && attr.value.comboValues.includes('xml') && attr.value.currentValue === 'xml'
+                    attr.value?.comboValues && attr.value.comboValues.includes(XML_VALUE)
                 );
 
                 // If XML combo value is found, set avoidSanitize = true for all attributes in this group
@@ -1261,7 +1264,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                 }
 
                 // Check if this individual attribute has comboValues containing 'XML'
-                if (element.value?.comboValues && element.value.comboValues.includes('xml') && element.value.currentValue === 'xml') {
+                if (element.value?.comboValues && element.value.comboValues.includes(XML_VALUE)) {
                     element.value.skipSanitization = true;
                     skipSanitization = true;
                 }

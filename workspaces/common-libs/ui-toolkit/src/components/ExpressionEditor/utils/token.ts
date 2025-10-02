@@ -29,6 +29,7 @@ import { HelperPaneOrigin, HelperPanePosition } from '../types';
 
 const EXPRESSION_REGEX = /\$\{([^}]+)\}/g;
 const EXPRESSION_TOKEN_REGEX = /<div[^>]*>\s*<span[^>]*>\s*([^<]+?)\s*<\/span>\s*.+\s*<\/div>/g;
+const EXPRESSION_TOKEN_HTML_REGEX = /<div class="expression-token"[^>]*>[\s\S]*?<\/div>/g;
 
 /**
  * Sanitizes HTML by removing all HTML tags while preserving text content
@@ -69,8 +70,7 @@ export const transformExpressions = (content: string): string => {
  */
 const escapeXmlPreserveTokens = (content: string): string => {
     // Split content by expression tokens to separate XML from token HTML
-    // Use the 's' flag equivalent by using [\s\S] instead of . to match newlines
-    const tokenRegex = /<div class="expression-token"[^>]*>[\s\S]*?<\/div>/g;
+    const tokenRegex = EXPRESSION_TOKEN_HTML_REGEX;
     
     // Use split with capturing groups to get both text and token parts
     const parts = content.split(tokenRegex);
@@ -120,7 +120,7 @@ export const setValue = (element: HTMLDivElement, value: string, skipSanitizatio
             
             if (hasXmlTags) {
                 // Mixed content: XML + expression tokens
-                // We need to escape the XML parts while preserving the token HTML
+                // Escape the XML parts while preserving the token HTML
                 const finalContent = escapeXmlPreserveTokens(transformedValue);
                 element.innerHTML = finalContent;
             } else {
