@@ -34,7 +34,7 @@ export class Sequence {
         await addArtifactPage.add('Sequence');
     }
 
-    public async createSequenceFromProjectExplorer(sequenceName: string) {
+    public async createSequenceFromProjectExplorer(sequenceName: string, errorSeqName: string) {
         const projectExplorer = new ProjectExplorer(this._page);
         await projectExplorer.goToOverview("testProject");
         await projectExplorer.findItem(['Project testProject', 'Other Artifacts', 'Sequences'], true);
@@ -63,7 +63,7 @@ export class Sequence {
                 },
                 'On Error Sequence': {
                     type: 'combo',
-                    value: 'TestSequenceEdited',
+                    value: errorSeqName,
                     additionalProps: { hasMultipleValue: true }
                 }
             }
