@@ -21,7 +21,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { GitProvider, type NewComponentWebviewProps, parseGitURL, toSentenceCase } from "@wso2/wso2-platform-core";
 import React, { type FC, type ReactNode, useEffect } from "react";
 import type { SubmitHandler, UseFormReturn } from "react-hook-form";
-import type { z } from "zod";
+import type { z } from "zod/v3";
 import { Banner } from "../../../components/Banner";
 import { Button } from "../../../components/Button";
 import { Dropdown } from "../../../components/FormElements/Dropdown";

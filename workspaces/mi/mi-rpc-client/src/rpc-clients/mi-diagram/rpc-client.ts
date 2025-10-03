@@ -441,6 +441,9 @@ import {
     GetConnectorIconResponse,
     getConnectorIcon,
     getValueOfEnvVariable,
+    submitFeedback,
+    SubmitFeedbackRequest,
+    SubmitFeedbackResponse,
     getPomFileContent,
     GetPomFileContentResponse,
     getExternalConnectorDetails,
@@ -454,7 +457,8 @@ import {
     updatePropertiesInArtifactXML,
     getPropertiesFromArtifactXML,
     setAnthropicApiKey,
-    getAnthropicApiKey
+    getAnthropicApiKey,
+    formatPomFile
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -1034,6 +1038,10 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
         return this._messenger.sendRequest(getAllDependencies, HOST_EXTENSION, params);
     }
 
+    formatPomFile(): Promise<void> {
+        return this._messenger.sendRequest(formatPomFile, HOST_EXTENSION);
+    }
+
     testDbConnection(params: TestDbConnectionRequest): Promise<TestDbConnectionResponse> {
         return this._messenger.sendRequest(testDbConnection, HOST_EXTENSION, params);
     }
@@ -1166,6 +1174,10 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
         return this._messenger.sendRequest(getValueOfEnvVariable, HOST_EXTENSION, params);
     }
 
+    submitFeedback(params: SubmitFeedbackRequest): Promise<SubmitFeedbackResponse> {
+        return this._messenger.sendRequest(submitFeedback, HOST_EXTENSION, params);
+    }
+  
     getPomFileContent(): Promise<GetPomFileContentResponse> {
         return this._messenger.sendRequest(getPomFileContent, HOST_EXTENSION);
     }

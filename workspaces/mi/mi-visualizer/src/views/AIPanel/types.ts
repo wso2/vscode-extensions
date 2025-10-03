@@ -58,3 +58,10 @@ export interface CorrectedCodeItem {
     fileName: string;
     code: string;
 }
+
+export interface FeedbackMessage {
+    content: string;
+    role: "user" | "assistant";
+    id?: number;
+    command?: string;
+}

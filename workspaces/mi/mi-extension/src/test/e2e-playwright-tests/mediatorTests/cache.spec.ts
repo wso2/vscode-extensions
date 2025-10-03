@@ -30,7 +30,7 @@ export default function createTests() {
   test.describe("Cache Mediator Tests", {
     tag: '@group2',
   }, async () => {
-    initTest();
+    initTest(false, false, false, undefined, undefined, 'group2');
 
     test("Cache Mediator Tests", async ({ }, testInfo) => {
       const testAttempt = testInfo.retry + 1;

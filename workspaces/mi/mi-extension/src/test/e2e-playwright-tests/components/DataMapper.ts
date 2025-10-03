@@ -130,15 +130,26 @@ export class DataMapper {
         await this.importSchema(IOType.Output, SchemaType.Json, outputJsonFile);
     }
 
+    /**
+     * Waits for the outline style of an element to not include 'none'.
+     */
+    public async waitForOutline(locator: Locator, timeout = 5000) {
+        await expect(async () => {
+            const outline = await locator.evaluate(el => window.getComputedStyle(el).outline);
+            expect(outline && !outline.includes('none')).toBeTruthy();
+        }).toPass({ timeout });
+    }
+
     public async mapFields(sourceFieldFQN: string, targetFieldFQN: string, menuOptionId?: string) {
 
-        const sourceField = this.webView.locator(`div[id="recordfield-${sourceFieldFQN}"] .port`);
+        const sourceField = this.webView.locator(`div[id="recordfield-${sourceFieldFQN}"]`);
         const targetField = this.webView.locator(`div[id="recordfield-${targetFieldFQN}"] .port`);
 
         await targetField.waitFor();
         await sourceField.waitFor();
 
         await sourceField.click({force: true});
+        await this.waitForOutline(sourceField, 30000);
         await targetField.click({force: true});
 
         if (menuOptionId) {
@@ -240,9 +251,8 @@ export class DataMapper {
     }
 
     public compareFiles(file1: string, file2: string) {
-        const file1Content = fs.readFileSync(file1, 'utf8');
-        const file2Content = fs.readFileSync(file2, 'utf8');
-
+        const file1Content = fs.readFileSync(file1, 'utf8').replace(/\r\n/g, '\n');
+        const file2Content = fs.readFileSync(file2, 'utf8').replace(/\r\n/g, '\n');
         return file1Content === file2Content;
     }
 

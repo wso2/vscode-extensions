@@ -311,6 +311,8 @@ import {
     GetConnectorIconRequest,
     getConnectorIcon,
     getValueOfEnvVariable,
+    SubmitFeedbackRequest,
+    submitFeedback,
     getPomFileContent,
     getExternalConnectorDetails,
     getMockServices,
@@ -322,7 +324,8 @@ import {
     getPropertiesFromArtifactXML,
     setAnthropicApiKey,
     getAnthropicApiKey,
-    getBackendRootUrl
+    getBackendRootUrl,
+    formatPomFile
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
 import { MiDiagramRpcManager } from "./rpc-manager";
@@ -471,6 +474,7 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(getMIVersionFromPom, () => rpcManger.getMIVersionFromPom());
     messenger.onNotification(openDependencyPom, (args: OpenDependencyPomRequest) => rpcManger.openDependencyPom(args));
     messenger.onRequest(getAllDependencies, (args: getAllDependenciesRequest) => rpcManger.getAllDependencies(args));
+    messenger.onRequest(formatPomFile, () => rpcManger.formatPomFile());
     messenger.onRequest(testDbConnection, (args: TestDbConnectionRequest) => rpcManger.testDbConnection(args));
     messenger.onNotification(markAsDefaultSequence, (args: MarkAsDefaultSequenceRequest) => rpcManger.markAsDefaultSequence(args));
     messenger.onRequest(getSubFolderNames, (args: GetSubFoldersRequest) => rpcManger.getSubFolderNames(args));
@@ -502,6 +506,7 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(displayPayloadAlert, () => rpcManger.displayPayloadAlert());
     messenger.onRequest(closePayloadAlert, () => rpcManger.closePayloadAlert());
     messenger.onRequest(getValueOfEnvVariable, (args: string) => rpcManger.getValueOfEnvVariable(args));
+    messenger.onRequest(submitFeedback, (args: SubmitFeedbackRequest) => rpcManger.submitFeedback(args));
     messenger.onRequest(getPomFileContent, () => rpcManger.getPomFileContent());
     messenger.onRequest(getExternalConnectorDetails, () => rpcManger.getExternalConnectorDetails());
     messenger.onRequest(getMockServices, () => rpcManger.getMockServices());

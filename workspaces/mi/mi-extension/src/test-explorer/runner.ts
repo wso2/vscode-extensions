@@ -283,7 +283,7 @@ function printToOutput(runner: TestRun, line: string, isError: boolean = false) 
 async function compileProject(projectRoot: string, printToOutput?: (line: string, isError: boolean) => void): Promise<void> {
     return new Promise<void>(async (resolve, reject) => {
         const config = workspace.getConfiguration('MI', Uri.file(projectRoot));
-        const mvnCmd = config.get("USE_LOCAL_MAVEN") ? "mvn" : (process.platform === "win32" ?
+        const mvnCmd = config.get("useLocalMaven") ? "mvn" : (process.platform === "win32" ?
             MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
         const testRunCmd = mvnCmd + MVN_COMMANDS.COMPILE_COMMAND;
 
@@ -315,7 +315,7 @@ async function compileProject(projectRoot: string, printToOutput?: (line: string
 async function runTests(testNames: string, projectRoot: string, triggerId: string, printToOutput?: (line: string, isError: boolean) => void): Promise<void> {
     return new Promise<void>(async (resolve, reject) => {
         const config = workspace.getConfiguration('MI', Uri.file(projectRoot));
-        const mvnCmd = config.get("USE_LOCAL_MAVEN") ? "mvn" : (process.platform === "win32" ?
+        const mvnCmd = config.get("useLocalMaven") ? "mvn" : (process.platform === "win32" ?
             MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
         const testLevel = triggerId.endsWith(".xml") ? "unitTest" : triggerId.includes(".xml") ? "testCase" : "testSuite";
         const basicTestCmd = `${mvnCmd + MVN_COMMANDS.TEST_COMMAND} -DtestServerHost=${TestRunnerConfig.getHost()} -DtestServerPort=${TestRunnerConfig.getServerPort()} -P test`;

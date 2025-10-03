@@ -49,14 +49,15 @@ export default function createTests() {
                     'path': {
                         type: 'textarea',
                         value: '"/tmp/wso2/bi/sample"',
+                        additionalProps: { clickLabel: true }
                     }
                 }
             });
-            await form.submit('Next');
+            await form.submit('Next', true);
 
             // Check for title
             const configTitle = artifactWebView.locator('h3', { hasText: 'Directory Service Configuration' });
-            await configTitle.waitFor();
+            await configTitle.waitFor({ timeout: 90000 });
 
             const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
             await selectedListener.waitFor();

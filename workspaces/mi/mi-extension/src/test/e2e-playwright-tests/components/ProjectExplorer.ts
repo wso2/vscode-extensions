@@ -59,11 +59,24 @@ export class ProjectExplorer {
     public async goToOverview(projectName: string, timeout?: number) {
         // wait for 1s
         const projectExplorerRoot = this.explorer.locator(`div[role="treeitem"][aria-label="Project ${projectName}"]`);
-        if (timeout) {
-            await projectExplorerRoot.waitFor({ timeout });
-        } else {
-            await projectExplorerRoot.waitFor();
+        const waitTimeout = timeout || 30000;
+        
+        try {
+            await projectExplorerRoot.waitFor({ state: 'visible', timeout: waitTimeout });
+        } catch (error) {
+            // If project not found, try to refresh the explorer or wait a bit more
+            console.warn(`Project ${projectName} not found, waiting additional time...`);
+            await this.page.waitForTimeout(2000);
+            try {
+                // Click sidebar and select WSO2 Integrator: MI to refresh the explorer
+                await this.page.waitForSelector(`a[aria-label="WSO2 Integrator: MI"]`);
+                return await this.page.click(`a[aria-label="WSO2 Integrator: MI"]`);
+            } catch (error) {
+                console.error(`Failed to select sidebar item: ${error}`);
+            }
+            await projectExplorerRoot.waitFor({ state: 'visible', timeout: waitTimeout });
         }
+        
         await projectExplorerRoot.first().hover();
         const locator = projectExplorerRoot.getByLabel('Open Project Overview');
         await locator.waitFor();
@@ -98,7 +111,7 @@ export class ProjectExplorer {
                 await currentItem.hover();
                 const plusBtn = currentItem.locator('div.monaco-action-bar').locator('a[aria-label^="Add"]')
                 await plusBtn.waitFor();
-                await this.page.waitForTimeout(500); // To fix intermittent issues
+                await this.page.waitForTimeout(1000); // To fix intermittent issues
                 await plusBtn.click();
             }
         }

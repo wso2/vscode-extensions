@@ -122,7 +122,7 @@ export const MVN_COMMANDS = {
     MVN_WRAPPER_WIN_COMMAND: ".\\mvnw.cmd",
     DEPLOY_COMMAND: " clean deploy -Dmaven.deploy.skip=true -Dmaven.car.deploy.skip=false -Dstyle.color=never",
     BUILD_COMMAND: " clean install -Dstyle.color=never",
-    DOCKER_COMMAND: " clean install -P docker -Dstyle.color=never",
+    DOCKER_COMMAND: " clean install -P docker",
     COMPILE_COMMAND: " compile -Dstyle.color=never",
     TEST_COMMAND: " test -DtestServerType=remote",
     GEN_POM_COMMAND: "help:effective-pom",
@@ -200,3 +200,7 @@ export const DM_OPERATORS_IMPORT_NAME = "dmUtils";
 export const LAST_EXPORTED_CAR_PATH = "last-exported-car-path";
 export const RUNTIME_VERSION_440 = "4.4.0";
 export const DEFAULT_ICON = "https://mi-connectors.wso2.com/icons/wordpress.gif";
+
+export const ERROR_MESSAGES = {
+    ERROR_DOWNLOADING_MODULES: "Unable to download the default modules. These modules can be added after project creation. Do you wish to skip them now and proceed with the project creation?",
+};

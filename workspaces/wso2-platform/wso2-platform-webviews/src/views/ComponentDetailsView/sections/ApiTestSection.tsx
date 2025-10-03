@@ -23,7 +23,7 @@ import classNames from "classnames";
 import clipboardy from "clipboardy";
 import React, { useMemo, useState, type FC } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
+import { z } from "zod/v3";
 import { Button } from "../../../components/Button";
 import { Codicon } from "../../../components/Codicon";
 import { Dropdown } from "../../../components/FormElements/Dropdown";

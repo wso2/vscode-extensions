@@ -6,6 +6,9 @@ inputs:
   enableCache:
     default: true
     type: boolean
+  enableLSCache:
+    default: false
+    type: boolean
   ballerina:
     description: Update Ballerina extension version
     type: boolean
@@ -139,7 +142,7 @@ runs:
 
     - name: Restore MI LS from cache
       id: mi-ls-cache
-      if: ${{ inputs.isPreRelease == 'true' }}
+      if: ${{ inputs.enableLSCache == 'true' }}
       uses: actions/cache@v4
       with:
         path: workspaces/mi/mi-extension/ls
@@ -148,7 +151,7 @@ runs:
 
     - name: Restore Ballerina LS from cache
       id: ballerina-ls-cache
-      if: ${{ inputs.isPreRelease == 'true' }}
+      if: ${{ inputs.enableLSCache == 'true' }}
       uses: actions/cache@v4
       with:
         path: workspaces/ballerina/ballerina-extension/ls

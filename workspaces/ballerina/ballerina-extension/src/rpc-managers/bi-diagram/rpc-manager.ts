@@ -58,18 +58,21 @@ import {
     CreateComponentResponse,
     CurrentBreakpointsResponse,
     DIRECTORY_MAP,
+    DeleteConfigVariableRequestV2,
+    DeleteConfigVariableResponseV2,
+    DeleteTypeRequest,
+    DeleteTypeResponse,
     DeploymentRequest,
     DeploymentResponse,
     DevantMetadata,
+    Diagnostics,
     EndOfFileRequest,
     ExpressionCompletionsRequest,
     ExpressionCompletionsResponse,
     ExpressionDiagnosticsRequest,
     ExpressionDiagnosticsResponse,
-    FlowNode,
     FormDidCloseParams,
     FormDidOpenParams,
-    FunctionNode,
     FunctionNodeRequest,
     FunctionNodeResponse,
     GeneratedClientSaveResponse,
@@ -87,6 +90,7 @@ import {
     JsonToTypeRequest,
     JsonToTypeResponse,
     LinePosition,
+    LoginMethod,
     ModelFromCodeRequest,
     NodeKind,
     OpenAPIClientDeleteRequest,
@@ -130,12 +134,15 @@ import {
     UpdatedArtifactsResponse,
     VisibleTypesRequest,
     VisibleTypesResponse,
+    VerifyTypeDeleteRequest,
+    VerifyTypeDeleteResponse,
     WorkspaceFolder,
     WorkspacesResponse,
-    DeleteConfigVariableRequestV2,
-    DeleteConfigVariableResponseV2,
-    LoginMethod,
-    Diagnostics,
+    ConfigVariableRequest,
+    AvailableNode,
+    Item,
+    Category,
+    NodePosition,
 } from "@wso2/ballerina-core";
 import * as fs from "fs";
 import * as path from 'path';
@@ -159,12 +166,13 @@ import { OLD_BACKEND_URL } from "../../features/ai/utils";
 import { cleanAndValidateProject, getCurrentBIProject } from "../../features/config-generator/configGenerator";
 import { BreakpointManager } from "../../features/debugger/breakpoint-manager";
 import { StateMachine, updateView } from "../../stateMachine";
+import { getAccessToken, getLoginMethod } from "../../utils/ai/auth";
 import { getCompleteSuggestions } from '../../utils/ai/completions';
 import { README_FILE, createBIAutomation, createBIFunction, createBIProjectPure } from "../../utils/bi";
 import { writeBallerinaFileDidOpen } from "../../utils/modification";
 import { updateSourceCode } from "../../utils/source-utils";
-import { getAccessToken, getLoginMethod } from "../../utils/ai/auth";
 import { checkProjectDiagnostics, removeUnusedImports } from "../ai-panel/repair-utils";
+import { getView } from "../../utils/state-machine-utils";
 export class BiDiagramRpcManager implements BIDiagramAPI {
     OpenConfigTomlRequest: (params: OpenConfigTomlRequest) => Promise<void>;
 
@@ -215,10 +223,10 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 .then(async (model) => {
                     console.log(">>> bi source code from ls", model);
                     if (params?.isConnector) {
-                        const artifacts = await updateSourceCode({ textEdits: model.textEdits });
+                        const artifacts = await updateSourceCode({ textEdits: model.textEdits }, null, this.getSourceDescription(params));
                         resolve({ artifacts });
                     } else {
-                        const artifacts = await updateSourceCode({ textEdits: model.textEdits }, this.getArtifactDataFromNodeKind(params.flowNode.codedata.node));
+                        const artifacts = await updateSourceCode({ textEdits: model.textEdits }, this.getArtifactDataFromNodeKind(params.flowNode.codedata.node), this.getSourceDescription(params));
                         resolve({ artifacts });
                     }
                 })
@@ -229,6 +237,23 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                     });
                 });
         });
+    }
+
+    private capitalizeFirstLetter(name: string): string {
+        return name
+            .replace(/_/g, ' ')
+            .toLowerCase()
+            .replace(/^\w/, c => c.toUpperCase());
+    }
+
+    private getSourceDescription(params: BISourceCodeRequest): string {
+        let artifactType = this.capitalizeFirstLetter(params.flowNode.codedata.node);
+        if (params.isConnector) {
+            artifactType = `${this.capitalizeFirstLetter(params.flowNode.codedata.module)} Connection`;
+        }
+        const action = params.flowNode.codedata.isNew ? 'Creation' : 'Update';
+        const identifier = params.flowNode?.properties?.variable?.value;
+        return `${artifactType} ${action}${identifier ? ` - ${identifier}` : ''}`;
     }
 
     private getArtifactDataFromNodeKind(nodeKind: NodeKind): ArtifactData {
@@ -303,6 +328,96 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         }
     }
 
+    private filterAdvancedAiNodes(response: BIAvailableNodesResponse): BIAvailableNodesResponse {
+        const showAdvancedAiNodes = extension.ballerinaExtInstance.getShowAdvancedAiNodes();
+        if (showAdvancedAiNodes || !response) {
+            return response;
+        }
+
+        // List of node types/labels to hide when advanced AI nodes are disabled
+        const hiddenNodeTypes = [
+            'CHUNKERS',
+            'VECTOR_STORES',
+            'EMBEDDING_PROVIDERS'
+        ];
+
+        const hiddenNodeLabels = [
+            'Recursive Document Chunker',
+            'Chunker',
+            'Vector Store',
+            'Embedding Provider'
+        ];
+
+        const filterItems = (items: Item[]): Item[] => {
+            if (!items) { return items; }
+
+            return items.filter(item => {
+                if ((item as AvailableNode).codedata?.node && hiddenNodeTypes.includes((item as AvailableNode).codedata.node)) {
+                    return false;
+                }
+
+                if (item.metadata?.label && hiddenNodeLabels.includes(item.metadata.label)) {
+                    return false;
+                }
+
+                if ((item as Category).items) {
+                    (item as Category).items = filterItems((item as Category).items);
+                }
+
+                return true;
+            });
+        };
+
+        if (response.categories) {
+            response.categories = response.categories.map(category => {
+                if (category.items) {
+                    category.items = filterItems(category.items);
+                }
+                return category;
+            });
+        }
+
+        return response;
+    }
+
+    private updateNodeDescriptions(availableNodes: BIAvailableNodesResponse): BIAvailableNodesResponse {
+        if (!availableNodes) {
+            return availableNodes;
+        }
+        // Adding descriptions for AI nodes
+        const updateItems = (items: Item[], isInAICategory: boolean): Item[] => {
+            if (!items) { return items; }
+
+            return items.map(item => {
+                if ((item as AvailableNode).enabled === false && isInAICategory) {
+                    item.metadata = {
+                        ...item.metadata,
+                        description: "Please update AI package version to latest version to use this feature"
+                    };
+                }
+
+                // Recursively handle nested items
+                if ((item as Category).items) {
+                    (item as Category).items = updateItems((item as Category).items, isInAICategory);
+                }
+
+                return item;
+            });
+        };
+
+        if (availableNodes.categories) {
+            availableNodes.categories = availableNodes.categories.map(category => {
+                const isAICategory = category.metadata?.label === "AI";
+                if (category.items) {
+                    category.items = updateItems(category.items, isAICategory);
+                }
+                return category;
+            });
+        }
+
+        return availableNodes;
+    }
+
     async getAvailableNodes(params: BIAvailableNodesRequest): Promise<BIAvailableNodesResponse> {
         console.log(">>> requesting bi available nodes from ls", params);
         return new Promise((resolve) => {
@@ -310,7 +425,9 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 .getAvailableNodes(params)
                 .then((model) => {
                     console.log(">>> bi available nodes from ls", model);
-                    resolve(model);
+                    const filteredModel = this.filterAdvancedAiNodes(model);
+                    const updatedModel = this.updateNodeDescriptions(filteredModel);
+                    resolve(updatedModel);
                 })
                 .catch((error) => {
                     console.log(">>> error fetching available nodes from ls", error);
@@ -394,6 +511,43 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         });
     }
 
+
+    async getAvailableDataLoaders(params: BIAvailableNodesRequest): Promise<BIAvailableNodesResponse> {
+        console.log(">>> requesting bi available data loaders from ls", params);
+        return new Promise((resolve) => {
+            StateMachine.langClient()
+                .getAvailableDataLoaders(params)
+                .then((model) => {
+                    console.log(">>> bi available data loaders from ls", model);
+                    resolve(model);
+                })
+                .catch((error) => {
+                    console.log(">>> error fetching available data loaders from ls", error);
+                    return new Promise((resolve) => {
+                        resolve(undefined);
+                    });
+                });
+        });
+    }
+
+    async getAvailableChunkers(params: BIAvailableNodesRequest): Promise<BIAvailableNodesResponse> {
+        console.log(">>> requesting bi available chunkers from ls", params);
+        return new Promise((resolve) => {
+            StateMachine.langClient()
+                .getAvailableChunkers(params)
+                .then((model) => {
+                    console.log(">>> bi available chunkers from ls", model);
+                    resolve(model);
+                })
+                .catch((error) => {
+                    console.log(">>> error fetching available chunkers from ls", error);
+                    return new Promise((resolve) => {
+                        resolve(undefined);
+                    });
+                });
+        });
+    }
+
     async getNodeTemplate(params: BINodeTemplateRequest): Promise<BINodeTemplateResponse> {
         console.log(">>> requesting bi node template from ls", params);
         params.forceAssign = true; // TODO: remove this
@@ -422,7 +576,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     }
 
     async createProject(params: ProjectRequest): Promise<void> {
-        createBIProjectPure(params.projectName, params.projectPath);
+        createBIProjectPure(params);
     }
 
     async getWorkspaces(): Promise<WorkspacesResponse> {
@@ -613,7 +767,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 .deleteFlowNode(params)
                 .then(async (model) => {
                     console.log(">>> bi delete node from ls", model);
-                    const artifacts = await updateSourceCode({ textEdits: model.textEdits });
+                    const artifacts = await updateSourceCode({ textEdits: model.textEdits }, null, 'Flow Node Deletion - ' + params.flowNode.metadata.label);
                     resolve({ artifacts });
                 })
                 .catch((error) => {
@@ -685,18 +839,24 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
             }
 
             const response = await StateMachine.langClient().updateConfigVariables(req) as BISourceCodeResponse;
-            await updateSourceCode({ textEdits: response.textEdits }, { artifactType: DIRECTORY_MAP.CONFIGURABLE });
+            await updateSourceCode({ textEdits: response.textEdits }, { artifactType: DIRECTORY_MAP.CONFIGURABLE }, 'Config Variable Update');
             resolve(response);
         });
     }
 
-    async getConfigVariablesV2(): Promise<ConfigVariableResponse> {
+    async getConfigVariablesV2(params: ConfigVariableRequest): Promise<ConfigVariableResponse> {
         return new Promise(async (resolve) => {
             const projectPath = path.join(StateMachine.context().projectUri);
             const showLibraryConfigVariables = extension.ballerinaExtInstance.showLibraryConfigVariables();
+
+            // if params includeLibraries is not set, then use settings 
+            const includeLibraries = params?.includeLibraries !== undefined
+                ? params.includeLibraries
+                : showLibraryConfigVariables !== false;
+
             const variables = await StateMachine.langClient().getConfigVariablesV2({
                 projectPath: projectPath,
-                includeLibraries: showLibraryConfigVariables !== false
+                includeLibraries
             }) as ConfigVariableResponse;
             resolve(variables);
         });
@@ -710,7 +870,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 writeBallerinaFileDidOpen(params.configFilePath, "\n");
             }
             const response = await StateMachine.langClient().updateConfigVariablesV2(req) as UpdateConfigVariableResponseV2;
-            await updateSourceCode({ textEdits: response.textEdits }, { artifactType: DIRECTORY_MAP.CONFIGURABLE });
+            await updateSourceCode({ textEdits: response.textEdits }, { artifactType: DIRECTORY_MAP.CONFIGURABLE }, 'Config Variable Update');
             resolve(response);
         });
     }
@@ -723,7 +883,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 writeBallerinaFileDidOpen(params.configFilePath, "\n");
             }
             const response = await StateMachine.langClient().deleteConfigVariableV2(req) as BISourceCodeResponse;
-            await updateSourceCode({ textEdits: response.textEdits }, { artifactType: DIRECTORY_MAP.CONFIGURABLE });
+            await updateSourceCode({ textEdits: response.textEdits }, { artifactType: DIRECTORY_MAP.CONFIGURABLE }, 'Config Variable Deletion');
             resolve(response);
         });
     }
@@ -1033,7 +1193,19 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     async deleteByComponentInfo(params: BIDeleteByComponentInfoRequest): Promise<BIDeleteByComponentInfoResponse> {
         console.log(">>> requesting bi delete node from ls by componentInfo", params);
         const projectDiags: Diagnostics[] = await checkProjectDiagnostics(StateMachine.langClient(), StateMachine.context().projectUri);
-        
+
+        const position: NodePosition = {
+            startLine: params.component?.startLine,
+            startColumn: params.component?.startColumn,
+            endColumn: params.component?.endColumn,
+            endLine: params.component?.endLine
+        };
+        // Check if the filepath is only the filename or the full path if not concatenate the project uri
+        let filePath = params.component?.filePath;
+        if (!filePath.includes(StateMachine.context().projectUri)) {
+            filePath = path.join(StateMachine.context().projectUri, filePath);
+        }
+        const componentView = await getView(filePath, position, StateMachine.context().projectUri);
         // Helper function to perform the actual delete operation
         const performDelete = async (): Promise<any> => {
             return new Promise((resolve, reject) => {
@@ -1041,7 +1213,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                     .deleteByComponentInfo(params)
                     .then(async (model) => {
                         console.log(">>> bi delete node from ls by componentInfo", model);
-                        await updateSourceCode({ textEdits: model.textEdits });
+                        await updateSourceCode({ textEdits: model.textEdits }, null, `${this.capitalizeFirstLetter(componentView.location.artifactType)} Deletion - ${componentView.location.identifier}`);
                         resolve(model);
                     })
                     .catch((error) => {
@@ -1288,7 +1460,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 .updateType({ filePath, type: params.type, description: "" })
                 .then(async (updateTypeResponse: UpdateTypeResponse) => {
                     console.log(">>> update type response", updateTypeResponse);
-                    await updateSourceCode({ textEdits: updateTypeResponse.textEdits });
+                    await updateSourceCode({ textEdits: updateTypeResponse.textEdits }, null, 'Type Update');
                     resolve(updateTypeResponse);
                 }).catch((error) => {
                     console.log(">>> error fetching types from ls", error);
@@ -1400,7 +1572,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 .createGraphqlClassType({ filePath, type: params.type, description: "" })
                 .then(async (updateTypeResponse: UpdateTypeResponse) => {
                     console.log(">>> create graphql class type response", updateTypeResponse);
-                    await updateSourceCode({ textEdits: updateTypeResponse.textEdits });
+                    await updateSourceCode({ textEdits: updateTypeResponse.textEdits }, null, 'Graphql Class Type Creation');
                     resolve(updateTypeResponse);
                 }).catch((error) => {
                     console.log(">>> error fetching class type from ls", error);
@@ -1424,7 +1596,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         return new Promise(async (resolve) => {
             try {
                 const res: SourceEditResponse = await StateMachine.langClient().updateClassField(params);
-                await updateSourceCode({ textEdits: res.textEdits });
+                await updateSourceCode({ textEdits: res.textEdits }, null, 'Class Field Update');
                 resolve(res);
             } catch (error) {
                 console.log(error);
@@ -1432,12 +1604,12 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         });
     }
 
-    async updateServiceClass(params: ServiceClassSourceRequest): Promise<SourceEditResponse> {
+    async updateServiceClass(params: ServiceClassSourceRequest): Promise<UpdatedArtifactsResponse> {
         return new Promise(async (resolve) => {
             try {
                 const res: SourceEditResponse = await StateMachine.langClient().updateServiceClass(params);
-                await updateSourceCode({ textEdits: res.textEdits });
-                resolve(res);
+                const artifacts = await updateSourceCode({ textEdits: res.textEdits }, null, 'Service Class Update');
+                resolve({ artifacts });
             } catch (error) {
                 console.log(error);
             }
@@ -1448,7 +1620,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         return new Promise(async (resolve) => {
             try {
                 const res: SourceEditResponse = await StateMachine.langClient().addClassField(params);
-                await updateSourceCode({ textEdits: res.textEdits });
+                await updateSourceCode({ textEdits: res.textEdits }, null, 'Class Field Creation');
                 resolve(res);
             } catch (error) {
                 console.log(error);
@@ -1459,9 +1631,6 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     async renameIdentifier(params: RenameIdentifierRequest): Promise<void> {
         const projectUri = StateMachine.context().projectUri;
         const filePath = path.join(projectUri, params.fileName);
-        // StateMachine.setTempData({
-        //     identifier: params.newName
-        // });
         const fileUri = Uri.file(filePath).toString();
         const request: RenameRequest = {
             textDocument: {
@@ -1470,72 +1639,10 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
             position: params.position,
             newName: params.newName
         };
-
         try {
             const workspaceEdit = await StateMachine.langClient().rename(request);
-
             if (workspaceEdit && 'changes' in workspaceEdit && workspaceEdit.changes) {
-                // TODO: Check if this is the correct way to do this
-                const modificationRequests: Record<string, { filePath: string; modifications: STModification[] }> = {};
-
-                for (const [key, value] of Object.entries(workspaceEdit.changes)) {
-                    const fileUri = key;
-                    const edits = value;
-
-                    if (edits && edits.length > 0) {
-                        const modificationList: STModification[] = [];
-
-                        for (const edit of edits) {
-                            const stModification: STModification = {
-                                startLine: edit.range.start.line,
-                                startColumn: edit.range.start.character,
-                                endLine: edit.range.end.line,
-                                endColumn: edit.range.end.character,
-                                type: "INSERT",
-                                isImport: false,
-                                config: {
-                                    STATEMENT: edit.newText,
-                                },
-                            };
-                            modificationList.push(stModification);
-                        }
-
-                        modificationList.sort((a, b) => a.startLine - b.startLine);
-
-                        if (modificationRequests[fileUri]) {
-                            modificationRequests[fileUri].modifications.push(...modificationList);
-                        } else {
-                            modificationRequests[fileUri] = { filePath: Uri.parse(fileUri).fsPath, modifications: modificationList };
-                        }
-                    }
-                }
-
-                try {
-                    for (const [fileUriString, request] of Object.entries(modificationRequests)) {
-                        const { parseSuccess, source, syntaxTree } = (await StateMachine.langClient().stModify({
-                            documentIdentifier: { uri: fileUriString },
-                            astModifications: request.modifications,
-                        })) as SyntaxTree;
-
-                        if (parseSuccess) {
-                            const fileUri = Uri.file(request.filePath);
-                            const workspaceEdit = new vscode.WorkspaceEdit();
-                            workspaceEdit.replace(
-                                fileUri,
-                                new vscode.Range(
-                                    new vscode.Position(0, 0),
-                                    new vscode.Position(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER)
-                                ),
-                                source
-                            );
-
-                            await workspace.applyEdit(workspaceEdit);
-                            await new Promise(resolve => setTimeout(resolve, 1000));
-                        }
-                    }
-                } catch (error) {
-                    console.log(">>> error updating source", error);
-                }
+                await updateSourceCode({ textEdits: workspaceEdit.changes }, null, 'Rename for ' + params.newName);
             }
         } catch (error) {
             console.error('Error in renameIdentifier:', error);
@@ -1561,10 +1668,6 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
 
     async search(params: BISearchRequest): Promise<BISearchResponse> {
         return new Promise((resolve, reject) => {
-            params.queryMap = {
-                ...params.queryMap,
-                includeCurrentOrganizationInSearch: extension.ballerinaExtInstance.getIncludeCurrentOrgComponents(),
-            };
             StateMachine.langClient().search(params).then((res) => {
                 resolve(res);
             }).catch((error) => {
@@ -1684,7 +1787,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
             ).then(async (updateTypesresponse: UpdateTypesResponse) => {
                 console.log(">>> update type response", updateTypesresponse);
                 if (updateTypesresponse.textEdits) {
-                    await updateSourceCode({ textEdits: updateTypesresponse.textEdits });
+                    await updateSourceCode({ textEdits: updateTypesresponse.textEdits }, null, 'Type Update');
                     resolve(updateTypesresponse);
                 } else {
                     console.log(">>> error updating types", updateTypesresponse?.errorMsg);
@@ -1813,6 +1916,43 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 })
                 .catch((error) => {
                     console.log(">>> error getting type from json", error);
+                    reject(error);
+                });
+        });
+    }
+
+    async deleteType(params: DeleteTypeRequest): Promise<DeleteTypeResponse> {
+        return new Promise((resolve, reject) => {
+            const projectUri = StateMachine.context().projectUri;
+            const filePath = path.join(projectUri, params.filePath);
+            StateMachine.langClient().deleteType({ filePath: filePath, lineRange: params.lineRange })
+                .then(async (deleteTypeResponse: DeleteTypeResponse) => {
+                    if (deleteTypeResponse.textEdits) {
+                        await updateSourceCode({ textEdits: deleteTypeResponse.textEdits }, null, 'Type Deletion');
+                        resolve(deleteTypeResponse);
+                    } else {
+                        reject(deleteTypeResponse.errorMsg);
+                    }
+                }).catch((error) => {
+                    reject(error);
+                });
+        });
+    }
+
+    async verifyTypeDelete(params: VerifyTypeDeleteRequest): Promise<VerifyTypeDeleteResponse> {
+        const projectUri = StateMachine.context().projectUri;
+        const filePath = path.join(projectUri, params.filePath);
+
+        const request: VerifyTypeDeleteRequest = {
+            filePath: filePath,
+            startPosition: params.startPosition,
+        };
+        return new Promise((resolve, reject) => {
+            StateMachine.langClient().verifyTypeDelete(request)
+                .then((response) => {
+                    resolve(response);
+                })
+                .catch((error) => {
                     reject(error);
                 });
         });

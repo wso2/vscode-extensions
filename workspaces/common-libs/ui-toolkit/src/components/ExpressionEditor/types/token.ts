@@ -29,6 +29,7 @@ type TokenEditorBaseProps = {
     startAdornment?: ReactNode;
     endAdornment?: ReactNode;
     enableFullscreen?: boolean;
+    skipSanitization?: boolean;
     onChange: (value: string) => void;
     onFocus?: () => void;
     onBlur?: () => void;

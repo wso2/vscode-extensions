@@ -81,7 +81,7 @@ export const InboundEPView = ({ path, model, diagnostics }: InboundEPViewProps) 
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                         <Codicon name="error" sx={{ height: "100px", width: "100px" }} iconSx={{ fontSize: 100, color: "var(--vscode-errorForeground)" }} />
                         <Typography variant="h4" sx={{ textAlign: 'center' }}>
-                            {"Cannot find the sequence for the inbound endpoint"}
+                            {"The referred sequence cannot be visualized as it is added from a dependent project."}
                         </Typography>
 
                         <Button appearance="icon" onClick={goHome} >

@@ -140,11 +140,10 @@
           "description": "Enable remote server deployment support",
           "scope": "resource"
         },
-        "MI.USE_LOCAL_MAVEN": {
+        "MI.useLocalMaven": {
           "type": "boolean",
           "default": false,
-          "description": "Use local Maven within the extension",
-          "scope": "resource"
+          "description": "Use local Maven within the extension"
         },
         "MI.Scope": {
           "type": "string",
@@ -157,6 +156,11 @@
           "default": false,
           "description": "Don't show server update notification",
           "scope": "resource"
+        },
+        "MI.autoUpdateCarPlugin": {
+          "type": "boolean",
+          "default": true,
+          "description": "Update car plugin version automatically"
         }
       }
     },
@@ -927,14 +931,14 @@
         "description": "design-view",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f16c"
+          "fontCharacter": "\\f180"
         }
       },
       "distro-build-package": {
         "description": "build-package",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f183"
+          "fontCharacter": "\\f15b"
         }
       }
     }
@@ -1000,7 +1004,7 @@
     "@types/xml2js": "~0.4.12",
     "jsonix": "~3.0.0",
     "lodash": "~4.17.21",
-    "axios": "~1.9.0",
+    "axios": "~1.12.0",
     "@types/lodash": "~4.17.17",
     "vscode-languageserver-protocol": "^3.17.5",
     "fast-xml-parser": "~5.2.3",

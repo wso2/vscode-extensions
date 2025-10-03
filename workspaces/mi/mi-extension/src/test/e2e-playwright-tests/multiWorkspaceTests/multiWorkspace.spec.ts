@@ -17,7 +17,7 @@
  */
 
 import { test } from '@playwright/test';
-import { clearNotificationAlerts, initTest, page, showNotifications, resumeVSCode } from '../Utils';
+import { clearNotificationAlerts, initTest, page, showNotifications } from '../Utils';
 import { ProjectExplorer } from '../components/ProjectExplorer';
 import { Overview } from '../components/Overview';
 import { AddArtifact } from '../components/AddArtifact';
@@ -30,7 +30,7 @@ export default function createTests() {
     test.describe('Multi Workspace Tests', {
         tag: '@group1',
     }, async () => {
-        initTest(true, false, true, "project1");
+        initTest(true, false, true, "project1", undefined, 'group1');
 
         let multiWorkspaceName;
         test("Multi Workspace Tests", async ({ }) => {

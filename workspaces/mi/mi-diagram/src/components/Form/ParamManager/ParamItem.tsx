@@ -268,7 +268,7 @@ export function ParamItem(props: ParamItemProps) {
                             <Codicon name="edit" onClick={handleEdit} />
                         </EditIconWrapper>
                         <DeleteIconWrapper id="paramTrash">
-                            <Codicon name="trash" onClick={handleDelete} />
+                            <Codicon id={`paramTrash-${params.id}`} name="trash" onClick={handleDelete} />
                         </DeleteIconWrapper>
                     </ActionIconWrapper>
                 )}

@@ -31,7 +31,7 @@ export default function createTests() {
   test.describe("Call Sequence Mediator Tests", {
     tag: '@group3',
   }, async () => {
-    initTest();
+    initTest(false, false, false, undefined, undefined, 'group3');
 
     test("Call Sequence Mediator Tests", async ({}, testInfo) => {
       const testAttempt = testInfo.retry + 1;

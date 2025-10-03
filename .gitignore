@@ -77,3 +77,6 @@ playwright-report/
 extensions.json
 
 !sample-mi-project.zip
+.claude/
+
+pnpm-lock.yaml

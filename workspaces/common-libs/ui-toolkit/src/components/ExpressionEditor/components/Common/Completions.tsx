@@ -200,7 +200,7 @@ export const Dropdown = forwardRef<HTMLDivElement, CompletionDropdownProps>((pro
     useImperativeHandle(ref, () => listBoxRef.current);
 
     return (
-        <DropdownBody sx={sx} editorWidth={editorWidth}>
+        <DropdownBody sx={sx} editorWidth={editorWidth} className="unq-modal-overlay">
             {showDefaultCompletion && (
                 <DefaultCompletionItem
                     getDefaultCompletion={getDefaultCompletion}

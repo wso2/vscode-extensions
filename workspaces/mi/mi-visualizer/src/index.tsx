@@ -39,6 +39,7 @@ const queryClient = new QueryClient({
 
 export function renderWebview(target: HTMLElement, mode: string, swaggerData?: SwaggerData) {
     const root = createRoot(target);
+    console.debug("Rendering MI Visualizer in " + mode + " mode.");
     root.render(
         <VisualizerContextProvider>
             <QueryClientProvider client={queryClient}>

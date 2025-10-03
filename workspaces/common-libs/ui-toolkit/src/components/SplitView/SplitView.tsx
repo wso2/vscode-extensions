@@ -95,14 +95,14 @@ export function SplitView(props: SplitViewProps) {
     return (
         <Container sx={sx}>
             {children.map((child, index) => (
-                <>
-                    <DynamicDiv key={index} sx={dynamicContainerSx} width={widths[index]} lastChild={index === children.length - 1}>
+                <React.Fragment key={`split-${index}`}>
+                    <DynamicDiv sx={dynamicContainerSx} width={widths[index]} lastChild={index === children.length - 1}>
                         {child}
                     </DynamicDiv>
                     {index < children.length - 1 && (
-                        <Resizer key={`resizer-${index}`} onMouseDown={e => handleMouseDown(index, e)} />
+                        <Resizer onMouseDown={e => handleMouseDown(index, e)} />
                     )}
-                </>
+                </React.Fragment>
             ))}
         </Container>
     );

@@ -22,7 +22,7 @@ import { VSCodeLink } from "@vscode/webview-ui-toolkit/react";
 import type { NewComponentWebviewProps } from "@wso2/wso2-platform-core";
 import React, { type FC } from "react";
 import type { SubmitHandler, UseFormReturn } from "react-hook-form";
-import type { z } from "zod";
+import type { z } from "zod/v3";
 import { Button } from "../../../components/Button";
 import { Dropdown } from "../../../components/FormElements/Dropdown";
 import { PathSelect } from "../../../components/FormElements/PathSelect";

@@ -145,7 +145,7 @@ const LibraryBrowserContainer = styled.div`
     border-radius: 8px;
     background-color: var(--vscode-dropdown-background);
     box-shadow: 0 3px 8px rgb(0 0 0 / 0.2);
-    z-index: 3002;
+    z-index: 100001;
 `;
 
 const IconButtonContainer = styled.div`
@@ -520,7 +520,7 @@ const LibraryBrowser: React.FC<LibraryBrowserProps> = ({
                 sx={{
                     background: "var(--vscode-editor-inactiveSelectionBackground)",
                     opacity: 0.4,
-                    zIndex: 2001
+                    zIndex: 100001
                 }}
                 onClose={handleClose}
             />

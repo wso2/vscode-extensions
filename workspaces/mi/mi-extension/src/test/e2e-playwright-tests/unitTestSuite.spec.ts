@@ -31,7 +31,7 @@ export default function createTests() {
   test.describe("Unit Test Suite Tests", {
     tag: '@group3',
   }, async () => {
-    initTest();
+    initTest(false, false, false, undefined, undefined, 'group3');
 
     test("Unit Test Suite Tests", async ({ }, testInfo) => {
       const testAttempt = testInfo.retry + 1;

@@ -18,7 +18,7 @@
 
 import styled from "@emotion/styled";
 import React, { useEffect, useState } from "react";
-import { Button, TextField, FormView, FormActions, Dropdown, FormCheckBox, RadioButtonGroup } from "@wso2/ui-toolkit";
+import { Button, TextField, FormView, FormActions, Dropdown, FormCheckBox, RadioButtonGroup, FormGroup } from "@wso2/ui-toolkit";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { FieldGroup } from "../Commons";
 import { CreateAPIRequest, EVENT_TYPE, MACHINE_VIEW } from "@wso2/mi-core";
@@ -31,6 +31,7 @@ import * as yup from "yup";
 import { useForm } from "react-hook-form";
 import * as pathLib from "path";
 import { FormKeylookup } from "@wso2/mi-diagram";
+import { compareVersions } from "@wso2/mi-diagram/lib/utils/commons";
 
 const TitleBar = styled.div({
     display: 'flex',
@@ -51,6 +52,15 @@ export interface Region {
     value: string;
 }
 
+export interface CORSSettings {
+    enabled: boolean;
+    allowHeaders?: string;
+    allowedOrigins?: string;
+    allowedMethods?: string;
+    allowCredentials?: string;
+    maxAge?: string;
+}
+
 export interface APIData {
     apiName: string;
     apiContext: string;
@@ -69,6 +79,7 @@ export interface APIData {
     apiRange?: Range;
     handlersRange?: Range;
     handlers?: any[];
+    corsSettings?: CORSSettings;
 }
 
 const initialAPI: APIData = {
@@ -88,7 +99,15 @@ const initialAPI: APIData = {
     wsdlEndpointName: "",
     apiRange: undefined,
     handlersRange: undefined,
-    handlers: []
+    handlers: [],
+    corsSettings: {
+        enabled: false,
+        allowHeaders: "authorization,Access-Control-Allow-Origin,Content-Type,SOAPAction,apikey,Internal-Key",
+        allowedOrigins: "",
+        allowedMethods: "GET,PUT,POST,DELETE,PATCH,OPTIONS",
+        allowCredentials: "",
+        maxAge: ""
+    }
 };
 
 export interface APIWizardProps {
@@ -104,12 +123,13 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
     const [workspaceFileNames, setWorkspaceFileNames] = useState([]);
     const [APIContexts, setAPIContexts] = useState([]);
     const [prevName, setPrevName] = useState<string | null>(null);
+    const [runtimeVersion, setRuntimeVersion] = useState<string | null>(null);
 
     const schema = yup.object({
         apiName: yup.string().required("API Name is required").matches(/^[^@\\^+;:!%&,=*#[\]$?'"<>{}() /]*$/, "Invalid characters in name")
             .test('validateApiName', 'An artifact with same file name already exists', function (value) {
-                const { version } = this.parent;
-                const fileName = version ? `${value}_v${version}` : value;
+                const { version, versionType } = this.parent;
+                const fileName = versionType !== "none" ? `${value}_v${version}` : value;
                 return (value === apiData?.apiName) || !(workspaceFileNames.includes(fileName.toLowerCase()));
             }).test('validateArtifactName',
                 'A registry resource with this artifact name already exists', function (value) {
@@ -119,7 +139,8 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                 }),
         apiContext: yup.string().required("API Context is required")
             .test('validateApiContext', 'An artifact with same context already exists', function (value) {
-                return !APIContexts.includes(value);
+                const { versionType } = this.parent;
+                return versionType !== "none" || !APIContexts.includes(value);
             }),
         hostName: yup.string(),
         port: yup.string(),
@@ -178,7 +199,15 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
         }),
         apiRange: yup.object(),
         handlersRange: yup.object(),
-        handlers: yup.array()
+        handlers: yup.array(),
+        corsSettings: yup.object({
+            enabled: yup.boolean(),
+            allowHeaders: yup.string(),
+            allowedOrigins: yup.string(),
+            allowedMethods: yup.string(),
+            allowCredentials: yup.string(),
+            maxAge: yup.string()
+        })
     });
 
     const {
@@ -189,7 +218,8 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
         watch,
         setValue,
         control,
-        setError
+        clearErrors,
+        getValues
     } = useForm({
         defaultValues: initialAPI,
         resolver: yupResolver(schema),
@@ -198,6 +228,7 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
 
     // Watchers
     const handlers = watch("handlers");
+    const corsSettings = watch("corsSettings");
     const versionType = watch("versionType");
     const apiCreateOption = watch("apiCreateOption");
     const swaggerDefPath = watch("swaggerDefPath");
@@ -214,13 +245,73 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
         }
     }
 
+    // Check if CORS settings should be shown (runtime version >= 4.5.0)
+    const shouldShowCORSSettings = runtimeVersion && (compareVersions(runtimeVersion, "4.5.0") >= 0);
+
+    // CORS handler class name constant
+    const CORS_HANDLER_CLASS = "org.wso2.micro.integrator.security.handler.CORSRequestHandler";
+
+    // Function to filter out CORS handlers from regular handlers
+    const filterCORSHandlers = (handlers: any[]): any[] => {
+        return handlers?.filter(handler => handler.name !== CORS_HANDLER_CLASS) || [];
+    };
+
+    // Function to extract CORS settings from handlers
+    const extractCORSSettings = (handlers: any[]): CORSSettings => {
+        const corsHandler = handlers?.find(handler => handler.name === CORS_HANDLER_CLASS);
+
+        if (!corsHandler) {
+            return initialAPI.corsSettings!;
+        }
+
+        const getPropertyValue = (propertyName: string): string => {
+            const property = corsHandler.properties?.find((prop: any) => prop.name === propertyName);
+            return property?.value || "";
+        };
+
+        return {
+            enabled: true,
+            allowHeaders: getPropertyValue("allowHeaders"),
+            allowedOrigins: getPropertyValue("allowedOrigins"),
+            allowedMethods: getPropertyValue("allowedMethods"),
+            allowCredentials: getPropertyValue("allowCredentials"),
+            maxAge: getPropertyValue("maxAge")
+        };
+    };
+
+    // Function to create CORS handler from settings
+    const createCORSHandler = (corsSettings: CORSSettings): any => {
+        if (!corsSettings.enabled) {
+            return null;
+        }
+
+        return {
+            name: CORS_HANDLER_CLASS,
+            properties: [
+                { name: "allowHeaders", value: corsSettings.allowHeaders || "" },
+                { name: "allowedOrigins", value: corsSettings.allowedOrigins || "" },
+                { name: "allowCredentials", value: corsSettings.allowCredentials || "" },
+                { name: "maxAge", value: corsSettings.maxAge || "" },
+                { name: "allowedMethods", value: corsSettings.allowedMethods || "" }
+            ].filter(prop => prop.value !== "") // Remove empty properties
+        };
+    };
+
     useEffect(() => {
         if (apiData) {
             const versionType = identifyVersionType(apiData.version);
+            const allHandlers = apiData.handlers || [];
+
+            // Extract CORS settings from handlers
+            const corsSettings = extractCORSSettings(allHandlers);
+
+            // Filter out CORS handlers from regular handlers
+            const filteredHandlers = filterCORSHandlers(allHandlers);
 
             reset({ ...initialAPI, ...apiData });
             setValue("versionType", versionType);
-            setValue("handlers", apiData.handlers ?? []);
+            setValue("handlers", filteredHandlers);
+            setValue("corsSettings", corsSettings);
         } else {
             reset(initialAPI);
         }
@@ -228,6 +319,15 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
 
     useEffect(() => {
         (async () => {
+            // Fetch runtime version
+            try {
+                const versionResponse = await rpcClient.getMiDiagramRpcClient().getMIVersionFromPom();
+                setRuntimeVersion(versionResponse.version || null);
+            } catch (error) {
+                console.warn("Failed to fetch runtime version:", error);
+                setRuntimeVersion(null);
+            }
+
             const artifactRes = await rpcClient.getMiDiagramRpcClient().getAllArtifacts({
                 path: path,
             });
@@ -339,7 +439,15 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                 statistics: values.statistics ? "enable" : undefined,
             }
             const xml = getXML(ARTIFACT_TEMPLATES.EDIT_API, formValues);
-            const handlersXML = getXML(ARTIFACT_TEMPLATES.EDIT_HANDLERS, { show: handlers.length > 0, handlers });
+            // Combine regular handlers with CORS handler if enabled and version supports it
+            const allHandlers = [...handlers];
+            if (shouldShowCORSSettings) {
+                const corsHandler = createCORSHandler(values.corsSettings);
+                if (corsHandler) {
+                    allHandlers.push(corsHandler);
+                }
+            }
+            const handlersXML = getXML(ARTIFACT_TEMPLATES.EDIT_HANDLERS, { show: allHandlers.length > 0, handlers: allHandlers });
             const editAPIParams = {
                 documentUri: path,
                 apiName: values.apiName,
@@ -353,7 +461,11 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
             path = ediResponse.path;
             rpcClient.getMiVisualizerRpcClient().log({ message: `Updated API: ${apiData.apiName}.` });
             let apiName = `${values.apiName}${values.version ? `_v${values.version}` : ''}`;
-            if (pathLib.basename(path).split('.xml')[0] !== apiName) {
+            // Normalize path separators and extract filename without extension
+            const normalizedPath = path.replace(/\\/g, '/'); // Convert backslashes to forward slashes
+            const fileName = normalizedPath.split('/').pop() || ''; // Get last part after final slash
+            const fileNameWithoutExt = fileName.replace(/\.xml$/, ''); // Remove .xml extension
+            if (fileNameWithoutExt.toLowerCase() !== apiName.toLowerCase()) {
                 rpcClient.getMiVisualizerRpcClient().openView({
                     type: EVENT_TYPE.OPEN_VIEW,
                     location: { view: MACHINE_VIEW.Overview }
@@ -501,13 +613,27 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                     id="version-type"
                     label="Version Type"
                     items={versionLabels}
-                    {...register("versionType")}
+                    {...register("versionType", {
+                        onChange: () => {
+                            const values = getValues();
+                            schema.validate(values, { abortEarly: false })
+                                .then(() => clearErrors())
+                        }
+                    })}
                 />
                 {versionType !== "none" && (
                     <TextField
+                        id="Version"
                         label="Version"
-                        placeholder={"1.0.0"}
-                        {...renderProps("version")}
+                        placeholder="1.0.0"
+                        errorMsg={errors.version?.message}
+                        {...register("version", {
+                            onChange: () => {
+                                const values = getValues();
+                                schema.validate(values, { abortEarly: false })
+                                    .then(() => clearErrors())
+                            }
+                        })}
                     />
                 )}
             </FieldGroup>
@@ -523,27 +649,71 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                         label="Statistics Enabled"
                         control={control as any}
                     />
-                    <FieldGroup>
-                        <TitleBar>
-                            <span>Handlers</span>
-                            <Button
-                                appearance="primary"
-                                onClick={addNewHandler}
-                            >
-                                Add Handler
-                            </Button>
-                        </TitleBar>
-                        {handlers?.map((handler, index) => (
-                            <FormHandler
-                                key={index}
-                                handlerId={index}
-                                last={handlers.length - 1}
-                                handler={handler}
-                                name="handlers"
-                                control={control}
+                </>
+            )}
+            {apiData && (
+                <>
+                {shouldShowCORSSettings && (
+                        <FormGroup title="CORS Settings" isCollapsed={true}>
+                            <FormCheckBox
+                                name="corsSettings.enabled"
+                                label="Enable CORS"
+                                control={control as any}
                             />
-                        ))}
-                    </FieldGroup>
+                            {corsSettings?.enabled && (
+                                <>
+                                    <TextField
+                                        label="Allowed Origins"
+                                        placeholder="https://example.com,https://another.com"
+                                        {...register("corsSettings.allowedOrigins")}
+                                    />
+                                    <TextField
+                                        label="Allowed Headers"
+                                        placeholder="authorization,Content-Type,SOAPAction"
+                                        {...register("corsSettings.allowHeaders")}
+                                    />
+                                    <TextField
+                                        label="Allowed Methods"
+                                        placeholder="GET,PUT,POST,DELETE,PATCH,OPTIONS"
+                                        {...register("corsSettings.allowedMethods")}
+                                    />
+                                    <TextField
+                                        label="Allow Credentials"
+                                        placeholder="true/false"
+                                        {...register("corsSettings.allowCredentials")}
+                                    />
+                                    <TextField
+                                        label="Max Age"
+                                        placeholder="3600"
+                                        {...register("corsSettings.maxAge")}
+                                    />
+                                </>
+                            )}
+                        </FormGroup>
+                    )}
+                    <FormGroup title="Handlers" isCollapsed={true}>
+                        <FieldGroup>
+                            <TitleBar>
+                                <Button
+                                    appearance="primary"
+                                    onClick={addNewHandler}
+                                    sx={{ marginLeft: "auto" }}
+                                >
+                                    Add Handler
+                                </Button>
+                            </TitleBar>
+                            {handlers?.map((handler, index) => (
+                                <FormHandler
+                                    key={index}
+                                    handlerId={index}
+                                    last={handlers.length - 1}
+                                    handler={handler}
+                                    name="handlers"
+                                    control={control}
+                                />
+                            ))}
+                        </FieldGroup>
+                    </FormGroup>
                 </>
             )}
             {apiData ? (

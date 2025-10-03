@@ -32,7 +32,7 @@ import {
 	parseGitURL,
 } from "@wso2/wso2-platform-core";
 import * as yaml from "js-yaml";
-import { z } from "zod";
+import { z } from "zod/v3";
 import { ChoreoWebViewAPI } from "../../utilities/vscode-webview-rpc";
 
 export const componentGeneralDetailsSchema = z.object({

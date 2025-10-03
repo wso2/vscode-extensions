@@ -26,7 +26,6 @@ export function showServerOutputChannel() {
 
 // This function will log the value to the MI server output channel
 export function serverLog(value: string): void {
-    console.log(value);
     outputServerChannel.append(value);
 }
 

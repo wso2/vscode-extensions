@@ -26,6 +26,7 @@ import { RUNTIME_VERSION_440 } from "../constants";
 import { compareVersions } from '../util/onboardingUtils';
 import { debounce } from 'lodash';
 import { MILanguageClient } from '../lang-client/activator';
+import { isOldProjectOrWorkspace } from '../stateMachine';
 
 let extensionContext: vscode.ExtensionContext;
 export class ProjectExplorerEntry extends vscode.TreeItem {
@@ -47,7 +48,7 @@ export class ProjectExplorerEntry extends vscode.TreeItem {
 		} else if (icon) {
 			this.iconPath = {
 				light: vscode.Uri.file(path.join(extensionContext.extensionPath, 'assets', `light-${icon}.svg`)),
-				dark:  vscode.Uri.file(path.join(extensionContext.extensionPath, 'assets', `dark-${icon}.svg`))
+				dark: vscode.Uri.file(path.join(extensionContext.extensionPath, 'assets', `dark-${icon}.svg`))
 			};
 		}
 	}
@@ -131,6 +132,18 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
 			const rootPath = workspace.uri.fsPath;
 
 			try {
+				if (await isOldProjectOrWorkspace(rootPath)) {
+					const projectRoot = new ProjectExplorerEntry(
+						`Unsupported Project - ${workspace.name}`,
+						vscode.TreeItemCollapsibleState.None,
+						{ name: workspace.name, path: rootPath, type: 'unsupportedProject' },
+						'project'
+					);
+
+					projectRoot.contextValue = 'unsupportedProject';
+					data.push(projectRoot);
+					continue;
+				}
 				const langClient = await MILanguageClient.getInstance(rootPath);
 				const resp = await langClient?.languageClient?.getProjectExplorerModel(rootPath);
 				const projectDetailsRes = await langClient?.languageClient?.getProjectDetails();
@@ -140,7 +153,7 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
 				if (projectTree) {
 					data.push(projectTree);
 				}
-			} catch {}
+			} catch { }
 		};
 		vscode.commands.executeCommand('setContext', 'projectOpened', true);
 		if (data.length > 0) {
@@ -283,39 +296,41 @@ function generateResources(data: RegistryResourcesFolder, resourceDetails: ListR
 			for (const entry of data.folders) {
 				if (![".meta", "datamapper", "datamappers"].includes(entry.name)) {
 					if (entry.name.includes("idp-schemas")) {
-						const parentEntry = new ProjectExplorerEntry(entry.name, isCollapsibleState(entry.folders.length > 0), {name: entry.name,
-							type: 'resource', path: `${entry.path}`}, 'folder', true); 
-							parentEntry.contextValue = "idp-schemas";
-							parentEntry.id = "idp-schema";
-							parentEntry.children = entry.folders.map((folder:any)=>{
-								const explorerEntry = new ProjectExplorerEntry(
-									folder.name,
-									isCollapsibleState(false),
-									folder,
-									'file'
-								);
-								explorerEntry.contextValue = 'idp-schema';
-								explorerEntry.command = {
-									title: "Open IDP connector schema generation",
-									command: COMMANDS.SHOW_IDP_SCHEMA,
-									arguments: [folder.files.find((file: any) => file.name.endsWith(".json") || file.name.endsWith(".xsd"))?.path]
-								};
-								return explorerEntry;
-							})
+						const parentEntry = new ProjectExplorerEntry(entry.name, isCollapsibleState(entry.folders.length > 0), {
+							name: entry.name,
+							type: 'resource', path: `${entry.path}`
+						}, 'folder', true);
+						parentEntry.contextValue = "idp-schemas";
+						parentEntry.id = "idp-schema";
+						parentEntry.children = entry.folders.map((folder: any) => {
+							const explorerEntry = new ProjectExplorerEntry(
+								folder.name,
+								isCollapsibleState(false),
+								folder,
+								'file'
+							);
+							explorerEntry.contextValue = 'idp-schema';
+							explorerEntry.command = {
+								title: "Open IDP connector schema generation",
+								command: COMMANDS.SHOW_IDP_SCHEMA,
+								arguments: [folder.files.find((file: any) => file.name.endsWith(".json") || file.name.endsWith(".xsd"))?.path]
+							};
+							return explorerEntry;
+						})
 						result.push(parentEntry)
 					}
-					else{
+					else {
 						const files = generateResources(entry, resourceDetails);
 						if (!files || files?.length === 0) {
 							continue;
 						}
 						const explorerEntry = new ProjectExplorerEntry(entry.name,
-						isCollapsibleState(entry.files.length > 0 || entry.folders.length > 0),
-						{
-							name: entry.name,
-							type: 'resource',
-							path: `${entry.path}`
-						}, 'folder', true);
+							isCollapsibleState(entry.files.length > 0 || entry.folders.length > 0),
+							{
+								name: entry.name,
+								type: 'resource',
+								path: `${entry.path}`
+							}, 'folder', true);
 						explorerEntry.children = generateResources(entry, resourceDetails);
 						result.push(explorerEntry);
 						const lastIndex = entry.path.indexOf(resPathPrefix) !== -1 ? entry.path.indexOf(resPathPrefix) + resPathPrefix.length : 0;

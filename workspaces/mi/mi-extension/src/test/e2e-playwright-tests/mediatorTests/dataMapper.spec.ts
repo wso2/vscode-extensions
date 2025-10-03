@@ -32,7 +32,7 @@ export default function createTests() {
   test.describe("Data Mapper Mediator Tests", {
     tag: '@group4',
   }, async () => {
-    initTest();
+    initTest(false, false, false, undefined, undefined, 'group4');
 
     test("Data Mapper Mediator Tests", async ({}, testInfo) => {
       const testAttempt = testInfo.retry + 1;

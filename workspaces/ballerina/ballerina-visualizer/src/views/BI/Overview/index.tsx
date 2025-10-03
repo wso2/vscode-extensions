@@ -40,6 +40,7 @@ import { useQuery } from '@tanstack/react-query'
 import { IOpenInConsoleCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
 import { AlertBoxWithClose } from "../../AIPanel/AlertBoxWithClose";
 import { findScopeByModule } from "./utils";
+import { UndoRedoGroup } from "../../../components/UndoRedoGroup";
 
 const SpinnerContainer = styled.div`
     display: flex;
@@ -251,10 +252,14 @@ const DeployButton = styled.div`
     flex-direction: column;
 `;
 
-const DeploymentOptionContainer = styled.div<{ isExpanded: boolean }>`
+interface DeploymentOptionContainerProps {
+    isExpanded: boolean;
+}
+
+const DeploymentOptionContainer = styled.div<DeploymentOptionContainerProps>`
     cursor: pointer;
-    border: ${props => props.isExpanded ? '1px solid var(--vscode-welcomePage-tileBorder)' : 'none'};
-    background: ${props => props.isExpanded ? 'var(--vscode-welcomePage-tileBackground)' : 'transparent'};
+    border: ${(props: DeploymentOptionContainerProps) => props.isExpanded ? '1px solid var(--vscode-welcomePage-tileBorder)' : 'none'};
+    background: ${(props: DeploymentOptionContainerProps) => props.isExpanded ? 'var(--vscode-welcomePage-tileBackground)' : 'transparent'};
     border-radius: 6px;
     display: flex;
     overflow: hidden;
@@ -279,11 +284,15 @@ const DeploymentHeader = styled.div`
     }
 `;
 
-const DeploymentBody = styled.div<{ isExpanded: boolean }>`
-    max-height: ${props => props.isExpanded ? '200px' : '0'};
+interface DeploymentBodyProps {
+    isExpanded: boolean;
+}
+
+const DeploymentBody = styled.div<DeploymentBodyProps>`
+    max-height: ${(props: DeploymentBodyProps) => props.isExpanded ? '200px' : '0'};
     overflow: hidden;
     transition: max-height 0.3s ease-in-out;
-    margin-top: ${props => props.isExpanded ? '8px' : '0'};
+    margin-top: ${(props: DeploymentBodyProps) => props.isExpanded ? '8px' : '0'};
 `;
 
 interface DeploymentOptionProps {
@@ -720,6 +729,7 @@ export function Overview(props: ComponentDiagramProps) {
                     <ProjectSubtitle>Integration</ProjectSubtitle>
                 </TitleContainer>
                 <HeaderControls>
+                    <UndoRedoGroup key={Date.now()} />
                     <Button appearance="icon" onClick={handleLocalConfigure} buttonSx={{ padding: "4px 8px" }}>
                         <Codicon name="settings-gear" sx={{ marginRight: 5 }} /> Configure
                     </Button>

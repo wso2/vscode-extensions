@@ -30,7 +30,7 @@ export default function createTests() {
     test.describe("DB Report Mediator Tests", {
         tag: '@group4',
     }, async () => {
-        initTest();
+        initTest(false, false, false, undefined, undefined, 'group4');
 
         test("DB Report Mediator Tests", async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
@@ -115,6 +115,8 @@ export default function createTests() {
                     }
                 })
                 await form.submit('Add');
+                // Wait for the mediator to be added and rendered in the diagram
+                await page.page.waitForTimeout(2000);
                 await diagram.getMediator('dbreport');
             });
 
@@ -138,6 +140,8 @@ export default function createTests() {
             });
 
             await test.step('Navigate to new resource creation page with add new button', async () => {
+                // Wait for the diagram to be fully loaded before attempting to interact with mediators
+                await page.page.waitForTimeout(2000);
                 const diagram = new Diagram(page.page, 'Resource');
                 await diagram.init();
                 const mediator = await diagram.getMediator('dbreport');

@@ -16,10 +16,9 @@
  * under the License.
  */
 import { yupResolver } from "@hookform/resolvers/yup";
-import { EVENT_TYPE, MACHINE_VIEW } from "@wso2/mi-core";
-import { ParamManager, ParamValue, getParamManagerFromValues, getParamManagerValues } from "@wso2/mi-diagram";
+import { EVENT_TYPE, MACHINE_VIEW, AI_EVENT_TYPE } from "@wso2/mi-core";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
-import { Button, ComponentCard, Dropdown, FormActions, FormView, ProgressIndicator, TextArea, TextField, Typography, Dialog, Icon } from "@wso2/ui-toolkit";
+import { Button, ComponentCard, Dialog, Dropdown, FormActions, FormView, ProgressIndicator, TextArea, TextField, Typography, Icon } from "@wso2/ui-toolkit";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { TagRange } from '@wso2/mi-syntax-tree/lib/src';
@@ -29,6 +28,7 @@ import { getTestCaseXML } from "../../../utils/template-engine/mustache-template
 import { ParameterManager } from "@wso2/mi-diagram";
 import { compareVersions } from "@wso2/mi-diagram/lib/utils/commons";
 import { getProjectRuntimeVersion } from "../../AIPanel/utils";
+import { AuthenticationDialog, useAuthentication } from "../../../components/AuthenticationDialog";
 import { MI_UNIT_TEST_CASE_GENERATE_BACKEND_URL } from "../../../constants";
 
 export enum TestSuiteType {
@@ -86,6 +86,17 @@ export function TestCaseForm(props: TestCaseFormProps) {
     const [assertions, setAssertions] = useState<any[]>([]);
     const [showAIDialog, setShowAIDialog] = useState(false);
     const [aiPrompt, setAiPrompt] = useState("");
+
+    // Use the authentication hook
+    const {
+        showSignInConfirm,
+        checkAuthentication,
+        openSignInView,
+        closeSignInView
+    } = useAuthentication({
+        operationType: 'generateTestCase',
+        sessionStorageKey: 'pendingTestCaseOperation'
+    });
 
     // Form data configurations for ParameterManager
     const inputPropertiesFormData = {
@@ -415,29 +426,26 @@ export function TestCaseForm(props: TestCaseFormProps) {
         });
     }
 
-    const handleAIGeneration = async () => {
-        if (!aiPrompt.trim()) {
-            console.error("AI prompt is required");
+    const handleAIGeneration = async (promptValue?: string) => {
+        const currentPrompt = promptValue || aiPrompt;
+        
+        if (!currentPrompt || typeof currentPrompt !== 'string' || !currentPrompt.trim()) {
+            console.error("AI prompt is required or invalid");
             return;
         }
 
         setIsLoaded(false);
 
         try {
-            let token;
-            try {
-                token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
-            } catch (error) {
-                console.error('User not signed in', error);
-                openSignInView();
+            // Check authentication first
+            const isAuthenticated = await checkAuthentication();
+            if (!isAuthenticated) {
+                openSignInView({ aiPrompt: currentPrompt });
+                setIsLoaded(true);
                 return;
             }
 
-            if (!token) {
-                openSignInView();
-                return;
-            }
-
+            const token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
             const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
             const url = backendRootUri + MI_UNIT_TEST_CASE_GENERATE_BACKEND_URL;
 
@@ -472,7 +480,7 @@ export function TestCaseForm(props: TestCaseFormProps) {
                     context: context[0]?.artifacts || [],
                     test_file_name: testSuiteFileName,
                     test_suite_file: testSuiteContent?.content || '',
-                    test_case_description: aiPrompt,
+                    test_case_description: currentPrompt,
                     existing_mock_services: mock_service_details?.mockServices || [],
                     existing_mock_service_names: mock_service_details?.mockServiceNames || [],
                     num_suggestions: 1,
@@ -504,6 +512,9 @@ export function TestCaseForm(props: TestCaseFormProps) {
                         },
                         body: requestBody,
                     });
+                } else if (response.status === 403) {
+                    openSignInView({ aiPrompt: currentPrompt });
+                    return response;
                 } else if (response.status === 404) {
                     if (retryCount < maxRetries) {
                         retryCount++;
@@ -524,7 +535,6 @@ export function TestCaseForm(props: TestCaseFormProps) {
 
             const response = await fetchTestCaseGeneration();
             const responseBody = await response.clone().json();
-            console.log('Test case generation response body:', responseBody);
             const data = await response.json() as UnitTestCaseApiResponse;
             
             if (data.event === "test_generation_success") {
@@ -569,9 +579,12 @@ export function TestCaseForm(props: TestCaseFormProps) {
             } else {
                 throw new Error("Failed to generate test case: " + (data.error || "Unknown error"));
             }
+            
+            setIsLoaded(true);
 
         } catch (error) {
             console.error('Error while generating test case:', error);
+            setIsLoaded(true);
         } finally {
             setIsLoaded(true);
             setShowAIDialog(false);
@@ -579,8 +592,11 @@ export function TestCaseForm(props: TestCaseFormProps) {
         }
     };
 
-    const openSignInView = () => {
-        rpcClient.getMiVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: { view: MACHINE_VIEW.LoggedOut } });
+
+    // Handler for authentication success - this will be called when authentication is successful
+    const handleAuthenticationSuccess = async (formValues: any) => {
+        const storedPrompt = formValues?.aiPrompt;
+        await handleAIGeneration(storedPrompt);
     };
 
     const openUpdateExtensionView = () => {
@@ -736,7 +752,7 @@ export function TestCaseForm(props: TestCaseFormProps) {
                             </Button>
                             <Button 
                                 appearance="primary" 
-                                onClick={handleAIGeneration}
+                                onClick={() => handleAIGeneration()}
                                 disabled={!aiPrompt.trim()}
                             >
                                 <Icon name="wand-magic-sparkles-solid" sx="marginRight:5px" />&nbsp;
@@ -746,6 +762,18 @@ export function TestCaseForm(props: TestCaseFormProps) {
                     </div>
                 </Dialog>
             )}
+
+            {/* Authentication dialog */}
+            <AuthenticationDialog
+                isOpen={showSignInConfirm}
+                operationType="generateTestCase"
+                sessionStorageKey="pendingTestCaseOperation"
+                signInMessage="You need to sign in to MI Copilot to use AI features. Would you like to sign in?"
+                waitingMessage="Please complete the sign-in process. Your unit test generation will continue automatically after successful authentication."
+                dependencies={[isLoaded]}
+                onCancel={closeSignInView}
+                onAuthenticationSuccess={handleAuthenticationSuccess}
+            />
         </FormView>
     );
 }

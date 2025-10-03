@@ -257,6 +257,8 @@ import {
     GetCodeDiagnosticsResponse,
     GetConnectorIconRequest,
     GetConnectorIconResponse,
+    SubmitFeedbackRequest,
+    SubmitFeedbackResponse,
     GetPomFileContentResponse,
     GetExternalConnectorDetailsResponse,
     WriteMockServicesRequest,
@@ -406,6 +408,7 @@ export interface MiDiagramAPI {
     getAllMockServices: () => Promise<GetAllMockServicesResponse>;
     openDependencyPom: (params: OpenDependencyPomRequest) => void;
     getAllDependencies: (params: getAllDependenciesRequest) => Promise<GetAllDependenciesResponse>;
+    formatPomFile: () => Promise<void>;
     testDbConnection: (params: TestDbConnectionRequest) => Promise<TestDbConnectionResponse>;
     markAsDefaultSequence: (params: MarkAsDefaultSequenceRequest) => void;
     getSubFolderNames: (path: GetSubFoldersRequest) => Promise<GetSubFoldersResponse>;
@@ -437,6 +440,7 @@ export interface MiDiagramAPI {
     shouldDisplayPayloadAlert: () => Promise<boolean>;
     displayPayloadAlert: () => Promise<void>;
     closePayloadAlert: () => Promise<void>;
+    submitFeedback: (params: SubmitFeedbackRequest) => Promise<SubmitFeedbackResponse>;
     getPomFileContent: () => Promise<GetPomFileContentResponse>;
     getExternalConnectorDetails: () => Promise<GetExternalConnectorDetailsResponse>;
     writeMockServices: (params: WriteMockServicesRequest) => Promise<WriteMockServicesResponse>;

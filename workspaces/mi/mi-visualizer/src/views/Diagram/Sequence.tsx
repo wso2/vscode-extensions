@@ -33,6 +33,13 @@ export interface SequenceViewProps {
     diagnostics: Diagnostic[];
 }
 
+// Helper function to extract directory path with consistent cross-platform behavior
+const getDirectoryPath = (filePath: string): string => {
+    // Use path.posix.dirname for consistent forward-slash handling across platforms
+    const normalizedPath = filePath.replace(/\\/g, '/');
+    return path.posix.dirname(normalizedPath);
+};
+
 export const SequenceView = ({ model: SequenceModel, documentUri, diagnostics }: SequenceViewProps) => {
     const { rpcClient } = useVisualizerContext();
 
@@ -46,9 +53,12 @@ export const SequenceView = ({ model: SequenceModel, documentUri, diagnostics }:
         let artifactNameChanged = false;
         let documentPath = documentUri;
         if (path.basename(documentUri).split('.')[0] !== data.name) {
-            rpcClient.getMiDiagramRpcClient().renameFile({ existingPath: documentUri, newPath: path.join(path.dirname(documentUri), `${data.name}.xml`) });
+            // Use robust directory extraction that handles Windows path issues
+            const dirName = getDirectoryPath(documentUri);
+            const newPath = path.normalize(path.join(dirName, `${data.name}.xml`));
+            rpcClient.getMiDiagramRpcClient().renameFile({ existingPath: documentUri, newPath });
             artifactNameChanged = true;
-            documentPath = path.join(path.dirname(documentUri), `${data.name}.xml`);
+            documentPath = newPath;
         }
         onSequenceEdit(data, model.range.startTagRange, documentPath, rpcClient);
         if (artifactNameChanged) {

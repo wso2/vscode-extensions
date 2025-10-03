@@ -49,18 +49,21 @@ export default function createTests() {
                     'serverUri': {
                         type: 'textarea',
                         value: `"tcp://localhost:1883"`,
+                        additionalProps: { clickLabel: true }
                     },
                     'clientId': {
                         type: 'textarea',
                         value: `"clientId${testAttempt}"`,
+                        additionalProps: { clickLabel: true }
                     },
                     'subscriptions': {
                         type: 'textarea',
                         value: `"testTopic"`,
+                        additionalProps: { clickLabel: true }
                     }
                 }
             });
-            await form.submit('Next');
+            await form.submit('Next', true);
 
             // Check for title
             const configTitle = artifactWebView.locator('h3', { hasText: 'MQTT Event Handler Configuration' });

@@ -193,10 +193,8 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     async reloadDependencies(): Promise<boolean> {
         return new Promise(async (resolve) => {
             const langClient = getStateMachine(this.projectUri).context().langClient!;
-            const projectDetails = await langClient?.getProjectDetails();
-            const projectName = projectDetails.primaryDetails.projectName.value;
             await langClient?.updateConnectorDependencies();
-            await extractCAppDependenciesAsProjects(projectName);
+            await extractCAppDependenciesAsProjects(this.projectUri);
             const loadResult = await langClient?.loadDependentCAppResources();
             if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
                 await window.showWarningMessage(
@@ -713,6 +711,21 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
         if (success) {
             const document = await workspace.openTextDocument(pomPath);
             await document.save();
+            // Format the pom content
+            const editorConfig = workspace.getConfiguration('editor');
+            let formattingOptions = {
+                    tabSize: editorConfig.get("tabSize") ?? 4,
+                    insertSpaces: editorConfig.get("insertSpaces") ?? false,
+                    trimTrailingWhitespace: editorConfig.get("trimTrailingWhitespace") ?? false
+                };
+            const edits = await vscode.commands.executeCommand<vscode.TextEdit[]>("vscode.executeFormatDocumentProvider",
+                            vscode.Uri.file(pomPath), formattingOptions);
+            if (edits && edits.length > 0) {
+                const edit = new vscode.WorkspaceEdit();
+                edit.set(vscode.Uri.file(pomPath), edits);
+                await vscode.workspace.applyEdit(edit);
+                await vscode.workspace.openTextDocument(pomPath).then(doc => doc.save());
+            }
             if (getStateMachine(this.projectUri).context().view === MACHINE_VIEW.Overview) {
                 refreshUI(this.projectUri);
             }

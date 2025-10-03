@@ -55,7 +55,7 @@ import clipboardy from "clipboardy";
 import React, { type FC, type ReactNode, useState, useEffect } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { listTimeZones } from "timezone-support";
-import { z } from "zod";
+import { z } from "zod/v3";
 import { Banner } from "../../../components/Banner";
 import { Button } from "../../../components/Button";
 import { Codicon } from "../../../components/Codicon";

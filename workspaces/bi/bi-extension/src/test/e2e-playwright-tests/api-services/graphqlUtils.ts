@@ -16,35 +16,8 @@
  * under the License.
  */
 import { Frame,Page } from '@playwright/test';
-import { TypeEditorUtils } from '../type/TypeEditorUtils';
 import { Form } from '@wso2/playwright-vscode-tester';
-
-// Centralized test data for all GraphQL service E2E tests
-export const TEST_DATA = {
-    editedBasePath: (attempt: number) => `/editedSample${attempt}`,
-    query: {
-    name: 'query1',
-    fieldType: 'string',
-    },
-    mutation: [{
-        name: 'mutation1',
-        editedName: 'editedMutation1',
-        fieldType: 'boolean',
-    },{
-        name: 'mutation2',
-        fieldType: 'float',
-        expression: '"Hello World!"',
-        arguments: [
-            { name: 'arg1', type: 'string' },
-            { name: 'arg2', type: 'mytype1' },
-        ],
-        outputType: 'outputtype1',
-    }],
-    subscription: {
-        name: 'subscription1',
-        fieldType: 'float',
-    },
-};
+import { TypeEditorUtils } from '../type/TypeEditorUtils';
 
 export class GraphQLServiceUtils {
     /**
@@ -65,14 +38,13 @@ export class GraphQLServiceUtils {
         });
     }
 
-    async addFunction(name: string, returnType: string) {
-        const outputType = TEST_DATA.mutation[1].outputType;
+    async addFunction(outputType: string,argument: { name: string, type: string }) {
         await this.webView.getByTestId(`type-node-${outputType}`).getByText(`${outputType}`).click();
         await this.webView.getByRole('button', { name: '   Implement' }).click();
         await this.webView.getByTestId('add-variable-button').click({ force: true });
         await this.setSidePanel({
-            fieldName: { value: TEST_DATA.mutation[1].arguments[0].name, label: 'Variable Name' },
-            fieldType: { value: TEST_DATA.mutation[1].arguments[0].type, label: 'Variable Type' }
+            fieldName: { value: argument.name, label: 'Variable Name' },
+            fieldType: { value: argument.type, label: 'Variable Type' }
         });
         await this.webView.getByTestId('back-button').click();
     }
@@ -90,11 +62,15 @@ export class GraphQLServiceUtils {
         const fieldTypeBox = this.webView.getByRole('textbox', { name: fieldType.label });
         await this.waitForElement(fieldTypeBox);
         await fieldTypeBox.fill(fieldType.value);
+        console.log(`Filled ${fieldType.label} with value: ${fieldType.value}`);
 
         // Wait a short moment to allow UI to register the value
         await this.page.waitForTimeout(10000);
-        const fieldDefaultCompletion = this.webView.getByTestId('add-type-completion');
+        const fieldDefaultCompletion = this.webView.getByText(fieldType.value, {exact: true });
         await this.waitForElement(fieldDefaultCompletion);
+        console.log(`Field default completion is visible: ${await fieldDefaultCompletion.isVisible()}`);
+        // Click on Field Type label to move focus out of the input box
+        await this.webView.getByText(fieldType.label, { exact: true }).click();
 
         // TODO: https://github.com/wso2/product-ballerina-integrator/issues/917
         if (await fieldDefaultCompletion.isVisible()) {
@@ -114,18 +90,20 @@ export class GraphQLServiceUtils {
         await button.click();
     }
 
-    async addOutputObject() {
+    async addOutputObject(outputType: string) {
         const createFromScratchTab = this.webView.getByTestId('create-from-scratch-tab');
         await this.webView.getByRole('textbox', { name: 'Field Type' }).click();
+        console.log('Clicked on Field Type textbox');
         await this.webView.getByText('Create New Type').click();
 
         const form = new Form(this.page, 'WSO2 Integrator: BI', this.webView);
         await form.switchToFormView(false, this.webView);
+        console.log('Switched to form view for creating new type');
         await form.fill({
             values: {
                 'Name': {
                     type: 'input',
-                    value: TEST_DATA.mutation[1].outputType,
+                    value: outputType,
                 },  
                 'Kind': {
                     type: 'dropdown',
@@ -133,12 +111,15 @@ export class GraphQLServiceUtils {
                 }
             }
         });
+        console.log('Filled form for new output object type');
         const typeEditorUtils = new TypeEditorUtils(this.page, this.webView);
         await typeEditorUtils.addFunction("function1", "string");
+        console.log('Added function to the new type');
         await this.webView.getByTestId('type-create-save').getByRole('button', { name: 'Save' }).click();
+        console.log('Saved the new output object type');
     }
 
-    async createInputObjectFromScratch() {
+    async createInputObjectFromScratch(argument: { name: string, type: string }) {
         const form = new Form(this.page, 'WSO2 Integrator: BI', this.webView);
         await this.webView.getByText('Add Argument').click();
         await this.webView.getByRole('textbox', { name: 'Argument Type' }).click();
@@ -147,7 +128,7 @@ export class GraphQLServiceUtils {
             values: {
                 'Name': {
                     type: 'input',
-                    value: TEST_DATA.mutation[1].arguments[1].type,
+                    value: argument.type,
                 },
                 'Kind': {
                     type: 'dropdown',
@@ -157,15 +138,17 @@ export class GraphQLServiceUtils {
         });
 
         await this.webView.getByTestId('type-create-save').getByRole('button', { name: 'Save' }).click();
-        await this.webView.getByRole('textbox', { name: 'Argument Name*The name of the' }).fill(TEST_DATA.mutation[1].arguments[1].name);
+        await this.webView.getByRole('textbox', { name: 'Argument Name*The name of the' }).fill(argument.name);
         await this.webView.getByRole('button', { name: 'Add' }).click();
     }
 
-    async addArgumentToGraphQLService() {
+    async addArgumentToGraphQLService(argument: { name: string, type: string }) {
         await this.webView.getByText('Add Argument').click();
         await this.webView.getByRole('textbox', { name: 'Argument Type' }).click();
-        await this.webView.getByTitle('string', { exact: true }).click();
-        await this.webView.getByRole('textbox', { name: 'Argument Name*The name of the' }).fill(TEST_DATA.mutation[1].arguments[0].name);
+        await this.webView.getByText(argument.type, { exact: true }).click();
+        await this.webView.getByText('Argument Type*').click();
+        await this.webView.getByRole('textbox', { name: 'Argument Name*The name of the' }).fill(argument.name);
+        await this.webView.getByText('Argument Name*').click();
         await this.webView.getByRole('button', { name: 'Add' }).click();
     }
 

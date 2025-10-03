@@ -49,6 +49,7 @@ export default function createTests() {
                     'Url': {
                         type: 'textarea',
                         value: '"https://foo.bar/baz"',
+                        additionalProps: { clickLabel: true }
                     },
                     'Connection Name*Name of the connection': {
                         type: 'input',

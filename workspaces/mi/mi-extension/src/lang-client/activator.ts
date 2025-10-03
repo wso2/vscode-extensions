@@ -101,6 +101,7 @@ const versionRegex = /(\d+\.\d+\.?\d*)/g;
 
 export class MILanguageClient {
     private static _instances: Map<string, MILanguageClient> = new Map();
+    private static lsChannelCache: Map<string, vscode.OutputChannel> = new Map();
     public languageClient: ExtendedLanguageClient | undefined;
 
     // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -132,6 +133,15 @@ export class MILanguageClient {
             instances.push(instance);
         }
         return instances;
+    }
+
+    public static getOrCreateOutputChannel(projectUri: string): vscode.OutputChannel {
+        let channel = this.lsChannelCache.get(projectUri);
+        if (!channel) {
+            channel = vscode.window.createOutputChannel(`Synapse Language Server - ${path.basename(projectUri)}`);
+            this.lsChannelCache.set(projectUri, channel);
+        }
+        return channel;
     }
 
     public getErrors() {
@@ -232,9 +242,15 @@ export class MILanguageClient {
                                 }
                                 !ignoreVMArgs ? verifyVMArgs() : undefined;
                             }
+                        },
+                        handleDiagnostics: (uri, diagnostics, next) => {
+                            if (!uri.fsPath.startsWith(workspaceFolder.uri.fsPath)) {
+                                return;
+                            }
+                            return next(uri, diagnostics);
                         }
                     },
-                    outputChannelName: 'Synapse Language Server',
+                    outputChannel: MILanguageClient.getOrCreateOutputChannel(projectUri),
                     initializationFailedHandler: (error) => {
                         console.log(error);
                         window.showErrorMessage("Could not start the Synapse Language Server.");
@@ -277,9 +293,7 @@ export class MILanguageClient {
                 this.languageClient = new ExtendedLanguageClient('synapseXML', 'Synapse Language Server', this.projectUri,
                     serverOptions, clientOptions);
                 await this.languageClient.start();
-                const projectDetails = await this.languageClient?.getProjectDetails();
-                const projectName = projectDetails.primaryDetails.projectName.value;
-                await extractCAppDependenciesAsProjects(projectName);
+                await extractCAppDependenciesAsProjects(this.projectUri);
                 await this.languageClient?.loadDependentCAppResources();
 
                 //Setup autoCloseTags

@@ -108,6 +108,7 @@ export function Visualizer({ mode, swaggerData }: { mode: string, swaggerData?: 
 
     useEffect(() => {
         if (mode === MODES.VISUALIZER) {
+            console.debug("View Setter, Current View: " + currentView);
             switch (currentView) {
                 case 'main':
                     setView(<>{visualizerState && <MainPanel visualizerState={visualizerState} />}</>);
@@ -166,6 +167,8 @@ export function Visualizer({ mode, swaggerData }: { mode: string, swaggerData?: 
         }
         return <SwaggerPanel swaggerData={data} />;
     });
+
+    console.debug("Current View: " + currentView);
 
     return (
         <React.Fragment>
