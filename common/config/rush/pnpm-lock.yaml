@@ -830,7 +830,7 @@ importers:
     devDependencies:
       '@ai-sdk/openai':
         specifier: ^1.3.22
-        version: 1.3.23(zod@3.25.76)
+        version: 1.3.23(zod@4.1.11)
       '@types/lodash.debounce':
         specifier: ^4.0.6
         version: 4.0.9
@@ -863,7 +863,7 @@ importers:
         version: 8.33.1(eslint@9.27.0(jiti@2.5.1))(typescript@5.8.3)
       ai:
         specifier: ^4.3.16
-        version: 4.3.19(react@18.2.0)(zod@3.25.76)
+        version: 4.3.19(react@18.2.0)(zod@4.1.11)
       buffer:
         specifier: ^6.0.3
         version: 6.0.3
@@ -933,9 +933,6 @@ importers:
       '@wso2/ballerina-core':
         specifier: workspace:*
         version: link:../ballerina-core
-      '@wso2/ballerina-rpc-client':
-        specifier: workspace:*
-        version: link:../ballerina-rpc-client
       '@wso2/ui-toolkit':
         specifier: workspace:*
         version: link:../../common-libs/ui-toolkit
@@ -952,12 +949,36 @@ importers:
         specifier: 18.2.0
         version: 18.2.0(react@18.2.0)
     devDependencies:
+      '@babel/core':
+        specifier: ~7.27.1
+        version: 7.27.7
+      '@babel/preset-env':
+        specifier: ~7.27.2
+        version: 7.27.2(@babel/core@7.27.7)
+      '@babel/preset-react':
+        specifier: ~7.27.1
+        version: 7.27.1(@babel/core@7.27.7)
+      '@babel/preset-typescript':
+        specifier: ~7.27.1
+        version: 7.27.1(@babel/core@7.27.7)
       '@storybook/react':
         specifier: ^6.3.7
         version: 6.5.16(@babel/core@7.27.7)(@types/webpack@5.28.5)(encoding@0.1.13)(eslint@9.27.0(jiti@2.5.1))(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(require-from-string@2.0.2)(type-fest@4.41.0)(typescript@5.8.3)(webpack-dev-server@5.2.2(webpack@5.101.0))(webpack-hot-middleware@2.26.1)
+      '@testing-library/dom':
+        specifier: ~10.4.0
+        version: 10.4.1
+      '@testing-library/jest-dom':
+        specifier: ~6.6.3
+        version: 6.6.4
+      '@testing-library/react':
+        specifier: ~16.3.0
+        version: 16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@18.2.0)(@types/react@18.2.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@types/dagre':
         specifier: ~0.7.52
         version: 0.7.53
+      '@types/jest':
+        specifier: 29.5.14
+        version: 29.5.14
       '@types/lodash':
         specifier: ~4.17.16
         version: 4.17.17
@@ -967,9 +988,33 @@ importers:
       '@types/react-dom':
         specifier: 18.2.0
         version: 18.2.0
+      '@types/react-test-renderer':
+        specifier: ~19.1.0
+        version: 19.1.0
+      babel-jest:
+        specifier: 29.7.0
+        version: 29.7.0(@babel/core@7.27.7)
       copyfiles:
         specifier: ^2.4.1
         version: 2.4.1
+      identity-obj-proxy:
+        specifier: ~3.0.0
+        version: 3.0.0
+      jest:
+        specifier: 29.7.0
+        version: 29.7.0(@types/node@22.15.35)(babel-plugin-macros@3.1.0)
+      jest-environment-jsdom:
+        specifier: 29.7.0
+        version: 29.7.0
+      pretty-format:
+        specifier: ~29.7.0
+        version: 29.7.0
+      react-test-renderer:
+        specifier: ~19.1.0
+        version: 19.1.1(react@18.2.0)
+      ts-jest:
+        specifier: 29.3.4
+        version: 29.3.4(@babel/core@7.27.7)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.27.7))(jest@29.7.0(@types/node@22.15.35)(babel-plugin-macros@3.1.0))(typescript@5.8.3)
       typescript:
         specifier: 5.8.3
         version: 5.8.3
@@ -1022,12 +1067,36 @@ importers:
         specifier: 18.2.0
         version: 18.2.0(react@18.2.0)
     devDependencies:
+      '@babel/core':
+        specifier: ~7.27.1
+        version: 7.27.7
+      '@babel/preset-env':
+        specifier: ~7.27.2
+        version: 7.27.2(@babel/core@7.27.7)
+      '@babel/preset-react':
+        specifier: ~7.27.1
+        version: 7.27.1(@babel/core@7.27.7)
+      '@babel/preset-typescript':
+        specifier: ~7.27.1
+        version: 7.27.1(@babel/core@7.27.7)
       '@storybook/react':
         specifier: ^6.5.16
         version: 6.5.16(@babel/core@7.27.7)(@types/webpack@5.28.5)(encoding@0.1.13)(eslint@9.27.0(jiti@2.5.1))(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(require-from-string@2.0.2)(type-fest@4.41.0)(typescript@5.8.3)(webpack-dev-server@5.2.2(webpack@5.101.0))(webpack-hot-middleware@2.26.1)
+      '@testing-library/dom':
+        specifier: ~10.4.0
+        version: 10.4.1
+      '@testing-library/jest-dom':
+        specifier: ~6.6.3
+        version: 6.6.4
+      '@testing-library/react':
+        specifier: ~16.3.0
+        version: 16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@18.2.0)(@types/react@18.2.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@types/dagre':
         specifier: ~0.7.52
         version: 0.7.53
+      '@types/jest':
+        specifier: 29.5.14
+        version: 29.5.14
       '@types/lodash':
         specifier: ~4.17.16
         version: 4.17.17
@@ -1037,9 +1106,33 @@ importers:
       '@types/react-dom':
         specifier: 18.2.0
         version: 18.2.0
+      '@types/react-test-renderer':
+        specifier: ~19.1.0
+        version: 19.1.0
+      babel-jest:
+        specifier: 29.7.0
+        version: 29.7.0(@babel/core@7.27.7)
       copyfiles:
         specifier: ^2.4.1
         version: 2.4.1
+      identity-obj-proxy:
+        specifier: ~3.0.0
+        version: 3.0.0
+      jest:
+        specifier: 29.7.0
+        version: 29.7.0(@types/node@22.15.35)(babel-plugin-macros@3.1.0)
+      jest-environment-jsdom:
+        specifier: 29.7.0
+        version: 29.7.0
+      pretty-format:
+        specifier: ~29.7.0
+        version: 29.7.0
+      react-test-renderer:
+        specifier: ~19.1.0
+        version: 19.1.1(react@18.2.0)
+      ts-jest:
+        specifier: 29.3.4
+        version: 29.3.4(@babel/core@7.27.7)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.27.7))(jest@29.7.0(@types/node@22.15.35)(babel-plugin-macros@3.1.0))(typescript@5.8.3)
       typescript:
         specifier: 5.8.3
         version: 5.8.3
@@ -3800,8 +3893,8 @@ importers:
         specifier: ^2.1.2
         version: 2.2.7(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@hookform/resolvers':
-        specifier: ^5.0.1
-        version: 5.0.1(react-hook-form@7.56.4(react@18.2.0))
+        specifier: 5.2.2
+        version: 5.2.2(react-hook-form@7.63.0(react@18.2.0))
       '@tanstack/react-query':
         specifier: ~4.28.0
         version: 4.28.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
@@ -3839,8 +3932,8 @@ importers:
         specifier: 18.2.0
         version: 18.2.0(react@18.2.0)
       react-hook-form:
-        specifier: 7.56.4
-        version: 7.56.4(react@18.2.0)
+        specifier: 7.63.0
+        version: 7.63.0(react@18.2.0)
       react-markdown:
         specifier: ^7.1.0
         version: 7.1.2(@types/react@18.2.0)(react@18.2.0)
@@ -3863,8 +3956,8 @@ importers:
         specifier: ^0.5.1
         version: 0.5.1
       zod:
-        specifier: ^3.22.4
-        version: 3.25.76
+        specifier: 4.1.11
+        version: 4.1.11
     devDependencies:
       '@types/js-yaml':
         specifier: ^4.0.5
@@ -5466,6 +5559,11 @@ packages:
 
   '@hookform/resolvers@5.0.1':
     resolution: {integrity: sha512-u/+Jp83luQNx9AdyW2fIPGY6Y7NG68eN2ZW8FOJYL+M0i4s49+refdJdOp/A9n9HFQtQs3HIDHQvX3ZET2o7YA==}
+    peerDependencies:
+      react-hook-form: ^7.55.0
+
+  '@hookform/resolvers@5.2.2':
+    resolution: {integrity: sha512-A/IxlMLShx3KjV/HeTcTfaMxdwy690+L/ZADoeaTltLx+CVuzkeVIPuybK3jrRfw7YZnmdKsVVHAlEPIAEUNlA==}
     peerDependencies:
       react-hook-form: ^7.55.0
 
@@ -18034,6 +18132,12 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17 || ^18 || ^19
 
+  react-hook-form@7.63.0:
+    resolution: {integrity: sha512-ZwueDMvUeucovM2VjkCf7zIHcs1aAlDimZu2Hvel5C5907gUzMpm4xCrQXtRzCvsBqFjonB4m3x4LzCFI1ZKWA==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      react: ^16.8.0 || ^17 || ^18 || ^19
+
   react-hot-loader@4.13.1:
     resolution: {integrity: sha512-ZlqCfVRqDJmMXTulUGic4lN7Ic1SXgHAFw7y/Jb7t25GBgTR0fYAJ8uY4mrpxjRyWGWmqw77qJQGnYbzCvBU7g==}
     engines: {node: '>= 6'}
@@ -21559,6 +21663,9 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
+  zod@4.1.11:
+    resolution: {integrity: sha512-WPsqwxITS2tzx1bzhIKsEs19ABD5vmCVa4xBo2tq/SrV4RNZtfws1EnCWQXM6yh8bD08a1idvkB5MZSBiZsjwg==}
+
   zustand@5.0.7:
     resolution: {integrity: sha512-Ot6uqHDW/O2VdYsKLLU8GQu8sCOM1LcoE8RwvLv9uuRT9s6SOHCKs0ZEOhxg+I1Ld+A1Q5lwx+UlKXXUoCZITg==}
     engines: {node: '>=12.20.0'}
@@ -21602,11 +21709,11 @@ snapshots:
       '@ai-sdk/provider-utils': 2.2.8(zod@3.25.76)
       zod: 3.25.76
 
-  '@ai-sdk/openai@1.3.23(zod@3.25.76)':
+  '@ai-sdk/openai@1.3.23(zod@4.1.11)':
     dependencies:
       '@ai-sdk/provider': 1.1.3
-      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.76)
-      zod: 3.25.76
+      '@ai-sdk/provider-utils': 2.2.8(zod@4.1.11)
+      zod: 4.1.11
 
   '@ai-sdk/provider-utils@2.2.8(zod@3.25.76)':
     dependencies:
@@ -21615,19 +21722,26 @@ snapshots:
       secure-json-parse: 2.7.0
       zod: 3.25.76
 
+  '@ai-sdk/provider-utils@2.2.8(zod@4.1.11)':
+    dependencies:
+      '@ai-sdk/provider': 1.1.3
+      nanoid: 3.3.11
+      secure-json-parse: 2.7.0
+      zod: 4.1.11
+
   '@ai-sdk/provider@1.1.3':
     dependencies:
       json-schema: 0.4.0
 
-  '@ai-sdk/react@1.2.12(react@18.2.0)(zod@3.25.76)':
+  '@ai-sdk/react@1.2.12(react@18.2.0)(zod@4.1.11)':
     dependencies:
-      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.76)
-      '@ai-sdk/ui-utils': 1.2.11(zod@3.25.76)
+      '@ai-sdk/provider-utils': 2.2.8(zod@4.1.11)
+      '@ai-sdk/ui-utils': 1.2.11(zod@4.1.11)
       react: 18.2.0
       swr: 2.3.6(react@18.2.0)
       throttleit: 2.1.0
     optionalDependencies:
-      zod: 3.25.76
+      zod: 4.1.11
 
   '@ai-sdk/react@1.2.12(react@19.1.0)(zod@3.25.76)':
     dependencies:
@@ -21645,6 +21759,13 @@ snapshots:
       '@ai-sdk/provider-utils': 2.2.8(zod@3.25.76)
       zod: 3.25.76
       zod-to-json-schema: 3.24.6(zod@3.25.76)
+
+  '@ai-sdk/ui-utils@1.2.11(zod@4.1.11)':
+    dependencies:
+      '@ai-sdk/provider': 1.1.3
+      '@ai-sdk/provider-utils': 2.2.8(zod@4.1.11)
+      zod: 4.1.11
+      zod-to-json-schema: 3.24.6(zod@4.1.11)
 
   '@alloc/quick-lru@5.2.0': {}
 
@@ -22502,7 +22623,7 @@ snapshots:
   '@babel/plugin-proposal-object-rest-spread@7.12.1(@babel/core@7.12.9)':
     dependencies:
       '@babel/core': 7.12.9
-      '@babel/helper-plugin-utils': 7.10.4
+      '@babel/helper-plugin-utils': 7.27.1
       '@babel/plugin-syntax-object-rest-spread': 7.8.3(@babel/core@7.12.9)
       '@babel/plugin-transform-parameters': 7.27.7(@babel/core@7.12.9)
 
@@ -23841,6 +23962,11 @@ snapshots:
       '@standard-schema/utils': 0.3.0
       react-hook-form: 7.56.4(react@18.2.0)
 
+  '@hookform/resolvers@5.2.2(react-hook-form@7.63.0(react@18.2.0))':
+    dependencies:
+      '@standard-schema/utils': 0.3.0
+      react-hook-form: 7.63.0(react@18.2.0)
+
   '@humanfs/core@0.19.1': {}
 
   '@humanfs/node@0.16.6':
@@ -24133,10 +24259,7 @@ snapshots:
       jest-runner: 25.5.4
       jest-runtime: 25.5.4
     transitivePeerDependencies:
-      - bufferutil
-      - canvas
       - supports-color
-      - utf-8-validate
 
   '@jest/test-sequencer@29.7.0':
     dependencies:
@@ -32951,15 +33074,15 @@ snapshots:
       clean-stack: 4.2.0
       indent-string: 5.0.0
 
-  ai@4.3.19(react@18.2.0)(zod@3.25.76):
+  ai@4.3.19(react@18.2.0)(zod@4.1.11):
     dependencies:
       '@ai-sdk/provider': 1.1.3
-      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.76)
-      '@ai-sdk/react': 1.2.12(react@18.2.0)(zod@3.25.76)
-      '@ai-sdk/ui-utils': 1.2.11(zod@3.25.76)
+      '@ai-sdk/provider-utils': 2.2.8(zod@4.1.11)
+      '@ai-sdk/react': 1.2.12(react@18.2.0)(zod@4.1.11)
+      '@ai-sdk/ui-utils': 1.2.11(zod@4.1.11)
       '@opentelemetry/api': 1.9.0
       jsondiffpatch: 0.6.0
-      zod: 3.25.76
+      zod: 4.1.11
     optionalDependencies:
       react: 18.2.0
 
@@ -43833,6 +43956,10 @@ snapshots:
     dependencies:
       react: 18.2.0
 
+  react-hook-form@7.63.0(react@18.2.0):
+    dependencies:
+      react: 18.2.0
+
   react-hot-loader@4.13.1(@types/react@18.2.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
     dependencies:
       fast-levenshtein: 2.0.6
@@ -48741,7 +48868,13 @@ snapshots:
     dependencies:
       zod: 3.25.76
 
+  zod-to-json-schema@3.24.6(zod@4.1.11):
+    dependencies:
+      zod: 4.1.11
+
   zod@3.25.76: {}
+
+  zod@4.1.11: {}
 
   zustand@5.0.7(@types/react@18.2.0)(react@18.2.0)(use-sync-external-store@1.5.0(react@18.2.0)):
     optionalDependencies:
