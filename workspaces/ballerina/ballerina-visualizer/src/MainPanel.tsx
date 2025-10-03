@@ -77,6 +77,7 @@ import { VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
 import { DataMapper } from "./views/DataMapper";
 import { ImportIntegration } from "./views/BI/ImportIntegration";
 import Popup from "./components/Popup";
+import { ServiceFunctionForm } from "./views/BI/ServiceFunctionForm";
 
 const globalStyles = css`
     *,
@@ -527,6 +528,15 @@ const MainPanel = () => {
                                 org={value?.org}
                                 package={value?.package}
                                 addNew={true}
+                            />
+                        );
+                        break;
+                    case MACHINE_VIEW.ServiceFunctionForm:
+                        setViewComponent(
+                            <ServiceFunctionForm
+                                position={value?.position}
+                                currentFilePath={value.documentUri}
+                                projectPath={value.projectUri}
                             />
                         );
                         break;
