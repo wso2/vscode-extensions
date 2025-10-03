@@ -21,7 +21,7 @@ import { FlexRow, Question } from "../styles";
 import { Icon } from "@wso2/ui-toolkit";
 
 interface SuggestionsListProps {
-    questionMessages: Array<{ role: string; content: string; type: string }>;
+    questionMessages: string[];
     handleQuestionClick: (content: string) => void;
 }
 
@@ -52,7 +52,7 @@ const SuggestionsList: React.FC<SuggestionsListProps> = ({ questionMessages, han
                     <div>Loading suggestions ...</div>
                 </Question>
             ) : (
-                questionMessages.map((message, index) => (
+                [questionMessages[questionMessages.length - 1]].map((message, index) => (
                     <Question
                         key={index}
                         style={{
@@ -63,14 +63,14 @@ const SuggestionsList: React.FC<SuggestionsListProps> = ({ questionMessages, han
                             href="#"
                             onClick={(e) => {
                                 e.preventDefault();
-                                handleQuestionClick(message.content);
+                                handleQuestionClick(message);
                             }}
                             style={{ textDecoration: "none" }}
                         >
                             <FlexRow>
                                 <Icon name="wand-magic-sparkles-solid" sx="marginRight:5px" />
                                 &nbsp;
-                                <div>{message.content.replace(/^\d+\.\s/, "")}</div>
+                                <div>{message.replace(/^\d+\.\s/, "")}</div>
                             </FlexRow>
                         </a>
                     </Question>
