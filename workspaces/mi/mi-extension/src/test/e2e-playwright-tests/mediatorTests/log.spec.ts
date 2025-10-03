@@ -29,7 +29,7 @@ export default function createTests() {
   test.describe("Log Mediator Tests", {
     tag: '@group2',
   }, async () => {
-    initTest();
+    initTest(false, false, false, undefined, undefined, 'group2');
 
     test("Log Mediator Tests", async ({ }, testInfo) => {
       const testAttempt = testInfo.retry + 1;
