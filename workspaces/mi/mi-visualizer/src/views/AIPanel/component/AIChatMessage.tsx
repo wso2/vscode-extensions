@@ -32,6 +32,7 @@ import { useMICopilotContext } from "./MICopilotContext";
 import { MarkdownRendererProps, ChatMessage, CopilotChatEntry } from "../types";
 import { Role, MessageType } from "../types";
 import Attachments from "./Attachments";
+import FeedbackBar from "./FeedbackBar";
 
 // Markdown renderer component
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ markdownContent }) => {
@@ -73,7 +74,9 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
         setCurrentUserprompt,
         copilotChat,
         setCopilotChat,
-        backendRequestTriggered
+        backendRequestTriggered,
+        feedbackGiven,
+        handleFeedback
     } = useMICopilotContext();
 
     // Chat Message Controls : Edit and Delete
@@ -174,6 +177,17 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
                     </EditDeleteButtons>
                     )}
                 </>
+            )}
+
+            {message.role === Role.MICopilot && 
+             message.type === MessageType.AssistantMessage && 
+             !backendRequestTriggered &&
+             index === messages.length - 2 && (
+                <FeedbackBar
+                    messageIndex={index}
+                    onFeedback={handleFeedback}
+                    currentFeedback={feedbackGiven}
+                />
             )}
         </StyledChatMessage>
     );

@@ -27,7 +27,7 @@ import {
 } from "@wso2/wso2-platform-core";
 import React, { type FC, type ReactNode, useEffect } from "react";
 import type { SubmitHandler, UseFormReturn } from "react-hook-form";
-import type { z } from "zod";
+import type { z } from "zod/v3";
 import { Button } from "../../../components/Button";
 import { CheckBox } from "../../../components/FormElements/CheckBox";
 import { Dropdown } from "../../../components/FormElements/Dropdown";

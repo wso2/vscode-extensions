@@ -63,6 +63,7 @@ export const TreeHeader = styled.div((
     '&:hover': {
         backgroundColor: `${isDisabled ? 'var(--vscode-tab-inactiveBackground)' : 'var(--vscode-list-hoverBackground)'}`
     },
+    outline: isSelected ? "1px solid var(--vscode-list-focusAndSelectionOutline, var(--vscode-contrastActiveBorder, var(--vscode-editorLink-activeForeground, var(--vscode-list-focusOutline))))" : 'none',
     color: 'var(--vscode-inputOption-activeForeground)'
 }));
 
