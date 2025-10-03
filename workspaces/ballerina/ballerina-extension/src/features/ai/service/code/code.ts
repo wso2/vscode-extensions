@@ -86,8 +86,11 @@ function handleTextEditorCommands(
                 }
 
                 if (view_range && view_range.length === 2) {
-                    const [start, end] = view_range;
+                    let [start, end] = view_range;
                     const lines = content.split('\n');
+                    if (end == -1) {
+                        end = lines.length;
+                    }
                     
                     // Validate line range
                     if (start < 1 || end < start || start > lines.length) {
@@ -425,7 +428,7 @@ export async function generateCodeCore(params: GenerateCodeRequest, eventHandler
             async execute({ command, path, old_str, new_str, file_text, insert_line, view_range }) {
                 const result = handleTextEditorCommands(updatedSourceFiles, updatedFileNames, 
                     { command, path, old_str, new_str, file_text, insert_line, view_range });
-                return result;
+                return result.message;
             }
         })
     };
@@ -800,7 +803,7 @@ export async function repairCode(params: RepairParams, libraryDescriptions: stri
             async execute({ command, path, old_str, new_str, file_text, insert_line, view_range }) {
                 const result = handleTextEditorCommands(updatedSourceFiles, updatedFileNames, 
                     { command, path, old_str, new_str, file_text, insert_line, view_range });
-                return result; 
+                return result.message; 
             }
         })
     };
