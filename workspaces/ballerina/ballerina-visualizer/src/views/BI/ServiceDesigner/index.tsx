@@ -43,6 +43,9 @@ import { TopNavigationBar } from "../../../components/TopNavigationBar";
 import { TitleBar } from "../../../components/TitleBar";
 import { LoadingRing } from "../../../components/Loader";
 import { ResourceAccordionV2 } from "./components/ResourceAccordionV2";
+import FormGeneratorNew from "../Forms/FormGeneratorNew";
+import { convertConfig } from "../../../utils/bi";
+import { McpToolForm } from "./Forms/McpToolForm";
 
 const LoadingContainer = styled.div`
     display: flex;
@@ -197,6 +200,19 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
             .getHttpResourceModel({ type: "http", functionName: "resource" })
             .then((res) => {
                 console.log("New Function Model: ", res.function);
+                setFunctionModel(res.function);
+                setIsNew(true);
+                setShowForm(true);
+            });
+    };
+
+    const handleAddTool = () => {
+        rpcClient
+            .getServiceDesignerRpcClient()
+            .getFunctionModel({ type: "mcp", functionName: "remote" })
+            .then((res) => {
+                console.log("New Function Model: ", res.function);
+                let fields = res.function ? convertConfig(res.function.properties) : [];
                 setFunctionModel(res.function);
                 setIsNew(true);
                 setShowForm(true);
@@ -364,6 +380,20 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
 
     const haveServiceTypeName = serviceModel?.properties["serviceTypeName"]?.value;
 
+    function createLineRange(filePath: string, position: NodePosition): LineRange {
+        return {
+            fileName: filePath,
+            startLine: {
+                line: position.startLine ?? 1,
+                offset: position.startColumn ?? 0
+            },
+            endLine: {
+                line: position.endLine ?? position.startLine ?? 1,
+                offset: position.endColumn ?? position.startColumn ?? 0
+            }
+        };
+    }
+
     return (
         <View>
             <TopNavigationBar />
@@ -395,6 +425,11 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                         {serviceModel && serviceModel.moduleName === "http" && !haveServiceTypeName && (
                             <Button appearance="primary" tooltip="Add Resource" onClick={handleNewResourceFunction}>
                                 <Codicon name="add" sx={{ marginRight: 8 }} /> <ButtonText>Resource</ButtonText>
+                            </Button>
+                        )}
+                        {serviceModel && serviceModel.moduleName === "mcp" && (
+                            <Button appearance="primary" tooltip="Add Tool" onClick={handleAddTool}>
+                                <Codicon name="add" sx={{ marginRight: 8 }} /> <ButtonText>Tool</ButtonText>
                             </Button>
                         )}
                     </>
@@ -527,6 +562,24 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                     >
                         <FunctionForm
                             model={functionModel}
+                            onSave={handleFunctionSubmit}
+                            onClose={handleNewFunctionClose}
+                        />
+                    </PanelContainer>
+                )}
+
+                {functionModel && functionModel.kind === "REMOTE" && functionModel.codedata.moduleName === "mcp" && (
+                    <PanelContainer
+                        title={"Function Configuration"}
+                        show={showForm}
+                        onClose={handleNewFunctionClose}
+                        width={600}
+                    >
+                        <McpToolForm
+                            model={functionModel}
+                            filePath={filePath}
+                            lineRange={createLineRange(filePath, position)}
+                            isSaving={isSaving}
                             onSave={handleFunctionSubmit}
                             onClose={handleNewFunctionClose}
                         />

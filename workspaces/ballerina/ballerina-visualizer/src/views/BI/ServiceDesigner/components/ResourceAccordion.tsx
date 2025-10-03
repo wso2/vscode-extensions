@@ -16,10 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React, { useState } from 'react';
-import styled from '@emotion/styled';
-import { Button, Codicon, Confirm, ContextMenu, Icon, LinkButton, Typography } from '@wso2/ui-toolkit';
-import { FunctionModel } from '@wso2/ballerina-core';
+import React, { useState } from "react";
+import styled from "@emotion/styled";
+import { Button, Codicon, Confirm, ContextMenu, Icon, LinkButton, Typography } from "@wso2/ui-toolkit";
+import { CodeData, FunctionModel } from "@wso2/ballerina-core";
+import { useRpcContext } from "@wso2/ballerina-rpc-client";
 
 type MethodProp = {
     color: string;
@@ -37,7 +38,7 @@ type ButtonSectionProps = {
 
 type HeaderProps = {
     expandable?: boolean;
-}
+};
 
 const AccordionContainer = styled.div<ContainerProps>`
     margin-top: 10px;
@@ -47,7 +48,7 @@ const AccordionContainer = styled.div<ContainerProps>`
         background-color: var(--vscode-list-hoverBackground);
         cursor: pointer;
     }
-    border: ${(p: ContainerProps) => p.haveErrors ? "1px solid red" : "none"};
+    border: ${(p: ContainerProps) => (p.haveErrors ? "1px solid red" : "none")};
 `;
 
 const AccordionHeader = styled.div<HeaderProps>`
@@ -84,11 +85,11 @@ const MethodBox = styled.div<MethodProp>`
     height: 25px;
     min-width: 70px;
     width: auto;
-    margin-left: ${(p: MethodProp) => p.hasLeftMargin ? "10px" : "0px"};
+    margin-left: ${(p: MethodProp) => (p.hasLeftMargin ? "10px" : "0px")};
     text-align: center;
     padding: 3px 5px 3px 5px;
     background-color: ${(p: MethodProp) => p.color};
-    color: #FFF;
+    color: #fff;
     align-items: center;
     font-weight: bold;
 `;
@@ -102,14 +103,14 @@ const verticalIconStyles = {
     transform: "rotate(90deg)",
     ":hover": {
         backgroundColor: "var(--vscode-welcomePage-tileHoverBackground)",
-    }
+    },
 };
 
 const ButtonSection = styled.div<ButtonSectionProps>`
     display: flex;
     align-items: center;
     margin-left: auto;
-    gap: ${(p: ButtonSectionProps) => p.isExpanded ? "8px" : "6px"};
+    gap: ${(p: ButtonSectionProps) => (p.isExpanded ? "8px" : "6px")};
 `;
 
 const AccordionContent = styled.div`
@@ -122,14 +123,14 @@ const MethodPath = styled.span`
 `;
 
 const colors = {
-    "GET": '#3d7eff',
-    "PUT": '#fca130',
-    "POST": '#49cc90',
-    "DELETE": '#f93e3e',
-    "PATCH": '#986ee2',
-    "OPTIONS": '#0d5aa7',
-    "HEAD": '#9012fe'
-}
+    GET: "#3d7eff",
+    PUT: "#fca130",
+    POST: "#49cc90",
+    DELETE: "#f93e3e",
+    PATCH: "#986ee2",
+    OPTIONS: "#0d5aa7",
+    HEAD: "#9012fe",
+};
 
 export function getColorByMethod(method: string) {
     switch (method.toUpperCase()) {
@@ -148,7 +149,7 @@ export function getColorByMethod(method: string) {
         case "HEAD":
             return colors.HEAD;
         default:
-            return '#876036'; // Default color
+            return "#876036"; // Default color
     }
 }
 
@@ -166,7 +167,7 @@ export function ResourceAccordion(params: ResourceAccordionProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isConfirmOpen, setConfirmOpen] = useState(false);
     const [confirmEl, setConfirmEl] = React.useState(null);
-
+    const { rpcClient } = useRpcContext();
 
     const toggleAccordion = () => {
         setIsOpen(!isOpen);
@@ -176,6 +177,21 @@ export function ResourceAccordion(params: ResourceAccordionProps) {
         e.stopPropagation(); // Stop the event propagation
         goToSource(functionModel);
     };
+
+    // const getFunctionModel = async () => {
+    //     const filePath = rpcClient.getVisualizerRpcClient().
+    //     const codeData: CodeData = {
+    //         lineRange: {
+    //             fileName: functionModel,
+    //             startLine: { line: resource.position.startLine, offset: resource.position.startColumn },
+    //             endLine: { line: resource.position.endLine, offset: resource.position.endColumn },
+    //         },
+    //     };
+    //     const functionModel = await rpcClient
+    //         .getServiceDesignerRpcClient()
+    //         .getFunctionFromSource({ filePath: resource.path, codedata: codeData });
+    //     return functionModel;
+    // };
 
     const handleEditResource = (e: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
         e.stopPropagation(); // Stop the event propagation
@@ -201,8 +217,8 @@ export function ResourceAccordion(params: ResourceAccordionProps) {
     };
 
     const handleResourceImplement = () => {
-        onResourceImplement(functionModel)
-    }
+        onResourceImplement(functionModel);
+    };
 
     return (
         <AccordionContainer data-testid="service-design-view-resource">
@@ -213,22 +229,32 @@ export function ResourceAccordion(params: ResourceAccordionProps) {
                     </MethodBox>
                     <MethodPath>{functionModel.name.value}</MethodPath>
                 </MethodSection>
-                {functionModel.editable &&
+                {!functionModel.editable && (
                     <ButtonSection>
                         <>
                             {onEditResource! && (
-                                <Button appearance="icon" tooltip="Edit FunctionModel" onClick={handleEditResource} disabled={!functionModel.editable}>
+                                <Button
+                                    appearance="icon"
+                                    tooltip="Edit FunctionModel"
+                                    onClick={handleEditResource}
+                                    disabled={functionModel.editable}
+                                >
                                     <Icon name="editIcon" sx={{ marginTop: 3.5 }} />
                                 </Button>
                             )}
                             {onDeleteResource! && (
-                                <Button appearance="icon" tooltip="Delete FunctionModel" onClick={handleDeleteResource} disabled={!functionModel.editable}>
+                                <Button
+                                    appearance="icon"
+                                    tooltip="Delete FunctionModel"
+                                    onClick={handleDeleteResource}
+                                    disabled={functionModel.editable}
+                                >
                                     <Codicon name="trash" />
                                 </Button>
                             )}
                         </>
                     </ButtonSection>
-                }
+                )}
             </AccordionHeader>
             <Confirm
                 isOpen={isConfirmOpen}
@@ -241,5 +267,4 @@ export function ResourceAccordion(params: ResourceAccordionProps) {
             />
         </AccordionContainer>
     );
-};
-
+}
