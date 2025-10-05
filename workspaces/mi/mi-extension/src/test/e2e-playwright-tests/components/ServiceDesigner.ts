@@ -34,10 +34,13 @@ export class ServiceDesigner {
     }
 
     public async resource(type: string, path: string) {
+        console.log("Searching for resource: " + type + " " + path);
         const resourceList = this.webView.getByTestId("service-design-view-resource");
         await resourceList.waitFor({timeout: 60000});
+        console.log("Found resource list");
         const resource = resourceList.filter({ hasText: type }).filter({ hasText: path });
         expect(resource).not.toBeNull();
+        console.log("Found resource: " + type + " " + path);
 
         return new Resource(resource, this.webView);
     }
