@@ -102,7 +102,9 @@ export class DataMapperUtils {
     // }
 
     public async expandField(fieldFQN: string) {
-        const expandButton = this.webView.locator(`div[id="recordfield-${fieldFQN}"]`).getByTitle('Expand/Collapse');
+        // const expandButton = this.webView.locator(`div[id="recordfield-${fieldFQN}"]`).getByTitle('Expand/Collapse');
+        const expandButton = this.webView.locator(`div[id="expand-or-collapse-${fieldFQN}"]`);
+
         await expandButton.click();
         await expandButton.locator('.codicon-chevron-down').waitFor();
     }
@@ -241,7 +243,13 @@ export class DataMapperUtils {
 
 export function updateProjectFileSync(sourceFile: string, targetFile: string) {
     const sourcePath = path.join(dmDataDir, sourceFile);
-    const targetPath = path.join(newProjectPath, 'sample', targetFile)
+    const targetPath = path.join(newProjectPath, 'sample', targetFile);
+    fs.writeFileSync(targetPath, fs.readFileSync(sourcePath, 'utf8'));
+}
+
+export function updateDataFileSync(sourceFile: string, targetFile: string) {
+    const sourcePath = path.join(newProjectPath, 'sample', sourceFile);
+    const targetPath = path.join(dmDataDir, targetFile);
     fs.writeFileSync(targetPath, fs.readFileSync(sourcePath, 'utf8'));
 }
 
@@ -250,6 +258,8 @@ export async function verifyFileContent(comparingFile: string, projectFile: stri
     // // Uncomment this blcok for update data files
     // console.log({comparingFile, projectFile});
     // await page.page.pause();
+    // updateDataFileSync(projectFile, comparingFile);
+    // // End of the block
 
     return compareFilesSync(
         path.join(dmDataDir, comparingFile),
@@ -454,4 +464,147 @@ export async function testBasicMappings(dmWebView: Frame, projectFile: string, c
 
     console.log('Finished Testing Basic Mappings');
 
+}
+
+export async function testArrayMappings(dmWebView: Frame, projectFile: string, compDir: string) {
+
+    console.log('Testing Array Mappings');
+
+    const dm = new DataMapperUtils(dmWebView);
+    await dm.waitFor();
+
+    console.log('- Test query expression');
+
+
+    await dm.expandField('input');
+
+    console.log(' - Input preview');
+
+    await dm.expandField('input.iArr1D');
+
+    await dmWebView.locator('div[id="recordfield-input.iArr1D.iArr1D"]').waitFor();
+
+    console.log(' - Output preview');
+
+    await dm.expandField('objectOutput.output.oArr1D');
+    await dmWebView.locator('div[id="recordfield-objectOutput.output.oArr1D.oArr1D"]').waitFor();
+
+    console.log(' - Map iArr1D to oArr1D using query expression');
+    await dm.mapFields('input.iArr1D', 'objectOutput.output.oArr1D', 'a2a-inner');
+
+    console.log(' - Map withing query exprression');
+    await dm.mapFields('iArr1DItem.p2', 'queryOutput.oArr1D.p2');
+    const loc1 = dmWebView.getByTestId('link-from-iArr1DItem.p2.OUT-to-queryOutput.oArr1D.p2.IN');
+    await dm.expectErrorLink(loc1);
+
+    await dm.mapFields('iArr1DItem.p2', 'queryOutput.oArr1D.p1');
+    await dm.mapFields('iArr1DItem.p3', 'queryOutput.oArr1D.p1');
+
+    await dmWebView.getByTestId('link-from-iArr1DItem.p2.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
+    await dmWebView.getByTestId('link-from-iArr1DItem.p3.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
+    await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-queryOutput.oArr1D.p1.IN').waitFor({ state: 'attached' });
+
+    const loc2 = dmWebView.getByTestId('link-connector-node-queryOutput.oArr1D.p1.IN');
+    await loc2.waitFor();
+
+    expect(await verifyFileContent(`array/${compDir}/map1.bal.txt`, projectFile)).toBeTruthy();
+
+    console.log('- Go back to root before test deletion');
+    await dm.gotoPreviousView();
+    const loc0 = dmWebView.getByTestId('link-connector-node-objectOutput.output.oArr1D.IN');
+    await loc0.waitFor();
+
+    console.log(' - Goto focused view');
+    await dmWebView.getByTestId('expand-array-fn-output.oArr1D').click();
+    await dmWebView.getByText('oArr1D:Query').waitFor();
+    await dmWebView.getByTestId('link-from-input.iArr1D.OUT-to-queryOutput.oArr1D.#.IN').waitFor();
+
+    console.log('- Delete within focused view');
+    await loc1.click({ force: true });
+    await dmWebView.getByTestId('expression-label-for-iArr1DItem.p2.OUT-to-queryOutput.oArr1D.p2.IN')
+        .locator('.codicon-trash').click({ force: true });
+    await loc1.waitFor({ state: 'detached' });
+
+    await loc2.locator('.codicon-trash').click({ force: true });
+    await loc2.waitFor({ state: 'detached' });
+
+    expect(await verifyFileContent(`array/${compDir}/del1.bal.txt`, projectFile)).toBeTruthy();
+
+    console.log(' - Within focused view root mapping');
+    await dm.mapFields('iArr1DItem', 'queryOutput.oArr1D', 'direct');
+    const loc3 = dmWebView.getByTestId('link-from-iArr1DItem.OUT-to-queryOutput.oArr1D.IN');
+    await loc3.waitFor();
+
+    expect(await verifyFileContent(`array/${compDir}/map2.bal.txt`, projectFile)).toBeTruthy();
+
+    console.log(' - Delete within focused view root mapping');
+    await loc3.click({ force: true });
+    await dmWebView.getByTestId('expression-label-for-iArr1DItem.OUT-to-queryOutput.oArr1D.IN')
+        .locator('.codicon-trash').click({ force: true });
+    await loc3.waitFor({ state: 'detached' });
+
+    expect(await verifyFileContent(`array/${compDir}/del2.bal.txt`, projectFile)).toBeTruthy();
+
+    console.log('- Go back to root view');
+    await dmWebView.getByTestId('back-button').click();
+    await dmWebView.getByText('oArr1D:Query').waitFor({ state: 'detached' });
+
+
+    console.log(' - Initialize and add elements');
+    await dm.selectConfigMenuItem('objectOutput.output.oArr1D', 'Initialize Array');
+    await dm.waitForProgressEnd();
+    const locArrInit = dmWebView.getByTestId('array-widget-field-objectOutput.output.oArr1D.IN');
+    await locArrInit.waitFor();
+    expect(locArrInit).toHaveText('[]');
+
+    await dm.selectConfigMenuItem('objectOutput.output.oArr1D', 'Add Element');
+
+    await dmWebView.locator('div[id="recordfield-objectOutput.output.oArr1D.0"]').waitFor();
+
+    console.log(' - Add element using button');
+    const addElementBtn = dmWebView.getByTestId('array-widget-objectOutput.output.oArr1D.IN-add-element');
+    await addElementBtn.click();
+    await dm.waitForProgressEnd();
+    await dmWebView.locator('div[id="recordfield-objectOutput.output.oArr1D.1"]').waitFor();
+
+    await addElementBtn.click();
+    await dm.waitForProgressEnd();
+    await dmWebView.locator('div[id="recordfield-objectOutput.output.oArr1D.2"]').waitFor();
+
+
+    console.log(' - Map to array elements');
+    await dm.mapFields('input.p1', 'objectOutput.output.oArr1D.0.p1');
+    const loc4 = dmWebView.getByTestId('link-from-input.p1.OUT-to-objectOutput.output.oArr1D.0.p1.IN');
+    await dm.expectErrorLink(loc4);
+
+    await dm.mapFields('input.p2', 'objectOutput.output.oArr1D.1.p1');
+    await dmWebView.getByTestId('link-from-input.p2.OUT-to-objectOutput.output.oArr1D.1.p1.IN').waitFor({ state: 'attached' });
+
+    await dm.mapFields('input.p1', 'objectOutput.output.oArr1D.2', 'direct');
+    const loc5 = dmWebView.getByTestId('link-from-input.p1.OUT-to-objectOutput.output.oArr1D.2.IN');
+    await dm.expectErrorLink(loc5);
+
+    expect(await verifyFileContent(`array/${compDir}/map3.bal.txt`, projectFile)).toBeTruthy();
+
+    console.log(' - Delete array element mappings and elements');
+    await loc4.click({ force: true });
+    await dmWebView.getByTestId('expression-label-for-input.p1.OUT-to-objectOutput.output.oArr1D.0.p1.IN')
+        .locator('.codicon-trash').click({ force: true });
+    await loc4.waitFor({ state: 'detached' });
+
+    
+    await loc5.click({ force: true });
+    await dmWebView.getByTestId('expression-label-for-input.p1.OUT-to-objectOutput.output.oArr1D.2.IN')
+        .locator('.codicon-trash').click({ force: true });
+    await loc5.waitFor({ state: 'detached' });
+
+    await dm.selectConfigMenuItem('objectOutput.output.oArr1D.1', 'Delete Element');
+    await dm.waitForProgressEnd();
+    await dmWebView.locator('div[id="recordfield-objectOutput.output.oArr1D.1"]').waitFor({ state: 'detached' });
+
+    expect(await verifyFileContent(`array/${compDir}/del3.bal.txt`, projectFile)).toBeTruthy();
+
+    await dm.selectConfigMenuItem('objectOutput.output.oArr1D', 'Delete Array');
+
+    expect(await verifyFileContent(`array/${compDir}/del4.bal.txt`, projectFile)).toBeTruthy();
 }
