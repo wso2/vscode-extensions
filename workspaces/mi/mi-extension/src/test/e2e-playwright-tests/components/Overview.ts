@@ -141,7 +141,7 @@ export class Overview {
         await popupPanel.getByText('Save Changes').click();
         const loader = this.webView.locator('[data-testid="dependency-manager-loader"]');
         await loader.waitFor({ state: 'detached', timeout: 10000 });
-        const newDependencyItemComponent = popupPanel.locator('[data-testid="mysql-mysql-connector--java-8.0.33"]');
+        const newDependencyItemComponent = popupPanel.locator('[data-testid="mysql-mysql-connector-java-8.0.32"]');
         await newDependencyItemComponent.waitFor({ state: 'visible', timeout: 10000 });
     }
 
@@ -193,7 +193,7 @@ export class Overview {
         const loader = this.webView.locator('[data-testid="dependency-manager-loader"]');
         await loader.waitFor({ state: 'detached', timeout: 10000 });
         const newDependencyItemComponent = popupPanel.locator(
-            '[data-testid="org.wso2.integration.connector-mi-connector--amazonsqs-2.0.3"]'
+            '[data-testid="org.wso2.integration.connector-mi-connector-amazonsqs-3.0.1"]'
         );
         await newDependencyItemComponent.waitFor({ state: 'visible', timeout: 10000 });
     }
