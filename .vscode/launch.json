@@ -242,7 +242,9 @@
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}/workspaces/ballerina/ballerina-extension",
                 "--extensionTestsPath=${workspaceFolder}/workspaces/ballerina/ballerina-extension/out/test",
-                "${workspaceFolder}/workspaces/ballerina/ballerina-extension/test/data/bi_empty"
+                "${workspaceFolder}/workspaces/ballerina/ballerina-extension/test/data/bi_empty_project",
+                "${workspaceFolder}/workspaces/ballerina/ballerina-extension/test/data/bi_init",
+                "${workspaceFolder}/workspaces/ballerina/ballerina-extension/test/data/simple_order_management_system"
             ],
             "env": {
                 "LS_EXTENSIONS_PATH": "",
