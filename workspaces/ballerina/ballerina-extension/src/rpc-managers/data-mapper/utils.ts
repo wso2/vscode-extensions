@@ -76,7 +76,7 @@ export async function fetchDataMapperCodeData(
     varName: string
 ): Promise<CodeData> {
     // TODO: Remove this modification once the server supports code shrinking scenarios
-    const modifiedCodeData = { ...codedata, lineRange : { ...codedata.lineRange, endLine: codedata.lineRange.startLine } };
+    const modifiedCodeData = { ...codedata, lineRange: { ...codedata.lineRange, endLine: codedata.lineRange.startLine } };
     const response = await StateMachine
         .langClient()
         .getDataMapperCodedata({ filePath, codedata: modifiedCodeData, name: varName });
@@ -103,13 +103,13 @@ export async function fetchSubMappingCodeData(
  * @param updateSourceCodeRequest - The request containing text edits to apply.
  * @returns Updated artifacts after applying the last text edits.
  */
-    
-export async function updateSourceCodeIteratively(updateSourceCodeRequest: UpdateSourceCodeRequest){
+
+export async function updateSourceCodeIteratively(updateSourceCodeRequest: UpdateSourceCodeRequest) {
     const textEdits = updateSourceCodeRequest.textEdits;
     const filePaths = Object.keys(textEdits);
 
     if (filePaths.length == 1) {
-        return await updateSourceCode(updateSourceCodeRequest);
+        return await updateSourceCode(updateSourceCodeRequest, null, 'Data Mapper Update');
     }
 
     // TODO: Remove this once the designModelService/publishArtifacts API supports simultaneous file changes
@@ -120,7 +120,7 @@ export async function updateSourceCodeIteratively(updateSourceCodeRequest: Updat
             if (filePath.endsWith("data_mappings.bal")) { return 1; }
             return 0;
         };
-        
+
         const aPriority = getPriority(a);
         const bPriority = getPriority(b);
         return bPriority - aPriority; // Sort descending (highest priority first)
@@ -132,7 +132,7 @@ export async function updateSourceCodeIteratively(updateSourceCodeRequest: Updat
 
     let updatedArtifacts: ProjectStructureArtifactResponse[];
     for (const request of requests) {
-        updatedArtifacts = await updateSourceCode(request);
+        updatedArtifacts = await updateSourceCode(request, null, 'Data Mapper Update');
     }
 
     return updatedArtifacts;
@@ -156,7 +156,7 @@ export async function updateSource(
     try {
         // Update source code and get artifacts
         const updatedArtifacts = await updateSourceCodeIteratively({ textEdits });
-        
+
         // Find the artifact that contains our code changes
         const relevantArtifact = findRelevantArtifact(updatedArtifacts, filePath, codedata.lineRange);
         if (!relevantArtifact) {
@@ -210,7 +210,7 @@ export async function updateSubMappingSource(
     name: string
 ): Promise<CodeData> {
     try {
-        await updateSourceCode({ textEdits });
+        await updateSourceCode({ textEdits }, null, 'Sub Mapping Update');
         return await fetchSubMappingCodeData(filePath, codedata, name);
     } catch (error) {
         console.error(`Failed to update source for sub mapping "${name}" in ${filePath}:`, error);
@@ -223,8 +223,8 @@ export async function updateSubMappingSource(
  * Recursively searches through artifact hierarchy to find the most specific match.
  */
 function findRelevantArtifact(
-    artifacts: ProjectStructureArtifactResponse[], 
-    filePath: string, 
+    artifacts: ProjectStructureArtifactResponse[],
+    filePath: string,
     lineRange: ELineRange
 ): ProjectStructureArtifactResponse | null {
     if (!artifacts || artifacts.length === 0) {
@@ -239,7 +239,7 @@ function findRelevantArtifact(
                 // Return the nested match if found, otherwise return the current artifact
                 return nestedMatch || currentArtifact;
             }
-            
+
             // No nested resources
             return currentArtifact;
         }
@@ -257,13 +257,13 @@ async function getFlowModelForArtifact(artifact: ProjectStructureArtifactRespons
             .langClient()
             .getFlowModel({
                 filePath,
-                startLine: { 
-                    line: artifact.position.startLine, 
-                    offset: artifact.position.startColumn 
+                startLine: {
+                    line: artifact.position.startLine,
+                    offset: artifact.position.startColumn
                 },
-                endLine: { 
-                    line: artifact.position.endLine, 
-                    offset: artifact.position.endColumn 
+                endLine: {
+                    line: artifact.position.endLine,
+                    offset: artifact.position.endColumn
                 }
             });
 
@@ -545,26 +545,60 @@ function processInputRoots(model: DMModel): IOType[] {
 }
 
 /**
+ * Processes type-specific logic based on TypeKind and returns the appropriate structure
+ */
+function processTypeKind(
+    type: IORoot | IOTypeField,
+    parentId: string,
+    model: DMModel,
+    visitedRefs: Set<string>
+): Partial<IOType> {
+    switch (type.kind) {
+        case TypeKind.Array:
+            if (type.member) {
+                return {
+                    member: processArray(parentId, type.member, model, visitedRefs)
+                };
+            }
+            break;
+
+        case TypeKind.Union:
+            if (type.members) {
+                return {
+                    members: processUnion(type.members, parentId, model, visitedRefs)
+                };
+            }
+            break;
+
+        case TypeKind.Enum:
+            if (type.members) {
+                return {
+                    members: processEnum(type.members, parentId)
+                };
+            }
+            break;
+
+        case TypeKind.Record:
+            if (type.ref) {
+                return processTypeReference(type.ref, parentId, model, visitedRefs);
+            }
+            break;
+    }
+    return {};
+}
+
+/**
  * Processes an IORoot (input or output) into an IOType
  */
 function processIORoot(root: IORoot, model: DMModel): IOType {
     const ioType = createBaseIOType(root);
 
-    if (root.kind === TypeKind.Array && root.member) {
-        return {
-            ...ioType,
-            member: processArray(root, root.name, root.member, model, new Set<string>())
-        };
-    }
+    const typeSpecificProps = processTypeKind(root, root.name, model, new Set<string>());
 
-    if (root.ref) {
-        return {
-            ...ioType,
-            ...processTypeReference(root.ref, root.name, model, new Set<string>())
-        };
-    }
-
-    return ioType;
+    return {
+        ...ioType,
+        ...typeSpecificProps
+    };
 }
 
 /**
@@ -574,12 +608,13 @@ function createBaseIOType(root: IORoot): IOType {
     const isEnum = root.kind === 'enum' || root.category === 'enum';
 
     const baseType: IOType = {
-        id: isEnum ? root.typeName : root.name,
-        name: isEnum ? root.typeName : root.name,
+        id: root.name,
+        name: root.name,
         typeName: root.typeName,
         kind: root.kind,
         ...(root.category && { category: root.category }),
-        ...(root.optional !== undefined && { optional: root.optional })
+        ...(root.optional !== undefined && { optional: root.optional }),
+        ...(root.typeInfo && { typeInfo: root.typeInfo })
     };
 
     if (isEnum && root.members) {
@@ -596,10 +631,9 @@ function createBaseIOType(root: IORoot): IOType {
 }
 
 /**
- * Processes array type fields and their members
+ * Processes array members
  */
 function processArray(
-    field: IOTypeField,
     parentId: string,
     member: IOTypeField,
     model: DMModel,
@@ -619,37 +653,22 @@ function processArray(
     }
 
     const ioType: IOType = {
-        id: fieldId,
+        id: parentId,
         name: member.name,
         displayName: member.displayName,
         typeName: member.typeName!,
         kind: member.kind,
         ...(isFocused && { isFocused }),
-        ...(member.optional !== undefined && { optional: member.optional })
+        ...(member.optional !== undefined && { optional: member.optional }),
+        ...(member.typeInfo && { typeInfo: member.typeInfo })
     };
 
-    if (member.kind === TypeKind.Array && member.member) {
-        return {
-            ...ioType,
-            member: processArray(field, parentId, member.member, model, visitedRefs)
-        };
-    }
+    const typeSpecificProps = processTypeKind(member, parentId, model, visitedRefs);
 
-    if (member.kind === TypeKind.Union && member.members) {
-        return {
-            ...ioType,
-            members: processUnion(member.members, fieldId, model, visitedRefs)
-        };
-    }
-
-    if (member.ref) {
-        return {
-            ...ioType,
-            ...processTypeReference(member.ref, parentId, model, visitedRefs)
-        };
-    }
-
-    return ioType;
+    return {
+        ...ioType,
+        ...typeSpecificProps
+    };
 }
 
 /**
@@ -670,31 +689,21 @@ function processUnion(
 ): IOType[] {
     return unionMembers.map(unionMember => {
         const unionMemberType: IOType = {
-            id: generateFieldId(parentFieldId, unionMember.name || 'member'),
+            id: parentFieldId,
             name: unionMember.name,
             displayName: unionMember.displayName,
             typeName: unionMember.typeName,
             kind: unionMember.kind,
-            ...(unionMember.optional !== undefined && { optional: unionMember.optional })
+            ...(unionMember.optional !== undefined && { optional: unionMember.optional }),
+            ...(unionMember.typeInfo && { typeInfo: unionMember.typeInfo })
         };
 
-        // Process union member recursively if it has a reference
-        if (unionMember.ref) {
-            return {
-                ...unionMemberType,
-                ...processTypeReference(unionMember.ref, parentFieldId, model, visitedRefs)
-            };
-        }
+        const typeSpecificProps = processTypeKind(unionMember, parentFieldId, model, visitedRefs);
 
-        // Process union member if it's an array
-        if (unionMember.kind === TypeKind.Array && unionMember.member) {
-            return {
-                ...unionMemberType,
-                member: processArray(unionMember, parentFieldId, unionMember.member, model, visitedRefs)
-            };
-        }
-
-        return unionMemberType;
+        return {
+            ...unionMemberType,
+            ...typeSpecificProps
+        };
     });
 }
 
@@ -756,30 +765,32 @@ function processTypeFields(
             displayName: field.displayName,
             typeName: field.typeName,
             kind: field.kind,
-            ...(field.optional !== undefined && { optional: field.optional })
+            ...(field.optional !== undefined && { optional: field.optional }),
+            ...(field.typeInfo && { typeInfo: field.typeInfo })
         };
 
-        if (field.kind === TypeKind.Record && field.ref) {
-            return {
-                ...ioType,
-                ...processTypeReference(field.ref, fieldId, model, new Set(visitedRefs))
-            };
-        }
+        const typeSpecificProps = processTypeKind(field, fieldId, model, new Set(visitedRefs));
 
-        if (field.kind === TypeKind.Array && field.member) {
-            return {
-                ...ioType,
-                member: processArray(field, fieldId, field.member, model, new Set(visitedRefs))
-            };
-        }
-
-        if (field.kind === TypeKind.Union && field.members) {
-            return {
-                ...ioType,
-                members: processUnion(field.members, fieldId, model, new Set(visitedRefs))
-            };
-        }
-
-        return ioType;
+        return {
+            ...ioType,
+            ...typeSpecificProps
+        };
     });
+}
+
+/**
+ * Processes enum type members and returns an IOType with processed members
+ */
+function processEnum(
+    enumMembers: IOTypeField[],
+    parentId: string
+): IOType[] {
+    return enumMembers.map(member => ({
+        id: parentId,
+        name: member.typeName,
+        displayName: member.typeName,
+        typeName: member.typeName,
+        kind: member.kind,
+        ...(member.optional !== undefined && { optional: member.optional })
+    }));
 }

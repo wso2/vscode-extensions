@@ -57,7 +57,17 @@ export class TypeEditorUtils {
             if (!iframe) {
                 throw new Error('WSO2 Integrator: BI iframe not found');
             }
-            await iframe.getByRole('button', { name: ` ${value}`, exact: true }).click();
+            const dropdownOptions = iframe.getByText(value, { exact: true });
+            const optionCount = await dropdownOptions.count();
+
+            if (optionCount === 1) {
+                await dropdownOptions.first().click();
+            } else if (optionCount > 1) {
+                // In case of dropdown appear
+                await dropdownOptions.nth(1).click();
+            } else {
+                throw new Error(`No dropdown option found for value: ${value}`);
+            }
         } catch (error) {
             console.error('Error switching to iframe:', error);
             throw error;

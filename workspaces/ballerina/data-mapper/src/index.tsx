@@ -74,10 +74,11 @@ export interface DataMapperEditorProps {
     mapWithCustomFn: (mapping: Mapping, metadata: FnMetadata, viewId: string) => Promise<void>;
     mapWithTransformFn: (mapping: Mapping, metadata: FnMetadata, viewId: string) => Promise<void>;
     goToFunction: (functionRange: LineRange) => Promise<void>;
-    enrichChildFields: (parentField: IOType) => void;
+    enrichChildFields: (parentField: IOType) => Promise<void>;
     onClose: () => void;
     onEdit?: () => void;
     handleView: (viewId: string, isSubMapping?: boolean) => void;
+    undoRedoGroup: () => JSX.Element;
 }
 
 export interface DataMapperProps extends DataMapperEditorProps {

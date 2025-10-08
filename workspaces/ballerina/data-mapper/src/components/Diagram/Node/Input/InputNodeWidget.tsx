@@ -18,7 +18,7 @@
 // tslint:disable: jsx-no-multiline-js
 import React, { useState } from "react";
 
-import { Button, Codicon, TruncatedLabel } from "@wso2/ui-toolkit";
+import { Button, Codicon, TruncatedLabel, TruncatedLabelGroup } from "@wso2/ui-toolkit";
 import { DiagramEngine } from '@projectstorm/react-diagrams';
 import { IOType, TypeKind } from "@wso2/ballerina-core";
 
@@ -30,6 +30,7 @@ import { useIONodesStyles } from "../../../styles";
 import { useDMCollapsedFieldsStore, useDMExpandedFieldsStore, useDMIOConfigPanelStore } from '../../../../store/store';
 import { getTypeName } from "../../utils/type-utils";
 import { useShallow } from "zustand/react/shallow";
+import { InputCategoryIcon } from "./InputCategoryIcon";
 
 export interface InputNodeWidgetProps {
     id: string; // this will be the root ID used to prepend for UUIDs of nested fields
@@ -37,12 +38,11 @@ export interface InputNodeWidgetProps {
     engine: DiagramEngine;
     getPort: (portId: string) => InputOutputPortModel;
     valueLabel?: string;
-    nodeHeaderSuffix?: string;
     focusedInputs?: string[];
 }
 
 export function InputNodeWidget(props: InputNodeWidgetProps) {
-    const { engine, dmType, id, getPort, valueLabel, nodeHeaderSuffix, focusedInputs } = props;
+    const { engine, dmType, id, getPort, valueLabel, focusedInputs } = props;
     
     const [portState, setPortState] = useState<PortState>(PortState.Unselected);
     const [isHovered, setIsHovered] = useState(false);
@@ -80,16 +80,16 @@ export function InputNodeWidget(props: InputNodeWidgetProps) {
     }
 
     const label = (
-        <TruncatedLabel style={{ marginRight: "auto" }}>
-            <span className={classes.valueLabelHeader}>
+        <TruncatedLabelGroup style={{ alignItems: "baseline" }}>
+            <TruncatedLabel className={classes.valueLabelHeader}>
                 <InputSearchHighlight>{valueLabel ? valueLabel : id}</InputSearchHighlight>
-            </span>
+            </TruncatedLabel>
             {typeName && (
-                <span className={isUnknownType ? classes.unknownTypeLabel : classes.typeLabel}>
+                <TruncatedLabel className={isUnknownType ? classes.unknownTypeLabel : classes.typeLabel}>
                     {typeName}
-                </span>
+                </TruncatedLabel>
             )}
-        </TruncatedLabel>
+        </TruncatedLabelGroup>
     );
 
     const handleExpand = () => {
@@ -148,7 +148,7 @@ export function InputNodeWidget(props: InputNodeWidgetProps) {
                         </Button>
                     )}
                     {label}
-                    <span className={classes.nodeType}>{nodeHeaderSuffix}</span>
+                    <InputCategoryIcon category={dmType.category} />
                 </span>
                 <span className={classes.outPort}>
                     {portOut &&

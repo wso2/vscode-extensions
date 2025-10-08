@@ -254,6 +254,8 @@ const MainPanel = (props: MainPanelProps) => {
                     documentUri={visualizerState.customProps?.documentUri}
                     tsFilePath={visualizerState.customProps?.tsFilePath}
                     description={visualizerState.customProps?.description}
+                    inputType={visualizerState.customProps?.inputType}
+                    outputType={visualizerState.customProps?.outputType}
                 />);
                 break;
             case MACHINE_VIEW.InboundEPForm:

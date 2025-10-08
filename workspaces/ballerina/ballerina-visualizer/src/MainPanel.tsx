@@ -190,7 +190,7 @@ const LoadingText = styled.div`
 const MainPanel = () => {
     const { rpcClient } = useRpcContext();
     const { sidePanel, setSidePanel, popupMessage, setPopupMessage, activePanel, showOverlay, setShowOverlay } = useVisualizerContext();
-    const {modalStack, closeModal} = useModalStack()
+    const { modalStack, closeModal } = useModalStack()
     const [viewComponent, setViewComponent] = useState<React.ReactNode>();
     const [navActive, setNavActive] = useState<boolean>(true);
     const [showHome, setShowHome] = useState<boolean>(true);
@@ -254,7 +254,10 @@ const MainPanel = () => {
             },
         });
         if (parseSuccess) {
-            rpcClient.getVisualizerRpcClient().addToUndoStack(newSource);
+            rpcClient.getVisualizerRpcClient().addToUndoStack({
+                source: newSource,
+                filePath,
+            });
             await langServerRPCClient.updateFileContent({
                 content: newSource,
                 filePath,
@@ -352,7 +355,7 @@ const MainPanel = () => {
                         } else {
                             // To support rerendering when user click on view all btn from left side panel
                             setViewComponent(
-                                <TypeDiagram key={`type-${Date.now()}`}
+                                <TypeDiagram key={value?.rootDiagramId ? value.rootDiagramId : `default-diagram`}
                                     selectedTypeId={value?.identifier}
                                     projectUri={value?.projectUri}
                                     addType={value?.addType}
@@ -452,9 +455,9 @@ const MainPanel = () => {
                     case MACHINE_VIEW.BIServiceClassDesigner:
                         setViewComponent(
                             <ServiceClassDesigner
-                                type={value?.type}
+                                fileName={value?.documentUri}
+                                position={value?.position}
                                 isGraphql={value?.isGraphql}
-                                projectUri={value?.projectUri}
                             />
                         );
                         break;
@@ -569,7 +572,7 @@ const MainPanel = () => {
             <Global styles={globalStyles} />
             <VisualizerContainer>
                 {/* {navActive && <NavigationBar showHome={showHome} />} */}
-                {(showOverlay || modalStack.length > 0) && <Overlay/>}
+                {(showOverlay || modalStack.length > 0) && <Overlay />}
                 {viewComponent && <ComponentViewWrapper>{viewComponent}</ComponentViewWrapper>}
                 {!viewComponent && (
                     <ComponentViewWrapper>
@@ -617,12 +620,12 @@ const MainPanel = () => {
                 )}
                 {
                     modalStack.map((modal) => (
-                       <Popup title={modal.title} onClose={() => handlePopupClose(modal.id)} key={modal.id} width={modal.width} height={modal.height}>{modal.modal}</Popup>
+                        <Popup title={modal.title} onClose={() => handlePopupClose(modal.id)} key={modal.id} width={modal.width} height={modal.height}>{modal.modal}</Popup>
                     ))
                 }
             </VisualizerContainer>
         </>
     );
-};  
+};
 
 export default MainPanel;

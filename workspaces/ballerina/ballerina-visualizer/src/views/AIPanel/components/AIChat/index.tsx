@@ -1342,6 +1342,12 @@ const AIChat: React.FC = () => {
                     `A function named "${functionName}" was not found in the project. Please provide a valid function name.`
                 );
             }
+
+            if (result.match[2] === "") {
+                throw new Error(
+                    `A function named "${functionName}" is not a valid datamapper function.`
+                );
+            }
             const params = result.match[2].split(/,\s*/).map((param) => param.trim().split(/\s+/));
             inputParams = params.map((parts) => parts[0]);
             inputNames = params.map((parts) => parts[1]);
@@ -1479,7 +1485,7 @@ const AIChat: React.FC = () => {
             assistant_response = `Here are the data mappings:\n\n`;
             assistant_response += `\n**Note**: When you click **Add to Integration**, it will override your existing mappings.\n`;
 
-            const moduleInfo = metadata.mappingsModel.output.moduleInfo;
+            const moduleInfo = metadata.mappingsModel.output.typeInfo;
             const hasModuleInfo = moduleInfo && moduleInfo.moduleName;
 
             const typePrefix = hasModuleInfo ? `${moduleInfo.moduleName.split(".").pop()}:${typeName}` : typeName;

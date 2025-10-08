@@ -47,11 +47,11 @@ export class Form {
         }
     }
 
-    public async switchToFormView(isPopUp?: boolean) {
+    public async switchToFormView(isPopUp?: boolean, timeout: number = 30000) {
         if (!this._name || !this._page) {
             throw new Error("Name and Page are required to switch to Form View");
         }
-        const webview = await switchToIFrame(this._name, this._page)
+        const webview = await switchToIFrame(this._name, this._page, timeout);
         if (!webview) {
             throw new Error("Failed to switch to Form View iframe");
         }
@@ -75,10 +75,10 @@ export class Form {
         await cancelBtn.click();
     }
 
-    public async submit(btnText: string = "Create") {
+    public async submit(btnText: string = "Create", forceClick: boolean = false) {
         const submitBtn = await getVsCodeButton(this.container, btnText, "primary");
         expect(await submitBtn.isEnabled()).toBeTruthy();
-        await submitBtn.click();
+        await submitBtn.click({ force: forceClick });
     }
 
     public async fill(props: FormFillProps) {

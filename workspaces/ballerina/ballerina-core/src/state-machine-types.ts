@@ -121,6 +121,7 @@ export interface VisualizerLocation {
     documentUri?: string;
     projectUri?: string;
     identifier?: string;
+    parentIdentifier?: string;
     artifactType?: DIRECTORY_MAP;
     position?: NodePosition;
     syntaxTree?: STNode;
@@ -130,6 +131,7 @@ export interface VisualizerLocation {
     type?: Type;
     addType?: boolean;
     isGraphql?: boolean;
+    rootDiagramId?: string;
     metadata?: VisualizerMetadata;
     scope?: SCOPE;
     projectStructure?: ProjectStructureResponse;

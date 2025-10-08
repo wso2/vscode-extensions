@@ -36,12 +36,15 @@ export class ClassMediator {
     public async createClassMediatorFromProjectExplorer(className: string) {
         const projectExplorer = new ProjectExplorer(this._page);
         await projectExplorer.goToOverview("testProject");
+        console.log("Adding Class Mediator from Project Explorer");
         await projectExplorer.addArtifact(['Project testProject', 'Other Artifacts', 'Class Mediators']);
+        console.log("Add Class Mediator clicked");
 
-        const cmWebview = await switchToIFrame('ClassMediator Creation Form', this._page);
+        const cmWebview = await switchToIFrame('ClassMediator Creation Form', this._page, 120000);
         if (!cmWebview) {
             throw new Error("Failed to switch to Class Mediator Form iframe");
         }
+        console.log("Class Mediator Form iframe switched");
         const classMediatorFrame = cmWebview.locator('div#root');
         await classMediatorFrame.getByRole('textbox', { name: 'Package Name*' }).fill('org.wso2.sample');
         await classMediatorFrame.getByRole('textbox', { name: 'Class Name*' }).fill(className);
@@ -69,7 +72,11 @@ export class ClassMediator {
 
     public async clear(classNames: string[]) {
         for (const className of classNames) {
-            await this._page.getByRole('tab', { name: className }).getByLabel('Close').click();
+            try {
+                await this._page.getByRole('tab', { name: className }).getByLabel('Close').click();
+            } catch (error) {
+                console.error(`Failed to close class mediator tab for ${className}: ${error}`);
+            }
         }
     }
 }
