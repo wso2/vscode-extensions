@@ -1128,7 +1128,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                                 field.onChange(e.target.value);
                             }}
                         />
-                    )
+                    );
                 }
                 return (
                     <div>
