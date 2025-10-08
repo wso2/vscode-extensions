@@ -245,7 +245,7 @@ export function createNewComponentCommand(context: ExtensionContext) {
 						organization: selectedOrg!,
 						project: selectedProject!,
 						extensionName: webviewStateStore.getState().state.extensionName,
-						isNewCodeServerComp: isGitInitialized === false && !!process.env.CLOUD_STS_TOKEN,
+						isNewCodeServerComp: isGitInitialized === false && ext.isDevantCloudEditor,
 						initialValues: {
 							type: selectedType,
 							subType: selectedSubType,
@@ -331,7 +331,7 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 			const dotGit = await newGit?.getRepositoryDotGit(createParams.componentDir);
 			const projectCache = dataCacheStore.getState().getProjects(org.handle);
 			if (newGit && gitRoot && dotGit) {
-				if (process.env.CLOUD_STS_TOKEN) {
+				if (ext.isDevantCloudEditor) {
 					// update the code server, to attach itself to the created component
 					const repo = newGit.open(gitRoot, dotGit);
 					const head = await repo.getHEAD();
@@ -378,7 +378,7 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 
 		const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSubpath(item.uri?.fsPath, createParams.componentDir));
 
-		if (process.env.CLOUD_STS_TOKEN) {
+		if (ext.isDevantCloudEditor) {
 			await ext.context.globalState.update("code-server-component-id", createdComponent.metadata?.id);
 		}
 

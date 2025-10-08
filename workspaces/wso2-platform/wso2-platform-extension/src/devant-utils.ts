@@ -22,10 +22,8 @@ import { initGit } from "./git/main";
 import { getLogger } from "./logger/logger";
 
 export const activateDevantFeatures = () => {
-	if (process.env.CLOUD_STS_TOKEN) {
-		autoRefetchDevantStsToken();
-		showRepoSyncNotification();
-	}
+	autoRefetchDevantStsToken();
+	showRepoSyncNotification();
 };
 
 const autoRefetchDevantStsToken = () => {

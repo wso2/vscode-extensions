@@ -197,7 +197,7 @@ const getAllContexts = async (previousItems: { [key: string]: ContextItemEnriche
 };
 
 const getSelected = async (items: { [key: string]: ContextItemEnriched }, prevSelected?: ContextItemEnriched) => {
-	if (process.env.CLOUD_STS_TOKEN && process.env.CLOUD_INITIAL_ORG_ID && process.env.CLOUD_INITIAL_PROJECT_ID) {
+	if (ext.isDevantCloudEditor && process.env.CLOUD_INITIAL_ORG_ID && process.env.CLOUD_INITIAL_PROJECT_ID) {
 		// Give priority to project provided as env variable, when running in the cloud editor
 		const userOrgs = authStore.getState().state.userInfo?.organizations;
 		const matchingOrg = userOrgs?.find(
@@ -340,7 +340,7 @@ const getComponentsInfo = async (selected?: ContextItemEnriched): Promise<Contex
 
 const getFilteredComponents = (components: ComponentKind[]) => {
 	const workspaceCompId: string | null | undefined = ext.context.workspaceState.get("code-server-component-id") || process.env.SOURCE_COMPONENT_ID; //
-	if (process.env.CLOUD_STS_TOKEN && process.env.CLOUD_INITIAL_ORG_ID && process.env.CLOUD_INITIAL_PROJECT_ID && workspaceCompId) {
+	if (ext.isDevantCloudEditor && process.env.CLOUD_INITIAL_ORG_ID && process.env.CLOUD_INITIAL_PROJECT_ID && workspaceCompId) {
 		const filteredComps = components.filter((item) => item.metadata?.id === workspaceCompId);
 		if (filteredComps.length === 1) {
 			return filteredComps;

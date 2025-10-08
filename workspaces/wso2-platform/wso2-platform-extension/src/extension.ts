@@ -28,7 +28,7 @@ import { activateCodeLenses } from "./code-lens";
 import { activateDevantFeatures } from "./devant-utils";
 import { ext } from "./extensionVariables";
 import { getLogger, initLogger } from "./logger/logger";
-import { activateMcp } from "./mcp";
+import { activateChoreoMcp } from "./mcp";
 import { activateStatusbar } from "./status-bar";
 import { authStore } from "./stores/auth-store";
 import { contextStore } from "./stores/context-store";
@@ -79,10 +79,14 @@ export async function activate(context: vscode.ExtensionContext) {
 			await ext.clients.rpcClient.init();
 			authStore.getState().initAuth();
 			continueCreateComponent();
-			addTerminalHandlers();
-			context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("*", new ChoreoConfigurationProvider()));
-			activateMcp(context);
-			activateDevantFeatures();
+			if (ext.isChoreoExtInstalled) {
+				addTerminalHandlers();
+				context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("*", new ChoreoConfigurationProvider()));
+				activateChoreoMcp(context);
+			}
+			if (ext.isDevantCloudEditor) {
+				activateDevantFeatures();
+			}
 			getLogger().debug("WSO2 Platform Extension activated");
 			ext.config = await ext.clients.rpcClient.getConfigFromCli();
 		})

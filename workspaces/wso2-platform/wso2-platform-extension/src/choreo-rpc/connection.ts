@@ -37,7 +37,7 @@ export class StdioConnection {
 		this._serverProcess = spawn(executablePath, ["start-rpc-server"], {
 			env: {
 				...process.env,
-				SKIP_KEYRING: process.env.CLOUD_STS_TOKEN ? "true" : "",
+				SKIP_KEYRING: ext.isDevantCloudEditor ? "true" : "",
 				CHOREO_ENV: ext.choreoEnv,
 				CHOREO_REGION: region,
 			},

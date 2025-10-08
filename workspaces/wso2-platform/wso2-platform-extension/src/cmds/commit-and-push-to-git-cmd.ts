@@ -195,7 +195,7 @@ export const enrichGitUsernamePassword = async (
 	fetchUrl: string,
 	secretRef: string,
 ) => {
-	if (process.env.CLOUD_STS_TOKEN && provider === GitProvider.GITHUB && !urlObj.password) {
+	if (ext.isDevantCloudEditor && provider === GitProvider.GITHUB && !urlObj.password) {
 		try {
 			getLogger().debug(`Fetching PAT for org ${repoOrg} and repo ${repoName}`);
 			const gitPat = await window.withProgress(
