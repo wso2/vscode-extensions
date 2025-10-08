@@ -170,14 +170,14 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
         await handleChange(newTextValue, newCursorPosition);
         onCompletionSelect && await onCompletionSelect(newTextValue, item);
         setCursor(inputRef, 'input', newTextValue, newCursorPosition, manualFocusTrigger);
-        handleCancel();
+        handleClose();
     };
 
     const handleExpressionSave = async (value: string, ref?: React.MutableRefObject<string>) => {
         if(ref) value = ref.current;
         const valueWithClosingBracket = addClosingBracketIfNeeded(value);
         onSave && await onSave(valueWithClosingBracket);
-        handleCancel();
+        handleClose();
     }
 
     // Mutation functions
@@ -289,7 +289,7 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
                 switch (e.key) {
                     case 'Escape':
                         e.preventDefault();
-                        handleCancel();
+                        handleClose();
                         return;
                     case 'ArrowDown': {
                         e.preventDefault();
@@ -317,17 +317,24 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
             }
         }
 
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            await handleExpressionSaveMutation(value);
+            return;
+        }
+
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            handleCancel();
+            return;
+        }
+
         if (onManualCompletionRequest && e.ctrlKey && e.key === ' ') {
             e.preventDefault();
             await onManualCompletionRequest();
             return;
         }
 
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            await handleExpressionSaveMutation(value);
-            return;
-        }
     };
 
     const handleRefFocus = (manualTrigger?: boolean) => {
