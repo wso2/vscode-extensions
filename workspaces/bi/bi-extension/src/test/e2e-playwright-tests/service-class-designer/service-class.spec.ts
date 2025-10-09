@@ -46,15 +46,15 @@ export default function createTests() {
             // Create service class
             const serviceForm = await serviceClassUtils.createServiceClass(sampleName, [
                 { name: 'name', returnType: 'string', type: 'Resource' },
-                { name: 'age', returnType: 'int', type: 'Remote'}
+                { name: 'age', returnType: 'int', type: 'Remote' }
             ], [
                 { name: 'firstName', type: 'string' },
-                {name: 'id', type: 'int' }
+                { name: 'id', type: 'int' }
             ]);
             
             await serviceClassUtils.renameServiceClass(`Service${testAttempt}`);
             await serviceClassUtils.editMethod('name', 'fullName');
             await serviceClassUtils.deleteVariable('id');
-        })
+        });
     });
 }
