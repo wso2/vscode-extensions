@@ -20,11 +20,10 @@ import React, { ReactNode, useEffect, useRef, useState } from "react";
 import { SlidingPaneContext, useSlidingPane } from "./context";
 import styled from '@emotion/styled';
 import { Codicon } from "../../../../Codicon/Codicon";
-import { VERTICAL_HELPERPANE_HEIGHT } from "../../../constants";
+import { BI_HELPER_PANE_WIDTH, VERTICAL_HELPERPANE_HEIGHT } from "../../../constants";
 import { ThemeColors } from "../../../../../styles";
 
 const DEFAULT_SLIDING_WINDOW_HEIGHT = `${VERTICAL_HELPERPANE_HEIGHT}px`;
-const DEFAULT_SLIDING_WINDOW_WIDTH = 370;
 
 type SlidingWindowProps = {
     children: React.ReactNode;
@@ -55,7 +54,7 @@ export const SlidingWindow = ({ children }: SlidingWindowProps) => {
     }]);
     const [prevPage, setPrevPage] = useState<VisitedPagesElement>();
     const [height, setHeight] = useState(DEFAULT_SLIDING_WINDOW_HEIGHT);
-    const [width, setWidth] = useState(DEFAULT_SLIDING_WINDOW_WIDTH);
+    const [width, setWidth] = useState(BI_HELPER_PANE_WIDTH);
     const [clearAnimations, setClearAnimations] = useState(false);
     const isInitialRender = useRef(true);
 
@@ -135,7 +134,7 @@ export const SlidingPane = ({ children, name, paneHeight, paneWidth }: SlidingPa
                 setClearAnimations(false);
             }, 50);
             setHeight(paneHeight || DEFAULT_SLIDING_WINDOW_HEIGHT);
-            setWidth(paneWidth || DEFAULT_SLIDING_WINDOW_WIDTH);
+            setWidth(paneWidth || BI_HELPER_PANE_WIDTH);
             setTimeout(() => {
                 setIndex(0);
                 if (isInitialRender.current) {
