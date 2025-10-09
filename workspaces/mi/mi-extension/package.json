@@ -1034,7 +1034,7 @@
     "@types/json-schema": "7.0.15",
     "json-schema": "0.4.0",
     "portfinder": "^1.0.37",
-    "cors-anywhere": "^0.4.4",
+    "express": "^4.18.2",
     "@apidevtools/json-schema-ref-parser": "12.0.2",
     "adm-zip": "~0.5.16",
     "@wso2/mi-diagram": "workspace:*",
