@@ -20,8 +20,6 @@ export class SecureCorsProxy {
     private setupMiddleware(): void {
         // Security middleware
         this.app.use((req, res, next) => {
-            // Rate limiting (simple implementation)
-            const clientIP = req.ip || req.connection.remoteAddress;
             if (!this.isAllowedOrigin(req)) {
                 return res.status(403).json({ error: 'Origin not allowed' });
             }
@@ -43,7 +41,8 @@ export class SecureCorsProxy {
     }
 
     private setupRoutes(): void {
-        // Proxy route
+        // Proxy route - Only GET requests allowed for security reasons
+        // This minimizes SSRF risks and prevents data modification attacks
         this.app.get('/proxy/*', this.handleProxyRequest.bind(this));
     }
 
@@ -123,29 +122,29 @@ export class SecureCorsProxy {
     }
 
     private isPrivateOrLocalhost(hostname: string): boolean {
-        // Block private IP ranges and localhost
+        // Block private IP ranges and localhost using CIDR-like approach
         const privateRanges = [
             'localhost',
             '127.0.0.1',
             '::1',
             '0.0.0.0',
             '169.254.', // Link-local
-            '10.', // Class A private
-            '172.16.', '172.17.', '172.18.', '172.19.', '172.20.', '172.21.', '172.22.', '172.23.', '172.24.', '172.25.', '172.26.', '172.27.', '172.28.', '172.29.', '172.30.', '172.31.', // Class B private
-            '192.168.' // Class C private
+            '10.', // Class A private (10.0.0.0/8)
+            '172.16.', '172.17.', '172.18.', '172.19.', '172.20.', '172.21.', '172.22.', '172.23.', '172.24.', '172.25.', '172.26.', '172.27.', '172.28.', '172.29.', '172.30.', '172.31.', // Class B private (172.16.0.0/12)
+            '192.168.' // Class C private (192.168.0.0/16)
         ];
         
         return privateRanges.some(range => hostname.startsWith(range));
     }
 
     private isDangerousPort(port: number): boolean {
-        // Block common dangerous ports
+        // Block dangerous ports (excluding common web ports 8080, 8443 for legitimate services)
         const dangerousPorts = [
             22, 23, 25, 53, 110, 143, 993, 995, // Common service ports
             3389, 5900, 5901, // Remote desktop
             5432, 3306, 1433, 27017, // Database ports
             6379, 11211, // Cache ports
-            8080, 8443, 9090, 9091 // Common web ports
+            9090, 9091 // Management ports
         ];
         
         return dangerousPorts.includes(port);
