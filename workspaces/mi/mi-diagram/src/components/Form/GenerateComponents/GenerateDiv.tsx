@@ -89,7 +89,15 @@ const GenerateDiv = (props: GenerateDivProps) => {
                         }}>
                         {!isChecked && !isExpression && isConnection && generatedFormDetails["configKey"]}
                         {!isChecked && isExpression && generatedFormDetails[element.name].value}
-                        {!isChecked && !isExpression && generatedFormDetails[element.name]}
+                        {!isChecked && !isExpression && !isConnection && (() => {
+                            const value = generatedFormDetails[element.name];
+                            // Handle object with isExpression/value structure
+                            if (value && typeof value === 'object' && 'value' in value) {
+                                return value.value;
+                            }
+                            // Handle primitive values
+                            return value;
+                        })()}
                         {isChecked && !isExpression && (
                             <div
                                 style={{
