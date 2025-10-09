@@ -5115,7 +5115,7 @@ ${keyValuesXML}`;
                 swaggerContent = swagger;
             }
             const port = await getPortPromise({ port: 1000, stopPort: 3000 });
-            const { createSecureCorsProxy } = require('../utils/secure-cors-proxy');
+            const { createSecureCorsProxy } = require('../../utils/secure-cors-proxy');
             const cors_proxy = createSecureCorsProxy();
             await cors_proxy.listen(port, 'localhost');
 
@@ -5470,7 +5470,7 @@ ${keyValuesXML}`;
         }
         const generatedSwagger = response.swagger;
         const port = await getPortPromise({ port: 1000, stopPort: 3000 });
-        const { createSecureCorsProxy } = require('../utils/secure-cors-proxy');
+        const { createSecureCorsProxy } = require('../../utils/secure-cors-proxy');
         const cors_proxy = createSecureCorsProxy();
         await cors_proxy.listen(port, 'localhost');
 
