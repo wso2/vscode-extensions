@@ -140,13 +140,36 @@ if exist %WRAPPER_JAR% (
         echo Downloading from: %WRAPPER_URL%
     )
 
-    powershell -Command "&{"^
-		"$webclient = new-object System.Net.WebClient;"^
-		"if (-not ([string]::IsNullOrEmpty('%MVNW_USERNAME%') -and [string]::IsNullOrEmpty('%MVNW_PASSWORD%'))) {"^
-		"$webclient.Credentials = new-object System.Net.NetworkCredential('%MVNW_USERNAME%', '%MVNW_PASSWORD%');"^
-		"}"^
-		"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $webclient.DownloadFile('%WRAPPER_URL%', '%WRAPPER_JAR%')"^
-		"}"
+    @setlocal EnableDelayedExpansion
+
+    @REM Check whether Constraint Language Mode is enabled
+    for /f "usebackq delims=" %%A in (`powershell -Command 
+        "if ($ExecutionContext.SessionState.LanguageMode -eq 'ConstrainedLanguage') { Write-Output 'true' } else { Write-Output 'false' }"`) do (
+        set "IS_CONSTRAINED=%%A"
+    )
+    if /i "!IS_CONSTRAINED!"=="true" (
+        echo [WARN] PowerShell download failed, trying curl...
+        IF NOT "%MVNW_USERNAME%"=="" (
+            curl -L -u "%MVNW_USERNAME%:%MVNW_PASSWORD%" -o "%WRAPPER_JAR%" "%WRAPPER_URL%"
+        ) ELSE (
+            curl -L -o "%WRAPPER_JAR%" "%WRAPPER_URL%"
+        )
+        IF %ERRORLEVEL% NEQ 0 (
+            echo [ERROR] Failed to download %WRAPPER_JAR% using curl.
+            exit /b 1
+        )
+    ) else (     
+        powershell -Command "&{"^
+            "$webclient = new-object System.Net.WebClient;"^
+            "if (-not ([string]::IsNullOrEmpty('%MVNW_USERNAME%') -and [string]::IsNullOrEmpty('%MVNW_PASSWORD%'))) {"^
+            "$webclient.Credentials = new-object System.Net.NetworkCredential('%MVNW_USERNAME%', '%MVNW_PASSWORD%');"^
+            "}"^
+            "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $webclient.DownloadFile('%WRAPPER_URL%', '%WRAPPER_JAR%')"^
+            "}"
+    )
+
+    @endlocal
+
     if "%MVNW_VERBOSE%" == "true" (
         echo Finished downloading %WRAPPER_JAR%
     )
@@ -204,3 +227,4 @@ if "%MAVEN_BATCH_PAUSE%"=="on" pause
 if "%MAVEN_TERMINATE_CMD%"=="on" exit %ERROR_CODE%
 
 cmd /C exit /B %ERROR_CODE%
+
