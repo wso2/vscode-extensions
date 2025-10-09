@@ -193,7 +193,13 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     async reloadDependencies(): Promise<boolean> {
         return new Promise(async (resolve) => {
             const langClient = getStateMachine(this.projectUri).context().langClient!;
-            await langClient?.updateConnectorDependencies();
+            const updateDependenciesResult = await langClient?.updateConnectorDependencies();
+            if (!updateDependenciesResult.toLowerCase().startsWith("success")) {
+                await window.showWarningMessage(
+                    updateDependenciesResult,
+                    { modal: true }
+                );
+            }
             await extractCAppDependenciesAsProjects(this.projectUri);
             const loadResult = await langClient?.loadDependentCAppResources();
             if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
@@ -711,6 +717,21 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
         if (success) {
             const document = await workspace.openTextDocument(pomPath);
             await document.save();
+            // Format the pom content
+            const editorConfig = workspace.getConfiguration('editor');
+            let formattingOptions = {
+                    tabSize: editorConfig.get("tabSize") ?? 4,
+                    insertSpaces: editorConfig.get("insertSpaces") ?? false,
+                    trimTrailingWhitespace: editorConfig.get("trimTrailingWhitespace") ?? false
+                };
+            const edits = await vscode.commands.executeCommand<vscode.TextEdit[]>("vscode.executeFormatDocumentProvider",
+                            vscode.Uri.file(pomPath), formattingOptions);
+            if (edits && edits.length > 0) {
+                const edit = new vscode.WorkspaceEdit();
+                edit.set(vscode.Uri.file(pomPath), edits);
+                await vscode.workspace.applyEdit(edit);
+                await vscode.workspace.openTextDocument(pomPath).then(doc => doc.save());
+            }
             if (getStateMachine(this.projectUri).context().view === MACHINE_VIEW.Overview) {
                 refreshUI(this.projectUri);
             }
