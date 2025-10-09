@@ -163,15 +163,15 @@ importers:
       ai:
         specifier: ^4.3.16
         version: 4.3.19(react@19.1.0)(zod@3.25.76)
-      cors-anywhere:
-        specifier: ^0.4.4
-        version: 0.4.4
       del-cli:
         specifier: ^5.1.0
         version: 5.1.0
       dotenv:
         specifier: ~16.5.0
         version: 16.5.0
+      express:
+        specifier: ^4.18.2
+        version: 4.21.2
       file-uri-to-path:
         specifier: ^2.0.0
         version: 2.0.0
@@ -287,9 +287,6 @@ importers:
       decache:
         specifier: ^4.6.2
         version: 4.6.2
-      express:
-        specifier: ^4.18.2
-        version: 4.21.2
       istanbul:
         specifier: ^0.4.5
         version: 0.4.5
@@ -3262,12 +3259,12 @@ importers:
       copyfiles:
         specifier: ^2.4.1
         version: 2.4.1
-      cors-anywhere:
-        specifier: ^0.4.4
-        version: 0.4.4
       dotenv:
         specifier: ~16.5.0
         version: 16.5.0
+      express:
+        specifier: ^4.18.2
+        version: 4.21.2
       fast-xml-parser:
         specifier: ~5.2.3
         version: 5.2.5
@@ -11623,10 +11620,6 @@ packages:
   core-util-is@1.0.3:
     resolution: {integrity: sha512-ZQBvi1DcpJ4GDqanjucZ2Hj3wEO5pZDS89BWbkcrvdxksJorwUDDZamX9ldFkp9aw2lmBDLgkObEA4DWNJ9FYQ==}
 
-  cors-anywhere@0.4.4:
-    resolution: {integrity: sha512-8OBFwnzMgR4mNrAeAyOLB2EruS2z7u02of2bOu7i9kKYlZG+niS7CTHLPgEXKWW2NAOJWRry9RRCaL9lJRjNqg==}
-    engines: {node: '>=0.10.0'}
-
   cors@2.8.5:
     resolution: {integrity: sha512-KIHbLJqu73RGr/hnbrO9uBeixNGuvSQjul/jdFvS/KFSIH1hWVd1ng7zOHx+YrEfInLG7q4n6GHQ9cDtxv/P6g==}
     engines: {node: '>= 0.10'}
@@ -17896,9 +17889,6 @@ packages:
   proxy-addr@2.0.7:
     resolution: {integrity: sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==}
     engines: {node: '>= 0.10'}
-
-  proxy-from-env@0.0.1:
-    resolution: {integrity: sha512-B9Hnta3CATuMS0q6kt5hEezOPM+V3dgaRewkFtFoaRQYTVNsHqUvFXmndH06z3QO1ZdDnRELv5vfY6zAj/gG7A==}
 
   proxy-from-env@1.1.0:
     resolution: {integrity: sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==}
@@ -24259,7 +24249,10 @@ snapshots:
       jest-runner: 25.5.4
       jest-runtime: 25.5.4
     transitivePeerDependencies:
+      - bufferutil
+      - canvas
       - supports-color
+      - utf-8-validate
 
   '@jest/test-sequencer@29.7.0':
     dependencies:
@@ -35282,13 +35275,6 @@ snapshots:
 
   core-util-is@1.0.3: {}
 
-  cors-anywhere@0.4.4:
-    dependencies:
-      http-proxy: 1.18.1
-      proxy-from-env: 0.0.1
-    transitivePeerDependencies:
-      - debug
-
   cors@2.8.5:
     dependencies:
       object-assign: 4.1.1
@@ -43649,8 +43635,6 @@ snapshots:
     dependencies:
       forwarded: 0.2.0
       ipaddr.js: 1.9.1
-
-  proxy-from-env@0.0.1: {}
 
   proxy-from-env@1.1.0: {}
 
