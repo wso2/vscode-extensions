@@ -20,6 +20,7 @@ import { Frame, Keyboard, Locator, Page } from "@playwright/test";
 import { getVsCodeButton, switchToIFrame } from "@wso2/playwright-vscode-tester";
 import path from "path";
 import * as os from 'os';
+import { page } from "../Utils";
 
 const dataFolder = __dirname.replace('components', 'data');
 export class ConnectorStore {
@@ -97,8 +98,10 @@ export class ConnectorStore {
         const filePath = path.join(dataFolder, fileName);
         await this.fillLocationPath(filePath);
 
-        const submitBtn = await this.webView.waitForSelector(`vscode-button:text("Import")`);
-        await submitBtn.click();
+        await this._page.waitForTimeout(2000); // Wait for the file path to be processed
+        const importBtn = await getVsCodeButton(this.webView, "Import", "primary");
+        await importBtn.waitFor();
+        await importBtn.click({ force: true });
 
         const loader = this.webView.locator(`div:text("Importing Connector...")`);
         await loader.waitFor();
@@ -117,6 +120,21 @@ export class ConnectorStore {
         await keyboard.press('Backspace');
         await keyboard.type(path);
         await keyboard.press('Enter');
+    }
+
+    async downloadConnector(connectorName: string, view: Frame) {
+        console.log('Selecting connector');
+        const kafkaConnector = view.locator(`#connection-${connectorName}`);
+        await kafkaConnector.waitFor({ timeout: 120000 });
+        console.log('Clicking Kafka connector');
+        await kafkaConnector.click({ force: true });
+        await kafkaConnector.waitFor({ state: 'detached' });
+        console.log('Confirming download of connector dependency');
+        const connectorStore = new ConnectorStore(page.page, "Resource View");
+        await connectorStore.init();
+        await connectorStore.confirmDownloadDependency();
+        const downloadingConnector = view.locator(`span:text("Downloading connector...")`);
+        await downloadingConnector.waitFor({ state: 'detached', timeout: 500000 });
     }
 
 }
