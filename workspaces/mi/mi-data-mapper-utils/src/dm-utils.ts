@@ -16,6 +16,8 @@
  * under the License.
  */
 
+declare var DM_PROPERTIES: any;
+
 // ########################### Arithmetic Operators ###########################
 
 /**
@@ -229,3 +231,14 @@ export function replaceFirst(str: string, target: string, replacement: string): 
 export function match(str: string, regex: RegExp): boolean {
     return regex.test(str);
 }
+
+/**
+ * Return expression to access property.
+ * @param propertyScope - The scope of the property.
+ * @param propertyName - The name of the property.
+ * @returns The expression to access the property.
+ */
+export function getPropertyValue(propertyScope: string, propertyName: string): any {
+    return DM_PROPERTIES?.[propertyScope.toUpperCase()]?.[propertyName];
+}
+
