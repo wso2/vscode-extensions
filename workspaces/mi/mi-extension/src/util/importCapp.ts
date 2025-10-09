@@ -89,19 +89,25 @@ export async function importCapp(params: ImportProjectRequest): Promise<ImportPr
     const extractFolderPath = path.join(directory, ".temp");
     await extractCapp(source, extractFolderPath);
 
-    let { projectName, groupId, artifactId, version } = getProjectDetails(path.basename(source));
+    let projectName, groupId, artifactId, version;
 
-    // If extractFolderPath contains descriptor.xml get project details from there
     const descriptorPath = path.join(extractFolderPath, "descriptor.xml");
+
     if (fs.existsSync(descriptorPath)) {
+        // Read details from descriptor.xml
         const descriptorContent = fs.readFileSync(descriptorPath, "utf-8");
         const descriptorInfo = xmlParser.parse(descriptorContent);
         const id = descriptorInfo["project"]["id"];
         const idMatch = id.match(/^(.+?)__(.+?)__(\d+(?:\.\d+){0,2}(?:-[\w\d]+)?)$/);
-        projectName = idMatch ? idMatch[2] : projectName;
-        groupId = idMatch ? idMatch[1] : groupId;
+
+        groupId = idMatch ? idMatch[1] : undefined;
+        projectName = idMatch ? idMatch[2] : undefined;
         artifactId = projectName;
-        version = idMatch ? idMatch[3] : version;
+        version = idMatch ? idMatch[3] : undefined;
+    }
+    if (!projectName || !groupId || !artifactId || !version) {
+        console.log("Could not find project details in descriptor.xml. Falling back to the file name.");
+        ({ projectName, groupId, artifactId, version } = getProjectDetails(path.basename(source)));
     }
 
     if (projectName && groupId && artifactId && version) {
