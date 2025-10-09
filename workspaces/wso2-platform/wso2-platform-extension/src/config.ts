@@ -17,7 +17,7 @@
  */
 
 import { window } from "vscode";
-import { z } from "zod";
+import { z } from "zod/v3";
 import { getChoreoEnv } from "./choreo-rpc/cli-install";
 
 const ghAppSchema = z.object({
