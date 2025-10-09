@@ -29,7 +29,7 @@ export default function createTests() {
     test.describe("Project Settings tests", {
         tag: '@group2',
     }, async () => {
-        initTest();
+        initTest(false, false, false, undefined, undefined, 'group2');
 
         test('Project Summary Page Tests', async ({ }) => {
             await test.step('Create new API', async () => {
@@ -45,10 +45,14 @@ export default function createTests() {
                 const overviewPage = new Overview(page.page);
                 await overviewPage.init();
                 await overviewPage.updateProjectVersion("1.1.0");
+                // Wait for 5s to let the pom.xml update
+                await page.page.waitForTimeout(5000);
                 console.log('Waiting for pom.xml to contain updated version');
                 await overviewPage.getProjectSummary();
                 await waitUntilPomContains(page.page, pomFilePath, '<version>1.1.0</version>');
                 await overviewPage.updateProjectVersion("1.0.0");
+                // Wait for 5s to let the pom.xml update
+                await page.page.waitForTimeout(5000);
                 console.log('Project version updated successfully');
             });
 
@@ -59,29 +63,36 @@ export default function createTests() {
                 await overviewPage.init();
                 await overviewPage.openOtherDependenciesManager();
                 await overviewPage.addOtherDependencies();
+                // Wait for 8s to let the pom.xml update
+                await page.page.waitForTimeout(8000);
                 console.log('Waiting for pom.xml to contain mysql-connector-java dependency');
-                await waitUntilPomContains(page.page, pomFilePath, '<artifactId>mysql-connector-java</artifactId>')
+                await waitUntilPomContains(page.page, pomFilePath, '<artifactId>mysql-connector-java</artifactId>');
+                await page.page.waitForTimeout(2000); // Additional wait to ensure stability
             });
 
             await test.step('Update Other Dependencies', async () => {
                 console.log('Starting to update other dependencies');
                 const overviewPage = new Overview(page.page);
-                console.log('Waiting for pom.xml to not contain mysql-connector--java dependency');
-                await waitUntilPomNotContains(page.page, pomFilePath, '<artifactId>mysql-connector--java</artifactId>');
+                console.log('Waiting for pom.xml to not contain mysql-connector-java dependency');
+                await waitUntilPomNotContains(page.page, pomFilePath, '<version>8.0.32</version>');
                 await overviewPage.init();
                 await overviewPage.editOtherDependencies();
-                console.log('Waiting for pom.xml to contain mysql-connector--java dependency');
-                await waitUntilPomContains(page.page, pomFilePath, '<artifactId>mysql-connector--java</artifactId>');
+                // Wait for 8s to let the pom.xml update
+                await page.page.waitForTimeout(8000);
+                console.log('Waiting for pom.xml to contain 8.0.32 as version of mysql-connector-java dependency');
+                await waitUntilPomContains(page.page, pomFilePath, '<version>8.0.32</version>');
             });
 
             await test.step('Delete Other Dependencies', async () => {
                 console.log('Starting to delete other dependencies');
                 const overviewPage = new Overview(page.page);
                 await overviewPage.init();
-                console.log('Deleting mysql-connector--java dependency');
+                console.log('Deleting mysql-connector-java dependency');
                 await overviewPage.deleteOtherDependencies();
-                console.log('Waiting for pom.xml to not contain mysql-connector--java dependency');
-                await waitUntilPomNotContains(page.page, pomFilePath, '<artifactId>mysql-connector--java</artifactId>');
+                // Wait for 8s to let the pom.xml update
+                await page.page.waitForTimeout(8000);
+                console.log('Waiting for pom.xml to not contain mysql-connector-java dependency');
+                await waitUntilPomNotContains(page.page, pomFilePath, '<artifactId>mysql-connector-java</artifactId>');
                 await overviewPage.closeDependencyManager();
             });
 
@@ -93,18 +104,22 @@ export default function createTests() {
                 await overviewPage.init();
                 await overviewPage.openConnectorDependenciesManager();
                 await overviewPage.addConnectorDependencies();
+                // Wait for 5s to let the pom.xml update
+                await page.page.waitForTimeout(5000);
                 console.log('Waiting for pom.xml to contain mi-connector-amazonsqs dependency');
                 await waitUntilPomContains(page.page, pomFilePath, '<artifactId>mi-connector-amazonsqs</artifactId>');
             });
 
             await test.step('Update Connector Dependencies', async () => {
                 console.log('Starting to update connector dependencies');
-                await waitUntilPomNotContains(page.page, pomFilePath, '<artifactId>mi-connector--amazonsqs</artifactId>');
+                await waitUntilPomNotContains(page.page, pomFilePath, '<version>3.0.1</version>');
                 const overviewPage = new Overview(page.page);
                 await overviewPage.init();
                 await overviewPage.editConnectorDependencies();
-                console.log('Waiting for pom.xml to contain mi-connector--amazonsqs dependency');
-                await waitUntilPomContains(page.page, pomFilePath, '<artifactId>mi-connector--amazonsqs</artifactId>');
+                // Wait for 8s to let the pom.xml update
+                await page.page.waitForTimeout(8000);
+                console.log('Waiting for pom.xml to contain 3.0.1 as version in mi-connector-amazonsqs dependency');
+                await waitUntilPomContains(page.page, pomFilePath, '<version>3.0.1</version>');
             });
 
             await test.step('Delete Connector Dependencies', async () => {
@@ -112,8 +127,10 @@ export default function createTests() {
                 const overviewPage = new Overview(page.page);
                 await overviewPage.init();
                 await overviewPage.deleteConnectorDependencies();
-                console.log('Waiting for pom.xml to not contain mi-connector--amazonsqs dependency');
-                await waitUntilPomNotContains(page.page, pomFilePath, '<artifactId>mi-connector--amazonsqs</artifactId>');
+                // Wait for 8s to let the pom.xml update
+                await page.page.waitForTimeout(8000);
+                console.log('Waiting for pom.xml to not contain mi-connector-amazonsqs dependency');
+                await waitUntilPomNotContains(page.page, pomFilePath, '<artifactId>mi-connector-amazonsqs</artifactId>');
                 await overviewPage.closeDependencyManager();
             });
 
@@ -123,6 +140,8 @@ export default function createTests() {
                 const overviewPage = new Overview(page.page);
                 await overviewPage.init();
                 await overviewPage.addConfig();
+                // Wait for 5s to let the pom.xml update
+                await page.page.waitForTimeout(5000);
                 console.log('Waiting for config.properties to contain test_name:string');
                 await waitUntilPomContains(page.page, configFilePath, 'test_name:string');
             });
@@ -132,6 +151,8 @@ export default function createTests() {
                 const overviewPage = new Overview(page.page);
                 await overviewPage.init();
                 await overviewPage.editConfig();
+                // Wait for 5s to let the pom.xml update
+                await page.page.waitForTimeout(5000);
                 console.log('Waiting for config.properties to contain test_name:cert');
                 await waitUntilPomContains(page.page, configFilePath, 'test_name:cert');
             });
@@ -141,6 +162,8 @@ export default function createTests() {
                 const overviewPage = new Overview(page.page);
                 await overviewPage.init();
                 await overviewPage.deleteConfig();
+                // Wait for 8s to let the pom.xml update
+                await page.page.waitForTimeout(8000);
                 console.log('Waiting for config.properties to not contain test_name:cert');
                 await waitUntilPomNotContains(page.page, configFilePath, 'test_name:cert');
             });
