@@ -170,7 +170,7 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
 
             const listener = listenerModelResponse.listener;
             // Update the listener name and create the listener
-            listener.properties['name'].value = listenerName;
+            listener.properties['variableNameKey'].value = listenerName;
             listener.properties['listenOn'].value = "check http:getDefaultListener()";
 
             setCurrentStep(1);
