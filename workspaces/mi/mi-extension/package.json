@@ -143,7 +143,8 @@
         "MI.useLocalMaven": {
           "type": "boolean",
           "default": false,
-          "description": "Use local Maven within the extension"
+          "description": "Use local Maven within the extension",
+          "scope": "resource"
         },
         "MI.Scope": {
           "type": "string",
