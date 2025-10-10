@@ -192,6 +192,7 @@ export function MessageProcessorWizard(props: MessageProcessorWizardProps) {
             }]
     }
     const [params, setParams] = useState(paramConfigs);
+    const [areParamsDirty, setAreParamsDirty] = useState(false);
 
     useEffect(() => {
         (async () => {
@@ -234,11 +235,13 @@ export function MessageProcessorWizard(props: MessageProcessorWizardProps) {
                 setValue('processorState', existingMessageProcessor.processorState ? "Activate" : "Deactivate");
                 setHasCustomProperties(existingMessageProcessor.properties.length > 0 ? true : false);
                 setType(existingMessageProcessor.messageProcessorType);
+                setAreParamsDirty(false);
             } else {
                 paramConfigs.paramValues = [];
                 setParams(paramConfigs);
                 reset(newMessageProcessor);
                 setIsNewMessageProcessor(true);
+                setAreParamsDirty(false);
             }
         })();
     }, [props.path]);
@@ -252,6 +255,7 @@ export function MessageProcessorWizard(props: MessageProcessorWizardProps) {
         if (!event.target.value) {
             paramConfigs.paramValues = [];
             setParams(paramConfigs);
+            setAreParamsDirty(false);
         }
         setHasCustomProperties(event.target.value === "Yes" ? true : false);
     };
@@ -267,12 +271,13 @@ export function MessageProcessorWizard(props: MessageProcessorWizardProps) {
             })
         };
         setParams(modifiedParams);
+        setAreParamsDirty(true);
     };
 
     const handleCreateMessageProcessor = async (values: any) => {
 
         let customProperties: any = [];
-        if (hasCustomProperties) {
+        if (hasCustomProperties || type === "Custom Message Processor") {
             params.paramValues.map((param: any) => {
                 customProperties.push({ key: param.paramValues[0].value, value: param.paramValues[1].value });
             });
@@ -540,7 +545,7 @@ export function MessageProcessorWizard(props: MessageProcessorWizardProps) {
                         <Button
                             appearance="primary"
                             onClick={handleSubmit(handleCreateMessageProcessor)}
-                            disabled={!isDirty}
+                            disabled={!isDirty && !areParamsDirty}
                         >
                             {isNewMessageProcessor ? "Create" : "Save Changes"}
                         </Button>
