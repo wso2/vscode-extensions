@@ -595,8 +595,6 @@ export const TokenEditor = ({
         }
     } : {};
 
-    console.log( "helperPaneSx: ", helperPaneSx );
-
     const getHelperPaneWithEditorComponent = (): JSX.Element => {
         return createPortal(
             <S.HelperPane ref={helperPaneContainerRef} sx={{ ...helperPanePosition, ...fullScreenStyle.sx, ...helperPaneSx }}>
