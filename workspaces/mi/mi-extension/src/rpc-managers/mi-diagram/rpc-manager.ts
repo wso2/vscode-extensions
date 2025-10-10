@@ -6205,7 +6205,7 @@ function exposeVersionedServices(projectUri: string): boolean {
     const serverPath = config.get<string>('SERVER_PATH') || undefined;
     const configPath = serverPath ? path.join(serverPath, 'conf', 'deployment.toml') : '';
     if (!fs.existsSync(configPath)) {
-        console.error(`Config file path not found: ${configPath}`);
+        console.error(`Failed to find deployment configuration file at: ${configPath}`);
         return false;
     }
     const fileContent = fs.readFileSync(configPath, "utf8");
