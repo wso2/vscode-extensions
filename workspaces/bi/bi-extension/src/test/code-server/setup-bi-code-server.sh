@@ -12,6 +12,12 @@
 # 4. Starts code-server with proper configuration
 # =============================================================================
 
+# Ensure script is run with bash
+if [ -z "$BASH_VERSION" ]; then
+    echo "Error: This script requires bash. Please run with: bash $0"
+    exit 1
+fi
+
 set -e  # Exit on any error
 
 # Colors for output
@@ -107,18 +113,39 @@ check_and_install_code_server() {
 get_vsix_paths() {
     print_step "Getting VSIX file paths..."
     
+    # Get the directory where this script is located
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # Navigate to the bi-extension root (3 levels up: code-server -> test -> src -> bi-extension)
+    BI_EXTENSION_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+    # Default path to VSIX directory (in bi-extension's vsix folder)
+    DEFAULT_VSIX_DIR="$BI_EXTENSION_ROOT/vsix"
+    
     # Get Ballerina VSIX path
     while true; do
         echo ""
-        read -p "Enter the path to the Ballerina VSIX file: " BALLERINA_VSIX_PATH
+        print_info "Default: Look for Ballerina VSIX in $DEFAULT_VSIX_DIR"
+        read -p "Enter the path to the Ballerina VSIX file (or press Enter to use default): " BALLERINA_VSIX_PATH
         
         if [[ -z "$BALLERINA_VSIX_PATH" ]]; then
-            print_error "Path cannot be empty!"
-            continue
+            # Use default path - find the first ballerina-*.vsix file (excluding ballerina-integrator)
+            if [[ -d "$DEFAULT_VSIX_DIR" ]]; then
+                BALLERINA_VSIX_PATH=$(find "$DEFAULT_VSIX_DIR" -maxdepth 1 -name "ballerina-*.vsix" -type f | grep -v "ballerina-integrator" | head -n 1)
+                if [[ -f "$BALLERINA_VSIX_PATH" ]]; then
+                    print_info "Using default Ballerina VSIX: $BALLERINA_VSIX_PATH"
+                else
+                    print_error "No Ballerina VSIX file found in default location: $DEFAULT_VSIX_DIR"
+                    print_info "Please run 'pnpm run copy-balerina-ext' to copy the Ballerina VSIX file."
+                    continue
+                fi
+            else
+                print_error "Default VSIX directory not found: $DEFAULT_VSIX_DIR"
+                print_info "Please enter the path manually."
+                continue
+            fi
+        else
+            # Expand tilde to home directory
+            BALLERINA_VSIX_PATH="${BALLERINA_VSIX_PATH/#\~/$HOME}"
         fi
-        
-        # Expand tilde to home directory
-        BALLERINA_VSIX_PATH="${BALLERINA_VSIX_PATH/#\~/$HOME}"
         
         if [[ -f "$BALLERINA_VSIX_PATH" ]] && [[ "$BALLERINA_VSIX_PATH" == *.vsix ]]; then
             print_success "Ballerina VSIX file found: $BALLERINA_VSIX_PATH"
@@ -131,15 +158,29 @@ get_vsix_paths() {
     # Get Ballerina Integrator VSIX path
     while true; do
         echo ""
-        read -p "Enter the path to the Ballerina Integrator VSIX file: " BI_VSIX_PATH
+        print_info "Default: Look for Ballerina Integrator VSIX in $DEFAULT_VSIX_DIR"
+        read -p "Enter the path to the Ballerina Integrator VSIX file (or press Enter to use default): " BI_VSIX_PATH
         
         if [[ -z "$BI_VSIX_PATH" ]]; then
-            print_error "Path cannot be empty!"
-            continue
+            # Use default path - find the first ballerina-integrator-*.vsix file
+            if [[ -d "$DEFAULT_VSIX_DIR" ]]; then
+                BI_VSIX_PATH=$(find "$DEFAULT_VSIX_DIR" -maxdepth 1 -name "ballerina-integrator-*.vsix" | head -n 1)
+                if [[ -f "$BI_VSIX_PATH" ]]; then
+                    print_info "Using default Ballerina Integrator VSIX: $BI_VSIX_PATH"
+                else
+                    print_error "No Ballerina Integrator VSIX file found in default location: $DEFAULT_VSIX_DIR"
+                    print_info "Please ensure the BI extension is built first (run 'pnpm run rebuild')."
+                    continue
+                fi
+            else
+                print_error "Default VSIX directory not found: $DEFAULT_VSIX_DIR"
+                print_info "Please enter the path manually."
+                continue
+            fi
+        else
+            # Expand tilde to home directory
+            BI_VSIX_PATH="${BI_VSIX_PATH/#\~/$HOME}"
         fi
-        
-        # Expand tilde to home directory
-        BI_VSIX_PATH="${BI_VSIX_PATH/#\~/$HOME}"
         
         if [[ -f "$BI_VSIX_PATH" ]] && [[ "$BI_VSIX_PATH" == *.vsix ]]; then
             print_success "Ballerina Integrator VSIX file found: $BI_VSIX_PATH"
@@ -193,7 +234,80 @@ install_extensions() {
 }
 
 # =============================================================================
-# Step 4: Get Workspace and Server Configuration
+# Step 5: Configure Code-Server Settings
+# =============================================================================
+
+configure_code_server_settings() {
+    print_step "Configuring code-server settings..."
+    
+    # Get code-server config directory
+    CONFIG_DIR="$HOME/.local/share/code-server/User"
+    mkdir -p "$CONFIG_DIR"
+    
+    SETTINGS_FILE="$CONFIG_DIR/settings.json"
+    
+    # Create or update settings.json
+    print_info "Configuring settings.json..."
+    
+    # Check if settings file exists
+    if [[ -f "$SETTINGS_FILE" ]]; then
+        print_info "Existing settings.json found. Backing up..."
+        cp "$SETTINGS_FILE" "$SETTINGS_FILE.backup.$(date +%Y%m%d_%H%M%S)"
+    fi
+    
+    # Create settings with trusted extensions and default password requirement disabled
+    cat > "$SETTINGS_FILE" << 'EOF'
+{
+    "extensions.autoCheckUpdates": false,
+    "extensions.autoUpdate": false,
+    "workbench.enableExperiments": false,
+    "extensions.ignoreRecommendations": true,
+    "security.workspace.trust.enabled": false,
+    "extensions.confirmedUriHandlerExtensionIds": [
+        "wso2.ballerina",
+        "wso2.ballerina-integrator",
+        "ballerina.ballerina"
+    ],
+    "security.allowedUNCHosts": [],
+    "security.restrictUNCAccess": false
+}
+EOF
+    
+    print_success "Settings configured successfully!"
+    print_info "Settings file: $SETTINGS_FILE"
+}
+
+# =============================================================================
+# Step 6: Configure Default Password
+# =============================================================================
+
+configure_default_password() {
+    print_step "Configuring code-server authentication..."
+    
+    # Get code-server config directory
+    CONFIG_DIR="$HOME/.config/code-server"
+    mkdir -p "$CONFIG_DIR"
+    
+    CONFIG_FILE="$CONFIG_DIR/config.yaml"
+    
+    # Check if config exists
+    if [[ -f "$CONFIG_FILE" ]]; then
+        print_info "Existing config.yaml found. Backing up..."
+        cp "$CONFIG_FILE" "$CONFIG_FILE.backup.$(date +%Y%m%d_%H%M%S)"
+    fi
+    
+    # Create new config without authentication
+    cat > "$CONFIG_FILE" << EOF
+bind-addr: 127.0.0.1:8080
+auth: none
+cert: false
+EOF
+    print_success "Authentication disabled - no password required!"
+    print_info "Config file: $CONFIG_FILE"
+}
+
+# =============================================================================
+# Step 7: Get Workspace and Server Configuration
 # =============================================================================
 
 get_server_config() {
@@ -256,7 +370,7 @@ get_server_config() {
 }
 
 # =============================================================================
-# Step 5: Start Code-Server
+# Step 8: Start Code-Server
 # =============================================================================
 
 start_code_server() {
@@ -277,16 +391,16 @@ start_code_server() {
     
     print_info "Final workspace verification successful: $(ls -la "$WORKSPACE_PATH" | head -3)"
     
-    # Get password from config
+    # Check authentication status from config
     CONFIG_FILE="$HOME/.config/code-server/config.yaml"
+    AUTH_TYPE="none"
+    PASSWORD=""
+    
     if [[ -f "$CONFIG_FILE" ]]; then
-        PASSWORD=$(grep "^password:" "$CONFIG_FILE" | cut -d' ' -f2)
-        if [[ -n "$PASSWORD" ]]; then
-            print_info "Access URL: http://$SERVER_HOST:$SERVER_PORT/?folder=$WORKSPACE_PATH"
-            print_info "Password: $PASSWORD"
+        AUTH_TYPE=$(grep "^auth:" "$CONFIG_FILE" | cut -d' ' -f2)
+        if [[ "$AUTH_TYPE" == "password" ]]; then
+            PASSWORD=$(grep "^password:" "$CONFIG_FILE" | cut -d' ' -f2)
         fi
-    else
-        print_info "Access URL: http://$SERVER_HOST:$SERVER_PORT/?folder=$WORKSPACE_PATH"
     fi
     
     echo ""
@@ -294,9 +408,13 @@ start_code_server() {
     echo -e "${GREEN}===========================================${NC}"
     echo -e "${GREEN}1. Open your web browser${NC}"
     echo -e "${GREEN}2. Navigate to: ${BLUE}http://$SERVER_HOST:$SERVER_PORT/?folder=$WORKSPACE_PATH${NC}"
-    if [[ -n "$PASSWORD" ]]; then
+    
+    if [[ "$AUTH_TYPE" == "none" ]]; then
+        echo -e "${GREEN}3. No password required! 🎉${NC}"
+    elif [[ -n "$PASSWORD" ]]; then
         echo -e "${GREEN}3. Enter password: ${YELLOW}$PASSWORD${NC}"
     fi
+    
     echo -e "${GREEN}4. Your WSO2 BI extensions are ready to use!${NC}"
     echo ""
     print_success "Code-server running... Press Ctrl+C to stop."
@@ -328,10 +446,16 @@ main() {
     # Step 4: Install extensions
     install_extensions
 
-    # Step 5: Get server configuration
+    # Step 5: Configure code-server settings (trust extensions)
+    configure_code_server_settings
+
+    # Step 6: Disable authentication (no password required)
+    configure_default_password
+
+    # Step 7: Get server configuration
     get_server_config
 
-    # Step 6: Start code-server
+    # Step 8: Start code-server
     start_code_server
 }
 
