@@ -30,7 +30,7 @@ import {
 import classNames from "classnames";
 import React, { type HTMLProps, type FC, type ReactNode, useMemo } from "react";
 import type { UseFormReturn } from "react-hook-form";
-import type { z } from "zod";
+import type { z } from "zod/v3";
 import { Banner } from "../../../components/Banner";
 import { Button } from "../../../components/Button";
 import { queryKeys } from "../../../hooks/use-queries";
