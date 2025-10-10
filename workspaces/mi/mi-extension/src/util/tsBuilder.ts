@@ -96,7 +96,7 @@ export async function updateTsFileIoTypes(dmName: string, sourcePath: string, sc
         return "";
       }
     }
-    tsContent += `import * as ${DM_OPERATORS_IMPORT_NAME} from "./${DM_OPERATORS_FILE_NAME}";\n\n`;
+    tsContent += `import * as ${DM_OPERATORS_IMPORT_NAME} from "./${DM_OPERATORS_FILE_NAME}";\ndeclare var DM_PROPERTIES: any;\n\n`;
     tsSources.forEach((source) => {
       tsContent += source.getFullText();
       tsContent += "\n\n";

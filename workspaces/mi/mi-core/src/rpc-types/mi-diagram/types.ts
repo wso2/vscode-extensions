@@ -1781,6 +1781,7 @@ export interface SwaggerFromAPIRequest {
     isJsonIn?: boolean;
     isJsonOut?: boolean;
     port?: number;
+    projectPath?: string;
 }
 
 export interface CompareSwaggerAndAPIResponse {

@@ -52,7 +52,7 @@ const sectionTitleStyle = { margin: 0, paddingLeft: 20 };
 
 // Field name to pom property name mapping
 export const fieldToPomPropertyMap: Record<string, string> = {
-    "buildDetails-deploymentType": "deploymentType",
+    "buildDetails-versionedDeployment": "versionedDeployment",
     "buildDetails-enableFatCar": "fat.car.enable",
     "buildDetails-dockerDetails-cipherToolEnable": "ciphertool.enable"
 };
@@ -72,7 +72,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
         "buildDetails-dockerDetails-dockerFileBaseImage": yup.string().required("Base image is required"),
         "buildDetails-dockerDetails-dockerName": yup.string().required("Docker name is required"),
         "buildDetails-enableFatCar": yup.boolean(),
-        "buildDetails-deploymentType": yup.boolean(),
+        "buildDetails-versionedDeployment": yup.boolean(),
         "buildDetails-dockerDetails-cipherToolEnable": yup.boolean(),
         "buildDetails-dockerDetails-keyStoreName": yup.string(),
         "buildDetails-dockerDetails-keyStoreAlias": yup.string(),
@@ -181,7 +181,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                     "buildDetails-dockerDetails-dockerFileBaseImage": response.buildDetails?.dockerDetails?.dockerFileBaseImage?.value,
                     "buildDetails-dockerDetails-dockerName": response.buildDetails?.dockerDetails?.dockerName.value,
                     "buildDetails-enableFatCar": response.buildDetails?.enableFatCar?.value === 'true',
-                    "buildDetails-deploymentType": response.buildDetails?.deploymentType?.value === 'true',
+                    "buildDetails-versionedDeployment": response.buildDetails?.versionedDeployment?.value === 'true',
                     "buildDetails-dockerDetails-cipherToolEnable": response.buildDetails?.dockerDetails?.cipherToolEnable?.value === 'true',
                     "buildDetails-dockerDetails-keyStoreName": response.buildDetails?.dockerDetails?.keyStoreName?.value,
                     "buildDetails-dockerDetails-keyStoreAlias": response.buildDetails?.dockerDetails?.keyStoreAlias?.value,
@@ -264,11 +264,8 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                     await rpcClient.getMiVisualizerRpcClient().updateProjectSettingsConfig({ configName: "useLocalMaven", value: useLocalMaven });
                 }
 
-                let fieldValue = getValues(field as any);
+                const fieldValue = getValues(field as any);
                 const range = field.split('-').reduce((acc, key) => acc?.[key], projectDetails as any)?.range;
-                if (field === "buildDetails-deploymentType" && fieldValue === false) {
-                    fieldValue = "";
-                }
                 if (range) {
                     if (Array.isArray(range)) {
                         range.forEach((r: any) => {
@@ -523,7 +520,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                                 descriptionSx={{ margin: "10px 0" }}
                                 control={control as any}
                                 sx={fieldStyle}
-                                {...register("buildDetails-deploymentType")}
+                                {...register("buildDetails-versionedDeployment")}
                             />
                             <FormCheckBox
                                 label="Enable Cipher Tool"
