@@ -75,7 +75,11 @@ export function DataSourceRDBMSForm(props: DataSourceRDBMSFormProps) {
         const driverUrl = driverMap.get(props.watch("rdbms.databaseEngine"));
         if (prevDbType !== props.watch('rdbms.databaseEngine')) {
             setPrevDbType(props.watch('rdbms.databaseEngine'));
-            if (!props.isEditDatasource || prevDbType !== '') {
+            // Reset hostname and port to defaults when:
+            // 1. Creating a new datasource (not editing), OR
+            // 2. User is changing the database engine (prevDbType is already set)
+            const shouldResetHostnameAndPort = !props.isEditDatasource || prevDbType !== '';
+            if (shouldResetHostnameAndPort) {
                 props.setValue('rdbms.hostname', "localhost");
                 props.setValue('rdbms.port', driverUrl.port);
             }

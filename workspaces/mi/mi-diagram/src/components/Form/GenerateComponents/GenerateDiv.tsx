@@ -62,6 +62,19 @@ const GenerateDiv = (props: GenerateDivProps) => {
         isConnection,
     } = props;
 
+    /**
+     * Extracts the display value from form details, handling both object and primitive values
+     */
+    const getDisplayValue = (fieldName: string): any => {
+        const value = generatedFormDetails[fieldName];
+        // Handle object with isExpression/value structure
+        if (value && typeof value === 'object' && 'value' in value) {
+            return value.value;
+        }
+        // Handle primitive values
+        return value;
+    };
+
     return (
         <div>
             <div
@@ -89,15 +102,7 @@ const GenerateDiv = (props: GenerateDivProps) => {
                         }}>
                         {!isChecked && !isExpression && isConnection && generatedFormDetails["configKey"]}
                         {!isChecked && isExpression && generatedFormDetails[element.name].value}
-                        {!isChecked && !isExpression && !isConnection && (() => {
-                            const value = generatedFormDetails[element.name];
-                            // Handle object with isExpression/value structure
-                            if (value && typeof value === 'object' && 'value' in value) {
-                                return value.value;
-                            }
-                            // Handle primitive values
-                            return value;
-                        })()}
+                        {!isChecked && !isExpression && !isConnection && getDisplayValue(element.name)}
                         {isChecked && !isExpression && (
                             <div
                                 style={{
