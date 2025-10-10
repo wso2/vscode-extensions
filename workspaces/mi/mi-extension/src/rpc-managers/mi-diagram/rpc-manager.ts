@@ -312,6 +312,7 @@ import { RPCLayer } from "../../RPCLayer";
 import { StateMachineAI } from '../../ai-panel/aiMachine';
 import { APIS, COMMANDS, DEFAULT_ICON, DEFAULT_PROJECT_VERSION, LAST_EXPORTED_CAR_PATH, RUNTIME_VERSION_440, SWAGGER_REL_DIR, ERROR_MESSAGES } from "../../constants";
 import { getStateMachine, navigate, openView } from "../../stateMachine";
+import { createSecureCorsProxy } from "../../utils/secure-cors-proxy";
 import { openPopupView } from "../../stateMachinePopup";
 import { openSwaggerWebview } from "../../swagger/activate";
 import { testFileMatchPattern } from "../../test-explorer/discover";
@@ -5115,7 +5116,6 @@ ${keyValuesXML}`;
                 swaggerContent = swagger;
             }
             const port = await getPortPromise({ port: 1000, stopPort: 3000 });
-            const { createSecureCorsProxy } = require('../../utils/secure-cors-proxy');
             const cors_proxy = createSecureCorsProxy();
             await cors_proxy.listen(port, 'localhost');
 
@@ -5470,7 +5470,6 @@ ${keyValuesXML}`;
         }
         const generatedSwagger = response.swagger;
         const port = await getPortPromise({ port: 1000, stopPort: 3000 });
-        const { createSecureCorsProxy } = require('../../utils/secure-cors-proxy');
         const cors_proxy = createSecureCorsProxy();
         await cors_proxy.listen(port, 'localhost');
 
