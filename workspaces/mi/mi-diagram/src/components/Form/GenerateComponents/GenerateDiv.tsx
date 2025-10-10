@@ -102,7 +102,7 @@ const GenerateDiv = (props: GenerateDivProps) => {
                         }}>
                         {!isChecked && !isExpression && isConnection && generatedFormDetails["configKey"]}
                         {!isChecked && isExpression && generatedFormDetails[element.name].value}
-                        {!isChecked && !isExpression && !isConnection && getDisplayValue(element.name)}
+                        {!isChecked && !isExpression && getDisplayValue(element.name)}
                         {isChecked && !isExpression && (
                             <div
                                 style={{
