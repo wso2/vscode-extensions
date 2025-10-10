@@ -35,6 +35,7 @@ const fs = require('fs');
 
 interface MachineContext extends VisualizerLocation {
     langClient: ExtendedLanguageClient | null;
+    dependenciesResolved?: boolean;
 }
 
 const stateMachine = createMachine<MachineContext>({
@@ -46,7 +47,8 @@ const stateMachine = createMachine<MachineContext>({
         projectUri: "",
         langClient: null,
         errors: [],
-        view: MACHINE_VIEW.Welcome
+        view: MACHINE_VIEW.Welcome,
+        dependenciesResolved: false
     },
     states: {
         initialize: {
@@ -205,8 +207,27 @@ const stateMachine = createMachine<MachineContext>({
                     entry: () => log("State Machine: Entering 'ready.viewLoading' state"),
                     invoke: {
                         src: 'openWebPanel',
+                        onDone: [
+                            {
+                                target: "resolveMissingDependencies",
+                                cond: (context) => !context.dependenciesResolved
+                            },
+                            {
+                                target: "viewFinding",
+                                cond: (context) => !!context.dependenciesResolved
+                            }
+                        ]
+                    }
+                },
+                resolveMissingDependencies: {
+                    entry: () => log("State Machine: Entering 'ready.resolveMissingDependencies' state"),
+                    invoke: {
+                        src: 'resolveMissingDependencies',
                         onDone: {
-                            target: 'viewFinding'
+                            target: 'viewFinding',
+                            actions: assign({
+                                dependenciesResolved: true
+                            })
                         }
                     }
                 },
@@ -426,6 +447,32 @@ const stateMachine = createMachine<MachineContext>({
                     }
                     resolve(true);
                 }
+            });
+        },
+        resolveMissingDependencies: (context, event) => {
+            return new Promise(async (resolve, reject) => {
+                const langClient = context.langClient!;
+                // Temporary code - to be replaced with the ls API
+                const hasMissingModuleDiagnostics = true;
+                if (!hasMissingModuleDiagnostics) {
+                    resolve({ view: context.view });
+                    return;
+                }
+
+                const response = await langClient.updateConnectorDependencies();
+
+                // Add a delay to allow the user to see the "Dependencies resolved" message
+                await new Promise(res => setTimeout(res, 5000));
+
+                if (response === 'Success') {
+                    vscode.window.showInformationMessage('All dependencies are resolved!');
+                } else {
+                    vscode.window.showErrorMessage('Failed to resolve dependencies.');
+                    console.error('Failed to resolve dependencies:', response);
+                }
+            
+                resolve(true);
+                
             });
         },
         findView: (context, event): Promise<VisualizerLocation> => {
