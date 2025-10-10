@@ -218,6 +218,7 @@ export const TokenEditor = ({
     getExpressionEditorIcon,
     editorSx,
     height,
+    helperPaneSx,
     enableFullscreen = false,
     skipSanitization = false
 }: TokenEditorProps) => {
@@ -596,7 +597,7 @@ export const TokenEditor = ({
 
     const getHelperPaneWithEditorComponent = (): JSX.Element => {
         return createPortal(
-            <S.HelperPane ref={helperPaneContainerRef} sx={{ ...helperPanePosition, ...fullScreenStyle.sx }}>
+            <S.HelperPane ref={helperPaneContainerRef} sx={{ ...helperPanePosition, ...fullScreenStyle.sx, ...helperPaneSx }}>
                 {/* Title and close button */}
                 <S.HelperPaneHeader>
                     <Icon

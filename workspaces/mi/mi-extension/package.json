@@ -143,7 +143,8 @@
         "MI.useLocalMaven": {
           "type": "boolean",
           "default": false,
-          "description": "Use local Maven within the extension"
+          "description": "Use local Maven within the extension",
+          "scope": "resource"
         },
         "MI.Scope": {
           "type": "string",
@@ -931,14 +932,14 @@
         "description": "design-view",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f180"
+          "fontCharacter": "\\f182"
         }
       },
       "distro-build-package": {
         "description": "build-package",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f15b"
+          "fontCharacter": "\\f15d"
         }
       }
     }

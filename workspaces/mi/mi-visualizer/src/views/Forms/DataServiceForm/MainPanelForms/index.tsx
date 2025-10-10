@@ -89,10 +89,10 @@ export function DataServiceWizard(props: DataServiceWizardProps) {
             .matches(/^[a-zA-Z0-9_-]*$/, "Invalid characters in Data Service name")
             .test('validateTaskName',
                 'An artifact with same name already exists', value => {
-                    return !workspaceFileNames.includes(value.toLowerCase())
+                    return !(workspaceFileNames.includes(value.toLowerCase()) && savedDSName !== value)
                 }).test('validateArtifactName',
                 'A registry resource with this artifact name already exists', value => {
-                    return !artifactNames.includes(value.toLowerCase())
+                    return !(artifactNames.includes(value.toLowerCase()) && savedDSName !== value)
                 }),
         dataServiceNamespace: yup.string().notRequired(),
         serviceGroup: yup.string().notRequired(),
@@ -136,6 +136,7 @@ export function DataServiceWizard(props: DataServiceWizardProps) {
     const [isNewDataService, setIsNewDataService] = useState(!props.path.endsWith(".xml"));
     const [artifactNames, setArtifactNames] = useState([]);
     const [workspaceFileNames, setWorkspaceFileNames] = useState([]);
+    const [savedDSName, setSavedDSName] = useState("");
 
     useEffect(() => {
         (async () => {
@@ -162,6 +163,7 @@ export function DataServiceWizard(props: DataServiceWizardProps) {
                     existingDatasources.push(currentDatasource);
                 });
                 setDatasources(existingDatasources);
+                setSavedDSName(existingDataService.dataServiceName);
             } else {
                 setIsNewDataService(true);
                 setShowDatasourceComponent(false);
