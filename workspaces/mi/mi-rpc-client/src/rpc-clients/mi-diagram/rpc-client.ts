@@ -456,6 +456,8 @@ import {
     Property,
     updatePropertiesInArtifactXML,
     getPropertiesFromArtifactXML,
+    setAnthropicApiKey,
+    getAnthropicApiKey,
     formatPomFile
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
@@ -1202,5 +1204,13 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     getPropertiesFromArtifactXML(params: string): Promise<Property[] | undefined> {
         return this._messenger.sendRequest(getPropertiesFromArtifactXML, HOST_EXTENSION, params);
+    }
+
+    setAnthropicApiKey(): Promise<void> {
+        return this._messenger.sendRequest(setAnthropicApiKey, HOST_EXTENSION);
+    }
+
+    getAnthropicApiKey(): Promise<string | undefined> {
+        return this._messenger.sendRequest(getAnthropicApiKey, HOST_EXTENSION);
     }
 }

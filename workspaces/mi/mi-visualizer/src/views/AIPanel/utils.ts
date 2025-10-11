@@ -16,7 +16,8 @@
  * under the License.
  */
 
-import { CopilotChatEntry, RpcClientType, Role, MessageType, ChatMessage, ApiResponse, BackendRequestType } from "./types";
+import { RpcClientType, ApiResponse, BackendRequestType } from "./types";
+import { CopilotChatEntry, Role, MessageType, ChatMessage } from "@wso2/mi-core";
 
 import { GetWorkspaceContextResponse, MACHINE_VIEW, EVENT_TYPE, FileObject, ImageObject} from "@wso2/mi-core";
 import {
@@ -41,7 +42,7 @@ export async function getProjectRuntimeVersion(rpcClient: RpcClientType): Promis
 
 export async function fetchBackendUrl(rpcClient:RpcClientType): Promise<string | undefined> {
         try {
-            return (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
+            return (await rpcClient.getMiAiPanelRpcClient().getBackendRootUrl()).url;
         } catch (error) {
             console.error('Failed to fetch backend URL:', error);
             return undefined;
@@ -55,14 +56,7 @@ export async function getProjectUUID(rpcClient: RpcClientType): Promise<string |
             console.error('Failed to fetch project UUID:', error);
             return undefined;
         }
-    }
-
-// Add set of code blocks to the workspace
-export async function handleAddtoWorkspace(rpcClient: RpcClientType, codeBlocks: string[]) {
-    await rpcClient.getMiDiagramRpcClient().writeContentToFile({ content: codeBlocks })
-
-    rpcClient.getMiDiagramRpcClient().executeCommand({ commands: ["MI.project-explorer.refresh"] });
-};    
+    }   
 
 // Add a selected code to the workspace
 export async function handleAddSelectiveCodetoWorkspace(rpcClient: RpcClientType, codeSegment: string) {
@@ -260,45 +254,44 @@ export function compareVersions(v1: string, v2: string): number {
         return 0;
     }
 
+/**
+ * Sets up event listener for code generation streaming events
+ */
+export function setupCodeGenerationEventListener(
+    rpcClient: RpcClientType,
+    onEvent: (event: any) => void
+): void {
+    try {
+        // Use the proper RpcClient method for code generation events
+        rpcClient.onCodeGenerationEvent(onEvent);
+    } catch (error) {
+        console.error("Error setting up code generation event listener:", error);
+    }
+}
+
 export async function generateSuggestions(
-    backendRootUri: string,
     chatHistory: CopilotChatEntry[],
     rpcClient: RpcClientType,
     controller: AbortController
-): Promise<ChatMessage[]> {
+): Promise<string[]> {
     try {
-        const url = backendRootUri + MI_SUGGESTIVE_QUESTIONS_BACKEND_URL;
-        const context = await getContext(rpcClient);
-        const response = await fetchWithRetry(
-            BackendRequestType.Suggestions,
-            url,
-            {
-                messages: chatHistory,
-                context: context[0].context,
-                num_suggestions: 1,
-                type: "artifact_gen",
-            },
-            rpcClient,
-            controller,
-            chatHistory
-        );
+        // Use RPC call to extension - extension handles all backend communication
+        const response = await rpcClient.getMiAiPanelRpcClient().generateSuggestions({
+            chatHistory: chatHistory
+        });
 
-        const data = (await response.json()) as ApiResponse;
-
-        if (data.event === "suggestion_generation_success") {
-            return data.questions.map((question) => ({
-                id: generateId(),
-                role: Role.default,
-                content: question,
-                type: MessageType.Question,
-            }));
+        // Check if we got a valid response
+        if (response.response) {
+            // If the response contains a single suggestion, convert it to the expected format
+            return [response.response];
         } else {
-            console.error("Error generating suggestions:", data.error);
-            throw new Error("Failed to generate suggestions: " + data.error);
+            console.error("Error generating suggestions: Empty response from extension");
+            return [];
         }
     } catch (error) {
-        console.error(error);
-        return [];
+        console.error("Error generating suggestions via RPC:", error);
+        // No fallback - all backend communication should go through extension
+        throw new Error(`Failed to generate suggestions: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
 
@@ -382,8 +375,6 @@ export function convertChat(entry: CopilotChatEntry): ChatMessage {
 }
 
 export async function fetchCodeGenerationsWithRetry(
-    url: string,
-    isRutimeVersionThresholdReached: boolean,
     chatHistory: CopilotChatEntry[],
     files: FileObject[],
     images: ImageObject[],
@@ -392,19 +383,33 @@ export async function fetchCodeGenerationsWithRetry(
     view?: string,
     thinking?: boolean
 ): Promise<Response> {
+    // Use RPC call to extension for streaming code generation
+    console.log("Generating code with streaming: visualizer -> extension");
+    try {
+        const response = await rpcClient.getMiAiPanelRpcClient().generateCode({
+            chatHistory: chatHistory,
+            files: files,
+            images: images,
+            view: view,
+            thinking: thinking
+        });
 
-    const context = await getContext(rpcClient, view);
-    const imageList = images.map((image) => image.imageBase64);
-    const defaultPayloads = await rpcClient.getMiDiagramRpcClient().getAllInputDefaultPayloads();
-    const fileList = isRutimeVersionThresholdReached ? files : files.map((file) => JSON.stringify(file));
-
-    return fetchWithRetry(BackendRequestType.UserPrompt, url, {
-        messages: chatHistory,
-        context: context[0].context,
-        files: fileList,
-        images: imageList,
-        payloads: defaultPayloads,
-    }, rpcClient, controller, chatHistory, thinking);
+        // Return a mock Response object since we're now using streaming via events
+        // The actual streaming data will come through RPC notifications
+        return new Response(JSON.stringify(response), {
+            status: 200,
+            statusText: 'OK',
+            headers: { 'Content-Type': 'application/json' }
+        });
+    } catch (error) {
+        console.error('Error in code generation RPC call:', error);
+        // Return error response
+        return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
+            status: 500,
+            statusText: 'Internal Server Error',
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
 }
 
 export async function fetchWithRetry(
