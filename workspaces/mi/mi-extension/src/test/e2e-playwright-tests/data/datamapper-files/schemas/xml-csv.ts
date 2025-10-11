@@ -1,4 +1,5 @@
 import * as dmUtils from "./dm-utils";
+declare var DM_PROPERTIES: any;
 
 /*
 * title : "root",
