@@ -3844,7 +3844,7 @@ ${endpointAttributes}
             // Determine the destination file name
             let desFileName = path.basename(params.sourceFilePath);
             // If desFileName does nto contain .xml, append .xml
-            if (desFileName && !desFileName.endsWith('.xml')) {
+            if (desFileName && !['.xml', '.dbs'].some(ext => desFileName.endsWith(ext))) {
                 desFileName += '.xml';
             }
             const destinationFilePath = path.join(destinationDirectory, desFileName);
@@ -5466,7 +5466,8 @@ ${keyValuesXML}`;
         const langClient = getStateMachine(this.projectUri).context().langClient!;
         let response;
         if (params.isRuntimeService) {
-            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, port: DebuggerConfig.getServerPort(), ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
+            const versionedUrl = exposeVersionedServices(this.projectUri);
+            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, port: DebuggerConfig.getServerPort(), projectPath: versionedUrl ? this.projectUri : "", ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         } else {
             response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         }
@@ -6197,6 +6198,30 @@ ${keyValuesXML}`;
         );
         return undefined;
     }
+}
+
+function exposeVersionedServices(projectUri: string): boolean {
+    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
+    const serverPath = config.get<string>('SERVER_PATH') || undefined;
+    const configPath = serverPath ? path.join(serverPath, 'conf', 'deployment.toml') : '';
+    if (!fs.existsSync(configPath)) {
+        console.error(`Failed to find deployment configuration file at: ${configPath}`);
+        return false;
+    }
+    const fileContent = fs.readFileSync(configPath, "utf8");
+    const lines = fileContent.split(/\r?\n/);
+    for (let rawLine of lines) {
+        let line = rawLine.trim();
+        if (!line || line.startsWith("#")) continue;
+        const match = line.match(/^expose\.versioned\.services\s*=\s*(.+)$/i);
+        if (match) {
+            let value = match[1].trim();
+            value = value.replace(/^["']|["']$/g, "");
+            if (value.toLowerCase() === "true") return true;
+            return false;
+        }
+    }
+    return false;
 }
 
 export function getRepoRoot(projectRoot: string): string | undefined {
