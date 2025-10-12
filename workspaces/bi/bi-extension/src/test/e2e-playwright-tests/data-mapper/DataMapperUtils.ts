@@ -103,11 +103,18 @@ export class DataMapperUtils {
     // }
 
     public async expandField(fieldFQN: string) {
-        // const expandButton = this.webView.locator(`div[id="recordfield-${fieldFQN}"]`).getByTitle('Expand/Collapse');
         const expandButton = this.webView.locator(`div[id="expand-or-collapse-${fieldFQN}"]`);
 
-        await expandButton.click();
-        await expandButton.locator('.codicon-chevron-down').waitFor();
+        // Expand only if collapsed
+        if (await expandButton.locator('.codicon-chevron-right').isVisible()){
+            await expandButton.click();
+            await expandButton.locator('.codicon-chevron-down').waitFor();
+        }
+    }
+
+    public async refresh() {
+        await this.webView.getByTitle('Refresh').click();
+        await this.waitForProgressEnd();
     }
 
     public async mapFields(sourceFieldFQN: string, targetFieldFQN: string, menuOptionId?: string) {
@@ -276,7 +283,7 @@ export function compareFilesSync(file1: string, file2: string) {
 }
 
 
-export async function testBasicMappings(dmWebView: Frame, projectFile: string, compDir: string) {
+export async function testBasicMappings(dmWebView: Frame, projectFile: string, compDir: string, needRefresh?: boolean) {
     console.log('Testing Basic Mappings');
 
     const dm = new DataMapperUtils(dmWebView);
@@ -284,8 +291,10 @@ export async function testBasicMappings(dmWebView: Frame, projectFile: string, c
 
     console.log('- Test direct mappings');
 
-
     await dm.expandField('input');
+    if (needRefresh) {
+        await dm.refresh();
+    }
 
     console.log(' - Test direct - root');
 
@@ -311,7 +320,7 @@ export async function testBasicMappings(dmWebView: Frame, projectFile: string, c
 
     // direct mapping with error
     // objectOutput.output.oPrimDirectErr = input.iPrimDirectErr;
-    await dm.mapFields('input.iPrimDirectErr', 'objectOutput.output.oPrimDirectErr', 'direct');
+    await dm.mapFields('input.iPrimDirectErr', 'objectOutput.output.oPrimDirectErr');
     const loc1 = dmWebView.getByTestId('link-from-input.iPrimDirectErr.OUT-to-objectOutput.output.oPrimDirectErr.IN')
     await dm.expectErrorLink(loc1);
 
@@ -333,8 +342,8 @@ export async function testBasicMappings(dmWebView: Frame, projectFile: string, c
     // many-one mapping with error
     // objectOutput.output.oManyOneErr = input.iManyOneErr1 + input.iPrimDirectErr + input.iManyOneErr2
     await dm.mapFields('input.iManyOneErr1', 'objectOutput.output.oManyOneErr');
-    await dm.mapFields('input.iPrimDirectErr', 'objectOutput.output.oManyOneErr', 'direct');
-    await dm.mapFields('input.iManyOneErr2', 'objectOutput.output.oManyOneErr', 'direct');
+    await dm.mapFields('input.iPrimDirectErr', 'objectOutput.output.oManyOneErr');
+    await dm.mapFields('input.iManyOneErr2', 'objectOutput.output.oManyOneErr');
 
     await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iManyOneErr1.OUT-to-datamapper-intermediate-port'));
     await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iPrimDirectErr.OUT-to-datamapper-intermediate-port'));
@@ -360,70 +369,9 @@ export async function testBasicMappings(dmWebView: Frame, projectFile: string, c
     await loc4.waitFor({ state: 'attached' });
 
     // objectOutput.output.oObjProp.p2 = input.iObjProp.d2;
-    await dm.mapFields('input.iObjProp.op2', 'objectOutput.output.oObjProp.p2', 'direct');
+    await dm.mapFields('input.iObjProp.op2', 'objectOutput.output.oObjProp.p2');
     await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iObjProp.op2.OUT-to-objectOutput.output.oObjProp.p2.IN'));
 
-    // console.log('- Test expression bar');
-
-    // // expression bar - use method from completion
-    // await dmWebView.locator('[id="recordfield-objectOutput\\.output\\.oExp"]').click();
-    // const expressionBar = dmWebView.locator('#expression-bar').getByRole('textbox', { name: 'Text field' });
-    // await expect(expressionBar).toBeFocused();
-    // await expressionBar.fill('');
-    // await dmWebView.locator('[id="recordfield-input\\.iExp"]').click();
-    // await expect(expressionBar).toHaveValue('input.iExp');
-    // await expect(expressionBar).toBeFocused();
-
-    // await expressionBar.pressSequentially('.toup');
-    // await dmWebView.getByText('toUpperAscii()').click();
-    // await expressionBar.press('Enter');
-
-    // await expect(expressionBar).toHaveValue('input.iExp.toUpperAscii()');
-    // await expect(expressionBar).toBeFocused();
-
-    // const canvas = dmWebView.locator('#data-mapper-canvas-container');
-    // await canvas.click();
-    // await expect(expressionBar).not.toBeFocused();
-
-    // // TODO: input.iExp.toUpperAscii() currently shown as direct link, uncomment below when they display as expression
-    // // await dmWebView.getByTestId('link-from-input.iExp.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
-    // // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oExp.IN').waitFor({ state: 'attached' });
-    // // const loc4 = dmWebView.getByTestId('link-connector-node-objectOutput.output.oExp.IN');
-    // // await loc4.waitFor();
-    
-    // const loc5 = dmWebView.getByTestId('link-from-input.iExp.OUT-to-objectOutput.output.oExp.IN');
-    // await loc5.waitFor();
-
-    // // expression bar - edit existing
-    // await dmWebView.locator('[id="recordfield-objectOutput\\.output\\.oObjProp\\.p1"]').click();
-    // await expect(expressionBar).toHaveValue('input.iObjDirect.d1');
-    // await expect(expressionBar).toBeFocused();
-    // await expressionBar.pressSequentially(' + "HI"');
-    // await canvas.click();
-    // await expect(expressionBar).not.toBeFocused();
-
-    // // TODO: input.iObjDirect.d1 + "HI" currently shown as direct link, uncomment below when they display as expression
-    // // await dmWebView.getByTestId('link-from-input.iObjDirect.d1.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
-    // // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oObjProp.p1.IN').waitFor({ state: 'attached' });
-    // // await dmWebView.getByTestId('link-connector-node-objectOutput.output.oObjProp.p1.IN').waitFor();
-
-
-    // console.log('- Test custom function');
-    // // custom function mapping
-    // // objectOutput.output.oCustomFn = input.iCustomFn;
-    // await dm.mapFields('input.iCustomFn', 'objectOutput.output.oCustomFn', 'custom-func');
-
-    // await dmWebView.getByTestId('link-from-input.iCustomFn.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
-    // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oCustomFn.IN').waitFor({ state: 'attached' });
-    // const loc6 = dmWebView.getByTestId('link-connector-node-objectOutput.output.oCustomFn.IN');
-    // await loc6.waitFor();
-
-    // await loc6.getByTitle('Custom Function Call Expression').click();
-    // await dmWebView.getByRole('heading', { name: 'Function' }).waitFor();
-    // await dmWebView.getByTestId('back-button').click();
-    // await dm.waitFor();
-
-    // await page.page.pause();
     expect(await verifyFileContent(`basic/${compDir}/map2.bal.txt`, projectFile)).toBeTruthy();
 
     console.log('- Test basic mapping delete');
@@ -450,24 +398,13 @@ export async function testBasicMappings(dmWebView: Frame, projectFile: string, c
         .locator('.codicon-trash').click({ force: true });
     await loc4.waitFor({ state: 'detached' });
 
-    // await loc5.click({ force: true });
-    // await dmWebView.getByTestId('expression-label-for-input.iExp.OUT-to-objectOutput.output.oExp.IN')
-    //     .locator('.codicon-trash').click({ force: true });
-    // await loc5.waitFor({ state: 'detached' });
-
-    // await loc6.locator('.codicon-trash').click({ force: true });
-    // await loc6.waitFor({ state: 'detached' });
-
-    // await page.page.pause();
-
-
     expect(await verifyFileContent(`basic/${compDir}/del2.bal.txt`, projectFile)).toBeTruthy();
 
     console.log('Finished Testing Basic Mappings');
 
 }
 
-export async function testArrayInnerMappings(dmWebView: Frame, projectFile: string, compDir: string) {
+export async function testArrayInnerMappings(dmWebView: Frame, projectFile: string, compDir: string, needRefresh?: boolean) {
 
     console.log('Testing Array Mappings');
 
@@ -478,6 +415,12 @@ export async function testArrayInnerMappings(dmWebView: Frame, projectFile: stri
 
 
     await dm.expandField('input');
+
+
+    if (needRefresh) {
+        await dm.refresh();
+        await dmWebView.locator(`div[id="recordfield-input.iArr1D"]`).waitFor();
+    }
 
     console.log(' - Input preview');
 
@@ -612,7 +555,7 @@ export async function testArrayInnerMappings(dmWebView: Frame, projectFile: stri
     expect(await verifyFileContent(`array-inner/${compDir}/del4.bal.txt`, projectFile)).toBeTruthy();
 }
 
-export async function testArrayRootMappings(dmWebView: Frame, projectFile: string, compDir: string) {
+export async function testArrayRootMappings(dmWebView: Frame, projectFile: string, compDir: string, needRefresh?: boolean) {
     console.log('Testing Array Root Mappings');
 
     const dm = new DataMapperUtils(dmWebView);
@@ -620,6 +563,10 @@ export async function testArrayRootMappings(dmWebView: Frame, projectFile: strin
 
     console.log(' - Expand input');
     await dm.expandField('input');
+
+    if(needRefresh){
+        await dm.refresh();
+    }
 
     console.log(' - Test preview');
     await dmWebView.getByText('<inputItem>').waitFor();
@@ -745,20 +692,77 @@ export async function testArrayRootMappings(dmWebView: Frame, projectFile: strin
 
     expect(await verifyFileContent(`array-root/${compDir}/del5.bal.txt`, projectFile)).toBeTruthy();
 
-
-    await page.page.pause();
 }
 
-export async function testRefresh(dmWebView: Frame, projectFile: string, compDir: string) {
-    console.log('Testing Refresh');
+// console.log('- Test expression bar');
 
-    const dm = new DataMapperUtils(dmWebView);
-    await dm.waitFor();
+    // // expression bar - use method from completion
+    // await dmWebView.locator('[id="recordfield-objectOutput\\.output\\.oExp"]').click();
+    // const expressionBar = dmWebView.locator('#expression-bar').getByRole('textbox', { name: 'Text field' });
+    // await expect(expressionBar).toBeFocused();
+    // await expressionBar.fill('');
+    // await dmWebView.locator('[id="recordfield-input\\.iExp"]').click();
+    // await expect(expressionBar).toHaveValue('input.iExp');
+    // await expect(expressionBar).toBeFocused();
 
-    await page.page.pause();
+    // await expressionBar.pressSequentially('.toup');
+    // await dmWebView.getByText('toUpperAscii()').click();
+    // await expressionBar.press('Enter');
 
-    updateProjectFileSync('basic/types.bal.txt', 'types.bal');
+    // await expect(expressionBar).toHaveValue('input.iExp.toUpperAscii()');
+    // await expect(expressionBar).toBeFocused();
 
-    await page.page.pause();
+    // const canvas = dmWebView.locator('#data-mapper-canvas-container');
+    // await canvas.click();
+    // await expect(expressionBar).not.toBeFocused();
 
-}
+    // // TODO: input.iExp.toUpperAscii() currently shown as direct link, uncomment below when they display as expression
+    // // await dmWebView.getByTestId('link-from-input.iExp.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
+    // // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oExp.IN').waitFor({ state: 'attached' });
+    // // const loc4 = dmWebView.getByTestId('link-connector-node-objectOutput.output.oExp.IN');
+    // // await loc4.waitFor();
+    
+    // const loc5 = dmWebView.getByTestId('link-from-input.iExp.OUT-to-objectOutput.output.oExp.IN');
+    // await loc5.waitFor();
+
+    // // expression bar - edit existing
+    // await dmWebView.locator('[id="recordfield-objectOutput\\.output\\.oObjProp\\.p1"]').click();
+    // await expect(expressionBar).toHaveValue('input.iObjDirect.d1');
+    // await expect(expressionBar).toBeFocused();
+    // await expressionBar.pressSequentially(' + "HI"');
+    // await canvas.click();
+    // await expect(expressionBar).not.toBeFocused();
+
+    // // TODO: input.iObjDirect.d1 + "HI" currently shown as direct link, uncomment below when they display as expression
+    // // await dmWebView.getByTestId('link-from-input.iObjDirect.d1.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
+    // // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oObjProp.p1.IN').waitFor({ state: 'attached' });
+    // // await dmWebView.getByTestId('link-connector-node-objectOutput.output.oObjProp.p1.IN').waitFor();
+
+
+    // console.log('- Test custom function');
+    // // custom function mapping
+    // // objectOutput.output.oCustomFn = input.iCustomFn;
+    // await dm.mapFields('input.iCustomFn', 'objectOutput.output.oCustomFn', 'custom-func');
+
+    // await dmWebView.getByTestId('link-from-input.iCustomFn.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
+    // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oCustomFn.IN').waitFor({ state: 'attached' });
+    // const loc6 = dmWebView.getByTestId('link-connector-node-objectOutput.output.oCustomFn.IN');
+    // await loc6.waitFor();
+
+    // await loc6.getByTitle('Custom Function Call Expression').click();
+    // await dmWebView.getByRole('heading', { name: 'Function' }).waitFor();
+    // await dmWebView.getByTestId('back-button').click();
+    // await dm.waitFor();
+
+    // await page.page.pause();
+
+    // additional deletions form basic
+        // await loc5.click({ force: true });
+    // await dmWebView.getByTestId('expression-label-for-input.iExp.OUT-to-objectOutput.output.oExp.IN')
+    //     .locator('.codicon-trash').click({ force: true });
+    // await loc5.waitFor({ state: 'detached' });
+
+    // await loc6.locator('.codicon-trash').click({ force: true });
+    // await loc6.waitFor({ state: 'detached' });
+
+    // await page.page.pause();
