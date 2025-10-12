@@ -306,6 +306,7 @@ import { v4 as uuidv4 } from 'uuid';
 import * as vscode from 'vscode';
 import { Position, Range, Selection, TextEdit, Uri, ViewColumn, WorkspaceEdit, commands, extensions, window, workspace } from "vscode";
 import { parse, stringify } from "yaml";
+import { createSecureCorsProxy } from "../../utils/secure-cors-proxy";
 import { DiagramService, APIResource, NamedSequence, UnitTest, Proxy } from "../../../../syntax-tree/lib/src";
 import { extension } from '../../MIExtensionContext';
 import { RPCLayer } from "../../RPCLayer";
@@ -5115,7 +5116,6 @@ ${keyValuesXML}`;
                 swaggerContent = swagger;
             }
             const port = await getPortPromise({ port: 1000, stopPort: 3000 });
-            const { createSecureCorsProxy } = require('../../utils/secure-cors-proxy');
             const cors_proxy = createSecureCorsProxy();
             await cors_proxy.listen(port, 'localhost');
 
@@ -5471,7 +5471,6 @@ ${keyValuesXML}`;
         }
         const generatedSwagger = response.swagger;
         const port = await getPortPromise({ port: 1000, stopPort: 3000 });
-        const { createSecureCorsProxy } = require('../../utils/secure-cors-proxy');
         const cors_proxy = createSecureCorsProxy();
         await cors_proxy.listen(port, 'localhost');
 
