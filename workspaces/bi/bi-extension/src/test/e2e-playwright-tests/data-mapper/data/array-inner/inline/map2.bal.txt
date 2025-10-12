@@ -3,7 +3,10 @@ import ballerina/log;
 public function main() returns error? {
     do {
         InRoot input = {};
-        OutRoot output = {oObjDirect: input.iObjDirect, oObjDirectErr: input.iObjDirect, oObjProp: {p2: input.iObjProp.op2}};
+        OutRoot output = {
+            oArr1D: from var iArr1DItem in input.iArr1D
+                select iArr1DItem
+        };
     } on fail error e {
         log:printError("Error occurred", 'error = e);
         return e;
