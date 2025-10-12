@@ -68,20 +68,24 @@ export const getMainFilePath = async (rpcClient: BallerinaRpcClient) => {
     return mainFilePath;
 };
 
-export const findFlowNodeByModuleVarName = async (variableName: string, rpcClient: BallerinaRpcClient) => {
+export const findFlowNodeByModuleVarName = async (variableName: string, rpcClient: BallerinaRpcClient, connections?: FlowNode[]) => {
     try {
-        // Get all module nodes
-        const moduleNodes = await rpcClient.getBIDiagramRpcClient().getModuleNodes();
+        const sanitizedVarName = variableName.trim().replace(/\n/g, "");
+
+        // Get connections either from parameter or by fetching module nodes
+        const nodeList = connections || (await rpcClient.getBIDiagramRpcClient().getModuleNodes()).flowModel.connections;
+
         // Find the node with matching variable name
-        const flowNode = moduleNodes.flowModel.connections.find((node) => {
+        const flowNode = nodeList.find((node) => {
             const value = node.properties?.variable?.value;
-            const sanitizedVarName = variableName.trim().replace(/\n/g, "");
             return typeof value === "string" && value === sanitizedVarName;
         });
+
         if (!flowNode) {
             console.error(`Flow node with variable name '${variableName}' not found`);
             return null;
         }
+
         return flowNode;
     } catch (error) {
         console.error("Error finding flow node by variable name:", error);
@@ -89,7 +93,7 @@ export const findFlowNodeByModuleVarName = async (variableName: string, rpcClien
     }
 };
 
-export const findAgentNodeFromAgentCallNode = async (agentCallNode: FlowNode, rpcClient: BallerinaRpcClient) => {
+export const findAgentNodeFromAgentCallNode = async (agentCallNode: FlowNode, rpcClient: BallerinaRpcClient, connections?: FlowNode[]) => {
     if (!agentCallNode || agentCallNode.codedata?.node !== "AGENT_CALL") return null;
 
     // get agent name
@@ -100,7 +104,7 @@ export const findAgentNodeFromAgentCallNode = async (agentCallNode: FlowNode, rp
     }
 
     // use the new function to find the node
-    return await findFlowNodeByModuleVarName(connectionValue, rpcClient);
+    return await findFlowNodeByModuleVarName(connectionValue, rpcClient, connections);
 };
 
 export const removeToolFromAgentNode = async (agentNode: FlowNode, toolName: string) => {
