@@ -296,21 +296,6 @@ export async function testBasicMappings(dmWebView: Frame, projectFile: string, c
         await dm.refresh();
     }
 
-    console.log(' - Test direct - root');
-
-    // root mapping
-    await dm.mapFields('input', 'objectOutput.output', 'direct');
-    const locRoot = dmWebView.getByTestId('link-from-input.OUT-to-objectOutput.output.IN');
-    await dm.expectErrorLink(locRoot);
-
-    expect(await verifyFileContent(`basic/${compDir}/map1.bal.txt`, projectFile)).toBeTruthy();
-    // delete root mapping
-    await locRoot.click({ force: true });
-    await dmWebView.getByTestId('expression-label-for-input.OUT-to-objectOutput.output.IN').locator('.codicon-trash').click({ force: true });
-    await locRoot.waitFor({ state: 'detached' });
-
-    expect(await verifyFileContent(`basic/${compDir}/del1.bal.txt`, projectFile)).toBeTruthy();
-
     console.log(' - Test direct - fields');
     // direct mapping
     // objectOutput.output.oPrimDirect = input.iPrimDirect;
@@ -372,7 +357,7 @@ export async function testBasicMappings(dmWebView: Frame, projectFile: string, c
     await dm.mapFields('input.iObjProp.op2', 'objectOutput.output.oObjProp.p2');
     await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iObjProp.op2.OUT-to-objectOutput.output.oObjProp.p2.IN'));
 
-    expect(await verifyFileContent(`basic/${compDir}/map2.bal.txt`, projectFile)).toBeTruthy();
+    expect(await verifyFileContent(`basic/${compDir}/map1.bal.txt`, projectFile)).toBeTruthy();
 
     console.log('- Test basic mapping delete');
     // await dm.expandField('input');
@@ -397,6 +382,32 @@ export async function testBasicMappings(dmWebView: Frame, projectFile: string, c
     await dmWebView.getByTestId('expression-label-for-input.iObjDirect.d1.OUT-to-objectOutput.output.oObjProp.p1.IN')
         .locator('.codicon-trash').click({ force: true });
     await loc4.waitFor({ state: 'detached' });
+
+    expect(await verifyFileContent(`basic/${compDir}/del1.bal.txt`, projectFile)).toBeTruthy();
+
+    console.log(' - Test Clear All Mappings');
+
+    await dmWebView.getByTitle('Clear all mappings').click();
+    await dm.waitForProgressEnd();
+    const links = dmWebView.locator('[data-testid^="link-from-"]');
+    await expect(links).toHaveCount(0);
+
+    expect(await verifyFileContent(`basic/${compDir}/del2.bal.txt`, projectFile)).toBeTruthy();
+
+
+    console.log(' - Test direct - root');
+
+    // root mapping
+    await dm.mapFields('input', 'objectOutput.output', 'direct');
+    const locRoot = dmWebView.getByTestId('link-from-input.OUT-to-objectOutput.output.IN');
+    await dm.expectErrorLink(locRoot);
+
+    expect(await verifyFileContent(`basic/${compDir}/map2.bal.txt`, projectFile)).toBeTruthy();
+    
+    // delete root mapping
+    await locRoot.click({ force: true });
+    await dmWebView.getByTestId('expression-label-for-input.OUT-to-objectOutput.output.IN').locator('.codicon-trash').click({ force: true });
+    await locRoot.waitFor({ state: 'detached' });
 
     expect(await verifyFileContent(`basic/${compDir}/del2.bal.txt`, projectFile)).toBeTruthy();
 
