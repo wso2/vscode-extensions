@@ -26,12 +26,12 @@ export default function createTests() {
         tag: '@group1',
     }, async () => {
         initTest();
-        test('Create reusable Data Mapper', async ({ }, testInfo) => {
+        test('Reusable Data Mapper - Create', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
             console.log('Update types.bal');
             updateProjectFileSync('basic/types.bal.txt', 'types.bal');
-            // updateProjectFileSync('empty.txt', 'data_mappings.bal');
+            updateProjectFileSync('empty.txt', 'data_mappings.bal');
 
             console.log('Creating reusable Data Mapper', testAttempt);
 
@@ -62,10 +62,6 @@ export default function createTests() {
             await expect(outputType).toHaveValue('OutRoot');
 
             await webView.getByRole('button', { name: 'Create', exact: true }).click();
-
-            /* Uncomment this code if the timeout issue persists */
-            // // FIXME:Remove this once timeout issue is fixed
-            // await new Promise((resolve) => setTimeout(resolve, 3000));
 
             console.log('Waiting for Data Mapper to open');
             await webView.locator('#data-mapper-canvas-container').waitFor();
