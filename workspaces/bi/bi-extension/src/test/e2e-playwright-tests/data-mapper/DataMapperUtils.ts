@@ -267,12 +267,13 @@ export async function verifyFileContent(comparingFile: string, projectFile: stri
     // console.log({comparingFile, projectFile});
     // await page.page.pause();
     // updateDataFileSync(projectFile, comparingFile);
+    // return true;
     // // End of the block
-    return true;
-    // return compareFilesSync(
-    //     path.join(dmDataDir, comparingFile),
-    //     path.join(projectDir, projectFile)
-    // );
+
+    return compareFilesSync(
+        path.join(dmDataDir, comparingFile),
+        path.join(projectDir, projectFile)
+    );
 }
 
 export function compareFilesSync(file1: string, file2: string) {
@@ -586,6 +587,7 @@ export async function testArrayRootMappings(dmWebView: Frame, projectFile: strin
     console.log(' - Map input to ouput using query expression');
 
     await dm.mapFields('input', 'arrayOutput.output', 'a2a-inner');
+    await page.page.pause(); // TODO: Remove after fixing root level mapping issue
     const locH = dmWebView.getByTestId('link-from-input.OUT-to-queryOutput.output.#.IN');
     await locH.waitFor({state: 'attached'});
 
@@ -678,6 +680,7 @@ export async function testArrayRootMappings(dmWebView: Frame, projectFile: strin
     await dmWebView.locator('div[id="recordfield-arrayOutput.output.1"]').waitFor();
 
     console.log(' - Map to root level array elements');
+    await dm.expandField('input');
     await dm.mapFields('input', 'arrayOutput.output.0.oArr1D', 'a2a-direct');
     const loc5 = dmWebView.getByTestId('link-from-input.OUT-to-arrayOutput.output.0.oArr1D.IN');
     await dm.expectErrorLink(loc5);
