@@ -182,7 +182,7 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
             {message.role === Role.MICopilot && 
              message.type === MessageType.AssistantMessage && 
              !backendRequestTriggered &&
-             index === messages.length - 2 && (
+             index === messages.length - 1 && (
                 <FeedbackBar
                     messageIndex={index}
                     onFeedback={handleFeedback}
