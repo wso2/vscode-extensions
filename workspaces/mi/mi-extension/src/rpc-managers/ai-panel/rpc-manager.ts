@@ -46,7 +46,7 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
 
     constructor(private projectUri: string) {
         this.eventHandler = this.createEventHandler();
-     }
+    }
 
     async getBackendRootUrl(): Promise<GetBackendRootUrlResponse> {
         const MI_COPILOT_BACKEND_V2 = process.env.MI_COPILOT_BACKEND_V2 as string;

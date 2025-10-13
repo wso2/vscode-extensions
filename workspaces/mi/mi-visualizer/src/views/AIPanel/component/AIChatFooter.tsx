@@ -27,7 +27,6 @@ import { generateSuggestions, generateId, getBackendUrlAndView, fetchCodeGenerat
 import { BackendRequestType, FixedConfigItem, CorrectedCodeItem, } from "../types";
 import { Role, MessageType, CopilotChatEntry, ChatMessage } from "@wso2/mi-core";
 import Attachments from "./Attachments";
-import { json } from "stream/consumers";
 
 /**
  * Footer component containing chat input and controls
@@ -212,12 +211,6 @@ const AIChatFooter: React.FC = () => {
             { id: currentChatId || generateId(), role: Role.CopilotAssistant, content: finalContent },
         ]);
 
-        // Generate suggestions
-        // Disable suggestion generation for now
-        // generateSuggestions(copilotChat, rpcClient, new AbortController()).then((response) => {
-        //     setQuestions((prevMessages) => [...prevMessages, ...response]);
-        // });
-
         setBackendRequestTriggered(false);
     };
 
@@ -388,10 +381,6 @@ const AIChatFooter: React.FC = () => {
             }
             setBackendRequestTriggered(false);
         }
-
-        // if (backendRequestTriggered) {
-        //     setBackendRequestTriggered(false);
-        // }
     }
 
     useEffect(() => {
