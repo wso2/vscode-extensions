@@ -19,7 +19,7 @@
 import { expect, test } from '@playwright/test';
 import { initTest, page } from '../utils';
 import { switchToIFrame } from '@wso2/playwright-vscode-tester';
-import { TestSenarios, FileUtils } from './DataMapperUtils';
+import { TestScenarios, FileUtils } from './DataMapperUtils';
 
 export default function createTests() {
     test.describe('Reusable Data Mapper Tests', {
@@ -29,7 +29,7 @@ export default function createTests() {
         test('Create', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Reusable Data Mapper - Create:', testAttempt);
+            console.log('Reusable Data Mapper - Create: START TEST ATTEMPT', testAttempt);
 
             FileUtils.updateProjectFileSync('basic/types.bal.txt', 'types.bal');
             FileUtils.updateProjectFileSync('empty.txt', 'data_mappings.bal');
@@ -69,12 +69,13 @@ export default function createTests() {
 
             await FileUtils.verifyFileContent('basic/reusable/init.bal.txt', 'data_mappings.bal');
 
+            console.log('Reusable Data Mapper - Create: COMPLETE TEST ATTEMPT', testAttempt);
         });
 
         test('Basic', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Reusable Data Mapper - Basic:', testAttempt);
+            console.log('Reusable Data Mapper - Basic: START TEST ATTEMPT', testAttempt);
 
             FileUtils.updateProjectFileSync('basic/reusable/init.bal.txt', 'data_mappings.bal');
             FileUtils.updateProjectFileSync('basic/types.bal.txt', 'types.bal');
@@ -90,13 +91,15 @@ export default function createTests() {
                 await page.page.getByRole('treeitem', { name: 'output' }).click();
             }
 
-            await TestSenarios.testBasicMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
+            await TestScenarios.testBasicMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
+
+            console.log('Reusable Data Mapper - Basic: COMPLETE TEST ATTEMPT', testAttempt);
         });
 
         test('Array Inner', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Reusable Data Mapper - Array Inner:', testAttempt);
+            console.log('Reusable Data Mapper - Array Inner: START TEST ATTEMPT', testAttempt);
 
             FileUtils.updateProjectFileSync('array-inner/reusable/init.bal.txt', 'data_mappings.bal');
             FileUtils.updateProjectFileSync('array-inner/types.bal.txt', 'types.bal');
@@ -112,13 +115,15 @@ export default function createTests() {
                 await page.page.getByRole('treeitem', { name: 'output' }).click();
             }
 
-            await TestSenarios.testArrayInnerMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
+            await TestScenarios.testArrayInnerMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
+
+            console.log('Reusable Data Mapper - Array Inner: COMPLETE TEST ATTEMPT', testAttempt);
         });
 
         test('Array Root', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Reusable Data Mapper - Array Root:', testAttempt);
+            console.log('Reusable Data Mapper - Array Root: START TEST ATTEMPT', testAttempt);
 
             FileUtils.updateProjectFileSync('array-root/reusable/init.bal.txt', 'data_mappings.bal');
             FileUtils.updateProjectFileSync('array-root/types.bal.txt', 'types.bal');
@@ -134,7 +139,9 @@ export default function createTests() {
                 await page.page.getByRole('treeitem', { name: 'output' }).click();
             }
 
-            await TestSenarios.testArrayRootMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
+            await TestScenarios.testArrayRootMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
+
+            console.log('Reusable Data Mapper - Array Root: COMPLETE TEST ATTEMPT', testAttempt);
         });
     });
 }
