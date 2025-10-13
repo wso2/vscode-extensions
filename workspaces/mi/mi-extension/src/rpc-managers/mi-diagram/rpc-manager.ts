@@ -4208,9 +4208,9 @@ ${endpointAttributes}
         const RUNTIME_THRESHOLD_VERSION = RUNTIME_VERSION_440;
         const runtimeVersion = await getMIVersionFromPom(this.projectUri);
 
-        const isVersionThresholdReached = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_THRESHOLD_VERSION) : -1;
+        const versionThreshold = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_THRESHOLD_VERSION) : -1;
 
-        return isVersionThresholdReached < 0 ? { url: MI_COPILOT_BACKEND_V2 } : { url: MI_COPILOT_BACKEND_V3 };
+        return versionThreshold < 0 ? { url: MI_COPILOT_BACKEND_V2 } : { url: MI_COPILOT_BACKEND_V3 };
     }
 
     async getProxyRootUrl(): Promise<GetProxyRootUrlResponse> {
