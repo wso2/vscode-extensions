@@ -70,6 +70,7 @@ export default function createTests() {
 
             await FileUtils.verifyFileContent('create/inline/final.bal.txt', 'automation.bal');
 
+            console.log(' - Go back to overview (using back button)');
             await webView.getByTestId('back-button').click();
             await webView.getByRole('heading', { name: 'Automation' }).waitFor();
             await webView.getByTestId('back-button').click();

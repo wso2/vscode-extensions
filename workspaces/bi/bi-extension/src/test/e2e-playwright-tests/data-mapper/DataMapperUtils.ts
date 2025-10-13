@@ -21,7 +21,7 @@ import * as fs from 'fs';
 import { newProjectPath, page } from '../utils';
 import path from "path";
 
-const dmDataDir = path.join(__dirname, 'data');
+const dmDataDir = path.join(__dirname, 'dm-data');
 const projectDir = path.join(newProjectPath, 'sample');
 
 export class DataMapper {
@@ -315,9 +315,6 @@ export namespace TestSenarios {
         await locRoot.waitFor({ state: 'detached' });
 
         expect(await FileUtils.verifyFileContent(`basic/${compDir}/del2.bal.txt`, projectFile)).toBeTruthy();
-
-        console.log('Finished Testing Basic Mappings');
-
     }
 
     export async function testArrayInnerMappings(dmWebView: Frame, projectFile: string, compDir: string, needRefresh?: boolean) {
@@ -425,7 +422,6 @@ export namespace TestSenarios {
         await dm.waitForProgressEnd();
         await dmWebView.locator('div[id="recordfield-objectOutput.output.oArr1D.2"]').waitFor();
 
-
         console.log(' - Map to array elements');
         await dm.mapFields('input.p1', 'objectOutput.output.oArr1D.0.p1');
         const loc4 = dmWebView.getByTestId('link-from-input.p1.OUT-to-objectOutput.output.oArr1D.0.p1.IN');
@@ -504,7 +500,7 @@ export namespace TestSenarios {
 
         expect(await FileUtils.verifyFileContent(`array-root/${compDir}/map1.bal.txt`, projectFile)).toBeTruthy();
 
-        console.log(' - Go back to focused view (using back button)');
+        console.log(' - Go back to intermediate focused view (using back button)');
         await dm.goPrevViewBackButton();
         const loc0 = dmWebView.getByTestId('link-connector-node-queryOutput.output.oArr1D.IN');
         await loc0.waitFor();
@@ -540,7 +536,7 @@ export namespace TestSenarios {
 
         expect(await FileUtils.verifyFileContent(`array-root/${compDir}/del2.bal.txt`, projectFile)).toBeTruthy();
 
-        console.log(' - Go back to previous view (using back button)');
+        console.log(' - Go back to intermediate focused view (using back button)');
         await dm.goPrevViewBackButton();
 
         console.log(' - Delete intermediate query expression');
