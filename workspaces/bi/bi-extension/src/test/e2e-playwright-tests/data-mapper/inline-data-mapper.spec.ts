@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { initTest, page } from '../utils';
 import { switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { Diagram } from '../components/Diagram';
@@ -56,8 +56,11 @@ export default function createTests() {
             await diagram.clickAddButtonByIndex(1);
 
             await webView.getByText('Declare Variable').click();
-            await webView.getByRole('textbox', { name: 'Type' }).click();
+            
+            const varType = webView.getByRole('textbox', { name: 'Type' });
+            await varType.click();
             await webView.getByText('OutRoot').click();
+            await expect(varType).toHaveValue('OutRoot');
 
             await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
 
