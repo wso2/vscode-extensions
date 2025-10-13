@@ -69,39 +69,6 @@ export class DataMapperUtils {
         await this.webView.waitForSelector('vscode-progress-ring', { state: 'detached' });
     }
 
-    // public async importSchema(ioType: IOType, schemaType: SchemaType, schemaFile: string) {
-    //     const importNode = this.webView.getByTestId(`${ioType}-data-import-node`);
-    //     // const importNode = this.webView.getByText(`Import ${ioType} schema`);
-    //     await importNode.waitFor();
-    //     await importNode.click();
-
-    //     await this.fillImportForm(schemaType, schemaFile);
-
-    //     await importNode.waitFor({ state: 'detached' });
-    // }
-
-    // public async editSchema(ioType: IOType, schemaType: SchemaType, schemaFile: string) {
-    //     const editButton = this.webView.getByTestId(`change-${ioType}-schema-btn`);
-    //     await editButton.click()
-    //     await this.fillImportForm(schemaType, schemaFile);
-    //     await page.page.getByRole('button', { name: 'Yes' }).click();
-    //     await editButton.waitFor({ state: 'detached' });
-    //     await editButton.waitFor({ state: 'attached' });
-    // }
-
-    // private async fillImportForm(schemaType: SchemaType, schemaFile: string) {
-    //     const importForm = new ImportForm(this.webView);
-    //     await importForm.init();
-    //     await importForm.importData(schemaType, fs.readFileSync(path.join(dmDataFolder, schemaFile), 'utf8'));
-    // }
-
-    // public async loadJsonFromCompFolder(category: string) {
-    //     const inputJsonFile = path.join(category, 'inp.json');
-    //     const outputJsonFile = path.join(category, 'out.json');
-    //     await this.importSchema(IOType.Input, SchemaType.Json, inputJsonFile);
-    //     await this.importSchema(IOType.Output, SchemaType.Json, outputJsonFile);
-    // }
-
     public async expandField(fieldFQN: string) {
         const expandButton = this.webView.locator(`div[id="expand-or-collapse-${fieldFQN}"]`);
 
@@ -145,51 +112,6 @@ export class DataMapperUtils {
         
     }
 
-    // public async mapArrayDirect(sourceFieldFQN: string, targetFieldFQN: string) {
-
-    //     const sourceField = this.webView.locator(`div[data-name="${sourceFieldFQN}.OUT"]`);
-    //     await sourceField.waitFor();
-    //     await sourceField.click();
-
-    //     const targetField = this.webView.locator(`div[data-name="${targetFieldFQN}.IN"]`);
-    //     await targetField.waitFor();
-    //     await targetField.click();
-
-    //     const menuItem = this.webView.locator(`div[id="menu-item-a2a-direct"]`);
-    //     await menuItem.waitFor();
-    //     await menuItem.click();
-
-    //     // await this.webView.waitForSelector('vscode-progress-ring', { state: 'attached' });
-    //     await this.webView.waitForSelector('vscode-progress-ring', { state: 'detached' });
-
-    // }
-
-    // public async mapArrayInner(sourceFieldFQN: string, targetFieldFQN: string) {
-
-    //     const sourceField = this.webView.locator(`div[data-name="${sourceFieldFQN}.OUT"]`);
-    //     await sourceField.waitFor();
-    //     await sourceField.click();
-
-    //     const targetField = this.webView.locator(`div[data-name="${targetFieldFQN}.IN"]`);
-    //     await targetField.waitFor();
-    //     await targetField.click();
-
-    //     const menuItem = this.webView.locator(`div[id="menu-item-a2a-inner"]`);
-    //     await menuItem.waitFor();
-    //     await menuItem.click();
-
-    //     // await this.webView.waitForSelector('vscode-progress-ring', { state: 'attached' });
-    //     await this.webView.waitForSelector('vscode-progress-ring', { state: 'detached' });
-
-    //     const expandButton = await this.webView.locator(`div[data-testid="array-connector-node-${targetFieldFQN}.IN"] vscode-button[title="Map array elements"]`);
-    //     await expandButton.waitFor();
-    //     await expandButton.click();
-
-    //     const fieldName = sourceFieldFQN.split('.').pop();
-    //     await this.webView.waitForSelector(`div[id^="recordfield-focusedInput."]`);
-
-    // }
-
     public async selectConfigMenuItem(fieldFQN: string, menuOptionText: string){
         
         const configMenu = this.webView.locator(`[id="recordfield-${fieldFQN}"] #component-list-menu-btn`);
@@ -222,29 +144,6 @@ export class DataMapperUtils {
         await locator.waitFor({ state: 'attached' });
         const hasDiagnostic = await locator.evaluate((el) => el.getAttribute('data-diagnostics'));
         expect(hasDiagnostic).toBeTruthy();
-    }
-
-    // public verifyFileCreation() {
-    //     const configFolder = path.join(
-    //         newProjectPath, 'testProject', 'src', 'main', 'wso2mi', 'resources', 'datamapper', this._name);
-
-    //     const operatorsFile = path.join(configFolder, `${DM_OPERATORS_FILE_NAME}.ts`);
-
-    //     return fs.existsSync(operatorsFile) && fs.existsSync(this.tsFile);
-    // }
-
-    // public overwriteTsFile(newTsFile: string) {
-    //     fs.writeFileSync(this.tsFile, fs.readFileSync(newTsFile, 'utf8'));
-    // }
-
-    // public resetTsFile() {
-    //     this.overwriteTsFile(path.join(dmDataFolder, 'reset.ts'));
-    // }
-
-    public writeFile(sourceFile: string, targetFile: string) {
-        const sourcePath = path.join(dmDataDir, sourceFile);
-        const targetPath = path.join(newProjectPath, 'sample')
-        
     }
 
 }
@@ -282,7 +181,6 @@ export function compareFilesSync(file1: string, file2: string) {
 
     return file1Content === file2Content;
 }
-
 
 export async function testBasicMappings(dmWebView: Frame, projectFile: string, compDir: string, needRefresh?: boolean) {
     console.log('Testing Basic Mappings');
@@ -361,7 +259,6 @@ export async function testBasicMappings(dmWebView: Frame, projectFile: string, c
     expect(await verifyFileContent(`basic/${compDir}/map1.bal.txt`, projectFile)).toBeTruthy();
 
     console.log('- Test basic mapping delete');
-    // await dm.expandField('input');
 
     await loc0.click({ force: true });
     await dmWebView.getByTestId('expression-label-for-input.iPrimDirect.OUT-to-objectOutput.output.oPrimDirect.IN')
@@ -505,8 +402,6 @@ export async function testArrayInnerMappings(dmWebView: Frame, projectFile: stri
     await dmWebView.getByTestId('back-button').click();
     await dmWebView.getByText('oArr1D:Query').waitFor({ state: 'detached' });
 
-    // TODO: Need to add deletion of query expression
-
 
     console.log(' - Initialize and add elements');
     await dm.selectConfigMenuItem('objectOutput.output.oArr1D', 'Initialize Array');
@@ -587,7 +482,6 @@ export async function testArrayRootMappings(dmWebView: Frame, projectFile: strin
     console.log(' - Map input to ouput using query expression');
 
     await dm.mapFields('input', 'arrayOutput.output', 'a2a-inner');
-    await page.page.pause(); // TODO: Remove after fixing root level mapping issue
     const locH = dmWebView.getByTestId('link-from-input.OUT-to-queryOutput.output.#.IN');
     await locH.waitFor({state: 'attached'});
 
@@ -707,76 +601,3 @@ export async function testArrayRootMappings(dmWebView: Frame, projectFile: strin
     expect(await verifyFileContent(`array-root/${compDir}/del5.bal.txt`, projectFile)).toBeTruthy();
 
 }
-
-// console.log('- Test expression bar');
-
-    // // expression bar - use method from completion
-    // await dmWebView.locator('[id="recordfield-objectOutput\\.output\\.oExp"]').click();
-    // const expressionBar = dmWebView.locator('#expression-bar').getByRole('textbox', { name: 'Text field' });
-    // await expect(expressionBar).toBeFocused();
-    // await expressionBar.fill('');
-    // await dmWebView.locator('[id="recordfield-input\\.iExp"]').click();
-    // await expect(expressionBar).toHaveValue('input.iExp');
-    // await expect(expressionBar).toBeFocused();
-
-    // await expressionBar.pressSequentially('.toup');
-    // await dmWebView.getByText('toUpperAscii()').click();
-    // await expressionBar.press('Enter');
-
-    // await expect(expressionBar).toHaveValue('input.iExp.toUpperAscii()');
-    // await expect(expressionBar).toBeFocused();
-
-    // const canvas = dmWebView.locator('#data-mapper-canvas-container');
-    // await canvas.click();
-    // await expect(expressionBar).not.toBeFocused();
-
-    // // TODO: input.iExp.toUpperAscii() currently shown as direct link, uncomment below when they display as expression
-    // // await dmWebView.getByTestId('link-from-input.iExp.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
-    // // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oExp.IN').waitFor({ state: 'attached' });
-    // // const loc4 = dmWebView.getByTestId('link-connector-node-objectOutput.output.oExp.IN');
-    // // await loc4.waitFor();
-    
-    // const loc5 = dmWebView.getByTestId('link-from-input.iExp.OUT-to-objectOutput.output.oExp.IN');
-    // await loc5.waitFor();
-
-    // // expression bar - edit existing
-    // await dmWebView.locator('[id="recordfield-objectOutput\\.output\\.oObjProp\\.p1"]').click();
-    // await expect(expressionBar).toHaveValue('input.iObjDirect.d1');
-    // await expect(expressionBar).toBeFocused();
-    // await expressionBar.pressSequentially(' + "HI"');
-    // await canvas.click();
-    // await expect(expressionBar).not.toBeFocused();
-
-    // // TODO: input.iObjDirect.d1 + "HI" currently shown as direct link, uncomment below when they display as expression
-    // // await dmWebView.getByTestId('link-from-input.iObjDirect.d1.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
-    // // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oObjProp.p1.IN').waitFor({ state: 'attached' });
-    // // await dmWebView.getByTestId('link-connector-node-objectOutput.output.oObjProp.p1.IN').waitFor();
-
-
-    // console.log('- Test custom function');
-    // // custom function mapping
-    // // objectOutput.output.oCustomFn = input.iCustomFn;
-    // await dm.mapFields('input.iCustomFn', 'objectOutput.output.oCustomFn', 'custom-func');
-
-    // await dmWebView.getByTestId('link-from-input.iCustomFn.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
-    // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.output.oCustomFn.IN').waitFor({ state: 'attached' });
-    // const loc6 = dmWebView.getByTestId('link-connector-node-objectOutput.output.oCustomFn.IN');
-    // await loc6.waitFor();
-
-    // await loc6.getByTitle('Custom Function Call Expression').click();
-    // await dmWebView.getByRole('heading', { name: 'Function' }).waitFor();
-    // await dmWebView.getByTestId('back-button').click();
-    // await dm.waitFor();
-
-    // await page.page.pause();
-
-    // additional deletions form basic
-        // await loc5.click({ force: true });
-    // await dmWebView.getByTestId('expression-label-for-input.iExp.OUT-to-objectOutput.output.oExp.IN')
-    //     .locator('.codicon-trash').click({ force: true });
-    // await loc5.waitFor({ state: 'detached' });
-
-    // await loc6.locator('.codicon-trash').click({ force: true });
-    // await loc6.waitFor({ state: 'detached' });
-
-    // await page.page.pause();
