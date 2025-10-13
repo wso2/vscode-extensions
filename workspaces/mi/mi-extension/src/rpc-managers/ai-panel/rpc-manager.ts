@@ -255,8 +255,21 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                                 assistantResponse += obj.content;
                                 this.eventHandler.handleContentBlock(line);
                             } catch (err) {
-                                console.error("JSON parse error:", err, "line:", line);
+                                // If JSON parsing fails, it might be an incomplete object
+                                // Add it back to the buffer to be processed with the next chunk
+                                buffer = line + "\n" + buffer;
                             }
+                        }
+                    }
+                    
+                    // Process any remaining data in the buffer after the stream ends
+                    if (buffer.trim()) {
+                        try {
+                            const obj = JSON.parse(buffer);
+                            assistantResponse += obj.content;
+                            this.eventHandler.handleContentBlock(buffer);
+                        } catch (err) {
+                            console.error("JSON parse error for remaining buffer:", err, "buffer:", buffer);
                         }
                     }
                 } finally {
@@ -330,6 +343,7 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             }
 
             // Get diagnostics for each XML file
+            let hasAnyDiagnostics = false;
             const diagnosticsResults: Array<{fileName: string, diagnostics: any[]}> = [];
             for (const xmlCode of xmlCodes) {
                 const res = await langClient.getCodeDiagnostics(xmlCode);
@@ -337,10 +351,10 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                     fileName: xmlCode.fileName,
                     diagnostics: res.diagnostics
                 });
+                if (res.diagnostics.length > 0) {
+                    hasAnyDiagnostics = true;
+                }
             }
-
-            // Check if there are any diagnostics
-            const hasAnyDiagnostics = diagnosticsResults.some(file => file.diagnostics.length > 0);
 
             if (hasAnyDiagnostics) {
                 // Send diagnostics to LLM for corrections
