@@ -105,6 +105,7 @@ export class API {
         await apiFormFrame.getByRole('textbox', { name: 'Version' }).fill('1.0.2');
         await apiFormFrame.getByLabel('Trace Enabled').click();
         await apiFormFrame.getByLabel('Statistics Enabled').click();
+        await apiFormFrame.getByText('Handlers').click();
         await apiFormFrame.getByRole('button', { name: 'Add Handler' }).click();
         await apiFormFrame.getByRole('textbox', { name: 'Text field' }).fill('testClass');
         await apiFormFrame.getByRole('button', { name: 'Add Property' }).click();
@@ -240,9 +241,12 @@ export class API {
         console.log("Clicked on open project overview");
         const vscodeButton = webview.locator('vscode-button > svg').nth(1);
         await vscodeButton.waitFor();
+        // 2s wait (2000ms) to avoid the intermittent issue of the button not being clickable
+        console.log("Waiting for 2s before clicking on delete API button");
+        await page.page.waitForTimeout(2000);
         await vscodeButton.click({force: true});
         const deleteBtn = webview.getByText('Delete');
-        console.log("Clicked on delete API");
+        console.log("Clicked on delete API from overview");
         await deleteBtn.waitFor();
         await deleteBtn.click();
         console.log("Clicked on delete");

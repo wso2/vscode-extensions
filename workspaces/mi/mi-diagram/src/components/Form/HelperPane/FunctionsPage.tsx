@@ -26,14 +26,18 @@ import { filterHelperPaneFunctionCompletionItems } from '../FormExpressionField/
 
 type FunctionsPageProps = {
     position: Position;
+    hideSearch?: boolean;
     onChange: (value: string) => void;
     addFunction?: (value: string) => void;
+    artifactPath?: string;
 };
 
 export const FunctionsPage = ({
     position,
+    hideSearch = false,
     onChange,
-    addFunction
+    addFunction,
+    artifactPath
 }: FunctionsPageProps) => {
     const { rpcClient } = useVisualizerContext();
     const firstRender = useRef<boolean>(true);
@@ -47,7 +51,7 @@ export const FunctionsPage = ({
         setTimeout(() => {
             rpcClient.getVisualizerState().then((machineView) => {
                 rpcClient.getMiDiagramRpcClient().getHelperPaneInfo({
-                    documentUri: machineView.documentUri,
+                    documentUri: artifactPath ? artifactPath : machineView.documentUri,
                     position: position,
                 })
                     .then((response) => {
@@ -124,10 +128,12 @@ export const FunctionsPage = ({
 
     return (
         <>
-            <HelperPane.Header
-                searchValue={searchValue}
-                onSearch={handleSearch}
-            />
+            { !hideSearch &&
+                <HelperPane.Header
+                    searchValue={searchValue}
+                    onSearch={handleSearch}
+                />
+            }
             <HelperPane.Body loading={isLoading}>
                 {sortedFunctionInfo.map(({ group, items }) => (
                     <HelperPane.Section title={group}>

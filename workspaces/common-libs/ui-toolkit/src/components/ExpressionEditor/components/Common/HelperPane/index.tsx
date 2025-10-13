@@ -65,11 +65,12 @@ export const Arrow = styled.div<ArrowProps>`
     ${(props: StyleBase) => props.sx}
 `;
 
-const PanelViewContainer = styled.div`
+const PanelViewContainer = styled.div<{ sx?: CSSProperties }>`
     height: 100%;
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    ${({ sx }: { sx?: CSSProperties }) => sx}
 `;
 
 const PanelTabContainer = styled.div<{ isActive: boolean }>`
@@ -144,7 +145,7 @@ const LibraryBrowserContainer = styled.div`
     border-radius: 8px;
     background-color: var(--vscode-dropdown-background);
     box-shadow: 0 3px 8px rgb(0 0 0 / 0.2);
-    z-index: 3002;
+    z-index: 100001;
 `;
 
 const IconButtonContainer = styled.div`
@@ -155,7 +156,7 @@ const IconButtonContainer = styled.div`
 
     & p,
     & i {
-        color: var(--vscode-button-background);
+        color: var(--vscode-notebook-focusedEditorBorder);
     }
 
     & p:hover,
@@ -379,13 +380,13 @@ const Loader: React.FC<LoadingSectionProps> = ({ columns, rows, sections }) => {
     );
 }
 
-const PanelView: React.FC<PanelViewProps> = ({ children, id }) => {
+const PanelView: React.FC<PanelViewProps> = ({ children, id, sx }) => {
     const { activePanelIndex } = useHelperPanePanelContext();
     
     return (
         <>
             {activePanelIndex === id && (
-                <PanelViewContainer>
+                <PanelViewContainer sx={sx}>
                     {React.Children.toArray(children).length > 0 ? (
                         children
                     ) : (
@@ -519,7 +520,7 @@ const LibraryBrowser: React.FC<LibraryBrowserProps> = ({
                 sx={{
                     background: "var(--vscode-editor-inactiveSelectionBackground)",
                     opacity: 0.4,
-                    zIndex: 2001
+                    zIndex: 100001
                 }}
                 onClose={handleClose}
             />

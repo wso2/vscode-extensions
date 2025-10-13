@@ -19,7 +19,7 @@
 import * as vscode from 'vscode';
 import { window, Uri, commands } from 'vscode';
 import path = require('path');
-import { DIRECTORY_MAP, ProjectStructureArtifactResponse, ProjectStructureResponse, SHARED_COMMANDS, BI_COMMANDS, PackageConfigSchema, BallerinaProject } from "@wso2/ballerina-core";
+import { DIRECTORY_MAP, ProjectStructureArtifactResponse, ProjectStructureResponse, SHARED_COMMANDS, BI_COMMANDS, PackageConfigSchema, BallerinaProject, VisualizerLocation } from "@wso2/ballerina-core";
 import { extension } from "../biExtentionContext";
 
 interface Property {
@@ -132,11 +132,12 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
 async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
     if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
         const data: ProjectExplorerEntry[] = [];
-        if (extension.langClient && extension.projectPath) {
+        if (extension.langClient) {
+            const stateContext: VisualizerLocation = await commands.executeCommand(SHARED_COMMANDS.GET_STATE_CONTEXT);
             const workspace = vscode
                 .workspace
                 .workspaceFolders
-                .find(folder => folder.uri.fsPath === extension.projectPath);
+                .find(folder => folder.uri.fsPath === stateContext.projectUri);
 
             if (!workspace) {
                 return [];
@@ -144,7 +145,6 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
 
             // Get the state context from ballerina extension as it maintain the event driven tree data
             let projectStructure;
-            const stateContext = await commands.executeCommand(SHARED_COMMANDS.GET_STATE_CONTEXT);
             if (typeof stateContext === 'object' && stateContext !== null && 'projectStructure' in stateContext && stateContext.projectStructure !== null) {
                 projectStructure = stateContext.projectStructure;
                 const projectTree = generateTreeData(workspace, projectStructure);
@@ -274,6 +274,17 @@ function getEntriesBI(components: ProjectStructureResponse): ProjectExplorerEntr
     }
     entries.push(dataMappers);
 
+    // ---------- Configurations ----------
+    const configs = new ProjectExplorerEntry(
+        "Configurations",
+        vscode.TreeItemCollapsibleState.None,
+        null,
+        'config',
+        false
+    );
+    configs.contextValue = "configurations";
+    entries.push(configs);
+
     // ---------- Natural Functions ----------
     if (extension.isNPSupported) {
         const naturalFunctions = new ProjectExplorerEntry(
@@ -293,7 +304,7 @@ function getEntriesBI(components: ProjectStructureResponse): ProjectExplorerEntr
 
     // ---------- Local Connectors ----------
     const localConnectors = new ProjectExplorerEntry(
-        "Local Connectors",
+        "Custom Connectors",
         vscode.TreeItemCollapsibleState.Expanded,
         null,
         'connection',

@@ -23,7 +23,7 @@ import { EVENT_TYPE, MACHINE_VIEW, VisualizerLocation } from '@wso2/mi-core';
 import { COMMANDS } from '../constants';
 import { ExtensionContext, TreeItem, Uri, ViewColumn, commands, window, workspace } from 'vscode';
 import path = require("path");
-import { deleteRegistryResource, deleteDataMapperResources } from '../util/fileOperations';
+import { deleteRegistryResource, deleteDataMapperResources, deleteSchemaResources } from '../util/fileOperations';
 import { extension } from '../MIExtensionContext';
 import { ExtendedLanguageClient } from '../lang-client/ExtendedLanguageClient';
 import { APIResource } from '../../../syntax-tree/lib/src';
@@ -161,6 +161,10 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 
 	commands.registerCommand(COMMANDS.SHOW_DATA_MAPPER, async (entry: string) => {
 		openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.DataMapperView, documentUri: entry });
+	});
+
+	commands.registerCommand(COMMANDS.SHOW_IDP_SCHEMA, async (entry: string) => {
+		openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.IdpConnectorSchemaGeneratorForm, documentUri: entry });
 	});
 
 	commands.registerCommand(COMMANDS.ADD_MESSAGE_STORE_COMMAND, (entry: ProjectExplorerEntry) => {
@@ -376,6 +380,23 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 		openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.DSSServiceDesigner, documentUri });
 	});
 
+	commands.registerCommand(COMMANDS.EDIT_K8_CONFIGURATION_COMMAND, async () => {
+		const webview = [...webviews.values()].find(webview => webview.getWebview()?.active);
+		if (webview && webview?.getProjectUri()) {
+			const filePath = path.join(webview.getProjectUri(), 'deployment', 'kubernetes', 'integration_k8s.yaml');
+			workspace.openTextDocument(filePath).then((doc) => {
+				window.showTextDocument(doc, { preview: false });
+			});
+			commands.executeCommand('workbench.files.action.focusFilesExplorer');
+		}
+	});
+
+	commands.registerCommand(COMMANDS.MANAGE_REGISTRY_PROPERTIES_COMMAND, (item: TreeItem, beside: boolean = true) => {
+		const file = item.command?.arguments?.[0] || (item as any)?.info?.path
+		revealWebviewPanel(beside);
+		openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.RegistryForm, documentUri: file?.fsPath });
+	});
+
 	// delete
 	commands.registerCommand(COMMANDS.DELETE_PROJECT_EXPLORER_ITEM, async (item: TreeItem) => {
 		let file: string | undefined;
@@ -409,7 +430,7 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 
 					if (confirmation === 'Yes') {
 						try {
-							await vscode.workspace.fs.delete(Uri.parse(fileUri), { recursive: true, useTrash: true });
+							await vscode.workspace.fs.delete(Uri.file(fileUri.fsPath ?? fileUri), { recursive: true, useTrash: true });
 							window.showInformationMessage(`${item.label} has been deleted.`);
 
 							if (item.contextValue === 'api') {
@@ -446,6 +467,28 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 					}
 					break;
 				}
+			case 'idp-schema':
+				{
+					const fileUri = item.command?.arguments?.[0];
+					if (!fileUri) {
+						window.showErrorMessage('Resource not found.');
+						return;
+					}
+					const confirmation = await window.showWarningMessage(
+						`Are you sure you want to delete ${item.label} and its related contents?`,
+						{ modal: true },
+						'Yes'
+					);
+					if (confirmation === 'Yes') {
+						try {
+							await deleteSchemaResources(fileUri);
+							window.showInformationMessage(`${item.label} has been deleted.`);
+						} catch (error) {
+							window.showErrorMessage(`Failed to delete ${item.label}: ${error}`);
+						}
+					}
+					break;
+				}
 			case 'resource':
 				{
 					const resourceId = item.command?.arguments?.[1];
@@ -459,7 +502,7 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 						return;
 					}
 					file = fileUri.fsPath;
-					const workspace = vscode.workspace.getWorkspaceFolder(Uri.parse(fileUri));
+					const workspace = vscode.workspace.getWorkspaceFolder(Uri.file(fileUri));
 					if (!workspace) {
 						window.showErrorMessage('Cannot find workspace folder');
 						return;
@@ -513,7 +556,7 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 				} else if (item.id) {
 					filePath = item.id;
 				}
-				const workspace = vscode.workspace.getWorkspaceFolder(Uri.parse(filePath));
+				const workspace = vscode.workspace.getWorkspaceFolder(Uri.file(filePath));
 				if (!workspace) {
 					window.showErrorMessage('Cannot find workspace folder');
 					return;
@@ -606,7 +649,7 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 			throw new Error('File path is not available');
 		}
 
-		const workspace = vscode.workspace.getWorkspaceFolder(Uri.parse(filePath));
+		const workspace = vscode.workspace.getWorkspaceFolder(Uri.file(filePath));
 		if (!workspace) {
 			window.showErrorMessage('Cannot find workspace folder');
 			throw new Error('Cannot find workspace folder');

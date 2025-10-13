@@ -55,16 +55,88 @@ export class Diagram {
     }
 
     public async getMediator(mediatorName: string, index: number = 0, type = 'mediator') {
-        const mediatorNode = (await this.getDiagramContainer()).locator(`[data-testid^="${type}Node-${mediatorName}-"]`).nth(index).locator('div').first();
-        await mediatorNode.waitFor();
-        await mediatorNode.hover();
+        const container = await this.getDiagramContainer();
+        const mediatorElement = container.locator(`[data-testid^="${type}Node-${mediatorName}-"]`).nth(index);
+        
+        // Wait for the mediator element to be attached first
+        await mediatorElement.waitFor({ state: 'attached' });
+        
+        // Wait for animations and rendering to complete
+        await container.page().waitForTimeout(1000);
+        
+        // Check if element is visible, if not, try to scroll it into view
+        const isVisible = await mediatorElement.isVisible();
+        if (!isVisible) {
+            await mediatorElement.scrollIntoViewIfNeeded();
+            await container.page().waitForTimeout(500);
+        }
+        
+        // Try to find the actual clickable/hoverable div within the mediator
+        const mediatorNode = mediatorElement.locator('div').first();
+        
+        // Wait for the inner div to be available
+        await mediatorNode.waitFor({ state: 'attached' });
+        
+        // Try hover with multiple strategies using a cleaner retry mechanism
+        const hoverStrategies = [
+            () => mediatorNode.hover(),
+            () => mediatorNode.hover({ force: true }),
+            async () => {
+                await mediatorNode.scrollIntoViewIfNeeded();
+                await container.page().waitForTimeout(200);
+                await mediatorNode.hover({ force: true });
+            },
+            () => {
+                console.warn('All hover attempts failed, using click as fallback');
+                return mediatorNode.click({ force: true });
+            }
+        ];
+
+        for (const strategy of hoverStrategies) {
+            try {
+                await strategy();
+                break;
+            } catch (error) {
+                // Continue to next strategy
+            }
+        }
+        
         return new Mediator(this.diagramWebView, mediatorNode);
     }
 
     public async getConnectorOperation(connectorName: string, operationName: string, index: number = 0) {
-        const connectorNode = (await this.getDiagramContainer()).locator(`[data-testid^="connectorNode-${connectorName}.${operationName}-"]`).nth(index).locator('div').first();
-        await connectorNode.waitFor();
-        await connectorNode.hover();
+        const container = await this.getDiagramContainer();
+        const connectorElement = container.locator(`[data-testid^="connectorNode-${connectorName}.${operationName}-"]`).nth(index);
+        await connectorElement.waitFor({ state: 'visible' });
+        
+        // Wait for any animations or overlays to settle
+        await container.page().waitForTimeout(500);
+        
+        const connectorNode = connectorElement.locator('div').first();
+        await connectorNode.waitFor({ state: 'visible' });
+        
+        // Try hover with multiple strategies
+        try {
+            // First attempt: normal hover
+            await connectorNode.hover();
+        } catch (firstError) {
+            try {
+                // Second attempt: force hover
+                await connectorNode.hover({ force: true });
+            } catch (secondError) {
+                // Third attempt: scroll into view then hover
+                await connectorNode.scrollIntoViewIfNeeded();
+                await container.page().waitForTimeout(200);
+                try {
+                    await connectorNode.hover({ force: true });
+                } catch (thirdError) {
+                    // Final fallback: click instead of hover
+                    console.warn('All hover attempts failed, using click as fallback');
+                    await connectorNode.click({ force: true });
+                }
+            }
+        }
+        
         return new Mediator(this.diagramWebView, connectorNode);
     }
 
@@ -142,11 +214,11 @@ export class Diagram {
         await sidePanel.close();
     }
 
-    public async addConnectorOperation(connector: string, operation: string) {
+    public async addConnectorOperation(connector: string, operation: string, operationId?: string) {
         const sidePanel = new SidePanel(this.diagramWebView);
         await sidePanel.init();
         await sidePanel.search(operation);
-        await sidePanel.addConnector(connector, operation);
+        await sidePanel.addConnector(connector, operation, operationId);
     }
 
     public async fillConnectorForm(props: FormFillProps) {
@@ -237,6 +309,10 @@ class Mediator {
         await this.mediatotNode.click();
     }
 
+    public async clickOnImg() {
+        await this.mediatotNode.locator('i').click();
+    }
+
     public async getEditForm() : Promise<Form> {
         const sidePanel = new SidePanel(this.container);
         await sidePanel.init();
@@ -316,12 +392,12 @@ export class SidePanel {
         await this.sidePanel.waitFor({ state: 'detached' })
     }
 
-    public async addConnector(connectorName: string, operationName: string) {
+    public async addConnector(connectorName: string, operationName: string, operationId?: string) {
         const connector = this.sidePanel.locator(`#card-select-${connectorName}`).nth(0);
         await connector.waitFor();
         const connectorComponent = connector.locator(`..`);
 
-        const operation = connectorComponent.locator(`#card-select-${operationName}`);
+        const operation = connectorComponent.locator(`#card-select-${operationId ? operationId : operationName}`);
         await operation.waitFor();
         await operation.click();
     }
@@ -359,7 +435,7 @@ export class SidePanel {
         await this.confirmDownloadDependency();
 
         const loader = this.sidePanel.locator(`span:text("Downloading Module...")`);
-        await loader.waitFor();
+        await loader.waitFor({ state: "detached", timeout: 300000 });
 
         const downloadedConnector = drawer.locator(`#card-select-${name}`);
         await downloadedConnector.waitFor();

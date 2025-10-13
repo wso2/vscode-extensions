@@ -6,10 +6,15 @@ enum Role1 {
 }
 
 type Id1 int|string;
-
-type Employee1 record {|
+type Organization1 record {
+    Id1 id;
+    string name;
+    string location;
+};
+type Employee1 readonly & record {|
     Id1 id;
     Role1 role;
+    readonly string name;
 |};
 
 service class Project1 {

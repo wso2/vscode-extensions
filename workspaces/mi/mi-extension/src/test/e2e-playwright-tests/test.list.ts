@@ -28,9 +28,11 @@ import logMediatorTests from './mediatorTests/log.spec';
 import cacheMediatorTests from './mediatorTests/cache.spec';
 import throttleMediatorTests from './mediatorTests/throttle.spec';
 import callSequenceMediatorTests from './mediatorTests/callSequence.spec';
+import validateMediatorTests from './mediatorTests/validate.spec';
+import dataMapperMediatorTests from './mediatorTests/dataMapper.spec';
+import dbReportMediatorTests from './mediatorTests/dbReport.spec';
 import overviewPageTests from './overviewPageTests/projectSettingPage.spec';
 import openEntryPointArtifact from './overviewPageTests/openEntryPointArtifact.spec';
-import validateMediatorTests from './mediatorTests/validate.spec';
 import multiWorkspaceTests from './multiWorkspaceTests/multiWorkspace.spec';
 import unitTestSuitTests from './unitTestSuite.spec';
 import { page } from './Utils';
@@ -44,7 +46,9 @@ test.beforeAll(async () => {
     if (fs.existsSync(videosFolder)) {
         fs.rmSync(videosFolder, { recursive: true, force: true });
     }
-    console.log('>>> Starting test suite');
+    console.log('\n' + '='.repeat(80));
+    console.log('🚀 STARTING MI EXTENSION E2E TEST SUITE');
+    console.log('='.repeat(80) + '\n');
 });
 
 test.describe(createProjectTests);
@@ -61,12 +65,19 @@ test.describe(cacheMediatorTests);
 test.describe(throttleMediatorTests);
 test.describe(callSequenceMediatorTests);
 test.describe(validateMediatorTests);
+test.describe(dataMapperMediatorTests);
 test.describe(unitTestSuitTests);
+test.describe(dbReportMediatorTests);
 test.describe(artifact430Tests);
 
 test.afterAll(async () => {
-    console.log(`>>> Finished test suite`);
+    console.log('\n' + '='.repeat(80));
+    console.log('✅ MI EXTENSION E2E TEST SUITE COMPLETED');
+    console.log('='.repeat(80));
+
     const dateTime = new Date().toISOString().replace(/:/g, '-');
+    console.log('💾 Saving test video...');
     page.page.video()?.saveAs(path.join(videosFolder, `test_${dateTime}.webm`));
     await page.page?.close();
+    console.log('✅ Video saved successfully\n');
 });

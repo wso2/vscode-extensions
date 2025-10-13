@@ -10,7 +10,11 @@
             "braces": "^3.0.3",
             "micromatch": "^4.0.8",
             "esbuild": "^0.25.0",
-            "xmldom": "npm:@xmldom/xmldom@^0.8.10"
+            "xmldom": "npm:@xmldom/xmldom@^0.8.10",
+            "@eslint/plugin-kit": "^0.3.4",
+            "on-headers": "^1.1.0",
+            "form-data": "^4.0.4",
+            "tmp": "^0.2.4"
         }
     },
     "scripts": {

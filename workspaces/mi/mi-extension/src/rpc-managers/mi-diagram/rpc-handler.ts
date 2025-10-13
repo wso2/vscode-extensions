@@ -116,7 +116,10 @@ import {
     UpdateTestSuiteRequest,
     UpdateWsdlEndpointRequest,
     WriteContentToFileRequest,
+    WriteMockServicesRequest,
     HandleFileRequest,
+    WriteIdpSchemaFileToRegistryRequest,
+    ReadIdpSchemaFileContentRequest,
     addDBDriver,
     addDriverToLib,
     applyEdit,
@@ -179,6 +182,7 @@ import {
     getAvailableRegistryResources,
     getAvailableResources,
     getBackendRootUrl,
+    getProxyRootUrl,
     getConnectionForm,
     getConnector,
     getConnectorConnections,
@@ -264,7 +268,12 @@ import {
     updateTestSuite,
     updateWsdlEndpoint,
     writeContentToFile,
+    writeMockServices,
     handleFileWithFS,
+    writeIdpSchemaFileToRegistry,
+    getIdpSchemaFiles,
+    convertPdfToBase64Images,
+    readIdpSchemaFileContent,
     tryOutMediator,
     MediatorTryOutRequest,
     saveInputPayload,
@@ -301,7 +310,20 @@ import {
     GetCodeDiagnosticsResponse,
     getCodeDiagnostics,
     GetConnectorIconRequest,
-    getConnectorIcon
+    getConnectorIcon,
+    getValueOfEnvVariable,
+    SubmitFeedbackRequest,
+    submitFeedback,
+    getPomFileContent,
+    getExternalConnectorDetails,
+    getMockServices,
+    configureKubernetes,
+    ConfigureKubernetesRequest,
+    isKubernetesConfigured,
+    UpdateRegistryPropertyRequest,
+    updatePropertiesInArtifactXML,
+    getPropertiesFromArtifactXML,
+    formatPomFile
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
 import { MiDiagramRpcManager } from "./rpc-manager";
@@ -374,7 +396,12 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(migrateProject, (args: MigrateProjectRequest) => rpcManger.migrateProject(args));
     messenger.onRequest(getAIResponse, (args: AIUserInput) => rpcManger.getAIResponse(args));
     messenger.onRequest(writeContentToFile, (args: WriteContentToFileRequest) => rpcManger.writeContentToFile(args));
+    messenger.onRequest(writeMockServices, (args: WriteMockServicesRequest) => rpcManger.writeMockServices(args));
     messenger.onRequest(handleFileWithFS, (args: HandleFileRequest) => rpcManger.handleFileWithFS(args));
+    messenger.onRequest(writeIdpSchemaFileToRegistry, (args: WriteIdpSchemaFileToRegistryRequest) => rpcManger.writeIdpSchemaFileToRegistry(args));
+    messenger.onRequest(getIdpSchemaFiles,() => rpcManger.getIdpSchemaFiles());
+    messenger.onRequest(convertPdfToBase64Images, (args: string) => rpcManger.convertPdfToBase64Images(args));
+    messenger.onRequest(readIdpSchemaFileContent, (args: ReadIdpSchemaFileContentRequest) => rpcManger.readIdpSchemaFileContent(args));
     messenger.onNotification(highlightCode, (args: HighlightCodeRequest) => rpcManger.highlightCode(args));
     messenger.onRequest(getWorkspaceContext, () => rpcManger.getWorkspaceContext());
     messenger.onRequest(getProjectUuid, () => rpcManger.getProjectUuid());
@@ -393,6 +420,7 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(getSelectiveWorkspaceContext, () => rpcManger.getSelectiveWorkspaceContext());
     messenger.onRequest(getSelectiveArtifacts, (args: GetSelectiveArtifactsRequest) => rpcManger.getSelectiveArtifacts(args));
     messenger.onRequest(getBackendRootUrl, () => rpcManger.getBackendRootUrl());
+    messenger.onRequest(getProxyRootUrl, () => rpcManger.getProxyRootUrl());
     messenger.onRequest(getAvailableRegistryResources, (args: ListRegistryArtifactsRequest) => rpcManger.getAvailableRegistryResources(args));
     messenger.onRequest(updateRegistryMetadata, (args: UpdateRegistryMetadataRequest) => rpcManger.updateRegistryMetadata(args));
     messenger.onRequest(getMetadataOfRegistryResource, (args: GetRegistryMetadataRequest) => rpcManger.getMetadataOfRegistryResource(args));
@@ -445,6 +473,7 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(getMIVersionFromPom, () => rpcManger.getMIVersionFromPom());
     messenger.onNotification(openDependencyPom, (args: OpenDependencyPomRequest) => rpcManger.openDependencyPom(args));
     messenger.onRequest(getAllDependencies, (args: getAllDependenciesRequest) => rpcManger.getAllDependencies(args));
+    messenger.onRequest(formatPomFile, () => rpcManger.formatPomFile());
     messenger.onRequest(testDbConnection, (args: TestDbConnectionRequest) => rpcManger.testDbConnection(args));
     messenger.onNotification(markAsDefaultSequence, (args: MarkAsDefaultSequenceRequest) => rpcManger.markAsDefaultSequence(args));
     messenger.onRequest(getSubFolderNames, (args: GetSubFoldersRequest) => rpcManger.getSubFolderNames(args));
@@ -475,4 +504,13 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(shouldDisplayPayloadAlert, () => rpcManger.shouldDisplayPayloadAlert());
     messenger.onRequest(displayPayloadAlert, () => rpcManger.displayPayloadAlert());
     messenger.onRequest(closePayloadAlert, () => rpcManger.closePayloadAlert());
+    messenger.onRequest(getValueOfEnvVariable, (args: string) => rpcManger.getValueOfEnvVariable(args));
+    messenger.onRequest(submitFeedback, (args: SubmitFeedbackRequest) => rpcManger.submitFeedback(args));
+    messenger.onRequest(getPomFileContent, () => rpcManger.getPomFileContent());
+    messenger.onRequest(getExternalConnectorDetails, () => rpcManger.getExternalConnectorDetails());
+    messenger.onRequest(getMockServices, () => rpcManger.getMockServices());
+    messenger.onRequest(configureKubernetes, (args: ConfigureKubernetesRequest) => rpcManger.configureKubernetes(args));
+    messenger.onRequest(isKubernetesConfigured, () => rpcManger.isKubernetesConfigured());
+    messenger.onRequest(updatePropertiesInArtifactXML, (args: UpdateRegistryPropertyRequest) => rpcManger.updatePropertiesInArtifactXML(args));
+    messenger.onRequest(getPropertiesFromArtifactXML, (args: string) => rpcManger.getPropertiesFromArtifactXML(args));
 }

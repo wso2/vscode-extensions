@@ -122,3 +122,58 @@ export const WithContent: Story = {
         );
     },
 };
+
+export const SidePanelWithSubPanel: Story = {
+    render: () => {
+        const [isOpen, setIsOpen] = React.useState(false);
+        const [isSubPanelOpen, setIsSubPanelOpen] = React.useState(false);
+
+        const openPanel = () => {
+            setIsOpen(!isOpen);
+        };
+        const openSubPanel = () => {
+            setIsSubPanelOpen(!isSubPanelOpen);
+        };
+        const closePanel = () => {
+            setIsOpen(false);
+        };
+        const closeSubPanel = () => {
+            setIsSubPanelOpen(false);
+        };
+
+        const subPanel = isSubPanelOpen && (
+            <div>
+                <SidePanelTitleContainer>
+                    <div>Sub Panel Title</div>
+                    <Button onClick={closeSubPanel} appearance="icon"><Codicon name="close"/></Button>
+                </SidePanelTitleContainer>
+            </div>
+        );
+
+
+        return (
+            <>
+                <div style={{display: "flex", justifyContent: "center", cursor: "pointer", color: colors.editorForeground}} onClick={openPanel}>
+                    Click to Open Side Panel
+                </div>
+                <SidePanel
+                    isOpen={isOpen}
+                    alignment="right"
+                    sx={{transition: "all 0.3s ease-in-out"}}
+                    onClose={closePanel}
+                    subPanel={subPanel}
+                >
+                    <SidePanelTitleContainer>
+                        <div>Side Panel Title</div>
+                        <Button onClick={closePanel} appearance="icon"><Codicon name="close"/></Button>
+                    </SidePanelTitleContainer>
+                    <SidePanelBody>
+                        <div style={{display: "flex", justifyContent: "center", cursor: "pointer", color: colors.editorForeground}} onClick={openSubPanel}>
+                            Click to Open Sub Panel
+                        </div>
+                    </SidePanelBody>
+                </SidePanel>
+            </>
+        );
+    }
+};

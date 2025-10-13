@@ -26,13 +26,13 @@ import path from "path";
 import fs from 'fs';
 const dataFolder = path.join( __dirname, '..', 'data');
 
-export const newProjectPath = path.join(dataFolder, 'new-project', 'testProject');
+export const newProjectPath = path.join(dataFolder, 'new-project', 'testProjectFolder');
 
 export default function createTests() {
     test.describe("Create Project Tests", {
         tag: '@group2'
     }, async () => {
-        initTest(true, true, false);
+        initTest(true, true, false, undefined, undefined, 'group2');
 
         test("Create Project Tests", async () => {
             await test.step('Create New Project Tests', async () => {
@@ -46,13 +46,15 @@ export default function createTests() {
 
             await test.step("Create New Project from Sample", async () => {
                 console.log('Starting to create a new project from sample');
-                await page.executePaletteCommand("MI: Open MI Welcome");
+                await page.executePaletteCommand("MI: Create New Project");
                 const welcomePage = new Welcome(page);
                 await welcomePage.init();
                 console.log('Creating new project from sample');
                 await welcomePage.createNewProjectFromSample('Hello World ServiceA simple', newProjectPath);
+                // Wait for project to be fully loaded in explorer
+                await page.page.waitForTimeout(3000);
                 const projectExplorer = new ProjectExplorer(page.page);
-                await projectExplorer.goToOverview("HelloWorldService");
+                await projectExplorer.goToOverview("HelloWorldService", 45000);
                 const overview = new Overview(page.page);
                 await overview.init();
                 await overview.diagramRenderingForApi('HelloWorldAPI');
@@ -68,6 +70,9 @@ export default function createTests() {
                 await textInput?.fill(newProjectPath + '/newProject/');
                 const openBtn = await fileInput?.waitForSelector('a.monaco-button:has-text("Open MI Project")');
                 await openBtn?.click();
+                const newWindowButton = page.page.getByRole('button', { name: 'New Window' });
+                await newWindowButton.waitFor({ timeout: 10000 });
+                await newWindowButton.click();
                 const addArtifactSelector = '.tab-label:has-text("Add Artifact")';
                 await page.page.waitForSelector(addArtifactSelector, { state: 'visible' });
                 await page.page.waitForSelector(addArtifactSelector, { state: 'attached' });
@@ -82,11 +87,11 @@ export default function createTests() {
 
             await test.step("Create New Project with Advanced Config Tests", async () => {
                 console.log('Starting to create a new project with advanced configuration');
-                fs.rmSync(newProjectPath, { recursive: true });
-                await page.page.reload();
-                await page.executePaletteCommand("MI: Open MI Welcome");
+                await page.executePaletteCommand('Workspaces: Close Workspace');
+                console.log("Closed Workspace");
                 await createProject(page, 'newProjectWithAdConfig', '4.4.0', true);
-                await waitUntilPomContains(page.page, path.join(newProjectPath, 'newProject', 'newProjectWithAdConfig', 'pom.xml'), 
+                console.log("Project Created");
+                await waitUntilPomContains(page.page, path.join(newProjectPath, 'newProjectWithAdConfig', 'pom.xml'), 
                 '<artifactId>test</artifactId>');
                 console.log('New project with advanced config created successfully');
             });

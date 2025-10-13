@@ -79,6 +79,11 @@ type TextEdit = {
     };
 };
 
+export type LabelInfo = {
+    detail?: string;
+    description?: string;
+}
+
 /**
  * Represents an item that can appear in the auto-completion dropdown
  *
@@ -102,6 +107,7 @@ export type CompletionItem = {
     sortText?: string;
     cursorOffset?: number;
     additionalTextEdits?: TextEdit[];
+    labelDetails?: LabelInfo;
 };
 
 /* <------ Types related to the expression editor ------> */
@@ -123,9 +129,12 @@ type ExpressionEditorBaseProps = {
     value: string;
     placeholder?: string;
     ariaLabel?: string;
+    className?: string;
+    id?: string;
     sx?: React.CSSProperties;
     completionSx?: React.CSSProperties;
     inputProps?: InputProps;
+    isUpdatingSource?: boolean;
     onChange: (value: string, updatedCursorPosition: number) => void | Promise<void>;
     onSelectionChange?: (value: string, updatedCursorPosition: number) => void | Promise<void>;
     onFocus?: (e?: any) => void | Promise<void>;
@@ -182,7 +191,7 @@ export type ExpressionEditorProps = ExpressionEditorBaseProps &
 export type ExpressionEditorRef = {
     shadowRoot: ShadowRoot;
     // Focuses the expression editor
-    focus: () => void;
+    focus: (manualTrigger?: boolean) => void;
     // Blurs the expression editor and optionally saves the expression with the provided value
     blur: (value?: string) => Promise<void>;
     // Saves the expression with the provided value
@@ -191,7 +200,7 @@ export type ExpressionEditorRef = {
 
 /* <------ Types related to the helper pane ------> */
 
-export type HelperPaneOrigin = 'bottom' | 'left' | 'right' | 'auto';
+export type HelperPaneOrigin = 'bottom' | 'left' | 'right' | 'auto' | 'vertical' | 'top';
 
 export type HelperPaneHeight = 'full' | '3/4' | 'default';
 

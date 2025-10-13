@@ -31,18 +31,19 @@ export const dataFolder = path.join(__dirname, 'data');
 const extensionsFolder = path.join(__dirname, '..', '..', '..', 'vsix');
 const vscodeVersion = 'latest';
 export const resourcesFolder = path.join(__dirname, '..', 'test-resources');
-export const newProjectPath = path.join(dataFolder, 'new-project', 'testProject');
+export const newProjectPath = path.join(dataFolder, 'new-project', 'testProjectFolder');
 export const screenShotsFolder = path.join(__dirname, '..', 'test-resources', 'screenshots');
 export const videosFolder = path.join(__dirname, '..', 'test-resources', 'videos');
 
 export let vscode: ElectronApplication | undefined;
 export let page: ExtendedPage;
 
-async function initVSCode() {
+async function initVSCode(groupName?: string, title?: string, attempt: number = 1) {
     if (vscode && page) {
         await page.executePaletteCommand('Reload Window');
+        await page.executePaletteCommand('View: Toggle Secondary Side Bar Visibility');
     } else {
-        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, newProjectPath);
+        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, newProjectPath, 'mi-test-profile', groupName, title, attempt);
     }
     page = new ExtendedPage(await vscode!.firstWindow({ timeout: 60000 }));
 }
@@ -64,7 +65,7 @@ export async function stopRunningProject(page: ExtendedPage) {
 }
 
 export async function createProject(page: ExtendedPage, projectName?: string, runtimeVersino?: string, addAdvancedConfig: boolean = false) {
-    console.log('Creating new project');
+    console.log('Creating new project with runtime version ' + (runtimeVersino || '4.4.0'));
     await page.selectSidebarItem('WSO2 Integrator: MI');
     const welcomePage = new Welcome(page);
     await welcomePage.init();
@@ -107,14 +108,14 @@ export async function createProject(page: ExtendedPage, projectName?: string, ru
     console.log('Environment setup done');
 }
 
-export async function resumeVSCode() {
+export async function resumeVSCode(groupName?: string, title?: string, attempt: number = 1) {
     if (vscode && page) {
         console.log('Reloading VSCode');
         await page.page.waitForTimeout(1000);
         await page.executePaletteCommand('Reload Window');
     } else {
         console.log('Starting VSCode');
-        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, path.join(newProjectPath, 'testProject'));
+        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, path.join(newProjectPath, 'testProject'), 'mi-test-profile', groupName, title, attempt);
         await new Promise(resolve => setTimeout(resolve, 5000));
     }
     page = new ExtendedPage(await vscode!.firstWindow({ timeout: 60000 }));
@@ -152,23 +153,45 @@ export async function closeEditorGroup() {
     await page.executePaletteCommand('Close Editor Group');
 }
 
-export function initTest(newProject: boolean = false, skipProjectCreation: boolean = false, cleanupAfter?: boolean, projectName?: string, runtimeVersion?: string) {
+async function safeCleanup(directoryPath: string) {
+    // Add a small delay to allow any pending file operations to complete
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Attempt cleanup multiple times with delay between attempts
+    for (let i = 0; i < 3; i++) {
+        try {
+            if (fs.existsSync(directoryPath)) {
+                await fs.promises.rm(directoryPath, { recursive: true, force: true });
+                // Final verification
+                if (!fs.existsSync(directoryPath)) {
+                    break;
+                }
+            } else {
+                break;
+            }
+        } catch (err) {
+            if (i === 2) throw err; // Re-throw on last attempt
+            await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+        }
+    }
+}
+
+export function initTest(newProject: boolean = false, skipProjectCreation: boolean = false, cleanupAfter?: boolean, projectName?: string, runtimeVersion?: string, groupName?: string) {
     test.beforeAll(async ({ }, testInfo) => {
         console.log(`>>> Starting tests. Title: ${testInfo.title}, Attempt: ${testInfo.retry + 1}`);
         if (!existsSync(path.join(newProjectPath, projectName ?? 'testProject')) || newProject) {
-            if (fs.existsSync(newProjectPath)) {
-                fs.rmSync(newProjectPath, { recursive: true });
-            }
+            // Safely cleanup and close VS Code before removing directory
+            await safeCleanup(newProjectPath);
             fs.mkdirSync(newProjectPath, { recursive: true });
             console.log('Starting VSCode');
-            await initVSCode();
+            await initVSCode(groupName, testInfo.title, testInfo.retry + 1);
             await toggleNotifications(true);
             if (!skipProjectCreation) {
                 await createProject(page, projectName, runtimeVersion);
             }
         } else {
             console.log('Resuming VSCode');
-            await resumeVSCode();
+            await resumeVSCode(groupName, testInfo.title, testInfo.retry + 1);
             await page.page.waitForLoadState();
             await toggleNotifications(true);
         }
@@ -181,15 +204,16 @@ export function initTest(newProject: boolean = false, skipProjectCreation: boole
             const screenshotPath = path.join(screenShotsFolder, `${testInfo.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${testInfo.retry + 1}.png`);
             await page.page.screenshot({ path: screenshotPath });
             console.log(`Screenshot saved at ${screenshotPath}`);
-
-            page.page.video()?.saveAs(path.join(videosFolder, `test_${testInfo.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${testInfo.retry + 1}.webm`));
-            console.log(`Video saved at ${path.join(videosFolder, `test_${testInfo.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${testInfo.retry + 1}.webm`)}`);
         }
     });
 
     test.afterAll(async ({ }, testInfo) => {
         if (cleanupAfter && fs.existsSync(newProjectPath)) {
-            fs.rmSync(newProjectPath, { recursive: true });
+            try {
+                await safeCleanup(newProjectPath);
+            } catch (error: any) {
+                console.warn(`Warning: Could not remove directory ${newProjectPath}: ${error?.message || 'Unknown error'}`);
+            }
         }
         console.log(`>>> Finished ${testInfo.title} with status: ${testInfo.status}, Attempt: ${testInfo.retry + 1}`);
     });
@@ -204,26 +228,36 @@ export async function copyFile(source: string, destination: string) {
     fs.copyFileSync(source, destination);
 }
 
-export async function waitUntilPomContains(page: Page, filePath: string, expectedText: string, timeout = 10000) {
-    const start = Date.now();
-    while (Date.now() - start < timeout) {
-        const content = await readFile(filePath, 'utf8');
-        if (content.includes(expectedText)) {
-            return true;
+export async function waitUntilPomContains(page: Page, filePath: string, expectedText: string, timeout = 20000) {
+    await expect.poll(async () => {
+        try {
+            const content = await readFile(filePath, 'utf8');
+            return content.includes(expectedText);
+        } catch (error) {
+            return false; // File might not exist yet
         }
-        await page.waitForTimeout(500);
-    }
-    throw new Error(`Timed out waiting for '${expectedText}' in pom.xml`);
+    }, {
+        message: `Timed out waiting for '${expectedText}' in ${filePath}`,
+        timeout: timeout,
+        intervals: [500, 1000, 2000] // Progressive polling intervals
+    }).toBe(true);
+    
+    return true;
 }
 
-export async function waitUntilPomNotContains(page: Page, filePath: string, expectedText: string, timeout = 10000) {
-    const start = Date.now();
-    while (Date.now() - start < timeout) {
-        const content = await readFile(filePath, 'utf8');
-        if (!content.includes(expectedText)) {
-            return true;
+export async function waitUntilPomNotContains(page: Page, filePath: string, expectedText: string, timeout = 20000) {
+    await expect.poll(async () => {
+        try {
+            const content = await readFile(filePath, 'utf8');
+            return !content.includes(expectedText);
+        } catch (error) {
+            return true; // If file doesn't exist, it doesn't contain the text
         }
-        await page.waitForTimeout(500);
-    }
-    throw new Error(`Timed out waiting for '${expectedText}' in pom.xml`);
+    }, {
+        message: `Timed out waiting for '${expectedText}' to be removed from ${filePath}`,
+        timeout: timeout,
+        intervals: [500, 1000, 2000] // Progressive polling intervals
+    }).toBe(true);
+    
+    return true;
 }

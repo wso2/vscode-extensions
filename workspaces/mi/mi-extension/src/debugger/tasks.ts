@@ -21,9 +21,14 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { createTempDebugBatchFile, setJavaHomeInEnvironmentAndPath } from './debugHelper';
 import { ERROR_LOG, logDebug } from '../util/logger';
+import { Uri, workspace } from "vscode";
+import { MVN_COMMANDS } from "../constants";
 
 export function getBuildTask(projectUri: string): vscode.Task {
-    const commandToExecute = process.platform === 'win32' ? ".\\mvnw.cmd clean install" : "./mvnw clean install";
+    const config = workspace.getConfiguration('MI', Uri.file(projectUri));
+    const mvnCmd = config.get("useLocalMaven") ? "mvn" : (process.platform === "win32" ?
+        MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
+    const commandToExecute = mvnCmd + MVN_COMMANDS.BUILD_COMMAND
     const env = setJavaHomeInEnvironmentAndPath(projectUri);  
     const buildTask = new vscode.Task(
         { type: 'mi-build' },
@@ -37,17 +42,29 @@ export function getBuildTask(projectUri: string): vscode.Task {
     return buildTask;
 }
 
-export function getBuildCommand(): string {
-    return process.platform === 'win32' ? ".\\mvnw.cmd clean install -Dstyle.color=never" : "./mvnw clean install -Dstyle.color=never";
+export function getBuildCommand(projectUri: string): string {
+    const config = workspace.getConfiguration('MI', Uri.file(projectUri));
+    const mvnCmd = config.get("useLocalMaven") ? "mvn" : (process.platform === "win32" ?
+        MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
+    return mvnCmd + MVN_COMMANDS.BUILD_COMMAND;
 }
 
-export function getDockerTask(projectUri: string): vscode.Task {
-    const commandToExecute = process.platform === 'win32' ? ".\\mvnw.cmd clean install -P docker" : "./mvnw clean install -P docker";
+export function getDockerTask(projectUri: string): vscode.Task | undefined {
+    const config = workspace.getConfiguration('MI', Uri.file(projectUri));
+    const mvnCmd = config.get("useLocalMaven") ? "mvn" : (process.platform === "win32" ?
+        MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
+    const commandToExecute = mvnCmd + MVN_COMMANDS.DOCKER_COMMAND;
     const env = setJavaHomeInEnvironmentAndPath(projectUri);  
+
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(projectUri));
+    if (!workspaceFolder) {
+        console.error(`Workspace folder not found for projectUri: ${projectUri}`);
+        return undefined;
+    }
 
     const dockerTask = new vscode.Task(
         { type: 'mi-docker' },
-        vscode.TaskScope.Workspace,
+        workspaceFolder,
         'docker',
         'mi',
         new vscode.ShellExecution(commandToExecute,

@@ -49,10 +49,11 @@ import { FormattingProvider } from './FormattingProvider';
 
 import util = require('util');
 import { log } from '../util/logger';
-import { getJavaHomeFromConfig } from '../util/onboardingUtils';
+import { getJavaHomeFromConfig, getProjectSetupDetails, isMISetup, isJavaSetup } from '../util/onboardingUtils';
 import { SELECTED_SERVER_PATH } from '../debugger/constants';
 import { extension } from '../MIExtensionContext';
 import { extractCAppDependenciesAsProjects } from '../visualizer/activate';
+import vscode from "vscode";
 const exec = util.promisify(require('child_process').exec);
 
 export interface ScopeInfo {
@@ -73,6 +74,10 @@ const ERRORS: Record<string, ErrorType> = {
     JAVA_HOME: {
         title: "Java Home Error",
         message: "JAVA_HOME is not set."
+    },
+    MISSING_MI_RUNTIME_VERSION: {
+        title: "WSO2 Integrator: MI Runtime Version Not Found",
+        message: "Runtime version not found in the pom file. Please add the runtime version and reload to continue."
     },
     LANG_CLIENT_START: {
         title: "Lang Client Start Error",
@@ -96,6 +101,7 @@ const versionRegex = /(\d+\.\d+\.?\d*)/g;
 
 export class MILanguageClient {
     private static _instances: Map<string, MILanguageClient> = new Map();
+    private static lsChannelCache: Map<string, vscode.OutputChannel> = new Map();
     public languageClient: ExtendedLanguageClient | undefined;
 
     // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -129,6 +135,15 @@ export class MILanguageClient {
         return instances;
     }
 
+    public static getOrCreateOutputChannel(projectUri: string): vscode.OutputChannel {
+        let channel = this.lsChannelCache.get(projectUri);
+        if (!channel) {
+            channel = vscode.window.createOutputChannel(`Synapse Language Server - ${path.basename(projectUri)}`);
+            this.lsChannelCache.set(projectUri, channel);
+        }
+        return channel;
+    }
+
     public getErrors() {
         return this._errorStack;
     }
@@ -160,6 +175,19 @@ export class MILanguageClient {
 
     private async launch(projectUri: string) {
         try {
+            const { miVersionFromPom } = await getProjectSetupDetails(projectUri);
+            if (!miVersionFromPom) {
+                const errorMessage = `Runtime version not found in the pom file of project ${projectUri}. Please add the runtime version and reload to continue.`;
+                window.showErrorMessage(errorMessage);
+                this.updateErrors(ERRORS.MISSING_MI_RUNTIME_VERSION);
+                throw new Error(errorMessage);
+            }
+            await isJavaSetup(projectUri, miVersionFromPom);
+            await isMISetup(projectUri, miVersionFromPom);
+            const versions: string[] = ["4.0.0", "4.1.0", "4.2.0", "4.3.0"];
+            const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
+            await config.update("LEGACY_EXPRESSION_ENABLED", miVersionFromPom && versions.includes(miVersionFromPom),
+                vscode.ConfigurationTarget.WorkspaceFolder);
             const JAVA_HOME = getJavaHomeFromConfig(this.projectUri);
             if (JAVA_HOME) {
                 const isJDKCompatible = await this.checkJDKCompatibility(JAVA_HOME);
@@ -188,7 +216,7 @@ export class MILanguageClient {
                     args: [...args, main],
                     options: {},
                 };
-                let workspaceFolder = workspace.getWorkspaceFolder(Uri.parse(this.projectUri));
+                let workspaceFolder = workspace.getWorkspaceFolder(Uri.file(this.projectUri));
 
                 if (!workspaceFolder) {
                     throw new Error("Workspace folder not found.");
@@ -214,9 +242,15 @@ export class MILanguageClient {
                                 }
                                 !ignoreVMArgs ? verifyVMArgs() : undefined;
                             }
+                        },
+                        handleDiagnostics: (uri, diagnostics, next) => {
+                            if (!uri.fsPath.startsWith(workspaceFolder.uri.fsPath)) {
+                                return;
+                            }
+                            return next(uri, diagnostics);
                         }
                     },
-                    outputChannelName: 'Synapse Language Server',
+                    outputChannel: MILanguageClient.getOrCreateOutputChannel(projectUri),
                     initializationFailedHandler: (error) => {
                         console.log(error);
                         window.showErrorMessage("Could not start the Synapse Language Server.");
@@ -259,9 +293,7 @@ export class MILanguageClient {
                 this.languageClient = new ExtendedLanguageClient('synapseXML', 'Synapse Language Server', this.projectUri,
                     serverOptions, clientOptions);
                 await this.languageClient.start();
-                const projectDetails = await this.languageClient?.getProjectDetails();
-                const projectName = projectDetails.primaryDetails.projectName.value;
-                await extractCAppDependenciesAsProjects(projectName);
+                await extractCAppDependenciesAsProjects(this.projectUri);
                 await this.languageClient?.loadDependentCAppResources();
 
                 //Setup autoCloseTags

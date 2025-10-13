@@ -16,9 +16,9 @@
  * under the License.
  */
 
-import { MutableRefObject } from "react";
+import { CSSProperties, MutableRefObject } from "react";
 import { HelperPaneHeight, HelperPaneOrigin, HelperPanePosition } from "../types";
-import { HELPER_PANE_HEIGHT, HELPER_PANE_WIDTH, ARROW_HEIGHT, ARROW_OFFSET } from "../constants"
+import { HELPER_PANE_HEIGHT, HELPER_PANE_WIDTH, ARROW_HEIGHT, ARROW_OFFSET, VERTICAL_HELPERPANE_HEIGHT, HELPER_PANE_EX_BTN_OFFSET } from "../constants"
 
 export const convertHelperPaneHeightToCSS = (helperPaneHeight: HelperPaneHeight): string => {
     switch (helperPaneHeight) {
@@ -27,8 +27,13 @@ export const convertHelperPaneHeightToCSS = (helperPaneHeight: HelperPaneHeight)
         case '3/4':
             return '75vh';
         default:
-            return `${HELPER_PANE_HEIGHT}px`;
+            return `${VERTICAL_HELPERPANE_HEIGHT}px`;
     }
+}
+
+const getVerticalPosition = (expressionEditorRect: DOMRect) => {
+    if (window.innerHeight - (expressionEditorRect.top + expressionEditorRect.height) > VERTICAL_HELPERPANE_HEIGHT) return "bottom";
+    return "top"
 }
 
 /**
@@ -42,13 +47,19 @@ export const getHelperPaneOrigin = (
     helperPaneOrigin: HelperPaneOrigin
 ): HelperPaneOrigin => {
     // If the origin is specified, return it
-    if (helperPaneOrigin !== 'auto') {
+    if (helperPaneOrigin !== 'auto' && helperPaneOrigin !== 'vertical') {
         return helperPaneOrigin;
     }
 
-    // Rendering priority goes as left, right, bottom
     const expressionEditor = expressionEditorRef.current!;
     const rect = expressionEditor.getBoundingClientRect();
+
+    //if origin is vertical then priority is bottom > top
+    if (helperPaneOrigin === "vertical") {
+        return getVerticalPosition(rect)
+    }
+
+    //when auto, Rendering priority goes as left, right, bottom
     if (rect.left > HELPER_PANE_WIDTH + ARROW_HEIGHT) {
         return 'left';
     } else if (window.innerWidth - (rect.left + rect.width) > HELPER_PANE_WIDTH + ARROW_HEIGHT) {
@@ -63,11 +74,15 @@ export const getHelperPanePosition = (
     helperPaneOrigin: HelperPaneOrigin,
     helperPaneHeight: HelperPaneHeight,
     helperPaneWidth?: number
-): HelperPanePosition => {
+): HelperPanePosition & React.CSSProperties => {
     const expressionEditor = expressionEditorRef.current!;
     const rect = expressionEditor.getBoundingClientRect();
     if (helperPaneOrigin === 'bottom') {
-        return { top: rect.top + rect.height, left: rect.left };
+        return { top: rect.top + rect.height, left: rect.left + HELPER_PANE_EX_BTN_OFFSET + 2};
+    }
+
+    if (helperPaneOrigin === 'top') {
+        return { top: rect.top,  left: rect.left + HELPER_PANE_EX_BTN_OFFSET + 2, transform: 'translateY(-100%)' } as HelperPanePosition & CSSProperties;
     }
 
     const position: HelperPanePosition = { top: 0, left: 0 };
@@ -85,7 +100,7 @@ export const getHelperPanePosition = (
     if (helperPaneHeight === 'full') {
         return position;
     }
-    
+
     if (helperPaneHeight === '3/4') {
         position.top = window.innerHeight / 8;
         return position;
@@ -98,6 +113,9 @@ export const getHelperPanePosition = (
     if (window.innerHeight - rect.top < HELPER_PANE_HEIGHT / 2) {
         position.top = window.innerHeight - HELPER_PANE_HEIGHT;
     }
+    if (window.innerHeight < HELPER_PANE_HEIGHT) {
+        position.top = 0;
+    }
 
     return position;
 };
@@ -107,7 +125,7 @@ export const getHelperPaneArrowPosition = (
     helperPaneOrigin: HelperPaneOrigin,
     helperPanePosition: HelperPanePosition
 ): HelperPanePosition | undefined => {
-    if (helperPaneOrigin === 'bottom' || !helperPanePosition) {
+    if (helperPaneOrigin === 'bottom' || helperPaneOrigin === 'top' || !helperPanePosition) {
         return undefined;
     }
 

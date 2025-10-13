@@ -26,7 +26,7 @@ import { ParamConfig } from '../../Form/ParamManager/ParamManager';
 import { ExpressionField, ExpressionFieldValue } from '../../Form/ExpressionField/ExpressionInput';
 import { handleOpenExprEditor, sidepanelGoBack } from '..';
 import { useForm, Controller } from 'react-hook-form';
-import { MACHINE_VIEW, POPUP_EVENT_TYPE, ParentPopupData } from '@wso2/mi-core';
+import { MACHINE_VIEW, POPUP_EVENT_TYPE, ParentPopupData,EVENT_TYPE } from '@wso2/mi-core';
 import { FormGenerator } from '../../..';
 
 const Field = styled.div`
@@ -177,6 +177,13 @@ const AddConnector = (props: AddConnectorProps) => {
         sidePanelContext.pageStack.length > 1 ? sidepanelGoBack(sidePanelContext) : clearSidePanelState(sidePanelContext);
     }
 
+    const getFormData = () => {
+        if (connectionName) {
+            setValue('configRef', connectionName);
+        }
+        return formData;
+    };
+
     const onClick = async (values: any) => {
         setDiagramLoading(true);
 
@@ -204,6 +211,17 @@ const AddConnector = (props: AddConnectorProps) => {
             documentUri,
             range: nodePosition
         });
+
+         if(sidePanelContext.newResourceObject && sidePanelContext.newResourceObject === values.idpSchema){
+            const idpSchemas = await rpcClient.getMiDiagramRpcClient().getIdpSchemaFiles();
+            const matchingSchema = idpSchemas.schemaFiles.find(
+                schema => schema.fileName === sidePanelContext.newResourceObject
+            ); 
+            rpcClient.getMiVisualizerRpcClient().openView({
+                type: EVENT_TYPE.OPEN_VIEW,
+                location: { view: MACHINE_VIEW.IdpConnectorSchemaGeneratorForm, documentUri: matchingSchema.documentUriWithFileName},
+            }); 
+        }
 
         clearSidePanelState(sidePanelContext);
 
@@ -305,7 +323,7 @@ const AddConnector = (props: AddConnectorProps) => {
                         {/* {renderForm(props.formData.elements)} */}
                         <FormGenerator
                             documentUri={props.documentUri}
-                            formData={formData}
+                            formData={getFormData()}
                             connectorName={props.connectorName}
                             control={control}
                             errors={errors}

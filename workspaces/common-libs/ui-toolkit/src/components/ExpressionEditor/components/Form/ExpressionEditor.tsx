@@ -60,17 +60,34 @@ export const StyledTextArea = styled(AutoResizeTextArea)`
 `;
 
 export const DropdownContainer = styled.div<StyleBase>`
-    position: absolute;
-    z-index: 2001;
-    filter: drop-shadow(0 3px 8px rgb(0 0 0 / 0.2));
+ position: absolute;
+  z-index: ${(props: StyleBase) => props.zIndex ?? 2001};
+  filter: drop-shadow(0 3px 8px rgb(0 0 0 / 0.2));
     ${(props: StyleBase) => props.sx}
-
-    *,
-    *::before,
-    *::after {
-        box-sizing: border-box;
-    }
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
 `;
+
+export const ifCTRLandUP = (e: React.KeyboardEvent) => {
+    return (
+        (e.ctrlKey || e.metaKey) && e.key === "ArrowUp"
+    );
+};
+
+export const ifCTRLandDown = (e: React.KeyboardEvent) => {
+    return (
+        (e.ctrlKey || e.metaKey) && e.key === "ArrowDown"
+    );
+};
+
+export const ifCTRLandENTER = (e: React.KeyboardEvent) => {
+    return (
+        (e.ctrlKey || e.metaKey) && e.key === "Enter"
+    );
+};
 
 export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressionEditorElProps>((props, ref) => {
     const {
@@ -90,6 +107,7 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
         helperPaneWidth,
         helperPaneSx,
         actionButtons,
+        height,
         resize = 'vertical',
         growRange = { start: 1, offset: 7 },
         changeHelperPaneState,
@@ -107,6 +125,7 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
         useTransaction,
         onFocus,
         onBlur,
+        helperPaneZIndex,
         ...rest
     } = props;
 
@@ -127,7 +146,7 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
         prefix: /((?:\w|')*)$/,
         suffix: /^((?:\w|')*)/
     };
-    const showCompletions = showDefaultCompletion || completions?.length > 0;
+    const showCompletions = (showDefaultCompletion || completions?.length > 0) && !isHelperPaneOpen;
 
     const editorWidth = useMemo(() => {
         if (textAreaRef.current) {
@@ -154,7 +173,7 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
 
     useEffect(() => {
         // Position polling to detect any position changes
-        let lastPosition = { top: 0, left: 0, width: 0, height: 0 };
+        let lastPosition = { top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0 };
         let animationFrameId: number;
 
         const checkPositionChange = () => {
@@ -163,7 +182,9 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
             const rect = elementRef.current.getBoundingClientRect();
             const currentPosition = {
                 top: rect.top,
+                bottom: window.innerHeight - rect.bottom,
                 left: rect.left,
+                right: window.innerWidth - rect.left,
                 width: rect.width,
                 height: rect.height
             };
@@ -171,7 +192,9 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
             // Check if position or size has changed
             if (
                 currentPosition.top !== lastPosition.top ||
+                currentPosition.bottom !== lastPosition.bottom ||
                 currentPosition.left !== lastPosition.left ||
+                currentPosition.right !== lastPosition.right ||
                 currentPosition.width !== lastPosition.width ||
                 currentPosition.height !== lastPosition.height
             ) {
@@ -216,6 +239,7 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
     }, [extractArgsFromFunction]);
 
     const handleChange = async (text: string, cursorPosition?: number) => {
+        changeHelperPaneState?.(false);
         const updatedCursorPosition =
             cursorPosition ?? textAreaRef.current.shadowRoot.querySelector('textarea').selectionStart;
         // Update the text field value
@@ -354,9 +378,9 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
         const arrowPosition = getHelperPaneArrowPosition(containerRef, calculatedHelperPaneOrigin, helperPanePosition);
 
         return (
-            <DropdownContainer ref={helperPaneContainerRef} sx={{ ...helperPanePosition, ...helperPaneSx }}>
+            <DropdownContainer ref={helperPaneContainerRef} sx={{ ...helperPanePosition, ...helperPaneSx }} zIndex={helperPaneZIndex}>
                 <Transition show={isHelperPaneOpen} {...ANIMATION}>
-                    {getHelperPane(value, handleChange, helperPaneHeight)}
+                    {getHelperPane(value, handleChange, helperPaneHeight, height)}
                     {arrowPosition && (
                         <HelperPane.Arrow origin={calculatedHelperPaneOrigin} sx={{ ...arrowPosition }} />
                     )}
@@ -365,7 +389,20 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
         );
     };
 
+
+
+    const isReservedKeyCombinationPressed = (e: React.KeyboardEvent) => {
+        return ( (e.ctrlKey || e.metaKey) ||
+            ifCTRLandDown(e) ||
+            ifCTRLandUP(e) ||
+            ifCTRLandENTER(e)
+        );
+    }
+
     const handleInputKeyDown = async (e: React.KeyboardEvent) => {
+        if (!isReservedKeyCombinationPressed(e)) {
+            changeHelperPaneState?.(false);
+        }
         if (dropdownContainerRef.current) {
             const hoveredEl = dropdownContainerRef.current.querySelector('.hovered');
             if (dropdownRef.current) {
@@ -517,6 +554,10 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
         }
     }));
 
+    const isInsideModal = (element: Element) => {
+        return element.closest('.unq-modal-overlay') !== null;
+    };
+
     useEffect(() => {
         // Prevent blur event when clicking on the dropdown
         const handleOutsideClick = async (e: any) => {
@@ -526,7 +567,8 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
                 !dropdownContainerRef.current?.contains(e.target) &&
                 !helperPaneContainerRef.current?.contains(e.target) &&
                 !anchorRef?.current?.contains(e.target) &&
-                !fnSignatureElRef.current?.contains(e.target)
+                !fnSignatureElRef.current?.contains(e.target) &&
+                !isInsideModal(e.target)
             ) {
                 // Additional actions to be performed when the expression editor loses focus
                 setIsFocused(false);
@@ -580,7 +622,7 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
             {isSavingExpression && <ProgressIndicator barWidth={6} sx={{ top: '100%' }} />}
             {isFocused &&
                 createPortal(
-                    <DropdownContainer ref={dropdownContainerRef} sx={dropdownElPosition}>
+                    <DropdownContainer ref={dropdownContainerRef} sx={dropdownElPosition} zIndex={helperPaneZIndex}>
                         <Transition show={showCompletions} {...ANIMATION_SCALE_DOWN}>
                             <Codicon
                                 id="expression-editor-close"
@@ -615,9 +657,10 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
                     document.body
                 )}
             {isFocused && getHelperPane && createPortal(getHelperPaneComponent(), document.body)}
+
             {isFocused &&
                 createPortal(
-                    <DropdownContainer sx={fnSignatureElPosition}>
+                    <DropdownContainer sx={fnSignatureElPosition} zIndex={helperPaneZIndex}>
                         <Transition show={!!fnSignature} {...ANIMATION_SCALE_UP}>
                             <FnSignatureEl
                                 ref={fnSignatureElRef}

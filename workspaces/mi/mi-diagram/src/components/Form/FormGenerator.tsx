@@ -51,12 +51,15 @@ import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { Range } from "@wso2/mi-syntax-tree/lib/src";
 import ParameterManager from './GigaParamManager/ParameterManager';
 import { StringWithParamManagerComponent } from './StringWithParamManager';
-import { isLegacyExpression, isValueExpression } from './utils';
+import { isLegacyExpression, isTypeAwareEqual, isValueExpression } from './utils';
 import { Colors } from '../../resources/constants';
 import ReactMarkdown from 'react-markdown';
 import GenerateDiv from './GenerateComponents/GenerateDiv';
 import { HelperPaneCompletionItem, HelperPaneData } from '@wso2/mi-core';
 import AIAutoFillBox from './AIAutoFillBox/AIAutoFillBox';
+
+// Constants
+const XML_VALUE = 'xml';
 
 const Field = styled.div`
     margin-bottom: 12px;
@@ -129,6 +132,10 @@ export interface Element {
     expressionType?: 'xpath/jsonPath' | 'synapse';
     supportsAIValues?: boolean;
     rowCount?: number;
+    artifactPath?: string;
+    artifactType?: string;
+    isUnitTest?: boolean;
+    skipSanitization?: boolean;
 }
 
 interface ExpressionValueWithSetter {
@@ -180,6 +187,7 @@ export function FormGenerator(props: FormGeneratorProps) {
     const [showGeneratedValuesIdenticalMessage, setShowGeneratedValuesIdenticalMessage] = useState<boolean>(false);
     const [isGeneratedValuesIdentical, setIsGeneratedValuesIdentical] = useState<boolean>(false);
     const [numberOfDifferent, setNumberOfDifferent] = useState<number>(0);
+    const [idpSchemaNames, setidpSchemaNames] = useState< {fileName: string; documentUriWithFileName?: string}[]>([]);
 
     useEffect(() => {
         if (generatedFormDetails) {
@@ -309,6 +317,10 @@ export function FormGenerator(props: FormGeneratorProps) {
                         [name]: connectionNames
                     }));
                 }
+                else if (element.value.inputType === "idpSchemaGenerateView" && documentUri) {
+                    const idpSchemas =await rpcClient.getMiDiagramRpcClient().getIdpSchemaFiles();
+                    setidpSchemaNames(idpSchemas.schemaFiles);
+                }
             }
         });
         return defaultValues;
@@ -329,22 +341,19 @@ export function FormGenerator(props: FormGeneratorProps) {
 
         if (type === 'table') {
             const valueObj: any[] = [];
-            currentValue?.forEach((param: any[]) => {
-                const val: any = {};
-
+            currentValue?.forEach((param: any) => {
                 if (!Array.isArray(param)) {
-                    param = Object.values(param);
+                    valueObj.push(param);
+                } else {
+                    const val: any = {};
+                    value.elements.forEach((field: any, index: number) => {
+                        const fieldName = getNameForController(field.value.name);
+                        val[fieldName] = param[index];
+                    });
+                    
+                    valueObj.push(val);
                 }
-
-                value.elements.forEach((field: any, index: number) => {
-                    const fieldName = getNameForController(field.value.name);
-                    const fieldValue = param[index];
-
-                    val[fieldName] = fieldValue;
-                });
-                valueObj.push(val);
             });
-
             return valueObj;
         } else if (expressionTypes.includes(inputType) &&
             (!currentValue || typeof currentValue !== 'object' || !('isExpression' in currentValue))) {
@@ -583,6 +592,9 @@ export function FormGenerator(props: FormGeneratorProps) {
                 canChange={element.inputType !== 'expression'}
                 supportsAIValues={element.supportsAIValues}
                 errorMsg={errorMsg}
+                artifactPath={element.artifactPath}
+                artifactType={element.artifactType}
+                isUnitTest={element.isUnitTest || false}
                 openExpressionEditor={(value, setValue) => {
                     setCurrentExpressionValue({ value, setValue });
                     setExpressionEditorField(name);
@@ -1019,7 +1031,14 @@ export function FormGenerator(props: FormGeneratorProps) {
                 );
             }
             case 'connection':
+                if (isDisabled && getValues("configRef")) {
+                    field.value = getValues("configRef");
+                }
                 const onCreateButtonClick = async (name?: string, allowedConnectionTypes?: string[]) => {
+                    if (isDisabled) {
+                        setValue(name ?? 'configKey', getValues("configRef"));
+                    }
+
                     const fetchItems = async () => {
                         const connectionNames = await getConnectionNames(allowedConnectionTypes);
 
@@ -1093,6 +1112,24 @@ export function FormGenerator(props: FormGeneratorProps) {
                     </>
                 );
             case 'expressionTextArea':
+                const isValLegacyExpression = isLegacyExpression(element.expressionType, isLegacyExpressionEnabled, field);
+                if (isValLegacyExpression) {
+                    return (
+                        <CodeTextArea
+                            {...field}
+                            label={element.displayName}
+                            labelAdornment={helpTipElement}
+                            placeholder={placeholder}
+                            required={isRequired}
+                            resize="vertical"
+                            growRange={{ start: 5, offset: 10 }}
+                            errorMsg={errorMsg}
+                            onChange={(e: any) => {
+                                field.onChange(e.target.value);
+                            }}
+                        />
+                    );
+                }
                 return (
                     <div>
                         <FormTokenEditor
@@ -1107,26 +1144,27 @@ export function FormGenerator(props: FormGeneratorProps) {
                             required={isRequired}
                             errorMsg={errorMsg}
                             editorSx={{ height: '100px' }}
+                            skipSanitization={element.skipSanitization ? element.skipSanitization : false}
                         />
                         {generatedFormDetails && visibleDetails[element.name] && generatedFormDetails[element.name] !== getValues(element.name) && (
-                                <GenerateDiv
-                                    element={element}
-                                    generatedFormDetails={generatedFormDetails}
-                                    handleOnClickChecked={() => {
-                                        if (generatedFormDetails) {
-                                            field.onChange(generatedFormDetails[element.name]);
-                                            setVisibleDetails((prev) => ({ ...prev, [element.name]: false }));
-                                            setNumberOfDifferent(numberOfDifferent - 1);
-                                        }
-                                    }}
-                                    handleOnClickClose={() => {
-                                        setIsClickedDropDown(false);
-                                        setIsGenerating(false);
+                            <GenerateDiv
+                                element={element}
+                                generatedFormDetails={generatedFormDetails}
+                                handleOnClickChecked={() => {
+                                    if (generatedFormDetails) {
+                                        field.onChange(generatedFormDetails[element.name]);
                                         setVisibleDetails((prev) => ({ ...prev, [element.name]: false }));
                                         setNumberOfDifferent(numberOfDifferent - 1);
-                                    }}
-                                />
-                            )}
+                                    }
+                                }}
+                                handleOnClickClose={() => {
+                                    setIsClickedDropDown(false);
+                                    setIsGenerating(false);
+                                    setVisibleDetails((prev) => ({ ...prev, [element.name]: false }));
+                                    setNumberOfDifferent(numberOfDifferent - 1);
+                                }}
+                            />
+                        )}
                     </div>
                 );
             case 'popUp':
@@ -1137,12 +1175,54 @@ export function FormGenerator(props: FormGeneratorProps) {
                         </div>
                     </div>
                 );
+            case 'idpSchemaGenerateView':
+                const onCreateSchemaButtonClick = async (name?: string) => {
+                    const fetchItems = async () => {
+                        const idpSchemas =await rpcClient.getMiDiagramRpcClient().getIdpSchemaFiles();
+                        setidpSchemaNames(idpSchemas.schemaFiles);
+                    }
+
+                    const handleValueChange = (value: string) => {
+                        setValue(name,value);
+                    }
+
+                    openPopup(rpcClient, "idp", fetchItems, handleValueChange, props.documentUri, undefined, sidePanelContext);
+                }
+                return (
+                    <>
+                        <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", width: '100%', gap: '10px' }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: '10px' }}>
+                                <label>{element.displayName}{element.required === 'true' && '*'}</label>
+                                {helpTipElement && <div style={{ paddingTop: '5px' }}>
+                                    {helpTipElement}
+                                </div>}
+                            </div>
+                            <LinkButton onClick={() => onCreateSchemaButtonClick(name)}>
+                                <Codicon name="plus" />Add new schema
+                            </LinkButton>
+                        </div>
+
+                        <AutoComplete
+                            name={name}
+                            errorMsg={errors[getNameForController(name)] && errors[getNameForController(name)].message.toString()}
+                            items={
+                                idpSchemaNames.map(schema => schema.fileName)
+                            }
+                            value={field.value}
+                            onValueChange={(e: any) => {
+                                field.onChange(e);
+                            }}
+                            required={element.required === 'true'}
+                            allowItemCreate={false}
+                        />
+                    </>
+                )
             default:
                 return null;
         }
     };
 
-    const renderForm: any = (elements: any[]) => {
+    const renderForm: any = (elements: any[], skipSanitization: boolean = false) => {
         return elements.map((element: { type: string; value: any; }) => {
             const name = getNameForController(element.value.groupName ?? element.value.name);
             if (element?.value?.enableCondition !== undefined) {
@@ -1156,10 +1236,26 @@ export function FormGenerator(props: FormGeneratorProps) {
             }
 
             if (element.type === 'attributeGroup' && !element.value.hidden) {
+                // Check if any attribute in this group has comboValues containing 'xml'
+                const hasXmlComboValue = element.value.elements?.some((attr: any) => 
+                    attr.value?.comboValues && attr.value.comboValues.includes(XML_VALUE)
+                );
+
+                // If XML combo value is found, set avoidSanitize = true for all attributes in this group
+                if (hasXmlComboValue) {
+                    element.value.elements?.forEach((attr: any) => {
+                        if (attr.value) {
+                            attr.value.skipSanitization = true;
+                            skipSanitization = true;
+                        }
+                    });
+                }
+
+
                 return (
                     <>
                         {(element.value.groupName === "Generic" || (element.value.groupName === "General" && skipGeneralHeading)) ?
-                            renderForm(element.value.elements) :
+                            renderForm(element.value.elements, skipSanitization) :
                             <Field>
                                 <FormGroup
                                     key={element.value.groupName}
@@ -1169,7 +1265,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                                     }
                                     sx={{ paddingBottom: '0px', gap: '0px' }}
                                 >
-                                    {renderForm(element.value.elements)}
+                                    {renderForm(element.value.elements, skipSanitization)}
                                 </FormGroup>
                             </Field>
                         }
@@ -1184,6 +1280,13 @@ export function FormGenerator(props: FormGeneratorProps) {
                     return;
                 }
 
+                // Check if this individual attribute has comboValues containing 'XML'
+                if (element.value?.comboValues && element.value.comboValues.includes(XML_VALUE)) {
+                    element.value.skipSanitization = true;
+                    skipSanitization = true;
+                }
+                element.value.skipSanitization = skipSanitization;
+
                 return (
                     renderController(element)
                 );
@@ -1196,6 +1299,7 @@ export function FormGenerator(props: FormGeneratorProps) {
         const isRequired = typeof element.value.required === 'boolean' ? element.value.required : element.value.required === 'true';
         const matchPattern = element.value.matchPattern;
         let validateType = element.value.validateType;
+        const isDisabled = disableFields?.includes(String(element.value.name));
         if (matchPattern) {
             validateType = 'regex';
         }
@@ -1218,7 +1322,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                     {
                         ...(isRequired) && {
                             validate: (value) => {
-                                if (value.fromAI) {
+                                if (value.fromAI || isDisabled) {
                                     return true;
                                 }
                                 if (!value || (typeof value === 'object' && !value.value)) {
@@ -1295,10 +1399,9 @@ export function FormGenerator(props: FormGeneratorProps) {
                 const [key, subKey] = conditionKey.split('.');
                 const parentValue = watch(getNameForController(key));
                 const subKeyValue = parentValue?.[subKey] || currentVal;
-                return subKeyValue === expectedValue;
+                return isTypeAwareEqual(subKeyValue, expectedValue);
             }
-            return currentVal === condition[conditionKey] || (typeof condition[conditionKey] === 'string' && String(currentVal) === condition[conditionKey]) ||
-                (typeof condition[conditionKey] === 'boolean' && String(currentVal) === String(condition[conditionKey]));
+            return isTypeAwareEqual(currentVal, condition[conditionKey]);
         };
 
         if (Array.isArray(conditions)) {

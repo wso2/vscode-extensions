@@ -18,9 +18,10 @@
 
 import styled from "@emotion/styled";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { EVENT_TYPE, MACHINE_VIEW, ProjectStructureArtifactResponse, GetSelectiveArtifactsResponse, GetUserAccessTokenResponse, ResourceType, RegistryArtifact, GetAvailableConnectorResponse } from "@wso2/mi-core";
+import { EVENT_TYPE, MACHINE_VIEW, ProjectStructureArtifactResponse, GetSelectiveArtifactsResponse, GetUserAccessTokenResponse, ResourceType, RegistryArtifact, GetAvailableConnectorResponse, GetWorkspaceContextResponse, GetPomFileContentResponse, GetExternalConnectorDetailsResponse, GetMockServicesResponse, AI_EVENT_TYPE } from "@wso2/mi-core";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { Button, ComponentCard, ContainerProps, ContextMenu, Dropdown, FormActions, FormGroup, FormView, Item, ProgressIndicator, TextField, Typography, Icon } from "@wso2/ui-toolkit";
+import { AuthenticationDialog, useAuthentication } from "../../../components/AuthenticationDialog";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import * as yup from "yup";
@@ -49,6 +50,8 @@ interface UnitTestApiResponse {
     event: string;
     error: string | null;
     tests: string;
+    mock_services?: string[];
+    mock_service_names?: string[];
 }
 
 const cardStyle = {
@@ -87,6 +90,17 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
     const [filteredArtifacts, setFilteredArtifacts] = useState([]);
     const [showAddTestCase, setShowAddTestCase] = useState(false);
     const [showAddMockService, setShowAddMockService] = useState(false);
+
+    // Use the authentication hook
+    const {
+        showSignInConfirm,
+        checkAuthentication,
+        openSignInView,
+        closeSignInView
+    } = useAuthentication({
+        operationType: 'createUnitTests',
+        sessionStorageKey: 'pendingTestSuiteOperation'
+    });
 
     const [testCases, setTestCases] = useState<TestCaseEntry[]>([]);
     const [mockServices, setMockServices] = useState<MockServiceEntry[]>([]);
@@ -183,17 +197,15 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
         setIsLoaded(false);
 
         try {
-
-            let token: GetUserAccessTokenResponse;
-            try {
-                token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
-            } catch (error) {
-                console.error('User not signed in', error);
+            // Check authentication first
+            const isAuthenticated = await checkAuthentication();
+            if (!isAuthenticated) {
+                openSignInView(values);
+                setIsLoaded(true);
+                return;
             }
 
-            if (!token) {
-                openSignInView();
-            }
+            const token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
             const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
             const url = backendRootUri + MI_UNIT_TEST_GENERATION_BACKEND_URL;
             const artifact = isWindows ? path.win32.join(projectUri, values.artifact) : path.join(projectUri, values.artifact);
@@ -203,17 +215,46 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
                 context.push(response);
             });
 
+            var full_context: GetWorkspaceContextResponse[] = [];
+            await rpcClient?.getMiDiagramRpcClient()?.getWorkspaceContext().then((response: GetWorkspaceContextResponse) => {
+                full_context.push(response);
+            });
+
+            var pom_file_content: GetPomFileContentResponse;
+            await rpcClient?.getMiDiagramRpcClient()?.getPomFileContent().then((response: GetPomFileContentResponse) => {
+                pom_file_content = response;
+            });
+
+            var external_connector_details: GetExternalConnectorDetailsResponse;
+            await rpcClient?.getMiDiagramRpcClient()?.getExternalConnectorDetails().then((response: GetExternalConnectorDetailsResponse) => {
+                external_connector_details = response;
+            });
+
+            var mock_service_details: GetMockServicesResponse;
+            await rpcClient?.getMiDiagramRpcClient()?.getMockServices().then((response: GetMockServicesResponse) => {
+                mock_service_details = response;
+            });
+
             let retryCount = 0;
             const maxRetries = 2;
-
             const fetchUnitTests = async (): Promise<Response> => {
+                const requestBody = JSON.stringify({ 
+                    context: context[0].artifacts, 
+                    test_file_name: values.name, 
+                    num_suggestions: 1, 
+                    type: "generate_unit_tests" ,
+                    full_context: full_context[0].context,
+                    pom_file: pom_file_content.content,
+                    external_connectors: external_connector_details.connectors
+                });
+                
                 let response = await fetch(url, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token.token}`
                     },
-                    body: JSON.stringify({ context: context[0].artifacts, test_file_name: values.name, num_suggestions: 1, type: "generate_unit_tests" }),
+                    body: requestBody,
                 });
 
                 if (response.status === 401) {
@@ -230,6 +271,9 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
                         },
                         body: JSON.stringify({ context: context[0].artifacts, testFileName: values.name, num_suggestions: 1, type: "generate_unit_tests" }),
                     });
+                } else if (response.status === 403) {
+                    openSignInView(values);
+                    return response;
                 } else if (response.status === 404) {
                     if (retryCount < maxRetries) {
                         retryCount++;
@@ -257,8 +301,25 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
                     // Remove the Markdown code block delimiters
                     const cleanedXml = xml.map(xml => xml.replace(/```xml\n|```/g, ''));
                     rpcClient.getMiDiagramRpcClient().updateTestSuite({ path: props.filePath, content: cleanedXml[0], name: values.name, artifact }).then(() => {
-                        openOverview();
+                        // Calculate the file path for the newly created test suite
+                        let testSuiteFilePath = props.filePath;
+                        if (!testSuiteFilePath) {
+                            const testDir = path.join(projectUri, 'src', 'test', "wso2mi");
+                            testSuiteFilePath = path.join(testDir, `${values.name}.xml`);
+                        }
+                        
+                        // Open the newly created/updated test suite file
+                        rpcClient.getMiVisualizerRpcClient().openView({ 
+                            type: EVENT_TYPE.OPEN_VIEW, 
+                            location: { 
+                                view: MACHINE_VIEW.TestSuite, 
+                                documentUri: testSuiteFilePath 
+                            } 
+                        });
                     });
+                    if(data.mock_services && data.mock_services.length > 0) {
+                        rpcClient.getMiDiagramRpcClient().writeMockServices({ content: data.mock_services, fileNames:data.mock_service_names });
+                    }
                 } else {
                     console.error('No XMLs found in the response');
                 }
@@ -269,6 +330,7 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
 
         } catch (error) {
             console.error('Error while generating unit tests:', error);
+            setIsLoaded(true);
         }
     };
 
@@ -412,6 +474,33 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
         })();
     }, [filePath, syntaxTree]);
 
+    const handleBackButtonClick = () => {
+        rpcClient.getMiVisualizerRpcClient().goBack();
+    }
+
+    const openOverview = () => {
+        rpcClient.getMiVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: { view: MACHINE_VIEW.Overview } });
+    };
+
+    const openAddTestCase = () => {
+        setShowAddTestCase(true);
+    }
+
+    const openMockService = () => {
+        setShowAddMockService(true);
+    }
+
+    // Handler for authentication success - this will be called when authentication is successful
+    const handleAuthenticationSuccess = async (formValues: any) => {
+        // Close the AI panel by navigating back to test suite form
+        await rpcClient.getMiVisualizerRpcClient().openView({ 
+            type: EVENT_TYPE.OPEN_VIEW, 
+            location: { view: MACHINE_VIEW.TestSuite, documentUri: props.filePath } 
+        });
+        
+        await handleCreateUnitTests(formValues);
+    };
+
     useEffect(() => {
         if (!artifacts || artifacts.length === 0) {
             return;
@@ -431,25 +520,6 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
         }
         setValue("artifact", filteredArtifacts[0].value);
     }, [artifacts, watch("artifactType")]);
-
-    const handleBackButtonClick = () => {
-        rpcClient.getMiVisualizerRpcClient().goBack();
-    }
-
-    const openOverview = () => {
-        rpcClient.getMiVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: { view: MACHINE_VIEW.Overview } });
-    };
-    const openSignInView = () => {
-        rpcClient.getMiVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: { view: MACHINE_VIEW.LoggedOut } });
-    };
-
-    const openAddTestCase = () => {
-        setShowAddTestCase(true);
-    }
-
-    const openMockService = () => {
-        setShowAddMockService(true);
-    }
 
     function getConnectorResources(connectorResources: any[]): string[] {
         return connectorResources.map(item => {
@@ -803,7 +873,16 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
             setShowAddTestCase(false);
         };
         const availableTestCases = testCases.map((testCase) => testCase.name);
-        return <TestCaseForm onGoBack={goBack} onSubmit={onSubmit} testCase={currentTestCase} availableTestCases={availableTestCases} testSuiteType={getValues('artifactType') as TestSuiteType} />
+        const artifactType = getValues('artifactType') as TestSuiteType;
+        return <TestCaseForm 
+            onGoBack={goBack} 
+            onSubmit={onSubmit} 
+            filePath={props.filePath}
+            artifactPath={path.join(projectUri, getValues('artifact'))}
+            testCase={currentTestCase} 
+            availableTestCases={availableTestCases} 
+            testSuiteType={artifactType} 
+        />
     }
 
     if (showAddMockService) {
@@ -985,6 +1064,18 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
                     Cancel
                 </Button>
             </FormActions>
+
+            {/* Authentication dialog */}
+            <AuthenticationDialog
+                isOpen={showSignInConfirm}
+                operationType="createUnitTests"
+                sessionStorageKey="pendingTestSuiteOperation"
+                signInMessage="You need to sign in to MI Copilot to use AI features. Would you like to sign in?"
+                waitingMessage="Please complete the sign-in process. Your unit test generation will continue automatically after successful authentication."
+                dependencies={[isLoaded, props.filePath]}
+                onCancel={closeSignInView}
+                onAuthenticationSuccess={handleAuthenticationSuccess}
+            />
         </FormView >
     );
 

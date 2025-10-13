@@ -21,6 +21,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import axios from "axios";
 import * as path from 'path';
+import crypto from 'crypto';
 import { XMLParser, XMLBuilder } from "fast-xml-parser";
 import * as unzipper from 'unzipper';
 import { DownloadProgressData, ListRegistryArtifactsResponse, onDownloadProgress, Range, RegistryArtifact, UpdateRegistryMetadataRequest, ApplyEditResponse, RangeFormatRequest} from "@wso2/mi-core";
@@ -115,6 +116,22 @@ async function handleDownloadFile(projectUri: string, rawFileLink: string, defau
     progress.report({ message: "Download finished" });
 }
 
+/**
+ * Generates an MD5 hash for the given input string and returns its hexadecimal representation.
+ *
+ * @param input - The input string to hash.
+ * @returns The hexadecimal string representation of the MD5 hash, or `null` if an error occurs.
+ */
+export function getHash(input: string): string | null {
+    try {
+        const hash = crypto.createHash('md5');
+        hash.update(input);
+        return hash.digest('hex');
+    } catch (error) {
+        return null;
+    }
+}
+
 export function appendContent(path: string, content: string): Promise<boolean> {
     return new Promise((resolve) => {
         try {
@@ -184,16 +201,20 @@ export async function handleOpenFile(projectUri: string, sampleName: string, rep
             }
         }).on("close", () => {
             console.log("Extraction complete!");
-            let uri = Uri.file(path.join(selectedPath, sampleName));
             window.showInformationMessage('Where would you like to open the project?',
                 { modal: true },
-                'This Window',
+                'Current Window',
                 'New Window'
-            ).then((selection) => {
-                if (selection === undefined) {
-                    return;
+            ).then(selection => {
+                if (selection === "Current Window") {
+                    const folderUri = Uri.file(path.join(selectedPath, sampleName));
+                    const workspaceFolders = workspace.workspaceFolders || [];
+                    if (!workspaceFolders.some(folder => folder.uri.fsPath === folderUri.fsPath)) {
+                        workspace.updateWorkspaceFolders(workspaceFolders.length, 0, { uri: folderUri });
+                    }
+                } else if (selection === "New Window") {
+                    commands.executeCommand('vscode.openFolder', Uri.file(path.join(selectedPath, sampleName)));
                 }
-                commands.executeCommand("vscode.openFolder", uri, selection === 'New Window');
             });
         });
         window.showInformationMessage(
@@ -601,6 +622,28 @@ export function deleteDataMapperResources(filePath: string): Promise<{ status: b
     });
 }
 
+export function deleteSchemaResources(filePath: string): Promise<{ status: boolean, info: string }> {
+    const projectDir = workspace.getWorkspaceFolder(Uri.file(filePath))?.uri.fsPath;
+    const fileName = path.basename(filePath);
+
+    if (projectDir && (fileName.endsWith('.json') || fileName.endsWith('.xsd'))) {
+        const schemaName = fileName.replace('.json', '').replace('.xsd', '');
+        let artifactXmlSavePath = '';
+        let projectDirPath = '';
+        if (path.normalize(filePath).includes(path.normalize(path.join('resources', 'idp-schemas')))) {
+            artifactXmlSavePath = '/_system/governance/mi-resources/idp-schemas/' + schemaName
+            projectDirPath = path.join(projectDir, 'src', 'main', 'wso2mi', 'resources', 'idp-schemas', schemaName);
+        } else {
+            artifactXmlSavePath = '/_system/governance/idp-schemas/' + schemaName;
+            projectDirPath = path.join(projectDir, 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'idp-schemas', schemaName);
+        }
+        removeEntryFromArtifactXML(projectDir, artifactXmlSavePath, '');
+        fs.rmSync(projectDirPath, { recursive: true, force: true });
+        return Promise.resolve({ status: true, info: "Schema resources removed" });
+    }
+    return Promise.resolve({ status: false, info: "Schema resources not removed" });
+}
+
 /**
  * Create meta data files for the registry collection.
  * @param collectionRoot root folder of the collection.
@@ -648,7 +691,7 @@ export async function createMetadataFilesForRegistryCollection(collectionRoot: s
 export async function getAvailableRegistryResources(projectDir: string): Promise<ListRegistryArtifactsResponse> {
     const result: RegistryArtifact[] = [];
     
-    const miVersion = await getMIVersionFromPom();
+    const miVersion = await getMIVersionFromPom(projectDir);
     if (miVersion && compareVersions(miVersion, '4.4.0') >= 0) {
         var artifactXMLPath = path.join(projectDir, 'src', 'main', 'wso2mi', 'resources', 'artifact.xml');
     } else {
@@ -1064,4 +1107,15 @@ export async function rangeFormat(req: RangeFormatRequest): Promise<ApplyEditRes
         await workspace.applyEdit(workspaceEdit);
         resolve({ status: true });
     });
+}
+
+export function generatePathFromRegistryPath(registryPath: string, fileName: string): string {
+    if (registryPath.includes("/mi-resources/")) {
+        registryPath = registryPath.split("/mi-resources/")[1];
+    } else if (registryPath.includes("/config/")) {
+        registryPath = "conf/" + registryPath.split("/config/")[1];
+    } else if (registryPath.includes("/governance/")) {
+        registryPath = "gov/" + registryPath.split("/governance/")[1];
+    }
+    return path.join(registryPath.split("/").join(path.sep), fileName);
 }

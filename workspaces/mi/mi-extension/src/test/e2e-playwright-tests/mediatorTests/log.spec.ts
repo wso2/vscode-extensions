@@ -29,7 +29,7 @@ export default function createTests() {
   test.describe("Log Mediator Tests", {
     tag: '@group2',
   }, async () => {
-    initTest();
+    initTest(false, false, false, undefined, undefined, 'group2');
 
     test("Log Mediator Tests", async ({ }, testInfo) => {
       const testAttempt = testInfo.retry + 1;
@@ -160,6 +160,8 @@ export default function createTests() {
           }
         });
         console.log('Log mediator edited successfully');
+        // Wait for the mediator to be updated
+        await page.page.waitForTimeout(2000);
         const editedDescription = await mediator.getDescription();
         console.log('Edited log mediator description:', editedDescription);
         expect(editedDescription).toBe('log mediator edited');

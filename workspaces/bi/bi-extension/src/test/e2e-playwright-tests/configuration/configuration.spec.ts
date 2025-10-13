@@ -46,9 +46,6 @@ export default function createTests() {
             // Verify Configurable Variables view
             await configEditor.verifyPageLoaded();
 
-            // Create a new configurable variable
-            await configEditor.addNewConfigurableVariable();
-
             // Fill the form fields
             const form = new Form(page.page, 'WSO2 Integrator: BI', configurationWebView);
             await form.switchToFormView(false, configurationWebView);
@@ -60,11 +57,13 @@ export default function createTests() {
                     },
                     'Variable Type': {
                         type: 'textarea',
-                        value: 'int'
+                        value: 'int',
+                        additionalProps: { clickLabel: true }
                     },
                     'Default Value': {
                         type: 'textarea',
-                        value: '100'
+                        value: '100',
+                        additionalProps: { clickLabel: true }
                     }
                 }
             });
@@ -83,7 +82,8 @@ export default function createTests() {
                 values: {
                     'Default Value': {
                         type: 'textarea',
-                        value: '200'
+                        value: '200',
+                        additionalProps: { clickLabel: true }
                     }
                 }
             });
@@ -107,7 +107,8 @@ export default function createTests() {
                     },
                     'Variable Type': {
                         type: 'textarea',
-                        value: 'string'
+                        value: 'string',
+                        additionalProps: { clickLabel: true }
                     }
                 }
             });
@@ -127,7 +128,8 @@ export default function createTests() {
                     },
                     'Variable Type': {
                         type: 'textarea',
-                        value: 'string'
+                        value: 'string',
+                        additionalProps: { clickLabel: true }
                     }
                 }
             });

@@ -51,6 +51,11 @@ import {
     WriteContentToFileResponse,
     HandleFileRequest,
     HandleFileResponse,
+    WriteIdpSchemaFileToRegistryRequest,
+    WriteIdpSchemaFileToRegistryResponse,
+    GetIdpSchemaFilesResponse,
+    ReadIdpSchemaFileContentRequest,
+    ReadIdpSchemaFileContentResponse,
     CreateLocalEntryRequest,
     CreateLocalEntryResponse,
     FileDirResponse,
@@ -252,7 +257,18 @@ import {
     GetCodeDiagnosticsReqeust,
     GetCodeDiagnosticsResponse,
     GetConnectorIconRequest,
-    GetConnectorIconResponse
+    GetConnectorIconResponse,
+    SubmitFeedbackRequest,
+    SubmitFeedbackResponse,
+    GetPomFileContentResponse,
+    GetExternalConnectorDetailsResponse,
+    WriteMockServicesRequest,
+    WriteMockServicesResponse,
+    GetMockServicesResponse,
+    ConfigureKubernetesRequest,
+    ConfigureKubernetesResponse,
+    UpdateRegistryPropertyRequest,
+    Property
 } from "./types";
 
 export interface MiDiagramAPI {
@@ -323,6 +339,9 @@ export interface MiDiagramAPI {
     getAIResponse: (params: AIUserInput) => Promise<string>;
     writeContentToFile: (params: WriteContentToFileRequest) => Promise<WriteContentToFileResponse>;
     handleFileWithFS: (params: HandleFileRequest) => Promise<HandleFileResponse>;
+    writeIdpSchemaFileToRegistry: (params: WriteIdpSchemaFileToRegistryRequest) => Promise<WriteIdpSchemaFileToRegistryResponse>;
+    getIdpSchemaFiles: ()=> Promise<GetIdpSchemaFilesResponse>;
+    readIdpSchemaFileContent: (params: ReadIdpSchemaFileContentRequest) => Promise<ReadIdpSchemaFileContentResponse>;
     highlightCode: (params: HighlightCodeRequest) => void;
     getWorkspaceContext: () => Promise<GetWorkspaceContextResponse>;
     getProjectUuid: () => Promise<GetProjectUuidResponse>;
@@ -391,6 +410,7 @@ export interface MiDiagramAPI {
     getAllMockServices: () => Promise<GetAllMockServicesResponse>;
     openDependencyPom: (params: OpenDependencyPomRequest) => void;
     getAllDependencies: (params: getAllDependenciesRequest) => Promise<GetAllDependenciesResponse>;
+    formatPomFile: () => Promise<void>;
     testDbConnection: (params: TestDbConnectionRequest) => Promise<TestDbConnectionResponse>;
     markAsDefaultSequence: (params: MarkAsDefaultSequenceRequest) => void;
     getSubFolderNames: (path: GetSubFoldersRequest) => Promise<GetSubFoldersResponse>;
@@ -422,4 +442,13 @@ export interface MiDiagramAPI {
     shouldDisplayPayloadAlert: () => Promise<boolean>;
     displayPayloadAlert: () => Promise<void>;
     closePayloadAlert: () => Promise<void>;
+    submitFeedback: (params: SubmitFeedbackRequest) => Promise<SubmitFeedbackResponse>;
+    getPomFileContent: () => Promise<GetPomFileContentResponse>;
+    getExternalConnectorDetails: () => Promise<GetExternalConnectorDetailsResponse>;
+    writeMockServices: (params: WriteMockServicesRequest) => Promise<WriteMockServicesResponse>;
+    getMockServices: () => Promise<GetMockServicesResponse>;
+    configureKubernetes: (params: ConfigureKubernetesRequest) => Promise<ConfigureKubernetesResponse>;
+    isKubernetesConfigured: () => Promise<boolean>;
+    updatePropertiesInArtifactXML: (params: UpdateRegistryPropertyRequest) => Promise<string>;
+    getPropertiesFromArtifactXML: (params: string) => Promise<Property[] | undefined>;
 }

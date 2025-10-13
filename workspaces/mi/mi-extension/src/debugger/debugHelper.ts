@@ -19,7 +19,7 @@
 
 import * as vscode from 'vscode';
 import * as childprocess from 'child_process';
-import { COMMANDS } from '../constants';
+import { COMMANDS, MVN_COMMANDS } from '../constants';
 import { loadEnvVariables, getBuildCommand, getRunCommand, getStopCommand } from './tasks';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -37,6 +37,7 @@ import treeKill = require('tree-kill');
 import { serverLog, showServerOutputChannel } from '../util/serverLogger';
 import { getJavaHomeFromConfig, getServerPathFromConfig } from '../util/onboardingUtils';
 import * as crypto from 'crypto';
+import { Uri, workspace } from "vscode";
 
 const child_process = require('child_process');
 const findProcess = require('find-process');
@@ -93,7 +94,7 @@ function checkServerLiveness(): Promise<boolean> {
 
 export function checkServerReadiness(): Promise<void> {
     const startTime = Date.now();
-    const maxTimeout = 45000;
+    const maxTimeout = 120000;
     const retryInterval = 2000;
 
     return new Promise((resolve, reject) => {
@@ -174,7 +175,7 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
             }
         }
 
-        const buildCommand = getBuildCommand();
+        const buildCommand = getBuildCommand(projectUri);
         const envVariables = {
             ...process.env,
             ...setJavaHomeInEnvironmentAndPath(projectUri)
@@ -201,7 +202,7 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
                     const workspaceFolders = vscode.workspace.workspaceFolders;
                     if (workspaceFolders && workspaceFolders.length > 0) {
                         // copy all the jars present in deployement/libs
-                        const workspaceLibs = vscode.Uri.joinPath(vscode.Uri.parse(projectUri), "deployment", "libs");
+                        const workspaceLibs = vscode.Uri.joinPath(vscode.Uri.file(projectUri), "deployment", "libs");
                         if (fs.existsSync(workspaceLibs.fsPath)) {
                             try {
                                 const jars = await getDeploymentLibJars(workspaceLibs);
@@ -217,7 +218,7 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
                                 reject(err);
                             }
                         }
-                        const targetDirectory = vscode.Uri.joinPath(vscode.Uri.parse(projectUri), "target");
+                        const targetDirectory = vscode.Uri.joinPath(vscode.Uri.file(projectUri), "target");
                         if (fs.existsSync(targetDirectory.fsPath)) {
                             try {
                                 const sourceFiles = await getCarFiles(targetDirectory);
@@ -260,8 +261,10 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
 export async function executeRemoteDeployTask(projectUri: string, postBuildTask?: Function) {
     return new Promise<void>(async (resolve, reject) => {
 
-        const buildCommand = process.platform === 'win32' ? ".\\mvnw.cmd clean deploy -Dmaven.deploy.skip=true -Dmaven.car.deploy.skip=false -Dstyle.color=never" :
-            "./mvnw clean deploy -Dmaven.deploy.skip=true -Dmaven.car.deploy.skip=false -Dstyle.color=never";;
+        const config = workspace.getConfiguration('MI', Uri.file(projectUri));
+        const mvnCmd = config.get("useLocalMaven") ? "mvn" : (process.platform === "win32" ?
+            MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
+        const buildCommand = mvnCmd + MVN_COMMANDS.DEPLOY_COMMAND;
         const envVariables = {
             ...process.env,
             ...setJavaHomeInEnvironmentAndPath(projectUri)
@@ -405,7 +408,7 @@ export async function stopServer(projectUri: string, serverPath: string, isWindo
 }
 
 export async function executeTasks(projectUri: string, serverPath: string, isDebug: boolean): Promise<void> {
-    const maxTimeout = 45000;
+    const maxTimeout = 120000;
     return new Promise<void>(async (resolve, reject) => {
         const isTerminated = await getStateMachine(projectUri).context().langClient?.shutdownTryoutServer();
         if (!isTerminated) {
@@ -468,7 +471,7 @@ export async function executeTasks(projectUri: string, serverPath: string, isDeb
 }
 
 export async function getServerPath(projectUri: string): Promise<string | undefined> {
-    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.parse(projectUri));
+    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
     const currentPath = getServerPathFromConfig(projectUri);
     if (!currentPath) {
         await vscode.commands.executeCommand(COMMANDS.CHANGE_SERVER_PATH);
@@ -481,7 +484,7 @@ export async function getServerPath(projectUri: string): Promise<string | undefi
     return path.normalize(currentPath);
 }
 export function setJavaHomeInEnvironmentAndPath(projectUri: string): { [key: string]: string; } {
-    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.parse(projectUri));
+    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
     const javaHome = getJavaHomeFromConfig(projectUri);
     const env = { ...process.env };
     if (javaHome) {

@@ -76,6 +76,7 @@ export type LoadingSectionProps = {
 
 export type PanelViewProps = PropsWithChildren<{
     id: number;
+    sx?: CSSProperties;
 }>;
 
 export type PanelTabProps = {
@@ -124,4 +125,9 @@ export type HelperPaneHeaderProps = SearchBoxConditionalProps & {
 export type HelperPaneProps = PropsWithChildren<{
     helperPaneHeight: HelperPaneHeight;
     sx?: CSSProperties;
+}>;
+
+export type HelperPaneCustomProps = PropsWithChildren<{
+    sx?: CSSProperties;
+    anchorRef?:RefObject<HTMLDivElement>
 }>;

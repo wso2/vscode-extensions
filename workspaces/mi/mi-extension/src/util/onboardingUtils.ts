@@ -1,3 +1,20 @@
+/**
+ * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
@@ -60,15 +77,20 @@ export async function setupEnvironment(projectUri: string, isOldProject: boolean
             return false;
         }
         const versions: string[] = ["4.0.0", "4.1.0", "4.2.0", "4.3.0"];
-        if (miVersionFromPom && versions.includes(miVersionFromPom)) {
-            const config = vscode.workspace.getConfiguration('MI', vscode.Uri.parse(projectUri));
-            await config.update("LEGACY_EXPRESSION_ENABLED", true, vscode.ConfigurationTarget.Workspace);
-        }
+        const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
+        await config.update("LEGACY_EXPRESSION_ENABLED", miVersionFromPom && versions.includes(miVersionFromPom),
+            vscode.ConfigurationTarget.WorkspaceFolder);
         const isMISet = await isMISetup(projectUri, miVersionFromPom);
         const isJavaSet = await isJavaSetup(projectUri, miVersionFromPom);
 
         if (isMISet && isJavaSet) {
             const isUpdateRequested = await isServerUpdateRequested(projectUri);
+            await updateCarPluginVersion(projectUri);
+            const config = vscode.workspace.getConfiguration('MI', vscode.Uri.parse(projectUri));
+            const currentState = config.inspect<string>("useLocalMaven");
+            if (currentState?.workspaceFolderValue === undefined) {
+                config.update("useLocalMaven", currentState?.globalValue ?? false, vscode.ConfigurationTarget.WorkspaceFolder);
+            }
             return !isUpdateRequested;
         }
         return isMISet && isJavaSet;
@@ -97,9 +119,9 @@ export async function isMIUpToDate(): Promise<boolean> {
 }
 
 export async function getProjectSetupDetails(projectUri: string): Promise<SetupDetails> {
-    const miVersion = await getMIVersionFromPom();
+    const miVersion = await getMIVersionFromPom(projectUri);
     if (!miVersion) {
-        vscode.window.showErrorMessage('Failed to get WSO2 Integrator: MI version from pom.xml.');
+        vscode.window.showWarningMessage('Failed to get WSO2 Integrator: MI version from pom.xml.');
         return { miVersionStatus: 'missing', javaDetails: { status: 'not-valid' }, miDetails: { status: 'not-valid' } };
     }
     if (isSupportedMIVersion(miVersion)) {
@@ -110,8 +132,9 @@ export async function getProjectSetupDetails(projectUri: string): Promise<SetupD
 
     return { miVersionStatus: 'not-valid', javaDetails: { status: 'not-valid' }, miDetails: { status: 'not-valid' } };
 }
-export async function getMIVersionFromPom(): Promise<string | null> {
-    const pomFiles = await vscode.workspace.findFiles('pom.xml', '**/node_modules/**', 1);
+export async function getMIVersionFromPom(projectUri: string): Promise<string | null> {
+    const pattern = new vscode.RelativePattern(projectUri, 'pom.xml');
+    const pomFiles = await vscode.workspace.findFiles(pattern, '**/node_modules/**', 1);
     if (pomFiles.length === 0) {
         vscode.window.showErrorMessage('pom.xml not found.');
         return null;
@@ -173,8 +196,8 @@ export function generateInitialDependencies(httpConnectorVersion: string): strin
     </dependencies>`
 }
 
-async function isMISetup(projectUri: string, miVersion: string): Promise<boolean> {
-    const config = vscode.workspace.getConfiguration('MI');
+export async function isMISetup(projectUri: string, miVersion: string): Promise<boolean> {
+    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
     const currentMIPath = config.get<string>(SELECTED_SERVER_PATH);
     if (currentMIPath) {
         const availableMIVersion = getMIVersion(currentMIPath);
@@ -200,7 +223,7 @@ async function isMISetup(projectUri: string, miVersion: string): Promise<boolean
 
         const miCachedPathInfo = getLatestMIPathFromCache(miVersion);
         if (miCachedPathInfo && miCachedPathInfo.path) {
-            await config.update(SELECTED_SERVER_PATH, miCachedPathInfo.path, vscode.ConfigurationTarget.Workspace);
+            await config.update(SELECTED_SERVER_PATH, miCachedPathInfo.path, vscode.ConfigurationTarget.WorkspaceFolder);
             return true;
         }
     }
@@ -251,8 +274,8 @@ async function isMISetup(projectUri: string, miVersion: string): Promise<boolean
             });
     }
 }
-async function isJavaSetup(projectUri: string, miVersion: string): Promise<boolean> {
-    const config = vscode.workspace.getConfiguration('MI');
+export async function isJavaSetup(projectUri: string, miVersion: string): Promise<boolean> {
+    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
     const currentJavaHome = config.get<string>(SELECTED_JAVA_HOME);
     if (currentJavaHome) {
         const currentJavaVersion = getJavaVersion(path.join(currentJavaHome, 'bin')) ?? '';
@@ -274,7 +297,7 @@ async function isJavaSetup(projectUri: string, miVersion: string): Promise<boole
             if (!isRecommendedJavaVersionForMI(javaVersion, miVersion)) {
                 showJavaHomeChangePrompt();
             }
-            await config.update(SELECTED_JAVA_HOME, globalJavaHome, vscode.ConfigurationTarget.Workspace);
+            await config.update(SELECTED_JAVA_HOME, globalJavaHome, vscode.ConfigurationTarget.WorkspaceFolder);
             return true;
         }
     }
@@ -282,7 +305,7 @@ async function isJavaSetup(projectUri: string, miVersion: string): Promise<boole
     const javaHome = getJavaHomeForMIVersionFromCache(miVersion);
 
     if (javaHome) {
-        await config.update(SELECTED_JAVA_HOME, path.normalize(javaHome), vscode.ConfigurationTarget.Workspace);
+        await config.update(SELECTED_JAVA_HOME, path.normalize(javaHome), vscode.ConfigurationTarget.WorkspaceFolder);
         return true;
     }
     if (process.env.JAVA_HOME) {
@@ -291,7 +314,7 @@ async function isJavaSetup(projectUri: string, miVersion: string): Promise<boole
             if (!isRecommendedJavaVersionForMI(javaVersion, miVersion)) {
                 showJavaHomeChangePrompt();
             }
-            await config.update(SELECTED_JAVA_HOME, process.env.JAVA_HOME, vscode.ConfigurationTarget.Workspace);
+            await config.update(SELECTED_JAVA_HOME, process.env.JAVA_HOME, vscode.ConfigurationTarget.WorkspaceFolder);
             return true;
         }
     }
@@ -585,11 +608,11 @@ function isMIInstalledAtPath(miPath: string): boolean {
     return fs.existsSync(path.join(miPath, 'bin', miExecutable));
 }
 export async function setPathsInWorkSpace(request: SetPathRequest): Promise<PathDetailsResponse> {
-    const projectMIVersion = await getMIVersionFromPom();
+    const projectMIVersion = await getMIVersionFromPom(request.projectUri);
 
     let response: PathDetailsResponse = { status: 'not-valid' };
     if (projectMIVersion) {
-        const config = vscode.workspace.getConfiguration('MI');
+        const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(request.projectUri));
         if (request.type === 'JAVA') {
             const validJavaHome = verifyJavaHomePath(request.path);
             if (validJavaHome) {
@@ -601,7 +624,7 @@ export async function setPathsInWorkSpace(request: SetPathRequest): Promise<Path
                 }
             }
             if (response.status !== 'not-valid') {
-                config.update(SELECTED_JAVA_HOME, validJavaHome, vscode.ConfigurationTarget.Workspace);
+                config.update(SELECTED_JAVA_HOME, validJavaHome, vscode.ConfigurationTarget.WorkspaceFolder);
                 extension.context.globalState.update(SELECTED_JAVA_HOME, validJavaHome);
 
             } else {
@@ -619,9 +642,9 @@ export async function setPathsInWorkSpace(request: SetPathRequest): Promise<Path
                 }
             }
             if (response.status !== 'not-valid') {
-                config.update(SELECTED_SERVER_PATH, validServerPath, vscode.ConfigurationTarget.Workspace);
+                config.update(SELECTED_SERVER_PATH, validServerPath, vscode.ConfigurationTarget.WorkspaceFolder);
                 extension.context.globalState.update(SELECTED_SERVER_PATH, validServerPath);
-                config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.Workspace);
+                config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.WorkspaceFolder);
             } else {
                 vscode.window.showErrorMessage('Invalid WSO2 Integrator: MI path or Unsupported version. Please set a valid WSO2 Integrator: MI path');
             }
@@ -637,7 +660,7 @@ async function getJavaAndMIPathsFromWorkspace(projectUri: string, projectMiVersi
         miDetails: { status: 'not-valid', version: projectMiVersion }
     };
     if (projectMiVersion) {
-        const config = vscode.workspace.getConfiguration('MI', vscode.Uri.parse(projectUri));
+        const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
 
         const javaHome = config.get<string>(SELECTED_JAVA_HOME);
         const validJavaHome = javaHome && verifyJavaHomePath(javaHome) ||
@@ -990,7 +1013,7 @@ function setupConfigFiles(projectUri: string): void {
 }
 
 export function getJavaHomeFromConfig(projectUri: string): string | undefined {
-    const config = vscode.workspace.getConfiguration('MI');
+    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
     const currentJavaHome = config.get<string>(SELECTED_JAVA_HOME);
 
     const projectName = path.basename(projectUri);
@@ -1029,7 +1052,7 @@ export function getJavaHomeFromConfig(projectUri: string): string | undefined {
 }
 
 export function getServerPathFromConfig(projectUri: string): string | undefined {
-    const config = vscode.workspace.getConfiguration('MI');
+    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
     const currentServerPath = config.get<string>(SELECTED_SERVER_PATH);
     return currentServerPath;
 }
@@ -1057,26 +1080,92 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
         },
         async (progress, token) => await new Promise<void>((resolve, reject) => {
             progress.report({ increment: 10, message: "Pull dependencies..." });
-            const balHome = path.join(os.homedir(), '.ballerina', 'ballerina-home', 'bin').toString();
+            
+            // Handle paths for different OS
+            const isWindows = process.platform === 'win32';
+            console.debug('[Ballerina Build] OS Platform:', process.platform);
+            
+            // Normalize paths for proper handling
+            const balHome = path.normalize(path.join(os.homedir(), '.ballerina', 'ballerina-home', 'bin'));
+            console.debug('[Ballerina Build] Ballerina Home:', balHome);
+            
+            // Use appropriate executable for the platform
+            const balExecutable = isWindows ? 'bal.bat' : 'bal';
+            const balCommand = path.join(balHome, balExecutable);
+            console.debug('[Ballerina Build] Ballerina Command Path:', balCommand);
 
-            runCommand(isBallerinaInstalled ? 'bal tool pull mi-module-gen' : `${balHome}${path.sep}bal tool pull mi-module-gen`, `"${projectPath}"`, onData, onError, buildModule);
+            // Check if Ballerina executable exists
+            if (!fs.existsSync(balCommand)) {
+                console.debug('[Ballerina Build] Error: Ballerina executable not found at:', balCommand);
+                vscode.window.showErrorMessage(`Ballerina executable not found at: ${balCommand}`);
+                reject(new Error('Ballerina executable not found'));
+                return;
+            }
 
+            // Properly quote paths for Windows, ensuring spaces are handled correctly
+            const quotedProjectPath = isWindows ? `"${projectPath.replace(/"/g, '""')}"` : projectPath;
+            const quotedBalCommand = isWindows ? `"${balCommand.replace(/"/g, '""')}"` : balCommand;
+            console.debug('[Ballerina Build] Quoted Project Path:', quotedProjectPath);
+            console.debug('[Ballerina Build] Quoted Bal Command:', quotedBalCommand);
+
+            // Use global bal if installed, otherwise use local installation
+            const pullCommand = isBallerinaInstalled 
+                ? (isWindows ? 'bal.bat tool pull mi-module-gen' : 'bal tool pull mi-module-gen')
+                : `${quotedBalCommand} tool pull mi-module-gen`;
+
+            console.debug('[Ballerina Build] Command to execute:', pullCommand);
+            console.debug('[Ballerina Build] Working directory:', quotedProjectPath);
+            console.debug('[Ballerina Build] Using global installation:', isBallerinaInstalled);
+
+            // Verify project path exists before running command
+            if (!fs.existsSync(projectPath)) {
+                console.debug('[Ballerina Build] Error: Project path does not exist:', projectPath);
+                vscode.window.showErrorMessage(`Project path does not exist: ${projectPath}`);
+                reject(new Error('Invalid project path'));
+                return;
+            }
+
+            runCommand(pullCommand, quotedProjectPath, onData, onError, buildModule);
             let isModuleAlreadyInstalled = false, commandFailed = false;
+
             function onData(data: string) {
+                console.debug('[Ballerina Build] Command output:', data.trim());
                 if (data.includes("is already available locally")) {
+                    console.debug('[Ballerina Build] Module is already installed');
                     isModuleAlreadyInstalled = true;
                 }
             }
 
-            function onError(data: string) {
+            function onError(data: any) {
                 if (data) {
-                    if (data.includes("spawn bal ENOENT") ||
-                        data.includes("The system cannot find the path specified") ||
-                        data.includes("'ba' is not recognized as an internal or external command, operable program or batch file.")) {
-                        vscode.window.showErrorMessage("Ballerina not found. Please install and setup the Ballerina Extension and try again.");
-                        showExtensionPrompt();
+                    // Convert data to string with simplified logic
+                    const errorMessage: string = data?.toString?.() ?? String(data);
+
+                    console.debug('[Ballerina Build] Error encountered:', errorMessage);
+                    const commonErrors = [
+                        "spawn bal ENOENT",
+                        "The system cannot find the path specified",
+                        "'bal' is not recognized",
+                        "'bal.bat' is not recognized",
+                        "bal.bat' is not recognized",
+                        "Cannot find module",
+                        "command not found",
+                        "Error: EPERM: operation not permitted",
+                        "Error: EACCES: permission denied",
+                        "The process cannot access the file because it is being used by another process"
+                    ];
+
+                    if (commonErrors.some(error => errorMessage.toLowerCase().includes(error.toLowerCase()))) {
+                        console.debug('[Ballerina Build] Common error detected:', errorMessage);
+                        if (errorMessage.includes('EPERM') || errorMessage.includes('EACCES')) {
+                            vscode.window.showErrorMessage("Permission error. Please run VS Code with administrator privileges.");
+                        } else {
+                            vscode.window.showErrorMessage("Ballerina not found. Please install and setup the Ballerina Extension and try again.");
+                            showExtensionPrompt();
+                        }
                     } else {
-                        vscode.window.showErrorMessage(`Error: ${data}`);
+                        console.error('[Ballerina Build] Unexpected error:', errorMessage);
+                        vscode.window.showErrorMessage(`Error: ${errorMessage}`);
                     }
                     commandFailed = true;
                 }
@@ -1094,7 +1183,13 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
                     ballerinaOutputChannel = vscode.window.createOutputChannel('Ballerina Module Builder');
                 }
                 ballerinaOutputChannel.clear();
-                runBasicCommand(isBallerinaInstalled ? 'bal mi-module-gen -i .' : `${balHome}${path.sep}bal mi-module-gen -i .`, `${projectPath}`,
+                const isWindows = process.platform === 'win32';
+                const moduleGenCommand = isBallerinaInstalled 
+                    ? (isWindows ? 'bal.bat mi-module-gen -i .' : 'bal mi-module-gen -i .') 
+                    : `${path.join(balHome, isWindows ? 'bal.bat' : 'bal')} mi-module-gen -i .`;
+
+                console.debug('Running module gen command:', moduleGenCommand, 'in directory:', projectPath);
+                runBasicCommand(moduleGenCommand, projectPath,
                     onData, onError, onComplete, ballerinaOutputChannel
                 );
 
@@ -1105,22 +1200,47 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
                             return;
                         }
                         progress.report({ increment: 40, message: "Copying Ballerina module..." });
-                        const targetFolderPath = path.join(projectPath, 'target');
-                        if (fs.existsSync(targetFolderPath)) {
-                            fs.rmSync(targetFolderPath, { recursive: true, force: true });
-                        } else {
+                        
+                        // Check if build generated the module files
+                        const buildOutput = path.join(projectPath, 'target');
+                        if (!fs.existsSync(buildOutput)) {
+                            console.debug('[Ballerina Build] Build output directory not found:', buildOutput);
                             reject();
-                            return vscode.window.showErrorMessage("Ballerina module build process failed.");
+                            return vscode.window.showErrorMessage("Ballerina module build process failed - no output generated.");
                         }
 
-                        const tomlContent = fs.readFileSync(path.join(projectPath, "Ballerina.toml"), 'utf8');
+                        // Clean up old target folder if it exists
+                        const targetFolderPath = path.join(projectPath, 'target');
+                        if (fs.existsSync(targetFolderPath)) {
+                            console.debug('[Ballerina Build] Cleaning up old target folder');
+                            fs.rmSync(targetFolderPath, { recursive: true, force: true });
+                        }
+
+                        console.debug('[Ballerina Build] Reading module configuration');
+                        const tomlPath = path.join(projectPath, "Ballerina.toml");
+                        if (!fs.existsSync(tomlPath)) {
+                            console.debug('[Ballerina Build] Error: Ballerina.toml not found at:', tomlPath);
+                            reject();
+                            return vscode.window.showErrorMessage("Ballerina.toml not found in project directory");
+                        }
+
+                        const tomlContent = fs.readFileSync(tomlPath, 'utf8');
                         const nameMatch = tomlContent.match(/name\s*=\s*"([^"]+)"/);
                         const versionMatch = tomlContent.match(/version\s*=\s*"([^"]+)"/);
-                        const name = nameMatch ? nameMatch[1] : null;
-                        const version = versionMatch ? versionMatch[1] : null;
+                        
+                        if (!nameMatch || !versionMatch) {
+                            console.debug('[Ballerina Build] Error: Invalid Ballerina.toml content. Name or version not found');
+                            reject();
+                            return vscode.window.showErrorMessage("Invalid Ballerina.toml content");
+                        }
+
+                        const name = nameMatch[1];
+                        const version = versionMatch[1];
+                        console.debug('[Ballerina Build] Module name:', name, 'version:', version);
 
                         const zipName = name + "-connector-" + version + ".zip";
                         const zipPath = path.join(projectPath, zipName);
+                        console.debug('[Ballerina Build] Generated zip path:', zipPath);
 
                         const projectUri = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(projectPath))?.uri?.fsPath;
                         if (!projectUri) {
@@ -1225,7 +1345,7 @@ export async function isServerUpdateRequested(projectUri: string): Promise<boole
                             setPathsInWorkSpace({ projectUri: projectUri, type: 'MI', path: cachedMIPath.path });
                         } else if (selection === "No, Don't Ask Again") {
                             const config = vscode.workspace.getConfiguration('MI', workspaceFolder.uri);
-                            config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.Workspace);
+                            config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.WorkspaceFolder);
                         }
                     } else {
                         const selection = await vscode.window.showInformationMessage(
@@ -1238,7 +1358,7 @@ export async function isServerUpdateRequested(projectUri: string): Promise<boole
                             return true;
                         } else if (selection === "No, Don't Ask Again") {
                             const config = vscode.workspace.getConfiguration('MI', workspaceFolder.uri);
-                            config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.Workspace);
+                            config.update('suppressServerUpdateNotification', true, vscode.ConfigurationTarget.WorkspaceFolder);
                         }
                     }
                 }
@@ -1346,5 +1466,30 @@ async function updateMI(projectUri: string, miVersion: string, latestUpdateVersi
         vscode.window.showInformationMessage('WSO2 Integrator: MI has been updated successfully.');
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to update WSO2 Integrator: MI: ${error instanceof Error ? error.message : error}`);
+    }
+}
+
+export async function updateCarPluginVersion(projectUri: string): Promise<void> {
+    const config = vscode.workspace.getConfiguration("MI");
+    const isUpdateCarPluginEnabled = config.get<boolean>('autoUpdateCarPlugin');
+    if (!isUpdateCarPluginEnabled) {
+        return;
+    }
+    const pomFiles = await vscode.workspace.findFiles(
+        new vscode.RelativePattern(projectUri, 'pom.xml'),
+        '**/node_modules/**',
+        1
+    );
+    if (pomFiles.length === 0) {
+        throw new Error('pom.xml not found in the specified project.');
+    }
+    const pomContent = await vscode.workspace.openTextDocument(pomFiles[0]);
+    const result = await parseStringPromise(pomContent.getText(), { explicitArray: false, ignoreAttrs: true });
+    const carPluginVersion = result.project.properties['car.plugin.version'];
+    if (!carPluginVersion || carPluginVersion === LATEST_CAR_PLUGIN_VERSION) {
+        return;
+    }
+    if(carPluginVersion < LATEST_CAR_PLUGIN_VERSION) {
+        await updateRuntimeVersionsInPom(result.project.properties['project.runtime.version']);
     }
 }

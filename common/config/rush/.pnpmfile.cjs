@@ -48,6 +48,15 @@ module.exports = {
         if (pkg.dependencies['xmldom']) {
           pkg.dependencies['xmldom'] = 'npm:@xmldom/xmldom@^0.8.10';
         }
+        if (pkg.dependencies['@eslint/plugin-kit']) {
+          pkg.dependencies['@eslint/plugin-kit'] = '^0.3.4';
+        }
+        if (pkg.dependencies['on-headers']) {
+          pkg.dependencies['on-headers'] = '^1.1.0';
+        }
+        if (pkg.dependencies['form-data']) {
+          pkg.dependencies['form-data'] = '^4.0.4';
+        }
       }
 
       if (pkg.devDependencies) {
@@ -78,6 +87,15 @@ module.exports = {
         }
         if (pkg.devDependencies['xmldom']) {
           pkg.devDependencies['xmldom'] = 'npm:@xmldom/xmldom@^0.8.10';
+        }
+        if (pkg.devDependencies['@eslint/plugin-kit']) {
+          pkg.devDependencies['@eslint/plugin-kit'] = '^0.3.4';
+        }
+        if (pkg.devDependencies['on-headers']) {
+          pkg.devDependencies['on-headers'] = '^1.1.0';
+        }
+        if (pkg.devDependencies['form-data']) {
+          pkg.devDependencies['form-data'] = '^4.0.4';
         }
       }
 

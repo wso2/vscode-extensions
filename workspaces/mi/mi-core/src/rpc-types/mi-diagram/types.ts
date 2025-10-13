@@ -371,7 +371,8 @@ export interface ImportProjectRequest {
 }
 
 export interface MigrateProjectRequest {
-    source: string;
+    dir: string;
+    sources: string[];
 }
 
 export interface Connector {
@@ -1231,7 +1232,7 @@ export interface ImportProjectResponse {
 }
 
 export interface MigrateProjectResponse {
-    filePath: string;
+    filePaths: string[];
 }
 
 export interface FileStructure {
@@ -1256,7 +1257,7 @@ export interface WriteContentToFileResponse {
 }
 
 export interface HandleFileRequest {
-    operation : "read" | "write" | "delete";
+    operation : "read" | "write" | "delete" | "exists";
     fileName : string;
     filePath : string;
     content?: string;
@@ -1265,6 +1266,30 @@ export interface HandleFileRequest {
 export interface HandleFileResponse {
     status: boolean;
     content?: string;
+}
+
+export interface WriteIdpSchemaFileToRegistryRequest {
+    fileContent?: string;
+    schemaName:string;
+    imageOrPdf?: string;
+    writeToArtifactFile?: boolean;
+}
+
+export interface WriteIdpSchemaFileToRegistryResponse {
+    status: boolean;
+}
+
+export interface GetIdpSchemaFilesResponse {
+    schemaFiles:  {fileName: string; documentUriWithFileName?: string}[];
+}
+
+export interface ReadIdpSchemaFileContentRequest{
+    filePath: string;
+}
+
+export interface ReadIdpSchemaFileContentResponse{
+    fileContent: string;
+    base64Content?: string;
 }
 
 export interface HighlightCodeRequest {
@@ -1305,7 +1330,8 @@ export interface GetDefinitionRequest {
 
 export interface GetDefinitionResponse {
     uri: string,
-    range: Range
+    range: Range,
+    fromDependency: boolean;
 }
 
 export interface GetTextAtRangeRequest {
@@ -1438,9 +1464,27 @@ export interface CreateBallerinaModuleResponse {
     path: string;
 }
 
+export interface ConfigureKubernetesRequest {
+    name: string;
+    replicas: number;
+    targetImage: string;
+    ports: Array<{ port: number }>;
+    envValues: any[];
+}
+
+export interface ConfigureKubernetesResponse {
+    path: string;
+}
+
 export interface GetBackendRootUrlResponse {
     url: string;
 }
+
+export interface GetProxyRootUrlResponse {
+    openaiUrl: string;
+    anthropicUrl: string;
+}
+
 export interface ListRegistryArtifactsRequest {
     path: string;
     withAdditionalData?: boolean
@@ -1737,6 +1781,7 @@ export interface SwaggerFromAPIRequest {
     isJsonIn?: boolean;
     isJsonOut?: boolean;
     port?: number;
+    projectPath?: string;
 }
 
 export interface CompareSwaggerAndAPIResponse {
@@ -2111,6 +2156,7 @@ export interface GenerateConnectorResponse {
 export interface GetHelperPaneInfoRequest {
     documentUri: string;
     position: Position;
+    needLastMediator?: boolean;
 }
 
 export type GetHelperPaneInfoResponse = HelperPaneData;
@@ -2167,4 +2213,52 @@ export interface GetCodeDiagnosticsResponse {
 export interface XmlCode{
     fileName: string;
     code: string;
+}
+
+export interface SubmitFeedbackRequest {
+    positive: boolean;
+    messages: FeedbackMessage[];
+    feedbackText?: string;
+    messageIndex?: number;
+    conversationId?: string;
+    timestamp?: number;
+}
+
+export interface SubmitFeedbackResponse {
+    success: boolean;
+    message?: string;
+}
+
+export interface FeedbackMessage {
+    content: string;
+    role: 'user' | 'assistant';
+    id?: number;
+    command?: string;
+}
+
+export interface GetPomFileContentResponse{
+    content: string;
+}
+
+export interface GetExternalConnectorDetailsResponse{
+    connectors: string[];
+}
+
+export interface WriteMockServicesRequest {
+    content: string[];
+    fileNames?: string[];
+}
+
+export interface WriteMockServicesResponse {
+    status: boolean;
+}
+
+export interface GetMockServicesResponse{
+    mockServices: string[];
+    mockServiceNames: string[];
+}
+
+export interface UpdateRegistryPropertyRequest {
+    targetFile: string;
+    properties: Property[];
 }

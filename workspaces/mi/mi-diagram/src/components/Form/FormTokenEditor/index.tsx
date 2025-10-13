@@ -73,6 +73,7 @@ type FormTokenEditorProps = {
     placeholder?: string;
     required?: boolean;
     errorMsg?: string;
+    skipSanitization?: boolean;
 
     sx?: CSSProperties;
     editorSx?: CSSProperties;
@@ -87,6 +88,7 @@ export const FormTokenEditor = ({
     label,
     required,
     errorMsg,
+    skipSanitization = false,
     sx,
     editorSx
 }: FormTokenEditorProps) => {
@@ -96,19 +98,22 @@ export const FormTokenEditor = ({
         setIsHelperPaneOpen(isOpen);
     }
 
-    const handleGetHelperPane = useCallback((onChange: (value: string) => void, addFunction: (value: string) => void) => {
+    const handleGetHelperPane = useCallback((onChange: (value: string) => void, addFunction: (value: string) => void, height?: number, isFullscreen?: boolean) => {
         const position = nodeRange ?
             nodeRange?.start == nodeRange?.end
                 ? nodeRange.start
                 : { line: nodeRange.start.line, character: nodeRange.start.character + 1 } : undefined;
-
         return getHelperPane(
             position,
             'default',
             () => handleChangeHelperPaneState(false),
             onChange,
+            undefined, // artifactPath - not available in FormTokenEditor
             addFunction,
-            { width: 'auto', border: '1px solid var(--dropdown-border)' }
+            { width: 'auto', border: '1px solid var(--dropdown-border)' },
+            height,
+            true,
+            isFullscreen
         );
     }, [nodeRange, handleChangeHelperPaneState, getHelperPane]);
 
@@ -140,8 +145,10 @@ export const FormTokenEditor = ({
                 actionButtons={actionButtons}
                 getHelperPane={handleGetHelperPane}
                 isHelperPaneOpen={isHelperPaneOpen}
+                enableFullscreen
                 changeHelperPaneState={setIsHelperPaneOpen}
                 getExpressionEditorIcon={getExpressionEditorIcon}
+                skipSanitization={skipSanitization}
                 startAdornment={
                     <S.AdornmentContainer>
                         <Typography variant="h4" sx={{ margin: 0 }}>
@@ -157,6 +164,7 @@ export const FormTokenEditor = ({
                     </S.AdornmentContainer>
                 }
                 editorSx={editorSx}
+                helperPaneSx={{ position: 'fixed' }}
             />
             {errorMsg && <ErrorBanner errorMsg={errorMsg} />}
         </S.Container>

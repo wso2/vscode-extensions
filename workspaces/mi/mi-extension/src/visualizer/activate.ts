@@ -17,7 +17,7 @@
  */
 
 import * as vscode from 'vscode';
-import { commands, window } from 'vscode';
+import { commands, window, workspace } from 'vscode';
 import { getStateMachine, navigate, openView, refreshUI } from '../stateMachine';
 import { COMMANDS, REFRESH_ENABLED_DOCUMENTS, SWAGGER_LANG_ID, SWAGGER_REL_DIR } from '../constants';
 import { EVENT_TYPE, MACHINE_VIEW, onDocumentSave } from '@wso2/mi-core';
@@ -35,6 +35,7 @@ import { AiPanelWebview } from '../ai-panel/webview';
 import { MiDiagramRpcManager } from '../rpc-managers/mi-diagram/rpc-manager';
 import { log } from '../util/logger';
 import { CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR } from '../util/onboardingUtils';
+import { getHash } from '../util/fileOperations';
 
 export function activateVisualizer(context: vscode.ExtensionContext, firstProject: string) {
     context.subscriptions.push(
@@ -42,6 +43,22 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
             window.showOpenDialog({ canSelectFolders: true, canSelectFiles: true, filters: { 'CAPP': ['car', 'zip'] }, openLabel: 'Open MI Project' })
                 .then(uri => {
                     if (uri && uri[0]) {
+                        const handleOpenProject = (folderUri: vscode.Uri) => {
+                            window.showInformationMessage('Where would you like to open the project?',
+                                { modal: true },
+                                'Current Window',
+                                'New Window'
+                            ).then(selection => {
+                                if (selection === "Current Window") {
+                                    const workspaceFolders = workspace.workspaceFolders || [];
+                                    if (!workspaceFolders.some(folder => folder.uri.fsPath === folderUri.fsPath)) {
+                                        workspace.updateWorkspaceFolders(workspaceFolders.length, 0, { uri: folderUri });
+                                    }
+                                } else if (selection === "New Window") {
+                                    commands.executeCommand('vscode.openFolder', folderUri);
+                                }
+                            });
+                        };
                         if (uri[0].fsPath.endsWith('.car') || uri[0].fsPath.endsWith('.zip')) {
                             window.showInformationMessage('A car file (CAPP) is selected.\n Do you want to extract it?', { modal: true }, 'Extract')
                                 .then(option => {
@@ -50,12 +67,20 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                                             .then(extractUri => {
                                                 if (extractUri && extractUri[0]) {
                                                     importCapp({ source: uri[0].fsPath, directory: extractUri[0].fsPath, open: false });
+                                                    handleOpenProject(extractUri[0]);
                                                 }
                                             });
                                     }
                                 });
                         } else {
-                            commands.executeCommand('vscode.openFolder', uri[0]);
+                            const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
+                            const projectUri = webview ? webview.getProjectUri() : firstProject;
+                            const projectOpened = getStateMachine(projectUri).context().projectOpened;
+                            if (projectOpened) {
+                                handleOpenProject(uri[0]);
+                            } else {
+                                commands.executeCommand('vscode.openFolder', uri[0]);
+                            }
                         }
                     }
                 });
@@ -107,7 +132,8 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
     );
     context.subscriptions.push(
         vscode.commands.registerCommand(COMMANDS.OPEN_WELCOME, () => {
-            openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.Welcome });
+            const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
+            openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.Welcome, projectUri: webview ? webview.getProjectUri() : firstProject });
         })
     );
     // Activate editor/title items
@@ -118,7 +144,7 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                 file = file.fsPath;
                 projectUri = vscode.workspace.getWorkspaceFolder(file as any)?.uri.fsPath
             } else {
-                projectUri = vscode.workspace.getWorkspaceFolder(vscode.Uri.parse(file))?.uri.fsPath;
+                projectUri = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(file))?.uri.fsPath;
             }
             if (!projectUri) {
                 return;
@@ -194,8 +220,6 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
             if (document.document.uri.fsPath.endsWith('pom.xml')) {
                 const projectUri = vscode.workspace.getWorkspaceFolder(document.document.uri)?.uri.fsPath;
                 const langClient = getStateMachine(projectUri!).context().langClient;
-                const projectDetails = await langClient?.getProjectDetails();
-                const projectName = projectDetails.primaryDetails.projectName.value;
                 
                 const confirmUpdate = await vscode.window.showInformationMessage(
                     'The pom.xml file has been modified. Do you want to update the dependencies?',
@@ -208,7 +232,7 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                     statusBarItem.text = '$(sync) Updating dependencies...';
                     statusBarItem.show();
                     await langClient?.updateConnectorDependencies();
-                    await extractCAppDependenciesAsProjects(projectName);
+                    await extractCAppDependenciesAsProjects(projectUri);
                     await langClient?.loadDependentCAppResources();
                     statusBarItem.hide();
                 }
@@ -301,38 +325,28 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
             // Generate Swagger file for API files
             const apiDir = path.join(projectUri!, 'src', 'main', "wso2mi", "artifacts", "apis");
             if (document?.uri.fsPath.includes(apiDir)) {
-                const dirPath = path.join(projectUri!, SWAGGER_REL_DIR);
-                const swaggerOriginalPath = path.join(dirPath, path.basename(document.uri.fsPath, path.extname(document.uri.fsPath)) + '_original.yaml');
-                const swaggerPath = path.join(dirPath, path.basename(document.uri.fsPath, path.extname(document.uri.fsPath)) + '.yaml');
-                if (fs.readFileSync(document.uri.fsPath, 'utf-8').split('\n').length > 3) {
-                    if (fs.existsSync(swaggerOriginalPath)) {
-                        fs.copyFileSync(swaggerOriginalPath, swaggerPath);
-                        fs.rmSync(swaggerOriginalPath);
-                    } else {
-                        generateSwagger(document.uri.fsPath);
-                    }
-                }
+                generateSwagger(document.uri.fsPath);
             }
 
-            if (currentView !== 'Connector Store Form' && document?.uri?.fsPath?.includes(artifactsDir)) {
+            if (currentView !== 'Connector Store Form' && document?.uri?.fsPath?.includes(artifactsDir) || currentView === MACHINE_VIEW.IdpConnectorSchemaGeneratorForm) {
                 refreshDiagram(projectUri!);
             }
         }, extension.context),
     );
 }
 
-export async function extractCAppDependenciesAsProjects(projectName: string) {
+export async function extractCAppDependenciesAsProjects(projectUri: string | undefined) {
     try {
-        const dependenciesDir = path.join(CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR);  
-        const dependencyDirs = fs.readdirSync(dependenciesDir, { withFileTypes: true })
-            .filter(dirent => dirent.isDirectory() && dirent.name.startsWith(projectName))
-            .map(dirent => dirent.name);
-
-        if (dependencyDirs.length === 0) {
+        if (!projectUri) {
             return;
         }
-
-        const selectedDependencyDir = dependencyDirs[0];
+        const dependenciesDir = path.join(CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR);
+        const hashedProjectPath = getHash(projectUri);
+        const projectName = path.basename(projectUri);
+        const selectedDependencyDir = `${projectName}_${hashedProjectPath}`;
+        if (!fs.existsSync(path.join(dependenciesDir, selectedDependencyDir))) {
+            return;
+        }
         const downloadedDir = path.join(dependenciesDir, selectedDependencyDir, 'Downloaded');
         const extractedDir = path.join(dependenciesDir, selectedDependencyDir, 'Extracted');
         const carFiles = fs.readdirSync(downloadedDir).filter(file => file.endsWith('.car'));
@@ -367,10 +381,8 @@ export async function extractCAppDependenciesAsProjects(projectName: string) {
                 fs.rmSync(zipFilePath);
             }
         }
-
-        vscode.window.showInformationMessage(`Dependencies for project "${projectName}" have been loaded successfully.`);
     } catch (error: any) {
-        vscode.window.showErrorMessage(`Failed to load dependencies: ${error.message}`);
+        vscode.window.showErrorMessage(`Failed to load integration project dependencies: ${error.message}`);
     }
 }
 

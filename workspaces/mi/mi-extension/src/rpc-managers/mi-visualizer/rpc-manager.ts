@@ -89,10 +89,17 @@ const fs = require('fs');
 import { TextEdit } from "vscode-languageclient";
 import { downloadJavaFromMI, downloadMI, getProjectSetupDetails, getSupportedMIVersionsHigherThan, setPathsInWorkSpace, updateRuntimeVersionsInPom, getMIVersionFromPom } from '../../util/onboardingUtils';
 import { extractCAppDependenciesAsProjects } from "../../visualizer/activate";
+import { findMultiModuleProjectsInWorkspaceDir } from "../../util/migrationUtils";
 
 Mustache.escape = escapeXml;
 export class MiVisualizerRpcManager implements MIVisualizerAPI {
     constructor(private projectUri: string) { }
+
+    async getProjectUri(): Promise<string> {
+        return new Promise((resolve) => {
+            resolve(this.projectUri);
+        });
+    }
 
     async getWorkspaces(): Promise<WorkspacesResponse> {
         return new Promise(async (resolve) => {
@@ -103,6 +110,18 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                 name: space.name
             }));
             resolve({ workspaces: response });
+        });
+    }
+
+    /**
+     * Searches for and retrieves a list of old multi-module project paths within the current workspace directory.
+     *
+     * @returns {Promise<string[]>} A promise that resolves to an array of strings, each representing the path to a found project.
+     */
+    async findOldProjects(): Promise<string[]> {
+        return new Promise(async (resolve) => {
+            const foundProjects = await findMultiModuleProjectsInWorkspaceDir(this.projectUri);
+            resolve(foundProjects);
         });
     }
 
@@ -174,11 +193,21 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     async reloadDependencies(): Promise<boolean> {
         return new Promise(async (resolve) => {
             const langClient = getStateMachine(this.projectUri).context().langClient!;
-            const projectDetails = await langClient?.getProjectDetails();
-            const projectName = projectDetails.primaryDetails.projectName.value;
-            await langClient?.updateConnectorDependencies();
-            await extractCAppDependenciesAsProjects(projectName);
-            await langClient?.loadDependentCAppResources();
+            const updateDependenciesResult = await langClient?.updateConnectorDependencies();
+            if (!updateDependenciesResult.toLowerCase().startsWith("success")) {
+                await window.showWarningMessage(
+                    updateDependenciesResult,
+                    { modal: true }
+                );
+            }
+            await extractCAppDependenciesAsProjects(this.projectUri);
+            const loadResult = await langClient?.loadDependentCAppResources();
+            if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
+                await window.showWarningMessage(
+                    loadResult,
+                    { modal: true }
+                );
+            }
             resolve(true);
         });
     }
@@ -688,6 +717,21 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
         if (success) {
             const document = await workspace.openTextDocument(pomPath);
             await document.save();
+            // Format the pom content
+            const editorConfig = workspace.getConfiguration('editor');
+            let formattingOptions = {
+                    tabSize: editorConfig.get("tabSize") ?? 4,
+                    insertSpaces: editorConfig.get("insertSpaces") ?? false,
+                    trimTrailingWhitespace: editorConfig.get("trimTrailingWhitespace") ?? false
+                };
+            const edits = await vscode.commands.executeCommand<vscode.TextEdit[]>("vscode.executeFormatDocumentProvider",
+                            vscode.Uri.file(pomPath), formattingOptions);
+            if (edits && edits.length > 0) {
+                const edit = new vscode.WorkspaceEdit();
+                edit.set(vscode.Uri.file(pomPath), edits);
+                await vscode.workspace.applyEdit(edit);
+                await vscode.workspace.openTextDocument(pomPath).then(doc => doc.save());
+            }
             if (getStateMachine(this.projectUri).context().view === MACHINE_VIEW.Overview) {
                 refreshUI(this.projectUri);
             }
@@ -715,12 +759,12 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     }
 
     async updateProjectSettingsConfig(params: ProjectConfig): Promise<void> {
-        const config = workspace.getConfiguration('MI');
-        await config.update(params.configName, params.value, vscode.ConfigurationTarget.Workspace);
+        const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(this.projectUri));
+        await config.update(params.configName, params.value, vscode.ConfigurationTarget.WorkspaceFolder);
     }
 
     async isSupportEnabled(configName: string): Promise<boolean> {
-        const projectRuntimeVersion = await getMIVersionFromPom();
+        const projectRuntimeVersion = await getMIVersionFromPom(this.projectUri);
         return new Promise((resolve, reject) => {
             try {
                 if (configName === "LEGACY_EXPRESSION_ENABLED") {
@@ -730,8 +774,8 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                         return;
                     }
                 }
-                const config = workspace.getConfiguration('MI');
-                resolve(config.get(configName) || false);
+                const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(this.projectUri));
+                resolve(config.get<boolean>(configName) || false);
             } catch (error) {
                 reject(error);
             }

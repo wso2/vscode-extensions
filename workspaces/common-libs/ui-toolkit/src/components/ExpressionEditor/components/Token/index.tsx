@@ -48,6 +48,8 @@ import { Divider } from '../../../Divider/Divider';
 import { MonacoEditor } from '../MonacoEditor';
 import { ThemeColors } from '../../../../styles/Theme';
 
+const heleperPaneEditorOffset = 50;
+
 /* Styles */
 namespace S {
     export const Container = styled.div`
@@ -90,9 +92,12 @@ namespace S {
         padding: 5px 8px;
         width: 100%;
         min-height: 26px;
+        max-height: 300px;
         min-width: var(--input-min-width);
         outline: none;
         resize: vertical;
+        overflow-y: auto;
+        overflow-x: hidden;
         white-space: pre-wrap;
         word-wrap: break-word;
         word-break: break-word;
@@ -211,7 +216,11 @@ export const TokenEditor = ({
     onFocus,
     onBlur,
     getExpressionEditorIcon,
-    editorSx
+    editorSx,
+    height,
+    helperPaneSx,
+    enableFullscreen = false,
+    skipSanitization = false
 }: TokenEditorProps) => {
     const [isFocused, setIsFocused] = useState<boolean>(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -226,15 +235,23 @@ export const TokenEditor = ({
     const [helperPanePosition, setHelperPanePosition] = useState<HelperPanePosition>({ top: 0, left: 0 });
     const [helperPaneArrowPosition, setHelperPaneArrowPosition] = useState<HelperPanePosition>({ top: 0, left: 0 });
     const [calculatedHelperPaneOrigin, setCalculatedHelperPaneOrigin] = useState<HelperPaneOrigin>('auto');
+    const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
     const monacoEditorRef = useRef();
+    const helperPaneEditorRef = useRef<HTMLDivElement>(null);
 
+    let helperPaneStyle: StyleBase;
+    if (height) {
+        helperPaneStyle = { sx: { height: `${height}px`, overflowY: 'auto' } };
+    }
     const updatePosition = throttle(() => {
         if (containerRef.current) {
             const calculatedHelperPaneOrigin = getHelperPaneWithEditorOrigin(containerRef, helperPaneOrigin);
             setCalculatedHelperPaneOrigin(calculatedHelperPaneOrigin);
-            setHelperPanePosition(getHelperPaneWithEditorPosition(containerRef, calculatedHelperPaneOrigin));
+            const computedHelperPanePosition = getHelperPaneWithEditorPosition(containerRef, calculatedHelperPaneOrigin);
+            setHelperPanePosition(computedHelperPanePosition);
+            const newHelperPanePosition = isFullscreen ? { top: 0, left: computedHelperPanePosition.left } : computedHelperPanePosition;
             setHelperPaneArrowPosition(
-                getHelperPaneWithEditorArrowPosition(containerRef, calculatedHelperPaneOrigin, helperPanePosition)
+                getHelperPaneWithEditorArrowPosition(containerRef, calculatedHelperPaneOrigin, newHelperPanePosition)
             );
         }
     }, 10);
@@ -256,11 +273,11 @@ export const TokenEditor = ({
             resizeObserver.disconnect();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isHelperPaneOpen]);
+    }, [isHelperPaneOpen, isFullscreen]);
 
     const updateNodeInfo = () => {
         const selection = window.getSelection();
-        if (!selection) return;
+        if (!selection || selection.rangeCount === 0) return;
         const range = selection.getRangeAt(0);
 
         if (
@@ -541,9 +558,46 @@ export const TokenEditor = ({
         }
     }
 
+    const checkAndUpdateFullscreen = React.useCallback(() => {
+        if (!enableFullscreen || !isHelperPaneOpen || !monacoEditorRef.current || !helperPaneEditorRef.current) return;
+
+        const editorRect = helperPaneEditorRef.current.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+
+        if ((editorRect.bottom + heleperPaneEditorOffset) > viewportHeight
+            && !isFullscreen) {
+            setIsFullscreen(true);
+        }
+    }, [enableFullscreen, isHelperPaneOpen, isFullscreen]);
+
+    const handleFullscreenToggle = () => {
+        setIsFullscreen(!isFullscreen);
+    };
+
+    // Check fullscreen on mount and when dependencies change
+    useEffect(() => {
+        // Initial check with a small delay to ensure DOM is ready
+        const timeoutId = setTimeout(checkAndUpdateFullscreen, 100);
+
+        // Listen for window resize events
+        window.addEventListener('resize', checkAndUpdateFullscreen);
+
+        return () => {
+            clearTimeout(timeoutId);
+            window.removeEventListener('resize', checkAndUpdateFullscreen);
+        };
+    }, [enableFullscreen, isFullscreen, isHelperPaneOpen, checkAndUpdateFullscreen]);
+    
+    const fullScreenStyle: StyleBase = isFullscreen ? {
+        sx: {
+            top: 0,
+            height: '100vh'
+        }
+    } : {};
+
     const getHelperPaneWithEditorComponent = (): JSX.Element => {
         return createPortal(
-            <S.HelperPane ref={helperPaneContainerRef} sx={{ ...helperPanePosition }}>
+            <S.HelperPane ref={helperPaneContainerRef} sx={{ ...helperPanePosition, ...fullScreenStyle.sx, ...helperPaneSx }}>
                 {/* Title and close button */}
                 <S.HelperPaneHeader>
                     <Icon
@@ -564,20 +618,31 @@ export const TokenEditor = ({
                         }}
                     />
                     <Typography variant='body1' sx={{ marginLeft: '4px' }}>Expression Editor</Typography>
-                    <Button
-                        appearance="icon"
-                        onClick={handleHelperPaneWithEditorClose}
-                        tooltip='Close helper pane'
-                        sx={{ marginLeft: 'auto' }}
-                    >
-                        <Codicon name="close" />
-                    </Button>
+                    <div style={{ display: 'flex', flexDirection: 'row', marginLeft: 'auto' }}>
+                        { enableFullscreen && (
+                            <Button
+                                appearance="icon"
+                                onClick={handleFullscreenToggle}
+                                tooltip={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+                                sx={{ marginRight: '8px' }}
+                            >
+                                <Codicon name={isFullscreen ? "screen-normal" : "screen-full"} />
+                            </Button>
+                        )}
+                        <Button
+                            appearance="icon"
+                            onClick={handleHelperPaneWithEditorClose}
+                            tooltip='Close helper pane'
+                        >
+                            <Codicon name="close" />
+                        </Button>
+                    </div>
                 </S.HelperPaneHeader>
 
                 <Divider sx={{ margin: 0 }} />
 
                 {/* Editor to edit the token */}
-                <S.HelperPaneEditor>
+                <S.HelperPaneEditor ref={helperPaneEditorRef}>
                     <S.Adornment>
                         {startAdornment}
                     </S.Adornment>
@@ -591,25 +656,27 @@ export const TokenEditor = ({
                     </S.Adornment>
                 </S.HelperPaneEditor>
 
-                {/* Helper pane content */}
-                {getHelperPane(handleHelperPaneChange, handleAddFunction)}
+                <div style={helperPaneStyle && helperPaneStyle.sx ? helperPaneStyle.sx : {}}>
+                    {/* Helper pane content */}
+                    {getHelperPane(handleHelperPaneChange, handleAddFunction, 400, isFullscreen)}
 
-                {/* Action buttons for the helper pane */}
-                <S.HelperPaneButtons>
-                    <Button appearance="secondary" onClick={handleHelperPaneWithEditorClose}>
-                        Cancel
-                    </Button>
-                    <Button
-                        appearance="primary"
-                        onClick={() =>
-                            selectedTokenRef.current
-                                ? handleHelperPaneWithEditorEdit()
-                                : handleHelperPaneWithEditorSave()
-                        }
-                    >
-                        Add
-                    </Button>
-                </S.HelperPaneButtons>
+                    {/* Action buttons for the helper pane */}
+                    <S.HelperPaneButtons>
+                        <Button appearance="secondary" onClick={handleHelperPaneWithEditorClose}>
+                            Cancel
+                        </Button>
+                        <Button
+                            appearance="primary"
+                            onClick={() =>
+                                selectedTokenRef.current
+                                    ? handleHelperPaneWithEditorEdit()
+                                    : handleHelperPaneWithEditorSave()
+                            }
+                        >
+                            Add
+                        </Button>
+                    </S.HelperPaneButtons>
+                </div>
 
                 {/* Side arrow of the helper pane */}
                 {helperPaneArrowPosition && (
@@ -686,7 +753,7 @@ export const TokenEditor = ({
 
     useEffect(() => {
         if (!isFocused) {
-            setValue(editorRef.current, value);
+            setValue(editorRef.current, value, skipSanitization);
             addEventListeners();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
