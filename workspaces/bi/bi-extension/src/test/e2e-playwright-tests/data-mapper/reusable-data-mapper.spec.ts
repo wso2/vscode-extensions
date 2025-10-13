@@ -19,7 +19,7 @@
 import { expect, test } from '@playwright/test';
 import { initTest, page } from '../utils';
 import { switchToIFrame } from '@wso2/playwright-vscode-tester';
-import { testArrayInnerMappings, testArrayRootMappings, testBasicMappings, updateProjectFileSync, verifyFileContent } from './DataMapperUtils';
+import { TestSenarios, FileUtils } from './DataMapperUtils';
 
 export default function createTests() {
     test.describe('Reusable Data Mapper Tests', {
@@ -30,8 +30,8 @@ export default function createTests() {
             const testAttempt = testInfo.retry + 1;
 
             console.log('Update types.bal');
-            updateProjectFileSync('basic/types.bal.txt', 'types.bal');
-            updateProjectFileSync('empty.txt', 'data_mappings.bal');
+            FileUtils.updateProjectFileSync('basic/types.bal.txt', 'types.bal');
+            FileUtils.updateProjectFileSync('empty.txt', 'data_mappings.bal');
 
             console.log('Creating reusable Data Mapper', testAttempt);
 
@@ -66,7 +66,7 @@ export default function createTests() {
             console.log('Waiting for Data Mapper to open');
             await webView.locator('#data-mapper-canvas-container').waitFor();
 
-            await verifyFileContent('basic/reusable/init.bal.txt', 'data_mappings.bal');
+            await FileUtils.verifyFileContent('basic/reusable/init.bal.txt', 'data_mappings.bal');
 
         });
 
@@ -75,8 +75,8 @@ export default function createTests() {
 
             console.log('Reusable Data Mapper - Basic', testAttempt);
 
-            updateProjectFileSync('basic/reusable/init.bal.txt', 'data_mappings.bal');
-            updateProjectFileSync('basic/types.bal.txt', 'types.bal');
+            FileUtils.updateProjectFileSync('basic/reusable/init.bal.txt', 'data_mappings.bal');
+            FileUtils.updateProjectFileSync('basic/types.bal.txt', 'types.bal');
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
@@ -89,7 +89,7 @@ export default function createTests() {
                 await page.page.getByRole('treeitem', { name: 'output' }).click();
             }
 
-            await testBasicMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
+            await TestSenarios.testBasicMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
         });
 
         test('Reusable Data Mapper - Array Inner', async ({ }, testInfo) => {
@@ -97,8 +97,8 @@ export default function createTests() {
 
             console.log('Reusable Data Mapper - Array Inner', testAttempt);
 
-            updateProjectFileSync('array-inner/reusable/init.bal.txt', 'data_mappings.bal');
-            updateProjectFileSync('array-inner/types.bal.txt', 'types.bal');
+            FileUtils.updateProjectFileSync('array-inner/reusable/init.bal.txt', 'data_mappings.bal');
+            FileUtils.updateProjectFileSync('array-inner/types.bal.txt', 'types.bal');
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
@@ -111,7 +111,7 @@ export default function createTests() {
                 await page.page.getByRole('treeitem', { name: 'output' }).click();
             }
 
-            await testArrayInnerMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
+            await TestSenarios.testArrayInnerMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
         });
 
         test('Reusable Data Mapper - Array Root', async ({ }, testInfo) => {
@@ -119,8 +119,8 @@ export default function createTests() {
 
             console.log('Reusable Data Mapper - Array Root', testAttempt);
 
-            updateProjectFileSync('array-root/reusable/init.bal.txt', 'data_mappings.bal');
-            updateProjectFileSync('array-root/types.bal.txt', 'types.bal');
+            FileUtils.updateProjectFileSync('array-root/reusable/init.bal.txt', 'data_mappings.bal');
+            FileUtils.updateProjectFileSync('array-root/types.bal.txt', 'types.bal');
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
@@ -133,7 +133,7 @@ export default function createTests() {
                 await page.page.getByRole('treeitem', { name: 'output' }).click();
             }
 
-            await testArrayRootMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
+            await TestSenarios.testArrayRootMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
         });
     });
 }

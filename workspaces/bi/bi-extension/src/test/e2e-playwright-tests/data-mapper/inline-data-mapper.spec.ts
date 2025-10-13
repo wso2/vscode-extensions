@@ -17,11 +17,10 @@
  */
 
 import { test } from '@playwright/test';
-import { addArtifact, initTest, page } from '../utils';
+import { initTest, page } from '../utils';
 import { switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { Diagram } from '../components/Diagram';
-import { testArrayInnerMappings, testArrayRootMappings, testBasicMappings, updateProjectFileSync, verifyFileContent } from './DataMapperUtils';
-import { verify } from 'crypto';
+import { TestSenarios, FileUtils } from './DataMapperUtils';
 import { ProjectExplorer } from '../ProjectExplorer';
 
 export default function createTests() {
@@ -33,8 +32,8 @@ export default function createTests() {
             const testAttempt = testInfo.retry + 1;
 
             console.log('Update types.bal');
-            updateProjectFileSync('basic/types.bal.txt', 'types.bal');
-            updateProjectFileSync('create/inline/init.bal.txt', 'automation.bal');
+            FileUtils.updateProjectFileSync('basic/types.bal.txt', 'types.bal');
+            FileUtils.updateProjectFileSync('create/inline/init.bal.txt', 'automation.bal');
 
             console.log('Adding Declare Variable Node: ', testAttempt);
 
@@ -65,7 +64,7 @@ export default function createTests() {
             console.log('Waiting for Data Mapper to open');
             await webView.locator('#data-mapper-canvas-container').waitFor();
 
-            await verifyFileContent('create/inline/final.bal.txt', 'automation.bal');
+            await FileUtils.verifyFileContent('create/inline/final.bal.txt', 'automation.bal');
 
             await webView.getByTestId('back-button').click();
             await webView.getByRole('heading', { name: 'Automation' }).waitFor();
@@ -79,8 +78,8 @@ export default function createTests() {
             console.log('Inline Data Mapper - Basic mapping: ', testAttempt);
 
 
-            updateProjectFileSync('basic/inline/init.bal.txt', 'automation.bal');
-            updateProjectFileSync('basic/types.bal.txt', 'types.bal');
+            FileUtils.updateProjectFileSync('basic/inline/init.bal.txt', 'automation.bal');
+            FileUtils.updateProjectFileSync('basic/types.bal.txt', 'types.bal');
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
@@ -97,7 +96,7 @@ export default function createTests() {
                 await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
             }
 
-            await testBasicMappings(webView, 'automation.bal', 'inline', isDataMapperOpend);
+            await TestSenarios.testBasicMappings(webView, 'automation.bal', 'inline', isDataMapperOpend);
         });
 
         test('Inline Data Mapper - Array Inner', async ({ }, testInfo) => {
@@ -105,8 +104,8 @@ export default function createTests() {
 
             console.log('Inline Data Mapper - Array Inner', testAttempt);
 
-            updateProjectFileSync('array-inner/inline/init.bal.txt', 'automation.bal');
-            updateProjectFileSync('array-inner/types.bal.txt', 'types.bal');
+            FileUtils.updateProjectFileSync('array-inner/inline/init.bal.txt', 'automation.bal');
+            FileUtils.updateProjectFileSync('array-inner/types.bal.txt', 'types.bal');
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
@@ -123,7 +122,7 @@ export default function createTests() {
                 await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
             }
 
-            await testArrayInnerMappings(webView, 'automation.bal', 'inline', isDataMapperOpend);
+            await TestSenarios.testArrayInnerMappings(webView, 'automation.bal', 'inline', isDataMapperOpend);
         });
 
         test('Inline Data Mapper - Array Root', async ({ }, testInfo) => {
@@ -131,8 +130,8 @@ export default function createTests() {
 
             console.log('Inline Data Mapper - Array Root', testAttempt);
 
-            updateProjectFileSync('array-root/inline/init.bal.txt', 'automation.bal');
-            updateProjectFileSync('array-root/types.bal.txt', 'types.bal');
+            FileUtils.updateProjectFileSync('array-root/inline/init.bal.txt', 'automation.bal');
+            FileUtils.updateProjectFileSync('array-root/types.bal.txt', 'types.bal');
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
@@ -149,7 +148,7 @@ export default function createTests() {
                 await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
             }
 
-            await testArrayRootMappings(webView, 'automation.bal', 'inline', isDataMapperOpend);
+            await TestSenarios.testArrayRootMappings(webView, 'automation.bal', 'inline', isDataMapperOpend);
         });
     });
 }
