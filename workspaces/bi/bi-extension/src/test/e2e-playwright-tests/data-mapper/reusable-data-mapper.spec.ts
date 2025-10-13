@@ -26,14 +26,15 @@ export default function createTests() {
         tag: '@group1',
     }, async () => {
         initTest();
-        test('Reusable Data Mapper - Create', async ({ }, testInfo) => {
+        test('Create', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Update types.bal');
+            console.log('Reusable Data Mapper - Create:', testAttempt);
+
             FileUtils.updateProjectFileSync('basic/types.bal.txt', 'types.bal');
             FileUtils.updateProjectFileSync('empty.txt', 'data_mappings.bal');
 
-            console.log('Creating reusable Data Mapper', testAttempt);
+            console.log(' - Create reusable Data Mapper');
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
@@ -63,17 +64,17 @@ export default function createTests() {
 
             await webView.getByRole('button', { name: 'Create', exact: true }).click();
 
-            console.log('Waiting for Data Mapper to open');
+            console.log(' - Wait for Data Mapper to open');
             await webView.locator('#data-mapper-canvas-container').waitFor();
 
             await FileUtils.verifyFileContent('basic/reusable/init.bal.txt', 'data_mappings.bal');
 
         });
 
-        test('Reusable Data Mapper - Basic', async ({ }, testInfo) => {
+        test('Basic', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Reusable Data Mapper - Basic', testAttempt);
+            console.log('Reusable Data Mapper - Basic:', testAttempt);
 
             FileUtils.updateProjectFileSync('basic/reusable/init.bal.txt', 'data_mappings.bal');
             FileUtils.updateProjectFileSync('basic/types.bal.txt', 'types.bal');
@@ -92,10 +93,10 @@ export default function createTests() {
             await TestSenarios.testBasicMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
         });
 
-        test('Reusable Data Mapper - Array Inner', async ({ }, testInfo) => {
+        test('Array Inner', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Reusable Data Mapper - Array Inner', testAttempt);
+            console.log('Reusable Data Mapper - Array Inner:', testAttempt);
 
             FileUtils.updateProjectFileSync('array-inner/reusable/init.bal.txt', 'data_mappings.bal');
             FileUtils.updateProjectFileSync('array-inner/types.bal.txt', 'types.bal');
@@ -114,10 +115,10 @@ export default function createTests() {
             await TestSenarios.testArrayInnerMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
         });
 
-        test('Reusable Data Mapper - Array Root', async ({ }, testInfo) => {
+        test('Array Root', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Reusable Data Mapper - Array Root', testAttempt);
+            console.log('Reusable Data Mapper - Array Root:', testAttempt);
 
             FileUtils.updateProjectFileSync('array-root/reusable/init.bal.txt', 'data_mappings.bal');
             FileUtils.updateProjectFileSync('array-root/types.bal.txt', 'types.bal');

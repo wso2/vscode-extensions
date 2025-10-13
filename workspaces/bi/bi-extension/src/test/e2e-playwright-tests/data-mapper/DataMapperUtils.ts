@@ -124,11 +124,18 @@ export class DataMapper {
         await this.waitForProgressEnd();
     }
 
-    public async gotoPreviousView() {
+    public async goPrevViewBreadcrumb() {
         const breadcrumbs = this.webView.locator(`a[data-testid^="dm-header-breadcrumb-"]`);
         const previousCrumb = this.webView.locator(`a[data-testid="dm-header-breadcrumb-${await breadcrumbs.count() - 1}"]`);
         await previousCrumb.waitFor();
         await previousCrumb.click();
+        await previousCrumb.waitFor({ state: 'detached' });
+    }
+
+    public async goPrevViewBackButton() {
+        const breadcrumbs = this.webView.locator(`a[data-testid^="dm-header-breadcrumb-"]`);
+        const previousCrumb = this.webView.locator(`a[data-testid="dm-header-breadcrumb-${await breadcrumbs.count() - 1}"]`);
+        await this.webView.getByTestId('back-button').click();
         await previousCrumb.waitFor({ state: 'detached' });
     }
 
@@ -186,19 +193,17 @@ export namespace FileUtils {
 export namespace TestSenarios {
 
     export async function testBasicMappings(dmWebView: Frame, projectFile: string, compDir: string, needRefresh?: boolean) {
-        console.log('Testing Basic Mappings');
+        console.log('Test Basic Mappings');
 
         const dm = new DataMapper(dmWebView);
         await dm.waitFor();
-
-        console.log('- Test direct mappings');
 
         await dm.expandField('input');
         if (needRefresh) {
             await dm.refresh();
         }
 
-        console.log(' - Test direct - fields');
+        console.log(' - Map child fields');
         // direct mapping
         // objectOutput.output.oPrimDirect = input.iPrimDirect;
         await dm.mapFields('input.iPrimDirect', 'objectOutput.output.oPrimDirect');
@@ -210,8 +215,6 @@ export namespace TestSenarios {
         await dm.mapFields('input.iPrimDirectErr', 'objectOutput.output.oPrimDirectErr');
         const loc1 = dmWebView.getByTestId('link-from-input.iPrimDirectErr.OUT-to-objectOutput.output.oPrimDirectErr.IN')
         await dm.expectErrorLink(loc1);
-
-        // await clearNotificationsByCloseButton(page);
 
         // many-one mapping
         // objectOutput.output.oManyOne = input.iManyOne1 + input.iManyOne2 + input.iManyOne3;
@@ -261,7 +264,7 @@ export namespace TestSenarios {
 
         expect(await FileUtils.verifyFileContent(`basic/${compDir}/map1.bal.txt`, projectFile)).toBeTruthy();
 
-        console.log('- Test basic mapping delete');
+        console.log(' - Delete child field mappings');
 
         await loc0.click({ force: true });
         await dmWebView.getByTestId('expression-label-for-input.iPrimDirect.OUT-to-objectOutput.output.oPrimDirect.IN')
@@ -286,7 +289,7 @@ export namespace TestSenarios {
 
         expect(await FileUtils.verifyFileContent(`basic/${compDir}/del1.bal.txt`, projectFile)).toBeTruthy();
 
-        console.log(' - Test Clear All Mappings');
+        console.log(' - Clear All Mappings');
 
         await dmWebView.getByTitle('Clear all mappings').click();
         await dm.waitForProgressEnd();
@@ -296,7 +299,7 @@ export namespace TestSenarios {
         expect(await FileUtils.verifyFileContent(`basic/${compDir}/del2.bal.txt`, projectFile)).toBeTruthy();
 
 
-        console.log(' - Test direct - root');
+        console.log(' - Map root fields');
 
         // root mapping
         await dm.mapFields('input', 'objectOutput.output', 'direct');
@@ -305,6 +308,7 @@ export namespace TestSenarios {
 
         expect(await FileUtils.verifyFileContent(`basic/${compDir}/map2.bal.txt`, projectFile)).toBeTruthy();
 
+        console.log(' - Delete root field mapping');
         // delete root mapping
         await locRoot.click({ force: true });
         await dmWebView.getByTestId('expression-label-for-input.OUT-to-objectOutput.output.IN').locator('.codicon-trash').click({ force: true });
@@ -318,23 +322,19 @@ export namespace TestSenarios {
 
     export async function testArrayInnerMappings(dmWebView: Frame, projectFile: string, compDir: string, needRefresh?: boolean) {
 
-        console.log('Testing Array Mappings');
+        console.log('Test Array Inner Mappings');
 
         const dm = new DataMapper(dmWebView);
         await dm.waitFor();
 
-        console.log('- Test query expression');
-
-
         await dm.expandField('input');
-
 
         if (needRefresh) {
             await dm.refresh();
             await dmWebView.locator(`div[id="recordfield-input.iArr1D"]`).waitFor();
         }
 
-        console.log(' - Input preview');
+        console.log(' - Test input/output preview');
 
         await dm.expandField('input.iArr1D');
 
@@ -345,10 +345,10 @@ export namespace TestSenarios {
         await dm.expandField('objectOutput.output.oArr1D');
         await dmWebView.locator('div[id="recordfield-objectOutput.output.oArr1D.oArr1D"]').waitFor();
 
-        console.log(' - Map iArr1D to oArr1D using query expression');
+        console.log(' - Map using query expression');
         await dm.mapFields('input.iArr1D', 'objectOutput.output.oArr1D', 'a2a-inner');
 
-        console.log(' - Map withing query exprression');
+        console.log(' - Map within focused view');
         await dm.mapFields('iArr1DItem.p2', 'queryOutput.oArr1D.p2');
         const loc1 = dmWebView.getByTestId('link-from-iArr1DItem.p2.OUT-to-queryOutput.oArr1D.p2.IN');
         await dm.expectErrorLink(loc1);
@@ -365,17 +365,17 @@ export namespace TestSenarios {
 
         expect(await FileUtils.verifyFileContent(`array-inner/${compDir}/map1.bal.txt`, projectFile)).toBeTruthy();
 
-        console.log('- Go back to root before test deletion');
-        await dm.gotoPreviousView();
+        console.log(' - Go back to root (using breadcrumb)');
+        await dm.goPrevViewBreadcrumb();
         const loc0 = dmWebView.getByTestId('link-connector-node-objectOutput.output.oArr1D.IN');
         await loc0.waitFor();
 
-        console.log(' - Goto focused view');
+        console.log(' - Goto focused view again');
         await dmWebView.getByTestId('expand-array-fn-output.oArr1D').click();
         await dmWebView.getByText('oArr1D:Query').waitFor();
         await dmWebView.getByTestId('link-from-input.iArr1D.OUT-to-queryOutput.oArr1D.#.IN').waitFor();
 
-        console.log('- Delete within focused view');
+        console.log(' - Delete within focused view');
         await loc1.click({ force: true });
         await dmWebView.getByTestId('expression-label-for-iArr1DItem.p2.OUT-to-queryOutput.oArr1D.p2.IN')
             .locator('.codicon-trash').click({ force: true });
@@ -386,14 +386,14 @@ export namespace TestSenarios {
 
         expect(await FileUtils.verifyFileContent(`array-inner/${compDir}/del1.bal.txt`, projectFile)).toBeTruthy();
 
-        console.log(' - Within focused view root mapping');
+        console.log(' - Map roots within focused view');
         await dm.mapFields('iArr1DItem', 'queryOutput.oArr1D', 'direct');
         const loc3 = dmWebView.getByTestId('link-from-iArr1DItem.OUT-to-queryOutput.oArr1D.IN');
         await loc3.waitFor();
 
         expect(await FileUtils.verifyFileContent(`array-inner/${compDir}/map2.bal.txt`, projectFile)).toBeTruthy();
 
-        console.log(' - Delete within focused view root mapping');
+        console.log(' - Delete root mapping within focused view');
         await loc3.click({ force: true });
         await dmWebView.getByTestId('expression-label-for-iArr1DItem.OUT-to-queryOutput.oArr1D.IN')
             .locator('.codicon-trash').click({ force: true });
@@ -401,12 +401,10 @@ export namespace TestSenarios {
 
         expect(await FileUtils.verifyFileContent(`array-inner/${compDir}/del2.bal.txt`, projectFile)).toBeTruthy();
 
-        console.log('- Go back to root view');
-        await dmWebView.getByTestId('back-button').click();
-        await dmWebView.getByText('oArr1D:Query').waitFor({ state: 'detached' });
+        console.log(' - Go back to root view (using back button)');
+        await dm.goPrevViewBackButton();
 
-
-        console.log(' - Initialize and add elements');
+        console.log(' - Initialize and add element using config menu');
         await dm.selectConfigMenuItem('objectOutput.output.oArr1D', 'Initialize Array');
         await dm.waitForProgressEnd();
         const locArrInit = dmWebView.getByTestId('array-widget-field-objectOutput.output.oArr1D.IN');
@@ -442,12 +440,11 @@ export namespace TestSenarios {
 
         expect(await FileUtils.verifyFileContent(`array-inner/${compDir}/map3.bal.txt`, projectFile)).toBeTruthy();
 
-        console.log(' - Delete array element mappings and elements');
+        console.log(' - Delete array element mapping, entire element and entire array');
         await loc4.click({ force: true });
         await dmWebView.getByTestId('expression-label-for-input.p1.OUT-to-objectOutput.output.oArr1D.0.p1.IN')
             .locator('.codicon-trash').click({ force: true });
         await loc4.waitFor({ state: 'detached' });
-
 
         await loc5.click({ force: true });
         await dmWebView.getByTestId('expression-label-for-input.p1.OUT-to-objectOutput.output.oArr1D.2.IN')
@@ -466,32 +463,31 @@ export namespace TestSenarios {
     }
 
     export async function testArrayRootMappings(dmWebView: Frame, projectFile: string, compDir: string, needRefresh?: boolean) {
-        console.log('Testing Array Root Mappings');
+        console.log('Test Array Root Mappings');
 
         const dm = new DataMapper(dmWebView);
         await dm.waitFor();
 
-        console.log(' - Expand input');
         await dm.expandField('input');
 
         if (needRefresh) {
             await dm.refresh();
         }
 
-        console.log(' - Test preview');
+        console.log(' - Test input/output preview');
         await dmWebView.getByText('<inputItem>').waitFor();
         await dmWebView.getByText('<outputItem>*').waitFor();
 
-        console.log(' - Map input to ouput using query expression');
+        console.log(' - Map roots using query expression');
 
         await dm.mapFields('input', 'arrayOutput.output', 'a2a-inner');
         const locH = dmWebView.getByTestId('link-from-input.OUT-to-queryOutput.output.#.IN');
         await locH.waitFor({ state: 'attached' });
 
-        console.log(' - Map iArr1D to oArr1D using query expression');
+        console.log(' - Map using query expression within focused view');
         await dm.mapFields('inputItem.iArr1D', 'queryOutput.output.oArr1D', 'a2a-inner');
 
-        console.log(' - Map withing query exprression');
+        console.log(' - Map within inner focused view');
         await dm.mapFields('iArr1DItem.p2', 'queryOutput.oArr1D.p2');
         const loc1 = dmWebView.getByTestId('link-from-iArr1DItem.p2.OUT-to-queryOutput.oArr1D.p2.IN');
         await dm.expectErrorLink(loc1);
@@ -508,17 +504,17 @@ export namespace TestSenarios {
 
         expect(await FileUtils.verifyFileContent(`array-root/${compDir}/map1.bal.txt`, projectFile)).toBeTruthy();
 
-        console.log(' - Go back to root before test deletion');
-        await dm.gotoPreviousView();
+        console.log(' - Go back to focused view (using back button)');
+        await dm.goPrevViewBackButton();
         const loc0 = dmWebView.getByTestId('link-connector-node-queryOutput.output.oArr1D.IN');
         await loc0.waitFor();
 
-        console.log(' - Goto focused view');
+        console.log(' - Goto inner focused view again');
         await dmWebView.getByTestId('expand-array-fn-output.oArr1D').click();
         await dmWebView.getByText('oArr1D:Query').waitFor();
         await dmWebView.getByTestId('link-from-inputItem.iArr1D.OUT-to-queryOutput.oArr1D.#.IN').waitFor({ state: 'attached' });
 
-        console.log(' - Delete within focused view');
+        console.log(' - Delete within inner focused view');
         await loc1.click({ force: true });
         await dmWebView.getByTestId('expression-label-for-iArr1DItem.p2.OUT-to-queryOutput.oArr1D.p2.IN')
             .locator('.codicon-trash').click({ force: true });
@@ -529,14 +525,14 @@ export namespace TestSenarios {
 
         expect(await FileUtils.verifyFileContent(`array-root/${compDir}/del1.bal.txt`, projectFile)).toBeTruthy();
 
-        console.log(' - Within focused view root mapping');
+        console.log(' - Map roots within inner focused view');
         await dm.mapFields('iArr1DItem', 'queryOutput.oArr1D', 'direct');
         const loc3 = dmWebView.getByTestId('link-from-iArr1DItem.OUT-to-queryOutput.oArr1D.IN');
         await loc3.waitFor();
 
         expect(await FileUtils.verifyFileContent(`array-root/${compDir}/map2.bal.txt`, projectFile)).toBeTruthy();
 
-        console.log(' - Delete within focused view root mapping');
+        console.log(' - Delete root mapping within inner focused view');
         await loc3.click({ force: true });
         await dmWebView.getByTestId('expression-label-for-iArr1DItem.OUT-to-queryOutput.oArr1D.IN')
             .locator('.codicon-trash').click({ force: true });
@@ -544,9 +540,8 @@ export namespace TestSenarios {
 
         expect(await FileUtils.verifyFileContent(`array-root/${compDir}/del2.bal.txt`, projectFile)).toBeTruthy();
 
-        console.log(' - Go back to previous view');
-        await dmWebView.getByTestId('back-button').click();
-        await dmWebView.getByText('oArr1D:Query').waitFor({ state: 'detached' });
+        console.log(' - Go back to previous view (using back button)');
+        await dm.goPrevViewBackButton();
 
         console.log(' - Delete intermediate query expression');
         await loc0.locator('.codicon-trash').click({ force: true });
@@ -554,19 +549,19 @@ export namespace TestSenarios {
         expect(await FileUtils.verifyFileContent(`array-root/${compDir}/del3.bal.txt`, projectFile)).toBeTruthy();
 
 
-        console.log(' - Go back to root view');
-        await dmWebView.getByTestId('back-button').click();
+        console.log(' - Go back to root view (using breadcrumb)');
+        await dm.goPrevViewBreadcrumb();
 
         const loc4 = dmWebView.getByTestId('link-connector-node-arrayOutput.output.IN');
         await loc4.waitFor();
 
-        console.log(' - Delete root level array mapping');
+        console.log(' - Delete root mapping');
         await loc4.locator('.codicon-trash').click({ force: true });
         await loc4.waitFor({ state: 'detached' });
 
         expect(await FileUtils.verifyFileContent(`array-root/${compDir}/del4.bal.txt`, projectFile)).toBeTruthy();
 
-        console.log(' - Test root level element initialization');
+        console.log(' - Add element to root array using config menu');
 
         await dm.selectConfigMenuItem('arrayOutput.output', 'Add Element');
         await dm.waitForProgressEnd();
@@ -576,7 +571,7 @@ export namespace TestSenarios {
         await dm.waitForProgressEnd();
         await dmWebView.locator('div[id="recordfield-arrayOutput.output.1"]').waitFor();
 
-        console.log(' - Map to root level array elements');
+        console.log(' - Map to root array elements');
         await dm.expandField('input');
         await dm.mapFields('input', 'arrayOutput.output.0.oArr1D', 'a2a-direct');
         const loc5 = dmWebView.getByTestId('link-from-input.OUT-to-arrayOutput.output.0.oArr1D.IN');
@@ -587,7 +582,7 @@ export namespace TestSenarios {
 
         expect(await FileUtils.verifyFileContent(`array-root/${compDir}/map3.bal.txt`, projectFile)).toBeTruthy();
 
-        console.log(' - Delete root level array element mappings and elements');
+        console.log(' - Delete root array element mapping, entire element and entire root array');
         await loc5.click({ force: true });
         await dmWebView.getByTestId('expression-label-for-input.OUT-to-arrayOutput.output.0.oArr1D.IN')
             .locator('.codicon-trash').click({ force: true });

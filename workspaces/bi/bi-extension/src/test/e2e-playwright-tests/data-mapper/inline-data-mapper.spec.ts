@@ -28,14 +28,15 @@ export default function createTests() {
         tag: '@group1',
     }, async () => {
         initTest();
-        test('Inline Data Mapper - Create', async ({ }, testInfo) => {
+        test('Create', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Update types.bal');
+            console.log('Inline Data Mapper - Create:', testAttempt);
+
             FileUtils.updateProjectFileSync('basic/types.bal.txt', 'types.bal');
             FileUtils.updateProjectFileSync('create/inline/init.bal.txt', 'automation.bal');
 
-            console.log('Adding Declare Variable Node: ', testAttempt);
+            console.log(' - Add Declare Variable Node');
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
@@ -56,7 +57,7 @@ export default function createTests() {
             await diagram.clickAddButtonByIndex(1);
 
             await webView.getByText('Declare Variable').click();
-            
+
             const varType = webView.getByRole('textbox', { name: 'Type' });
             await varType.click();
             await webView.getByText('OutRoot').click();
@@ -64,7 +65,7 @@ export default function createTests() {
 
             await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
 
-            console.log('Waiting for Data Mapper to open');
+            console.log(' - Wait for Data Mapper to open');
             await webView.locator('#data-mapper-canvas-container').waitFor();
 
             await FileUtils.verifyFileContent('create/inline/final.bal.txt', 'automation.bal');
@@ -75,11 +76,10 @@ export default function createTests() {
             await webView.getByRole('heading', { name: 'sample' }).waitFor();
         });
 
-        test('Inline Data Mapper - Basic', async ({ }, testInfo) => {
+        test('Basic', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Inline Data Mapper - Basic mapping: ', testAttempt);
-
+            console.log('Inline Data Mapper - Basic:', testAttempt);
 
             FileUtils.updateProjectFileSync('basic/inline/init.bal.txt', 'automation.bal');
             FileUtils.updateProjectFileSync('basic/types.bal.txt', 'types.bal');
@@ -102,10 +102,10 @@ export default function createTests() {
             await TestSenarios.testBasicMappings(webView, 'automation.bal', 'inline', isDataMapperOpend);
         });
 
-        test('Inline Data Mapper - Array Inner', async ({ }, testInfo) => {
+        test('Array Inner', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Inline Data Mapper - Array Inner', testAttempt);
+            console.log('Inline Data Mapper - Array Inner:', testAttempt);
 
             FileUtils.updateProjectFileSync('array-inner/inline/init.bal.txt', 'automation.bal');
             FileUtils.updateProjectFileSync('array-inner/types.bal.txt', 'types.bal');
@@ -128,10 +128,10 @@ export default function createTests() {
             await TestSenarios.testArrayInnerMappings(webView, 'automation.bal', 'inline', isDataMapperOpend);
         });
 
-        test('Inline Data Mapper - Array Root', async ({ }, testInfo) => {
+        test('Array Root', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Inline Data Mapper - Array Root', testAttempt);
+            console.log('Inline Data Mapper - Array Root:', testAttempt);
 
             FileUtils.updateProjectFileSync('array-root/inline/init.bal.txt', 'automation.bal');
             FileUtils.updateProjectFileSync('array-root/types.bal.txt', 'types.bal');
