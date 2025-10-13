@@ -190,7 +190,7 @@ export namespace FileUtils {
     }
 }
 
-export namespace TestSenarios {
+export namespace TestScenarios {
 
     export async function testBasicMappings(dmWebView: Frame, projectFile: string, compDir: string, needRefresh?: boolean) {
         console.log('Test Basic Mappings');
@@ -331,13 +331,11 @@ export namespace TestSenarios {
             await dmWebView.locator(`div[id="recordfield-input.iArr1D"]`).waitFor();
         }
 
-        console.log(' - Test input/output preview');
+        console.log(' - Input/Output preview');
 
         await dm.expandField('input.iArr1D');
 
         await dmWebView.locator('div[id="recordfield-input.iArr1D.iArr1D"]').waitFor();
-
-        console.log(' - Output preview');
 
         await dm.expandField('objectOutput.output.oArr1D');
         await dmWebView.locator('div[id="recordfield-objectOutput.output.oArr1D.oArr1D"]').waitFor();
@@ -470,7 +468,8 @@ export namespace TestSenarios {
             await dm.refresh();
         }
 
-        console.log(' - Test input/output preview');
+        console.log(' - Input/Output preview');
+        
         await dmWebView.getByText('<inputItem>').waitFor();
         await dmWebView.getByText('<outputItem>*').waitFor();
 
