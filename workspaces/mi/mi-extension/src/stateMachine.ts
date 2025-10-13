@@ -451,28 +451,16 @@ const stateMachine = createMachine<MachineContext>({
         },
         resolveMissingDependencies: (context, event) => {
             return new Promise(async (resolve, reject) => {
-                const langClient = context.langClient!;
-                // Temporary code - to be replaced with the ls API
-                const hasMissingModuleDiagnostics = true;
-                if (!hasMissingModuleDiagnostics) {
-                    resolve({ view: context.view });
-                    return;
+                if (!context?.projectUri) {
+                    return reject(new Error("Project URI is not defined"));
                 }
 
-                const response = await langClient.updateConnectorDependencies();
-
-                // Add a delay to allow the user to see the "Dependencies resolved" message
-                await new Promise(res => setTimeout(res, 5000));
-
-                if (response === 'Success') {
-                    vscode.window.showInformationMessage('All dependencies are resolved!');
-                } else {
-                    vscode.window.showErrorMessage('Failed to resolve dependencies.');
-                    console.error('Failed to resolve dependencies:', response);
+                const messenger = RPCLayer._messengers.get(context.projectUri);
+                if (messenger) {
+                    messenger.onNotification(webviewReady, () => {
+                        resolve(true);
+                    });
                 }
-            
-                resolve(true);
-                
             });
         },
         findView: (context, event): Promise<VisualizerLocation> => {
