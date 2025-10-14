@@ -57,7 +57,8 @@ const DependencyList = styled.div`
     padding: 5px 10px;
     border: 1px solid var(--vscode-panel-border);
     border-radius: 4px;
-    width: 240px;
+    width: 400px;
+    overflow-x: hidden;
 `;
 
 const DependencyItem = styled.div`
@@ -245,13 +246,13 @@ export function PullingDependenciesView() {
                                 appearance="secondary"
                                 onClick={handleRetry}
                             >
-                                Retry Failed
+                                Retry failed
                             </Button>
                             <Button buttonSx={{ width: '132px', borderRadius: '4px', height: '30px' }}
                                 appearance="primary"
                                 onClick={handleContinueAnyway}
                             >
-                                Continue Anyway
+                                Continue anyway
                             </Button>
                         </ButtonGroup>
                     )
