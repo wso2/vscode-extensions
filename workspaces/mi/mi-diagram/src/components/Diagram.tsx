@@ -32,7 +32,7 @@ import { NodeFactoryVisitor } from "../visitors/NodeFactoryVisitor";
 import { MediatorNodeModel } from "./nodes/MediatorNode/MediatorNodeModel";
 import { NodeLinkModel } from "./NodeLink/NodeLinkModel";
 import { clearSidePanelState, DefaultSidePanelState, SidePanelProvider } from "./sidePanel/SidePanelContexProvider";
-import { SidePanel, NavigationWrapperCanvasWidget, Button, Codicon } from '@wso2/ui-toolkit'
+import { NavigationWrapperCanvasWidget, Button, Codicon, ResizableSidePanel } from '@wso2/ui-toolkit'
 import SidePanelList from './sidePanel';
 import styled from "@emotion/styled";
 import { CANVAS_PADDING, Colors, NODE_GAP, SIDE_PANEL_WIDTH } from "../resources/constants";
@@ -600,17 +600,18 @@ export function Diagram(props: DiagramProps) {
                     }
 
                     {/* side panel */}
-                    <SidePanel
+                    <ResizableSidePanel 
                         isOpen={sidePanelState.isOpen}
-                        alignment="right"
-                        width={SIDE_PANEL_WIDTH}
-                        overlay
-                        onClose={() => {
-                            clearSidePanelState(sidePanelState);
-                        }}
+                        alignment="right" 
+                        defaultWidth={SIDE_PANEL_WIDTH}
+                        minWidth={300}
+                        maxWidth={800}
+                        onClose={() => clearSidePanelState(sidePanelState)}
+                        onResize={(width: number) => console.log('Width changed to:', width)}
+                        resizable={true}
                     >
                         <SidePanelList nodePosition={sidePanelState.nodeRange} trailingSpace={sidePanelState.trailingSpace} documentUri={props.documentUri} artifactModel={props.model} />
-                    </SidePanel>
+                    </ResizableSidePanel>
                 </SidePanelProvider >
             </S.Container >
         </>
