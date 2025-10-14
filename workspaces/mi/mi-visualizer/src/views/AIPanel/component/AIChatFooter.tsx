@@ -135,12 +135,12 @@ const AIChatFooter: React.FC = () => {
                 }
                 break;
 
-            case "code_diagnostics_start":
+            case "code_diagnostic_start":
                 console.log("Code diagnostics started");
                 setIsValidating(true);
                 break;
 
-            case "code_diagnostics_end":
+            case "code_diagnostic_end":
                 console.log("Code diagnostics completed");
                 setIsValidating(false);
                 

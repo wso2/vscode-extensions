@@ -279,9 +279,8 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 // Send final response
                 this.eventHandler.handleEnd(assistantResponse);
 
-                // Code diagnostics functionality is temporarily disabled due to pending re-implementation in the extension side
-                // Plan: We will re-implement this in the extension side
-                // await this.handleCodeDiagnostics(assistantResponse);
+                // Run code diagnostics on the generated response
+                await this.handleCodeDiagnostics(assistantResponse);
 
             } else {
                 // Fallback: non-streaming response
