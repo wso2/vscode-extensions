@@ -65,7 +65,8 @@ import {
     UpdateAiDependenciesRequest,
     RuntimeServiceDetails,
     MavenDeployPluginDetails,
-    ProjectConfig
+    ProjectConfig,
+    ReloadDependenciesRequest
 } from "@wso2/mi-core";
 import * as https from "https";
 import Mustache from "mustache";
@@ -188,17 +189,69 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     /**
      * Reloads the dependencies for the current integration project.
      *
+     * @param params - An object containing the parameters for reloading dependencies.
      * @returns {Promise<boolean>} A promise that resolves to `true` when all dependency reload operations are complete.
      */
-    async reloadDependencies(): Promise<boolean> {
+    async reloadDependencies(params?: ReloadDependenciesRequest): Promise<boolean> {
         return new Promise(async (resolve) => {
+            let reloadDependenciesResult = true;
             const langClient = getStateMachine(this.projectUri).context().langClient!;
             const updateDependenciesResult = await langClient?.updateConnectorDependencies();
             if (!updateDependenciesResult.toLowerCase().startsWith("success")) {
-                await window.showWarningMessage(
-                    updateDependenciesResult,
-                    { modal: true }
-                );
+                reloadDependenciesResult = false;
+                
+                // Extract failed connectors from the message
+                const failedConnectorsMatch = updateDependenciesResult.match(/Some connectors were not downloaded:\s*(.+)/);
+                if (failedConnectorsMatch && failedConnectorsMatch[1]) {
+                    const failedConnectorsStr = failedConnectorsMatch[1].trim();
+                    const failedConnectors = failedConnectorsStr.split(',').map(c => c.trim());
+                    
+                    if (params?.newDependencies && params.newDependencies.length > 0) {
+                        // Check if any failed connector matches a dependency in newDependencies
+                        const hasMatchingFailedDependency = failedConnectors.some(failedConnector => {
+                            return params.newDependencies.some(newDep => {
+                                const dependencyString = `${newDep.groupId}-${newDep.artifact}-${newDep.version}`;
+                                return dependencyString === failedConnector;
+                            });
+                        });
+
+                        if (hasMatchingFailedDependency) {
+                            await window.showWarningMessage(
+                                "Some connectors were not downloaded.",
+                                { modal: true }
+                            );
+
+                            const projectDetails = await langClient.getProjectDetails();
+                            const existingDependencies = projectDetails.dependencies || [];
+                            const allExistingDeps = [
+                                ...(existingDependencies.connectorDependencies || []),
+                                ...(existingDependencies.otherDependencies || [])
+                            ];
+
+                            // Find and remove failed dependencies that are in newDependencies
+                            const dependenciesToRemove = params.newDependencies
+                                .filter(newDep => {
+                                    const dependencyString = `${newDep.groupId}-${newDep.artifact}-${newDep.version}`;
+                                    return failedConnectors.includes(dependencyString);
+                                })
+                                .map(newDep => {
+                                    const existingDep = allExistingDeps.find(existing =>
+                                        existing.groupId === newDep.groupId &&
+                                        existing.artifact === newDep.artifact &&
+                                        existing.version === newDep.version
+                                    );
+                                    return existingDep;
+                                })
+                                .filter(dep => dep !== undefined); // Remove undefined entries
+
+                            if (dependenciesToRemove.length > 0) {
+                                await this.updatePomValues({
+                                    pomValues: dependenciesToRemove.map(dep => ({ range: dep.range, value: '' }))
+                                });
+                            }
+                        }
+                    }
+                }
             }
             await extractCAppDependenciesAsProjects(this.projectUri);
             const loadResult = await langClient?.loadDependentCAppResources();
@@ -208,7 +261,7 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                     { modal: true }
                 );
             }
-            resolve(true);
+            resolve(reloadDependenciesResult);
         });
     }
 

@@ -53,7 +53,8 @@ import {
     DownloadMIRequest,
     UpdateAiDependenciesRequest,
     ProjectConfig,
-    MavenDeployPluginDetails
+    MavenDeployPluginDetails,
+    ReloadDependenciesRequest
 } from "./types";
 import { GettingStartedData, SampleDownloadRequest } from "./types";
 import { RequestType, NotificationType } from "vscode-messenger-common";
@@ -94,7 +95,7 @@ export const downloadMI: RequestType<DownloadMIRequest, string> = { method: `${_
 export const getSupportedMIVersionsHigherThan: RequestType<string, string[]> = { method: `${_preFix}/getSupportedMIVersionsHigherThan` };
 export const getProjectDetails: RequestType<void, ProjectDetailsResponse> = { method: `${_preFix}/getProjectDetails` };
 export const updateProperties: RequestType<UpdatePropertiesRequest, boolean> = { method: `${_preFix}/updateProperties` };
-export const reloadDependencies: RequestType<void, boolean> = { method: `${_preFix}/reloadDependencies` };
+export const reloadDependencies: RequestType<ReloadDependenciesRequest, boolean> = { method: `${_preFix}/reloadDependencies` };
 export const updateDependencies: RequestType<UpdateDependenciesRequest, boolean> = { method: `${_preFix}/updateDependencies` };
 export const updatePomValues: RequestType<UpdatePomValuesRequest, boolean> = { method: `${_preFix}/updatePomValues` };
 export const updateConfigFileValues: RequestType<UpdateConfigValuesRequest, boolean> = { method: `${_preFix}/updateConfigFileValues` };
