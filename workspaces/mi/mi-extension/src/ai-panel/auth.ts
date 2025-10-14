@@ -18,11 +18,12 @@
 
 import axios from 'axios';
 import { StateMachineAI } from './aiMachine';
-import { AI_EVENT_TYPE, AIUserTokens } from '@wso2/mi-core';
+import { AI_EVENT_TYPE, AIUserTokens, AuthCredentials, LoginMethod } from '@wso2/mi-core';
 import { extension } from '../MIExtensionContext';
 import * as vscode from 'vscode';
 import fetch from 'node-fetch';
 import { MiDiagramRpcManager } from '../rpc-managers/mi-diagram/rpc-manager';
+import { storeAuthCredentials } from './utils/auth';
 
 export interface AccessToken {
     accessToken: string;
@@ -46,8 +47,12 @@ export async function getAuthUrl(callbackUri: string): Promise<string> {
     // return `${this._config.loginUrl}?profile=vs-code&client_id=${this._config.clientId}`
     //     + `&state=${stateBase64}&code_challenge=${this._challenge.code_challenge}`;
 
-    const state = encodeURIComponent(btoa(JSON.stringify({ callbackUri: 'vscode://wso2.micro-integrator/signin' })));
+    const state = encodeURIComponent(btoa(JSON.stringify({ callbackUri })));
     return `https://api.asgardeo.io/t/${AUTH_ORG}/oauth2/authorize?response_type=code&redirect_uri=${MI_AUTH_REDIRECT_URL}&client_id=${AUTH_CLIENT_ID}&scope=openid%20email&state=${state}`;
+}
+
+export function getLogoutUrl(): string {
+    return `https://api.asgardeo.io/t/${AUTH_ORG}/oidc/logout`;
 }
 
 export async function exchangeAuthCodeNew(authCode: string): Promise<AccessToken> {
@@ -84,29 +89,16 @@ export async function exchangeAuthCode(authCode: string) {
             console.log("Refresh token: " + response.refreshToken);
             console.log("Login time: " + response.loginTime);
             console.log("Expiration time: " + response.expirationTime);
-            await extension.context.secrets.store('MIAIUser', response.accessToken);
-            await extension.context.secrets.store('MIAIRefreshToken', response.refreshToken ?? '');
-
-            // TODO: This is a temporary fix to get the backend root url. Once multiple workspace support is added, this should be removed.
-            const rpcManager = new MiDiagramRpcManager(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "");
-            const backendRootUrlResponse = await rpcManager.getBackendRootUrl();
-            const url = backendRootUrlResponse.url + '/user/usage';
             
-            const fetch_response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${response.accessToken}`,
-                },
-            });
-
-            if(fetch_response.ok) {
-                const responseBody = await fetch_response.json() as AIUserTokens | undefined;
-                const context = StateMachineAI.context();
-                context.userTokens = responseBody;
-            }else{
-                throw new Error(`Error while checking token usage: ${fetch_response.statusText}`);
-            }
+            // Store credentials in new format
+            const credentials: AuthCredentials = {
+                loginMethod: LoginMethod.MI_INTEL,
+                secrets: {
+                    accessToken: response.accessToken,
+                    refreshToken: response.refreshToken ?? ''
+                }
+            };
+            await storeAuthCredentials(credentials);
 
             StateMachineAI.sendEvent(AI_EVENT_TYPE.SIGN_IN_SUCCESS);
         } catch (error: any) {

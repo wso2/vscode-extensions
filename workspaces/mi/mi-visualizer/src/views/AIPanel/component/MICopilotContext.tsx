@@ -178,7 +178,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                 setTimeToReset(timeToReset);
 
                 // Handle Initial Prompt Loading
-                if (machineView.initialPrompt.aiPrompt) {
+                if (machineView.initialPrompt?.aiPrompt) {
                     const initialPrompt = machineView.initialPrompt.aiPrompt;
                     const initialFiles = machineView.initialPrompt.files || [];
                     const initialImages = machineView.initialPrompt.images || [];
