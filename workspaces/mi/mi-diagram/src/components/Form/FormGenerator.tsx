@@ -1112,6 +1112,24 @@ export function FormGenerator(props: FormGeneratorProps) {
                     </>
                 );
             case 'expressionTextArea':
+                const isValLegacyExpression = isLegacyExpression(element.expressionType, isLegacyExpressionEnabled, field);
+                if (isValLegacyExpression) {
+                    return (
+                        <CodeTextArea
+                            {...field}
+                            label={element.displayName}
+                            labelAdornment={helpTipElement}
+                            placeholder={placeholder}
+                            required={isRequired}
+                            resize="vertical"
+                            growRange={{ start: 5, offset: 10 }}
+                            errorMsg={errorMsg}
+                            onChange={(e: any) => {
+                                field.onChange(e.target.value);
+                            }}
+                        />
+                    );
+                }
                 return (
                     <div>
                         <FormTokenEditor
@@ -1129,24 +1147,24 @@ export function FormGenerator(props: FormGeneratorProps) {
                             skipSanitization={element.skipSanitization ? element.skipSanitization : false}
                         />
                         {generatedFormDetails && visibleDetails[element.name] && generatedFormDetails[element.name] !== getValues(element.name) && (
-                                <GenerateDiv
-                                    element={element}
-                                    generatedFormDetails={generatedFormDetails}
-                                    handleOnClickChecked={() => {
-                                        if (generatedFormDetails) {
-                                            field.onChange(generatedFormDetails[element.name]);
-                                            setVisibleDetails((prev) => ({ ...prev, [element.name]: false }));
-                                            setNumberOfDifferent(numberOfDifferent - 1);
-                                        }
-                                    }}
-                                    handleOnClickClose={() => {
-                                        setIsClickedDropDown(false);
-                                        setIsGenerating(false);
+                            <GenerateDiv
+                                element={element}
+                                generatedFormDetails={generatedFormDetails}
+                                handleOnClickChecked={() => {
+                                    if (generatedFormDetails) {
+                                        field.onChange(generatedFormDetails[element.name]);
                                         setVisibleDetails((prev) => ({ ...prev, [element.name]: false }));
                                         setNumberOfDifferent(numberOfDifferent - 1);
-                                    }}
-                                />
-                            )}
+                                    }
+                                }}
+                                handleOnClickClose={() => {
+                                    setIsClickedDropDown(false);
+                                    setIsGenerating(false);
+                                    setVisibleDetails((prev) => ({ ...prev, [element.name]: false }));
+                                    setNumberOfDifferent(numberOfDifferent - 1);
+                                }}
+                            />
+                        )}
                     </div>
                 );
             case 'popUp':
