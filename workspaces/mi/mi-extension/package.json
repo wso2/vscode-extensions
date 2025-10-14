@@ -140,7 +140,7 @@
           "description": "Enable remote server deployment support",
           "scope": "resource"
         },
-        "MI.USE_LOCAL_MAVEN": {
+        "MI.useLocalMaven": {
           "type": "boolean",
           "default": false,
           "description": "Use local Maven within the extension",
@@ -932,14 +932,14 @@
         "description": "design-view",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f16c"
+          "fontCharacter": "\\f182"
         }
       },
       "distro-build-package": {
         "description": "build-package",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f183"
+          "fontCharacter": "\\f15d"
         }
       }
     }

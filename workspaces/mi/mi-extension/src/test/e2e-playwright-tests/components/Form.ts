@@ -47,11 +47,11 @@ export class Form {
         }
     }
 
-    public async switchToFormView(isPopUp?: boolean) {
+    public async switchToFormView(isPopUp?: boolean, timeout: number = 30000) {
         if (!this._name || !this._page) {
             throw new Error("Name and Page are required to switch to Form View");
         }
-        const webview = await switchToIFrame(this._name, this._page)
+        const webview = await switchToIFrame(this._name, this._page, timeout);
         if (!webview) {
             throw new Error("Failed to switch to Form View iframe");
         }
