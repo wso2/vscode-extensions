@@ -34,14 +34,14 @@ const AIChatHeader: React.FC = () => {
   };
 
   const handleSetApiKey = async () => {
-    await rpcClient?.getMiDiagramRpcClient().setAnthropicApiKey();
+    await rpcClient?.getMiAiPanelRpcClient().setAnthropicApiKey();
     // Check again after setting the API key
     checkApiKey();
   };
 
   const checkApiKey = async () => {
-    const apiKey = await rpcClient?.getMiDiagramRpcClient().getAnthropicApiKey();
-    setHasApiKey(!!apiKey);
+    const hasApiKey = await rpcClient?.getMiAiPanelRpcClient().hasAnthropicApiKey();
+    setHasApiKey(hasApiKey);
   };
 
   // Check for API key on component mount

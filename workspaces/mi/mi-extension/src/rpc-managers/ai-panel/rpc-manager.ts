@@ -420,4 +420,40 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
 
         return xmlCodes;
     }
+
+    /**
+     * Sets the Anthropic API key for unlimited usage
+     */
+    async setAnthropicApiKey(): Promise<void> {
+        const vscode = await import('vscode');
+        const { extension } = await import('../../MIExtensionContext');
+
+        const apiKey = await vscode.window.showInputBox({
+            prompt: "Enter your Anthropic API Key for Unlimited Usage",
+            password: true,
+            placeHolder: "sk-ant-...",
+            validateInput: (value) => {
+                if (!value || value.trim() === "") {
+                    return "API key cannot be empty";
+                }
+                if (!value.startsWith("sk-ant-")) {
+                    return "Invalid Anthropic API key format. Should start with 'sk-ant-'";
+                }
+                return null;
+            }
+        });
+
+        if (apiKey) {
+            await extension.context.secrets.store('AnthropicApiKey', apiKey);
+            vscode.window.showInformationMessage("Anthropic API key has been saved successfully");
+        }
+    }
+
+    /**
+     * Gets the stored Anthropic API key
+     */
+    async hasAnthropicApiKey(): Promise<boolean | undefined> {
+        const { extension } = await import('../../MIExtensionContext');
+        return await extension.context.secrets.get('AnthropicApiKey') !== undefined;
+    }
 }

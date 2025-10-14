@@ -23,6 +23,7 @@ import { openSignInView } from "../../util/ai-datamapper-utils";
 import { extension } from "../../MIExtensionContext";
 import { EVENT_TYPE, MACHINE_VIEW } from "@wso2/mi-core";
 import * as vscode from "vscode";
+import { MIAIPanelRpcManager } from "./rpc-manager";
 
 // Backend URL constants
 export const MI_ARTIFACT_GENERATION_BACKEND_URL = `/chat/artifact-generation`;
@@ -93,9 +94,9 @@ export async function getUserAccessToken(): Promise<string> {
 }
 
 /**
- * Gets the Anthropic API key from extension secrets
+ * Checks if the Anthropic API key is available in extension secrets
  */
-export async function getAnthropicApiKey(): Promise<string | undefined> {
+export async function hasAnthropicApiKey(): Promise<string | undefined> {
     return await extension.context.secrets.get('AnthropicApiKey');
 }
 
@@ -150,8 +151,8 @@ function showQuotaExceededNotification(projectUri: string) {
     ).then(selection => {
         if (selection === "Set API Key") {
             // Trigger the API key input dialog
-            const miDiagramRpcManager = new MiDiagramRpcManager(projectUri);
-            miDiagramRpcManager.setAnthropicApiKey();
+            const miAiPanelRpcManager = new MIAIPanelRpcManager(projectUri);
+            miAiPanelRpcManager.setAnthropicApiKey();
         } else if (selection === "Learn More") {
             vscode.env.openExternal(vscode.Uri.parse("https://console.anthropic.com/"));
         }
@@ -183,7 +184,7 @@ export async function fetchWithRetry(
     let retryCount = 0;
     const maxRetries = 2;
     let token = await getUserAccessToken();
-    const anthropicApiKey = await getAnthropicApiKey();
+    const anthropicApiKey = await hasAnthropicApiKey();
 
     const bodyWithThinking = {
         ...body,

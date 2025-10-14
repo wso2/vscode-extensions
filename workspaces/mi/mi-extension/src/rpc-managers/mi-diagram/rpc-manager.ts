@@ -6199,32 +6199,6 @@ ${keyValuesXML}`;
         );
         return undefined;
     }
-
-    async setAnthropicApiKey(): Promise<void> {
-        const apiKey = await window.showInputBox({
-            prompt: "Enter your Anthropic API Key for Unlimited Usage",
-            password: true,
-            placeHolder: "sk-ant-...",
-            validateInput: (value) => {
-                if (!value || value.trim() === "") {
-                    return "API key cannot be empty";
-                }
-                if (!value.startsWith("sk-ant-")) {
-                    return "Invalid Anthropic API key format. Should start with 'sk-ant-'";
-                }
-                return null;
-            }
-        });
-
-        if (apiKey) {
-            await extension.context.secrets.store('AnthropicApiKey', apiKey);
-            window.showInformationMessage("Anthropic API key has been saved successfully");
-        }
-    }
-
-    async getAnthropicApiKey(): Promise<string | undefined> {
-        return await extension.context.secrets.get('AnthropicApiKey');
-    }
 }
 
 function exposeVersionedServices(projectUri: string): boolean {

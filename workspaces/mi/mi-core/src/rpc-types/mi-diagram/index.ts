@@ -449,6 +449,4 @@ export interface MiDiagramAPI {
     isKubernetesConfigured: () => Promise<boolean>;
     updatePropertiesInArtifactXML: (params: UpdateRegistryPropertyRequest) => Promise<string>;
     getPropertiesFromArtifactXML: (params: string) => Promise<Property[] | undefined>;
-    setAnthropicApiKey: () => Promise<void>;
-    getAnthropicApiKey: () => Promise<string | undefined>;
 }

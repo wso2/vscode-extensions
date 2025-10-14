@@ -43,4 +43,21 @@ export interface MIAIPanelAPI {
     generateSuggestions: (request: GenerateSuggestionsRequest) => Promise<GenerateSuggestionsResponse>
     generateCode: (request: GenerateCodeRequest) => Promise<GenerateCodeResponse>
     abortCodeGeneration: () => Promise<AbortCodeGenerationResponse>
+    
+    // ==================================
+    // API Key Management
+    // ==================================
+    setAnthropicApiKey: () => Promise<void>
+    hasAnthropicApiKey: () => Promise<boolean | undefined>
 }
+
+// Export RPC type definitions
+export {
+    getBackendRootUrl,
+    generateSuggestions,
+    generateCode,
+    abortCodeGeneration,
+    codeGenerationEvent,
+    setAnthropicApiKey,
+    hasAnthropicApiKey
+} from './rpc-type';

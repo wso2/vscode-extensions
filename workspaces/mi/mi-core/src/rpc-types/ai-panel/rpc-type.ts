@@ -31,6 +31,8 @@ export const getBackendRootUrl: RequestType<void, GetBackendRootUrlResponse> = {
 export const generateSuggestions: RequestType<GenerateSuggestionsRequest, GenerateSuggestionsResponse> = { method: `${_prefix}/generateSuggestions` };
 export const generateCode: RequestType<GenerateCodeRequest, GenerateCodeResponse> = { method: `${_prefix}/generateCode` };
 export const abortCodeGeneration: RequestType<void, AbortCodeGenerationResponse> = { method: `${_prefix}/abortCodeGeneration` };
+export const setAnthropicApiKey: RequestType<void, void> = { method: `${_prefix}/setAnthropicApiKey` };
+export const hasAnthropicApiKey: RequestType<void, boolean | undefined> = { method: `${_prefix}/hasAnthropicApiKey` };
 
 // Notification for streaming events
 export const codeGenerationEvent: NotificationType<CodeGenerationEvent> = { method: `${_prefix}/codeGenerationEvent` };
