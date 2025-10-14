@@ -3029,19 +3029,7 @@ ${endpointAttributes}
         return new Promise(async (resolve) => {
             const projectUuid = uuidv4();
             const { directory, name, open, groupID, artifactID, version, miVersion } = params;
-            let initialDependencies = '';
-            try {
-                const connectorStoreResponse = await this.getStoreConnectorJSON(miVersion);
-                const httpConnectorVersion = filterConnectorVersion('HTTP', connectorStoreResponse.connectors);
-                initialDependencies = generateInitialDependencies(httpConnectorVersion);
-            } catch (err) {
-                console.error("Could not fetch connectors:", err);
-                const confirmation = await window.showWarningMessage(ERROR_MESSAGES.ERROR_DOWNLOADING_MODULES,{ modal: true }, 'Yes');
-                if (confirmation === undefined) {
-                    resolve({filePath: "Error"});
-                    return;
-                }
-            }
+            const initialDependencies = generateInitialDependencies();
             const tempName = name.replace(/\./g, '');
             const folderStructure: FileStructure = {
                 [tempName]: { // Project folder
