@@ -16,14 +16,12 @@
  * under the License.
  */
 
-import { VSCodeProgressRing, VSCodeButton } from "@vscode/webview-ui-toolkit/react";
 import styled from "@emotion/styled";
-import { css, Global } from "@emotion/react";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { useEffect } from "react";
 import React from "react";
 import { DependencyDetails } from "@wso2/mi-core";
-import { FormActions } from "@wso2/ui-toolkit";
+import { Button, Codicon } from "@wso2/ui-toolkit";
 
 const LoadingContent = styled.div`
     display: flex;
@@ -31,22 +29,15 @@ const LoadingContent = styled.div`
     justify-content: flex-start;
     align-items: center;
     height: 100%;
-    padding-top: 30vh;
+    padding-top: 20vh;
     text-align: center;
     max-width: 500px;
     margin: 0 auto;
     animation: fadeIn 1s ease-in-out;
 `;
 
-const ProgressRing = styled(VSCodeProgressRing)`
-    height: 50px;
-    width: 50px;
-    margin: 1.5rem;
-`;
-
 const LoadingTitle = styled.h1`
-    color: var(--vscode-foreground);
-    font-size: 1.5em;
+    font-size: 1.7em;
     font-weight: 400;
     margin: 0;
     letter-spacing: -0.02em;
@@ -61,154 +52,87 @@ const LoadingSubtitle = styled.p`
 `;
 
 const DependencyList = styled.div`
-    max-height: 200px;
+    max-height: 300px;
     overflow-y: auto;
-    padding: 0 1rem;
+    padding: 5px 10px;
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 4px;
+    width: 240px;
 `;
 
 const DependencyItem = styled.div`
-    color: var(--vscode-foreground);
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
-    padding: 0.4rem 0;
+    padding-top: 0.4rem;
     display: flex;
     align-items: center;
     justify-content: flex-start;
     text-align: left;
 `;
 
-const DependencyIcon = styled.span`
-    margin-right: 0.75rem;
-    color: var(--vscode-charts-blue);
-    font-size: 20px;
-    animation: downloadBounce 1.5s ease-in-out infinite;
-`;
-
-const DependencyStatus = styled.span`
-    width: 20px;
-    margin-left: 10px;
-    text-align: left;
-    &.downloading-dots::after {
-        content: '';
-        animation: downloadingDots 2s infinite;
-    }
-`;
-
 const DependencyTitle = styled.div`
-    font-size: 13px;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 500;
     height: 20px;
-    color: var(--vscode-settings-headerForeground);
     display: flex; 
     justify-content: space-between;
     align-items: center;
     margin-bottom: 5px;
 `;
 
-const DependencyField = styled.div`
-    display: flex;
-    align-items: center;
-    font-size: 12px;
-    color: var(--vscode-descriptionForeground);
-    gap: 15px;
-    
-    .label {
-        font-weight: 500;
-        flex-shrink: 0;
-    }
-    
-    .value {
-        font-family: monospace;
-        background-color: var(--vscode-badge-background);
-        color: var(--vscode-badge-foreground);
-        border-radius: 3px;
-        font-size: 11px;
-        padding: 2px 4px;
-    }
-
-    .group {
-        font-family: monospace;
-    }
-`;
-
-const ErrorMessage = styled.div`
-    color: var(--vscode-errorForeground);
-    font-size: 13px;
+const DependencyListTitle = styled.h1`
+    font-size: 16px;
     font-weight: 500;
-    margin-bottom: 8px;
+    margin: 1rem 0 ;
+    text-align: left;
+    align-self: flex-start;
 `;
 
 const ButtonGroup = styled.div`
     display: flex;
     gap: 12px;
-`;
-
-const globalStyles = css`
-    @keyframes fadeIn {
-        0% { opacity: 0; }
-        100% { opacity: 1; }
-    }
-    .loading-dots::after {
-        content: '';
-        animation: dots 1.5s infinite;
-    }
-    @keyframes dots {
-        0%, 20% { content: ''; }
-        40% { content: '.'; }
-        60% { content: '..'; }
-        80%, 100% { content: '...'; }
-    }
-    @keyframes downloadingDots {
-        0%, 20% { content: ''; }
-        25% { content: '.'; }
-        50% { content: '..'; }
-        75% { content: '...'; }
-        80%, 100% { content: ''; }
-    }
-    @keyframes downloadBounce {
-        0% { 
-            transform: translateY(-5px);
-            opacity: 0;
-        }
-        10% {
-            opacity: 1;
-        }
-        70% { 
-            transform: translateY(3px);
-            opacity: 1;
-        }
-        80%, 100% { 
-            transform: translateY(3px);
-            opacity: 0;
-        }
-    }
+    padding: 20px 0;
 `;
 
 export function PullingDependenciesView() {
     const { rpcClient } = useVisualizerContext();
-    const [missingDependencies, setMissingDependencies] = React.useState<DependencyDetails[]>(undefined);
+    const [initialMissingDependencies, setInitialMissingDependencies] = React.useState<DependencyDetails[]>(undefined);
+    const [currentMissingDependencies, setCurrentMissingDependencies] = React.useState<DependencyDetails[]>(undefined);
     const [isFailedDownloading, setIsFailedDownloading] = React.useState(false);
 
     useEffect(() => {
-        pullDependencies();
+        const fetchMissingDependencies = async () => {
+            const missingModules = (await rpcClient.getMiVisualizerRpcClient().getDependencyStatusList()).pendingDependencies;
+            setInitialMissingDependencies(missingModules);
+            setCurrentMissingDependencies(missingModules);
+            if (!(missingModules.length > 0)) {
+                handleOnComplete();
+            } else {
+                await pullDependencies();
+            }
+        };
+        fetchMissingDependencies();
     }, []);
 
     const pullDependencies = async () => {
-        const missingModules = (await rpcClient.getMiVisualizerRpcClient().getDependencyStatusList()).pendingDependencies;
-        setMissingDependencies(missingModules);
-        if (!(missingModules.length > 0)) {
+        const response = await rpcClient.getMiVisualizerRpcClient().updateConnectorDependencies();
+
+        if (response === 'Success') {
+            console.log('All dependencies are resolved!');
             handleOnComplete();
         } else {
-            const response = await rpcClient.getMiVisualizerRpcClient().updateConnectorDependencies();
-
-            if (response === 'Success') {
-                console.log('All dependencies are resolved!');
-                handleOnComplete();
-            } else {
-                setIsFailedDownloading(true);
-                console.error('Failed to resolve dependencies:', response);
-            }
+            setIsFailedDownloading(true);
+            const missingModules = (await rpcClient.getMiVisualizerRpcClient().getDependencyStatusList()).pendingDependencies;
+            setCurrentMissingDependencies(missingModules);
+            console.error('Failed to resolve dependencies:', response);
         }
+    }
+
+    const checkIfDependencyResolved = (dependency: DependencyDetails): boolean => {
+        return !currentMissingDependencies.some(dep =>
+            dep.artifact === dependency.artifact &&
+            dep.version === dependency.version &&
+            dep.groupId === dependency.groupId);
     }
 
     const handleOnComplete = () => {
@@ -217,8 +141,6 @@ export function PullingDependenciesView() {
 
     const handleRetry = async () => {
         setIsFailedDownloading(false);
-        setMissingDependencies(undefined);
-
         await pullDependencies();
     }
 
@@ -233,66 +155,108 @@ export function PullingDependenciesView() {
             display: 'flex',
             fontFamily: 'var(--vscode-font-family)'
         }}>
-            <Global styles={globalStyles} />
             <LoadingContent>
-                <ProgressRing />
                 <LoadingTitle>
-                    Pulling Dependencies
+                    Pulling Project Dependencies
                 </LoadingTitle>
                 <LoadingSubtitle>
                     Fetching required modules for your project.<br />
-                    Please wait, this might take some time.
+                    This may take a few moments.
                 </LoadingSubtitle>
-                {missingDependencies && missingDependencies.length > 0 && (
-                    <DependencyList>
-                        {missingDependencies.map((dependency, index) => (
-                            <DependencyItem key={index}>
-                                <DependencyIcon>⬇</DependencyIcon>
-                                <DependencyTitle>
-                                    <>
-                                        <div style={{ display: 'flex', gap: '10px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                                                <span className="dependency-artifact">{dependency.artifact}:</span>
-                                            </div>
-                                            <DependencyField>
-                                                <span className="value">{dependency.version}</span>
-                                            </DependencyField>
+                {initialMissingDependencies && initialMissingDependencies.length > 0 && (
+                    <>
+                        <DependencyListTitle>Dependencies</DependencyListTitle>
+                        <DependencyList>
+                            {initialMissingDependencies.map((dependency, index) => (
+                                <div style={{ marginBottom: '10px' }}>
+                                    <DependencyItem key={index}>
+                                        <Codicon
+                                            sx={{ marginRight: '10px', height: '22px', width: '20px' }}
+                                            iconSx={{ fontSize: '20px' }}
+                                            name="symbol-method"
+                                        />
+                                        <DependencyTitle>
+                                            <>
+                                                <div style={{ display: 'flex', gap: '10px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                        <span className="dependency-artifact">{dependency.artifact}@{dependency.version}</span>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        </DependencyTitle>
+                                    </DependencyItem>
+                                    {checkIfDependencyResolved(dependency) ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: '28px' }}>
+                                            <Codicon
+                                                sx={{ height: '15px', width: '20px' }}
+                                                iconSx={{ fontSize: '16px', color: 'var(--vscode-charts-green)', fontWeight: 'bold' }}
+                                                name="pass-filled"
+                                            />
+                                            <span
+                                                style={{
+                                                    fontSize: '14px',
+                                                    color: 'var(--vscode-descriptionForeground)'
+                                                }}>
+                                                Completed
+                                            </span>
                                         </div>
-                                    </>
-                                </DependencyTitle>
-                                <DependencyStatus className="downloading-dots" />
-                            </DependencyItem>
-                        ))}
-                    </DependencyList>
-                )}
+                                    ) : (
+                                        isFailedDownloading ? (
+                                            < div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: '28px' }}>
+                                                <Codicon
+                                                    sx={{ height: '15px', width: '20px' }}
+                                                    iconSx={{ fontSize: '16px', color: 'var(--vscode-charts-red)', fontWeight: 'bold' }}
+                                                    name="error"
+                                                />
+                                                <span
+                                                    style={{
+                                                        fontSize: '14px',
+                                                        color: 'var(--vscode-descriptionForeground)'
+                                                    }}>
+                                                    Failed
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: '28px' }}>
+                                                <Codicon
+                                                    sx={{ height: '15px', width: '20px' }}
+                                                    iconSx={{ fontSize: '16px', color: 'var(--vscode-charts-blue)', fontWeight: 'bold' }}
+                                                    name="circle-large-outline"
+                                                />
+                                                <span
+                                                    style={{
+                                                        fontSize: '14px',
+                                                        color: 'var(--vscode-descriptionForeground)'
+                                                    }}>
+                                                    Downloading
+                                                </span>
+                                            </div>
+                                        ))}
 
-                {isFailedDownloading && (
-                    <FormActions sx={{ 
-                        flexDirection: 'column',
-                        right: '100px',
-                        position: 'absolute',
-                        bottom: '50px'
-                    }}>
-                        <ErrorMessage>
-                            Unable to pull dependencies
-                        </ErrorMessage>
+                                </div>
+                            ))}
+                        </DependencyList>
+                    </>
+                )}
+                {
+                    isFailedDownloading && (
                         <ButtonGroup>
-                            <VSCodeButton
+                            <Button buttonSx={{ width: '120px', borderRadius: '4px', height: '30px' }}
                                 appearance="secondary"
+                                onClick={handleRetry}
+                            >
+                                Retry Failed
+                            </Button>
+                            <Button buttonSx={{ width: '132px', borderRadius: '4px', height: '30px' }}
+                                appearance="primary"
                                 onClick={handleContinueAnyway}
                             >
                                 Continue Anyway
-                            </VSCodeButton>
-                            <VSCodeButton
-                                appearance="primary"
-                                onClick={handleRetry}
-                            >
-                                Retry
-                            </VSCodeButton>
+                            </Button>
                         </ButtonGroup>
-                    </FormActions>
-                )}
-            </LoadingContent>
-        </div>
+                    )
+                }
+            </LoadingContent >
+        </div >
     );
 }
