@@ -16,14 +16,14 @@
  * under the License.
  */
 
-import type { ComponentKind, IWso2PlatformExtensionAPI, openClonedDirReq } from "@wso2/wso2-platform-core";
+import type { ComponentKind, ContextItemEnriched, GetMarketplaceListReq, IWso2PlatformExtensionAPI, openClonedDirReq, GetMarketplaceIdlReq, ConnectionDetailed, CreateComponentConnectionReq, CreateLocalConnectionsConfigReq } from "@wso2/wso2-platform-core";
 import { ext } from "./extensionVariables";
 import { hasDirtyRepo } from "./git/util";
 import { authStore } from "./stores/auth-store";
 import { contextStore } from "./stores/context-store";
 import { webviewStateStore } from "./stores/webview-state-store";
 import { openClonedDir } from "./uri-handlers";
-import { isSamePath } from "./utils";
+import { createConnectionConfig, isSamePath } from "./utils";
 
 export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 	public isLoggedIn = () => !!authStore.getState().state?.userInfo;
@@ -38,4 +38,9 @@ export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 	public getContextStateStore = () => contextStore.getState().state;
 	public openClonedDir = (params: openClonedDirReq) => openClonedDir(params);
 	public getStsToken = () => ext.clients.rpcClient.getStsToken();
+	public getMarketplaceItems = (params: GetMarketplaceListReq) => ext.clients.rpcClient.getMarketplaceItems(params);
+	public getSelectedContext = () => contextStore.getState().state?.selected || null;
+	public getMarketplaceIdl = (params: GetMarketplaceIdlReq) => ext.clients.rpcClient.getMarketplaceIdl(params);
+	public createComponentConnection = (params: CreateComponentConnectionReq) => ext.clients.rpcClient.createComponentConnection(params);
+	public createConnectionConfig = (params: CreateLocalConnectionsConfigReq) => createConnectionConfig(params);
 }

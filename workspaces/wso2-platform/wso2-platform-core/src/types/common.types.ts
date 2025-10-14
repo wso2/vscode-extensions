@@ -17,7 +17,9 @@
  */
 
 import type { DeploymentStatus } from "../enums";
-import type { ContextStoreState, WebviewState } from "./store.types";
+import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq } from "./cli-rpc.types";
+import { CreateLocalConnectionsConfigReq } from "./messenger-rpc.types";
+import type { ContextItemEnriched, ContextStoreState, WebviewState } from "./store.types";
 
 export type ExtensionName = "WSO2" | "Choreo" | "Devant";
 
@@ -29,6 +31,11 @@ export interface IWso2PlatformExtensionAPI {
 	getContextStateStore(): ContextStoreState;
 	openClonedDir(params: openClonedDirReq): Promise<void>;
 	getStsToken(): Promise<string>;
+	getMarketplaceItems(params: GetMarketplaceListReq): Promise<MarketplaceListResp>;
+	getSelectedContext(): ContextItemEnriched | null;
+	getMarketplaceIdl(params: GetMarketplaceIdlReq): Promise<MarketplaceIdlResp>
+	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed>
+	createConnectionConfig: (params: CreateLocalConnectionsConfigReq) => Promise<string>
 }
 
 export interface openClonedDirReq {
