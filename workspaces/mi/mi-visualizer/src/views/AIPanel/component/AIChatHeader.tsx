@@ -16,70 +16,26 @@
  * under the License.
  */
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Button, Codicon } from "@wso2/ui-toolkit";
-import { Badge, Header, HeaderButtons, ResetsInBadge } from '../styles';
+import { Header, HeaderButtons } from '../styles';
 import { useMICopilotContext } from "./MICopilotContext";
 
 /**
  * Header component for the chat interface
- * Shows token information and action buttons
+ * Shows action buttons
  */
 const AIChatHeader: React.FC = () => {
-  const { rpcClient, setChatClearEventTriggered, tokenInfo, chatClearEventTriggered, backendRequestTriggered} = useMICopilotContext();
-  const [hasApiKey, setHasApiKey] = useState(false);
+  const { rpcClient, setChatClearEventTriggered, chatClearEventTriggered, backendRequestTriggered} = useMICopilotContext();
 
   const handleLogout = async () => {
     await rpcClient?.getMiDiagramRpcClient().logoutFromMIAccount();
   };
 
-  const handleSetApiKey = async () => {
-    await rpcClient?.getMiAiPanelRpcClient().setAnthropicApiKey();
-    // Check again after setting the API key
-    checkApiKey();
-  };
-
-  const checkApiKey = async () => {
-    const hasApiKey = await rpcClient?.getMiAiPanelRpcClient().hasAnthropicApiKey();
-    setHasApiKey(hasApiKey);
-  };
-
-  // Check for API key on component mount
-  useEffect(() => {
-    checkApiKey();
-  }, [rpcClient]);
-
   const isLoading = chatClearEventTriggered || backendRequestTriggered;
 
   return (
       <Header>
-          <Badge>
-              {hasApiKey ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Codicon name="key" />
-                          Copilot is using your API Key
-                      </div>
-                      <ResetsInBadge>Logout to clear the API key</ResetsInBadge>
-                  </div>
-              ) : (
-                  <>
-                      Remaining Free Usage:{" "}
-                      {tokenInfo.remainingPercentage === -1
-                          ? "Unlimited"
-                          : tokenInfo.isLessThanOne
-                          ? "<1%"
-                          : `${tokenInfo.remainingPercentage}%`}
-                      <br />
-                      <ResetsInBadge>
-                          {tokenInfo.remainingPercentage !== -1 &&
-                              `Resets in: ${
-                                  tokenInfo.timeToReset < 1 ? "< 1 day" : `${Math.round(tokenInfo.timeToReset)} days`
-                              }`}
-                      </ResetsInBadge>
-                  </>
-              )}
-          </Badge>
           <HeaderButtons>
               <Button
                   appearance="icon"
@@ -89,15 +45,6 @@ const AIChatHeader: React.FC = () => {
               >
                   <Codicon name="clear-all" />
                   &nbsp;&nbsp;Clear
-              </Button>
-              <Button 
-                  appearance="icon" 
-                  onClick={handleSetApiKey} 
-                  tooltip="Set Anthropic API Key for Unlimited Usage" 
-                  disabled={isLoading}
-              >
-                  <Codicon name="key" />
-                  &nbsp;&nbsp;API Key
               </Button>
               <Button appearance="icon" onClick={handleLogout} tooltip="Logout" disabled={isLoading}>
                   <Codicon name="sign-out" />

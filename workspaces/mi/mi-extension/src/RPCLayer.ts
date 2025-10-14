@@ -55,7 +55,7 @@ export class RPCLayer {
         registerMIAiPanelRpcHandlers(messenger, projectUri);
         // ----- AI Webview RPC Methods
         messenger.onRequest(getAIVisualizerState, () => getAIContext());
-        messenger.onRequest(sendAIStateEvent, (event: AI_EVENT_TYPE) => StateMachineAI.sendEvent(event));
+        messenger.onRequest(sendAIStateEvent, (event: any) => StateMachineAI.sendEvent(event));
         // ----- Form Views RPC Methods
         messenger.onRequest(getPopupVisualizerState, () => getFormContext(projectUri));
 
@@ -122,7 +122,14 @@ async function getContext(projectUri: string): Promise<VisualizerLocation> {
 async function getAIContext(): Promise<AIVisualizerLocation> {
     const context = StateMachineAI.context();
     return new Promise((resolve) => {
-        resolve({ view: context.view, initialPrompt: extension.initialPrompt, state: StateMachineAI.state(), userTokens: context.userTokens });
+        resolve({ 
+            view: context.view, 
+            initialPrompt: extension.initialPrompt, 
+            state: StateMachineAI.state(), 
+            loginMethod: context.loginMethod,
+            userToken: context.userToken,
+            errorMessage: context.errorMessage
+        });
     });
 }
 

@@ -40,6 +40,7 @@ import {
 } from "./utils";
 import { CopilotEventHandler } from "./event-handler";
 import { MiDiagramRpcManager } from "../mi-diagram/rpc-manager";
+import { generateSuggestions as generateSuggestionsFromLLM } from "../../ai-panel/copilot/suggestions/suggestions";
 
 export class MIAIPanelRpcManager implements MIAIPanelAPI {
     private eventHandler: CopilotEventHandler;
@@ -64,21 +65,8 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
 
     async generateSuggestions(request: GenerateSuggestionsRequest): Promise<GenerateSuggestionsResponse> {
         try {
-            const controller = new AbortController();
-            
-            // Use the utility function to generate suggestions
-            const suggestions = await generateSuggestionsUtil(
-                this.projectUri,
-                request.chatHistory,
-                controller
-            );
-
-            // Convert the suggestions to the expected format
-            return {
-                response: suggestions.length > 0 ? suggestions[0].content : "",
-                files: [], // This would need to be populated based on your specific requirements
-                images: [] // This would need to be populated based on your specific requirements
-            };
+            // Use the new LLM-based suggestion generation
+            return await generateSuggestionsFromLLM(request, this.projectUri);
         } catch (error) {
             console.error('Error generating suggestions:', error);
             throw new Error(`Failed to generate suggestions: ${error instanceof Error ? error.message : 'Unknown error'}`);

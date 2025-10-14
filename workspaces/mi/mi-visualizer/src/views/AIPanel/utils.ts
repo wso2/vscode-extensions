@@ -296,6 +296,15 @@ export async function generateSuggestions(
 }
 
 export function updateTokenInfo(machineView: any) {
+    // For custom API key users or when token info is not available, return unlimited
+    if (!machineView.userTokens || !machineView.userTokens.time_to_reset) {
+        return { 
+            timeToReset: 0, 
+            remainingTokenPercentage: -1, // -1 indicates unlimited
+            remaingTokenLessThanOne: false 
+        };
+    }
+
     let timeToReset = machineView.userTokens.time_to_reset;
     timeToReset = timeToReset / (60 * 60 * 24);
     const maxTokens = machineView.userTokens.max_usage;
