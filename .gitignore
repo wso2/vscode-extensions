@@ -80,3 +80,6 @@ extensions.json
 .claude/
 
 pnpm-lock.yaml
+
+# AI evaluation results
+**/results
