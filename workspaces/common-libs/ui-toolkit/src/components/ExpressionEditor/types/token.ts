@@ -44,12 +44,14 @@ type HelperPaneConditionalProps =
           helperPaneOrigin?: HelperPaneOrigin;
           changeHelperPaneState: (state: boolean) => void;
           isHelperPaneOpen: boolean;
+          helperPaneSx?: CSSProperties;
       }
     | {
           getHelperPane?: never;
           helperPaneOrigin?: never;
           changeHelperPaneState?: never;
           isHelperPaneOpen?: never;
+          helperPaneSx?: never;
       };
 
 export type TokenEditorProps = TokenEditorBaseProps & HelperPaneConditionalProps;
