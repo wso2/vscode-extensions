@@ -181,7 +181,7 @@ export function generateInitialDependencies(): string {
         <dependency>
             <groupId>org.wso2.integration.connector</groupId>
             <artifactId>mi-connector-http</artifactId>
-            <version>0.1.12</version>
+            <version>0.1.13</version>
             <type>zip</type>
             <exclusions>
                 <exclusion>
