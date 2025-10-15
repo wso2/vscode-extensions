@@ -139,6 +139,34 @@ export const OptionContainer = cx(css`
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 100%;
+    position: relative;
+    
+    &::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 100%;
+        left: 0;
+        background-color: var(--vscode-editorHoverWidget-background);
+        color: var(--vscode-editorHoverWidget-foreground);
+        border: 1px solid var(--vscode-editorHoverWidget-border);
+        padding: 5px 8px;
+        border-radius: 3px;
+        white-space: normal;
+        word-wrap: break-word;
+        max-width: 300px;
+        z-index: 10000;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s, visibility 0.2s;
+        pointer-events: none;
+        margin-bottom: 5px;
+        box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+    }
+    
+    &:hover::after {
+        opacity: 1;
+        visibility: visible;
+    }
 `);
 
 export const ActiveOptionContainer = cx(css`
@@ -150,6 +178,34 @@ export const ActiveOptionContainer = cx(css`
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 100%;
+    position: relative;
+    
+    &::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 100%;
+        left: 0;
+        background-color: var(--vscode-editorHoverWidget-background);
+        color: var(--vscode-editorHoverWidget-foreground);
+        border: 1px solid var(--vscode-editorHoverWidget-border);
+        padding: 5px 8px;
+        border-radius: 3px;
+        white-space: normal;
+        word-wrap: break-word;
+        max-width: 300px;
+        z-index: 10000;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s, visibility 0.2s;
+        pointer-events: none;
+        margin-bottom: 5px;
+        box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+    }
+    
+    &:hover::after {
+        opacity: 1;
+        visibility: visible;
+    }
 `);
 
 export const NothingFound = styled.div`
@@ -455,6 +511,7 @@ export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps
                                         )}
                                         {filteredResults.map((filteredItem: string | ItemComponent, i: number) => {
                                             const item = getItem(filteredItem);
+                                            const itemKey = getItemKey(filteredItem);
                                             return (
                                                 <ComboboxOption key={i + indexOffset}>
                                                     <Combobox.Option
@@ -462,7 +519,15 @@ export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps
                                                         value={filteredItem}
                                                         key={i}
                                                     >
-                                                        {item}
+                                                        {({ active }) => (
+                                                            <div 
+                                                                className={active ? OptionContainer : ActiveOptionContainer}
+                                                                data-tooltip={itemKey}
+                                                                title={itemKey}
+                                                            >
+                                                                {item}
+                                                            </div>
+                                                        )}
                                                     </Combobox.Option>
                                                 </ComboboxOption>
                                             );
