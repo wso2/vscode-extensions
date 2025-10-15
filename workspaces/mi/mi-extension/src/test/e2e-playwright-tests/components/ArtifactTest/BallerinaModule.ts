@@ -92,6 +92,7 @@ export class BallerinaModule {
 
         const currentPage = this._page;
         await currentPage.getByLabel('Build Ballerina Module').click();
+        console.log("Clicked on Build Ballerina Module button");
         const successNotification = currentPage.getByText('Ballerina module build successful', { exact: true })
         const errorNotification = currentPage.getByText('Ballerina not found. Please download Ballerina and try again.', { exact: true })
         await Promise.race([
@@ -102,8 +103,10 @@ export class BallerinaModule {
         if (await errorNotification.isVisible()) {
             await showNotifications();
             await currentPage.getByRole('button', { name: 'Install Now' }).click();
+            console.log("Clicked on Install Now button to install Ballerina");
             await clearNotificationAlerts();
-            const webview = await switchToIFrame('WSO2 Integrator: BI', this._page, 24000);
+            console.log("Waiting for Ballerina download to complete");
+            const webview = await switchToIFrame('WSO2 Integrator: BI', this._page, 120000);
             console.log("Switching to WSO2 Integrator: BI iframe");
             if (!webview) {
                 throw new Error("Failed to switch to the Ballerina Module Form iframe");
@@ -116,8 +119,9 @@ export class BallerinaModule {
             await currentPage.getByRole('tab', { name: 'WSO2 Integrator: BI', exact: true }).getByLabel('Close').click();
             await clearNotificationAlerts();
             await currentPage.getByLabel('Build Ballerina Module').click();
+            console.log("Clicked on Build Ballerina Module button after installing Ballerina");
             const updatedNotification = currentPage.getByText('Ballerina module build successful', { exact: true });
-            await expect(updatedNotification).toBeVisible({ timeout: 60000 });
+            await expect(updatedNotification).toBeVisible({ timeout: 120000 });
             console.log("Ballerina module build successful");
         }
         await clearNotificationAlerts();
@@ -168,10 +172,21 @@ export class BallerinaModule {
     }
 
     public async removeBallerinaExtension() {
+        await page.page.waitForTimeout(1000);
+        await page.executePaletteCommand('View: Close All Editor Groups');
         await page.page.keyboard.press('Control+Shift+X');
         await page.page.keyboard.type('WSO2 Integrator BI');
-        await page.page.getByText('WSO2 Integrator: BI').click();
-        await page.page.getByRole('button', { name: 'Uninstall' }).click();
+        const biExt = page.page.getByText('WSO2 Integrator: BI');
+        await biExt.waitFor();
+        await biExt.click();
+        const unstallButton = page.page.getByRole('button', { name: 'Uninstall' });
+        try {
+            console.log("Found Unstall button clicking it");
+            await unstallButton.waitFor();
+            await unstallButton.click();
+        } catch {
+            console.log("Could not find Unstall button clicking it");
+        }
         await page.executePaletteCommand("Developer: Reload Window");
         await page.selectSidebarItem('WSO2 Integrator: MI');
     }

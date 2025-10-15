@@ -52,6 +52,7 @@ const sectionTitleStyle = { margin: 0, paddingLeft: 20 };
 
 // Field name to pom property name mapping
 export const fieldToPomPropertyMap: Record<string, string> = {
+    "buildDetails-versionedDeployment": "versionedDeployment",
     "buildDetails-enableFatCar": "fat.car.enable",
     "buildDetails-dockerDetails-cipherToolEnable": "ciphertool.enable"
 };
@@ -71,6 +72,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
         "buildDetails-dockerDetails-dockerFileBaseImage": yup.string().required("Base image is required"),
         "buildDetails-dockerDetails-dockerName": yup.string().required("Docker name is required"),
         "buildDetails-enableFatCar": yup.boolean(),
+        "buildDetails-versionedDeployment": yup.boolean(),
         "buildDetails-dockerDetails-cipherToolEnable": yup.boolean(),
         "buildDetails-dockerDetails-keyStoreName": yup.string(),
         "buildDetails-dockerDetails-keyStoreAlias": yup.string(),
@@ -157,7 +159,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                 const response = await rpcClient?.getMiVisualizerRpcClient().getProjectDetails();
 
                 const isLegacyExpressionEnabled = await rpcClient.getMiVisualizerRpcClient().isSupportEnabled("LEGACY_EXPRESSION_ENABLED");
-                const useLocalMaven = await rpcClient.getMiVisualizerRpcClient().isSupportEnabled("USE_LOCAL_MAVEN");
+                const useLocalMaven = await rpcClient.getMiVisualizerRpcClient().isSupportEnabled("useLocalMaven");
                 let isRemoteDeploymentEnabled = await rpcClient.getMiVisualizerRpcClient().isSupportEnabled("REMOTE_DEPLOYMENT_ENABLED");
                 let pluginDetails = null;
                 if (isRemoteDeploymentEnabled) {
@@ -179,6 +181,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                     "buildDetails-dockerDetails-dockerFileBaseImage": response.buildDetails?.dockerDetails?.dockerFileBaseImage?.value,
                     "buildDetails-dockerDetails-dockerName": response.buildDetails?.dockerDetails?.dockerName.value,
                     "buildDetails-enableFatCar": response.buildDetails?.enableFatCar?.value === 'true',
+                    "buildDetails-versionedDeployment": response.buildDetails?.versionedDeployment?.value === 'true',
                     "buildDetails-dockerDetails-cipherToolEnable": response.buildDetails?.dockerDetails?.cipherToolEnable?.value === 'true',
                     "buildDetails-dockerDetails-keyStoreName": response.buildDetails?.dockerDetails?.keyStoreName?.value,
                     "buildDetails-dockerDetails-keyStoreAlias": response.buildDetails?.dockerDetails?.keyStoreAlias?.value,
@@ -258,7 +261,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
 
                 if (field === "advanced-useLocalMaven") {
                     let useLocalMaven = getValues("advanced-useLocalMaven");
-                    await rpcClient.getMiVisualizerRpcClient().updateProjectSettingsConfig({ configName: "USE_LOCAL_MAVEN", value: useLocalMaven });
+                    await rpcClient.getMiVisualizerRpcClient().updateProjectSettingsConfig({ configName: "useLocalMaven", value: useLocalMaven });
                 }
 
                 const fieldValue = getValues(field as any);
@@ -510,6 +513,14 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                                 control={control as any}
                                 sx={fieldStyle}
                                 {...register("buildDetails-enableFatCar")}
+                            />
+                            <FormCheckBox
+                                label="Enable Versioned Deployment"
+                                description="Enables versioned deployment of artifacts"
+                                descriptionSx={{ margin: "10px 0" }}
+                                control={control as any}
+                                sx={fieldStyle}
+                                {...register("buildDetails-versionedDeployment")}
                             />
                             <FormCheckBox
                                 label="Enable Cipher Tool"
