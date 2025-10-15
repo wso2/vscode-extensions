@@ -1787,20 +1787,17 @@ ${endpointAttributes}
             let xmlData = getTemplateXmlWrapper(getTemplateParams);
             let sanitizedXmlData = xmlData.replace(/^\s*[\r\n]/gm, '');
 
-            if (params.templateType === 'Sequence Template') {
-                params.isEdit = false;
-            }
-
             if (params.getContentOnly) {
                 resolve({ path: "", content: sanitizedXmlData });
             } else if (params.isEdit && params.range) {
                 const filePath = await this.getFilePath(directory, templateName);
                 xmlData = getEditTemplateXmlWrapper(getTemplateParams);
-                this.applyEdit({
+                await this.applyEdit({
                     text: xmlData,
                     documentUri: filePath,
                     range: params.range
                 });
+                resolve({ path: filePath, content: "" });
             } else {
                 const filePath = await this.getFilePath(directory, templateName);
                 await replaceFullContentToFile(filePath, sanitizedXmlData);
