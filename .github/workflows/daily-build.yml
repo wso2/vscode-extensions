@@ -11,7 +11,7 @@ jobs:
       bi: true
       mi: true
       runTests: true
-      runE2ETests: true
+      runMIE2ETests: true
 
   NotifySuccess:
     name: Notify

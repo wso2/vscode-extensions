@@ -29,6 +29,7 @@ type TokenEditorBaseProps = {
     startAdornment?: ReactNode;
     endAdornment?: ReactNode;
     enableFullscreen?: boolean;
+    skipSanitization?: boolean;
     onChange: (value: string) => void;
     onFocus?: () => void;
     onBlur?: () => void;
@@ -43,12 +44,14 @@ type HelperPaneConditionalProps =
           helperPaneOrigin?: HelperPaneOrigin;
           changeHelperPaneState: (state: boolean) => void;
           isHelperPaneOpen: boolean;
+          helperPaneSx?: CSSProperties;
       }
     | {
           getHelperPane?: never;
           helperPaneOrigin?: never;
           changeHelperPaneState?: never;
           isHelperPaneOpen?: never;
+          helperPaneSx?: never;
       };
 
 export type TokenEditorProps = TokenEditorBaseProps & HelperPaneConditionalProps;

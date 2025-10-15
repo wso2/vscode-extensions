@@ -18,6 +18,7 @@
 
 /* Helper pane related */
 /* All these values are in pixels */
-export const HELPER_PANE_WIDTH = 370;
+export const HELPER_PANE_WIDTH = 350;
+export const BI_HELPER_PANE_WIDTH = 200;
 export const HELPER_PANE_HEIGHT = 400;
 export const VERTICAL_HELPERPANE_HEIGHT = 300;

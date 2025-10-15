@@ -306,7 +306,7 @@ export function UnsupportedProject(props: UnsupportedProjectProps) {
             <Body variant='body3'>
                 {`We recommend migrating your ${projectType.toLowerCase()} to the latest format to unlock the full suite of features available.`}
               For more information, refer to the{' '}
-              <a href='https://ei.docs.wso2.com' target='_blank' rel='noopener noreferrer'>
+              <a href='https://mi.docs.wso2.com/en/latest/develop/opening-projects/' target='_blank' rel='noopener noreferrer'>
                 migration documentation
               </a>
               .
