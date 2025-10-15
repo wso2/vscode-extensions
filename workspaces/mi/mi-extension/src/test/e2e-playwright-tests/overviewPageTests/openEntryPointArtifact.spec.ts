@@ -28,7 +28,7 @@ export default function createTests() {
     test.describe("View Artifact Tests", {
         tag: '@group2',
     }, async () => {
-        initTest();
+        initTest(false, false, false, undefined, undefined, 'group2');
 
         test('View Artifact Tests', async ({ }) => {
             await test.step('API Diagram Rendering Test', async () => {

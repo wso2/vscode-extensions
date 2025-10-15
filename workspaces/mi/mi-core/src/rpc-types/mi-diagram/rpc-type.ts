@@ -261,6 +261,8 @@ import {
     UpdateMediatorResponse,
     GetConnectorIconRequest,
     GetConnectorIconResponse,
+    SubmitFeedbackRequest,
+    SubmitFeedbackResponse,
     GetPomFileContentResponse,
     GetExternalConnectorDetailsResponse,
     WriteMockServicesRequest,
@@ -415,6 +417,7 @@ export const getAllTestSuites: RequestType<void, GetAllTestSuitsResponse> = { me
 export const getAllMockServices: RequestType<void, GetAllMockServicesResponse> = { method: `${_preFix}/getAllMockServices` };
 export const openDependencyPom: NotificationType<OpenDependencyPomRequest> = { method: `${_preFix}/openDependencyPom` };
 export const getAllDependencies: RequestType<getAllDependenciesRequest, GetAllDependenciesResponse> = { method: `${_preFix}/getAllDependencies` };
+export const formatPomFile: RequestType<void, void> = { method: `${_preFix}/formatPomFile` };
 export const testDbConnection: RequestType<TestDbConnectionRequest, TestDbConnectionResponse> = { method: `${_preFix}/testDbConnection` };
 export const markAsDefaultSequence: NotificationType<MarkAsDefaultSequenceRequest> = { method: `${_preFix}/markAsDefaultSequence` };
 export const getSubFolderNames: RequestType<GetSubFoldersRequest, GetSubFoldersResponse> = { method: `${_preFix}/getSubFolderNames` };
@@ -448,6 +451,7 @@ export const shouldDisplayPayloadAlert: RequestType<void, boolean> = { method: `
 export const displayPayloadAlert: RequestType<void, void> = { method: `${_preFix}/displayPayloadAlert` };
 export const closePayloadAlert: RequestType<void, void> = { method: `${_preFix}/closePayloadAlert` };
 export const getValueOfEnvVariable: RequestType<string, string> = { method: `${_preFix}/getValueOfEnvVariable` };
+export const submitFeedback: RequestType<SubmitFeedbackRequest, SubmitFeedbackResponse> = { method: `${_preFix}/submitFeedback` };
 export const getPomFileContent: RequestType<void, GetPomFileContentResponse> = { method: `${_preFix}/getPomFileContent` };
 export const getExternalConnectorDetails: RequestType<void, GetExternalConnectorDetailsResponse> = { method: `${_preFix}/getExternalConnectorDetails` };
 export const writeMockServices: RequestType<WriteMockServicesRequest, WriteMockServicesResponse> = { method: `${_preFix}/writeMockServices` };

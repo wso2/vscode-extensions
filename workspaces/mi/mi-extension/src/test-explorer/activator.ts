@@ -76,7 +76,7 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
             window.showErrorMessage('Test suite id is not available');
             return;
         }
-        const fileUri = Uri.parse(entry.id);
+        const fileUri = Uri.file(entry.id);
 
         const data = await getTestCaseNamesAndTestSuiteType(fileUri);
         if (!data) {
@@ -126,7 +126,7 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
             },
         };
 
-        const data = await getTestCaseNamesAndTestSuiteType(Uri.parse(fileUri));
+        const data = await getTestCaseNamesAndTestSuiteType(Uri.file(fileUri));
         if (!data) {
             return;
         }

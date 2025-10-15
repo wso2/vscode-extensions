@@ -38,6 +38,7 @@ import {
     updateTokenInfo,
     convertChat
 } from "../utils";
+import { useFeedback } from "./useFeedback";
 
 // MI Copilot context type
 interface MICopilotContextType {
@@ -90,6 +91,11 @@ interface MICopilotContextType {
         timeToReset: number;
     };
     setRemainingTokenPercentage: React.Dispatch<React.SetStateAction<number>>;
+
+    // Feedback functionality
+    feedbackGiven: 'positive' | 'negative' | null;
+    setFeedbackGiven: React.Dispatch<React.SetStateAction<'positive' | 'negative' | null>>;
+    handleFeedback: (index: number, isPositive: boolean, detailedFeedback?: string) => Promise<boolean>;
 }
 
 // Define the context for MI Copilot
@@ -143,6 +149,13 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
 
     // State to handle file history
     const [FileHistory, setFileHistory] = useState<FileHistoryEntry[]>([]);
+
+    // Feedback functionality
+    const { feedbackGiven, setFeedbackGiven, handleFeedback } = useFeedback({
+        messages,
+        copilotChat,
+        rpcClient,
+    });
 
     useEffect(() => {
         const initializeContext = async () => {
@@ -325,6 +338,9 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         },
         FileHistory,
         setFileHistory,
+        feedbackGiven,
+        setFeedbackGiven,
+        handleFeedback,
     };
 
     return (
