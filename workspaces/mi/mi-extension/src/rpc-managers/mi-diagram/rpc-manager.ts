@@ -284,6 +284,8 @@ import {
     GetCodeDiagnosticsReqeust,
     GetCodeDiagnosticsResponse,
     getCodeDiagnostics,
+    SubmitFeedbackRequest,
+    SubmitFeedbackResponse,
     GetPomFileContentResponse,
     GetExternalConnectorDetailsResponse,
     GetMockServicesResponse,
@@ -1512,6 +1514,11 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
             const resp = await langClient.getProjectStructure(this.projectUri);
             const artifacts = (resp.directoryMap as any).src.main.wso2mi.artifacts;
 
+            const sequenceList = await langClient.getAvailableResources({
+                documentIdentifier: this.projectUri,
+                resourceType: "sequence",
+            });
+
             const endpoints: string[] = [];
             const sequences: string[] = [];
 
@@ -1519,8 +1526,11 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                 endpoints.push(endpoint.name);
             }
 
-            for (const sequence of artifacts.sequences) {
+            for (const sequence of sequenceList.resources) {
                 sequences.push(sequence.name);
+            }
+            for (const sequence of sequenceList.registryResources) {
+                sequences.push(sequence.registryKey);
             }
 
             resolve({ data: [endpoints, sequences] });
@@ -3834,7 +3844,7 @@ ${endpointAttributes}
             // Determine the destination file name
             let desFileName = path.basename(params.sourceFilePath);
             // If desFileName does nto contain .xml, append .xml
-            if (desFileName && !desFileName.endsWith('.xml')) {
+            if (desFileName && !['.xml', '.dbs'].some(ext => desFileName.endsWith(ext))) {
                 desFileName += '.xml';
             }
             const destinationFilePath = path.join(destinationDirectory, desFileName);
@@ -5456,7 +5466,8 @@ ${keyValuesXML}`;
         const langClient = getStateMachine(this.projectUri).context().langClient!;
         let response;
         if (params.isRuntimeService) {
-            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, port: DebuggerConfig.getServerPort(), ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
+            const versionedUrl = exposeVersionedServices(this.projectUri);
+            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, port: DebuggerConfig.getServerPort(), projectPath: versionedUrl ? this.projectUri : "", ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         } else {
             response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         }
@@ -5966,6 +5977,65 @@ ${keyValuesXML}`;
         });
     };
 
+    async submitFeedback(params: SubmitFeedbackRequest): Promise<SubmitFeedbackResponse> {
+        try {
+            const { positive, messages, feedbackText } = params;
+            
+            // Get the feedback backend URL from environment
+            const feedbackUrl = process.env.MI_COPILOT_FEEDBACK;
+            
+            if (!feedbackUrl) {
+                console.warn('MI_COPILOT_FEEDBACK URL not configured');
+                return {
+                    success: false,
+                    message: 'Feedback backend URL not configured'
+                };
+            }
+
+            // Transform the messages into the format expected by the backend
+            const chatHistory = messages.map((msg, index) => ({
+                content: msg.content,
+                role: msg.role === 'user' ? 'user' : 'assistant',
+                message_order: index + 1,
+                command: msg.command ?? 'chat'
+            }));
+
+            // Create the payload matching the backend's AnalyticsPayload format
+            const payload = {
+                positive,
+                comment: feedbackText || '',
+                chat_history: chatHistory
+            };
+
+            // Send the feedback to the backend
+            const response = await axios.post(feedbackUrl, payload, {
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (response.status === 200) {
+                return {
+                    success: true,
+                    message: 'Feedback submitted successfully'
+                };
+            } else {
+                console.error('Failed to submit feedback, unexpected status:', response.status);
+                return {
+                    success: false,
+                    message: `Failed to submit feedback: HTTP ${response.status}`
+                };
+            }
+
+        } catch (error) {
+            console.error('Error submitting feedback:', error);
+            return {
+                success: false,
+                message: `Failed to submit feedback: ${(error as Error).message}`
+            };
+        } 
+    }
+
     async getPomFileContent(): Promise<GetPomFileContentResponse> {
         return new Promise((resolve, reject) => {
             const pomPath = path.join(this.projectUri, 'pom.xml');
@@ -6128,6 +6198,30 @@ ${keyValuesXML}`;
         );
         return undefined;
     }
+}
+
+function exposeVersionedServices(projectUri: string): boolean {
+    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
+    const serverPath = config.get<string>('SERVER_PATH') || undefined;
+    const configPath = serverPath ? path.join(serverPath, 'conf', 'deployment.toml') : '';
+    if (!fs.existsSync(configPath)) {
+        console.error(`Failed to find deployment configuration file at: ${configPath}`);
+        return false;
+    }
+    const fileContent = fs.readFileSync(configPath, "utf8");
+    const lines = fileContent.split(/\r?\n/);
+    for (let rawLine of lines) {
+        let line = rawLine.trim();
+        if (!line || line.startsWith("#")) continue;
+        const match = line.match(/^expose\.versioned\.services\s*=\s*(.+)$/i);
+        if (match) {
+            let value = match[1].trim();
+            value = value.replace(/^["']|["']$/g, "");
+            if (value.toLowerCase() === "true") return true;
+            return false;
+        }
+    }
+    return false;
 }
 
 export function getRepoRoot(projectRoot: string): string | undefined {

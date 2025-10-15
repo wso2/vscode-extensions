@@ -92,9 +92,12 @@ namespace S {
         padding: 5px 8px;
         width: 100%;
         min-height: 26px;
+        max-height: 300px;
         min-width: var(--input-min-width);
         outline: none;
         resize: vertical;
+        overflow-y: auto;
+        overflow-x: hidden;
         white-space: pre-wrap;
         word-wrap: break-word;
         word-break: break-word;
@@ -215,7 +218,9 @@ export const TokenEditor = ({
     getExpressionEditorIcon,
     editorSx,
     height,
-    enableFullscreen = false
+    helperPaneSx,
+    enableFullscreen = false,
+    skipSanitization = false
 }: TokenEditorProps) => {
     const [isFocused, setIsFocused] = useState<boolean>(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -272,7 +277,7 @@ export const TokenEditor = ({
 
     const updateNodeInfo = () => {
         const selection = window.getSelection();
-        if (!selection) return;
+        if (!selection || selection.rangeCount === 0) return;
         const range = selection.getRangeAt(0);
 
         if (
@@ -592,7 +597,7 @@ export const TokenEditor = ({
 
     const getHelperPaneWithEditorComponent = (): JSX.Element => {
         return createPortal(
-            <S.HelperPane ref={helperPaneContainerRef} sx={{ ...helperPanePosition, ...fullScreenStyle.sx }}>
+            <S.HelperPane ref={helperPaneContainerRef} sx={{ ...helperPanePosition, ...fullScreenStyle.sx, ...helperPaneSx }}>
                 {/* Title and close button */}
                 <S.HelperPaneHeader>
                     <Icon
@@ -748,7 +753,7 @@ export const TokenEditor = ({
 
     useEffect(() => {
         if (!isFocused) {
-            setValue(editorRef.current, value);
+            setValue(editorRef.current, value, skipSanitization);
             addEventListeners();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
