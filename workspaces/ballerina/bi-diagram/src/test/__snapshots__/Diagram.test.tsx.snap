@@ -179,7 +179,7 @@ exports[`BI Diagram - Snapshot Tests renders AI agent flow correctly: ai-agent-f
               height="24"
               width="280"
               x="-252"
-              y="295"
+              y="345"
             >
               <div
                 class="css-1aldfs2"
@@ -199,7 +199,7 @@ exports[`BI Diagram - Snapshot Tests renders AI agent flow correctly: ai-agent-f
               height="20"
               width="70"
               x="-147"
-              y="315"
+              y="345"
             >
               <div
                 class="css-120sseh"
@@ -295,7 +295,7 @@ exports[`BI Diagram - Snapshot Tests renders AI agent flow correctly: ai-agent-f
               height="24"
               width="280"
               x="-252"
-              y="295"
+              y="345"
             >
               <div
                 class="css-1aldfs2"
@@ -315,7 +315,7 @@ exports[`BI Diagram - Snapshot Tests renders AI agent flow correctly: ai-agent-f
               height="20"
               width="70"
               x="-147"
-              y="315"
+              y="345"
             >
               <div
                 class="css-120sseh"
@@ -926,6 +926,7 @@ exports[`BI Diagram - Snapshot Tests renders AI agent flow correctly: ai-agent-f
           >
             <div
               class="css-cuoibw"
+              title="Configure Agent"
             >
               <div
                 class="port css-3hvpph"
@@ -1007,6 +1008,7 @@ exports[`BI Diagram - Snapshot Tests renders AI agent flow correctly: ai-agent-f
                   >
                     <div
                       class="css-1nlecr3"
+                      title="Configure Memory"
                     >
                       <div
                         class="css-db89gf"
@@ -1092,7 +1094,11 @@ exports[`BI Diagram - Snapshot Tests renders AI agent flow correctly: ai-agent-f
                   stroke="var(--vscode-dropdown-border)"
                   stroke-dasharray="none"
                   stroke-width="1.5"
-                />
+                >
+                  <title>
+                    Configure Model Provider
+                  </title>
+                </circle>
                 <foreignobject
                   fill="var(--vscode-foreground)"
                   height="44"
@@ -1457,7 +1463,7 @@ exports[`BI Diagram - Snapshot Tests renders AI agent flow correctly: ai-agent-f
                   xmlns="http://www.w3.org/2000/svg"
                 >
                   <title>
-                    Add new tool / MCP server
+                    Add New Tool / MCP Server
                   </title>
                   <path
                     d="M12 0C5 0 0 5 0 12s5 12 12 12 12-5 12-12S19 0 12 0z"
@@ -1478,7 +1484,7 @@ exports[`BI Diagram - Snapshot Tests renders AI agent flow correctly: ai-agent-f
                   <div
                     class="custom-tooltip css-wajrlc"
                   >
-                    Add new tool / MCP server
+                    Add New Tool / MCP Server
                   </div>
                 </foreignobject>
               </g>
@@ -2176,7 +2182,7 @@ exports[`BI Diagram - Snapshot Tests renders complex flow correctly: complex-flo
               height="24"
               width="280"
               x="-252"
-              y="295"
+              y="345"
             >
               <div
                 class="css-1aldfs2"
@@ -2196,7 +2202,7 @@ exports[`BI Diagram - Snapshot Tests renders complex flow correctly: complex-flo
               height="20"
               width="70"
               x="-147"
-              y="315"
+              y="345"
             >
               <div
                 class="css-120sseh"
@@ -2556,7 +2562,7 @@ exports[`BI Diagram - Snapshot Tests renders complex flow correctly: complex-flo
               height="24"
               width="280"
               x="-252"
-              y="295"
+              y="345"
             >
               <div
                 class="css-1aldfs2"
@@ -2648,7 +2654,7 @@ exports[`BI Diagram - Snapshot Tests renders complex flow correctly: complex-flo
               height="24"
               width="280"
               x="-252"
-              y="295"
+              y="345"
             >
               <div
                 class="css-1aldfs2"
@@ -2740,7 +2746,7 @@ exports[`BI Diagram - Snapshot Tests renders complex flow correctly: complex-flo
               height="24"
               width="280"
               x="-252"
-              y="295"
+              y="345"
             >
               <div
                 class="css-1aldfs2"
