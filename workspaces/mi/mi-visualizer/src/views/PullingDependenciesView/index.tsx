@@ -21,7 +21,7 @@ import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { useEffect } from "react";
 import React from "react";
 import { DependencyDetails } from "@wso2/mi-core";
-import { Button, Codicon } from "@wso2/ui-toolkit";
+import { Button, Codicon, VSCodeColors } from "@wso2/ui-toolkit";
 
 const LoadingContent = styled.div`
     display: flex;
@@ -45,7 +45,7 @@ const LoadingTitle = styled.h1`
 `;
 
 const LoadingSubtitle = styled.p`
-    color: var(--vscode-descriptionForeground);
+    color: VSCodeColors.ON_SURFACE_VARIANT;
     font-size: 13px;
     margin: 0.5rem 0 2rem 0;
     opacity: 0.8;
@@ -55,7 +55,7 @@ const DependencyList = styled.div`
     max-height: 300px;
     overflow-y: auto;
     padding: 5px 10px;
-    border: 1px solid var(--vscode-panel-border);
+    border: 1px solid VSCodeColors.PANEL_BORDER;
     border-radius: 4px;
     width: 400px;
     overflow-x: hidden;
@@ -151,10 +151,10 @@ export function PullingDependenciesView() {
 
     return (
         <div style={{
-            backgroundColor: 'var(--vscode-editor-background)',
+            backgroundColor: VSCodeColors.SURFACE_BRIGHT,
             height: '100vh',
             display: 'flex',
-            fontFamily: 'var(--vscode-font-family)'
+            fontFamily: 'VSCodeColors.FONT_FAMILY'
         }}>
             <LoadingContent>
                 <LoadingTitle>
@@ -190,13 +190,13 @@ export function PullingDependenciesView() {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: '28px' }}>
                                             <Codicon
                                                 sx={{ height: '15px', width: '20px' }}
-                                                iconSx={{ fontSize: '16px', color: 'var(--vscode-charts-green)', fontWeight: 'bold' }}
+                                                iconSx={{ fontSize: '16px', color: VSCodeColors.CHARTS_GREEN, fontWeight: 'bold' }}
                                                 name="pass-filled"
                                             />
                                             <span
                                                 style={{
                                                     fontSize: '14px',
-                                                    color: 'var(--vscode-descriptionForeground)'
+                                                    color: 'VSCodeColors.ON_SURFACE_VARIANT'
                                                 }}>
                                                 Completed
                                             </span>
@@ -206,13 +206,13 @@ export function PullingDependenciesView() {
                                             < div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: '28px' }}>
                                                 <Codicon
                                                     sx={{ height: '15px', width: '20px' }}
-                                                    iconSx={{ fontSize: '16px', color: 'var(--vscode-charts-red)', fontWeight: 'bold' }}
+                                                    iconSx={{ fontSize: '16px', color: VSCodeColors.CHARTS_RED, fontWeight: 'bold' }}
                                                     name="error"
                                                 />
                                                 <span
                                                     style={{
                                                         fontSize: '14px',
-                                                        color: 'var(--vscode-descriptionForeground)'
+                                                        color: 'VSCodeColors.ON_SURFACE_VARIANT'
                                                     }}>
                                                     Failed
                                                 </span>
@@ -221,13 +221,13 @@ export function PullingDependenciesView() {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: '28px' }}>
                                                 <Codicon
                                                     sx={{ height: '15px', width: '20px' }}
-                                                    iconSx={{ fontSize: '16px', color: 'var(--vscode-charts-blue)', fontWeight: 'bold' }}
+                                                    iconSx={{ fontSize: '16px', color: VSCodeColors.CHARTS_BLUE, fontWeight: 'bold' }}
                                                     name="circle-large-outline"
                                                 />
                                                 <span
                                                     style={{
                                                         fontSize: '14px',
-                                                        color: 'var(--vscode-descriptionForeground)'
+                                                        color: 'VSCodeColors.ON_SURFACE_VARIANT'
                                                     }}>
                                                     Downloading
                                                 </span>
