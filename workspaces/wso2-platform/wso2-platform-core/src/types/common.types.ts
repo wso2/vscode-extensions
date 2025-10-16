@@ -17,7 +17,7 @@
  */
 
 import type { DeploymentStatus } from "../enums";
-import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq } from "./cli-rpc.types";
+import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq, GetConnectionsReq } from "./cli-rpc.types";
 import { CreateLocalConnectionsConfigReq } from "./messenger-rpc.types";
 import type { ContextItemEnriched, ContextStoreState, WebviewState } from "./store.types";
 
@@ -33,9 +33,10 @@ export interface IWso2PlatformExtensionAPI {
 	getStsToken(): Promise<string>;
 	getMarketplaceItems(params: GetMarketplaceListReq): Promise<MarketplaceListResp>;
 	getSelectedContext(): ContextItemEnriched | null;
-	getMarketplaceIdl(params: GetMarketplaceIdlReq): Promise<MarketplaceIdlResp>
-	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed>
-	createConnectionConfig: (params: CreateLocalConnectionsConfigReq) => Promise<string>
+	getMarketplaceIdl(params: GetMarketplaceIdlReq): Promise<MarketplaceIdlResp>;
+	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed>;
+	createConnectionConfig: (params: CreateLocalConnectionsConfigReq) => Promise<string>;
+	getConnections: (params: GetConnectionsReq) => Promise<ConnectionListItem[]>
 }
 
 export interface openClonedDirReq {

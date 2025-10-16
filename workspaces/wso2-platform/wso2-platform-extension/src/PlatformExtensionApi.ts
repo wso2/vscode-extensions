@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import type { ComponentKind, ContextItemEnriched, GetMarketplaceListReq, IWso2PlatformExtensionAPI, openClonedDirReq, GetMarketplaceIdlReq, ConnectionDetailed, CreateComponentConnectionReq, CreateLocalConnectionsConfigReq } from "@wso2/wso2-platform-core";
+import type { ComponentKind, ContextItemEnriched, GetMarketplaceListReq, IWso2PlatformExtensionAPI, openClonedDirReq, GetMarketplaceIdlReq, ConnectionDetailed, CreateComponentConnectionReq, CreateLocalConnectionsConfigReq, GetConnectionsReq } from "@wso2/wso2-platform-core";
 import { ext } from "./extensionVariables";
 import { hasDirtyRepo } from "./git/util";
 import { authStore } from "./stores/auth-store";
@@ -43,4 +43,5 @@ export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 	public getMarketplaceIdl = (params: GetMarketplaceIdlReq) => ext.clients.rpcClient.getMarketplaceIdl(params);
 	public createComponentConnection = (params: CreateComponentConnectionReq) => ext.clients.rpcClient.createComponentConnection(params);
 	public createConnectionConfig = (params: CreateLocalConnectionsConfigReq) => createConnectionConfig(params);
+	public getConnections = (params: GetConnectionsReq) => ext.clients.rpcClient.getConnections(params);
 }
