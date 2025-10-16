@@ -382,7 +382,7 @@ export function FormGenerator(props: FormGeneratorProps) {
     const handleAcceptAll = async () => {
         setIsClickedDropDown(false);
         setIsGenerating(false);
-        reset(generatedFormDetails);
+        reset(generatedFormDetails, { keepDefaultValues: true });
         setVisibleDetails({});
         setGeneratedFormDetails(null);
         setIsAutoFillBtnClicked(false);
