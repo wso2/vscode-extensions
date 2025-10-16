@@ -1787,20 +1787,17 @@ ${endpointAttributes}
             let xmlData = getTemplateXmlWrapper(getTemplateParams);
             let sanitizedXmlData = xmlData.replace(/^\s*[\r\n]/gm, '');
 
-            if (params.templateType === 'Sequence Template') {
-                params.isEdit = false;
-            }
-
             if (params.getContentOnly) {
                 resolve({ path: "", content: sanitizedXmlData });
             } else if (params.isEdit && params.range) {
                 const filePath = await this.getFilePath(directory, templateName);
                 xmlData = getEditTemplateXmlWrapper(getTemplateParams);
-                this.applyEdit({
+                await this.applyEdit({
                     text: xmlData,
                     documentUri: filePath,
                     range: params.range
                 });
+                resolve({ path: filePath, content: "" });
             } else {
                 const filePath = await this.getFilePath(directory, templateName);
                 await replaceFullContentToFile(filePath, sanitizedXmlData);
@@ -3029,19 +3026,7 @@ ${endpointAttributes}
         return new Promise(async (resolve) => {
             const projectUuid = uuidv4();
             const { directory, name, open, groupID, artifactID, version, miVersion } = params;
-            let initialDependencies = '';
-            try {
-                const connectorStoreResponse = await this.getStoreConnectorJSON(miVersion);
-                const httpConnectorVersion = filterConnectorVersion('HTTP', connectorStoreResponse.connectors);
-                initialDependencies = generateInitialDependencies(httpConnectorVersion);
-            } catch (err) {
-                console.error("Could not fetch connectors:", err);
-                const confirmation = await window.showWarningMessage(ERROR_MESSAGES.ERROR_DOWNLOADING_MODULES,{ modal: true }, 'Yes');
-                if (confirmation === undefined) {
-                    resolve({filePath: "Error"});
-                    return;
-                }
-            }
+            const initialDependencies = generateInitialDependencies();
             const tempName = name.replace(/\./g, '');
             const folderStructure: FileStructure = {
                 [tempName]: { // Project folder
@@ -4208,9 +4193,9 @@ ${endpointAttributes}
         const RUNTIME_THRESHOLD_VERSION = RUNTIME_VERSION_440;
         const runtimeVersion = await getMIVersionFromPom(this.projectUri);
 
-        const isVersionThresholdReached = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_THRESHOLD_VERSION) : -1;
+        const versionThreshold = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_THRESHOLD_VERSION) : -1;
 
-        return isVersionThresholdReached < 0 ? { url: MI_COPILOT_BACKEND_V2 } : { url: MI_COPILOT_BACKEND_V3 };
+        return versionThreshold < 0 ? { url: MI_COPILOT_BACKEND_V2 } : { url: MI_COPILOT_BACKEND_V3 };
     }
 
     async getProxyRootUrl(): Promise<GetProxyRootUrlResponse> {
@@ -4654,6 +4639,7 @@ ${keyValuesXML}`;
 
             await extension.context.secrets.delete('MIAIUser');
             await extension.context.secrets.delete('MIAIRefreshToken');
+            await extension.context.secrets.delete('AnthropicApiKey');
             StateMachineAI.sendEvent(AI_EVENT_TYPE.LOGOUT);
         } else {
             return;

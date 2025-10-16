@@ -106,7 +106,9 @@ import {
     setDeployPlugin,
     getDeployPluginDetails,
     removeDeployPlugin,
-    MavenDeployPluginDetails
+    MavenDeployPluginDetails,
+    getDependencyStatusList,
+    DependencyStatusResponse
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -275,6 +277,9 @@ export class MiVisualizerRpcClient implements MIVisualizerAPI {
     }
     updateConnectorDependencies(): Promise<string> {
         return this._messenger.sendRequest(updateConnectorDependencies, HOST_EXTENSION);
+    }
+    getDependencyStatusList(): Promise<DependencyStatusResponse> {
+        return this._messenger.sendRequest(getDependencyStatusList, HOST_EXTENSION);
     }
     updateDependenciesFromOverview(params: UpdateDependenciesRequest): Promise<boolean> {
         return this._messenger.sendRequest(updateDependenciesFromOverview, HOST_EXTENSION, params);
