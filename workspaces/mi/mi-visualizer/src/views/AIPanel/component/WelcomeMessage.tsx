@@ -43,9 +43,10 @@ export const WelcomeMessage: React.FC = () => {
                     <br />
                     Please review generated code before adding to your integration.
                 </Typography>
-                <Typography variant="body1" sx={WelcomeStyles.attachContext}>
-                    <Icon isCodicon={true} name="new-file" iconSx={{ cursor: "default" }} /> to attach context
-                </Typography>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', ...WelcomeStyles.attachContext }}>
+                    <Icon isCodicon={true} name="new-file" iconSx={{ cursor: "default" }} />
+                    <span>to attach context</span>
+                </div>
             </div>
         </Welcome>
     );};
