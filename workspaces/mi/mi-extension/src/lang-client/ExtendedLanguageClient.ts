@@ -80,7 +80,8 @@ import {
     XmlCode,
     UpdateAiDependenciesResponse,
     UpdateAiDependenciesRequest,
-    MavenDeployPluginDetails
+    MavenDeployPluginDetails,
+    DependencyStatusResponse
 } from "@wso2/mi-core";
 import { readFileSync } from "fs";
 import { CancellationToken, FormattingOptions, Position, Uri, workspace } from "vscode";
@@ -469,4 +470,7 @@ export class ExtendedLanguageClient extends LanguageClient {
     async getConfigurableList(): Promise<any[]> {
         return this.sendRequest('synapse/getConfigurableList');
     }
+    async getDependencyStatusList(): Promise<DependencyStatusResponse> {
+        return this.sendRequest('synapse/getDependencyStatusList');
+    }    
 }
