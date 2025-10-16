@@ -43,3 +43,7 @@ export * from "./rpc-types/mi-debugger/types";
 export * from "./rpc-types/mi-data-mapper/index";
 export * from "./rpc-types/mi-data-mapper/rpc-type";
 export * from "./rpc-types/mi-data-mapper/types";
+
+export * from "./rpc-types/ai-panel/index";
+export * from "./rpc-types/ai-panel/rpc-type";
+export * from "./rpc-types/ai-panel/types";
