@@ -53,8 +53,14 @@ async function renderAndCheckSnapshot(model: Flow, testName: string) {
         { timeout: 10000 }
     );
 
-    // Additional wait to ensure canvas is fully rendered
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Wait for progress ring to be removed (indicates diagram is fully rendered)
+    await waitFor(
+        () => {
+            const progressRing = dom.container.querySelector('vscode-progress-ring');
+            expect(progressRing).not.toBeInTheDocument();
+        },
+        { timeout: 5000 }
+    );
 
     const prettyDom = prettyDOM(dom.container, 1000000, {
         highlight: false,
@@ -66,12 +72,14 @@ async function renderAndCheckSnapshot(model: Flow, testName: string) {
     expect(prettyDom).toBeTruthy();
 
     // Sanitization: remove dynamic IDs and non-deterministic attributes
-    const sanitizedDom = (prettyDom as string)
-        .replaceAll(/\s+(marker-end|id|data-linkid|data-nodeid)="[^"]*"/g, "")
-        .replaceAll(/\s+(appearance|aria-label|current-value)="[^"]*"/g, "")
-        .replaceAll(/href="#[^"]*"/g, 'href="#DYNAMIC_ID"')
-        // Normalize vscode-button tag formatting
-        .replaceAll(/<vscode-button\s+>/g, "<vscode-button>");
+    function sanitizeDom(domString: string): string {
+        return domString
+            .replace(/\s+(marker-end|id|data-linkid|data-nodeid)="[^"]*"/g, "")
+            .replace(/\s+(appearance|aria-label|current-value)="[^"]*"/g, "")
+            .replace(/href="#[^"]*"/g, 'href="#DYNAMIC_ID"')
+            .replace(/<vscode-button\s+>/g, "<vscode-button>");
+    }
+    const sanitizedDom = sanitizeDom(prettyDom as string);
     expect(sanitizedDom).toMatchSnapshot(testName);
 }
 
