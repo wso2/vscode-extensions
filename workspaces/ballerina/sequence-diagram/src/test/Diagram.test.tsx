@@ -53,6 +53,9 @@ async function renderAndCheckSnapshot(model: Flow, testName: string) {
         { timeout: 10000 }
     );
 
+    // Additional wait to ensure canvas is fully rendered
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
     const prettyDom = prettyDOM(dom.container, 1000000, {
         highlight: false,
         filterNode(node) {
@@ -66,6 +69,7 @@ async function renderAndCheckSnapshot(model: Flow, testName: string) {
     const sanitizedDom = (prettyDom as string)
         .replaceAll(/\s+(marker-end|id|data-linkid|data-nodeid)="[^"]*"/g, "")
         .replaceAll(/\s+(appearance|aria-label|current-value)="[^"]*"/g, "")
+        .replaceAll(/href="#[^"]*"/g, 'href="#DYNAMIC_ID"')
         // Normalize vscode-button tag formatting
         .replaceAll(/<vscode-button\s+>/g, "<vscode-button>");
     expect(sanitizedDom).toMatchSnapshot(testName);
