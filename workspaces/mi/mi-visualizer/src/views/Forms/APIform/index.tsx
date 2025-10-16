@@ -373,7 +373,7 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
         }
 
         const lastHandler = handlers[handlers.length - 1];
-        if (lastHandler.name === "" || lastHandler.properties.length === 0) return;
+        if (lastHandler.name === "") return;
         setValue("handlers", [...handlers, { name: "", properties: [] }], { shouldValidate: true, shouldDirty: true });
     }
 
