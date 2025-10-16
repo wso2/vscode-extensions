@@ -1,0 +1,197 @@
+{
+    "participants": [
+        {
+            "id": "33785",
+            "name": "httpClient",
+            "kind": "ENDPOINT",
+            "moduleName": "test_sample",
+            "location": {
+                "fileName": "connections.bal",
+                "startLine": {
+                    "line": 2,
+                    "offset": 0
+                },
+                "endLine": {
+                    "line": 2,
+                    "offset": 57
+                }
+            },
+            "viewState": {
+                "bBox": {
+                    "x": 440,
+                    "y": 0,
+                    "h": 40,
+                    "w": 160
+                },
+                "xIndex": 2,
+                "lifelineHeight": 99
+            }
+        },
+        {
+            "id": "37174",
+            "name": "get",
+            "kind": "FUNCTION",
+            "moduleName": "test_sample",
+            "nodes": [
+                {
+                    "interactionType": "ENDPOINT_CALL",
+                    "targetId": "33785",
+                    "kind": "INTERACTION",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "value": "get"
+                        },
+                        "expr": {
+                            "type": "http:Client",
+                            "value": "httpClient"
+                        },
+                        "params": [
+                            {
+                                "type": "string",
+                                "value": "\"path\""
+                            }
+                        ],
+                        "value": {
+                            "type": "json|http:ClientError",
+                            "value": "var1"
+                        }
+                    },
+                    "location": {
+                        "fileName": "main.bal",
+                        "startLine": {
+                            "line": 7,
+                            "offset": 30
+                        },
+                        "endLine": {
+                            "line": 7,
+                            "offset": 53
+                        }
+                    },
+                    "viewStates": [
+                        {
+                            "callNodeId": "participant-37174",
+                            "bBox": {
+                                "x": 0,
+                                "y": 0,
+                                "h": 0,
+                                "w": 0
+                            },
+                            "points": {
+                                "start": {
+                                    "bBox": {
+                                        "x": 220,
+                                        "y": 68,
+                                        "h": 20,
+                                        "w": 20
+                                    },
+                                    "participantId": "37174"
+                                },
+                                "end": {
+                                    "bBox": {
+                                        "x": 440,
+                                        "y": 68,
+                                        "h": 20,
+                                        "w": 20
+                                    },
+                                    "participantId": "33785"
+                                },
+                                "returnStart": {
+                                    "bBox": {
+                                        "x": 440,
+                                        "y": 96,
+                                        "h": 20,
+                                        "w": 20
+                                    },
+                                    "participantId": "33785"
+                                },
+                                "returnEnd": {
+                                    "bBox": {
+                                        "x": 220,
+                                        "y": 96,
+                                        "h": 20,
+                                        "w": 20
+                                    },
+                                    "participantId": "37174"
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "kind": "RETURN",
+                    "branches": [],
+                    "properties": {
+                        "value": {
+                            "type": "http:BadRequest"
+                        }
+                    },
+                    "location": {
+                        "fileName": "main.bal",
+                        "startLine": {
+                            "line": 8,
+                            "offset": 12
+                        },
+                        "endLine": {
+                            "line": 11,
+                            "offset": 14
+                        }
+                    }
+                },
+                {
+                    "kind": "RETURN",
+                    "branches": [],
+                    "properties": {
+                        "value": {
+                            "type": "annotations:error"
+                        }
+                    },
+                    "location": {
+                        "fileName": "main.bal",
+                        "startLine": {
+                            "line": 14,
+                            "offset": 12
+                        },
+                        "endLine": {
+                            "line": 14,
+                            "offset": 49
+                        }
+                    }
+                }
+            ],
+            "location": {
+                "fileName": "main.bal",
+                "startLine": {
+                    "line": 5,
+                    "offset": 4
+                },
+                "endLine": {
+                    "line": 16,
+                    "offset": 5
+                }
+            },
+            "viewState": {
+                "bBox": {
+                    "x": 220,
+                    "y": 0,
+                    "h": 40,
+                    "w": 160
+                },
+                "xIndex": 1,
+                "lifelineHeight": 99
+            }
+        }
+    ],
+    "location": {
+        "fileName": "/Users/gayanka/dev/wso2/test/test_sample/main.bal",
+        "startLine": {
+            "line": 5,
+            "offset": 4
+        },
+        "endLine": {
+            "line": 16,
+            "offset": 5
+        }
+    },
+    "others": []
+}
