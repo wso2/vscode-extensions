@@ -65,7 +65,8 @@ import {
     UpdateAiDependenciesRequest,
     RuntimeServiceDetails,
     MavenDeployPluginDetails,
-    ProjectConfig
+    ProjectConfig,
+    DependencyStatusResponse
 } from "@wso2/mi-core";
 import * as https from "https";
 import Mustache from "mustache";
@@ -193,7 +194,13 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     async reloadDependencies(): Promise<boolean> {
         return new Promise(async (resolve) => {
             const langClient = getStateMachine(this.projectUri).context().langClient!;
-            await langClient?.updateConnectorDependencies();
+            const updateDependenciesResult = await langClient?.updateConnectorDependencies();
+            if (!updateDependenciesResult.toLowerCase().startsWith("success")) {
+                await window.showWarningMessage(
+                    updateDependenciesResult,
+                    { modal: true }
+                );
+            }
             await extractCAppDependenciesAsProjects(this.projectUri);
             const loadResult = await langClient?.loadDependentCAppResources();
             if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
@@ -246,6 +253,14 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
             }
 
             resolve(true);
+        });
+    }
+
+    async getDependencyStatusList(): Promise<DependencyStatusResponse> {
+        return new Promise(async (resolve) => {
+            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const res = await langClient.getDependencyStatusList();
+            resolve(res);
         });
     }
 

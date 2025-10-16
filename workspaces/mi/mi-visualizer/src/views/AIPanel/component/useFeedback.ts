@@ -17,7 +17,7 @@
  */
 
 import { useCallback, useState } from 'react';
-import { ChatMessage, CopilotChatEntry } from '../types';
+import { ChatMessage, CopilotChatEntry } from '@wso2/mi-core';
 import { RpcClientType } from '../types';
 import { getConversationHistoryForFeedback, getCopilotChatForFeedback } from './feedbackUtils';
 

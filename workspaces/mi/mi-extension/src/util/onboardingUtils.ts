@@ -88,8 +88,8 @@ export async function setupEnvironment(projectUri: string, isOldProject: boolean
             await updateCarPluginVersion(projectUri);
             const config = vscode.workspace.getConfiguration('MI', vscode.Uri.parse(projectUri));
             const currentState = config.inspect<string>("useLocalMaven");
-            if (currentState?.workspaceValue === undefined) {
-                config.update("useLocalMaven", currentState?.globalValue ?? false, vscode.ConfigurationTarget.Workspace);
+            if (currentState?.workspaceFolderValue === undefined) {
+                config.update("useLocalMaven", currentState?.globalValue ?? false, vscode.ConfigurationTarget.WorkspaceFolder);
             }
             return !isUpdateRequested;
         }
@@ -176,15 +176,12 @@ export function filterConnectorVersion(connectorName: string, connectors: any[] 
     return '';
 }
 
-export function generateInitialDependencies(httpConnectorVersion: string): string {
-    if (!httpConnectorVersion || httpConnectorVersion === '') {
-        return '';
-    }
+export function generateInitialDependencies(): string {
     return `<dependencies>
         <dependency>
             <groupId>org.wso2.integration.connector</groupId>
             <artifactId>mi-connector-http</artifactId>
-            <version>${httpConnectorVersion}</version>
+            <version>0.1.13</version>
             <type>zip</type>
             <exclusions>
                 <exclusion>
