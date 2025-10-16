@@ -5,11 +5,22 @@
 # =============================================================================
 # This script automates the setup of code-server with WSO2 BI extensions
 # 
+# Supported Platforms:
+# - macOS (via Homebrew)
+# - Linux (via install script)
+# - Windows (via WSL, Chocolatey, Scoop, or winget)
+# - Git Bash / MSYS2 / Cygwin
+#
 # Features:
 # 1. Installs code-server if not present
-# 2. Prompts for VSIX file paths
-# 3. Installs extensions to code-server
-# 4. Starts code-server with proper configuration
+# 2. Automatically copies Ballerina VSIX dependency
+# 3. Prompts for VSIX file paths (with smart defaults)
+# 4. Installs extensions to code-server
+# 5. Configures code-server settings
+# 6. Starts code-server with proper configuration
+#
+# Usage:
+#   bash setup-bi-code-server.sh
 # =============================================================================
 
 # Ensure script is run with bash
@@ -38,26 +49,26 @@ WORKSPACE_PATH=""
 
 print_header() {
     echo ""
-    echo -e "${BLUE}============================================${NC}"
-    echo -e "${BLUE}  WSO2 BI Extension Code-Server Setup${NC}"
-    echo -e "${BLUE}============================================${NC}"
+    printf "${BLUE}============================================${NC}\n"
+    printf "${BLUE}  WSO2 BI Extension Code-Server Setup${NC}\n"
+    printf "${BLUE}============================================${NC}\n"
     echo ""
 }
 
 print_step() {
-    echo -e "${YELLOW}[STEP]${NC} $1"
+    printf "${YELLOW}[STEP]${NC} %s\n" "$1"
 }
 
 print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+    printf "${GREEN}[SUCCESS]${NC} %s\n" "$1"
 }
 
 print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    printf "${RED}[ERROR]${NC} %s\n" "$1"
 }
 
 print_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+    printf "${BLUE}[INFO]${NC} %s\n" "$1"
 }
 
 # =============================================================================
@@ -86,10 +97,49 @@ check_and_install_code_server() {
             echo "Visit: https://github.com/coder/code-server#install"
             exit 1
         fi
-    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        # Linux
+    elif [[ "$OSTYPE" == "linux-gnu"* ]] || [[ "$OSTYPE" == "linux" ]]; then
+        # Linux (including WSL)
         print_info "Installing code-server using curl..."
         curl -fsSL https://code-server.dev/install.sh | sh
+    elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "win32" ]] || [[ -n "$WINDIR" ]]; then
+        # Windows (Git Bash, MSYS2, Cygwin, or native Windows)
+        print_info "Windows detected. Installing code-server..."
+        
+        # Check if running in WSL
+        if grep -qi microsoft /proc/version 2>/dev/null; then
+            print_info "WSL detected. Using Linux installation method..."
+            curl -fsSL https://code-server.dev/install.sh | sh
+        # Check for Chocolatey
+        elif command -v choco &> /dev/null; then
+            print_info "Installing code-server using Chocolatey..."
+            choco install code-server -y
+        # Check for Scoop
+        elif command -v scoop &> /dev/null; then
+            print_info "Installing code-server using Scoop..."
+            scoop install code-server
+        # Check for winget (Windows Package Manager)
+        elif command -v winget.exe &> /dev/null || command -v winget &> /dev/null; then
+            print_info "Installing code-server using winget..."
+            winget install -e --id coder.code-server
+        else
+            print_error "No supported package manager found (Chocolatey, Scoop, or winget)."
+            echo ""
+            echo "Please install code-server manually using one of these methods:"
+            echo ""
+            echo "1. Using npm (if Node.js is installed):"
+            echo "   npm install --global code-server"
+            echo ""
+            echo "2. Using Chocolatey:"
+            echo "   choco install code-server"
+            echo ""
+            echo "3. Using Scoop:"
+            echo "   scoop install code-server"
+            echo ""
+            echo "4. Download standalone binary:"
+            echo "   Visit: https://github.com/coder/code-server/releases"
+            echo ""
+            exit 1
+        fi
     else
         print_error "Unsupported operating system: $OSTYPE"
         echo "Please install code-server manually: https://github.com/coder/code-server#install"
@@ -120,6 +170,24 @@ get_vsix_paths() {
     # Default path to VSIX directory (in bi-extension's vsix folder)
     DEFAULT_VSIX_DIR="$BI_EXTENSION_ROOT/vsix"
     
+    # Automatically copy Ballerina VSIX if not present
+    echo ""
+    print_info "Checking for Ballerina VSIX in $DEFAULT_VSIX_DIR..."
+    BALLERINA_VSIX_CHECK=$(find "$DEFAULT_VSIX_DIR" -maxdepth 1 -name "ballerina-*.vsix" -type f 2>/dev/null | grep -v "ballerina-integrator" | head -n 1)
+    
+    if [[ -z "$BALLERINA_VSIX_CHECK" ]]; then
+        print_info "Ballerina VSIX not found. Running 'pnpm run copy-ballerina-ext'..."
+        if command -v pnpm &> /dev/null; then
+            (cd "$BI_EXTENSION_ROOT" && pnpm run copy-ballerina-ext) || {
+                print_error "Failed to copy Ballerina VSIX. Please ensure the Ballerina extension is built."
+            }
+        else
+            print_error "pnpm not found. Please install pnpm or copy the Ballerina VSIX manually."
+        fi
+    else
+        print_success "Ballerina VSIX already present: $BALLERINA_VSIX_CHECK"
+    fi
+    
     # Get Ballerina VSIX path
     while true; do
         echo ""
@@ -134,7 +202,7 @@ get_vsix_paths() {
                     print_info "Using default Ballerina VSIX: $BALLERINA_VSIX_PATH"
                 else
                     print_error "No Ballerina VSIX file found in default location: $DEFAULT_VSIX_DIR"
-                    print_info "Please run 'pnpm run copy-balerina-ext' to copy the Ballerina VSIX file."
+                    print_info "Please ensure the Ballerina extension is built in the workspace."
                     continue
                 fi
             else
@@ -404,18 +472,18 @@ start_code_server() {
     fi
     
     echo ""
-    echo -e "${GREEN}🚀 CODE-SERVER READY!${NC}"
-    echo -e "${GREEN}===========================================${NC}"
-    echo -e "${GREEN}1. Open your web browser${NC}"
-    echo -e "${GREEN}2. Navigate to: ${BLUE}http://$SERVER_HOST:$SERVER_PORT/?folder=$WORKSPACE_PATH${NC}"
+    printf "${GREEN}🚀 CODE-SERVER READY!${NC}\n"
+    printf "${GREEN}===========================================${NC}\n"
+    printf "${GREEN}1. Open your web browser${NC}\n"
+    printf "${GREEN}2. Navigate to: ${BLUE}http://%s:%s/?folder=%s${NC}\n" "$SERVER_HOST" "$SERVER_PORT" "$WORKSPACE_PATH"
     
     if [[ "$AUTH_TYPE" == "none" ]]; then
-        echo -e "${GREEN}3. No password required! 🎉${NC}"
+        printf "${GREEN}3. No password required! 🎉${NC}\n"
     elif [[ -n "$PASSWORD" ]]; then
-        echo -e "${GREEN}3. Enter password: ${YELLOW}$PASSWORD${NC}"
+        printf "${GREEN}3. Enter password: ${YELLOW}%s${NC}\n" "$PASSWORD"
     fi
     
-    echo -e "${GREEN}4. Your WSO2 BI extensions are ready to use!${NC}"
+    printf "${GREEN}4. Your WSO2 BI extensions are ready to use!${NC}\n"
     echo ""
     print_success "Code-server running... Press Ctrl+C to stop."
     echo ""
@@ -464,7 +532,7 @@ main() {
 # =============================================================================
 
 # Handle Ctrl+C gracefully
-trap 'echo -e "\n${YELLOW}Script interrupted by user${NC}"; exit 0' INT
+trap 'printf "\n${YELLOW}Script interrupted by user${NC}\n"; exit 0' INT
 
 # Check if running as source
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
