@@ -1035,7 +1035,7 @@
     "@types/json-schema": "7.0.15",
     "json-schema": "0.4.0",
     "portfinder": "^1.0.37",
-    "express": "^4.18.2",
+    "express": "^5.1.0",
     "@apidevtools/json-schema-ref-parser": "12.0.2",
     "adm-zip": "~0.5.16",
     "@wso2/mi-diagram": "workspace:*",
