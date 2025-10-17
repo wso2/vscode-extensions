@@ -138,15 +138,15 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
             const workspaceFolderOfPackage = vscode
                 .workspace
                 .workspaceFolders
-                .find(folder => folder.uri.fsPath === stateContext.projectUri);
+                .find(folder => folder.uri.fsPath === stateContext.projectPath);
 
             let packageName = workspaceFolderOfPackage?.name;
             let packagePath = workspaceFolderOfPackage?.uri.fsPath;
 
             if (!workspaceFolderOfPackage) {
                 if (ballerinaWorkspace) {
-                    packageName = path.basename(Uri.parse(stateContext.projectUri).path);
-                    packagePath = stateContext.projectUri;
+                    packageName = path.basename(Uri.parse(stateContext.projectPath).path);
+                    packagePath = stateContext.projectPath;
                 } else {
                     return [];
                 }
