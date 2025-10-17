@@ -16,8 +16,8 @@
  * under the License.
  */
 import React from "react";
-import type { Meta, StoryObj } from '@storybook/react-vite';
-import { LinkButton } from "./LinkButton";
+import type { Meta, StoryObj } from '@storybook/react';
+import {  LinkButton , LinkButtonProps } from "./LinkButton";
 import { Codicon } from "../Codicon/Codicon";
 
 const meta = {
@@ -32,7 +32,7 @@ export const SampleLinkButton: Story = {
     args: {
         onClick: () => { console.log("Button Clicked"); }
     },
-    render: args => (
+    render: (args: LinkButtonProps) => (
         <LinkButton {...args}>
             <Codicon name="add"/>
             <>Sample Link Button</>

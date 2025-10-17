@@ -17,7 +17,7 @@
  */
 
 import React from "react";
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { BreadcrumbProps, Breadcrumbs } from "./Breadcrumb";
 import { Codicon } from "../Codicon/Codicon";
 
