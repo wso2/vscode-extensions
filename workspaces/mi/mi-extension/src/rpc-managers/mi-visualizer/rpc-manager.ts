@@ -200,24 +200,63 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
             if (!updateDependenciesResult.toLowerCase().startsWith("success")) {
                 reloadDependenciesResult = false;
                 
-                // Extract failed connectors from the message
-                const failedConnectorsMatch = updateDependenciesResult.match(/Some connectors were not downloaded:\s*(.+)/);
-                if (failedConnectorsMatch && failedConnectorsMatch[1]) {
-                    const failedConnectorsStr = failedConnectorsMatch[1].trim();
-                    const failedConnectors = failedConnectorsStr.split(',').map(c => c.trim());
-                    
+                const connectorsNotDownloaded: string[] = [];
+                const unavailableDependencies: string[] = [];
+                const missingDescriptorDependencies: string[] = [];
+                
+                // Extract connectors not downloaded
+                const connectorsMatch = updateDependenciesResult.match(/Some connectors were not downloaded:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/);
+                if (connectorsMatch && connectorsMatch[1]) {
+                    const cleanedList = connectorsMatch[1].replace(/\.$/, '').trim(); 
+                    connectorsNotDownloaded.push(...cleanedList.split(',').map(c => c.trim()).filter(c => c.length > 0));
+                }
+                
+                // Extract unavailable integration project dependencies
+                const unavailableMatch = updateDependenciesResult.match(/Following integration project dependencies were unavailable:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/);
+                if (unavailableMatch && unavailableMatch[1]) {
+                    const cleanedList = unavailableMatch[1].replace(/\.$/, '').trim(); 
+                    unavailableDependencies.push(...cleanedList.split(',').map(c => c.trim()).filter(c => c.length > 0));
+                }
+                
+                // Extract dependencies without descriptor file
+                const missingDescriptorMatch = updateDependenciesResult.match(/Following dependencies do not contain the descriptor file:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/);
+                if (missingDescriptorMatch && missingDescriptorMatch[1]) {
+                    const cleanedList = missingDescriptorMatch[1].replace(/\.$/, '').trim(); 
+                    missingDescriptorDependencies.push(...cleanedList.split(',').map(c => c.trim()).filter(c => c.length > 0));
+                }
+                
+                const allFailedDependencies = [
+                    ...connectorsNotDownloaded,
+                    ...unavailableDependencies,
+                    ...missingDescriptorDependencies
+                ];
+                
+                if (allFailedDependencies.length > 0) {
                     if (params?.newDependencies && params.newDependencies.length > 0) {
-                        // Check if any failed connector matches a dependency in newDependencies
-                        const hasMatchingFailedDependency = failedConnectors.some(failedConnector => {
+                        const hasMatchingFailedDependency = allFailedDependencies.some(failedDependency => {
                             return params.newDependencies.some(newDep => {
                                 const dependencyString = `${newDep.groupId}-${newDep.artifact}-${newDep.version}`;
-                                return dependencyString === failedConnector;
+                                return dependencyString === failedDependency;
                             });
                         });
 
                         if (hasMatchingFailedDependency) {
+                            const newDep = params.newDependencies[0];
+                            const dependencyString = `${newDep.groupId}-${newDep.artifact}-${newDep.version}`;
+                            
+                            let warningMessage = "";
+                            if (connectorsNotDownloaded.includes(dependencyString)) {
+                                warningMessage = "The connector was not downloaded.";
+                            } else if (unavailableDependencies.includes(dependencyString)) {
+                                warningMessage = "The integration project dependency is unavailable.";
+                            } else if (missingDescriptorDependencies.includes(dependencyString)) {
+                                warningMessage = "The dependency does not contain the descriptor file.";
+                            } else {
+                                warningMessage = "The dependency could not be downloaded.";
+                            }
+                            
                             await window.showWarningMessage(
-                                "Some connectors were not downloaded.",
+                                warningMessage,
                                 { modal: true }
                             );
 
@@ -225,6 +264,7 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                             const existingDependencies = projectDetails.dependencies || [];
                             const allExistingDeps = [
                                 ...(existingDependencies.connectorDependencies || []),
+                                ...(existingDependencies.integrationProjectDependencies || []),
                                 ...(existingDependencies.otherDependencies || [])
                             ];
 
@@ -232,7 +272,7 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                             const dependenciesToRemove = params.newDependencies
                                 .filter(newDep => {
                                     const dependencyString = `${newDep.groupId}-${newDep.artifact}-${newDep.version}`;
-                                    return failedConnectors.includes(dependencyString);
+                                    return allFailedDependencies.includes(dependencyString);
                                 })
                                 .map(newDep => {
                                     const existingDep = allExistingDeps.find(existing =>
