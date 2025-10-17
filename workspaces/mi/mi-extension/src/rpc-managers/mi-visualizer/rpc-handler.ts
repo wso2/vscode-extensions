@@ -92,6 +92,7 @@ import {
     setDeployPlugin,
     getDeployPluginDetails,
     removeDeployPlugin,
+    ReloadDependenciesRequest,
     getDependencyStatusList
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
@@ -132,7 +133,7 @@ export function registerMiVisualizerRpcHandlers(messenger: Messenger, projectUri
     messenger.onRequest(getSupportedMIVersionsHigherThan, (args: string) => rpcManger.getSupportedMIVersionsHigherThan(args));
     messenger.onRequest(getProjectDetails, () => rpcManger.getProjectDetails());
     messenger.onRequest(updateProperties, (args: UpdatePropertiesRequest) => rpcManger.updateProperties(args));
-    messenger.onRequest(reloadDependencies, () => rpcManger.reloadDependencies());
+    messenger.onRequest(reloadDependencies, (args?: ReloadDependenciesRequest) => rpcManger.reloadDependencies(args));
     messenger.onRequest(updateDependencies, (args: UpdateDependenciesRequest) => rpcManger.updateDependencies(args));
     messenger.onRequest(updatePomValues, (args: UpdatePomValuesRequest) => rpcManger.updatePomValues(args));
     messenger.onRequest(updateConfigFileValues, (args: UpdateConfigValuesRequest) => rpcManger.updateConfigFileValues(args));

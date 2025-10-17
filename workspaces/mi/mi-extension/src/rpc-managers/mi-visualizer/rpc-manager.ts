@@ -66,6 +66,7 @@ import {
     RuntimeServiceDetails,
     MavenDeployPluginDetails,
     ProjectConfig,
+    ReloadDependenciesRequest,
     DependencyStatusResponse
 } from "@wso2/mi-core";
 import * as https from "https";
@@ -189,27 +190,125 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     /**
      * Reloads the dependencies for the current integration project.
      *
+     * @param params - An object containing the parameters for reloading dependencies.
      * @returns {Promise<boolean>} A promise that resolves to `true` when all dependency reload operations are complete.
      */
-    async reloadDependencies(): Promise<boolean> {
+    async reloadDependencies(params?: ReloadDependenciesRequest): Promise<boolean> {
         return new Promise(async (resolve) => {
+            let reloadDependenciesResult = true;
             const langClient = getStateMachine(this.projectUri).context().langClient!;
             const updateDependenciesResult = await langClient?.updateConnectorDependencies();
             if (!updateDependenciesResult.toLowerCase().startsWith("success")) {
-                await window.showWarningMessage(
-                    updateDependenciesResult,
-                    { modal: true }
-                );
+                reloadDependenciesResult = false;
+                
+                const connectorsNotDownloaded: string[] = [];
+                const unavailableDependencies: string[] = [];
+                const missingDescriptorDependencies: string[] = [];
+                
+                // Extract connectors not downloaded
+                const connectorsMatch = updateDependenciesResult.match(/Some connectors were not downloaded:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/);
+                if (connectorsMatch && connectorsMatch[1]) {
+                    const cleanedList = connectorsMatch[1].replace(/\.$/, '').trim(); 
+                    connectorsNotDownloaded.push(...cleanedList.split(',').map(c => c.trim()).filter(c => c.length > 0));
+                }
+                
+                // Extract unavailable integration project dependencies
+                const unavailableMatch = updateDependenciesResult.match(/Following integration project dependencies were unavailable:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/);
+                if (unavailableMatch && unavailableMatch[1]) {
+                    const cleanedList = unavailableMatch[1].replace(/\.$/, '').trim(); 
+                    unavailableDependencies.push(...cleanedList.split(',').map(c => c.trim()).filter(c => c.length > 0));
+                }
+                
+                // Extract dependencies without descriptor file
+                const missingDescriptorMatch = updateDependenciesResult.match(/Following dependencies do not contain the descriptor file:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/);
+                if (missingDescriptorMatch && missingDescriptorMatch[1]) {
+                    const cleanedList = missingDescriptorMatch[1].replace(/\.$/, '').trim(); 
+                    missingDescriptorDependencies.push(...cleanedList.split(',').map(c => c.trim()).filter(c => c.length > 0));
+                }
+                
+                const allFailedDependencies = [
+                    ...connectorsNotDownloaded,
+                    ...unavailableDependencies,
+                    ...missingDescriptorDependencies
+                ];
+                
+                if (allFailedDependencies.length > 0) {
+                    if (params?.newDependencies && params.newDependencies.length > 0) {
+                        const hasMatchingFailedDependency = allFailedDependencies.some(failedDependency => {
+                            return params.newDependencies.some(newDep => {
+                                const dependencyString = `${newDep.groupId}-${newDep.artifact}-${newDep.version}`;
+                                return dependencyString === failedDependency;
+                            });
+                        });
+
+                        if (hasMatchingFailedDependency) {
+                            const newDep = params.newDependencies[0];
+                            const dependencyString = `${newDep.groupId}-${newDep.artifact}-${newDep.version}`;
+                            
+                            let warningMessage = "";
+                            if (connectorsNotDownloaded.includes(dependencyString)) {
+                                warningMessage = "The connector was not downloaded.";
+                            } else if (unavailableDependencies.includes(dependencyString)) {
+                                warningMessage = "The integration project dependency is unavailable.";
+                            } else if (missingDescriptorDependencies.includes(dependencyString)) {
+                                warningMessage = "The dependency does not contain the descriptor file.";
+                            } else {
+                                warningMessage = "The dependency could not be downloaded.";
+                            }
+                            
+                            await window.showWarningMessage(
+                                warningMessage,
+                                { modal: true }
+                            );
+
+                            const projectDetails = await langClient.getProjectDetails();
+                            const existingDependencies = projectDetails.dependencies || [];
+                            const allExistingDeps = [
+                                ...(existingDependencies.connectorDependencies || []),
+                                ...(existingDependencies.integrationProjectDependencies || []),
+                                ...(existingDependencies.otherDependencies || [])
+                            ];
+
+                            // Find and remove failed dependencies that are in newDependencies
+                            const dependenciesToRemove = params.newDependencies
+                                .filter(newDep => {
+                                    const dependencyString = `${newDep.groupId}-${newDep.artifact}-${newDep.version}`;
+                                    return allFailedDependencies.includes(dependencyString);
+                                })
+                                .map(newDep => {
+                                    const existingDep = allExistingDeps.find(existing =>
+                                        existing.groupId === newDep.groupId &&
+                                        existing.artifact === newDep.artifact &&
+                                        existing.version === newDep.version
+                                    );
+                                    return existingDep;
+                                })
+                                .filter(dep => dep); 
+
+                            if (dependenciesToRemove.length > 0) {
+                                await this.updatePomValues({
+                                    pomValues: dependenciesToRemove.map(dep => ({ range: dep.range, value: '' }))
+                                });
+                            }
+                        }
+                    }
+                }
             }
-            await extractCAppDependenciesAsProjects(this.projectUri);
-            const loadResult = await langClient?.loadDependentCAppResources();
-            if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
-                await window.showWarningMessage(
-                    loadResult,
-                    { modal: true }
-                );
+            
+            try {
+                await extractCAppDependenciesAsProjects(this.projectUri);
+                const loadResult = await langClient?.loadDependentCAppResources();
+                if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
+                    await window.showWarningMessage(
+                        loadResult,
+                        { modal: true }
+                    );
+                }
+            } catch (error) {
+                console.error("Error extracting CApp dependencies:", error);
             }
-            resolve(true);
+            
+            resolve(reloadDependenciesResult);
         });
     }
 
