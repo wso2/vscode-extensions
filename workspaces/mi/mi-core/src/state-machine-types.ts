@@ -106,7 +106,7 @@ export enum AI_MACHINE_VIEW {
 
 export type MachineStateValue =
     | 'initialize' | 'projectDetected' | 'oldProjectDetected' | 'oldWorkspaceDetected' | 'LSInit' | 'ready' | 'disabled'
-    | { ready: 'viewReady' } | { ready: 'viewEditing' }
+    | { ready: 'viewReady' } | { ready: 'viewEditing' } | { ready: 'resolveMissingDependencies' }
     | { newProject: 'viewReady' }| { environmentSetup: 'viewReady' };
 
 export type AIMachineStateValue = 'Initialize' | 'loggedOut' | 'Ready' | 'WaitingForLogin' | 'Executing' | 'updateExtension' | 'disabled' | 'notSupported';
