@@ -1,0 +1,27 @@
+<?xml version="1.0" standalone="no"?>
+<!--
+ ~ Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ ~
+ ~ WSO2 LLC. licenses this file to you under the Apache License,
+ ~ Version 2.0 (the "License"); you may not use this file except
+ ~ in compliance with the License.
+ ~ You may obtain a copy of the License at
+ ~
+ ~     http://www.apache.org/licenses/LICENSE-2.0
+ ~
+ ~ Unless required by applicable law or agreed to in writing,
+ ~ software distributed under the License is distributed on an
+ ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ ~ KIND, either express or implied. See the License for the
+ ~ specific language governing permissions and limitations
+ ~ under the License.
+-->
+<svg width="14" height="15" viewBox="0 0 14 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+        d="M11.6 6.5c-.599 0-1 .44-1 .9s.401.9 1 .9c.479 0 .9-.42.9-.9s-.421-.9-.9-.9m-1.8.9c0-.94.799-1.7 1.8-1.7.92 0 1.7.78 1.7 1.7s-.78 1.7-1.7 1.7c-1.001 0-1.8-.76-1.8-1.7m1.8 4.3c-.599 0-1 .44-1 .9s.401.9 1 .9c.479 0 .9-.42.9-.9s-.421-.9-.9-.9m-1.8.9c0-.94.799-1.7 1.8-1.7.92 0 1.7.78 1.7 1.7s-.78 1.7-1.7 1.7c-1.001 0-1.8-.76-1.8-1.7M2.5 1.3c-.599 0-1 .44-1 .9s.401.9 1 .9c.479 0 .9-.42.9-.9s-.421-.9-.9-.9m-1.8.9c0-.94.799-1.7 1.8-1.7.92 0 1.7.78 1.7 1.7s-.78 1.7-1.7 1.7C1.499 3.9.7 3.14.7 2.2m1.8 4.3c-.599 0-1 .44-1 .9s.401.9 1 .9c.479 0 .9-.42.9-.9s-.421-.9-.9-.9m-1.8.9c0-.94.799-1.7 1.8-1.7.92 0 1.7.78 1.7 1.7s-.78 1.7-1.7 1.7C1.499 9.1.7 8.34.7 7.4"
+        fill="#000" />
+    <path d="M3.4 7.4a.4.4 0 0 1 .4-.4h6.4a.4.4 0 0 1 0 .8H3.8a.4.4 0 0 1-.4-.4" fill="#000" />
+    <path
+        d="M3.4 2.2a.4.4 0 0 1 .4-.4v.4-.4h.02a1 1 0 0 1 .164.013c.104.012.249.036.42.082.344.093.797.278 1.248.645C6.57 3.285 7.4 4.714 7.4 7.4c0 2.407.766 3.585 1.458 4.17.353.297.704.456.965.54a2.3 2.3 0 0 0 .386.09h.017a.4.4 0 0 1-.051.8l.025-.4-.025.4h-.001l-.002-.001h-.004l-.012-.001-.038-.004-.124-.018a3 3 0 0 1-.417-.105 3.7 3.7 0 0 1-1.235-.69C7.434 11.415 6.6 9.993 6.6 7.4c0-2.514-.77-3.685-1.452-4.24a2.6 2.6 0 0 0-.953-.493 2 2 0 0 0-.38-.066L3.798 2.6h-.002.002a.4.4 0 0 1-.399-.4m6.826 10"
+        fill="#000" />
+</svg>
