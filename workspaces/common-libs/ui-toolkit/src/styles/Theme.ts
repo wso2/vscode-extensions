@@ -65,7 +65,15 @@ export enum VSCodeColors {
 
     HIGHLIGHT = "var(--vscode-contrastActiveBorder, var(--vscode-button-background))",
 
-    FOCUS_BORDER = "var(--vscode-focusBorder)"
+    FOCUS_BORDER = "var(--vscode-focusBorder)",
+
+    PANEL_BORDER = "var(--vscode-panel-border)",
+
+    FONT_FAMILY = "var(--vscode-font-family)",
+
+    CHARTS_GREEN = "var(--vscode-charts-green)",
+    CHARTS_RED = "var(--vscode-charts-red)",
+    CHARTS_BLUE = "var(--vscode-charts-blue)"
 }
 
 export const ThemeColors = {

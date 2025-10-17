@@ -66,7 +66,8 @@ import {
     RuntimeServiceDetails,
     MavenDeployPluginDetails,
     ProjectConfig,
-    ReloadDependenciesRequest
+    ReloadDependenciesRequest,
+    DependencyStatusResponse
 } from "@wso2/mi-core";
 import * as https from "https";
 import Mustache from "mustache";
@@ -345,6 +346,14 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
             }
 
             resolve(true);
+        });
+    }
+
+    async getDependencyStatusList(): Promise<DependencyStatusResponse> {
+        return new Promise(async (resolve) => {
+            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const res = await langClient.getDependencyStatusList();
+            resolve(res);
         });
     }
 
