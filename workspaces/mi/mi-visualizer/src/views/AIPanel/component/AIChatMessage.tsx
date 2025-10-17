@@ -29,8 +29,8 @@ import {
 import { CodeSegment } from "./CodeSegment";
 import { splitContent } from "../utils";
 import { useMICopilotContext } from "./MICopilotContext";
-import { MarkdownRendererProps, ChatMessage, CopilotChatEntry } from "../types";
-import { Role, MessageType } from "../types";
+import { MarkdownRendererProps } from "../types";
+import { Role, MessageType, ChatMessage, CopilotChatEntry } from "@wso2/mi-core";
 import Attachments from "./Attachments";
 import FeedbackBar from "./FeedbackBar";
 
@@ -182,7 +182,7 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
             {message.role === Role.MICopilot && 
              message.type === MessageType.AssistantMessage && 
              !backendRequestTriggered &&
-             index === messages.length - 2 && (
+             index === messages.length - 1 && (
                 <FeedbackBar
                     messageIndex={index}
                     onFeedback={handleFeedback}

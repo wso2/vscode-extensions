@@ -155,6 +155,11 @@ export interface DependenciesDetails {
     otherDependencies: DependencyDetails[];
 }
 
+export interface DependencyStatusResponse {
+    downloadedDependencies: DependencyDetails[];
+    pendingDependencies: DependencyDetails[];
+}
+
 export interface PropertyDetails {
     name: string;
     value: string;

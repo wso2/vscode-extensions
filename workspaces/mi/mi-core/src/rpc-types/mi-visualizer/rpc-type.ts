@@ -54,7 +54,8 @@ import {
     UpdateAiDependenciesRequest,
     ProjectConfig,
     MavenDeployPluginDetails,
-    ReloadDependenciesRequest
+    ReloadDependenciesRequest,
+    DependencyStatusResponse
 } from "./types";
 import { GettingStartedData, SampleDownloadRequest } from "./types";
 import { RequestType, NotificationType } from "vscode-messenger-common";
@@ -100,6 +101,7 @@ export const updateDependencies: RequestType<UpdateDependenciesRequest, boolean>
 export const updatePomValues: RequestType<UpdatePomValuesRequest, boolean> = { method: `${_preFix}/updatePomValues` };
 export const updateConfigFileValues: RequestType<UpdateConfigValuesRequest, boolean> = { method: `${_preFix}/updateConfigFileValues` };
 export const updateConnectorDependencies: RequestType<void, string> = { method: `${_preFix}/updateConnectorDependencies` };
+export const getDependencyStatusList: RequestType<void, DependencyStatusResponse> = { method: `${_preFix}/getDependencyStatusList` };
 export const updateDependenciesFromOverview: RequestType<UpdateDependenciesRequest, boolean> = { method: `${_preFix}/updateDependenciesFromOverview` };
 export const getProjectSetupDetails: RequestType<void, SetupDetails> = { method: `${_preFix}/getProjectSetupDetails` };
 export const updateRuntimeVersionsInPom: RequestType<string, boolean> = { method: `${_preFix}/updateRuntimeVersionsInPom` };
