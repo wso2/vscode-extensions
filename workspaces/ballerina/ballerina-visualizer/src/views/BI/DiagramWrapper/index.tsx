@@ -24,7 +24,7 @@ import { BISequenceDiagram } from "../SequenceDiagram";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { TopNavigationBar } from "../../../components/TopNavigationBar";
 import { TitleBar } from "../../../components/TitleBar";
-import { EVENT_TYPE, FOCUS_FLOW_DIAGRAM_VIEW, FocusFlowDiagramView, ParentMetadata } from "@wso2/ballerina-core";
+import { EVENT_TYPE, FOCUS_FLOW_DIAGRAM_VIEW, FocusFlowDiagramView, ParentMetadata, NodePosition } from "@wso2/ballerina-core";
 import { VisualizerLocation } from "@wso2/ballerina-core";
 import { MACHINE_VIEW } from "@wso2/ballerina-core";
 import styled from "@emotion/styled";
@@ -178,6 +178,7 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
     const [basePath, setBasePath] = useState("");
     const [listener, setListener] = useState("");
     const [parentMetadata, setParentMetadata] = useState<ParentMetadata>();
+    const [currentPosition, setCurrentPosition] = useState<NodePosition>();
 
     useEffect(() => {
         rpcClient.getVisualizerLocation().then((location) => {
@@ -232,7 +233,7 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
         setLoadingDiagram(true);
     };
 
-    const handleReadyDiagram = (fileName?: string, parentMetadata?: ParentMetadata) => {
+    const handleReadyDiagram = (fileName?: string, parentMetadata?: ParentMetadata, position?: NodePosition) => {
         setLoadingDiagram(false);
         if (fileName) {
             setFileName(fileName);
@@ -240,22 +241,26 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
         if (parentMetadata) {
             setParentMetadata(parentMetadata);
         }
+        if (position) {
+            setCurrentPosition(position);
+        }
     };
 
-    const handleEdit = (fileUri?: string) => {
+    const handleEdit = (fileUri?: string, position?: NodePosition) => {
         const context: VisualizerLocation = {
             view:
                 view === FOCUS_FLOW_DIAGRAM_VIEW.NP_FUNCTION
                     ? MACHINE_VIEW.BINPFunctionForm
-                    : MACHINE_VIEW.BIFunctionForm,
+                    : parentMetadata?.isServiceFunction ? 
+                        MACHINE_VIEW.ServiceFunctionForm : MACHINE_VIEW.BIFunctionForm,
             identifier: parentMetadata?.label || "",
             documentUri: fileUri,
+            position: position || currentPosition
         };
         rpcClient.getVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: context });
     };
 
     let isAutomation = parentMetadata?.kind === "Function" && parentMetadata?.label === "main";
-    let isFunction = parentMetadata?.kind === "Function" && parentMetadata?.label !== "main";
     let isResource = parentMetadata?.kind === "Resource";
     let isRemote = parentMetadata?.kind === "Remote Function";
     let isAgent = parentMetadata?.kind === "AI Chat Agent" && parentMetadata?.label === "chat";
@@ -336,7 +341,7 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
 
         if (parentMetadata && !isResource && !isRemote) {
             return (
-                <ActionButton id="bi-edit" appearance="secondary" onClick={() => handleEdit(fileName)}>
+                <ActionButton id="bi-edit" appearance="secondary" onClick={() => handleEdit(fileName, currentPosition)}>
                     <Icon name="bi-edit" sx={{ marginRight: 5, width: 16, height: 16, fontSize: 14 }} />
                     Edit
                 </ActionButton>
