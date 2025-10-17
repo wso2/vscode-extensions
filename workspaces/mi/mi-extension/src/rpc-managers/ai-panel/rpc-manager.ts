@@ -282,8 +282,13 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 // Send final response
                 this.eventHandler.handleEnd(assistantResponse);
 
-                // Run code diagnostics on the generated response
-                await this.handleCodeDiagnostics(assistantResponse);
+                // Run code diagnostics on the generated response only for runtime versions > 4.4.0
+                const runtimeVersion = await getMIVersionFromPom(this.projectUri);
+                const shouldRunDiagnostics = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_VERSION_440) > 0 : false;
+                
+                if (shouldRunDiagnostics) {
+                    await this.handleCodeDiagnostics(assistantResponse);
+                }
 
             } else {
                 // Fallback: non-streaming response
