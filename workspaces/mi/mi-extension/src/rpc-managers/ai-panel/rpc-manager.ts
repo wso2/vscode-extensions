@@ -39,13 +39,16 @@ import {
     refreshUserAccessToken
 } from "./utils";
 import { CopilotEventHandler } from "./event-handler";
+import { MiDiagramRpcManager } from "../mi-diagram/rpc-manager";
 
 export class MIAIPanelRpcManager implements MIAIPanelAPI {
     private eventHandler: CopilotEventHandler;
     private currentController: AbortController | null = null;
+    private miDiagramRpcManager: MiDiagramRpcManager;
 
     constructor(private projectUri: string) {
         this.eventHandler = this.createEventHandler();
+        this.miDiagramRpcManager = new MiDiagramRpcManager(this.projectUri);
     }
 
     async getBackendRootUrl(): Promise<GetBackendRootUrlResponse> {
@@ -341,10 +344,25 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 throw new Error('Language client not available');
             }
 
+            // Track connectors that were added so we can remove them later
+            let added_connectors: string[] = [];
+
             // Get diagnostics for each XML file
             let hasAnyDiagnostics = false;
             const diagnosticsResults: Array<{fileName: string, diagnostics: any[]}> = [];
             for (const xmlCode of xmlCodes) {
+                // Check if the XML code contains a connector and add it temporarily
+                const connectorMatch = xmlCode.code.match(/<(\w+\.\w+)\b/);
+                if (connectorMatch) {
+                    const tagParts = connectorMatch[1].split('.');
+                    const connectorName = tagParts[0];
+                    const add_response = await this.miDiagramRpcManager.fetchConnectors(connectorName, 'add');
+                    if (add_response?.dependenciesResponse) {
+                        added_connectors.push(connectorName);
+                    }
+                }
+
+                // Get diagnostics from language client
                 const res = await langClient.getCodeDiagnostics(xmlCode);
                 diagnosticsResults.push({
                     fileName: xmlCode.fileName,
@@ -352,6 +370,13 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 });
                 if (res.diagnostics.length > 0) {
                     hasAnyDiagnostics = true;
+                }
+            }
+
+            // Remove temporarily added connectors
+            if (added_connectors.length > 0) {
+                for (const connector of added_connectors) {
+                    await this.miDiagramRpcManager.fetchConnectors(connector, 'remove');
                 }
             }
 
