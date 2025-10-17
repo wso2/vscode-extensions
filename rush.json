@@ -607,6 +607,6 @@
       "packageName": "api-designer",
       "projectFolder": "workspaces/api-designer/api-designer-extension",
       "versionPolicyName": "api-designer-extension"
-    },
+    }
   ]
 }
