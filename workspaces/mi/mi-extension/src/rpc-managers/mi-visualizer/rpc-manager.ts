@@ -293,14 +293,20 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                     }
                 }
             }
-            await extractCAppDependenciesAsProjects(this.projectUri);
-            const loadResult = await langClient?.loadDependentCAppResources();
-            if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
-                await window.showWarningMessage(
-                    loadResult,
-                    { modal: true }
-                );
+            
+            try {
+                await extractCAppDependenciesAsProjects(this.projectUri);
+                const loadResult = await langClient?.loadDependentCAppResources();
+                if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
+                    await window.showWarningMessage(
+                        loadResult,
+                        { modal: true }
+                    );
+                }
+            } catch (error) {
+                console.error("Error extracting CApp dependencies:", error);
             }
+            
             resolve(reloadDependenciesResult);
         });
     }
