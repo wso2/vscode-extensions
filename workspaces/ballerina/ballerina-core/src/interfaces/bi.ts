@@ -185,6 +185,7 @@ export type CodeData = {
     kind?: string;
     originalName?: string;
     dependentProperty?: string[];
+    data?: { [key: string]: CodeData | string };
 };
 
 export type Branch = {
@@ -332,9 +333,11 @@ export type NodePropertyKey =
     | "parameters"
     | "path"
     | "patterns"
+    | "permittedTools"
     | "prompt"
     | "query"
     | "scope"
+    | "serverUrl"
     | "sessionId"
     | "size"
     | "statement"
@@ -404,6 +407,7 @@ export type NodeKind =
     | "DATA_LOADERS"
     | "CHUNKER"
     | "CHUNKERS"
+    | "MCP_TOOL_KIT"
     | "NEW_CONNECTION"
     | "NEW_DATA"
     | "NP_FUNCTION"

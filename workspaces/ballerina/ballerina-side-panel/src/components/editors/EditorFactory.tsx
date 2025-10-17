@@ -59,11 +59,7 @@ interface FormFieldEditorProps {
     onIdentifierEditingStateChange?: (isEditing: boolean) => void;
     setSubComponentEnabled?: (isAdding: boolean) => void;
     handleNewTypeSelected?: (type: string | CompletionItem) => void;
-
     scopeFieldAddon?: React.ReactNode;
-    newServerUrl?: string;
-    mcpTools?: { name: string; description?: string }[];
-    onToolsChange?: (selectedTools: string[]) => void;
 }
 
 export const EditorFactory = (props: FormFieldEditorProps) => {
@@ -80,8 +76,7 @@ export const EditorFactory = (props: FormFieldEditorProps) => {
         onIdentifierEditingStateChange,
         setSubComponentEnabled,
         handleNewTypeSelected,
-        scopeFieldAddon,
-        newServerUrl
+        scopeFieldAddon
     } = props;
     if (!field.enabled || field.hidden) {
         return <></>;
@@ -114,17 +109,10 @@ export const EditorFactory = (props: FormFieldEditorProps) => {
     } else if (field.type === "EXPRESSION" && field.key === "resourcePath") {
         // HACK: this should fixed with the LS API. this is used to avoid the expression editor for resource path field.
         return <TextEditor field={field} handleOnFieldFocus={handleOnFieldFocus} />;
-    } else if (field.type.toUpperCase() === "ENUM" && props.mcpTools) {
-        // TODO: this is a temporary solution to handle the enum field with MCP tools.
-        return <CustomDropdownEditor field={field} mcpTools={props.mcpTools} onToolsChange={props.onToolsChange} />;
     } else if (field.type.toUpperCase() === "ENUM") {
-        // Enum is a dropdown field
-        return <DropdownEditor field={field} openSubPanel={openSubPanel} />;
+        return <CustomDropdownEditor field={field} openSubPanel={openSubPanel} />;
     } else if (field.type === "FILE_SELECT" && field.editable) {
         return <FileSelect field={field} />;
-    } else if (field.type === "SINGLE_SELECT" && field.editable && props.mcpTools) {
-        // TODO: this is a temporary solution to handle the single select field with MCP tools.
-        return <CustomDropdownEditor field={field} openSubPanel={openSubPanel} newServerUrl={newServerUrl} mcpTools={props.mcpTools} onToolsChange={props.onToolsChange} />;
     } else if (field.type === "SINGLE_SELECT" && field.editable) {
         return <DropdownEditor field={field} openSubPanel={openSubPanel} />;
     } else if (!field.items && (field.key === "type" || field.type === "TYPE") && field.editable) {
