@@ -17,6 +17,7 @@ The Choreo VS Code extension enhances your local development experience with [Ch
 - **Deploy Builds**: Deploy your component builds to any chosen [environments](https://wso2.com/choreo/docs/choreo-concepts/environments/).
 - **Test Services**: Verify the functionality of publicly exposed services.
 - **Monitor Components**: Access runtime logs to monitor your deployed components.
+- **Connect Locally to Dependencies**: Link your app to dependent connections while developing. See [guide](https://wso2.com/choreo/docs/develop-components/connect-to-remote-dependencies-while-developing/).
 
 ## Screenshots
 

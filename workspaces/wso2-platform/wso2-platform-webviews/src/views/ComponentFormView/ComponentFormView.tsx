@@ -18,7 +18,7 @@
 
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	ChoreoBuildPackNames,
 	ChoreoComponentType,
@@ -29,18 +29,20 @@ import {
 	type NewComponentWebviewProps,
 	type SubmitComponentCreateReq,
 	WebAppSPATypes,
+	buildGitURL,
 	getComponentTypeText,
 	getIntegrationComponentTypeText,
 	getRandomNumber,
 	makeURLSafe,
 	parseGitURL,
 } from "@wso2/wso2-platform-core";
-import React, { type FC, useState, useEffect } from "react";
+import React, { type FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod/v3";
 import { HeaderSection } from "../../components/HeaderSection";
+import type { HeaderTag } from "../../components/HeaderSection/HeaderSection";
 import { type StepItem, VerticalStepper } from "../../components/VerticalStepper";
-import { useComponentList } from "../../hooks/use-queries";
+import { queryKeys, useComponentList } from "../../hooks/use-queries";
 import { useExtWebviewContext } from "../../providers/ext-vewview-ctx-provider";
 import { ChoreoWebViewAPI } from "../../utilities/vscode-webview-rpc";
 import {
@@ -48,19 +50,23 @@ import {
 	type componentEndpointsFormSchema,
 	type componentGeneralDetailsSchema,
 	type componentGitProxyFormSchema,
+	type componentRepoInitSchema,
 	getComponentEndpointsFormSchema,
 	getComponentFormSchemaBuildDetails,
 	getComponentFormSchemaGenDetails,
 	getComponentGitProxyFormSchema,
+	getRepoInitSchemaGenDetails,
 	sampleEndpointItem,
 } from "./componentFormSchema";
 import { ComponentFormBuildSection } from "./sections/ComponentFormBuildSection";
 import { ComponentFormEndpointsSection } from "./sections/ComponentFormEndpointsSection";
 import { ComponentFormGenDetailsSection } from "./sections/ComponentFormGenDetailsSection";
 import { ComponentFormGitProxySection } from "./sections/ComponentFormGitProxySection";
+import { ComponentFormRepoInitSection } from "./sections/ComponentFormRepoInitSection";
 import { ComponentFormSummarySection } from "./sections/ComponentFormSummarySection";
 
 type ComponentFormGenDetailsType = z.infer<typeof componentGeneralDetailsSchema>;
+type ComponentRepoInitType = z.infer<typeof componentRepoInitSchema>;
 type ComponentFormBuildDetailsType = z.infer<typeof componentBuildDetailsSchema>;
 type ComponentFormEndpointsType = z.infer<typeof componentEndpointsFormSchema>;
 type ComponentFormGitProxyType = z.infer<typeof componentGitProxyFormSchema>;
@@ -76,6 +82,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 		existingComponents: existingComponentsCache,
 	} = props;
 	const type = initialValues?.type;
+	const queryClient = useQueryClient();
 	const [formSections] = useAutoAnimate();
 	const { extensionName } = useExtWebviewContext();
 
@@ -87,6 +94,20 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 		resolver: zodResolver(getComponentFormSchemaGenDetails(existingComponents)),
 		mode: "all",
 		defaultValues: { name: initialValues?.name || "", subPath: "", gitRoot: "", repoUrl: "", branch: "", credential: "", gitProvider: "" },
+	});
+
+	const repoInitForm = useForm<ComponentRepoInitType>({
+		resolver: zodResolver(getRepoInitSchemaGenDetails(existingComponents)),
+		mode: "all",
+		defaultValues: {
+			org: "",
+			repo: "",
+			branch: "main",
+			subPath: "/",
+			name: initialValues?.name || "",
+			gitProvider: GitProvider.GITHUB,
+			serverUrl: "",
+		},
 	});
 
 	const name = genDetailsForm.watch("name");
@@ -156,16 +177,50 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 		},
 	});
 
-	const { mutate: createComponent, isLoading: isCreatingComponent } = useMutation({
+	const { mutateAsync: initializeRepoAsync, isLoading: initializingRepo } = useMutation({
 		mutationFn: async () => {
+			if (props.isNewCodeServerComp) {
+				const repoInitDetails = repoInitForm.getValues();
+				const repoUrl = buildGitURL(repoInitDetails?.orgHandler, repoInitDetails.repo, repoInitDetails.gitProvider, false, repoInitDetails.serverUrl);
+				const branchesCache: string[] = queryClient.getQueryData(queryKeys.getGitBranches(repoUrl, organization, "", true));
+				const newWorkspacePath = await ChoreoWebViewAPI.getInstance().cloneRepositoryIntoCompDir({
+					cwd: props.directoryFsPath,
+					subpath: repoInitDetails.subPath,
+					org: props.organization,
+					componentName: makeURLSafe(repoInitDetails.name),
+					repo: {
+						orgHandler: repoInitDetails.orgHandler,
+						orgName: repoInitDetails.org,
+						branch: branchesCache?.length > 0 ? repoInitDetails.branch : undefined,
+						provider: repoInitDetails.gitProvider,
+						repo: repoInitDetails.repo,
+						serverUrl: repoInitDetails.serverUrl,
+						secretRef: repoInitDetails.credential || "",
+						isBareRepo: !(branchesCache?.length > 0),
+					},
+				});
+
+				return newWorkspacePath;
+			}
+		},
+	});
+
+	const { mutate: createComponent, isLoading: isCreatingComponent } = useMutation({
+		mutationFn: async (newWorkspaceDir?: string) => {
 			const genDetails = genDetailsForm.getValues();
+			const repoInitDetails = repoInitForm.getValues();
 			const buildDetails = buildDetailsForm.getValues();
 			const gitProxyDetails = gitProxyForm.getValues();
 
-			const componentName = makeURLSafe(genDetails.name);
-
+			const name = props.isNewCodeServerComp ? repoInitDetails.name : genDetails.name;
+			const componentName = makeURLSafe(props.isNewCodeServerComp ? repoInitDetails.name : genDetails.name);
+			const branch = props.isNewCodeServerComp ? repoInitDetails.branch : genDetails.branch;
 			const parsedRepo = parseGitURL(genDetails.repoUrl);
-			const provider = parsedRepo ? parsedRepo[2] : null;
+			const provider = props.isNewCodeServerComp ? repoInitDetails.gitProvider : parsedRepo[2];
+
+			const repoUrl = props.isNewCodeServerComp
+				? buildGitURL(repoInitDetails.orgHandler, repoInitDetails.repo, repoInitDetails.gitProvider, false, repoInitDetails.serverUrl)
+				: genDetails.repoUrl;
 
 			const createParams: Partial<CreateComponentReq> = {
 				orgId: organization.id.toString(),
@@ -173,21 +228,21 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 				projectId: project.id,
 				projectHandle: project.handler,
 				name: componentName,
-				displayName: genDetails.name,
+				displayName: name,
 				type,
 				componentSubType: initialValues?.subType || "",
 				buildPackLang: buildDetails.buildPackLang,
-				componentDir: directoryFsPath,
-				repoUrl: genDetails.repoUrl,
-				gitProvider: genDetails.gitProvider,
-				branch: genDetails.branch,
+				componentDir: newWorkspaceDir || directoryFsPath,
+				repoUrl: repoUrl,
+				gitProvider: provider,
+				branch: branch,
 				langVersion: buildDetails.langVersion,
 				port: buildDetails.webAppPort,
 				originCloud: extensionName === "Devant" ? "devant" : "choreo",
 			};
 
 			if (provider !== GitProvider.GITHUB) {
-				createParams.gitCredRef = genDetails?.credential;
+				createParams.gitCredRef = props.isNewCodeServerComp ? repoInitDetails.credential : genDetails?.credential;
 			}
 
 			if (buildDetails.buildPackLang === ChoreoImplementationType.Docker) {
@@ -248,8 +303,32 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 		onSuccess: () => setStepIndex(stepIndex + 1),
 	});
 
-	const steps: StepItem[] = [
-		{
+	const steps: StepItem[] = [];
+
+	if (props.isNewCodeServerComp) {
+		steps.push({
+			label: "Repository Details",
+			content: (
+				<ComponentFormRepoInitSection
+					{...props}
+					key="repo-init-section"
+					form={repoInitForm}
+					componentType={type}
+					initializingRepo={initializingRepo || isCreatingComponent}
+					onNextClick={async () => {
+						const newDirPath = await initializeRepoAsync();
+						if (steps.length > 1) {
+							gitProxyForm.setValue("proxyContext", `/${makeURLSafe(genDetailsForm.getValues()?.name)}`);
+							setStepIndex(stepIndex + 1);
+						} else {
+							createComponent(newDirPath);
+						}
+					}}
+				/>
+			),
+		});
+	} else {
+		steps.push({
 			label: "General Details",
 			content: (
 				<ComponentFormGenDetailsSection
@@ -258,119 +337,117 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 					form={genDetailsForm}
 					componentType={type}
 					onNextClick={() => {
-						gitProxyForm.setValue(
-							"proxyContext",
-							genDetailsForm.getValues()?.name ? `/${makeURLSafe(genDetailsForm.getValues()?.name)}` : `/path-${getRandomNumber()}`,
-						);
+						gitProxyForm.setValue("proxyContext", `/${makeURLSafe(genDetailsForm.getValues()?.name)}`);
 						setStepIndex(stepIndex + 1);
 					}}
 				/>
 			),
-		},
-	];
+		});
 
-	let showBuildDetails = false;
-	if (type !== ChoreoComponentType.ApiProxy) {
-		if (!initialValues?.buildPackLang) {
-			showBuildDetails = true;
-		} else {
-			if (initialValues?.buildPackLang === ChoreoBuildPackNames.Ballerina) {
-				showBuildDetails = type === ChoreoComponentType.Service;
-			} else if (initialValues?.buildPackLang === ChoreoBuildPackNames.MicroIntegrator) {
-				showBuildDetails = type === ChoreoComponentType.Service;
-			} else {
+		let showBuildDetails = false;
+		if (type !== ChoreoComponentType.ApiProxy) {
+			if (!initialValues?.buildPackLang) {
+				showBuildDetails = true;
+			} else if (
+				![ChoreoBuildPackNames.Ballerina, ChoreoBuildPackNames.MicroIntegrator].includes(initialValues?.buildPackLang as ChoreoBuildPackNames)
+			) {
 				showBuildDetails = true;
 			}
 		}
-	}
 
-	if (showBuildDetails) {
-		steps.push({
-			label: "Build Details",
-			content: (
-				<ComponentFormBuildSection
-					{...props}
-					key="build-details-step"
-					onNextClick={() => setStepIndex(stepIndex + 1)}
-					onBackClick={() => setStepIndex(stepIndex - 1)}
-					form={buildDetailsForm}
-					selectedType={type}
-					subPath={subPath}
-					gitRoot={gitRoot}
-					baseUriPath={directoryUriPath}
-				/>
-			),
-		});
-	}
-
-	if (type === ChoreoComponentType.Service) {
-		if (
-			![ChoreoBuildPackNames.MicroIntegrator, ChoreoBuildPackNames.Ballerina].includes(buildPackLang as ChoreoBuildPackNames) ||
-			([ChoreoBuildPackNames.MicroIntegrator, ChoreoBuildPackNames.Ballerina].includes(buildPackLang as ChoreoBuildPackNames) && !useDefaultEndpoints)
-		) {
+		if (showBuildDetails) {
 			steps.push({
-				label: "Endpoint Details",
+				label: "Build Details",
 				content: (
-					<ComponentFormEndpointsSection
+					<ComponentFormBuildSection
 						{...props}
-						key="endpoints-step"
-						componentName={name || extensionName === "Devant" ? "integration" : "component"}
-						onNextClick={(data) => submitEndpoints(data.endpoints as Endpoint[])}
+						key="build-details-step"
+						onNextClick={() => setStepIndex(stepIndex + 1)}
 						onBackClick={() => setStepIndex(stepIndex - 1)}
-						isSaving={isSubmittingEndpoints}
-						form={endpointDetailsForm}
+						form={buildDetailsForm}
+						selectedType={type}
+						subPath={subPath}
+						gitRoot={gitRoot}
+						baseUriPath={directoryUriPath}
 					/>
 				),
 			});
 		}
-	}
-	if (type === ChoreoComponentType.ApiProxy) {
+
+		if (type === ChoreoComponentType.Service && extensionName !== "Devant") {
+			if (
+				![ChoreoBuildPackNames.MicroIntegrator, ChoreoBuildPackNames.Ballerina].includes(buildPackLang as ChoreoBuildPackNames) ||
+				([ChoreoBuildPackNames.MicroIntegrator, ChoreoBuildPackNames.Ballerina].includes(buildPackLang as ChoreoBuildPackNames) &&
+					!useDefaultEndpoints)
+			) {
+				steps.push({
+					label: "Endpoint Details",
+					content: (
+						<ComponentFormEndpointsSection
+							{...props}
+							key="endpoints-step"
+							componentName={name || "component"}
+							onNextClick={(data) => submitEndpoints(data.endpoints as Endpoint[])}
+							onBackClick={() => setStepIndex(stepIndex - 1)}
+							isSaving={isSubmittingEndpoints}
+							form={endpointDetailsForm}
+						/>
+					),
+				});
+			}
+		}
+		if (type === ChoreoComponentType.ApiProxy) {
+			steps.push({
+				label: "Proxy Details",
+				content: (
+					<ComponentFormGitProxySection
+						{...props}
+						key="git-proxy-step"
+						onNextClick={(data) => submitProxyConfig(data)}
+						onBackClick={() => setStepIndex(stepIndex - 1)}
+						isSaving={isSubmittingProxyConfig}
+						form={gitProxyForm}
+					/>
+				),
+			});
+		}
+
 		steps.push({
-			label: "Proxy Details",
+			label: "Summary",
 			content: (
-				<ComponentFormGitProxySection
+				<ComponentFormSummarySection
 					{...props}
-					key="git-proxy-step"
-					onNextClick={(data) => submitProxyConfig(data)}
+					key="summary-step"
+					genDetailsForm={genDetailsForm}
+					buildDetailsForm={buildDetailsForm}
+					endpointDetailsForm={endpointDetailsForm}
+					gitProxyForm={gitProxyForm}
+					onNextClick={() => createComponent(undefined)}
 					onBackClick={() => setStepIndex(stepIndex - 1)}
-					isSaving={isSubmittingProxyConfig}
-					form={gitProxyForm}
+					isCreating={isCreatingComponent}
 				/>
 			),
 		});
 	}
 
-	steps.push({
-		label: "Summary",
-		content: (
-			<ComponentFormSummarySection
-				{...props}
-				key="summary-step"
-				genDetailsForm={genDetailsForm}
-				buildDetailsForm={buildDetailsForm}
-				endpointDetailsForm={endpointDetailsForm}
-				gitProxyForm={gitProxyForm}
-				onNextClick={() => createComponent()}
-				onBackClick={() => setStepIndex(stepIndex - 1)}
-				isCreating={isCreatingComponent}
-			/>
-		),
-	});
-
 	const componentTypeText = extensionName === "Devant" ? getIntegrationComponentTypeText(type, initialValues?.subType) : getComponentTypeText(type);
+
+	const headerTags: HeaderTag[] = [];
+
+	if (!props.isNewCodeServerComp) {
+		headerTags.push({ label: "Source Directory", value: subPath && subPath !== "." ? subPath : directoryName });
+	}
+	headerTags.push({ label: "Project", value: project.name }, { label: "Organization", value: organization.name });
 
 	return (
 		<div className="flex flex-row justify-center p-1 md:p-3 lg:p-4 xl:p-6">
 			<div className="container">
 				<form className="mx-auto flex max-w-4xl flex-col gap-2 p-4">
 					<HeaderSection
-						title={`Create ${["a", "e", "i", "o", "u"].includes(componentTypeText[0].toLowerCase()) ? "an" : "a"} ${componentTypeText}`}
-						tags={[
-							{ label: "Source Directory", value: subPath && subPath !== "." ? subPath : directoryName },
-							{ label: "Project", value: project.name },
-							{ label: "Organization", value: organization.name },
-						]}
+						title={`${extensionName === "Devant" ? "Deploy" : "Create"} ${["a", "e", "i", "o", "u"].includes(componentTypeText[0].toLowerCase()) ? "an" : "a"} ${componentTypeText}`}
+						tags={headerTags}
 					/>
+
 					<div className="mt-4 flex flex-col gap-6" ref={formSections}>
 						<VerticalStepper currentStep={stepIndex} steps={steps} />
 					</div>

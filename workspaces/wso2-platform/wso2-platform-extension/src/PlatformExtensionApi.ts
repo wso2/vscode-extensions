@@ -24,6 +24,7 @@ import { contextStore } from "./stores/context-store";
 import { webviewStateStore } from "./stores/webview-state-store";
 import { openClonedDir } from "./uri-handlers";
 import { isSamePath } from "./utils";
+
 export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 	public isLoggedIn = () => !!authStore.getState().state?.userInfo;
 	public getDirectoryComponents = (fsPath: string) =>
@@ -36,4 +37,5 @@ export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 	public getWebviewStateStore = () => webviewStateStore.getState().state;
 	public getContextStateStore = () => contextStore.getState().state;
 	public openClonedDir = (params: openClonedDirReq) => openClonedDir(params);
+	public getStsToken = () => ext.clients.rpcClient.getStsToken();
 }

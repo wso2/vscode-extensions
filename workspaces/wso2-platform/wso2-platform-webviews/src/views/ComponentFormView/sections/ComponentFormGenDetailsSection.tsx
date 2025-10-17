@@ -200,8 +200,7 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({ onNextClick, organiz
 			if (isRepoAuthorizedResp?.retrievedRepos) {
 				invalidRepoMsg = (
 					<span>
-						{extensionName} lacks access to the selected repository.{" "}
-						<span className="font-thin">(Only public repos are allowed within the free tier.)</span>
+						{extensionName} lacks access to the selected repository.
 					</span>
 				);
 				invalidRepoAction = "Grant Access";
@@ -216,10 +215,7 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({ onNextClick, organiz
 			onInvalidRepoActionClick = () => ChoreoWebViewAPI.getInstance().openExternalChoreo(`organizations/${organization.handle}/settings/credentials`);
 			if (isRepoAuthorizedResp?.retrievedRepos) {
 				invalidRepoMsg = (
-					<span>
-						Selected Credential does not have sufficient permissions.{" "}
-						<span className="font-thin">(Only public repos are allowed within the free tier.)</span>
-					</span>
+					<span>Selected Credential does not have sufficient permissions to access the repository.</span>
 				);
 				invalidRepoAction = "Manage Credentials";
 			} else {

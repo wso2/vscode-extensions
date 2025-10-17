@@ -146,6 +146,9 @@ export class VisualizerWebview {
     }
 
     private getWebviewContent(webView: Webview) {
+        // Check if devant.editor extension is active
+        const isDevantEditor = vscode.commands.executeCommand('getContext', 'devant.editor') !== undefined;
+        
         const body = `<div class="container" id="webview-container">
                 <div class="loader-wrapper">
                     <div class="welcome-content">
@@ -252,6 +255,9 @@ export class VisualizerWebview {
             }
         `;
         const scripts = `
+            // Flag to check if devant.editor is active
+            window.isDevantEditor = ${isDevantEditor};
+            
             function loadedScript() {
                 function renderDiagrams() {
                     visualizerWebview.renderWebview("visualizer", document.getElementById("webview-container"));

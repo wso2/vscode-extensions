@@ -27,9 +27,9 @@ import { delay, getSubPath } from "./utils";
 
 export class ChoreoConfigurationProvider implements vscode.DebugConfigurationProvider {
 	resolveDebugConfiguration(folder: vscode.WorkspaceFolder | undefined, config: vscode.DebugConfiguration): vscode.DebugConfiguration | undefined {
-		if (config.request === "launch" && (config.choreo === true || typeof config.choreo === "object")) {
+		if (config.request === "launch" && (config.choreo === true || typeof config.choreo === "object" || config.choreoConnect === true || typeof config.choreoConnect === "object")) {
 			config.console = "integratedTerminal";
-			const choreoConfig: { project?: string; component?: string; env?: string; skipConnection?: string[] } | true = config.choreo;
+			const choreoConfig: { project?: string; component?: string; env?: string; skipConnection?: string[] } | true = config.choreo || config.choreoConnect;
 			let connectCmd = "connect";
 			if (choreoConfig === true) {
 				if (contextStore.getState().state?.selected?.projectHandle) {

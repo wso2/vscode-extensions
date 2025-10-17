@@ -22,6 +22,7 @@ import { AUTH_CLIENT_ID, AUTH_ORG } from '../../features/ai/utils';
 import axios from 'axios';
 import { jwtDecode, JwtPayload } from 'jwt-decode';
 import { AuthCredentials, LoginMethod } from '@wso2/ballerina-core';
+import { checkDevantEnvironment } from '../../views/ai-panel/utils';
 
 export const REFRESH_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE = "Refresh token is not available.";
 export const TOKEN_REFRESH_ONLY_SUPPORTED_FOR_BI_INTEL = "Token refresh is only supported for BI Intelligence authentication";
@@ -148,6 +149,13 @@ export const clearAuthCredentials = async (): Promise<void> => {
 // BI Copilot Auth Utils
 // ==================================
 export const getLoginMethod = async (): Promise<LoginMethod | undefined> => {
+    // Priority 1: Check devant environment first
+    const devantCredentials = await checkDevantEnvironment();
+    if (devantCredentials) {
+        return devantCredentials.loginMethod;
+    }
+
+    // Priority 2: Check stored credentials
     if (process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY.trim() !== "") {
         return LoginMethod.ANTHROPIC_KEY;
     }
@@ -158,11 +166,19 @@ export const getLoginMethod = async (): Promise<LoginMethod | undefined> => {
     return undefined;
 };
 
-export const getAccessToken = async (): Promise<string | undefined> => {
+export const getAccessToken = async (): Promise<AuthCredentials | undefined> => {
     return new Promise(async (resolve, reject) => {
         try {
+            // Priority 1: Check devant environment (highest priority)
+            const devantCredentials = await checkDevantEnvironment();
+            if (devantCredentials) {
+                resolve(devantCredentials);
+                return;
+            }
+
+            // Priority 2: Check stored credentials
             if (process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY.trim() !== "") {
-                resolve(process.env.ANTHROPIC_API_KEY.trim());
+                resolve({loginMethod: LoginMethod.ANTHROPIC_KEY, secrets: {apiKey: process.env.ANTHROPIC_API_KEY.trim()}});
                 return;
             }
             const credentials = await getAuthCredentials();
@@ -180,7 +196,13 @@ export const getAccessToken = async (): Promise<string | undefined> => {
                             if (decoded.exp && decoded.exp < now) {
                                 finalToken = await getRefreshedAccessToken();
                             }
-                            resolve(finalToken);
+                            resolve({
+                                loginMethod: LoginMethod.BI_INTEL,
+                                secrets: {
+                                    accessToken: finalToken,
+                                    refreshToken: credentials.secrets.refreshToken
+                                }
+                            });
                             return;
                         } catch (err) {
                             if (axios.isAxiosError(err)) {
@@ -195,11 +217,15 @@ export const getAccessToken = async (): Promise<string | undefined> => {
                         }
 
                     case LoginMethod.ANTHROPIC_KEY:
-                        resolve(credentials.secrets.apiKey);
+                        resolve(credentials);
+                        return;
+
+                    case LoginMethod.DEVANT_ENV:
+                        resolve(credentials);
                         return;
 
                     case LoginMethod.AWS_BEDROCK:
-                        resolve(credentials.secrets.accessKeyId);
+                        resolve(credentials);
                         return;
 
                     default:
