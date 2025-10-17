@@ -176,15 +176,12 @@ export function filterConnectorVersion(connectorName: string, connectors: any[] 
     return '';
 }
 
-export function generateInitialDependencies(httpConnectorVersion: string): string {
-    if (!httpConnectorVersion || httpConnectorVersion === '') {
-        return '';
-    }
+export function generateInitialDependencies(): string {
     return `<dependencies>
         <dependency>
             <groupId>org.wso2.integration.connector</groupId>
             <artifactId>mi-connector-http</artifactId>
-            <version>${httpConnectorVersion}</version>
+            <version>0.1.13</version>
             <type>zip</type>
             <exclusions>
                 <exclusion>

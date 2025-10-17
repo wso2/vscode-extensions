@@ -33,7 +33,6 @@ export const AIPanel = () => {
     const [viewComponent, setViewComponent] = useState<React.ReactNode>();
     const [state, setState] = React.useState<AIMachineStateValue>();
 
-
     rpcClient?.onAIStateChanged((newState: AIMachineStateValue) => {
         setState(newState);
     });
