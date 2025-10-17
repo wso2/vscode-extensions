@@ -1637,11 +1637,7 @@ export interface ResponseCode {
     statusCode: string;
     hasBody?: boolean;
 }
-export interface ResourceReturnTypesResponse {
-    completions: ResponseCode[];
-}
-
-
+export type ResourceReturnTypesResponse = VisibleTypeItem[];
 // <-------- Service Designer Related ------->
 
 export interface FunctionFromSourceRequest {

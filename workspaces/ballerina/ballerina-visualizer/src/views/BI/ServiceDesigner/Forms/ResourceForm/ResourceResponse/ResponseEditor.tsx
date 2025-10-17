@@ -22,6 +22,7 @@ import { useEffect, useState } from 'react';
 import { Divider, OptionProps, Typography } from '@wso2/ui-toolkit';
 import { EditorContainer, EditorContent } from '../../../styles';
 import { LineRange, PropertyModel, ResponseCode, StatusCodeResponse } from '@wso2/ballerina-core';
+import { TypeHelperContext } from '../../../../../../constants';
 import { getDefaultResponse, getTitleFromStatusCodeAndType, HTTP_METHOD } from '../../../utils';
 import { FormField, FormImports, FormValues } from '@wso2/ballerina-side-panel';
 import FormGeneratorNew from '../../../../Forms/FormGeneratorNew';
@@ -57,9 +58,14 @@ export function ResponseEditor(props: ParamProps) {
     const [newFields, setNewFields] = useState<FormField[]>([]);
 
     useEffect(() => {
-        rpcClient.getServiceDesignerRpcClient().getResourceReturnTypes({ filePath: undefined, context: undefined }).then((res) => {
-            console.log("Resource Return Types: ", res);
-            setResponseCodes(res.completions);
+        rpcClient.getServiceDesignerRpcClient().getResourceReturnTypes({ filePath: undefined, context: TypeHelperContext.HTTP_STATUS_CODE }).then((res) => {
+            const mappedResponseCodes: ResponseCode[] = res.map((item: any) => ({
+                category: item.labelDetails?.description || "",
+                label: item.label || "",
+                type: item.detail || "",
+                statusCode: item.labelDetails?.detail || "",
+            }));
+            setResponseCodes(mappedResponseCodes);
             rpcClient.getVisualizerRpcClient().joinProjectPath('main.bal').then((filePath) => {
                 setFilePath(filePath);
             });
