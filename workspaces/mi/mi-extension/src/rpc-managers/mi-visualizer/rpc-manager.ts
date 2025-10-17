@@ -282,7 +282,7 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                                     );
                                     return existingDep;
                                 })
-                                .filter(dep => dep !== undefined); // Remove undefined entries
+                                .filter(dep => dep); 
 
                             if (dependenciesToRemove.length > 0) {
                                 await this.updatePomValues({

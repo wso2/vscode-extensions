@@ -212,7 +212,7 @@ export function DependencyManager(props: ManageDependenciesProps) {
         await fetchDependencies();
 
         setIsAddingDependency(false);
-        if(reloadDependenciesResult) {
+        if (reloadDependenciesResult) {
             setIsAddFormOpen(false);
         }
     };
@@ -246,22 +246,22 @@ export function DependencyManager(props: ManageDependenciesProps) {
     return (
         <FormView title={title} onClose={onClose}>
             {isAddFormOpen ? (
-                    <DependencyForm
-                        groupId=""
-                        artifact=""
-                        version=""
-                        title="Add Dependency"
-                        showLoader={isAddingDependency}
-                        duplicateError={duplicateError}
-                        onClose={() => {
-                            setIsAddFormOpen(false);
-                            setDuplicateError('');
-                        }}
-                        onUpdate={(updatedDependency) => {
-                            handleAddDependency(updatedDependency);
-                        }}
-                    />
-                ) : (
+                <DependencyForm
+                    groupId=""
+                    artifact=""
+                    version=""
+                    title="Add Dependency"
+                    showLoader={isAddingDependency}
+                    duplicateError={duplicateError}
+                    onClose={() => {
+                        setIsAddFormOpen(false);
+                        setDuplicateError('');
+                    }}
+                    onUpdate={(updatedDependency) => {
+                        handleAddDependency(updatedDependency);
+                    }}
+                />
+            ) : (
                 <>
                     <div style={{ marginTop: '10px' }}>
                         < LinkButton
@@ -302,22 +302,22 @@ export function DependencyManager(props: ManageDependenciesProps) {
                     )}
                 </>
             )}
-            
-            <Dialog 
+
+            <Dialog
                 isOpen={showConfirmDialog}
                 onClose={() => handleConfirmOverwrite(false)}
                 sx={{ width: '400px', padding: '24px' }}
             >
                 <DialogMessage>{confirmDialogMessage}</DialogMessage>
                 <DialogActions>
-                    <Button 
-                        appearance="secondary" 
+                    <Button
+                        appearance="secondary"
                         onClick={() => handleConfirmOverwrite(false)}
                     >
                         Cancel
                     </Button>
-                    <Button 
-                        appearance="primary" 
+                    <Button
+                        appearance="primary"
                         onClick={() => handleConfirmOverwrite(true)}
                     >
                         Overwrite
