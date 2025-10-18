@@ -148,7 +148,9 @@ export function ProjectInformation(props: ProjectInformationProps) {
                 <div style={{
                     display: 'flex',
                     padding: '10px 0 0'
-                }}>Manage Dependencies <Icon name="link-external" id={"link-external-manage-dependencies-" + title} isCodicon sx={{ marginLeft: '5px' }} />
+                }}>Manage {title.includes('Connector') ? 
+                          'Connector' : title.includes('Project') ? 'Project' 
+                          : 'Other'} Dependencies <Icon name="link-external" id={"link-external-manage-dependencies-" + title} isCodicon sx={{ marginLeft: '5px' }} />
                 </div>
             </VSCodeLink>
         </div>;
