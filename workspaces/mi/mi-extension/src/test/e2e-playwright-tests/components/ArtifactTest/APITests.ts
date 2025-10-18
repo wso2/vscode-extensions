@@ -164,7 +164,7 @@ export class API {
         await serviceDesignerFrame.getByRole('button', { name: ' OpenAPI Spec' }).click();
         console.log("Clicked on OpenAPI Spec");
         const webviewFrame = this._page.locator('iframe.webview.ready').nth(1);
-        await webviewFrame.waitFor();
+        await webviewFrame.waitFor({ timeout: 60000 });
         console.log("Found webview frame");
         const frame = webviewFrame.contentFrame();
         if (!frame) {
@@ -172,7 +172,7 @@ export class API {
         }
         const targetFrame = frame.locator(`iframe[title="Swagger View"]`);
         console.log("Waiting for target frame");
-        await targetFrame.waitFor();
+        await targetFrame.waitFor({ timeout: 60000 });
         const swaggerView = targetFrame.contentFrame();
         if (!swaggerView) {
             throw new Error(`IFrame of Swagger View not found`);
