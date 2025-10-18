@@ -57,6 +57,8 @@ import ReactMarkdown from 'react-markdown';
 import GenerateDiv from './GenerateComponents/GenerateDiv';
 import { HelperPaneCompletionItem, HelperPaneData } from '@wso2/mi-core';
 import AIAutoFillBox from './AIAutoFillBox/AIAutoFillBox';
+import { compareVersions } from '../../utils/commons';
+import { RUNTIME_VERSION_440 } from '../../resources/constants';
 
 // Constants
 const XML_VALUE = 'xml';
@@ -188,6 +190,7 @@ export function FormGenerator(props: FormGeneratorProps) {
     const [isGeneratedValuesIdentical, setIsGeneratedValuesIdentical] = useState<boolean>(false);
     const [numberOfDifferent, setNumberOfDifferent] = useState<number>(0);
     const [idpSchemaNames, setidpSchemaNames] = useState< {fileName: string; documentUriWithFileName?: string}[]>([]);
+    const [showFillWithAI, setShowFillWithAI] = useState<boolean>(false);
 
     useEffect(() => {
         if (generatedFormDetails) {
@@ -244,6 +247,13 @@ export function FormGenerator(props: FormGeneratorProps) {
                 // Fallback to false if the project details cannot be fetched
                 setIsLegacyExpressionEnabled(false);
             });
+            
+        rpcClient.getMiVisualizerRpcClient().getProjectDetails().then((response) => {
+            const runtimeVersion = response.primaryDetails.runtimeVersion.value;
+            setShowFillWithAI(compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0);
+        }).catch(() => {
+            setShowFillWithAI(false);
+        });
     }, []);
 
     function processElement(element: any): any {
@@ -1446,7 +1456,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                         <ReactMarkdown>{formData.banner}</ReactMarkdown>
                     </WarningBanner>
                 }
-                {documentUri && range &&
+                {showFillWithAI && documentUri && range &&
                         <AIAutoFillBox
                             isGenerating={isGenerating}
                             inputGenerate={inputGenerate}
