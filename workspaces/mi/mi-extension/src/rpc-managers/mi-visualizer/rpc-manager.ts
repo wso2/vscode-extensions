@@ -316,6 +316,7 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
         return new Promise(async (resolve) => {
             const langClient = getStateMachine(this.projectUri).context().langClient!;
             const res = await langClient.updateConnectorDependencies();
+            await extractCAppDependenciesAsProjects(this.projectUri);
             resolve(res);
         });
     }
