@@ -6163,7 +6163,7 @@ function exposeVersionedServices(projectUri: string): boolean {
     for (let rawLine of lines) {
         let line = rawLine.trim();
         if (!line || line.startsWith("#")) continue;
-        const match = line.match(/^expose\.versioned\.services\s*=\s*(.+)$/i);
+        const match = line.match(/^['"]?expose\.versioned\.services['"]?\s*=\s*(.+)$/i);
         if (match) {
             let value = match[1].trim();
             value = value.replace(/^["']|["']$/g, "");
