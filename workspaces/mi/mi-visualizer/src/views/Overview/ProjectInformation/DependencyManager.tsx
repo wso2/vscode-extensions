@@ -206,7 +206,7 @@ export function DependencyManager(props: ManageDependenciesProps) {
             dependencies: [addedDependency]
         });
 
-        const reloadDependenciesResult = await rpcClient.getMiVisualizerRpcClient().reloadDependencies({newDependencies: [addedDependency]});
+        const reloadDependenciesResult = await rpcClient.getMiVisualizerRpcClient().reloadDependencies({ newDependencies: [addedDependency] });
         await rpcClient.getMiDiagramRpcClient().formatPomFile();
 
         await fetchDependencies();
