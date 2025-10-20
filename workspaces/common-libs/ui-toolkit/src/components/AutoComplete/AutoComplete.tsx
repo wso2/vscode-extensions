@@ -272,6 +272,8 @@ interface BaseProps {
     labelAdornment?: ReactNode,
     requireValidation?: boolean,
     disabled?: boolean;
+    description?: string | ReactNode;
+    descriptionSx?: React.CSSProperties;
 }
 
 // Define the conditional properties
@@ -314,11 +316,19 @@ export const getItem = (item: string | ItemComponent) => {
     return item?.item;
 }
 
+const Description = styled.div<ContainerProps>`
+    color: var(--vscode-list-deemphasizedForeground);
+    margin-bottom: 4px;
+    text-align: left;
+    ${(props: ContainerProps) => props.sx};
+`;
 
 export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps>((props, ref) => {
     const {
         id,
         name,
+        description,
+        descriptionSx,
         value,
         items,
         actionBtns,
@@ -423,6 +433,11 @@ export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps
                         <Codicon name="plus" />Add new
                     </LinkButton>}
                 </div>
+                {description && (
+                    <Description sx={descriptionSx}>
+                        {description}
+                    </Description>
+                )}
                 <ComboboxContent>
                     <ComboboxInputWrapper ref={inputWrapperRef} hideDropdown={hideDropdown}>
                         <Combobox.Input
@@ -520,7 +535,7 @@ export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps
                                                         key={i}
                                                     >
                                                         {({ active }) => (
-                                                            <div 
+                                                            <div
                                                                 className={active ? OptionContainer : ActiveOptionContainer}
                                                                 data-tooltip={itemKey}
                                                                 title={itemKey}
