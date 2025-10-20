@@ -163,15 +163,13 @@ export async function getWebview(viewName: string, page: ExtendedPage) {
 
 export async function createProject(page: ExtendedPage, projectName?: string) {
     console.log('Creating new project');
-    
-    // Execute bal pull command before project creation
-    await executeBallPullCommand();
-    
     await setupBallerinaIntegrator();
     const webview = await getWebview('WSO2 Integrator: BI', page);
     if (!webview) {
         throw new Error('WSO2 Integrator: BI webview not found');
     }
+    // HACK: Execute bal pull command before project creation
+    await executeBallPullCommand();
     const form = new Form(page.page, 'WSO2 Integrator: BI', webview);
     await form.switchToFormView(false, webview);
     await form.fill({
