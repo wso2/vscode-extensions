@@ -283,13 +283,13 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                         
                         let warningMessage = "";
                         if (connectorsNotDownloaded.includes(dependencyString)) {
-                            warningMessage = "The connector was not downloaded.";
+                            warningMessage = "Connector downloading failed.";
                         } else if (unavailableDependencies.includes(dependencyString)) {
-                            warningMessage = "The integration project dependency is unavailable.";
+                            warningMessage = "Dependency downloading failed.";
                         } else if (missingDescriptorDependencies.includes(dependencyString)) {
                             warningMessage = "The dependency does not contain the descriptor file.";
                         } else if (versioningMismatchDependencies.includes(dependencyString)) {
-                            warningMessage = "Versioned deployment status is different from the dependent project.";
+                            warningMessage = "Versioned deployment status is different from the parent project.";
                         } else {
                             warningMessage = "The dependency could not be downloaded.";
                         }
@@ -318,7 +318,6 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
             } catch (error) {
                 console.error("Error extracting CApp dependencies:", error);
             }
-            
             resolve(reloadDependenciesResult);
         });
     }

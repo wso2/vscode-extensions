@@ -156,8 +156,8 @@ export function DependencyManager(props: ManageDependenciesProps) {
         newDependency: { groupId: string; artifact: string; version: string }
     ) => {
         setDuplicateError('');
-
-        // Check for exact duplicate (same groupId, artifactId, and version)
+        
+        // Check for dependency duplicates (same groupId, artifactId, and version)
         const exactDuplicate = dependencies.some(
             dep => dep.groupId === newDependency.groupId && 
                    dep.artifact === newDependency.artifact && 
@@ -221,7 +221,7 @@ export function DependencyManager(props: ManageDependenciesProps) {
         setShowConfirmDialog(false);
         
         if (confirmed && pendingDependency && existingDependencyToReplace) {
-            // First delete the existing dependency
+            // Deleting the existing dependency
             setIsUpdating(true);
             
             await rpcClient.getMiVisualizerRpcClient().updatePomValues({
@@ -234,7 +234,7 @@ export function DependencyManager(props: ManageDependenciesProps) {
 
             setIsUpdating(false);
 
-            // Then add the new dependency
+            // Adding the new dependency
             await addDependencyToProject(pendingDependency);
         }
 
