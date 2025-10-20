@@ -94,6 +94,22 @@ import { extractCAppDependenciesAsProjects } from "../../visualizer/activate";
 import { findMultiModuleProjectsInWorkspaceDir } from "../../util/migrationUtils";
 
 Mustache.escape = escapeXml;
+
+/**
+ * Extracts and parses dependencies from error message based on a regex pattern
+ * @param errorMessage - The complete error message
+ * @param pattern - Regex pattern to match the specific error category
+ * @returns Array of dependency strings (in format: groupId-artifactId-version)
+ */
+function extractDependenciesFromError(errorMessage: string, pattern: RegExp): string[] {
+    const match = errorMessage.match(pattern);
+    if (match && match[1]) {
+        const cleanedList = match[1].replace(/\.$/, '').trim();
+        return cleanedList.split(',').map(c => c.trim()).filter(c => c.length > 0);
+    }
+    return [];
+}
+
 export class MiVisualizerRpcManager implements MIVisualizerAPI {
     constructor(private projectUri: string) { }
 
@@ -198,99 +214,94 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
             let reloadDependenciesResult = true;
             const langClient = getStateMachine(this.projectUri).context().langClient!;
             const updateDependenciesResult = await langClient?.updateConnectorDependencies();
-            if (!updateDependenciesResult.toLowerCase().startsWith("success")) {
-                reloadDependenciesResult = false;
-                
+            if (!updateDependenciesResult.toLowerCase().startsWith("success")) {              
                 const connectorsNotDownloaded: string[] = [];
                 const unavailableDependencies: string[] = [];
                 const missingDescriptorDependencies: string[] = [];
+                const versioningMismatchDependencies: string[] = [];
                 
                 // Extract connectors not downloaded
-                const connectorsMatch = updateDependenciesResult.match(/Some connectors were not downloaded:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/);
-                if (connectorsMatch && connectorsMatch[1]) {
-                    const cleanedList = connectorsMatch[1].replace(/\.$/, '').trim(); 
-                    connectorsNotDownloaded.push(...cleanedList.split(',').map(c => c.trim()).filter(c => c.length > 0));
-                }
+                connectorsNotDownloaded.push(...extractDependenciesFromError(
+                    updateDependenciesResult,
+                    /Some connectors were not downloaded:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/
+                ));
                 
                 // Extract unavailable integration project dependencies
-                const unavailableMatch = updateDependenciesResult.match(/Following integration project dependencies were unavailable:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/);
-                if (unavailableMatch && unavailableMatch[1]) {
-                    const cleanedList = unavailableMatch[1].replace(/\.$/, '').trim(); 
-                    unavailableDependencies.push(...cleanedList.split(',').map(c => c.trim()).filter(c => c.length > 0));
-                }
+                unavailableDependencies.push(...extractDependenciesFromError(
+                    updateDependenciesResult,
+                    /Following integration project dependencies were unavailable:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/
+                ));
                 
                 // Extract dependencies without descriptor file
-                const missingDescriptorMatch = updateDependenciesResult.match(/Following dependencies do not contain the descriptor file:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/);
-                if (missingDescriptorMatch && missingDescriptorMatch[1]) {
-                    const cleanedList = missingDescriptorMatch[1].replace(/\.$/, '').trim(); 
-                    missingDescriptorDependencies.push(...cleanedList.split(',').map(c => c.trim()).filter(c => c.length > 0));
-                }
+                missingDescriptorDependencies.push(...extractDependenciesFromError(
+                    updateDependenciesResult,
+                    /Following dependencies do not contain the descriptor file:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/
+                ));
+
+                // Extract dependencies with versioning mismatches
+                versioningMismatchDependencies.push(...extractDependenciesFromError(
+                    updateDependenciesResult,
+                    /Versioned deployment status is different from the dependent project:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/
+                ));
                 
                 const allFailedDependencies = [
                     ...connectorsNotDownloaded,
                     ...unavailableDependencies,
-                    ...missingDescriptorDependencies
+                    ...missingDescriptorDependencies,
+                    ...versioningMismatchDependencies
                 ];
                 
-                if (allFailedDependencies.length > 0) {
-                    if (params?.newDependencies && params.newDependencies.length > 0) {
-                        const hasMatchingFailedDependency = allFailedDependencies.some(failedDependency => {
-                            return params.newDependencies.some(newDep => {
-                                const dependencyString = `${newDep.groupId}-${newDep.artifact}-${newDep.version}`;
-                                return dependencyString === failedDependency;
-                            });
-                        });
+                if (allFailedDependencies.length > 0 && params?.newDependencies && params.newDependencies.length > 0) {
+                    const projectDetails = await langClient.getProjectDetails();
+                    const existingDependencies = projectDetails.dependencies || [];
+                    const allExistingDeps = [
+                        ...(existingDependencies.connectorDependencies || []),
+                        ...(existingDependencies.integrationProjectDependencies || []),
+                        ...(existingDependencies.otherDependencies || [])
+                    ];
 
-                        if (hasMatchingFailedDependency) {
-                            const newDep = params.newDependencies[0];
+                    // Find and remove failed dependencies that are in newDependencies
+                    const dependenciesToRemove = params.newDependencies
+                        .filter(newDep => {
                             const dependencyString = `${newDep.groupId}-${newDep.artifact}-${newDep.version}`;
-                            
-                            let warningMessage = "";
-                            if (connectorsNotDownloaded.includes(dependencyString)) {
-                                warningMessage = "The connector was not downloaded.";
-                            } else if (unavailableDependencies.includes(dependencyString)) {
-                                warningMessage = "The integration project dependency is unavailable.";
-                            } else if (missingDescriptorDependencies.includes(dependencyString)) {
-                                warningMessage = "The dependency does not contain the descriptor file.";
-                            } else {
-                                warningMessage = "The dependency could not be downloaded.";
-                            }
-                            
-                            await window.showWarningMessage(
-                                warningMessage,
-                                { modal: true }
+                            return allFailedDependencies.includes(dependencyString);
+                        })
+                        .map(newDep => {
+                            const existingDep = allExistingDeps.find(existing =>
+                                existing.groupId === newDep.groupId &&
+                                existing.artifact === newDep.artifact &&
+                                existing.version === newDep.version
                             );
+                            return existingDep;
+                        })
+                        .filter((dep): dep is NonNullable<typeof dep> => dep !== undefined);
 
-                            const projectDetails = await langClient.getProjectDetails();
-                            const existingDependencies = projectDetails.dependencies || [];
-                            const allExistingDeps = [
-                                ...(existingDependencies.connectorDependencies || []),
-                                ...(existingDependencies.integrationProjectDependencies || []),
-                                ...(existingDependencies.otherDependencies || [])
-                            ];
-
-                            // Find and remove failed dependencies that are in newDependencies
-                            const dependenciesToRemove = params.newDependencies
-                                .filter(newDep => {
-                                    const dependencyString = `${newDep.groupId}-${newDep.artifact}-${newDep.version}`;
-                                    return allFailedDependencies.includes(dependencyString);
-                                })
-                                .map(newDep => {
-                                    const existingDep = allExistingDeps.find(existing =>
-                                        existing.groupId === newDep.groupId &&
-                                        existing.artifact === newDep.artifact &&
-                                        existing.version === newDep.version
-                                    );
-                                    return existingDep;
-                                })
-                                .filter(dep => dep); 
-
-                            if (dependenciesToRemove.length > 0) {
-                                await this.updatePomValues({
-                                    pomValues: dependenciesToRemove.map(dep => ({ range: dep.range, value: '' }))
-                                });
-                            }
+                    if (dependenciesToRemove.length > 0) {
+                        reloadDependenciesResult = false;
+                        const newDep = params.newDependencies[0];
+                        const dependencyString = `${newDep.groupId}-${newDep.artifact}-${newDep.version}`;
+                        
+                        let warningMessage = "";
+                        if (connectorsNotDownloaded.includes(dependencyString)) {
+                            warningMessage = "The connector was not downloaded.";
+                        } else if (unavailableDependencies.includes(dependencyString)) {
+                            warningMessage = "The integration project dependency is unavailable.";
+                        } else if (missingDescriptorDependencies.includes(dependencyString)) {
+                            warningMessage = "The dependency does not contain the descriptor file.";
+                        } else if (versioningMismatchDependencies.includes(dependencyString)) {
+                            warningMessage = "Versioned deployment status is different from the dependent project.";
+                        } else {
+                            warningMessage = "The dependency could not be downloaded.";
                         }
+                        
+                        await window.showWarningMessage(
+                            warningMessage,
+                            { modal: true }
+                        );
+
+                        await this.updatePomValues({
+                            pomValues: dependenciesToRemove.map(dep => ({ range: dep.range, value: '' }))
+                        });
                     }
                 }
             }
