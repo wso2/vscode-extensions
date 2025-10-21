@@ -146,7 +146,6 @@ import {
     GetSelectiveWorkspaceContextResponse,
     GetSelectiveArtifactsRequest,
     GetSelectiveArtifactsResponse,
-    GetBackendRootUrlResponse,
     GetProxyRootUrlResponse,
     RegistryArtifactNamesResponse,
     ListRegistryArtifactsRequest, RangeFormatRequest,
@@ -256,8 +255,6 @@ import {
     HandleFileRequest,
     HandleFileResponse,
     DevantMetadata,
-    GetCodeDiagnosticsReqeust,
-    GetCodeDiagnosticsResponse,
     UpdateMediatorResponse,
     GetConnectorIconRequest,
     GetConnectorIconResponse,
@@ -364,7 +361,6 @@ export const createBallerinaModule: RequestType<CreateBallerinaModuleRequest, Cr
 export const buildBallerinaModule: RequestType<string, void> = { method: `${_preFix}/buildBallerinaModule` };
 export const getSelectiveWorkspaceContext: RequestType<void, GetSelectiveWorkspaceContextResponse> = { method: `${_preFix}/getSelectiveWorkspaceContext` };
 export const getSelectiveArtifacts: RequestType<GetSelectiveArtifactsRequest, GetSelectiveArtifactsResponse> = { method: `${_preFix}/getSelectiveArtifacts` };
-export const getBackendRootUrl: RequestType<void, GetBackendRootUrlResponse> = { method: `${_preFix}/getBackendRootUrl` };
 export const getProxyRootUrl: RequestType<void, GetProxyRootUrlResponse> = { method: `${_preFix}/getProxyRootUrl` };
 export const getAvailableRegistryResources: RequestType<ListRegistryArtifactsRequest, RegistryArtifactNamesResponse> = { method: `${_preFix}/getAvailableRegistryResources` };
 export const updateRegistryMetadata: RequestType<UpdateRegistryMetadataRequest, UpdateRegistryMetadataResponse> = { method: `${_preFix}/updateRegistryMetadata` };
@@ -446,7 +442,6 @@ export const getHelperPaneInfo: RequestType<GetHelperPaneInfoRequest, GetHelperP
 export const testConnectorConnection: RequestType<TestConnectorConnectionRequest, TestConnectorConnectionResponse> = { method: `${_preFix}/testConnectorConnection` };
 export const saveConfig: RequestType<SaveConfigRequest, SaveConfigResponse> = { method: `${_preFix}/saveConfig` };
 export const getEULALicense: RequestType<void, string> = { method: `${_preFix}/getEULALicense` };
-export const getCodeDiagnostics: RequestType<GetCodeDiagnosticsReqeust, GetCodeDiagnosticsResponse> = { method: `${_preFix}/getCodeDiagnostics` };
 export const shouldDisplayPayloadAlert: RequestType<void, boolean> = { method: `${_preFix}/shouldDisplayPayloadAlert` };
 export const displayPayloadAlert: RequestType<void, void> = { method: `${_preFix}/displayPayloadAlert` };
 export const closePayloadAlert: RequestType<void, void> = { method: `${_preFix}/closePayloadAlert` };
