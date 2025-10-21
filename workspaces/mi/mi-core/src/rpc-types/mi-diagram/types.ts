@@ -1476,10 +1476,6 @@ export interface ConfigureKubernetesResponse {
     path: string;
 }
 
-export interface GetBackendRootUrlResponse {
-    url: string;
-}
-
 export interface GetProxyRootUrlResponse {
     openaiUrl: string;
     anthropicUrl: string;
@@ -1781,6 +1777,7 @@ export interface SwaggerFromAPIRequest {
     isJsonIn?: boolean;
     isJsonOut?: boolean;
     port?: number;
+    projectPath?: string;
 }
 
 export interface CompareSwaggerAndAPIResponse {
@@ -2199,14 +2196,6 @@ export interface GetArtifactTypeRequest {
 export interface GetArtifactTypeResponse {
     artifactType: string;
     artifactFolder: string;
-}
-
-export interface GetCodeDiagnosticsReqeust {
-    xmlCodes: XmlCode[];
-}
-
-export interface GetCodeDiagnosticsResponse {
-    diagnostics: {fileName: string, diagnostics: Diagnostic[]}[];
 }
 
 export interface XmlCode{
