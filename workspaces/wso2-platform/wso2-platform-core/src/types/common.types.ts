@@ -444,6 +444,7 @@ export interface ConnectionDetailed {
 					value: string;
 					isSensitive: boolean;
 					isFile: boolean;
+					envVariableName: string;
 				};
 			};
 		};
