@@ -60,7 +60,7 @@
     "@wso2/mi-component-diagram": "workspace:*",
     "lodash": "~4.17.21",
     "cron-expression-validator": "~1.0.20",
-    "@playwright/test": "1.52.0",
+    "@playwright/test": "1.55.1",
     "react-pdf": "~9.2.1",
     "@monaco-editor/react": "^4.7.0"
   },
