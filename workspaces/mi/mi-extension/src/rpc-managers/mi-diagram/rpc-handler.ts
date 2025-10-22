@@ -305,9 +305,6 @@ import {
     DeployProjectRequest,
     CreateBallerinaModuleRequest,
     getDevantMetadata,
-    GetCodeDiagnosticsReqeust,
-    GetCodeDiagnosticsResponse,
-    getCodeDiagnostics,
     GetConnectorIconRequest,
     getConnectorIcon,
     getValueOfEnvVariable,
@@ -499,7 +496,6 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(testConnectorConnection, (args: TestConnectorConnectionRequest) => rpcManger.testConnectorConnection(args));
     messenger.onRequest(saveConfig, (args: SaveConfigRequest) => rpcManger.saveConfig(args));
     messenger.onRequest(getEULALicense, () => rpcManger.getEULALicense());
-    messenger.onRequest(getCodeDiagnostics, (args: GetCodeDiagnosticsReqeust) => rpcManger.getCodeDiagnostics(args));
     messenger.onRequest(shouldDisplayPayloadAlert, () => rpcManger.shouldDisplayPayloadAlert());
     messenger.onRequest(displayPayloadAlert, () => rpcManger.displayPayloadAlert());
     messenger.onRequest(closePayloadAlert, () => rpcManger.closePayloadAlert());
