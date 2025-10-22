@@ -491,3 +491,7 @@ export interface UpdateAiDependenciesRequest {
 export interface UpdateAiDependenciesResponse {
     textEdits: TextEdit[];
 }
+
+export interface ReloadDependenciesRequest {
+    newDependencies: DependencyDetails[];
+}
