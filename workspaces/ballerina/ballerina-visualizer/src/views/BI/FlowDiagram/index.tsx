@@ -55,6 +55,7 @@ import {
     convertEmbeddingProviderCategoriesToSidePanelCategories,
     convertDataLoaderCategoriesToSidePanelCategories,
     convertChunkerCategoriesToSidePanelCategories,
+    convertKnowledgeBaseCategoriesToSidePanelCategories,
 } from "../../../utils/bi";
 import { useDraftNodeManager } from "./hooks/useDraftNodeManager";
 import { NodePosition, STNode } from "@wso2/syntax-tree";
@@ -1456,7 +1457,16 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 );
                 setCategories([]);
                 setSidePanelView(SidePanelView.DATA_LOADER_LIST);
-            } else if (sidePanelView === SidePanelView.CHUNKERS) {
+            } else if (sidePanelView === SidePanelView.KNOWLEDGE_BASES) {
+                handleOnSelectNode(
+                    selectedNodeMetadata.current.nodeId,
+                    selectedNodeMetadata.current.metadata,
+                    selectedNodeMetadata.current.fileName
+                );
+                setCategories([]);
+                setSidePanelView(SidePanelView.KNOWLEDGE_BASE_LIST);
+            }
+            else if (sidePanelView === SidePanelView.CHUNKERS) {
                 handleOnSelectNode(
                     selectedNodeMetadata.current.nodeId,
                     selectedNodeMetadata.current.metadata,
@@ -1672,22 +1682,18 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         // Push current state to navigation stack
         pushToNavigationStack(sidePanelView, categories, selectedNodeRef.current, selectedClientName.current);
 
-        // Update the node type to KNOWLEDGE_BASE and get the template
-        const updatedMetadata = { ...selectedNodeMetadata.current.metadata };
-        updatedMetadata.node.codedata.node = "KNOWLEDGE_BASE";
-        selectedNodeMetadata.current.metadata = updatedMetadata;
-
+        // Use search to get available knowledge base types
         rpcClient
             .getBIDiagramRpcClient()
-            .getNodeTemplate({
-                position: targetRef.current.startLine,
+            .search({
+                position: { startLine: targetRef.current.startLine, endLine: targetRef.current.endLine },
                 filePath: model?.fileName,
-                id: updatedMetadata.node.codedata,
+                queryMap: undefined,
+                searchKind: "KNOWLEDGE_BASE",
             })
             .then((response) => {
-                selectedNodeRef.current = response.flowNode;
-                showEditForm.current = false;
-                setSidePanelView(SidePanelView.FORM);
+                setCategories(convertKnowledgeBaseCategoriesToSidePanelCategories(response.categories as Category[]));
+                setSidePanelView(SidePanelView.KNOWLEDGE_BASES);
                 setShowSidePanel(true);
             })
             .finally(() => {
