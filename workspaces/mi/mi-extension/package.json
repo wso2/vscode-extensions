@@ -989,8 +989,8 @@
     "ts-morph": "^26.0.0",
     "await-notify": "^1.0.1",
     "yaml": "~2.8.0",
-    "@playwright/test": "~1.52.0",
-    "playwright-core": "~1.52.0"
+    "@playwright/test": "~1.55.1",
+    "playwright-core": "~1.55.1"
   },
   "dependencies": {
     "copyfiles": "^2.4.1",
