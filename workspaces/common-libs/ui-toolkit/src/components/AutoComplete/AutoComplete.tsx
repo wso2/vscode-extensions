@@ -495,6 +495,7 @@ export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps
                     >
                         <DropdownContainer
                             // condition to display the dropdown
+                            id={"dropdown-container"}
                             display={!(filteredResults.length === 0 && query !== "" && allowItemCreate && !onCreateButtonClick)}
                             widthOffset={widthOffset}
                             dropdownWidth={dropdownWidth}
