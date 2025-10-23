@@ -271,7 +271,7 @@ export function TemplateWizard(props: TemplateWizardProps) {
             ...values,
             parameters,
             isEdit: !isNewTemplate,
-            range: props.model ? { start: { line: 0, character: 0 }, end: props.model.sequence.range.startTagRange.start } : undefined
+            range: props.model ? { start: { line: 0, character: 0 }, end: props.model.sequence.range.startTagRange.end } : undefined
         }
 
         const result = await rpcClient.getMiDiagramRpcClient().createTemplate(createTemplateParams);

@@ -52,7 +52,9 @@ import {
     DownloadMIRequest,
     UpdateAiDependenciesRequest,
     ProjectConfig,
-    MavenDeployPluginDetails
+    MavenDeployPluginDetails,
+    ReloadDependenciesRequest,
+    DependencyStatusResponse
 } from "./types";
 import { GettingStartedData, SampleDownloadRequest } from "./types";
 
@@ -90,11 +92,12 @@ export interface MIVisualizerAPI {
     getSupportedMIVersionsHigherThan: (param:string) => Promise<string[]>;
     getProjectDetails: () => Promise<ProjectDetailsResponse>;
     updateProperties: (params: UpdatePropertiesRequest) => Promise<boolean>;
-    reloadDependencies: () => Promise<boolean>;
+    reloadDependencies: (params?: ReloadDependenciesRequest) => Promise<boolean>;
     updateDependencies: (params: UpdateDependenciesRequest) => Promise<boolean>;
     updatePomValues: (params: UpdatePomValuesRequest) => Promise<boolean>;
     updateConfigFileValues: (params: UpdateConfigValuesRequest) => Promise<boolean>;
     updateConnectorDependencies: () => Promise<string>;
+    getDependencyStatusList: () => Promise<DependencyStatusResponse>;
     updateDependenciesFromOverview: (params: UpdateDependenciesRequest) => Promise<boolean>;
     importOpenAPISpec: (params: ImportOpenAPISpecRequest) => Promise<void>;
     getProjectSetupDetails: () => Promise<SetupDetails>;
