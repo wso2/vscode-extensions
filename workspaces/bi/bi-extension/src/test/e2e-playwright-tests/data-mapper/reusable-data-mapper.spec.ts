@@ -19,21 +19,22 @@
 import { expect, test } from '@playwright/test';
 import { initTest, page } from '../utils';
 import { switchToIFrame } from '@wso2/playwright-vscode-tester';
-import { testArrayInnerMappings, testArrayRootMappings, testBasicMappings, testRefresh, updateProjectFileSync } from './DataMapperUtils';
+import { TestScenarios, FileUtils } from './DataMapperUtils';
 
 export default function createTests() {
     test.describe('Reusable Data Mapper Tests', {
         tag: '@group1',
     }, async () => {
         initTest();
-        test.skip('Create reusable Data Mapper', async ({ }, testInfo) => {
+        test('Create', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Update types.bal');
-            updateProjectFileSync('basic/types.bal.txt', 'types.bal');
-            updateProjectFileSync('empty.txt', 'data_mappings.bal');
+            console.log('Reusable Data Mapper - Create: START TEST ATTEMPT', testAttempt);
 
-            console.log('Creating reusable Data Mapper', testAttempt);
+            FileUtils.updateProjectFileSync('basic/types.bal.txt', 'types.bal');
+            FileUtils.updateProjectFileSync('empty.txt', 'data_mappings.bal');
+
+            console.log(' - Create reusable Data Mapper');
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
@@ -63,78 +64,84 @@ export default function createTests() {
 
             await webView.getByRole('button', { name: 'Create', exact: true }).click();
 
-            /* Uncomment this code if the timeout issue persists */
-            // // FIXME:Remove this once timeout issue is fixed
-            // await new Promise((resolve) => setTimeout(resolve, 3000));
-
-            console.log('Waiting for Data Mapper to open');
+            console.log(' - Wait for Data Mapper to open');
             await webView.locator('#data-mapper-canvas-container').waitFor();
 
+            await FileUtils.verifyFileContent('basic/reusable/init.bal.txt', 'data_mappings.bal');
+
+            console.log('Reusable Data Mapper - Create: COMPLETE TEST ATTEMPT', testAttempt);
         });
 
-        test.skip('Reusable Data Mapper - Basic', async ({ }, testInfo) => {
+        test('Basic', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Reusable Data Mapper - Basic', testAttempt);
+            console.log('Reusable Data Mapper - Basic: START TEST ATTEMPT', testAttempt);
 
-
-            updateProjectFileSync('init-reusable.bal.txt', 'data_mappings.bal');
-            updateProjectFileSync('basic/types.bal.txt', 'types.bal');
-            updateProjectFileSync('empty.txt', 'functions.bal');
+            FileUtils.updateProjectFileSync('basic/reusable/init.bal.txt', 'data_mappings.bal');
+            FileUtils.updateProjectFileSync('basic/types.bal.txt', 'types.bal');
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
 
-            await webView.getByRole('heading', { name: 'sample' }).waitFor();
+            const isDataMapperOpend = await webView.getByRole('heading', { name: 'Data Mapper' }).isVisible();
+            if (!isDataMapperOpend) {
+                await webView.getByRole('heading', { name: 'sample' }).waitFor();
+                await page.page.getByRole('treeitem', { name: 'output' }).click();
+            }
 
-            await page.page.getByRole('treeitem', { name: 'output' }).click();
+            await TestScenarios.testBasicMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
 
-            await testBasicMappings(webView, 'data_mappings.bal', 'reusable');
+            console.log('Reusable Data Mapper - Basic: COMPLETE TEST ATTEMPT', testAttempt);
         });
 
-        test.skip('Reusable Data Mapper - Array Inner', async ({ }, testInfo) => {
+        test('Array Inner', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Reusable Data Mapper - Array Inner', testAttempt);
+            console.log('Reusable Data Mapper - Array Inner: START TEST ATTEMPT', testAttempt);
 
-            updateProjectFileSync('init-reusable.bal.txt', 'data_mappings.bal');
-            updateProjectFileSync('array/types.bal.txt', 'types.bal');
+            FileUtils.updateProjectFileSync('array-inner/reusable/init.bal.txt', 'data_mappings.bal');
+            FileUtils.updateProjectFileSync('array-inner/types.bal.txt', 'types.bal');
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
 
-            await webView.getByRole('heading', { name: 'sample' }).waitFor();
+            const isDataMapperOpend = await webView.getByRole('heading', { name: 'Data Mapper' }).isVisible();
+            if (!isDataMapperOpend) {
+                await webView.getByRole('heading', { name: 'sample' }).waitFor();
+                await page.page.getByRole('treeitem', { name: 'output' }).click();
+            }
 
-            await page.page.getByRole('treeitem', { name: 'output' }).click();
+            await TestScenarios.testArrayInnerMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
 
-            await testArrayInnerMappings(webView, 'data_mappings.bal', 'reusable');
+            console.log('Reusable Data Mapper - Array Inner: COMPLETE TEST ATTEMPT', testAttempt);
         });
 
-         test('Reusable Data Mapper - Array Root', async ({ }, testInfo) => {
+        test('Array Root', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Reusable Data Mapper - Array Root', testAttempt);
+            console.log('Reusable Data Mapper - Array Root: START TEST ATTEMPT', testAttempt);
 
-            updateProjectFileSync('array-root/reusable/init.bal.txt', 'data_mappings.bal');
-            updateProjectFileSync('array-root/types.bal.txt', 'types.bal');
+            FileUtils.updateProjectFileSync('array-root/reusable/init.bal.txt', 'data_mappings.bal');
+            FileUtils.updateProjectFileSync('array-root/types.bal.txt', 'types.bal');
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
 
-            await webView.getByRole('heading', { name: 'sample' }).waitFor();
+            const isDataMapperOpend = await webView.getByRole('heading', { name: 'Data Mapper' }).isVisible();
+            if (!isDataMapperOpend) {
+                await webView.getByRole('heading', { name: 'sample' }).waitFor();
+                await page.page.getByRole('treeitem', { name: 'output' }).click();
+            }
 
-            await page.page.getByRole('treeitem', { name: 'output' }).click();
+            await TestScenarios.testArrayRootMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
 
-            await testArrayRootMappings(webView, 'data_mappings.bal', 'reusable');
+            console.log('Reusable Data Mapper - Array Root: COMPLETE TEST ATTEMPT', testAttempt);
         });
     });
 }
-
-
-

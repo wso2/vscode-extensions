@@ -16,37 +16,40 @@
  * under the License.
  */
 
-import { test } from '@playwright/test';
-import { addArtifact, initTest, page } from '../utils';
+import { expect, test } from '@playwright/test';
+import { initTest, page } from '../utils';
 import { switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { Diagram } from '../components/Diagram';
-import { testBasicMappings, updateProjectFileSync } from './DataMapperUtils';
+import { TestScenarios, FileUtils } from './DataMapperUtils';
+import { ProjectExplorer } from '../ProjectExplorer';
 
 export default function createTests() {
     test.describe('Inline Data Mapper Tests', {
         tag: '@group1',
     }, async () => {
         initTest();
-        test.skip('Open In Data Mapper option', async ({ }, testInfo) => {
+        test('Create', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Update types.bal');
-            updateProjectFileSync('types.bal', 'types.bal');
+            console.log('Inline Data Mapper - Create: START TEST ATTEMPT', testAttempt);
 
-            console.log('Adding Declare Variable Node: ', testAttempt);
+            FileUtils.updateProjectFileSync('basic/types.bal.txt', 'types.bal');
+            FileUtils.updateProjectFileSync('create/inline/init.bal.txt', 'automation.bal');
 
-            // Create an automation
-            await addArtifact('Automation', 'automation');
-
-            /* Uncomment this code if the timeout issue persists */
-            // // FIXME:Remove this once timeout issue is fixed
-            // await new Promise((resolve) => setTimeout(resolve, 3000));
+            console.log(' - Add Declare Variable Node');
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
-            await webView.getByRole('button', { name: 'Create' }).click();
+
+            const projectExplorer = new ProjectExplorer(page.page);
+            await projectExplorer.refresh('sample');
+
+            await webView.getByRole('heading', { name: 'sample' }).waitFor();
+            await page.page.getByRole('treeitem', { name: 'main' }).click();
+
+            await webView.getByRole('heading', { name: 'Automation' }).waitFor();
 
             // Add a node to the diagram
             const diagram = new Diagram(page.page);
@@ -54,57 +57,110 @@ export default function createTests() {
             await diagram.clickAddButtonByIndex(1);
 
             await webView.getByText('Declare Variable').click();
-            await webView.getByRole('textbox', { name: 'Type' }).click();
-            await webView.getByText('BasicIn').click();
 
-            await webView.getByRole('textbox', { name: 'Expression' }).click();
-            await webView.getByRole('textbox', { name: 'Expression' }).fill('{}');
-
-            await webView.locator('#expression-editor-close i').click();
+            const varType = webView.getByRole('textbox', { name: 'Type' });
+            await varType.click();
+            await webView.getByText('OutRoot').click();
+            await expect(varType).toHaveValue('OutRoot');
 
             await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
 
-            console.log('Waiting for Data Mapper to open');
+            console.log(' - Wait for Data Mapper to open');
             await webView.locator('#data-mapper-canvas-container').waitFor();
 
+            await FileUtils.verifyFileContent('create/inline/final.bal.txt', 'automation.bal');
+
+            console.log(' - Go back to overview (using back button)');
+            await webView.getByTestId('back-button').click();
+            await webView.getByRole('heading', { name: 'Automation' }).waitFor();
+            await webView.getByTestId('back-button').click();
+            await webView.getByRole('heading', { name: 'sample' }).waitFor();
+
+            console.log('Inline Data Mapper - Create: COMPLETE TEST ATTEMPT', testAttempt);
         });
 
-        test('Inline Data Mapper - Basic', async ({ }, testInfo) => {
+        test('Basic', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
 
-            console.log('Inline Data Mapper - Basic mapping: ', testAttempt);
+            console.log('Inline Data Mapper - Basic: START TEST ATTEMPT', testAttempt);
 
-
-            updateProjectFileSync('init-inline.bal.txt', 'automation.bal');
-            updateProjectFileSync('basic/types.bal.txt', 'types.bal');
-
-            // Added to wait until project sync with file changes
-            // await page.page.waitForTimeout(5000);
-            // await page.page.pause();
-
-            // const explorer = new ProjectExplorer(page.page);
-            // await explorer.refresh('sample');
-            // await explorer.findItem(['sample', 'Entry Points', 'main'], true);
-
-            // await page.page.pause();
+            FileUtils.updateProjectFileSync('basic/inline/init.bal.txt', 'automation.bal');
+            FileUtils.updateProjectFileSync('basic/types.bal.txt', 'types.bal');
 
             const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!webView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
 
-            await webView.getByRole('heading', { name: 'sample' }).waitFor();
+            const isDataMapperOpend = await webView.getByRole('heading', { name: 'Data Mapper' }).isVisible();
+            if (!isDataMapperOpend) {
+                await webView.getByRole('heading', { name: 'sample' }).waitFor();
+                await page.page.getByRole('treeitem', { name: 'main' }).click();
 
-            await page.page.getByRole('treeitem', { name: 'main' }).click();
+                await webView.getByRole('heading', { name: 'Automation' }).waitFor();
+                await webView.getByText('output = {}').click();
+                await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
+            }
 
-            await webView.getByRole('heading', { name: 'Automation' }).waitFor();
-            await webView.getByText('output = {}').click();
-            await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
+            await TestScenarios.testBasicMappings(webView, 'automation.bal', 'inline', isDataMapperOpend);
 
-            await testBasicMappings(webView, 'automation.bal', 'inline');
+            console.log('Inline Data Mapper - Basic: COMPLETE TEST ATTEMPT', testAttempt);
+        });
+
+        test('Array Inner', async ({ }, testInfo) => {
+            const testAttempt = testInfo.retry + 1;
+
+            console.log('Inline Data Mapper - Array Inner: START TEST ATTEMPT', testAttempt);
+
+            FileUtils.updateProjectFileSync('array-inner/inline/init.bal.txt', 'automation.bal');
+            FileUtils.updateProjectFileSync('array-inner/types.bal.txt', 'types.bal');
+
+            const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
+            if (!webView) {
+                throw new Error('WSO2 Integrator: BI webview not found');
+            }
+
+            const isDataMapperOpend = await webView.getByRole('heading', { name: 'Data Mapper' }).isVisible();
+            if (!isDataMapperOpend) {
+                await webView.getByRole('heading', { name: 'sample' }).waitFor();
+                await page.page.getByRole('treeitem', { name: 'main' }).click();
+
+                await webView.getByRole('heading', { name: 'Automation' }).waitFor();
+                await webView.getByText('output = {}').click();
+                await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
+            }
+
+            await TestScenarios.testArrayInnerMappings(webView, 'automation.bal', 'inline', isDataMapperOpend);
+
+            console.log('Inline Data Mapper - Array Inner: COMPLETE TEST ATTEMPT', testAttempt);
+        });
+
+        test('Array Root', async ({ }, testInfo) => {
+            const testAttempt = testInfo.retry + 1;
+
+            console.log('Inline Data Mapper - Array Root: START TEST ATTEMPT', testAttempt);
+
+            FileUtils.updateProjectFileSync('array-root/inline/init.bal.txt', 'automation.bal');
+            FileUtils.updateProjectFileSync('array-root/types.bal.txt', 'types.bal');
+
+            const webView = await switchToIFrame('WSO2 Integrator: BI', page.page);
+            if (!webView) {
+                throw new Error('WSO2 Integrator: BI webview not found');
+            }
+
+            const isDataMapperOpend = await webView.getByRole('heading', { name: 'Data Mapper' }).isVisible();
+            if (!isDataMapperOpend) {
+                await webView.getByRole('heading', { name: 'sample' }).waitFor();
+                await page.page.getByRole('treeitem', { name: 'main' }).click();
+
+                await webView.getByRole('heading', { name: 'Automation' }).waitFor();
+                await webView.getByText('output = []').click();
+                await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
+            }
+
+            await TestScenarios.testArrayRootMappings(webView, 'automation.bal', 'inline', isDataMapperOpend);
+
+            console.log('Inline Data Mapper - Array Root: COMPLETE TEST ATTEMPT', testAttempt);
         });
     });
 }
-
-
-
