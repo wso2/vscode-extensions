@@ -26,8 +26,10 @@ import { ConnectorDependency } from '@wso2/mi-core';
 
 
 export const ButtonGrid = styled.div`
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
     gap: 5px 5px;
     padding: 10px 10px;
     border-radius: 10px;

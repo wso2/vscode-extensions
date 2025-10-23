@@ -19,7 +19,7 @@
 import React from 'react';
 import styled from '@emotion/styled';
 import Typography from '../Typography/Typography';
-import { Meta, StoryObj } from '@storybook/react-vite';
+import { Meta, StoryObj } from '@storybook/react';
 import { TreeView } from './TreeView';
 import { TreeViewItem } from './TreeViewItem';
 

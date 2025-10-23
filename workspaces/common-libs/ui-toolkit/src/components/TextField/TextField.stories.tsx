@@ -16,7 +16,7 @@
  * under the License.
  */
 import React from "react";
-import { Meta, StoryObj } from "@storybook/react-vite";
+import { Meta, StoryObj } from "@storybook/react";
 import { TextField } from "./TextField";
 import { Codicon } from "../Codicon/Codicon";
 import { Icon } from "../Icon/Icon";

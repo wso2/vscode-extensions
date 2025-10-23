@@ -17,7 +17,7 @@
  */
 
 import React from 'react';
-import { Meta, StoryObj } from '@storybook/react-vite';
+import { Meta, StoryObj } from '@storybook/react';
 import { Tabs } from './Tabs';
 import { Button } from '../Button/Button';
 import { Codicon } from '../Codicon/Codicon';

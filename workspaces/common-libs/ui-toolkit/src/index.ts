@@ -32,6 +32,7 @@ export * from './components/ActionButtons/ActionButtons';
 export * from './components/Popover/Popover';
 export * from './components/ParamManager/ParamManager';
 export * from './components/SidePanel/SidePanel';
+export * from './components/SidePanel/ResizableSidePanel';
 export * from './components/TextArea/TextArea';
 export * from './components/Divider/Divider';
 export * from './components/SeachBox/SearchBox';

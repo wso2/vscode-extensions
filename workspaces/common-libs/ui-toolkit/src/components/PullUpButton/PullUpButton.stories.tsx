@@ -17,7 +17,7 @@
  */
 
 import React, { useState } from "react";
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { PullUpButton } from "./PullUPButton";
 import styled from "@emotion/styled";
 import { Button } from "../Button/Button";
