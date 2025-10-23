@@ -71,7 +71,7 @@ export async function fetchProjectInfo(): Promise<ProjectInfo> {
 
         for (const pkgPath of filteredPackagePaths) {
             let packagePath = path.join(workspaceUri.fsPath, pkgPath);
-            if (pkgPath.startsWith('/')) {
+            if (path.isAbsolute(pkgPath)) {
                 packagePath = path.resolve(pkgPath);
             }
             const isBallerina = checkIsBallerinaPackage(Uri.file(packagePath));
@@ -190,23 +190,31 @@ export async function getWorkspaceTomlValues(workspacePath: string): Promise<Wor
 }
 
 /**
- * Filters package paths to only include valid paths.
- * - Keeps all relative paths (as they are implicitly within the workspace)
- * - For absolute paths, only keeps them if they exist AND are within the workspace
+ * Filters package paths to only include valid Ballerina packages within the workspace.
+ * 
+ * For each path, this function:
+ * - Resolves the path (handling relative paths like `.` and `..`)
+ * - Verifies the path exists on the filesystem
+ * - Ensures the path is within the workspace boundaries (prevents path traversal)
+ * - Validates it's a valid Ballerina package
  * 
  * @param packagePaths Array of package paths (relative or absolute)
  * @param workspacePath Absolute path to the workspace root
- * @returns Filtered array of valid package paths
+ * @returns Filtered array of valid Ballerina package paths that exist within the workspace
  */
-function filterPackagePaths(packagePaths: string[], workspacePath: string): string[] {
+export function filterPackagePaths(packagePaths: string[], workspacePath: string): string[] {
     return packagePaths.filter(pkgPath => {
-        if (pkgPath.startsWith('/')) {
-            // Check if the absolute path exists AND is within the workspace
+        if (path.isAbsolute(pkgPath)) {
             const resolvedPath = path.resolve(pkgPath);
             const resolvedWorkspacePath = path.resolve(workspacePath);
-            return fs.existsSync(resolvedPath) && resolvedPath.startsWith(resolvedWorkspacePath);
+            if (fs.existsSync(resolvedPath) && resolvedPath.startsWith(resolvedWorkspacePath)) {
+                return checkIsBallerinaPackage(Uri.file(resolvedPath));
+            }
         }
-        // Keep relative paths as they are
-        return true;
+        const resolvedPath = path.resolve(workspacePath, pkgPath);
+        if (fs.existsSync(resolvedPath) && resolvedPath.startsWith(workspacePath)) {
+            return checkIsBallerinaPackage(Uri.file(resolvedPath));
+        }
+        return false;
     });
 }
