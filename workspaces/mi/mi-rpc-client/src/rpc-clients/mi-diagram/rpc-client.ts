@@ -433,9 +433,6 @@ import {
     buildBallerinaModule,
     DevantMetadata,
     getDevantMetadata,
-    GetCodeDiagnosticsReqeust,
-    GetCodeDiagnosticsResponse,
-    getCodeDiagnostics,
     UpdateMediatorResponse,
     GetConnectorIconRequest,
     GetConnectorIconResponse,
@@ -1150,10 +1147,6 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     getEULALicense(): Promise<string> {
         return this._messenger.sendRequest(getEULALicense, HOST_EXTENSION);
-    }
-
-    getCodeDiagnostics(params: GetCodeDiagnosticsReqeust): Promise<GetCodeDiagnosticsResponse> {
-        return this._messenger.sendRequest(getCodeDiagnostics, HOST_EXTENSION, params);
     }
 
     shouldDisplayPayloadAlert(): Promise<boolean> {
