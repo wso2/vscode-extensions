@@ -23,10 +23,10 @@ import { DocumentIdentifier, LinePosition, LineRange, NOT_SUPPORTED_TYPE, Positi
 import { BallerinaConnectorInfo, BallerinaExampleCategory, BallerinaModuleResponse, BallerinaModulesRequest, BallerinaTrigger, BallerinaTriggerInfo, BallerinaConnector, ExecutorPosition, ExpressionRange, JsonToRecordMapperDiagnostic, MainTriggerModifyRequest, NoteBookCellOutputValue, NotebookCellMetaInfo, OASpec, PackageSummary, PartialSTModification, ResolvedTypeForExpression, ResolvedTypeForSymbol, STModification, SequenceModel, SequenceModelDiagnostic, ServiceTriggerModifyRequest, SymbolDocumentation, XMLToRecordConverterDiagnostic, TypeField, ComponentInfo } from "./ballerina";
 import { ModulePart, STNode } from "@wso2/syntax-tree";
 import { CodeActionParams, DefinitionParams, DocumentSymbolParams, ExecuteCommandParams, InitializeParams, InitializeResult, LocationLink, RenameParams } from "vscode-languageserver-protocol";
-import { Category, Flow, FlowNode, CodeData, ConfigVariable, FunctionNode, Property, PropertyTypeMemberInfo, DIRECTORY_MAP, Imports } from "./bi";
+import { Category, Flow, FlowNode, CodeData, ConfigVariable, FunctionNode, Property, PropertyTypeMemberInfo, DIRECTORY_MAP, Imports, NodeKind } from "./bi";
 import { ConnectorRequest, ConnectorResponse } from "../rpc-types/connector-wizard/interfaces";
 import { SqFlow } from "../rpc-types/sequence-diagram/interfaces";
-import { FieldType, FunctionModel, ListenerModel, ServiceClassModel, ServiceModel } from "./service";
+import { FieldType, FunctionModel, ListenerModel, ServiceClassModel, ServiceInitModel, ServiceModel } from "./service";
 import { CDModel } from "./component-diagram";
 import { DMModel, ExpandedDMModel, IntermediateClause, Mapping, VisualizableField, FnMetadata, ResultClauseType, IOType } from "./data-mapper";
 import { DataMapperMetadata, SCOPE } from "../state-machine-types";
@@ -909,7 +909,8 @@ export type SearchKind =
     | "DATA_LOADER"
     | "CHUNKER"
     | "AGENT"
-    | "MEMORY_MANAGER"
+    | "MEMORY"
+    | "MEMORY_STORE"
     | "AGENT_TOOL"
     | "CLASS_INIT";
 
@@ -922,6 +923,22 @@ export type BISearchRequest = {
 
 export type BISearchResponse = {
     categories: Category[];
+}
+
+export type BISearchNodesRequest = {
+    filePath: string;
+    position?: LinePosition;
+    queryMap?: SearchNodesQueryParams;
+}
+
+export type BISearchNodesResponse = {
+    output: FlowNode[];
+    error: string;
+}
+
+export type SearchNodesQueryParams = {
+    kind?: NodeKind;
+    exactMatch?: string;
 }
 
 export type BIGetEnclosedFunctionRequest = {
@@ -1086,6 +1103,10 @@ export interface ExpressionCompletionItem {
     insertText: string;
     insertTextFormat: number;
     additionalTextEdits?: TextEdit[];
+    labelDetails?: {
+        description?: string;
+        detail: string;
+    };
 }
 
 export type ExpressionCompletionsResponse = ExpressionCompletionItem[];
@@ -1135,6 +1156,7 @@ export interface VisibleTypeItem {
         description: string;
         detail: string;
     }
+    detail?: string;
 }
 
 export type VisibleTypesResponse = VisibleTypeItem[];
@@ -1361,6 +1383,17 @@ export interface ServiceClassModelResponse {
     stacktrace?: string;
 }
 
+export interface ServiceModelInitResponse {
+    serviceInitModel?: ServiceInitModel;
+    errorMsg?: string;
+    stacktrace?: string;
+}
+
+export interface ServiceInitSourceRequest {
+    filePath: string;
+    serviceInitModel: ServiceInitModel;
+}
+
 // <-------- Type Related ------->
 
 export interface Type {
@@ -1389,6 +1422,8 @@ export interface TypeFunctionModel {
     returnType?: Type | string;
     refs: string[];
     imports?: Imports;
+    isGraphqlId?: boolean;
+    properties?: { [key: string]: any };
 }
 
 export interface TypeMetadata {
@@ -1423,6 +1458,7 @@ export interface Member {
     optional?: boolean;
     imports?: Imports;
     readonly?: boolean;
+    isGraphqlId?: boolean;
 }
 
 export interface GetGraphqlTypeRequest {
@@ -1630,11 +1666,7 @@ export interface ResponseCode {
     statusCode: string;
     hasBody?: boolean;
 }
-export interface ResourceReturnTypesResponse {
-    completions: ResponseCode[];
-}
-
-
+export type ResourceReturnTypesResponse = VisibleTypeItem[];
 // <-------- Service Designer Related ------->
 
 export interface FunctionFromSourceRequest {
@@ -1723,8 +1755,7 @@ export interface AIToolResponse {
 
 export interface McpToolsRequest {
     serviceUrl?: string;
-    configs?: Record<string, string>;
-    filePath?: string;
+    accessToken?: string;
 }
 
 export interface McpToolsResponse {
@@ -1732,7 +1763,7 @@ export interface McpToolsResponse {
         name: string;
         description?: string;
     }>;
-    error?: string;
+    errorMsg?: string;
 }
 
 export interface AIGentToolsRequest {
@@ -1908,7 +1939,9 @@ export interface BIInterface extends BaseLangClientInterface {
     getHttpResourceModel: (params: HttpResourceModelRequest) => Promise<HttpResourceModelResponse>;
     addResourceSourceCode: (params: FunctionSourceCodeRequest) => Promise<ResourceSourceCodeResponse>;
     addFunctionSourceCode: (params: FunctionSourceCodeRequest) => Promise<ResourceSourceCodeResponse>;
-    getResourceReturnTypes: (params: ResourceReturnTypesRequest) => Promise<ResourceReturnTypesResponse>;
+    getResourceReturnTypes: (params: ResourceReturnTypesRequest) => Promise<VisibleTypesResponse>;
+    getServiceInitModel: (params: ServiceModelRequest) => Promise<ServiceModelInitResponse>;
+    createServiceAndListener: (params: ServiceInitSourceRequest) => Promise<SourceEditResponse>;
 
     // Function APIs
     getFunctionNode: (params: FunctionNodeRequest) => Promise<FunctionNodeResponse>;

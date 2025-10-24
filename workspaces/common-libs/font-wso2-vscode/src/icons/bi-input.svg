@@ -1,0 +1,23 @@
+<!--
+ ~ Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ ~
+ ~ WSO2 LLC. licenses this file to you under the Apache License,
+ ~ Version 2.0 (the "License"); you may not use this file except
+ ~ in compliance with the License.
+ ~ You may obtain a copy of the License at
+ ~
+ ~     http://www.apache.org/licenses/LICENSE-2.0
+ ~
+ ~ Unless required by applicable law or agreed to in writing,
+ ~ software distributed under the License is distributed on an
+ ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ ~ KIND, either express or implied. See the License for the
+ ~ specific language governing permissions and limitations
+ ~ under the License.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+    <g transform="scale(1, -1) translate(0, -24)">
+        <path fill="currentColor"
+            d="M11 11.825V21q0 .425.288.713T12 22t.713-.288T13 21v-9.175l1.9 1.875q.275.275.688.288t.712-.288q.275-.275.275-.7t-.275-.7l-3.6-3.6q-.3-.3-.7-.3t-.7.3l-3.6 3.6q-.275.275-.288.688t.288.712q.275.275.7.275t.7-.275zM12 4Q8.65 4 6.325 6.325T4 12q0 .825.162 1.625t.488 1.55q.175.425.112.85t-.387.75q-.3.3-.737.138t-.663-.638Q2.5 15.25 2.25 14.188T2 12q0-2.075.788-3.9t2.137-3.175T8.1 2.788T12 2t3.9.788t3.175 2.137T21.213 8.1T22 12q0 1.125-.238 2.213t-.737 2.112q-.225.45-.662.6t-.738-.15t-.387-.725t.087-.825q.35-.775.513-1.587T20 12q0-3.35-2.325-5.675T12 4" />
+    </g>
+</svg>

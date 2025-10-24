@@ -53,12 +53,14 @@ export type FormField = {
     enabled: boolean;
     lineRange?: LineRange;
     metadata?: Metadata;
+    isContextTypeSupported?: boolean;
     codedata?: { [key: string]: any };
     imports?: { [key: string]: string };
     actionLabel?: string | JSX.Element;
     properties?: ConfigProperties;
     actionCallback?: () => void;
     onValueChange?: (value: string) => void;
+    isGraphqlId?: boolean;
 };
 
 export type ParameterValue = {
@@ -137,7 +139,8 @@ type FormTypeConditionalProps = {
         value: string,
         cursorPosition: number,
         fetchReferenceTypes: boolean,
-        valueTypeConstraint: string
+        valueTypeConstraint: string,
+        fieldKey?: string
     ) => Promise<void>;
     getTypeHelper: (
         fieldKey: string,

@@ -218,6 +218,12 @@ export function convertChunkerCategoriesToSidePanelCategories(categories: Catego
     ));
 }
 
+export function convertMemoryStoreCategoriesToSidePanelCategories(categories: Category[]): PanelCategory[] {
+    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata) => (
+        <NodeIcon type={codedata?.node} size={24} />
+    ));
+}
+
 export function convertNodePropertiesToFormFields(
     nodeProperties: NodeProperties,
     connections?: FlowNode[],
@@ -499,10 +505,7 @@ export function convertBalCompletion(completion: ExpressionCompletionItem): Comp
     const description = completion.detail;
     const sortText = completion.sortText;
     const additionalTextEdits = completion.additionalTextEdits;
-    const labelDetails = {
-        description,
-        detail: completion.detail,
-    };
+    const labelDetails = completion.labelDetails;
 
     return {
         tag,
