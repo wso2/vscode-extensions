@@ -179,15 +179,18 @@ export const ScrollableContainer = styled.div`
 `;
 
 const SlidingPaneNavContainerElm = styled.div`
-    width: 100%;
-    max-height: 30px;
-    padding: 8px;
     display: flex;
     align-items: center;
+    flex: 1;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 6px;
+    height: 32px;
+    margin-inline: 4px;
     &:hover {
-        background-color: var(--vscode-list-activeSelectionBackground) !important;
-        color:  ${ThemeColors.ON_PRIMARY};
-        cursor: pointer;
+        background-color: ${ThemeColors.SURFACE_DIM_2};
+        outline: 1px solid var(--dropdown-border);
+        outline-offset: -1px;
     }
 `
 export const SlidingPaneCallbackCOntainer = styled.div`
