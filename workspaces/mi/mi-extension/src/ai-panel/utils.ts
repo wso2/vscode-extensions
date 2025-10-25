@@ -95,8 +95,8 @@ export const validateApiKey = async (apiKey: string, loginMethod: LoginMethod): 
         });
 
         await generateText({
-            model: directAnthropic('claude-3-haiku-20240307'),
-            maxTokens: 1,
+            model: directAnthropic('claude-3-5-haiku-20241022'),
+            maxOutputTokens: 1,
             messages: [{ role: 'user', content: 'Hi' }]
         });
 
