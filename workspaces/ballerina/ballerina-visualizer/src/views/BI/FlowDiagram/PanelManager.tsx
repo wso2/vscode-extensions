@@ -86,6 +86,7 @@ interface PanelManagerProps {
     subPanel: SubPanel;
     categories: any[];
     selectedNode?: FlowNode;
+    parentNode?: FlowNode;
     nodeFormTemplate?: FlowNode;
     selectedClientName?: string;
     showEditForm?: boolean;
@@ -132,6 +133,7 @@ interface PanelManagerProps {
     onEditAgent?: () => void;
     onNavigateToPanel?: (targetPanel: SidePanelView, connectionKind?: ConnectionKind) => void;
     setSidePanelView: (view: SidePanelView) => void;
+    onChangeSelectedNode?: (node: FlowNode) => void;
 
     // AI Agent handlers
     onSelectTool?: (tool: ToolData, node: FlowNode) => void;
@@ -150,6 +152,7 @@ export function PanelManager(props: PanelManagerProps) {
         subPanel,
         categories,
         selectedNode,
+        parentNode,
         nodeFormTemplate,
         selectedClientName,
         showEditForm,
@@ -194,19 +197,8 @@ export function PanelManager(props: PanelManagerProps) {
         onSelectNewConnection,
         onUpdateNodeWithConnection,
         onNavigateToPanel,
+        onChangeSelectedNode
     } = props;
-
-    const handleOnAddTool = () => {
-        setSidePanelView(SidePanelView.NEW_TOOL);
-    };
-
-    const handleOnAddMcpServer = () => {
-        setSidePanelView(SidePanelView.ADD_MCP_SERVER);
-    };
-
-    const handleOnEditMcpServer = () => {
-        setSidePanelView(SidePanelView.EDIT_MCP_SERVER);
-    };
 
     const handleOnBackToAddTool = () => {
         setSidePanelView(SidePanelView.ADD_TOOL);
@@ -270,7 +262,6 @@ export function PanelManager(props: PanelManagerProps) {
                     <AddMcpServer
                         agentCallNode={selectedNode}
                         name={selectedMcpToolkitName}
-                        onAddMcpServer={onClose}
                         onSave={onClose}
                         onBack={handleOnBackToAddTool}
                     />
@@ -282,7 +273,6 @@ export function PanelManager(props: PanelManagerProps) {
                         editMode={true}
                         name={selectedClientName}
                         agentCallNode={selectedNode}
-                        onAddMcpServer={handleOnEditMcpServer}
                         onSave={onClose}
                     />
                 );
@@ -324,7 +314,7 @@ export function PanelManager(props: PanelManagerProps) {
                 return <ToolConfig agentCallNode={selectedNode} toolData={selectedTool} onSave={onClose} />;
 
             case SidePanelView.AGENT_MEMORY_MANAGER:
-                return <MemoryManagerConfig agentCallNode={selectedNode} onSave={onClose} />;
+                return <MemoryManagerConfig agentNode={parentNode} memoryNode={selectedNode} onSave={onClose} />;
 
             case SidePanelView.FUNCTION_LIST:
                 return (

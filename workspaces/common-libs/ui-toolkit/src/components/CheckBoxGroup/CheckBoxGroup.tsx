@@ -64,7 +64,7 @@ export const StyledCheckBox = styled(VSCodeCheckbox)<CheckBoxProps>`
 const LabelContainer = styled.div`
     display: flex;
     flex-direction: row;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 `;
 export const CheckBox = ({ label, labelAdornment, value, sx, checked, onChange, disabled }: CheckBoxProps) => {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,14 +77,40 @@ export const CheckBox = ({ label, labelAdornment, value, sx, checked, onChange, 
     };
 
     return (
-        <StyledCheckBox key={`checkbox-${value}`} sx={sx} value={value} checked={checked} onClick={handleChange} disabled={disabled}>
-            <LabelContainer>
-                <div style={{ color: "var(--vscode-editor-foreground)", cursor: "pointer" }} onClick={handleLabelClick}>
-                    {label}
+        <div style={{ display: "flex", flexDirection: "column", width: "fit-content" }}>
+            <StyledCheckBox
+                key={`checkbox-${value}`}
+                sx={sx}
+                value={value}
+                checked={checked}
+                onClick={handleChange}
+                disabled={disabled}
+            >
+                <LabelContainer>
+                    <div style={{ color: "var(--vscode-editor-foreground)", cursor: "pointer" }} onClick={handleLabelClick}>
+                        {label}
+                    </div>
+                    {labelAdornment && labelAdornment}
+                </LabelContainer>
+            </StyledCheckBox>
+            {/* Show description if given, right under the entire checkbox, also highlight the whole thing */}
+            {typeof sx === "object" && sx && sx.description && (
+                <div
+                    style={{
+                        background: "var(--vscode-editor-background)",
+                        color: "var(--vscode-list-deemphasizedForeground)",
+                        marginTop: 2,
+                        marginBottom: 5,
+                        padding: "2px 8px",
+                        borderRadius: 4,
+                        fontSize: 13,
+                        userSelect: "text"
+                    }}
+                >
+                    {sx.description}
                 </div>
-                {labelAdornment && labelAdornment}
-            </LabelContainer>
-        </StyledCheckBox>
+            )}
+        </div>
     );
 };
 

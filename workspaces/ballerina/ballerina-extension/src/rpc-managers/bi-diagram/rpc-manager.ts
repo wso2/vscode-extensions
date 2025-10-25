@@ -43,6 +43,8 @@ import {
     BIModuleNodesResponse,
     BINodeTemplateRequest,
     BINodeTemplateResponse,
+    BISearchNodesRequest,
+    BISearchNodesResponse,
     BISearchRequest,
     BISearchResponse,
     BISourceCodeRequest,
@@ -1456,7 +1458,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 .updateType({ filePath, type: params.type, description: "" })
                 .then(async (updateTypeResponse: UpdateTypeResponse) => {
                     console.log(">>> update type response", updateTypeResponse);
-                    await updateSourceCode({ textEdits: updateTypeResponse.textEdits }, null, 'Type Update');
+                    await updateSourceCode({ textEdits: updateTypeResponse.textEdits }, null, 'Type Update', params.type.name);
                     resolve(updateTypeResponse);
                 }).catch((error) => {
                     console.log(">>> error fetching types from ls", error);
@@ -1951,6 +1953,17 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 .catch((error) => {
                     reject(error);
                 });
+        });
+    }
+
+    async searchNodes(params: BISearchNodesRequest): Promise<BISearchNodesResponse> {
+        return new Promise((resolve, reject) => {
+            StateMachine.langClient().searchNodes(params).then((res) => {
+                resolve(res);
+            }).catch((error) => {
+                console.log(">>> error searching", error);
+                reject(error);
+            });
         });
     }
 }

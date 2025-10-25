@@ -15,7 +15,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
 import { Button } from '../Button/Button';
 import { Codicon } from '../Codicon/Codicon';
@@ -69,6 +69,10 @@ export interface AccordionProps {
 export const Accordion = (params: AccordionProps) => {
     const expandable = true;
     const [isOpen, setIsOpen] = useState(params.isExpanded || false);
+
+    useEffect(() => {
+        setIsOpen(params.isExpanded);
+    }, [params.isExpanded]);
 
     const toggleAccordion = () => {
         setIsOpen(!isOpen);

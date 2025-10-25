@@ -174,9 +174,9 @@ export function convertModelProviderCategoriesToSidePanelCategories(categories: 
 }
 
 export function convertVectorStoreCategoriesToSidePanelCategories(categories: Category[]): PanelCategory[] {
-    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata) => (
-        <NodeIcon type={codedata?.node} size={24} />
-    ));
+    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata) => {
+        return <AIModelIcon type={codedata?.module} codedata={codedata} />;
+    });
 }
 
 export function convertEmbeddingProviderCategoriesToSidePanelCategories(categories: Category[]): PanelCategory[] {
@@ -218,6 +218,12 @@ export function convertDataLoaderCategoriesToSidePanelCategories(categories: Cat
 }
 
 export function convertChunkerCategoriesToSidePanelCategories(categories: Category[]): PanelCategory[] {
+    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata) => (
+        <NodeIcon type={codedata?.node} size={24} />
+    ));
+}
+
+export function convertMemoryStoreCategoriesToSidePanelCategories(categories: Category[]): PanelCategory[] {
     return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata) => (
         <NodeIcon type={codedata?.node} size={24} />
     ));
@@ -507,10 +513,7 @@ export function convertBalCompletion(completion: ExpressionCompletionItem): Comp
     const description = completion.detail;
     const sortText = completion.sortText;
     const additionalTextEdits = completion.additionalTextEdits;
-    const labelDetails = {
-        description,
-        detail: completion.detail,
-    };
+    const labelDetails = completion.labelDetails;
 
     return {
         tag,

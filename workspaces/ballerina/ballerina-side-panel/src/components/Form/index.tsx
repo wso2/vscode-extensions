@@ -345,16 +345,15 @@ export interface FormProps {
     preserveOrder?: boolean;
     handleSelectedTypeChange?: (type: string | CompletionItem) => void;
     scopeFieldAddon?: React.ReactNode;
-    newServerUrl?: string;
     onChange?: (fieldKey: string, value: any, allValues: FormValues) => void;
-    mcpTools?: { name: string; description?: string }[];
-    onToolsChange?: (selectedTools: string[]) => void;
     injectedComponents?: {
         component: React.ReactNode;
         index: number;
     }[];
     hideSaveButton?: boolean; // Option to hide the save button
     onValidityChange?: (isValid: boolean) => void; // Callback for form validity status
+    changeOptionalFieldTitle?: string; // Option to change the title of optional fields
+    openFormTypeEditor?: (open: boolean, newType?: string, editingField?: FormField) => void;
 }
 
 export const Form = forwardRef((props: FormProps) => {
@@ -389,12 +388,11 @@ export const Form = forwardRef((props: FormProps) => {
         preserveOrder = false,
         handleSelectedTypeChange,
         scopeFieldAddon,
-        newServerUrl,
-        mcpTools,
-        onToolsChange,
         injectedComponents,
         hideSaveButton = false,
         onValidityChange,
+        changeOptionalFieldTitle = undefined,
+        openFormTypeEditor
     } = props;
 
     const {
@@ -417,6 +415,7 @@ export const Form = forwardRef((props: FormProps) => {
     const [isMarkdownExpanded, setIsMarkdownExpanded] = useState(false);
     const [isIdentifierEditing, setIsIdentifierEditing] = useState(false);
     const [isSubComponentEnabled, setIsSubComponentEnabled] = useState(false);
+    const [optionalFieldsTitle, setOptionalFieldsTitle] = useState("Optional Configurations");
 
     const markdownRef = useRef<HTMLDivElement>(null);
 
@@ -486,6 +485,10 @@ export const Form = forwardRef((props: FormProps) => {
             });
             setDiagnosticsInfo(diagnosticsMap);
             reset(defaultValues);
+
+            if (changeOptionalFieldTitle) {
+                setOptionalFieldsTitle("Optional Listener Configurations");
+            }
         }
     }, [formFields, reset]);
 
@@ -758,25 +761,35 @@ export const Form = forwardRef((props: FormProps) => {
                             .sort((a, b) => b.groupNo - a.groupNo)
                             .filter((field) => field.type !== "VIEW");
 
-                        const renderedComponents = fieldsToRender.reduce<React.ReactNode[]>((acc, field, index) => {
+                        const renderedComponents: React.ReactNode[] = [];
+                        let renderedFieldCount = 0;
+                        const injectedIndices = new Set<number>(); // Track which injections have been added
+
+                        fieldsToRender.forEach((field) => {
+                            // Check if we need to inject components before this field
                             if (injectedComponents) {
                                 injectedComponents.forEach((injected) => {
-                                    if (injected.index === index) {
-                                        acc.push(injected.component);
+                                    if (injected.index === renderedFieldCount && !injectedIndices.has(injected.index)) {
+                                        renderedComponents.push(
+                                            <React.Fragment key={`injected-${injected.index}`}>
+                                                {injected.component}
+                                            </React.Fragment>
+                                        );
+                                        injectedIndices.add(injected.index);
                                     }
                                 });
                             }
 
                             if (field.advanced || field.hidden) {
-                                return acc;
+                                return;
                             }
                             // When preserveOrder is false, skip prioritized fields (they'll be rendered at bottom)
                             if (!preserveOrder && isPrioritizedField(field)) {
-                                return acc;
+                                return;
                             }
 
                             const updatedField = updateFormFieldWithImports(field, formImports);
-                            acc.push(
+                            renderedComponents.push(
                                 <S.Row key={updatedField.key}>
                                     <EditorFactory
                                         field={updatedField}
@@ -794,21 +807,29 @@ export const Form = forwardRef((props: FormProps) => {
                                         handleOnTypeChange={handleOnTypeChange}
                                         setSubComponentEnabled={setIsSubComponentEnabled}
                                         handleNewTypeSelected={handleNewTypeSelected}
-                                        newServerUrl={newServerUrl}
-                                        mcpTools={mcpTools}
-                                        onToolsChange={onToolsChange}
                                         onBlur={handleOnBlur}
+                                        isContextTypeEditorSupported={updatedField?.isContextTypeSupported}
+                                        openFormTypeEditor={
+                                            openFormTypeEditor &&
+                                            ((open: boolean, newType?: string) => openFormTypeEditor(open, newType, updatedField))
+                                        }
                                     />
                                     {updatedField.key === "scope" && scopeFieldAddon}
                                 </S.Row>
                             );
-                            return acc;
-                        }, []);
+                            renderedFieldCount++;
+                        });
 
+                        // Check if we need to inject components after all fields
                         if (injectedComponents) {
                             injectedComponents.forEach((injected) => {
-                                if (injected.index >= fieldsToRender.length) {
-                                    renderedComponents.push(injected.component);
+                                if (injected.index >= renderedFieldCount && !injectedIndices.has(injected.index)) {
+                                    renderedComponents.push(
+                                        <React.Fragment key={`injected-${injected.index}`}>
+                                            {injected.component}
+                                        </React.Fragment>
+                                    );
+                                    injectedIndices.add(injected.index);
                                 }
                             });
                         }
@@ -817,7 +838,7 @@ export const Form = forwardRef((props: FormProps) => {
                     })()}
                     {hasAdvanceFields && (
                         <S.Row>
-                            Optional Configurations
+                            {optionalFieldsTitle}
                             <S.ButtonContainer>
                                 {!showAdvancedOptions && (
                                     <LinkButton
@@ -850,7 +871,7 @@ export const Form = forwardRef((props: FormProps) => {
                     {hasAdvanceFields &&
                         showAdvancedOptions &&
                         formFields.map((field) => {
-                            if (field.advanced) {
+                            if (field.advanced && !field.hidden) {
                                 const updatedField = updateFormFieldWithImports(field, formImports);
                                 return (
                                     <S.Row key={updatedField.key}>
