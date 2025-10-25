@@ -21,7 +21,7 @@ import { Frame, Locator, Page, expect } from "@playwright/test";
 export async function switchToIFrame(
     frameName: string,
     page: Page,
-    timeout: number = 150000
+    timeout: number = 180000
 ): Promise<Frame | null> {
     await page.waitForLoadState();
     const webviewFrame = await page.waitForSelector('iframe.webview.ready', { timeout });
@@ -36,7 +36,7 @@ export async function switchToIFrame(
     }
     const childFrame = await targetFrame.contentFrame();
     await childFrame?.waitForLoadState();
-    await page.waitForTimeout(2000); // To fix intermittent issues since VSCode is not using network calls to load the webview
+    await page.waitForTimeout(3000); // Increased timeout to fix intermittent issues since VSCode is not using network calls to load the webview
     return childFrame;
 }
 

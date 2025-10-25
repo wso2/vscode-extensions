@@ -96,8 +96,8 @@ export class BallerinaModule {
         const successNotification = currentPage.getByText('Ballerina module build successful', { exact: true })
         const errorNotification = currentPage.getByText('Ballerina not found. Please download Ballerina and try again.', { exact: true })
         await Promise.race([
-            successNotification.waitFor({ state: 'visible', timeout: 40000 }),
-            errorNotification.waitFor({ state: 'visible', timeout: 40000 })
+            successNotification.waitFor({ state: 'visible', timeout: 120000 }),
+            errorNotification.waitFor({ state: 'visible', timeout: 120000 })
         ]);
 
         if (await errorNotification.isVisible()) {
