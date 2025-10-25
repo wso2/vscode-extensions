@@ -22,6 +22,7 @@ import styled from '@emotion/styled';
 import { Codicon } from "../../../../Codicon/Codicon";
 import { BI_HELPER_PANE_WIDTH, VERTICAL_HELPERPANE_HEIGHT } from "../../../constants";
 import { ThemeColors } from "../../../../../styles";
+import { Icon } from "../../../../Icon/Icon";
 
 const DEFAULT_SLIDING_WINDOW_HEIGHT = `${VERTICAL_HELPERPANE_HEIGHT}px`;
 
@@ -153,22 +154,28 @@ export const SlidingPane = ({ children, name, paneHeight, paneWidth }: SlidingPa
     );
 }
 
-const InvisibleButton = styled.button`
-    background: none;
-    border: none;
-    padding: 0;
-    margin: 0;
-    text-align: inherit;
-    color: ${ThemeColors.ON_SURFACE_VARIANT};
-    font: inherit;
-    cursor: pointer;
-    outline: none;
-    box-shadow: none;
-    appearance: none;
-    display: inline-flex;
+const StickyHeader = styled.div`
+    position: relative;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    justify-content: left;
     align-items: center;
-     &:hover {
-        color: ${ThemeColors.ON_PRIMARY} ;
+    gap: 8px;
+
+    padding: 4px 6px;
+    margin: 4px 8px;
+    transition: background-color 0.2s ease;
+    border-radius: 6px;
+    height: 36px;
+    cursor: pointer;
+
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--input-foreground);
+    
+    &:hover {
+        background-color: ${ThemeColors.SURFACE_DIM_2};
     }
 `;
 
@@ -263,33 +270,20 @@ export const SlidingPaneBackButton = ({ children }: { children: ReactNode }) => 
     return (
         <>
             {visitedPages.length > 1 && (
-                <InvisibleButton onClick={handleBackNavigation}>
+                <StickyHeader onClick={handleBackNavigation}>
                     <>{children}</>
-                </InvisibleButton>
+                </StickyHeader>
             )}
         </>
     )
 }
 
-const StickyHeader = styled.div`
-    position: relative;
-    padding: 8px;
-    top: 0;
-    z-index: 2;
-    width: 100%;
-`;
-
-
 export const SlidingPaneHeader = ({ children }: { children: ReactNode }) => {
     return (
-        <StickyHeader>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'flex-start', color: ThemeColors.ON_SURFACE_VARIANT }}>
-                <SlidingPaneBackButton>
-                    <Codicon sx={{ color: ThemeColors.ON_SURFACE_VARIANT }} name="chevron-left" />
-                </SlidingPaneBackButton>
-                {children}
-            </div>
-        </StickyHeader>
+        <SlidingPaneBackButton>
+            <Icon name="bi-arrow-back" sx={{ color: ThemeColors.ON_SURFACE_VARIANT, fontSize: "16px" }} />
+            {children}
+        </SlidingPaneBackButton>
     )
 }
 
