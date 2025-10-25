@@ -42,7 +42,7 @@ const getBackendUrl = (): string => {
  * @param options - Fetch options
  * @returns Promise<Response>
  */
-export async function fetchWithAuth(input: string | URL | Request, options: RequestInit = {}): Promise<Response | undefined> {
+export async function fetchWithAuth(input: string | URL | Request, options: RequestInit = {}): Promise<Response> {
     try {
         const accessToken = await getAccessToken();
 
@@ -69,7 +69,7 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
                 response = await fetch(input, options);
             } else {
                 StateMachineAI.sendEvent(AI_EVENT_TYPE.LOGOUT);
-                return;
+                throw new Error("Authentication failed: Unable to refresh token");
             }
         }
 
@@ -77,6 +77,7 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
     } catch (error: any) {
         if (error?.message === "TOKEN_EXPIRED") {
             StateMachineAI.sendEvent(AI_EVENT_TYPE.LOGOUT);
+            throw new Error("Authentication failed: Token expired");
         } else {
             throw error;
         }

@@ -36,7 +36,8 @@ import {
     getDiagnosticsReponseFromLlm,
     getBackendUrlAndView,
     getUserAccessToken,
-    refreshUserAccessToken
+    refreshUserAccessToken,
+    getWorkspaceContext
 } from "./utils";
 import { CopilotEventHandler } from "./event-handler";
 import { MiDiagramRpcManager } from "../mi-diagram/rpc-manager";
@@ -65,8 +66,23 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
 
     async generateSuggestions(request: GenerateSuggestionsRequest): Promise<GenerateSuggestionsResponse> {
         try {
+            // For suggestions, use full workspace context (not selective)
+            // Suggestions are general recommendations and benefit from complete project context
+            const selective = false;
+            const context = await getWorkspaceContext(this.projectUri, selective);
+            const chatHistory = request.chatHistory || [];
+            
             // Use the new LLM-based suggestion generation
-            return await generateSuggestionsFromLLM(request, this.projectUri);
+            const suggestionText = await generateSuggestionsFromLLM(
+                context.context, 
+                chatHistory
+            );
+            
+            return {
+                response: suggestionText,
+                files: [],
+                images: []
+            };
         } catch (error) {
             console.error('Error generating suggestions:', error);
             throw new Error(`Failed to generate suggestions: ${error instanceof Error ? error.message : 'Unknown error'}`);

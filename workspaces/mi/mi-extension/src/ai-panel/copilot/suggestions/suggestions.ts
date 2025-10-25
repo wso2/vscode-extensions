@@ -16,26 +16,16 @@
  * under the License.
  */
 
-import { streamText, CoreMessage } from "ai";
+import { generateText } from "ai";
 import * as Handlebars from "handlebars";
-import * as path from "path";
-import * as fs from "fs";
-import { getAnthropicClient, ANTHROPIC_SONNET_4, getProviderCacheControl } from "../connection";
-import { GenerateSuggestionsRequest, GenerateSuggestionsResponse } from "@wso2/mi-core";
-import { CopilotEventHandler } from "../../../rpc-managers/ai-panel/event-handler";
+import { getAnthropicClient, ANTHROPIC_HAIKU_3_5, getProviderCacheControl } from "../connection";
+import { SYSTEM_TEMPLATE } from "./system";
+import { PROMPT_TEMPLATE } from "./prompt";
 
 /**
- * Read and render a template file using Handlebars
+ * Render a template using Handlebars
  */
-function renderTemplate(templateFile: string, context: Record<string, any>): string {
-    const templatesDir = path.join(__dirname, ".");
-    const templatePath = path.join(templatesDir, templateFile);
-    
-    if (!fs.existsSync(templatePath)) {
-        throw new Error(`Template file not found: ${templatePath}`);
-    }
-
-    const templateContent = fs.readFileSync(templatePath, "utf-8");
+function renderTemplate(templateContent: string, context: Record<string, any>): string {
     const template = Handlebars.compile(templateContent);
     return template(context);
 }
@@ -57,129 +47,55 @@ function formatChatHistory(chatHistory: any[]): string {
 }
 
 /**
- * Get the project context (placeholder for now - will be implemented with actual project analysis)
+ * Generates suggestions based on the provided parameters
+ * Returns the generated suggestions text
  */
-function getProjectContext(): string[] {
-    // TODO: Implement actual project context extraction
-    // This should analyze the current MI project and return relevant information
-    // about APIs, sequences, endpoints, etc.
-    return [];
-}
-
-/**
- * Core suggestion generation function with streaming
- */
-export async function generateSuggestionsCore(
-    params: GenerateSuggestionsRequest,
-    eventHandler: CopilotEventHandler
-): Promise<void> {
-    const chatHistory = params.chatHistory || [];
+export async function generateSuggestions(
+    codeContext: string[],
+    chatHistory: any[]
+): Promise<string> {
     const formattedChatHistory = formatChatHistory(chatHistory);
-    const projectContext = getProjectContext();
+    const projectContext = codeContext;
 
     // Render system prompt
-    const systemPrompt = renderTemplate("system.md", {});
+    const systemPrompt = renderTemplate(SYSTEM_TEMPLATE, {});
 
     // Render user prompt
-    const userPrompt = renderTemplate("prompt.md", {
+    const userPrompt = renderTemplate(PROMPT_TEMPLATE, {
         chat_history: formattedChatHistory,
         context: projectContext,
     });
 
+    console.log(systemPrompt);
+    console.log(userPrompt);
+
     const cacheOptions = await getProviderCacheControl();
 
-    const messages: CoreMessage[] = [
+    const messages = [
         {
-            role: "system",
+            role: "system" as const,
             content: systemPrompt,
             providerOptions: cacheOptions,
         },
         {
-            role: "user",
+            role: "user" as const,
             content: userPrompt,
             providerOptions: cacheOptions,
         },
     ];
 
-    try {
-        const { fullStream } = streamText({
-            model: await getAnthropicClient(ANTHROPIC_SONNET_4),
-            maxTokens: 4096,
-            temperature: 0.7, // Slightly higher temperature for suggestions
+    const model = await getAnthropicClient(ANTHROPIC_HAIKU_3_5);
+
+    try{
+        const { text } = await generateText({
+            model: model,
+            maxOutputTokens: 30,
+            temperature: 0.5, // Slightly higher temperature for suggestions
             messages,
         });
-
-        eventHandler.handleStart();
-        let assistantResponse: string = "";
-
-        for await (const part of fullStream) {
-            switch (part.type) {
-                case "text-delta": {
-                    const textPart = part.textDelta;
-                    assistantResponse += textPart;
-                    eventHandler.handleContentBlock(textPart);
-                    break;
-                }
-                case "error": {
-                    const error = part.error;
-                    console.error("Error during suggestion generation:", error);
-                    const errorMessage = error instanceof Error ? error.message : String(error);
-                    eventHandler.handleError(errorMessage);
-                    break;
-                }
-                case "finish": {
-                    const finishReason = part.finishReason;
-                    console.log("Suggestion generation finish reason:", finishReason);
-                    
-                    if (finishReason === "error") {
-                        // Error already handled above
-                        break;
-                    }
-
-                    // Send the complete response
-                    eventHandler.handleEnd(assistantResponse);
-                    eventHandler.handleStop("suggestions");
-                    break;
-                }
-            }
-        }
+        return text;
     } catch (error) {
         console.error("Error generating suggestions:", error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        eventHandler.handleError(errorMessage);
-        eventHandler.handleStop("suggestions");
+        return "";
     }
 }
-
-/**
- * Main public function that generates suggestions
- * This is the entry point called by the RPC handler
- */
-export async function generateSuggestions(
-    params: GenerateSuggestionsRequest,
-    projectUri: string
-): Promise<GenerateSuggestionsResponse> {
-    const eventHandler = new CopilotEventHandler(projectUri);
-
-    try {
-        await generateSuggestionsCore(params, eventHandler);
-
-        // Return success response
-        return {
-            response: "Suggestions generated successfully",
-            files: [],
-            images: [],
-        };
-    } catch (error) {
-        console.error("Error in generateSuggestions:", error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        eventHandler.handleError(errorMessage);
-
-        return {
-            response: `Error: ${errorMessage}`,
-            files: [],
-            images: [],
-        };
-    }
-}
-
