@@ -2108,8 +2108,8 @@ importers:
         version: 4.38.3
     devDependencies:
       '@playwright/test':
-        specifier: ~1.52.0
-        version: 1.52.0
+        specifier: ~1.55.1
+        version: 1.55.1
       '@types/mocha':
         specifier: ^10.0.3
         version: 10.0.10
@@ -2254,8 +2254,8 @@ importers:
         specifier: ^1.8.3
         version: 1.9.4
       '@playwright/test':
-        specifier: 1.52.0
-        version: 1.52.0
+        specifier: 1.55.1
+        version: 1.55.1
       '@types/byline':
         specifier: ^4.2.36
         version: 4.2.36
@@ -2486,8 +2486,8 @@ importers:
   ../../workspaces/common-libs/playwright-vscode-tester:
     dependencies:
       '@playwright/test':
-        specifier: 1.52.0
-        version: 1.52.0
+        specifier: 1.55.1
+        version: 1.55.1
       '@vscode/vsce':
         specifier: ~3.4.2
         version: 3.4.2
@@ -2504,8 +2504,8 @@ importers:
         specifier: ~1.2.0
         version: 1.2.0
       playwright-core:
-        specifier: ~1.52.0
-        version: 1.52.0
+        specifier: ~1.55.1
+        version: 1.55.1
       targz:
         specifier: ~1.0.1
         version: 1.0.1
@@ -3345,8 +3345,8 @@ importers:
         version: 4.38.3
     devDependencies:
       '@playwright/test':
-        specifier: ~1.52.0
-        version: 1.52.0
+        specifier: ~1.55.1
+        version: 1.55.1
       '@types/mocha':
         specifier: ^10.0.1
         version: 10.0.10
@@ -3387,8 +3387,8 @@ importers:
         specifier: ^11.4.0
         version: 11.7.1
       playwright-core:
-        specifier: ~1.52.0
-        version: 1.52.0
+        specifier: ~1.55.1
+        version: 1.55.1
       rimraf:
         specifier: ~6.0.1
         version: 6.0.1
@@ -3481,8 +3481,8 @@ importers:
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.52.2)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@playwright/test':
-        specifier: 1.52.0
-        version: 1.52.0
+        specifier: 1.55.1
+        version: 1.55.1
       '@pmmmwh/react-refresh-webpack-plugin':
         specifier: ~0.6.0
         version: 0.6.1(@types/webpack@5.28.5(webpack-cli@5.1.4))(react-refresh@0.11.0)(type-fest@4.41.0)(webpack-dev-server@5.2.2)(webpack-hot-middleware@2.26.1)(webpack@5.101.0)
@@ -3812,8 +3812,8 @@ importers:
         specifier: ^1.9.4
         version: 1.9.4
       '@playwright/test':
-        specifier: 1.52.0
-        version: 1.52.0
+        specifier: 1.55.1
+        version: 1.55.1
       '@types/byline':
         specifier: ^4.2.36
         version: 4.2.36
@@ -6059,8 +6059,8 @@ packages:
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
 
-  '@playwright/test@1.52.0':
-    resolution: {integrity: sha512-uh6W7sb55hl7D6vsAeA+V2p5JnlAqzhqFyF0VcJkKZXkgnFcVG9PziERRHQfPLfNGx1C292a4JqbWzhR8L4R1g==}
+  '@playwright/test@1.55.1':
+    resolution: {integrity: sha512-IVAh/nOJaw6W9g+RJVlIQJ6gSiER+ae6mKQ5CX1bERzQgbC1VSeBlwdvczT7pxb0GWiyrxH4TGKbMfDb4Sq/ig==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -17241,13 +17241,13 @@ packages:
   pkg-types@1.3.1:
     resolution: {integrity: sha512-/Jm5M4RvtBFVkKWRu2BLUTNP8/M2a+UwuAX+ae4770q1qVGtfjG+WTCupoZixokjmHiry8uI+dlY8KXYV5HVVQ==}
 
-  playwright-core@1.52.0:
-    resolution: {integrity: sha512-l2osTgLXSMeuLZOML9qYODUQoPPnUsKsb5/P6LJ2e6uPKXUdPK5WYhN4z03G+YNbWmGDY4YENauNu4ZKczreHg==}
+  playwright-core@1.55.1:
+    resolution: {integrity: sha512-Z6Mh9mkwX+zxSlHqdr5AOcJnfp+xUWLCt9uKV18fhzA8eyxUd8NUWzAjxUh55RZKSYwDGX0cfaySdhZJGMoJ+w==}
     engines: {node: '>=18'}
     hasBin: true
 
-  playwright@1.52.0:
-    resolution: {integrity: sha512-JAwMNMBlxJ2oD1kce4KPtMkDeKGHQstdpFPcPH3maElAXon/QZeTvtsfXmTMRyO9TslfoYOXkSsvao2nE1ilTw==}
+  playwright@1.55.1:
+    resolution: {integrity: sha512-cJW4Xd/G3v5ovXtJJ52MAOclqeac9S/aGGgRzLabuF8TnIb6xHvMzKIa6JmrRzUkeXJgfL1MhukP0NK6l39h3A==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -24169,7 +24169,10 @@ snapshots:
       jest-runner: 25.5.4
       jest-runtime: 25.5.4
     transitivePeerDependencies:
+      - bufferutil
+      - canvas
       - supports-color
+      - utf-8-validate
 
   '@jest/test-sequencer@29.7.0':
     dependencies:
@@ -24689,9 +24692,9 @@ snapshots:
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
-  '@playwright/test@1.52.0':
+  '@playwright/test@1.55.1':
     dependencies:
-      playwright: 1.52.0
+      playwright: 1.55.1
 
   '@pmmmwh/react-refresh-webpack-plugin@0.5.17(@types/webpack@5.28.5(webpack-cli@4.10.0))(react-refresh@0.11.0)(type-fest@4.41.0)(webpack-dev-server@5.2.2)(webpack-hot-middleware@2.26.1)(webpack@5.101.0)':
     dependencies:
@@ -42818,11 +42821,11 @@ snapshots:
       mlly: 1.7.4
       pathe: 2.0.3
 
-  playwright-core@1.52.0: {}
+  playwright-core@1.55.1: {}
 
-  playwright@1.52.0:
+  playwright@1.55.1:
     dependencies:
-      playwright-core: 1.52.0
+      playwright-core: 1.55.1
     optionalDependencies:
       fsevents: 2.3.2
 
