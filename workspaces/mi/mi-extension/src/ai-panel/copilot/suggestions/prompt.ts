@@ -16,7 +16,8 @@
  * under the License.
  */
 
-export const PROMPT_TEMPLATE = `{{#if chat_history}}
+export const PROMPT_TEMPLATE = `
+{{#if chat_history}}
 You have an ongoing conversation with MI Copilot. Here's your current chat history:
 <CHAT_HISTORY>
 {{{chat_history}}}

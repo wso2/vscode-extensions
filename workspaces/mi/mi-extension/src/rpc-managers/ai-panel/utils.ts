@@ -25,6 +25,7 @@ import { EVENT_TYPE, MACHINE_VIEW } from "@wso2/mi-core";
 import * as vscode from "vscode";
 import { MIAIPanelRpcManager } from "./rpc-manager";
 import { generateSynapse } from "../../ai-panel/copilot/generation/generations";
+import { getConnectors } from "../../ai-panel/copilot/connectors/connectors";
 
 // Backend URL constants
 export const MI_ARTIFACT_GENERATION_BACKEND_URL = `/chat/artifact-generation`;
@@ -382,6 +383,14 @@ export async function fetchCodeGenerationsWithRetry(
     const fileContents = files.map((file: any) => 
         `File: ${file.name}\n${file.content}`
     );
+
+    // Get relevant connectors and inbound endpoints for the user's query
+    console.log("Fetching relevant connectors for query:", userQuestion);
+    const { connectors: selectedConnectors, inbound_endpoints: selectedInboundEndpoints } = await getConnectors({
+        question: userQuestion,
+        files: fileContents.length > 0 ? fileContents : undefined,
+        images: images.length > 0,
+    });
     
     // Call generateSynapse - it returns a Response with streaming text
     // AI SDK handles all the stream conversion and abort logic
@@ -390,8 +399,8 @@ export async function fetchCodeGenerationsWithRetry(
         file: currentFile,
         context: context.context,
         payloads: defaultPayloads ? JSON.stringify(defaultPayloads, null, 2) : undefined,
-        connectors: {}, // TODO: Fetch connectors later
-        inbound_endpoints: {}, // TODO: Fetch inbound endpoints later
+        connectors: selectedConnectors,
+        inbound_endpoints: selectedInboundEndpoints,
         files: fileContents.length > 0 ? fileContents : undefined,
         images: images.length > 0,
         thinking_enabled: thinking || false,

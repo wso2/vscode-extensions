@@ -16,7 +16,8 @@
  * under the License.
  */
 
-export const PROMPT_TEMPLATE = `{{#if file}}
+export const PROMPT_TEMPLATE = `
+{{#if file}}
 <CURRENTLY_EDITING_FILE>
 {{file}}
 </CURRENTLY_EDITING_FILE>
