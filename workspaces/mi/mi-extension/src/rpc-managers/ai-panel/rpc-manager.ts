@@ -42,6 +42,8 @@ import {
 import { CopilotEventHandler } from "./event-handler";
 import { MiDiagramRpcManager } from "../mi-diagram/rpc-manager";
 import { generateSuggestions as generateSuggestionsFromLLM } from "../../ai-panel/copilot/suggestions/suggestions";
+import { getLoginMethod } from '../../ai-panel/utils/auth';
+import { LoginMethod } from '@wso2/mi-core';
 
 export class MIAIPanelRpcManager implements MIAIPanelAPI {
     private eventHandler: CopilotEventHandler;
@@ -420,10 +422,10 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
     }
 
     /**
-     * Gets the stored Anthropic API key
+     * Check if user is using their own Anthropic API key
      */
     async hasAnthropicApiKey(): Promise<boolean | undefined> {
-        const { extension } = await import('../../MIExtensionContext');
-        return await extension.context.secrets.get('AnthropicApiKey') !== undefined;
+        const loginMethod = await getLoginMethod();
+        return loginMethod === LoginMethod.ANTHROPIC_KEY;
     }
 }
