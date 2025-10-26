@@ -15,15 +15,15 @@
 // under the License.
 
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { getAccessToken, getLoginMethod, getRefreshedAccessToken } from "../utils/auth";
+import { getAccessToken, getLoginMethod, getRefreshedAccessToken } from "../auth";
 import { StateMachineAI } from "../aiMachine";
 import { AI_EVENT_TYPE, LoginMethod } from "@wso2/mi-core";
 
-export const ANTHROPIC_HAIKU_3_5 = "claude-3-5-haiku-20241022";
+export const ANTHROPIC_HAIKU_4_5 = "claude-haiku-4-5-20251001";
 export const ANTHROPIC_SONNET_4_5 = "claude-sonnet-4-5-20250929";
 
 type AnthropicModel =
-    | typeof ANTHROPIC_HAIKU_3_5
+    | typeof ANTHROPIC_HAIKU_4_5
     | typeof ANTHROPIC_SONNET_4_5;
 
 let cachedAnthropic: ReturnType<typeof createAnthropic> | null = null;
@@ -34,6 +34,13 @@ let cachedAuthMethod: LoginMethod | null = null;
  */
 const getBackendUrl = (): string => {
     return process.env.MI_COPILOT_BACKEND_V2 as string;
+};
+
+/**
+ * Get the proxy URL for MI Copilot
+ */
+const getProxyUrl = (): string => {
+    return process.env.MI_PROXY_URL as string;
 };
 
 /**

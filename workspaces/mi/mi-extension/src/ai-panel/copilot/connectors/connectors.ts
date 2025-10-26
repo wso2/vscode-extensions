@@ -19,7 +19,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import * as Handlebars from "handlebars";
-import { getAnthropicClient, ANTHROPIC_HAIKU_3_5 } from "../connection";
+import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from "../connection";
 import { SYSTEM_TEMPLATE } from "./system";
 import { CONNECTOR_PROMPT } from "./prompt";
 import { CONNECTOR_DB } from "./connector_db";
@@ -138,7 +138,7 @@ export async function getConnectors(
         available_inbound_endpoints: availableInboundEndpoints.join(", "),
     });
     
-    const model = await getAnthropicClient(ANTHROPIC_HAIKU_3_5);
+    const model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
     
     try {
         // Use structured output to get selected connectors
@@ -148,7 +148,7 @@ export async function getConnectors(
             system: SYSTEM_TEMPLATE,
             prompt: prompt,
             schema: selectedConnectorsSchema,
-            maxTokens: 2000,
+            maxOutputTokens: 2000,
             temperature: 0.3,
         });
         
