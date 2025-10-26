@@ -89,40 +89,6 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
         }
     }
 
-    // Additional utility methods that can be used by the AI panel
-
-    /**
-     * Fetches code generations from the backend
-     */
-    async fetchCodeGenerations(
-        chatHistory: CopilotChatEntry[],
-        files: any[] = [],
-        images: any[] = [],
-        selective: boolean = false,
-        thinking?: boolean
-    ): Promise<Response> {
-        try {
-            const controller = new AbortController();
-            const { backendUrl } = await getBackendUrlAndView(this.projectUri);
-            const backendRootUri = await fetchBackendUrl(this.projectUri);
-            const url = backendRootUri + backendUrl;
-
-            return await fetchCodeGenerationsWithRetry(
-                url,
-                chatHistory,
-                files,
-                images,
-                this.projectUri,
-                controller,
-                selective,
-                thinking
-            );
-        } catch (error) {
-            console.error('Error fetching code generations:', error);
-            throw new Error(`Failed to fetch code generations: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    }
-
     /**
      * Sends diagnostics to LLM and gets response
      */
@@ -238,7 +204,6 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 let assistantResponse = "";
 
                 try {
-                    let buffer = "";
                     while (true) {
                         // Check if abort was requested
                         if (this.currentController?.signal.aborted) {
@@ -250,41 +215,14 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                         const { done, value } = await reader.read();
                         if (done) break;
 
-                        buffer += decoder.decode(value, { stream: true });
-
-                        const lines = buffer.split("\n");
-                        buffer = lines.pop() ?? "";
-
-                        for (const line of lines) {
-                            if (!line.trim()) continue;
-                            try {
-                                const obj = JSON.parse(line);
-                                assistantResponse += obj.content;
-                                this.eventHandler.handleContentBlock(line);
-                            } catch (err) {
-                                // If JSON parsing fails, it might be an incomplete object
-                                // Add it back to the buffer to be processed with the next chunk
-                                buffer = line + "\n" + buffer;
-                            }
-                        }
+                        // Decode the text chunk
+                        const textChunk = decoder.decode(value, { stream: true });
+                        console.log("Text chunk:", textChunk);
+                        this.eventHandler.handleContentBlock(textChunk);
                     }
-                    
-                    // Process any remaining data in the buffer after the stream ends
-                    if (buffer.trim()) {
-                        try {
-                            const obj = JSON.parse(buffer);
-                            assistantResponse += obj.content;
-                            this.eventHandler.handleContentBlock(buffer);
-                        } catch (err) {
-                            console.error("JSON parse error for remaining buffer:", err, "buffer:", buffer);
-                        }
-                    }
-                } finally {
-                    reader.releaseLock();
+                } catch (error) {
+                    console.error("Error reading code generation stream:", error);
                 }
-
-                // Send final response
-                this.eventHandler.handleEnd(assistantResponse);
 
                 // Run code diagnostics on the generated response only for runtime versions > 4.4.0
                 const runtimeVersion = await getMIVersionFromPom(this.projectUri);
