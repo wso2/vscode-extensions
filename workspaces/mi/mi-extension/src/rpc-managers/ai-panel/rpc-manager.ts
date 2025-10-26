@@ -217,7 +217,6 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
 
                         // Decode the text chunk
                         const textChunk = decoder.decode(value, { stream: true });
-                        console.log("Text chunk:", textChunk);
                         this.eventHandler.handleContentBlock(textChunk);
                     }
                 } catch (error) {

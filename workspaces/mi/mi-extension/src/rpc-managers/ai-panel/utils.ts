@@ -26,6 +26,7 @@ import * as vscode from "vscode";
 import { MIAIPanelRpcManager } from "./rpc-manager";
 import { generateSynapse } from "../../ai-panel/copilot/generation/generations";
 import { getConnectors } from "../../ai-panel/copilot/connectors/connectors";
+import { codeDiagnostics } from "../../ai-panel/copilot/diagnostics/diagnostics";
 
 // Backend URL constants
 export const MI_ARTIFACT_GENERATION_BACKEND_URL = `/chat/artifact-generation`;
@@ -409,7 +410,7 @@ export async function fetchCodeGenerationsWithRetry(
 }
 
 /**
- * Sends diagnostics to LLM backend and gets response
+ * Analyzes diagnostics and gets fixed configurations using local LLM
  */
 export async function getDiagnosticsReponseFromLlm(
     diagnostics: any,
@@ -418,35 +419,39 @@ export async function getDiagnosticsReponseFromLlm(
     controller: AbortController
 ): Promise<Response> {
     try {
-        const backendRootUri = await fetchBackendUrl(projectUri);
-        const url = backendRootUri + MI_DIAGNOSTICS_RESPONSE_BACKEND_URL;
-        const context = await getWorkspaceContext(projectUri);
+        console.log("Analyzing diagnostics and fixing configurations...");
         
-        const requestBody = {
+        // Call the local codeDiagnostics function
+        const result = await codeDiagnostics({
             diagnostics: diagnostics.diagnostics,
             xmlCodes: xmlCodes,
-            context: context.context
-        };
+        });
         
-        return fetchWithRetry(
-            BackendRequestType.UserPrompt,
-            url,
-            requestBody,
-            projectUri,
-            controller,
-            false // Not in thinking mode for diagnostics
-        );
+        console.log(`Fixed ${result.fixed_config.length} configurations`);
+        
+        // Return a Response object with the fixed configurations
+        return new Response(JSON.stringify(result), {
+            status: 200,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
     } catch (error) {
-        console.error("Error sending diagnostics to LLM:", error);
+        console.error("Error fixing diagnostics:", error);
         
         const errorMessage = error instanceof Error 
             ? error.message 
-            : "Unknown error occurred when analyzing diagnostics";
+            : "Unknown error occurred when fixing diagnostics";
         
-        return Promise.reject({
+        return new Response(JSON.stringify({
             status: "error",
-            message: `Failed to analyze diagnostics: ${errorMessage}`,
-            originalError: error
+            message: `Failed to fix diagnostics: ${errorMessage}`,
+            fixed_config: []
+        }), {
+            status: 500,
+            headers: {
+                'Content-Type': 'application/json',
+            },
         });
     }
 }
