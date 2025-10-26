@@ -16,7 +16,8 @@
  * under the License.
  */
 
-export const PROMPT_TEMPLATE = `{{#if context}}
+export const PROMPT_TEMPLATE = `
+{{#if context}}
 I give you access to my whole project below.
 
 <PROJECT>
