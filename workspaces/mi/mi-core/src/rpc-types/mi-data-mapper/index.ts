@@ -51,5 +51,4 @@ export interface MIDataMapperAPI {
     getMappingFromAI: () => void;
     writeDataMapping: (params: DataMapWriteRequest)=> void;
     confirmMappingAction: ()=> Promise<boolean>;
-    authenticateUser(): Promise<boolean>;
 }
