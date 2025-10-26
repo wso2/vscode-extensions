@@ -24,6 +24,7 @@ import { extension } from "../../MIExtensionContext";
 import { EVENT_TYPE, MACHINE_VIEW } from "@wso2/mi-core";
 import * as vscode from "vscode";
 import { MIAIPanelRpcManager } from "./rpc-manager";
+import { generateSynapse } from "../../ai-panel/copilot/generation/generations";
 
 // Backend URL constants
 export const MI_ARTIFACT_GENERATION_BACKEND_URL = `/chat/artifact-generation`;
@@ -353,7 +354,7 @@ export async function generateSuggestions(
 }
 
 /**
- * Fetches code generations from backend
+ * Generates code using local LLM (ditching backend)
  */
 export async function fetchCodeGenerationsWithRetry(
     url: string,
@@ -365,17 +366,37 @@ export async function fetchCodeGenerationsWithRetry(
     selective: boolean = false,
     thinking?: boolean
 ): Promise<Response> {
+    // Get workspace context
     const context = await getWorkspaceContext(projectUri, selective);
     const miDiagramRpcManager = new MiDiagramRpcManager(projectUri);
     const defaultPayloads = await miDiagramRpcManager.getAllInputDefaultPayloads();
     
-    return fetchWithRetry(BackendRequestType.UserPrompt, url, {
-        messages: chatHistory,
+    // Extract the user's question from chat history (last user message)
+    const lastUserMessage = [...chatHistory].reverse().find(entry => entry.role === 'user');
+    const userQuestion = lastUserMessage?.content || '';
+    
+    // Get currently editing file content if available
+    const currentFile = files.length > 0 ? files[0]?.content : undefined;
+    
+    // Prepare file contents from attached files
+    const fileContents = files.map((file: any) => 
+        `File: ${file.name}\n${file.content}`
+    );
+    
+    // Call generateSynapse - it returns a Response with streaming text
+    // AI SDK handles all the stream conversion and abort logic
+    return generateSynapse({
+        question: userQuestion,
+        file: currentFile,
         context: context.context,
-        files: files,
-        images: images.map((image: any) => image.imageBase64),
-        payloads: defaultPayloads,
-    }, projectUri, controller, thinking);
+        payloads: defaultPayloads ? JSON.stringify(defaultPayloads, null, 2) : undefined,
+        connectors: {}, // TODO: Fetch connectors later
+        inbound_endpoints: {}, // TODO: Fetch inbound endpoints later
+        files: fileContents.length > 0 ? fileContents : undefined,
+        images: images.length > 0,
+        thinking_enabled: thinking || false,
+        abortController: controller, // Pass abort controller to handle cancellation
+    });
 }
 
 /**

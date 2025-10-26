@@ -91,38 +91,22 @@ const AIChatFooter: React.FC = () => {
                 break;
             
             case "content_block":
-                // Handle streaming content blocks
+                // Handle streaming content blocks - now just plain text!
                 if (event.content) {
-                    const response = JSON.parse(event.content);
-                    if (response.content !== null && response.content !== undefined) {
-                        const content = response.content;
-                        const usage = response.usage;
-
-                        if (usage.max_usage == -1) {
-                            setRemainingTokenPercentage(-1);
-                        } else {
-                            const remainingTokens = Number(usage.remaining_tokens);
-                            const maxTokens = Number(usage.max_usage);
-                            let percentage = Math.round((remainingTokens / maxTokens) * 100);
-                            if (percentage < 0) percentage = 0;
-                            setRemainingTokenPercentage(percentage);
-                        }
+                    // event.content is now plain text, not JSON
+                    const content = event.content;
                     
-                        // Update assistant response state
-                        setAssistantResponse(prev => prev + content);
-                        
-                        // Update the last copilot message in real-time
-                        setMessages((prevMessages) => {
-                            const newMessages = [...prevMessages];
-                            if (newMessages.length > 0) {
-                                newMessages[newMessages.length - 1].content += content;
-                            }
-                            return newMessages;
-                        });
-                    } 
-                    else if (response.questions && response.questions.length > 0) {
-                        setQuestions((prevQuestions) => [...prevQuestions, ...response.questions]);
-                    }
+                    // Update assistant response state
+                    setAssistantResponse(prev => prev + content);
+                    
+                    // Update the last copilot message in real-time
+                    setMessages((prevMessages) => {
+                        const newMessages = [...prevMessages];
+                        if (newMessages.length > 0) {
+                            newMessages[newMessages.length - 1].content += content;
+                        }
+                        return newMessages;
+                    });
                 } 
                 break;
             
@@ -133,6 +117,8 @@ const AIChatFooter: React.FC = () => {
                     setAssistantResponse(event.content);
                     handleCodeGenerationComplete(event.content);
                 }
+                // TODO: Update remaining token percentage by calling backend through RPC client
+                // setRemainingTokenPercentage(100);
                 break;
 
             case "code_diagnostic_start":

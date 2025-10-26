@@ -66,9 +66,6 @@ export async function generateSuggestions(
         context: projectContext,
     });
 
-    console.log(systemPrompt);
-    console.log(userPrompt);
-
     const cacheOptions = await getProviderCacheControl();
 
     const messages = [
