@@ -22,8 +22,7 @@ import * as vscode from 'vscode';
 import { AIMachineStateValue, AIMachineContext, AI_EVENT_TYPE, AIUserToken, AIMachineSendableEvent, LoginMethod } from '@wso2/mi-core';
 import { AiPanelWebview } from './webview';
 import { extension } from '../MIExtensionContext';
-import { getAccessToken, getLoginMethod } from './utils/auth';
-import { checkToken, initiateInbuiltAuth, logout, validateApiKey } from './utils';
+import { getAccessToken, getLoginMethod, checkToken, initiateInbuiltAuth, logout, validateApiKey } from './auth';
 import { PromptObject } from '@wso2/mi-core';
 
 export const USER_CHECK_BACKEND_URL = '/user/usage';

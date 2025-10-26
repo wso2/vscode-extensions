@@ -206,7 +206,9 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
     };
 
     const handleApiKeyChange = (e: any) => {
-        setApiKey(e.target.value);
+        // VSCodeTextField emits the value directly in the event
+        const value = e.target?.value ?? '';
+        setApiKey(value);
     };
 
     const toggleApiKeyVisibility = () => {
@@ -229,7 +231,7 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
                                 type={showApiKey ? "text" : "password"}
                                 placeholder="Enter your Anthropic API key"
                                 value={apiKey}
-                                onInput={handleApiKeyChange}
+                                onChange={handleApiKeyChange}
                                 {...(isValidating ? { disabled: true } : {})}
                             />
                             <EyeButton

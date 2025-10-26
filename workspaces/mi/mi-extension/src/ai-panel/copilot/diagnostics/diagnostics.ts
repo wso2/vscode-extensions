@@ -19,7 +19,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import * as Handlebars from "handlebars";
-import { getAnthropicClient, ANTHROPIC_SONNET_4_5 } from "../connection";
+import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from "../connection";
 import { DIAGNOSTICS_SYSTEM_TEMPLATE } from "./system";
 import { DIAGNOSTICS_PROMPT } from "./prompt";
 import { SYNAPSE_GUIDE } from "../context/synapse_guide";
@@ -123,7 +123,7 @@ export async function codeDiagnostics(
             xml_code_map: xmlCodeMap,
         });
         
-        const model = await getAnthropicClient(ANTHROPIC_SONNET_4_5);
+        const model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
         
         // Use structured output to get fixed configurations
         // Type assertion to avoid TypeScript deep instantiation issues with Zod

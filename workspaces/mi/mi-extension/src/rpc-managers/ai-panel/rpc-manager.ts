@@ -42,7 +42,7 @@ import {
 import { CopilotEventHandler } from "./event-handler";
 import { MiDiagramRpcManager } from "../mi-diagram/rpc-manager";
 import { generateSuggestions as generateSuggestionsFromLLM } from "../../ai-panel/copilot/suggestions/suggestions";
-import { getLoginMethod } from '../../ai-panel/utils/auth';
+import { getLoginMethod } from '../../ai-panel/auth';
 import { LoginMethod } from '@wso2/mi-core';
 
 export class MIAIPanelRpcManager implements MIAIPanelAPI {

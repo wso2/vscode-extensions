@@ -18,7 +18,7 @@
 
 import { generateText } from "ai";
 import * as Handlebars from "handlebars";
-import { getAnthropicClient, ANTHROPIC_HAIKU_3_5, getProviderCacheControl } from "../connection";
+import { getAnthropicClient, ANTHROPIC_HAIKU_4_5, getProviderCacheControl } from "../connection";
 import { SYSTEM_TEMPLATE } from "./system";
 import { PROMPT_TEMPLATE } from "./prompt";
 
@@ -81,7 +81,7 @@ export async function generateSuggestions(
         },
     ];
 
-    const model = await getAnthropicClient(ANTHROPIC_HAIKU_3_5);
+    const model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
 
     try{
         const { text } = await generateText({
