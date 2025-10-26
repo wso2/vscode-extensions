@@ -190,30 +190,57 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
     const { rpcClient } = useVisualizerContext();
     const [apiKey, setApiKey] = useState("");
     const [showApiKey, setShowApiKey] = useState(false);
+    const [clientError, setClientError] = useState<string>("");
 
     const cancelLogin = () => {
         rpcClient.sendAIStateEvent(AI_EVENT_TYPE.CANCEL_LOGIN);
     };
 
     const connectWithKey = () => {
-        if (apiKey.trim()) {
-            // Send the API key to the state machine for validation
-            rpcClient.sendAIStateEvent({
-                type: AI_EVENT_TYPE.SUBMIT_API_KEY,
-                payload: { apiKey: apiKey.trim() },
-            } as any);
+        // Clear any previous client-side errors
+        setClientError("");
+        
+        // Validate API key format on client side
+        const trimmedKey = apiKey.trim();
+        
+        if (!trimmedKey) {
+            setClientError("Please enter your Anthropic API key");
+            return;
         }
+        
+        if (!trimmedKey.startsWith('sk-ant-')) {
+            setClientError("Invalid API key format. Anthropic API keys start with 'sk-ant-'");
+            return;
+        }
+        
+        if (trimmedKey.length < 20) {
+            setClientError("API key seems too short. Please check and try again.");
+            return;
+        }
+        
+        // Send the API key to the state machine for validation
+        rpcClient.sendAIStateEvent({
+            type: AI_EVENT_TYPE.SUBMIT_API_KEY,
+            payload: { apiKey: trimmedKey },
+        } as any);
     };
 
     const handleApiKeyChange = (e: any) => {
         // VSCodeTextField emits the value directly in the event
         const value = e.target?.value ?? '';
         setApiKey(value);
+        // Clear client error when user starts typing
+        if (clientError) {
+            setClientError("");
+        }
     };
 
     const toggleApiKeyVisibility = () => {
         setShowApiKey(!showApiKey);
     };
+    
+    // Show either server error (from validation) or client error (from form validation)
+    const displayError = errorMessage || clientError;
 
     if (loginMethod === LoginMethod.ANTHROPIC_KEY) {
         return (
@@ -245,10 +272,10 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
                         </InputRow>
                     </InputContainer>
 
-                    {errorMessage && (
+                    {displayError && (
                         <ErrorMessage>
                             <Codicon name="error" />
-                            <span>{errorMessage}</span>
+                            <span>{displayError}</span>
                         </ErrorMessage>
                     )}
 
@@ -256,7 +283,7 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
                         <VSCodeButton
                             appearance="primary"
                             onClick={connectWithKey}
-                            {...(isValidating || !apiKey || apiKey.trim().length === 0 ? { disabled: true } : {})}
+                            {...(isValidating ? { disabled: true } : {})}
                         >
                             {isValidating ? "Validating..." : "Connect with Key"}
                         </VSCodeButton>

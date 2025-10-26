@@ -394,31 +394,19 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
     }
 
     /**
-     * Sets the Anthropic API key for unlimited usage
+     * Triggers the API key authentication flow
+     * Opens the AI Panel with the API key input form
      */
     async setAnthropicApiKey(): Promise<void> {
-        const vscode = await import('vscode');
-        const { extension } = await import('../../MIExtensionContext');
-
-        const apiKey = await vscode.window.showInputBox({
-            prompt: "Enter your Anthropic API Key for Unlimited Usage",
-            password: true,
-            placeHolder: "sk-ant-...",
-            validateInput: (value) => {
-                if (!value || value.trim() === "") {
-                    return "API key cannot be empty";
-                }
-                if (!value.startsWith("sk-ant-")) {
-                    return "Invalid Anthropic API key format. Should start with 'sk-ant-'";
-                }
-                return null;
-            }
-        });
-
-        if (apiKey) {
-            await extension.context.secrets.store('AnthropicApiKey', apiKey);
-            vscode.window.showInformationMessage("Anthropic API key has been saved successfully");
-        }
+        const { StateMachineAI } = await import('../../ai-panel/aiMachine');
+        const { AI_EVENT_TYPE } = await import('@wso2/mi-core');
+        const { openAIWebview } = await import('../../ai-panel/aiMachine');
+        
+        // Open AI Panel
+        openAIWebview();
+        
+        // Trigger the API key authentication flow
+        StateMachineAI.sendEvent(AI_EVENT_TYPE.AUTH_WITH_API_KEY);
     }
 
     /**
