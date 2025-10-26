@@ -44,8 +44,7 @@ import {
     getMappingFromAI,
     writeDataMapping,
     DataMapWriteRequest,
-    confirmMappingAction,
-    authenticateUser
+    confirmMappingAction
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
 import { MiDataMapperRpcManager } from "./rpc-manager";
@@ -69,6 +68,4 @@ export function registerMiDataMapperRpcHandlers(messenger: Messenger, projectUri
     messenger.onRequest(getMappingFromAI, () => rpcManger.getMappingFromAI());
     messenger.onNotification(writeDataMapping, (args: DataMapWriteRequest) => rpcManger.writeDataMapping(args));
     messenger.onRequest(confirmMappingAction, () => rpcManger.confirmMappingAction());
-    messenger.onRequest(authenticateUser, () => rpcManger.authenticateUser());
-
 }

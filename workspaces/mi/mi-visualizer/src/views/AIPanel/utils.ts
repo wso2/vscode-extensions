@@ -647,9 +647,6 @@ export async function getDiagnosticsReponseFromLlm(
         // Get the context
         const context = await getContext(rpcClient);
         
-        // Get the user token
-        const token = await rpcClient?.getMiDiagramRpcClient().getUserAccessToken();
-        
         // Prepare the request body
         const requestBody = {
             diagnostics: diagnostics.diagnostics,
