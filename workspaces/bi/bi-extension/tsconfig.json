@@ -4,7 +4,8 @@
         "target": "es6",
         "outDir": "out",
         "lib": [
-            "es2022"
+            "es2022",
+            "DOM"
         ],
         "sourceMap": true,
         "rootDirs": [
@@ -34,7 +35,8 @@
         "node_modules",
         ".vscode-test",
         "target",
-        "extractedDistribution"
+        "extractedDistribution",
+        "src/test/test-resources"
     ],
     "include": [
         "src",
