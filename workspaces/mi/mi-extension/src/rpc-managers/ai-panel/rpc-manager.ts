@@ -43,7 +43,8 @@ import { CopilotEventHandler } from "./event-handler";
 import { MiDiagramRpcManager } from "../mi-diagram/rpc-manager";
 import { generateSuggestions as generateSuggestionsFromLLM } from "../../ai-panel/copilot/suggestions/suggestions";
 import { getLoginMethod } from '../../ai-panel/auth';
-import { LoginMethod } from '@wso2/mi-core';
+import { LoginMethod, AI_EVENT_TYPE } from '@wso2/mi-core';
+import { StateMachineAI } from '../../ai-panel/aiMachine';
 
 export class MIAIPanelRpcManager implements MIAIPanelAPI {
     private eventHandler: CopilotEventHandler;
@@ -220,10 +221,14 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                         // Decode the text chunk
                         const textChunk = decoder.decode(value, { stream: true });
                         this.eventHandler.handleContentBlock(textChunk);
+                        assistantResponse += textChunk;
                     }
                 } catch (error) {
                     console.error("Error reading code generation stream:", error);
                 }
+
+                // Send final response
+                this.eventHandler.handleEnd(assistantResponse);
 
                 // Run code diagnostics on the generated response only for runtime versions > 4.4.0
                 const runtimeVersion = await getMIVersionFromPom(this.projectUri);
@@ -232,6 +237,9 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 if (shouldRunDiagnostics) {
                     await this.handleCodeDiagnostics(assistantResponse);
                 }
+
+                // Refresh usage after successful code generation
+                this.refreshUsage();
 
             } else {
                 // Fallback: non-streaming response
@@ -399,5 +407,17 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
     async hasAnthropicApiKey(): Promise<boolean | undefined> {
         const loginMethod = await getLoginMethod();
         return loginMethod === LoginMethod.ANTHROPIC_KEY;
+    }
+
+    /**
+     * Refreshes usage information from the backend
+     * Only applies to MI_INTEL users
+     */
+    private refreshUsage(): void {
+        try {
+            StateMachineAI.sendEvent(AI_EVENT_TYPE.REFRESH_USAGE);
+        } catch (error) {
+            console.error('Failed to refresh usage:', error);
+        }
     }
 }

@@ -127,6 +127,7 @@ async function getAIContext(): Promise<AIVisualizerLocation> {
             state: StateMachineAI.state(), 
             loginMethod: context.loginMethod,
             userToken: context.userToken,
+            usage: context.usage,
             errorMessage: context.errorMessage
         });
     });
