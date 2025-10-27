@@ -28,7 +28,6 @@ import {
     generateCode,
     AbortCodeGenerationResponse,
     abortCodeGeneration,
-    setAnthropicApiKey,
     hasAnthropicApiKey
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
@@ -66,10 +65,6 @@ export class MiAiPanelRpcClient implements MIAIPanelAPI {
     // ==================================
     // API Key Management
     // ==================================
-    setAnthropicApiKey(): Promise<void> {
-        return this._messenger.sendRequest(setAnthropicApiKey, HOST_EXTENSION);
-    }
-
     hasAnthropicApiKey(): Promise<boolean | undefined> {
         return this._messenger.sendRequest(hasAnthropicApiKey, HOST_EXTENSION);
     }
