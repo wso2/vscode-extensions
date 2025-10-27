@@ -113,8 +113,7 @@ async function getContext(projectUri: string): Promise<VisualizerLocation> {
                 MI_CONNECTOR_STORE_BACKEND_SEARCH: process.env.MI_CONNECTOR_STORE_BACKEND_SEARCH || '',
                 MI_CONNECTOR_STORE_BACKEND_INBOUND_ENDPOINTS: process.env.MI_CONNECTOR_STORE_BACKEND_INBOUND_ENDPOINTS || '',
                 MI_CONNECTOR_STORE_BACKEND_GETBYVERSION: process.env.MI_CONNECTOR_STORE_BACKEND_GETBYVERSION || '',
-                ADOPTIUM_API_BASE_URL: process.env.ADOPTIUM_API_BASE_URL || '',
-                MI_PROXY_URL: process.env.MI_PROXY_URL || ''
+                ADOPTIUM_API_BASE_URL: process.env.ADOPTIUM_API_BASE_URL || ''
             },
         });
     });
