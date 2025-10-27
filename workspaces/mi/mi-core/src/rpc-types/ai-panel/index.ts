@@ -47,7 +47,6 @@ export interface MIAIPanelAPI {
     // ==================================
     // API Key Management
     // ==================================
-    setAnthropicApiKey: () => Promise<void>
     hasAnthropicApiKey: () => Promise<boolean | undefined>
 }
 
@@ -58,6 +57,5 @@ export {
     generateCode,
     abortCodeGeneration,
     codeGenerationEvent,
-    setAnthropicApiKey,
     hasAnthropicApiKey
 } from './rpc-type';

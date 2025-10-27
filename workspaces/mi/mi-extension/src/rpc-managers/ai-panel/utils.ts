@@ -21,12 +21,13 @@ import { MiVisualizerRpcManager } from "../mi-visualizer/rpc-manager";
 import { refreshAuthCode } from "../../ai-panel/auth";
 import { openSignInView } from "../../util/ai-datamapper-utils";
 import { extension } from "../../MIExtensionContext";
-import { EVENT_TYPE, MACHINE_VIEW } from "@wso2/mi-core";
+import { EVENT_TYPE, MACHINE_VIEW, AI_EVENT_TYPE } from "@wso2/mi-core";
 import * as vscode from "vscode";
 import { MIAIPanelRpcManager } from "./rpc-manager";
 import { generateSynapse } from "../../ai-panel/copilot/generation/generations";
 import { getConnectors } from "../../ai-panel/copilot/connectors/connectors";
 import { codeDiagnostics } from "../../ai-panel/copilot/diagnostics/diagnostics";
+import { openAIWebview, StateMachineAI } from "../../ai-panel/aiMachine";
 
 // Backend URL constants
 export const MI_ARTIFACT_GENERATION_BACKEND_URL = `/chat/artifact-generation`;
@@ -153,9 +154,9 @@ function showQuotaExceededNotification(projectUri: string) {
         "Learn More"
     ).then(selection => {
         if (selection === "Set API Key") {
-            // Trigger the API key input dialog
-            const miAiPanelRpcManager = new MIAIPanelRpcManager(projectUri);
-            miAiPanelRpcManager.setAnthropicApiKey();
+            // Open AI panel and trigger API key authentication flow
+            openAIWebview();
+            StateMachineAI.sendEvent(AI_EVENT_TYPE.AUTH_WITH_API_KEY);
         } else if (selection === "Learn More") {
             vscode.env.openExternal(vscode.Uri.parse("https://console.anthropic.com/"));
         }

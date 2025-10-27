@@ -394,22 +394,6 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
     }
 
     /**
-     * Triggers the API key authentication flow
-     * Opens the AI Panel with the API key input form
-     */
-    async setAnthropicApiKey(): Promise<void> {
-        const { StateMachineAI } = await import('../../ai-panel/aiMachine');
-        const { AI_EVENT_TYPE } = await import('@wso2/mi-core');
-        const { openAIWebview } = await import('../../ai-panel/aiMachine');
-        
-        // Open AI Panel
-        openAIWebview();
-        
-        // Trigger the API key authentication flow
-        StateMachineAI.sendEvent(AI_EVENT_TYPE.AUTH_WITH_API_KEY);
-    }
-
-    /**
      * Check if user is using their own Anthropic API key
      */
     async hasAnthropicApiKey(): Promise<boolean | undefined> {
