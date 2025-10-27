@@ -25,7 +25,8 @@ import {
     abortCodeGeneration,
     GenerateSuggestionsRequest,
     GenerateCodeRequest,
-    hasAnthropicApiKey
+    hasAnthropicApiKey,
+    fetchUsage
 } from "@wso2/mi-core";
 
 export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri: string) {
@@ -43,4 +44,5 @@ export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri
     messenger.onRequest(generateCode, (request: GenerateCodeRequest) => rpcManager.generateCode(request));
     messenger.onRequest(abortCodeGeneration, () => rpcManager.abortCodeGeneration());
     messenger.onRequest(hasAnthropicApiKey, () => rpcManager.hasAnthropicApiKey());
+    messenger.onRequest(fetchUsage, () => rpcManager.fetchUsage());
 }

@@ -43,8 +43,7 @@ import { CopilotEventHandler } from "./event-handler";
 import { MiDiagramRpcManager } from "../mi-diagram/rpc-manager";
 import { generateSuggestions as generateSuggestionsFromLLM } from "../../ai-panel/copilot/suggestions/suggestions";
 import { getLoginMethod } from '../../ai-panel/auth';
-import { LoginMethod, AI_EVENT_TYPE } from '@wso2/mi-core';
-import { StateMachineAI } from '../../ai-panel/aiMachine';
+import { LoginMethod } from '@wso2/mi-core';
 
 export class MIAIPanelRpcManager implements MIAIPanelAPI {
     private eventHandler: CopilotEventHandler;
@@ -238,9 +237,6 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                     await this.handleCodeDiagnostics(assistantResponse);
                 }
 
-                // Refresh usage after successful code generation
-                this.refreshUsage();
-
             } else {
                 // Fallback: non-streaming response
                 const text = await response.text();
@@ -410,14 +406,56 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
     }
 
     /**
-     * Refreshes usage information from the backend
-     * Only applies to MI_INTEL users
+     * Fetches usage information from backend and updates state machine
+     * Only works for MI_INTEL users
+     * Also checks if usage has reset and transitions back to Authenticated if in UsageExceeded state
      */
-    private refreshUsage(): void {
-        try {
-            StateMachineAI.sendEvent(AI_EVENT_TYPE.REFRESH_USAGE);
-        } catch (error) {
-            console.error('Failed to refresh usage:', error);
+    async fetchUsage(): Promise<any> {
+        const loginMethod = await getLoginMethod();
+
+        // Only fetch for MI_INTEL users
+        if (loginMethod !== LoginMethod.MI_INTEL) {
+            return undefined;
         }
+
+        try {
+            const { fetchWithAuth } = await import('../../ai-panel/copilot/connection');
+            const { StateMachineAI } = await import('../../ai-panel/aiMachine');
+            const { AI_EVENT_TYPE } = await import('@wso2/mi-core');
+
+            const backendUrl = process.env.MI_COPILOT_ANTHROPIC_PROXY_URL as string;
+            const USER_CHECK_BACKEND_URL = '/usage';
+            const response = await fetchWithAuth(backendUrl + USER_CHECK_BACKEND_URL);
+            if (response.ok) {
+                const usage = await response.json();
+
+                // Update state machine context
+                const context = StateMachineAI.context();
+                const currentState = StateMachineAI.state();
+
+                // Update context with usage data FIRST before any state transitions
+                if (context && (currentState === 'Authenticated' || currentState === 'UsageExceeded')) {
+                    Object.assign(context, { usage: usage });
+                }
+
+                // Check if quota is exceeded and transition to UsageExceeded state
+                if (usage.remaining_tokens <= 0 && currentState === 'Authenticated') {
+                    console.log('Quota exceeded. Transitioning to UsageExceeded state.');
+                    StateMachineAI.sendEvent(AI_EVENT_TYPE.USAGE_EXCEEDED);
+                }
+
+                // Check if we're in UsageExceeded state and if usage has reset
+                if (currentState === 'UsageExceeded' && usage.remaining_tokens > 0) {
+                    console.log('Usage has reset. Transitioning back to Authenticated state.');
+                    StateMachineAI.sendEvent(AI_EVENT_TYPE.USAGE_RESET);
+                }
+
+                return usage;
+            }
+        } catch (error) {
+            console.error('Failed to fetch usage:', error);
+        }
+
+        return undefined;
     }
 }

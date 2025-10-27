@@ -88,6 +88,13 @@ export const AIPanel = () => {
                         </MICopilotContextProvider>
                     );
                     break;
+                case "UsageExceeded":
+                    setViewComponent(
+                        <MICopilotContextProvider>
+                            <AICodeGenerator isUsageExceeded={true} />
+                        </MICopilotContextProvider>
+                    );
+                    break;
                 case "Unauthenticated":
                     setViewComponent(<SignInToCopilotMessage />);
                     break;

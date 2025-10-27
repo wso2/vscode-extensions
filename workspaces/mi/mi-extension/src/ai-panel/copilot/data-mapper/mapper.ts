@@ -76,6 +76,7 @@ export async function mapDataMapper(
             prompt: userPrompt,
             maxOutputTokens: 8000,
             temperature: 0.2, // Lower temperature for more deterministic mappings
+            maxRetries: 0, // Disable retries to prevent retry loops on quota errors (429)
         });
         
         return extractTypeScriptCode(text);

@@ -114,6 +114,7 @@ export type AIMachineStateValue =
     | 'Unauthenticated'     // (show login window)
     | { Authenticating: 'determineFlow' | 'ssoFlow' | 'apiKeyFlow' | 'validatingApiKey' } // hierarchical substates
     | 'Authenticated'       // (ready, main view)
+    | 'UsageExceeded'       // (free usage quota exceeded, prompt user to set API key)
     | 'Disabled'            // (optional: if AI Chat is globally unavailable)
     | 'NotSupported';       // (workspace not supported)
 
@@ -137,6 +138,8 @@ export enum AI_EVENT_TYPE {
     CANCEL = "CANCEL",
     CANCEL_LOGIN = 'CANCEL_LOGIN',
     RETRY = "RETRY",
+    USAGE_EXCEEDED = "USAGE_EXCEEDED",
+    USAGE_RESET = "USAGE_RESET",
 }
 
 export type AIMachineEventMap = {
@@ -155,6 +158,8 @@ export type AIMachineEventMap = {
     [AI_EVENT_TYPE.CANCEL]: undefined;
     [AI_EVENT_TYPE.CANCEL_LOGIN]: undefined;
     [AI_EVENT_TYPE.RETRY]: undefined;
+    [AI_EVENT_TYPE.USAGE_EXCEEDED]: undefined;
+    [AI_EVENT_TYPE.USAGE_RESET]: undefined;
 };
 
 export type AIMachineSendableEvent =
@@ -194,6 +199,7 @@ export interface AIUserToken {
 export interface AIMachineContext {
     loginMethod?: LoginMethod;
     userToken?: AIUserToken;
+    usage?: AIUserTokens;
     errorMessage?: string;
 }
 
@@ -273,6 +279,7 @@ export interface AIVisualizerLocation {
     state?: AIMachineStateValue;
     loginMethod?: LoginMethod;
     userToken?: AIUserToken;
+    usage?: AIUserTokens;
     errorMessage?: string;
 }
 

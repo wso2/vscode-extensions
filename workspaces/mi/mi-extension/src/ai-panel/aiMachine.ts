@@ -25,8 +25,6 @@ import { extension } from '../MIExtensionContext';
 import { getAccessToken, getLoginMethod, checkToken, initiateInbuiltAuth, logout, validateApiKey } from './auth';
 import { PromptObject } from '@wso2/mi-core';
 
-export const USER_CHECK_BACKEND_URL = '/usage';
-
 export const openAIWebview = (initialPrompt?: PromptObject) => {
     extension.initialPrompt = initialPrompt;
     if (!AiPanelWebview.currentPanel) {
@@ -247,13 +245,12 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
         },
         Authenticated: {
             invoke: {
-                id: 'getUsage',
-                src: 'getUsage',
+                id: 'getTokenAndLoginMethod',
+                src: 'getTokenAndLoginMethod',
                 onDone: {
                     actions: assign({
                         userToken: (_ctx, event) => ({ token: event.data.token }),
                         loginMethod: (_ctx, event) => event.data.loginMethod,
-                        usage: (_ctx, event) => event.data.usage,
                         errorMessage: (_ctx) => undefined,
                     })
                 },
@@ -268,21 +265,6 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                 }
             },
             on: {
-                [AI_EVENT_TYPE.REFRESH_USAGE]: {
-                    actions: (context) => {
-                        // Fire and forget - fetch usage and update context when ready
-                        getUsage().then(data => {
-                            if (data.usage && aiStateService.state.value === 'Authenticated') {
-                                // Update context directly
-                                Object.assign(context, { usage: data.usage });
-                                // Notify state change to trigger UI update
-                                aiStateService.send({ type: '__internal__' } as any);
-                            }
-                        }).catch(err => {
-                            console.error('Failed to refresh usage:', err);
-                        });
-                    }
-                },
                 [AI_EVENT_TYPE.LOGOUT]: {
                     target: 'Unauthenticated',
                     actions: [
@@ -299,6 +281,41 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                     target: 'Unauthenticated',
                     actions: [
                         'silentLogout',
+                        assign({
+                            loginMethod: (_) => undefined,
+                            userToken: (_) => undefined,
+                            usage: (_) => undefined,
+                            errorMessage: (_) => undefined,
+                        })
+                    ]
+                },
+                [AI_EVENT_TYPE.USAGE_EXCEEDED]: {
+                    target: 'UsageExceeded',
+                    actions: assign({
+                        errorMessage: (_ctx) => 'Your free usage quota has been exceeded. Set your own Anthropic API key to continue.',
+                    })
+                }
+            }
+        },
+        UsageExceeded: {
+            on: {
+                [AI_EVENT_TYPE.AUTH_WITH_API_KEY]: {
+                    target: 'Authenticating',
+                    actions: assign({
+                        loginMethod: (_ctx) => LoginMethod.ANTHROPIC_KEY,
+                        errorMessage: (_ctx) => undefined,
+                    })
+                },
+                [AI_EVENT_TYPE.USAGE_RESET]: {
+                    target: 'Authenticated',
+                    actions: assign({
+                        errorMessage: (_ctx) => undefined,
+                    })
+                },
+                [AI_EVENT_TYPE.LOGOUT]: {
+                    target: 'Unauthenticated',
+                    actions: [
+                        'logout',
                         assign({
                             loginMethod: (_) => undefined,
                             userToken: (_) => undefined,
@@ -390,29 +407,14 @@ const validateApiKeyService = async (_context: AIMachineContext, event: any) => 
     return await validateApiKey(apiKey, LoginMethod.ANTHROPIC_KEY);
 };
 
-const getUsage = async () => {
+const getTokenAndLoginMethod = async () => {
     const result = await getAccessToken();
     const loginMethod = await getLoginMethod();
     if (!result || !loginMethod) {
         throw new Error('No authentication credentials found');
     }
 
-    // Fetch user token usage for MI_INTEL users only
-    let usage = undefined;
-    if (loginMethod === LoginMethod.MI_INTEL) {
-        try {
-            const { fetchWithAuth } = await import('./copilot/connection');
-            const backendUrl = process.env.MI_COPILOT_ANTHROPIC_PROXY_URL as string;
-            const response = await fetchWithAuth(backendUrl + USER_CHECK_BACKEND_URL);
-            if (response.ok) {
-                usage = await response.json();
-            }
-        } catch (error) {
-            console.error('Failed to fetch user token usage:', error);
-        }
-    }
-
-    return { token: result, loginMethod: loginMethod, usage };
+    return { token: result, loginMethod: loginMethod };
 };
 
 const aiStateService = interpret(aiMachine.withConfig({
@@ -420,7 +422,7 @@ const aiStateService = interpret(aiMachine.withConfig({
         checkWorkspaceAndToken: checkWorkspaceAndToken,
         openLogin: openLogin,
         validateApiKey: validateApiKeyService,
-        getUsage: getUsage,
+        getTokenAndLoginMethod: getTokenAndLoginMethod,
     },
     actions: {
         logout: () => {
