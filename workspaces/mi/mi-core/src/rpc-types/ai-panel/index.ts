@@ -48,6 +48,11 @@ export interface MIAIPanelAPI {
     // API Key Management
     // ==================================
     hasAnthropicApiKey: () => Promise<boolean | undefined>
+    
+    // ==================================
+    // Usage Management
+    // ==================================
+    fetchUsage: () => Promise<{ max_usage: number; remaining_tokens: number; time_to_reset: number } | undefined>
 }
 
 // Export RPC type definitions
@@ -57,5 +62,6 @@ export {
     generateCode,
     abortCodeGeneration,
     codeGenerationEvent,
-    hasAnthropicApiKey
+    hasAnthropicApiKey,
+    fetchUsage
 } from './rpc-type';

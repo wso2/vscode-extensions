@@ -43,7 +43,7 @@ async function initVSCode(groupName?: string, title?: string, attempt: number = 
         await page.executePaletteCommand('Reload Window');
         await page.executePaletteCommand('View: Toggle Secondary Side Bar Visibility');
     } else {
-        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, newProjectPath, 'mi-test-profile', groupName, title, attempt);
+        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, newProjectPath, 'mi-test-profile');
     }
     page = new ExtendedPage(await vscode!.firstWindow({ timeout: 60000 }));
 }
@@ -115,7 +115,7 @@ export async function resumeVSCode(groupName?: string, title?: string, attempt: 
         await page.executePaletteCommand('Reload Window');
     } else {
         console.log('Starting VSCode');
-        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, path.join(newProjectPath, 'testProject'), 'mi-test-profile', groupName, title, attempt);
+        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, path.join(newProjectPath, 'testProject'), 'mi-test-profile');
         await new Promise(resolve => setTimeout(resolve, 5000));
     }
     page = new ExtendedPage(await vscode!.firstWindow({ timeout: 60000 }));

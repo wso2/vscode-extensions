@@ -25,10 +25,14 @@ import AIChatMessage from './AIChatMessage';
 import { AIChatView } from '../styles';
 
 
+interface AICodeGeneratorProps {
+  isUsageExceeded?: boolean;
+}
+
 /**
  * Main chat component with integrated MICopilot Context provider
  */
-export function AICodeGenerator() {
+export function AICodeGenerator({ isUsageExceeded = false }: AICodeGeneratorProps) {
   const { messages } = useMICopilotContext();
   const [isAtBottom, setIsAtBottom] = useState(true);
   const mainContainerRef = useRef<HTMLDivElement>(null);
@@ -75,7 +79,7 @@ export function AICodeGenerator() {
                   <div ref={messagesEndRef} />
               </main>
 
-              <AIChatFooter />
+              <AIChatFooter isUsageExceeded={isUsageExceeded} />
           </AIChatView>
   );
 }

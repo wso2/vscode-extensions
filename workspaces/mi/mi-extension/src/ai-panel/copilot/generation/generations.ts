@@ -119,6 +119,7 @@ export async function generateSynapse(
         maxOutputTokens: 8000,
         temperature: 0.3,
         messages,
+        maxRetries: 0, // Disable retries to prevent retry loops on quota errors (429)
         abortSignal: params.abortController?.signal,
         onAbort: () => {
             console.log('Code generation aborted by user');

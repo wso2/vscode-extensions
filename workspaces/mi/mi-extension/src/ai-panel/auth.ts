@@ -350,7 +350,8 @@ export const validateApiKey = async (apiKey: string, loginMethod: LoginMethod): 
         await generateText({
             model: directAnthropic('claude-3-5-haiku-20241022'),
             maxOutputTokens: 1,
-            messages: [{ role: 'user', content: 'Hi' }]
+            messages: [{ role: 'user', content: 'Hi' }],
+            maxRetries: 0, // Disable retries to prevent retry loops on quota errors (429)
         });
 
         console.log('API key validated successfully');

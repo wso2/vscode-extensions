@@ -23,15 +23,19 @@ import SuggestionsList from "./SuggestionsList";
 import { useMICopilotContext } from "./MICopilotContext";
 import { handleFileAttach } from "../utils";
 import { USER_INPUT_PLACEHOLDER_MESSAGE, VALID_FILE_TYPES } from "../constants";
-import { generateSuggestions, generateId, getBackendUrlAndView, fetchCodeGenerationsWithRetry, getDiagnosticsReponseFromLlm, replaceCodeBlock, setupCodeGenerationEventListener } from "../utils";
+import { generateSuggestions, generateId, getBackendUrlAndView, fetchCodeGenerationsWithRetry, getDiagnosticsReponseFromLlm, replaceCodeBlock, setupCodeGenerationEventListener, updateTokenInfo } from "../utils";
 import { BackendRequestType, FixedConfigItem, CorrectedCodeItem, } from "../types";
 import { Role, MessageType, CopilotChatEntry, ChatMessage } from "@wso2/mi-core";
 import Attachments from "./Attachments";
 
+interface AIChatFooterProps {
+    isUsageExceeded?: boolean;
+}
+
 /**
  * Footer component containing chat input and controls
  */
-const AIChatFooter: React.FC = () => {
+const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) => {
     const {
         rpcClient,
         messages,
@@ -117,8 +121,15 @@ const AIChatFooter: React.FC = () => {
                     setAssistantResponse(event.content);
                     handleCodeGenerationComplete(event.content);
                 }
-                // TODO: Update remaining token percentage by calling backend through RPC client
-                // setRemainingTokenPercentage(100);
+                // Fetch and update usage after code generation
+                rpcClient?.getMiAiPanelRpcClient().fetchUsage().then((usage) => {
+                    if (usage) {
+                        rpcClient?.getAIVisualizerState().then((machineView) => {
+                            const { timeToReset, remainingTokenPercentage } = updateTokenInfo(machineView);
+                            setRemainingTokenPercentage(remainingTokenPercentage);
+                        });
+                    }
+                });
                 break;
 
             case "code_diagnostic_start":
@@ -487,10 +498,11 @@ const AIChatFooter: React.FC = () => {
                                     setIsFocused(false);
                                 }}
                                 onKeyDown={handleTextKeydown}
-                                placeholder={placeholder}
+                                placeholder={isUsageExceeded ? "Usage quota exceeded. Please logout and log in with your own API key to continue." : placeholder}
+                                disabled={isUsageExceeded}
                                 style={{
                                     flex: 1,
-                                    overflowY: "auto", 
+                                    overflowY: "auto",
                                     padding: "5px 15px 5px 10px",
                                     borderRadius: "4px",
                                     border: "none",
@@ -502,6 +514,8 @@ const AIChatFooter: React.FC = () => {
                                         : "var(--vscode-editorHoverWidget-background)",
                                     color: "var(--vscode-input-foreground)",
                                     position: "relative",
+                                    opacity: isUsageExceeded ? 0.5 : 1,
+                                    cursor: isUsageExceeded ? "not-allowed" : "text"
                                 }}
                                 rows={2}
                             />
@@ -550,10 +564,10 @@ const AIChatFooter: React.FC = () => {
                                 color: isDarkMode
                                     ? "var(--vscode-input-foreground)"
                                     : "var(--vscode-editor-foreground)",
-                                opacity: backendRequestTriggered || isValidating ? 0.5 : 1,
-                                cursor: backendRequestTriggered || isValidating ? "not-allowed" : "pointer"
+                                opacity: (backendRequestTriggered || isValidating || isUsageExceeded) ? 0.5 : 1,
+                                cursor: (backendRequestTriggered || isValidating || isUsageExceeded) ? "not-allowed" : "pointer"
                             }}
-                            disabled={backendRequestTriggered || isValidating}
+                            disabled={backendRequestTriggered || isValidating || isUsageExceeded}
                         >
                             <Codicon name="new-file" />
                         </StyledTransParentButton>
@@ -597,7 +611,7 @@ const AIChatFooter: React.FC = () => {
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                             handleFileAttach(e, files, setFiles, images, setImages, setFileUploadStatus)
                         }
-                        disabled={backendRequestTriggered || isValidating}
+                        disabled={backendRequestTriggered || isValidating || isUsageExceeded}
                     />
                     
                     <StyledTransParentButton
@@ -605,8 +619,10 @@ const AIChatFooter: React.FC = () => {
                         style={{
                             width: "30px",
                             color: isDarkMode ? "var(--vscode-input-foreground)" : "var(--vscode-editor-foreground)",
+                            opacity: isUsageExceeded ? 0.5 : 1,
+                            cursor: isUsageExceeded ? "not-allowed" : "pointer"
                         }}
-                        disabled={(currentUserPrompt.trim() === "" && !backendRequestTriggered && !isValidating)}
+                        disabled={(currentUserPrompt.trim() === "" && !backendRequestTriggered && !isValidating) || isUsageExceeded}
                     >
                         <span
                             className={`codicon ${(backendRequestTriggered || isValidating) ? "codicon-stop-circle" : "codicon-send"}`}

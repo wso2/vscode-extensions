@@ -89,6 +89,7 @@ export async function generateSuggestions(
             maxOutputTokens: 30,
             temperature: 0.5, // Slightly higher temperature for suggestions
             messages,
+            maxRetries: 0, // Disable retries to prevent retry loops on quota errors (429)
         });
         return text;
     } catch (error) {

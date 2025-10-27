@@ -15,8 +15,9 @@
 // under the License.
 
 import { createAnthropic } from "@ai-sdk/anthropic";
+import * as vscode from "vscode";
 import { getAccessToken, getLoginMethod, getRefreshedAccessToken } from "../auth";
-import { StateMachineAI } from "../aiMachine";
+import { StateMachineAI, openAIWebview } from "../aiMachine";
 import { AI_EVENT_TYPE, LoginMethod } from "@wso2/mi-core";
 
 export const ANTHROPIC_HAIKU_4_5 = "claude-haiku-4-5-20251001";
@@ -56,6 +57,41 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
 
         let response = await fetch(input, options);
         console.log("options: ", options);
+
+        // Handle rate limit/quota errors (429)
+        if (response.status === 429) {
+            console.log("Rate limit/quota exceeded (429)");
+            let errorDetail = "";
+            try {
+                const body = await response.json();
+                errorDetail = body.detail || "";
+            } catch (e) {
+                console.error("Failed to parse 429 response body:", e);
+            }
+
+            // Transition to UsageExceeded state
+            StateMachineAI.sendEvent(AI_EVENT_TYPE.USAGE_EXCEEDED);
+
+            // Notify user and prompt to use their own API key
+            vscode.window.showWarningMessage(
+                "Your free usage quota has been exceeded. Set your own Anthropic API key to continue using MI Copilot with unlimited access.",
+                "Set API Key",
+                "Learn More"
+            ).then(selection => {
+                if (selection === "Set API Key") {
+                    openAIWebview();
+                    StateMachineAI.sendEvent(AI_EVENT_TYPE.AUTH_WITH_API_KEY);
+                } else if (selection === "Learn More") {
+                    vscode.env.openExternal(vscode.Uri.parse("https://console.anthropic.com/"));
+                }
+            });
+
+            // Create a special error that should not be retried
+            const error: any = new Error(`USAGE_QUOTA_EXCEEDED: ${errorDetail}`.trim());
+            error.isUsageQuotaError = true;
+            error.status = 429;
+            throw error;
+        }
 
         // Handle token expiration
         if (response.status === 401) {
@@ -123,4 +159,3 @@ export const getAnthropicClient = async (model: AnthropicModel): Promise<any> =>
 export const getProviderCacheControl = async () => {
     return { anthropic: { cacheControl: { type: "ephemeral" } } };
 };
-

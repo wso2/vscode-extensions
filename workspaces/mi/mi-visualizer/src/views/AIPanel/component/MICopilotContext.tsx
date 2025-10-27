@@ -172,7 +172,19 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
 
                 const machineView = await rpcClient.getAIVisualizerState();
 
-                // Update Token Information
+                // Fetch and update usage information
+                rpcClient.getMiAiPanelRpcClient().fetchUsage().then((usage) => {
+                    if (usage) {
+                        // Update Token Information from fresh state
+                        rpcClient.getAIVisualizerState().then((updatedMachineView) => {
+                            const { timeToReset, remainingTokenPercentage } = updateTokenInfo(updatedMachineView);
+                            setRemainingTokenPercentage(remainingTokenPercentage);
+                            setTimeToReset(timeToReset);
+                        });
+                    }
+                });
+
+                // Initial token info from current state
                 const { timeToReset, remainingTokenPercentage } = updateTokenInfo(machineView);
                 setRemainingTokenPercentage(remainingTokenPercentage);
                 setTimeToReset(timeToReset);
