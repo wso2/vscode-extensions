@@ -38,7 +38,7 @@ const initialConfiguration: InputsFields = {
 
 const schema = yup.object({
     name: yup.string().required("Integration Name is required").matches(/^[a-z]([-a-z0-9]*[a-z0-9])?$/, "Invalid Integration Name"),
-    replicas: yup.number().required("Number of replicas is required"),
+    replicas: yup.number().typeError("Number of replicas is required and must be a valid number").required("Number of replicas is required"),
     targetImage: yup.string().required("Target Image is required"),
 });
 

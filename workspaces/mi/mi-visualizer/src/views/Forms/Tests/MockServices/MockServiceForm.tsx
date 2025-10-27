@@ -95,9 +95,9 @@ export function MockServiceForm(props: MockServiceFormProps) {
 
     // Schema
     const schema = yup.object({
-        name: yup.string().required("Test case name is required").notOneOf(availableMockServices, "Mock service name already exists"),
+        name: yup.string().required("Mock Service name is required").notOneOf(availableMockServices, "Mock service name already exists"),
         endpointName: yup.string().required("Endpoint name is required"),
-        servicePort: yup.number().required("Service port is required"),
+        servicePort: yup.number().required("Service port is required").typeError("Service port is required and must be a valid number"),
         serviceContext: yup.string().required("Service context is required").matches(/^\//, "Service context should start with '/'")
     });
 
