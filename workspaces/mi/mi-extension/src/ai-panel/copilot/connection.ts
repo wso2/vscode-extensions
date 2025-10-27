@@ -33,7 +33,7 @@ let cachedAuthMethod: LoginMethod | null = null;
  * Get the backend URL for MI Copilot
  */
 const getAnthropicProxyUrl = (): string => {
-    return process.env.MI_COPILOT_ANTHROPIC_PROXY_URL as string;
+    return process.env.MI_COPILOT_ANTHROPIC_PROXY_URL + '/proxy/anthropic/v1' as string;
 };
 
 /**
@@ -56,8 +56,6 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
 
         let response = await fetch(input, options);
         console.log("options: ", options);
-        console.log("input: ", input);
-        console.log("Response", response);
 
         // Handle token expiration
         if (response.status === 401) {
@@ -98,7 +96,7 @@ export const getAnthropicClient = async (model: AnthropicModel): Promise<any> =>
         if (loginMethod === LoginMethod.MI_INTEL) {
             const backendUrl = getAnthropicProxyUrl();
             cachedAnthropic = createAnthropic({
-                baseURL: backendUrl + "/v1",
+                baseURL: backendUrl,
                 apiKey: "xx", // dummy value; real auth is via fetchWithAuth
                 fetch: fetchWithAuth,
             });

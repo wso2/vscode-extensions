@@ -25,7 +25,7 @@ import { extension } from '../MIExtensionContext';
 import { getAccessToken, getLoginMethod, checkToken, initiateInbuiltAuth, logout, validateApiKey } from './auth';
 import { PromptObject } from '@wso2/mi-core';
 
-export const USER_CHECK_BACKEND_URL = '/user/usage';
+export const USER_CHECK_BACKEND_URL = '/usage';
 
 export const openAIWebview = (initialPrompt?: PromptObject) => {
     extension.initialPrompt = initialPrompt;
@@ -50,6 +50,7 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
     context: {
         loginMethod: undefined,
         userToken: undefined,
+        usage: undefined,
         errorMessage: undefined,
     },
     on: {
@@ -58,6 +59,7 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
             actions: assign({
                 loginMethod: (_ctx) => undefined,
                 userToken: (_ctx) => undefined,
+                usage: (_ctx) => undefined,
                 errorMessage: (_ctx) => undefined,
             })
         }
@@ -83,6 +85,7 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                         actions: assign({
                             loginMethod: (_ctx) => undefined,
                             userToken: (_ctx) => undefined,
+                            usage: (_ctx) => undefined,
                             errorMessage: (_ctx) => undefined,
                         })
                     },
@@ -92,6 +95,7 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                         actions: assign({
                             loginMethod: (_ctx) => undefined,
                             userToken: (_ctx) => undefined,
+                            usage: (_ctx) => undefined,
                             errorMessage: (_ctx) => 'Multi-root workspace is not supported',
                         })
                     }
@@ -105,6 +109,7 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                             assign({
                                 loginMethod: (_ctx) => undefined,
                                 userToken: (_ctx) => undefined,
+                                usage: (_ctx) => undefined,
                                 errorMessage: (_ctx) => undefined,
                             })
                         ]
@@ -114,6 +119,7 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                         actions: assign({
                             loginMethod: (_ctx) => undefined,
                             userToken: (_ctx) => undefined,
+                            usage: (_ctx) => undefined,
                             errorMessage: (_ctx, event) => event.data?.message || 'Unknown error'
                             })
                     }
@@ -241,12 +247,13 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
         },
         Authenticated: {
             invoke: {
-                id: 'getTokenAfterAuth',
-                src: 'getTokenAfterAuth',
+                id: 'getUsage',
+                src: 'getUsage',
                 onDone: {
                     actions: assign({
                         userToken: (_ctx, event) => ({ token: event.data.token }),
                         loginMethod: (_ctx, event) => event.data.loginMethod,
+                        usage: (_ctx, event) => event.data.usage,
                         errorMessage: (_ctx) => undefined,
                     })
                 },
@@ -255,11 +262,27 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                     actions: assign({
                         userToken: (_ctx) => undefined,
                         loginMethod: (_ctx) => undefined,
+                        usage: (_ctx) => undefined,
                         errorMessage: (_ctx, event) => event.data?.message || 'Failed to retrieve authentication credentials',
                     })
                 }
             },
             on: {
+                [AI_EVENT_TYPE.REFRESH_USAGE]: {
+                    actions: (context) => {
+                        // Fire and forget - fetch usage and update context when ready
+                        getUsage().then(data => {
+                            if (data.usage && aiStateService.state.value === 'Authenticated') {
+                                // Update context directly
+                                Object.assign(context, { usage: data.usage });
+                                // Notify state change to trigger UI update
+                                aiStateService.send({ type: '__internal__' } as any);
+                            }
+                        }).catch(err => {
+                            console.error('Failed to refresh usage:', err);
+                        });
+                    }
+                },
                 [AI_EVENT_TYPE.LOGOUT]: {
                     target: 'Unauthenticated',
                     actions: [
@@ -267,6 +290,7 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                         assign({
                             loginMethod: (_) => undefined,
                             userToken: (_) => undefined,
+                            usage: (_) => undefined,
                             errorMessage: (_) => undefined,
                         })
                     ]
@@ -278,6 +302,7 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                         assign({
                             loginMethod: (_) => undefined,
                             userToken: (_) => undefined,
+                            usage: (_) => undefined,
                             errorMessage: (_) => undefined,
                         })
                     ]
@@ -290,6 +315,7 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                     target: 'Initialize',
                     actions: assign({
                         userToken: (_ctx) => undefined,
+                        usage: (_ctx) => undefined,
                         loginMethod: (_ctx) => undefined,
                         errorMessage: (_ctx) => undefined,
                     })
@@ -302,6 +328,7 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                     target: 'Initialize',
                     actions: assign({
                         userToken: (_ctx) => undefined,
+                        usage: (_ctx) => undefined,
                         loginMethod: (_ctx) => undefined,
                         errorMessage: (_ctx) => undefined,
                     })
@@ -313,6 +340,7 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                         assign({
                             loginMethod: (_) => undefined,
                             userToken: (_) => undefined,
+                            usage: (_) => undefined,
                             errorMessage: (_) => undefined,
                         })
                     ]
@@ -362,13 +390,29 @@ const validateApiKeyService = async (_context: AIMachineContext, event: any) => 
     return await validateApiKey(apiKey, LoginMethod.ANTHROPIC_KEY);
 };
 
-const getTokenAfterAuth = async () => {
+const getUsage = async () => {
     const result = await getAccessToken();
     const loginMethod = await getLoginMethod();
     if (!result || !loginMethod) {
         throw new Error('No authentication credentials found');
     }
-    return { token: result, loginMethod: loginMethod };
+
+    // Fetch user token usage for MI_INTEL users only
+    let usage = undefined;
+    if (loginMethod === LoginMethod.MI_INTEL) {
+        try {
+            const { fetchWithAuth } = await import('./copilot/connection');
+            const backendUrl = process.env.MI_COPILOT_ANTHROPIC_PROXY_URL as string;
+            const response = await fetchWithAuth(backendUrl + USER_CHECK_BACKEND_URL);
+            if (response.ok) {
+                usage = await response.json();
+            }
+        } catch (error) {
+            console.error('Failed to fetch user token usage:', error);
+        }
+    }
+
+    return { token: result, loginMethod: loginMethod, usage };
 };
 
 const aiStateService = interpret(aiMachine.withConfig({
@@ -376,7 +420,7 @@ const aiStateService = interpret(aiMachine.withConfig({
         checkWorkspaceAndToken: checkWorkspaceAndToken,
         openLogin: openLogin,
         validateApiKey: validateApiKeyService,
-        getTokenAfterAuth: getTokenAfterAuth,
+        getUsage: getUsage,
     },
     actions: {
         logout: () => {

@@ -299,7 +299,7 @@ export async function generateSuggestions(
 
 export function updateTokenInfo(machineView: any) {
     // For custom API key users or when token info is not available, return unlimited
-    if (!machineView.userTokens || !machineView.userTokens.time_to_reset) {
+    if (!machineView.usage || !machineView.usage.time_to_reset) {
         return { 
             timeToReset: 0, 
             remainingTokenPercentage: -1, // -1 indicates unlimited
@@ -307,16 +307,16 @@ export function updateTokenInfo(machineView: any) {
         };
     }
 
-    let timeToReset = machineView.userTokens.time_to_reset;
+    let timeToReset = machineView.usage.time_to_reset;
     timeToReset = timeToReset / (60 * 60 * 24);
-    const maxTokens = machineView.userTokens.max_usage;
+    const maxTokens = machineView.usage.max_usage;
     let remainingTokenPercentage: number;
     let remaingTokenLessThanOne: boolean = false;
 
     if (maxTokens == -1) {
         remainingTokenPercentage = -1;
     } else {
-        const remainingTokens = machineView.userTokens.remaining_tokens;
+        const remainingTokens = machineView.usage.remaining_tokens;
         remainingTokenPercentage = (remainingTokens / maxTokens) * 100;
 
         remainingTokenPercentage = Math.round(remainingTokenPercentage);
