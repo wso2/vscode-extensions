@@ -30,7 +30,9 @@ import {
     generateUnitTest,
     generateUnitTestCase,
     GenerateUnitTestRequest,
-    GenerateUnitTestCaseRequest
+    GenerateUnitTestCaseRequest,
+    processIdp,
+    ProcessIdpRequest
 } from "@wso2/mi-core";
 
 export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri: string) {
@@ -55,4 +57,9 @@ export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri
     // ==================================
     messenger.onRequest(generateUnitTest, (request: GenerateUnitTestRequest) => rpcManager.generateUnitTest(request));
     messenger.onRequest(generateUnitTestCase, (request: GenerateUnitTestCaseRequest) => rpcManager.generateUnitTestCase(request));
+
+    // ==================================
+    // IDP (Intelligent Document Processor)
+    // ==================================
+    messenger.onRequest(processIdp, (request: ProcessIdpRequest) => rpcManager.processIdp(request));
 }

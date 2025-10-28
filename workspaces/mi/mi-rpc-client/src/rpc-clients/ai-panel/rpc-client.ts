@@ -35,7 +35,10 @@ import {
     generateUnitTest,
     GenerateUnitTestCaseRequest,
     GenerateUnitTestCaseResponse,
-    generateUnitTestCase
+    generateUnitTestCase,
+    ProcessIdpRequest,
+    ProcessIdpResponse,
+    processIdp
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -92,5 +95,12 @@ export class MiAiPanelRpcClient implements MIAIPanelAPI {
 
     generateUnitTestCase(request: GenerateUnitTestCaseRequest): Promise<GenerateUnitTestCaseResponse> {
         return this._messenger.sendRequest(generateUnitTestCase, HOST_EXTENSION, request);
+    }
+
+    // ==================================
+    // IDP (Intelligent Document Processor)
+    // ==================================
+    processIdp(request: ProcessIdpRequest): Promise<ProcessIdpResponse> {
+        return this._messenger.sendRequest(processIdp, HOST_EXTENSION, request);
     }
 }

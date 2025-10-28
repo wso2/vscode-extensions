@@ -18,7 +18,7 @@
 
 import { generateText } from "ai";
 import * as Handlebars from "handlebars";
-import { getAnthropicClient, ANTHROPIC_SONNET_4_5 } from "../connection";
+import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from "../connection";
 import { SYSTEM_CASE_GENERATE } from "./system_case_generate";
 import { PROMPT_CASE_GENERATE } from "./prompt_case_generate";
 import { UNIT_TEST_GUIDE } from "./unit_test_guide";
@@ -96,7 +96,7 @@ export async function generateUnitTestCase(
             external_connectors: params.externalConnectors
         });
 
-        const model = await getAnthropicClient(ANTHROPIC_SONNET_4_5);
+        const model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
 
         // Generate the updated unit test with new test case
         const { text } = await generateText({

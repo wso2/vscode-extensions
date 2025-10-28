@@ -128,3 +128,15 @@ export interface GenerateUnitTestCaseRequest {
 export interface GenerateUnitTestCaseResponse {
     response: string; // Markdown response containing updated test suite and new mock services
 }
+
+// IDP (Intelligent Document Processor) Types
+export interface ProcessIdpRequest {
+    operation: 'generate' | 'finetune';
+    userInput?: string;
+    jsonSchema?: string;
+    images?: string[]; // Base64-encoded images
+}
+
+export interface ProcessIdpResponse {
+    schema: string; // Generated or modified JSON schema
+}

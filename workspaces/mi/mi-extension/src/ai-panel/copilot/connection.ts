@@ -56,7 +56,6 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
         };
 
         let response = await fetch(input, options);
-        console.log("options: ", options);
 
         // Handle rate limit/quota errors (429)
         if (response.status === 429) {
@@ -147,6 +146,8 @@ export const getAnthropicClient = async (model: AnthropicModel): Promise<any> =>
         }
 
         cachedAuthMethod = loginMethod;
+    } else {
+        console.log('[getAnthropicClient] Using cached Anthropic client');
     }
 
     return cachedAnthropic!(model);
