@@ -22,7 +22,9 @@ import {
     GetBackendRootUrlResponse,
     GenerateCodeRequest, GenerateCodeResponse,
     AbortCodeGenerationResponse,
-    CodeGenerationEvent
+    CodeGenerationEvent,
+    GenerateUnitTestRequest, GenerateUnitTestResponse,
+    GenerateUnitTestCaseRequest, GenerateUnitTestCaseResponse
 } from "./types";
 
 const _prefix = "mi-ai-panel";
@@ -33,6 +35,10 @@ export const generateCode: RequestType<GenerateCodeRequest, GenerateCodeResponse
 export const abortCodeGeneration: RequestType<void, AbortCodeGenerationResponse> = { method: `${_prefix}/abortCodeGeneration` };
 export const hasAnthropicApiKey: RequestType<void, boolean | undefined> = { method: `${_prefix}/hasAnthropicApiKey` };
 export const fetchUsage: RequestType<void, { max_usage: number; remaining_tokens: number; time_to_reset: number } | undefined> = { method: `${_prefix}/fetchUsage` };
+
+// Unit test generation methods
+export const generateUnitTest: RequestType<GenerateUnitTestRequest, GenerateUnitTestResponse> = { method: `${_prefix}/generateUnitTest` };
+export const generateUnitTestCase: RequestType<GenerateUnitTestCaseRequest, GenerateUnitTestCaseResponse> = { method: `${_prefix}/generateUnitTestCase` };
 
 // Notification for streaming events
 export const codeGenerationEvent: NotificationType<CodeGenerationEvent> = { method: `${_prefix}/codeGenerationEvent` };

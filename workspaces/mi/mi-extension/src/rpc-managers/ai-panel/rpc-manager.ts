@@ -458,4 +458,52 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
 
         return undefined;
     }
+
+    /**
+     * Generates a complete unit test suite for WSO2 Synapse artifacts
+     */
+    async generateUnitTest(request: import('@wso2/mi-core').GenerateUnitTestRequest): Promise<import('@wso2/mi-core').GenerateUnitTestResponse> {
+        try {
+            const { generateUnitTest } = await import('../../ai-panel/copilot/unit-tests/unit_test_generate');
+
+            const result = await generateUnitTest({
+                context: request.context,
+                testFileName: request.testFileName,
+                fullContext: request.fullContext,
+                pomFile: request.pomFile,
+                externalConnectors: request.externalConnectors
+            });
+
+            return result;
+        } catch (error) {
+            console.error('Error generating unit test:', error);
+            throw new Error(`Failed to generate unit test: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Adds a new test case to an existing unit test suite
+     */
+    async generateUnitTestCase(request: import('@wso2/mi-core').GenerateUnitTestCaseRequest): Promise<import('@wso2/mi-core').GenerateUnitTestCaseResponse> {
+        try {
+            const { generateUnitTestCase } = await import('../../ai-panel/copilot/unit-tests/unit_test_case_generate');
+
+            const result = await generateUnitTestCase({
+                context: request.context,
+                testFileName: request.testFileName,
+                testSuiteFile: request.testSuiteFile,
+                testCaseDescription: request.testCaseDescription,
+                existingMockServices: request.existingMockServices,
+                existingMockServiceNames: request.existingMockServiceNames,
+                fullContext: request.fullContext,
+                pomFile: request.pomFile,
+                externalConnectors: request.externalConnectors
+            });
+
+            return result;
+        } catch (error) {
+            console.error('Error generating unit test case:', error);
+            throw new Error(`Failed to generate unit test case: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
 }

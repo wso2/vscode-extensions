@@ -25,7 +25,7 @@ import { log } from './util/logger';
 import { deriveConfigName, getSources } from './util/dataMapper';
 import { fileURLToPath } from 'url';
 import path = require('path');
-// import { activateTestExplorer } from './test-explorer/activator';
+import { activateTestExplorer } from './test-explorer/activator';
 import { DMProject } from './datamapper/DMProject';
 import { setupEnvironment } from './util/onboardingUtils';
 import { getPopupStateMachine } from './stateMachinePopup';
@@ -659,7 +659,7 @@ const stateMachine = createMachine<MachineContext>({
             return new Promise(async (resolve, reject) => {
                 const ls = await MILanguageClient.getInstance(context.projectUri!);
                 await activateProjectExplorer(extension.context, ls.languageClient!);
-                // await activateTestExplorer(extension.context);
+                await activateTestExplorer(extension.context);
                 resolve(true);
             });
         },
