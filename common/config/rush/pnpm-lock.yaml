@@ -679,6 +679,9 @@ importers:
       '@wso2/ui-toolkit':
         specifier: workspace:*
         version: link:../../common-libs/ui-toolkit
+      '@wso2/wso2-platform-core':
+        specifier: workspace:*
+        version: link:../../wso2-platform/wso2-platform-core
       lodash:
         specifier: ~4.17.21
         version: 4.17.21
@@ -39848,10 +39851,7 @@ snapshots:
       pretty-format: 25.5.0
       throat: 5.0.0
     transitivePeerDependencies:
-      - bufferutil
-      - canvas
       - supports-color
-      - utf-8-validate
 
   jest-leak-detector@25.5.0:
     dependencies:
