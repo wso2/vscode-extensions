@@ -280,8 +280,6 @@ export async function generateSuggestions(
             chatHistory: chatHistory
         });
 
-        console.log("Suggestions generated via RPC:", response);
-
         // Check if we got a valid response
         if (response.response) {
             // If the response contains a single suggestion, convert it to the expected format
