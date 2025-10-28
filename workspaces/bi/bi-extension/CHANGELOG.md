@@ -7,6 +7,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ## [Unreleased]
 
 
+## [1.3.2](https://github.com/wso2/vscode-extensions/compare/ballerina-integrator-1.3.1...ballerina-integrator-1.3.2) - 2025-10-26
+
+### Changed
+
+- **Data Mapper** Enable reset and refresh options.
+
+### Fixed
+
+- **Editor** Allow artifact creation even when corresponding source files are missing.
+- **Data Mapper** — Add support for mappings with built-in Ballerina sub-types (e.g., int:Signed32), fix creation using types from sub-modules, enable expression-bar completions for reusable mappers, and correct link rendering for optional field access.
+- **Type Browser** — Improve type filtering based on user queries.
+- **Service Class Designer** — Enable connection generation for clients created from WSDL files.
+
+
 ## [1.3.1](https://github.com/wso2/vscode-extensions/compare/ballerina-integrator-1.3.0...ballerina-integrator-1.3.1) - 2025-10-15
 
 ### Changed

@@ -64,7 +64,7 @@ export const StyledCheckBox = styled(VSCodeCheckbox)<CheckBoxProps>`
 const LabelContainer = styled.div`
     display: flex;
     flex-direction: row;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 `;
 export const CheckBox = ({ label, labelAdornment, value, sx, checked, onChange, disabled }: CheckBoxProps) => {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
