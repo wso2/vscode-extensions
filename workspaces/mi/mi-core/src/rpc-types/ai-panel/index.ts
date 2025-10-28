@@ -20,7 +20,9 @@ import {
     GenerateSuggestionsRequest, GenerateSuggestionsResponse,
     GetBackendRootUrlResponse,
     GenerateCodeRequest, GenerateCodeResponse,
-    AbortCodeGenerationResponse
+    AbortCodeGenerationResponse,
+    GenerateUnitTestRequest, GenerateUnitTestResponse,
+    GenerateUnitTestCaseRequest, GenerateUnitTestCaseResponse
 } from "./types";
 
 // Export types for external use
@@ -32,7 +34,11 @@ export type {
     AbortCodeGenerationResponse,
     CodeGenerationEvent,
     XmlCodeEntry,
-    CorrectedCodeItem
+    CorrectedCodeItem,
+    GenerateUnitTestRequest,
+    GenerateUnitTestResponse,
+    GenerateUnitTestCaseRequest,
+    GenerateUnitTestCaseResponse
 } from './types';
 
 export interface MIAIPanelAPI {
@@ -43,16 +49,22 @@ export interface MIAIPanelAPI {
     generateSuggestions: (request: GenerateSuggestionsRequest) => Promise<GenerateSuggestionsResponse>
     generateCode: (request: GenerateCodeRequest) => Promise<GenerateCodeResponse>
     abortCodeGeneration: () => Promise<AbortCodeGenerationResponse>
-    
+
     // ==================================
     // API Key Management
     // ==================================
     hasAnthropicApiKey: () => Promise<boolean | undefined>
-    
+
     // ==================================
     // Usage Management
     // ==================================
     fetchUsage: () => Promise<{ max_usage: number; remaining_tokens: number; time_to_reset: number } | undefined>
+
+    // ==================================
+    // Unit Test Generation
+    // ==================================
+    generateUnitTest: (request: GenerateUnitTestRequest) => Promise<GenerateUnitTestResponse>
+    generateUnitTestCase: (request: GenerateUnitTestCaseRequest) => Promise<GenerateUnitTestCaseResponse>
 }
 
 // Export RPC type definitions
@@ -63,5 +75,7 @@ export {
     abortCodeGeneration,
     codeGenerationEvent,
     hasAnthropicApiKey,
-    fetchUsage
+    fetchUsage,
+    generateUnitTest,
+    generateUnitTestCase
 } from './rpc-type';

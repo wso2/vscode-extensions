@@ -98,3 +98,33 @@ export interface CorrectedCodeItem {
     configuration?: string;
     code?: string;
 }
+
+// Unit Test Generation Types
+export interface GenerateUnitTestRequest {
+    context: string[];
+    testFileName: string;
+    fullContext?: string[];
+    pomFile?: string;
+    externalConnectors?: string[];
+}
+
+export interface GenerateUnitTestResponse {
+    response: string; // Markdown response containing unit test and mock services
+}
+
+// Unit Test Case Addition Types
+export interface GenerateUnitTestCaseRequest {
+    context: string[];
+    testFileName: string;
+    testSuiteFile: string;
+    testCaseDescription: string;
+    existingMockServices?: string[];
+    existingMockServiceNames?: string[];
+    fullContext?: string[];
+    pomFile?: string;
+    externalConnectors?: string[];
+}
+
+export interface GenerateUnitTestCaseResponse {
+    response: string; // Markdown response containing updated test suite and new mock services
+}

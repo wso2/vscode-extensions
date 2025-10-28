@@ -26,7 +26,11 @@ import {
     GenerateSuggestionsRequest,
     GenerateCodeRequest,
     hasAnthropicApiKey,
-    fetchUsage
+    fetchUsage,
+    generateUnitTest,
+    generateUnitTestCase,
+    GenerateUnitTestRequest,
+    GenerateUnitTestCaseRequest
 } from "@wso2/mi-core";
 
 export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri: string) {
@@ -36,7 +40,7 @@ export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri
     // General Functions
     // ==================================
     messenger.onRequest(getBackendRootUrl, () => rpcManager.getBackendRootUrl());
-    
+
     // ==================================
     // AI Functions
     // ==================================
@@ -45,4 +49,10 @@ export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri
     messenger.onRequest(abortCodeGeneration, () => rpcManager.abortCodeGeneration());
     messenger.onRequest(hasAnthropicApiKey, () => rpcManager.hasAnthropicApiKey());
     messenger.onRequest(fetchUsage, () => rpcManager.fetchUsage());
+
+    // ==================================
+    // Unit Test Generation
+    // ==================================
+    messenger.onRequest(generateUnitTest, (request: GenerateUnitTestRequest) => rpcManager.generateUnitTest(request));
+    messenger.onRequest(generateUnitTestCase, (request: GenerateUnitTestCaseRequest) => rpcManager.generateUnitTestCase(request));
 }

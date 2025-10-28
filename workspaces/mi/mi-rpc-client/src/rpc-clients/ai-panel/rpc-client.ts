@@ -29,7 +29,13 @@ import {
     AbortCodeGenerationResponse,
     abortCodeGeneration,
     hasAnthropicApiKey,
-    fetchUsage
+    fetchUsage,
+    GenerateUnitTestRequest,
+    GenerateUnitTestResponse,
+    generateUnitTest,
+    GenerateUnitTestCaseRequest,
+    GenerateUnitTestCaseResponse,
+    generateUnitTestCase
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -75,5 +81,16 @@ export class MiAiPanelRpcClient implements MIAIPanelAPI {
     // ==================================
     fetchUsage(): Promise<{ max_usage: number; remaining_tokens: number; time_to_reset: number } | undefined> {
         return this._messenger.sendRequest(fetchUsage, HOST_EXTENSION);
+    }
+
+    // ==================================
+    // Unit Test Generation
+    // ==================================
+    generateUnitTest(request: GenerateUnitTestRequest): Promise<GenerateUnitTestResponse> {
+        return this._messenger.sendRequest(generateUnitTest, HOST_EXTENSION, request);
+    }
+
+    generateUnitTestCase(request: GenerateUnitTestCaseRequest): Promise<GenerateUnitTestCaseResponse> {
+        return this._messenger.sendRequest(generateUnitTestCase, HOST_EXTENSION, request);
     }
 }
