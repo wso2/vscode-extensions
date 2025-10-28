@@ -24,7 +24,9 @@ import {
     GenerateCodeResponse,
     AbortCodeGenerationResponse,
     MIAIPanelAPI,
-    CopilotChatEntry
+    CopilotChatEntry,
+    ProcessIdpRequest,
+    ProcessIdpResponse
 } from '@wso2/mi-core';
 import {RUNTIME_VERSION_440} from "../../constants";
 import {compareVersions, getMIVersionFromPom} from "../../util/onboardingUtils";
@@ -504,6 +506,26 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
         } catch (error) {
             console.error('Error generating unit test case:', error);
             throw new Error(`Failed to generate unit test case: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Processes IDP (Intelligent Document Processor) request
+     */
+    async processIdp(request: ProcessIdpRequest): Promise<ProcessIdpResponse> {
+        try {
+            const { processIdp } = await import('../../ai-panel/copilot/idp/idp');
+
+            const result = await processIdp({
+                operation: request.operation,
+                userInput: request.userInput,
+                jsonSchema: request.jsonSchema,
+                images: request.images
+            });
+
+            return result;
+        } catch (error) {
+            throw new Error(`Failed to process IDP: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
 }

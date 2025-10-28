@@ -18,7 +18,7 @@
 
 import { generateText } from "ai";
 import * as Handlebars from "handlebars";
-import { getAnthropicClient, ANTHROPIC_SONNET_4_5 } from "../connection";
+import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from "../connection";
 import { SYSTEM_SUITE_GENERATE } from "./system_suite_generate";
 import { PROMPT_SUITE_GENERATE } from "./prompt_suite_generate";
 import { UNIT_TEST_GUIDE } from "./unit_test_guide";
@@ -34,22 +34,6 @@ Handlebars.registerPartial("unit_test_examples", UNIT_TEST_EXAMPLES);
 function renderTemplate(templateContent: string, context: Record<string, any>): string {
     const template = Handlebars.compile(templateContent);
     return template(context);
-}
-
-/**
- * Extract XML code blocks from markdown response
- * The LLM returns the unit test content as markdown, we extract just the XML
- */
-function extractXmlFromMarkdown(markdownText: string): string {
-    // Match the first XML code block (which should be the unit test)
-    const match = markdownText.match(/```xml\s*([\s\S]*?)```/);
-
-    if (match && match[1]) {
-        return match[1].trim();
-    }
-
-    // If no code block found, return the original text
-    return markdownText;
 }
 
 /**
@@ -100,7 +84,7 @@ export async function generateUnitTest(
             external_connectors: params.externalConnectors
         });
 
-        const model = await getAnthropicClient(ANTHROPIC_SONNET_4_5);
+        const model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
 
         // Generate the unit test
         const { text } = await generateText({

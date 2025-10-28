@@ -22,7 +22,8 @@ import {
     GenerateCodeRequest, GenerateCodeResponse,
     AbortCodeGenerationResponse,
     GenerateUnitTestRequest, GenerateUnitTestResponse,
-    GenerateUnitTestCaseRequest, GenerateUnitTestCaseResponse
+    GenerateUnitTestCaseRequest, GenerateUnitTestCaseResponse,
+    ProcessIdpRequest, ProcessIdpResponse
 } from "./types";
 
 // Export types for external use
@@ -38,7 +39,9 @@ export type {
     GenerateUnitTestRequest,
     GenerateUnitTestResponse,
     GenerateUnitTestCaseRequest,
-    GenerateUnitTestCaseResponse
+    GenerateUnitTestCaseResponse,
+    ProcessIdpRequest,
+    ProcessIdpResponse
 } from './types';
 
 export interface MIAIPanelAPI {
@@ -65,6 +68,11 @@ export interface MIAIPanelAPI {
     // ==================================
     generateUnitTest: (request: GenerateUnitTestRequest) => Promise<GenerateUnitTestResponse>
     generateUnitTestCase: (request: GenerateUnitTestCaseRequest) => Promise<GenerateUnitTestCaseResponse>
+
+    // ==================================
+    // IDP (Intelligent Document Processor)
+    // ==================================
+    processIdp: (request: ProcessIdpRequest) => Promise<ProcessIdpResponse>
 }
 
 // Export RPC type definitions
@@ -77,5 +85,6 @@ export {
     hasAnthropicApiKey,
     fetchUsage,
     generateUnitTest,
-    generateUnitTestCase
+    generateUnitTestCase,
+    processIdp
 } from './rpc-type';

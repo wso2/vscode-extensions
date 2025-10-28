@@ -18,7 +18,7 @@
 
 import { generateText } from "ai";
 import * as Handlebars from "handlebars";
-import { getAnthropicClient, ANTHROPIC_SONNET_4_5 } from "../connection";
+import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from "../connection";
 import { DATA_MAPPER_SYSTEM_TEMPLATE } from "./system";
 import { DATA_MAPPER_PROMPT } from "./prompt";
 
@@ -67,7 +67,7 @@ export async function mapDataMapper(
             ts_file: params.tsFile
         });
         
-        const model = await getAnthropicClient(ANTHROPIC_SONNET_4_5);
+        const model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
         
         // Stream the text response
         const { text } = await generateText({

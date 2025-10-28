@@ -24,7 +24,8 @@ import {
     AbortCodeGenerationResponse,
     CodeGenerationEvent,
     GenerateUnitTestRequest, GenerateUnitTestResponse,
-    GenerateUnitTestCaseRequest, GenerateUnitTestCaseResponse
+    GenerateUnitTestCaseRequest, GenerateUnitTestCaseResponse,
+    ProcessIdpRequest, ProcessIdpResponse
 } from "./types";
 
 const _prefix = "mi-ai-panel";
@@ -39,6 +40,9 @@ export const fetchUsage: RequestType<void, { max_usage: number; remaining_tokens
 // Unit test generation methods
 export const generateUnitTest: RequestType<GenerateUnitTestRequest, GenerateUnitTestResponse> = { method: `${_prefix}/generateUnitTest` };
 export const generateUnitTestCase: RequestType<GenerateUnitTestCaseRequest, GenerateUnitTestCaseResponse> = { method: `${_prefix}/generateUnitTestCase` };
+
+// IDP (Intelligent Document Processor) method
+export const processIdp: RequestType<ProcessIdpRequest, ProcessIdpResponse> = { method: `${_prefix}/processIdp` };
 
 // Notification for streaming events
 export const codeGenerationEvent: NotificationType<CodeGenerationEvent> = { method: `${_prefix}/codeGenerationEvent` };
