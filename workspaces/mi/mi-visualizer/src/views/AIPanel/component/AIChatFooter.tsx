@@ -130,6 +130,20 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         });
                     }
                 });
+
+                // If diagnostics won't run (runtime < 4.4.0), generate suggestions now
+                // Otherwise, wait for code_diagnostic_end event
+                setTimeout(() => {
+                    if (!isValidating) {
+                        generateSuggestions(copilotChat, rpcClient, new AbortController()).then((response) => {
+                            if (response && response.length > 0) {
+                                setQuestions(response);
+                            }
+                        }).catch((error) => {
+                            console.error("Error generating suggestions after code generation:", error);
+                        });
+                    }
+                }, 100); // Small delay to let isValidating update
                 break;
 
             case "code_diagnostic_start":
@@ -140,11 +154,11 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             case "code_diagnostic_end":
                 console.log("Code diagnostics completed");
                 setIsValidating(false);
-                
+
                 // Handle corrected codes if available
                 if (event.correctedCodes && event.correctedCodes.length > 0) {
                     const fileCorrections = new Map<string, string>();
-                    
+
                     event.correctedCodes.forEach((item: any) => {
                         if (item.name && (item.configuration || item.code)) {
                             const correctedCode = item.configuration || item.code;
@@ -158,24 +172,33 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         setMessages((prevMessages) => {
                             const newMessages = [...prevMessages];
                             const lastMessage = newMessages[newMessages.length - 1];
-                            
+
                             if (lastMessage && lastMessage.role === Role.MICopilot) {
                                 let updatedContent = lastMessage.content;
-                                
+
                                 fileCorrections.forEach((correctedCode, fileName) => {
                                     updatedContent = replaceCodeBlock(updatedContent, fileName, correctedCode);
                                 });
-                                
+
                                 newMessages[newMessages.length - 1] = {
                                     ...lastMessage,
                                     content: updatedContent
                                 };
                             }
-                            
+
                             return newMessages;
                         });
                     }
                 }
+
+                // Generate fresh suggestions after code generation completes
+                generateSuggestions(copilotChat, rpcClient, new AbortController()).then((response) => {
+                    if (response && response.length > 0) {
+                        setQuestions(response);
+                    }
+                }).catch((error) => {
+                    console.error("Error generating suggestions after code generation:", error);
+                });
                 break;
             
             case "error":
