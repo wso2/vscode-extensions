@@ -68,20 +68,95 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
         return versionThreshold < 0 ? { url: MI_COPILOT_BACKEND_V2 } : { url: MI_COPILOT_BACKEND_V3 };
     }
 
+    /**
+     * Gets a single entry point file (API, sequence, or inbound endpoint) for context
+     * Priority: APIs → Sequences → Inbound Endpoints
+     */
+    private async getEntryPointContext(): Promise<string[]> {
+        const artifactDirPath = require('path').join(this.projectUri, 'src', 'main', 'wso2mi', 'artifacts');
+        const fs = require('fs');
+
+        // Priority order: APIs → Sequences → Inbound Endpoints
+        const entryPointFolders = ['apis', 'sequences', 'inbound-endpoints'];
+
+        for (const folder of entryPointFolders) {
+            const folderPath = require('path').join(artifactDirPath, folder);
+            if (!fs.existsSync(folderPath)) {
+                continue;
+            }
+
+            const files = fs.readdirSync(folderPath).filter((file: string) => file.toLowerCase().endsWith('.xml'));
+            if (files.length > 0) {
+                const firstFile = require('path').join(folderPath, files[0]);
+                const content = fs.readFileSync(firstFile, 'utf-8');
+                console.log(`[generateSuggestions] Using entry point: ${folder}/${files[0]}`);
+                return [content];
+            }
+        }
+
+        console.log('[generateSuggestions] No entry points found, using empty context');
+        return [];
+    }
+
+    /**
+     * Gets the currently open file content if it's an XML file
+     */
+    private async getCurrentlyEditingFile(): Promise<string | null> {
+        const { getStateMachine } = await import('../../stateMachine');
+        const fs = require('fs');
+
+        const currentFile = getStateMachine(this.projectUri).context().documentUri;
+        if (currentFile && fs.existsSync(currentFile) && currentFile.toLowerCase().endsWith('.xml')) {
+            try {
+                const content = fs.readFileSync(currentFile, 'utf-8');
+                console.log(`[generateSuggestions] Using currently editing file: ${currentFile}`);
+                return content;
+            } catch (error) {
+                console.warn(`[generateSuggestions] Could not read current file: ${currentFile}`, error);
+            }
+        }
+        return null;
+    }
+
     async generateSuggestions(request: GenerateSuggestionsRequest): Promise<GenerateSuggestionsResponse> {
         try {
-            // For suggestions, use full workspace context (not selective)
-            // Suggestions are general recommendations and benefit from complete project context
-            const selective = false;
-            const context = await getWorkspaceContext(this.projectUri, selective);
+            let context: string[] = [];
             const chatHistory = request.chatHistory || [];
-            
+            const lastMessage = chatHistory.length > 0 ? chatHistory[chatHistory.length - 1] : null;
+
+            // Decision tree for context selection:
+            if (chatHistory.length === 0) {
+                // Case 1: Empty chat - Use currently editing file OR entry point
+                console.log('[generateSuggestions] Empty chat history');
+                const currentFile = await this.getCurrentlyEditingFile();
+                if (currentFile) {
+                    context = [currentFile];
+                } else {
+                    context = await this.getEntryPointContext();
+                }
+            } else if (lastMessage?.role === 'assistant') {
+                // Case 2: Last message from AI (user hasn't interrupted) - Use chat history only
+                console.log('[generateSuggestions] Following AI response, using chat history only');
+                context = []; // Chat history contains enough context
+            } else {
+                // Case 3: Last message from user (user interrupted/new topic) - Use currently editing file OR entry point
+                console.log('[generateSuggestions] User interrupted or new topic');
+                const currentFile = await this.getCurrentlyEditingFile();
+                if (currentFile) {
+                    context = [currentFile];
+                } else {
+                    context = await this.getEntryPointContext();
+                }
+            }
+
+            console.log(`[generateSuggestions] Context size: ${context.length} files, Chat history: ${chatHistory.length} messages`);
+
             // Use the new LLM-based suggestion generation
             const suggestionText = await generateSuggestionsFromLLM(
-                context.context, 
+                context,
                 chatHistory
             );
-            
+
             return {
                 response: suggestionText,
                 files: [],
