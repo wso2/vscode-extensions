@@ -25,6 +25,7 @@ import {
 	type ComponentConfigYamlContent,
 	type ComponentYamlContent,
 	CreateLocalConnectionsConfigReq,
+	DeleteLocalConnectionsConfigReq,
 	type Endpoint,
 	type EndpointYamlContent,
 	type ReadLocalEndpointsConfigResp,
@@ -448,6 +449,24 @@ export const getExtVersion = (context: ExtensionContext): string => {
 	const packageJson = JSON.parse(readFileSync(path.join(context?.extensionPath, "package.json"), "utf8"));
 	return packageJson?.version;
 };
+
+export const deleteLocalConnectionConfig = (params: DeleteLocalConnectionsConfigReq) => {
+	const componentYamlPath = join(params.componentDir, ".choreo", "component.yaml");
+	if (existsSync(componentYamlPath)) {
+		const componentYamlFileContent: ComponentYamlContent = yaml.load(readFileSync(componentYamlPath, "utf8")) as any;
+		if (componentYamlFileContent.dependencies?.connectionReferences) {
+			componentYamlFileContent.dependencies.connectionReferences = componentYamlFileContent.dependencies.connectionReferences.filter(
+				(item) => item.name !== params.connectionName,
+			);
+		}
+		if (componentYamlFileContent.dependencies?.serviceReferences) {
+			componentYamlFileContent.dependencies.serviceReferences = componentYamlFileContent.dependencies.serviceReferences.filter(
+				(item) => item.name !== params.connectionName,
+			);
+		}
+		writeFileSync(componentYamlPath, yaml.dump(componentYamlFileContent));
+	}
+}
 
 export const createConnectionConfig = async (params: CreateLocalConnectionsConfigReq):Promise<string>=>{
 	if (existsSync(join(params.componentDir, ".choreo", "endpoints.yaml"))) {

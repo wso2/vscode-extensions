@@ -128,7 +128,7 @@ import { contextStore } from "../stores/context-store";
 import { dataCacheStore } from "../stores/data-cache-store";
 import { webviewStateStore } from "../stores/webview-state-store";
 import { sendTelemetryEvent, sendTelemetryException } from "../telemetry/utils";
-import { createConnectionConfig, getConfigFileDrifts, getNormalizedPath, getSubPath, goTosource, readLocalEndpointsConfig, readLocalProxyConfig, saveFile } from "../utils";
+import { createConnectionConfig, deleteLocalConnectionConfig, getConfigFileDrifts, getNormalizedPath, getSubPath, goTosource, readLocalEndpointsConfig, readLocalProxyConfig, saveFile } from "../utils";
 
 // Register handlers
 function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | WebviewView) {
@@ -407,21 +407,7 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		}
 	});
 	messenger.onRequest(DeleteLocalConnectionsConfig, async (params: DeleteLocalConnectionsConfigReq) => {
-		const componentYamlPath = join(params.componentDir, ".choreo", "component.yaml");
-		if (existsSync(componentYamlPath)) {
-			const componentYamlFileContent: ComponentYamlContent = yaml.load(readFileSync(componentYamlPath, "utf8")) as any;
-			if (componentYamlFileContent.dependencies?.connectionReferences) {
-				componentYamlFileContent.dependencies.connectionReferences = componentYamlFileContent.dependencies.connectionReferences.filter(
-					(item) => item.name !== params.connectionName,
-				);
-			}
-			if (componentYamlFileContent.dependencies?.serviceReferences) {
-				componentYamlFileContent.dependencies.serviceReferences = componentYamlFileContent.dependencies.serviceReferences.filter(
-					(item) => item.name !== params.connectionName,
-				);
-			}
-			writeFileSync(componentYamlPath, yaml.dump(componentYamlFileContent));
-		}
+		deleteLocalConnectionConfig(params)
 	});
 	messenger.onRequest(FileExists, (filePath: string) => existsSync(getNormalizedPath(filePath)));
 	messenger.onRequest(ReadFile, (filePath: string) => {

@@ -16,14 +16,14 @@
  * under the License.
  */
 
-import type { ComponentKind, ContextItemEnriched, GetMarketplaceListReq, IWso2PlatformExtensionAPI, openClonedDirReq, GetMarketplaceIdlReq, ConnectionDetailed, CreateComponentConnectionReq, CreateLocalConnectionsConfigReq, GetConnectionsReq } from "@wso2/wso2-platform-core";
+import type { ComponentKind, ContextItemEnriched, GetMarketplaceListReq, IWso2PlatformExtensionAPI, openClonedDirReq, GetMarketplaceIdlReq, ConnectionDetailed, CreateComponentConnectionReq, CreateLocalConnectionsConfigReq, GetConnectionsReq, DeleteConnectionReq, DeleteLocalConnectionsConfigReq } from "@wso2/wso2-platform-core";
 import { ext } from "./extensionVariables";
 import { hasDirtyRepo } from "./git/util";
 import { authStore } from "./stores/auth-store";
 import { contextStore } from "./stores/context-store";
 import { webviewStateStore } from "./stores/webview-state-store";
 import { openClonedDir } from "./uri-handlers";
-import { createConnectionConfig, isSamePath } from "./utils";
+import { createConnectionConfig, deleteLocalConnectionConfig, isSamePath } from "./utils";
 
 export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 	public isLoggedIn = () => !!authStore.getState().state?.userInfo;
@@ -44,4 +44,7 @@ export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 	public createComponentConnection = (params: CreateComponentConnectionReq) => ext.clients.rpcClient.createComponentConnection(params);
 	public createConnectionConfig = (params: CreateLocalConnectionsConfigReq) => createConnectionConfig(params);
 	public getConnections = (params: GetConnectionsReq) => ext.clients.rpcClient.getConnections(params);
+	public deleteConnection = (params: DeleteConnectionReq) => ext.clients.rpcClient.deleteConnection(params);
+	public deleteLocalConnectionsConfig = (params: DeleteLocalConnectionsConfigReq) => deleteLocalConnectionConfig(params);
+	public getDevantConsoleUrl = async() => (await ext.clients.rpcClient.getConfigFromCli()).devantConsoleUrl;
 }

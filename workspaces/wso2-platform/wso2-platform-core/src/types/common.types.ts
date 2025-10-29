@@ -17,8 +17,8 @@
  */
 
 import type { DeploymentStatus } from "../enums";
-import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq, GetConnectionsReq } from "./cli-rpc.types";
-import { CreateLocalConnectionsConfigReq } from "./messenger-rpc.types";
+import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq, GetConnectionsReq, DeleteConnectionReq } from "./cli-rpc.types";
+import { CreateLocalConnectionsConfigReq, DeleteLocalConnectionsConfigReq } from "./messenger-rpc.types";
 import type { ContextItemEnriched, ContextStoreState, WebviewState } from "./store.types";
 
 export type ExtensionName = "WSO2" | "Choreo" | "Devant";
@@ -36,7 +36,10 @@ export interface IWso2PlatformExtensionAPI {
 	getMarketplaceIdl(params: GetMarketplaceIdlReq): Promise<MarketplaceIdlResp>;
 	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed>;
 	createConnectionConfig: (params: CreateLocalConnectionsConfigReq) => Promise<string>;
-	getConnections: (params: GetConnectionsReq) => Promise<ConnectionListItem[]>
+	getConnections: (params: GetConnectionsReq) => Promise<ConnectionListItem[]>;
+	deleteConnection: (params: DeleteConnectionReq) => Promise<void>;
+	deleteLocalConnectionsConfig: (params: DeleteLocalConnectionsConfigReq) => void;
+	getDevantConsoleUrl: () => Promise<string>;
 }
 
 export interface openClonedDirReq {
