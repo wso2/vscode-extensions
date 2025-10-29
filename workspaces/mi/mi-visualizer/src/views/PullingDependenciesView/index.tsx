@@ -246,13 +246,13 @@ export function PullingDependenciesView() {
                                 appearance="secondary"
                                 onClick={handleRetry}
                             >
-                                Retry failed
+                                Retry
                             </Button>
                             <Button buttonSx={{ width: '132px', borderRadius: '4px', height: '30px' }}
                                 appearance="primary"
                                 onClick={handleContinueAnyway}
                             >
-                                Continue anyway
+                                Continue Anyway
                             </Button>
                         </ButtonGroup>
                     )
