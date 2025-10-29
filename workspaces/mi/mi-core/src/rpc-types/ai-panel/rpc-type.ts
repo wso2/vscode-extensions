@@ -25,7 +25,8 @@ import {
     CodeGenerationEvent,
     GenerateUnitTestRequest, GenerateUnitTestResponse,
     GenerateUnitTestCaseRequest, GenerateUnitTestCaseResponse,
-    ProcessIdpRequest, ProcessIdpResponse
+    ProcessIdpRequest, ProcessIdpResponse,
+    DmcToTsRequest, DmcToTsResponse
 } from "./types";
 
 const _prefix = "mi-ai-panel";
@@ -43,6 +44,9 @@ export const generateUnitTestCase: RequestType<GenerateUnitTestCaseRequest, Gene
 
 // IDP (Intelligent Document Processor) method
 export const processIdp: RequestType<ProcessIdpRequest, ProcessIdpResponse> = { method: `${_prefix}/processIdp` };
+
+// DMC to TypeScript conversion method
+export const dmcToTs: RequestType<DmcToTsRequest, DmcToTsResponse> = { method: `${_prefix}/dmcToTs` };
 
 // Notification for streaming events
 export const codeGenerationEvent: NotificationType<CodeGenerationEvent> = { method: `${_prefix}/codeGenerationEvent` };

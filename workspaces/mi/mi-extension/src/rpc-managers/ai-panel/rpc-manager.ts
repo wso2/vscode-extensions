@@ -26,7 +26,9 @@ import {
     MIAIPanelAPI,
     CopilotChatEntry,
     ProcessIdpRequest,
-    ProcessIdpResponse
+    ProcessIdpResponse,
+    DmcToTsRequest,
+    DmcToTsResponse
 } from '@wso2/mi-core';
 import {RUNTIME_VERSION_440} from "../../constants";
 import {compareVersions, getMIVersionFromPom} from "../../util/onboardingUtils";
@@ -601,6 +603,30 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             return result;
         } catch (error) {
             throw new Error(`Failed to process IDP: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Converts DMC (Data Mapping Configuration) to TypeScript implementation
+     */
+    async dmcToTs(request: DmcToTsRequest): Promise<DmcToTsResponse> {
+        try {
+            console.log('[dmcToTs] Starting DMC to TypeScript conversion');
+            console.log('[dmcToTs] DMC content length:', request.dmcContent?.length || 0);
+            console.log('[dmcToTs] TS file length:', request.tsFile?.length || 0);
+
+            const { dmcToTs } = await import('../../ai-panel/copilot/dmc_to_ts/dmc_to_ts');
+
+            const result = await dmcToTs({
+                dmcContent: request.dmcContent,
+                tsFile: request.tsFile
+            });
+
+            console.log('[dmcToTs] Conversion completed successfully');
+            return result;
+        } catch (error) {
+            console.error('[dmcToTs] Error converting DMC to TS:', error);
+            throw new Error(`Failed to convert DMC to TypeScript: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
 }

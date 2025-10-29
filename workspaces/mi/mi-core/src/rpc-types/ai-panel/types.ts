@@ -140,3 +140,13 @@ export interface ProcessIdpRequest {
 export interface ProcessIdpResponse {
     schema: string; // Generated or modified JSON schema
 }
+
+// DMC to TypeScript Conversion Types
+export interface DmcToTsRequest {
+    dmcContent: string;  // DMC (Data Mapping Configuration) file content
+    tsFile: string;      // TypeScript file with interfaces and empty mapFunction
+}
+
+export interface DmcToTsResponse {
+    mapping: string;  // Complete TypeScript file with implemented mapFunction
+}
