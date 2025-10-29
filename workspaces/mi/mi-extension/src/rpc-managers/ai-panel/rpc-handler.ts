@@ -32,7 +32,9 @@ import {
     GenerateUnitTestRequest,
     GenerateUnitTestCaseRequest,
     processIdp,
-    ProcessIdpRequest
+    ProcessIdpRequest,
+    dmcToTs,
+    DmcToTsRequest
 } from "@wso2/mi-core";
 
 export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri: string) {
@@ -62,4 +64,9 @@ export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri
     // IDP (Intelligent Document Processor)
     // ==================================
     messenger.onRequest(processIdp, (request: ProcessIdpRequest) => rpcManager.processIdp(request));
+
+    // ==================================
+    // DMC to TypeScript Conversion
+    // ==================================
+    messenger.onRequest(dmcToTs, (request: DmcToTsRequest) => rpcManager.dmcToTs(request));
 }

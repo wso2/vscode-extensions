@@ -23,7 +23,8 @@ import {
     AbortCodeGenerationResponse,
     GenerateUnitTestRequest, GenerateUnitTestResponse,
     GenerateUnitTestCaseRequest, GenerateUnitTestCaseResponse,
-    ProcessIdpRequest, ProcessIdpResponse
+    ProcessIdpRequest, ProcessIdpResponse,
+    DmcToTsRequest, DmcToTsResponse
 } from "./types";
 
 // Export types for external use
@@ -41,7 +42,9 @@ export type {
     GenerateUnitTestCaseRequest,
     GenerateUnitTestCaseResponse,
     ProcessIdpRequest,
-    ProcessIdpResponse
+    ProcessIdpResponse,
+    DmcToTsRequest,
+    DmcToTsResponse
 } from './types';
 
 export interface MIAIPanelAPI {
@@ -73,6 +76,11 @@ export interface MIAIPanelAPI {
     // IDP (Intelligent Document Processor)
     // ==================================
     processIdp: (request: ProcessIdpRequest) => Promise<ProcessIdpResponse>
+
+    // ==================================
+    // DMC to TypeScript Conversion
+    // ==================================
+    dmcToTs: (request: DmcToTsRequest) => Promise<DmcToTsResponse>
 }
 
 // Export RPC type definitions
@@ -86,5 +94,6 @@ export {
     fetchUsage,
     generateUnitTest,
     generateUnitTestCase,
-    processIdp
+    processIdp,
+    dmcToTs
 } from './rpc-type';

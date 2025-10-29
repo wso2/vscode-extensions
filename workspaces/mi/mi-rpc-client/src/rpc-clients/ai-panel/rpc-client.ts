@@ -38,7 +38,10 @@ import {
     generateUnitTestCase,
     ProcessIdpRequest,
     ProcessIdpResponse,
-    processIdp
+    processIdp,
+    DmcToTsRequest,
+    DmcToTsResponse,
+    dmcToTs
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -102,5 +105,12 @@ export class MiAiPanelRpcClient implements MIAIPanelAPI {
     // ==================================
     processIdp(request: ProcessIdpRequest): Promise<ProcessIdpResponse> {
         return this._messenger.sendRequest(processIdp, HOST_EXTENSION, request);
+    }
+
+    // ==================================
+    // DMC to TypeScript Conversion
+    // ==================================
+    dmcToTs(request: DmcToTsRequest): Promise<DmcToTsResponse> {
+        return this._messenger.sendRequest(dmcToTs, HOST_EXTENSION, request);
     }
 }
