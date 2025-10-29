@@ -251,7 +251,7 @@
       "cd workspaces/mi/mi-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/bi/bi-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/apk/apk-extension && pnpm run copyVSIXToRoot",
-      // "cd workspaces/api-designer/api-designer-extension && pnpm run copyVSIXToRoot"
+      "cd workspaces/api-designer/api-designer-extension && pnpm run copyVSIXToRoot"
     ]
   },
   /**
@@ -590,18 +590,23 @@
       "packageName": "@wso2/type-editor",
       "projectFolder": "workspaces/ballerina/type-editor",
       "versionPolicyName": "ballerina-extension"
+    },
+    {
+      "packageName": "@wso2/api-designer-core",
+      "projectFolder": "workspaces/api-designer/api-designer-core"
+    },
+    {
+      "packageName": "@wso2/api-designer-visualizer",
+      "projectFolder": "workspaces/api-designer/api-designer-visualizer"
+    },
+    {
+      "packageName": "@wso2/api-designer-rpc-client",
+      "projectFolder": "workspaces/api-designer/api-designer-rpc-client"
+    },
+    {
+      "packageName": "api-designer",
+      "projectFolder": "workspaces/api-designer/api-designer-extension",
+      "versionPolicyName": "api-designer-extension"
     }
-    // {
-    //   "packageName": "@wso2/api-designer-core",
-    //   "projectFolder": "workspaces/api-designer/api-designer-core"
-    // },
-    // {
-    //   "packageName": "@wso2/api-designer-visualizer",
-    //   "projectFolder": "workspaces/api-designer/api-designer-visualizer"
-    // },
-    // {
-    //   "packageName": "@wso2/api-designer-rpc-client",
-    //   "projectFolder": "workspaces/api-designer/api-designer-rpc-client"
-    // }
   ]
 }
