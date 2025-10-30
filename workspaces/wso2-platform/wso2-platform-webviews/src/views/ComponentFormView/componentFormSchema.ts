@@ -26,6 +26,7 @@ import {
 	GitProvider,
 	GoogleProviderBuildPackNames,
 	type OpenApiSpec,
+	Organization,
 	WebAppSPATypes,
 	capitalizeFirstLetter,
 	makeURLSafe,
@@ -35,14 +36,33 @@ import * as yaml from "js-yaml";
 import { z } from "zod/v3";
 import { ChoreoWebViewAPI } from "../../utilities/vscode-webview-rpc";
 
+export const componentRepoInitSchema = z.object({
+	org: z.string().min(1, "Required"),
+	orgHandler: z.string(),
+	repo: z.string().min(1, "Required"),
+	branch: z.string(),
+	subPath: z.string().regex(/^(\/)?([a-zA-Z0-9_-]+(\/)?)*$/, "Invalid path"),
+	name: z
+		.string()
+		.min(1, "Required")
+		.min(3, "Needs to be at least 3 characters")
+		.max(60, "Max length exceeded")
+		.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
+		.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters"),
+	gitProvider: z.string().min(1, "Required"),
+	credential: z.string(),
+	serverUrl: z.string(),
+});
+
 export const componentGeneralDetailsSchema = z.object({
 	name: z
 		.string()
 		.min(1, "Required")
+		.min(3, "Needs to be at least 3 characters")
 		.max(60, "Max length exceeded")
 		.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
 		.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters"),
-	subPath: z.string(),
+	subPath: z.string(), // todo: add regex
 	gitRoot: z.string(),
 	repoUrl: z.string().min(1, "Required"),
 	gitProvider: z.string().min(1, "Required"),
@@ -197,6 +217,16 @@ export const getComponentFormSchemaGenDetails = (existingComponents: ComponentKi
 		}
 		const parsed = parseGitURL(data.repoUrl);
 		if (parsed?.[2] && parsed[2] !== GitProvider.GITHUB && !data.credential) {
+			ctx.addIssue({ path: ["credential"], code: z.ZodIssueCode.custom, message: "Required" });
+		}
+	});
+
+export const getRepoInitSchemaGenDetails = (existingComponents: ComponentKind[]) =>
+	componentRepoInitSchema.partial().superRefine(async (data, ctx) => {
+		if (existingComponents.some((item) => item.metadata.name === makeURLSafe(data.name))) {
+			ctx.addIssue({ path: ["name"], code: z.ZodIssueCode.custom, message: "Name already exists" });
+		}
+		if (data.gitProvider !== GitProvider.GITHUB && !data.credential) {
 			ctx.addIssue({ path: ["credential"], code: z.ZodIssueCode.custom, message: "Required" });
 		}
 	});

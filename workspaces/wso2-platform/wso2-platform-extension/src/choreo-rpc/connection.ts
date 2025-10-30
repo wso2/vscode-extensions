@@ -17,10 +17,11 @@
  */
 
 import { type ChildProcessWithoutNullStreams, spawn } from "child_process";
-import { workspace } from "vscode";
 import { type MessageConnection, StreamMessageReader, StreamMessageWriter, createMessageConnection } from "vscode-jsonrpc/node";
+import { ext } from "../extensionVariables";
 import { getLogger } from "../logger/logger";
-import { getChoreoEnv, getChoreoExecPath } from "./cli-install";
+import { parseJwt } from "../utils";
+import { getChoreoExecPath } from "./cli-install";
 
 export class StdioConnection {
 	private _connection: MessageConnection;
@@ -29,11 +30,16 @@ export class StdioConnection {
 		const executablePath = getChoreoExecPath();
 		console.log("Starting RPC server, path:", executablePath);
 		getLogger().debug(`Starting RPC server${executablePath}`);
+		let region = process.env.CLOUD_REGION;
+		if (!region && process.env.CLOUD_STS_TOKEN && parseJwt(process.env.CLOUD_STS_TOKEN)?.iss?.includes(".eu.")) {
+			region = "EU";
+		}
 		this._serverProcess = spawn(executablePath, ["start-rpc-server"], {
 			env: {
 				...process.env,
-				SKIP_KEYRING: workspace.getConfiguration().get("WSO2.WSO2-Platform.Advanced.StsToken") || process.env.CLOUD_STS_TOKEN ? "true" : "",
-				CHOREO_ENV: getChoreoEnv(),
+				SKIP_KEYRING: ext.isDevantCloudEditor ? "true" : "",
+				CHOREO_ENV: ext.choreoEnv,
+				CHOREO_REGION: region,
 			},
 		});
 		this._connection = createMessageConnection(

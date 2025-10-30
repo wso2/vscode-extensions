@@ -19,8 +19,11 @@
 import {
 	type AuthState,
 	AuthStoreChangedNotification,
+	ChoreoRpcGetAuthorizedGitOrgsRequest,
 	ChoreoRpcWebview,
 	ClearWebviewCache,
+	CloneRepositoryIntoCompDir,
+	type CloneRepositoryIntoCompDirReq,
 	CloseComponentViewDrawer,
 	CloseWebViewNotification,
 	type CommitHistory,
@@ -39,6 +42,7 @@ import {
 	ExecuteCommandRequest,
 	FileExists,
 	GetAuthState,
+	GetAuthorizedGitOrgsReq,
 	GetConfigFileDrifts,
 	type GetConfigFileDriftsReq,
 	GetContextState,
@@ -243,6 +247,10 @@ export class ChoreoWebViewAPI {
 
 	public async triggerGithubAuthFlow(orgId: string): Promise<void> {
 		return this._messenger.sendRequest(TriggerGithubAuthFlow, HOST_EXTENSION, orgId);
+	}
+
+	public async cloneRepositoryIntoCompDir(params: CloneRepositoryIntoCompDirReq): Promise<string> {
+		return this._messenger.sendRequest(CloneRepositoryIntoCompDir, HOST_EXTENSION, params);
 	}
 
 	public async triggerGithubInstallFlow(orgId: string): Promise<void> {

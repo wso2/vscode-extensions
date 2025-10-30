@@ -42,9 +42,10 @@ export function signInWithAuthCodeCommand(context: ExtensionContext) {
 				});
 
 				if (authCode) {
-					ext.clients.rpcClient.signInWithAuthCode(authCode).then((userInfo) => {
+					ext.clients.rpcClient.signInWithAuthCode(authCode).then(async (userInfo) => {
 						if (userInfo) {
-							authStore.getState().loginSuccess(userInfo);
+							const region = await ext.clients.rpcClient.getCurrentRegion();
+							authStore.getState().loginSuccess(userInfo, region);
 						}
 					});
 				} else {
