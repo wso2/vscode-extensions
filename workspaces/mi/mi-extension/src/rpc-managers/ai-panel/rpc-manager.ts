@@ -24,22 +24,31 @@ import {
     GenerateCodeResponse,
     AbortCodeGenerationResponse,
     MIAIPanelAPI,
-    CopilotChatEntry
+    CopilotChatEntry,
+    ProcessIdpRequest,
+    ProcessIdpResponse,
+    FillIdpSchemaRequest,
+    FillIdpSchemaResponse,
+    DmcToTsRequest,
+    DmcToTsResponse,
+    AutoFillFormRequest,
+    AutoFillFormResponse
 } from '@wso2/mi-core';
 import {RUNTIME_VERSION_440} from "../../constants";
 import {compareVersions, getMIVersionFromPom} from "../../util/onboardingUtils";
 import {
-    generateSuggestions as generateSuggestionsUtil,
-    fetchBackendUrl,
-    MI_SUGGESTIVE_QUESTIONS_BACKEND_URL,
     fetchCodeGenerationsWithRetry,
-    getDiagnosticsReponseFromLlm,
-    getBackendUrlAndView,
     getUserAccessToken,
-    refreshUserAccessToken
+    refreshUserAccessToken,
+    getWorkspaceContext
 } from "./utils";
 import { CopilotEventHandler } from "./event-handler";
 import { MiDiagramRpcManager } from "../mi-diagram/rpc-manager";
+import { generateSuggestions as generateSuggestionsFromLLM } from "../../ai-panel/copilot/suggestions/suggestions";
+import { fillIdpSchema } from '../../ai-panel/copilot/idp/fill_schema';
+import { codeDiagnostics } from "../../ai-panel/copilot/diagnostics/diagnostics";
+import { getLoginMethod } from '../../ai-panel/auth';
+import { LoginMethod } from '@wso2/mi-core';
 
 export class MIAIPanelRpcManager implements MIAIPanelAPI {
     private eventHandler: CopilotEventHandler;
@@ -62,22 +71,99 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
         return versionThreshold < 0 ? { url: MI_COPILOT_BACKEND_V2 } : { url: MI_COPILOT_BACKEND_V3 };
     }
 
+    /**
+     * Gets a single entry point file (API, sequence, or inbound endpoint) for context
+     * Priority: APIs → Sequences → Inbound Endpoints
+     */
+    private async getEntryPointContext(): Promise<string[]> {
+        const artifactDirPath = require('path').join(this.projectUri, 'src', 'main', 'wso2mi', 'artifacts');
+        const fs = require('fs');
+
+        // Priority order: APIs → Sequences → Inbound Endpoints
+        const entryPointFolders = ['apis', 'sequences', 'inbound-endpoints'];
+
+        for (const folder of entryPointFolders) {
+            const folderPath = require('path').join(artifactDirPath, folder);
+            if (!fs.existsSync(folderPath)) {
+                continue;
+            }
+
+            const files = fs.readdirSync(folderPath).filter((file: string) => file.toLowerCase().endsWith('.xml'));
+            if (files.length > 0) {
+                const firstFile = require('path').join(folderPath, files[0]);
+                const content = fs.readFileSync(firstFile, 'utf-8');
+                console.log(`[generateSuggestions] Using entry point: ${folder}/${files[0]}`);
+                return [content];
+            }
+        }
+
+        console.log('[generateSuggestions] No entry points found, using empty context');
+        return [];
+    }
+
+    /**
+     * Gets the currently open file content if it's an XML file
+     */
+    private async getCurrentlyEditingFile(): Promise<string | null> {
+        const { getStateMachine } = await import('../../stateMachine');
+        const fs = require('fs');
+
+        const currentFile = getStateMachine(this.projectUri).context().documentUri;
+        if (currentFile && fs.existsSync(currentFile) && currentFile.toLowerCase().endsWith('.xml')) {
+            try {
+                const content = fs.readFileSync(currentFile, 'utf-8');
+                console.log(`[generateSuggestions] Using currently editing file: ${currentFile}`);
+                return content;
+            } catch (error) {
+                console.warn(`[generateSuggestions] Could not read current file: ${currentFile}`, error);
+            }
+        }
+        return null;
+    }
+
     async generateSuggestions(request: GenerateSuggestionsRequest): Promise<GenerateSuggestionsResponse> {
         try {
-            const controller = new AbortController();
-            
-            // Use the utility function to generate suggestions
-            const suggestions = await generateSuggestionsUtil(
-                this.projectUri,
-                request.chatHistory,
-                controller
+            let context: string[] = [];
+            const chatHistory = request.chatHistory || [];
+            const lastMessage = chatHistory.length > 0 ? chatHistory[chatHistory.length - 1] : null;
+
+            // Decision tree for context selection:
+            if (chatHistory.length === 0) {
+                // Case 1: Empty chat - Use currently editing file OR entry point
+                console.log('[generateSuggestions] Empty chat history');
+                const currentFile = await this.getCurrentlyEditingFile();
+                if (currentFile) {
+                    context = [currentFile];
+                } else {
+                    context = await this.getEntryPointContext();
+                }
+            } else if (lastMessage?.role === 'assistant') {
+                // Case 2: Last message from AI (user hasn't interrupted) - Use chat history only
+                console.log('[generateSuggestions] Following AI response, using chat history only');
+                context = []; // Chat history contains enough context
+            } else {
+                // Case 3: Last message from user (user interrupted/new topic) - Use currently editing file OR entry point
+                console.log('[generateSuggestions] User interrupted or new topic');
+                const currentFile = await this.getCurrentlyEditingFile();
+                if (currentFile) {
+                    context = [currentFile];
+                } else {
+                    context = await this.getEntryPointContext();
+                }
+            }
+
+            console.log(`[generateSuggestions] Context size: ${context.length} files, Chat history: ${chatHistory.length} messages`);
+
+            // Use the new LLM-based suggestion generation
+            const suggestionText = await generateSuggestionsFromLLM(
+                context,
+                chatHistory
             );
 
-            // Convert the suggestions to the expected format
             return {
-                response: suggestions.length > 0 ? suggestions[0].content : "",
-                files: [], // This would need to be populated based on your specific requirements
-                images: [] // This would need to be populated based on your specific requirements
+                response: suggestionText,
+                files: [],
+                images: []
             };
         } catch (error) {
             console.error('Error generating suggestions:', error);
@@ -85,52 +171,23 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
         }
     }
 
-    // Additional utility methods that can be used by the AI panel
-
     /**
-     * Fetches code generations from the backend
-     */
-    async fetchCodeGenerations(
-        chatHistory: CopilotChatEntry[],
-        files: any[] = [],
-        images: any[] = [],
-        selective: boolean = false,
-        thinking?: boolean
-    ): Promise<Response> {
-        try {
-            const controller = new AbortController();
-            const { backendUrl } = await getBackendUrlAndView(this.projectUri);
-            const backendRootUri = await fetchBackendUrl(this.projectUri);
-            const url = backendRootUri + backendUrl;
-
-            return await fetchCodeGenerationsWithRetry(
-                url,
-                chatHistory,
-                files,
-                images,
-                this.projectUri,
-                controller,
-                selective,
-                thinking
-            );
-        } catch (error) {
-            console.error('Error fetching code generations:', error);
-            throw new Error(`Failed to fetch code generations: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    }
-
-    /**
-     * Sends diagnostics to LLM and gets response
+     * Sends diagnostics to LLM and gets response (migrated to local LLM)
      */
     async analyzeDiagnostics(diagnostics: any, xmlCodes: any): Promise<Response> {
         try {
-            const controller = new AbortController();
-            return await getDiagnosticsReponseFromLlm(
-                diagnostics,
-                xmlCodes,
-                this.projectUri,
-                controller
-            );
+            // Use the migrated codeDiagnostics function
+            const result = await codeDiagnostics({
+                diagnostics: diagnostics.diagnostics,
+                xmlCodes: xmlCodes
+            });
+
+            // Return a mock Response object to match the expected interface
+            return new Response(JSON.stringify(result), {
+                status: 200,
+                statusText: 'OK',
+                headers: { 'Content-Type': 'application/json' }
+            });
         } catch (error) {
             console.error('Error analyzing diagnostics:', error);
             throw new Error(`Failed to analyze diagnostics: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -206,14 +263,9 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             // Create a new abort controller for this request
             this.currentController = new AbortController();
 
-            // Get backend URL and construct the request URL
-            const { backendUrl } = await getBackendUrlAndView(this.projectUri, request.view);
-            const backendRootUri = await fetchBackendUrl(this.projectUri);
-            const url = backendRootUri + backendUrl;
-
-            // Make the request to backend
+            // Generate code using local LLM (no backend URL needed)
             const response = await fetchCodeGenerationsWithRetry(
-                url,
+                "", // url parameter is unused in the migrated function
                 request.chatHistory,
                 request.files,
                 request.images,
@@ -234,7 +286,6 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 let assistantResponse = "";
 
                 try {
-                    let buffer = "";
                     while (true) {
                         // Check if abort was requested
                         if (this.currentController?.signal.aborted) {
@@ -246,37 +297,13 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                         const { done, value } = await reader.read();
                         if (done) break;
 
-                        buffer += decoder.decode(value, { stream: true });
-
-                        const lines = buffer.split("\n");
-                        buffer = lines.pop() ?? "";
-
-                        for (const line of lines) {
-                            if (!line.trim()) continue;
-                            try {
-                                const obj = JSON.parse(line);
-                                assistantResponse += obj.content;
-                                this.eventHandler.handleContentBlock(line);
-                            } catch (err) {
-                                // If JSON parsing fails, it might be an incomplete object
-                                // Add it back to the buffer to be processed with the next chunk
-                                buffer = line + "\n" + buffer;
-                            }
-                        }
+                        // Decode the text chunk
+                        const textChunk = decoder.decode(value, { stream: true });
+                        this.eventHandler.handleContentBlock(textChunk);
+                        assistantResponse += textChunk;
                     }
-                    
-                    // Process any remaining data in the buffer after the stream ends
-                    if (buffer.trim()) {
-                        try {
-                            const obj = JSON.parse(buffer);
-                            assistantResponse += obj.content;
-                            this.eventHandler.handleContentBlock(buffer);
-                        } catch (err) {
-                            console.error("JSON parse error for remaining buffer:", err, "buffer:", buffer);
-                        }
-                    }
-                } finally {
-                    reader.releaseLock();
+                } catch (error) {
+                    console.error("Error reading code generation stream:", error);
                 }
 
                 // Send final response
@@ -386,15 +413,11 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             }
 
             if (hasAnyDiagnostics) {
-                // Send diagnostics to LLM for corrections
-                const llmResponse = await getDiagnosticsReponseFromLlm(
-                    { diagnostics: diagnosticsResults },
-                    xmlCodes,
-                    this.projectUri,
-                    new AbortController()
-                );
-
-                const llmResponseData = await llmResponse.json();
+                // Send diagnostics to LLM for corrections (using migrated function)
+                const llmResponseData = await codeDiagnostics({
+                    diagnostics: diagnosticsResults,
+                    xmlCodes: xmlCodes
+                });
 
                 // Process corrections
                 if (llmResponseData.fixed_config && Array.isArray(llmResponseData.fixed_config)) {
@@ -451,38 +474,210 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
     }
 
     /**
-     * Sets the Anthropic API key for unlimited usage
+     * Check if user is using their own Anthropic API key
      */
-    async setAnthropicApiKey(): Promise<void> {
-        const vscode = await import('vscode');
-        const { extension } = await import('../../MIExtensionContext');
+    async hasAnthropicApiKey(): Promise<boolean | undefined> {
+        const loginMethod = await getLoginMethod();
+        return loginMethod === LoginMethod.ANTHROPIC_KEY;
+    }
 
-        const apiKey = await vscode.window.showInputBox({
-            prompt: "Enter your Anthropic API Key for Unlimited Usage",
-            password: true,
-            placeHolder: "sk-ant-...",
-            validateInput: (value) => {
-                if (!value || value.trim() === "") {
-                    return "API key cannot be empty";
+    /**
+     * Fetches usage information from backend and updates state machine
+     * Only works for MI_INTEL users
+     * Also checks if usage has reset and transitions back to Authenticated if in UsageExceeded state
+     */
+    async fetchUsage(): Promise<any> {
+        const loginMethod = await getLoginMethod();
+
+        // Only fetch for MI_INTEL users
+        if (loginMethod !== LoginMethod.MI_INTEL) {
+            return undefined;
+        }
+
+        try {
+            const { fetchWithAuth } = await import('../../ai-panel/copilot/connection');
+            const { StateMachineAI } = await import('../../ai-panel/aiMachine');
+            const { AI_EVENT_TYPE } = await import('@wso2/mi-core');
+
+            const backendUrl = process.env.MI_COPILOT_ANTHROPIC_PROXY_URL as string;
+            const USER_CHECK_BACKEND_URL = '/usage';
+            const response = await fetchWithAuth(backendUrl + USER_CHECK_BACKEND_URL);
+            if (response.ok) {
+                const usage = await response.json();
+
+                // Update state machine context
+                const context = StateMachineAI.context();
+                const currentState = StateMachineAI.state();
+
+                // Update context with usage data FIRST before any state transitions
+                if (context && (currentState === 'Authenticated' || currentState === 'UsageExceeded')) {
+                    Object.assign(context, { usage: usage });
                 }
-                if (!value.startsWith("sk-ant-")) {
-                    return "Invalid Anthropic API key format. Should start with 'sk-ant-'";
+
+                // Check if quota is exceeded and transition to UsageExceeded state
+                if (usage.remaining_tokens <= 0 && currentState === 'Authenticated') {
+                    console.log('Quota exceeded. Transitioning to UsageExceeded state.');
+                    StateMachineAI.sendEvent(AI_EVENT_TYPE.USAGE_EXCEEDED);
                 }
-                return null;
+
+                // Check if we're in UsageExceeded state and if usage has reset
+                if (currentState === 'UsageExceeded' && usage.remaining_tokens > 0) {
+                    console.log('Usage has reset. Transitioning back to Authenticated state.');
+                    StateMachineAI.sendEvent(AI_EVENT_TYPE.USAGE_RESET);
+                }
+
+                return usage;
             }
-        });
+        } catch (error) {
+            console.error('Failed to fetch usage:', error);
+        }
 
-        if (apiKey) {
-            await extension.context.secrets.store('AnthropicApiKey', apiKey);
-            vscode.window.showInformationMessage("Anthropic API key has been saved successfully");
+        return undefined;
+    }
+
+    /**
+     * Generates a complete unit test suite for WSO2 Synapse artifacts
+     */
+    async generateUnitTest(request: import('@wso2/mi-core').GenerateUnitTestRequest): Promise<import('@wso2/mi-core').GenerateUnitTestResponse> {
+        try {
+            const { generateUnitTest } = await import('../../ai-panel/copilot/unit-tests/unit_test_generate');
+
+            const result = await generateUnitTest({
+                context: request.context,
+                testFileName: request.testFileName,
+                fullContext: request.fullContext,
+                pomFile: request.pomFile,
+                externalConnectors: request.externalConnectors
+            });
+
+            return result;
+        } catch (error) {
+            console.error('Error generating unit test:', error);
+            throw new Error(`Failed to generate unit test: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
 
     /**
-     * Gets the stored Anthropic API key
+     * Adds a new test case to an existing unit test suite
      */
-    async hasAnthropicApiKey(): Promise<boolean | undefined> {
-        const { extension } = await import('../../MIExtensionContext');
-        return await extension.context.secrets.get('AnthropicApiKey') !== undefined;
+    async generateUnitTestCase(request: import('@wso2/mi-core').GenerateUnitTestCaseRequest): Promise<import('@wso2/mi-core').GenerateUnitTestCaseResponse> {
+        try {
+            const { generateUnitTestCase } = await import('../../ai-panel/copilot/unit-tests/unit_test_case_generate');
+
+            const result = await generateUnitTestCase({
+                context: request.context,
+                testFileName: request.testFileName,
+                testSuiteFile: request.testSuiteFile,
+                testCaseDescription: request.testCaseDescription,
+                existingMockServices: request.existingMockServices,
+                existingMockServiceNames: request.existingMockServiceNames,
+                fullContext: request.fullContext,
+                pomFile: request.pomFile,
+                externalConnectors: request.externalConnectors
+            });
+
+            return result;
+        } catch (error) {
+            console.error('Error generating unit test case:', error);
+            throw new Error(`Failed to generate unit test case: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Processes IDP (Intelligent Document Processor) request
+     */
+    async processIdp(request: ProcessIdpRequest): Promise<ProcessIdpResponse> {
+        try {
+            const { processIdp } = await import('../../ai-panel/copilot/idp/idp');
+
+            const result = await processIdp({
+                operation: request.operation,
+                userInput: request.userInput,
+                jsonSchema: request.jsonSchema,
+                images: request.images
+            });
+
+            return result;
+        } catch (error) {
+            throw new Error(`Failed to process IDP: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Fills an IDP schema with data extracted from images
+     */
+    async fillIdpSchema(request: FillIdpSchemaRequest): Promise<FillIdpSchemaResponse> {
+        try {
+            console.log('[fillIdpSchema] Starting schema filling');
+            console.log('[fillIdpSchema] Images count:', request.images?.length || 0);
+
+            const result = await fillIdpSchema({
+                jsonSchema: request.jsonSchema,
+                images: request.images
+            });
+
+            console.log('[fillIdpSchema] Schema filling completed successfully');
+            return result;
+        } catch (error) {
+            console.error('[fillIdpSchema] Error filling schema:', error);
+            throw new Error(`Failed to fill IDP schema: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Converts DMC (Data Mapping Configuration) to TypeScript implementation
+     */
+    async dmcToTs(request: DmcToTsRequest): Promise<DmcToTsResponse> {
+        try {
+            console.log('[dmcToTs] Starting DMC to TypeScript conversion');
+            console.log('[dmcToTs] DMC content length:', request.dmcContent?.length || 0);
+            console.log('[dmcToTs] TS file length:', request.tsFile?.length || 0);
+
+            const { dmcToTs } = await import('../../ai-panel/copilot/dmc_to_ts/dmc_to_ts');
+
+            const result = await dmcToTs({
+                dmcContent: request.dmcContent,
+                tsFile: request.tsFile
+            });
+
+            console.log('[dmcToTs] Conversion completed successfully');
+            return result;
+        } catch (error) {
+            console.error('[dmcToTs] Error converting DMC to TS:', error);
+            throw new Error(`Failed to convert DMC to TypeScript: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Auto-fills form fields using AI based on context and user input
+     */
+    async autoFillForm(request: AutoFillFormRequest): Promise<AutoFillFormResponse> {
+        try {
+            console.log('[autoFillForm] Starting form auto-fill');
+            console.log('[autoFillForm] Form fields count:', Object.keys(request.current_values || {}).length);
+            console.log('[autoFillForm] Has user question:', !!request.question);
+
+            const { autoFillForm } = await import('../../ai-panel/copilot/auto-fill/fill');
+
+            const result = await autoFillForm({
+                payloads: request.payloads,
+                variables: request.variables,
+                params: request.params,
+                properties: request.properties,
+                headers: request.headers,
+                configs: request.configs,
+                connection_names: request.connection_names,
+                form_details: request.form_details,
+                current_values: request.current_values,
+                field_descriptions: request.field_descriptions,
+                question: request.question
+            });
+
+            console.log('[autoFillForm] Form auto-fill completed successfully');
+            return result;
+        } catch (error) {
+            console.error('[autoFillForm] Error auto-filling form:', error);
+            throw new Error(`Failed to auto-fill form: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
     }
 }

@@ -61,10 +61,6 @@ export function DataMapperHeader(props: DataMapperHeaderProps) {
             }
             if (!mappingExist || choice) {
                 props.setIsLoading(true);
-                let authstatus = await rpcClient.getMiDataMapperRpcClient().authenticateUser();
-                if (authstatus === false) {
-                    return;
-                }
                 props.setIsMapping(true);
                 await rpcClient.getMiDataMapperRpcClient().getMappingFromAI();
             }

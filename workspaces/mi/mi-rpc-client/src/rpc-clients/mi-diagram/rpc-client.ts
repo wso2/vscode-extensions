@@ -18,7 +18,6 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
-    AIUserInput,
     ApiDirectoryResponse,
     ApplyEditRequest,
     ApplyEditResponse,
@@ -243,7 +242,6 @@ import {
     editOpenAPISpec,
     executeCommand,
     exportProject,
-    getAIResponse,
     getAPIDirectory,
     getAddressEndpoint,
     getAllArtifacts,
@@ -719,10 +717,6 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     migrateProject(params: MigrateProjectRequest): Promise<MigrateProjectResponse> {
         return this._messenger.sendRequest(migrateProject, HOST_EXTENSION, params);
-    }
-
-    getAIResponse(params: AIUserInput): Promise<string> {
-        return this._messenger.sendRequest(getAIResponse, HOST_EXTENSION, params);
     }
 
     writeContentToFile(params: WriteContentToFileRequest): Promise<WriteContentToFileResponse> {

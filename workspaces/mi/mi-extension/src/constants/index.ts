@@ -189,7 +189,6 @@ export enum MessageStoreTypes {
 export * from "./swagger";
 
 export const APIS = {
-    MI_COPILOT_BACKEND: process.env.MI_COPILOT_BACKEND as string,
     MI_CONNECTOR_STORE: process.env.MI_CONNECTOR_STORE as string,
     MI_CONNECTOR_STORE_BACKEND: process.env.MI_CONNECTOR_STORE_BACKEND as string,
     MI_CONNECTOR_STORE_BACKEND_SEARCH: process.env.MI_CONNECTOR_STORE_BACKEND_SEARCH as string,

@@ -30,14 +30,17 @@ export function useAuthentication(options: UseAuthenticationOptions) {
     const [showSignInConfirm, setShowSignInConfirm] = useState(false);
 
     /**
-     * Check if user is authenticated
+     * Check if user is authenticated with MI Copilot (AI state machine)
      */
     const checkAuthentication = async (): Promise<boolean> => {
         try {
-            const token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
-            return !!token;
+            const aiState = await rpcClient.getAIVisualizerState();
+            const state = aiState?.state;
+
+            // Check if user is authenticated or has usage exceeded (both mean signed in)
+            return state === 'Authenticated' || state === 'UsageExceeded';
         } catch (error) {
-            console.error('User not signed in', error);
+            console.error('Failed to check AI authentication state', error);
             return false;
         }
     };

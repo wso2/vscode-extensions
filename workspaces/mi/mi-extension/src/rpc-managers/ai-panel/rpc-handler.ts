@@ -25,8 +25,20 @@ import {
     abortCodeGeneration,
     GenerateSuggestionsRequest,
     GenerateCodeRequest,
-    setAnthropicApiKey,
-    hasAnthropicApiKey
+    hasAnthropicApiKey,
+    fetchUsage,
+    generateUnitTest,
+    generateUnitTestCase,
+    GenerateUnitTestRequest,
+    GenerateUnitTestCaseRequest,
+    processIdp,
+    ProcessIdpRequest,
+    fillIdpSchema,
+    FillIdpSchemaRequest,
+    dmcToTs,
+    DmcToTsRequest,
+    autoFillForm,
+    AutoFillFormRequest
 } from "@wso2/mi-core";
 
 export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri: string) {
@@ -36,13 +48,35 @@ export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri
     // General Functions
     // ==================================
     messenger.onRequest(getBackendRootUrl, () => rpcManager.getBackendRootUrl());
-    
+
     // ==================================
     // AI Functions
     // ==================================
     messenger.onRequest(generateSuggestions, (request: GenerateSuggestionsRequest) => rpcManager.generateSuggestions(request));
     messenger.onRequest(generateCode, (request: GenerateCodeRequest) => rpcManager.generateCode(request));
     messenger.onRequest(abortCodeGeneration, () => rpcManager.abortCodeGeneration());
-    messenger.onRequest(setAnthropicApiKey, () => rpcManager.setAnthropicApiKey());
     messenger.onRequest(hasAnthropicApiKey, () => rpcManager.hasAnthropicApiKey());
+    messenger.onRequest(fetchUsage, () => rpcManager.fetchUsage());
+
+    // ==================================
+    // Unit Test Generation
+    // ==================================
+    messenger.onRequest(generateUnitTest, (request: GenerateUnitTestRequest) => rpcManager.generateUnitTest(request));
+    messenger.onRequest(generateUnitTestCase, (request: GenerateUnitTestCaseRequest) => rpcManager.generateUnitTestCase(request));
+
+    // ==================================
+    // IDP (Intelligent Document Processor)
+    // ==================================
+    messenger.onRequest(processIdp, (request: ProcessIdpRequest) => rpcManager.processIdp(request));
+    messenger.onRequest(fillIdpSchema, (request: FillIdpSchemaRequest) => rpcManager.fillIdpSchema(request));
+
+    // ==================================
+    // DMC to TypeScript Conversion
+    // ==================================
+    messenger.onRequest(dmcToTs, (request: DmcToTsRequest) => rpcManager.dmcToTs(request));
+
+    // ==================================
+    // Auto-Fill Form
+    // ==================================
+    messenger.onRequest(autoFillForm, (request: AutoFillFormRequest) => rpcManager.autoFillForm(request));
 }

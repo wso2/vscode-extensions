@@ -98,3 +98,84 @@ export interface CorrectedCodeItem {
     configuration?: string;
     code?: string;
 }
+
+// Unit Test Generation Types
+export interface GenerateUnitTestRequest {
+    context: string[];
+    testFileName: string;
+    fullContext?: string[];
+    pomFile?: string;
+    externalConnectors?: string[];
+}
+
+export interface GenerateUnitTestResponse {
+    response: string; // Markdown response containing unit test and mock services
+}
+
+// Unit Test Case Addition Types
+export interface GenerateUnitTestCaseRequest {
+    context: string[];
+    testFileName: string;
+    testSuiteFile: string;
+    testCaseDescription: string;
+    existingMockServices?: string[];
+    existingMockServiceNames?: string[];
+    fullContext?: string[];
+    pomFile?: string;
+    externalConnectors?: string[];
+}
+
+export interface GenerateUnitTestCaseResponse {
+    response: string; // Markdown response containing updated test suite and new mock services
+}
+
+// IDP (Intelligent Document Processor) Types
+export interface ProcessIdpRequest {
+    operation: 'generate' | 'finetune';
+    userInput?: string;
+    jsonSchema?: string;
+    images?: string[]; // Base64-encoded images
+}
+
+export interface ProcessIdpResponse {
+    schema: string; // Generated or modified JSON schema
+}
+
+// IDP Schema Filling Types (populate schema with data from images)
+export interface FillIdpSchemaRequest {
+    jsonSchema: string;      // Schema to populate
+    images: string[];        // Base64-encoded images
+}
+
+export interface FillIdpSchemaResponse {
+    filledData: string;      // JSON data matching schema
+}
+
+// DMC to TypeScript Conversion Types
+export interface DmcToTsRequest {
+    dmcContent: string;  // DMC (Data Mapping Configuration) file content
+    tsFile: string;      // TypeScript file with interfaces and empty mapFunction
+}
+
+export interface DmcToTsResponse {
+    mapping: string;  // Complete TypeScript file with implemented mapFunction
+}
+
+// Auto-Fill Form Types
+export interface AutoFillFormRequest {
+    payloads?: string[];           // Pre-defined user payloads (JSON structures)
+    variables?: string[];          // Pre-defined variables
+    params?: string[];             // Pre-defined parameters
+    properties?: string[];         // Pre-defined properties
+    headers?: string[];            // Pre-defined headers
+    configs?: string[];            // Pre-defined configurations
+    connection_names?: string[];   // Available connection names (for config_key fields)
+    form_details?: string;         // Schema/structure of the form
+    current_values: Record<string, unknown>;  // Current form field values
+    field_descriptions?: Record<string, string>;  // Field descriptions for schema
+    question?: string;             // Optional user query/instructions (User Prompt Mode)
+}
+
+export interface AutoFillFormResponse {
+    filled_values: Record<string, unknown>;  // Filled form values matching input structure
+}
