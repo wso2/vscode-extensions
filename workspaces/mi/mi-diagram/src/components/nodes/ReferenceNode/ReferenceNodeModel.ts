@@ -17,12 +17,13 @@
  */
 
 import { STNode } from "@wso2/mi-syntax-tree/src";
-import { NODE_DIMENSIONS, NodeTypes } from "../../../resources/constants";
+import { NODE_DIMENSIONS, NodeTypes, RUNTIME_VERSION_440 } from "../../../resources/constants";
 import { BaseNodeModel } from "../BaseNodeModel";
 import { RpcClient } from "@wso2/mi-rpc-client";
 import { EVENT_TYPE, MACHINE_VIEW, POPUP_EVENT_TYPE } from "@wso2/mi-core";
 import { Datamapper } from "@wso2/mi-syntax-tree/lib/src";
 import * as path from "path";
+import { compareVersions } from "../../../utils/commons";
 
 export class ReferenceNodeModel extends BaseNodeModel {
     readonly referenceName: string;
@@ -93,7 +94,15 @@ export class ReferenceNodeModel extends BaseNodeModel {
         const migratedDmcPath = path.join(projectRoot, 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'datamapper', `${dmName}.dmc`);
         const migratedInputSchemaPath = path.join(projectRoot, 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'datamapper', `${dmName}_inputSchema.json`);
         const migratedOutputSchemaPath = path.join(projectRoot, 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'datamapper', `${dmName}_outputSchema.json`);
-        const tsFilePath = path.join(projectRoot, 'src', 'main', 'wso2mi', 'resources', 'datamapper', `${dmName}`, `${dmName}.ts`);
+        
+        const projectDetailsResponse = await rpcClient.getMiVisualizerRpcClient().getProjectDetails();
+        let tsFilePath;
+        const runtimeVersion = projectDetailsResponse.primaryDetails.runtimeVersion.value;
+        if(compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0) {
+            tsFilePath = path.join(projectRoot, 'src', 'main', 'wso2mi', 'resources', 'datamapper', `${dmName}`, `${dmName}.ts`);
+        } else {
+            tsFilePath = path.join(projectRoot, 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'datamapper', `${dmName}`, `${dmName}.ts`);
+        }
 
         const pathResponse = await rpcClient.getMiDataMapperRpcClient().convertRegPathToAbsPath(request);
         if (pathResponse && pathResponse.absPath) {
