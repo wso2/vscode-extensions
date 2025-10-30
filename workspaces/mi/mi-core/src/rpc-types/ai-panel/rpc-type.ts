@@ -26,6 +26,7 @@ import {
     GenerateUnitTestRequest, GenerateUnitTestResponse,
     GenerateUnitTestCaseRequest, GenerateUnitTestCaseResponse,
     ProcessIdpRequest, ProcessIdpResponse,
+    FillIdpSchemaRequest, FillIdpSchemaResponse,
     DmcToTsRequest, DmcToTsResponse,
     AutoFillFormRequest, AutoFillFormResponse
 } from "./types";
@@ -45,6 +46,9 @@ export const generateUnitTestCase: RequestType<GenerateUnitTestCaseRequest, Gene
 
 // IDP (Intelligent Document Processor) method
 export const processIdp: RequestType<ProcessIdpRequest, ProcessIdpResponse> = { method: `${_prefix}/processIdp` };
+
+// IDP schema filling method
+export const fillIdpSchema: RequestType<FillIdpSchemaRequest, FillIdpSchemaResponse> = { method: `${_prefix}/fillIdpSchema` };
 
 // DMC to TypeScript conversion method
 export const dmcToTs: RequestType<DmcToTsRequest, DmcToTsResponse> = { method: `${_prefix}/dmcToTs` };

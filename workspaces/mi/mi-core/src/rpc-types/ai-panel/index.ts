@@ -24,6 +24,7 @@ import {
     GenerateUnitTestRequest, GenerateUnitTestResponse,
     GenerateUnitTestCaseRequest, GenerateUnitTestCaseResponse,
     ProcessIdpRequest, ProcessIdpResponse,
+    FillIdpSchemaRequest, FillIdpSchemaResponse,
     DmcToTsRequest, DmcToTsResponse,
     AutoFillFormRequest, AutoFillFormResponse
 } from "./types";
@@ -44,6 +45,8 @@ export type {
     GenerateUnitTestCaseResponse,
     ProcessIdpRequest,
     ProcessIdpResponse,
+    FillIdpSchemaRequest,
+    FillIdpSchemaResponse,
     DmcToTsRequest,
     DmcToTsResponse,
     AutoFillFormRequest,
@@ -79,6 +82,7 @@ export interface MIAIPanelAPI {
     // IDP (Intelligent Document Processor)
     // ==================================
     processIdp: (request: ProcessIdpRequest) => Promise<ProcessIdpResponse>
+    fillIdpSchema: (request: FillIdpSchemaRequest) => Promise<FillIdpSchemaResponse>
 
     // ==================================
     // DMC to TypeScript Conversion
@@ -103,6 +107,7 @@ export {
     generateUnitTest,
     generateUnitTestCase,
     processIdp,
+    fillIdpSchema,
     dmcToTs,
     autoFillForm
 } from './rpc-type';

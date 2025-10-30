@@ -33,6 +33,8 @@ import {
     GenerateUnitTestCaseRequest,
     processIdp,
     ProcessIdpRequest,
+    fillIdpSchema,
+    FillIdpSchemaRequest,
     dmcToTs,
     DmcToTsRequest,
     autoFillForm,
@@ -66,6 +68,7 @@ export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri
     // IDP (Intelligent Document Processor)
     // ==================================
     messenger.onRequest(processIdp, (request: ProcessIdpRequest) => rpcManager.processIdp(request));
+    messenger.onRequest(fillIdpSchema, (request: FillIdpSchemaRequest) => rpcManager.fillIdpSchema(request));
 
     // ==================================
     // DMC to TypeScript Conversion

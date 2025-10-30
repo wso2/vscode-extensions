@@ -141,6 +141,16 @@ export interface ProcessIdpResponse {
     schema: string; // Generated or modified JSON schema
 }
 
+// IDP Schema Filling Types (populate schema with data from images)
+export interface FillIdpSchemaRequest {
+    jsonSchema: string;      // Schema to populate
+    images: string[];        // Base64-encoded images
+}
+
+export interface FillIdpSchemaResponse {
+    filledData: string;      // JSON data matching schema
+}
+
 // DMC to TypeScript Conversion Types
 export interface DmcToTsRequest {
     dmcContent: string;  // DMC (Data Mapping Configuration) file content

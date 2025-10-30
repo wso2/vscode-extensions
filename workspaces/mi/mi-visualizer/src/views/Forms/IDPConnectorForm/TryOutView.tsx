@@ -20,7 +20,7 @@ import { UploadWindow } from "./UploadWindow";
 import { MonacoEditor } from "./MonacoEditor";
 import styled from "@emotion/styled";
 import { useEffect, useState, useRef } from "react";
-import { handleFetchError, SelectedConectionObject, SYSTEM_PROMPT, USER_PROMPT } from "./IdpUtills";
+import { SelectedConectionObject } from "./IdpUtills";
 import { ImgAndPdfViewer } from "./ImgAndPdfViewer";
 import { Button } from "@wso2/ui-toolkit";
 import { ErrorAlert } from "./ErrorAlert";
@@ -128,116 +128,46 @@ export function TryOutView({
     const [errors, setErrors] = useState<string | null>(null);
     const controllerRef3 = useRef<any>(null);
 
-    const extractLlmResponse = (llmResponse: any) => {
-        try {
-            let content = '';
-
-            if (llmResponse.choices?.[0]?.message?.content) {
-                content = llmResponse.choices[0].message.content;
-            } else {
-                throw new Error('Invalid Json');
-            }
-            if (!content || typeof content !== 'string') {
-                throw new Error('Invalid Json');
-            }
-            content = content.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-            let jsonMatch = content.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                content = jsonMatch[0];
-            }
-            const parsedJson = JSON.parse(content);
-            if (!parsedJson || typeof parsedJson !== 'object') {
-                throw new Error('Invalid Json');
-            }
-            return parsedJson;
-        } catch (error: any) {
-            throw new Error("Invalid Json");
-        }
-    };
-
     const fillSchema = async () => {
         if (!tryOutBase64String) return;
 
         setIsLoading(true);
         let base64Images: string[] = [];
 
-        if (tryOutBase64String.startsWith("data:application/pdf")) {
-            const base64 = tryOutBase64String.split(",")[1];
-            base64Images = await rpcClient.getMiDiagramRpcClient().convertPdfToBase64Images(base64);
-            if (!base64Images || base64Images.length === 0) {
-                setErrors("Pdf processing failed");
-                setIsLoading(false);
-                return;
-            }
-        } else {
-            base64Images.push(tryOutBase64String);
-        }
-
-        if (selectedConnectionName === "") {
-            setErrors("Please select an IDP connection to proceed.");
-            setIsLoading(false);
-            return;
-        }
-
-        const selectedConnection = idpConnections.find(conn => conn.name === selectedConnectionName);
-        if (!selectedConnection) {
-            setErrors("Selected IDP connection not found.");
-            setIsLoading(false);
-            return;
-        }
-        const { apiKey, url, model } = selectedConnection;
-        setErrors(null);
-        controllerRef3.current = new AbortController();
-
         try {
-            const userMessageContent = [];
-            userMessageContent.push({ type: "text", text: USER_PROMPT });
-            for (const base64Image of base64Images) {
-                userMessageContent.push({ type: "image_url", image_url: { "url": base64Image } });
+            // Convert PDF to images if needed
+            if (tryOutBase64String.startsWith("data:application/pdf")) {
+                const base64 = tryOutBase64String.split(",")[1];
+                base64Images = await rpcClient.getMiDiagramRpcClient().convertPdfToBase64Images(base64);
+                if (!base64Images || base64Images.length === 0) {
+                    setErrors("Pdf processing failed");
+                    setIsLoading(false);
+                    return;
+                }
+            } else {
+                base64Images.push(tryOutBase64String);
             }
 
-            const requestBody = {
-                model: model,
-                messages: [
-                    { role: "system", content: SYSTEM_PROMPT },
-                    { role: "user", content: userMessageContent }
-                ],
-                response_format: {
-                    type: "json_schema",
-                    json_schema: {
-                        name: "document_extraction_schema", 
-                        schema: JSON.parse(schema),
-                        strict: true,              
-                    },
-                }
-                
-            }
-            
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify(requestBody),
-                signal: controllerRef3.current.signal
+            setErrors(null);
+
+            // Call local LLM via RPC instead of external API
+            const response = await rpcClient.getMiAiPanelRpcClient().fillIdpSchema({
+                jsonSchema: schema,
+                images: base64Images
             });
 
-            if (!response.ok) {
-                const userFriendlyError = handleFetchError(response);
-                setErrors(userFriendlyError);
-                setIsLoading(false);
-                return;
-            }
-            const llmResponse = await response.json();
-            const extractedJson = extractLlmResponse(llmResponse);
-            setTryoutOutput(JSON.stringify(extractedJson, null, 2));
+            // Parse and display the filled data
+            const parsedJson = JSON.parse(response.filledData);
+            setTryoutOutput(JSON.stringify(parsedJson, null, 2));
         } catch (error: any) {
             if (error.name === 'AbortError') {
+                // User cancelled
+            } else if (error instanceof SyntaxError) {
+                setErrors("Invalid JSON response from AI. Please try again.");
             } else if (error instanceof TypeError) {
                 setErrors("Network error occurred. Please check your connection.");
             } else {
-                setErrors("An unexpected error occurred. Please try again.");
+                setErrors(error.message || "An unexpected error occurred. Please try again.");
             }
         } finally {
             setIsLoading(false);
