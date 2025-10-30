@@ -32,7 +32,6 @@ import {
     FileHistoryEntry,
 } from "../types";
 import {
-    fetchBackendUrl,
     getProjectRuntimeVersion,
     getProjectUUID,
     compareVersions,
