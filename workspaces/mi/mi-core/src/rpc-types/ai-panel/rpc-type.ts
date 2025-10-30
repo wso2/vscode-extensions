@@ -26,7 +26,8 @@ import {
     GenerateUnitTestRequest, GenerateUnitTestResponse,
     GenerateUnitTestCaseRequest, GenerateUnitTestCaseResponse,
     ProcessIdpRequest, ProcessIdpResponse,
-    DmcToTsRequest, DmcToTsResponse
+    DmcToTsRequest, DmcToTsResponse,
+    AutoFillFormRequest, AutoFillFormResponse
 } from "./types";
 
 const _prefix = "mi-ai-panel";
@@ -47,6 +48,9 @@ export const processIdp: RequestType<ProcessIdpRequest, ProcessIdpResponse> = { 
 
 // DMC to TypeScript conversion method
 export const dmcToTs: RequestType<DmcToTsRequest, DmcToTsResponse> = { method: `${_prefix}/dmcToTs` };
+
+// Auto-fill form method
+export const autoFillForm: RequestType<AutoFillFormRequest, AutoFillFormResponse> = { method: `${_prefix}/autoFillForm` };
 
 // Notification for streaming events
 export const codeGenerationEvent: NotificationType<CodeGenerationEvent> = { method: `${_prefix}/codeGenerationEvent` };
