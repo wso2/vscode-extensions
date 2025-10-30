@@ -46,7 +46,6 @@ import {
     ImportProjectResponse,
     ESBConfigsResponse,
     HighlightCodeRequest,
-    AIUserInput,
     WriteContentToFileRequest,
     WriteContentToFileResponse,
     HandleFileRequest,
@@ -333,7 +332,6 @@ export interface MiDiagramAPI {
     createProject: (params: CreateProjectRequest) => Promise<CreateProjectResponse>;
     importProject: (params: ImportProjectRequest) => Promise<ImportProjectResponse>;
     migrateProject: (params: MigrateProjectRequest) => Promise<MigrateProjectResponse>;
-    getAIResponse: (params: AIUserInput) => Promise<string>;
     writeContentToFile: (params: WriteContentToFileRequest) => Promise<WriteContentToFileResponse>;
     handleFileWithFS: (params: HandleFileRequest) => Promise<HandleFileResponse>;
     writeIdpSchemaFileToRegistry: (params: WriteIdpSchemaFileToRegistryRequest) => Promise<WriteIdpSchemaFileToRegistryResponse>;

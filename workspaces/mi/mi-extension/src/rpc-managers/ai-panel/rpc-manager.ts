@@ -37,12 +37,7 @@ import {
 import {RUNTIME_VERSION_440} from "../../constants";
 import {compareVersions, getMIVersionFromPom} from "../../util/onboardingUtils";
 import {
-    generateSuggestions as generateSuggestionsUtil,
-    fetchBackendUrl,
-    MI_SUGGESTIVE_QUESTIONS_BACKEND_URL,
     fetchCodeGenerationsWithRetry,
-    getDiagnosticsReponseFromLlm,
-    getBackendUrlAndView,
     getUserAccessToken,
     refreshUserAccessToken,
     getWorkspaceContext
@@ -51,6 +46,7 @@ import { CopilotEventHandler } from "./event-handler";
 import { MiDiagramRpcManager } from "../mi-diagram/rpc-manager";
 import { generateSuggestions as generateSuggestionsFromLLM } from "../../ai-panel/copilot/suggestions/suggestions";
 import { fillIdpSchema } from '../../ai-panel/copilot/idp/fill_schema';
+import { codeDiagnostics } from "../../ai-panel/copilot/diagnostics/diagnostics";
 import { getLoginMethod } from '../../ai-panel/auth';
 import { LoginMethod } from '@wso2/mi-core';
 
@@ -176,17 +172,22 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
     }
 
     /**
-     * Sends diagnostics to LLM and gets response
+     * Sends diagnostics to LLM and gets response (migrated to local LLM)
      */
     async analyzeDiagnostics(diagnostics: any, xmlCodes: any): Promise<Response> {
         try {
-            const controller = new AbortController();
-            return await getDiagnosticsReponseFromLlm(
-                diagnostics,
-                xmlCodes,
-                this.projectUri,
-                controller
-            );
+            // Use the migrated codeDiagnostics function
+            const result = await codeDiagnostics({
+                diagnostics: diagnostics.diagnostics,
+                xmlCodes: xmlCodes
+            });
+
+            // Return a mock Response object to match the expected interface
+            return new Response(JSON.stringify(result), {
+                status: 200,
+                statusText: 'OK',
+                headers: { 'Content-Type': 'application/json' }
+            });
         } catch (error) {
             console.error('Error analyzing diagnostics:', error);
             throw new Error(`Failed to analyze diagnostics: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -262,14 +263,9 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             // Create a new abort controller for this request
             this.currentController = new AbortController();
 
-            // Get backend URL and construct the request URL
-            const { backendUrl } = await getBackendUrlAndView(this.projectUri, request.view);
-            const backendRootUri = await fetchBackendUrl(this.projectUri);
-            const url = backendRootUri + backendUrl;
-
-            // Make the request to backend
+            // Generate code using local LLM (no backend URL needed)
             const response = await fetchCodeGenerationsWithRetry(
-                url,
+                "", // url parameter is unused in the migrated function
                 request.chatHistory,
                 request.files,
                 request.images,
@@ -417,15 +413,11 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             }
 
             if (hasAnyDiagnostics) {
-                // Send diagnostics to LLM for corrections
-                const llmResponse = await getDiagnosticsReponseFromLlm(
-                    { diagnostics: diagnosticsResults },
-                    xmlCodes,
-                    this.projectUri,
-                    new AbortController()
-                );
-
-                const llmResponseData = await llmResponse.json();
+                // Send diagnostics to LLM for corrections (using migrated function)
+                const llmResponseData = await codeDiagnostics({
+                    diagnostics: diagnosticsResults,
+                    xmlCodes: xmlCodes
+                });
 
                 // Process corrections
                 if (llmResponseData.fixed_config && Array.isArray(llmResponseData.fixed_config)) {

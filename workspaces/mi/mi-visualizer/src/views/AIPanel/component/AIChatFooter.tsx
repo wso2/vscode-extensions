@@ -23,7 +23,7 @@ import SuggestionsList from "./SuggestionsList";
 import { useMICopilotContext } from "./MICopilotContext";
 import { handleFileAttach } from "../utils";
 import { USER_INPUT_PLACEHOLDER_MESSAGE, VALID_FILE_TYPES } from "../constants";
-import { generateSuggestions, generateId, getBackendUrlAndView, fetchCodeGenerationsWithRetry, getDiagnosticsReponseFromLlm, replaceCodeBlock, setupCodeGenerationEventListener, updateTokenInfo } from "../utils";
+import { generateSuggestions, generateId, getView, fetchCodeGenerationsWithRetry, replaceCodeBlock, setupCodeGenerationEventListener, updateTokenInfo } from "../utils";
 import { BackendRequestType, FixedConfigItem, CorrectedCodeItem, } from "../types";
 import { Role, MessageType, CopilotChatEntry, ChatMessage } from "@wso2/mi-core";
 import Attachments from "./Attachments";
@@ -363,7 +363,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 break;
         }
 
-        const { backendUrl, view } = await getBackendUrlAndView(rpcClient);
+        const view = await getView(rpcClient);
 
         try {
             // Call the RPC method for streaming code generation

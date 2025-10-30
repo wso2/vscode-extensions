@@ -26,7 +26,6 @@ import {
     parameterConfigForFields,
     parameterConfigForTables,
     tableConflictCheck,
-    fetchWithCopilot,
     validateJson,
     convertJsonSchemaToArrays,
     handleFetchError

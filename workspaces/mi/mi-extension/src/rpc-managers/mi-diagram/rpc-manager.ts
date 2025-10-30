@@ -3165,32 +3165,6 @@ ${endpointAttributes}
         });
     }
 
-    async getAIResponse(params: AIUserInput): Promise<string> {
-        let result = '';
-        try {
-            const response = await axios.post(APIS.MI_COPILOT_BACKEND, {
-                chat_history: params.chat_history,
-            }, { responseType: 'stream' });
-
-            response.data.pipe(new Transform({
-                transform(chunk, encoding, callback) {
-                    const chunkAsString = chunk.toString();
-                    result += chunkAsString;
-                    callback();
-                }
-            }));
-
-            return new Promise((resolve, reject) => {
-                response.data.on('end', () => resolve(result));
-                response.data.on('error', (err: Error) => reject(err));
-            });
-
-        } catch (error) {
-            console.error('Error calling the AI endpoint:', error);
-            throw new Error('Failed to call AI endpoint');
-        }
-    }
-
     async writeContentToFile(params: WriteContentToFileRequest): Promise<WriteContentToFileResponse> {
         let status = true;
         //if file exists, overwrite if not, create new file and write content.  if successful, return true, else false
