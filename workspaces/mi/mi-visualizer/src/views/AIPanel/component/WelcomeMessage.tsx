@@ -35,7 +35,7 @@ export const WelcomeMessage: React.FC = () => {
                 <div style={WelcomeStyles.title}>
                     <h2>WSO2 MI Copilot</h2>
                     {isRuntimeVersionThresholdReached ? (
-                        <PreviewContainerDefault>V3-Preview</PreviewContainerDefault>
+                        <PreviewContainerDefault>V4</PreviewContainerDefault>
                     ) : null}
                 </div>
                 <Typography variant="body1" sx={WelcomeStyles.description}>

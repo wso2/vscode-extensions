@@ -16,7 +16,7 @@
  * under the License.
  */
 
-export const AI_MODULE = `
+export const AI_MODULE_GUIDE = `
 # Guide: Creating AI-Powered Apps with WSO2 Synapse
 
 WSO2 Micro Integrator now supports low-code AI mediators that allow developers to embed LLMs (such as OpenAI GPT) and implement retrieval-augmented generation (RAG) within integration flows. This guide walks through the key building blocks for creating AI-powered apps using Synapse configuration.

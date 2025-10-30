@@ -16,7 +16,8 @@
  * under the License.
  */
 
-export const SYNAPSE_GUIDE = `### Latest Synapse integration development guidelines and best practices
+export const SYNAPSE_GUIDE = `
+### Latest Synapse integration development guidelines and best practices
 
 #### Steps for developing integration solutions:
     - Make necessary assumptions to complete the solution.
