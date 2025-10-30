@@ -66,6 +66,7 @@ import type {
 	GetGitTokenForRepositoryReq,
 	GetGitTokenForRepositoryResp,
 	GetMarketplaceIdlReq,
+	GetMarketplaceItemReq,
 	GetMarketplaceListReq,
 	GetProjectEnvsReq,
 	GetProxyDeploymentInfoReq,
@@ -78,6 +79,7 @@ import type {
 	IsRepoAuthorizedReq,
 	IsRepoAuthorizedResp,
 	MarketplaceIdlResp,
+	MarketplaceItem,
 	MarketplaceListResp,
 	Project,
 	ProjectBuildLogsData,
@@ -471,6 +473,14 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 			throw new Error("RPC client is not initialized");
 		}
 		const response: MarketplaceListResp = await this.client.sendRequest("connections/getMarketplaceItems", params);
+		return response;
+	}
+
+	async getMarketplaceItem(params: GetMarketplaceItemReq): Promise<MarketplaceItem> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: MarketplaceItem = await this.client.sendRequest("connections/getMarketplaceItem", params);
 		return response;
 	}
 

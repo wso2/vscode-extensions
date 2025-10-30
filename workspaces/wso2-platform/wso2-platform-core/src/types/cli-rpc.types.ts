@@ -258,6 +258,11 @@ export interface GetMarketplaceListReq {
 	request: GetMarketplaceItemsParams;
 }
 
+export interface GetMarketplaceItemReq {
+	orgId: string;
+	serviceId: string;
+}
+
 export interface GetMarketplaceIdlReq {
 	orgId: string;
 	serviceId: string;

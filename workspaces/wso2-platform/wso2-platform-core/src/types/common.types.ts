@@ -17,7 +17,7 @@
  */
 
 import type { DeploymentStatus } from "../enums";
-import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq, GetConnectionsReq, DeleteConnectionReq } from "./cli-rpc.types";
+import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq, GetConnectionsReq, DeleteConnectionReq, GetMarketplaceItemReq, GetConnectionItemReq } from "./cli-rpc.types";
 import { CreateLocalConnectionsConfigReq, DeleteLocalConnectionsConfigReq } from "./messenger-rpc.types";
 import type { ContextItemEnriched, ContextStoreState, WebviewState } from "./store.types";
 
@@ -32,11 +32,13 @@ export interface IWso2PlatformExtensionAPI {
 	openClonedDir(params: openClonedDirReq): Promise<void>;
 	getStsToken(): Promise<string>;
 	getMarketplaceItems(params: GetMarketplaceListReq): Promise<MarketplaceListResp>;
+	getMarketplaceItem(params: GetMarketplaceItemReq): Promise<MarketplaceItem>;
 	getSelectedContext(): ContextItemEnriched | null;
 	getMarketplaceIdl(params: GetMarketplaceIdlReq): Promise<MarketplaceIdlResp>;
 	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed>;
 	createConnectionConfig: (params: CreateLocalConnectionsConfigReq) => Promise<string>;
 	getConnections: (params: GetConnectionsReq) => Promise<ConnectionListItem[]>;
+	getConnection: (params: GetConnectionItemReq) => Promise<ConnectionListItem>;
 	deleteConnection: (params: DeleteConnectionReq) => Promise<void>;
 	deleteLocalConnectionsConfig: (params: DeleteLocalConnectionsConfigReq) => void;
 	getDevantConsoleUrl: () => Promise<string>;
@@ -436,22 +438,24 @@ export interface ConnectionListItem extends ConnectionBase {
 	resourceType: string;
 }
 
-export interface ConnectionDetailed {
-	configurations: {
-		[id: string]: {
-			environmentUuid: string;
-			entries: {
-				[entryName: string]: {
-					key: string;
-					keyUuid: string;
-					value: string;
-					isSensitive: boolean;
-					isFile: boolean;
-					envVariableName: string;
-				};
+export interface ConnectionConfigurations {
+	[id: string]: {
+		environmentUuid: string;
+		entries: {
+			[entryName: string]: {
+				key: string;
+				keyUuid: string;
+				value: string;
+				isSensitive: boolean;
+				isFile: boolean;
+				envVariableName: string;
 			};
 		};
 	};
+}
+
+export interface ConnectionDetailed {
+	configurations: ConnectionConfigurations;
 	envMapping: object;
 	visibilities: {
 		organizationUuid: string;
