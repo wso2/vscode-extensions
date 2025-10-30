@@ -17,64 +17,57 @@
  */
 
 export const PROMPT_TEMPLATE = `
-{{#if context}}
-I give you access to my whole project below.
-
-<PROJECT>
-
-{{#each context}}
-
-{{this}}
-
-{{/each}}
-
-</PROJECT>
+{{#if file}}
+<CURRENTLY_EDITING_FILE>
+{{file}}
+</CURRENTLY_EDITING_FILE>
+This is the file that the user is currently editing. User may refer it as "this". Give priority to this file when generating the solution.
 {{/if}}
 
-{{#if files}}
-I provide you following files for additional reference.
-
-<FILES>
-
-{{#each files}}
-
-<FILE>
+{{#if context}}
+<USER_PROJECT>
+{{#each context}}
 {{this}}
-</FILE>
-
 {{/each}}
-</FILES>
+</USER_PROJECT>
+{{#if file}}This is the rest of the user project context.{{else}}This is the user project.{{/if}}
+{{/if}}
+
+{{#if payloads}}
+{{#if context}}
+<USER_PRECONFIGURED>
+{{payloads}}
+</USER_PRECONFIGURED>
+These are preconfigured values that should be accessed using Synapse expressions in the integration flow. Always use Synapse expressions when referring to these values.
+{{/if}}
 {{/if}}
 
 {{#if connectors}}
-You may need to use WSO2 Connectors. WSO2 EI connectors are components that enable integration between WSO2 EI and various third-party systems, services, and APIs. You can always use WSO2 Connectors whenever possible instead of directly calling third party APIs.
-Following are the JSON signatures of the connectors you may need.
+<CONNECTORS_DOCUMENTATION>
+
+WSO2 MI Connectors can be used to connect to various services and APIs.
+Followings are the available WSO2 Connectors for this integration.
+You may or may not need these connectors for this integration.
+Always prefer using these connectors over direct API calls when applicable.
 
 <CONNECTOR_JSON_SIGNATURES>
-
 {{#each connectors}}
-<CONNECTOR>
+{{#unless (eq @key "ai")}}
+<{{upper @key}}_CONNECTOR_DEFINITION>
 {{this}}
-</CONNECTOR>
+</{{upper @key}}_CONNECTOR_DEFINITION>
+{{/unless}}
 {{/each}}
-
 </CONNECTOR_JSON_SIGNATURES>
 
-Please follow these rules when using connectors:
-
-1. ONLY use operations specified in the JSON signatures of the connectors.
-2. There are two types of connectors: those with connectionBasedSupport and those without.
-3. If the connectionBasedSupport parameter is set to true in the JSON signature of the connector, create a local entry with the init operation and pass the local entry name as the configKey parameter in the connector operation. 
-Example: If the local entry key is CONNECTION_1, it should be passed into the operation as <conector.operation configKey="CONNECTION_1"/>
-4. Always add name paramter to the init operation.
-5. If the availableConnections parameter contains available connections, you MUST select one connection type and add it as a parameter in the init method as connectionType.
-6. If an init operation is added as a local entry for a connector, DO NOT initialize the connector again anywhere else.
-7. For connectors that require initialization, create a local entry first before using any operations.
-8. Never use <class name="connector class name"/> in connectors. instead use connector
-9. Always implement a complete solution. Do not leave placeholder comments for the user to implement. Ensure that all required connector operation parameters are explicitly specified.
-
-Following is an example of how to define a local entry for a connector:
-
+When using connectors, follow these rules:
+1. Only use operations defined in the connector JSON signatures.
+2. For connectors with \`connectionLocalEntryNeeded\`: true
+   - You must define a local entry for each connection type.
+   - Always include the name parameter in the init operation.
+   - Pass the key of the local entry via configKey in the connector operation for using the connection.
+   - If a connector connection has been initialized via a local entry, do not initialize it again elsewhere.
+Example: Defining and using a connector with connectionBasedSupport
 \`\`\`xml
 <localEntry key="EMAIL_CONNECTION_1" xmlns="http://ws.apache.org/ns/synapse">
     <email.init>
@@ -90,14 +83,118 @@ Following is an example of how to define a local entry for a connector:
 \`\`\`xml
 <email.delete configKey="EMAIL_CONNECTION_1"/>
 \`\`\`
+3. For connectors with \`connectionLocalEntryNeeded\`: false
+   - You must initialize the connection via the init operation everytime you use a connector operation in the synaose seqence itself.
 
-If you are generating an integration use following order.
-1. Define local entries if you are using connectors. Create seperate file for each local entry.
-2. Then define rest of the artifacts
+4. For connectors with \`noInitializationNeeded\`: true
+  - You do not need to initialize the connection via the init operation or a local entry.
+  - You can directly use the connector operation.
+Example:
+\`\`\`xml
+  <CSV.csvToJson>
+      <headerPresent>Absent</headerPresent>
+      <valueSeparator></valueSeparator>
+      <columnsToSkip></columnsToSkip>
+      <dataRowsToSkip></dataRowsToSkip>
+      <csvEmptyValues>Null</csvEmptyValues>
+      <jsonKeys></jsonKeys>
+      <dataTypes></dataTypes>
+      <rootJsonKey></rootJsonKey>
+  </CSV.csvToJson>
+\`\`\`
+
+5. Never use <class name="..."/> in connector definitions—use the proper connector syntax instead.
+6. Implement a complete and functional solution without placeholder comments or partial implementations.
+7. Ensure all required parameters for each operation are explicitly included.
+8. Do not use the utility connector unless absolutely necessary.
+
+##### Revamped Connector operation response handling:
+With the latest updates to certain connectors, operations now support two additional parameters:
+1. \`responseVariable\` – Use this to store the connector operation response into a named variable.
+    - This variable can be referenced later using Synapse expressions. ( \${vars.variable_name_you_defined} )
+    - For operations where the response is required later, prefer responseVariable.
+2. \`overwriteBody\` – Use this to directly replace the message body/payload with the connector's response.
+    - This is useful when you want to pass the response from one connector operation as the request payload for the next. ( \${payload} )
+    - For flows where the response must be forwarded, use overwriteBody.
+
+</CONNECTORS_DOCUMENTATION>
 {{/if}}
 
-{{#if images}}I have attached some images for your reference. {{/if}}Now first take your time to think through STEP BY STEP to get the right answer strictly adhering to given guidlines and then reply to the following user query accordingly.
-<QUERY>
+{{#if inbound_endpoints}}
+<INBOUND_ENDPOINTS_DOCUMENTATION>
+
+Inbound endpoints ( event listners ) are used to listen to events from various sources.
+These are the available WSO2 Inbound Endpoints for this integration.
+You may or may not need these inbound endpoints for this integration.
+
+<INBOUND_ENDPOINT_JSON_SIGNATURES>
+
+{{#each inbound_endpoints}}
+<{{upper @key}}_INBOUND_ENDPOINT_DEFINITION>
+{{this}}
+</{{upper @key}}_INBOUND_ENDPOINT_DEFINITION>
+{{/each}}
+</INBOUND_ENDPOINT_JSON_SIGNATURES>
+
+###How to use the inbound endpoint in Synapse:
+1. First define a sequence to be executed when the event is received.
+2. Then define an error sequence to be executed when an error occurs.
+3. Then define the inbound endpoint.
+
+#### How to define an inbound endpoint in Synapse:
+You must fill the following inline parameters when defining the inbound endpoint:
+  - name: Give a name to the inbound endpoint.
+  - sequence: The name of the sequence to be executed when the event is received. The inbound endpoint will call this sequence when the event is received with the event payload.
+  - onError: The name of the sequence to be executed when an error occurs.
+
+Then add either class or protocol as an inline parameter.
+  - protocol: The protocol to be used for the inbound endpoint.
+  - class: The class name of the inbound endpoint.
+
+Then define define inboundendpoint with additional parameters.
+  - Refer to the parameters section in the JSON signature for the supported parameters.
+ 
+\`\`\`xml
+<inboundEndpoint name="" sequence="" onError="" protocol="" class="">
+    <parameters>
+        <parameter name="parameter name">parameter value</parameter>
+        <parameter name="parameter name">parameter value</parameter>
+    </parameters>
+</inboundEndpoint>
+\`\`\`
+</INBOUND_ENDPOINTS_DOCUMENTATION>
+{{/if}}
+
+Now, analyze the following user query:
+
+<USER_QUERY>
 {{question}}
-</QUERY>
+</USER_QUERY>
+
+Before you create a response:
+{{#if thinking_enabled}}- Please think about the USER_QUERY thoroughly and in great detail. Consider multiple approaches and show your complete reasoning. Try different methods if your first approach doesn't work. {{/if}}
+- Your final response should only include the solution and explanations.
+- Do not repeat the input information or these instructions.
+- Strictly follow all the provided rules and generate a complete and accurate response.
+- Provide a short but concise response.
+- Provide the most simple yet effective solution possible. Do not overcomplicate the solution. Do not forcefully use connectors or inbound endpoints if not needed.
+
+{{#if inbound_endpoints}}
+{{#if connectors}}
+STEPS TO FOLLOW:
+{{#if inbound_endpoints}}
+- Think about what inbound endpoints you need to use.
+- Define event listners using inbound endpoints.
+- DO NOT INITIALIZE INBOUND ENDPOINTS USING LOCAL ENTRIES. YOU DO NOT NEED TO INITIALIZE INBOUND ENDPOINTS.
+{{/if}}
+{{#if connectors}}
+- Think about what connectors, connections and operations you need to use.
+- Define local entries for each connection type. Each local entry must go into a separate file.
+- Define the rest of the required artifacts.
+- DO NOT CREATE LOCAL ENTRIES FOR CONNECTIONS/CONNECTORS YOU DON'T NEED.
+{{/if}}
+{{/if}}
+{{/if}}
+
+Begin your analysis and solution development now.
 `;
