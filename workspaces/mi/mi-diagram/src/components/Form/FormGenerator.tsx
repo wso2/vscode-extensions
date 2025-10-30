@@ -404,13 +404,6 @@ export function FormGenerator(props: FormGeneratorProps) {
     };
 
     const handleGenerateAi = async () => {
-        let token: any;
-        try {
-            token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
-        } catch (error) {
-            rpcClient.getMiDiagramRpcClient().executeCommand({ commands: ["MI.openAiPanel"] }).catch(console.error);
-            throw new Error("User not authenticated");
-        }
         try {
             setGeneratedFormDetails(null);
             setIsAutoFillBtnClicked(false);
@@ -469,37 +462,47 @@ export function FormGenerator(props: FormGeneratorProps) {
                 form_description: formData.doc || "",
             };
             const values = getValues();
-            const base_url = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
-            const response = await fetch(`${base_url}/form/auto-fill`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token.token}`
-                },
-                body: JSON.stringify({
-                    payloads,
-                    variables,
-                    params,
-                    properties,
-                    headers,
-                    configs,
-                    current_values: values,
-                    form_details: formDetails,
-                    connection_names: connectionNames,
-                    question: currentInput,
-                    feild_descriptions: fieldDescriptions,
-                }).replaceAll("insertText", "insert_text").replaceAll("configKey", "config_key").replaceAll("isExpression", "is_expression"),
+
+            // Convert helper pane data to JSON strings
+            // Convert payload format: insertText → insert_text
+            const convertedPayloadsStr = JSON.stringify(payloads).replaceAll("insertText", "insert_text");
+            const convertedVariablesStr = JSON.stringify(variables);
+            const convertedParamsStr = JSON.stringify(params);
+            const convertedPropertiesStr = JSON.stringify(properties);
+            const convertedHeadersStr = JSON.stringify(headers);
+            const convertedConfigsStr = JSON.stringify(configs);
+
+            // Convert current values format: configKey → config_key, isExpression → is_expression
+            const convertedValues = JSON.parse(
+                JSON.stringify(values)
+                    .replaceAll("configKey", "config_key")
+                    .replaceAll("isExpression", "is_expression")
+            );
+
+            // Flatten connectionNames object to array of all connection names
+            const allConnectionNames = Object.values(connectionNames).flat();
+
+            // Call RPC method instead of backend API
+            const response = await rpcClient.getMiAiPanelRpcClient().autoFillForm({
+                payloads: [convertedPayloadsStr],
+                variables: [convertedVariablesStr],
+                params: [convertedParamsStr],
+                properties: [convertedPropertiesStr],
+                headers: [convertedHeadersStr],
+                configs: [convertedConfigsStr],
+                current_values: convertedValues,
+                form_details: JSON.stringify(formDetails),
+                connection_names: allConnectionNames,
+                question: currentInput,
+                field_descriptions: fieldDescriptions,
             });
-            if (!response.ok) {
-                throw new Error("Failed to fetch suggestion");
-            }
-            const responseData = await response.json();
-            if (!responseData.suggestion) {
-                throw new Error("No valid suggestion found");
-            }
-            if (generatedFormDetails !== responseData.suggestion) {
-                const result = JSON.stringify(responseData.suggestion).replaceAll("is_expression", "isExpression");
+
+            // Convert response back: is_expression → isExpression
+            if (response.filled_values) {
+                const result = JSON.stringify(response.filled_values).replaceAll("is_expression", "isExpression");
                 setGeneratedFormDetails(JSON.parse(result));
+            } else {
+                throw new Error("No filled values returned from auto-fill");
             }
         } catch (error) {
             console.error("Error in handleGenerateAi:", error);

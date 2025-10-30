@@ -41,7 +41,10 @@ import {
     processIdp,
     DmcToTsRequest,
     DmcToTsResponse,
-    dmcToTs
+    dmcToTs,
+    AutoFillFormRequest,
+    AutoFillFormResponse,
+    autoFillForm
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -112,5 +115,12 @@ export class MiAiPanelRpcClient implements MIAIPanelAPI {
     // ==================================
     dmcToTs(request: DmcToTsRequest): Promise<DmcToTsResponse> {
         return this._messenger.sendRequest(dmcToTs, HOST_EXTENSION, request);
+    }
+
+    // ==================================
+    // Auto-Fill Form
+    // ==================================
+    autoFillForm(request: AutoFillFormRequest): Promise<AutoFillFormResponse> {
+        return this._messenger.sendRequest(autoFillForm, HOST_EXTENSION, request);
     }
 }

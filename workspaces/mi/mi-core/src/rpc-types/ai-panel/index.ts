@@ -24,7 +24,8 @@ import {
     GenerateUnitTestRequest, GenerateUnitTestResponse,
     GenerateUnitTestCaseRequest, GenerateUnitTestCaseResponse,
     ProcessIdpRequest, ProcessIdpResponse,
-    DmcToTsRequest, DmcToTsResponse
+    DmcToTsRequest, DmcToTsResponse,
+    AutoFillFormRequest, AutoFillFormResponse
 } from "./types";
 
 // Export types for external use
@@ -44,7 +45,9 @@ export type {
     ProcessIdpRequest,
     ProcessIdpResponse,
     DmcToTsRequest,
-    DmcToTsResponse
+    DmcToTsResponse,
+    AutoFillFormRequest,
+    AutoFillFormResponse
 } from './types';
 
 export interface MIAIPanelAPI {
@@ -81,6 +84,11 @@ export interface MIAIPanelAPI {
     // DMC to TypeScript Conversion
     // ==================================
     dmcToTs: (request: DmcToTsRequest) => Promise<DmcToTsResponse>
+
+    // ==================================
+    // Auto-Fill Form
+    // ==================================
+    autoFillForm: (request: AutoFillFormRequest) => Promise<AutoFillFormResponse>
 }
 
 // Export RPC type definitions
@@ -95,5 +103,6 @@ export {
     generateUnitTest,
     generateUnitTestCase,
     processIdp,
-    dmcToTs
+    dmcToTs,
+    autoFillForm
 } from './rpc-type';

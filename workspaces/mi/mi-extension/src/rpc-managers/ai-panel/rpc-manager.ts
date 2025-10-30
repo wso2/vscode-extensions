@@ -28,7 +28,9 @@ import {
     ProcessIdpRequest,
     ProcessIdpResponse,
     DmcToTsRequest,
-    DmcToTsResponse
+    DmcToTsResponse,
+    AutoFillFormRequest,
+    AutoFillFormResponse
 } from '@wso2/mi-core';
 import {RUNTIME_VERSION_440} from "../../constants";
 import {compareVersions, getMIVersionFromPom} from "../../util/onboardingUtils";
@@ -627,6 +629,39 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
         } catch (error) {
             console.error('[dmcToTs] Error converting DMC to TS:', error);
             throw new Error(`Failed to convert DMC to TypeScript: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Auto-fills form fields using AI based on context and user input
+     */
+    async autoFillForm(request: AutoFillFormRequest): Promise<AutoFillFormResponse> {
+        try {
+            console.log('[autoFillForm] Starting form auto-fill');
+            console.log('[autoFillForm] Form fields count:', Object.keys(request.current_values || {}).length);
+            console.log('[autoFillForm] Has user question:', !!request.question);
+
+            const { autoFillForm } = await import('../../ai-panel/copilot/auto-fill/fill');
+
+            const result = await autoFillForm({
+                payloads: request.payloads,
+                variables: request.variables,
+                params: request.params,
+                properties: request.properties,
+                headers: request.headers,
+                configs: request.configs,
+                connection_names: request.connection_names,
+                form_details: request.form_details,
+                current_values: request.current_values,
+                field_descriptions: request.field_descriptions,
+                question: request.question
+            });
+
+            console.log('[autoFillForm] Form auto-fill completed successfully');
+            return result;
+        } catch (error) {
+            console.error('[autoFillForm] Error auto-filling form:', error);
+            throw new Error(`Failed to auto-fill form: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
 }

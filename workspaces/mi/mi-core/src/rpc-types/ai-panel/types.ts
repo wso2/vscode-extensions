@@ -150,3 +150,22 @@ export interface DmcToTsRequest {
 export interface DmcToTsResponse {
     mapping: string;  // Complete TypeScript file with implemented mapFunction
 }
+
+// Auto-Fill Form Types
+export interface AutoFillFormRequest {
+    payloads?: string[];           // Pre-defined user payloads (JSON structures)
+    variables?: string[];          // Pre-defined variables
+    params?: string[];             // Pre-defined parameters
+    properties?: string[];         // Pre-defined properties
+    headers?: string[];            // Pre-defined headers
+    configs?: string[];            // Pre-defined configurations
+    connection_names?: string[];   // Available connection names (for config_key fields)
+    form_details?: string;         // Schema/structure of the form
+    current_values: Record<string, unknown>;  // Current form field values
+    field_descriptions?: Record<string, string>;  // Field descriptions for schema
+    question?: string;             // Optional user query/instructions (User Prompt Mode)
+}
+
+export interface AutoFillFormResponse {
+    filled_values: Record<string, unknown>;  // Filled form values matching input structure
+}

@@ -34,7 +34,9 @@ import {
     processIdp,
     ProcessIdpRequest,
     dmcToTs,
-    DmcToTsRequest
+    DmcToTsRequest,
+    autoFillForm,
+    AutoFillFormRequest
 } from "@wso2/mi-core";
 
 export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri: string) {
@@ -69,4 +71,9 @@ export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri
     // DMC to TypeScript Conversion
     // ==================================
     messenger.onRequest(dmcToTs, (request: DmcToTsRequest) => rpcManager.dmcToTs(request));
+
+    // ==================================
+    // Auto-Fill Form
+    // ==================================
+    messenger.onRequest(autoFillForm, (request: AutoFillFormRequest) => rpcManager.autoFillForm(request));
 }
