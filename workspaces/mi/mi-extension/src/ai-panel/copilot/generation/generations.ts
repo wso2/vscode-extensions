@@ -24,6 +24,7 @@ import { PROMPT_TEMPLATE } from "./prompt_v2";
 import { SYNAPSE_GUIDE } from "../context/synapse_guide";
 import { SYNAPSE_EXPRESSION_GUIDE } from "../context/synapse_expression_guide";
 import { SYNAPSE_EXPRESSION_EXAMPLES } from "../context/synapse_expression_examples";
+import { AI_MODULE_GUIDE } from "../context/ai_module";
 
 // Register Handlebars helpers
 Handlebars.registerHelper("upper", (str: string) => {
@@ -38,7 +39,7 @@ Handlebars.registerHelper("eq", (a: any, b: any) => {
 Handlebars.registerPartial("synapse_guide", SYNAPSE_GUIDE);
 Handlebars.registerPartial("synapse_expression_guide", SYNAPSE_EXPRESSION_GUIDE);
 Handlebars.registerPartial("synapse_expression_examples", SYNAPSE_EXPRESSION_EXAMPLES);
-Handlebars.registerPartial("ai_module", ""); // Placeholder for AI module documentation
+Handlebars.registerPartial("ai_module", AI_MODULE_GUIDE);
 
 /**
  * Render a template using Handlebars
