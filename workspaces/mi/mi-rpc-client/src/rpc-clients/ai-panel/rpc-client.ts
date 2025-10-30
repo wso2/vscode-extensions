@@ -39,6 +39,9 @@ import {
     ProcessIdpRequest,
     ProcessIdpResponse,
     processIdp,
+    FillIdpSchemaRequest,
+    FillIdpSchemaResponse,
+    fillIdpSchema,
     DmcToTsRequest,
     DmcToTsResponse,
     dmcToTs,
@@ -108,6 +111,10 @@ export class MiAiPanelRpcClient implements MIAIPanelAPI {
     // ==================================
     processIdp(request: ProcessIdpRequest): Promise<ProcessIdpResponse> {
         return this._messenger.sendRequest(processIdp, HOST_EXTENSION, request);
+    }
+
+    fillIdpSchema(request: FillIdpSchemaRequest): Promise<FillIdpSchemaResponse> {
+        return this._messenger.sendRequest(fillIdpSchema, HOST_EXTENSION, request);
     }
 
     // ==================================

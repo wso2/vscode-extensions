@@ -27,6 +27,8 @@ import {
     CopilotChatEntry,
     ProcessIdpRequest,
     ProcessIdpResponse,
+    FillIdpSchemaRequest,
+    FillIdpSchemaResponse,
     DmcToTsRequest,
     DmcToTsResponse,
     AutoFillFormRequest,
@@ -48,6 +50,7 @@ import {
 import { CopilotEventHandler } from "./event-handler";
 import { MiDiagramRpcManager } from "../mi-diagram/rpc-manager";
 import { generateSuggestions as generateSuggestionsFromLLM } from "../../ai-panel/copilot/suggestions/suggestions";
+import { fillIdpSchema } from '../../ai-panel/copilot/idp/fill_schema';
 import { getLoginMethod } from '../../ai-panel/auth';
 import { LoginMethod } from '@wso2/mi-core';
 
@@ -605,6 +608,27 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             return result;
         } catch (error) {
             throw new Error(`Failed to process IDP: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Fills an IDP schema with data extracted from images
+     */
+    async fillIdpSchema(request: FillIdpSchemaRequest): Promise<FillIdpSchemaResponse> {
+        try {
+            console.log('[fillIdpSchema] Starting schema filling');
+            console.log('[fillIdpSchema] Images count:', request.images?.length || 0);
+
+            const result = await fillIdpSchema({
+                jsonSchema: request.jsonSchema,
+                images: request.images
+            });
+
+            console.log('[fillIdpSchema] Schema filling completed successfully');
+            return result;
+        } catch (error) {
+            console.error('[fillIdpSchema] Error filling schema:', error);
+            throw new Error(`Failed to fill IDP schema: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
 
