@@ -367,14 +367,13 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
     };
 
     const addNewHandler = () => {
-        if (handlers.length === 0) {
+        // Always allow adding a new handler row (even if previous is empty)
+        // We will sanitize empty handlers on save.
+        if (!handlers || handlers.length === 0) {
             setValue("handlers", [{ name: "", properties: [] }], { shouldValidate: true, shouldDirty: true });
-            return;
+        } else {
+            setValue("handlers", [...handlers, { name: "", properties: [] }], { shouldValidate: true, shouldDirty: true });
         }
-
-        const lastHandler = handlers[handlers.length - 1];
-        if (lastHandler.name === "" || lastHandler.properties.length === 0) return;
-        setValue("handlers", [...handlers, { name: "", properties: [] }], { shouldValidate: true, shouldDirty: true });
     }
 
     const handleCreateAPI = async (values: any) => {
@@ -440,14 +439,21 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
             }
             const xml = getXML(ARTIFACT_TEMPLATES.EDIT_API, formValues);
             // Combine regular handlers with CORS handler if enabled and version supports it
-            const allHandlers = [...handlers];
+            // Prepare handlers: allow editing UI to have empty rows but filter them out for XML
+            const allHandlers = [...(handlers || [])];
+            const cleanedHandlers = allHandlers
+                .filter((h: any) => (h?.name ?? '').toString().trim() !== "")
+                .map((h: any) => ({
+                    name: h.name,
+                    properties: (h.properties || []).filter((p: any) => ((p?.name ?? '').toString().trim() !== "" && (p?.value ?? '').toString().trim() !== ""))
+                }));
             if (shouldShowCORSSettings) {
                 const corsHandler = createCORSHandler(values.corsSettings);
                 if (corsHandler) {
-                    allHandlers.push(corsHandler);
+                    cleanedHandlers.push(corsHandler);
                 }
             }
-            const handlersXML = getXML(ARTIFACT_TEMPLATES.EDIT_HANDLERS, { show: allHandlers.length > 0, handlers: allHandlers });
+            const handlersXML = getXML(ARTIFACT_TEMPLATES.EDIT_HANDLERS, { show: cleanedHandlers.length > 0, handlers: cleanedHandlers });
             const editAPIParams = {
                 documentUri: path,
                 apiName: values.apiName,
