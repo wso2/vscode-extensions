@@ -42,6 +42,8 @@ import {
 import { Codicon } from '../../../Codicon/Codicon';
 import { ProgressIndicator } from '../../../ProgressIndicator/ProgressIndicator';
 import { AutoResizeTextArea } from '../../../TextArea/TextArea';
+import { Icon } from '../../../Icon/Icon';
+
 
 /* Styled components */
 const Container = styled.div`
@@ -126,6 +128,7 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
         onFocus,
         onBlur,
         helperPaneZIndex,
+        onExpandClick,
         ...rest
     } = props;
 
@@ -392,7 +395,7 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
 
 
     const isReservedKeyCombinationPressed = (e: React.KeyboardEvent) => {
-        return ( (e.ctrlKey || e.metaKey) ||
+        return ((e.ctrlKey || e.metaKey) ||
             ifCTRLandDown(e) ||
             ifCTRLandUP(e) ||
             ifCTRLandENTER(e)
@@ -619,6 +622,29 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
                 growRange={growRange}
                 resize={resize}
             />
+            {onExpandClick && (
+                <Icon
+                    id="expression-editor-expand"
+                    sx={{
+                        position: 'absolute',
+                        bottom: '10px',
+                        right: '4px',
+                        width: '16px',
+                        height: '16px',
+                        cursor: 'pointer',
+                        backgroundColor: 'var(--vscode-menu-background)',
+                        zIndex: '5',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '9px',
+                        borderRadius: '4px',
+                    }}
+                    iconSx={{ color: 'var(--vscode-activityBar-foreground)' }}
+                    name="expand"
+                    onClick={onExpandClick}
+                />
+            )}
             {isSavingExpression && <ProgressIndicator barWidth={6} sx={{ top: '100%' }} />}
             {isFocused &&
                 createPortal(
