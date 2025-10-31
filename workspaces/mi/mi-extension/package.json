@@ -162,6 +162,18 @@
           "type": "boolean",
           "default": true,
           "description": "Update car plugin version automatically"
+        },
+        "MI.deployment.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:8290",
+          "description": "MI Server URL for remote deployment",
+          "scope": "resource"
+        },
+        "MI.deployment.username": {
+          "type": "string",
+          "default": "admin",
+          "description": "Username for remote deployment",
+          "scope": "resource"
         }
       }
     },
