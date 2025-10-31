@@ -1,0 +1,113 @@
+{
+  "name": "wso2-integrator",
+  "displayName": "WSO2 Integrator",
+  "description": "Unified integration development environment for WSO2 BI and MI in VS Code",
+  "version": "1.0.0",
+  "publisher": "wso2",
+  "icon": "resources/icons/wso2-integrator-logo.png",
+  "license": "Apache-2.0",
+  "repository": {
+    "url": "https://github.com/wso2/ballerina-plugin-vscode"
+  },
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "extensionDependencies": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "wso2-integrator",
+          "title": "WSO2 Integrator",
+          "icon": "resources/icons/integrator-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "wso2-integrator": [
+        {
+          "id": "wso2-integrator.explorer",
+          "name": "Integrations",
+          "contextualTitle": "WSO2 Integrator"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "wso2-integrator.explorer",
+        "contents": "Welcome to WSO2 Integrator! This extension provides a unified development environment for BI and MI integrations.\n[Open Welcome Page](command:wso2.integrator.openWelcome)\nTo learn more about WSO2 Integrator [read our docs](https://wso2.com/integration)."
+      }
+    ],
+    "commands": [
+      {
+        "command": "wso2.integrator.openWelcome",
+        "title": "Open Welcome Page",
+        "category": "WSO2 Integrator",
+        "icon": "$(home)"
+      },
+      {
+        "command": "wso2.integrator.refreshView",
+        "title": "Refresh",
+        "category": "WSO2 Integrator",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "wso2.integrator.openBIIntegration",
+        "title": "Open BI Integration",
+        "category": "WSO2 Integrator"
+      },
+      {
+        "command": "wso2.integrator.openMIIntegration",
+        "title": "Open MI Integration",
+        "category": "WSO2 Integrator"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "wso2.integrator.openWelcome",
+          "when": "view == wso2-integrator.explorer",
+          "group": "navigation@1"
+        },
+        {
+          "command": "wso2.integrator.refreshView",
+          "when": "view == wso2-integrator.explorer",
+          "group": "navigation@2"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "vscode:prepublish": "npm run build",
+    "build": "webpack --mode production",
+    "watch": "tsc -p . -w",
+    "compile": "tsc -p ./",
+    "compile-tests": "tsc -p . --outDir out",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^22.15.21",
+    "@types/vscode": "^1.100.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "5.8.3",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1",
+    "@vscode/vsce": "^3.2.1",
+    "@wso2/wi-webviews": "workspace:*"
+  },
+  "dependencies": {
+    "@wso2/wi-core": "workspace:*",
+    "vscode-messenger": "~0.5.1"
+  }
+}
