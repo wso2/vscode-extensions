@@ -627,8 +627,8 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
                     id="expression-editor-expand"
                     sx={{
                         position: 'absolute',
-                        bottom: '10px',
-                        right: '4px',
+                        bottom: '6px',
+                        right: '8px',
                         width: '16px',
                         height: '16px',
                         cursor: 'pointer',
@@ -639,8 +639,9 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
                         justifyContent: 'center',
                         padding: '9px',
                         borderRadius: '4px',
+                        border: '1px solid var(--dropdown-border)'
                     }}
-                    iconSx={{ color: 'var(--vscode-activityBar-foreground)' }}
+                    iconSx={{ color: 'var(--vscode-editor-foreground)' }}
                     name="expand"
                     onClick={onExpandClick}
                 />
