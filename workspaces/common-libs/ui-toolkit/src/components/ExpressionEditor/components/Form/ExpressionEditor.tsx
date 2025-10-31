@@ -42,7 +42,6 @@ import {
 import { Codicon } from '../../../Codicon/Codicon';
 import { ProgressIndicator } from '../../../ProgressIndicator/ProgressIndicator';
 import { AutoResizeTextArea } from '../../../TextArea/TextArea';
-import { Icon } from '../../../Icon/Icon';
 
 
 /* Styled components */
@@ -128,7 +127,6 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
         onFocus,
         onBlur,
         helperPaneZIndex,
-        onExpandClick,
         ...rest
     } = props;
 
@@ -622,30 +620,6 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
                 growRange={growRange}
                 resize={resize}
             />
-            {onExpandClick && (
-                <Icon
-                    id="expression-editor-expand"
-                    sx={{
-                        position: 'absolute',
-                        bottom: '6px',
-                        right: '8px',
-                        width: '16px',
-                        height: '16px',
-                        cursor: 'pointer',
-                        backgroundColor: 'var(--vscode-menu-background)',
-                        zIndex: '5',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '9px',
-                        borderRadius: '4px',
-                        border: '1px solid var(--dropdown-border)'
-                    }}
-                    iconSx={{ color: 'var(--vscode-editor-foreground)' }}
-                    name="expand"
-                    onClick={onExpandClick}
-                />
-            )}
             {isSavingExpression && <ProgressIndicator barWidth={6} sx={{ top: '100%' }} />}
             {isFocused &&
                 createPortal(

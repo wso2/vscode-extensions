@@ -61,7 +61,6 @@ type FormExpressionEditorElBaseProps = ExpressionEditorProps & HelperPaneConditi
     growRange?: { start: number, offset: number };
     actionButtons?: ActionButtonType[];
     helperPaneZIndex?: number;
-    onExpandClick?: () => void;
 }
 
 export type FormExpressionEditorElProps = FormExpressionEditorElBaseProps & {
