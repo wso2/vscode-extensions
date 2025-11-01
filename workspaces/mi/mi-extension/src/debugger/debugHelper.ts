@@ -260,15 +260,72 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
 
 export async function executeRemoteDeployTask(projectUri: string, postBuildTask?: Function) {
     return new Promise<void>(async (resolve, reject) => {
-
         const config = workspace.getConfiguration('MI', Uri.file(projectUri));
+        
+        // Prompt for deployment parameters
+        const serverUrl = await vscode.window.showInputBox({
+            prompt: 'Enter MI Server URL',
+            value: config.get('deployment.serverUrl', 'http://localhost:8290'),
+            placeHolder: 'http://localhost:8290',
+            ignoreFocusOut: true
+        });
+        
+        if (!serverUrl) {
+            vscode.window.showErrorMessage('Server URL is required for deployment');
+            reject('Deployment cancelled: No server URL provided');
+            return;
+        }
+
+        const username = await vscode.window.showInputBox({
+            prompt: 'Enter username',
+            value: config.get('deployment.username', 'admin'),
+            placeHolder: 'admin',
+            ignoreFocusOut: true
+        });
+        
+        if (!username) {
+            vscode.window.showErrorMessage('Username is required for deployment');
+            reject('Deployment cancelled: No username provided');
+            return;
+        }
+
+        const password = await vscode.window.showInputBox({
+            prompt: 'Enter password',
+            password: true,
+            placeHolder: 'Password',
+            ignoreFocusOut: true
+        });
+        
+        if (!password) {
+            vscode.window.showErrorMessage('Password is required for deployment');
+            reject('Deployment cancelled: No password provided');
+            return;
+        }
+
+        // Ask to save settings
+        const saveSettings = await vscode.window.showQuickPick(['Yes', 'No'], {
+            placeHolder: 'Save server URL and username for next time?',
+            ignoreFocusOut: true
+        });
+
+        if (saveSettings === 'Yes') {
+            await config.update('deployment.serverUrl', serverUrl, vscode.ConfigurationTarget.Workspace);
+            await config.update('deployment.username', username, vscode.ConfigurationTarget.Workspace);
+        }
+
         const mvnCmd = config.get("useLocalMaven") ? "mvn" : (process.platform === "win32" ?
             MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
-        const buildCommand = mvnCmd + MVN_COMMANDS.DEPLOY_COMMAND;
+        
+        // Build command with deployment parameters
+        const deployParams = `-DserverUrl="${serverUrl}" -Doperation=deploy -Dusername="${username}" -Dpassword="${password}"`;
+        const buildCommand = `${mvnCmd} ${MVN_COMMANDS.DEPLOY_COMMAND} ${deployParams}`;
+        
         const envVariables = {
             ...process.env,
             ...setJavaHomeInEnvironmentAndPath(projectUri)
         };
+
+        vscode.window.showInformationMessage(`Deploying to ${serverUrl}...`);
         const buildProcess = await child_process.spawn(buildCommand, [], { shell: true, cwd: projectUri, env: envVariables });
         showServerOutputChannel();
 
@@ -277,19 +334,21 @@ export async function executeRemoteDeployTask(projectUri: string, postBuildTask?
         });
 
         buildProcess.stderr.on('data', (data) => {
-            serverLog(`Build error:\n${data.toString('utf8')}`);
+            serverLog(`Deploy error:\n${data.toString('utf8')}`);
         });
 
-        if (postBuildTask) {
-            buildProcess.on('exit', async (code) => {
-                if (code === 0) {
+        buildProcess.on('exit', async (code) => {
+            if (code === 0) {
+                vscode.window.showInformationMessage('Deployment completed successfully!');
+                if (postBuildTask) {
                     postBuildTask();
-                    resolve();
-                } else {
-                    reject(`Build process failed`);
                 }
-            });
-        }
+                resolve();
+            } else {
+                vscode.window.showErrorMessage('Deployment failed. Check the output for details.');
+                reject(`Deploy process failed with code ${code}`);
+            }
+        });
     });
 }
 
