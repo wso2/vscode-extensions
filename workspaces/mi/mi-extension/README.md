@@ -62,33 +62,6 @@ The Design View lists a set of sample projects and integration artifacts that re
 
 To learn more about the WSO2 Integrator: MI for Visual Studio Code extension, go to the [WSO2 Integrator: MI for VS Code](https://mi.docs.wso2.com/en/latest/develop/mi-for-vscode/mi-for-vscode-overview/) documentation.
 
-## Writing End to End tests
-
-### Test Directory Structure
-```
-mi-extension/
-  src/
-   test/
-    e2e-playwright-tests/
-     componentA/
-      componentA.spec.ts
-     componentB/
-      componentB.spec.ts
-
-     test.list.ts
-     utils.ts
-```
-### Getting started
-- Navigate to bi-extension root directory.
-- Run `npx playwright install` to install the playwright package.
-- Run `npm run e2e-test` to execute the tests.
-
-### Writing tests
-- Navigate to the `e2e-playwright-tests` folder and create a folder with the artifact name.
-- Create a `spec.ts` file as mentioned in the folder structure and start writing tests.
-- Import and add that spec to the `test.list.ts` file.
-- Run `npm run e2e-test` to verify the test.
-
 ## Reach Out
 
 For further assistance, create a [GitHub issue](https://github.com/wso2/mi-vscode/issues). Our team will review and respond promptly to address your concerns.
