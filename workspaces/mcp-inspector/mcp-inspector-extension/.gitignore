@@ -1,0 +1,19 @@
+# Build output
+out/
+dist/
+*.vsix
+
+# Dependencies
+node_modules/
+
+# Test artifacts
+.vscode-test/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/.history
+
+# Cache
+.turbo
