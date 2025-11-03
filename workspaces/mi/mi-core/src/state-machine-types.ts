@@ -76,6 +76,8 @@ export enum MACHINE_VIEW {
     BallerinaModuleForm = "Ballerina Module Creation Form",
     DataSourceForm = "Data Source Creation Form",
     ImportArtifactForm = "Add Artifact Form",
+    KubernetesConfigurationForm = "Configure Kubernetes Deployment Form",
+    RegistryForm = "Manage Registry Properties Form",
     AddDriverPopup = "Add Driver Popup",
     Samples = "Samples",
     ImportProject = "Import Project",
@@ -93,6 +95,7 @@ export enum MACHINE_VIEW {
     SETUP_ENVIRONMENT = "Setup Environment",
     ImportConnectorForm = "Import Connector",
     IdpConnectorSchemaGeneratorForm = "IDP Connector Schema Generator Form",
+    DataMapperMigrationForm = "DataMapper Migration Form",
 }
 
 export enum AI_MACHINE_VIEW {
@@ -103,7 +106,7 @@ export enum AI_MACHINE_VIEW {
 
 export type MachineStateValue =
     | 'initialize' | 'projectDetected' | 'oldProjectDetected' | 'oldWorkspaceDetected' | 'LSInit' | 'ready' | 'disabled'
-    | { ready: 'viewReady' } | { ready: 'viewEditing' }
+    | { ready: 'viewReady' } | { ready: 'viewEditing' } | { ready: 'resolveMissingDependencies' }
     | { newProject: 'viewReady' }| { environmentSetup: 'viewReady' };
 
 export type AIMachineStateValue = 'Initialize' | 'loggedOut' | 'Ready' | 'WaitingForLogin' | 'Executing' | 'updateExtension' | 'disabled' | 'notSupported';

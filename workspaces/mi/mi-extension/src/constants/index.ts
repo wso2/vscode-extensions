@@ -101,16 +101,32 @@ export const COMMANDS = {
     EDIT_TEST_SUITE: 'MI.test.edit.suite',
     ADD_TEST_CASE: 'MI.test.add.case',
     EDIT_TEST_CASE: 'MI.test.edit.case',
+    DELETE_TEST_CASE: 'MI.test.delete.case',
+    DELETE_TEST_SUITE: 'MI.test.delete.suite',
     ADD_MOCK_SERVICE: 'MI.test.add.mock-service',
     REFRESH_MOCK_SERVICES: 'MI.test.refresh.mock-services',
     EDIT_MOCK_SERVICE: 'MI.test.edit.mock-service',
+    DELETE_MOCK_SERVICE: 'MI.test.delete.mock-service',
     OPEN_RUNTIME_VIEW: 'MI.Open-runtime-service-view',
     REVEAL_TEST_PANE: 'MI.mock-services.focus',
+    EDIT_K8_CONFIGURATION_COMMAND: 'MI.edit-k8-configuration',
+    MANAGE_REGISTRY_PROPERTIES_COMMAND: 'MI.manage-registry-property',
 
     BI_EXTENSION: 'WSO2.ballerina-integrator',
     BI_OPEN_COMMAND: 'ballerina.open.bi.welcome',
     INSTALL_EXTENSION_COMMAND: 'workbench.extensions.installExtension'
 };
+
+export const MVN_COMMANDS = {
+    MVN_WRAPPER_COMMAND: "./mvnw",
+    MVN_WRAPPER_WIN_COMMAND: ".\\mvnw.cmd",
+    DEPLOY_COMMAND: " clean deploy -Dmaven.deploy.skip=true -Dmaven.car.deploy.skip=false -Dstyle.color=never",
+    BUILD_COMMAND: " clean install -Dstyle.color=never",
+    DOCKER_COMMAND: " clean install -P docker",
+    COMPILE_COMMAND: " compile -Dstyle.color=never",
+    TEST_COMMAND: " test -DtestServerType=remote",
+    GEN_POM_COMMAND: "help:effective-pom",
+}
 
 export const DEFAULT_PROJECT_VERSION = "1.0.0";
 
@@ -183,4 +199,9 @@ export const DM_OPERATORS_FILE_NAME = "dm-utils";
 export const DM_OPERATORS_IMPORT_NAME = "dmUtils";
 export const LAST_EXPORTED_CAR_PATH = "last-exported-car-path";
 export const RUNTIME_VERSION_440 = "4.4.0";
+export const RUNTIME_VERSION_450 = "4.5.0";
 export const DEFAULT_ICON = "https://mi-connectors.wso2.com/icons/wordpress.gif";
+
+export const ERROR_MESSAGES = {
+    ERROR_DOWNLOADING_MODULES: "Unable to download the default modules. These modules can be added after project creation. Do you wish to skip them now and proceed with the project creation?",
+};

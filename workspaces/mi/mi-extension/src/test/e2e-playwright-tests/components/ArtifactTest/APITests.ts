@@ -105,6 +105,7 @@ export class API {
         await apiFormFrame.getByRole('textbox', { name: 'Version' }).fill('1.0.2');
         await apiFormFrame.getByLabel('Trace Enabled').click();
         await apiFormFrame.getByLabel('Statistics Enabled').click();
+        await apiFormFrame.getByText('Handlers').click();
         await apiFormFrame.getByRole('button', { name: 'Add Handler' }).click();
         await apiFormFrame.getByRole('textbox', { name: 'Text field' }).fill('testClass');
         await apiFormFrame.getByRole('button', { name: 'Add Property' }).click();

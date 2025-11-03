@@ -98,7 +98,7 @@ export function OpenAPI(props: OverviewProps) {
             {componetName === PathID.OVERVIEW && (
                 <Overview openAPIDefinition={openAPI} onOpenApiDefinitionChange={handleOpenAPIChange} />
             )}
-            {componetName === PathID.PARAMETERS && (
+            {componetName === PathID.PATHS && (
                 <Paths 
                     paths={openAPI.paths}
                     onPathsChange={(paths) => handleOpenAPIChange({ ...openAPI, paths })}

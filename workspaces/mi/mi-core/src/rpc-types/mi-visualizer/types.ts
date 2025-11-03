@@ -123,6 +123,7 @@ export interface PrimaryDetails {
 export interface BuildDetails {
     dockerDetails: DockerDetails;
     enableFatCar: PomNodeDetails;
+    versionedDeployment: PomNodeDetails;
     advanceDetails: AdvanceDetails;
 }
 
@@ -152,6 +153,11 @@ export interface DependenciesDetails {
     connectorDependencies: DependencyDetails[];
     integrationProjectDependencies: DependencyDetails[];
     otherDependencies: DependencyDetails[];
+}
+
+export interface DependencyStatusResponse {
+    downloadedDependencies: DependencyDetails[];
+    pendingDependencies: DependencyDetails[];
 }
 
 export interface PropertyDetails {
@@ -484,4 +490,8 @@ export interface UpdateAiDependenciesRequest {
 
 export interface UpdateAiDependenciesResponse {
     textEdits: TextEdit[];
+}
+
+export interface ReloadDependenciesRequest {
+    newDependencies: DependencyDetails[];
 }

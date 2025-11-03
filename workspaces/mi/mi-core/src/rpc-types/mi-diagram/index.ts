@@ -149,7 +149,6 @@ import {
     GetSelectiveWorkspaceContextResponse,
     GetSelectiveArtifactsRequest,
     GetSelectiveArtifactsResponse,
-    GetBackendRootUrlResponse,
     RegistryArtifactNamesResponse,
     ListRegistryArtifactsRequest,
     RangeFormatRequest,
@@ -254,10 +253,19 @@ import {
     DeployProjectRequest,
     DeployProjectResponse,
     DevantMetadata,
-    GetCodeDiagnosticsReqeust,
-    GetCodeDiagnosticsResponse,
     GetConnectorIconRequest,
-    GetConnectorIconResponse
+    GetConnectorIconResponse,
+    SubmitFeedbackRequest,
+    SubmitFeedbackResponse,
+    GetPomFileContentResponse,
+    GetExternalConnectorDetailsResponse,
+    WriteMockServicesRequest,
+    WriteMockServicesResponse,
+    GetMockServicesResponse,
+    ConfigureKubernetesRequest,
+    ConfigureKubernetesResponse,
+    UpdateRegistryPropertyRequest,
+    Property
 } from "./types";
 
 export interface MiDiagramAPI {
@@ -348,7 +356,6 @@ export interface MiDiagramAPI {
     buildBallerinaModule: (projectPath: string) => Promise<void>;
     getSelectiveWorkspaceContext: () => Promise<GetSelectiveWorkspaceContextResponse>;
     getSelectiveArtifacts: (params: GetSelectiveArtifactsRequest) => Promise<GetSelectiveArtifactsResponse>;
-    getBackendRootUrl: () => Promise<GetBackendRootUrlResponse>;
     getAvailableRegistryResources: (params: ListRegistryArtifactsRequest) => Promise<RegistryArtifactNamesResponse>;
     updateRegistryMetadata: (params: UpdateRegistryMetadataRequest) => Promise<UpdateRegistryMetadataResponse>;
     getMetadataOfRegistryResource: (params: GetRegistryMetadataRequest) => Promise<GetRegistryMetadataResponse>;
@@ -399,6 +406,7 @@ export interface MiDiagramAPI {
     getAllMockServices: () => Promise<GetAllMockServicesResponse>;
     openDependencyPom: (params: OpenDependencyPomRequest) => void;
     getAllDependencies: (params: getAllDependenciesRequest) => Promise<GetAllDependenciesResponse>;
+    formatPomFile: () => Promise<void>;
     testDbConnection: (params: TestDbConnectionRequest) => Promise<TestDbConnectionResponse>;
     markAsDefaultSequence: (params: MarkAsDefaultSequenceRequest) => void;
     getSubFolderNames: (path: GetSubFoldersRequest) => Promise<GetSubFoldersResponse>;
@@ -426,8 +434,16 @@ export interface MiDiagramAPI {
     testConnectorConnection: (params: TestConnectorConnectionRequest) => Promise<TestConnectorConnectionResponse>;
     saveConfig: (params: SaveConfigRequest) => Promise<SaveConfigResponse>;
     getEULALicense: () => Promise<string>;
-    getCodeDiagnostics: (params: GetCodeDiagnosticsReqeust) => Promise<GetCodeDiagnosticsResponse>;
     shouldDisplayPayloadAlert: () => Promise<boolean>;
     displayPayloadAlert: () => Promise<void>;
     closePayloadAlert: () => Promise<void>;
+    submitFeedback: (params: SubmitFeedbackRequest) => Promise<SubmitFeedbackResponse>;
+    getPomFileContent: () => Promise<GetPomFileContentResponse>;
+    getExternalConnectorDetails: () => Promise<GetExternalConnectorDetailsResponse>;
+    writeMockServices: (params: WriteMockServicesRequest) => Promise<WriteMockServicesResponse>;
+    getMockServices: () => Promise<GetMockServicesResponse>;
+    configureKubernetes: (params: ConfigureKubernetesRequest) => Promise<ConfigureKubernetesResponse>;
+    isKubernetesConfigured: () => Promise<boolean>;
+    updatePropertiesInArtifactXML: (params: UpdateRegistryPropertyRequest) => Promise<string>;
+    getPropertiesFromArtifactXML: (params: string) => Promise<Property[] | undefined>;
 }

@@ -1257,7 +1257,7 @@ export interface WriteContentToFileResponse {
 }
 
 export interface HandleFileRequest {
-    operation : "read" | "write" | "delete";
+    operation : "read" | "write" | "delete" | "exists";
     fileName : string;
     filePath : string;
     content?: string;
@@ -1330,7 +1330,8 @@ export interface GetDefinitionRequest {
 
 export interface GetDefinitionResponse {
     uri: string,
-    range: Range
+    range: Range,
+    fromDependency: boolean;
 }
 
 export interface GetTextAtRangeRequest {
@@ -1463,8 +1464,16 @@ export interface CreateBallerinaModuleResponse {
     path: string;
 }
 
-export interface GetBackendRootUrlResponse {
-    url: string;
+export interface ConfigureKubernetesRequest {
+    name: string;
+    replicas: number;
+    targetImage: string;
+    ports: Array<{ port: number }>;
+    envValues: any[];
+}
+
+export interface ConfigureKubernetesResponse {
+    path: string;
 }
 
 export interface GetProxyRootUrlResponse {
@@ -1768,6 +1777,7 @@ export interface SwaggerFromAPIRequest {
     isJsonIn?: boolean;
     isJsonOut?: boolean;
     port?: number;
+    projectPath?: string;
 }
 
 export interface CompareSwaggerAndAPIResponse {
@@ -2142,6 +2152,7 @@ export interface GenerateConnectorResponse {
 export interface GetHelperPaneInfoRequest {
     documentUri: string;
     position: Position;
+    needLastMediator?: boolean;
 }
 
 export type GetHelperPaneInfoResponse = HelperPaneData;
@@ -2187,15 +2198,55 @@ export interface GetArtifactTypeResponse {
     artifactFolder: string;
 }
 
-export interface GetCodeDiagnosticsReqeust {
-    xmlCodes: XmlCode[];
-}
-
-export interface GetCodeDiagnosticsResponse {
-    diagnostics: {fileName: string, diagnostics: Diagnostic[]}[];
-}
-
 export interface XmlCode{
     fileName: string;
     code: string;
+}
+
+export interface SubmitFeedbackRequest {
+    positive: boolean;
+    messages: FeedbackMessage[];
+    feedbackText?: string;
+    messageIndex?: number;
+    conversationId?: string;
+    timestamp?: number;
+}
+
+export interface SubmitFeedbackResponse {
+    success: boolean;
+    message?: string;
+}
+
+export interface FeedbackMessage {
+    content: string;
+    role: 'user' | 'assistant';
+    id?: number;
+    command?: string;
+}
+
+export interface GetPomFileContentResponse{
+    content: string;
+}
+
+export interface GetExternalConnectorDetailsResponse{
+    connectors: string[];
+}
+
+export interface WriteMockServicesRequest {
+    content: string[];
+    fileNames?: string[];
+}
+
+export interface WriteMockServicesResponse {
+    status: boolean;
+}
+
+export interface GetMockServicesResponse{
+    mockServices: string[];
+    mockServiceNames: string[];
+}
+
+export interface UpdateRegistryPropertyRequest {
+    targetFile: string;
+    properties: Property[];
 }

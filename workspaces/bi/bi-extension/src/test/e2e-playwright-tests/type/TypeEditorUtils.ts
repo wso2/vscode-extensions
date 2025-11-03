@@ -17,7 +17,7 @@
  */
 
 import { Frame, Locator, Page } from '@playwright/test';
-import { Form } from '@wso2/playwright-vscode-tester';
+import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 
 /**
  * Utility class for type editor test operations
@@ -45,11 +45,36 @@ export class TypeEditorUtils {
     /**
      * Fill a type field (double-click and type)
      */
-    async fillTypeField(index: number = 0, value: string): Promise<void> {
+    async fillTypeField(index: number = 0, value: string, title?: string): Promise<void> {
         const field = this.webView.locator('[data-testid="type-field"]').nth(index);
         await this.waitForElement(field);
         await field.dblclick();
         await field.type(value);
+        let iframe;
+        try {
+            // This is due to an implementation issue with the type dropdown in the type editor
+            iframe = await switchToIFrame('WSO2 Integrator: BI', this.page);
+            if (!iframe) {
+                throw new Error('WSO2 Integrator: BI iframe not found');
+            }
+            const dropdownOptions = iframe.getByText(value, { exact: true });
+            const optionCount = await dropdownOptions.count();
+
+            if (optionCount === 1) {
+                await dropdownOptions.first().click();
+            } else if (optionCount > 1) {
+                // In case of dropdown appear
+                await dropdownOptions.nth(1).click();
+            } else {
+                throw new Error(`No dropdown option found for value: ${value}`);
+            }
+        } catch (error) {
+            console.error('Error switching to iframe:', error);
+            throw error;
+        }
+        if (title) {
+            await iframe.getByText(title).click();
+        }
     }
 
     /**
@@ -89,16 +114,18 @@ export class TypeEditorUtils {
         const lastIndex = fieldCount - 1;
 
         await this.fillIdentifierField(lastIndex, fieldName);
-        await this.fillTypeField(lastIndex, fieldType);
+        await this.fillTypeField(lastIndex, fieldType, 'Fields');
     }
 
     /**
      * Add a function to service class
      */
-    async addFunction(functionName: string, returnType: string): Promise<void> {
+    async addFunction(functionName: string, returnType: string, sectionName?: string): Promise<void> {
+        console.log(`Adding function: ${functionName} with return type: ${returnType}`);
         const addButton = this.webView.locator('[data-testid="function-add-button"]');
         await this.waitForElement(addButton);
         await addButton.click();
+        console.log('Clicked Add Function button');
 
         // Fill the newly added function (last in the form)
         const identifierFields = this.webView.locator('[data-testid="identifier-field"]');
@@ -107,7 +134,9 @@ export class TypeEditorUtils {
         const lastIndex = fieldCount - 1;
 
         await this.fillIdentifierField(lastIndex, functionName);
-        await this.fillTypeField(lastIndex, returnType);
+        console.log(`Filled function name: ${functionName}`);
+        await this.fillTypeField(lastIndex, returnType, sectionName);
+        console.log(`Filled return type: ${returnType}`);
     }
 
     /**
@@ -223,7 +252,7 @@ export class TypeEditorUtils {
 
         // Fill union types
         for (let i = 0; i < types.length; i++) {
-            await this.fillTypeField(i, types[i]);
+            await this.fillTypeField(i, types[i], 'Members');
         }
 
         return form;
@@ -239,7 +268,6 @@ export class TypeEditorUtils {
         for (const field of fields) {
             await this.addRecordField(field.name, field.type);
         }
-
         return form;
     }
 
@@ -251,9 +279,63 @@ export class TypeEditorUtils {
 
         // Add functions
         for (const func of functions) {
-            await this.addFunction(func.name, func.returnType);
+            await this.addFunction(func.name, func.returnType, 'Resource Methods');
         }
 
         return form;
+    }
+
+    /**
+     * Toggle field options by clicking the chevron icon
+     * @param fieldIndex Index of the field to toggle (default is 0 for the first field)
+     */
+    async toggleFieldOptionsByChevron(fieldIndex: number = 0): Promise<void> {
+        // Find all field rows
+
+        const chevronIcons = this.webView.locator('[data-testid="field-expand-btn"]');
+        const chevronIcon = chevronIcons.nth(fieldIndex);
+
+        try {
+            await chevronIcon.waitFor({ state: 'visible', timeout: 3000 });
+
+            // Scroll and force click
+            await chevronIcon.scrollIntoViewIfNeeded();
+            await chevronIcon.click({ force: true });
+            console.log('Clicked chevron for field', fieldIndex);
+
+
+            await this.page.waitForTimeout(300);
+        } catch (error) {
+            throw new Error(`Could not click chevron icon at field index ${fieldIndex}: ${error}`);
+        }
+    }
+
+
+    /**
+     * Toggle any dropdown/collapsible section by text
+     */
+    async toggleDropdown(dropdownText: string, waitTime: number = 500): Promise<void> {
+        const dropdownToggle = this.webView.locator(`text=${dropdownText}`);
+        await this.waitForElement(dropdownToggle);
+        await dropdownToggle.click();
+        
+        // Wait for animation to complete
+        await this.page.waitForTimeout(waitTime);
+    }
+
+    /**
+     * Set any checkbox by its aria-label or name
+     */
+    async setCheckbox(checkboxName: string, checked: boolean): Promise<void> {
+        const checkbox = this.webView.getByRole('checkbox', { name: checkboxName });
+        console.log(`Setting checkbox "${checkboxName}" to ${checked}`);
+        await this.waitForElement(checkbox);
+        
+        const ariaChecked = await checkbox.getAttribute('aria-checked');
+        const isCurrentlyChecked = ariaChecked === 'true';
+        
+        if (isCurrentlyChecked !== checked) {
+            await checkbox.click();
+        }
     }
 }

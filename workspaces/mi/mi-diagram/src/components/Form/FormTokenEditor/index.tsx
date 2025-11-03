@@ -73,6 +73,7 @@ type FormTokenEditorProps = {
     placeholder?: string;
     required?: boolean;
     errorMsg?: string;
+    skipSanitization?: boolean;
 
     sx?: CSSProperties;
     editorSx?: CSSProperties;
@@ -87,6 +88,7 @@ export const FormTokenEditor = ({
     label,
     required,
     errorMsg,
+    skipSanitization = false,
     sx,
     editorSx
 }: FormTokenEditorProps) => {
@@ -106,6 +108,7 @@ export const FormTokenEditor = ({
             'default',
             () => handleChangeHelperPaneState(false),
             onChange,
+            undefined, // artifactPath - not available in FormTokenEditor
             addFunction,
             { width: 'auto', border: '1px solid var(--dropdown-border)' },
             height,
@@ -145,6 +148,7 @@ export const FormTokenEditor = ({
                 enableFullscreen
                 changeHelperPaneState={setIsHelperPaneOpen}
                 getExpressionEditorIcon={getExpressionEditorIcon}
+                skipSanitization={skipSanitization}
                 startAdornment={
                     <S.AdornmentContainer>
                         <Typography variant="h4" sx={{ margin: 0 }}>
@@ -160,6 +164,7 @@ export const FormTokenEditor = ({
                     </S.AdornmentContainer>
                 }
                 editorSx={editorSx}
+                helperPaneSx={{ position: 'fixed' }}
             />
             {errorMsg && <ErrorBanner errorMsg={errorMsg} />}
         </S.Container>

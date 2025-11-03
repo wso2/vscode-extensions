@@ -31,6 +31,7 @@ import { SwaggerPanel } from "./SwaggerPanel";
 import { gitIssueUrl } from "./constants";
 import { EnvironmentSetup } from "./views/EnvironmentSetup";
 import { UnsupportedProject } from "./views/UnsupportedProject";
+import { PullingDependenciesView } from "./views/PullingDependenciesView";
 
 const LoaderWrapper = styled.div`
     display: flex;
@@ -82,6 +83,8 @@ export function Visualizer({ mode, swaggerData }: { mode: string, swaggerData?: 
                     setCurrentView('environmentSetup');
                 } else if ('oldWorkspaceDetected' in newState && newState.oldWorkspaceDetected === "viewReady") {
                     setCurrentView('oldWorkspaceDetected');
+                } else if ('ready' in newState && newState.ready === "resolveMissingDependencies") {
+                    setCurrentView('resolvingDependencies');
                 }
             } else if (newState === 'disabled') {
                 setCurrentView('disabled');
@@ -108,6 +111,7 @@ export function Visualizer({ mode, swaggerData }: { mode: string, swaggerData?: 
 
     useEffect(() => {
         if (mode === MODES.VISUALIZER) {
+            console.debug("View Setter, Current View: " + currentView);
             switch (currentView) {
                 case 'main':
                     setView(<>{visualizerState && <MainPanel visualizerState={visualizerState} />}</>);
@@ -123,6 +127,9 @@ export function Visualizer({ mode, swaggerData }: { mode: string, swaggerData?: 
                     break;
                 case 'disabled':
                     setView(<DisabledView />);
+                    break;
+                case 'resolvingDependencies':
+                    setView(<PullingDependenciesView />);
                     break;
                 case 'loading':
                     setView(
@@ -166,6 +173,8 @@ export function Visualizer({ mode, swaggerData }: { mode: string, swaggerData?: 
         }
         return <SwaggerPanel swaggerData={data} />;
     });
+
+    console.debug("Current View: " + currentView);
 
     return (
         <React.Fragment>

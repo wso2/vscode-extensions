@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { POPUP_EVENT_TYPE, PopupMachineStateValue, MACHINE_VIEW, Platform, VisualizerLocation } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { ServiceDesignerView } from './views/ServiceDesigner';
@@ -55,8 +55,11 @@ import { TaskView } from './views/Diagram/Task';
 import { InboundEPView } from './views/Diagram/InboundEndpoint';
 import { Overview } from './views/Overview';
 import { DatamapperForm } from './views/Forms/DatamapperForm';
+import { DataMapperMigrationForm } from './views/Forms/DataMapperMigrationForm';
 import { ImportArtfactForm } from './views/Forms/ImportArtifactForm';
 import { IdpConnectorSchemaGenerateForm }from './views/Forms/IDPConnectorForm/IdpConnectorSchemaGenerateForm';
+import { KubernetesConfigurationForm } from "./views/Forms/KubernetesConfigurationForm";
+import { RegistryPropertyForm } from "./views/Forms/RegistryPropertyForm";
 
 const MainContainer = styled.div`
     display: flex;
@@ -240,6 +243,21 @@ const MainPanel = (props: MainPanelProps) => {
             case MACHINE_VIEW.DatamapperForm:
                 setViewComponent(<DatamapperForm path={visualizerState.documentUri} />);
                 break;
+            case MACHINE_VIEW.DataMapperMigrationForm:
+                setViewComponent(<DataMapperMigrationForm 
+                    path={visualizerState.documentUri}
+                    configName={visualizerState.customProps?.configName}
+                    migratedDmcPath={visualizerState.customProps?.migratedDmcPath}
+                    migratedInputSchemaPath={visualizerState.customProps?.migratedInputSchemaPath}
+                    migratedOutputSchemaPath={visualizerState.customProps?.migratedOutputSchemaPath}
+                    range={visualizerState.customProps?.range}
+                    documentUri={visualizerState.customProps?.documentUri}
+                    tsFilePath={visualizerState.customProps?.tsFilePath}
+                    description={visualizerState.customProps?.description}
+                    inputType={visualizerState.customProps?.inputType}
+                    outputType={visualizerState.customProps?.outputType}
+                />);
+                break;
             case MACHINE_VIEW.InboundEPForm:
                 setViewComponent(<InboundEPWizard
                     path={visualizerState.documentUri}
@@ -318,6 +336,12 @@ const MainPanel = (props: MainPanelProps) => {
                 break;
             case MACHINE_VIEW.ImportArtifactForm:
                 setViewComponent(<ImportArtfactForm />);
+                break;
+            case MACHINE_VIEW.KubernetesConfigurationForm:
+                setViewComponent(<KubernetesConfigurationForm />);
+                break;
+            case MACHINE_VIEW.RegistryForm:
+                setViewComponent(<RegistryPropertyForm path={visualizerState.documentUri} />);
                 break;
             case MACHINE_VIEW.ConnectorStore:
                 setViewComponent(

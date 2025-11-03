@@ -146,7 +146,6 @@ import {
     GetSelectiveWorkspaceContextResponse,
     GetSelectiveArtifactsRequest,
     GetSelectiveArtifactsResponse,
-    GetBackendRootUrlResponse,
     GetProxyRootUrlResponse,
     RegistryArtifactNamesResponse,
     ListRegistryArtifactsRequest, RangeFormatRequest,
@@ -256,11 +255,20 @@ import {
     HandleFileRequest,
     HandleFileResponse,
     DevantMetadata,
-    GetCodeDiagnosticsReqeust,
-    GetCodeDiagnosticsResponse,
     UpdateMediatorResponse,
     GetConnectorIconRequest,
-    GetConnectorIconResponse
+    GetConnectorIconResponse,
+    SubmitFeedbackRequest,
+    SubmitFeedbackResponse,
+    GetPomFileContentResponse,
+    GetExternalConnectorDetailsResponse,
+    WriteMockServicesRequest,
+    WriteMockServicesResponse,
+    GetMockServicesResponse,
+    ConfigureKubernetesRequest,
+    ConfigureKubernetesResponse,
+    Property,
+    UpdateRegistryPropertyRequest
 } from "./types";
 import { RequestType, NotificationType } from "vscode-messenger-common";
 
@@ -353,7 +361,6 @@ export const createBallerinaModule: RequestType<CreateBallerinaModuleRequest, Cr
 export const buildBallerinaModule: RequestType<string, void> = { method: `${_preFix}/buildBallerinaModule` };
 export const getSelectiveWorkspaceContext: RequestType<void, GetSelectiveWorkspaceContextResponse> = { method: `${_preFix}/getSelectiveWorkspaceContext` };
 export const getSelectiveArtifacts: RequestType<GetSelectiveArtifactsRequest, GetSelectiveArtifactsResponse> = { method: `${_preFix}/getSelectiveArtifacts` };
-export const getBackendRootUrl: RequestType<void, GetBackendRootUrlResponse> = { method: `${_preFix}/getBackendRootUrl` };
 export const getProxyRootUrl: RequestType<void, GetProxyRootUrlResponse> = { method: `${_preFix}/getProxyRootUrl` };
 export const getAvailableRegistryResources: RequestType<ListRegistryArtifactsRequest, RegistryArtifactNamesResponse> = { method: `${_preFix}/getAvailableRegistryResources` };
 export const updateRegistryMetadata: RequestType<UpdateRegistryMetadataRequest, UpdateRegistryMetadataResponse> = { method: `${_preFix}/updateRegistryMetadata` };
@@ -406,6 +413,7 @@ export const getAllTestSuites: RequestType<void, GetAllTestSuitsResponse> = { me
 export const getAllMockServices: RequestType<void, GetAllMockServicesResponse> = { method: `${_preFix}/getAllMockServices` };
 export const openDependencyPom: NotificationType<OpenDependencyPomRequest> = { method: `${_preFix}/openDependencyPom` };
 export const getAllDependencies: RequestType<getAllDependenciesRequest, GetAllDependenciesResponse> = { method: `${_preFix}/getAllDependencies` };
+export const formatPomFile: RequestType<void, void> = { method: `${_preFix}/formatPomFile` };
 export const testDbConnection: RequestType<TestDbConnectionRequest, TestDbConnectionResponse> = { method: `${_preFix}/testDbConnection` };
 export const markAsDefaultSequence: NotificationType<MarkAsDefaultSequenceRequest> = { method: `${_preFix}/markAsDefaultSequence` };
 export const getSubFolderNames: RequestType<GetSubFoldersRequest, GetSubFoldersResponse> = { method: `${_preFix}/getSubFolderNames` };
@@ -434,7 +442,16 @@ export const getHelperPaneInfo: RequestType<GetHelperPaneInfoRequest, GetHelperP
 export const testConnectorConnection: RequestType<TestConnectorConnectionRequest, TestConnectorConnectionResponse> = { method: `${_preFix}/testConnectorConnection` };
 export const saveConfig: RequestType<SaveConfigRequest, SaveConfigResponse> = { method: `${_preFix}/saveConfig` };
 export const getEULALicense: RequestType<void, string> = { method: `${_preFix}/getEULALicense` };
-export const getCodeDiagnostics: RequestType<GetCodeDiagnosticsReqeust, GetCodeDiagnosticsResponse> = { method: `${_preFix}/getCodeDiagnostics` };
 export const shouldDisplayPayloadAlert: RequestType<void, boolean> = { method: `${_preFix}/shouldDisplayPayloadAlert` };
 export const displayPayloadAlert: RequestType<void, void> = { method: `${_preFix}/displayPayloadAlert` };
 export const closePayloadAlert: RequestType<void, void> = { method: `${_preFix}/closePayloadAlert` };
+export const getValueOfEnvVariable: RequestType<string, string> = { method: `${_preFix}/getValueOfEnvVariable` };
+export const submitFeedback: RequestType<SubmitFeedbackRequest, SubmitFeedbackResponse> = { method: `${_preFix}/submitFeedback` };
+export const getPomFileContent: RequestType<void, GetPomFileContentResponse> = { method: `${_preFix}/getPomFileContent` };
+export const getExternalConnectorDetails: RequestType<void, GetExternalConnectorDetailsResponse> = { method: `${_preFix}/getExternalConnectorDetails` };
+export const writeMockServices: RequestType<WriteMockServicesRequest, WriteMockServicesResponse> = { method: `${_preFix}/writeMockServices` };
+export const getMockServices: RequestType<void, GetMockServicesResponse> = { method: `${_preFix}/getMockServices` };
+export const configureKubernetes: RequestType<ConfigureKubernetesRequest, ConfigureKubernetesResponse> = { method: `${_preFix}/configureKubernetes` };
+export const isKubernetesConfigured: RequestType<void, boolean> = { method: `${_preFix}/isKubernetesConfigured` };
+export const updatePropertiesInArtifactXML: RequestType<UpdateRegistryPropertyRequest, string> = { method: `${_preFix}/updatePropertiesInArtifactXML` };
+export const getPropertiesFromArtifactXML: RequestType<string, Property[] | undefined> = { method: `${_preFix}/getPropertiesFromArtifactXML` };

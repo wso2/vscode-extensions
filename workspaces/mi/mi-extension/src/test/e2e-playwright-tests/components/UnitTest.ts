@@ -172,14 +172,14 @@ export class UnitTest {
             const propertiesParamManager = await form.getDefaultParamManager('Properties', 'Add Property', 'card-select-testCasePropertiesCard');
             const propertiesForm = await propertiesParamManager.getAddNewForm();
             await this.fillTestCasePropertyForm(propertiesForm, property);
-            await propertiesForm.submit('Save');
+            await propertiesForm.submit('Add');
         }
         console.log('Filling Test Case Assertions');
         for (const assertion of testCase.assertions ?? []) {
             const assertionsParamManager = await form.getDefaultParamManager('Assertions', 'Add Assertion', 'card-select-testCaseAssertionsCard');
             const assertionsForm = await assertionsParamManager.getAddNewForm();
             await this.fillTestCaseAssertionForm(assertionsForm, assertion);
-            await assertionsForm.submit('Save');
+            await assertionsForm.submit('Add');
         }
     }
 
@@ -219,8 +219,8 @@ export class UnitTest {
                     type: 'input',
                     value: property.name
                 },
-                'Property Scope*': {
-                    type: 'dropdown',
+                'Property Scope': {
+                    type: 'combo',
                     value: property.scope
                 },
                 'Property Value*': {
@@ -236,11 +236,11 @@ export class UnitTest {
         await form.fill({
             values: {
                 'Assertion Type': {
-                    type: 'dropdown',
+                    type: 'combo',
                     value: assertion.type
                 },
-                'Actual Expression*': {
-                    type: 'input',
+                '^Assertion$': {
+                    type: 'combo',
                     value: assertion.actualExpression
                 },
                 'Error Message*': {
@@ -273,7 +273,7 @@ export class UnitTest {
     }
 
     public async fillMockServiceBasicForm(mockServiceForm: Form, mockService: MockServiceData) {
-        console.log('Filling Mock Service Form');
+        console.log('Filling Basic Mock Service Form');
         await mockServiceForm.fill({
             values: {
                 'Name*': {
@@ -294,11 +294,13 @@ export class UnitTest {
                 }
             }
         });
+        console.log('Filled Mock Service Basic Form');
     }
 
     private async fillMockServiceForm(mockServiceForm: Form, mockService: MockServiceData, frame: string) {
         console.log('Filling Mock Service Form');
         await this.fillMockServiceBasicForm(mockServiceForm, mockService);
+        console.log('Filling Mock Service Resources');
         for (const resource of mockService.resources || []) {
             const resourceParamManager = await mockServiceForm.getParamManagerWithNewCreateForm('MockServiceResources', frame, 'card-select-mockServiceResourceCard');
             const resourceForm = await resourceParamManager.getAddNewForm();
@@ -442,8 +444,10 @@ export class UnitTest {
         console.log('Opening Add Test Case view of Unit Test:', name);
         const testExplorer = new ProjectExplorer(this._page, 'Test Explorer');
         await testExplorer.init();
-        await testExplorer.findItem([`${this.projectName} (Not yet run)`, `${name} (Not yet run)`], true);
+        await this._page.waitForTimeout(1000);
+        await testExplorer.findItem([`${this.projectName} (Not yet run)`, `${name} (Not yet run)`]);
         console.log(`Expand the explorer to ensure the unit test "${name}" is visible`);
+        await this._page.getByLabel('Add test case').waitFor();
         await this._page.getByLabel('Add test case').click();
         console.log(`Clicked on "Add test case" button for unit test "${name}"`);
     }
@@ -470,6 +474,10 @@ export class UnitTest {
         const mockServiceExplorer = new ProjectExplorer(this._page, 'Mock Services'); 
         await mockServiceExplorer.init();
         await mockServiceExplorer.findItem([this.projectName + ' '], true);
+        await this._page.getByLabel('Add mock service').waitFor();
+        // Add 2s delay to ensure the button is clickable
+        await this._page.waitForTimeout(2000);
+        console.log('Clicking on Add Mock Service button');
         await this._page.getByLabel('Add mock service').click();
         const form = await this.getMockServiceForm();
         await this.fillMockServiceForm(form, data, 'Mock Service');

@@ -91,7 +91,9 @@ import {
     MavenDeployPluginDetails,
     setDeployPlugin,
     getDeployPluginDetails,
-    removeDeployPlugin
+    removeDeployPlugin,
+    ReloadDependenciesRequest,
+    getDependencyStatusList
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
 import { MiVisualizerRpcManager } from "./rpc-manager";
@@ -131,11 +133,12 @@ export function registerMiVisualizerRpcHandlers(messenger: Messenger, projectUri
     messenger.onRequest(getSupportedMIVersionsHigherThan, (args: string) => rpcManger.getSupportedMIVersionsHigherThan(args));
     messenger.onRequest(getProjectDetails, () => rpcManger.getProjectDetails());
     messenger.onRequest(updateProperties, (args: UpdatePropertiesRequest) => rpcManger.updateProperties(args));
-    messenger.onRequest(reloadDependencies, () => rpcManger.reloadDependencies());
+    messenger.onRequest(reloadDependencies, (args?: ReloadDependenciesRequest) => rpcManger.reloadDependencies(args));
     messenger.onRequest(updateDependencies, (args: UpdateDependenciesRequest) => rpcManger.updateDependencies(args));
     messenger.onRequest(updatePomValues, (args: UpdatePomValuesRequest) => rpcManger.updatePomValues(args));
     messenger.onRequest(updateConfigFileValues, (args: UpdateConfigValuesRequest) => rpcManger.updateConfigFileValues(args));
     messenger.onRequest(updateConnectorDependencies, () => rpcManger.updateConnectorDependencies());
+    messenger.onRequest(getDependencyStatusList, () => rpcManger.getDependencyStatusList());
     messenger.onRequest(updateDependenciesFromOverview, (args: UpdateDependenciesRequest) => rpcManger.updateDependenciesFromOverview(args));
     messenger.onRequest(importOpenAPISpec, (args: ImportOpenAPISpecRequest) => rpcManger.importOpenAPISpec(args));
     messenger.onRequest(getProjectSetupDetails, () => rpcManger.getProjectSetupDetails());

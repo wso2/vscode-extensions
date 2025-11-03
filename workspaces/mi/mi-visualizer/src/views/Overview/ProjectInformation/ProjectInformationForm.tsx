@@ -52,6 +52,7 @@ const sectionTitleStyle = { margin: 0, paddingLeft: 20 };
 
 // Field name to pom property name mapping
 export const fieldToPomPropertyMap: Record<string, string> = {
+    "buildDetails-versionedDeployment": "versionedDeployment",
     "buildDetails-enableFatCar": "fat.car.enable",
     "buildDetails-dockerDetails-cipherToolEnable": "ciphertool.enable"
 };
@@ -71,6 +72,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
         "buildDetails-dockerDetails-dockerFileBaseImage": yup.string().required("Base image is required"),
         "buildDetails-dockerDetails-dockerName": yup.string().required("Docker name is required"),
         "buildDetails-enableFatCar": yup.boolean(),
+        "buildDetails-versionedDeployment": yup.boolean(),
         "buildDetails-dockerDetails-cipherToolEnable": yup.boolean(),
         "buildDetails-dockerDetails-keyStoreName": yup.string(),
         "buildDetails-dockerDetails-keyStoreAlias": yup.string(),
@@ -89,6 +91,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
         "unitTest-serverVersion": yup.string(),
         "unitTest-serverDownloadLink": yup.string(),
         "advanced-legacyExpressionSupport": yup.boolean(),
+        "advanced-useLocalMaven": yup.boolean(),
         "deployment-deployOnRemoteServer": yup.boolean(),
         "deployment-truststorePath": yup.string().when("deployment-deployOnRemoteServer", {
             is: true,
@@ -156,6 +159,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                 const response = await rpcClient?.getMiVisualizerRpcClient().getProjectDetails();
 
                 const isLegacyExpressionEnabled = await rpcClient.getMiVisualizerRpcClient().isSupportEnabled("LEGACY_EXPRESSION_ENABLED");
+                const useLocalMaven = await rpcClient.getMiVisualizerRpcClient().isSupportEnabled("useLocalMaven");
                 let isRemoteDeploymentEnabled = await rpcClient.getMiVisualizerRpcClient().isSupportEnabled("REMOTE_DEPLOYMENT_ENABLED");
                 let pluginDetails = null;
                 if (isRemoteDeploymentEnabled) {
@@ -177,6 +181,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                     "buildDetails-dockerDetails-dockerFileBaseImage": response.buildDetails?.dockerDetails?.dockerFileBaseImage?.value,
                     "buildDetails-dockerDetails-dockerName": response.buildDetails?.dockerDetails?.dockerName.value,
                     "buildDetails-enableFatCar": response.buildDetails?.enableFatCar?.value === 'true',
+                    "buildDetails-versionedDeployment": response.buildDetails?.versionedDeployment?.value === 'true',
                     "buildDetails-dockerDetails-cipherToolEnable": response.buildDetails?.dockerDetails?.cipherToolEnable?.value === 'true',
                     "buildDetails-dockerDetails-keyStoreName": response.buildDetails?.dockerDetails?.keyStoreName?.value,
                     "buildDetails-dockerDetails-keyStoreAlias": response.buildDetails?.dockerDetails?.keyStoreAlias?.value,
@@ -195,6 +200,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                     "unitTest-serverVersion": response.unitTest?.serverVersion?.value,
                     "unitTest-serverDownloadLink": response.unitTest?.serverDownloadLink?.value,
                     "advanced-legacyExpressionSupport": isLegacyExpressionEnabled,
+                    "advanced-useLocalMaven": useLocalMaven,
                     "deployment-deployOnRemoteServer": isRemoteDeploymentEnabled,
                     "deployment-truststorePath": pluginDetails ? pluginDetails.truststorePath : "",
                     "deployment-truststorePassword": pluginDetails ? pluginDetails.truststorePassword : "",
@@ -253,6 +259,11 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                     await rpcClient.getMiVisualizerRpcClient().updateProjectSettingsConfig({ configName: "LEGACY_EXPRESSION_ENABLED", value: isLegacyExpressionSupportEnabled });
                 }
 
+                if (field === "advanced-useLocalMaven") {
+                    let useLocalMaven = getValues("advanced-useLocalMaven");
+                    await rpcClient.getMiVisualizerRpcClient().updateProjectSettingsConfig({ configName: "useLocalMaven", value: useLocalMaven });
+                }
+
                 const fieldValue = getValues(field as any);
                 const range = field.split('-').reduce((acc, key) => acc?.[key], projectDetails as any)?.range;
                 if (range) {
@@ -276,12 +287,9 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                 await rpcClient.getMiVisualizerRpcClient().updatePomValues({ pomValues: sortedChanges });
             }
             if (fieldsToAdd.length > 0) {
-                const newProperties = fieldsToAdd.map(field => {
+                const newProperties = fieldsToAdd.filter(field => fieldToPomPropertyMap[field]).map(field => {
                     const value = getValues(field as any);
                     const name = fieldToPomPropertyMap[field];
-                    if (!name) {
-                        return null; // Skip if no mapping found
-                    }
                     return { name, value: typeof value === "boolean" ? value.toString() : value };
                 });
                 if (newProperties.length > 0) {
@@ -507,6 +515,14 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                                 {...register("buildDetails-enableFatCar")}
                             />
                             <FormCheckBox
+                                label="Enable Versioned Deployment"
+                                description="Enables versioned deployment of artifacts"
+                                descriptionSx={{ margin: "10px 0" }}
+                                control={control as any}
+                                sx={fieldStyle}
+                                {...register("buildDetails-versionedDeployment")}
+                            />
+                            <FormCheckBox
                                 label="Enable Cipher Tool"
                                 description="Enables the cipher tool"
                                 descriptionSx={{ margin: "10px 0" }}
@@ -624,7 +640,7 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                             />
                         </div>
                         <Typography variant="h1" sx={sectionTitleStyle} > Deployment </Typography>
-                        <div ref={divRefs["Deployment"]} id="Deployment" style={{ ...fieldGroupStyle, paddingBottom: 0 }}>
+                        <div ref={divRefs["Deployment"]} id="Deployment" style={fieldGroupStyle}>
                             <FormCheckBox
                                 label="Deploy to a remote server"
                                 description="Enables deploying to a remote server"
@@ -696,6 +712,14 @@ export function ProjectInformationForm(props: ProjectInformationFormProps) {
                                 control={control as any}
                                 sx={fieldStyle}
                                 {...register("advanced-legacyExpressionSupport")}
+                            />
+                            <FormCheckBox
+                                label="Use Local Maven"
+                                description="Use locally installed Maven within the extension"
+                                descriptionSx={{ margin: "10px 0" }}
+                                control={control as any}
+                                sx={fieldStyle}
+                                {...register("advanced-useLocalMaven")}
                             />
                         </div>
                     </div>

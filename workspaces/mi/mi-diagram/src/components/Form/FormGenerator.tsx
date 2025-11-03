@@ -57,6 +57,11 @@ import ReactMarkdown from 'react-markdown';
 import GenerateDiv from './GenerateComponents/GenerateDiv';
 import { HelperPaneCompletionItem, HelperPaneData } from '@wso2/mi-core';
 import AIAutoFillBox from './AIAutoFillBox/AIAutoFillBox';
+import { compareVersions } from '../../utils/commons';
+import { RUNTIME_VERSION_440 } from '../../resources/constants';
+
+// Constants
+const XML_VALUE = 'xml';
 
 const Field = styled.div`
     margin-bottom: 12px;
@@ -129,6 +134,10 @@ export interface Element {
     expressionType?: 'xpath/jsonPath' | 'synapse';
     supportsAIValues?: boolean;
     rowCount?: number;
+    artifactPath?: string;
+    artifactType?: string;
+    isUnitTest?: boolean;
+    skipSanitization?: boolean;
 }
 
 interface ExpressionValueWithSetter {
@@ -181,6 +190,7 @@ export function FormGenerator(props: FormGeneratorProps) {
     const [isGeneratedValuesIdentical, setIsGeneratedValuesIdentical] = useState<boolean>(false);
     const [numberOfDifferent, setNumberOfDifferent] = useState<number>(0);
     const [idpSchemaNames, setidpSchemaNames] = useState< {fileName: string; documentUriWithFileName?: string}[]>([]);
+    const [showFillWithAI, setShowFillWithAI] = useState<boolean>(false);
 
     useEffect(() => {
         if (generatedFormDetails) {
@@ -237,6 +247,13 @@ export function FormGenerator(props: FormGeneratorProps) {
                 // Fallback to false if the project details cannot be fetched
                 setIsLegacyExpressionEnabled(false);
             });
+            
+        rpcClient.getMiVisualizerRpcClient().getProjectDetails().then((response) => {
+            const runtimeVersion = response.primaryDetails.runtimeVersion.value;
+            setShowFillWithAI(compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0);
+        }).catch(() => {
+            setShowFillWithAI(false);
+        });
     }, []);
 
     function processElement(element: any): any {
@@ -375,7 +392,7 @@ export function FormGenerator(props: FormGeneratorProps) {
     const handleAcceptAll = async () => {
         setIsClickedDropDown(false);
         setIsGenerating(false);
-        reset(generatedFormDetails);
+        reset(generatedFormDetails, { keepDefaultValues: true });
         setVisibleDetails({});
         setGeneratedFormDetails(null);
         setIsAutoFillBtnClicked(false);
@@ -585,6 +602,9 @@ export function FormGenerator(props: FormGeneratorProps) {
                 canChange={element.inputType !== 'expression'}
                 supportsAIValues={element.supportsAIValues}
                 errorMsg={errorMsg}
+                artifactPath={element.artifactPath}
+                artifactType={element.artifactType}
+                isUnitTest={element.isUnitTest || false}
                 openExpressionEditor={(value, setValue) => {
                     setCurrentExpressionValue({ value, setValue });
                     setExpressionEditorField(name);
@@ -1102,6 +1122,24 @@ export function FormGenerator(props: FormGeneratorProps) {
                     </>
                 );
             case 'expressionTextArea':
+                const isValLegacyExpression = isLegacyExpression(element.expressionType, isLegacyExpressionEnabled, field);
+                if (isValLegacyExpression) {
+                    return (
+                        <CodeTextArea
+                            {...field}
+                            label={element.displayName}
+                            labelAdornment={helpTipElement}
+                            placeholder={placeholder}
+                            required={isRequired}
+                            resize="vertical"
+                            growRange={{ start: 5, offset: 10 }}
+                            errorMsg={errorMsg}
+                            onChange={(e: any) => {
+                                field.onChange(e.target.value);
+                            }}
+                        />
+                    );
+                }
                 return (
                     <div>
                         <FormTokenEditor
@@ -1116,26 +1154,27 @@ export function FormGenerator(props: FormGeneratorProps) {
                             required={isRequired}
                             errorMsg={errorMsg}
                             editorSx={{ height: '100px' }}
+                            skipSanitization={element.skipSanitization ? element.skipSanitization : false}
                         />
                         {generatedFormDetails && visibleDetails[element.name] && generatedFormDetails[element.name] !== getValues(element.name) && (
-                                <GenerateDiv
-                                    element={element}
-                                    generatedFormDetails={generatedFormDetails}
-                                    handleOnClickChecked={() => {
-                                        if (generatedFormDetails) {
-                                            field.onChange(generatedFormDetails[element.name]);
-                                            setVisibleDetails((prev) => ({ ...prev, [element.name]: false }));
-                                            setNumberOfDifferent(numberOfDifferent - 1);
-                                        }
-                                    }}
-                                    handleOnClickClose={() => {
-                                        setIsClickedDropDown(false);
-                                        setIsGenerating(false);
+                            <GenerateDiv
+                                element={element}
+                                generatedFormDetails={generatedFormDetails}
+                                handleOnClickChecked={() => {
+                                    if (generatedFormDetails) {
+                                        field.onChange(generatedFormDetails[element.name]);
                                         setVisibleDetails((prev) => ({ ...prev, [element.name]: false }));
                                         setNumberOfDifferent(numberOfDifferent - 1);
-                                    }}
-                                />
-                            )}
+                                    }
+                                }}
+                                handleOnClickClose={() => {
+                                    setIsClickedDropDown(false);
+                                    setIsGenerating(false);
+                                    setVisibleDetails((prev) => ({ ...prev, [element.name]: false }));
+                                    setNumberOfDifferent(numberOfDifferent - 1);
+                                }}
+                            />
+                        )}
                     </div>
                 );
             case 'popUp':
@@ -1193,7 +1232,7 @@ export function FormGenerator(props: FormGeneratorProps) {
         }
     };
 
-    const renderForm: any = (elements: any[]) => {
+    const renderForm: any = (elements: any[], skipSanitization: boolean = false) => {
         return elements.map((element: { type: string; value: any; }) => {
             const name = getNameForController(element.value.groupName ?? element.value.name);
             if (element?.value?.enableCondition !== undefined) {
@@ -1207,10 +1246,26 @@ export function FormGenerator(props: FormGeneratorProps) {
             }
 
             if (element.type === 'attributeGroup' && !element.value.hidden) {
+                // Check if any attribute in this group has comboValues containing 'xml'
+                const hasXmlComboValue = element.value.elements?.some((attr: any) => 
+                    attr.value?.comboValues && attr.value.comboValues.includes(XML_VALUE)
+                );
+
+                // If XML combo value is found, set avoidSanitize = true for all attributes in this group
+                if (hasXmlComboValue) {
+                    element.value.elements?.forEach((attr: any) => {
+                        if (attr.value) {
+                            attr.value.skipSanitization = true;
+                            skipSanitization = true;
+                        }
+                    });
+                }
+
+
                 return (
                     <>
                         {(element.value.groupName === "Generic" || (element.value.groupName === "General" && skipGeneralHeading)) ?
-                            renderForm(element.value.elements) :
+                            renderForm(element.value.elements, skipSanitization) :
                             <Field>
                                 <FormGroup
                                     key={element.value.groupName}
@@ -1220,7 +1275,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                                     }
                                     sx={{ paddingBottom: '0px', gap: '0px' }}
                                 >
-                                    {renderForm(element.value.elements)}
+                                    {renderForm(element.value.elements, skipSanitization)}
                                 </FormGroup>
                             </Field>
                         }
@@ -1234,6 +1289,13 @@ export function FormGenerator(props: FormGeneratorProps) {
                 if (ignoreFields?.includes(element.value.name)) {
                     return;
                 }
+
+                // Check if this individual attribute has comboValues containing 'XML'
+                if (element.value?.comboValues && element.value.comboValues.includes(XML_VALUE)) {
+                    element.value.skipSanitization = true;
+                    skipSanitization = true;
+                }
+                element.value.skipSanitization = skipSanitization;
 
                 return (
                     renderController(element)
@@ -1394,7 +1456,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                         <ReactMarkdown>{formData.banner}</ReactMarkdown>
                     </WarningBanner>
                 }
-                {documentUri && range &&
+                {showFillWithAI && documentUri && range &&
                         <AIAutoFillBox
                             isGenerating={isGenerating}
                             inputGenerate={inputGenerate}
