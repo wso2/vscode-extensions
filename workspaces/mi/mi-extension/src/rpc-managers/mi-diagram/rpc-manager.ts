@@ -3023,6 +3023,7 @@ ${endpointAttributes}
         return new Promise(async (resolve) => {
             const projectUuid = uuidv4();
             const { directory, name, open, groupID, artifactID, version, miVersion } = params;
+            // test
             const initialDependencies = compareVersions(miVersion, RUNTIME_VERSION_440) >= 0 ? generateInitialDependencies() : '';
             const tempName = name.replace(/\./g, '');
             const folderStructure: FileStructure = {
