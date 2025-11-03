@@ -23,6 +23,7 @@ import {
     AddFunctionRequest,
     AddImportItemResponse,
     ArtifactData,
+    AvailableNode,
     BIAiSuggestionsRequest,
     BIAiSuggestionsResponse,
     BIAvailableNodesRequest,
@@ -42,6 +43,8 @@ import {
     BIModuleNodesResponse,
     BINodeTemplateRequest,
     BINodeTemplateResponse,
+    BISearchNodesRequest,
+    BISearchNodesResponse,
     BISearchRequest,
     BISearchResponse,
     BISourceCodeRequest,
@@ -51,9 +54,11 @@ import {
     BallerinaProject,
     BreakpointRequest,
     BuildMode,
+    Category,
     ClassFieldModifierRequest,
     Command,
     ComponentRequest,
+    ConfigVariableRequest,
     ConfigVariableResponse,
     CreateComponentResponse,
     CurrentBreakpointsResponse,
@@ -85,14 +90,14 @@ import {
     GetTypeResponse,
     GetTypesRequest,
     GetTypesResponse,
-    ImportStatement,
-    ImportStatements,
+    Item,
     JsonToTypeRequest,
     JsonToTypeResponse,
     LinePosition,
     LoginMethod,
     ModelFromCodeRequest,
     NodeKind,
+    NodePosition,
     OpenAPIClientDeleteRequest,
     OpenAPIClientDeleteResponse,
     OpenAPIClientGenerationRequest,
@@ -100,7 +105,6 @@ import {
     OpenAPIGeneratedModulesResponse,
     OpenConfigTomlRequest,
     ProjectComponentsResponse,
-    ProjectImports,
     ProjectRequest,
     ProjectStructureResponse,
     ReadmeContentRequest,
@@ -111,13 +115,11 @@ import {
     RenameIdentifierRequest,
     RenameRequest,
     SCOPE,
-    STModification,
     ServiceClassModelResponse,
     ServiceClassSourceRequest,
     SignatureHelpRequest,
     SignatureHelpResponse,
     SourceEditResponse,
-    SyntaxTree,
     TemplateId,
     TextEdit,
     UpdateConfigVariableRequest,
@@ -132,17 +134,16 @@ import {
     UpdateTypesRequest,
     UpdateTypesResponse,
     UpdatedArtifactsResponse,
-    VisibleTypesRequest,
-    VisibleTypesResponse,
     VerifyTypeDeleteRequest,
     VerifyTypeDeleteResponse,
+    VisibleTypesRequest,
+    VisibleTypesResponse,
     WorkspaceFolder,
     WorkspacesResponse,
-    ConfigVariableRequest,
-    AvailableNode,
-    Item,
-    Category,
-    NodePosition,
+    FormDiagnosticsRequest,
+    FormDiagnosticsResponse,
+    ExpressionTokensRequest,
+    ExpressionTokensResponse,
 } from "@wso2/ballerina-core";
 import * as fs from "fs";
 import * as path from 'path';
@@ -171,8 +172,8 @@ import { getCompleteSuggestions } from '../../utils/ai/completions';
 import { README_FILE, createBIAutomation, createBIFunction, createBIProjectPure } from "../../utils/bi";
 import { writeBallerinaFileDidOpen } from "../../utils/modification";
 import { updateSourceCode } from "../../utils/source-utils";
-import { checkProjectDiagnostics, removeUnusedImports } from "../ai-panel/repair-utils";
 import { getView } from "../../utils/state-machine-utils";
+import { checkProjectDiagnostics, removeUnusedImports } from "../ai-panel/repair-utils";
 export class BiDiagramRpcManager implements BIDiagramAPI {
     OpenConfigTomlRequest: (params: OpenConfigTomlRequest) => Promise<void>;
 
@@ -494,16 +495,16 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     }
 
     async getAvailableVectorKnowledgeBases(params: BIAvailableNodesRequest): Promise<BIAvailableNodesResponse> {
-        console.log(">>> requesting bi available vector knowledge bases from ls", params);
+        console.log(">>> requesting bi available knowledge bases from ls", params);
         return new Promise((resolve) => {
             StateMachine.langClient()
                 .getAvailableVectorKnowledgeBases(params)
                 .then((model) => {
-                    console.log(">>> bi available vector knowledge bases from ls", model);
+                    console.log(">>> bi available knowledge bases from ls", model);
                     resolve(model);
                 })
                 .catch((error) => {
-                    console.log(">>> error fetching available vector knowledge bases from ls", error);
+                    console.log(">>> error fetching available knowledge bases from ls", error);
                     return new Promise((resolve) => {
                         resolve(undefined);
                     });
@@ -1143,7 +1144,8 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
             buildCommand = path.join(ballerinaHome, 'bin', buildCommand);
         }
 
-        const execution = new ShellExecution(buildCommand);
+        // Use the current process environment which should have the updated PATH
+        const execution = new ShellExecution(buildCommand, { env: process.env as { [key: string]: string } });
 
         const task = new Task(
             taskDefinition,
@@ -1213,7 +1215,11 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                     .deleteByComponentInfo(params)
                     .then(async (model) => {
                         console.log(">>> bi delete node from ls by componentInfo", model);
-                        await updateSourceCode({ textEdits: model.textEdits }, null, `${this.capitalizeFirstLetter(componentView.location.artifactType)} Deletion - ${componentView.location.identifier}`);
+                        let description = 'Component Deletion';
+                        if (componentView?.location?.artifactType && componentView?.location?.identifier) {
+                            description = `${this.capitalizeFirstLetter(componentView.location.artifactType)} Deletion - ${componentView.location.identifier}`;
+                        }
+                        await updateSourceCode({ textEdits: model.textEdits }, null, description);
                         resolve(model);
                     })
                     .catch((error) => {
@@ -1242,6 +1248,21 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
             // No diagnostics, directly delete component
             return performDelete();
         }
+    }
+
+    async getFormDiagnostics(params: FormDiagnosticsRequest): Promise<FormDiagnosticsResponse> {
+        return new Promise((resolve, reject) => {
+            console.log(">>> requesting form diagnostics from ls", params);
+            StateMachine.langClient()
+                .getFormDiagnostics(params)
+                .then((diagnostics) => {
+                    console.log(">>> form diagnostics response from ls", diagnostics);
+                    resolve(diagnostics);
+                })
+                .catch((error) => {
+                    reject("Error fetching form diagnostics from ls");
+                });
+        });
     }
 
     async getExpressionDiagnostics(params: ExpressionDiagnosticsRequest): Promise<ExpressionDiagnosticsResponse> {
@@ -1322,22 +1343,6 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
             const activeBreakpoint = BreakpointManager.getInstance()?.getActiveBreakpoint();
             resolve({ breakpoints: breakpoints, activeBreakpoint: activeBreakpoint });
         });
-    }
-
-    async getAllImports(): Promise<ProjectImports> {
-        const projectUri = StateMachine.context().projectUri;
-        const ballerinaFiles = await getBallerinaFiles(Uri.file(projectUri).fsPath);
-        const imports: ImportStatements[] = [];
-
-        for (const file of ballerinaFiles) {
-            const fileContent = fs.readFileSync(file, "utf8");
-            const fileImports = await extractImports(fileContent, file);
-            imports.push(fileImports);
-        }
-        return {
-            projectPath: projectUri,
-            imports,
-        };
     }
 
     async getEnclosedFunction(params: BIGetEnclosedFunctionRequest): Promise<BIGetEnclosedFunctionResponse> {
@@ -1460,7 +1465,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 .updateType({ filePath, type: params.type, description: "" })
                 .then(async (updateTypeResponse: UpdateTypeResponse) => {
                     console.log(">>> update type response", updateTypeResponse);
-                    await updateSourceCode({ textEdits: updateTypeResponse.textEdits }, null, 'Type Update');
+                    await updateSourceCode({ textEdits: updateTypeResponse.textEdits }, null, 'Type Update', params.type.name);
                     resolve(updateTypeResponse);
                 }).catch((error) => {
                     console.log(">>> error fetching types from ls", error);
@@ -1559,6 +1564,19 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 })
                 .catch((error) => {
                     console.log(">>> Error getting function node", error);
+                    resolve(undefined);
+                });
+        });
+    }
+
+    async getExpressionTokens(params: ExpressionTokensRequest): Promise<number[]> {
+        return new Promise((resolve) => {
+            StateMachine.langClient().getExpressionTokens(params)
+                .then((response) => {
+                    resolve(response?.data || []);
+                })
+                .catch((error) => {
+                    console.log(">>> Error getting expression tokens", error);
                     resolve(undefined);
                 });
         });
@@ -1957,6 +1975,17 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 });
         });
     }
+
+    async searchNodes(params: BISearchNodesRequest): Promise<BISearchNodesResponse> {
+        return new Promise((resolve, reject) => {
+            StateMachine.langClient().searchNodes(params).then((res) => {
+                resolve(res);
+            }).catch((error) => {
+                console.log(">>> error searching", error);
+                reject(error);
+            });
+        });
+    }
 }
 
 export function getRepoRoot(projectRoot: string): string | undefined {
@@ -1985,23 +2014,4 @@ export async function getBallerinaFiles(dir: string): Promise<string[]> {
         }
     }
     return files;
-}
-
-export async function extractImports(content: string, filePath: string): Promise<ImportStatements> {
-    const withoutSingleLineComments = content.replace(/\/\/.*$/gm, "");
-    const withoutComments = withoutSingleLineComments.replace(/\/\*[\s\S]*?\*\//g, "");
-
-    const importRegex = /import\s+([\w\.\/]+)(?:\s+as\s+([\w]+))?;/g;
-    const imports: ImportStatement[] = [];
-    let match;
-
-    while ((match = importRegex.exec(withoutComments)) !== null) {
-        const importStatement: ImportStatement = { moduleName: match[1] };
-        if (match[2]) {
-            importStatement.alias = match[2];
-        }
-        imports.push(importStatement);
-    }
-
-    return { filePath, statements: imports };
 }

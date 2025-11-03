@@ -281,9 +281,6 @@ import {
     GetConnectorIconRequest,
     GetConnectorIconResponse,
     DependencyDetails,
-    GetCodeDiagnosticsReqeust,
-    GetCodeDiagnosticsResponse,
-    getCodeDiagnostics,
     SubmitFeedbackRequest,
     SubmitFeedbackResponse,
     GetPomFileContentResponse,
@@ -3026,7 +3023,7 @@ ${endpointAttributes}
         return new Promise(async (resolve) => {
             const projectUuid = uuidv4();
             const { directory, name, open, groupID, artifactID, version, miVersion } = params;
-            const initialDependencies = generateInitialDependencies();
+            const initialDependencies = compareVersions(miVersion, RUNTIME_VERSION_440) >= 0 ? generateInitialDependencies() : '';
             const tempName = name.replace(/\./g, '');
             const folderStructure: FileStructure = {
                 [tempName]: { // Project folder
@@ -5848,39 +5845,6 @@ ${keyValuesXML}`;
         });
     }
 
-    async getCodeDiagnostics(params: GetCodeDiagnosticsReqeust): Promise<GetCodeDiagnosticsResponse> {
-        return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
-
-            let added_connectors: string[] = [];
-            let add_response: any = null;
-            let connectorName: string = '';
-            //Empty array to store the diagnostics
-            const diagnostics: GetCodeDiagnosticsResponse = { diagnostics: [] };
-            for (const xmlCode of params.xmlCodes) {
-                const connectorMatch = xmlCode.code.match(/<(\w+\.\w+)\b/);
-                if (connectorMatch) {
-                    const tagParts = connectorMatch[1].split('.');
-                    connectorName = tagParts[0];
-                    add_response = await this.fetchConnectors(connectorName, 'add');
-                    if (add_response.dependenciesResponse) {
-                        added_connectors.push(connectorName);
-                    }
-                }
-                const res = await langClient.getCodeDiagnostics(xmlCode);
-                diagnostics.diagnostics.push({
-                    fileName: xmlCode.fileName,
-                    diagnostics: res.diagnostics
-                });
-            }
-            if (added_connectors.length > 0) {
-                for (const connector of added_connectors) {
-                    const remove_response = await this.fetchConnectors(connector, 'remove');
-                }
-            }
-            resolve(diagnostics);
-        });
-    }
 
 
     async closePayloadAlert(): Promise<void> {
@@ -6199,7 +6163,7 @@ function exposeVersionedServices(projectUri: string): boolean {
     for (let rawLine of lines) {
         let line = rawLine.trim();
         if (!line || line.startsWith("#")) continue;
-        const match = line.match(/^expose\.versioned\.services\s*=\s*(.+)$/i);
+        const match = line.match(/^['"]?expose\.versioned\.services['"]?\s*=\s*(.+)$/i);
         if (match) {
             let value = match[1].trim();
             value = value.replace(/^["']|["']$/g, "");
