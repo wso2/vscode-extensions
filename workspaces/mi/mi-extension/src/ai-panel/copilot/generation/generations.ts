@@ -21,10 +21,15 @@ import * as Handlebars from "handlebars";
 import { getAnthropicClient, ANTHROPIC_SONNET_4_5, getProviderCacheControl } from "../connection";
 import { SYSTEM_TEMPLATE } from "./system_v2";
 import { PROMPT_TEMPLATE } from "./prompt_v2";
+import { SYSTEM_TEMPLATE as SYSTEM_TEMPLATE_V1 } from "./system_v1";
+import { PROMPT_TEMPLATE as PROMPT_TEMPLATE_V1 } from "./prompt_v1";
 import { SYNAPSE_GUIDE } from "../context/synapse_guide";
+import { SYNAPSE_GUIDE as SYNAPSE_GUIDE_V1 } from "../context/synapse_guide_v1";
 import { SYNAPSE_EXPRESSION_GUIDE } from "../context/synapse_expression_guide";
 import { SYNAPSE_EXPRESSION_EXAMPLES } from "../context/synapse_expression_examples";
 import { AI_MODULE_GUIDE } from "../context/ai_module";
+import { getMIVersionFromPom, compareVersions } from "../../../util/onboardingUtils";
+import { RUNTIME_VERSION_440 } from "../../../constants";
 
 // Register Handlebars helpers
 Handlebars.registerHelper("upper", (str: string) => {
@@ -37,6 +42,7 @@ Handlebars.registerHelper("eq", (a: any, b: any) => {
 
 // Register Handlebars partials
 Handlebars.registerPartial("synapse_guide", SYNAPSE_GUIDE);
+Handlebars.registerPartial("synapse_guide_v1", SYNAPSE_GUIDE_V1);
 Handlebars.registerPartial("synapse_expression_guide", SYNAPSE_EXPRESSION_GUIDE);
 Handlebars.registerPartial("synapse_expression_examples", SYNAPSE_EXPRESSION_EXAMPLES);
 Handlebars.registerPartial("ai_module", AI_MODULE_GUIDE);
@@ -55,6 +61,8 @@ function renderTemplate(templateContent: string, context: Record<string, any>): 
 export interface GenerateSynapseParams {
     /** The user's question or request */
     question: string;
+    /** Project URI for version detection */
+    projectUri: string;
     /** Currently editing file content (optional) */
     file?: string;
     /** Project context - array of file contents or context information */
@@ -82,11 +90,21 @@ export interface GenerateSynapseParams {
 export async function generateSynapse(
     params: GenerateSynapseParams
 ): Promise<Response> {
+    // Get MI version from project to determine which prompt template to use
+    const runtimeVersion = await getMIVersionFromPom(params.projectUri);
+    const useV2Prompts = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0 : true;
+
+    // Select appropriate templates based on runtime version
+    const selectedSystemTemplate = useV2Prompts ? SYSTEM_TEMPLATE : SYSTEM_TEMPLATE_V1;
+    const selectedPromptTemplate = useV2Prompts ? PROMPT_TEMPLATE : PROMPT_TEMPLATE_V1;
+
+    console.log(`[generateSynapse] Runtime version: ${runtimeVersion}, Using ${useV2Prompts ? 'v2' : 'v1'} prompts`);
+
     // Render system prompt with partials
-    const systemPrompt = renderTemplate(SYSTEM_TEMPLATE, {});
+    const systemPrompt = renderTemplate(selectedSystemTemplate, {});
 
     // Render user prompt with all parameters
-    const userPrompt = renderTemplate(PROMPT_TEMPLATE, {
+    const userPrompt = renderTemplate(selectedPromptTemplate, {
         question: params.question,
         file: params.file,
         context: params.context,

@@ -208,6 +208,7 @@ export async function fetchCodeGenerationsWithRetry(
     // AI SDK handles all the stream conversion and abort logic
     return generateSynapse({
         question: userQuestion,
+        projectUri: projectUri,
         file: currentFile,
         context: context.context,
         payloads: defaultPayloads ? JSON.stringify(defaultPayloads, null, 2) : undefined,
