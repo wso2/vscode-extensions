@@ -1,4 +1,20 @@
 {
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "ballerina-extension: test-compile",
+      "type": "shell",
+      "options": {
+        "cwd": "${workspaceFolder}/workspaces/ballerina/ballerina-extension"
+      },
+      "command": "pnpm",
+      "args": ["run", "test-compile"],
+      "problemMatcher": ["$tsc"]
+    }
+  ]
+}
+
+{
     "version": "2.0.0",
     "tasks": [
         {
