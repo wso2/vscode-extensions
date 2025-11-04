@@ -175,6 +175,7 @@ This is the user query. Use it to fill the form fields with the most relevant va
 <USER_QUERY>
 {{{question}}}
 </USER_QUERY>
+Start creating your response now.
 {{else}}
 Now you are operating in User Prompt Mode. You will not receive a user query.
 Now populate the form fields with the highest-confidence values based on the given information.

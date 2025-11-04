@@ -51,4 +51,6 @@ You are tasked with modifying an existing JSON schema. The modifications should 
 {{user_input}}
 {{/if}}
 {{/if}}
+
+Start creating your response now.
 `;

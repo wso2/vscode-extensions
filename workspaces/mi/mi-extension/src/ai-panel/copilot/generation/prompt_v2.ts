@@ -186,29 +186,31 @@ Now, analyze the following user query:
 {{question}}
 </USER_QUERY>
 
+{{#if thinking_enabled}}
 Before you create a response:
-{{#if thinking_enabled}}- Please think about the USER_QUERY thoroughly and in great detail. Consider multiple approaches and show your complete reasoning. Try different methods if your first approach doesn't work. {{/if}}
-- Your final response should only include the solution and explanations.
-- Do not repeat the input information or these instructions.
+- Please think about the USER_QUERY thoroughly and in great detail. Consider multiple approaches and show your complete reasoning. Try different methods if your first approach doesn't work.
+{{/if}}
+
+Your final response should:
+- Only include the solution and explanations.
+- Not repeat the input information or these instructions.
 - Strictly follow all the provided rules and generate a complete and accurate response.
 - Provide a short but concise response.
 - Provide the most simple yet effective solution possible. Do not overcomplicate the solution. Do not forcefully use connectors or inbound endpoints if not needed.
 
 {{#if inbound_endpoints}}
-{{#if connectors}}
-STEPS TO FOLLOW:
-{{#if inbound_endpoints}}
+STEPS TO FOLLOW for inbound endpoints:
 - Think about what inbound endpoints you need to use.
 - Define event listners using inbound endpoints.
 - DO NOT INITIALIZE INBOUND ENDPOINTS USING LOCAL ENTRIES. YOU DO NOT NEED TO INITIALIZE INBOUND ENDPOINTS.
 {{/if}}
+
 {{#if connectors}}
+STEPS TO FOLLOW for connectors:
 - Think about what connectors, connections and operations you need to use.
 - Define local entries for each connection type. Each local entry must go into a separate file.
 - Define the rest of the required artifacts.
 - DO NOT CREATE LOCAL ENTRIES FOR CONNECTIONS/CONNECTORS YOU DON'T NEED.
-{{/if}}
-{{/if}}
 {{/if}}
 
 Begin your analysis and solution development now.

@@ -142,19 +142,29 @@ export async function getConnectors(
     const model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
     const cacheOptions = await getProviderCacheControl();
 
+    // Build messages array with cache control on system message
+    const messages: Array<{
+        role: "system" | "user";
+        content: string;
+        providerOptions?: any;
+    }> = [
+        {
+            role: "system" as const,
+            content: SYSTEM_TEMPLATE,
+            providerOptions: cacheOptions, // Cache system prompt only
+        },
+        {
+            role: "user" as const,
+            content: prompt,
+        }
+    ];
+
     try {
         // Use structured output to get selected connectors
         // Type assertion to avoid TypeScript deep instantiation issues with Zod
         const result = await (generateObject as any)({
             model: model,
-            system: [
-                {
-                    role: "system" as const,
-                    content: SYSTEM_TEMPLATE,
-                    providerOptions: cacheOptions, // Cache system prompt only
-                }
-            ],
-            prompt: prompt,
+            messages: messages,
             schema: selectedConnectorsSchema,
             maxOutputTokens: 2000,
             temperature: 0.3,

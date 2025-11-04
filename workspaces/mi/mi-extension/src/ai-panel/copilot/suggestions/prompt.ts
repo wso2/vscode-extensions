@@ -38,4 +38,5 @@ You are starting a new integration project. Describe an integration challenge or
 {{/if}}
 
 Your output should be a single line of query you ask from MI Copilot. Nothing else.
+Start creating your response now.
 `;

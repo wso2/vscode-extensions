@@ -57,4 +57,6 @@ Your response should be a BugFixResponse object with a label field containing a 
 - id: The ID of the configuration (if provided)
 
 Remember to preserve the original functionality and intent of the code while making your fixes.
+
+Start creating your response now.
 `;

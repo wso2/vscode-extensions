@@ -20,4 +20,6 @@ export const DATA_MAPPER_PROMPT = `
 The TS file whose mapFunction should be completed,
 
 {{ts_file}}
+
+Start creating your response now.
 `;

@@ -31,4 +31,6 @@ The DMC file with mappings,
 5. Do NOT add any mappings that are not present in the DMC file
 6. Do NOT include unmapped fields in the mapFunction return object - simply omit them
 7. Preserve all existing field names, types, comments, and structure exactly as provided
+
+Start creating your response now.
 `;

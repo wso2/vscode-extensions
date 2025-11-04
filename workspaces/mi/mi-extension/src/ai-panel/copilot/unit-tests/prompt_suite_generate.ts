@@ -175,4 +175,6 @@ For API code: \u003ccall\u003e\u003cendpoint key="resources:testregistry.xml"/\u
 - Mock service XML \u003cservice-name\u003e: \`resources:testregistry.xml\` (exact endpoint key reference from API code)
 - Mock service XML \u003cport\u003e: \`9090\` (always use port 9090)
 - File name in \`mock_service_names\`: "RegistryEndpointMock.xml" (descriptive file name with .xml extension)
+
+Start creating your response now.
 `;
