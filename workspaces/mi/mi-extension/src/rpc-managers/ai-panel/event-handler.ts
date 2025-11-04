@@ -55,6 +55,10 @@ export class CopilotEventHandler {
         this.sendEventToVisualizer({ type: "stop", command });
     }
 
+    handleAborted(): void {
+        this.sendEventToVisualizer({ type: "aborted" });
+    }
+
     handleCodeDiagnosticStart(xmlCodes: XmlCodeEntry[]): void {
         this.sendEventToVisualizer({ 
             type: "code_diagnostic_start", 

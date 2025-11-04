@@ -268,12 +268,18 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     }, [chatClearEventTriggered]);
 
     // Update local storage whenever backend call finishes
+    // Add debounce to prevent saving during abort cleanup
     useMemo(() => {
         if (!isLoading && !backendRequestTriggered) {
-            localStorage.setItem(localStorageKeys.chatFile, JSON.stringify(copilotChat));
-            localStorage.setItem(localStorageKeys.questionFile, questions[questions.length - 1] || "");
+            // Debounce localStorage writes to allow abort cleanup to complete
+            const timeoutId = setTimeout(() => {
+                localStorage.setItem(localStorageKeys.chatFile, JSON.stringify(copilotChat));
+                localStorage.setItem(localStorageKeys.questionFile, questions[questions.length - 1] || "");
+            }, 300); // 300ms delay ensures abort cleanup completes (200ms abort flag reset + buffer)
+
+            return () => clearTimeout(timeoutId);
         }
-    }, [isLoading, backendRequestTriggered]);
+    }, [isLoading, backendRequestTriggered, copilotChat, questions]);
 
     useMemo(() => {
         if (!isLoading) {

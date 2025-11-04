@@ -230,6 +230,8 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             if (this.currentController) {
                 console.log('Aborting code generation...');
                 this.currentController.abort();
+                // Send explicit abort acknowledgment to UI
+                this.eventHandler.handleAborted();
                 this.currentController = null;
                 return { success: true };
             }
@@ -299,10 +301,11 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 this.eventHandler.handleEnd(assistantResponse);
 
                 // Run code diagnostics on the generated response only for runtime versions > 4.4.0
+                // Also check if the generation wasn't aborted before starting diagnostics
                 const runtimeVersion = await getMIVersionFromPom(this.projectUri);
                 const shouldRunDiagnostics = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_VERSION_440) > 0 : false;
-                
-                if (shouldRunDiagnostics) {
+
+                if (shouldRunDiagnostics && !this.currentController?.signal.aborted) {
                     await this.handleCodeDiagnostics(assistantResponse);
                 }
 

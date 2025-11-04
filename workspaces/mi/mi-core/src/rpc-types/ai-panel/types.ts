@@ -57,7 +57,7 @@ export interface AbortCodeGenerationResponse {
 }
 
 // Event types for streaming
-export type CodeGenerationEventType = 
+export type CodeGenerationEventType =
     | "code_generation_start"
     | "content_block"
     | "code_generation_end"
@@ -65,7 +65,8 @@ export type CodeGenerationEventType =
     | "code_diagnostic_end"
     | "messages"
     | "error"
-    | "stop";
+    | "stop"
+    | "aborted";
 
 export interface CodeGenerationEvent {
     type: CodeGenerationEventType;

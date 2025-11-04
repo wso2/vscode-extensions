@@ -63,6 +63,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const isStopButtonClicked = useRef(false);
     const isResponseReceived = useRef(false);
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
+    const abortedRef = useRef(false);
+    const lastUserPromptRef = useRef<string>("");
     const [isFocused, setIsFocused] = useState(false);
     const isDarkMode = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 
@@ -87,21 +89,27 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
     // Handle code generation streaming events from extension
     const handleCodeGenerationEvent = (event: any) => {
+        // Ignore all events if generation was aborted
+        if (abortedRef.current) {
+            console.log('Ignoring event - generation was aborted', event.type);
+            return;
+        }
+
         switch (event.type) {
             case "code_generation_start":
                 // Start of code generation - could show loading indicator
                 console.log("Code generation started");
                 setAssistantResponse("");
                 break;
-            
+
             case "content_block":
                 // Handle streaming content blocks
                 if (event.content) {
                     const content = event.content;
-                    
+
                     // Update assistant response state
                     setAssistantResponse(prev => prev + content);
-                    
+
                     // Update the last copilot message in real-time
                     setMessages((prevMessages) => {
                         const newMessages = [...prevMessages];
@@ -110,7 +118,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         }
                         return newMessages;
                     });
-                } 
+                }
                 break;
             
             case "code_generation_end":
@@ -220,7 +228,13 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 // Code generation completed
                 console.log("Code generation completed");
                 break;
-            
+
+            case "aborted":
+                // Abort acknowledged by extension - all streaming has stopped
+                console.log("Abort acknowledged by extension");
+                setBackendRequestTriggered(false);
+                break;
+
             default:
                 console.log("Unknown event type:", event.type);
         }
@@ -250,6 +264,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     // Handle stopping the response generation
     const handleStop = async () => {
         isStopButtonClicked.current = true;
+        // Set abort flag BEFORE making any async calls to prevent race conditions
+        abortedRef.current = true;
 
         try {
             // Request the extension to abort code generation
@@ -266,7 +282,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 setIsValidating(false);
             }
 
-            // Remove the last user and copilot messages
+            // Clear assistant response state
+            setAssistantResponse("");
+
+            // Remove the last user and copilot messages from UI state
             setMessages((prevMessages) => {
                 const newMessages = [...prevMessages];
                 newMessages.pop(); // Remove the last copilot message
@@ -274,14 +293,22 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 return newMessages;
             });
 
-            // Clear old suggestions immediately before generating new ones
-            setQuestions([]);
-            // Generate suggestions based on chat history
-            await generateSuggestions(copilotChat, rpcClient, new AbortController()).then((response) => {
-                if (response && response.length > 0) {
-                    setQuestions(response);
+            // IMPORTANT: Also remove the last user message from copilotChat
+            // to prevent partial conversations from persisting in localStorage
+            setCopilotChat((prevChat) => {
+                const newChat = [...prevChat];
+                if (newChat.length > 0) {
+                    newChat.pop(); // Remove the last user message
                 }
+                return newChat;
             });
+
+            // Restore the original user prompt to the input box
+            setCurrentUserprompt(lastUserPromptRef.current);
+
+            // Don't generate suggestions after abort - user wants to stop all AI activity
+            // Just clear existing suggestions
+            setQuestions([]);
 
             // Explicitly adjust the textarea height after suggestion generation
             if (textAreaRef.current) {
@@ -290,11 +317,19 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     textAreaRef.current.style.height = `${textAreaRef.current.scrollHeight}px`;
                 }, 0);
             }
+
+            // Reset abort flag after a delay to ensure all buffered events are ignored
+            setTimeout(() => {
+                abortedRef.current = false;
+            }, 200);
         } catch (error) {
             console.error("Error stopping code generation:", error);
+            // Reset abort flag on error as well
+            abortedRef.current = false;
         } finally {
-            isStopButtonClicked.current = false;
-            
+            // Don't reset isStopButtonClicked here - keep it true so handleSend's finally
+            // block won't clear the restored prompt. It will be reset on next send.
+
             // Reset backend request triggered state
             setBackendRequestTriggered(false);
         }
@@ -312,6 +347,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     };
 
     async function handleSend(requestType: BackendRequestType = BackendRequestType.UserPrompt, prompt?: string | "") {
+        // Reset stop button flag at the start of a new send
+        isStopButtonClicked.current = false;
+
         // Block empty user inputs and avoid state conflicts
         if (currentUserPrompt === "" && !Object.values(BackendRequestType).includes(requestType)) {
             return;
@@ -335,6 +373,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setCurrentChatId(chatId);
         
         const updateChats = (userPrompt: string, userMessageType?: MessageType) => {
+            // Store the user prompt for potential abort restoration
+            lastUserPromptRef.current = userPrompt;
+
             // Append labels to the user prompt
             setMessages((prevMessages) => [
                 ...prevMessages,
