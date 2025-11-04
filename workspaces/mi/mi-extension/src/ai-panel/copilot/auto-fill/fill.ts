@@ -28,7 +28,7 @@ import { logInfo, logError } from "../logger";
 
 // Register Handlebars partials
 Handlebars.registerPartial("synapse_guide", SYNAPSE_GUIDE);
-Handlebars.registerPartial("expression_guide", SYNAPSE_EXPRESSION_GUIDE);
+Handlebars.registerPartial("synapse_expression_guide", SYNAPSE_EXPRESSION_GUIDE);
 
 /**
  * Helper function to render Handlebars templates

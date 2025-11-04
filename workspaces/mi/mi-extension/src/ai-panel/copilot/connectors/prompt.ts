@@ -18,7 +18,7 @@
 
 export const CONNECTOR_PROMPT = `
 You are an expert in Synapse integration using WSO2 Micro Integrator. Your task is to recommend the most appropriate WSO2 connectors and inbound endpoints based on a user query and a list of available connectors and inbound endpoints.
-Your goal is to analyze the query, understand the integration requirements, and select at least two relevant connectors (up to ten) and relevant inbound endpoint (zero to three) only from the provided list.
+Your goal is to analyze the query, understand the integration requirements, and select the relevant connectors (up to ten) and inbound endpoints (up to three) only from the provided list.
 
 User query:
 <QUERY>
@@ -47,11 +47,11 @@ Task Instructions:
 5. Rank by Utility
 - Prioritize connectors and inbound endpoints by how likely they are to help solve the integration problem effectively.
 6. Connector Selection
--	Choose relevant connectors if the integration involves connecting to external services or APIs, or performing specific operations on the message payload.
-- Select zero to as many connectors as you think are relevant to the user query.
+- Choose relevant connectors if the integration involves connecting to external services or APIs, or performing specific operations on the message payload.
+- Select as many connectors as you think are relevant to the user query, up to six.
 7. Inbound Endpoint Selection
 - Choose relevant inbound endpoints if the integration involves listening to events or receiving incoming messages.
-- Select zero to as many inbound endpoints as you think are relevant to the user query.
+- Select as many inbound endpoints as you think are relevant to the user query, up to three.
 8. Respect the Available List
 - Never suggest any connectors or inbound endpoints that are not explicitly listed in the available sets.
 

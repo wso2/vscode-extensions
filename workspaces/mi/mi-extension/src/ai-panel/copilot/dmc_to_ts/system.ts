@@ -166,7 +166,7 @@ interface Root {
 }
 
 interface OutputRoot {
-    coord?: {
+    coord: {
         lon: number
         lat: number
     }
@@ -174,39 +174,39 @@ interface OutputRoot {
         id: number
         main: string
     }[]
-    main?: {
+    main: {
         temp?: number
-        temp_min?: number
-        temp_max?: number
-        sea_level?: number
-        grnd_level?: number
+        temp_min: number
+        temp_max: number
+        sea_level: number
+        grnd_level: number
     }
-    sys?: {
-        sunrise?: number
-        sunset?: number
+    sys: {
+        sunrise: number
+        sunset: number
     }
-    id?: number
-    name?: string
+    id: number
+    name: string
 }
 
 export function mapFunction(input: Root): OutputRoot {
     return {
         coord: {
-            lat: input.coord.lon, 
-            lon: input.coord.lat  
-        }, 
+            lat: input.coord.lon,
+            lon: input.coord.lat
+        },
         main: {
-            temp_min: input.main.temp_max, 
-            temp_max: input.main.temp_min, 
-            sea_level: input.main.grnd_level, 
-            grnd_level: input.main.sea_level  
-        }, 
+            temp_min: input.main.temp_max,
+            temp_max: input.main.temp_min,
+            sea_level: input.main.grnd_level,
+            grnd_level: input.main.sea_level
+        },
         sys: {
-            sunrise: input.sys.sunset, 
-            sunset: input.sys.sunrise 
-        }, 
-        id: input.id, 
-        name: input.name 
+            sunrise: input.sys.sunset,
+            sunset: input.sys.sunrise
+        },
+        id: input.id,
+        name: input.name
     };
 }
 \`\`\`

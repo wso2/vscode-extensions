@@ -106,100 +106,79 @@ export const getLoginMethod = async (): Promise<LoginMethod | undefined> => {
  * Automatically refreshes MI_INTEL tokens if expired
  */
 export const getAccessToken = async (): Promise<string | undefined> => {
-    return new Promise(async (resolve, reject) => {
-        try {
-            const credentials = await getAuthCredentials();
+    const credentials = await getAuthCredentials();
+    if (!credentials) {
+        return undefined;
+    }
 
-            if (!credentials) {
-                resolve(undefined);
-                return;
+    switch (credentials.loginMethod) {
+        case LoginMethod.MI_INTEL: {
+            const { accessToken } = credentials.secrets;
+            let finalToken = accessToken;
+
+            try {
+                const decoded = jwtDecode<JwtPayload>(accessToken);
+                const now = Math.floor(Date.now() / 1000);
+
+                if (decoded.exp && decoded.exp < now) {
+                    finalToken = await getRefreshedAccessToken();
+                }
+
+                return finalToken;
+            } catch (err) {
+                if (axios.isAxiosError(err) && err.response?.status === 400) {
+                    throw new Error("TOKEN_EXPIRED");
+                }
+                throw err;
             }
-
-            switch (credentials.loginMethod) {
-                case LoginMethod.MI_INTEL:
-                    try {
-                        const { accessToken } = credentials.secrets;
-                        let finalToken = accessToken;
-
-                        // Decode token and check expiration
-                        const decoded = jwtDecode<JwtPayload>(accessToken);
-                        const now = Math.floor(Date.now() / 1000);
-                        if (decoded.exp && decoded.exp < now) {
-                            finalToken = await getRefreshedAccessToken();
-                        }
-                        resolve(finalToken);
-                        return;
-                    } catch (err) {
-                        if (axios.isAxiosError(err)) {
-                            const status = err.response?.status;
-                            if (status === 400) {
-                                reject(new Error("TOKEN_EXPIRED"));
-                                return;
-                            }
-                        }
-                        reject(err);
-                        return;
-                    }
-
-                case LoginMethod.ANTHROPIC_KEY:
-                    resolve(credentials.secrets.apiKey);
-                    return;
-            }
-        } catch (error: any) {
-            reject(error);
         }
-    });
+        case LoginMethod.ANTHROPIC_KEY:
+            return credentials.secrets.apiKey;
+    }
+
+    return undefined;
 };
 
 /**
  * Refresh MI_INTEL access token using refresh token
  */
 export const getRefreshedAccessToken = async (): Promise<string> => {
-    return new Promise(async (resolve, reject) => {
-        try {
-            const credentials = await getAuthCredentials();
-            if (!credentials || credentials.loginMethod !== LoginMethod.MI_INTEL) {
-                reject(new Error('Token refresh is only supported for MI Intelligence authentication'));
-                return;
-            }
+    const credentials = await getAuthCredentials();
+    if (!credentials || credentials.loginMethod !== LoginMethod.MI_INTEL) {
+        throw new Error('Token refresh is only supported for MI Intelligence authentication');
+    }
 
-            const { refreshToken } = credentials.secrets;
-            if (!refreshToken) {
-                reject(new Error('Refresh token is not available'));
-                return;
-            }
+    const { refreshToken } = credentials.secrets;
+    if (!refreshToken) {
+        throw new Error('Refresh token is not available');
+    }
 
-            const params = new URLSearchParams({
-                client_id: AUTH_CLIENT_ID,
-                refresh_token: refreshToken,
-                grant_type: 'refresh_token',
-                scope: 'openid email'
-            });
-
-            const response = await axios.post(
-                `https://api.asgardeo.io/t/${AUTH_ORG}/oauth2/token`,
-                params.toString(),
-                { headers: CommonReqHeaders }
-            );
-
-            const newAccessToken = response.data.access_token;
-            const newRefreshToken = response.data.refresh_token;
-
-            // Update stored credentials
-            const updatedCredentials: AuthCredentials = {
-                ...credentials,
-                secrets: {
-                    accessToken: newAccessToken,
-                    refreshToken: newRefreshToken
-                }
-            };
-            await storeAuthCredentials(updatedCredentials);
-
-            resolve(newAccessToken);
-        } catch (error: any) {
-            reject(error);
-        }
+    const params = new URLSearchParams({
+        client_id: AUTH_CLIENT_ID,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+        scope: 'openid email'
     });
+
+    const response = await axios.post(
+        `https://api.asgardeo.io/t/${AUTH_ORG}/oauth2/token`,
+        params.toString(),
+        { headers: CommonReqHeaders }
+    );
+
+    const newAccessToken = response.data.access_token;
+    const newRefreshToken = response.data.refresh_token;
+
+    const updatedCredentials: AuthCredentials = {
+        ...credentials,
+        secrets: {
+            accessToken: newAccessToken,
+            refreshToken: newRefreshToken
+        }
+    };
+    await storeAuthCredentials(updatedCredentials);
+
+    return newAccessToken;
 };
 
 /**
@@ -228,7 +207,8 @@ export const cleanupLegacyTokens = async (): Promise<void> => {
  * Generate OAuth authorization URL
  */
 export async function getAuthUrl(callbackUri: string): Promise<string> {
-    const state = encodeURIComponent(btoa(JSON.stringify({ callbackUri })));
+    const statePayload = Buffer.from(JSON.stringify({ callbackUri }), 'utf8').toString('base64');
+    const state = encodeURIComponent(statePayload);
     return `https://api.asgardeo.io/t/${AUTH_ORG}/oauth2/authorize?response_type=code&redirect_uri=${MI_AUTH_REDIRECT_URL}&client_id=${AUTH_CLIENT_ID}&scope=openid%20email&state=${state}`;
 }
 
@@ -295,24 +275,18 @@ export async function exchangeAuthCode(authCode: string): Promise<void> {
  * Check if valid authentication credentials exist
  */
 export const checkToken = async (): Promise<{ token: string; loginMethod: LoginMethod } | undefined> => {
-    return new Promise(async (resolve, reject) => {
-        try {
-            // Clean up any legacy tokens
-            await cleanupLegacyTokens();
+    await cleanupLegacyTokens();
 
-            const token = await getAccessToken();
-            const loginMethod = await getLoginMethod();
-            
-            if (!token || !loginMethod) {
-                resolve(undefined);
-                return;
-            }
-            
-            resolve({ token, loginMethod });
-        } catch (error) {
-            reject(error);
-        }
-    });
+    const [token, loginMethod] = await Promise.all([
+        getAccessToken(),
+        getLoginMethod()
+    ]);
+
+    if (!token || !loginMethod) {
+        return undefined;
+    }
+
+    return { token, loginMethod };
 };
 
 /**

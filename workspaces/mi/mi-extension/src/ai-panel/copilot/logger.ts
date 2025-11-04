@@ -46,8 +46,10 @@ export function logWarn(message: string): void {
  * For critical errors that should also go to console, use console.error directly
  */
 export function logError(message: string, error?: unknown): void {
-    const errorMessage = error instanceof Error
-        ? `${message}: ${error.message}\n${error.stack}`
-        : `${message}: ${String(error)}`;
+    const errorMessage = error === undefined
+        ? message
+        : error instanceof Error
+            ? `${message}: ${error.message}\n${error.stack}`
+            : `${message}: ${String(error)}`;
     logWithDebugLevel(errorMessage, COPILOT_LABEL, 'ERROR');
 }

@@ -42,7 +42,7 @@ A basic chat operation requires the following two connection types:
     <name>OPENAI_CONN</name>
   </ai.init>
 </localEntry>
-\`\`\`xml
+\`\`\`
 
 #### Memory Connection
 \`\`\`xml
@@ -52,7 +52,7 @@ A basic chat operation requires the following two connection types:
     <name>FILE_MEMORY_CONN</name>
   </ai.init>
 </localEntry>
-\`\`\`xml
+\`\`\`
 
 ### Step 2: Create Chat Operation
 
@@ -74,7 +74,7 @@ A basic chat operation requires the following two connection types:
     <frequencyPenalty>0</frequencyPenalty>
     <maxHistory>10</maxHistory>
 </ai.chat>
-\`\`\`xml
+\`\`\`
 
 ## RAG Chat Operation
 
@@ -94,7 +94,7 @@ Example: Vector store connection:
     <name>KB_CONN</name>
   </ai.init>
 </localEntry>
-\`\`\`xml
+\`\`\`
 
 ### Define RAG Chat Operation
 \`\`\`xml
@@ -120,7 +120,7 @@ Example: Vector store connection:
     <frequencyPenalty>0</frequencyPenalty>
     <maxHistory>10</maxHistory>
 </ai.ragChat>
-\`\`\`xml
+\`\`\`
 
 ## Adding data to vector store
 
@@ -141,7 +141,7 @@ Example: Vector store connection:
     <responseVariable>ai_addToKnowledge_1</responseVariable>
     <overwriteBody>true</overwriteBody>
 </ai.addToKnowledge>
-\`\`\`xml
+\`\`\`
 
 ## Retrieving data from vector store
 
@@ -159,7 +159,7 @@ Example: Vector store connection:
     <responseVariable>ai_getFromKnowledge_1</responseVariable>
     <overwriteBody>true</overwriteBody>
 </ai.getFromKnowledge>
-\`\`\`xml
+\`\`\`
 
 ## Creating an agent with tools
 
@@ -183,7 +183,7 @@ Example: Email tool
         </email.send>
     </sequence>
 </template>
-\`\`\`xml
+\`\`\`
 
 Example: Knowledge retrieval tool
 \`\`\`xml
@@ -196,7 +196,7 @@ Example: Knowledge retrieval tool
         </ai.getFromKnowledge>
     </sequence>
 </template>
-\`\`\`xml
+\`\`\`
 
 Example: API call tool
 \`\`\`xml
@@ -209,7 +209,7 @@ Example: API call tool
         </http.post>
     </sequence>
 </template>
-\`\`\`xml
+\`\`\`
 
 ### Agent Definition Steps
 
@@ -241,5 +241,5 @@ Example:
         <tool name="InvestmentCreationTool" template="http_post_tool_2" resultExpression="\${vars.http_post_809.payload}" description="Create investment account"/>
     </tools>
 </ai.agent>
-\`\`\`xml
+\`\`\`
 `;

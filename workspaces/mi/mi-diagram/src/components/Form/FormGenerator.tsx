@@ -152,6 +152,29 @@ export function getNameForController(name: string | number) {
     return String(name).replace(/\./g, '__dot__');
 }
 
+/**
+ * Recursively remap object keys to avoid corrupting user values
+ * @param value - The value to remap
+ * @returns The remapped value
+ */
+function remapKeys(value: any): any {
+    if (Array.isArray(value)) {
+        return value.map(remapKeys);
+    }
+    if (value && typeof value === "object") {
+        return Object.fromEntries(
+            Object.entries(value).map(([key, val]) => {
+                const nextKey =
+                    key === "configKey" ? "config_key" :
+                    key === "isExpression" ? "is_expression" :
+                    key;
+                return [nextKey, remapKeys(val)];
+            })
+        );
+    }
+    return value;
+}
+
 export function FormGenerator(props: FormGeneratorProps) {
     const { rpcClient } = useVisualizerContext();
     const sidePanelContext = React.useContext(SidePanelContext);
@@ -473,11 +496,7 @@ export function FormGenerator(props: FormGeneratorProps) {
             const convertedConfigsStr = JSON.stringify(configs);
 
             // Convert current values format: configKey → config_key, isExpression → is_expression
-            const convertedValues = JSON.parse(
-                JSON.stringify(values)
-                    .replaceAll("configKey", "config_key")
-                    .replaceAll("isExpression", "is_expression")
-            );
+            const convertedValues = remapKeys(values);
 
             // Flatten connectionNames object to array of all connection names
             const allConnectionNames = Object.values(connectionNames).flat();

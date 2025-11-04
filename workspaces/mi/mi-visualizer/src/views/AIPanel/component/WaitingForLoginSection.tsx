@@ -23,6 +23,9 @@ import { useState } from "react";
 import { Codicon } from "@wso2/ui-toolkit";
 import { VSCodeButton, VSCodeTextField } from "@vscode/webview-ui-toolkit/react";
 
+// Minimum length for Anthropic API key validation
+const MIN_ANTHROPIC_API_KEY_LENGTH = 20;
+
 const Container = styled.div`
     display: flex;
     flex-direction: column;
@@ -213,7 +216,7 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
             return;
         }
         
-        if (trimmedKey.length < 20) {
+        if (trimmedKey.length < MIN_ANTHROPIC_API_KEY_LENGTH) {
             setClientError("API key seems too short. Please check and try again.");
             return;
         }

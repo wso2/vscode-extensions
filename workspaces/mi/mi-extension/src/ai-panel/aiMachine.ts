@@ -19,7 +19,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { createMachine, assign, interpret } from 'xstate';
 import * as vscode from 'vscode';
-import { AIMachineStateValue, AIMachineContext, AI_EVENT_TYPE, AIUserToken, AIMachineSendableEvent, LoginMethod } from '@wso2/mi-core';
+import { AIMachineStateValue, AIMachineContext, AI_EVENT_TYPE, AIMachineSendableEvent, LoginMethod } from '@wso2/mi-core';
 import { AiPanelWebview } from './webview';
 import { extension } from '../MIExtensionContext';
 import { getAccessToken, getLoginMethod, checkToken, initiateInbuiltAuth, logout, validateApiKey } from './auth';
@@ -368,35 +368,22 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
 });
 
 const checkWorkspaceAndToken = async (): Promise<{ workspaceSupported: boolean; tokenData?: { token: string; loginMethod: LoginMethod } }> => {
-    return new Promise(async (resolve, reject) => {
-        try {
-            // Check workspace support first
-            if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 1) {
-                resolve({ workspaceSupported: false });
-                return;
-            }
+    // Check workspace support first
+    if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 1) {
+        return { workspaceSupported: false };
+    }
 
-            // Then check token
-            const tokenData = await checkToken();
-            resolve({ workspaceSupported: true, tokenData });
-        } catch (error) {
-            reject(error);
-        }
-    });
+    // Then check token
+    const tokenData = await checkToken();
+    return { workspaceSupported: true, tokenData };
 };
 
 const openLogin = async () => {
-    return new Promise(async (resolve, reject) => {
-        try {
-            const status = await initiateInbuiltAuth();
-            if (!status) {
-                aiStateService.send({ type: AI_EVENT_TYPE.CANCEL_LOGIN });
-            }
-            resolve(status);
-        } catch (error) {
-            reject(error);
-        }
-    });
+    const status = await initiateInbuiltAuth();
+    if (!status) {
+        aiStateService.send({ type: AI_EVENT_TYPE.CANCEL_LOGIN });
+    }
+    return status;
 };
 
 const validateApiKeyService = async (_context: AIMachineContext, event: any) => {

@@ -53,7 +53,7 @@ function jsonSchemaToZod(schema: any): z.ZodTypeAny {
         const shape: Record<string, z.ZodTypeAny> = {};
 
         for (const [key, value] of Object.entries(schema.properties as Record<string, any>)) {
-            let fieldSchema = jsonSchemaToZod(value);
+            let fieldSchema = jsonSchemaToZod(value).nullable();
 
             // Add description if available
             if (value.description) {
@@ -71,18 +71,18 @@ function jsonSchemaToZod(schema: any): z.ZodTypeAny {
     // Handle array types
     if (type === 'array' && schema.items) {
         const itemSchema = jsonSchemaToZod(schema.items);
-        return z.array(itemSchema);
+        return z.array(itemSchema).nullable();
     }
 
     // Handle primitive types
     switch (type) {
         case 'string':
-            return z.string();
+            return z.string().nullable();
         case 'number':
         case 'integer':
-            return z.number();
+            return z.number().nullable();
         case 'boolean':
-            return z.boolean();
+            return z.boolean().nullable();
         case 'null':
             return z.null();
         default:

@@ -24,8 +24,8 @@ import { useMICopilotContext } from "./MICopilotContext";
 import { handleFileAttach } from "../utils";
 import { USER_INPUT_PLACEHOLDER_MESSAGE, VALID_FILE_TYPES } from "../constants";
 import { generateSuggestions, generateId, getView, fetchCodeGenerationsWithRetry, replaceCodeBlock, setupCodeGenerationEventListener, updateTokenInfo } from "../utils";
-import { BackendRequestType, FixedConfigItem, CorrectedCodeItem, } from "../types";
-import { Role, MessageType, CopilotChatEntry, ChatMessage } from "@wso2/mi-core";
+import { BackendRequestType } from "../types";
+import { Role, MessageType, CopilotChatEntry } from "@wso2/mi-core";
 import Attachments from "./Attachments";
 
 interface AIChatFooterProps {
@@ -95,9 +95,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 break;
             
             case "content_block":
-                // Handle streaming content blocks - now just plain text!
+                // Handle streaming content blocks
                 if (event.content) {
-                    // event.content is now plain text, not JSON
                     const content = event.content;
                     
                     // Update assistant response state
@@ -125,7 +124,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 rpcClient?.getMiAiPanelRpcClient().fetchUsage().then((usage) => {
                     if (usage) {
                         rpcClient?.getAIVisualizerState().then((machineView) => {
-                            const { timeToReset, remainingTokenPercentage } = updateTokenInfo(machineView);
+                            const { remainingTokenPercentage } = updateTokenInfo(machineView);
                             setRemainingTokenPercentage(remainingTokenPercentage);
                         });
                     }

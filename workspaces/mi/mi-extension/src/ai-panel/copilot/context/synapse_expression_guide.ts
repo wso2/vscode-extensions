@@ -129,7 +129,7 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
 \`\`\`xml
 \${payload.students[0].name}
 \`\`\`
-### **String Operations***
+### **String Operations**
 - String concatenation
 \`\`\`xml
 \${payload.string1 + payload.string2}
@@ -149,7 +149,7 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
 \${endsWith("text", "xt")} <!-- Checks if the string ends with the specified suffix. -->
 \${trim("  text  ")} <!-- Removes leading and trailing whitespace from the string. -->
 \${split("a,b,c", ",")} <!-- Removes leading and trailing whitespace from the string. -->
-\${charAt("text", 1)} <!-- Returns the character at the specified index in the string. -->
+\${charAt("text", 1)} <!-- Splits the string into an array using the specified delimiter. -->
 
 \${indexOf("text", "e")} <!-- Returns the position of the first occurrence of the specified input in the string. Specify a starting index as the third parameter (indexOf search begins after this position). -->
 \${indexOf(payload.value, "text", 5)}
@@ -211,12 +211,6 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
 \`\`\`xml
 \${now()} <!-- Returns timestamp -->
 \${formatDateTime(now(), "yyyy-MM-dd")}
-\`\`\`
-
-### **Type Conversion**
-\`\`\`xml
-\${integer(payload.value)}
-\${boolean(payload.status)}
 \`\`\`
 
 ### ** Check exists**

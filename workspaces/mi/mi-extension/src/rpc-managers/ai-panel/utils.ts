@@ -201,7 +201,7 @@ export async function fetchCodeGenerationsWithRetry(
     const { connectors: selectedConnectors, inbound_endpoints: selectedInboundEndpoints } = await getConnectors({
         question: userQuestion,
         files: fileContents.length > 0 ? fileContents : undefined,
-        images: images.length > 0,
+        images: images.length > 0 ? true : undefined,
     });
 
     // Convert chat history to the format expected by generateSynapse
@@ -224,7 +224,7 @@ export async function fetchCodeGenerationsWithRetry(
         connectors: selectedConnectors,
         inbound_endpoints: selectedInboundEndpoints,
         files: fileContents.length > 0 ? fileContents : undefined,
-        images: images.length > 0,
+        images: images.length > 0 ? true : undefined,
         thinking_enabled: thinking || false,
         chatHistory: historyMessages.length > 0 ? historyMessages : undefined,
         abortController: controller, // Pass abort controller to handle cancellation

@@ -36,7 +36,7 @@ function renderTemplate(templateContent: string, context: Record<string, any>): 
  */
 function extractTypeScriptCode(text: string): string {
     // Match the entire TypeScript code block
-    const fullMatch = text.match(/```typescript\s*([\s\S]*?)\s*```/);
+    const fullMatch = text.match(/```(?:typescript|ts)\s*([\s\S]*?)\s*```/i);
     
     if (fullMatch && fullMatch[1]) {
         return fullMatch[1].trim();

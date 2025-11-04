@@ -293,6 +293,10 @@ export class MiDataMapperRpcManager implements MIDataMapperAPI {
             
             // Remove the mapFunction line from the mapping string
             const mappingRet = removeMapFunctionEntry(mappingString);
+
+            if (!mappingRet?.trim()) {
+                throw new Error("MI Copilot did not return a valid mapping body.");
+            }
             
             // Create an object of type DataMapWriteRequest
             const dataMapWriteRequest: DataMapWriteRequest = {

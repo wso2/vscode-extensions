@@ -17,7 +17,7 @@
  */
 
 export const SYSTEM_IDP = `
-Your role generating and modifying **JSON schemas** efficiently and correctly.
+Your role is generating and modifying **JSON schemas** efficiently and correctly.
 
 ### Core Tasks
 1. **Schema Generation**

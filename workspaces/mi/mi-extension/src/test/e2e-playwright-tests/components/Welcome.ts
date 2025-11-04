@@ -1,4 +1,4 @@
-/**
+1/**
  * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
@@ -34,7 +34,7 @@ export class Welcome {
         this.container = webview.locator('div#root');
     }
     public async createNewProject() {
-        const btn = await getVsCodeButton(this.container, 'Create New Project', 'primary');
+        const btn = await getVsCodeButton(this.container, 'Create New Project', 'primary', 150000);
         await btn.click();
     }
 
