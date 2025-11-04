@@ -119,6 +119,25 @@ interface TypeCreatorTabProps {
     onTypeChange: (type: Type, rename?: boolean) => void;
 }
 
+/**
+ * Renders the Type Creator tab UI used to create or edit a Ballerina type.
+ *
+ * The component manages type-kind selection, name editing (including a temporary name flow for new types),
+ * server-assisted name validation, inline renaming of existing types (with project-wide updates), and
+ * delegates kind-specific editing to the appropriate editor (record, enum, class, union, array).
+ *
+ * @param props - Component props
+ * @param props.editingType - The type being edited or used as a basis for a new type
+ * @param props.newType - True when creating a new type (enables kind selector and temporary name flow)
+ * @param props.isGraphql - Enables GraphQL-specific kind labels and allowed kind sets
+ * @param props.initialTypeKind - The initial TypeNodeKind used to constrain available kinds in GraphQL mode
+ * @param props.onTypeSave - Callback invoked to persist the type when save is confirmed
+ * @param props.isSaving - Whether a save operation is in progress (disables UI actions)
+ * @param props.setIsSaving - Setter to toggle the saving state
+ * @param props.onTypeChange - Callback invoked when the in-memory type is modified; second arg indicates rename
+ *
+ * @returns The React element for the type creator tab
+ */
 export function TypeCreatorTab(props: TypeCreatorTabProps) {
     const {
         editingType,
@@ -193,6 +212,9 @@ export function TypeCreatorTab(props: TypeCreatorTabProps) {
                 default:
                     setSelectedTypeKind(TypeKind.RECORD);
             }
+
+            // Ensure tempName is initialized when editing a new type (prevents focus loss due to replacing the main type on each keystroke)
+            setTempName(editingType.name);
         }
 
         setIsNewType(newType);
@@ -420,9 +442,23 @@ export function TypeCreatorTab(props: TypeCreatorTabProps) {
     }
 
     const handleOnTypeNameChange = (value: string) => {
+        if (isNewType) {
+            setTempName(value);
+            validateTypeName(value);
+            return;
+        }
         handleSetType({ ...type, name: value });
         validateTypeName(value);
     }
+
+    const commitNewTypeName = () => {
+        if (!isNewType) {
+            return;
+        }
+        if (tempName && tempName !== type.name) {
+            handleSetType({ ...type, name: tempName } as Type);
+        }
+    };
 
     // Function to validate before saving to verify names created in nested forms
     const handleSaveWithValidation = async (typeToSave: Type) => {
@@ -600,13 +636,18 @@ export function TypeCreatorTab(props: TypeCreatorTabProps) {
                     <TextFieldWrapper>
                         <TextField
                             label="Name"
-                            value={type.name}
+                            value={tempName}
                             errorMsg={nameError}
-                            onBlur={handleOnBlur}
+                            onBlur={(e) => {
+                                // commit local name into type on blur and validate
+                                commitNewTypeName();
+                                handleOnBlur(e);
+                            }}
                             onChange={(e) => handleOnTypeNameChange(e.target.value)}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
-                                    handleOnTypeNameChange((e.target as HTMLInputElement).value);
+                                    // commit on Enter
+                                    commitNewTypeName();
                                 }
                             }}
                             onFocus={(e) => { e.target.select(); validateTypeName(e.target.value) }}
@@ -622,7 +663,11 @@ export function TypeCreatorTab(props: TypeCreatorTabProps) {
             <Footer>
                 <Button
                     data-testid="type-create-save"
-                    onClick={() => handleSaveWithValidation(type)}
+                    onClick={() => {
+                        // Ensure Save uses the latest tempName for new types without causing extra re-renders
+                        const typeToSave = isNewType ? { ...type, name: tempName } : type;
+                        handleSaveWithValidation(typeToSave);
+                    }}
                     disabled={onValidationError || !isTypeNameValid || isEditing || isSaving}>
                     {isSaving ? <Typography variant="progress">Saving...</Typography> : "Save"}
                 </Button>
@@ -630,4 +675,3 @@ export function TypeCreatorTab(props: TypeCreatorTabProps) {
         </>
     );
 }
-

@@ -112,6 +112,14 @@ interface FormProps {
     hideSaveButton?: boolean;
 }
 
+/**
+ * Render a configurable form UI for editing file-scoped form fields, including an expression editor, visible-type lookup, and nested type-creation modals.
+ *
+ * The component manages expression completions, visible-type caching, import updates, a stack-based nested type editor, and RPC interactions required for diagnostics, completions, theme syncing, and form lifecycle notifications.
+ *
+ * @param props - Properties that control form contents, editor behavior, callbacks, layout and injected components (see `FormProps`).
+ * @returns A React element containing the form and any active nested type-creation modals.
+ */
 export function FormGeneratorNew(props: FormProps) {
     const {
         fileName,
@@ -310,10 +318,10 @@ export function FormGeneratorNew(props: FormProps) {
         closePopup: closeModal
     }
 
-    const defaultType = (): Type => {
+    const defaultType = (typeName?: string): Type => {
         if (!isGraphqlEditor || typeEditorState.field?.type === 'PARAM_MANAGER') {
             return {
-                name: typeEditorState.newTypeValue || "MyType",
+                name: typeName || typeEditorState.newTypeValue || "MyType",
                 editable: true,
                 metadata: {
                     label: "",
@@ -328,7 +336,7 @@ export function FormGeneratorNew(props: FormProps) {
                 allowAdditionalFields: false
             };
         } return {
-            name: typeEditorState.newTypeValue || "MyType",
+            name: typeName || typeEditorState.newTypeValue || "MyType",
             editable: true,
             metadata: {
                 label: "",
@@ -818,9 +826,9 @@ export function FormGeneratorNew(props: FormProps) {
         setTypeEditorState({ ...typeEditorState, isOpen: state });
     }
 
-    const getNewTypeCreateForm = () => {
+    const getNewTypeCreateForm = (typeName?: string) => {
         pushTypeStack({
-            type: defaultType(),
+            type: defaultType(typeName),
             isDirty: false
         })
     }
