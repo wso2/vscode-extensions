@@ -47,7 +47,7 @@ export function fetchProjectInfo(): ProjectInfo {
     }
 
     const workspaceUris = workspaceFolders
-        ? workspace.workspaceFolders.map(folder => folder.uri)
+        ? workspaceFolders.map(folder => folder.uri)
         : [];
     let isBICount = 0; // Counter for workspaces with isBI set to true
     let isBalCount = 0; // Counter for workspaces with Ballerina project
