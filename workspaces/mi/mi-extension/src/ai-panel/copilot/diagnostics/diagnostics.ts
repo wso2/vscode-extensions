@@ -19,7 +19,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import * as Handlebars from "handlebars";
-import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from "../connection";
+import { getAnthropicClient, ANTHROPIC_HAIKU_4_5, getProviderCacheControl } from "../connection";
 import { DIAGNOSTICS_SYSTEM_TEMPLATE } from "./system";
 import { DIAGNOSTICS_PROMPT } from "./prompt";
 import { SYNAPSE_GUIDE } from "../context/synapse_guide";
@@ -125,13 +125,30 @@ export async function codeDiagnostics(
         });
         
         const model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
-        
+        const cacheOptions = await getProviderCacheControl();
+
+        // Build messages array with cache control on system message
+        const messages: Array<{
+            role: "system" | "user";
+            content: string;
+            providerOptions?: any;
+        }> = [
+            {
+                role: "system" as const,
+                content: systemPrompt,
+                providerOptions: cacheOptions,
+            },
+            {
+                role: "user" as const,
+                content: userPrompt,
+            }
+        ];
+
         // Use structured output to get fixed configurations
         // Type assertion to avoid TypeScript deep instantiation issues with Zod
         const result = await (generateObject as any)({
             model: model,
-            system: systemPrompt,
-            prompt: userPrompt,
+            messages: messages,
             schema: bugFixResponseSchema,
             maxTokens: 8000,
             temperature: 0.2, // Lower temperature for more deterministic fixes

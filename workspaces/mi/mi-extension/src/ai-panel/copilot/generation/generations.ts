@@ -17,6 +17,7 @@
  */
 
 import { streamText } from "ai";
+import { AnthropicProviderOptions } from "@ai-sdk/anthropic";
 import * as Handlebars from "handlebars";
 import { getAnthropicClient, ANTHROPIC_SONNET_4_5, getProviderCacheControl } from "../connection";
 import { SYSTEM_TEMPLATE } from "./system_v2";
@@ -57,6 +58,16 @@ function renderTemplate(templateContent: string, context: Record<string, any>): 
 }
 
 /**
+ * Chat message in the conversation history
+ */
+export interface ChatMessage {
+    /** Role of the message sender */
+    role: "user" | "assistant";
+    /** Content of the message */
+    content: string;
+}
+
+/**
  * Parameters for generating Synapse integrations
  */
 export interface GenerateSynapseParams {
@@ -80,6 +91,8 @@ export interface GenerateSynapseParams {
     images?: boolean;
     /** Enable thinking mode for complex queries (optional) */
     thinking_enabled?: boolean;
+    /** Chat history - last 3 conversations (sliding window) (optional) */
+    chatHistory?: ChatMessage[];
     /** Abort controller to cancel generation (optional) */
     abortController?: AbortController;
 }
@@ -119,20 +132,44 @@ export async function generateSynapse(
 
     const cacheOptions = await getProviderCacheControl();
 
-    const messages = [
+    // Build messages array with chat history
+    const messages: Array<{
+        role: "system" | "user" | "assistant";
+        content: string;
+        providerOptions?: any;
+    }> = [
         {
             role: "system" as const,
             content: systemPrompt,
             providerOptions: cacheOptions,
-        },
-        {
-            role: "user" as const,
-            content: userPrompt,
-            providerOptions: cacheOptions,
-        },
+        }
     ];
 
+    // Add chat history (already filtered to last 6 messages by caller)
+    if (params.chatHistory && params.chatHistory.length > 0) {
+        logInfo(`Including ${params.chatHistory.length} messages from chat history`);
+
+        for (const msg of params.chatHistory) {
+            messages.push({
+                role: msg.role,
+                content: msg.content,
+                providerOptions: cacheOptions,
+            });
+        }
+    }
+
+    // Add current user question
+    messages.push({
+        role: "user" as const,
+        content: userPrompt
+    });
+
     const model = await getAnthropicClient(ANTHROPIC_SONNET_4_5);
+
+    // Configure provider options for thinking mode if enabled
+    const anthropicOptions: AnthropicProviderOptions = params.thinking_enabled
+        ? { thinking: { type: 'enabled', budgetTokens: 1000 } }
+        : {};
 
     const result = streamText({
         model: model,
@@ -141,6 +178,9 @@ export async function generateSynapse(
         messages,
         maxRetries: 0, // Disable retries to prevent retry loops on quota errors (429)
         abortSignal: params.abortController?.signal,
+        providerOptions: {
+            anthropic: anthropicOptions
+        },
         onAbort: () => {
             logInfo('Code generation aborted by user');
         },

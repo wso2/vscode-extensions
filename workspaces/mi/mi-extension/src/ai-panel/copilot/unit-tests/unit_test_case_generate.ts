@@ -18,7 +18,7 @@
 
 import { generateText } from "ai";
 import * as Handlebars from "handlebars";
-import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from "../connection";
+import { getAnthropicClient, ANTHROPIC_HAIKU_4_5, getProviderCacheControl } from "../connection";
 import { SYSTEM_CASE_GENERATE } from "./system_case_generate";
 import { PROMPT_CASE_GENERATE } from "./prompt_case_generate";
 import { UNIT_TEST_GUIDE } from "./unit_test_guide";
@@ -98,12 +98,29 @@ export async function generateUnitTestCase(
         });
 
         const model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
+        const cacheOptions = await getProviderCacheControl();
+
+        // Build messages array with cache control on system message
+        const messages: Array<{
+            role: "system" | "user";
+            content: string;
+            providerOptions?: any;
+        }> = [
+            {
+                role: "system" as const,
+                content: systemPrompt,
+                providerOptions: cacheOptions, // Cache system prompt only
+            },
+            {
+                role: "user" as const,
+                content: userPrompt,
+            }
+        ];
 
         // Generate the updated unit test with new test case
         const { text } = await generateText({
             model: model,
-            system: systemPrompt,
-            prompt: userPrompt,
+            messages: messages,
             maxOutputTokens: 16000, // Updated unit tests can be quite large
             temperature: 0.2, // More deterministic for test generation
             maxRetries: 0, // Disable retries to prevent retry loops on quota errors (429)

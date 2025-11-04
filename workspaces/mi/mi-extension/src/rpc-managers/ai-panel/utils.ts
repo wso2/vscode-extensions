@@ -203,7 +203,16 @@ export async function fetchCodeGenerationsWithRetry(
         files: fileContents.length > 0 ? fileContents : undefined,
         images: images.length > 0,
     });
-    
+
+    // Convert chat history to the format expected by generateSynapse
+    // Take last 6 messages (3 conversations) as sliding window, excluding the current message
+    const historyMessages = chatHistory
+        .slice(-7, -1) // Take last 7 messages and exclude the last one (current question) = 6 messages
+        .map(entry => ({
+            role: entry.role === 'user' ? 'user' as const : 'assistant' as const,
+            content: entry.content
+        }));
+
     // Call generateSynapse - it returns a Response with streaming text
     // AI SDK handles all the stream conversion and abort logic
     return generateSynapse({
@@ -217,6 +226,7 @@ export async function fetchCodeGenerationsWithRetry(
         files: fileContents.length > 0 ? fileContents : undefined,
         images: images.length > 0,
         thinking_enabled: thinking || false,
+        chatHistory: historyMessages.length > 0 ? historyMessages : undefined,
         abortController: controller, // Pass abort controller to handle cancellation
     });
 }

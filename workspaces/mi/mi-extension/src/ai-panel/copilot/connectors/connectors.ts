@@ -19,7 +19,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import * as Handlebars from "handlebars";
-import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from "../connection";
+import { getAnthropicClient, ANTHROPIC_HAIKU_4_5, getProviderCacheControl } from "../connection";
 import { SYSTEM_TEMPLATE } from "./system";
 import { CONNECTOR_PROMPT } from "./prompt";
 import { CONNECTOR_DB } from "./connector_db";
@@ -138,15 +138,22 @@ export async function getConnectors(
         available_connectors: availableConnectors.join(", "),
         available_inbound_endpoints: availableInboundEndpoints.join(", "),
     });
-    
+
     const model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
-    
+    const cacheOptions = await getProviderCacheControl();
+
     try {
         // Use structured output to get selected connectors
         // Type assertion to avoid TypeScript deep instantiation issues with Zod
         const result = await (generateObject as any)({
             model: model,
-            system: SYSTEM_TEMPLATE,
+            system: [
+                {
+                    role: "system" as const,
+                    content: SYSTEM_TEMPLATE,
+                    providerOptions: cacheOptions, // Cache system prompt only
+                }
+            ],
             prompt: prompt,
             schema: selectedConnectorsSchema,
             maxOutputTokens: 2000,
