@@ -19,7 +19,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { FileObject, ImageObject } from "@wso2/mi-core";
-import { PROJECT_RUNTIME_VERSION_THRESHOLD } from "../constants";
 import { LoaderWrapper, ProgressRing } from "../styles";
 import {
     ChatMessage,
@@ -45,7 +44,6 @@ import { useFeedback } from "./useFeedback";
 interface MICopilotContextType {
     rpcClient: RpcClientType;
     projectRuntimeVersion: string;
-    isRuntimeVersionThresholdReached: boolean;
     projectUUID: string;
 
     // State for showing communication in UI
@@ -115,7 +113,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     const { rpcClient } = useVisualizerContext();
 
     const [projectRuntimeVersion, setProjectRuntimeVersion] = useState("");
-    const [isRuntimeVersionThresholdReached, setIsRuntimeVersionThresholdReached] = useState(false);
     const [projectUUID, setProjectUUID] = useState("");
     const [isLoading, setIsLoading] = useState(true);
 
@@ -157,9 +154,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
 
                 const runtimeVersion = await getProjectRuntimeVersion(rpcClient);
                 setProjectRuntimeVersion(runtimeVersion);
-                setIsRuntimeVersionThresholdReached(
-                    compareVersions(runtimeVersion, PROJECT_RUNTIME_VERSION_THRESHOLD) >= 0
-                );
 
                 const uuid = await getProjectUUID(rpcClient);
                 setProjectUUID(uuid);
@@ -290,7 +284,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     const currentContext: MICopilotContextType = {
         rpcClient,
         projectRuntimeVersion,
-        isRuntimeVersionThresholdReached,
         projectUUID,
         messages,
         questions,

@@ -23,7 +23,6 @@ import {
     ChatMessage as StyledChatMessage,
     RoleContainer,
     EditDeleteButtons,
-    PreviewContainerRole,
     FlexRow,
 } from "../styles";
 import { CodeSegment } from "./CodeSegment";
@@ -68,7 +67,6 @@ interface ChatMessageProps {
  */
 const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
     const {
-        isRuntimeVersionThresholdReached,
         messages,
         setMessages,
         setCurrentUserprompt,
@@ -139,9 +137,6 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
             <RoleContainer>
                 {message.role === Role.MIUser ? <Codicon name="account" /> : <Codicon name="hubot" />}
                 <h3 style={{ margin: 0 }}>{message.role}</h3>
-                {message.role === Role.MICopilot && isRuntimeVersionThresholdReached ? (
-                    <PreviewContainerRole>V3-Preview</PreviewContainerRole>
-                ) : null}
             </RoleContainer>
 
             {splitContent(message.content).map((segment, i) =>

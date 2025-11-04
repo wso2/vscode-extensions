@@ -19,7 +19,6 @@
 import { MessengerAPI } from "vscode-messenger-common";
 import { MIAIPanelRpcManager } from "./rpc-manager";
 import {
-    getBackendRootUrl,
     generateSuggestions,
     generateCode,
     abortCodeGeneration,
@@ -43,11 +42,6 @@ import {
 
 export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri: string) {
     const rpcManager = new MIAIPanelRpcManager(projectUri);
-
-    // ==================================
-    // General Functions
-    // ==================================
-    messenger.onRequest(getBackendRootUrl, () => rpcManager.getBackendRootUrl());
 
     // ==================================
     // AI Functions

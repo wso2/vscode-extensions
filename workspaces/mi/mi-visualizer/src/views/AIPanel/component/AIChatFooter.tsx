@@ -135,6 +135,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 // Otherwise, wait for code_diagnostic_end event
                 setTimeout(() => {
                     if (!isValidating) {
+                        // Clear old suggestions immediately before generating new ones
+                        setQuestions([]);
                         generateSuggestions(copilotChat, rpcClient, new AbortController()).then((response) => {
                             if (response && response.length > 0) {
                                 setQuestions(response);
@@ -191,6 +193,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     }
                 }
 
+                // Clear old suggestions immediately before generating new ones
+                setQuestions([]);
                 // Generate fresh suggestions after code generation completes
                 generateSuggestions(copilotChat, rpcClient, new AbortController()).then((response) => {
                     if (response && response.length > 0) {
@@ -271,9 +275,13 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 return newMessages;
             });
 
+            // Clear old suggestions immediately before generating new ones
+            setQuestions([]);
             // Generate suggestions based on chat history
             await generateSuggestions(copilotChat, rpcClient, new AbortController()).then((response) => {
-                setQuestions((prevMessages) => [...prevMessages, ...response]);
+                if (response && response.length > 0) {
+                    setQuestions(response);
+                }
             });
 
             // Explicitly adjust the textarea height after suggestion generation

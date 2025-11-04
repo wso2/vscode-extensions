@@ -18,8 +18,6 @@
 
 import {
     MIAIPanelAPI,
-    GetBackendRootUrlResponse,
-    getBackendRootUrl,
     GenerateSuggestionsRequest,
     GenerateSuggestionsResponse,
     generateSuggestions,
@@ -57,13 +55,6 @@ export class MiAiPanelRpcClient implements MIAIPanelAPI {
 
     constructor(messenger: Messenger) {
         this._messenger = messenger;
-    }
-
-    // ==================================
-    // General Functions
-    // ==================================
-    getBackendRootUrl(): Promise<GetBackendRootUrlResponse> {
-        return this._messenger.sendRequest(getBackendRootUrl, HOST_EXTENSION);
     }
 
     // ==================================

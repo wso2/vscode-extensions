@@ -60,17 +60,6 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
         this.miDiagramRpcManager = new MiDiagramRpcManager(this.projectUri);
     }
 
-    async getBackendRootUrl(): Promise<GetBackendRootUrlResponse> {
-        const MI_COPILOT_BACKEND_V2 = process.env.MI_COPILOT_BACKEND_V2 as string;
-        const MI_COPILOT_BACKEND_V3 = process.env.MI_COPILOT_BACKEND_V3 as string;
-        const RUNTIME_THRESHOLD_VERSION = RUNTIME_VERSION_440;
-        const runtimeVersion = await getMIVersionFromPom(this.projectUri);
-
-        const versionThreshold = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_THRESHOLD_VERSION) : -1;
-
-        return versionThreshold < 0 ? { url: MI_COPILOT_BACKEND_V2 } : { url: MI_COPILOT_BACKEND_V3 };
-    }
-
     /**
      * Gets a single entry point file (API, sequence, or inbound endpoint) for context
      * Priority: APIs → Sequences → Inbound Endpoints

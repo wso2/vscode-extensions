@@ -57,7 +57,6 @@ export interface MIAIPanelAPI {
     // ==================================
     // General Functions
     // ==================================
-    getBackendRootUrl: () => Promise<GetBackendRootUrlResponse>
     generateSuggestions: (request: GenerateSuggestionsRequest) => Promise<GenerateSuggestionsResponse>
     generateCode: (request: GenerateCodeRequest) => Promise<GenerateCodeResponse>
     abortCodeGeneration: () => Promise<AbortCodeGenerationResponse>
@@ -97,7 +96,6 @@ export interface MIAIPanelAPI {
 
 // Export RPC type definitions
 export {
-    getBackendRootUrl,
     generateSuggestions,
     generateCode,
     abortCodeGeneration,
