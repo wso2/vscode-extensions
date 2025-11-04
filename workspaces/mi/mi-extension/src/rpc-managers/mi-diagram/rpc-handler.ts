@@ -318,8 +318,8 @@ import {
     UpdateRegistryPropertyRequest,
     updatePropertiesInArtifactXML,
     getPropertiesFromArtifactXML,
-    formatPomFile,
-    getBackendRootUrl
+    formatPomFile
+    // getBackendRootUrl - REMOVED: Backend URLs deprecated, all AI features use local LLM
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
 import { MiDiagramRpcManager } from "./rpc-manager";

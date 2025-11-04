@@ -35,6 +35,7 @@ import * as vscode from 'vscode';
 import { jwtDecode, JwtPayload } from 'jwt-decode';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { generateText } from 'ai';
+import { logInfo, logWarn, logError } from './copilot/logger';
 
 // ==================================
 // Configuration
@@ -212,10 +213,10 @@ export const cleanupLegacyTokens = async (): Promise<void> => {
         if (legacyToken || legacyRefreshToken) {
             await extension.context.secrets.delete(LEGACY_ACCESS_TOKEN_SECRET_KEY);
             await extension.context.secrets.delete(LEGACY_REFRESH_TOKEN_SECRET_KEY);
-            console.log('Legacy tokens cleaned up successfully.');
+            logInfo('Legacy tokens cleaned up successfully.');
         }
     } catch (error) {
-        console.error('Error cleaning up legacy tokens:', error);
+        logError('Error cleaning up legacy tokens', error);
     }
 };
 
@@ -247,8 +248,8 @@ export async function exchangeAuthCode(authCode: string): Promise<void> {
     }
 
     try {
-        console.log("Exchanging auth code for tokens...");
-        
+        logInfo("Exchanging auth code for tokens...");
+
         const params = new URLSearchParams({
             client_id: AUTH_CLIENT_ID,
             code: authCode,
@@ -266,7 +267,7 @@ export async function exchangeAuthCode(authCode: string): Promise<void> {
         const accessToken = response.data.access_token;
         const refreshToken = response.data.refresh_token;
 
-        console.log("Tokens obtained successfully");
+        logInfo("Tokens obtained successfully");
 
         // Store credentials
         const credentials: AuthCredentials = {
@@ -339,8 +340,8 @@ export const validateApiKey = async (apiKey: string, loginMethod: LoginMethod): 
     }
 
     try {
-        console.log('Validating Anthropic API key...');
-        
+        logInfo('Validating Anthropic API key...');
+
         // Test the API key by making a minimal request
         const directAnthropic = createAnthropic({
             apiKey: apiKey,
@@ -354,7 +355,7 @@ export const validateApiKey = async (apiKey: string, loginMethod: LoginMethod): 
             maxRetries: 0, // Disable retries to prevent retry loops on quota errors (429)
         });
 
-        console.log('API key validated successfully');
+        logInfo('API key validated successfully');
 
         // Store credentials
         const credentials: AuthCredentials = {
@@ -368,8 +369,8 @@ export const validateApiKey = async (apiKey: string, loginMethod: LoginMethod): 
         return { token: apiKey };
 
     } catch (error) {
-        console.error('API key validation failed:', error);
-        
+        logError('API key validation failed', error);
+
         if (error instanceof Error) {
             if (error.message.includes('401') || error.message.includes('authentication')) {
                 throw new Error('Invalid API key. Please check your key and try again.');
@@ -404,12 +405,12 @@ export const logout = async (isUserLogout: boolean = true): Promise<void> => {
                     }
                 }).catch(err => {
                     // Ignore errors - we'll clear local credentials anyway
-                    console.log('Logout request to server failed (non-critical):', err);
+                    logInfo('Logout request to server failed (non-critical): ' + String(err));
                 });
             }
         } catch (error) {
             // Ignore errors during token check
-            console.log('Error during logout token check (non-critical):', error);
+            logInfo('Error during logout token check (non-critical): ' + String(error));
         }
     }
 
@@ -425,11 +426,11 @@ export const logout = async (isUserLogout: boolean = true): Promise<void> => {
  * @deprecated Use getRefreshedAccessToken() instead
  */
 export async function refreshAuthCode(): Promise<string> {
-    console.warn('refreshAuthCode() is deprecated. Use getRefreshedAccessToken() instead.');
+    logWarn('refreshAuthCode() is deprecated. Use getRefreshedAccessToken() instead.');
     try {
         return await getRefreshedAccessToken();
     } catch (error) {
-        console.error('Token refresh failed:', error);
+        logError('Token refresh failed', error);
         return "";
     }
 }

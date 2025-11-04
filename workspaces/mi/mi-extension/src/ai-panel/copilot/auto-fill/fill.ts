@@ -24,6 +24,7 @@ import { SYSTEM } from "./system";
 import { PROMPT } from "./prompt";
 import { SYNAPSE_GUIDE } from "../context/synapse_guide";
 import { SYNAPSE_EXPRESSION_GUIDE } from "../context/synapse_expression_guide";
+import { logInfo, logError } from "../logger";
 
 // Register Handlebars partials
 Handlebars.registerPartial("synapse_guide", SYNAPSE_GUIDE);
@@ -171,7 +172,7 @@ export async function autoFillForm(
             question: params.question || '', // Empty means No-Prompt Mode (auto-fill)
         });
 
-        console.log('[AutoFill] Generating AI suggestions for form...');
+        logInfo('Generating AI suggestions for form...');
 
         // Get AI model
         const model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
@@ -194,13 +195,13 @@ export async function autoFillForm(
         const originalKeys = Object.keys(params.current_values);
         const filledValues = mapResponseToOriginalKeys(aiResponse, originalKeys);
 
-        console.log('[AutoFill] Successfully generated form suggestions');
+        logInfo('Successfully generated form suggestions');
 
         return {
             filled_values: filledValues,
         };
     } catch (error) {
-        console.error('[AutoFill] Error generating form suggestions:', error);
+        logError('Error generating form suggestions', error);
         throw error;
     }
 }

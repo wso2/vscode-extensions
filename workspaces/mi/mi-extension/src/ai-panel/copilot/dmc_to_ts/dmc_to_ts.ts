@@ -21,6 +21,7 @@ import * as Handlebars from "handlebars";
 import { getAnthropicClient, ANTHROPIC_SONNET_4_5 } from "../connection";
 import { DMC_TO_TS_SYSTEM_TEMPLATE } from "./system";
 import { DMC_TO_TS_PROMPT } from "./prompt";
+import { logInfo } from "../logger";
 
 /**
  * Render a template using Handlebars
@@ -72,9 +73,9 @@ export interface DmcToTsResponse {
  * implemented based on the mappings in the DMC file.
  */
 export async function dmcToTs(params: DmcToTsParams): Promise<DmcToTsResponse> {
-    console.log('[dmcToTs] Starting DMC to TypeScript conversion');
-    console.log('[dmcToTs] DMC content length:', params.dmcContent.length);
-    console.log('[dmcToTs] TS file length:', params.tsFile.length);
+    logInfo('Starting DMC to TypeScript conversion');
+    logInfo(`DMC content length: ${params.dmcContent.length}`);
+    logInfo(`TS file length: ${params.tsFile.length}`);
 
     const systemPrompt = DMC_TO_TS_SYSTEM_TEMPLATE;
     const userPrompt = renderTemplate(DMC_TO_TS_PROMPT, {
@@ -93,7 +94,7 @@ export async function dmcToTs(params: DmcToTsParams): Promise<DmcToTsResponse> {
         maxRetries: 0,
     });
 
-    console.log('[dmcToTs] Conversion completed, response length:', text.length);
+    logInfo(`Conversion completed, response length: ${text.length}`);
 
     // Extract TypeScript code from markdown blocks
     const extractedCode = extractTypeScriptCode(text);

@@ -24,6 +24,7 @@ import { SYSTEM_TEMPLATE } from "./system";
 import { CONNECTOR_PROMPT } from "./prompt";
 import { CONNECTOR_DB } from "./connector_db";
 import { INBOUND_DB } from "./inbound_db";
+import { logInfo, logWarn, logError } from "../logger";
 
 // Type definition for selected connectors
 type SelectedConnectors = {
@@ -127,7 +128,7 @@ export async function getConnectors(
     const availableInboundEndpoints = getAvailableInboundEndpoints();
     
     if (availableConnectors.length === 0) {
-        console.warn("No connector details available - returning empty list");
+        logWarn("No connector details available - returning empty list");
         return { connectors: {}, inbound_endpoints: {} };
     }
     
@@ -164,14 +165,14 @@ export async function getConnectors(
             ? getInboundEndpointDefinitions(selectedConnectors.selected_inbound_endpoint_names)
             : {};
         
-        console.log(`Selected ${selectedConnectors.selected_connector_names.length} connectors and ${selectedConnectors.selected_inbound_endpoint_names.length} inbound endpoints`);
-        
+        logInfo(`Selected ${selectedConnectors.selected_connector_names.length} connectors and ${selectedConnectors.selected_inbound_endpoint_names.length} inbound endpoints`);
+
         return {
             connectors: connectorDefinitions,
             inbound_endpoints: inboundDefinitions,
         };
     } catch (error) {
-        console.error("Error selecting connectors:", error);
+        logError("Error selecting connectors", error);
         // Return empty if selection fails
         return { connectors: {}, inbound_endpoints: {} };
     }

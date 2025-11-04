@@ -21,6 +21,7 @@ import * as Handlebars from "handlebars";
 import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from "../connection";
 import { DATA_MAPPER_SYSTEM_TEMPLATE } from "./system";
 import { DATA_MAPPER_PROMPT } from "./prompt";
+import { logError } from "../logger";
 
 /**
  * Render a template using Handlebars
@@ -81,7 +82,7 @@ export async function mapDataMapper(
         
         return extractTypeScriptCode(text);
     } catch (error) {
-        console.error("Error mapping data:", error);
+        logError("Error mapping data", error);
         throw error;
     }
 }

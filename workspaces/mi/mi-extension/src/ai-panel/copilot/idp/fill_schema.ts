@@ -19,6 +19,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from "../connection";
+import { logInfo, logError } from "../logger";
 
 // System prompt from IdpUtills.tsx
 const SYSTEM_PROMPT =
@@ -107,9 +108,9 @@ export async function fillIdpSchema(
     params: FillIdpSchemaParams
 ): Promise<FillIdpSchemaResult> {
     try {
-        console.log('[fillIdpSchema] Starting schema filling');
-        console.log('[fillIdpSchema] Schema length:', params.jsonSchema?.length || 0);
-        console.log('[fillIdpSchema] Images count:', params.images.length);
+        logInfo('Starting schema filling');
+        logInfo(`Schema length: ${params.jsonSchema?.length || 0}`);
+        logInfo(`Images count: ${params.images.length}`);
 
         // Parse JSON schema
         const parsedSchema = JSON.parse(params.jsonSchema);
@@ -135,7 +136,7 @@ export async function fillIdpSchema(
             });
         }
 
-        console.log('[fillIdpSchema] Calling AI model with structured output...');
+        logInfo('Calling AI model with structured output...');
 
         // Call Anthropic with multimodal input and structured output
         // Type assertion to avoid TypeScript deep instantiation issues with Zod
@@ -151,14 +152,14 @@ export async function fillIdpSchema(
             temperature: 0.2, // Low temperature for deterministic extraction
         });
 
-        console.log('[fillIdpSchema] Schema filling completed successfully');
+        logInfo('Schema filling completed successfully');
 
         // Return the structured object as JSON string
         return {
             filledData: JSON.stringify(result.object, null, 2)
         };
     } catch (error) {
-        console.error('[fillIdpSchema] Error filling schema:', error);
+        logError('Error filling schema', error);
         throw error;
     }
 }

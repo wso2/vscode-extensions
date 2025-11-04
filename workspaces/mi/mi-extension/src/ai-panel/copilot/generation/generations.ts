@@ -30,6 +30,7 @@ import { SYNAPSE_EXPRESSION_EXAMPLES } from "../context/synapse_expression_examp
 import { AI_MODULE_GUIDE } from "../context/ai_module";
 import { getMIVersionFromPom, compareVersions } from "../../../util/onboardingUtils";
 import { RUNTIME_VERSION_440 } from "../../../constants";
+import { logInfo } from "../logger";
 
 // Register Handlebars helpers
 Handlebars.registerHelper("upper", (str: string) => {
@@ -98,7 +99,7 @@ export async function generateSynapse(
     const selectedSystemTemplate = useV2Prompts ? SYSTEM_TEMPLATE : SYSTEM_TEMPLATE_V1;
     const selectedPromptTemplate = useV2Prompts ? PROMPT_TEMPLATE : PROMPT_TEMPLATE_V1;
 
-    console.log(`[generateSynapse] Runtime version: ${runtimeVersion}, Using ${useV2Prompts ? 'v2' : 'v1'} prompts`);
+    logInfo(`Runtime version: ${runtimeVersion}, Using ${useV2Prompts ? 'v2' : 'v1'} prompts`);
 
     // Render system prompt with partials
     const systemPrompt = renderTemplate(selectedSystemTemplate, {});
@@ -141,7 +142,7 @@ export async function generateSynapse(
         maxRetries: 0, // Disable retries to prevent retry loops on quota errors (429)
         abortSignal: params.abortController?.signal,
         onAbort: () => {
-            console.log('Code generation aborted by user');
+            logInfo('Code generation aborted by user');
         },
     });
 

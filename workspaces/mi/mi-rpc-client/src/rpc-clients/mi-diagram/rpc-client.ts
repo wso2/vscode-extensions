@@ -88,7 +88,6 @@ import {
     GetAvailableConnectorResponse,
     GetAvailableResourcesRequest,
     GetAvailableResourcesResponse,
-    GetBackendRootUrlResponse,
     GetProxyRootUrlResponse,
     GetConnectionFormRequest,
     GetConnectionFormResponse,
@@ -255,7 +254,6 @@ import {
     getAvailableConnectors,
     getAvailableRegistryResources,
     getAvailableResources,
-    getBackendRootUrl,
     getProxyRootUrl,
     getConnectionForm,
     getConnector,
@@ -813,10 +811,6 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     getSelectiveArtifacts(params: GetSelectiveArtifactsRequest): Promise<GetSelectiveArtifactsResponse> {
         return this._messenger.sendRequest(getSelectiveArtifacts, HOST_EXTENSION, params);
-    }
-
-    getBackendRootUrl(): Promise<GetBackendRootUrlResponse> {
-        return this._messenger.sendRequest(getBackendRootUrl, HOST_EXTENSION);
     }
 
     getProxyRootUrl(): Promise<GetProxyRootUrlResponse> {

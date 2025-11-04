@@ -21,6 +21,7 @@ import * as Handlebars from "handlebars";
 import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from "../connection";
 import { SYSTEM_IDP } from "./system";
 import { IDP_PROMPT } from "./prompt";
+import { logError } from "../logger";
 
 /**
  * Register Handlebars helper for equality check
@@ -154,7 +155,7 @@ export async function processIdp(params: IdpParams): Promise<IdpResponse> {
             schema: extractedJSON
         };
     } catch (error) {
-        console.error("Error processing IDP:", error);
+        logError("Error processing IDP", error);
         throw error;
     }
 }

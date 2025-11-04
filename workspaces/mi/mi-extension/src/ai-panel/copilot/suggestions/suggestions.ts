@@ -21,6 +21,7 @@ import * as Handlebars from "handlebars";
 import { getAnthropicClient, ANTHROPIC_HAIKU_4_5, getProviderCacheControl } from "../connection";
 import { SYSTEM_TEMPLATE } from "./system";
 import { PROMPT_TEMPLATE } from "./prompt";
+import { logError } from "../logger";
 
 /**
  * Render a template using Handlebars
@@ -93,7 +94,7 @@ export async function generateSuggestions(
         });
         return text;
     } catch (error) {
-        console.error("Error generating suggestions:", error);
+        logError("Error generating suggestions", error);
         return "";
     }
 }

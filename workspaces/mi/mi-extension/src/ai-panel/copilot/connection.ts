@@ -19,6 +19,7 @@ import * as vscode from "vscode";
 import { getAccessToken, getLoginMethod, getRefreshedAccessToken } from "../auth";
 import { StateMachineAI, openAIWebview } from "../aiMachine";
 import { AI_EVENT_TYPE, LoginMethod } from "@wso2/mi-core";
+import { logInfo, logDebug } from "./logger";
 
 export const ANTHROPIC_HAIKU_4_5 = "claude-haiku-4-5-20251001";
 export const ANTHROPIC_SONNET_4_5 = "claude-sonnet-4-5-20250929";
@@ -59,7 +60,7 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
 
         // Handle rate limit/quota errors (429)
         if (response.status === 429) {
-            console.log("Rate limit/quota exceeded (429)");
+            logInfo("Rate limit/quota exceeded (429)");
             let errorDetail = "";
             try {
                 const body = await response.json();
@@ -94,7 +95,7 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
 
         // Handle token expiration
         if (response.status === 401) {
-            console.log("Token expired. Refreshing token...");
+            logInfo("Token expired. Refreshing token...");
             const newToken = await getRefreshedAccessToken();
             if (newToken) {
                 options.headers = {
@@ -147,7 +148,7 @@ export const getAnthropicClient = async (model: AnthropicModel): Promise<any> =>
 
         cachedAuthMethod = loginMethod;
     } else {
-        console.log('[getAnthropicClient] Using cached Anthropic client');
+        logDebug('Using cached Anthropic client');
     }
 
     return cachedAnthropic!(model);

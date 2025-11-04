@@ -18,7 +18,6 @@
 
 import {
     GenerateSuggestionsRequest, GenerateSuggestionsResponse,
-    GetBackendRootUrlResponse,
     GenerateCodeRequest, GenerateCodeResponse,
     AbortCodeGenerationResponse,
     GenerateUnitTestRequest, GenerateUnitTestResponse,

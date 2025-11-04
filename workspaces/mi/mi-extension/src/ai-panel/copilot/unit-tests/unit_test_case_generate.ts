@@ -23,6 +23,7 @@ import { SYSTEM_CASE_GENERATE } from "./system_case_generate";
 import { PROMPT_CASE_GENERATE } from "./prompt_case_generate";
 import { UNIT_TEST_GUIDE } from "./unit_test_guide";
 import { UNIT_TEST_EXAMPLES } from "./unit_test_examples";
+import { logError } from "../logger";
 
 // Register Handlebars partials for unit test case generation
 Handlebars.registerPartial("unit_test_guide", UNIT_TEST_GUIDE);
@@ -113,7 +114,7 @@ export async function generateUnitTestCase(
             response: text
         };
     } catch (error) {
-        console.error("Error generating unit test case:", error);
+        logError("Error generating unit test case", error);
         throw error;
     }
 }

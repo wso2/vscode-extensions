@@ -23,6 +23,7 @@ import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from "../connection";
 import { DIAGNOSTICS_SYSTEM_TEMPLATE } from "./system";
 import { DIAGNOSTICS_PROMPT } from "./prompt";
 import { SYNAPSE_GUIDE } from "../context/synapse_guide";
+import { logInfo, logError } from "../logger";
 
 // Register Handlebars partial for synapse guide
 Handlebars.registerPartial("synapse_guide", SYNAPSE_GUIDE);
@@ -147,13 +148,13 @@ export async function codeDiagnostics(
             }
         }
         
-        console.log(`Fixed ${fixedConfigs.length} Synapse configurations`);
-        
+        logInfo(`Fixed ${fixedConfigs.length} Synapse configurations`);
+
         return {
             fixed_config: fixedConfigs,
         };
     } catch (error) {
-        console.error("Error fixing Synapse configurations:", error);
+        logError("Error fixing Synapse configurations", error);
         throw error;
     }
 }

@@ -23,6 +23,7 @@ import { SYSTEM_SUITE_GENERATE } from "./system_suite_generate";
 import { PROMPT_SUITE_GENERATE } from "./prompt_suite_generate";
 import { UNIT_TEST_GUIDE } from "./unit_test_guide";
 import { UNIT_TEST_EXAMPLES } from "./unit_test_examples";
+import { logError } from "../logger";
 
 // Register Handlebars partials for unit test generation
 Handlebars.registerPartial("unit_test_guide", UNIT_TEST_GUIDE);
@@ -101,7 +102,7 @@ export async function generateUnitTest(
             response: text
         };
     } catch (error) {
-        console.error("Error generating unit test:", error);
+        logError("Error generating unit test", error);
         throw error;
     }
 }
