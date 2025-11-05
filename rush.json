@@ -245,13 +245,14 @@
     * The list of shell commands to run after the Rush build command finishes
     */
     "postRushBuild": [
-      "cd workspaces/ballerina/ballerina-extension && pnpm run copyVSIXToRoot", 
-      "cd workspaces/wso2-platform/wso2-platform-extension && pnpm run copyVSIXToRoot", 
-      "cd workspaces/choreo/choreo-extension && pnpm run copyVSIXToRoot", 
+      "cd workspaces/ballerina/ballerina-extension && pnpm run copyVSIXToRoot",
+      "cd workspaces/wso2-platform/wso2-platform-extension && pnpm run copyVSIXToRoot",
+      "cd workspaces/choreo/choreo-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/mi/mi-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/bi/bi-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/apk/apk-extension && pnpm run copyVSIXToRoot",
-      "cd workspaces/api-designer/api-designer-extension && pnpm run copyVSIXToRoot"
+      "cd workspaces/api-designer/api-designer-extension && pnpm run copyVSIXToRoot",
+      "cd workspaces/mcp-inspector/mcp-inspector-extension && pnpm run copyVSIXToRoot"
     ]
   },
   /**
@@ -607,6 +608,10 @@
       "packageName": "api-designer",
       "projectFolder": "workspaces/api-designer/api-designer-extension",
       "versionPolicyName": "api-designer-extension"
+    },
+    {
+      "packageName": "mcp-server-inspector",
+      "projectFolder": "workspaces/mcp-inspector/mcp-inspector-extension"
     }
   ]
 }
