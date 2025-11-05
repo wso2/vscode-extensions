@@ -615,7 +615,7 @@
       "versionPolicyName": "api-designer-extension"
     },
     {
-      "packageName": "mcp-inspector",
+      "packageName": "mcp-server-inspector",
       "projectFolder": "workspaces/mcp-inspector/mcp-inspector-extension"
     }
   ]
