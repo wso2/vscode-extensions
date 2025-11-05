@@ -1,8 +1,8 @@
 {
-  "name": "mcp-inspector",
+  "name": "mcp-server-inspector",
   "displayName": "MCP Inspector (Beta)",
   "description": "VSCode extension for inspecting and debugging Model Context Protocol (MCP) connections",
-  "version": "0.17.2",
+  "version": "0.7.1",
   "private": true,
   "publisher": "wso2",
   "author": {
