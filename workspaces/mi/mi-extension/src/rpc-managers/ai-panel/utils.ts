@@ -183,28 +183,22 @@ export async function fetchCodeGenerationsWithRetry(
     const context = await getWorkspaceContext(projectUri, selective);
     const miDiagramRpcManager = new MiDiagramRpcManager(projectUri);
     const defaultPayloads = await miDiagramRpcManager.getAllInputDefaultPayloads();
-    
+
     // Extract the user's question from chat history (last user message)
     // Check for Role.CopilotUser enum or fallback to 'user' string for backward compatibility
     const lastUserMessage = [...chatHistory].reverse().find(entry =>
         entry.role === Role.CopilotUser || entry.role === 'user'
     );
     const userQuestion = lastUserMessage?.content || '';
-    
-    // Get currently editing file content if available
+
+    // Get currently editing file content if available (first file only)
     const currentFile = files.length > 0 ? files[0]?.content : undefined;
-    
-    // Prepare file contents from attached files
-    const fileContents = files.map((file: any) => 
-        `File: ${file.name}\n${file.content}`
-    );
 
     // Get relevant connectors and inbound endpoints for the user's query
-    console.log("Fetching relevant connectors for query:", userQuestion);
     const { connectors: selectedConnectors, inbound_endpoints: selectedInboundEndpoints } = await getConnectors({
         question: userQuestion,
-        files: fileContents.length > 0 ? fileContents : undefined,
-        images: images.length > 0 ? true : undefined,
+        files: files.length > 0 ? files : undefined,
+        images: images.length > 0 ? images : undefined,
     });
 
     // Convert chat history to the format expected by generateSynapse
@@ -228,8 +222,8 @@ export async function fetchCodeGenerationsWithRetry(
         payloads: defaultPayloads ? JSON.stringify(defaultPayloads, null, 2) : undefined,
         connectors: selectedConnectors,
         inbound_endpoints: selectedInboundEndpoints,
-        files: fileContents.length > 0 ? fileContents : undefined,
-        images: images.length > 0 ? true : undefined,
+        files: files.length > 0 ? files : undefined,
+        images: images.length > 0 ? images : undefined,
         thinking_enabled: thinking || false,
         chatHistory: historyMessages.length > 0 ? historyMessages : undefined,
         abortController: controller, // Pass abort controller to handle cancellation

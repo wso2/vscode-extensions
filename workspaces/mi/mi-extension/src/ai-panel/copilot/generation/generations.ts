@@ -19,6 +19,7 @@
 import { streamText } from "ai";
 import { AnthropicProviderOptions } from "@ai-sdk/anthropic";
 import * as Handlebars from "handlebars";
+import { FileObject, ImageObject } from "@wso2/mi-core";
 import { getAnthropicClient, ANTHROPIC_SONNET_4_5, getProviderCacheControl } from "../connection";
 import { SYSTEM_TEMPLATE } from "./system_v2";
 import { PROMPT_TEMPLATE } from "./prompt_v2";
@@ -32,6 +33,7 @@ import { AI_MODULE_GUIDE } from "../context/ai_module";
 import { getMIVersionFromPom, compareVersions } from "../../../util/onboardingUtils";
 import { RUNTIME_VERSION_440 } from "../../../constants";
 import { logInfo } from "../logger";
+import { buildMessageContent } from "../message-utils";
 
 // Register Handlebars helpers
 Handlebars.registerHelper("upper", (str: string) => {
@@ -85,10 +87,10 @@ export interface GenerateSynapseParams {
     connectors?: Record<string, string>;
     /** Available inbound endpoints with their JSON signatures (optional) */
     inbound_endpoints?: Record<string, string>;
-    /** Additional files attached by the user (optional) */
-    files?: string[];
-    /** Whether images are attached (optional) */
-    images?: boolean;
+    /** Additional files attached by the user (optional) - FileObject array */
+    files?: FileObject[];
+    /** Images attached by the user (optional) - ImageObject array */
+    images?: ImageObject[];
     /** Enable thinking mode for complex queries (optional) */
     thinking_enabled?: boolean;
     /** Chat history - last 3 conversations (sliding window) (optional) */
@@ -125,19 +127,13 @@ export async function generateSynapse(
         payloads: params.payloads,
         connectors: params.connectors,
         inbound_endpoints: params.inbound_endpoints,
-        files: params.files,
-        images: params.images,
         thinking_enabled: params.thinking_enabled || false,
     });
 
     const cacheOptions = await getProviderCacheControl();
 
     // Build messages array with chat history
-    const messages: Array<{
-        role: "system" | "user" | "assistant";
-        content: string;
-        providerOptions?: any;
-    }> = [
+    const messages: any[] = [
         {
             role: "system" as const,
             content: systemPrompt,
@@ -158,11 +154,27 @@ export async function generateSynapse(
         }
     }
 
-    // Add current user question
-    messages.push({
-        role: "user" as const,
-        content: userPrompt
-    });
+    // Build message content with files and images if present
+    const hasFiles = params.files && params.files.length > 0;
+    const hasImages = params.images && params.images.length > 0;
+
+    if (hasFiles || hasImages) {
+        logInfo(`Including ${params.files?.length || 0} files and ${params.images?.length || 0} images in the message`);
+
+        // Use buildMessageContent to create content array with files, PDFs, and images
+        const messageContent = buildMessageContent(userPrompt, params.files, params.images);
+
+        messages.push({
+            role: "user" as const,
+            content: messageContent
+        });
+    } else {
+        // No attachments, use simple text content
+        messages.push({
+            role: "user" as const,
+            content: userPrompt
+        });
+    }
 
     const model = await getAnthropicClient(ANTHROPIC_SONNET_4_5);
 

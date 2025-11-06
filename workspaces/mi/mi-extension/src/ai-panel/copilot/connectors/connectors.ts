@@ -19,12 +19,14 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import * as Handlebars from "handlebars";
+import { FileObject, ImageObject } from "@wso2/mi-core";
 import { getAnthropicClient, ANTHROPIC_HAIKU_4_5, getProviderCacheControl } from "../connection";
 import { SYSTEM_TEMPLATE } from "./system";
 import { CONNECTOR_PROMPT } from "./prompt";
 import { CONNECTOR_DB } from "./connector_db";
 import { INBOUND_DB } from "./inbound_db";
 import { logInfo, logWarn, logError } from "../logger";
+import { buildMessageContent } from "../message-utils";
 
 // Type definition for selected connectors
 type SelectedConnectors = {
@@ -100,10 +102,10 @@ function getInboundEndpointDefinitions(inboundNames: string[]): Record<string, s
 export interface GetConnectorsParams {
     /** The user's question or request */
     question: string;
-    /** Additional files for context (optional) */
-    files?: string[];
-    /** Whether images are attached (optional) */
-    images?: boolean;
+    /** Additional files for context (optional) - FileObject array */
+    files?: FileObject[];
+    /** Images for context (optional) - ImageObject array */
+    images?: ImageObject[];
 }
 
 /**
@@ -142,12 +144,21 @@ export async function getConnectors(
     const model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
     const cacheOptions = await getProviderCacheControl();
 
+    // Check if files or images are present
+    const hasFiles = params.files && params.files.length > 0;
+    const hasImages = params.images && params.images.length > 0;
+
+    // Build user message content with files and images if present
+    let userMessageContent: string | any[];
+    if (hasFiles || hasImages) {
+        logInfo(`Including ${params.files?.length || 0} files and ${params.images?.length || 0} images in connector selection`);
+        userMessageContent = buildMessageContent(prompt, params.files, params.images);
+    } else {
+        userMessageContent = prompt;
+    }
+
     // Build messages array with cache control on system message
-    const messages: Array<{
-        role: "system" | "user";
-        content: string;
-        providerOptions?: any;
-    }> = [
+    const messages: any[] = [
         {
             role: "system" as const,
             content: SYSTEM_TEMPLATE,
@@ -155,7 +166,7 @@ export async function getConnectors(
         },
         {
             role: "user" as const,
-            content: prompt,
+            content: userMessageContent,
         }
     ];
 
