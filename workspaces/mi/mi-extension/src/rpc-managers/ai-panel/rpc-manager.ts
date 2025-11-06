@@ -49,6 +49,7 @@ import { fillIdpSchema } from '../../ai-panel/copilot/idp/fill_schema';
 import { codeDiagnostics } from "../../ai-panel/copilot/diagnostics/diagnostics";
 import { getLoginMethod } from '../../ai-panel/auth';
 import { LoginMethod } from '@wso2/mi-core';
+import { logInfo, logWarn, logError, logDebug } from '../../ai-panel/copilot/logger';
 
 export class MIAIPanelRpcManager implements MIAIPanelAPI {
     private eventHandler: CopilotEventHandler;
@@ -81,12 +82,12 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             if (files.length > 0) {
                 const firstFile = require('path').join(folderPath, files[0]);
                 const content = fs.readFileSync(firstFile, 'utf-8');
-                console.log(`[generateSuggestions] Using entry point: ${folder}/${files[0]}`);
+                logDebug(`[generateSuggestions] Using entry point: ${folder}/${files[0]}`);
                 return [content];
             }
         }
 
-        console.log('[generateSuggestions] No entry points found, using empty context');
+        logDebug('[generateSuggestions] No entry points found, using empty context');
         return [];
     }
 
@@ -101,10 +102,10 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
         if (currentFile && fs.existsSync(currentFile) && currentFile.toLowerCase().endsWith('.xml')) {
             try {
                 const content = fs.readFileSync(currentFile, 'utf-8');
-                console.log(`[generateSuggestions] Using currently editing file: ${currentFile}`);
+                logDebug(`[generateSuggestions] Using currently editing file: ${currentFile}`);
                 return content;
             } catch (error) {
-                console.warn(`[generateSuggestions] Could not read current file: ${currentFile}`, error);
+                logWarn(`[generateSuggestions] Could not read current file: ${currentFile}`);
             }
         }
         return null;
@@ -119,7 +120,7 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             // Decision tree for context selection:
             if (chatHistory.length === 0) {
                 // Case 1: Empty chat - Use currently editing file OR entry point
-                console.log('[generateSuggestions] Empty chat history');
+                logDebug('[generateSuggestions] Empty chat history');
                 const currentFile = await this.getCurrentlyEditingFile();
                 if (currentFile) {
                     context = [currentFile];
@@ -128,11 +129,11 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 }
             } else if (lastMessage?.role === 'assistant') {
                 // Case 2: Last message from AI (user hasn't interrupted) - Use chat history only
-                console.log('[generateSuggestions] Following AI response, using chat history only');
+                logDebug('[generateSuggestions] Following AI response, using chat history only');
                 context = []; // Chat history contains enough context
             } else {
                 // Case 3: Last message from user (user interrupted/new topic) - Use currently editing file OR entry point
-                console.log('[generateSuggestions] User interrupted or new topic');
+                logDebug('[generateSuggestions] User interrupted or new topic');
                 const currentFile = await this.getCurrentlyEditingFile();
                 if (currentFile) {
                     context = [currentFile];
@@ -141,7 +142,7 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 }
             }
 
-            console.log(`[generateSuggestions] Context size: ${context.length} files, Chat history: ${chatHistory.length} messages`);
+            logDebug(`[generateSuggestions] Context size: ${context.length} files, Chat history: ${chatHistory.length} messages`);
 
             // Use the new LLM-based suggestion generation
             const suggestionText = await generateSuggestionsFromLLM(
@@ -155,7 +156,7 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 images: []
             };
         } catch (error) {
-            console.error('Error generating suggestions:', error);
+            logError('Error generating suggestions', error);
             throw new Error(`Failed to generate suggestions: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
@@ -178,7 +179,7 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 headers: { 'Content-Type': 'application/json' }
             });
         } catch (error) {
-            console.error('Error analyzing diagnostics:', error);
+            logError('Error analyzing diagnostics', error);
             throw new Error(`Failed to analyze diagnostics: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
@@ -203,7 +204,7 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             await refreshUserAccessToken();
             return true;
         } catch (error) {
-            console.error('Error refreshing authentication:', error);
+            logError('Error refreshing authentication', error);
             return false;
         }
     }
@@ -216,7 +217,7 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             await this.generateCodeCore(request);
             return { success: true };
         } catch (error) {
-            console.error('Error during code generation:', error);
+            logError('Error during code generation', error);
             this.eventHandler.handleError(error instanceof Error ? error.message : "Unknown error occurred during code generation");
             throw new Error(`Failed to generate code: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
@@ -228,17 +229,17 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
     async abortCodeGeneration(): Promise<AbortCodeGenerationResponse> {
         try {
             if (this.currentController) {
-                console.log('Aborting code generation...');
+                logInfo('Aborting code generation...');
                 this.currentController.abort();
                 // Send explicit abort acknowledgment to UI
                 this.eventHandler.handleAborted();
                 this.currentController = null;
                 return { success: true };
             }
-            console.log('No active code generation to abort');
+            logDebug('No active code generation to abort');
             return { success: false };
         } catch (error) {
-            console.error('Error aborting code generation:', error);
+            logError('Error aborting code generation', error);
             return { success: false };
         }
     }
@@ -280,7 +281,7 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                     while (true) {
                         // Check if abort was requested
                         if (this.currentController?.signal.aborted) {
-                            console.log('Code generation aborted by user');
+                            logInfo('Code generation aborted by user');
                             reader.cancel();
                             break;
                         }
@@ -294,7 +295,7 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                         assistantResponse += textChunk;
                     }
                 } catch (error) {
-                    console.error("Error reading code generation stream:", error);
+                    logError("Error reading code generation stream", error);
                 }
 
                 // Determine if diagnostics will run before sending the end event
@@ -323,10 +324,10 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
         } catch (error) {
             // Check if error is due to abort
             if (error instanceof Error && error.name === 'AbortError') {
-                console.log('Code generation aborted');
+                logInfo('Code generation aborted');
                 this.eventHandler.handleStop("generateCode");
             } else {
-                console.error("Error during code generation:", error);
+                logError("Error during code generation", error);
                 this.eventHandler.handleError(error instanceof Error ? error.message : "Unknown error occurred");
                 throw error;
             }
@@ -434,7 +435,7 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 this.eventHandler.handleCodeDiagnosticEnd();
             }
         } catch (error) {
-            console.error('Error during code diagnostics:', error);
+            logError('Error during code diagnostics', error);
             // End diagnostics on error
             this.eventHandler.handleCodeDiagnosticEnd();
         }
@@ -495,7 +496,7 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
 
             const backendUrl = process.env.MI_COPILOT_ANTHROPIC_PROXY_URL;
             if (!backendUrl) {
-                console.warn('MI_COPILOT_ANTHROPIC_PROXY_URL is not configured; skipping usage fetch.');
+                logWarn('MI_COPILOT_ANTHROPIC_PROXY_URL is not configured; skipping usage fetch.');
                 return undefined;
             }
 
@@ -514,20 +515,20 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
 
                 // Check if quota is exceeded and transition to UsageExceeded state
                 if (usage.remaining_tokens <= 0 && currentState === 'Authenticated') {
-                    console.log('Quota exceeded. Transitioning to UsageExceeded state.');
+                    logInfo('Quota exceeded. Transitioning to UsageExceeded state.');
                     StateMachineAI.sendEvent(AI_EVENT_TYPE.USAGE_EXCEEDED);
                 }
 
                 // Check if we're in UsageExceeded state and if usage has reset
                 if (currentState === 'UsageExceeded' && usage.remaining_tokens > 0) {
-                    console.log('Usage has reset. Transitioning back to Authenticated state.');
+                    logInfo('Usage has reset. Transitioning back to Authenticated state.');
                     StateMachineAI.sendEvent(AI_EVENT_TYPE.USAGE_RESET);
                 }
 
                 return usage;
             }
         } catch (error) {
-            console.error('Failed to fetch usage:', error);
+            logError('Failed to fetch usage', error);
         }
 
         return undefined;
@@ -550,7 +551,7 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
 
             return result;
         } catch (error) {
-            console.error('Error generating unit test:', error);
+            logError('Error generating unit test', error);
             throw new Error(`Failed to generate unit test: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
@@ -576,7 +577,7 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
 
             return result;
         } catch (error) {
-            console.error('Error generating unit test case:', error);
+            logError('Error generating unit test case', error);
             throw new Error(`Failed to generate unit test case: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
@@ -606,18 +607,18 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
      */
     async fillIdpSchema(request: FillIdpSchemaRequest): Promise<FillIdpSchemaResponse> {
         try {
-            console.log('[fillIdpSchema] Starting schema filling');
-            console.log('[fillIdpSchema] Images count:', request.images?.length || 0);
+            logDebug('[fillIdpSchema] Starting schema filling');
+            logDebug(`[fillIdpSchema] Images count: ${request.images?.length || 0}`);
 
             const result = await fillIdpSchema({
                 jsonSchema: request.jsonSchema,
                 images: request.images
             });
 
-            console.log('[fillIdpSchema] Schema filling completed successfully');
+            logDebug('[fillIdpSchema] Schema filling completed successfully');
             return result;
         } catch (error) {
-            console.error('[fillIdpSchema] Error filling schema:', error);
+            logError('[fillIdpSchema] Error filling schema', error);
             throw new Error(`Failed to fill IDP schema: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
@@ -627,9 +628,9 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
      */
     async dmcToTs(request: DmcToTsRequest): Promise<DmcToTsResponse> {
         try {
-            console.log('[dmcToTs] Starting DMC to TypeScript conversion');
-            console.log('[dmcToTs] DMC content length:', request.dmcContent?.length || 0);
-            console.log('[dmcToTs] TS file length:', request.tsFile?.length || 0);
+            logDebug('[dmcToTs] Starting DMC to TypeScript conversion');
+            logDebug(`[dmcToTs] DMC content length: ${request.dmcContent?.length || 0}`);
+            logDebug(`[dmcToTs] TS file length: ${request.tsFile?.length || 0}`);
 
             const { dmcToTs } = await import('../../ai-panel/copilot/dmc_to_ts/dmc_to_ts');
 
@@ -638,10 +639,10 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 tsFile: request.tsFile
             });
 
-            console.log('[dmcToTs] Conversion completed successfully');
+            logDebug('[dmcToTs] Conversion completed successfully');
             return result;
         } catch (error) {
-            console.error('[dmcToTs] Error converting DMC to TS:', error);
+            logError('[dmcToTs] Error converting DMC to TS', error);
             throw new Error(`Failed to convert DMC to TypeScript: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
@@ -651,9 +652,9 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
      */
     async autoFillForm(request: AutoFillFormRequest): Promise<AutoFillFormResponse> {
         try {
-            console.log('[autoFillForm] Starting form auto-fill');
-            console.log('[autoFillForm] Form fields count:', Object.keys(request.current_values || {}).length);
-            console.log('[autoFillForm] Has user question:', !!request.question);
+            logDebug('[autoFillForm] Starting form auto-fill');
+            logDebug(`[autoFillForm] Form fields count: ${Object.keys(request.current_values || {}).length}`);
+            logDebug(`[autoFillForm] Has user question: ${!!request.question}`);
 
             const { autoFillForm } = await import('../../ai-panel/copilot/auto-fill/fill');
 
@@ -671,10 +672,10 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 question: request.question
             });
 
-            console.log('[autoFillForm] Form auto-fill completed successfully');
+            logDebug('[autoFillForm] Form auto-fill completed successfully');
             return result;
         } catch (error) {
-            console.error('[autoFillForm] Error auto-filling form:', error);
+            logError('[autoFillForm] Error auto-filling form', error);
             throw new Error(`Failed to auto-fill form: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }

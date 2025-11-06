@@ -186,7 +186,7 @@ function remapKeysReverse(value: any): any {
                 const nextKey =
                     key === "config_key" ? "configKey" :
                     key === "is_expression" ? "isExpression" :
-                    key === "insertText" ? "insert_text" :
+                    key === "insert_text" ? "insertText" :
                     key;
                 return [nextKey, remapKeysReverse(val)];
             })
