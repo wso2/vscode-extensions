@@ -142,6 +142,9 @@ export const getAnthropicClient = async (model: AnthropicModel): Promise<any> =>
             });
         } else if (loginMethod === LoginMethod.ANTHROPIC_KEY) {
             const apiKey = await getAccessToken();
+            if (!apiKey) {
+                throw new Error("Authentication failed: Unable to get API key");
+            }
             cachedAnthropic = createAnthropic({
                 baseURL: "https://api.anthropic.com/v1",
                 apiKey: apiKey,
