@@ -1,8 +1,8 @@
 {
-  "name": "mcp-inspector",
-  "displayName": "MCP Inspector",
+  "name": "mcp-server-inspector",
+  "displayName": "MCP Inspector (Beta)",
   "description": "VSCode extension for inspecting and debugging Model Context Protocol (MCP) connections",
-  "version": "0.0.1",
+  "version": "0.7.1",
   "private": true,
   "publisher": "wso2",
   "author": {
@@ -12,10 +12,10 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/wso2/mcp-inspector-extension"
+    "url": "https://github.com/wso2/vscode-extensions/tree/main/workspaces/mcp-inspector/mcp-inspector-extension"
   },
   "bugs": {
-    "url": "https://github.com/wso2/mcp-inspector-extension/issues"
+    "url": "https://github.com/wso2/vscode-extensions/issues"
   },
   "keywords": [
     "mcp",
@@ -60,7 +60,7 @@
     "lint": "eslint src",
     "test": "node ./out/test/runTest.js",
     "build": "pnpm run compile && pnpm run lint && pnpm run postbuild",
-    "package": "vsce package --no-dependencies",
+    "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release; else vsce package --no-dependencies; fi",
     "rebuild": "pnpm run clean && pnpm run compile && pnpm run postbuild",
     "postbuild": "pnpm run package && pnpm run copyVSIX",
     "copyVSIX": "copyfiles *.vsix ./vsix",
@@ -82,7 +82,7 @@
     "copy-webpack-plugin": "^13.0.0",
     "ts-loader": "^9.5.2",
     "webpack": "^5.99.8",
-    "webpack-cli": "^6.0.1"
+    "webpack-cli": "^5.1.4"
   },
   "dependencies": {
     "@modelcontextprotocol/inspector": "^0.17.2"

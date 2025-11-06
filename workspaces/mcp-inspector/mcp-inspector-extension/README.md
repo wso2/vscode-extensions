@@ -2,8 +2,6 @@
 
 Inspect, debug, and monitor [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) connections directly within Visual Studio Code.
 
-![MCP Inspector](https://raw.githubusercontent.com/wso2/mcp-inspector-extension/main/resources/screenshot.png)
-
 ## Features
 
 ### 🔍 Real-time Connection Monitoring
@@ -56,9 +54,20 @@ Enjoy a carefully crafted dark theme optimized for long debugging sessions.
 
 This extension integrates the official [MCP Inspector](https://github.com/modelcontextprotocol/inspector) into VSCode, providing a seamless debugging experience for Model Context Protocol implementations.
 
+### Third-Party Software
+
+This extension includes the following third-party software:
+
+- **[@modelcontextprotocol/inspector](https://github.com/modelcontextprotocol/inspector)** - MIT License  
+  Visual testing tool for MCP servers
+
 ## License
 
-Apache License 2.0 - see [LICENSE](https://github.com/wso2/mcp-inspector-extension/blob/main/LICENSE.txt) for details.
+**MCP Inspector for VSCode**: Apache License 2.0
+
+This extension is licensed under the Apache License 2.0. See [LICENSE](https://github.com/wso2/mcp-inspector-extension/blob/main/LICENSE.txt) for full details.
+
+The wrapped `@modelcontextprotocol/inspector` package is licensed under the MIT License, which is compatible with Apache 2.0.
 
 By using this extension, you agree to the [WSO2 Privacy Policy](https://wso2.com/privacy-policy).
 
