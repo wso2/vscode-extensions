@@ -51,7 +51,7 @@ Analyze the diagnostics information, identify the root causes, and correct the S
 
 Analyze the issues carefully and provide the complete fixed configuration for ALL files.
 
-Your response should be a BugFixResponse object with a label field containing a list of SynapseConfiguration objects, one for each file, with each object containing:
+Your response should be a BugFixResponse object with a fixed_config field containing a list of SynapseConfiguration objects, one for each file, with each object containing:
 - name: The file name
 - configuration: The complete corrected XML configuration
 - id: The ID of the configuration (if provided)

@@ -967,7 +967,7 @@
     "postbuild": "pnpm run copyVSIX"
   },
   "devDependencies": {
-    "@playwright/test": "~1.52.0",
+    "@playwright/test": "~1.55.1",
     "@types/mocha": "^10.0.1",
     "@types/node": "22.15.21",
     "@types/vscode": "^1.100.0",
@@ -983,7 +983,7 @@
     "eslint": "^9.27.0",
     "glob": "^11.0.2",
     "mocha": "^11.4.0",
-    "playwright-core": "~1.52.0",
+    "playwright-core": "~1.55.1",
     "rimraf": "~6.0.1",
     "ts-loader": "^9.5.2",
     "ts-morph": "^26.0.0",
@@ -1025,6 +1025,7 @@
     "json-schema": "0.4.0",
     "json-schema-to-ts": "3.1.1",
     "jsonix": "~3.0.0",
+    "jwt-decode": "^4.0.0",
     "lodash": "~4.17.21",
     "mustache": "~4.2.0",
     "node-fetch": "~3.3.2",
