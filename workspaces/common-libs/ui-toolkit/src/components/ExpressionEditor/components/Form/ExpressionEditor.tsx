@@ -43,6 +43,7 @@ import { Codicon } from '../../../Codicon/Codicon';
 import { ProgressIndicator } from '../../../ProgressIndicator/ProgressIndicator';
 import { AutoResizeTextArea } from '../../../TextArea/TextArea';
 
+
 /* Styled components */
 const Container = styled.div`
     width: 100%;
@@ -392,7 +393,7 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
 
 
     const isReservedKeyCombinationPressed = (e: React.KeyboardEvent) => {
-        return ( (e.ctrlKey || e.metaKey) ||
+        return ((e.ctrlKey || e.metaKey) ||
             ifCTRLandDown(e) ||
             ifCTRLandUP(e) ||
             ifCTRLandENTER(e)

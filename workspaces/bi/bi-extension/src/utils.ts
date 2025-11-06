@@ -40,12 +40,12 @@ export function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) 
  * Fetches project information for the current workspace.
  * Analyzes the workspace to determine if it's a Ballerina Integrator (BI) project,
  * a Ballerina project, and whether it's a multi-root workspace.
- * 
+ *
  * @returns A Promise that resolves to ProjectInfo containing:
  *          - isBI: true if the workspace is a Ballerina Integrator project
  *          - isBallerina: true if the workspace contains a valid Ballerina project/workspace
  *          - isBalWorkspace: true if the workspace is a Ballerina workspace with multiple packages
- * 
+ *
  * @remarks
  * - Returns all false values if no workspace folders exist or multiple workspace folders are present
  * - For Ballerina workspaces, filters package paths to ensure they exist within the workspace
@@ -117,18 +117,18 @@ export function checkIsBI(uri: Uri): boolean {
  * Checks if the given URI represents a Ballerina package directory.
  * A directory is considered a Ballerina package if it contains a Ballerina.toml file
  * with a [package] section.
- * 
+ *
  * @param uri - The URI of the directory to check
  * @returns true if the directory is a valid Ballerina package, false otherwise
  */
 export function checkIsBallerinaPackage(uri: Uri): boolean {
     const ballerinaTomlPath = path.join(uri.fsPath, 'Ballerina.toml');
-    
+
     // First check if the file exists
     if (!fs.existsSync(ballerinaTomlPath)) {
         return false;
     }
-    
+
     try {
         // Read the file content and check for [package] section
         const tomlContent = fs.readFileSync(ballerinaTomlPath, 'utf8');
@@ -145,18 +145,18 @@ export function checkIsBallerinaPackage(uri: Uri): boolean {
  * Checks if the given URI represents a Ballerina workspace directory.
  * A directory is considered a Ballerina workspace if it contains a Ballerina.toml file
  * with a [workspace] section.
- * 
+ *
  * @param uri - The URI of the directory to check
  * @returns true if the directory is a valid Ballerina workspace, false otherwise
  */
 export function checkIsBallerinaWorkspace(uri: Uri): boolean {
     const ballerinaTomlPath = path.join(uri.fsPath, 'Ballerina.toml');
-    
+
     // First check if the file exists
     if (!fs.existsSync(ballerinaTomlPath)) {
         return false;
     }
-    
+
     try {
         // Read the file content and check for [workspace] section
         const tomlContent = fs.readFileSync(ballerinaTomlPath, 'utf8');
@@ -171,7 +171,7 @@ export function checkIsBallerinaWorkspace(uri: Uri): boolean {
 
 /**
  * Reads and parses the Ballerina.toml file from the given workspace path.
- * 
+ *
  * @param workspacePath - The file system path to the workspace directory
  * @returns A Promise that resolves to the parsed TOML values if successful,
  *          or undefined if the file doesn't exist or parsing fails
@@ -191,13 +191,13 @@ export async function getWorkspaceTomlValues(workspacePath: string): Promise<Wor
 
 /**
  * Filters package paths to only include valid Ballerina packages within the workspace.
- * 
+ *
  * For each path, this function:
  * - Resolves the path (handling relative paths like `.` and `..`)
  * - Verifies the path exists on the filesystem
  * - Ensures the path is within the workspace boundaries (prevents path traversal)
  * - Validates it's a valid Ballerina package
- * 
+ *
  * @param packagePaths Array of package paths (relative or absolute)
  * @param workspacePath Absolute path to the workspace root
  * @returns Filtered array of valid Ballerina package paths that exist within the workspace
