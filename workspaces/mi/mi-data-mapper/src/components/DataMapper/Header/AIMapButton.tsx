@@ -49,7 +49,7 @@ const StyledButton = styled(Button) <{ isLoading: boolean }>`
 `;
 
 const AIMapButton: React.FC<AIMapButtonProps> = ({ onClick, isLoading, disabled = false }) => {
-  var [remaingTokenLessThanOne, setRemainingTokenLessThanOne] = useState(false);
+  var [remainingTokenLessThanOne, setRemainingTokenLessThanOne] = useState(false);
   var [remainingTokenPercentage, setRemainingTokenPercentage] = useState<string | number>("");
 
   const { rpcClient } = useVisualizerContext();
@@ -83,7 +83,7 @@ const AIMapButton: React.FC<AIMapButtonProps> = ({ onClick, isLoading, disabled 
       });
   }, []);
 
-  var tokenUsageText = remainingTokenPercentage === 'Unlimited' ? remainingTokenPercentage : (remaingTokenLessThanOne ? '<1%' : `${remainingTokenPercentage}%`);
+  var tokenUsageText = remainingTokenPercentage === 'Unlimited' ? remainingTokenPercentage : (remainingTokenLessThanOne ? '<1%' : `${remainingTokenPercentage}%`);
 
   return (
     <ButtonContainer>

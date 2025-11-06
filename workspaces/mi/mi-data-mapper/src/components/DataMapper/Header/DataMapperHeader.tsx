@@ -64,8 +64,8 @@ export function DataMapperHeader(props: DataMapperHeaderProps) {
             if (mappingExist) {
                 choice = await rpcClient.getMiDataMapperRpcClient().confirmMappingAction();
             }
-            console.log("hasValidSchemas", hasValidSchemas);
-            if (!mappingExist || choice && hasValidSchemas) {
+            console.log("valid schemas:", hasValidSchemas);
+            if ((!mappingExist || choice) && hasValidSchemas) {
                 props.setIsLoading(true);
                 props.setIsMapping(true);
                 await rpcClient.getMiDataMapperRpcClient().getMappingFromAI();

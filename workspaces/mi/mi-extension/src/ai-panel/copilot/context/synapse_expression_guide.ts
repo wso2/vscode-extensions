@@ -213,12 +213,12 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
 \${formatDateTime(now(), "yyyy-MM-dd")}
 \`\`\`
 
-### ** Check exists**
+### **Check exists**
 \`\`\`xml
 \${exists(payload.value)}
 \`\`\`
 
-### ** Accessing Secrets**
+### **Accessing Secrets**
 \`\`\`xml
 \${registry("gov:/config/service")}
 \${wso2-vault("mysqlpassword")} 
