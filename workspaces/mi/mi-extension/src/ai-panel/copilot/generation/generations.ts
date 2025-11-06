@@ -34,6 +34,7 @@ import { getMIVersionFromPom, compareVersions } from "../../../util/onboardingUt
 import { RUNTIME_VERSION_440 } from "../../../constants";
 import { logInfo, logError } from "../logger";
 import { buildMessageContent } from "../message-utils";
+import * as vscode from "vscode";
 
 // Register Handlebars helpers
 Handlebars.registerHelper("upper", (str: string) => {
@@ -181,7 +182,7 @@ export async function generateSynapse(
 
     // Configure provider options for thinking mode if enabled
     const anthropicOptions: AnthropicProviderOptions = params.thinking_enabled
-        ? { thinking: { type: 'enabled', budgetTokens: 1000 } }
+        ? { thinking: { type: 'enabled', budgetTokens: 1024 } }
         : {};
 
     const result = streamText({
@@ -199,7 +200,31 @@ export async function generateSynapse(
         },
         onError: (error) => {
             logError('AI SDK error during code generation', error);
-            // Error will be caught by caller's try-catch and shown to user
+
+            // Show error message with Report Issue button
+            let errorMessage = 'Unknown error';
+            if (error instanceof Error) {
+                errorMessage = error.message;
+            } else if (typeof error === 'string') {
+                errorMessage = error;
+            } else if (error && typeof error === 'object') {
+                // Try to extract meaningful error info from object
+                errorMessage = (error as any).message ||
+                              (error as any).error ||
+                              (error as any).detail ||
+                              JSON.stringify(error);
+            }
+
+            vscode.window.showErrorMessage(
+                `Unexpected error occurred during AI Copilot generation: ${errorMessage}`,
+                "Report Issue",
+                "Retry"
+            ).then(selection => {
+                if (selection === "Report Issue") {
+                    vscode.env.openExternal(vscode.Uri.parse("https://github.com/wso2/vscode-extensions/issues"));
+                }
+                // Note: Retry would need to be handled by the caller
+            });
         },
     });
 
