@@ -133,6 +133,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             setRemainingTokenPercentage(remainingTokenPercentage);
                         });
                     }
+                }).catch((error) => {
+                    console.error("Error fetching usage after code generation:", error);
                 });
 
                 // If diagnostics won't run, generate suggestions immediately

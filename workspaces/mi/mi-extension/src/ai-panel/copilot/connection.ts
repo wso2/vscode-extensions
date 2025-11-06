@@ -35,7 +35,11 @@ let cachedAuthMethod: LoginMethod | null = null;
  * Get the backend URL for MI Copilot
  */
 const getAnthropicProxyUrl = (): string => {
-    return process.env.MI_COPILOT_ANTHROPIC_PROXY_URL + '/proxy/anthropic/v1' as string;
+    const proxyUrl = process.env.MI_COPILOT_ANTHROPIC_PROXY_URL;
+    if (!proxyUrl) {
+        throw new Error('MI_COPILOT_ANTHROPIC_PROXY_URL environment variable is not set');
+    }
+    return `${proxyUrl}/proxy/anthropic/v1`;
 };
 
 /**
