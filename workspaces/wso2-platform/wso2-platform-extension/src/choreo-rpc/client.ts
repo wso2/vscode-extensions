@@ -86,6 +86,9 @@ import type {
 	PromoteProxyDeploymentReq,
 	ProxyDeploymentInfo,
 	RequestPromoteApprovalReq,
+	StartProxyServerReq,
+	StartProxyServerResp,
+	StopProxyServerReq,
 	SubscriptionsResp,
 	ToggleAutoBuildReq,
 	ToggleAutoBuildResp,
@@ -629,6 +632,21 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		}
 		const response: GetCliRpcResp = await this.client.sendRequest("auth/getConfigs", {});
 		return response;
+	}
+
+	async startProxyServer(params: StartProxyServerReq): Promise<StartProxyServerResp> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: StartProxyServerResp = await this.client.sendRequest("connect/startProxyServer", params);
+		return response;
+	}
+
+	async stopProxyServer(params: StopProxyServerReq): Promise<void> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		await this.client.sendRequest("connect/stopProxyServer", params);
 	}
 }
 

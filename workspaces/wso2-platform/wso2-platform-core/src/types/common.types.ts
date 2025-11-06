@@ -42,6 +42,26 @@ export interface IWso2PlatformExtensionAPI {
 	deleteConnection: (params: DeleteConnectionReq) => Promise<void>;
 	deleteLocalConnectionsConfig: (params: DeleteLocalConnectionsConfigReq) => void;
 	getDevantConsoleUrl: () => Promise<string>;
+	startProxyServer: (params: StartProxyServerReq) => Promise<StartProxyServerResp>;
+	stopProxyServer: (params: StopProxyServerReq) => Promise<void>;
+}
+
+export interface StartProxyServerReq {
+	orgId: string;
+	project: string;
+	component?: string;
+	env?: string;
+	skipConnection?: string[];
+}
+
+
+export interface StartProxyServerResp {
+	proxyServerPort: number;
+	envVars: { [key: string]: string };
+}
+
+export interface StopProxyServerReq {
+	proxyPort: number;
 }
 
 export interface openClonedDirReq {
@@ -454,7 +474,7 @@ export interface ConnectionConfigurations {
 	};
 }
 
-export interface ConnectionDetailed {
+export interface ConnectionDetailed extends ConnectionListItem{
 	configurations: ConnectionConfigurations;
 	envMapping: object;
 	visibilities: {

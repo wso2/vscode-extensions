@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import type { ComponentKind, ContextItemEnriched, GetMarketplaceListReq, IWso2PlatformExtensionAPI, openClonedDirReq, GetMarketplaceIdlReq, ConnectionDetailed, CreateComponentConnectionReq, CreateLocalConnectionsConfigReq, GetConnectionsReq, DeleteConnectionReq, DeleteLocalConnectionsConfigReq, GetMarketplaceItemReq, GetConnectionItemReq } from "@wso2/wso2-platform-core";
+import type { ComponentKind, ContextItemEnriched, GetMarketplaceListReq, IWso2PlatformExtensionAPI, openClonedDirReq, GetMarketplaceIdlReq, ConnectionDetailed, CreateComponentConnectionReq, CreateLocalConnectionsConfigReq, GetConnectionsReq, DeleteConnectionReq, DeleteLocalConnectionsConfigReq, GetMarketplaceItemReq, GetConnectionItemReq, StartProxyServerReq, StopProxyServerReq } from "@wso2/wso2-platform-core";
 import { ext } from "./extensionVariables";
 import { hasDirtyRepo } from "./git/util";
 import { authStore } from "./stores/auth-store";
@@ -49,4 +49,6 @@ export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 	public deleteConnection = (params: DeleteConnectionReq) => ext.clients.rpcClient.deleteConnection(params);
 	public deleteLocalConnectionsConfig = (params: DeleteLocalConnectionsConfigReq) => deleteLocalConnectionConfig(params);
 	public getDevantConsoleUrl = async() => (await ext.clients.rpcClient.getConfigFromCli()).devantConsoleUrl;
+	public startProxyServer = async(params: StartProxyServerReq) => ext.clients.rpcClient.startProxyServer(params);
+	public stopProxyServer = async(params: StopProxyServerReq) => ext.clients.rpcClient.stopProxyServer(params);
 }
