@@ -35,7 +35,20 @@ export function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) 
 }
 
 export function fetchProjectInfo(): ProjectInfo {
-    const workspaceUris = workspace.workspaceFolders ? workspace.workspaceFolders.map(folder => folder.uri) : [];
+    const workspaceFolders = workspace.workspaceFolders;
+    const isWorkspaceFile = workspace.workspaceFile?.scheme === "file";
+
+    if (workspaceFolders?.length > 1 && !isWorkspaceFile) {
+        return {
+            isBI: false,
+            isBallerina: false,
+            isMultiRoot: false
+        };
+    }
+
+    const workspaceUris = workspaceFolders
+        ? workspaceFolders.map(folder => folder.uri)
+        : [];
     let isBICount = 0; // Counter for workspaces with isBI set to true
     let isBalCount = 0; // Counter for workspaces with Ballerina project
 
