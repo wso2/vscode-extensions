@@ -203,6 +203,8 @@ export class MCPInspectorViewProvider implements vscode.WebviewViewProvider {
   <script>
     (function() {
       const iframe = document.getElementById('inspector-iframe');
+      let retryCount = 0;
+      const maxRetries = 3;
 
       // Function to send theme colors to iframe
       function sendThemeColors() {
@@ -270,8 +272,21 @@ export class MCPInspectorViewProvider implements vscode.WebviewViewProvider {
         }
       }
 
+      // Handle iframe errors and implement retry logic
+      iframe.onerror = function(error) {
+        console.error('MCP Inspector iframe error:', error);
+        if (retryCount < maxRetries) {
+          retryCount++;
+          console.log('Retrying to load iframe... Attempt ' + retryCount + '/' + maxRetries);
+          setTimeout(function() {
+            iframe.src = iframe.src; // Reload the iframe
+          }, 1000 * retryCount); // Exponential backoff
+        }
+      };
+
       // Wait for iframe to load then send theme colors immediately
       iframe.onload = function() {
+        retryCount = 0; // Reset retry count on successful load
         // Send immediately and retry after a short delay to ensure it's applied
         sendThemeColors();
         setTimeout(sendThemeColors, 50);
