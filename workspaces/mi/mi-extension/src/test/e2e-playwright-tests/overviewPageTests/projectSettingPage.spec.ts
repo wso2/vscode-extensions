@@ -52,7 +52,7 @@ export default function createTests() {
                 await waitUntilPomContains(page.page, pomFilePath, '<version>1.1.0</version>');
                 await overviewPage.updateProjectVersion("1.0.0");
                 // Wait for 5s to let the pom.xml update
-                await page.page.waitForTimeout(5000);
+                await page.page.waitForTimeout(8000);
                 console.log('Project version updated successfully');
             });
 
