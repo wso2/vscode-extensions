@@ -87,7 +87,7 @@ function jsonSchemaToZod(schema: any): z.ZodTypeAny {
             return z.null();
         default:
             // Fallback for unknown types
-            return z.any();
+            return z.any().nullable();
     }
 }
 

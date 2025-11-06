@@ -294,6 +294,11 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                     actions: assign({
                         errorMessage: (_ctx) => 'Your free usage quota has been exceeded. Set your own Anthropic API key to continue.',
                     })
+                },
+                [AI_EVENT_TYPE.UPDATE_USAGE]: {
+                    actions: assign({
+                        usage: (_ctx, event) => event.payload?.usage,
+                    })
                 }
             }
         },
@@ -323,6 +328,11 @@ const aiMachine = createMachine<AIMachineContext, AIMachineSendableEvent>({
                             errorMessage: (_) => undefined,
                         })
                     ]
+                },
+                [AI_EVENT_TYPE.UPDATE_USAGE]: {
+                    actions: assign({
+                        usage: (_ctx, event) => event.payload?.usage,
+                    })
                 }
             }
         },

@@ -138,21 +138,20 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     }
                 });
 
-                // If diagnostics won't run (runtime < 4.4.0), generate suggestions now
+                // If diagnostics won't run, generate suggestions immediately
                 // Otherwise, wait for code_diagnostic_end event
-                setTimeout(() => {
-                    if (!isValidating) {
-                        // Clear old suggestions immediately before generating new ones
-                        setQuestions([]);
-                        generateSuggestions(copilotChat, rpcClient, new AbortController()).then((response) => {
-                            if (response && response.length > 0) {
-                                setQuestions(response);
-                            }
-                        }).catch((error) => {
-                            console.error("Error generating suggestions after code generation:", error);
-                        });
-                    }
-                }, 100); // Small delay to let isValidating update
+                if (!event.willRunDiagnostics) {
+                    // Clear old suggestions immediately before generating new ones
+                    setQuestions([]);
+                    const suggestionController = new AbortController();
+                    generateSuggestions(copilotChat, rpcClient, suggestionController).then((response) => {
+                        if (response && response.length > 0) {
+                            setQuestions(response);
+                        }
+                    }).catch((error) => {
+                        console.error("Error generating suggestions after code generation:", error);
+                    });
+                }
                 break;
 
             case "code_diagnostic_start":
@@ -306,11 +305,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             // Restore the original user prompt to the input box
             setCurrentUserprompt(lastUserPromptRef.current);
 
-            // Don't generate suggestions after abort - user wants to stop all AI activity
-            // Just clear existing suggestions
-            setQuestions([]);
-
-            // Explicitly adjust the textarea height after suggestion generation
+            // Explicitly adjust the textarea height
             if (textAreaRef.current) {
                 setTimeout(() => {
                     textAreaRef.current.style.height = "auto";

@@ -39,8 +39,8 @@ export class CopilotEventHandler {
         this.sendEventToVisualizer({ type: "content_block", content });
     }
 
-    handleEnd(content: string): void {
-        this.sendEventToVisualizer({ type: "code_generation_end", content });
+    handleEnd(content: string, willRunDiagnostics: boolean = false): void {
+        this.sendEventToVisualizer({ type: "code_generation_end", content, willRunDiagnostics });
     }
 
     handleMessages(messages: any[]): void {

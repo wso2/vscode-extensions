@@ -82,6 +82,39 @@ function createDynamicZodSchema(
             fieldSchema = z.boolean();
         } else if (typeof value === 'number') {
             fieldSchema = z.number();
+        } else if (Array.isArray(value)) {
+            // Handle array fields - infer element type from first element if available
+            if (value.length > 0) {
+                const firstElement = value[0];
+                if (Array.isArray(firstElement)) {
+                    // Array of arrays
+                    fieldSchema = z.array(z.array(z.any()));
+                } else if (typeof firstElement === 'object' && firstElement !== null) {
+                    // Array of objects
+                    if ('is_expression' in firstElement && 'value' in firstElement) {
+                        // Array of PropertyData objects
+                        fieldSchema = z.array(z.object({
+                            is_expression: z.boolean().describe("Whether the value is a Synapse expression"),
+                            value: z.string().describe("The actual value or expression"),
+                        }));
+                    } else {
+                        // Array of generic objects
+                        fieldSchema = z.array(z.record(z.any()));
+                    }
+                } else if (typeof firstElement === 'string') {
+                    fieldSchema = z.array(z.string());
+                } else if (typeof firstElement === 'number') {
+                    fieldSchema = z.array(z.number());
+                } else if (typeof firstElement === 'boolean') {
+                    fieldSchema = z.array(z.boolean());
+                } else {
+                    // Fallback for unknown element types
+                    fieldSchema = z.array(z.any());
+                }
+            } else {
+                // Empty array - default to array of any
+                fieldSchema = z.array(z.any());
+            }
         } else if (typeof value === 'object' && value !== null) {
             // Check if it's a PropertyData object (has is_expression and value)
             if ('is_expression' in value && 'value' in value) {

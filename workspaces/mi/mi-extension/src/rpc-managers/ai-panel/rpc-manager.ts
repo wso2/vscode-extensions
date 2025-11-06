@@ -297,15 +297,16 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                     console.error("Error reading code generation stream:", error);
                 }
 
-                // Send final response
-                this.eventHandler.handleEnd(assistantResponse);
-
-                // Run code diagnostics on the generated response only for runtime versions > 4.4.0
-                // Also check if the generation wasn't aborted before starting diagnostics
+                // Determine if diagnostics will run before sending the end event
                 const runtimeVersion = await getMIVersionFromPom(this.projectUri);
                 const shouldRunDiagnostics = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_VERSION_440) > 0 : false;
+                const willRunDiagnostics = shouldRunDiagnostics && !this.currentController?.signal.aborted;
 
-                if (shouldRunDiagnostics && !this.currentController?.signal.aborted) {
+                // Send final response with diagnostics flag
+                this.eventHandler.handleEnd(assistantResponse, willRunDiagnostics);
+
+                // Run code diagnostics if needed
+                if (willRunDiagnostics) {
                     await this.handleCodeDiagnostics(assistantResponse);
                 }
 
@@ -313,7 +314,8 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
                 // Fallback: non-streaming response
                 const text = await response.text();
                 this.eventHandler.handleContentBlock(text);
-                this.eventHandler.handleEnd(text);
+                // Non-streaming responses don't run diagnostics
+                this.eventHandler.handleEnd(text, false);
             }
 
             this.eventHandler.handleStop("generateCode");
@@ -491,19 +493,23 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             const { StateMachineAI } = await import('../../ai-panel/aiMachine');
             const { AI_EVENT_TYPE } = await import('@wso2/mi-core');
 
-            const backendUrl = process.env.MI_COPILOT_ANTHROPIC_PROXY_URL as string;
+            const backendUrl = process.env.MI_COPILOT_ANTHROPIC_PROXY_URL;
+            if (!backendUrl) {
+                console.warn('MI_COPILOT_ANTHROPIC_PROXY_URL is not configured; skipping usage fetch.');
+                return undefined;
+            }
+
             const USER_CHECK_BACKEND_URL = '/usage';
-            const response = await fetchWithAuth(backendUrl + USER_CHECK_BACKEND_URL);
+            const response = await fetchWithAuth(`${backendUrl}${USER_CHECK_BACKEND_URL}`);
             if (response.ok) {
                 const usage = await response.json();
 
-                // Update state machine context
-                const context = StateMachineAI.context();
+                // Get current state before updating
                 const currentState = StateMachineAI.state();
 
-                // Update context with usage data FIRST before any state transitions
-                if (context && (currentState === 'Authenticated' || currentState === 'UsageExceeded')) {
-                    Object.assign(context, { usage: usage });
+                // Update usage via state machine event (proper XState pattern)
+                if (currentState === 'Authenticated' || currentState === 'UsageExceeded') {
+                    StateMachineAI.sendEvent({ type: AI_EVENT_TYPE.UPDATE_USAGE, payload: { usage } });
                 }
 
                 // Check if quota is exceeded and transition to UsageExceeded state

@@ -148,8 +148,8 @@ Now every synapse mediation has 6 global variables ( payload, vars, headers, pro
 \${startsWith("text", "te")} <!-- Checks if the string starts with the specified prefix. -->
 \${endsWith("text", "xt")} <!-- Checks if the string ends with the specified suffix. -->
 \${trim("  text  ")} <!-- Removes leading and trailing whitespace from the string. -->
-\${split("a,b,c", ",")} <!-- Removes leading and trailing whitespace from the string. -->
-\${charAt("text", 1)} <!-- Splits the string into an array using the specified delimiter. -->
+\${split("a,b,c", ",")} <!-- Splits the string into an array using the specified delimiter. -->
+\${charAt("text", 1)} <!-- Returns the character at the specified index. -->
 
 \${indexOf("text", "e")} <!-- Returns the position of the first occurrence of the specified input in the string. Specify a starting index as the third parameter (indexOf search begins after this position). -->
 \${indexOf(payload.value, "text", 5)}

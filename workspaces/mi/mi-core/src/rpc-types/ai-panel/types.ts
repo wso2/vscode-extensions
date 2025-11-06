@@ -77,6 +77,7 @@ export interface CodeGenerationEvent {
     command?: string;
     xmlCodes?: XmlCodeEntry[];
     correctedCodes?: CorrectedCodeItem[];
+    willRunDiagnostics?: boolean;
 }
 
 // Diagnostics types

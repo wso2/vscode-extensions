@@ -140,6 +140,7 @@ export enum AI_EVENT_TYPE {
     RETRY = "RETRY",
     USAGE_EXCEEDED = "USAGE_EXCEEDED",
     USAGE_RESET = "USAGE_RESET",
+    UPDATE_USAGE = "UPDATE_USAGE",
 }
 
 export type AIMachineEventMap = {
@@ -160,6 +161,7 @@ export type AIMachineEventMap = {
     [AI_EVENT_TYPE.RETRY]: undefined;
     [AI_EVENT_TYPE.USAGE_EXCEEDED]: undefined;
     [AI_EVENT_TYPE.USAGE_RESET]: undefined;
+    [AI_EVENT_TYPE.UPDATE_USAGE]: { usage: any };
 };
 
 export type AIMachineSendableEvent =

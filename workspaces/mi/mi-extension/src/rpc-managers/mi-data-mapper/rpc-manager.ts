@@ -310,6 +310,9 @@ export class MiDataMapperRpcManager implements MIDataMapperAPI {
         }
         catch (error) {
             console.error('Error while generating data mapping', error);
+            window.showErrorMessage(
+                `Failed to generate data mapping: ${error instanceof Error ? error.message : 'Unknown error'}`
+            );
             throw error;
         }
     }

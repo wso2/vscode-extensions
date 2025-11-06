@@ -167,8 +167,27 @@ function remapKeys(value: any): any {
                 const nextKey =
                     key === "configKey" ? "config_key" :
                     key === "isExpression" ? "is_expression" :
+                    key === "insertText" ? "insert_text" :
                     key;
                 return [nextKey, remapKeys(val)];
+            })
+        );
+    }
+    return value;
+}
+
+function remapKeysReverse(value: any): any {
+    if (Array.isArray(value)) {
+        return value.map(remapKeysReverse);
+    }
+    if (value && typeof value === "object") {
+        return Object.fromEntries(
+            Object.entries(value).map(([key, val]) => {
+                const nextKey =
+                    key === "config_key" ? "configKey" :
+                    key === "is_expression" ? "isExpression" :
+                    key;
+                return [nextKey, remapKeysReverse(val)];
             })
         );
     }
@@ -486,9 +505,9 @@ export function FormGenerator(props: FormGeneratorProps) {
             };
             const values = getValues();
 
-            // Convert helper pane data to JSON strings
-            // Convert payload format: insertText → insert_text
-            const convertedPayloadsStr = JSON.stringify(payloads).replaceAll("insertText", "insert_text");
+            // Convert helper pane data to JSON strings with structural key remapping
+            // Convert payload format: insertText → insert_text (structurally, not via string replacement)
+            const convertedPayloadsStr = JSON.stringify(remapKeys(payloads));
             const convertedVariablesStr = JSON.stringify(variables);
             const convertedParamsStr = JSON.stringify(params);
             const convertedPropertiesStr = JSON.stringify(properties);
@@ -516,10 +535,10 @@ export function FormGenerator(props: FormGeneratorProps) {
                 field_descriptions: fieldDescriptions,
             });
 
-            // Convert response back: is_expression → isExpression
+            // Convert response back: is_expression → isExpression, config_key → configKey
             if (response.filled_values) {
-                const result = JSON.stringify(response.filled_values).replaceAll("is_expression", "isExpression");
-                setGeneratedFormDetails(JSON.parse(result));
+                const result = remapKeysReverse(response.filled_values);
+                setGeneratedFormDetails(result);
             } else {
                 throw new Error("No filled values returned from auto-fill");
             }

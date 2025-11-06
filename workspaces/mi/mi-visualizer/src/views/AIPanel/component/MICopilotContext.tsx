@@ -173,8 +173,12 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                             const { timeToReset, remainingTokenPercentage } = updateTokenInfo(updatedMachineView);
                             setRemainingTokenPercentage(remainingTokenPercentage);
                             setTimeToReset(timeToReset);
+                        }).catch((error) => {
+                            console.error('Failed to update token information:', error);
                         });
                     }
+                }).catch((error) => {
+                    console.error('Failed to fetch usage information:', error);
                 });
 
                 // Initial token info from current state
@@ -269,7 +273,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
 
     // Update local storage whenever backend call finishes
     // Add debounce to prevent saving during abort cleanup
-    useMemo(() => {
+    useEffect(() => {
         if (!isLoading && !backendRequestTriggered) {
             // Debounce localStorage writes to allow abort cleanup to complete
             const timeoutId = setTimeout(() => {
@@ -281,11 +285,11 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         }
     }, [isLoading, backendRequestTriggered, copilotChat, questions]);
 
-    useMemo(() => {
+    useEffect(() => {
         if (!isLoading) {
             localStorage.setItem(localStorageKeys.fileHistory, JSON.stringify(FileHistory));
         }
-    }, [FileHistory]);
+    }, [isLoading, FileHistory]);
 
     const currentContext: MICopilotContextType = {
         rpcClient,

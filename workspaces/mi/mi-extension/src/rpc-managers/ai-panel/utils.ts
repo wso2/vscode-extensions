@@ -21,7 +21,7 @@ import { MiVisualizerRpcManager } from "../mi-visualizer/rpc-manager";
 import { refreshAuthCode } from "../../ai-panel/auth";
 import { openSignInView } from "../../util/ai-datamapper-utils";
 import { extension } from "../../MIExtensionContext";
-import { EVENT_TYPE, MACHINE_VIEW, AI_EVENT_TYPE } from "@wso2/mi-core";
+import { EVENT_TYPE, MACHINE_VIEW, AI_EVENT_TYPE, Role } from "@wso2/mi-core";
 import * as vscode from "vscode";
 import { MIAIPanelRpcManager } from "./rpc-manager";
 import { generateSynapse } from "../../ai-panel/copilot/generation/generations";
@@ -185,7 +185,10 @@ export async function fetchCodeGenerationsWithRetry(
     const defaultPayloads = await miDiagramRpcManager.getAllInputDefaultPayloads();
     
     // Extract the user's question from chat history (last user message)
-    const lastUserMessage = [...chatHistory].reverse().find(entry => entry.role === 'user');
+    // Check for Role.CopilotUser enum or fallback to 'user' string for backward compatibility
+    const lastUserMessage = [...chatHistory].reverse().find(entry =>
+        entry.role === Role.CopilotUser || entry.role === 'user'
+    );
     const userQuestion = lastUserMessage?.content || '';
     
     // Get currently editing file content if available
@@ -209,7 +212,9 @@ export async function fetchCodeGenerationsWithRetry(
     const historyMessages = chatHistory
         .slice(-7, -1) // Take last 7 messages and exclude the last one (current question) = 6 messages
         .map(entry => ({
-            role: entry.role === 'user' ? 'user' as const : 'assistant' as const,
+            role: entry.role === Role.CopilotUser || entry.role === 'user'
+                ? 'user' as const
+                : 'assistant' as const,
             content: entry.content
         }));
 
