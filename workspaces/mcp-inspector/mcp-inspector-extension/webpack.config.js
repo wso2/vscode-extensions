@@ -13,15 +13,12 @@ const extensionConfig = {
   target: 'node', // VS Code extensions run in a Node.js-context 📖 -> https://webpack.js.org/configuration/node/
 	mode: 'none', // this leaves the source code as close as possible to the original (when packaging we set this to 'production')
 
-  entry: {
-    extension: './src/extension.ts'
-  }, // the entry point of this extension, 📖 -> https://webpack.js.org/configuration/entry-context/
+  entry: './src/extension.ts', // the entry point of this extension, 📖 -> https://webpack.js.org/configuration/entry-context/
   output: {
     // the bundle is stored in the 'out' folder (check package.json), 📖 -> https://webpack.js.org/configuration/output/
     path: path.resolve(__dirname, 'out'),
-    filename: '[name].js',
-    libraryTarget: 'commonjs2',
-    devtoolModuleFilenameTemplate: '../[resource-path]'
+    filename: 'extension.js',
+    libraryTarget: 'commonjs2'
   },
   externals: {
     vscode: 'commonjs vscode' // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
@@ -75,7 +72,8 @@ const inspectorServerConfig = {
 const inspectorClientConfig = {
   target: 'node',
   mode: 'none',
-  entry: './node_modules/@modelcontextprotocol/inspector/client/bin/client.js',
+  // Use our custom wrapper that has the correct path to client-dist
+  entry: './src/client-wrapper.js',
   output: {
     path: path.resolve(__dirname, 'out', 'inspector'),
     filename: 'client.js',
@@ -101,6 +99,12 @@ const inspectorClientConfig = {
     }),
   ],
   devtool: 'nosources-source-map',
+  node: {
+    // Preserve __dirname and __filename as-is (don't let webpack modify them)
+    // This is critical for the client server to find the dist folder
+    __dirname: false,
+    __filename: false,
+  },
 };
 
 module.exports = [ extensionConfig, inspectorServerConfig, inspectorClientConfig ];
