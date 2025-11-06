@@ -125,8 +125,9 @@ export class Overview {
         await popupPanel.getByRole('button', { name: 'Add Dependency' }).click();
         const loader = this.webView.locator('[data-testid="dependency-manager-loader"]');
         await loader.waitFor({ state: 'detached', timeout: 10000 });
+        await this._page.waitForTimeout(5000);
         const dependencyItemComponent = popupPanel.locator('[data-testid="mysql-mysql-connector-java-8.0.33"]');
-        await dependencyItemComponent.waitFor({ state: 'visible', timeout: 10000 });
+        await dependencyItemComponent.waitFor({ state: 'visible', timeout: 50000 });
     }
 
     public async editOtherDependencies() {

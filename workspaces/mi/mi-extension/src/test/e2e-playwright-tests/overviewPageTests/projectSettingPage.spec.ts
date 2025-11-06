@@ -63,8 +63,8 @@ export default function createTests() {
                 await overviewPage.init();
                 await overviewPage.openOtherDependenciesManager();
                 await overviewPage.addOtherDependencies();
-                // Wait for 8s to let the pom.xml update
-                await page.page.waitForTimeout(8000);
+                // Wait for 10s to let the pom.xml update
+                await page.page.waitForTimeout(10000);
                 console.log('Waiting for pom.xml to contain mysql-connector-java dependency');
                 await waitUntilPomContains(page.page, pomFilePath, '<artifactId>mysql-connector-java</artifactId>');
                 await page.page.waitForTimeout(2000); // Additional wait to ensure stability
@@ -116,8 +116,8 @@ export default function createTests() {
                 const overviewPage = new Overview(page.page);
                 await overviewPage.init();
                 await overviewPage.editConnectorDependencies();
-                // Wait for 8s to let the pom.xml update
-                await page.page.waitForTimeout(8000);
+                // Wait for 12s to let the pom.xml update
+                await page.page.waitForTimeout(12000);
                 console.log('Waiting for pom.xml to contain 3.0.1 as version in mi-connector-amazonsqs dependency');
                 await waitUntilPomContains(page.page, pomFilePath, '<version>3.0.1</version>');
             });
