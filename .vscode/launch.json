@@ -34,7 +34,8 @@
                 "LSDEBUG": "false",
                 "WEB_VIEW_WATCH_MODE": "true",
                 "WEB_VIEW_DEV_HOST": "http://localhost:9000",
-                "BALLERINA_STAGE_CENTRAL": "false"
+                "BALLERINA_STAGE_CENTRAL": "false",
+                "TRACE_WEB_VIEW_DEV_HOST": "http://localhost:9001"
             },
             "outFiles": [
                 "${workspaceFolder}/workspaces/ballerina/ballerina-extension/dist/**/*.js",
@@ -244,7 +245,7 @@
                 "--extensionTestsPath=${workspaceFolder}/workspaces/ballerina/ballerina-extension/out/test",
                 "${workspaceFolder}/workspaces/ballerina/ballerina-extension/test/data/bi_empty_project",
                 "${workspaceFolder}/workspaces/ballerina/ballerina-extension/test/data/bi_init",
-                "${workspaceFolder}/workspaces/ballerina/ballerina-extension/test/data/simple_order_management_system"
+                "${workspaceFolder}/workspaces/ballerina/ballerina-extension/test/data/simple_order_management_system","${workspaceFolder}/workspaces/ballerina/ballerina-extension/test/data/ai_datamapper"
             ],
             "env": {
                 "LS_EXTENSIONS_PATH": "",

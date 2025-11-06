@@ -47,6 +47,7 @@ import connectionArtifact from './other-artifacts/connection.spec';
 
 import configuration from './configuration/configuration.spec';
 import typeTest from './type/type.spec';
+import serviceTest from './service-class-designer/service-class.spec';
 
 import importIntegration from './import-integration/import-integration.spec';
 
@@ -93,7 +94,7 @@ test.describe(typeDiagramArtifact);
 test.describe(connectionArtifact);
 test.describe(configuration); // TODO: This tests is failing due to https://github.com/wso2/product-ballerina-integrator/issues/1231. Enable after fixing the issue.
 test.describe(typeTest); // TODO: This tests is failing due to https://github.com/wso2/product-ballerina-integrator/issues/1222. Enable after fixing the issue.
-
+test.describe(serviceTest);
 // <----Import Integration Test---->
 test.describe(importIntegration);
 

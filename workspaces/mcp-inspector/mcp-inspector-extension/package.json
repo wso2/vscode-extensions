@@ -1,0 +1,93 @@
+{
+  "name": "mcp-server-inspector",
+  "displayName": "MCP Inspector (Beta)",
+  "description": "VSCode extension for inspecting and debugging Model Context Protocol (MCP) connections",
+  "version": "0.7.2",
+  "private": true,
+  "publisher": "wso2",
+  "author": {
+    "name": "WSO2",
+    "url": "https://wso2.com"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wso2/vscode-extensions/tree/main/workspaces/mcp-inspector/mcp-inspector-extension"
+  },
+  "bugs": {
+    "url": "https://github.com/wso2/vscode-extensions/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "inspector",
+    "debugging",
+    "developer-tools"
+  ],
+  "engines": {
+    "vscode": "^1.104.0",
+    "node": ">=18.0.0"
+  },
+  "categories": [
+    "Debuggers",
+    "Other"
+  ],
+  "icon": "icon.png",
+  "activationEvents": [],
+  "main": "./out/extension",
+  "contributes": {
+    "commands": [
+      {
+        "command": "mcpInspector.openInspector",
+        "title": "Open MCP Inspector",
+        "icon": {
+          "light": "./resources/icon-dark.svg",
+          "dark": "./resources/icon-light.svg"
+        }
+      },
+      {
+        "command": "mcpInspector.openInspectorWithUrl",
+        "title": "Open MCP Inspector with URL"
+      }
+    ]
+  },
+  "scripts": {
+    "postinstall": "node scripts/inject-theme.js",
+    "vscode:prepublish": "pnpm run compile",
+    "compile": "webpack --mode production --stats-error-details",
+    "watch": "webpack --mode none --watch",
+    "pretest": "pnpm run compile && pnpm run lint",
+    "lint": "eslint src",
+    "test": "node ./out/test/runTest.js",
+    "build": "pnpm run compile && pnpm run lint && pnpm run postbuild",
+    "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release; else vsce package --no-dependencies; fi",
+    "rebuild": "pnpm run clean && pnpm run compile && pnpm run postbuild",
+    "postbuild": "pnpm run package && pnpm run copyVSIX",
+    "copyVSIX": "copyfiles *.vsix ./vsix",
+    "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../..",
+    "clean": "rimraf dist out *.vsix"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.4.0",
+    "@types/vscode": "^1.84.0",
+    "@types/mocha": "^10.0.3",
+    "@types/node": "22.15.18",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^8.32.1",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^8.57.1",
+    "mocha": "^11.2.2",
+    "typescript": "5.8.3",
+    "copyfiles": "^2.4.1",
+    "copy-webpack-plugin": "^13.0.0",
+    "ts-loader": "^9.5.2",
+    "webpack": "^5.99.8",
+    "webpack-cli": "^5.1.4",
+    "open": "10.2.0",
+    "serve-handler": "6.1.6"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/inspector": "^0.17.2"
+  },
+  "packageManager": "pnpm@9.0.0"
+}
