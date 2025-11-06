@@ -19,7 +19,7 @@ import * as vscode from "vscode";
 import { getAccessToken, getLoginMethod, getRefreshedAccessToken } from "../auth";
 import { StateMachineAI, openAIWebview } from "../aiMachine";
 import { AI_EVENT_TYPE, LoginMethod } from "@wso2/mi-core";
-import { logInfo, logDebug } from "./logger";
+import { logInfo, logDebug, logError } from "./logger";
 
 export const ANTHROPIC_HAIKU_4_5 = "claude-haiku-4-5-20251001";
 export const ANTHROPIC_SONNET_4_5 = "claude-sonnet-4-5-20250929";
@@ -66,7 +66,7 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
                 const body = await response.json();
                 errorDetail = body.detail || "";
             } catch (e) {
-                console.error("Failed to parse 429 response body:", e);
+                logError("Failed to parse 429 response body", e);
             }
 
             // Transition to UsageExceeded state

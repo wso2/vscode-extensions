@@ -20,6 +20,7 @@ import { CodeGenerationEvent, XmlCodeEntry, CorrectedCodeItem } from "@wso2/mi-c
 import { RPCLayer } from "../../RPCLayer";
 import { AiPanelWebview } from '../../ai-panel/webview';
 import { codeGenerationEvent } from "@wso2/mi-core";
+import { logWarn, logError } from "../../ai-panel/copilot/logger";
 
 export class CopilotEventHandler {
 
@@ -78,15 +79,15 @@ export class CopilotEventHandler {
             const messenger = (RPCLayer as any)._messengers.get(this.projectUri);
             if (messenger) {
                 messenger.sendNotification(
-                    codeGenerationEvent, 
-                    { type: 'webview', webviewType: AiPanelWebview.viewType }, 
+                    codeGenerationEvent,
+                    { type: 'webview', webviewType: AiPanelWebview.viewType },
                     event
                 );
             } else {
-                console.warn("No messenger found for project:", this.projectUri);
+                logWarn(`No messenger found for project: ${this.projectUri}`);
             }
         } catch (error) {
-            console.error("Error sending event to visualizer:", error);
+            logError("Error sending event to visualizer", error);
         }
     }
 }

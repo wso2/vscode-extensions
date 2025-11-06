@@ -91,14 +91,12 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const handleCodeGenerationEvent = (event: any) => {
         // Ignore all events if generation was aborted
         if (abortedRef.current) {
-            console.log('Ignoring event - generation was aborted', event.type);
             return;
         }
 
         switch (event.type) {
             case "code_generation_start":
-                // Start of code generation - could show loading indicator
-                console.log("Code generation started");
+                // Start of code generation
                 setAssistantResponse("");
                 break;
 
@@ -123,7 +121,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             
             case "code_generation_end":
                 // Final content replacement
-                console.log("Code generation completed");
                 if (event.content) {
                     setAssistantResponse(event.content);
                     handleCodeGenerationComplete(event.content);
@@ -155,12 +152,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 break;
 
             case "code_diagnostic_start":
-                console.log("Code diagnostics started");
                 setIsValidating(true);
                 break;
 
             case "code_diagnostic_end":
-                console.log("Code diagnostics completed");
                 setIsValidating(false);
 
                 // Handle corrected codes if available
@@ -212,7 +207,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 break;
             
             case "error":
-                console.error("Code generation error:", event.error);
                 setMessages((prevMessages) => [...prevMessages, {
                     id: generateId(),
                     role: Role.MICopilot,
@@ -222,20 +216,18 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 setBackendRequestTriggered(false);
                 setIsValidating(false);
                 break;
-            
+
             case "stop":
                 // Code generation completed
-                console.log("Code generation completed");
                 break;
 
             case "aborted":
                 // Abort acknowledged by extension - all streaming has stopped
-                console.log("Abort acknowledged by extension");
                 setBackendRequestTriggered(false);
                 break;
 
             default:
-                console.log("Unknown event type:", event.type);
+                break;
         }
     };
 
@@ -633,7 +625,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 opacity: (backendRequestTriggered || isValidating || isUsageExceeded) ? 0.5 : 1,
                                 cursor: (backendRequestTriggered || isValidating || isUsageExceeded) ? "not-allowed" : "pointer"
                             }}
-                            disabled={backendRequestTriggered || isValidating || isUsageExceeded}
                         >
                             <Codicon name="new-file" />
                         </StyledTransParentButton>

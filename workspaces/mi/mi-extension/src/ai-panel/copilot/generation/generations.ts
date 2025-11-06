@@ -32,7 +32,7 @@ import { SYNAPSE_EXPRESSION_EXAMPLES } from "../context/synapse_expression_examp
 import { AI_MODULE_GUIDE } from "../context/ai_module";
 import { getMIVersionFromPom, compareVersions } from "../../../util/onboardingUtils";
 import { RUNTIME_VERSION_440 } from "../../../constants";
-import { logInfo } from "../logger";
+import { logInfo, logError } from "../logger";
 import { buildMessageContent } from "../message-utils";
 
 // Register Handlebars helpers
@@ -196,6 +196,10 @@ export async function generateSynapse(
         },
         onAbort: () => {
             logInfo('Code generation aborted by user');
+        },
+        onError: (error) => {
+            logError('AI SDK error during code generation', error);
+            // Error will be caught by caller's try-catch and shown to user
         },
     });
 

@@ -81,7 +81,7 @@ export const getAuthCredentials = async (): Promise<AuthCredentials | undefined>
     try {
         return JSON.parse(credentialsJson) as AuthCredentials;
     } catch (error) {
-        console.error('Error parsing auth credentials:', error);
+        logError('Error parsing auth credentials', error);
         return undefined;
     }
 };

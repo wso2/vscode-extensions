@@ -21,6 +21,32 @@ import { Welcome } from '../styles';
 import { Icon, Typography } from "@wso2/ui-toolkit";
 import { WelcomeStyles } from "../styles";
 
+// CSS Toggle Icon Component
+const ToggleIcon: React.FC = () => {
+    return (
+        <div style={{
+            width: '24px',
+            height: '12px',
+            backgroundColor: 'var(--vscode-input-background)',
+            border: '1px solid var(--vscode-input-border)',
+            borderRadius: '6px',
+            position: 'relative',
+            display: 'inline-block'
+        }}>
+            <div style={{
+                width: '10px',
+                height: '10px',
+                backgroundColor: 'var(--vscode-foreground)',
+                borderRadius: '50%',
+                position: 'absolute',
+                top: '1px',
+                left: '1px',
+                transition: 'left 0.2s'
+            }} />
+        </div>
+    );
+};
+
 export const WelcomeMessage: React.FC = () => {
     return (
         <Welcome>
@@ -34,13 +60,17 @@ export const WelcomeMessage: React.FC = () => {
                     <h2>WSO2 MI Copilot</h2>
                 </div>
                 <Typography variant="body1" sx={WelcomeStyles.description}>
-                    AI assistant at your service!
+                    The AI Integration Engineer is at your service!
                     <br />
-                    Please review generated code before adding to your integration.
+                    Please review the generated code before adding it to your integration.
                 </Typography>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', ...WelcomeStyles.attachContext }}>
                     <Icon isCodicon={true} name="new-file" iconSx={{ cursor: "default" }} />
                     <span>to attach context</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', ...WelcomeStyles.attachContext }}>
+                    <ToggleIcon />
+                    <span>to toggle thinking mode</span>
                 </div>
             </div>
         </Welcome>

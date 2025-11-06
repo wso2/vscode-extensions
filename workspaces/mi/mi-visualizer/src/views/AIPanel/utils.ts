@@ -380,8 +380,7 @@ export async function fetchCodeGenerationsWithRetry(
     thinking?: boolean
 ): Promise<Response> {
     // Use RPC call to extension for streaming code generation
-    console.log("Generating code with streaming: visualizer -> extension");
-    try {
+        try {
         const response = await rpcClient.getMiAiPanelRpcClient().generateCode({
             chatHistory: chatHistory,
             files: files,
