@@ -162,6 +162,7 @@ export async function generateSynapse(
         logInfo(`Including ${params.files?.length || 0} files and ${params.images?.length || 0} images in the message`);
 
         // Use buildMessageContent to create content array with files, PDFs, and images
+        // Note: Attachments are pre-validated in RPC manager via validateAttachments()
         const messageContent = buildMessageContent(userPrompt, params.files, params.images);
 
         messages.push({

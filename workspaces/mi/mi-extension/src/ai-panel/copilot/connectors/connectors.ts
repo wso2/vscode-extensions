@@ -152,6 +152,7 @@ export async function getConnectors(
     let userMessageContent: string | any[];
     if (hasFiles || hasImages) {
         logInfo(`Including ${params.files?.length || 0} files and ${params.images?.length || 0} images in connector selection`);
+        // Note: Attachments are pre-validated in RPC manager via validateAttachments()
         userMessageContent = buildMessageContent(prompt, params.files, params.images);
     } else {
         userMessageContent = prompt;

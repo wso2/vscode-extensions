@@ -508,12 +508,13 @@ export function FormGenerator(props: FormGeneratorProps) {
 
             // Convert helper pane data to JSON strings with structural key remapping
             // Convert payload format: insertText → insert_text (structurally, not via string replacement)
-            const convertedPayloadsStr = JSON.stringify(remapKeys(payloads));
-            const convertedVariablesStr = JSON.stringify(variables);
-            const convertedParamsStr = JSON.stringify(params);
-            const convertedPropertiesStr = JSON.stringify(properties);
-            const convertedHeadersStr = JSON.stringify(headers);
-            const convertedConfigsStr = JSON.stringify(configs);
+            // Only serialize if the source data exists (avoid sending [null])
+            const convertedPayloadsStr = payloads ? JSON.stringify(remapKeys(payloads)) : undefined;
+            const convertedVariablesStr = variables ? JSON.stringify(variables) : undefined;
+            const convertedParamsStr = params ? JSON.stringify(params) : undefined;
+            const convertedPropertiesStr = properties ? JSON.stringify(properties) : undefined;
+            const convertedHeadersStr = headers ? JSON.stringify(headers) : undefined;
+            const convertedConfigsStr = configs ? JSON.stringify(configs) : undefined;
 
             // Convert current values format: configKey → config_key, isExpression → is_expression
             const convertedValues = remapKeys(values);
@@ -522,13 +523,14 @@ export function FormGenerator(props: FormGeneratorProps) {
             const allConnectionNames = Object.values(connectionNames).flat();
 
             // Call RPC method instead of backend API
+            // Only include arrays when the corresponding JSON string exists
             const response = await rpcClient.getMiAiPanelRpcClient().autoFillForm({
-                payloads: [convertedPayloadsStr],
-                variables: [convertedVariablesStr],
-                params: [convertedParamsStr],
-                properties: [convertedPropertiesStr],
-                headers: [convertedHeadersStr],
-                configs: [convertedConfigsStr],
+                payloads: convertedPayloadsStr ? [convertedPayloadsStr] : undefined,
+                variables: convertedVariablesStr ? [convertedVariablesStr] : undefined,
+                params: convertedParamsStr ? [convertedParamsStr] : undefined,
+                properties: convertedPropertiesStr ? [convertedPropertiesStr] : undefined,
+                headers: convertedHeadersStr ? [convertedHeadersStr] : undefined,
+                configs: convertedConfigsStr ? [convertedConfigsStr] : undefined,
                 current_values: convertedValues,
                 form_details: JSON.stringify(formDetails),
                 connection_names: allConnectionNames,

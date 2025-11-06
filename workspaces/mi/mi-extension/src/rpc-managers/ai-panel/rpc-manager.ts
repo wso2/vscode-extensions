@@ -248,8 +248,22 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
      * Core code generation logic with streaming
      */
     private async generateCodeCore(request: GenerateCodeRequest): Promise<void> {
-        
+        const { validateAttachments } = await import('../../ai-panel/copilot/message-utils');
+        const { window } = await import('vscode');
+
         try {
+            // Validate attachments before proceeding
+            const validationWarnings = validateAttachments(request.files, request.images);
+            if (validationWarnings.length > 0) {
+                const errorMessage = `Cannot proceed with code generation. Invalid attachments:\n${validationWarnings.map(w => `  • ${w}`).join('\n')}`;
+                logError(errorMessage);
+                window.showErrorMessage(
+                    `Invalid attachments detected. Please check:\n${validationWarnings.join('\n')}`
+                );
+                this.eventHandler.handleError(errorMessage);
+                throw new Error(errorMessage);
+            }
+
             this.eventHandler.handleStart();
 
             // Create a new abort controller for this request
