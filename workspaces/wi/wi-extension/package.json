@@ -18,7 +18,9 @@
   "activationEvents": [
     "onStartupFinished"
   ],
-  "extensionDependencies": [],
+  "extensionDependencies": [
+    "wso2.ballerina"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -70,6 +72,73 @@
       }
     ],
     "menus": {
+      "view/item/context": [
+        {
+          "command": "ballerina.showVisualizer",
+          "when": "view == wso2-integrator.explorer && viewItem == bi-project",
+          "group": "inline"
+        },
+        {
+          "command": "ballerina.force.update.artifacts",
+          "when": "view == wso2-integrator.explorer && viewItem == bi-project",
+          "group": "inline"
+        },
+        {
+          "command": "BI.project-explorer.add-connection",
+          "when": "view == wso2-integrator.explorer && viewItem == connections",
+          "group": "inline"
+        },
+        {
+          "command": "BI.project-explorer.delete",
+          "when": "view == wso2-integrator.explorer && viewItem == CONNECTION || viewItem == SERVICE || viewItem == FUNCTION || viewItem == AUTOMATION || viewItem == TYPE || viewItem == CONFIGURABLE || viewItem == DATA_MAPPER || viewItem == NP_FUNCTION || viewItem == localConnector",
+          "group": "inline"
+        },
+        {
+          "command": "BI.project-explorer.add-entry-point",
+          "when": "view == wso2-integrator.explorer && viewItem == entryPoint",
+          "group": "inline"
+        },
+        {
+          "command": "BI.project-explorer.add-type",
+          "when": "view == wso2-integrator.explorer && viewItem == types",
+          "group": "inline"
+        },
+        {
+          "command": "BI.project-explorer.view-type-diagram",
+          "when": "view == wso2-integrator.explorer && viewItem == types",
+          "group": "inline"
+        },
+        {
+          "command": "BI.project-explorer.add-function",
+          "when": "view == wso2-integrator.explorer && viewItem == functions",
+          "group": "inline"
+        },
+        {
+          "command": "BI.project-explorer.add-configuration",
+          "when": "view == wso2-integrator.explorer && viewItem == configurations",
+          "group": "inline"
+        },
+        {
+          "command": "BI.project-explorer.view-configuration",
+          "when": "view == wso2-integrator.explorer && viewItem == configurations",
+          "group": "inline"
+        },
+        {
+          "command": "BI.project-explorer.add-data-mapper",
+          "when": "view == wso2-integrator.explorer && viewItem == dataMappers",
+          "group": "inline"
+        },
+        {
+          "command": "BI.project-explorer.add-natural-function",
+          "when": "view == wso2-integrator.explorer && viewItem == naturalFunctions",
+          "group": "inline"
+        },
+        {
+          "command": "BI.project-explorer.add-custom-connector",
+          "when": "view == wso2-integrator.explorer && viewItem == localConnectors",
+          "group": "inline"
+        }
+      ],
       "view/title": [
         {
           "command": "wso2.integrator.openWelcome",
@@ -80,6 +149,21 @@
           "command": "wso2.integrator.refreshView",
           "when": "view == wso2-integrator.explorer",
           "group": "navigation@2"
+        },
+        {
+          "command": "BI.project-explorer.switch-project",
+          "when": "view == wso2-integrator.explorer && BI.isMultiRoot == true",
+          "group": "navigation"
+        },
+        {
+          "command": "BI.project-explorer.add",
+          "when": "view == wso2-integrator.explorer && BI.project == true",
+          "group": "navigation"
+        },
+        {
+          "command": "BI.project-explorer.overview",
+          "when": "view == wso2-integrator.explorer && BI.project == true",
+          "group": "navigation"
         }
       ]
     }
@@ -96,18 +180,32 @@
     "package": "vsce package"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.9.4",
-    "@types/node": "^22.15.21",
-    "@types/vscode": "^1.100.0",
-    "ts-loader": "^9.5.1",
+    "@vscode/vsce": "^3.4.0",
+    "@types/vscode": "^1.84.0",
+    "@types/mocha": "^10.0.3",
+    "@types/node": "22.15.18",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^8.32.1",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^8.57.1",
+    "glob": "^11.0.2",
+    "mocha": "^11.2.2",
     "typescript": "5.8.3",
-    "webpack": "^5.97.1",
+    "copyfiles": "^2.4.1",
+    "copy-webpack-plugin": "^13.0.0",
+    "source-map-support": "^0.5.21",
+    "ts-loader": "^9.5.2",
+    "webpack": "^5.99.8",
     "webpack-cli": "^6.0.1",
-    "@vscode/vsce": "^3.2.1",
-    "@wso2/wi-webviews": "workspace:*"
+    "webpack-permissions-plugin": "^1.0.9",
+    "@playwright/test": "~1.55.1",
+    "@wso2/playwright-vscode-tester": "workspace:*"
   },
   "dependencies": {
     "@wso2/wi-core": "workspace:*",
-    "vscode-messenger": "~0.5.1"
+    "vscode-messenger": "~0.5.1",
+    "@wso2/ballerina-core": "workspace:*",
+    "@wso2/font-wso2-vscode": "workspace:*",
+    "xstate": "~4.38.3"
   }
 }
