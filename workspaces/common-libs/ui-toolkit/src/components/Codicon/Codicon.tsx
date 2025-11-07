@@ -37,18 +37,19 @@ export interface CodiconProps {
 	name: string; // Identifier for the icon
     sx?: any;
     iconSx?: any;
+    tooltip?: string;
     onClick?: (event?: React.MouseEvent<HTMLElement, MouseEvent>) => void;
 }
 
 export const Codicon: React.FC<CodiconProps> = (props: CodiconProps) => {
-    const { id, className, name, sx, iconSx, onClick } = props;
+    const { id, className, name, sx, iconSx, tooltip, onClick } = props;
     const handleComponentClick = (event?: React.MouseEvent<HTMLElement, MouseEvent>) => {
         onClick && onClick(event);
     }
     const icon = (<i style= {iconSx} className={`codicon codicon-${name}`} />);
     
     return (
-        <CodiconContainer id={id} className={className} sx={sx} onClick={handleComponentClick}>
+        <CodiconContainer id={id} className={className} sx={sx} onClick={handleComponentClick} title={tooltip}>
             {icon}
         </CodiconContainer>
     );

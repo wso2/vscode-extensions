@@ -199,6 +199,7 @@ export const DM_OPERATORS_FILE_NAME = "dm-utils";
 export const DM_OPERATORS_IMPORT_NAME = "dmUtils";
 export const LAST_EXPORTED_CAR_PATH = "last-exported-car-path";
 export const RUNTIME_VERSION_440 = "4.4.0";
+export const RUNTIME_VERSION_450 = "4.5.0";
 export const DEFAULT_ICON = "https://mi-connectors.wso2.com/icons/wordpress.gif";
 
 export const ERROR_MESSAGES = {
