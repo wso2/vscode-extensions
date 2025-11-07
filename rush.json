@@ -487,6 +487,11 @@
       "versionPolicyName": "ballerina-extension"
     },
     {
+      "packageName": "@wso2/trace-visualizer",
+      "projectFolder": "workspaces/ballerina/trace-visualizer",
+      "versionPolicyName": "ballerina-extension"
+    },
+    {
       "packageName": "@wso2/overview-view",
       "projectFolder": "workspaces/ballerina/overview-view",
       "versionPolicyName": "ballerina-extension"

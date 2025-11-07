@@ -473,6 +473,9 @@ importers:
       '@wso2/syntax-tree':
         specifier: workspace:*
         version: link:../syntax-tree
+      '@wso2/trace-visualizer':
+        specifier: workspace:*
+        version: link:../trace-visualizer
       '@wso2/wso2-platform-core':
         specifier: workspace:*
         version: link:../../wso2-platform/wso2-platform-core
@@ -515,6 +518,9 @@ importers:
       portfinder:
         specifier: ^1.0.32
         version: 1.0.38
+      protobufjs:
+        specifier: ^7.2.5
+        version: 7.5.4
       source-map-support:
         specifier: ^0.5.21
         version: 0.5.21
@@ -2211,6 +2217,70 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
 
+  ../../workspaces/ballerina/trace-visualizer:
+    dependencies:
+      '@emotion/react':
+        specifier: ^11.14.0
+        version: 11.14.0(@types/react@18.2.0)(react@18.2.0)
+      '@emotion/styled':
+        specifier: ^11.14.0
+        version: 11.14.1(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0)
+      '@vscode/webview-ui-toolkit':
+        specifier: ^1.4.0
+        version: 1.4.0(react@18.2.0)
+      '@wso2/ui-toolkit':
+        specifier: workspace:*
+        version: link:../../common-libs/ui-toolkit
+      react:
+        specifier: 18.2.0
+        version: 18.2.0
+      react-dom:
+        specifier: 18.2.0
+        version: 18.2.0(react@18.2.0)
+    devDependencies:
+      '@types/react':
+        specifier: 18.2.0
+        version: 18.2.0
+      '@types/react-dom':
+        specifier: 18.2.0
+        version: 18.2.0
+      '@types/webpack':
+        specifier: ^5.28.5
+        version: 5.28.5(webpack-cli@5.1.4)
+      buffer:
+        specifier: ^6.0.3
+        version: 6.0.3
+      copyfiles:
+        specifier: ^2.4.1
+        version: 2.4.1
+      css-loader:
+        specifier: ^7.1.2
+        version: 7.1.2(webpack@5.102.1)
+      sass-loader:
+        specifier: ^16.0.5
+        version: 16.0.6(sass@1.93.3)(webpack@5.102.1)
+      source-map-loader:
+        specifier: ^5.0.0
+        version: 5.0.0(webpack@5.102.1)
+      style-loader:
+        specifier: ^4.0.0
+        version: 4.0.0(webpack@5.102.1)
+      ts-loader:
+        specifier: ^9.5.2
+        version: 9.5.4(typescript@5.8.3)(webpack@5.102.1)
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
+      webpack:
+        specifier: ^5.94.0
+        version: 5.102.1(@swc/core@1.14.0(@swc/helpers@0.5.17))(webpack-cli@5.1.4)
+      webpack-cli:
+        specifier: ^5.1.4
+        version: 5.1.4(webpack-dev-server@5.2.2)(webpack@5.102.1)
+      webpack-dev-server:
+        specifier: ^5.2.1
+        version: 5.2.2(webpack-cli@5.1.4)(webpack@5.102.1)
+
   ../../workspaces/ballerina/type-diagram:
     dependencies:
       '@emotion/css':
@@ -3093,6 +3163,12 @@ importers:
       mocha:
         specifier: ^11.2.2
         version: 11.7.4
+      open:
+        specifier: 10.2.0
+        version: 10.2.0
+      serve-handler:
+        specifier: 6.1.6
+        version: 6.1.6
       ts-loader:
         specifier: ^9.5.2
         version: 9.5.4(typescript@5.8.3)(webpack@5.102.1)
@@ -6829,6 +6905,36 @@ packages:
 
   '@projectstorm/react-diagrams@7.0.4':
     resolution: {integrity: sha512-GJLpo3zhJzjcmx3PfztNDTS7jpePj9TPjXV2CgJmCDZAPHDU8q/f4AyXoJfqvoWlmVnjrzQgtcOU2KbUlNu3dQ==}
+
+  '@protobufjs/aspromise@1.1.2':
+    resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
+
+  '@protobufjs/base64@1.1.2':
+    resolution: {integrity: sha512-AZkcAA5vnN/v4PDqKyMR5lx7hZttPDgClv83E//FMNhR2TMcLUhfRUBHCmSl0oi9zMgDDqRUJkSxO3wm85+XLg==}
+
+  '@protobufjs/codegen@2.0.4':
+    resolution: {integrity: sha512-YyFaikqM5sH0ziFZCN3xDC7zeGaB/d0IUb9CATugHWbd1FRFwWwt4ld4OYMPWu5a3Xe01mGAULCdqhMlPl29Jg==}
+
+  '@protobufjs/eventemitter@1.1.0':
+    resolution: {integrity: sha512-j9ednRT81vYJ9OfVuXG6ERSTdEL1xVsNgqpkxMsbIabzSo3goCjDIveeGv5d03om39ML71RdmrGNjG5SReBP/Q==}
+
+  '@protobufjs/fetch@1.1.0':
+    resolution: {integrity: sha512-lljVXpqXebpsijW71PZaCYeIcE5on1w5DlQy5WH6GLbFryLUrBD4932W/E2BSpfRJWseIL4v/KPgBFxDOIdKpQ==}
+
+  '@protobufjs/float@1.0.2':
+    resolution: {integrity: sha512-Ddb+kVXlXst9d+R9PfTIxh1EdNkgoRe5tOX6t01f1lYWOvJnSPDBlG241QLzcyPdoNTsblLUdujGSE4RzrTZGQ==}
+
+  '@protobufjs/inquire@1.1.0':
+    resolution: {integrity: sha512-kdSefcPdruJiFMVSbn801t4vFK7KB/5gd2fYvrxhuJYg8ILrmn9SKSX2tZdV6V+ksulWqS7aXjBcRXl3wHoD9Q==}
+
+  '@protobufjs/path@1.1.2':
+    resolution: {integrity: sha512-6JOcJ5Tm08dOHAbdR3GrvP+yUUfkjG5ePsHYczMFLq3ZmMkAD98cDgcT2iA1lJ9NVwFd4tH/iSSoe44YWkltEA==}
+
+  '@protobufjs/pool@1.1.0':
+    resolution: {integrity: sha512-0kELaGSIDBKvcgS4zkjz1PeddatrjYcmMWOlAuAPwAeccUrPHdUqo/J6LiymHHEiJT5NrF1UVwxY14f+fy4WQw==}
+
+  '@protobufjs/utf8@1.1.0':
+    resolution: {integrity: sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==}
 
   '@radix-ui/colors@3.0.0':
     resolution: {integrity: sha512-FUOsGBkHrYJwCSEtWRCIfQbZG7q1e6DgxCIOe1SUQzDe/7rXXeA47s8yCn6fuTNQAj1Zq4oTFi9Yjp3wzElcxg==}
@@ -16648,6 +16754,9 @@ packages:
   long-timeout@0.1.1:
     resolution: {integrity: sha512-BFRuQUqc7x2NWxfJBCyUrN8iYUYznzL9JROmRz1gZ6KlOIgmoD+njPVbb+VNn2nGMKggMsK79iUNErillsrx7w==}
 
+  long@5.3.2:
+    resolution: {integrity: sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==}
+
   longest-streak@3.1.0:
     resolution: {integrity: sha512-9Ri+o0JYgehTaVBBDoMqIl8GXtbWg711O3srftcHhZ0dqnETqLaoIK0x17fUw9rFSlK/0NlsKe0Ahhyl5pXE2g==}
 
@@ -18885,6 +18994,10 @@ packages:
 
   property-information@7.1.0:
     resolution: {integrity: sha512-TwEZ+X+yCJmYfL7TPUOcvBZ4QfoT5YenQiJuX//0th53DE6w0xxLEtfK3iyryQFddXuvkIk51EEgrJQ0WJkOmQ==}
+
+  protobufjs@7.5.4:
+    resolution: {integrity: sha512-CvexbZtbov6jW2eXAvLukXjXUW1TzFaivC46BpWc/3BpcCysb5Vffu+B3XHMm8lVEuy2Mm4XGex8hBSg1yapPg==}
+    engines: {node: '>=12.0.0'}
 
   proxy-addr@2.0.7:
     resolution: {integrity: sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==}
@@ -25930,6 +26043,8 @@ snapshots:
 
   '@gar/promisify@1.1.3': {}
 
+  '@github/markdown-toolbar-element@2.2.3': {}
+
   '@graphiql/react@0.26.2(@codemirror/language@6.11.3)(@types/node@22.15.35)(@types/react-dom@18.2.0)(@types/react@18.2.0)(graphql@16.12.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
       '@graphiql/toolkit': 0.11.3(@types/node@22.15.35)(graphql@16.12.0)
@@ -27528,6 +27643,29 @@ snapshots:
       - '@emotion/react'
       - '@types/react'
       - supports-color
+
+  '@protobufjs/aspromise@1.1.2': {}
+
+  '@protobufjs/base64@1.1.2': {}
+
+  '@protobufjs/codegen@2.0.4': {}
+
+  '@protobufjs/eventemitter@1.1.0': {}
+
+  '@protobufjs/fetch@1.1.0':
+    dependencies:
+      '@protobufjs/aspromise': 1.1.2
+      '@protobufjs/inquire': 1.1.0
+
+  '@protobufjs/float@1.0.2': {}
+
+  '@protobufjs/inquire@1.1.0': {}
+
+  '@protobufjs/path@1.1.2': {}
+
+  '@protobufjs/pool@1.1.0': {}
+
+  '@protobufjs/utf8@1.1.0': {}
 
   '@radix-ui/colors@3.0.0': {}
 
@@ -45451,6 +45589,8 @@ snapshots:
 
   long-timeout@0.1.1: {}
 
+  long@5.3.2: {}
+
   longest-streak@3.1.0: {}
 
   loose-envify@1.4.0:
@@ -48263,6 +48403,21 @@ snapshots:
   property-information@6.5.0: {}
 
   property-information@7.1.0: {}
+
+  protobufjs@7.5.4:
+    dependencies:
+      '@protobufjs/aspromise': 1.1.2
+      '@protobufjs/base64': 1.1.2
+      '@protobufjs/codegen': 2.0.4
+      '@protobufjs/eventemitter': 1.1.0
+      '@protobufjs/fetch': 1.1.0
+      '@protobufjs/float': 1.0.2
+      '@protobufjs/inquire': 1.1.0
+      '@protobufjs/path': 1.1.2
+      '@protobufjs/pool': 1.1.0
+      '@protobufjs/utf8': 1.1.0
+      '@types/node': 22.15.35
+      long: 5.3.2
 
   proxy-addr@2.0.7:
     dependencies:
