@@ -23,6 +23,7 @@ import { ExtensionAPIs } from "./extensionAPIs";
 import { WebviewManager } from "./webviewManager";
 import { StateMachine } from "./bi-treeview/stateMachine";
 import { extension } from "./bi-treeview/biExtentionContext";
+import { fetchProjectInfo } from "./bi-treeview/utils";
 
 /**
  * Activate the extension
@@ -44,7 +45,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		// Register tree view
 		// if (extensionAPIs.isBIAvailable()) {
 		const ballerinaExt = vscode.extensions.getExtension('wso2.ballerina');
-		if (ballerinaExt) {
+		const isBalProject = fetchProjectInfo().isBallerina;
+		if (ballerinaExt && isBalProject) {
 			extension.context = context;
 			extension.langClient = ballerinaExt.exports.ballerinaExtInstance.langClient;
 			extension.biSupported = ballerinaExt.exports.ballerinaExtInstance.biSupported;
