@@ -20,10 +20,9 @@ import * as vscode from "vscode";
 import { COMMANDS, CONTEXT_KEYS, VIEWS } from "@wso2/wi-core";
 import { ext } from "./extensionVariables";
 import { ExtensionAPIs } from "./extensionAPIs";
-import { IntegratorTreeDataProvider } from "./treeDataProvider";
 import { WebviewManager } from "./webviewManager";
-import { registerMainRpcHandlers } from "./rpc-managers/main/rpc-handler";
-import { Messenger } from "vscode-messenger";
+import { StateMachine } from "./bi-treeview/stateMachine";
+import { extension } from "./bi-treeview/biExtentionContext";
 
 /**
  * Activate the extension
@@ -41,24 +40,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		vscode.commands.executeCommand("setContext", CONTEXT_KEYS.BI_AVAILABLE, extensionAPIs.isBIAvailable());
 		vscode.commands.executeCommand("setContext", CONTEXT_KEYS.MI_AVAILABLE, extensionAPIs.isMIAvailable());
 
-		// Create tree data provider
-		const treeDataProvider = new IntegratorTreeDataProvider(extensionAPIs);
 
 		// Register tree view
-		const treeView = vscode.window.createTreeView(VIEWS.INTEGRATOR_EXPLORER, {
-			treeDataProvider,
-			showCollapseAll: true,
-		});
-		context.subscriptions.push(treeView);
-
+		// if (extensionAPIs.isBIAvailable()) {
+		const ballerinaExt = vscode.extensions.getExtension('wso2.ballerina');
+		if (ballerinaExt) {
+			extension.context = context;
+			extension.langClient = ballerinaExt.exports.ballerinaExtInstance.langClient;
+			extension.biSupported = ballerinaExt.exports.ballerinaExtInstance.biSupported;
+			extension.isNPSupported = ballerinaExt.exports.ballerinaExtInstance.isNPSupported;
+			StateMachine.initialize();
+		}
 		// Create webview manager
 		const webviewManager = new WebviewManager(extensionAPIs);
 		context.subscriptions.push({
 			dispose: () => webviewManager.dispose(),
 		});
-
-		// Register commands
-		registerCommands(context, treeDataProvider, webviewManager, extensionAPIs);
 
 		ext.log("WSO2 Integrator Extension activated successfully");
 	} catch (error) {
@@ -74,7 +71,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
  */
 function registerCommands(
 	context: vscode.ExtensionContext,
-	treeDataProvider: IntegratorTreeDataProvider,
 	webviewManager: WebviewManager,
 	extensionAPIs: ExtensionAPIs,
 ): void {
@@ -86,19 +82,6 @@ function registerCommands(
 			} catch (error) {
 				ext.logError("Failed to open welcome page", error as Error);
 				vscode.window.showErrorMessage("Failed to open welcome page");
-			}
-		}),
-	);
-
-	// Refresh view command
-	context.subscriptions.push(
-		vscode.commands.registerCommand(COMMANDS.REFRESH_VIEW, () => {
-			try {
-				treeDataProvider.refresh();
-				vscode.window.showInformationMessage("WSO2 Integrator view refreshed");
-			} catch (error) {
-				ext.logError("Failed to refresh view", error as Error);
-				vscode.window.showErrorMessage("Failed to refresh view");
 			}
 		}),
 	);
