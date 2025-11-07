@@ -3,7 +3,7 @@
   "displayName": "WSO2 Integrator: MI",
   "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
   "icon": "resources/images/wso2-micro-integrator-image.png",
-  "version": "2.4.1",
+  "version": "3.0.0",
   "publisher": "wso2",
   "engines": {
     "vscode": "^1.100.0"
@@ -932,14 +932,14 @@
         "description": "design-view",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f182"
+          "fontCharacter": "\\f19a"
         }
       },
       "distro-build-package": {
         "description": "build-package",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f15d"
+          "fontCharacter": "\\f175"
         }
       }
     }
@@ -989,8 +989,8 @@
     "ts-morph": "^26.0.0",
     "await-notify": "^1.0.1",
     "yaml": "~2.8.0",
-    "@playwright/test": "~1.52.0",
-    "playwright-core": "~1.52.0"
+    "@playwright/test": "~1.55.1",
+    "playwright-core": "~1.55.1"
   },
   "dependencies": {
     "copyfiles": "^2.4.1",

@@ -2,6 +2,23 @@
 
 All notable changes to the "micro-integrator" extension will be documented in this file.
 
+## [3.0.0] - 2025-11-03
+
+### Improvements
+
+- Multi-project Support
+- Versioned Artifact Support
+- Dependency Management for Integration Projects
+- Newly introduced Intelligent Document Processing connector
+- Improved Unit Testing UI
+- Kubernetes Configuration Support
+- Improvements to Connectors and Listeners
+- Enhancements to the MI Copilot
+  - Syntax validation of generated code
+  - “Thinking mode” that suggests improvements
+  - Migration support for old data mapper content
+  - Feedback and rating support for generated AI outputs
+
 ## [2.4.1] - 2025-07-09
 
 ### Fixed
