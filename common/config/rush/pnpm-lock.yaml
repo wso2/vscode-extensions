@@ -3646,6 +3646,9 @@ importers:
 
   ../../workspaces/mi/mi-extension:
     dependencies:
+      '@ai-sdk/anthropic':
+        specifier: ^2.0.35
+        version: 2.0.41(zod@3.25.76)
       '@apidevtools/json-schema-ref-parser':
         specifier: 12.0.2
         version: 12.0.2
@@ -3661,6 +3664,9 @@ importers:
       '@types/fs-extra':
         specifier: ~11.0.4
         version: 11.0.4
+      '@types/handlebars':
+        specifier: ^4.1.0
+        version: 4.1.0
       '@types/json-schema':
         specifier: 7.0.15
         version: 7.0.15
@@ -3700,6 +3706,9 @@ importers:
       adm-zip:
         specifier: ~0.5.16
         version: 0.5.16
+      ai:
+        specifier: ^5.0.76
+        version: 5.0.87(zod@3.25.76)
       axios:
         specifier: ~1.12.0
         version: 1.12.2
@@ -3721,6 +3730,9 @@ importers:
       fs-extra:
         specifier: ~11.3.0
         version: 11.3.2
+      handlebars:
+        specifier: ^4.7.8
+        version: 4.7.8
       json-schema:
         specifier: 0.4.0
         version: 0.4.0
@@ -3730,6 +3742,9 @@ importers:
       jsonix:
         specifier: ~3.0.0
         version: 3.0.0
+      jwt-decode:
+        specifier: ^4.0.0
+        version: 4.0.0
       lodash:
         specifier: ~4.17.21
         version: 4.17.21
@@ -3793,6 +3808,9 @@ importers:
       xstate:
         specifier: ^4.38.3
         version: 4.38.3
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
     devDependencies:
       '@playwright/test':
         specifier: ~1.55.1
@@ -22915,11 +22933,24 @@ snapshots:
       aws4fetch: 1.0.20
       zod: 4.1.11
 
+  '@ai-sdk/anthropic@2.0.41(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.16(zod@3.25.76)
+      zod: 3.25.76
+
   '@ai-sdk/anthropic@2.0.41(zod@4.1.11)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
       '@ai-sdk/provider-utils': 3.0.16(zod@4.1.11)
       zod: 4.1.11
+
+  '@ai-sdk/gateway@2.0.6(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.16(zod@3.25.76)
+      '@vercel/oidc': 3.0.3
+      zod: 3.25.76
 
   '@ai-sdk/gateway@2.0.6(zod@4.1.11)':
     dependencies:
@@ -22927,6 +22958,13 @@ snapshots:
       '@ai-sdk/provider-utils': 3.0.16(zod@4.1.11)
       '@vercel/oidc': 3.0.3
       zod: 4.1.11
+
+  '@ai-sdk/provider-utils@3.0.16(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@standard-schema/spec': 1.0.0
+      eventsource-parser: 3.0.6
+      zod: 3.25.76
 
   '@ai-sdk/provider-utils@3.0.16(zod@4.1.11)':
     dependencies:
@@ -37379,6 +37417,14 @@ snapshots:
     dependencies:
       clean-stack: 4.2.0
       indent-string: 5.0.0
+
+  ai@5.0.87(zod@3.25.76):
+    dependencies:
+      '@ai-sdk/gateway': 2.0.6(zod@3.25.76)
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.16(zod@3.25.76)
+      '@opentelemetry/api': 1.9.0
+      zod: 3.25.76
 
   ai@5.0.87(zod@4.1.11):
     dependencies:
