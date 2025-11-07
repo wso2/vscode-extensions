@@ -4063,30 +4063,69 @@ importers:
 
   ../../workspaces/wi/wi-extension:
     dependencies:
+      '@wso2/ballerina-core':
+        specifier: workspace:*
+        version: link:../../ballerina/ballerina-core
+      '@wso2/font-wso2-vscode':
+        specifier: workspace:*
+        version: link:../../common-libs/font-wso2-vscode
       '@wso2/wi-core':
         specifier: workspace:*
         version: link:../wi-core
       vscode-messenger:
         specifier: ~0.5.1
         version: 0.5.1
+      xstate:
+        specifier: ~4.38.3
+        version: 4.38.3
     devDependencies:
-      '@biomejs/biome':
-        specifier: ^1.9.4
-        version: 1.9.4
+      '@playwright/test':
+        specifier: ~1.55.1
+        version: 1.55.1
+      '@types/mocha':
+        specifier: ^10.0.3
+        version: 10.0.10
       '@types/node':
-        specifier: ^22.15.21
-        version: 22.15.35
+        specifier: 22.15.18
+        version: 22.15.18
       '@types/vscode':
-        specifier: ^1.100.0
+        specifier: ^1.84.0
         version: 1.102.0
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^6.21.0
+        version: 6.21.0(@typescript-eslint/parser@8.33.1(eslint@8.57.1)(typescript@5.8.3))(eslint@8.57.1)(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.32.1
+        version: 8.33.1(eslint@8.57.1)(typescript@5.8.3)
+      '@vscode/test-electron':
+        specifier: ^2.5.2
+        version: 2.5.2
       '@vscode/vsce':
-        specifier: ^3.2.1
+        specifier: ^3.4.0
         version: 3.4.2
-      '@wso2/wi-webviews':
+      '@wso2/playwright-vscode-tester':
         specifier: workspace:*
-        version: link:../wi-webviews
+        version: link:../../common-libs/playwright-vscode-tester
+      copy-webpack-plugin:
+        specifier: ^13.0.0
+        version: 13.0.0(webpack@5.101.0)
+      copyfiles:
+        specifier: ^2.4.1
+        version: 2.4.1
+      eslint:
+        specifier: ^8.57.1
+        version: 8.57.1
+      glob:
+        specifier: ^11.0.2
+        version: 11.0.3
+      mocha:
+        specifier: ^11.2.2
+        version: 11.7.1
+      source-map-support:
+        specifier: ^0.5.21
+        version: 0.5.21
       ts-loader:
-        specifier: ^9.5.1
+        specifier: ^9.5.2
         version: 9.5.2(typescript@5.8.3)(webpack@5.101.0)
       typescript:
         specifier: 5.8.3
@@ -4097,6 +4136,9 @@ importers:
       webpack-cli:
         specifier: ^6.0.1
         version: 6.0.1(webpack@5.101.0)
+      webpack-permissions-plugin:
+        specifier: ^1.0.9
+        version: 1.0.10
 
   ../../workspaces/wi/wi-rpc-client:
     dependencies:
@@ -25404,10 +25446,7 @@ snapshots:
       jest-runner: 25.5.4
       jest-runtime: 25.5.4
     transitivePeerDependencies:
-      - bufferutil
-      - canvas
       - supports-color
-      - utf-8-validate
 
   '@jest/test-sequencer@29.7.0':
     dependencies:
@@ -35276,7 +35315,7 @@ snapshots:
   '@webpack-cli/configtest@3.0.1(webpack-cli@6.0.1)(webpack@5.101.0)':
     dependencies:
       webpack: 5.101.0(webpack-cli@6.0.1)
-      webpack-cli: 6.0.1(webpack-dev-server@5.2.2)(webpack@5.101.0)
+      webpack-cli: 6.0.1(webpack@5.101.0)
 
   '@webpack-cli/info@1.5.0(webpack-cli@4.10.0)':
     dependencies:
@@ -35291,7 +35330,7 @@ snapshots:
   '@webpack-cli/info@3.0.1(webpack-cli@6.0.1)(webpack@5.101.0)':
     dependencies:
       webpack: 5.101.0(webpack-cli@6.0.1)
-      webpack-cli: 6.0.1(webpack-dev-server@5.2.2)(webpack@5.101.0)
+      webpack-cli: 6.0.1(webpack@5.101.0)
 
   '@webpack-cli/serve@1.7.0(webpack-cli@4.10.0)':
     dependencies:
@@ -51152,7 +51191,7 @@ snapshots:
       watchpack: 2.4.4
       webpack-sources: 3.3.3
     optionalDependencies:
-      webpack-cli: 6.0.1(webpack-dev-server@5.2.2)(webpack@5.101.0)
+      webpack-cli: 6.0.1(webpack@5.101.0)
     transitivePeerDependencies:
       - '@swc/core'
       - esbuild
