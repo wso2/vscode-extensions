@@ -165,51 +165,19 @@
         }
       }
     },
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "micro-integrator",
-          "title": "WSO2 Integrator: MI",
-          "icon": "assets/icon.svg"
-        }
-      ]
-    },
-    "views": {
-      "micro-integrator": [
-        {
-          "id": "MI.project-explorer",
-          "name": "Project Explorer"
-        }
-      ],
-      "test": [
-        {
-          "id": "MI.mock-services",
-          "name": "Mock Services"
-        }
-      ]
-    },
     "viewsWelcome": [
       {
-        "view": "MI.project-explorer",
+        "view": "wso2-integrator.explorer",
         "contents": "Loading...",
         "when": "MI.status != 'unknownProject' && MI.status != 'projectLoaded' && MI.status != 'disabled' && MI.status != 'notSetUp'"
       },
       {
-        "view": "MI.project-explorer",
-        "contents": "Welcome to WSO2 Integrator: MI. You can open a folder containing a MI project or create a new project.\n[Open MI Project](command:MI.openProject)\n[Create New Project](command:MI.project-explorer.create-project)\nTo learn more about how to use WSO2 Integrator: MI in VS Code, [read our docs](https://mi.docs.wso2.com/en/4.3.0/develop/mi-for-vscode/mi-for-vscode-overview/).",
-        "when": "MI.status == 'unknownProject'"
-      },
-      {
-        "view": "MI.project-explorer",
+        "view": "wso2-integrator.explorer",
         "contents": "Some errors occurred while activating the extension. Please check the output channel for more information.",
         "when": "MI.status == 'disabled'"
       },
       {
-        "view": "testing",
-        "contents": "[Add Unit Test](command:MI.test.add.suite)"
-      },
-      {
-        "view": "MI.project-explorer",
+        "view": "wso2-integrator.explorer",
         "contents": "WSO2 Integrator: MI is not set up. Please set up the MI server and Java home to continue.",
         "when": "MI.status == 'notSetUp'"
       }

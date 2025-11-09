@@ -19,7 +19,8 @@
     "onStartupFinished"
   ],
   "extensionDependencies": [
-    "wso2.ballerina"
+    "wso2.ballerina",
+    "wso2.micro-integrator"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -205,6 +206,7 @@
     "@wso2/wi-core": "workspace:*",
     "vscode-messenger": "~0.5.1",
     "@wso2/ballerina-core": "workspace:*",
+    "@wso2/micro-integrator-core": "workspace:*",
     "@wso2/font-wso2-vscode": "workspace:*",
     "xstate": "~4.38.3"
   }

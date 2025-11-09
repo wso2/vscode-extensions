@@ -39,51 +39,57 @@ import { getHash } from '../util/fileOperations';
 
 export function activateVisualizer(context: vscode.ExtensionContext, firstProject: string) {
     context.subscriptions.push(
-        vscode.commands.registerCommand(COMMANDS.OPEN_PROJECT, () => {
-            window.showOpenDialog({ canSelectFolders: true, canSelectFiles: true, filters: { 'CAPP': ['car', 'zip'] }, openLabel: 'Open MI Project' })
-                .then(uri => {
-                    if (uri && uri[0]) {
-                        const handleOpenProject = (folderUri: vscode.Uri) => {
-                            window.showInformationMessage('Where would you like to open the project?',
-                                { modal: true },
-                                'Current Window',
-                                'New Window'
-                            ).then(selection => {
-                                if (selection === "Current Window") {
-                                    const workspaceFolders = workspace.workspaceFolders || [];
-                                    if (!workspaceFolders.some(folder => folder.uri.fsPath === folderUri.fsPath)) {
-                                        workspace.updateWorkspaceFolders(workspaceFolders.length, 0, { uri: folderUri });
-                                    }
-                                } else if (selection === "New Window") {
-                                    commands.executeCommand('vscode.openFolder', folderUri);
+        vscode.commands.registerCommand(COMMANDS.OPEN_PROJECT, (providedUri?: vscode.Uri) => {
+            const processUri = (uri: vscode.Uri[] | undefined) => {
+                if (uri && uri[0]) {
+                    const handleOpenProject = (folderUri: vscode.Uri) => {
+                        window.showInformationMessage('Where would you like to open the project?',
+                            { modal: true },
+                            'Current Window',
+                            'New Window'
+                        ).then(selection => {
+                            if (selection === "Current Window") {
+                                const workspaceFolders = workspace.workspaceFolders || [];
+                                if (!workspaceFolders.some(folder => folder.uri.fsPath === folderUri.fsPath)) {
+                                    workspace.updateWorkspaceFolders(workspaceFolders.length, 0, { uri: folderUri });
+                                }
+                            } else if (selection === "New Window") {
+                                commands.executeCommand('vscode.openFolder', folderUri);
+                            }
+                        });
+                    };
+                    if (uri[0].fsPath.endsWith('.car') || uri[0].fsPath.endsWith('.zip')) {
+                        window.showInformationMessage('A car file (CAPP) is selected.\n Do you want to extract it?', { modal: true }, 'Extract')
+                            .then(option => {
+                                if (option === 'Extract') {
+                                    window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, title: 'Select the location to extract the CAPP', openLabel: 'Select Folder' })
+                                        .then(extractUri => {
+                                            if (extractUri && extractUri[0]) {
+                                                importCapp({ source: uri[0].fsPath, directory: extractUri[0].fsPath, open: false });
+                                                handleOpenProject(extractUri[0]);
+                                            }
+                                        });
                                 }
                             });
-                        };
-                        if (uri[0].fsPath.endsWith('.car') || uri[0].fsPath.endsWith('.zip')) {
-                            window.showInformationMessage('A car file (CAPP) is selected.\n Do you want to extract it?', { modal: true }, 'Extract')
-                                .then(option => {
-                                    if (option === 'Extract') {
-                                        window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, title: 'Select the location to extract the CAPP', openLabel: 'Select Folder' })
-                                            .then(extractUri => {
-                                                if (extractUri && extractUri[0]) {
-                                                    importCapp({ source: uri[0].fsPath, directory: extractUri[0].fsPath, open: false });
-                                                    handleOpenProject(extractUri[0]);
-                                                }
-                                            });
-                                    }
-                                });
+                    } else {
+                        const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
+                        const projectUri = webview ? webview.getProjectUri() : firstProject;
+                        const projectOpened = getStateMachine(projectUri).context().projectOpened;
+                        if (projectOpened) {
+                            handleOpenProject(uri[0]);
                         } else {
-                            const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
-                            const projectUri = webview ? webview.getProjectUri() : firstProject;
-                            const projectOpened = getStateMachine(projectUri).context().projectOpened;
-                            if (projectOpened) {
-                                handleOpenProject(uri[0]);
-                            } else {
-                                commands.executeCommand('vscode.openFolder', uri[0]);
-                            }
+                            commands.executeCommand('vscode.openFolder', uri[0]);
                         }
                     }
-                });
+                }
+            };
+
+            if (providedUri) {
+                processUri([providedUri]);
+            } else {
+                window.showOpenDialog({ canSelectFolders: true, canSelectFiles: true, filters: { 'CAPP': ['car', 'zip'] }, openLabel: 'Open MI Project' })
+                    .then(processUri);
+            }
         }),
         commands.registerCommand(COMMANDS.CREATE_PROJECT_COMMAND, async (args) => {
             if (args && args.name && args.path && args.scope) {

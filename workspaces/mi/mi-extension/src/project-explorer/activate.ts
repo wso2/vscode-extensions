@@ -47,7 +47,7 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 	const projectExplorerDataProvider = new ProjectExplorerEntryProvider(context);
 	await projectExplorerDataProvider.refresh();
 	let registryExplorerDataProvider;
-	const projectTree = window.createTreeView('MI.project-explorer', { treeDataProvider: projectExplorerDataProvider });
+	const projectTree = window.createTreeView('wso2-integrator.explorer', { treeDataProvider: projectExplorerDataProvider });
 
 	const projectDetailsRes = await lsClient?.getProjectDetails();
 	const runtimeVersion = projectDetailsRes.primaryDetails.runtimeVersion.value;
