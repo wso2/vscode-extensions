@@ -20,10 +20,18 @@
 import {
     RunCommandRequest,
     RunCommandResponse,
+    FileOrDirRequest,
+    FileOrDirResponse,
+    WorkspaceRootResponse,
     WIVisualizerAPI,
     openBiExtension,
     openMiExtension,
-    runCommand
+    runCommand,
+    selectFileOrDirPath,
+    getWorkspaceRoot,
+    getConfiguration,
+    GetConfigurationRequest,
+    GetConfigurationResponse
 } from "@wso2/wi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -45,5 +53,17 @@ export class MainRpcClient implements WIVisualizerAPI {
 
     runCommand(params: RunCommandRequest): Promise<RunCommandResponse> {
         return this._messenger.sendRequest(runCommand, HOST_EXTENSION, params);
+    }
+
+    selectFileOrDirPath(params: FileOrDirRequest): Promise<FileOrDirResponse> {
+        return this._messenger.sendRequest(selectFileOrDirPath, HOST_EXTENSION, params);
+    }
+
+    getWorkspaceRoot(): Promise<WorkspaceRootResponse> {
+        return this._messenger.sendRequest(getWorkspaceRoot, HOST_EXTENSION);
+    }
+
+    getConfiguration(params: GetConfigurationRequest): Promise<GetConfigurationResponse> {
+        return this._messenger.sendRequest(getConfiguration, HOST_EXTENSION, params);
     }
 }

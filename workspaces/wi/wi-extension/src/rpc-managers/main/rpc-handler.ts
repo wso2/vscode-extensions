@@ -21,7 +21,12 @@ import {
     openBiExtension,
     openMiExtension,
     runCommand,
-    RunCommandRequest
+    selectFileOrDirPath,
+    getWorkspaceRoot,
+    getConfiguration,
+    RunCommandRequest,
+    FileOrDirRequest,
+    GetConfigurationRequest
 } from "@wso2/wi-core";
 import { Messenger } from "vscode-messenger";
 import { MainRpcManager } from "./rpc-manager";
@@ -31,4 +36,7 @@ export function registerMainRpcHandlers(messenger: Messenger) {
     messenger.onNotification(openBiExtension, () => rpcManger.openBiExtension());
     messenger.onNotification(openMiExtension, () => rpcManger.openMiExtension());
     messenger.onRequest(runCommand, (args: RunCommandRequest) => rpcManger.runCommand(args));
+    messenger.onRequest(selectFileOrDirPath, (args: FileOrDirRequest) => rpcManger.selectFileOrDirPath(args));
+    messenger.onRequest(getWorkspaceRoot, () => rpcManger.getWorkspaceRoot());
+    messenger.onRequest(getConfiguration, (args: GetConfigurationRequest) => rpcManger.getConfiguration(args));
 }

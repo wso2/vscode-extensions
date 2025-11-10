@@ -17,10 +17,13 @@
  * 
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
-import { RunCommandRequest, RunCommandResponse } from "../../types/rpc.types";
+import { RunCommandRequest, RunCommandResponse, FileOrDirRequest, FileOrDirResponse, WorkspaceRootResponse, GetConfigurationRequest, GetConfigurationResponse } from "../../types/rpc.types";
 import { NotificationType, RequestType } from "vscode-messenger-common";
 
 const _preFix = "main";
 export const openBiExtension: NotificationType<void> = { method: `${_preFix}/openBiExtension` };
 export const openMiExtension: NotificationType<void> = { method: `${_preFix}/openMiExtension` };
 export const runCommand: RequestType<RunCommandRequest, RunCommandResponse> = { method: `${_preFix}/runCommand` };
+export const selectFileOrDirPath: RequestType<FileOrDirRequest, FileOrDirResponse> = { method: `${_preFix}/selectFileOrDirPath` };
+export const getWorkspaceRoot: RequestType<void, WorkspaceRootResponse> = { method: `${_preFix}/getWorkspaceRoot` };
+export const getConfiguration: RequestType<GetConfigurationRequest, GetConfigurationResponse> = { method: `${_preFix}/getConfiguration` };

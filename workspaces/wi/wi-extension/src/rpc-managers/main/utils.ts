@@ -16,6 +16,28 @@
  * under the License.
  */
 
-export * from "./webview-props.types";
-export * from "./common.types";
-export * from "./rpc.types";
+import { Uri, window } from "vscode";
+import * as os from 'os';
+
+export async function askFilePath() {
+    return await window.showOpenDialog({
+        canSelectFiles: true,
+        canSelectFolders: false,
+        canSelectMany: false,
+        defaultUri: Uri.file(os.homedir()),
+        filters: {
+            'Files': ['yaml', 'json', 'yml', 'graphql']
+        },
+        title: "Select a file",
+    });
+}
+
+export async function askProjectPath() {
+    return await window.showOpenDialog({
+        canSelectFiles: false,
+        canSelectFolders: true,
+        canSelectMany: false,
+        defaultUri: Uri.file(os.homedir()),
+        title: "Select a folder"
+    });
+}

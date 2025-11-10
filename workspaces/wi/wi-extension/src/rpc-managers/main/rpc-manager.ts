@@ -20,10 +20,16 @@
 import {
     RunCommandRequest,
     RunCommandResponse,
-    WIVisualizerAPI
+    FileOrDirRequest,
+    WorkspaceRootResponse,
+    WIVisualizerAPI,
+    FileOrDirResponse,
+    GetConfigurationRequest,
+    GetConfigurationResponse
 } from "@wso2/wi-core";
 import { ExtensionAPIs } from "../../extensionAPIs";
-import { commands } from "vscode";
+import { commands, window, workspace } from "vscode";
+import { askFilePath, askProjectPath } from "./utils";
 
 export class MainRpcManager implements WIVisualizerAPI {
 
@@ -37,5 +43,43 @@ export class MainRpcManager implements WIVisualizerAPI {
 
     async runCommand(props: RunCommandRequest): Promise<RunCommandResponse> {
         return await commands.executeCommand("wso2.integrator.runCommand", props);
+    }
+
+    async selectFileOrDirPath(params: FileOrDirRequest): Promise<FileOrDirResponse> {
+        return new Promise(async (resolve) => {
+            if (params.isFile) {
+                const selectedFile = await askFilePath();
+                if (!selectedFile || selectedFile.length === 0) {
+                    window.showErrorMessage('A file must be selected');
+                    resolve({ path: "" });
+                } else {
+                    const filePath = selectedFile[0].fsPath;
+                    resolve({ path: filePath });
+                }
+            } else {
+                const selectedDir = await askProjectPath();
+                if (!selectedDir || selectedDir.length === 0) {
+                    window.showErrorMessage('A folder must be selected');
+                    resolve({ path: "" });
+                } else {
+                    const dirPath = selectedDir[0].fsPath;
+                    resolve({ path: dirPath });
+                }
+            }
+        });
+    }
+
+    async getWorkspaceRoot(): Promise<WorkspaceRootResponse> {
+        return new Promise(async (resolve) => {
+            const workspaceFolders = workspace.workspaceFolders;
+            resolve(workspaceFolders ? { path: workspaceFolders[0].uri.fsPath } : { path: "" });
+        });
+    }
+
+    async getConfiguration(params: GetConfigurationRequest): Promise<GetConfigurationResponse> {
+        return new Promise(async (resolve) => {
+            const configValue = workspace.getConfiguration().get(params.section);
+            resolve({ value: configValue });
+        });
     }
 }

@@ -5,15 +5,12 @@ const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin'
 module.exports = {
     entry: "./src/index.tsx",
     target: "web",
-    devtool: !process.env.CI ? "source-map" : undefined,
+    devtool: !process.env.CI ? "inline-source-map" : undefined,
     mode: !process.env.CI ? "development" : "production",
     output: {
         path: path.resolve(__dirname, "lib"),
         filename: "main.js",
         library: "wiWebview",
-        devtoolModuleFilenameTemplate: function (info) {
-            return "file:///" + encodeURI(info.absoluteResourcePath);
-        },
         publicPath: "http://localhost:3000/lib/",
     },
     resolve: {
@@ -63,10 +60,11 @@ module.exports = {
             'Access-Control-Allow-Origin': '*',
         },
         devMiddleware: {
-			writeToDisk: true,
+            writeToDisk: true,
             mimeTypes: { 'text/css': ['css'] },
         },
         hot: true,
+        compress: false, 
     },
     plugins: [
         new webpack.ProvidePlugin({

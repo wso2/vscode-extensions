@@ -26,3 +26,23 @@ export interface RunCommandResponse {
     result?: any;
     error?: string;
 }
+
+export interface FileOrDirResponse {
+    path: string;
+}
+
+export interface FileOrDirRequest {
+    isFile?: boolean;
+}
+
+export interface WorkspaceRootResponse {
+    path: string;
+}
+
+export interface GetConfigurationRequest {
+    section: string;
+}
+
+export interface GetConfigurationResponse {
+    value: any;
+}

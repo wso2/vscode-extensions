@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { RunCommandRequest, RunCommandResponse } from "../../types/rpc.types";
+import { RunCommandRequest, RunCommandResponse, FileOrDirRequest, FileOrDirResponse, WorkspaceRootResponse, GetConfigurationRequest, GetConfigurationResponse } from "../../types/rpc.types";
 
 export * from "./rpc-type";
 export * from "../../types/rpc.types";
@@ -25,4 +25,7 @@ export interface WIVisualizerAPI {
     openBiExtension: () => void;
     openMiExtension: () => void;
     runCommand: (params: RunCommandRequest) => Promise<RunCommandResponse>;
+    selectFileOrDirPath: (params: FileOrDirRequest) => Promise<FileOrDirResponse>;
+    getWorkspaceRoot: () => Promise<WorkspaceRootResponse>;
+    getConfiguration: (params: GetConfigurationRequest) => Promise<GetConfigurationResponse>;
 }
