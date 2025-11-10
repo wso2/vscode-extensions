@@ -46,6 +46,7 @@ import { HelperPanePanelProvider, useHelperPanePanelContext } from './context';
 import { ARROW_HEIGHT, HELPER_PANE_HEIGHT, HELPER_PANE_WIDTH } from '../../../constants';
 import { HelperPaneHeight } from '../../../types';
 import { convertHelperPaneHeightToCSS } from '../../../utils';
+import { ThemeColors } from '../../../../../styles';
 
 export const Arrow = styled.div<ArrowProps>`
     position: absolute;
@@ -108,7 +109,12 @@ const PanelContainer = styled.div`
 `;
 
 const LibraryBrowserSearchBoxContainer = styled.div`
-    margin-bottom: 16px;
+    position: sticky;
+    top: 0;
+    background-color: var(--vscode-dropdown-background);
+    z-index: 1;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--vscode-panel-border);
 `;
 
 const LibraryBrowserBody = styled.div`
@@ -118,7 +124,6 @@ const LibraryBrowserBody = styled.div`
     padding: 16px;
     overflow-y: auto;
     scrollbar-color: auto;
-    border: 1px solid var(--vscode-dropdown-border);
 `;
 
 const LibraryBrowserHeader = styled.header`
@@ -143,7 +148,7 @@ const LibraryBrowserContainer = styled.div`
     flex-direction: column;
     padding: 16px;
     border-radius: 8px;
-    background-color: var(--vscode-dropdown-background);
+    background-color: ${ThemeColors.SURFACE_DIM};
     box-shadow: 0 3px 8px rgb(0 0 0 / 0.2);
     z-index: 100001;
 `;

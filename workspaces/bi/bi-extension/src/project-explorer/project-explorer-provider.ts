@@ -315,7 +315,8 @@ function getEntriesBI(components: ProjectStructureResponse): ProjectExplorerEntr
     if (localConnectors.children.length > 0) {
         localConnectors.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
     }
-    entries.push(localConnectors);
+    // REMOVE THE CUSTOM CONNECTOR TREE ITEM FOR NOW
+    // entries.push(localConnectors);
 
     return entries;
 }

@@ -158,7 +158,7 @@
         "description": "choreo-2",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f168"
+          "fontCharacter": "\\f180"
         }
       }
     }
@@ -188,7 +188,7 @@
     "postbuild": "pnpm run package && pnpm run copyVSIX"
   },
   "devDependencies": {
-    "@playwright/test": "1.52.0",
+    "@playwright/test": "1.55.1",
     "@types/byline": "^4.2.36",
     "@types/js-yaml": "^4.0.9",
     "@types/mocha": "~10.0.1",
