@@ -2495,6 +2495,9 @@ importers:
       '@wso2/font-wso2-vscode':
         specifier: workspace:*
         version: link:../../common-libs/font-wso2-vscode
+      toml:
+        specifier: ^3.0.0
+        version: 3.0.0
       xstate:
         specifier: ^4.38.3
         version: 4.38.3
@@ -44554,10 +44557,7 @@ snapshots:
       pretty-format: 25.5.0
       throat: 5.0.0
     transitivePeerDependencies:
-      - bufferutil
-      - canvas
       - supports-color
-      - utf-8-validate
 
   jest-leak-detector@25.5.0:
     dependencies:
