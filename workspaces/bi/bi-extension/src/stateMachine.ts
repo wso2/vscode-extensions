@@ -24,7 +24,7 @@ import { fetchProjectInfo, ProjectInfo } from './utils';
 interface MachineContext {
     isBI: boolean;
     isBallerina?: boolean;
-    isMultiRoot?: boolean;
+    isBalWorkspace?: boolean;
 }
 
 const stateMachine = createMachine<MachineContext>({
@@ -45,7 +45,7 @@ const stateMachine = createMachine<MachineContext>({
                         actions: assign({
                             isBI: (context, event) => event.data.isBI,
                             isBallerina: (context, event) => event.data.isBallerina,
-                            isMultiRoot: (context, event) => event.data.isMultiRoot
+                            isBalWorkspace: (context, event) => event.data.isBalWorkspace
                         })
                     },
                 ],
@@ -68,7 +68,7 @@ const stateMachine = createMachine<MachineContext>({
                 context: extension.context,
                 isBI: context.isBI,
                 isBallerina: context.isBallerina,
-                isMultiRoot: context.isMultiRoot
+                isBalWorkspace: context.isBalWorkspace
             });
         }
     },
@@ -84,5 +84,5 @@ export const StateMachine = {
 };
 
 async function findProjectInfo(): Promise<ProjectInfo> {
-    return fetchProjectInfo();
+    return await fetchProjectInfo();
 };
