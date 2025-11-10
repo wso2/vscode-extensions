@@ -25,13 +25,26 @@ import {
     WIVisualizerAPI,
     FileOrDirResponse,
     GetConfigurationRequest,
-    GetConfigurationResponse
+    GetConfigurationResponse,
+    GetSubFoldersRequest,
+    GetSubFoldersResponse,
+    ProjectDirResponse,
+    GetSupportedMIVersionsResponse,
+    CreateProjectRequest,
+    CreateProjectResponse,
+    GettingStartedData,
+    GettingStartedCategory,
+    GettingStartedSample,
+    SampleDownloadRequest
 } from "@wso2/wi-core";
 import { ExtensionAPIs } from "../../extensionAPIs";
-import { commands, window, workspace } from "vscode";
-import { askFileOrFolderPath, askFilePath, askProjectPath } from "./utils";
+import { commands, window, workspace, Uri } from "vscode";
+import { askFileOrFolderPath, askFilePath, askProjectPath, handleOpenFile } from "./utils";
+import * as fs from "fs";
+import * as path from "path";
 
 export class MainRpcManager implements WIVisualizerAPI {
+    constructor(private projectUri?: string) { }
 
     async openBiExtension(): Promise<void> {
         commands.executeCommand("wso2.integrator.openBIIntegration");
@@ -94,5 +107,121 @@ export class MainRpcManager implements WIVisualizerAPI {
             const configValue = workspace.getConfiguration().get(params.section);
             resolve({ value: configValue });
         });
+    }
+
+    async getSupportedMIVersionsHigherThan(version: string): Promise<GetSupportedMIVersionsResponse> {
+        return new Promise(async (resolve) => {
+            // TODO: Implement the actual function from ballerina-core
+            // For now, return a placeholder
+            const versions = ["4.2.0", "4.1.0", "4.0.0"];
+            resolve({ versions });
+        });
+    }
+
+    async getSubFolderNames(params: GetSubFoldersRequest): Promise<GetSubFoldersResponse> {
+        return new Promise(async (resolve) => {
+            const { path: folderPath } = params;
+            const subFolders: string[] = [];
+
+            try {
+                const subItems = fs.readdirSync(folderPath, { withFileTypes: true });
+                for (const item of subItems) {
+                    if (item.isDirectory()) {
+                        subFolders.push(item.name);
+                    }
+                }
+            } catch (error) {
+                console.error("Error reading subfolder names:", error);
+            }
+            resolve({ folders: subFolders });
+        });
+    }
+
+    async askProjectDirPath(): Promise<ProjectDirResponse> {
+        return new Promise(async (resolve) => {
+            const selectedDir = await askProjectPath();
+            if (!selectedDir || selectedDir.length === 0) {
+                window.showErrorMessage('A folder must be selected to create project');
+                resolve({ path: "" });
+            } else {
+                const parentDir = selectedDir[0].fsPath;
+                resolve({ path: parentDir });
+            }
+        });
+    }
+
+    async createProject(params: CreateProjectRequest): Promise<CreateProjectResponse> {
+        // TODO: Import createBIProjectPure from ballerina-core
+        // For now, create a placeholder implementation
+        return new Promise(async (resolve) => {
+            try {
+                // This should call createBIProjectPure(params)
+                console.log("Creating project with params:", params);
+                resolve({ filePath: "" });
+            } catch (error) {
+                console.error("Error creating project:", error);
+                window.showErrorMessage(`Failed to create project: ${error}`);
+                resolve({ filePath: "Error" });
+            }
+        });
+    }
+
+    async fetchSamplesFromGithub(): Promise<GettingStartedData> {
+        return new Promise(async (resolve) => {
+            const url = 'https://mi-connectors.wso2.com/samples/info.json';
+            try {
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const samples = JSON.parse(JSON.stringify(data)).Samples;
+                const categories = JSON.parse(JSON.stringify(data)).categories;
+
+                let categoriesList: GettingStartedCategory[] = [];
+                for (let i = 0; i < categories.length; i++) {
+                    const cat: GettingStartedCategory = {
+                        id: categories[i][0],
+                        title: categories[i][1],
+                        icon: categories[i][2]
+                    };
+                    categoriesList.push(cat);
+                }
+                let sampleList: GettingStartedSample[] = [];
+                for (let i = 0; i < samples.length; i++) {
+                    const sample: GettingStartedSample = {
+                        category: samples[i][0],
+                        priority: samples[i][1],
+                        title: samples[i][2],
+                        description: samples[i][3],
+                        zipFileName: samples[i][4],
+                        isAvailable: samples[i][5]
+                    };
+                    sampleList.push(sample);
+                }
+                const gettingStartedData: GettingStartedData = {
+                    categories: categoriesList,
+                    samples: sampleList
+                };
+                resolve(gettingStartedData);
+
+            } catch (error) {
+                console.error('Error fetching samples:', error);
+                resolve({ categories: [], samples: [] });
+            }
+        });
+    }
+
+    downloadSelectedSampleFromGithub(params: SampleDownloadRequest): void {
+        const url = 'https://mi-connectors.wso2.com/samples/samples/';
+        const workspaceFolders = workspace.workspaceFolders;
+        const projectUri = this.projectUri ?? (workspaceFolders ? workspaceFolders[0].uri.fsPath : "");
+        if (projectUri) {
+            handleOpenFile(projectUri, params.zipFileName, url);
+        } else {
+            window.showErrorMessage('No workspace folder found');
+        }
     }
 }

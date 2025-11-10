@@ -23,15 +23,14 @@ import {
     Dropdown,
 } from "@wso2/ui-toolkit";
 import styled from "@emotion/styled";
-import { BIProjectForm } from "./biForm";
+// import { BIProjectForm } from "./biForm";
 import { RpcClient } from "@wso2/wi-rpc-client";
-import { MiProjectWizard } from "./miForm";
+import { MiSamplesView } from "./miSamples";
 
 const FormContainer = styled.div`
     display: flex;
     flex-direction: column;
     margin: 80px 120px;
-    max-width: 600px;
 `;
 
 const TitleContainer = styled.div`
@@ -56,11 +55,10 @@ const DropdownContainer = styled.div`
     margin-bottom: 20px;
 `;
 
-export function CreationView({ onBack }: { onBack?: () => void }) {
+export function SamplesView({ onBack }: { onBack?: () => void }) {
     const [defaultType, setDefaultType] = useState<string>("WSO2: BI");
     const [projectType, setProjectType] = useState<string>(defaultType);
     const [isLoading, setIsLoading] = useState(true);
-    const rpcClient = new RpcClient();
 
     const projectTypeOptions = [
         { label: "WSO2: BI", value: "WSO2: BI" },
@@ -71,6 +69,7 @@ export function CreationView({ onBack }: { onBack?: () => void }) {
     useEffect(() => {
         const loadDefaultIntegrator = async () => {
             try {
+                const rpcClient = new RpcClient();
                 const configResponse = await rpcClient.getMainRpcClient().getConfiguration({
                     section: "integrator.defaultIntegrator"
                 });
@@ -112,7 +111,7 @@ export function CreationView({ onBack }: { onBack?: () => void }) {
                 <IconButton onClick={gotToWelcome}>
                     <Icon name="bi-arrow-back" iconSx={{ color: "var(--vscode-foreground)" }} />
                 </IconButton>
-                <Typography variant="h2">Create Your Integration</Typography>
+                <Typography variant="h2">Create using samples</Typography>
             </TitleContainer>
             {defaultType === "WSO2: MI" && (
                 <DropdownContainer>
@@ -128,8 +127,8 @@ export function CreationView({ onBack }: { onBack?: () => void }) {
                     />
                 </DropdownContainer>
             )}
-            {projectType === "WSO2: BI" && <BIProjectForm />}
-            {projectType === "WSO2: MI" && <MiProjectWizard />}
+            {projectType === "WSO2: BI" &&  <h2>Coming Soon!</h2> }
+            {projectType === "WSO2: MI" &&  <MiSamplesView /> }
         </FormContainer>
     );
 }

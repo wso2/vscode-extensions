@@ -25,9 +25,18 @@ import {
     selectFileOrFolderPath,
     getWorkspaceRoot,
     getConfiguration,
+    getSupportedMIVersionsHigherThan,
+    getSubFolderNames,
+    askProjectDirPath,
+    createProject,
+    fetchSamplesFromGithub,
+    downloadSelectedSampleFromGithub,
     RunCommandRequest,
     FileOrDirRequest,
-    GetConfigurationRequest
+    GetConfigurationRequest,
+    GetSubFoldersRequest,
+    CreateProjectRequest,
+    SampleDownloadRequest
 } from "@wso2/wi-core";
 import { Messenger } from "vscode-messenger";
 import { MainRpcManager } from "./rpc-manager";
@@ -41,4 +50,10 @@ export function registerMainRpcHandlers(messenger: Messenger) {
     messenger.onRequest(selectFileOrFolderPath, () => rpcManger.selectFileOrFolderPath());
     messenger.onRequest(getWorkspaceRoot, () => rpcManger.getWorkspaceRoot());
     messenger.onRequest(getConfiguration, (args: GetConfigurationRequest) => rpcManger.getConfiguration(args));
+    messenger.onRequest(getSupportedMIVersionsHigherThan, (version: string) => rpcManger.getSupportedMIVersionsHigherThan(version));
+    messenger.onRequest(getSubFolderNames, (args: GetSubFoldersRequest) => rpcManger.getSubFolderNames(args));
+    messenger.onRequest(askProjectDirPath, () => rpcManger.askProjectDirPath());
+    messenger.onRequest(createProject, (args: CreateProjectRequest) => rpcManger.createProject(args));
+    messenger.onRequest(fetchSamplesFromGithub, () => rpcManger.fetchSamplesFromGithub());
+    messenger.onNotification(downloadSelectedSampleFromGithub, (args: SampleDownloadRequest) => rpcManger.downloadSelectedSampleFromGithub(args));
 }

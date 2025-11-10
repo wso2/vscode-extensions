@@ -17,7 +17,7 @@
  * 
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
-import { RunCommandRequest, RunCommandResponse, FileOrDirRequest, FileOrDirResponse, WorkspaceRootResponse, GetConfigurationRequest, GetConfigurationResponse } from "../../types/rpc.types";
+import { RunCommandRequest, RunCommandResponse, FileOrDirRequest, FileOrDirResponse, WorkspaceRootResponse, GetConfigurationRequest, GetConfigurationResponse, GetSubFoldersRequest, GetSubFoldersResponse, ProjectDirResponse, GetSupportedMIVersionsResponse, CreateProjectRequest, CreateProjectResponse, GettingStartedData, SampleDownloadRequest } from "../../types/rpc.types";
 import { NotificationType, RequestType } from "vscode-messenger-common";
 
 const _preFix = "main";
@@ -28,3 +28,9 @@ export const selectFileOrDirPath: RequestType<FileOrDirRequest, FileOrDirRespons
 export const selectFileOrFolderPath: RequestType<void, FileOrDirResponse> = { method: `${_preFix}/selectFileOrFolderPath` };
 export const getWorkspaceRoot: RequestType<void, WorkspaceRootResponse> = { method: `${_preFix}/getWorkspaceRoot` };
 export const getConfiguration: RequestType<GetConfigurationRequest, GetConfigurationResponse> = { method: `${_preFix}/getConfiguration` };
+export const getSupportedMIVersionsHigherThan: RequestType<string, GetSupportedMIVersionsResponse> = { method: `${_preFix}/getSupportedMIVersionsHigherThan` };
+export const getSubFolderNames: RequestType<GetSubFoldersRequest, GetSubFoldersResponse> = { method: `${_preFix}/getSubFolderNames` };
+export const askProjectDirPath: RequestType<void, ProjectDirResponse> = { method: `${_preFix}/askProjectDirPath` };
+export const createProject: RequestType<CreateProjectRequest, CreateProjectResponse> = { method: `${_preFix}/createProject` };
+export const fetchSamplesFromGithub: RequestType<void, GettingStartedData> = { method: `${_preFix}/fetchSamplesFromGithub` };
+export const downloadSelectedSampleFromGithub: NotificationType<SampleDownloadRequest> = { method: `${_preFix}/downloadSelectedSampleFromGithub` };

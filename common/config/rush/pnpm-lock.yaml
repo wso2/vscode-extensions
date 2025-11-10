@@ -4066,6 +4066,9 @@ importers:
       '@emotion/styled':
         specifier: ^11.14.0
         version: 11.14.1(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@19.1.0)
+      '@types/unzipper':
+        specifier: ~0.10.11
+        version: 0.10.11
       '@wso2/ballerina-core':
         specifier: workspace:*
         version: link:../../ballerina/ballerina-core
@@ -4078,6 +4081,12 @@ importers:
       '@wso2/wi-core':
         specifier: workspace:*
         version: link:../wi-core
+      axios:
+        specifier: ~1.13.2
+        version: 1.13.2
+      unzipper:
+        specifier: ~0.12.3
+        version: 0.12.3
       vscode-messenger:
         specifier: ~0.5.1
         version: 0.5.1
@@ -4191,6 +4200,9 @@ importers:
       '@emotion/styled':
         specifier: ~11.14.1
         version: 11.14.1(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0)
+      '@hookform/resolvers':
+        specifier: ^5.2.2
+        version: 5.2.2(react-hook-form@7.66.0(react@18.2.0))
       '@pmmmwh/react-refresh-webpack-plugin':
         specifier: ~0.6.1
         version: 0.6.1(@types/webpack@5.28.5(webpack-cli@6.0.1))(react-refresh@0.11.0)(type-fest@4.41.0)(webpack-dev-server@5.2.2)(webpack-hot-middleware@2.26.1)(webpack@5.101.0)
@@ -4215,12 +4227,18 @@ importers:
       react-dom:
         specifier: 18.2.0
         version: 18.2.0(react@18.2.0)
+      react-hook-form:
+        specifier: ~7.66.0
+        version: 7.66.0(react@18.2.0)
       vscode-messenger-common:
         specifier: ^0.5.1
         version: 0.5.1
       vscode-messenger-webview:
         specifier: ^0.5.1
         version: 0.5.1
+      yup:
+        specifier: ~1.7.1
+        version: 1.7.1
     devDependencies:
       '@biomejs/biome':
         specifier: ^1.9.4
@@ -11163,6 +11181,9 @@ packages:
 
   axios@1.12.0:
     resolution: {integrity: sha512-oXTDccv8PcfjZmPGlWsPSwtOJCZ/b6W5jAMCNcfwJbCzDckwG0jrYJFaWH1yvivfCXjVzV/SPDEhMB3Q+DSurg==}
+
+  axios@1.13.2:
+    resolution: {integrity: sha512-VPk9ebNqPcy5lRGuSlKx752IlDatOjT9paPlm8A7yOuW2Fbvp4X3JznJtT4f0GzGLLiWE9W8onz51SqLYwzGaA==}
 
   axobject-query@4.1.0:
     resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
@@ -19080,6 +19101,12 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17 || ^18 || ^19
 
+  react-hook-form@7.66.0:
+    resolution: {integrity: sha512-xXBqsWGKrY46ZqaHDo+ZUYiMUgi8suYu5kdrS20EG8KiL7VRQitEbNjm+UcrDYrNi1YLyfpmAeGjCZYXLT9YBw==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      react: ^16.8.0 || ^17 || ^18 || ^19
+
   react-hot-loader@4.13.1:
     resolution: {integrity: sha512-ZlqCfVRqDJmMXTulUGic4lN7Ic1SXgHAFw7y/Jb7t25GBgTR0fYAJ8uY4mrpxjRyWGWmqw77qJQGnYbzCvBU7g==}
     engines: {node: '>= 6'}
@@ -22635,6 +22662,9 @@ packages:
   yup@1.6.1:
     resolution: {integrity: sha512-JED8pB50qbA4FOkDol0bYF/p60qSEDQqBD0/qeIrUCG1KbPBIQ776fCUNb9ldbPcSTxA69g/47XTo4TqWiuXOA==}
 
+  yup@1.7.1:
+    resolution: {integrity: sha512-GKHFX2nXul2/4Dtfxhozv701jLQHdf6J34YDh2cEkpqoo8le5Mg6/LrdseVLrFarmFygZTlfIhHx/QKfb/QWXw==}
+
   zenscroll@4.0.2:
     resolution: {integrity: sha512-jEA1znR7b4C/NnaycInCU6h/d15ZzCd1jmsruqOKnZP6WXQSMH3W2GL+OXbkruslU4h+Tzuos0HdswzRUk/Vgg==}
 
@@ -25166,6 +25196,11 @@ snapshots:
       '@standard-schema/utils': 0.3.0
       react-hook-form: 7.63.0(react@18.2.0)
 
+  '@hookform/resolvers@5.2.2(react-hook-form@7.66.0(react@18.2.0))':
+    dependencies:
+      '@standard-schema/utils': 0.3.0
+      react-hook-form: 7.66.0(react@18.2.0)
+
   '@humanfs/core@0.19.1': {}
 
   '@humanfs/node@0.16.6':
@@ -25458,7 +25493,10 @@ snapshots:
       jest-runner: 25.5.4
       jest-runtime: 25.5.4
     transitivePeerDependencies:
+      - bufferutil
+      - canvas
       - supports-color
+      - utf-8-validate
 
   '@jest/test-sequencer@29.7.0':
     dependencies:
@@ -35935,6 +35973,14 @@ snapshots:
   axe-core@4.10.3: {}
 
   axios@1.12.0:
+    dependencies:
+      follow-redirects: 1.15.11
+      form-data: 4.0.4
+      proxy-from-env: 1.1.0
+    transitivePeerDependencies:
+      - debug
+
+  axios@1.13.2:
     dependencies:
       follow-redirects: 1.15.11
       form-data: 4.0.4
@@ -46603,6 +46649,10 @@ snapshots:
     dependencies:
       react: 18.2.0
 
+  react-hook-form@7.66.0(react@18.2.0):
+    dependencies:
+      react: 18.2.0
+
   react-hot-loader@4.13.1(@types/react@18.2.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
     dependencies:
       fast-levenshtein: 2.0.6
@@ -51635,6 +51685,13 @@ snapshots:
       type-fest: 2.19.0
 
   yup@1.6.1:
+    dependencies:
+      property-expr: 2.0.6
+      tiny-case: 1.0.3
+      toposort: 2.0.2
+      type-fest: 2.19.0
+
+  yup@1.7.1:
     dependencies:
       property-expr: 2.0.6
       tiny-case: 1.0.3

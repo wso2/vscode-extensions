@@ -23,6 +23,7 @@ import styled from "@emotion/styled";
 import { Button, Codicon, Icon } from "@wso2/ui-toolkit";
 import { CreationView } from "./creationView";
 import { ImportIntegration } from "./ImportIntegration";
+import { SamplesView } from "./samplesView";
 
 enum ViewState {
     WELCOME = "welcome",
@@ -341,23 +342,8 @@ export const WelcomeView: React.FC<WelcomeWebviewProps> = () => {
     const goBackToWelcome = () => {
         setCurrentView(ViewState.WELCOME);
     };
-
-    const openSamples = () => {
-        goToSamples();
-        // rpcClient.getCommonRpcClient().openExternalUrl({
-        //     url: "https://bi.docs.wso2.com/integration-guides/integration-as-api/message-transformation/",
-        // });
-    };
-
-    const importExternalIntegration = () => {
-        goToImportExternal();
-        // rpcClient.getVisualizerRpcClient().openView({
-        //     type: EVENT_TYPE.OPEN_VIEW,
-        //     location: {
-        //         view: MACHINE_VIEW.BIImportIntegration,
-        //     },
-        // });
-    }; const openConfigure = () => {
+    
+    const openConfigure = () => {
         // Add configure action here
         console.log("Configure clicked");
     };
@@ -388,7 +374,7 @@ export const WelcomeView: React.FC<WelcomeWebviewProps> = () => {
                 return <CreationView onBack={goBackToWelcome} />;
             case ViewState.SAMPLES:
                 return (
-                    <ImportIntegration onBack={goBackToWelcome} />
+                    <SamplesView onBack={goBackToWelcome} />
                 );
             case ViewState.IMPORT_EXTERNAL:
                 return (
@@ -438,7 +424,7 @@ export const WelcomeView: React.FC<WelcomeWebviewProps> = () => {
                         </CardContent>
                     </ActionCard>
 
-                    <ActionCard onClick={openSamples}>
+                    <ActionCard onClick={goToSamples}>
                         <CardIconContainer>
                             <CardIcon bgColor="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)">
                                 <Icon name="bi-bookmark" iconSx={{ fontSize: 24 }} />
@@ -451,13 +437,13 @@ export const WelcomeView: React.FC<WelcomeWebviewProps> = () => {
                             </CardDescription>
                             <StyledButton
                                 appearance="secondary"
-                                onClick={(e: any) => { e.stopPropagation(); openSamples(); }}>
+                                onClick={(e: any) => { e.stopPropagation(); goToSamples(); }}>
                                 <ButtonContent>Explore</ButtonContent>
                             </StyledButton>
                         </CardContent>
                     </ActionCard>
 
-                    <ActionCard onClick={importExternalIntegration}>
+                    <ActionCard onClick={goToImportExternal}>
                         <CardIconContainer>
                             <CardIcon bgColor="linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)">
                                 <Icon name="bi-convert" iconSx={{ fontSize: 24 }} />
@@ -470,7 +456,7 @@ export const WelcomeView: React.FC<WelcomeWebviewProps> = () => {
                             </CardDescription>
                             <StyledButton
                                 appearance="secondary"
-                                onClick={(e: any) => { e.stopPropagation(); importExternalIntegration(); }}>
+                                onClick={(e: any) => { e.stopPropagation(); goToImportExternal(); }}>
                                 <ButtonContent>Import</ButtonContent>
                             </StyledButton>
                         </CardContent>

@@ -46,3 +46,63 @@ export interface GetConfigurationRequest {
 export interface GetConfigurationResponse {
     value: any;
 }
+
+export interface GetSubFoldersRequest {
+    path: string;
+}
+
+export interface GetSubFoldersResponse {
+    folders: string[];
+}
+
+export interface ProjectDirResponse {
+    path: string;
+}
+
+export interface GetSupportedMIVersionsResponse {
+    versions: string[];
+}
+
+export interface CreateProjectRequest {
+    directory: string;
+    name: string;
+    open: boolean;
+    groupID?: string;
+    artifactID?: string;
+    version?: string;
+    miVersion: string;
+}
+
+export interface CreateProjectResponse {
+    filePath: string;
+}
+
+export interface GettingStartedSample {
+    category: number;
+    priority: number;
+    title: string;
+    description: string;
+    zipFileName: string;
+    isAvailable?: boolean;
+}
+
+export interface GettingStartedCategory {
+    id: number;
+    title: string;
+    icon: string;
+}
+
+export interface GettingStartedData {
+    categories: GettingStartedCategory[];
+    samples: GettingStartedSample[];
+}
+
+export interface SampleDownloadRequest {
+    zipFileName: string;
+}
+
+export interface DownloadProgressData {
+    percentage: number;
+    downloadedAmount: string;
+    downloadSize: string;
+}

@@ -227,6 +227,9 @@
     "@wso2/font-wso2-vscode": "workspace:*",
     "xstate": "~4.38.3",
     "@emotion/styled": "^11.14.0",
-    "@wso2/ui-toolkit": "workspace:*"
+    "@wso2/ui-toolkit": "workspace:*",
+    "unzipper": "~0.12.3",
+    "@types/unzipper": "~0.10.11",
+    "axios": "~1.13.2"
   }
 }

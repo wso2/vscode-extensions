@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { RunCommandRequest, RunCommandResponse, FileOrDirRequest, FileOrDirResponse, WorkspaceRootResponse, GetConfigurationRequest, GetConfigurationResponse } from "../../types/rpc.types";
+import { RunCommandRequest, RunCommandResponse, FileOrDirRequest, FileOrDirResponse, WorkspaceRootResponse, GetConfigurationRequest, GetConfigurationResponse, GetSubFoldersRequest, GetSubFoldersResponse, ProjectDirResponse, GetSupportedMIVersionsResponse, CreateProjectRequest, CreateProjectResponse, GettingStartedData, SampleDownloadRequest } from "../../types/rpc.types";
 
 export * from "./rpc-type";
 export * from "../../types/rpc.types";
@@ -29,4 +29,10 @@ export interface WIVisualizerAPI {
     selectFileOrFolderPath: () => Promise<FileOrDirResponse>;
     getWorkspaceRoot: () => Promise<WorkspaceRootResponse>;
     getConfiguration: (params: GetConfigurationRequest) => Promise<GetConfigurationResponse>;
+    getSupportedMIVersionsHigherThan: (version: string) => Promise<GetSupportedMIVersionsResponse>;
+    getSubFolderNames: (params: GetSubFoldersRequest) => Promise<GetSubFoldersResponse>;
+    askProjectDirPath: () => Promise<ProjectDirResponse>;
+    createProject: (params: CreateProjectRequest) => Promise<CreateProjectResponse>;
+    fetchSamplesFromGithub: () => Promise<GettingStartedData>;
+    downloadSelectedSampleFromGithub: (params: SampleDownloadRequest) => void;
 }

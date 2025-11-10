@@ -31,8 +31,22 @@ import {
     selectFileOrFolderPath,
     getWorkspaceRoot,
     getConfiguration,
+    getSupportedMIVersionsHigherThan,
+    getSubFolderNames,
+    askProjectDirPath,
+    createProject,
+    fetchSamplesFromGithub,
+    downloadSelectedSampleFromGithub,
     GetConfigurationRequest,
-    GetConfigurationResponse
+    GetConfigurationResponse,
+    GetSubFoldersRequest,
+    GetSubFoldersResponse,
+    ProjectDirResponse,
+    GetSupportedMIVersionsResponse,
+    CreateProjectRequest,
+    CreateProjectResponse,
+    GettingStartedData,
+    SampleDownloadRequest
 } from "@wso2/wi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -70,5 +84,29 @@ export class MainRpcClient implements WIVisualizerAPI {
 
     getConfiguration(params: GetConfigurationRequest): Promise<GetConfigurationResponse> {
         return this._messenger.sendRequest(getConfiguration, HOST_EXTENSION, params);
+    }
+
+    getSupportedMIVersionsHigherThan(version: string): Promise<GetSupportedMIVersionsResponse> {
+        return this._messenger.sendRequest(getSupportedMIVersionsHigherThan, HOST_EXTENSION, version);
+    }
+
+    getSubFolderNames(params: GetSubFoldersRequest): Promise<GetSubFoldersResponse> {
+        return this._messenger.sendRequest(getSubFolderNames, HOST_EXTENSION, params);
+    }
+
+    askProjectDirPath(): Promise<ProjectDirResponse> {
+        return this._messenger.sendRequest(askProjectDirPath, HOST_EXTENSION);
+    }
+
+    createProject(params: CreateProjectRequest): Promise<CreateProjectResponse> {
+        return this._messenger.sendRequest(createProject, HOST_EXTENSION, params);
+    }
+
+    fetchSamplesFromGithub(): Promise<GettingStartedData> {
+        return this._messenger.sendRequest(fetchSamplesFromGithub, HOST_EXTENSION);
+    }
+
+    downloadSelectedSampleFromGithub(params: SampleDownloadRequest): void {
+        this._messenger.sendNotification(downloadSelectedSampleFromGithub, HOST_EXTENSION, params);
     }
 }

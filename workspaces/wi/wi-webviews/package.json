@@ -25,7 +25,10 @@
     "@pmmmwh/react-refresh-webpack-plugin": "~0.6.1",
     "@wso2/wi-rpc-client": "workspace:*",
     "@emotion/styled": "~11.14.1",
-    "@wso2/ui-toolkit": "workspace:*"
+    "@wso2/ui-toolkit": "workspace:*",
+    "yup": "~1.7.1",
+    "react-hook-form": "~7.66.0",
+    "@hookform/resolvers": "^5.2.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
