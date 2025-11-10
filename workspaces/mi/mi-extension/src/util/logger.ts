@@ -50,7 +50,7 @@ export function logDebug(message: string, logLevel: LogLevel = LogLevel.DEBUG): 
     const config = vscode.workspace.getConfiguration('MI');
     const configuredLevel = config.get<string>('logging.loggingLevel');
 
-    if (configuredLevel === 'OFF') {
+    if (configuredLevel === 'off') {
         return;
     }
     // Only log if the message's level is >= configured level
