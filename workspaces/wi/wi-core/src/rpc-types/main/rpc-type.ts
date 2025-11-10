@@ -25,5 +25,6 @@ export const openBiExtension: NotificationType<void> = { method: `${_preFix}/ope
 export const openMiExtension: NotificationType<void> = { method: `${_preFix}/openMiExtension` };
 export const runCommand: RequestType<RunCommandRequest, RunCommandResponse> = { method: `${_preFix}/runCommand` };
 export const selectFileOrDirPath: RequestType<FileOrDirRequest, FileOrDirResponse> = { method: `${_preFix}/selectFileOrDirPath` };
+export const selectFileOrFolderPath: RequestType<void, FileOrDirResponse> = { method: `${_preFix}/selectFileOrFolderPath` };
 export const getWorkspaceRoot: RequestType<void, WorkspaceRootResponse> = { method: `${_preFix}/getWorkspaceRoot` };
 export const getConfiguration: RequestType<GetConfigurationRequest, GetConfigurationResponse> = { method: `${_preFix}/getConfiguration` };

@@ -41,3 +41,13 @@ export async function askProjectPath() {
         title: "Select a folder"
     });
 }
+
+export async function askFileOrFolderPath() {
+    return await window.showOpenDialog({
+        canSelectFiles: true,
+        canSelectFolders: true,
+        canSelectMany: false,
+        defaultUri: Uri.file(os.homedir()),
+        title: "Select a file or folder"
+    });
+}

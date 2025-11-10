@@ -26,6 +26,7 @@ export interface WIVisualizerAPI {
     openMiExtension: () => void;
     runCommand: (params: RunCommandRequest) => Promise<RunCommandResponse>;
     selectFileOrDirPath: (params: FileOrDirRequest) => Promise<FileOrDirResponse>;
+    selectFileOrFolderPath: () => Promise<FileOrDirResponse>;
     getWorkspaceRoot: () => Promise<WorkspaceRootResponse>;
     getConfiguration: (params: GetConfigurationRequest) => Promise<GetConfigurationResponse>;
 }

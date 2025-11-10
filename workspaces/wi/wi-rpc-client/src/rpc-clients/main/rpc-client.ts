@@ -28,6 +28,7 @@ import {
     openMiExtension,
     runCommand,
     selectFileOrDirPath,
+    selectFileOrFolderPath,
     getWorkspaceRoot,
     getConfiguration,
     GetConfigurationRequest,
@@ -57,6 +58,10 @@ export class MainRpcClient implements WIVisualizerAPI {
 
     selectFileOrDirPath(params: FileOrDirRequest): Promise<FileOrDirResponse> {
         return this._messenger.sendRequest(selectFileOrDirPath, HOST_EXTENSION, params);
+    }
+
+    selectFileOrFolderPath(): Promise<FileOrDirResponse> {
+        return this._messenger.sendRequest(selectFileOrFolderPath, HOST_EXTENSION);
     }
 
     getWorkspaceRoot(): Promise<WorkspaceRootResponse> {

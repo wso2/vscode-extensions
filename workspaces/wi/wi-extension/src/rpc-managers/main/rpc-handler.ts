@@ -22,6 +22,7 @@ import {
     openMiExtension,
     runCommand,
     selectFileOrDirPath,
+    selectFileOrFolderPath,
     getWorkspaceRoot,
     getConfiguration,
     RunCommandRequest,
@@ -37,6 +38,7 @@ export function registerMainRpcHandlers(messenger: Messenger) {
     messenger.onNotification(openMiExtension, () => rpcManger.openMiExtension());
     messenger.onRequest(runCommand, (args: RunCommandRequest) => rpcManger.runCommand(args));
     messenger.onRequest(selectFileOrDirPath, (args: FileOrDirRequest) => rpcManger.selectFileOrDirPath(args));
+    messenger.onRequest(selectFileOrFolderPath, () => rpcManger.selectFileOrFolderPath());
     messenger.onRequest(getWorkspaceRoot, () => rpcManger.getWorkspaceRoot());
     messenger.onRequest(getConfiguration, (args: GetConfigurationRequest) => rpcManger.getConfiguration(args));
 }

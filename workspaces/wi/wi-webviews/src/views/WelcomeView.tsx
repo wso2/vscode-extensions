@@ -19,10 +19,17 @@
 import React, { useState } from "react";
 import type { WelcomeWebviewProps } from "@wso2/wi-core";
 import "./WelcomeView.css";
-import { RpcClient } from "@wso2/wi-rpc-client";
 import styled from "@emotion/styled";
 import { Button, Codicon, Icon } from "@wso2/ui-toolkit";
 import { CreationView } from "./creationView";
+import { ImportIntegration } from "./ImportIntegration";
+
+enum ViewState {
+    WELCOME = "welcome",
+    CREATE_PROJECT = "create_project",
+    SAMPLES = "samples",
+    IMPORT_EXTERNAL = "import_external"
+}
 
 const Wrapper = styled.div`
     max-width: 100%;
@@ -143,8 +150,8 @@ const ActionCard = styled.div<ActionCardProps>`
 
     &:hover {
         ${(props: ActionCardProps) =>
-            !props.disabled &&
-            `
+        !props.disabled &&
+        `
             transform: translateY(-4px);
             box-shadow: 0 8px 16px rgba(0,0,0,0.25);
             background: var(--vscode-list-hoverBackground);
@@ -195,22 +202,22 @@ const CardDescription = styled.p`
     flex: 1;
 `;
 
-const StyledButton = styled(Button)<{ isPrimary?: boolean }>`
+const StyledButton = styled(Button) <{ isPrimary?: boolean }>`
     height: 44px;
     font-size: 14px;
     font-weight: 500;
     border-radius: 8px;
     align-self: flex-start;
     padding: 0 24px;
-    background: ${(props: { isPrimary?: boolean }) => 
+    background: ${(props: { isPrimary?: boolean }) =>
         props.isPrimary ? 'var(--button-primary-background)' : 'var(--button-secondary-background)'};
     color: white;
     border: none;
     transition: all 0.2s ease;
 
     &:hover:not(:disabled) {
-        background: ${(props: { isPrimary?: boolean }) => 
-            props.isPrimary ? 'var(--button-primary-hover-background)' : 'var(--button-secondary-hover-background)'};
+        background: ${(props: { isPrimary?: boolean }) =>
+        props.isPrimary ? 'var(--button-primary-hover-background)' : 'var(--button-secondary-hover-background)'};
         transform: translateY(-1px);
     }
 
@@ -317,27 +324,40 @@ const ProjectPath = styled.span`
 `;
 
 export const WelcomeView: React.FC<WelcomeWebviewProps> = () => {
-	const [showProjectForm, setShowProjectForm] = useState(false);
-    
-	const goToCreateProject = () => {
-        setShowProjectForm(true);
+    const [currentView, setCurrentView] = useState<ViewState>(ViewState.WELCOME);
+
+    const goToCreateProject = () => {
+        setCurrentView(ViewState.CREATE_PROJECT);
     };
+
+    const goToSamples = () => {
+        setCurrentView(ViewState.SAMPLES);
+    };
+
+    const goToImportExternal = () => {
+        setCurrentView(ViewState.IMPORT_EXTERNAL);
+    };
+
+    const goBackToWelcome = () => {
+        setCurrentView(ViewState.WELCOME);
+    };
+
     const openSamples = () => {
+        goToSamples();
         // rpcClient.getCommonRpcClient().openExternalUrl({
         //     url: "https://bi.docs.wso2.com/integration-guides/integration-as-api/message-transformation/",
         // });
     };
 
     const importExternalIntegration = () => {
+        goToImportExternal();
         // rpcClient.getVisualizerRpcClient().openView({
         //     type: EVENT_TYPE.OPEN_VIEW,
         //     location: {
         //         view: MACHINE_VIEW.BIImportIntegration,
         //     },
         // });
-    };
-
-    const openConfigure = () => {
+    }; const openConfigure = () => {
         // Add configure action here
         console.log("Configure clicked");
     };
@@ -361,111 +381,130 @@ export const WelcomeView: React.FC<WelcomeWebviewProps> = () => {
         { name: "Documents", path: "~" },
     ];
 
-	return (
+    // Helper function to render current view content
+    const renderCurrentView = () => {
+        switch (currentView) {
+            case ViewState.CREATE_PROJECT:
+                return <CreationView onBack={goBackToWelcome} />;
+            case ViewState.SAMPLES:
+                return (
+                    <ImportIntegration onBack={goBackToWelcome} />
+                );
+            case ViewState.IMPORT_EXTERNAL:
+                return (
+                    <ImportIntegration onBack={goBackToWelcome} />
+                );
+            case ViewState.WELCOME:
+            default:
+                return renderWelcomeContent();
+        }
+    };
+
+    const renderWelcomeContent = () => (
+        <>
+            <TopSection>
+                <ConfigureButton appearance="secondary" onClick={openConfigure}>
+                    <ButtonContent>
+                        <Codicon name="settings-gear" iconSx={{ fontSize: 16 }} />
+                        Configure
+                    </ButtonContent>
+                </ConfigureButton>
+                <GetStartedBadge>Get Started</GetStartedBadge>
+                <Headline>WSO2 Integrator</Headline>
+                <Caption>
+                    A comprehensive integration solution that simplifies your digital transformation journey. Streamlines connectivity among applications, services, data, and cloud using a user-friendly low-code graphical designing experience.
+                </Caption>
+            </TopSection>
+
+            <CardsContainer>
+                <CardsGrid>
+                    <ActionCard onClick={goToCreateProject}>
+                        <CardIconContainer>
+                            <CardIcon bgColor="linear-gradient(135deg, #667eea 0%, #764ba2 100%)">
+                                <Icon name="bi-plus-fill" iconSx={{ fontSize: 24 }} />
+                            </CardIcon>
+                        </CardIconContainer>
+                        <CardContent>
+                            <CardTitle>Create New Project</CardTitle>
+                            <CardDescription>
+                                Ready to build? Start a new integration project using our intuitive graphical designer.
+                            </CardDescription>
+                            <StyledButton
+                                isPrimary={true}
+                                appearance="primary"
+                                onClick={(e: any) => { e.stopPropagation(); goToCreateProject(); }}>
+                                <ButtonContent>Create</ButtonContent>
+                            </StyledButton>
+                        </CardContent>
+                    </ActionCard>
+
+                    <ActionCard onClick={openSamples}>
+                        <CardIconContainer>
+                            <CardIcon bgColor="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)">
+                                <Icon name="bi-bookmark" iconSx={{ fontSize: 24 }} />
+                            </CardIcon>
+                        </CardIconContainer>
+                        <CardContent>
+                            <CardTitle>Explore Samples</CardTitle>
+                            <CardDescription>
+                                Need inspiration? Browse through sample projects to see how WSO2 Integrator works in real-world scenarios.
+                            </CardDescription>
+                            <StyledButton
+                                appearance="secondary"
+                                onClick={(e: any) => { e.stopPropagation(); openSamples(); }}>
+                                <ButtonContent>Explore</ButtonContent>
+                            </StyledButton>
+                        </CardContent>
+                    </ActionCard>
+
+                    <ActionCard onClick={importExternalIntegration}>
+                        <CardIconContainer>
+                            <CardIcon bgColor="linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)">
+                                <Icon name="bi-convert" iconSx={{ fontSize: 24 }} />
+                            </CardIcon>
+                        </CardIconContainer>
+                        <CardContent>
+                            <CardTitle>Import External Integration</CardTitle>
+                            <CardDescription>
+                                Have an integration from another platform? Import your MuleSoft or TIBCO integration project and continue building.
+                            </CardDescription>
+                            <StyledButton
+                                appearance="secondary"
+                                onClick={(e: any) => { e.stopPropagation(); importExternalIntegration(); }}>
+                                <ButtonContent>Import</ButtonContent>
+                            </StyledButton>
+                        </CardContent>
+                    </ActionCard>
+                </CardsGrid>
+            </CardsContainer>
+
+            <BottomSection>
+                <AlreadyHaveText>
+                    Already have a project?
+                    <a onClick={openProject}>Open</a>
+                </AlreadyHaveText>
+
+                <RecentProjectsSection>
+                    <RecentProjectsHeader>
+                        <RecentProjectsTitle>Recent projects</RecentProjectsTitle>
+                        <ViewAllLink onClick={viewAllProjects}>View all (11)</ViewAllLink>
+                    </RecentProjectsHeader>
+                    <ProjectsList>
+                        {recentProjects.map((project, index) => (
+                            <ProjectItem key={index} onClick={() => console.log(`Open project: ${project.name}`)}>
+                                <span>{project.name}</span>
+                                <ProjectPath>{project.path}</ProjectPath>
+                            </ProjectItem>
+                        ))}
+                    </ProjectsList>
+                </RecentProjectsSection>
+            </BottomSection>
+        </>
+    );
+
+    return (
         <Wrapper>
-            {showProjectForm ? (
-                <CreationView onBack={() => setShowProjectForm(false)} />
-            ) : (
-                <>
-                    <TopSection>
-                        <ConfigureButton appearance="secondary" onClick={openConfigure}>
-                            <ButtonContent>
-                                <Codicon name="settings-gear" iconSx={{ fontSize: 16 }} />
-                                Configure
-                            </ButtonContent>
-                        </ConfigureButton>
-                        <GetStartedBadge>Get Started</GetStartedBadge>
-                        <Headline>WSO2 Integrator</Headline>
-                        <Caption>
-                            A comprehensive integration solution that simplifies your digital transformation journey. Streamlines connectivity among applications, services, data, and cloud using a user-friendly low-code graphical designing experience.
-                        </Caption>
-                    </TopSection>
-
-                    <CardsContainer>
-                        <CardsGrid>
-                            <ActionCard onClick={goToCreateProject}>
-                                <CardIconContainer>
-                                    <CardIcon bgColor="linear-gradient(135deg, #667eea 0%, #764ba2 100%)">
-                                        <Icon name="bi-plus-fill" iconSx={{ fontSize: 24 }} />
-                                    </CardIcon>
-                                </CardIconContainer>
-                                <CardContent>
-                                    <CardTitle>Create New Project</CardTitle>
-                                    <CardDescription>
-                                        Ready to build? Start a new integration project using our intuitive graphical designer.
-                                    </CardDescription>
-                                    <StyledButton
-                                        isPrimary={true} 
-                                        appearance="primary"
-                                        onClick={(e: any) => { e.stopPropagation(); goToCreateProject(); }}>
-                                        <ButtonContent>Create</ButtonContent>
-                                    </StyledButton>
-                                </CardContent>
-                            </ActionCard>
-
-                            <ActionCard onClick={openSamples}>
-                                <CardIconContainer>
-                                    <CardIcon bgColor="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)">
-                                        <Icon name="bi-bookmark" iconSx={{ fontSize: 24 }} />
-                                    </CardIcon>
-                                </CardIconContainer>
-                                <CardContent>
-                                    <CardTitle>Explore Samples</CardTitle>
-                                    <CardDescription>
-                                        Need inspiration? Browse through sample projects to see how WSO2 Integrator works in real-world scenarios.
-                                    </CardDescription>
-                                    <StyledButton 
-                                        appearance="secondary" 
-                                        onClick={(e: any) => { e.stopPropagation(); openSamples(); }}>
-                                        <ButtonContent>Explore</ButtonContent>
-                                    </StyledButton>
-                                </CardContent>
-                            </ActionCard>
-
-                            <ActionCard onClick={importExternalIntegration}>
-                                <CardIconContainer>
-                                    <CardIcon bgColor="linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)">
-                                        <Icon name="bi-convert" iconSx={{ fontSize: 24 }} />
-                                    </CardIcon>
-                                </CardIconContainer>
-                                <CardContent>
-                                    <CardTitle>Import External Integration</CardTitle>
-                                    <CardDescription>
-                                        Have an integration from another platform? Import your MuleSoft or TIBCO integration project and continue building.
-                                    </CardDescription>
-                                    <StyledButton 
-                                        appearance="secondary"
-                                        onClick={(e: any) => { e.stopPropagation(); importExternalIntegration(); }}>
-                                        <ButtonContent>Import</ButtonContent>
-                                    </StyledButton>
-                                </CardContent>
-                            </ActionCard>
-                        </CardsGrid>
-                    </CardsContainer>
-
-                    <BottomSection>
-                        <AlreadyHaveText>
-                            Already have a project?
-                            <a onClick={openProject}>Open</a>
-                        </AlreadyHaveText>
-
-                        <RecentProjectsSection>
-                            <RecentProjectsHeader>
-                                <RecentProjectsTitle>Recent projects</RecentProjectsTitle>
-                                <ViewAllLink onClick={viewAllProjects}>View all (11)</ViewAllLink>
-                            </RecentProjectsHeader>
-                            <ProjectsList>
-                                {recentProjects.map((project, index) => (
-                                    <ProjectItem key={index} onClick={() => console.log(`Open project: ${project.name}`)}>
-                                        <span>{project.name}</span>
-                                        <ProjectPath>{project.path}</ProjectPath>
-                                    </ProjectItem>
-                                ))}
-                            </ProjectsList>
-                        </RecentProjectsSection>
-                    </BottomSection>
-                </>
-            )}
+            {renderCurrentView()}
         </Wrapper>
     );
 };

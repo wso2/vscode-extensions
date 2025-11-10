@@ -29,7 +29,7 @@ import {
 } from "@wso2/wi-core";
 import { ExtensionAPIs } from "../../extensionAPIs";
 import { commands, window, workspace } from "vscode";
-import { askFilePath, askProjectPath } from "./utils";
+import { askFileOrFolderPath, askFilePath, askProjectPath } from "./utils";
 
 export class MainRpcManager implements WIVisualizerAPI {
 
@@ -65,6 +65,19 @@ export class MainRpcManager implements WIVisualizerAPI {
                     const dirPath = selectedDir[0].fsPath;
                     resolve({ path: dirPath });
                 }
+            }
+        });
+    }
+
+    async selectFileOrFolderPath(): Promise<FileOrDirResponse> {
+        return new Promise(async (resolve) => {
+            const selectedFileOrFolder = await askFileOrFolderPath();
+            if (!selectedFileOrFolder || selectedFileOrFolder.length === 0) {
+                window.showErrorMessage('A file or folder must be selected');
+                resolve({ path: "" });
+            } else {
+                const fileOrFolderPath = selectedFileOrFolder[0].fsPath;
+                resolve({ path: fileOrFolderPath });
             }
         });
     }
