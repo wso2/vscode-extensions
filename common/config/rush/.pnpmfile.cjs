@@ -57,6 +57,9 @@ module.exports = {
         if (pkg.dependencies['form-data']) {
           pkg.dependencies['form-data'] = '^4.0.4';
         }
+        if (pkg.dependencies['min-document']) {
+          pkg.dependencies['min-document'] = '^2.19.1';
+        }
       }
 
       if (pkg.devDependencies) {
@@ -96,6 +99,9 @@ module.exports = {
         }
         if (pkg.devDependencies['form-data']) {
           pkg.devDependencies['form-data'] = '^4.0.4';
+        }
+        if (pkg.devDependencies['min-document']) {
+          pkg.devDependencies['min-document'] = '^2.19.1';
         }
       }
 

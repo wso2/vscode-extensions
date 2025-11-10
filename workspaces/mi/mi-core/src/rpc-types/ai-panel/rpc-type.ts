@@ -19,20 +19,40 @@
 import { RequestType, NotificationType } from "vscode-messenger-common";
 import {
     GenerateSuggestionsRequest, GenerateSuggestionsResponse,
-    GetBackendRootUrlResponse,
     GenerateCodeRequest, GenerateCodeResponse,
     AbortCodeGenerationResponse,
-    CodeGenerationEvent
+    CodeGenerationEvent,
+    GenerateUnitTestRequest, GenerateUnitTestResponse,
+    GenerateUnitTestCaseRequest, GenerateUnitTestCaseResponse,
+    ProcessIdpRequest, ProcessIdpResponse,
+    FillIdpSchemaRequest, FillIdpSchemaResponse,
+    DmcToTsRequest, DmcToTsResponse,
+    AutoFillFormRequest, AutoFillFormResponse
 } from "./types";
 
 const _prefix = "mi-ai-panel";
 
-export const getBackendRootUrl: RequestType<void, GetBackendRootUrlResponse> = { method: `${_prefix}/getBackendRootUrl` };
 export const generateSuggestions: RequestType<GenerateSuggestionsRequest, GenerateSuggestionsResponse> = { method: `${_prefix}/generateSuggestions` };
 export const generateCode: RequestType<GenerateCodeRequest, GenerateCodeResponse> = { method: `${_prefix}/generateCode` };
 export const abortCodeGeneration: RequestType<void, AbortCodeGenerationResponse> = { method: `${_prefix}/abortCodeGeneration` };
-export const setAnthropicApiKey: RequestType<void, void> = { method: `${_prefix}/setAnthropicApiKey` };
 export const hasAnthropicApiKey: RequestType<void, boolean | undefined> = { method: `${_prefix}/hasAnthropicApiKey` };
+export const fetchUsage: RequestType<void, { max_usage: number; remaining_tokens: number; time_to_reset: number } | undefined> = { method: `${_prefix}/fetchUsage` };
+
+// Unit test generation methods
+export const generateUnitTest: RequestType<GenerateUnitTestRequest, GenerateUnitTestResponse> = { method: `${_prefix}/generateUnitTest` };
+export const generateUnitTestCase: RequestType<GenerateUnitTestCaseRequest, GenerateUnitTestCaseResponse> = { method: `${_prefix}/generateUnitTestCase` };
+
+// IDP (Intelligent Document Processor) method
+export const processIdp: RequestType<ProcessIdpRequest, ProcessIdpResponse> = { method: `${_prefix}/processIdp` };
+
+// IDP schema filling method
+export const fillIdpSchema: RequestType<FillIdpSchemaRequest, FillIdpSchemaResponse> = { method: `${_prefix}/fillIdpSchema` };
+
+// DMC to TypeScript conversion method
+export const dmcToTs: RequestType<DmcToTsRequest, DmcToTsResponse> = { method: `${_prefix}/dmcToTs` };
+
+// Auto-fill form method
+export const autoFillForm: RequestType<AutoFillFormRequest, AutoFillFormResponse> = { method: `${_prefix}/autoFillForm` };
 
 // Notification for streaming events
 export const codeGenerationEvent: NotificationType<CodeGenerationEvent> = { method: `${_prefix}/codeGenerationEvent` };
