@@ -169,10 +169,11 @@
             "off",
             "error",
             "warn",
+            "info",
             "debug"
           ],
           "default": "error",
-          "description": "The verbosity of logging. The Order is off < error < warn < debug.",
+          "description": "The verbosity of logging. The Order is off < error < warn < info < debug.",
           "scope": "window"
         }
       }
