@@ -50,19 +50,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 		const isMiProject = await checkIfMiProject(workspaceRoot);
 
-		if (!isMiProject && ballerinaExt) {
+		if (isBalProject && ballerinaExt) {
 			extension.context = context;
 			extension.langClient = ballerinaExt.exports.ballerinaExtInstance.langClient;
 			extension.biSupported = ballerinaExt.exports.ballerinaExtInstance.biSupported;
 			extension.isNPSupported = ballerinaExt.exports.ballerinaExtInstance.isNPSupported;
 			StateMachine.initialize();
+		} else if (!isMiProject) {
+			// Create webview manager for WI
+			const webviewManager = new WebviewManager(extensionAPIs);
+			context.subscriptions.push({
+				dispose: () => webviewManager.dispose(),
+			});
+			
+			// Register commands
+			registerCommands(context, webviewManager, extensionAPIs);
+			
+			webviewManager.showWelcome();
 		}
-		
-		// Create webview manager
-		const webviewManager = new WebviewManager(extensionAPIs);
-		context.subscriptions.push({
-			dispose: () => webviewManager.dispose(),
-		});
 
 		ext.log("WSO2 Integrator Extension activated successfully");
 	} catch (error) {

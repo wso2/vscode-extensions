@@ -10,7 +10,7 @@ module.exports = {
     output: {
         path: path.resolve(__dirname, "lib"),
         filename: "main.js",
-        library: "visualizerWebview",
+        library: "wiWebview",
         devtoolModuleFilenameTemplate: function (info) {
             return "file:///" + encodeURI(info.absoluteResourcePath);
         },

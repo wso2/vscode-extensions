@@ -4063,12 +4063,18 @@ importers:
 
   ../../workspaces/wi/wi-extension:
     dependencies:
+      '@emotion/styled':
+        specifier: ^11.14.0
+        version: 11.14.1(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@19.1.0)
       '@wso2/ballerina-core':
         specifier: workspace:*
         version: link:../../ballerina/ballerina-core
       '@wso2/font-wso2-vscode':
         specifier: workspace:*
         version: link:../../common-libs/font-wso2-vscode
+      '@wso2/ui-toolkit':
+        specifier: workspace:*
+        version: link:../../common-libs/ui-toolkit
       '@wso2/wi-core':
         specifier: workspace:*
         version: link:../wi-core
@@ -4089,7 +4095,7 @@ importers:
         specifier: 22.15.18
         version: 22.15.18
       '@types/vscode':
-        specifier: ^1.84.0
+        specifier: ^1.100.0
         version: 1.102.0
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.21.0
@@ -4182,12 +4188,18 @@ importers:
 
   ../../workspaces/wi/wi-webviews:
     dependencies:
+      '@emotion/styled':
+        specifier: ~11.14.1
+        version: 11.14.1(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0)
       '@pmmmwh/react-refresh-webpack-plugin':
         specifier: ~0.6.1
         version: 0.6.1(@types/webpack@5.28.5(webpack-cli@6.0.1))(react-refresh@0.11.0)(type-fest@4.41.0)(webpack-dev-server@5.2.2)(webpack-hot-middleware@2.26.1)(webpack@5.101.0)
       '@vscode/webview-ui-toolkit':
         specifier: ^1.4.0
         version: 1.4.0(react@18.2.0)
+      '@wso2/ui-toolkit':
+        specifier: workspace:*
+        version: link:../../common-libs/ui-toolkit
       '@wso2/wi-core':
         specifier: workspace:*
         version: link:../wi-core

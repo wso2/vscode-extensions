@@ -24,6 +24,22 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "WSO2 Integrator",
+      "properties": {
+        "integrator.defaultIntegrator": {
+          "type": "string",
+          "default": "WSO2: BI",
+          "scope": "resource",
+          "description": "Choose the default integrator for the lowcode experience.",
+          "enum": [
+            "WSO2: BI",
+            "WSO2: MI"
+          ]
+        }
+      }
+    },
     "viewsContainers": {
       "activitybar": [
         {
@@ -173,7 +189,9 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "vscode:prepublish": "npm run build",
-    "build": "webpack --mode production",
+    "build": "webpack --mode production && npm run postbuild",
+    "postbuild": "npm run copyJSLibs",
+    "copyJSLibs": "copyfiles -f ../wi-webviews/lib/main.js resources/jslibs",
     "watch": "tsc -p . -w",
     "compile": "tsc -p ./",
     "compile-tests": "tsc -p . --outDir out",
@@ -182,7 +200,7 @@
   },
   "devDependencies": {
     "@vscode/vsce": "^3.4.0",
-    "@types/vscode": "^1.84.0",
+    "@types/vscode": "^1.100.0",
     "@types/mocha": "^10.0.3",
     "@types/node": "22.15.18",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
@@ -206,8 +224,9 @@
     "@wso2/wi-core": "workspace:*",
     "vscode-messenger": "~0.5.1",
     "@wso2/ballerina-core": "workspace:*",
-    "@wso2/micro-integrator-core": "workspace:*",
     "@wso2/font-wso2-vscode": "workspace:*",
-    "xstate": "~4.38.3"
+    "xstate": "~4.38.3",
+    "@emotion/styled": "^11.14.0",
+    "@wso2/ui-toolkit": "workspace:*"
   }
 }

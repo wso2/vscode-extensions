@@ -23,7 +23,9 @@
     "vscode-messenger-webview": "^0.5.1",
     "classnames": "~2.5.1",
     "@pmmmwh/react-refresh-webpack-plugin": "~0.6.1",
-    "@wso2/wi-rpc-client": "workspace:*"
+    "@wso2/wi-rpc-client": "workspace:*",
+    "@emotion/styled": "~11.14.1",
+    "@wso2/ui-toolkit": "workspace:*"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
