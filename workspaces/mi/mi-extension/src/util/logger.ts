@@ -19,8 +19,13 @@
 import * as vscode from 'vscode';
 
 export const outputChannel = vscode.window.createOutputChannel("WSO2 Integrator: MI");
-export const ERROR_LOG = 'ERROR';
-export const INFO_LOG = 'INFO';
+
+export enum LogLevel {
+    ERROR = 'error',
+    WARN = 'warn',
+    INFO = 'info',
+    DEBUG = 'debug'
+}
 
 function withNewLine(value: string) {
     if (typeof value === 'string' && !value.endsWith('\n')) {
@@ -41,8 +46,18 @@ export function logWithDebugLevel(message: string, debugLabel: string, logLevel:
     outputChannel.append(output);
 }
 
-export function logDebug(message: string, logLevel: string): void {
-    logWithDebugLevel(message, 'MI Debug', logLevel);
+export function logDebug(message: string, logLevel: LogLevel = LogLevel.DEBUG): void {
+    const config = vscode.workspace.getConfiguration('MI');
+    const configuredLevel = config.get<string>('logging.loggingLevel');
+
+    if (configuredLevel === 'OFF') {
+        return;
+    }
+    // Only log if the message's level is >= configured level
+    const levels = [LogLevel.ERROR, LogLevel.WARN, LogLevel.INFO, LogLevel.DEBUG];
+    if (levels.indexOf(logLevel) <= levels.indexOf(configuredLevel as LogLevel)) {
+        logWithDebugLevel(message, 'MI Debug', logLevel);
+    }
 }
 
 export function getOutputChannel() {
