@@ -55,7 +55,7 @@ const stateMachine = createMachine<MachineContext>({
             entry: () => log("State Machine: Entering 'initialize' state"),
             invoke: {
                 id: 'checkProject',
-                src: (context) => checkIfMiProject(context.projectUri!),
+                src: (context) => checkIfMiProject(context.projectUri!, context.view ?? undefined),
                 onDone: [
                     {
                         target: 'environmentSetup',
@@ -177,7 +177,8 @@ const stateMachine = createMachine<MachineContext>({
                         target: 'ready.viewReady',
                         cond: (context, event) => context.displayOverview === false,
                         actions: assign({
-                            langClient: (context, event) => event.data
+                            langClient: (context, event) => event.data,
+                            isLoading: (context, event) => false
                         })
                     }
                 ],
@@ -236,22 +237,14 @@ const stateMachine = createMachine<MachineContext>({
                     invoke: {
                         src: 'findView',
                         onDone: {
-                            target: 'viewStacking',
+                            target: 'viewReady',
                             actions: assign({
                                 view: (context, event) => event.data.view,
                                 stNode: (context, event) => event.data.stNode,
                                 diagnostics: (context, event) => event.data.diagnostics,
-                                dataMapperProps: (context, event) => event.data?.dataMapperProps
+                                dataMapperProps: (context, event) => event.data?.dataMapperProps,
+                                isLoading: (context, event) => false
                             })
-                        }
-                    }
-                },
-                viewStacking: {
-                    entry: () => log("State Machine: Entering 'ready.viewStacking' state"),
-                    invoke: {
-                        src: 'updateStack',
-                        onDone: {
-                            target: "viewReady"
                         }
                     }
                 },
@@ -264,7 +257,8 @@ const stateMachine = createMachine<MachineContext>({
                             actions: assign({
                                 stNode: (context, event) => event.data.stNode,
                                 diagnostics: (context, event) => event.data.diagnostics,
-                                dataMapperProps: (context, event) => event.data?.dataMapperProps
+                                dataMapperProps: (context, event) => event.data?.dataMapperProps,
+                                isLoading: (context, event) => false
                             })
                         }
                     }
@@ -286,7 +280,8 @@ const stateMachine = createMachine<MachineContext>({
                                 stNode: (context, event) => undefined,
                                 diagnostics: (context, event) => undefined,
                                 type: (context, event) => event.type,
-                                previousContext: (context, event) => context
+                                previousContext: (context, event) => context,
+                                isLoading: (context, event) => true
                             })
                         },
                         REPLACE_VIEW: {
@@ -394,7 +389,7 @@ const stateMachine = createMachine<MachineContext>({
         waitForLS: (context, event) => {
             // replace this with actual promise that waits for LS to be ready
             return new Promise(async (resolve, reject) => {
-                log("Waiting for LS to be ready " + new Date().toLocaleTimeString());
+                console.log("Waiting for LS to be ready " + new Date().toLocaleTimeString());
                 try {
                     vscode.commands.executeCommand(COMMANDS.FOCUS_PROJECT_EXPLORER);
                     const instance = await MILanguageClient.getInstance(context.projectUri!);
@@ -406,9 +401,9 @@ const stateMachine = createMachine<MachineContext>({
                     vscode.commands.executeCommand('setContext', 'MI.status', 'projectLoaded');
 
                     resolve(ls);
-                    log("LS is ready " + new Date().toLocaleTimeString());
+                    console.log("LS is ready " + new Date().toLocaleTimeString());
                 } catch (error) {
-                    log("Error occured while waiting for LS to be ready " + new Date().toLocaleTimeString());
+                    console.log("Error occured while waiting for LS to be ready " + new Date().toLocaleTimeString());
                     reject(error);
                 }
             });
@@ -683,7 +678,7 @@ const stateMachine = createMachine<MachineContext>({
 // Create a service to interpret the machine
 const stateMachines: Map<string, any> = new Map();
 
-export const getStateMachine = (projectUri: string): {
+export const getStateMachine = (projectUri: string, context?: VisualizerLocation): {
     service: () => any;
     context: () => MachineContext;
     state: () => MachineStateValue;
@@ -700,7 +695,8 @@ export const getStateMachine = (projectUri: string): {
             projectUri: projectUri,
             langClient: null,
             errors: [],
-            view: MACHINE_VIEW.Welcome
+            view: MACHINE_VIEW.Overview,
+            ...context
         })).start();
         stateMachines.set(projectUri, stateService);
     }
@@ -820,17 +816,17 @@ function updateProjectExplorer(location: VisualizerLocation | undefined) {
             vscode.commands.executeCommand(COMMANDS.REVEAL_TEST_PANE);
         } else if (projectRoot && !extension.preserveActivity) {
             location.projectUri = projectRoot;
-            if (!getStateMachine(projectRoot).context().isOldProject) {
+            if (!getStateMachine(projectRoot, location).context().isOldProject) {
                 vscode.commands.executeCommand(COMMANDS.REVEAL_ITEM_COMMAND, location);
             }
         }
     }
 }
 
-async function checkIfMiProject(projectUri: string) {
-    log(`Detecting project in ${projectUri} - ${new Date().toLocaleTimeString()}`);
+async function checkIfMiProject(projectUri: string, view: MACHINE_VIEW = MACHINE_VIEW.Overview) {
+    console.log(`Detecting project in ${projectUri} - ${new Date().toLocaleTimeString()}`);
 
-    let isProject = false, isOldProject = false, isOldWorkspace = false, displayOverview = true, view = MACHINE_VIEW.Overview, isEnvironmentSetUp = false;
+    let isProject = false, isOldProject = false, isOldWorkspace = false, displayOverview = true, isEnvironmentSetUp = false;
     const customProps: any = {};
     try {
         // Check for pom.xml files excluding node_modules directory
@@ -839,7 +835,7 @@ async function checkIfMiProject(projectUri: string) {
             const pomContent = await fs.promises.readFile(pomFilePath, 'utf-8');
             isProject = pomContent.includes('<projectType>integration-project</projectType>');
             if (isProject) {
-                log("MI project detected in " + projectUri);
+                console.log("MI project detected in " + projectUri);
             }
         }
 
@@ -901,11 +897,11 @@ async function checkIfMiProject(projectUri: string) {
         if (!isEnvironmentSetUp) {
             vscode.commands.executeCommand('setContext', 'MI.status', 'notSetUp');
         }
-        // Log project path
-        log(`Current workspace path: ${projectUri}`);
+        // console.log project path
+        console.log(`Current workspace path: ${projectUri}`);
     }
 
-    log(`Project detection completed for path: ${projectUri} at ${new Date().toLocaleTimeString()}`);
+    console.log(`Project detection completed for path: ${projectUri} at ${new Date().toLocaleTimeString()}`);
     return {
         isProject,
         isOldProject,
@@ -926,18 +922,18 @@ export async function isOldProjectOrWorkspace(projectUri: any) {
     if (projectFiles.length > 0) {
         if (await containsMultiModuleNatureInProjectFile(projectFiles[0].fsPath)) {
             isOldProject = true;
-            log("Integration Studio project detected");
+            console.log("Integration Studio project detected");
         }
     } else if (fs.existsSync(pomFilePath)) {
         if (await containsMultiModuleNatureInPomFile(pomFilePath)) {
             isOldProject = true;
-            log("Integration Studio project detected");
+            console.log("Integration Studio project detected");
         }
     } else if (fs.existsSync(projectUri)) {
         const foundOldProjects = await findMultiModuleProjectsInWorkspaceDir(projectUri);
         if (foundOldProjects.length > 0) {
             isOldWorkspace = true;
-            log("Integration Studio workspace detected");
+            console.log("Integration Studio workspace detected");
         }
     }
     return isOldProject || isOldWorkspace ? { isOldProject, isOldWorkspace } : false;
