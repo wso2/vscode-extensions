@@ -58,7 +58,9 @@ const ParamType = styled.span`
     border-radius: 4px;
     padding: 2px 8px;
     letter-spacing: 0.1px;
-    width: 60px;
+    min-width: 60px;
+    max-width: 100%;
+    word-break: break-word;
 `;
 
 const HeaderLabel = styled.div<CSSObject>`

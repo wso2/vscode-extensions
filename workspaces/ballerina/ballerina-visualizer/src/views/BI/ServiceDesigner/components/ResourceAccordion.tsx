@@ -80,6 +80,21 @@ const MethodPath = styled.span`
     margin-left: 10px;
 `;
 
+const DeprecatedBadge = styled.span`
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    padding: 2px 6px;
+    background-color: var(--vscode-inputValidation-warningBackground);
+    color: var(--vscode-inputValidation-warningForeground);
+    border: 1px solid var(--vscode-inputValidation-warningBorder);
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+`;
+
 const MethodBox = styled.div`
     display: flex;
     justify-content: center;
@@ -179,6 +194,8 @@ export function ResourceAccordion(params: ResourceAccordionProps) {
         onResourceImplement(functionModel)
     }
 
+    const isDeprecated = functionModel.properties?.deprecated?.value === "true";
+
     return (
         <AccordionContainer data-testid="service-design-view-resource">
             <AccordionHeader onClick={handleResourceImplement}>
@@ -186,7 +203,10 @@ export function ResourceAccordion(params: ResourceAccordionProps) {
                     <MethodBox>
                         {method || "Event"}
                     </MethodBox>
-                    <MethodPath>{functionModel.name.value}</MethodPath>
+                    <MethodPath>
+                        {functionModel.name.value}
+                        {isDeprecated && <DeprecatedBadge>Deprecated</DeprecatedBadge>}
+                    </MethodPath>
                 </MethodSection>
                 {functionModel &&
                     <ButtonSection>
