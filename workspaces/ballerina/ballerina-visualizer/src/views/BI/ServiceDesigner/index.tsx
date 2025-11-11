@@ -308,6 +308,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
         const unusedHandlers: FunctionModel[] = [];
 
         let hasInitMethod = false;
+        let hasDeprecatedHandler = false;
         service.functions.forEach(func => {
             if (func.kind === "DEFAULT") {
                 if (func.name?.value === "init") {
@@ -320,14 +321,22 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
             if (func.kind === "REMOTE" || func.kind === "RESOURCE") {
                 if (func.enabled) {
                     enabledHandlers.push(func);
+                    // Check if this enabled handler is deprecated
+                    if (func.properties?.deprecated?.value === "true") {
+                        hasDeprecatedHandler = true;
+                    }
                 } else {
-                    unusedHandlers.push(func);
+                    // Only add non-deprecated handlers to unused list
+                    if (func.properties?.deprecated?.value !== "true") {
+                        unusedHandlers.push(func);
+                    }
                 }
             }
         });
 
         setEnabledHandlers(enabledHandlers);
-        setUnusedHandlers(unusedHandlers);
+        // If there's a deprecated handler already enabled, don't show unused handlers
+        setUnusedHandlers(hasDeprecatedHandler ? [] : unusedHandlers);
         setObjectMethods(objectMethods);
 
         // Set dropdown options

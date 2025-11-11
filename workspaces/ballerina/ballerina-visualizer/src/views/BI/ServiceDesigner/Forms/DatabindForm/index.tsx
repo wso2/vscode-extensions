@@ -133,6 +133,8 @@ export function DatabindForm(props: DatabindFormProps) {
     const parameterDescriptionMap: Record<string, string> = {
         "rabbitmq-caller": "Enable this to manually acknowledge or reject received messages in your RabbitMQ service.",
         "kafka-caller": "Enable this to access the Kafka caller in your service for manual offset management and partition operations.",
+        "ftp-caller": "Enable this to access the FTP caller in your service for advanced file operations and control.",
+        "ftp-fileinfo": "The FTP info parameter provides metadata about the FTP connection and file details.",
     };
 
     /**

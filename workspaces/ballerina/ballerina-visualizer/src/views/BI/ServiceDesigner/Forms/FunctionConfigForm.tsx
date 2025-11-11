@@ -35,7 +35,11 @@ export function FunctionConfigForm(props: FunctionConfigFormProps) {
 
     const { serviceModel, onSubmit, onSelect, onBack, isSaving } = props;
 
-    const nonEnabledFunctions = serviceModel.functions.filter(func => !func.enabled);
+    // Filter out deprecated functions from the non-enabled list
+    const nonEnabledFunctions = serviceModel.functions.filter(func => {
+        const isDeprecated = func.properties?.deprecated?.value === "true";
+        return !func.enabled && !isDeprecated;
+    });
     const [selectedFunctionName, setSelectedFunctionName] = useState<string | undefined>(
         nonEnabledFunctions.length > 0 ? nonEnabledFunctions[0].name.value : undefined
     );
