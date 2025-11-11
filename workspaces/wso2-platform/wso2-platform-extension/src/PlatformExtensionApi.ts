@@ -32,6 +32,20 @@ export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 			?.filter((item) => !!item) as ComponentKind[]) ?? []
 	}
 
+	public waitUntilInitialized = async (): Promise<boolean> => {
+		while (true) {
+			try {
+				const active = ext.clients.rpcClient.isActive();
+				if (active) {
+					return true;
+				}
+			} catch {
+				// ignore errors and retry
+			}
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+		}
+	}
+
 	public isLoggedIn = () => !!authStore.getState().state?.userInfo;
 	public getDirectoryComponents = (fsPath: string) => this.getComponentsOfDir(fsPath, contextStore.getState().state?.components);
 	public localRepoHasChanges = (fsPath: string) => hasDirtyRepo(fsPath, ext.context, ["context.yaml"]);
@@ -55,7 +69,7 @@ export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 
 	// Auth state subscriptions
 	public subscribeAuthState = (callback: (state: AuthState)=>void) => authStore.subscribe((state)=>callback(state.state));
-	public subscribeIsLoggedIn = (callback: (isLoggedIn: boolean)=>void) => authStore.subscribe((state)=>callback(!!!state.state?.userInfo));
+	public subscribeIsLoggedIn = (callback: (isLoggedIn: boolean)=>void) => authStore.subscribe((state)=>callback(!!state.state?.userInfo));
 
 	// Context state subscriptions
 	public subscribeContextState = (callback: (state: ContextItemEnriched | undefined)=>void) => contextStore.subscribe((state)=>callback(state.state?.selected));
