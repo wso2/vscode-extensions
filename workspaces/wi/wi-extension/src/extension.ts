@@ -17,14 +17,8 @@
  */
 
 import * as vscode from "vscode";
-import { COMMANDS, CONTEXT_KEYS, VIEWS } from "@wso2/wi-core";
 import { ext } from "./extensionVariables";
-import { ExtensionAPIs } from "./extensionAPIs";
-import { WebviewManager } from "./webviewManager";
-import { StateMachine } from "./bi-treeview/stateMachine";
-import { extension } from "./bi-treeview/biExtentionContext";
-import { fetchProjectInfo } from "./bi-treeview/utils";
-import { checkIfMiProject } from "./mi-treeview/utils";
+import { StateMachine } from "./stateMachine";
 
 /**
  * Activate the extension
@@ -34,40 +28,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	ext.log("Activating WSO2 Integrator Extension");
 
 	try {
-		// Initialize extension APIs
-		const extensionAPIs = new ExtensionAPIs();
-		// await extensionAPIs.initialize();
-
-		// Set context keys for available extensions
-		vscode.commands.executeCommand("setContext", CONTEXT_KEYS.BI_AVAILABLE, extensionAPIs.isBIAvailable());
-		vscode.commands.executeCommand("setContext", CONTEXT_KEYS.MI_AVAILABLE, extensionAPIs.isMIAvailable());
-
-
-		// Register tree view
-		// if (extensionAPIs.isBIAvailable()) {
-		const ballerinaExt = vscode.extensions.getExtension('wso2.ballerina');
-		const isBalProject = fetchProjectInfo().isBallerina;
-		const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-		const isMiProject = await checkIfMiProject(workspaceRoot);
-
-		if (isBalProject && ballerinaExt) {
-			extension.context = context;
-			extension.langClient = ballerinaExt.exports.ballerinaExtInstance.langClient;
-			extension.biSupported = ballerinaExt.exports.ballerinaExtInstance.biSupported;
-			extension.isNPSupported = ballerinaExt.exports.ballerinaExtInstance.isNPSupported;
-			StateMachine.initialize();
-		} else if (!isMiProject) {
-			// Create webview manager for WI
-			const webviewManager = new WebviewManager(extensionAPIs);
-			context.subscriptions.push({
-				dispose: () => webviewManager.dispose(),
-			});
-			
-			// Register commands
-			registerCommands(context, webviewManager, extensionAPIs);
-			
-			webviewManager.showWelcome();
-		}
+		// Initialize state machine - this will handle everything:
+		// 1. Project type detection
+		// 2. Extension activation based on project type
+		// 3. Tree view activation
+		// 4. Command registration
+		// 5. Webview manager setup
+		StateMachine.initialize();
 
 		ext.log("WSO2 Integrator Extension activated successfully");
 	} catch (error) {
@@ -76,63 +43,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			`Failed to activate WSO2 Integrator Extension: ${error instanceof Error ? error.message : String(error)}`,
 		);
 	}
-}
-
-/**
- * Register extension commands
- */
-function registerCommands(
-	context: vscode.ExtensionContext,
-	webviewManager: WebviewManager,
-	extensionAPIs: ExtensionAPIs,
-): void {
-	// Open welcome page command
-	context.subscriptions.push(
-		vscode.commands.registerCommand(COMMANDS.OPEN_WELCOME, () => {
-			try {
-				webviewManager.showWelcome();
-			} catch (error) {
-				ext.logError("Failed to open welcome page", error as Error);
-				vscode.window.showErrorMessage("Failed to open welcome page");
-			}
-		}),
-	);
-
-	// Open BI integration command
-	context.subscriptions.push(
-		vscode.commands.registerCommand(COMMANDS.OPEN_BI_INTEGRATION, () => {
-			if (extensionAPIs.isBIAvailable()) {
-				vscode.commands.executeCommand("workbench.view.extension.ballerina-integrator");
-			} else {
-				vscode.window.showInformationMessage(
-					"BI Extension is not available. Please install the Ballerina Integrator extension.",
-					"Install",
-				).then((selection) => {
-					if (selection === "Install") {
-						vscode.commands.executeCommand("workbench.extensions.search", "@id:wso2.ballerina-integrator");
-					}
-				});
-			}
-		}),
-	);
-
-	// Open MI integration command
-	context.subscriptions.push(
-		vscode.commands.registerCommand(COMMANDS.OPEN_MI_INTEGRATION, () => {
-			if (extensionAPIs.isMIAvailable()) {
-				vscode.commands.executeCommand("workbench.view.extension.micro-integrator");
-			} else {
-				vscode.window.showInformationMessage(
-					"MI Extension is not available. Please install the Micro Integrator extension.",
-					"Install",
-				).then((selection) => {
-					if (selection === "Install") {
-						vscode.commands.executeCommand("workbench.extensions.search", "@id:wso2.micro-integrator");
-					}
-				});
-			}
-		}),
-	);
 }
 
 /**

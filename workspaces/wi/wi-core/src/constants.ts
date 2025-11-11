@@ -31,6 +31,9 @@ export const COMMANDS = {
 	REFRESH_VIEW: "wso2.integrator.refreshView",
 	OPEN_BI_INTEGRATION: "wso2.integrator.openBIIntegration",
 	OPEN_MI_INTEGRATION: "wso2.integrator.openMIIntegration",
+	CREATE_PROJECT: "wso2.integrator.createProject",
+	EXPLORE_SAMPLES: "wso2.integrator.exploreSamples",
+	IMPORT_PROJECT: "wso2.integrator.importProject",
 };
 
 /**

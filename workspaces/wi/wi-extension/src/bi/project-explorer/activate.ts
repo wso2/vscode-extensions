@@ -28,7 +28,7 @@ interface ExplorerActivationConfig {
 	isMultiRoot?: boolean;
 }
 
-export function activateProjectExplorer(config: ExplorerActivationConfig) {
+export function activateBIProjectExplorer(config: ExplorerActivationConfig) {
 	const { context, isBI, isBallerina, isMultiRoot } = config;
 
 	if (extension.langClient && extension.biSupported) {

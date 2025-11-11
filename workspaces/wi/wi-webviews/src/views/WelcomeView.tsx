@@ -17,7 +17,6 @@
  */
 
 import React, { useState } from "react";
-import type { WelcomeWebviewProps } from "@wso2/wi-core";
 import "./WelcomeView.css";
 import styled from "@emotion/styled";
 import { Button, Codicon, Icon } from "@wso2/ui-toolkit";
@@ -324,7 +323,7 @@ const ProjectPath = styled.span`
     margin-left: 12px;
 `;
 
-export const WelcomeView: React.FC<WelcomeWebviewProps> = () => {
+export const WelcomeView: React.FC = () => {
     const [currentView, setCurrentView] = useState<ViewState>(ViewState.WELCOME);
 
     const goToCreateProject = () => {

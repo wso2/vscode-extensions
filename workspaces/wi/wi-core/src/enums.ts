@@ -29,7 +29,9 @@ export enum IntegrationType {
  */
 export enum ViewType {
 	WELCOME = "welcome",
-	COMPONENT_LIST = "componentList",
+    CREATE_PROJECT = "create_project",
+    SAMPLES = "samples",
+    IMPORT_EXTERNAL = "import_external"
 }
 
 /**
