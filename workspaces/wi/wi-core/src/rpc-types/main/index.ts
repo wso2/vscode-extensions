@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { RunCommandRequest, RunCommandResponse, FileOrDirRequest, FileOrDirResponse, WorkspaceRootResponse, GetConfigurationRequest, GetConfigurationResponse, GetSubFoldersRequest, GetSubFoldersResponse, ProjectDirResponse, GetSupportedMIVersionsResponse, CreateProjectRequest, CreateProjectResponse, GettingStartedData, SampleDownloadRequest } from "../../types/rpc.types";
+import { RunCommandRequest, RunCommandResponse, FileOrDirRequest, FileOrDirResponse, WorkspaceRootResponse, GetConfigurationRequest, GetConfigurationResponse, GetSubFoldersRequest, GetSubFoldersResponse, ProjectDirResponse, GetSupportedMIVersionsResponse, CreateProjectRequest, CreateProjectResponse, GettingStartedData, SampleDownloadRequest, BIProjectRequest } from "../../types/rpc.types";
 
 export * from "./rpc-type";
 export * from "../../types/rpc.types";
@@ -35,4 +35,5 @@ export interface WIVisualizerAPI {
     createProject: (params: CreateProjectRequest) => Promise<CreateProjectResponse>;
     fetchSamplesFromGithub: () => Promise<GettingStartedData>;
     downloadSelectedSampleFromGithub: (params: SampleDownloadRequest) => void;
+    createBIProject: (params: BIProjectRequest) => Promise<void>;
 }

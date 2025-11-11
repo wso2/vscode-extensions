@@ -31,12 +31,14 @@ import {
     createProject,
     fetchSamplesFromGithub,
     downloadSelectedSampleFromGithub,
+    createBIProject,
     RunCommandRequest,
     FileOrDirRequest,
     GetConfigurationRequest,
     GetSubFoldersRequest,
     CreateProjectRequest,
-    SampleDownloadRequest
+    SampleDownloadRequest,
+    BIProjectRequest
 } from "@wso2/wi-core";
 import { Messenger } from "vscode-messenger";
 import { MainRpcManager } from "./rpc-manager";
@@ -56,4 +58,5 @@ export function registerMainRpcHandlers(messenger: Messenger) {
     messenger.onRequest(createProject, (args: CreateProjectRequest) => rpcManger.createProject(args));
     messenger.onRequest(fetchSamplesFromGithub, () => rpcManger.fetchSamplesFromGithub());
     messenger.onNotification(downloadSelectedSampleFromGithub, (args: SampleDownloadRequest) => rpcManger.downloadSelectedSampleFromGithub(args));
+    messenger.onRequest(createBIProject, (args: BIProjectRequest) => rpcManger.createBIProject(args));
 }

@@ -35,7 +35,8 @@ import {
     GettingStartedData,
     GettingStartedCategory,
     GettingStartedSample,
-    SampleDownloadRequest
+    SampleDownloadRequest,
+    BIProjectRequest
 } from "@wso2/wi-core";
 import { commands, window, workspace, Uri } from "vscode";
 import { askFileOrFolderPath, askFilePath, askProjectPath, handleOpenFile } from "./utils";
@@ -219,5 +220,20 @@ export class MainRpcManager implements WIVisualizerAPI {
         } else {
             window.showErrorMessage('No workspace folder found');
         }
+    }
+
+    async createBIProject(params: BIProjectRequest): Promise<void> {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const result = await commands.executeCommand('BI.project.createBIProjectPure', params);
+                console.log("Command executed successfully, result:", result);
+                resolve();
+            } catch (error) {
+                console.error("Error creating BI project:", error);
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                window.showErrorMessage(`Failed to create BI project: ${errorMessage}`);
+                reject(error);
+            }
+        });
     }
 }

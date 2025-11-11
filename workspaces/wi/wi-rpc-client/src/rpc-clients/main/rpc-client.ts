@@ -37,6 +37,7 @@ import {
     createProject,
     fetchSamplesFromGithub,
     downloadSelectedSampleFromGithub,
+    createBIProject,
     GetConfigurationRequest,
     GetConfigurationResponse,
     GetSubFoldersRequest,
@@ -46,7 +47,8 @@ import {
     CreateProjectRequest,
     CreateProjectResponse,
     GettingStartedData,
-    SampleDownloadRequest
+    SampleDownloadRequest,
+    BIProjectRequest
 } from "@wso2/wi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -108,5 +110,9 @@ export class MainRpcClient implements WIVisualizerAPI {
 
     downloadSelectedSampleFromGithub(params: SampleDownloadRequest): void {
         this._messenger.sendNotification(downloadSelectedSampleFromGithub, HOST_EXTENSION, params);
+    }
+
+    createBIProject(params: BIProjectRequest): Promise<void> {
+        return this._messenger.sendRequest(createBIProject, HOST_EXTENSION, params);
     }
 }

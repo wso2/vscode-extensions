@@ -23,6 +23,7 @@ import {
 import styled from "@emotion/styled";
 import { ProjectFormFields, ProjectFormData } from "./ProjectFormFields";
 import { isFormValid } from "./utils";
+import { useVisualizerContext } from "../../../contexts";
 
 const ButtonWrapper = styled.div`
     margin-top: 20px;
@@ -31,6 +32,7 @@ const ButtonWrapper = styled.div`
 `;
 
 export function BIProjectForm() {
+    const { rpcClient } = useVisualizerContext();
     const [formData, setFormData] = useState<ProjectFormData>({
         integrationName: "",
         packageName: "",
@@ -45,14 +47,14 @@ export function BIProjectForm() {
     };
 
     const handleCreateProject = () => {
-        // rpcClient.getBIDiagramRpcClient().createProject({
-        //     projectName: formData.integrationName,
-        //     packageName: formData.packageName,
-        //     projectPath: formData.path,
-        //     createDirectory: formData.createDirectory,
-        //     orgName: formData.orgName || undefined,
-        //     version: formData.version || undefined,
-        // });
+        rpcClient.getMainRpcClient().createBIProject({
+            projectName: formData.integrationName,
+            packageName: formData.packageName,
+            projectPath: formData.path,
+            createDirectory: formData.createDirectory,
+            orgName: formData.orgName || undefined,
+            version: formData.version || undefined,
+        });
     };
 
     return (

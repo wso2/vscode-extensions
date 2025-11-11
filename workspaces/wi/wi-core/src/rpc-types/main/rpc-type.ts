@@ -17,7 +17,7 @@
  * 
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
-import { RunCommandRequest, RunCommandResponse, FileOrDirRequest, FileOrDirResponse, WorkspaceRootResponse, GetConfigurationRequest, GetConfigurationResponse, GetSubFoldersRequest, GetSubFoldersResponse, ProjectDirResponse, GetSupportedMIVersionsResponse, CreateProjectRequest, CreateProjectResponse, GettingStartedData, SampleDownloadRequest } from "../../types/rpc.types";
+import { RunCommandRequest, RunCommandResponse, FileOrDirRequest, FileOrDirResponse, WorkspaceRootResponse, GetConfigurationRequest, GetConfigurationResponse, GetSubFoldersRequest, GetSubFoldersResponse, ProjectDirResponse, GetSupportedMIVersionsResponse, CreateProjectRequest, CreateProjectResponse, GettingStartedData, SampleDownloadRequest, BIProjectRequest } from "../../types/rpc.types";
 import { NotificationType, RequestType } from "vscode-messenger-common";
 
 const _preFix = "main";
@@ -34,3 +34,4 @@ export const askProjectDirPath: RequestType<void, ProjectDirResponse> = { method
 export const createProject: RequestType<CreateProjectRequest, CreateProjectResponse> = { method: `${_preFix}/createProject` };
 export const fetchSamplesFromGithub: RequestType<void, GettingStartedData> = { method: `${_preFix}/fetchSamplesFromGithub` };
 export const downloadSelectedSampleFromGithub: NotificationType<SampleDownloadRequest> = { method: `${_preFix}/downloadSelectedSampleFromGithub` };
+export const createBIProject: RequestType<BIProjectRequest, void> = { method: `${_preFix}/createBIProject` };

@@ -64,13 +64,12 @@ export interface GetSupportedMIVersionsResponse {
 }
 
 export interface CreateProjectRequest {
-    directory: string;
-    name: string;
-    open: boolean;
-    groupID?: string;
-    artifactID?: string;
+    projectName: string;
+    packageName: string;
+    projectPath: string;
+    createDirectory: boolean;
+    orgName?: string;
     version?: string;
-    miVersion: string;
 }
 
 export interface CreateProjectResponse {
@@ -105,4 +104,13 @@ export interface DownloadProgressData {
     percentage: number;
     downloadedAmount: string;
     downloadSize: string;
+}
+
+export interface BIProjectRequest {
+    projectName: string;
+    packageName: string;
+    projectPath: string;
+    createDirectory: boolean;
+    orgName?: string;
+    version?: string;
 }
