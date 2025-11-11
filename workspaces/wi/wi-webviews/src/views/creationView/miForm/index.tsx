@@ -57,6 +57,10 @@ const ButtonWrapper = styled.div`
     justify-content: flex-end;
 `;
 
+const FieldGroup = styled.div`
+    margin-bottom: 20px;
+`;
+
 export function MiProjectWizard() {
     const { rpcClient } = useVisualizerContext();
     const [dirContent, setDirContent] = useState([]);
@@ -140,55 +144,65 @@ export function MiProjectWizard() {
 
     return (
         <div>
-            <TextField
-                id='name'
-                label="Project Name"
-                required
-                errorMsg={errors.name?.message.toString()}
-                {...register("name")}
-                onKeyDown={onKeyDown}
-            />
-            <Dropdown
-                id='miVersion'
-                label="WSO2 Integrator: MI runtime version"
-                isRequired={true}
-                errorMsg={errors.miVersion?.message.toString()}
-                items={supportedMIVersions}
-                {...register("miVersion")}
-            />
-            <LocationSelector
-                label="Project Directory"
-                selectedFile={watch("directory")}
-                required
-                onSelect={handleProjecDirSelection}
-                {...register("directory")}
-            />
-            <FormGroup title="Advanced Options">
-                <React.Fragment>
-                    <TextField
-                        id='groupID'
-                        label="Group Id"
-                        required
-                        errorMsg={errors.groupID?.message.toString()}
-                        {...register("groupID")}
-                    />
-                    <TextField
-                        id='artifactID'
-                        label="Artifact Id"
-                        required
-                        errorMsg={errors.artifactID?.message.toString()}
-                        {...register("artifactID")}
-                    />
-                    <TextField
-                        id='version'
-                        label="Version"
-                        required
-                        errorMsg={errors.version?.message.toString()}
-                        {...register("version")}
-                    />
-                </React.Fragment>
-            </FormGroup>
-            <DownloadLabel>If the necessary WSO2 Integrator: MI runtime and tools are not available, you will be prompted to download them after project creation.</DownloadLabel>
+            <FieldGroup>
+                <TextField
+                    id='name'
+                    label="Project Name"
+                    required
+                    errorMsg={errors.name?.message.toString()}
+                    {...register("name")}
+                    onKeyDown={onKeyDown}
+                />
+            </FieldGroup>
+            <FieldGroup>
+                <Dropdown
+                    id='miVersion'
+                    label="WSO2 Integrator: MI runtime version"
+                    isRequired={true}
+                    errorMsg={errors.miVersion?.message.toString()}
+                    items={supportedMIVersions}
+                    {...register("miVersion")}
+                />
+            </FieldGroup>
+            <FieldGroup>
+                <LocationSelector
+                    label="Project Directory"
+                    selectedFile={watch("directory")}
+                    required
+                    onSelect={handleProjecDirSelection}
+                    {...register("directory")}
+                />
+            </FieldGroup>
+            <FieldGroup>
+                <FormGroup title="Advanced Options">
+                    <React.Fragment>
+                        <TextField
+                            id='groupID'
+                            label="Group Id"
+                            required
+                            errorMsg={errors.groupID?.message.toString()}
+                            {...register("groupID")}
+                        />
+                        <TextField
+                            id='artifactID'
+                            label="Artifact Id"
+                            required
+                            errorMsg={errors.artifactID?.message.toString()}
+                            {...register("artifactID")}
+                        />
+                        <TextField
+                            id='version'
+                            label="Version"
+                            required
+                            errorMsg={errors.version?.message.toString()}
+                            {...register("version")}
+                        />
+                    </React.Fragment>
+                </FormGroup>
+            </FieldGroup>
+            <FieldGroup>
+                <DownloadLabel>If the necessary WSO2 Integrator: MI runtime and tools are not available, you will be prompted to download them after project creation.</DownloadLabel>
+            </FieldGroup>
             <ButtonWrapper>
                 <Button
                     appearance="primary"
@@ -197,7 +211,7 @@ export function MiProjectWizard() {
                 >
                     {formSaved ? (
                         <>
-                            <ProgressRing sx={{height: 16, marginLeft: -5, marginRight: 2}} color="white"/>
+                            <ProgressRing sx={{ height: 16, marginLeft: -5, marginRight: 2 }} color="white" />
                             Creating
                         </>
                     ) : "Create Integration"}
