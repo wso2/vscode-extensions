@@ -142,7 +142,7 @@
                 },
                 {
                     "command": "BI.project-explorer.add",
-                    "when": "view == BI.project-explorer && BI.project == true",
+                    "when": "view == BI.project-explorer && BI.project == true && BI.isWorkspaceSupported == true",
                     "group": "navigation"
                 },
                 {
