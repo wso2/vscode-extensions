@@ -19,7 +19,7 @@
 // import { MigrationTool } from "@wso2/ballerina-core";
 import { ActionButtons, Icon, LocationSelector, Typography } from "@wso2/ui-toolkit";
 import { useState } from "react";
-import { RpcClient } from "@wso2/wi-rpc-client";
+import { useVisualizerContext } from "../../contexts/RpcContext";
 import { IntegrationParameters } from "./components/IntegrationParameters";
 import {
     BodyText,
@@ -46,7 +46,7 @@ export function ImportIntegrationForm({
     handleStartImport,
     onBack,
 }: ImportIntegrationFormProps) {
-    const rpcClient = new RpcClient();
+    const { rpcClient } = useVisualizerContext();
 
     const [importSourcePath, setImportSourcePath] = useState("");
     const [integrationParams, setIntegrationParams] = useState<Record<string, any>>({});

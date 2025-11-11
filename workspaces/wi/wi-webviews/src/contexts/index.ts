@@ -16,25 +16,5 @@
  * under the License.
  */
 
-import React from "react";
-import ReactDOM from "react-dom/client";
-import { ViewType, type WebviewProps } from "@wso2/wi-core";
-import IntegratorWebview from "./IntegratorWebview";
-import { VisualizerContextProvider } from "./contexts/RpcContext";
-import "./style.css";
-
-const defaultProps: WebviewProps = {
-	type: ViewType.WELCOME,
-	biAvailable: true,
-	miAvailable: true,
-};
-export function renderWebview(target: HTMLElement) {
-	const reactRoot = ReactDOM.createRoot(target);
-	reactRoot.render(
-		<React.StrictMode>
-			<VisualizerContextProvider>
-				<IntegratorWebview {...defaultProps} />
-			</VisualizerContextProvider>
-		</React.StrictMode>,
-	);
-}
+export { Context, VisualizerContextProvider, useVisualizerContext } from './RpcContext';
+export type { VisualizerContext } from './RpcContext';

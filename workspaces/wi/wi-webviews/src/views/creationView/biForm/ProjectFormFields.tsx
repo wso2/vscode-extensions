@@ -19,7 +19,7 @@
 import { useEffect, useState } from "react";
 import { LocationSelector, TextField, CheckBox, LinkButton, ThemeColors, Codicon } from "@wso2/ui-toolkit";
 import styled from "@emotion/styled";
-import { RpcClient } from "@wso2/wi-rpc-client";
+import { useVisualizerContext } from "../../../contexts/RpcContext";
 import { sanitizePackageName, validatePackageName } from "./utils";
 
 const FieldGroup = styled.div`
@@ -66,7 +66,7 @@ export interface ProjectFormFieldsProps {
 }
 
 export function ProjectFormFields({ formData, onFormDataChange, onValidationChange }: ProjectFormFieldsProps) {
-    const rpcClient = new RpcClient();
+    const { rpcClient } = useVisualizerContext();
     const [packageNameTouched, setPackageNameTouched] = useState(false);
     const [showOptionalConfigurations, setShowOptionalConfigurations] = useState(false);
     const [packageNameError, setPackageNameError] = useState<string | null>(null);

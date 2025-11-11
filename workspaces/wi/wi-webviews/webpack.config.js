@@ -70,6 +70,9 @@ module.exports = {
         new webpack.ProvidePlugin({
             process: "process/browser",
         }),
+        new webpack.DefinePlugin({
+            'process.env.MI_SAMPLE_ICONS_GITHUB_URL': JSON.stringify('https://mi-connectors.wso2.com/samples/icons/')
+        }),
         new ReactRefreshWebpackPlugin(),
     ],
 };

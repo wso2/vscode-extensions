@@ -37,11 +37,10 @@ import {
     GettingStartedSample,
     SampleDownloadRequest
 } from "@wso2/wi-core";
-import { ExtensionAPIs } from "../../extensionAPIs";
 import { commands, window, workspace, Uri } from "vscode";
 import { askFileOrFolderPath, askFilePath, askProjectPath, handleOpenFile } from "./utils";
 import * as fs from "fs";
-import * as path from "path";
+import axios from "axios";
 
 export class MainRpcManager implements WIVisualizerAPI {
     constructor(private projectUri?: string) { }
@@ -170,15 +169,9 @@ export class MainRpcManager implements WIVisualizerAPI {
         return new Promise(async (resolve) => {
             const url = 'https://mi-connectors.wso2.com/samples/info.json';
             try {
-                const response = await fetch(url);
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                const samples = JSON.parse(JSON.stringify(data)).Samples;
-                const categories = JSON.parse(JSON.stringify(data)).categories;
+                const { data } = await axios.get(url);
+                const samples = data.Samples;
+                const categories = data.categories;
 
                 let categoriesList: GettingStartedCategory[] = [];
                 for (let i = 0; i < categories.length; i++) {
@@ -209,7 +202,10 @@ export class MainRpcManager implements WIVisualizerAPI {
 
             } catch (error) {
                 console.error('Error fetching samples:', error);
-                resolve({ categories: [], samples: [] });
+                resolve({
+                    categories: [],
+                    samples: []
+                });
             }
         });
     }

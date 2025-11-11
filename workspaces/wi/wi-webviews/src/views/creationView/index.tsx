@@ -24,7 +24,7 @@ import {
 } from "@wso2/ui-toolkit";
 import styled from "@emotion/styled";
 import { BIProjectForm } from "./biForm";
-import { RpcClient } from "@wso2/wi-rpc-client";
+import { useVisualizerContext } from "../../contexts/RpcContext";
 import { MiProjectWizard } from "./miForm";
 
 const FormContainer = styled.div`
@@ -60,7 +60,7 @@ export function CreationView({ onBack }: { onBack?: () => void }) {
     const [defaultType, setDefaultType] = useState<string>("WSO2: BI");
     const [projectType, setProjectType] = useState<string>(defaultType);
     const [isLoading, setIsLoading] = useState(true);
-    const rpcClient = new RpcClient();
+    const { rpcClient } = useVisualizerContext();
 
     const projectTypeOptions = [
         { label: "WSO2: BI", value: "WSO2: BI" },

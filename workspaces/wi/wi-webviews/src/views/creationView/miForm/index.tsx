@@ -23,7 +23,7 @@ import { yupResolver } from "@hookform/resolvers/yup"
 import * as yup from "yup";
 import { useForm } from "react-hook-form";
 import styled from "@emotion/styled";
-import { RpcClient } from "@wso2/wi-rpc-client";
+import { useVisualizerContext } from "../../../contexts/RpcContext";
 // import { Range } from '../../../../syntax-tree/lib/src';
 
 
@@ -58,7 +58,7 @@ const ButtonWrapper = styled.div`
 `;
 
 export function MiProjectWizard() {
-    const rpcClient = new RpcClient();
+    const { rpcClient } = useVisualizerContext();
     const [dirContent, setDirContent] = useState([]);
     const [supportedMIVersions, setSupportedMIVersions] = useState<OptionProps[]>([]);
     const [formSaved, setFormSaved] = useState(false);

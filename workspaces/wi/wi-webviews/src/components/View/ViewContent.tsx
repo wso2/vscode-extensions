@@ -23,6 +23,7 @@ const ViewContentWrapper = styled.div({
     flexDirection: 'column',
     flexGrow: 1,
     overflowY: 'auto',
+    background: 'var(--vscode-editor-background)'
 });
 
 type ViewContentProps = {

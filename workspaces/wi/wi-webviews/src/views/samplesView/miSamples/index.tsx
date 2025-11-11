@@ -22,7 +22,7 @@ import { ComponentCard, Dropdown, SearchBox } from "@wso2/ui-toolkit";
 import { Button } from "@wso2/ui-toolkit";
 import styled from "@emotion/styled";
 import { VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
-import { RpcClient } from "@wso2/wi-rpc-client";
+import { useVisualizerContext } from "../../../contexts/RpcContext";
 import { View, ViewContent, ViewHeader } from "../../../components/View";
 import { GettingStartedCategory, GettingStartedSample, SampleDownloadRequest } from "@wso2/wi-core";
 
@@ -58,7 +58,7 @@ justify-content: center;
 `;
 
 export function MiSamplesView() {
-    const rpcClient = new RpcClient();
+    const { rpcClient } = useVisualizerContext();
     const [filteredSampleData, setFilteredSamples] = React.useState<GettingStartedSample[]>(null);
     const [filteredSampleDataCopy, setFilteredSampleDataCopy] = React.useState<GettingStartedSample[]>(null);
     const [SampleData, setSampleData] = React.useState<GettingStartedSample[]>(null);
@@ -68,21 +68,19 @@ export function MiSamplesView() {
     const [filterText, setFilterText] = React.useState<string>("");
 
     useEffect(() => {
-        if (rpcClient) {
-            rpcClient.getMainRpcClient().fetchSamplesFromGithub().then((samples) => {
-                setSampleData(samples.samples);
-                setFilteredSamples(samples.samples);
-                setFilteredSampleDataCopy(samples.samples);
-                samples.categories.unshift({ id: 0, title: "All", icon: "" });
-                setCategories(samples.categories);
-                let urls = [];
-                for (let i = 0; i < samples.categories.length; i++) {
-                    urls.push(process.env.MI_SAMPLE_ICONS_GITHUB_URL + samples.categories[i].icon);
-                }
-                setImages(urls);
-            });
-        }
-    }, [rpcClient]);
+        rpcClient.getMainRpcClient().fetchSamplesFromGithub().then((samples) => {
+            setSampleData(samples.samples);
+            setFilteredSamples(samples.samples);
+            setFilteredSampleDataCopy(samples.samples);
+            samples.categories.unshift({ id: 0, title: "All", icon: "" });
+            setCategories(samples.categories);
+            let urls = [];
+            for (let i = 0; i < samples.categories.length; i++) {
+                urls.push(process.env.MI_SAMPLE_ICONS_GITHUB_URL + samples.categories[i].icon);
+            }
+            setImages(urls);
+        });
+    }, []);
 
     const handleChange = (value: string) => {
         if (value === "All") {
