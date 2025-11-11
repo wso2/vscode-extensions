@@ -30,8 +30,8 @@ import {
     GetSubFoldersResponse,
     ProjectDirResponse,
     GetSupportedMIVersionsResponse,
-    CreateProjectRequest,
-    CreateProjectResponse,
+    CreateMiProjectRequest,
+    CreateMiProjectResponse,
     GettingStartedData,
     GettingStartedCategory,
     GettingStartedSample,
@@ -41,6 +41,7 @@ import {
 import { commands, window, workspace, Uri } from "vscode";
 import { askFileOrFolderPath, askFilePath, askProjectPath, handleOpenFile } from "./utils";
 import * as fs from "fs";
+import * as path from "path";
 import axios from "axios";
 
 export class MainRpcManager implements WIVisualizerAPI {
@@ -123,6 +124,11 @@ export class MainRpcManager implements WIVisualizerAPI {
             const { path: folderPath } = params;
             const subFolders: string[] = [];
 
+            if (!folderPath || folderPath.trim() === '') {
+                resolve({ folders: subFolders });
+                return;
+            }
+
             try {
                 const subItems = fs.readdirSync(folderPath, { withFileTypes: true });
                 for (const item of subItems) {
@@ -150,18 +156,30 @@ export class MainRpcManager implements WIVisualizerAPI {
         });
     }
 
-    async createProject(params: CreateProjectRequest): Promise<CreateProjectResponse> {
-        // TODO: Import createBIProjectPure from ballerina-core
-        // For now, create a placeholder implementation
-        return new Promise(async (resolve) => {
+    async createMiProject(params: CreateMiProjectRequest): Promise<CreateMiProjectResponse> {
+        return new Promise(async (resolve, reject) => {
             try {
-                // This should call createBIProjectPure(params)
-                console.log("Creating project with params:", params);
-                resolve({ filePath: "" });
+                console.log("Creating MI project with params:", params);
+
+                const miCommandParams = {
+                    name: params.name,
+                    path: path.join(params.directory, params.name),
+                    scope: "user",
+                    open: params.open
+                };
+
+                const result = await commands.executeCommand("MI.project-explorer.create-project", miCommandParams);
+                
+                if (result) {
+                    resolve(result as CreateMiProjectResponse);
+                } else {
+                    resolve({ filePath: '' });
+                }
             } catch (error) {
-                console.error("Error creating project:", error);
-                window.showErrorMessage(`Failed to create project: ${error}`);
-                resolve({ filePath: "Error" });
+                console.error("Error creating MI project:", error);
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                window.showErrorMessage(`Failed to create MI project: ${errorMessage}`);
+                reject(error);
             }
         });
     }

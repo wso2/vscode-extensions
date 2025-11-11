@@ -34,7 +34,7 @@ import {
     getSupportedMIVersionsHigherThan,
     getSubFolderNames,
     askProjectDirPath,
-    createProject,
+    createMiProject,
     fetchSamplesFromGithub,
     downloadSelectedSampleFromGithub,
     createBIProject,
@@ -44,8 +44,8 @@ import {
     GetSubFoldersResponse,
     ProjectDirResponse,
     GetSupportedMIVersionsResponse,
-    CreateProjectRequest,
-    CreateProjectResponse,
+    CreateMiProjectRequest,
+    CreateMiProjectResponse,
     GettingStartedData,
     SampleDownloadRequest,
     BIProjectRequest
@@ -100,8 +100,8 @@ export class MainRpcClient implements WIVisualizerAPI {
         return this._messenger.sendRequest(askProjectDirPath, HOST_EXTENSION);
     }
 
-    createProject(params: CreateProjectRequest): Promise<CreateProjectResponse> {
-        return this._messenger.sendRequest(createProject, HOST_EXTENSION, params);
+    createMiProject(params: CreateMiProjectRequest): Promise<CreateMiProjectResponse> {
+        return this._messenger.sendRequest(createMiProject, HOST_EXTENSION, params);
     }
 
     fetchSamplesFromGithub(): Promise<GettingStartedData> {

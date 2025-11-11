@@ -63,16 +63,17 @@ export interface GetSupportedMIVersionsResponse {
     versions: string[];
 }
 
-export interface CreateProjectRequest {
-    projectName: string;
-    packageName: string;
-    projectPath: string;
-    createDirectory: boolean;
-    orgName?: string;
+export interface CreateMiProjectRequest {
+    directory: string;
+    name: string;
+    open: boolean;
+    groupID?: string;
+    artifactID?: string;
     version?: string;
+    miVersion: string;
 }
 
-export interface CreateProjectResponse {
+export interface CreateMiProjectResponse {
     filePath: string;
 }
 

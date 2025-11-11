@@ -125,7 +125,7 @@ export function MiProjectWizard() {
             open: true,
         }
         setFormSaved(true);
-        const response = await rpcClient.getMainRpcClient().createProject(createProjectParams);
+        const response = await rpcClient.getMainRpcClient().createMiProject(createProjectParams);
         if (response.filePath === "Error") {
             setFormSaved(false);
         } else {

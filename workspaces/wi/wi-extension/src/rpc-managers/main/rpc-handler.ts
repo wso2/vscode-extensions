@@ -28,7 +28,7 @@ import {
     getSupportedMIVersionsHigherThan,
     getSubFolderNames,
     askProjectDirPath,
-    createProject,
+    createMiProject,
     fetchSamplesFromGithub,
     downloadSelectedSampleFromGithub,
     createBIProject,
@@ -36,7 +36,7 @@ import {
     FileOrDirRequest,
     GetConfigurationRequest,
     GetSubFoldersRequest,
-    CreateProjectRequest,
+    CreateMiProjectRequest,
     SampleDownloadRequest,
     BIProjectRequest
 } from "@wso2/wi-core";
@@ -55,7 +55,7 @@ export function registerMainRpcHandlers(messenger: Messenger) {
     messenger.onRequest(getSupportedMIVersionsHigherThan, (version: string) => rpcManger.getSupportedMIVersionsHigherThan(version));
     messenger.onRequest(getSubFolderNames, (args: GetSubFoldersRequest) => rpcManger.getSubFolderNames(args));
     messenger.onRequest(askProjectDirPath, () => rpcManger.askProjectDirPath());
-    messenger.onRequest(createProject, (args: CreateProjectRequest) => rpcManger.createProject(args));
+    messenger.onRequest(createMiProject, (args: CreateMiProjectRequest) => rpcManger.createMiProject(args));
     messenger.onRequest(fetchSamplesFromGithub, () => rpcManger.fetchSamplesFromGithub());
     messenger.onNotification(downloadSelectedSampleFromGithub, (args: SampleDownloadRequest) => rpcManger.downloadSelectedSampleFromGithub(args));
     messenger.onRequest(createBIProject, (args: BIProjectRequest) => rpcManger.createBIProject(args));
