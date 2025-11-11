@@ -209,6 +209,10 @@ export class MCPInspectorManager {
       // Start the client process (waits for ready message)
       await this.startClientProcess();
 
+      // Add a small delay to ensure the HTTP server is fully ready to accept connections
+      // This helps prevent race conditions where the iframe loads before the server is ready
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       this.isRunning = true;
       Logger.info('MCP Inspector started successfully');
     } catch (error) {
