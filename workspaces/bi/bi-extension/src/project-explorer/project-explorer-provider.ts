@@ -134,20 +134,36 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
         const data: ProjectExplorerEntry[] = [];
         if (extension.langClient) {
             const stateContext: VisualizerLocation = await commands.executeCommand(SHARED_COMMANDS.GET_STATE_CONTEXT);
-            const workspace = vscode
+            if (!stateContext) {
+                return [];
+            }
+
+            const ballerinaWorkspace = stateContext.workspacePath;
+            const workspaceFolderOfPackage = vscode
                 .workspace
                 .workspaceFolders
-                .find(folder => folder.uri.fsPath === stateContext.projectUri);
+                .find(folder => folder.uri.fsPath === stateContext.projectPath);
 
-            if (!workspace) {
-                return [];
+            let packageName: string;
+            let packagePath: string;
+
+            if (!workspaceFolderOfPackage) {
+                if (ballerinaWorkspace) {
+                    packageName = path.basename(Uri.parse(stateContext.projectPath).path);
+                    packagePath = stateContext.projectPath;
+                } else {
+                    return [];
+                }
+            } else {
+                packageName = workspaceFolderOfPackage.name;
+                packagePath = workspaceFolderOfPackage.uri.fsPath;
             }
 
             // Get the state context from ballerina extension as it maintain the event driven tree data
             let projectStructure;
             if (typeof stateContext === 'object' && stateContext !== null && 'projectStructure' in stateContext && stateContext.projectStructure !== null) {
                 projectStructure = stateContext.projectStructure;
-                const projectTree = generateTreeData(workspace, projectStructure);
+                const projectTree = generateTreeData(packageName, packagePath, projectStructure);
                 if (projectTree) {
                     data.push(projectTree);
                 }
@@ -159,12 +175,15 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
     return [];
 }
 
-function generateTreeData(project: vscode.WorkspaceFolder, components: ProjectStructureResponse): ProjectExplorerEntry | undefined {
-    const projectRootPath = project.uri.fsPath;
+function generateTreeData(
+    packageName: string,
+    packagePath: string,
+    components: ProjectStructureResponse
+): ProjectExplorerEntry | undefined {
     const projectRootEntry = new ProjectExplorerEntry(
-        `${project.name}`,
+        `${packageName}`,
         vscode.TreeItemCollapsibleState.Expanded,
-        projectRootPath,
+        packagePath,
         'project',
         true
     );
