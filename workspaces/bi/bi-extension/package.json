@@ -22,50 +22,6 @@
         "wso2.ballerina"
     ],
     "contributes": {
-        "viewsContainers": {
-            "activitybar": [
-                {
-                    "id": "ballerina-integrator",
-                    "title": "WSO2 Integrator: BI",
-                    "icon": "assets/icon.svg"
-                }
-            ]
-        },
-        "viewsWelcome": [
-            {
-                "view": "BI.project-explorer",
-                "contents": "Welcome to WSO2 Integrator: BI. You can open a folder containing an integration or create a new integration.\n[Open Integration](command:vscode.openFolder)\n[Create New Integration](command:ballerina.open.bi.new)\nTo learn more about how to use WSO2 Integrator: BI in VS Code [read our docs](https://bi.docs.wso2.com/get-started/quick-start-guide/).",
-                "when": "BI.status == 'unknownProject'"
-            },
-            {
-                "view": "BI.project-explorer",
-                "contents": "Welcome to WSO2 Integrator: BI. Your current ballerina distribution is not supported. Please update to version 2201.12.3 or above.\n[Update Now](command:ballerina.update-ballerina-visually)\nPlease restart VS Code after updating the ballerina distribution.\nTo learn more about how to use WSO2 Integrator: BI in VS Code [read our docs](https://bi.docs.wso2.com/get-started/quick-start-guide/).",
-                "when": "BI.status == 'updateNeed'"
-            },
-            {
-                "view": "BI.project-explorer",
-                "contents": "Welcome to WSO2 Integrator: BI for VS Code! Ballerina distribution is required but not found. [Set up Ballerina distribution](command:ballerina.open.bi.welcome) to get started.\nExplore more at [ballerina.io](https://ballerina.io)",
-                "when": "BI.status == 'noLS'"
-            },
-            {
-                "view": "BI.project-explorer",
-                "contents": "Loading your workspace, please wait...",
-                "when": "BI.status == 'loading'"
-            },
-            {
-                "view": "BI.project-explorer",
-                "contents": "Activating Language Server, please wait...",
-                "when": "BI.status == 'loadingLS'"
-            }
-        ],
-        "views": {
-            "ballerina-integrator": [
-                {
-                    "id": "BI.project-explorer",
-                    "name": ""
-                }
-            ]
-        },
         "menus": {
             "view/item/context": [
                 {

@@ -64,12 +64,12 @@ const stateMachine = createMachine<MachineContext>({
 }, {
     actions: {
         activateExplorer: (context, event) => {
-            activateProjectExplorer({
-                context: extension.context,
-                isBI: context.isBI,
-                isBallerina: context.isBallerina,
-                isMultiRoot: context.isMultiRoot
-            });
+            // activateProjectExplorer({
+            //     context: extension.context,
+            //     isBI: context.isBI,
+            //     isBallerina: context.isBallerina,
+            //     isMultiRoot: context.isMultiRoot
+            // });
         }
     },
 });

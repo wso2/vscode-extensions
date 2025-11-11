@@ -55,6 +55,10 @@
           "id": "wso2-integrator.explorer",
           "name": "Integrations",
           "contextualTitle": "WSO2 Integrator"
+        },
+        {
+          "id": "MI.mock-services",
+          "name": "MI Mock Services"
         }
       ]
     },
