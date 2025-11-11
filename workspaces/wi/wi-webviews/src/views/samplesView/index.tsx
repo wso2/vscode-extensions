@@ -26,6 +26,7 @@ import styled from "@emotion/styled";
 // import { BIProjectForm } from "./biForm";
 import { useVisualizerContext } from "../../contexts/RpcContext";
 import { MiSamplesView } from "./miSamples";
+import { IntegrationTypeSelector } from "../../components/IntegrationTypeSelector";
 
 const FormContainer = styled.div`
     display: flex;
@@ -73,7 +74,7 @@ export function SamplesView({ onBack }: { onBack?: () => void }) {
                 const configResponse = await rpcClient.getMainRpcClient().getConfiguration({
                     section: "integrator.defaultIntegrator"
                 });
-                
+
                 if (configResponse?.value) {
                     setDefaultType(configResponse.value);
                     setProjectType(configResponse.value);
@@ -106,29 +107,24 @@ export function SamplesView({ onBack }: { onBack?: () => void }) {
     }
 
     return (
-        <FormContainer>
-            <TitleContainer>
-                <IconButton onClick={gotToWelcome}>
-                    <Icon name="bi-arrow-back" iconSx={{ color: "var(--vscode-foreground)" }} />
-                </IconButton>
-                <Typography variant="h2">Create using samples</Typography>
-            </TitleContainer>
-            {defaultType === "WSO2: MI" && (
-                <DropdownContainer>
-                    <Typography variant="body2" sx={{ marginBottom: '8px', fontWeight: 500 }}>
-                        Select Integration Type:
-                    </Typography>
-                    <Dropdown
-                        id="project-type-select"
+        <div style={{ position: 'absolute', background: 'var(--vscode-editor-background)', height: '100%', width: '100%' }} >
+            <FormContainer>
+                <TitleContainer>
+                    <IconButton onClick={gotToWelcome}>
+                        <Icon name="bi-arrow-back" iconSx={{ color: "var(--vscode-foreground)" }} />
+                    </IconButton>
+                    <Typography variant="h2">Create using samples</Typography>
+                </TitleContainer>
+                {defaultType === "WSO2: MI" && (
+                    <IntegrationTypeSelector
                         value={projectType}
-                        containerSx={{ width: "100%" }}
-                        items={projectTypeOptions}
-                        onValueChange={(value) => setProjectType(value as string)}
+                        options={projectTypeOptions}
+                        onChange={setProjectType}
                     />
-                </DropdownContainer>
-            )}
-            {projectType === "WSO2: BI" &&  <h2>Coming Soon!</h2> }
-            {projectType === "WSO2: MI" &&  <MiSamplesView /> }
-        </FormContainer>
+                )}
+                {projectType === "WSO2: BI" && <h2>Coming Soon!</h2>}
+                {projectType === "WSO2: MI" && <MiSamplesView />}
+            </FormContainer>
+        </div>
     );
 }

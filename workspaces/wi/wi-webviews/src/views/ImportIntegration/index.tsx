@@ -167,42 +167,44 @@ export function ImportIntegration({ onBack }: { onBack?: () => void }) {
     }, [toolPullProgress, importParams, selectedIntegration]);
 
     return (
-        <FormContainer>
-            <TitleContainer>
-                <IconButton onClick={onBack}>
-                    <Icon name="bi-arrow-back" iconSx={{ color: "var(--vscode-foreground)" }} />
-                </IconButton>
-                <Typography variant="h3">Migrate External Integration</Typography>
-            </TitleContainer>
+        <div style={{ position: 'absolute', background: 'var(--vscode-editor-background)', height: '100%', width: '100%' }} >
+            <FormContainer>
+                <TitleContainer>
+                    <IconButton onClick={onBack}>
+                        <Icon name="bi-arrow-back" iconSx={{ color: "var(--vscode-foreground)" }} />
+                    </IconButton>
+                    <Typography variant="h3">Migrate External Integration</Typography>
+                </TitleContainer>
 
-            <StepperContainer style={{ marginBottom: "4%" }}>
-                <Stepper alignment="flex-start" steps={defaultSteps} currentStep={step} />
-            </StepperContainer>
-            {step === 0 && (
-                <ImportIntegrationForm
-                    selectedIntegration={selectedIntegration}
-                    migrationTools={migrationTools}
-                    setImportParams={setImportParams}
-                    pullIntegrationTool={pullIntegrationTool}
-                    pullingTool={pullingTool}
-                    toolPullProgress={toolPullProgress}
-                    onSelectIntegration={setSelectedIntegration}
-                    handleStartImport={handleStartImport}
-                    onBack={onBack}
-                />
-            )}
-            {step === 1 && (
-                <MigrationProgressView
-                    migrationState={migrationToolState}
-                    migrationLogs={migrationToolLogs}
-                    migrationCompleted={migrationCompleted}
-                    migrationSuccessful={migrationSuccessful}
-                    migrationResponse={migrationResponse}
-                    onNext={() => setStep(2)}
-                    onBack={handleStepBack}
-                />
-            )}
-            {step === 2 && <ConfigureProjectForm onNext={handleCreateIntegrationFiles} onBack={handleStepBack} />}
-        </FormContainer>
+                <StepperContainer style={{ marginBottom: "4%" }}>
+                    <Stepper alignment="flex-start" steps={defaultSteps} currentStep={step} />
+                </StepperContainer>
+                {step === 0 && (
+                    <ImportIntegrationForm
+                        selectedIntegration={selectedIntegration}
+                        migrationTools={migrationTools}
+                        setImportParams={setImportParams}
+                        pullIntegrationTool={pullIntegrationTool}
+                        pullingTool={pullingTool}
+                        toolPullProgress={toolPullProgress}
+                        onSelectIntegration={setSelectedIntegration}
+                        handleStartImport={handleStartImport}
+                        onBack={onBack}
+                    />
+                )}
+                {step === 1 && (
+                    <MigrationProgressView
+                        migrationState={migrationToolState}
+                        migrationLogs={migrationToolLogs}
+                        migrationCompleted={migrationCompleted}
+                        migrationSuccessful={migrationSuccessful}
+                        migrationResponse={migrationResponse}
+                        onNext={() => setStep(2)}
+                        onBack={handleStepBack}
+                    />
+                )}
+                {step === 2 && <ConfigureProjectForm onNext={handleCreateIntegrationFiles} onBack={handleStepBack} />}
+            </FormContainer>
+        </div>
     );
 }

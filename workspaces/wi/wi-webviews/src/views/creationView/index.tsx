@@ -19,13 +19,13 @@
 import { useState, useEffect } from "react";
 import {
     Icon,
-    Typography,
-    Dropdown,
+    Typography
 } from "@wso2/ui-toolkit";
 import styled from "@emotion/styled";
 import { BIProjectForm } from "./biForm";
 import { useVisualizerContext } from "../../contexts/RpcContext";
 import { MiProjectWizard } from "./miForm";
+import { IntegrationTypeSelector } from "../../components/IntegrationTypeSelector";
 
 const FormContainer = styled.div`
     display: flex;
@@ -74,7 +74,7 @@ export function CreationView({ onBack }: { onBack?: () => void }) {
                 const configResponse = await rpcClient.getMainRpcClient().getConfiguration({
                     section: "integrator.defaultIntegrator"
                 });
-                
+
                 if (configResponse?.value) {
                     setDefaultType(configResponse.value);
                     setProjectType(configResponse.value);
@@ -107,29 +107,24 @@ export function CreationView({ onBack }: { onBack?: () => void }) {
     }
 
     return (
-        <FormContainer>
-            <TitleContainer>
-                <IconButton onClick={gotToWelcome}>
-                    <Icon name="bi-arrow-back" iconSx={{ color: "var(--vscode-foreground)" }} />
-                </IconButton>
-                <Typography variant="h2">Create Your Integration</Typography>
-            </TitleContainer>
-            {defaultType === "WSO2: MI" && (
-                <DropdownContainer>
-                    <Typography variant="body2" sx={{ marginBottom: '8px', fontWeight: 500 }}>
-                        Select Integration Type:
-                    </Typography>
-                    <Dropdown
-                        id="project-type-select"
+        <div style={{ position: 'absolute', background: 'var(--vscode-editor-background)', height: '100%', width: '100%' }} >
+            <FormContainer>
+                <TitleContainer>
+                    <IconButton onClick={gotToWelcome}>
+                        <Icon name="bi-arrow-back" iconSx={{ color: "var(--vscode-foreground)" }} />
+                    </IconButton>
+                    <Typography variant="h2">Create Your Integration</Typography>
+                </TitleContainer>
+                {defaultType === "WSO2: MI" && (
+                    <IntegrationTypeSelector
                         value={projectType}
-                        containerSx={{ width: "100%" }}
-                        items={projectTypeOptions}
-                        onValueChange={(value) => setProjectType(value as string)}
+                        options={projectTypeOptions}
+                        onChange={setProjectType}
                     />
-                </DropdownContainer>
-            )}
-            {projectType === "WSO2: BI" && <BIProjectForm />}
-            {projectType === "WSO2: MI" && <MiProjectWizard />}
-        </FormContainer>
+                )}
+                {projectType === "WSO2: BI" && <BIProjectForm />}
+                {projectType === "WSO2: MI" && <MiProjectWizard />}
+            </FormContainer>
+        </div>
     );
 }

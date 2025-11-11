@@ -146,7 +146,7 @@ export function MiSamplesView() {
                         onChange={handleSearch}
                     />
                 </ViewHeader>
-                <ViewContent padding>
+                <ViewContent>
                     {filteredSampleData ? (
                         <SampleGrid>
                             {filteredSampleData.sort((a, b) => a.priority - b.priority).map((sample, index) => (
