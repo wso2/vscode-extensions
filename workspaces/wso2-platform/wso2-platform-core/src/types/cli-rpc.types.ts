@@ -508,7 +508,7 @@ export interface IChoreoRPCClient {
 	getMarketplaceItems(params: GetMarketplaceListReq): Promise<MarketplaceListResp>;
 	getMarketplaceIdl(params: GetMarketplaceIdlReq): Promise<MarketplaceIdlResp>;
 	getConnections(params: GetConnectionsReq): Promise<ConnectionListItem[]>;
-	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionListItem>;
+	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionDetailed>;
 	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed>;
 	deleteConnection(params: DeleteConnectionReq): Promise<void>;
 	getConnectionGuide(params: GetConnectionGuideReq): Promise<GetConnectionGuideResp>;
@@ -605,7 +605,7 @@ export class ChoreoRpcWebview implements IChoreoRPCClient {
 	getConnections(params: GetConnectionsReq): Promise<ConnectionListItem[]> {
 		return this._messenger.sendRequest(ChoreoRpcGetConnections, HOST_EXTENSION, params);
 	}
-	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionListItem> {
+	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionDetailed> {
 		return this._messenger.sendRequest(ChoreoRpcGetConnectionItem, HOST_EXTENSION, params);
 	}
 	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed> {
@@ -695,7 +695,7 @@ export const ChoreoRpcGetMarketplaceItemIdl: RequestType<GetMarketplaceIdlReq, M
 export const ChoreoRpcGetConnections: RequestType<GetConnectionsReq, ConnectionListItem[]> = {
 	method: "rpc/connections/getConnections",
 };
-export const ChoreoRpcGetConnectionItem: RequestType<GetConnectionItemReq, ConnectionListItem> = {
+export const ChoreoRpcGetConnectionItem: RequestType<GetConnectionItemReq, ConnectionDetailed> = {
 	method: "rpc/connections/getConnectionItem",
 };
 export const ChoreoRpcCreateComponentConnection: RequestType<CreateComponentConnectionReq, ConnectionDetailed> = {

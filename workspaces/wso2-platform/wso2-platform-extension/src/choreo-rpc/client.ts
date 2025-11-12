@@ -503,11 +503,11 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		return response;
 	}
 
-	async getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionListItem> {
+	async getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionDetailed> {
 		if (!this.client) {
 			throw new Error("RPC client is not initialized");
 		}
-		const response: ConnectionListItem = await this.client.sendRequest("connections/getConnectionItem", params);
+		const response: ConnectionDetailed = await this.client.sendRequest("connections/getConnectionItem", params);
 		return response;
 	}
 

@@ -17,7 +17,7 @@
  */
 
 import type { DeploymentStatus } from "../enums";
-import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq, GetConnectionsReq, DeleteConnectionReq, GetMarketplaceItemReq, GetConnectionItemReq } from "./cli-rpc.types";
+import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq, GetConnectionsReq, DeleteConnectionReq, GetMarketplaceItemReq, GetConnectionItemReq, GetProjectEnvsReq } from "./cli-rpc.types";
 import { CreateLocalConnectionsConfigReq, DeleteLocalConnectionsConfigReq } from "./messenger-rpc.types";
 import type { AuthState, ContextItemEnriched, ContextStoreState, WebviewState } from "./store.types";
 
@@ -39,10 +39,11 @@ export interface IWso2PlatformExtensionAPI {
 	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed>;
 	createConnectionConfig: (params: CreateLocalConnectionsConfigReq) => Promise<string>;
 	getConnections: (params: GetConnectionsReq) => Promise<ConnectionListItem[]>;
-	getConnection: (params: GetConnectionItemReq) => Promise<ConnectionListItem>;
+	getConnection: (params: GetConnectionItemReq) => Promise<ConnectionDetailed>;
 	deleteConnection: (params: DeleteConnectionReq) => Promise<void>;
 	deleteLocalConnectionsConfig: (params: DeleteLocalConnectionsConfigReq) => void;
 	getDevantConsoleUrl: () => Promise<string>;
+	getProjectEnvs: (params: GetProjectEnvsReq)=> Promise<Environment[]>
 	startProxyServer: (params: StartProxyServerReq) => Promise<StartProxyServerResp>;
 	stopProxyServer: (params: StopProxyServerReq) => Promise<void>;
 
@@ -310,6 +311,7 @@ export interface Environment {
 	apimSandboxEnvId?: string;
 	apimEnvId?: string;
 	isMigrating: boolean;
+	templateId: string;
 }
 
 export interface ComponentEP {
