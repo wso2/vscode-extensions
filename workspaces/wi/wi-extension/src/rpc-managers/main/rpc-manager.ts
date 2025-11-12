@@ -233,11 +233,7 @@ export class MainRpcManager implements WIVisualizerAPI {
         const url = 'https://mi-connectors.wso2.com/samples/samples/';
         const workspaceFolders = workspace.workspaceFolders;
         const projectUri = this.projectUri ?? (workspaceFolders ? workspaceFolders[0].uri.fsPath : "");
-        if (projectUri) {
-            handleOpenFile(projectUri, params.zipFileName, url);
-        } else {
-            window.showErrorMessage('No workspace folder found');
-        }
+        handleOpenFile(projectUri, params.zipFileName, url);
     }
 
     async createBIProject(params: BIProjectRequest): Promise<void> {

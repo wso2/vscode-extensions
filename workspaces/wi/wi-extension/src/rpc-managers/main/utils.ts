@@ -22,7 +22,8 @@ import path from "path";
 import * as fs from 'fs';
 import * as unzipper from 'unzipper';
 import axios from "axios";
-import { DownloadProgressData } from "@wso2/wi-core";
+import { DownloadProgressData, onDownloadProgress } from "@wso2/wi-core";
+import { RPCLayer } from "../../RPCLayer";
 
 interface ProgressMessage {
     message: string;
@@ -190,11 +191,11 @@ async function downloadFile(projectUri: string, url: string, filePath: string, p
                     progressCallback(progress);
                 }
                 // Notify the visualizer
-                // RPCLayer._messengers.get(projectUri)?.sendNotification(
-                //     onDownloadProgress,
-                //     { type: 'webview', webviewType: VisualizerWebview.viewType },
-                //     progress
-                // );
+                RPCLayer._messengers.get("wi-webview")?.sendNotification(
+                    onDownloadProgress,
+                    { type: 'webview', webviewType: 'wso2IntegratorWelcome' },
+                    progress
+                );
             }
         });
         response.data.pipe(writer);
