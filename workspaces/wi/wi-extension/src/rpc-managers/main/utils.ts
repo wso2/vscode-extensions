@@ -16,19 +16,21 @@
  * under the License.
  */
 
-import { commands, Progress, ProgressLocation, Uri, window, workspace } from "vscode";
+import { commands, debug, Progress, ProgressLocation, Uri, window, workspace } from "vscode";
 import * as os from 'os';
 import path from "path";
 import * as fs from 'fs';
 import * as unzipper from 'unzipper';
 import axios from "axios";
-import { DownloadProgressData, onDownloadProgress } from "@wso2/wi-core";
+import { DownloadProgress, onDownloadProgress } from "@wso2/wi-core";
 import { RPCLayer } from "../../RPCLayer";
 
 interface ProgressMessage {
     message: string;
     increment?: number;
 }
+
+export const BALLERINA_INTEGRATOR_ISSUES_URL = "https://github.com/wso2/product-ballerina-integrator/issues";
 
 export async function askFilePath() {
     return await window.showOpenDialog({
@@ -163,7 +165,7 @@ async function handleDownloadFile(projectUri: string, rawFileLink: string, defau
     progress.report({ message: "Download finished" });
 }
 
-async function downloadFile(projectUri: string, url: string, filePath: string, progressCallback?: (downloadProgress: DownloadProgressData) => void) {
+async function downloadFile(projectUri: string, url: string, filePath: string, progressCallback?: (downloadProgress: DownloadProgress) => void) {
     const writer = fs.createWriteStream(filePath);
     let totalBytes = 0;
     try {
@@ -182,10 +184,12 @@ async function downloadFile(projectUri: string, url: string, filePath: string, p
                         return `${Math.floor(sizeInKB / 1024)} MB`;
                     }
                 };
-                const progress: DownloadProgressData = {
+                const progress: DownloadProgress = {
                     percentage: Math.round((progressEvent.loaded * 100) / totalBytes),
-                    downloadedAmount: formatSize(progressEvent.loaded),
-                    downloadSize: formatSize(totalBytes)
+                    downloadedSize: progressEvent.loaded,
+                    totalSize: totalBytes,
+                    success: false,
+                    message: `Downloading... ${Math.round((progressEvent.loaded * 100) / totalBytes)}%`
                 };
                 if (progressCallback) {
                     progressCallback(progress);
@@ -215,3 +219,19 @@ async function downloadFile(projectUri: string, url: string, filePath: string, p
     }
 }
 
+export function sanitizeName(name: string): string {
+    return name.replace(/[^a-z0-9]_./gi, '_').toLowerCase(); // Replace invalid characters with underscores
+}
+
+export function getUsername(): string {
+    // Get current username from the system across different OS platforms
+    let username: string;
+    if (process.platform === 'win32') {
+        // Windows
+        username = process.env.USERNAME || 'myOrg';
+    } else {
+        // macOS and Linux
+        username = process.env.USER || 'myOrg';
+    }
+    return username;
+}

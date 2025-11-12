@@ -36,13 +36,21 @@ import {
     GettingStartedCategory,
     GettingStartedSample,
     SampleDownloadRequest,
-    BIProjectRequest
+    BIProjectRequest,
+    GetMigrationToolsResponse,
+    MigrateRequest,
+    ImportIntegrationRPCRequest,
+    ImportIntegrationResponse,
+    ImportIntegrationRequest,
+    ShowErrorMessageRequest
 } from "@wso2/wi-core";
-import { commands, window, workspace, Uri } from "vscode";
-import { askFileOrFolderPath, askFilePath, askProjectPath, handleOpenFile } from "./utils";
+import { commands, window, workspace, Uri, MarkdownString, extensions } from "vscode";
+import { askFileOrFolderPath, askFilePath, askProjectPath, BALLERINA_INTEGRATOR_ISSUES_URL, getUsername, handleOpenFile, sanitizeName } from "./utils";
 import * as fs from "fs";
 import * as path from "path";
 import axios from "axios";
+import { extension } from "../../bi/biExtentionContext";
+import { pullMigrationTool } from "./migrate-integration";
 
 export class MainRpcManager implements WIVisualizerAPI {
     constructor(private projectUri?: string) { }
@@ -236,11 +244,30 @@ export class MainRpcManager implements WIVisualizerAPI {
         handleOpenFile(projectUri, params.zipFileName, url);
     }
 
+    private getLangClient() {
+        if (!extension.langClient) {
+            const ballerinaExt = extensions.getExtension('wso2.ballerina');
+            if (!ballerinaExt) {
+                throw new Error('Ballerina extension is not installed');
+            }
+            if (!ballerinaExt.isActive) {
+                throw new Error('Ballerina extension is not activated yet');
+            }
+            extension.langClient = ballerinaExt.exports.ballerinaExtInstance.langClient;
+            extension.biSupported = ballerinaExt.exports.ballerinaExtInstance.biSupported;
+            extension.isNPSupported = ballerinaExt.exports.ballerinaExtInstance.isNPSupported;
+        }
+        return extension.langClient as any;
+    }
+
+    async getMigrationTools(): Promise<GetMigrationToolsResponse> {
+        return this.getLangClient().getMigrationTools();
+    }
+
     async createBIProject(params: BIProjectRequest): Promise<void> {
         return new Promise(async (resolve, reject) => {
             try {
                 const result = await commands.executeCommand('BI.project.createBIProjectPure', params);
-                console.log("Command executed successfully, result:", result);
                 resolve();
             } catch (error) {
                 console.error("Error creating BI project:", error);
@@ -249,5 +276,55 @@ export class MainRpcManager implements WIVisualizerAPI {
                 reject(error);
             }
         });
+    }
+
+    async migrateProject(params: MigrateRequest): Promise<void> {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const result = await commands.executeCommand('BI.project.createBIProjectMigration', params);
+                resolve();
+            } catch (error) {
+                console.error("Error creating BI project:", error);
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                window.showErrorMessage(`Failed to create BI project: ${errorMessage}`);
+                reject(error);
+            }
+        });
+    }
+
+    async pullMigrationTool(args: { toolName: string; version: string }): Promise<void> {
+        try {
+            await pullMigrationTool(args.toolName, args.version);
+        } catch (error) {
+            console.error(`Failed to pull migration tool '${args.toolName}' version '${args.version}':`, error);
+            throw error;
+        }
+    }
+
+    async importIntegration(params: ImportIntegrationRPCRequest): Promise<ImportIntegrationResponse> {
+        const orgName = getUsername();
+        const langParams: ImportIntegrationRequest = {
+            orgName: orgName,
+            packageName: sanitizeName(params.packageName),
+            sourcePath: params.sourcePath,
+            parameters: params.parameters,
+        };
+        const langClient = this.getLangClient();
+        langClient.registerMigrationToolCallbacks();
+        switch (params.commandName) {
+            case "migrate-tibco":
+                return langClient.importTibcoToBI(langParams);
+            case "migrate-mule":
+                return langClient.importMuleToBI(langParams);
+            default:
+                console.error(`Unsupported integration type: ${params.commandName}`);
+                throw new Error(`Unsupported integration type: ${params.commandName}`);
+        }
+    }
+
+    async showErrorMessage(params: ShowErrorMessageRequest): Promise<void> {
+        const messageWithLink = new MarkdownString(params.message);
+        messageWithLink.appendMarkdown(`\n\nPlease [create an issue](${BALLERINA_INTEGRATOR_ISSUES_URL}) if the issue persists.`);
+        window.showErrorMessage(messageWithLink.value);
     }
 }

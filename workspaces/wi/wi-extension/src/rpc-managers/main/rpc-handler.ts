@@ -32,13 +32,22 @@ import {
     fetchSamplesFromGithub,
     downloadSelectedSampleFromGithub,
     createBIProject,
+    getMigrationTools,
+    migrateProject,
+    pullMigrationTool,
+    importIntegration,
+    showErrorMessage,
     RunCommandRequest,
     FileOrDirRequest,
     GetConfigurationRequest,
     GetSubFoldersRequest,
     CreateMiProjectRequest,
     SampleDownloadRequest,
-    BIProjectRequest
+    BIProjectRequest,
+    MigrateRequest,
+    PullMigrationToolRequest,
+    ImportIntegrationRPCRequest,
+    ShowErrorMessageRequest
 } from "@wso2/wi-core";
 import { Messenger } from "vscode-messenger";
 import { MainRpcManager } from "./rpc-manager";
@@ -59,4 +68,9 @@ export function registerMainRpcHandlers(messenger: Messenger) {
     messenger.onRequest(fetchSamplesFromGithub, () => rpcManger.fetchSamplesFromGithub());
     messenger.onNotification(downloadSelectedSampleFromGithub, (args: SampleDownloadRequest) => rpcManger.downloadSelectedSampleFromGithub(args));
     messenger.onRequest(createBIProject, (args: BIProjectRequest) => rpcManger.createBIProject(args));
+    messenger.onRequest(getMigrationTools, () => rpcManger.getMigrationTools());
+    messenger.onRequest(migrateProject, (args: MigrateRequest) => rpcManger.migrateProject(args));
+    messenger.onRequest(pullMigrationTool, (args: PullMigrationToolRequest) => rpcManger.pullMigrationTool(args));
+    messenger.onRequest(importIntegration, (args: ImportIntegrationRPCRequest) => rpcManger.importIntegration(args));
+    messenger.onRequest(showErrorMessage, (args: ShowErrorMessageRequest) => rpcManger.showErrorMessage(args));
 }

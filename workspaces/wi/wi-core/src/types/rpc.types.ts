@@ -101,12 +101,6 @@ export interface SampleDownloadRequest {
     zipFileName: string;
 }
 
-export interface DownloadProgressData {
-    percentage: number;
-    downloadedAmount: string;
-    downloadSize: string;
-}
-
 export interface BIProjectRequest {
     projectName: string;
     packageName: string;
@@ -114,4 +108,90 @@ export interface BIProjectRequest {
     createDirectory: boolean;
     orgName?: string;
     version?: string;
+}
+
+export interface MigrationTool {
+    id: number;
+    title: string;
+    needToPull: boolean;
+    commandName: string;
+    description: string;
+    requiredVersion: string;
+    parameters: Array<{
+        key: string;
+        label: string;
+        description: string;
+        valueType: "boolean" | "string" | "number" | "enum";
+        defaultValue?: boolean | string | number;
+        options?: string[];
+    }>;
+}
+
+export interface GetMigrationToolsResponse {
+    tools: MigrationTool[];
+}
+
+export interface DownloadProgress {
+    totalSize?: number;
+    downloadedSize?: number;
+    percentage?: number;
+    success: boolean;
+    message: string;
+    step?: number;
+}
+
+export interface ImportIntegrationResponse {
+    error: string;
+    textEdits: {
+        [key: string]: string;
+    };
+    report: string;
+    jsonReport: string;
+}
+
+export interface MigrateRequest {
+    project: BIProjectRequest;
+    textEdits: {
+        [key: string]: string;
+    };
+}
+
+export interface PullMigrationToolRequest {
+    toolName: string;
+    version: string;
+}
+
+export interface ImportIntegrationRPCRequest {
+    commandName: string;
+    packageName: string;
+    sourcePath: string;
+    parameters?: Record<string, any>;
+}
+
+export interface ImportIntegrationResponse {
+    error: string;
+    textEdits: {
+        [key: string]: string;
+    };
+    report: string;
+    jsonReport: string;
+}
+
+export interface ImportIntegrationRequest {
+    packageName: string;
+    orgName: string;
+    sourcePath: string;
+    parameters?: Record<string, any>;
+}
+
+export interface ShowErrorMessageRequest {
+    message: string;
+}
+
+export interface MigrationToolStateData {
+    state: string;
+}
+
+export interface MigrationToolLogData {
+    log: string;
 }

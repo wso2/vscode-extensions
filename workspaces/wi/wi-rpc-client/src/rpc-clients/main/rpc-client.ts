@@ -38,6 +38,11 @@ import {
     fetchSamplesFromGithub,
     downloadSelectedSampleFromGithub,
     createBIProject,
+    getMigrationTools,
+    migrateProject,
+    pullMigrationTool,
+    importIntegration,
+    showErrorMessage,
     GetConfigurationRequest,
     GetConfigurationResponse,
     GetSubFoldersRequest,
@@ -48,7 +53,13 @@ import {
     CreateMiProjectResponse,
     GettingStartedData,
     SampleDownloadRequest,
-    BIProjectRequest
+    BIProjectRequest,
+    GetMigrationToolsResponse,
+    MigrateRequest,
+    PullMigrationToolRequest,
+    ImportIntegrationRPCRequest,
+    ImportIntegrationResponse,
+    ShowErrorMessageRequest
 } from "@wso2/wi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -114,5 +125,29 @@ export class MainRpcClient implements WIVisualizerAPI {
 
     createBIProject(params: BIProjectRequest): Promise<void> {
         return this._messenger.sendRequest(createBIProject, HOST_EXTENSION, params);
+    }
+
+    getMigrationTools(): Promise<GetMigrationToolsResponse> {
+        return this._messenger.sendRequest(getMigrationTools, HOST_EXTENSION);
+    }
+
+    migrateProject(params: MigrateRequest): Promise<void> {
+        return this._messenger.sendRequest(migrateProject, HOST_EXTENSION, params);
+    }
+
+    pullMigrationTool(params: PullMigrationToolRequest): Promise<void> {
+        return this._messenger.sendRequest(pullMigrationTool, HOST_EXTENSION, params);
+    }
+
+    importIntegration(params: ImportIntegrationRPCRequest): Promise<ImportIntegrationResponse> {
+        return this._messenger.sendRequest(importIntegration, HOST_EXTENSION, params);
+    }
+
+    showErrorMessage(params: ShowErrorMessageRequest): Promise<void> {
+        return this._messenger.sendRequest(showErrorMessage, HOST_EXTENSION, params);
+    }
+
+    getMessenger(): Messenger {
+        return this._messenger;
     }
 }
