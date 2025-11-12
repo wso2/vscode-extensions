@@ -16,15 +16,31 @@
  * under the License.
  */
 
-import React from "react";
 import { ViewType } from "@wso2/wi-core";
-import type { WebviewProps, WelcomeWebviewProps } from "@wso2/wi-core";
 import { WelcomeView } from "./views/WelcomeView";
+import { CreationView } from "./views/creationView";
+import { ImportIntegration } from "./views/ImportIntegration";
+import { SamplesView } from "./views/samplesView";
 
+export interface WebviewProps {
+	type: ViewType;
+}
 function IntegratorWebview(props: WebviewProps) {
+	const goBackToWelcome = () => {};
+
 	switch (props.type) {
 		case ViewType.WELCOME:
-			return <WelcomeView {...(props as WelcomeWebviewProps)} />;
+			return <WelcomeView />;
+		case ViewType.CREATE_PROJECT:
+			return <CreationView onBack={goBackToWelcome} />;
+		case ViewType.SAMPLES:
+			return (
+				<SamplesView onBack={goBackToWelcome} />
+			);
+		case ViewType.IMPORT_EXTERNAL:
+			return (
+				<ImportIntegration onBack={goBackToWelcome} />
+			);
 		default:
 			return (
 				<div style={{ padding: "2rem", textAlign: "center" }}>

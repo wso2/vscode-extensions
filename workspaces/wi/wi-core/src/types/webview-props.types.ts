@@ -19,30 +19,10 @@
 import type { IntegrationType, ViewType } from "../enums";
 
 /**
- * Base webview properties
+ * Webview properties
  */
-export interface BaseWebviewProps {
+export interface WebviewProps {
 	type: ViewType;
-}
-
-/**
- * Welcome view properties
- */
-export interface WelcomeWebviewProps extends BaseWebviewProps {
-	type: ViewType.WELCOME;
 	biAvailable: boolean;
 	miAvailable: boolean;
 }
-
-/**
- * Component list view properties
- */
-export interface ComponentListWebviewProps extends BaseWebviewProps {
-	type: ViewType.COMPONENT_LIST;
-	integrationType: IntegrationType;
-}
-
-/**
- * Union type for all webview props
- */
-export type WebviewProps = WelcomeWebviewProps | ComponentListWebviewProps;

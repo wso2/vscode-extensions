@@ -17,8 +17,8 @@
  */
 
 import * as vscode from "vscode";
-import { EXTENSION_DEPENDENCIES, IntegrationType } from "@wso2/wi-core";
-import type { BIExtensionAPI, MIExtensionAPI, TreeItemData } from "@wso2/wi-core";
+import { EXTENSION_DEPENDENCIES } from "@wso2/wi-core";
+import type { BIExtensionAPI, MIExtensionAPI } from "@wso2/wi-core";
 import { ext } from "./extensionVariables";
 
 /**
@@ -34,24 +34,34 @@ export class ExtensionAPIs {
 	public async initialize(): Promise<void> {
 		// Get BI extension
 		this.biExtension = vscode.extensions.getExtension<BIExtensionAPI>(EXTENSION_DEPENDENCIES.BI);
-		if (this.biExtension && !this.biExtension.isActive) {
-			try {
-				await this.biExtension.activate();
-				ext.log("BI Extension activated");
-			} catch (error) {
-				ext.logError("Failed to activate BI extension", error as Error);
-			}
-		}
 
 		// Get MI extension
 		this.miExtension = vscode.extensions.getExtension<MIExtensionAPI>(EXTENSION_DEPENDENCIES.MI);
+	}
+
+	public activateBIExtension(): void {
+		if (this.biExtension && !this.biExtension.isActive) {
+			this.biExtension.activate().then(
+				() => {
+					ext.log("BI Extension activated");
+				},
+				(error) => {
+					ext.logError("Failed to activate BI extension", error as Error);
+				},
+			);
+		}
+	}
+
+	public activateMIExtension(): void {
 		if (this.miExtension && !this.miExtension.isActive) {
-			try {
-				await this.miExtension.activate();
-				ext.log("MI Extension activated");
-			} catch (error) {
-				ext.logError("Failed to activate MI extension", error as Error);
-			}
+			this.miExtension.activate().then(
+				() => {
+					ext.log("MI Extension activated");
+				},
+				(error) => {
+					ext.logError("Failed to activate MI extension", error as Error);
+				},
+			);
 		}
 	}
 
@@ -67,38 +77,6 @@ export class ExtensionAPIs {
 	 */
 	public isMIAvailable(): boolean {
 		return this.miExtension !== undefined && this.miExtension.isActive;
-	}
-
-	/**
-	 * Get BI project explorer items
-	 */
-	public async getBIItems(): Promise<TreeItemData[]> {
-		if (!this.isBIAvailable() || !this.biExtension?.exports) {
-			return [];
-		}
-
-		try {
-			return await this.biExtension.exports.getProjectExplorerItems();
-		} catch (error) {
-			ext.logError("Failed to get BI items", error as Error);
-			return [];
-		}
-	}
-
-	/**
-	 * Get MI project explorer items
-	 */
-	public async getMIItems(): Promise<TreeItemData[]> {
-		if (!this.isMIAvailable() || !this.miExtension?.exports) {
-			return [];
-		}
-
-		try {
-			return await this.miExtension.exports.getProjectExplorerItems();
-		} catch (error) {
-			ext.logError("Failed to get MI items", error as Error);
-			return [];
-		}
 	}
 
 	/**

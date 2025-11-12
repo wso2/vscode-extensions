@@ -18,7 +18,7 @@
 
 import * as vscode from "vscode";
 import { ViewType } from "@wso2/wi-core";
-import type { WelcomeWebviewProps } from "@wso2/wi-core";
+import type { WebviewProps } from "@wso2/wi-core";
 import { ExtensionAPIs } from "./extensionAPIs";
 import { ext } from "./extensionVariables";
 import { Uri } from "vscode";
@@ -31,27 +31,31 @@ import { registerMainRpcHandlers } from "./rpc-managers/main/rpc-handler";
  */
 export class WebviewManager {
 	private currentPanel: vscode.WebviewPanel | undefined;
+	private currentViewType: ViewType | undefined;
 
 	constructor(private extensionAPIs: ExtensionAPIs) { }
 
 	/**
-	 * Show welcome webview
+	 * Show webview with specified type
 	 */
-	public showWelcome(): void {
+	public show(viewType: ViewType = ViewType.WELCOME): void {
 		const columnToShowIn = vscode.window.activeTextEditor
 			? vscode.window.activeTextEditor.viewColumn
 			: undefined;
 
-		// If we already have a panel, show it
+		// If we already have a panel, update view type and reveal it
 		if (this.currentPanel) {
+			this.currentViewType = viewType;
 			this.currentPanel.reveal(columnToShowIn);
+			this.sendWebviewData(viewType);
 			return;
 		}
 
 		// Create new panel
+		const panelTitle = this.getPanelTitle(viewType);
 		this.currentPanel = vscode.window.createWebviewPanel(
 			"wso2IntegratorWelcome",
-			"WSO2 Integrator - Welcome",
+			panelTitle,
 			columnToShowIn || vscode.ViewColumn.One,
 			{
 				enableScripts: true,
@@ -63,6 +67,8 @@ export class WebviewManager {
 			},
 		);
 
+		this.currentViewType = viewType;
+
 		// Set the webview's html content
 		this.currentPanel.webview.html = this.getWebviewContent(this.currentPanel.webview);
 
@@ -70,6 +76,7 @@ export class WebviewManager {
 		this.currentPanel.onDidDispose(
 			() => {
 				this.currentPanel = undefined;
+				this.currentViewType = undefined;
 			},
 			null,
 			ext.context.subscriptions,
@@ -81,7 +88,31 @@ export class WebviewManager {
 		registerMainRpcHandlers(messenger);
 
 		// Send initial data
-		this.sendWelcomeData();
+		this.sendWebviewData(viewType);
+	}
+
+	/**
+	 * Show welcome webview
+	 */
+	public showWelcome(): void {
+		this.show(ViewType.WELCOME);
+	}
+
+	/**
+	 * Get panel title based on view type
+	 */
+	private getPanelTitle(viewType: ViewType): string {
+		switch (viewType) {
+			case ViewType.CREATE_PROJECT:
+				return "WSO2 Integrator - Create Project";
+			case ViewType.SAMPLES:
+				return "WSO2 Integrator - Explore Samples";
+			case ViewType.IMPORT_EXTERNAL:
+				return "WSO2 Integrator - Import Project";
+			case ViewType.WELCOME:
+			default:
+				return "WSO2 Integrator - Welcome";
+		}
 	}
 
 	/**
@@ -226,15 +257,15 @@ export class WebviewManager {
 	}
 
 	/**
-	 * Send welcome data to webview
+	 * Send webview data based on view type
 	 */
-	private sendWelcomeData(): void {
+	private sendWebviewData(viewType: ViewType): void {
 		if (!this.currentPanel) {
 			return;
 		}
 
-		const props: WelcomeWebviewProps = {
-			type: ViewType.WELCOME,
+		const props: WebviewProps = {
+			type: viewType,
 			biAvailable: this.extensionAPIs.isBIAvailable(),
 			miAvailable: this.extensionAPIs.isMIAvailable(),
 		};
@@ -243,6 +274,14 @@ export class WebviewManager {
 			command: "initialize",
 			data: props,
 		});
+	}
+
+	/**
+	 * Send welcome data to webview
+	 * @deprecated Use sendWebviewData instead
+	 */
+	private sendWelcomeData(): void {
+		this.sendWebviewData(ViewType.WELCOME);
 	}
 
 	/**
