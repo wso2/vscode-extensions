@@ -57,6 +57,11 @@ import ReactMarkdown from 'react-markdown';
 import GenerateDiv from './GenerateComponents/GenerateDiv';
 import { HelperPaneCompletionItem, HelperPaneData } from '@wso2/mi-core';
 import AIAutoFillBox from './AIAutoFillBox/AIAutoFillBox';
+import { compareVersions } from '../../utils/commons';
+import { RUNTIME_VERSION_440 } from '../../resources/constants';
+
+// Constants
+const XML_VALUE = 'xml';
 
 const Field = styled.div`
     margin-bottom: 12px;
@@ -132,6 +137,7 @@ export interface Element {
     artifactPath?: string;
     artifactType?: string;
     isUnitTest?: boolean;
+    skipSanitization?: boolean;
 }
 
 interface ExpressionValueWithSetter {
@@ -144,6 +150,49 @@ export function getNameForController(name: string | number) {
         return 'configKey';
     }
     return String(name).replace(/\./g, '__dot__');
+}
+
+/**
+ * Recursively remap object keys to avoid corrupting user values
+ * @param value - The value to remap
+ * @returns The remapped value
+ */
+function remapKeys(value: any): any {
+    if (Array.isArray(value)) {
+        return value.map(remapKeys);
+    }
+    if (value && typeof value === "object") {
+        return Object.fromEntries(
+            Object.entries(value).map(([key, val]) => {
+                const nextKey =
+                    key === "configKey" ? "config_key" :
+                    key === "isExpression" ? "is_expression" :
+                    key === "insertText" ? "insert_text" :
+                    key;
+                return [nextKey, remapKeys(val)];
+            })
+        );
+    }
+    return value;
+}
+
+function remapKeysReverse(value: any): any {
+    if (Array.isArray(value)) {
+        return value.map(remapKeysReverse);
+    }
+    if (value && typeof value === "object") {
+        return Object.fromEntries(
+            Object.entries(value).map(([key, val]) => {
+                const nextKey =
+                    key === "config_key" ? "configKey" :
+                    key === "is_expression" ? "isExpression" :
+                    key === "insert_text" ? "insertText" :
+                    key;
+                return [nextKey, remapKeysReverse(val)];
+            })
+        );
+    }
+    return value;
 }
 
 export function FormGenerator(props: FormGeneratorProps) {
@@ -184,6 +233,7 @@ export function FormGenerator(props: FormGeneratorProps) {
     const [isGeneratedValuesIdentical, setIsGeneratedValuesIdentical] = useState<boolean>(false);
     const [numberOfDifferent, setNumberOfDifferent] = useState<number>(0);
     const [idpSchemaNames, setidpSchemaNames] = useState< {fileName: string; documentUriWithFileName?: string}[]>([]);
+    const [showFillWithAI, setShowFillWithAI] = useState<boolean>(false);
 
     useEffect(() => {
         if (generatedFormDetails) {
@@ -240,6 +290,13 @@ export function FormGenerator(props: FormGeneratorProps) {
                 // Fallback to false if the project details cannot be fetched
                 setIsLegacyExpressionEnabled(false);
             });
+            
+        rpcClient.getMiVisualizerRpcClient().getProjectDetails().then((response) => {
+            const runtimeVersion = response.primaryDetails.runtimeVersion.value;
+            setShowFillWithAI(compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0);
+        }).catch(() => {
+            setShowFillWithAI(false);
+        });
     }, []);
 
     function processElement(element: any): any {
@@ -378,7 +435,7 @@ export function FormGenerator(props: FormGeneratorProps) {
     const handleAcceptAll = async () => {
         setIsClickedDropDown(false);
         setIsGenerating(false);
-        reset(generatedFormDetails);
+        reset(generatedFormDetails, { keepDefaultValues: true });
         setVisibleDetails({});
         setGeneratedFormDetails(null);
         setIsAutoFillBtnClicked(false);
@@ -390,13 +447,6 @@ export function FormGenerator(props: FormGeneratorProps) {
     };
 
     const handleGenerateAi = async () => {
-        let token: any;
-        try {
-            token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
-        } catch (error) {
-            rpcClient.getMiDiagramRpcClient().executeCommand({ commands: ["MI.openAiPanel"] }).catch(console.error);
-            throw new Error("User not authenticated");
-        }
         try {
             setGeneratedFormDetails(null);
             setIsAutoFillBtnClicked(false);
@@ -455,37 +505,45 @@ export function FormGenerator(props: FormGeneratorProps) {
                 form_description: formData.doc || "",
             };
             const values = getValues();
-            const base_url = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
-            const response = await fetch(`${base_url}/form/auto-fill`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token.token}`
-                },
-                body: JSON.stringify({
-                    payloads,
-                    variables,
-                    params,
-                    properties,
-                    headers,
-                    configs,
-                    current_values: values,
-                    form_details: formDetails,
-                    connection_names: connectionNames,
-                    question: currentInput,
-                    feild_descriptions: fieldDescriptions,
-                }).replaceAll("insertText", "insert_text").replaceAll("configKey", "config_key").replaceAll("isExpression", "is_expression"),
+
+            // Convert helper pane data to JSON strings with structural key remapping
+            // Convert payload format: insertText → insert_text (structurally, not via string replacement)
+            // Only serialize if the source data exists (avoid sending [null])
+            const convertedPayloadsStr = payloads ? JSON.stringify(remapKeys(payloads)) : undefined;
+            const convertedVariablesStr = variables ? JSON.stringify(variables) : undefined;
+            const convertedParamsStr = params ? JSON.stringify(params) : undefined;
+            const convertedPropertiesStr = properties ? JSON.stringify(properties) : undefined;
+            const convertedHeadersStr = headers ? JSON.stringify(headers) : undefined;
+            const convertedConfigsStr = configs ? JSON.stringify(configs) : undefined;
+
+            // Convert current values format: configKey → config_key, isExpression → is_expression
+            const convertedValues = remapKeys(values);
+
+            // Flatten connectionNames object to array of all connection names
+            const allConnectionNames = Object.values(connectionNames).flat();
+
+            // Call RPC method instead of backend API
+            // Only include arrays when the corresponding JSON string exists
+            const response = await rpcClient.getMiAiPanelRpcClient().autoFillForm({
+                payloads: convertedPayloadsStr ? [convertedPayloadsStr] : undefined,
+                variables: convertedVariablesStr ? [convertedVariablesStr] : undefined,
+                params: convertedParamsStr ? [convertedParamsStr] : undefined,
+                properties: convertedPropertiesStr ? [convertedPropertiesStr] : undefined,
+                headers: convertedHeadersStr ? [convertedHeadersStr] : undefined,
+                configs: convertedConfigsStr ? [convertedConfigsStr] : undefined,
+                current_values: convertedValues,
+                form_details: JSON.stringify(formDetails),
+                connection_names: allConnectionNames,
+                question: currentInput,
+                field_descriptions: fieldDescriptions,
             });
-            if (!response.ok) {
-                throw new Error("Failed to fetch suggestion");
-            }
-            const responseData = await response.json();
-            if (!responseData.suggestion) {
-                throw new Error("No valid suggestion found");
-            }
-            if (generatedFormDetails !== responseData.suggestion) {
-                const result = JSON.stringify(responseData.suggestion).replaceAll("is_expression", "isExpression");
-                setGeneratedFormDetails(JSON.parse(result));
+
+            // Convert response back: is_expression → isExpression, config_key → configKey
+            if (response.filled_values) {
+                const result = remapKeysReverse(response.filled_values);
+                setGeneratedFormDetails(result);
+            } else {
+                throw new Error("No filled values returned from auto-fill");
             }
         } catch (error) {
             console.error("Error in handleGenerateAi:", error);
@@ -1108,6 +1166,24 @@ export function FormGenerator(props: FormGeneratorProps) {
                     </>
                 );
             case 'expressionTextArea':
+                const isValLegacyExpression = isLegacyExpression(element.expressionType, isLegacyExpressionEnabled, field);
+                if (isValLegacyExpression) {
+                    return (
+                        <CodeTextArea
+                            {...field}
+                            label={element.displayName}
+                            labelAdornment={helpTipElement}
+                            placeholder={placeholder}
+                            required={isRequired}
+                            resize="vertical"
+                            growRange={{ start: 5, offset: 10 }}
+                            errorMsg={errorMsg}
+                            onChange={(e: any) => {
+                                field.onChange(e.target.value);
+                            }}
+                        />
+                    );
+                }
                 return (
                     <div>
                         <FormTokenEditor
@@ -1122,26 +1198,27 @@ export function FormGenerator(props: FormGeneratorProps) {
                             required={isRequired}
                             errorMsg={errorMsg}
                             editorSx={{ height: '100px' }}
+                            skipSanitization={element.skipSanitization ? element.skipSanitization : false}
                         />
                         {generatedFormDetails && visibleDetails[element.name] && generatedFormDetails[element.name] !== getValues(element.name) && (
-                                <GenerateDiv
-                                    element={element}
-                                    generatedFormDetails={generatedFormDetails}
-                                    handleOnClickChecked={() => {
-                                        if (generatedFormDetails) {
-                                            field.onChange(generatedFormDetails[element.name]);
-                                            setVisibleDetails((prev) => ({ ...prev, [element.name]: false }));
-                                            setNumberOfDifferent(numberOfDifferent - 1);
-                                        }
-                                    }}
-                                    handleOnClickClose={() => {
-                                        setIsClickedDropDown(false);
-                                        setIsGenerating(false);
+                            <GenerateDiv
+                                element={element}
+                                generatedFormDetails={generatedFormDetails}
+                                handleOnClickChecked={() => {
+                                    if (generatedFormDetails) {
+                                        field.onChange(generatedFormDetails[element.name]);
                                         setVisibleDetails((prev) => ({ ...prev, [element.name]: false }));
                                         setNumberOfDifferent(numberOfDifferent - 1);
-                                    }}
-                                />
-                            )}
+                                    }
+                                }}
+                                handleOnClickClose={() => {
+                                    setIsClickedDropDown(false);
+                                    setIsGenerating(false);
+                                    setVisibleDetails((prev) => ({ ...prev, [element.name]: false }));
+                                    setNumberOfDifferent(numberOfDifferent - 1);
+                                }}
+                            />
+                        )}
                     </div>
                 );
             case 'popUp':
@@ -1199,7 +1276,7 @@ export function FormGenerator(props: FormGeneratorProps) {
         }
     };
 
-    const renderForm: any = (elements: any[]) => {
+    const renderForm: any = (elements: any[], skipSanitization: boolean = false) => {
         return elements.map((element: { type: string; value: any; }) => {
             const name = getNameForController(element.value.groupName ?? element.value.name);
             if (element?.value?.enableCondition !== undefined) {
@@ -1213,10 +1290,26 @@ export function FormGenerator(props: FormGeneratorProps) {
             }
 
             if (element.type === 'attributeGroup' && !element.value.hidden) {
+                // Check if any attribute in this group has comboValues containing 'xml'
+                const hasXmlComboValue = element.value.elements?.some((attr: any) => 
+                    attr.value?.comboValues && attr.value.comboValues.includes(XML_VALUE)
+                );
+
+                // If XML combo value is found, set avoidSanitize = true for all attributes in this group
+                if (hasXmlComboValue) {
+                    element.value.elements?.forEach((attr: any) => {
+                        if (attr.value) {
+                            attr.value.skipSanitization = true;
+                            skipSanitization = true;
+                        }
+                    });
+                }
+
+
                 return (
                     <>
                         {(element.value.groupName === "Generic" || (element.value.groupName === "General" && skipGeneralHeading)) ?
-                            renderForm(element.value.elements) :
+                            renderForm(element.value.elements, skipSanitization) :
                             <Field>
                                 <FormGroup
                                     key={element.value.groupName}
@@ -1226,7 +1319,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                                     }
                                     sx={{ paddingBottom: '0px', gap: '0px' }}
                                 >
-                                    {renderForm(element.value.elements)}
+                                    {renderForm(element.value.elements, skipSanitization)}
                                 </FormGroup>
                             </Field>
                         }
@@ -1240,6 +1333,13 @@ export function FormGenerator(props: FormGeneratorProps) {
                 if (ignoreFields?.includes(element.value.name)) {
                     return;
                 }
+
+                // Check if this individual attribute has comboValues containing 'XML'
+                if (element.value?.comboValues && element.value.comboValues.includes(XML_VALUE)) {
+                    element.value.skipSanitization = true;
+                    skipSanitization = true;
+                }
+                element.value.skipSanitization = skipSanitization;
 
                 return (
                     renderController(element)
@@ -1400,7 +1500,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                         <ReactMarkdown>{formData.banner}</ReactMarkdown>
                     </WarningBanner>
                 }
-                {documentUri && range &&
+                {showFillWithAI && documentUri && range &&
                         <AIAutoFillBox
                             isGenerating={isGenerating}
                             inputGenerate={inputGenerate}

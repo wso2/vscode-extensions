@@ -166,7 +166,6 @@ import {
     exportProject,
     fetchDSSTables,
     generateDSSQueries,
-    getAIResponse,
     getAPIDirectory,
     getAddressEndpoint,
     getAllAPIcontexts,
@@ -181,7 +180,6 @@ import {
     getAvailableConnectors,
     getAvailableRegistryResources,
     getAvailableResources,
-    getBackendRootUrl,
     getProxyRootUrl,
     getConnectionForm,
     getConnector,
@@ -306,9 +304,6 @@ import {
     DeployProjectRequest,
     CreateBallerinaModuleRequest,
     getDevantMetadata,
-    GetCodeDiagnosticsReqeust,
-    GetCodeDiagnosticsResponse,
-    getCodeDiagnostics,
     GetConnectorIconRequest,
     getConnectorIcon,
     getValueOfEnvVariable,
@@ -324,6 +319,7 @@ import {
     updatePropertiesInArtifactXML,
     getPropertiesFromArtifactXML,
     formatPomFile
+    // getBackendRootUrl - REMOVED: Backend URLs deprecated, all AI features use local LLM
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
 import { MiDiagramRpcManager } from "./rpc-manager";
@@ -394,7 +390,6 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(createProject, (args: CreateProjectRequest) => rpcManger.createProject(args));
     messenger.onRequest(importProject, (args: ImportProjectRequest) => rpcManger.importProject(args));
     messenger.onRequest(migrateProject, (args: MigrateProjectRequest) => rpcManger.migrateProject(args));
-    messenger.onRequest(getAIResponse, (args: AIUserInput) => rpcManger.getAIResponse(args));
     messenger.onRequest(writeContentToFile, (args: WriteContentToFileRequest) => rpcManger.writeContentToFile(args));
     messenger.onRequest(writeMockServices, (args: WriteMockServicesRequest) => rpcManger.writeMockServices(args));
     messenger.onRequest(handleFileWithFS, (args: HandleFileRequest) => rpcManger.handleFileWithFS(args));
@@ -419,7 +414,6 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(buildBallerinaModule, (args: string) => rpcManger.buildBallerinaModule(args));
     messenger.onRequest(getSelectiveWorkspaceContext, () => rpcManger.getSelectiveWorkspaceContext());
     messenger.onRequest(getSelectiveArtifacts, (args: GetSelectiveArtifactsRequest) => rpcManger.getSelectiveArtifacts(args));
-    messenger.onRequest(getBackendRootUrl, () => rpcManger.getBackendRootUrl());
     messenger.onRequest(getProxyRootUrl, () => rpcManger.getProxyRootUrl());
     messenger.onRequest(getAvailableRegistryResources, (args: ListRegistryArtifactsRequest) => rpcManger.getAvailableRegistryResources(args));
     messenger.onRequest(updateRegistryMetadata, (args: UpdateRegistryMetadataRequest) => rpcManger.updateRegistryMetadata(args));
@@ -500,7 +494,6 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(testConnectorConnection, (args: TestConnectorConnectionRequest) => rpcManger.testConnectorConnection(args));
     messenger.onRequest(saveConfig, (args: SaveConfigRequest) => rpcManger.saveConfig(args));
     messenger.onRequest(getEULALicense, () => rpcManger.getEULALicense());
-    messenger.onRequest(getCodeDiagnostics, (args: GetCodeDiagnosticsReqeust) => rpcManger.getCodeDiagnostics(args));
     messenger.onRequest(shouldDisplayPayloadAlert, () => rpcManger.shouldDisplayPayloadAlert());
     messenger.onRequest(displayPayloadAlert, () => rpcManger.displayPayloadAlert());
     messenger.onRequest(closePayloadAlert, () => rpcManger.closePayloadAlert());

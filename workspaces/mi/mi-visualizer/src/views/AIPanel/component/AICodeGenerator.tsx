@@ -25,11 +25,15 @@ import AIChatMessage from './AIChatMessage';
 import { AIChatView } from '../styles';
 
 
+interface AICodeGeneratorProps {
+  isUsageExceeded?: boolean;
+}
+
 /**
  * Main chat component with integrated MICopilot Context provider
  */
-export function AICodeGenerator() {
-  const { conversations } = useMICopilotContext();
+export function AICodeGenerator({ isUsageExceeded = false }: AICodeGeneratorProps) {
+  const { messages } = useMICopilotContext();
   const [isAtBottom, setIsAtBottom] = useState(true);
   const mainContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -59,23 +63,23 @@ export function AICodeGenerator() {
       if (isAtBottom && messagesEndRef.current) {
           messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
       }
-  }, [conversations, isAtBottom]);
+  }, [messages, isAtBottom]);
 
   return (
           <AIChatView>
               <AIChatHeader />
 
               <main style={{ flex: 1, overflowY: "auto" }} ref={mainContainerRef}>
-                  {Array.isArray(conversations) && conversations.length === 0 && <WelcomeMessage />}
+                  {Array.isArray(messages) && messages.length === 0 && <WelcomeMessage />}
 
-                  {Array.isArray(conversations) && conversations.map((message, index) => (
+                  {Array.isArray(messages) && messages.map((message, index) => (
                       <AIChatMessage key={index} message={message} index={index} />
                   ))}
 
                   <div ref={messagesEndRef} />
               </main>
 
-              <AIChatFooter />
+              <AIChatFooter isUsageExceeded={isUsageExceeded} />
           </AIChatView>
   );
 }

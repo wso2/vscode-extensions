@@ -298,6 +298,7 @@ const SectionContainer = styled.div`
     display: flex;
     flex-direction: column;
     gap: 4px;
+    margin-inline : 12px;
     margin-bottom: 16px;
 `;
 

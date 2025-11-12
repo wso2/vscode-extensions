@@ -19,18 +19,18 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { FileObject, ImageObject } from "@wso2/mi-core";
-import { PROJECT_RUNTIME_VERSION_THRESHOLD } from "../constants";
 import { LoaderWrapper, ProgressRing } from "../styles";
 import {
     ChatMessage,
     CopilotChatEntry,
     MessageType,
     Role,
+} from "@wso2/mi-core";
+import {
     RpcClientType,
     FileHistoryEntry,
 } from "../types";
 import {
-    fetchBackendUrl,
     getProjectRuntimeVersion,
     getProjectUUID,
     compareVersions,
@@ -43,22 +43,18 @@ import { useFeedback } from "./useFeedback";
 // MI Copilot context type
 interface MICopilotContextType {
     rpcClient: RpcClientType;
-    backendUri: string;
     projectRuntimeVersion: string;
-    isRuntimeVersionThresholdReached: boolean;
     projectUUID: string;
 
     // State for showing communication in UI
     messages: ChatMessage[];
+    questions: string[];
     setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
-    questions: ChatMessage[];
-    conversations: ChatMessage[];
+    setQuestions: React.Dispatch<React.SetStateAction<string[]>>;
 
     // State for communication with backend
     copilotChat: CopilotChatEntry[];
     setCopilotChat: React.Dispatch<React.SetStateAction<CopilotChatEntry[]>>;
-    codeBlocks: string[];
-    setCodeBlocks: React.Dispatch<React.SetStateAction<string[]>>;
 
     // State for file and image uploads to define context
     files: FileObject[];
@@ -110,26 +106,21 @@ interface MICopilotProviderProps {
 const localStorageKeys = {
     chatFile: "",
     questionFile: "",
-    codeBlocks: "",
     fileHistory: "",
 };
 
 export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     const { rpcClient } = useVisualizerContext();
 
-    const [backendUri, setBackendUri] = useState("");
     const [projectRuntimeVersion, setProjectRuntimeVersion] = useState("");
-    const [isRuntimeVersionThresholdReached, setIsRuntimeVersionThresholdReached] = useState(false);
     const [projectUUID, setProjectUUID] = useState("");
     const [isLoading, setIsLoading] = useState(true);
 
     // UI related Data
     const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [questions, setQuestions] = useState<ChatMessage[]>([]);
-    const [conversations, setConversations] = useState<ChatMessage[]>([]);
+    const [questions, setQuestions] = useState<string[]>([]);
     // Backend related Data
     const [copilotChat, setCopilotChat] = useState<CopilotChatEntry[]>([]);
-    const [codeBlocks, setCodeBlocks] = useState<string[]>([]);
     const [files, setFiles] = useState<FileObject[]>([]);
     const [images, setImages] = useState<ImageObject[]>([]);
     const [currentUserPrompt, setCurrentUserprompt] = useState("");
@@ -160,14 +151,9 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     useEffect(() => {
         const initializeContext = async () => {
             if (rpcClient) {
-                const url = await fetchBackendUrl(rpcClient);
-                setBackendUri(url);
 
                 const runtimeVersion = await getProjectRuntimeVersion(rpcClient);
                 setProjectRuntimeVersion(runtimeVersion);
-                setIsRuntimeVersionThresholdReached(
-                    compareVersions(runtimeVersion, PROJECT_RUNTIME_VERSION_THRESHOLD) >= 0
-                );
 
                 const uuid = await getProjectUUID(rpcClient);
                 setProjectUUID(uuid);
@@ -175,18 +161,33 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                 // Update localStorageKeys with the UUID
                 localStorageKeys.chatFile = `chatArray-AIGenerationChat-${uuid}`;
                 localStorageKeys.questionFile = `Question-AIGenerationChat-${uuid}`;
-                localStorageKeys.codeBlocks = `codeBlocks-AIGenerationChat-${uuid}`;
                 localStorageKeys.fileHistory = `fileHistory-AIGenerationChat-${uuid}`;
 
                 const machineView = await rpcClient.getAIVisualizerState();
 
-                // Update Token Information
+                // Fetch and update usage information
+                rpcClient.getMiAiPanelRpcClient().fetchUsage().then((usage) => {
+                    if (usage) {
+                        // Update Token Information from fresh state
+                        rpcClient.getAIVisualizerState().then((updatedMachineView) => {
+                            const { timeToReset, remainingTokenPercentage } = updateTokenInfo(updatedMachineView);
+                            setRemainingTokenPercentage(remainingTokenPercentage);
+                            setTimeToReset(timeToReset);
+                        }).catch((error) => {
+                            console.error('Failed to update token information:', error);
+                        });
+                    }
+                }).catch((error) => {
+                    console.error('Failed to fetch usage information:', error);
+                });
+
+                // Initial token info from current state
                 const { timeToReset, remainingTokenPercentage } = updateTokenInfo(machineView);
                 setRemainingTokenPercentage(remainingTokenPercentage);
                 setTimeToReset(timeToReset);
 
                 // Handle Initial Prompt Loading
-                if (machineView.initialPrompt.aiPrompt) {
+                if (machineView.initialPrompt?.aiPrompt) {
                     const initialPrompt = machineView.initialPrompt.aiPrompt;
                     const initialFiles = machineView.initialPrompt.files || [];
                     const initialImages = machineView.initialPrompt.images || [];
@@ -199,20 +200,16 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                     // Load the stored data from local storage in session reload
                     const storedChatArray = localStorage.getItem(localStorageKeys.chatFile);
                     const storedQuestion = localStorage.getItem(localStorageKeys.questionFile);
-                    const storedCodeBlocks = localStorage.getItem(localStorageKeys.codeBlocks);
                     const storedFileHistory = localStorage.getItem(localStorageKeys.fileHistory);
 
                     const getQuestions = async () => {
                         if (storedQuestion) {
-                            setMessages((prevMessages) => [
-                                ...prevMessages,
-                                { role: Role.default, content: storedQuestion, type: MessageType.Question },
-                            ]);
+                            setQuestions((prevMessages) => [...prevMessages, storedQuestion]);
                         } else {
-                            generateSuggestions(url, copilotChat, rpcClient, controller).then((response) => {
+                            generateSuggestions(copilotChat, rpcClient, controller).then((response) => {
                                 response.length > 0
-                                    ? setMessages((prevMessages) => [...prevMessages, ...response])
-                                    : null;
+                                    ? setQuestions((prevMessages) => [...prevMessages, ...response])
+                                    : "";
                                 setBackendRequestTriggered(false);
                             });
                         }
@@ -221,12 +218,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                     if (storedChatArray) {
                         // 1. Load questions
                         getQuestions();
-
-                        // 2, Load codeblock
-                        if (storedCodeBlocks) {
-                            const codeBlocksFromStorage = JSON.parse(storedCodeBlocks);
-                            codeBlocks.push(...codeBlocksFromStorage);
-                        }
 
                         // 3. Load Chats
                         const chatArray = JSON.parse(storedChatArray);
@@ -265,53 +256,49 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         if (chatClearEventTriggered) {
             setMessages([]);
             setCopilotChat([]);
+            setQuestions([]);
             setFiles([]);
             setImages([]);
-            setCodeBlocks([]);
             setCurrentUserprompt("");
             // Clear the local storage
             localStorage.removeItem(localStorageKeys.chatFile);
             localStorage.removeItem(localStorageKeys.questionFile);
-            localStorage.removeItem(localStorageKeys.codeBlocks);
             localStorage.removeItem(localStorageKeys.fileHistory);
-            generateSuggestions(backendUri, copilotChat, rpcClient, controller).then((response) => {
-                response.length > 0 ? setMessages((prevMessages) => [...prevMessages, ...response]) : null;
+            generateSuggestions(copilotChat, rpcClient, controller).then((response) => {
+                response.length > 0 ? setQuestions((prevMessages) => [...prevMessages, ...response]) : null;
                 setChatClearEventTriggered(false);
             });
         }
     }, [chatClearEventTriggered]);
 
     // Update local storage whenever backend call finishes
-    useMemo(() => {
+    // Add debounce to prevent saving during abort cleanup
+    useEffect(() => {
         if (!isLoading && !backendRequestTriggered) {
-            localStorage.setItem(localStorageKeys.chatFile, JSON.stringify(copilotChat));
-            localStorage.setItem(localStorageKeys.questionFile, questions[questions.length - 1]?.content || "");
-            localStorage.setItem(localStorageKeys.codeBlocks, JSON.stringify(codeBlocks));
-        }
-    }, [isLoading, backendRequestTriggered]);
+            // Debounce localStorage writes to allow abort cleanup to complete
+            const timeoutId = setTimeout(() => {
+                localStorage.setItem(localStorageKeys.chatFile, JSON.stringify(copilotChat));
+                localStorage.setItem(localStorageKeys.questionFile, questions[questions.length - 1] || "");
+            }, 300); // 300ms delay ensures abort cleanup completes (200ms abort flag reset + buffer)
 
-    useMemo(() => {
+            return () => clearTimeout(timeoutId);
+        }
+    }, [isLoading, backendRequestTriggered, copilotChat, questions]);
+
+    useEffect(() => {
         if (!isLoading) {
             localStorage.setItem(localStorageKeys.fileHistory, JSON.stringify(FileHistory));
         }
-    }, [FileHistory]);
-
-    // Update questions and conversations whenever messages change
-    useMemo(() => {
-        setQuestions(messages.filter((message) => message.type === MessageType.Question));
-        setConversations(messages.filter((message) => message.type !== MessageType.Question));
-    }, [messages]);
+    }, [isLoading, FileHistory]);
 
     const currentContext: MICopilotContextType = {
         rpcClient,
-        backendUri,
         projectRuntimeVersion,
-        isRuntimeVersionThresholdReached,
         projectUUID,
         messages,
-        setMessages,
         questions,
-        conversations,
+        setMessages,
+        setQuestions,
         copilotChat,
         setCopilotChat,
         files,
@@ -328,8 +315,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         setBackendRequestTriggered,
         controller,
         resetController,
-        codeBlocks,
-        setCodeBlocks,
         setRemainingTokenPercentage,
         tokenInfo: {
             remainingPercentage: remainingTokenPercentage,

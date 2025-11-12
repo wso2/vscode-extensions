@@ -35,6 +35,7 @@ const fs = require('fs');
 
 interface MachineContext extends VisualizerLocation {
     langClient: ExtendedLanguageClient | null;
+    dependenciesResolved?: boolean;
 }
 
 const stateMachine = createMachine<MachineContext>({
@@ -46,7 +47,8 @@ const stateMachine = createMachine<MachineContext>({
         projectUri: "",
         langClient: null,
         errors: [],
-        view: MACHINE_VIEW.Welcome
+        view: MACHINE_VIEW.Welcome,
+        dependenciesResolved: false
     },
     states: {
         initialize: {
@@ -205,8 +207,27 @@ const stateMachine = createMachine<MachineContext>({
                     entry: () => log("State Machine: Entering 'ready.viewLoading' state"),
                     invoke: {
                         src: 'openWebPanel',
+                        onDone: [
+                            {
+                                target: "resolveMissingDependencies",
+                                cond: (context) => !context.dependenciesResolved
+                            },
+                            {
+                                target: "viewFinding",
+                                cond: (context) => !!context.dependenciesResolved
+                            }
+                        ]
+                    }
+                },
+                resolveMissingDependencies: {
+                    entry: () => log("State Machine: Entering 'ready.resolveMissingDependencies' state"),
+                    invoke: {
+                        src: 'resolveMissingDependencies',
                         onDone: {
-                            target: 'viewFinding'
+                            target: 'viewFinding',
+                            actions: assign({
+                                dependenciesResolved: true
+                            })
                         }
                     }
                 },
@@ -425,6 +446,20 @@ const stateMachine = createMachine<MachineContext>({
                         }
                     }
                     resolve(true);
+                }
+            });
+        },
+        resolveMissingDependencies: (context, event) => {
+            return new Promise(async (resolve, reject) => {
+                if (!context?.projectUri) {
+                    return reject(new Error("Project URI is not defined"));
+                }
+
+                const messenger = RPCLayer._messengers.get(context.projectUri);
+                if (messenger) {
+                    messenger.onNotification(webviewReady, () => {
+                        resolve(true);
+                    });
                 }
             });
         },

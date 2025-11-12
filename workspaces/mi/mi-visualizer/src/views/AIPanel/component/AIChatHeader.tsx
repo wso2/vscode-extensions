@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Button, Codicon } from "@wso2/ui-toolkit";
 import { Badge, Header, HeaderButtons, ResetsInBadge } from '../styles';
 import { useMICopilotContext } from "./MICopilotContext";
@@ -27,29 +27,52 @@ import { useMICopilotContext } from "./MICopilotContext";
  */
 const AIChatHeader: React.FC = () => {
   const { rpcClient, setChatClearEventTriggered, tokenInfo, chatClearEventTriggered, backendRequestTriggered} = useMICopilotContext();
+  const [hasApiKey, setHasApiKey] = useState(false);
 
   const handleLogout = async () => {
     await rpcClient?.getMiDiagramRpcClient().logoutFromMIAccount();
   };
+
+  const checkApiKey = async () => {
+    const hasApiKey = await rpcClient?.getMiAiPanelRpcClient().hasAnthropicApiKey();
+    setHasApiKey(hasApiKey);
+  };
+
+  // Check for API key on component mount
+  useEffect(() => {
+    checkApiKey();
+  }, [rpcClient]);
 
   const isLoading = chatClearEventTriggered || backendRequestTriggered;
 
   return (
       <Header>
           <Badge>
-              Remaining Free Usage:{" "}
-              {tokenInfo.remainingPercentage === -1
-                  ? "Unlimited"
-                  : tokenInfo.isLessThanOne
-                  ? "<1%"
-                  : `${tokenInfo.remainingPercentage}%`}
-              <br />
-              <ResetsInBadge>
-                  {tokenInfo.remainingPercentage !== -1 &&
-                      `Resets in: ${
-                          tokenInfo.timeToReset < 1 ? "< 1 day" : `${Math.round(tokenInfo.timeToReset)} days`
-                      }`}
-              </ResetsInBadge>
+              {hasApiKey ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Codicon name="key" />
+                          Copilot is using your API Key
+                      </div>
+                      <ResetsInBadge>Logout to clear the API key</ResetsInBadge>
+                  </div>
+              ) : (
+                  <>
+                      Remaining Free Usage:{" "}
+                      {tokenInfo.remainingPercentage === -1
+                          ? "Unlimited"
+                          : tokenInfo.isLessThanOne
+                          ? "<1%"
+                          : `${tokenInfo.remainingPercentage}%`}
+                      <br />
+                      <ResetsInBadge>
+                          {tokenInfo.remainingPercentage !== -1 &&
+                              `Resets in: ${
+                                  tokenInfo.timeToReset < 1 ? "< 1 day" : `${Math.round(tokenInfo.timeToReset)} days`
+                              }`}
+                      </ResetsInBadge>
+                  </>
+              )}
           </Badge>
           <HeaderButtons>
               <Button

@@ -29,6 +29,7 @@ import { HelperPaneOrigin, HelperPanePosition } from '../types';
 
 const EXPRESSION_REGEX = /\$\{([^}]+)\}/g;
 const EXPRESSION_TOKEN_REGEX = /<div[^>]*>\s*<span[^>]*>\s*([^<]+?)\s*<\/span>\s*.+\s*<\/div>/g;
+const EXPRESSION_TOKEN_HTML_REGEX = /<div class="expression-token"[^>]*>[\s\S]*?<\/div>/g;
 
 /**
  * Sanitizes HTML by removing all HTML tags while preserving text content
@@ -62,13 +63,97 @@ export const transformExpressions = (content: string): string => {
     });
 };
 
-export const setValue = (element: HTMLDivElement, value: string) => {
-    // First sanitize the input value to remove any HTML tags
-    const sanitizedValue = sanitizeHtml(value);
+/**
+ * Escapes XML/HTML content while preserving expression token HTML as actual HTML elements
+ * @param content - Content that may contain expression tokens and XML
+ * @returns Content with XML escaped but expression tokens preserved as HTML
+ */
+const escapeXmlPreserveTokens = (content: string): string => {
+    // Split content by expression tokens to separate XML from token HTML
+    const tokenRegex = EXPRESSION_TOKEN_HTML_REGEX;
+    
+    // Use split with capturing groups to get both text and token parts
+    const parts = content.split(tokenRegex);
+    const tokens = content.match(tokenRegex) || [];
+    
+    const processedParts: string[] = [];
+    
+    // Interleave text parts and token parts
+    for (let i = 0; i < parts.length; i++) {
+        // Process text part (escape XML/HTML)
+        if (parts[i]) {
+            const escapedText = parts[i]
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+            processedParts.push(escapedText);
+        }
+        
+        // Add corresponding token (keep as-is)
+        if (tokens[i]) {
+            processedParts.push(tokens[i]);
+        }
+    }
+    
+    return processedParts.join('');
+};
+
+export const setValue = (element: HTMLDivElement, value: string, skipSanitization: boolean = false) => {
+    if (!element) return;
+    
+    // First sanitize the input value to remove any HTML tags (unless skipped)
+    const sanitizedValue = skipSanitization ? value : sanitizeHtml(value);
     
     // Then transform the sanitized value
-    element.innerHTML = transformExpressions(sanitizedValue);
+    const transformedValue = transformExpressions(sanitizedValue);
+    
+    // Handle XML/HTML content if skipSanitization is true
+    if (skipSanitization) {
+        // Check if content contains expressions (transformed into tokens)
+        const hasExpressionTokens = transformedValue !== sanitizedValue;
+        
+        if (hasExpressionTokens) {
+            // Content has expression tokens - check if the original value has XML to escape
+            const hasXmlTags = /<[^>]+>/g.test(value);
+            
+            if (hasXmlTags) {
+                // Mixed content: XML + expression tokens
+                // Escape the XML parts while preserving the token HTML
+                const finalContent = escapeXmlPreserveTokens(transformedValue);
+                element.innerHTML = finalContent;
+            } else {
+                // Only expression tokens, no XML to escape
+                element.innerHTML = transformedValue;
+            }
+        } else {
+            // Pure XML content without expressions
+            const isAlreadyEscaped = /&lt;|&gt;|&amp;|&quot;|&#39;/.test(sanitizedValue);
+            
+            if (isAlreadyEscaped) {
+                // If already escaped, use innerHTML to decode it properly
+                element.innerHTML = sanitizedValue;
+            } else {
+                // If not escaped, use textContent to display as plain text
+                element.textContent = sanitizedValue;
+            }
+        }
+    } else {
+        element.innerHTML = transformedValue;
+    }
 }
+
+/**
+ * Decodes HTML entities back to their original characters
+ * @param text - The text containing HTML entities
+ * @returns The decoded text
+ */
+const decodeHtmlEntities = (text: string): string => {
+    const temp = document.createElement('div');
+    temp.innerHTML = text;
+    return temp.textContent || temp.innerText || '';
+};
 
 export const extractExpressions = (content: string): string => {
     let updatedContent;
@@ -80,6 +165,9 @@ export const extractExpressions = (content: string): string => {
 
     // Remove div tags
     updatedContent = updatedContent.replace(/<div>|<\/div>/g, '');
+
+    // Decode HTML entities back to original characters (e.g., &lt; -> <, &gt; -> >)
+    updatedContent = decodeHtmlEntities(updatedContent);
 
     return updatedContent;
 }

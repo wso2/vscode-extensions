@@ -34,7 +34,8 @@
                 "LSDEBUG": "false",
                 "WEB_VIEW_WATCH_MODE": "true",
                 "WEB_VIEW_DEV_HOST": "http://localhost:9000",
-                "BALLERINA_STAGE_CENTRAL": "false"
+                "BALLERINA_STAGE_CENTRAL": "false",
+                "TRACE_WEB_VIEW_DEV_HOST": "http://localhost:9001"
             },
             "outFiles": [
                 "${workspaceFolder}/workspaces/ballerina/ballerina-extension/dist/**/*.js",
@@ -262,6 +263,52 @@
                 "${workspaceFolder}/workspaces/mi/mi-extension/dist/**/*.js"
             ],
             "preLaunchTask": "watch-mi-tests"
+        },
+        {
+            "name": "Ballerina Extension AI Tests",
+            "type": "extensionHost",
+            "request": "launch",
+            "runtimeExecutable": "${execPath}",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/ballerina/ballerina-extension",
+                "--extensionTestsPath=${workspaceFolder}/workspaces/ballerina/ballerina-extension/out/test",
+                "${workspaceFolder}/workspaces/ballerina/ballerina-extension/test/data/bi_empty_project",
+                "${workspaceFolder}/workspaces/ballerina/ballerina-extension/test/data/bi_init",
+                "${workspaceFolder}/workspaces/ballerina/ballerina-extension/test/data/simple_order_management_system","${workspaceFolder}/workspaces/ballerina/ballerina-extension/test/data/ai_datamapper"
+            ],
+            "env": {
+                "LS_EXTENSIONS_PATH": "",
+                "LSDEBUG": "false",
+                "WEB_VIEW_WATCH_MODE": "false",
+                "AI_TEST_ENV": "true"
+            },
+            "outFiles": [
+                "${workspaceFolder}/workspaces/ballerina/ballerina-extension/out/test/**/*.js"
+            ],
+            "preLaunchTask": "compile:ballerina-tests",
+            "envFile": "${workspaceFolder}/workspaces/ballerina/ballerina-extension/.env"
+        },
+        {
+            "name": "Ballerina Extension AI Integration Tests - Libs",
+            "type": "extensionHost",
+            "request": "launch",
+            "runtimeExecutable": "${execPath}",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/ballerina/ballerina-extension",
+                "--extensionTestsPath=${workspaceFolder}/workspaces/ballerina/ballerina-extension/out/test/ai/integration_tests/libs",
+                "${workspaceFolder}/workspaces/ballerina/ballerina-extension/test/data/bi_empty"
+            ],
+            "env": {
+                "LS_EXTENSIONS_PATH": "",
+                "LSDEBUG": "false",
+                "WEB_VIEW_WATCH_MODE": "false",
+                "AI_TEST_ENV": "true"
+            },
+            "outFiles": [
+                "${workspaceFolder}/workspaces/ballerina/ballerina-extension/out/test/**/*.js"
+            ],
+            "preLaunchTask": "compile:ballerina-tests",
+            "envFile": "${workspaceFolder}/workspaces/ballerina/ballerina-extension/.env"
         },
         {
             "name": "APK Extension",

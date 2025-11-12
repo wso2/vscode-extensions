@@ -35,6 +35,7 @@ import { XMLParser, XMLBuilder } from "fast-xml-parser";
 const AdmZip = require('adm-zip');
 // Add Latest MI version as the first element in the array
 export const supportedJavaVersionsForMI: { [key: string]: string } = {
+    '4.5.0': '21',
     '4.4.0': '21',
     '4.3.0': '17',
     '4.2.0': '17',
@@ -43,6 +44,7 @@ export const supportedJavaVersionsForMI: { [key: string]: string } = {
 export const LATEST_MI_VERSION = "4.4.0";
 const COMPATIBLE_JDK_VERSION = "11";
 const miDownloadUrls: { [key: string]: string } = {
+    '4.5.0': 'https://mi-distribution.wso2.com/4.5.0/wso2mi-4.5.0.zip',
     '4.4.0-UPDATED': 'https://mi-distribution.wso2.com/4.4.0/wso2mi-4.4.0-UPDATED.zip',
     '4.4.0': 'https://mi-distribution.wso2.com/4.4.0/wso2mi-4.4.0.zip',
     '4.3.0': 'https://mi-distribution.wso2.com/4.3.0/wso2mi-4.3.0.zip'
@@ -88,8 +90,8 @@ export async function setupEnvironment(projectUri: string, isOldProject: boolean
             await updateCarPluginVersion(projectUri);
             const config = vscode.workspace.getConfiguration('MI', vscode.Uri.parse(projectUri));
             const currentState = config.inspect<string>("useLocalMaven");
-            if (currentState?.workspaceValue === undefined) {
-                config.update("useLocalMaven", currentState?.globalValue ?? false, vscode.ConfigurationTarget.Workspace);
+            if (currentState?.workspaceFolderValue === undefined) {
+                config.update("useLocalMaven", currentState?.globalValue ?? false, vscode.ConfigurationTarget.WorkspaceFolder);
             }
             return !isUpdateRequested;
         }
@@ -176,15 +178,12 @@ export function filterConnectorVersion(connectorName: string, connectors: any[] 
     return '';
 }
 
-export function generateInitialDependencies(httpConnectorVersion: string): string {
-    if (!httpConnectorVersion || httpConnectorVersion === '') {
-        return '';
-    }
+export function generateInitialDependencies(): string {
     return `<dependencies>
         <dependency>
             <groupId>org.wso2.integration.connector</groupId>
             <artifactId>mi-connector-http</artifactId>
-            <version>${httpConnectorVersion}</version>
+            <version>0.1.14</version>
             <type>zip</type>
             <exclusions>
                 <exclusion>

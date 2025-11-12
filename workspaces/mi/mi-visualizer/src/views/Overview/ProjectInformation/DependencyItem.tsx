@@ -134,7 +134,7 @@ export function DependencyItem(props: DependencyItemProps) {
 
         const matchingConnector = connectors.find(connector =>
             connector.mavenGroupId === dependency.groupId &&
-            connector.repoName === dependency.artifact
+            connector.mavenArtifactId === dependency.artifact
         );
 
         return matchingConnector?.version?.tagName || null;

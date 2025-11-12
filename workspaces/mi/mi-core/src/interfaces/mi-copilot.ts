@@ -32,3 +32,39 @@ export interface PromptObject {
     files: FileObject[];
     images: ImageObject[];
 }
+
+export enum Role {
+    // UI roles
+    MIUser = "You",
+    MICopilot = "Copilot",
+    default = "",
+
+    // Copilot roles
+    CopilotAssistant = "assistant",
+    CopilotUser = "user"
+}
+
+export enum MessageType {
+    UserMessage = "user_message",
+    AssistantMessage = "assistant_message",
+    Question = "question",
+    Label = "label",
+    InitialPrompt = "initial_prompt",
+    Error = "Error"
+}
+
+export type CopilotChatEntry = {
+    id: number;
+    role: Role.CopilotUser | Role.CopilotAssistant;
+    content: string;
+    type?: MessageType;
+};
+
+export type ChatMessage = {
+    id?: number;
+    role: Role.MICopilot | Role.MIUser | Role.default;
+    content: string;
+    type: MessageType;
+    files?: FileObject[];
+    images?: ImageObject[];
+};

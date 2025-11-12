@@ -19,12 +19,13 @@
  */
 
 import { Messenger } from "vscode-messenger-webview";
-import { MachineStateValue, stateChanged, vscode, getVisualizerState, getAIVisualizerState, VisualizerLocation, AIVisualizerLocation, webviewReady, onFileContentUpdate, AI_EVENT_TYPE, sendAIStateEvent, AIMachineStateValue, aiStateChanged, themeChanged, ColorThemeKind, PopupMachineStateValue, popupStateChanged, PopupVisualizerLocation, getPopupVisualizerState, onParentPopupSubmitted, ParentPopupData, ConnectorStatus, onConnectorStatusUpdate, onDocumentSave, Document, SwaggerData, DownloadProgressData, onSwaggerSpecReceived, MiServerRunStatus, miServerRunStateChanged, onDownloadProgress  } from "@wso2/mi-core";
+import { MachineStateValue, stateChanged, vscode, getVisualizerState, getAIVisualizerState, VisualizerLocation, AIVisualizerLocation, webviewReady, onFileContentUpdate, AI_EVENT_TYPE, sendAIStateEvent, AIMachineStateValue, AIMachineSendableEvent, aiStateChanged, themeChanged, ColorThemeKind, PopupMachineStateValue, popupStateChanged, PopupVisualizerLocation, getPopupVisualizerState, onParentPopupSubmitted, ParentPopupData, ConnectorStatus, onConnectorStatusUpdate, onDocumentSave, Document, SwaggerData, DownloadProgressData, onSwaggerSpecReceived, MiServerRunStatus, miServerRunStateChanged, onDownloadProgress, codeGenerationEvent, CodeGenerationEvent  } from "@wso2/mi-core";
 import { MiDiagramRpcClient } from "./rpc-clients/mi-diagram/rpc-client";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { MiVisualizerRpcClient } from "./rpc-clients/mi-visualizer/rpc-client";
 import { MiDataMapperRpcClient } from "./rpc-clients/mi-data-mapper/rpc-client";
 import { MiDebuggerRpcClient } from "./rpc-clients/mi-debugger/rpc-client";
+import { MiAiPanelRpcClient } from "./rpc-clients/ai-panel/rpc-client";
 
 export class RpcClient {
 
@@ -33,6 +34,7 @@ export class RpcClient {
     private _visualizer: MiVisualizerRpcClient;
     private _dataMapper: MiDataMapperRpcClient;
     private _debugger: MiDebuggerRpcClient;
+    private _aiPanel: MiAiPanelRpcClient;
 
     constructor() {
         this.messenger = new Messenger(vscode);
@@ -41,6 +43,7 @@ export class RpcClient {
         this._visualizer = new MiVisualizerRpcClient(this.messenger);
         this._dataMapper = new MiDataMapperRpcClient(this.messenger);
         this._debugger = new MiDebuggerRpcClient(this.messenger);
+        this._aiPanel = new MiAiPanelRpcClient(this.messenger);
     }
 
     getMiDiagramRpcClient(): MiDiagramRpcClient {
@@ -57,6 +60,10 @@ export class RpcClient {
 
     getMiDebuggerRpcClient(): MiDebuggerRpcClient {
         return this._debugger;
+    }
+
+    getMiAiPanelRpcClient(): MiAiPanelRpcClient {
+        return this._aiPanel;
     }
 
     onStateChanged(callback: (state: MachineStateValue) => void) {
@@ -92,7 +99,7 @@ export class RpcClient {
         return this.messenger.sendRequest(getPopupVisualizerState, HOST_EXTENSION);
     }
 
-    sendAIStateEvent(event: AI_EVENT_TYPE) {
+    sendAIStateEvent(event: AI_EVENT_TYPE | AIMachineSendableEvent) {
         this.messenger.sendRequest(sendAIStateEvent, HOST_EXTENSION, event);
     }
 
@@ -122,6 +129,10 @@ export class RpcClient {
 
     onDocumentSave(callback: (document: Document) => void) {
         this.messenger.onNotification(onDocumentSave, callback);
+    }
+
+    onCodeGenerationEvent(callback: (event: CodeGenerationEvent) => void) {
+        this.messenger.onNotification(codeGenerationEvent, callback);
     }
 }
 

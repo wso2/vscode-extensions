@@ -94,16 +94,17 @@ export function DataSourceWizard(props: DataSourceFormProps) {
     const [prevDbType, setPrevDbType] = React.useState("MySQL");
     const [artifactNames, setArtifactNames] = useState([]);
     const [workspaceFileNames, setWorkspaceFileNames] = useState([]);
+    const [savedDSName, setSavedDSName] = useState("");
 
     const schema = yup.object({
         name: yup.string().required("Datasource name is required")
             .matches(/^[a-zA-Z0-9_-]*$/, "Invalid characters in Datasource name")
             .test('validateTaskName',
                 'An artifact with same name already exists', value => {
-                    return !workspaceFileNames.includes(value.toLowerCase())
+                    return !(workspaceFileNames.includes(value.toLowerCase()) && savedDSName !== value)
                 }).test('validateArtifactName',
                 'A registry resource with this artifact name already exists', value => {
-                    return !artifactNames.includes(value.toLowerCase())
+                    return !(artifactNames.includes(value.toLowerCase()) && savedDSName !== value)
                 }),
         description: yup.string().notRequired(),
         type: yup.string().required("Datasource type is required"),
@@ -316,6 +317,7 @@ export function DataSourceWizard(props: DataSourceFormProps) {
 
                     extractValuesFromUrl(response.url, watch("dbEngine"));
                 }
+                setSavedDSName(response.name);
             } else {
                 setIsUpdate(false);
                 reset(newDataSource);

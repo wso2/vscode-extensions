@@ -190,7 +190,7 @@ export function RuntimeServicePanel() {
             resourceType: "api"
         });
 
-        const resource = api_resource.resources.find((resource: any) => resource.name === name);
+        const resource = api_resource.resources.find((resource: any) => resource.name === name.split("__").pop());
         const aboslutePath = resource?.absolutePath;
 
         if (aboslutePath) {

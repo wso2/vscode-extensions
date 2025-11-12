@@ -46,7 +46,6 @@ import {
     ImportProjectResponse,
     ESBConfigsResponse,
     HighlightCodeRequest,
-    AIUserInput,
     WriteContentToFileRequest,
     WriteContentToFileResponse,
     HandleFileRequest,
@@ -149,7 +148,6 @@ import {
     GetSelectiveWorkspaceContextResponse,
     GetSelectiveArtifactsRequest,
     GetSelectiveArtifactsResponse,
-    GetBackendRootUrlResponse,
     RegistryArtifactNamesResponse,
     ListRegistryArtifactsRequest,
     RangeFormatRequest,
@@ -254,8 +252,6 @@ import {
     DeployProjectRequest,
     DeployProjectResponse,
     DevantMetadata,
-    GetCodeDiagnosticsReqeust,
-    GetCodeDiagnosticsResponse,
     GetConnectorIconRequest,
     GetConnectorIconResponse,
     SubmitFeedbackRequest,
@@ -336,7 +332,6 @@ export interface MiDiagramAPI {
     createProject: (params: CreateProjectRequest) => Promise<CreateProjectResponse>;
     importProject: (params: ImportProjectRequest) => Promise<ImportProjectResponse>;
     migrateProject: (params: MigrateProjectRequest) => Promise<MigrateProjectResponse>;
-    getAIResponse: (params: AIUserInput) => Promise<string>;
     writeContentToFile: (params: WriteContentToFileRequest) => Promise<WriteContentToFileResponse>;
     handleFileWithFS: (params: HandleFileRequest) => Promise<HandleFileResponse>;
     writeIdpSchemaFileToRegistry: (params: WriteIdpSchemaFileToRegistryRequest) => Promise<WriteIdpSchemaFileToRegistryResponse>;
@@ -359,7 +354,6 @@ export interface MiDiagramAPI {
     buildBallerinaModule: (projectPath: string) => Promise<void>;
     getSelectiveWorkspaceContext: () => Promise<GetSelectiveWorkspaceContextResponse>;
     getSelectiveArtifacts: (params: GetSelectiveArtifactsRequest) => Promise<GetSelectiveArtifactsResponse>;
-    getBackendRootUrl: () => Promise<GetBackendRootUrlResponse>;
     getAvailableRegistryResources: (params: ListRegistryArtifactsRequest) => Promise<RegistryArtifactNamesResponse>;
     updateRegistryMetadata: (params: UpdateRegistryMetadataRequest) => Promise<UpdateRegistryMetadataResponse>;
     getMetadataOfRegistryResource: (params: GetRegistryMetadataRequest) => Promise<GetRegistryMetadataResponse>;
@@ -438,7 +432,6 @@ export interface MiDiagramAPI {
     testConnectorConnection: (params: TestConnectorConnectionRequest) => Promise<TestConnectorConnectionResponse>;
     saveConfig: (params: SaveConfigRequest) => Promise<SaveConfigResponse>;
     getEULALicense: () => Promise<string>;
-    getCodeDiagnostics: (params: GetCodeDiagnosticsReqeust) => Promise<GetCodeDiagnosticsResponse>;
     shouldDisplayPayloadAlert: () => Promise<boolean>;
     displayPayloadAlert: () => Promise<void>;
     closePayloadAlert: () => Promise<void>;

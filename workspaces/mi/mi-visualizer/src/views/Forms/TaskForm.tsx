@@ -149,13 +149,13 @@ export function TaskForm(props: TaskFormProps) {
         triggerType: yup.mixed().oneOf(["simple", "cron"]),
         triggerCount: yup.mixed().when('isCountUndefined', {
             is: false,
-            then: () => yup.number().typeError('Trigger count must be a number').min(0, "Trigger count must be greater than 0")
+            then: () => yup.number().typeError('Trigger count is required and must be a valid number').min(0, "Trigger count must be greater than 0")
                 .required("Trigger count is required"),
             otherwise: () => yup.string().notRequired()
         }),
         triggerInterval: yup.number().when('triggerType', {
             is: 'simple',
-            then: () => yup.number().required('Trigger Interval is required').typeError('Trigger count must be a number').min(1, "Trigger count must be greater than 1"),
+            then: () => yup.number().required('Trigger interval is required').typeError('Trigger interval is required and must be a valid number').min(1, "Trigger interval must be greater than 1"),
             otherwise: () => yup.string().notRequired().default("1")
         }),
         triggerCron: yup.string().when('triggerType', {

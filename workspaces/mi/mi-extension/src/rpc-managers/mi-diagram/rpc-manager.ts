@@ -281,9 +281,6 @@ import {
     GetConnectorIconRequest,
     GetConnectorIconResponse,
     DependencyDetails,
-    GetCodeDiagnosticsReqeust,
-    GetCodeDiagnosticsResponse,
-    getCodeDiagnostics,
     SubmitFeedbackRequest,
     SubmitFeedbackResponse,
     GetPomFileContentResponse,
@@ -1787,20 +1784,17 @@ ${endpointAttributes}
             let xmlData = getTemplateXmlWrapper(getTemplateParams);
             let sanitizedXmlData = xmlData.replace(/^\s*[\r\n]/gm, '');
 
-            if (params.templateType === 'Sequence Template') {
-                params.isEdit = false;
-            }
-
             if (params.getContentOnly) {
                 resolve({ path: "", content: sanitizedXmlData });
             } else if (params.isEdit && params.range) {
                 const filePath = await this.getFilePath(directory, templateName);
                 xmlData = getEditTemplateXmlWrapper(getTemplateParams);
-                this.applyEdit({
+                await this.applyEdit({
                     text: xmlData,
                     documentUri: filePath,
                     range: params.range
                 });
+                resolve({ path: filePath, content: "" });
             } else {
                 const filePath = await this.getFilePath(directory, templateName);
                 await replaceFullContentToFile(filePath, sanitizedXmlData);
@@ -3029,19 +3023,7 @@ ${endpointAttributes}
         return new Promise(async (resolve) => {
             const projectUuid = uuidv4();
             const { directory, name, open, groupID, artifactID, version, miVersion } = params;
-            let initialDependencies = '';
-            try {
-                const connectorStoreResponse = await this.getStoreConnectorJSON(miVersion);
-                const httpConnectorVersion = filterConnectorVersion('HTTP', connectorStoreResponse.connectors);
-                initialDependencies = generateInitialDependencies(httpConnectorVersion);
-            } catch (err) {
-                console.error("Could not fetch connectors:", err);
-                const confirmation = await window.showWarningMessage(ERROR_MESSAGES.ERROR_DOWNLOADING_MODULES,{ modal: true }, 'Yes');
-                if (confirmation === undefined) {
-                    resolve({filePath: "Error"});
-                    return;
-                }
-            }
+            const initialDependencies = compareVersions(miVersion, RUNTIME_VERSION_440) >= 0 ? generateInitialDependencies() : '';
             const tempName = name.replace(/\./g, '');
             const folderStructure: FileStructure = {
                 [tempName]: { // Project folder
@@ -3181,32 +3163,6 @@ ${endpointAttributes}
             }
             resolve({ path: getDefaultProjectPath() });
         });
-    }
-
-    async getAIResponse(params: AIUserInput): Promise<string> {
-        let result = '';
-        try {
-            const response = await axios.post(APIS.MI_COPILOT_BACKEND, {
-                chat_history: params.chat_history,
-            }, { responseType: 'stream' });
-
-            response.data.pipe(new Transform({
-                transform(chunk, encoding, callback) {
-                    const chunkAsString = chunk.toString();
-                    result += chunkAsString;
-                    callback();
-                }
-            }));
-
-            return new Promise((resolve, reject) => {
-                response.data.on('end', () => resolve(result));
-                response.data.on('error', (err: Error) => reject(err));
-            });
-
-        } catch (error) {
-            console.error('Error calling the AI endpoint:', error);
-            throw new Error('Failed to call AI endpoint');
-        }
     }
 
     async writeContentToFile(params: WriteContentToFileRequest): Promise<WriteContentToFileResponse> {
@@ -3553,38 +3509,14 @@ ${endpointAttributes}
 
     async getWorkspaceContext(): Promise<GetWorkspaceContextResponse> {
         const artifactDirPath = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'artifacts');
-        const resourcesDirPath = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'resources');
         const fileContents: string[] = [];
 
-        // Helper function to recursively read files from a directory
-        const readFilesRecursively = async (dirPath: string, excludeFolders: string[] = []): Promise<void> => {
-            if (!fs.existsSync(dirPath)) {
-                return;
-            }
-
-            const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
-
-            for (const entry of entries) {
-                const fullPath = path.join(dirPath, entry.name);
-
-                if (entry.isDirectory()) {
-                    // Skip excluded folders
-                    if (!excludeFolders.includes(entry.name)) {
-                        await readFilesRecursively(fullPath, excludeFolders);
-                    }
-                } else if (entry.isFile()) {
-                    try {
-                        const content = await fs.promises.readFile(fullPath, 'utf-8');
-                        fileContents.push(content);
-                    } catch (error) {
-                        // Skip files that can't be read as text
-                        console.warn(`Could not read file as text: ${fullPath}`);
-                    }
-                }
-            }
+        // Helper function to check if a file is an XML file
+        const isXmlFile = (fileName: string): boolean => {
+            return fileName.toLowerCase().endsWith('.xml');
         };
 
-        // Read artifacts folders
+        // Read artifacts folders - ONLY XML files from artifacts directory
         var resourceFolders = ['apis', 'endpoints', 'inbound-endpoints', 'local-entries', 'message-processors', 'message-stores', 'proxy-services', 'sequences', 'tasks', 'templates'];
         for (const folder of resourceFolders) {
             const folderPath = path.join(artifactDirPath, folder);
@@ -3593,21 +3525,27 @@ ${endpointAttributes}
                 const files = await fs.promises.readdir(folderPath);
 
                 for (const file of files) {
+                    // Only process XML files
+                    if (!isXmlFile(file)) {
+                        continue;
+                    }
+
                     const filePath = path.join(folderPath, file);
                     const stats = await fs.promises.stat(filePath);
 
                     if (stats.isFile()) {
-                        const content = await fs.promises.readFile(filePath, 'utf-8');
-                        fileContents.push(content);
+                        try {
+                            const content = await fs.promises.readFile(filePath, 'utf-8');
+                            fileContents.push(content);
+                        } catch (error) {
+                            console.warn(`Could not read XML file: ${filePath}`, error);
+                        }
                     }
                 }
             }
         }
 
-        // Read resources folders recursively, excluding specified folders
-        const excludedFolders = ['api-definitions', 'metadata', 'connectors'];
-        await readFilesRecursively(resourcesDirPath, excludedFolders);
-
+        console.log(`[getWorkspaceContext] Loaded ${fileContents.length} XML files from artifacts folder`);
         return { context: fileContents, rootPath: this.projectUri };
     }
 
@@ -3844,7 +3782,7 @@ ${endpointAttributes}
             // Determine the destination file name
             let desFileName = path.basename(params.sourceFilePath);
             // If desFileName does nto contain .xml, append .xml
-            if (desFileName && !desFileName.endsWith('.xml')) {
+            if (desFileName && !['.xml', '.dbs'].some(ext => desFileName.endsWith(ext))) {
                 desFileName += '.xml';
             }
             const destinationFilePath = path.join(destinationDirectory, desFileName);
@@ -4177,6 +4115,12 @@ ${endpointAttributes}
         const artifactDirPath = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'artifacts');
         const fileContents: string[] = [];
         fileContents.push(currentFileContent);
+
+        // Helper function to check if a file is an XML file
+        const isXmlFile = (fileName: string): boolean => {
+            return fileName.toLowerCase().endsWith('.xml');
+        };
+
         var resourceFolders = ['apis', 'endpoints', 'inbound-endpoints', 'local-entries', 'message-processors', 'message-stores', 'proxy-services', 'sequences', 'tasks', 'templates'];
         for (const folder of resourceFolders) {
             const folderPath = path.join(artifactDirPath, folder);
@@ -4185,6 +4129,11 @@ ${endpointAttributes}
                 const files = await fs.promises.readdir(folderPath);
 
                 for (const file of files) {
+                    // Only process XML files
+                    if (!isXmlFile(file)) {
+                        continue;
+                    }
+
                     const filePath = path.join(folderPath, file);
                     if (filePath === currentFile) {
                         continue;
@@ -4192,8 +4141,12 @@ ${endpointAttributes}
                     const stats = await fs.promises.stat(filePath);
 
                     if (stats.isFile()) {
-                        const content = await fs.promises.readFile(filePath, 'utf-8');
-                        fileContents.push(content);
+                        try {
+                            const content = await fs.promises.readFile(filePath, 'utf-8');
+                            fileContents.push(content);
+                        } catch (error) {
+                            console.warn(`Could not read XML file: ${filePath}`, error);
+                        }
                     }
                 }
             }
@@ -4208,9 +4161,9 @@ ${endpointAttributes}
         const RUNTIME_THRESHOLD_VERSION = RUNTIME_VERSION_440;
         const runtimeVersion = await getMIVersionFromPom(this.projectUri);
 
-        const isVersionThresholdReached = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_THRESHOLD_VERSION) : -1;
+        const versionThreshold = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_THRESHOLD_VERSION) : -1;
 
-        return isVersionThresholdReached < 0 ? { url: MI_COPILOT_BACKEND_V2 } : { url: MI_COPILOT_BACKEND_V3 };
+        return versionThreshold < 0 ? { url: MI_COPILOT_BACKEND_V2 } : { url: MI_COPILOT_BACKEND_V3 };
     }
 
     async getProxyRootUrl(): Promise<GetProxyRootUrlResponse> {
@@ -4654,6 +4607,7 @@ ${keyValuesXML}`;
 
             await extension.context.secrets.delete('MIAIUser');
             await extension.context.secrets.delete('MIAIRefreshToken');
+            await extension.context.secrets.delete('AnthropicApiKey');
             StateMachineAI.sendEvent(AI_EVENT_TYPE.LOGOUT);
         } else {
             return;
@@ -5466,7 +5420,8 @@ ${keyValuesXML}`;
         const langClient = getStateMachine(this.projectUri).context().langClient!;
         let response;
         if (params.isRuntimeService) {
-            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, port: DebuggerConfig.getServerPort(), ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
+            const versionedUrl = exposeVersionedServices(this.projectUri);
+            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, port: DebuggerConfig.getServerPort(), projectPath: versionedUrl ? this.projectUri : "", ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         } else {
             response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         }
@@ -5861,39 +5816,6 @@ ${keyValuesXML}`;
         });
     }
 
-    async getCodeDiagnostics(params: GetCodeDiagnosticsReqeust): Promise<GetCodeDiagnosticsResponse> {
-        return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
-
-            let added_connectors: string[] = [];
-            let add_response: any = null;
-            let connectorName: string = '';
-            //Empty array to store the diagnostics
-            const diagnostics: GetCodeDiagnosticsResponse = { diagnostics: [] };
-            for (const xmlCode of params.xmlCodes) {
-                const connectorMatch = xmlCode.code.match(/<(\w+\.\w+)\b/);
-                if (connectorMatch) {
-                    const tagParts = connectorMatch[1].split('.');
-                    connectorName = tagParts[0];
-                    add_response = await this.fetchConnectors(connectorName, 'add');
-                    if (add_response.dependenciesResponse) {
-                        added_connectors.push(connectorName);
-                    }
-                }
-                const res = await langClient.getCodeDiagnostics(xmlCode);
-                diagnostics.diagnostics.push({
-                    fileName: xmlCode.fileName,
-                    diagnostics: res.diagnostics
-                });
-            }
-            if (added_connectors.length > 0) {
-                for (const connector of added_connectors) {
-                    const remove_response = await this.fetchConnectors(connector, 'remove');
-                }
-            }
-            resolve(diagnostics);
-        });
-    }
 
 
     async closePayloadAlert(): Promise<void> {
@@ -6197,6 +6119,30 @@ ${keyValuesXML}`;
         );
         return undefined;
     }
+}
+
+function exposeVersionedServices(projectUri: string): boolean {
+    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
+    const serverPath = config.get<string>('SERVER_PATH') || undefined;
+    const configPath = serverPath ? path.join(serverPath, 'conf', 'deployment.toml') : '';
+    if (!fs.existsSync(configPath)) {
+        console.error(`Failed to find deployment configuration file at: ${configPath}`);
+        return false;
+    }
+    const fileContent = fs.readFileSync(configPath, "utf8");
+    const lines = fileContent.split(/\r?\n/);
+    for (let rawLine of lines) {
+        let line = rawLine.trim();
+        if (!line || line.startsWith("#")) continue;
+        const match = line.match(/^['"]?expose\.versioned\.services['"]?\s*=\s*(.+)$/i);
+        if (match) {
+            let value = match[1].trim();
+            value = value.replace(/^["']|["']$/g, "");
+            if (value.toLowerCase() === "true") return true;
+            return false;
+        }
+    }
+    return false;
 }
 
 export function getRepoRoot(projectRoot: string): string | undefined {

@@ -27,6 +27,7 @@ import { StateMachineAI } from './ai-panel/aiMachine';
 import { registerMiDataMapperRpcHandlers } from './rpc-managers/mi-data-mapper/rpc-handler';
 import { extension } from './MIExtensionContext';
 import { registerMiDebuggerRpcHandlers } from './rpc-managers/mi-debugger/rpc-handler';
+import { registerMIAiPanelRpcHandlers } from './rpc-managers/ai-panel/rpc-handler';
 import path = require('path');
 import { getStateMachine } from './stateMachine';
 import { getPopupStateMachine } from './stateMachinePopup';
@@ -51,9 +52,10 @@ export class RPCLayer {
         registerMiDiagramRpcHandlers(messenger, projectUri);
         registerMiDataMapperRpcHandlers(messenger, projectUri);
         registerMiDebuggerRpcHandlers(messenger, projectUri);
+        registerMIAiPanelRpcHandlers(messenger, projectUri);
         // ----- AI Webview RPC Methods
         messenger.onRequest(getAIVisualizerState, () => getAIContext());
-        messenger.onRequest(sendAIStateEvent, (event: AI_EVENT_TYPE) => StateMachineAI.sendEvent(event));
+        messenger.onRequest(sendAIStateEvent, (event: any) => StateMachineAI.sendEvent(event));
         // ----- Form Views RPC Methods
         messenger.onRequest(getPopupVisualizerState, () => getFormContext(projectUri));
 
@@ -74,6 +76,10 @@ export class RPCLayer {
         StateMachineAI.service().onTransition((state) => {
             messenger.sendNotification(aiStateChanged, { type: 'webview', webviewType: AiPanelWebview.viewType }, state.value);
         });
+    }
+
+    static getMessenger(projectUri: string): Messenger | undefined {
+        return this._messengers.get(projectUri);
     }
 }
 
@@ -96,11 +102,8 @@ async function getContext(projectUri: string): Promise<VisualizerLocation> {
             env: {
                 MI_AUTH_ORG: process.env.MI_AUTH_ORG || '',
                 MI_AUTH_CLIENT_ID: process.env.MI_AUTH_CLIENT_ID || '',
-                MI_COPILOT_BACKEND_V2: process.env.MI_COPILOT_BACKEND_V2 || '',
-                MI_COPILOT_BACKEND_V3: process.env.MI_COPILOT_BACKEND_V3 || '',
                 MI_AUTH_REDIRECT_URL: process.env.MI_AUTH_REDIRECT_URL || '',
                 MI_UPDATE_VERSION_CHECK_URL: process.env.MI_UPDATE_VERSION_CHECK_URL || '',
-                MI_COPILOT_BACKEND: process.env.MI_COPILOT_BACKEND || '',
                 MI_SAMPLE_ICONS_GITHUB_URL: process.env.MI_SAMPLE_ICONS_GITHUB_URL || '',
                 MI_CONNECTOR_STORE: process.env.MI_CONNECTOR_STORE || '',
                 MI_CONNECTOR_STORE_BACKEND: process.env.MI_CONNECTOR_STORE_BACKEND || '',
@@ -116,7 +119,14 @@ async function getContext(projectUri: string): Promise<VisualizerLocation> {
 async function getAIContext(): Promise<AIVisualizerLocation> {
     const context = StateMachineAI.context();
     return new Promise((resolve) => {
-        resolve({ view: context.view, initialPrompt: extension.initialPrompt, state: StateMachineAI.state(), userTokens: context.userTokens });
+        resolve({ 
+            initialPrompt: extension.initialPrompt, 
+            state: StateMachineAI.state(), 
+            loginMethod: context.loginMethod,
+            userToken: context.userToken,
+            usage: context.usage,
+            errorMessage: context.errorMessage
+        });
     });
 }
 

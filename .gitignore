@@ -77,9 +77,13 @@ playwright-report/
 extensions.json
 
 !sample-mi-project.zip
+package.json.backup
+
 .claude/
 
 pnpm-lock.yaml
 
-
 TODO.md
+
+# AI evaluation results
+**/results

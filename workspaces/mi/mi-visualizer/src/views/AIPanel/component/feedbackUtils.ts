@@ -16,7 +16,8 @@
  * under the License.
  */
 
-import { ChatMessage, CopilotChatEntry, Role, FeedbackMessage } from '../types';
+import { ChatMessage, CopilotChatEntry, Role } from '@wso2/mi-core';
+import { FeedbackMessage } from '../types';
 
 /**
  * Helper function to convert conversation history for feedback submission

@@ -23,29 +23,32 @@ import SuggestionsList from "./SuggestionsList";
 import { useMICopilotContext } from "./MICopilotContext";
 import { handleFileAttach } from "../utils";
 import { USER_INPUT_PLACEHOLDER_MESSAGE, VALID_FILE_TYPES } from "../constants";
-import { generateSuggestions, generateId, getBackendUrlAndView, fetchCodeGenerationsWithRetry, getDiagnosticsReponseFromLlm, replaceCodeBlock } from "../utils";
-import { Role, MessageType, CopilotChatEntry, BackendRequestType, FixedConfigItem, CorrectedCodeItem, ChatMessage } from "../types";
+import { generateSuggestions, generateId, getView, fetchCodeGenerationsWithRetry, replaceCodeBlock, setupCodeGenerationEventListener, updateTokenInfo } from "../utils";
+import { BackendRequestType } from "../types";
+import { Role, MessageType, CopilotChatEntry } from "@wso2/mi-core";
 import Attachments from "./Attachments";
+
+interface AIChatFooterProps {
+    isUsageExceeded?: boolean;
+}
 
 /**
  * Footer component containing chat input and controls
  */
-const AIChatFooter: React.FC = () => {
+const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) => {
     const {
-        backendUri,
         rpcClient,
+        messages,
         setMessages,
+        setQuestions,
         copilotChat,
         setCopilotChat,
-        codeBlocks,
-        setCodeBlocks,
         currentUserPrompt,
         setCurrentUserprompt,
         backendRequestTriggered,
         setBackendRequestTriggered,
         isInitialPromptLoaded,
         setIsInitialPromptLoaded,
-        isRuntimeVersionThresholdReached,
         questions,
         files,
         setFiles,
@@ -60,6 +63,8 @@ const AIChatFooter: React.FC = () => {
     const isStopButtonClicked = useRef(false);
     const isResponseReceived = useRef(false);
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
+    const abortedRef = useRef(false);
+    const lastUserPromptRef = useRef<string>("");
     const [isFocused, setIsFocused] = useState(false);
     const isDarkMode = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 
@@ -73,30 +78,170 @@ const AIChatFooter: React.FC = () => {
     const [isValidating, setIsValidating] = useState(false);
     // Reference to store code blocks for the current chat
     const currentChatCodeBlocksRef = useRef<string[]>([]);
-
-    // List of programming languages to filter for actual code files (Kept it as a list for extensibility)
-    const codeLanguages = [
-        'xml'
-    ];
-
-    // Function to extract code content from a code block
-    const extractCodeContent = (codeBlock: string): { language: string, code: string } | null => {
-        // Match the language identifier and code content
-        const match = codeBlock.match(/```([\w#+]*)\s*\n([\s\S]*?)```/);
-        if (!match) return null;
-
-        const language = match[1].trim().toLowerCase();
-        const code = match[2];
-
-        // Check if this is an actual code file (not JSON examples or other non-code content)
-        if (codeLanguages.includes(language)) {
-            return { language, code };
-        }
-        return null;
-    };
+    
+    // State for streaming code generation
+    const [currentChatId, setCurrentChatId] = useState<number | null>(null);
+    const [assistantResponse, setAssistantResponse] = useState<string>("");
 
     const toggleThinkingSelection = () => {
         setChecked(!thinkingChecked);
+    };
+
+    // Handle code generation streaming events from extension
+    const handleCodeGenerationEvent = (event: any) => {
+        // Ignore all events if generation was aborted
+        if (abortedRef.current) {
+            return;
+        }
+
+        switch (event.type) {
+            case "code_generation_start":
+                // Start of code generation
+                setAssistantResponse("");
+                break;
+
+            case "content_block":
+                // Handle streaming content blocks
+                if (event.content) {
+                    const content = event.content;
+
+                    // Update assistant response state
+                    setAssistantResponse(prev => prev + content);
+
+                    // Update the last copilot message in real-time
+                    setMessages((prevMessages) => {
+                        const newMessages = [...prevMessages];
+                        if (newMessages.length > 0) {
+                            newMessages[newMessages.length - 1].content += content;
+                        }
+                        return newMessages;
+                    });
+                }
+                break;
+            
+            case "code_generation_end":
+                // Final content replacement
+                if (event.content) {
+                    setAssistantResponse(event.content);
+                    handleCodeGenerationComplete(event.content);
+                }
+                // Fetch and update usage after code generation
+                rpcClient?.getMiAiPanelRpcClient().fetchUsage().then((usage) => {
+                    if (usage) {
+                        rpcClient?.getAIVisualizerState().then((machineView) => {
+                            const { remainingTokenPercentage } = updateTokenInfo(machineView);
+                            setRemainingTokenPercentage(remainingTokenPercentage);
+                        });
+                    }
+                }).catch((error) => {
+                    console.error("Error fetching usage after code generation:", error);
+                });
+
+                // If diagnostics won't run, generate suggestions immediately
+                // Otherwise, wait for code_diagnostic_end event
+                if (!event.willRunDiagnostics) {
+                    // Clear old suggestions immediately before generating new ones
+                    setQuestions([]);
+                    const suggestionController = new AbortController();
+                    generateSuggestions(copilotChat, rpcClient, suggestionController).then((response) => {
+                        if (response && response.length > 0) {
+                            setQuestions(response);
+                        }
+                    }).catch((error) => {
+                        console.error("Error generating suggestions after code generation:", error);
+                    });
+                }
+                break;
+
+            case "code_diagnostic_start":
+                setIsValidating(true);
+                break;
+
+            case "code_diagnostic_end":
+                setIsValidating(false);
+
+                // Handle corrected codes if available
+                if (event.correctedCodes && event.correctedCodes.length > 0) {
+                    const fileCorrections = new Map<string, string>();
+
+                    event.correctedCodes.forEach((item: any) => {
+                        if (item.name && (item.configuration || item.code)) {
+                            const correctedCode = item.configuration || item.code;
+                            const fileName = item.name;
+                            fileCorrections.set(fileName, correctedCode);
+                        }
+                    });
+
+                    // Update messages with corrected code
+                    if (fileCorrections.size > 0) {
+                        setMessages((prevMessages) => {
+                            const newMessages = [...prevMessages];
+                            const lastMessage = newMessages[newMessages.length - 1];
+
+                            if (lastMessage && lastMessage.role === Role.MICopilot) {
+                                let updatedContent = lastMessage.content;
+
+                                fileCorrections.forEach((correctedCode, fileName) => {
+                                    updatedContent = replaceCodeBlock(updatedContent, fileName, correctedCode);
+                                });
+
+                                newMessages[newMessages.length - 1] = {
+                                    ...lastMessage,
+                                    content: updatedContent
+                                };
+                            }
+
+                            return newMessages;
+                        });
+                    }
+                }
+
+                // Clear old suggestions immediately before generating new ones
+                setQuestions([]);
+                // Generate fresh suggestions after code generation completes
+                generateSuggestions(copilotChat, rpcClient, new AbortController()).then((response) => {
+                    if (response && response.length > 0) {
+                        setQuestions(response);
+                    }
+                }).catch((error) => {
+                    console.error("Error generating suggestions after code generation:", error);
+                });
+                break;
+            
+            case "error":
+                setMessages((prevMessages) => [...prevMessages, {
+                    id: generateId(),
+                    role: Role.MICopilot,
+                    content: `Error: ${event.error}`,
+                    type: MessageType.Error
+                }]);
+                setBackendRequestTriggered(false);
+                setIsValidating(false);
+                break;
+
+            case "stop":
+                // Code generation completed
+                break;
+
+            case "aborted":
+                // Abort acknowledged by extension - all streaming has stopped
+                setBackendRequestTriggered(false);
+                break;
+
+            default:
+                break;
+        }
+    };
+
+    // Handle completion of code generation
+    const handleCodeGenerationComplete = async (finalContent: string) => {
+        // Add backend response to copilot chat
+        setCopilotChat((prevCopilotChat) => [
+            ...prevCopilotChat,
+            { id: currentChatId || generateId(), role: Role.CopilotAssistant, content: finalContent },
+        ]);
+
+        setBackendRequestTriggered(false);
     };
 
     // Handle text input keydown events
@@ -112,42 +257,71 @@ const AIChatFooter: React.FC = () => {
     // Handle stopping the response generation
     const handleStop = async () => {
         isStopButtonClicked.current = true;
+        // Set abort flag BEFORE making any async calls to prevent race conditions
+        abortedRef.current = true;
 
-        // Abort the fetch
-        controller.abort();
+        try {
+            // Request the extension to abort code generation
+            await rpcClient.getMiAiPanelRpcClient().abortCodeGeneration();
 
-        // Create a new AbortController for future fetches
-        resetController();
+            // Abort the local controller (for any local operations)
+            controller.abort();
 
-        // If we're in the validation phase, reset the validation state
-        if (isValidating) {
-            setIsValidating(false);
-        }
+            // Create a new AbortController for future fetches
+            resetController();
 
-        // Remove the last user and copilot messages
-        setMessages((prevMessages) => {
-            const newMessages = [...prevMessages];
-            newMessages.pop(); // Remove the last user message
-            newMessages.pop(); // Remove the last copilot message
-            return newMessages;
-        });
+            // If we're in the validation phase, reset the validation state
+            if (isValidating) {
+                setIsValidating(false);
+            }
 
-        // Generate suggestions based on chat history
-        await generateSuggestions(backendUri, copilotChat, rpcClient, new AbortController()).then((response) => {
-            setMessages((prevMessages) => [...prevMessages, ...response]);
-        });
+            // Clear assistant response state
+            setAssistantResponse("");
 
-        // Explicitly adjust the textarea height after suggestion generation
-        if (textAreaRef.current) {
+            // Remove the last user and copilot messages from UI state
+            setMessages((prevMessages) => {
+                const newMessages = [...prevMessages];
+                newMessages.pop(); // Remove the last copilot message
+                newMessages.pop(); // Remove the last user message
+                return newMessages;
+            });
+
+            // IMPORTANT: Also remove the last user message from copilotChat
+            // to prevent partial conversations from persisting in localStorage
+            setCopilotChat((prevChat) => {
+                const newChat = [...prevChat];
+                if (newChat.length > 0) {
+                    newChat.pop(); // Remove the last user message
+                }
+                return newChat;
+            });
+
+            // Restore the original user prompt to the input box
+            setCurrentUserprompt(lastUserPromptRef.current);
+
+            // Explicitly adjust the textarea height
+            if (textAreaRef.current) {
+                setTimeout(() => {
+                    textAreaRef.current.style.height = "auto";
+                    textAreaRef.current.style.height = `${textAreaRef.current.scrollHeight}px`;
+                }, 0);
+            }
+
+            // Reset abort flag after a delay to ensure all buffered events are ignored
             setTimeout(() => {
-                textAreaRef.current.style.height = "auto";
-                textAreaRef.current.style.height = `${textAreaRef.current.scrollHeight}px`;
-            }, 0);
+                abortedRef.current = false;
+            }, 200);
+        } catch (error) {
+            console.error("Error stopping code generation:", error);
+            // Reset abort flag on error as well
+            abortedRef.current = false;
+        } finally {
+            // Don't reset isStopButtonClicked here - keep it true so handleSend's finally
+            // block won't clear the restored prompt. It will be reset on next send.
+
+            // Reset backend request triggered state
+            setBackendRequestTriggered(false);
         }
-        isStopButtonClicked.current = false;
-        
-        // Reset backend request triggered state
-        setBackendRequestTriggered(false);
     };
 
     // File handling
@@ -162,6 +336,9 @@ const AIChatFooter: React.FC = () => {
     };
 
     async function handleSend(requestType: BackendRequestType = BackendRequestType.UserPrompt, prompt?: string | "") {
+        // Reset stop button flag at the start of a new send
+        isStopButtonClicked.current = false;
+
         // Block empty user inputs and avoid state conflicts
         if (currentUserPrompt === "" && !Object.values(BackendRequestType).includes(requestType)) {
             return;
@@ -176,16 +353,18 @@ const AIChatFooter: React.FC = () => {
             isResponseReceived.current = false;
         }
 
-        // Variable to hold Assistant response
-        let assistant_response = "";
-
         // Reset the current chat code blocks array for this new chat
         currentChatCodeBlocksRef.current = [];
 
         // Add the current user prompt to the chats based on the request type
         let currentCopilotChat: CopilotChatEntry[] = [...copilotChat];
         const chatId = generateId();
+        setCurrentChatId(chatId);
+        
         const updateChats = (userPrompt: string, userMessageType?: MessageType) => {
+            // Store the user prompt for potential abort restoration
+            lastUserPromptRef.current = userPrompt;
+
             // Append labels to the user prompt
             setMessages((prevMessages) => [
                 ...prevMessages,
@@ -193,7 +372,7 @@ const AIChatFooter: React.FC = () => {
                 {
                     id: chatId,
                     role: Role.MICopilot,
-                    content: assistant_response,
+                    content: "", // Will be updated via streaming events
                     type: MessageType.AssistantMessage,
                 },
             ]);
@@ -221,13 +400,12 @@ const AIChatFooter: React.FC = () => {
                 break;
         }
 
-        const { backendUrl, view } = await getBackendUrlAndView(rpcClient);
-        const url = backendUri + backendUrl;
+        const view = await getView(rpcClient);
 
         try {
-            const response = await fetchCodeGenerationsWithRetry(
-                url,
-                isRuntimeVersionThresholdReached,
+            // Call the RPC method for streaming code generation
+            // The streaming will be handled via events in handleCodeGenerationEvent
+            await fetchCodeGenerationsWithRetry(
                 currentCopilotChat,
                 files,
                 images,
@@ -240,271 +418,12 @@ const AIChatFooter: React.FC = () => {
             // Remove the user uploaded files and images after sending them to the backend
             removeAllFiles();
             removeAllImages();
+            
+            // The streaming response will be handled by events
+            // No need to process response.body here anymore
 
-            const reader = response.body?.getReader();
-            const decoder = new TextDecoder();
-            let result = "";
-
-            // process the response stream from backend
-            while (true) {
-                const { done, value } = await reader.read();
-
-                if (done) {
-                    break;
-                }
-
-                const chunk = decoder.decode(value, { stream: true });
-                result += chunk;
-
-                const lines = result.split("\n");
-                for (let i = 0; i < lines.length - 1; i++) {
-                    try {
-                        const json = JSON.parse(lines[i]);
-
-                        // Update token usage information
-                        const tokenUsage = json.usage;
-                        const maxTokens = tokenUsage.max_usage;
-
-                        if (maxTokens == -1) {
-                            setRemainingTokenPercentage(-1);
-                        } else {
-                            const remainingTokens = tokenUsage.remaining_tokens;
-                            let percentage = Math.round((remainingTokens / maxTokens) * 100);
-
-                            if (percentage < 0) percentage = 0;
-
-                            setRemainingTokenPercentage(percentage);
-                        }
-
-                        if (json.content == null) {
-                            // End of the MI copilot response reached
-                            // Add backend response to copilot chat
-                            setCopilotChat((prevCopilotChat) => [
-                                ...prevCopilotChat,
-                                { id: chatId, role: Role.CopilotAssistant, content: assistant_response },
-                            ]);
-
-                            // Filter XML code blocks and pass them to getCodeDiagnostics
-                            const xmlCodes = currentChatCodeBlocksRef.current
-                                .filter(codeBlock => {
-                                    // Extract language from the comment line
-                                    const languageMatch = codeBlock.match(/\/\/ Language: (\w+)/);
-                                    return languageMatch && languageMatch[1].toLowerCase() === 'xml';
-                                })
-                                .map((xmlCodeBlock, index) => {
-                                    // Remove the language comment line and get the actual code
-                                    const code = xmlCodeBlock.replace(/\/\/ Language: \w+\n/, '');
-                                    
-                                    // Extract the name attribute from the XML content
-                                    const nameMatch = code.match(/name=["']([^"']+)["']/);
-                                    const fileName = nameMatch ? `${nameMatch[1]}.xml` : `code_${index}.xml`;
-                                    
-                                    return {
-                                        fileName,
-                                        code
-                                    };
-                                });
-                            
-                            
-                            // Only call getCodeDiagnostics if there are XML code blocks
-                            if (xmlCodes.length > 0) {
-                                try {
-                                    // Set validating state to true when we start getting diagnostics
-                                    setIsValidating(true);
-                                    
-                                    // Get diagnostics from the RPC client
-                                    const diagnosticResponse = await rpcClient.getMiDiagramRpcClient().getCodeDiagnostics({
-                                        xmlCodes
-                                    });
-                                    
-                                    const hasAnyDiagnostics = diagnosticResponse.diagnostics.some(file => file.diagnostics.length > 0);
-
-                                    // If there are diagnostics, send them to the LLM for analysis
-                                    if (hasAnyDiagnostics) {
-                                        // Import the getDiagnosticsReponseFromLlm function
-                                        const llmResponse = await getDiagnosticsReponseFromLlm(
-                                            diagnosticResponse,
-                                            xmlCodes,
-                                            rpcClient,
-                                            new AbortController() // Create a new controller for this request
-                                        );
-                                        
-                                        // Process the LLM response
-                                        const llmResponseData = await llmResponse.json();
-                                        
-                                        // Process the fixed_config from the LLM response - this is the only format we need to handle
-                                        if (llmResponseData.fixed_config && Array.isArray(llmResponseData.fixed_config)) {
-                                            // Create a map to store the latest corrected code for each file
-                                            const fileCorrections = new Map<string, string>();
-                                            
-                                            // Process all items in the fixed_config array and store the latest correction for each file
-                                            llmResponseData.fixed_config.forEach((item: FixedConfigItem) => {
-                                                if (item.name && (item.configuration || item.code)) {
-                                                    const correctedCode = item.configuration || item.code;
-                                                    const fileName = item.name;
-                                                    
-                                                    // Store the corrected code for this file
-                                                    fileCorrections.set(fileName, correctedCode);
-                                                    
-                                                    // Find the corresponding XML code block in the current chat
-                                                    const xmlCodeIndex = xmlCodes.findIndex(xml => 
-                                                        xml.fileName === fileName || 
-                                                        (!fileName.endsWith('.xml') && xml.fileName === fileName + '.xml') ||
-                                                        (fileName.endsWith('.xml') && xml.fileName === fileName.slice(0, -4))
-                                                    );
-                                                    
-                                                    if (xmlCodeIndex !== -1) {
-                                                        // Replace the code in the XML codes array
-                                                        xmlCodes[xmlCodeIndex].code = correctedCode;
-                                                    }
-                                                }
-                                            });
-                                            
-                                            // Helper function to update message content with corrections
-                                            const updateMessageContent = <T extends { role: Role; id?: number; content: string; type?: MessageType }>(
-                                                prevState: T[],
-                                                assistantRole: Role,
-                                                messageId: number,
-                                                corrections: Map<string, string>
-                                            ): T[] => {
-                                                const newState = [...prevState];
-                                                
-                                                // Try to find the message with this chat ID
-                                                const lastAssistantMessageIndex = newState.findIndex(
-                                                    msg => msg.role === assistantRole && msg.id === messageId
-                                                );
-                                                
-                                                if (lastAssistantMessageIndex !== -1) {
-                                                    let content = newState[lastAssistantMessageIndex].content;
-                                                    
-                                                    // Apply all corrections to this message
-                                                    corrections.forEach((correctedCode, fileName) => {
-                                                        content = replaceCodeBlock(content, fileName, correctedCode);
-                                                    });
-                                                    
-                                                    // Update the message with all corrections
-                                                    newState[lastAssistantMessageIndex] = {
-                                                        ...newState[lastAssistantMessageIndex],
-                                                        content: content
-                                                    };
-                                                } else {
-                                                    // If we can't find the message with the specific chatId,
-                                                    // try to update the most recent assistant message
-                                                    const lastIndex = newState.length - 1;
-                                                    for (let i = lastIndex; i >= 0; i--) {
-                                                        if (newState[i].role === assistantRole) {
-                                                            let content = newState[i].content;
-                                                            let appendContent = "";
-                                                            
-                                                            // Try to replace existing code blocks first
-                                                            corrections.forEach((correctedCode, fileName) => {
-                                                                const newContent = replaceCodeBlock(content, fileName, correctedCode);
-                                                                if (newContent === content) {
-                                                                    // If no replacement was made, prepare to append
-                                                                    appendContent += `\n\n**Updated ${fileName}**\n\`\`\`xml\n${correctedCode}\n\`\`\``;
-                                                                } else {
-                                                                    content = newContent;
-                                                                }
-                                                            });
-                                                            
-                                                            // Update the message with all corrections
-                                                            newState[i] = {
-                                                                ...newState[i],
-                                                                content: content + appendContent
-                                                            };
-                                                            break;
-                                                        }
-                                                    }
-                                                }
-                                                
-                                                return newState;
-                                            };
-
-                                            // Now apply all corrections to the messages
-                                            if (fileCorrections.size > 0) {
-                                                // Update the messages state
-                                                setMessages(prevMessages => 
-                                                    updateMessageContent<ChatMessage>(prevMessages, Role.MICopilot, chatId, fileCorrections)
-                                                );
-                                                
-                                                // Also update the copilotChat state
-                                                setCopilotChat(prevCopilotChat => 
-                                                    updateMessageContent<CopilotChatEntry>(prevCopilotChat, Role.CopilotAssistant, chatId, fileCorrections)
-                                                );
-                                            }
-                                        }
-                                    }
-                                    // Reset validating state when LLM correction is complete
-                                    setIsValidating(false);
-                                } catch (error) {
-                                    console.error("Error processing diagnostics:", error);
-                                    // Reset validating state on error
-                                    setIsValidating(false);
-                                }
-                            }
-
-                            const questions = json.questions.map((question: string) => {
-                                return {
-                                    id: chatId,
-                                    role: Role.default,
-                                    content: question,
-                                    type: MessageType.Question,
-                                };
-                            });
-                            setMessages((prevMessages) => [...prevMessages, ...questions]);
-                        } else {
-                            assistant_response += json.content;
-
-                            // Update the last assistance message with the new content
-                            setMessages((prevMessages) => {
-                                const newMessages = [...prevMessages];
-                                newMessages[newMessages.length - 1].content += json.content;
-                                return newMessages;
-                            });
-
-                            // Extract code blocks
-                            const regex = /```[\s\S]*?```/g;
-                            let match;
-                            const newCodeBlocks = [...codeBlocks];
-
-                            while ((match = regex.exec(assistant_response)) !== null) {
-                                if (!newCodeBlocks.includes(match[0])) {
-                                    newCodeBlocks.push(match[0]);
-                                    
-                                    // Process the code block to extract actual code files
-                                    const codeContent = extractCodeContent(match[0]);
-                                    if (codeContent) {
-                                        // Only add actual code files to the current chat's code blocks array
-                                        const codeFileEntry = `// Language: ${codeContent.language}\n${codeContent.code}`;
-                                        if (!currentChatCodeBlocksRef.current.includes(codeFileEntry)) {
-                                            currentChatCodeBlocksRef.current.push(codeFileEntry);
-                                        }
-                                    }
-                                }
-                            }
-
-                            setCodeBlocks(newCodeBlocks);
-                        }
-                    } catch (error) {
-                        console.error("Error parsing JSON:", error);
-                    }
-                }
-
-                result = lines[lines.length - 1];
-                isResponseReceived.current = true;
-            }
-
-            if (result) {
-                try {
-                    const json = JSON.parse(result);
-                    // Handle final result if needed
-                    return json;
-                } catch (error) {
-                    console.error("Error parsing JSON:", error);
-                }
-            }
         } catch (error) {
-            if (!isStopButtonClicked) {
+            if (!isStopButtonClicked.current) {
                 setMessages((prevMessages) => {
                     const newMessages = [...prevMessages];
                     newMessages[newMessages.length - 1].content += "Network error. Please check your connectivity.";
@@ -576,6 +495,15 @@ const AIChatFooter: React.FC = () => {
         }
     }, [fileUploadStatus]);
 
+    // Set up code generation event listener
+    useEffect(() => {
+        if (rpcClient) {
+            setupCodeGenerationEventListener(rpcClient, (event: any) => {
+                handleCodeGenerationEvent(event);
+            });
+        }
+    }, [rpcClient]);
+
     return (
         <Footer>
             <FlexColumn
@@ -630,10 +558,11 @@ const AIChatFooter: React.FC = () => {
                                     setIsFocused(false);
                                 }}
                                 onKeyDown={handleTextKeydown}
-                                placeholder={placeholder}
+                                placeholder={isUsageExceeded ? "Usage quota exceeded. Please logout and log in with your own API key to continue." : placeholder}
+                                disabled={isUsageExceeded}
                                 style={{
                                     flex: 1,
-                                    overflowY: "auto", 
+                                    overflowY: "auto",
                                     padding: "5px 15px 5px 10px",
                                     borderRadius: "4px",
                                     border: "none",
@@ -645,6 +574,8 @@ const AIChatFooter: React.FC = () => {
                                         : "var(--vscode-editorHoverWidget-background)",
                                     color: "var(--vscode-input-foreground)",
                                     position: "relative",
+                                    opacity: isUsageExceeded ? 0.5 : 1,
+                                    cursor: isUsageExceeded ? "not-allowed" : "text"
                                 }}
                                 rows={2}
                             />
@@ -693,10 +624,9 @@ const AIChatFooter: React.FC = () => {
                                 color: isDarkMode
                                     ? "var(--vscode-input-foreground)"
                                     : "var(--vscode-editor-foreground)",
-                                opacity: backendRequestTriggered || isValidating ? 0.5 : 1,
-                                cursor: backendRequestTriggered || isValidating ? "not-allowed" : "pointer"
+                                opacity: (backendRequestTriggered || isValidating || isUsageExceeded) ? 0.5 : 1,
+                                cursor: (backendRequestTriggered || isValidating || isUsageExceeded) ? "not-allowed" : "pointer"
                             }}
-                            disabled={backendRequestTriggered || isValidating}
                         >
                             <Codicon name="new-file" />
                         </StyledTransParentButton>
@@ -740,7 +670,7 @@ const AIChatFooter: React.FC = () => {
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                             handleFileAttach(e, files, setFiles, images, setImages, setFileUploadStatus)
                         }
-                        disabled={backendRequestTriggered || isValidating}
+                        disabled={backendRequestTriggered || isValidating || isUsageExceeded}
                     />
                     
                     <StyledTransParentButton
@@ -748,8 +678,10 @@ const AIChatFooter: React.FC = () => {
                         style={{
                             width: "30px",
                             color: isDarkMode ? "var(--vscode-input-foreground)" : "var(--vscode-editor-foreground)",
+                            opacity: isUsageExceeded ? 0.5 : 1,
+                            cursor: isUsageExceeded ? "not-allowed" : "pointer"
                         }}
-                        disabled={(currentUserPrompt.trim() === "" && !backendRequestTriggered && !isValidating)}
+                        disabled={(currentUserPrompt.trim() === "" && !backendRequestTriggered && !isValidating) || isUsageExceeded}
                     >
                         <span
                             className={`codicon ${(backendRequestTriggered || isValidating) ? "codicon-stop-circle" : "codicon-send"}`}

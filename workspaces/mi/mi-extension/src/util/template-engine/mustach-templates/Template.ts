@@ -65,7 +65,8 @@ export function getTemplateMustacheTemplate() {
 export const getEditTemplates = () => {
     return `<?xml version="1.0" encoding="UTF-8"?>
     <template name="{{templateName}}" xmlns="http://ws.apache.org/ns/synapse">
-        {{#params}}<parameter {{#default}}defaultValue="{{default}}"{{/default}} isMandatory="{{isMandatory}}" name="{{name}}"/>{{/params}}`;
+        {{#params}}<parameter {{#default}}defaultValue="{{default}}"{{/default}} isMandatory="{{isMandatory}}" name="{{name}}"/>{{/params}}
+         <sequence {{#stats}}statistics="enable"{{/stats}} {{#trace}}trace="enable"{{/trace}}>`;
 }
 
 

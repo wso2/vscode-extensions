@@ -16,14 +16,11 @@
  * under the License.
  */
 
-import { CopilotChatEntry, RpcClientType, Role, MessageType, ChatMessage, ApiResponse, BackendRequestType } from "./types";
+import { RpcClientType, ApiResponse, BackendRequestType } from "./types";
+import { CopilotChatEntry, Role, MessageType, ChatMessage } from "@wso2/mi-core";
 
 import { GetWorkspaceContextResponse, MACHINE_VIEW, EVENT_TYPE, FileObject, ImageObject} from "@wso2/mi-core";
 import {
-    MI_ARTIFACT_EDIT_BACKEND_URL,
-    MI_ARTIFACT_GENERATION_BACKEND_URL,
-    MI_SUGGESTIVE_QUESTIONS_BACKEND_URL,
-    MI_DIAGNOSTICS_RESPONSE_BACKEND_URL,
     COPILOT_ERROR_MESSAGES,
     MAX_FILE_SIZE, VALID_FILE_TYPES,
 } from "./constants";
@@ -39,15 +36,6 @@ export async function getProjectRuntimeVersion(rpcClient: RpcClientType): Promis
         }
     }
 
-export async function fetchBackendUrl(rpcClient:RpcClientType): Promise<string | undefined> {
-        try {
-            return (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
-        } catch (error) {
-            console.error('Failed to fetch backend URL:', error);
-            return undefined;
-        }
-    }
-
 export async function getProjectUUID(rpcClient: RpcClientType): Promise<string | undefined> {
         try {
             return (await rpcClient.getMiDiagramRpcClient().getProjectUuid()).uuid;
@@ -55,14 +43,7 @@ export async function getProjectUUID(rpcClient: RpcClientType): Promise<string |
             console.error('Failed to fetch project UUID:', error);
             return undefined;
         }
-    }
-
-// Add set of code blocks to the workspace
-export async function handleAddtoWorkspace(rpcClient: RpcClientType, codeBlocks: string[]) {
-    await rpcClient.getMiDiagramRpcClient().writeContentToFile({ content: codeBlocks })
-
-    rpcClient.getMiDiagramRpcClient().executeCommand({ commands: ["MI.project-explorer.refresh"] });
-};    
+    }   
 
 // Add a selected code to the workspace
 export async function handleAddSelectiveCodetoWorkspace(rpcClient: RpcClientType, codeSegment: string) {
@@ -260,59 +241,67 @@ export function compareVersions(v1: string, v2: string): number {
         return 0;
     }
 
+/**
+ * Sets up event listener for code generation streaming events
+ */
+export function setupCodeGenerationEventListener(
+    rpcClient: RpcClientType,
+    onEvent: (event: any) => void
+): void {
+    try {
+        // Use the proper RpcClient method for code generation events
+        rpcClient.onCodeGenerationEvent(onEvent);
+    } catch (error) {
+        console.error("Error setting up code generation event listener:", error);
+    }
+}
+
 export async function generateSuggestions(
-    backendRootUri: string,
     chatHistory: CopilotChatEntry[],
     rpcClient: RpcClientType,
     controller: AbortController
-): Promise<ChatMessage[]> {
+): Promise<string[]> {
     try {
-        const url = backendRootUri + MI_SUGGESTIVE_QUESTIONS_BACKEND_URL;
-        const context = await getContext(rpcClient);
-        const response = await fetchWithRetry(
-            BackendRequestType.Suggestions,
-            url,
-            {
-                messages: chatHistory,
-                context: context[0].context,
-                num_suggestions: 1,
-                type: "artifact_gen",
-            },
-            rpcClient,
-            controller,
-            chatHistory
-        );
+        // Use RPC call to extension - extension handles all backend communication
+        const response = await rpcClient.getMiAiPanelRpcClient().generateSuggestions({
+            chatHistory: chatHistory
+        });
 
-        const data = (await response.json()) as ApiResponse;
-
-        if (data.event === "suggestion_generation_success") {
-            return data.questions.map((question) => ({
-                id: generateId(),
-                role: Role.default,
-                content: question,
-                type: MessageType.Question,
-            }));
+        // Check if we got a valid response
+        if (response.response) {
+            // If the response contains a single suggestion, convert it to the expected format
+            return [response.response];
         } else {
-            console.error("Error generating suggestions:", data.error);
-            throw new Error("Failed to generate suggestions: " + data.error);
+            console.error("Error generating suggestions: Empty response from extension");
+            return [];
         }
     } catch (error) {
-        console.error(error);
-        return [];
+        console.error("Error generating suggestions via RPC:", error);
+        // No fallback - all backend communication should go through extension
+        throw new Error(`Failed to generate suggestions: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
 
 export function updateTokenInfo(machineView: any) {
-    let timeToReset = machineView.userTokens.time_to_reset;
+    // For custom API key users or when token info is not available, return unlimited
+    if (!machineView.usage || !machineView.usage.time_to_reset) {
+        return { 
+            timeToReset: 0, 
+            remainingTokenPercentage: -1, // -1 indicates unlimited
+            remaingTokenLessThanOne: false 
+        };
+    }
+
+    let timeToReset = machineView.usage.time_to_reset;
     timeToReset = timeToReset / (60 * 60 * 24);
-    const maxTokens = machineView.userTokens.max_usage;
+    const maxTokens = machineView.usage.max_usage;
     let remainingTokenPercentage: number;
     let remaingTokenLessThanOne: boolean = false;
 
     if (maxTokens == -1) {
         remainingTokenPercentage = -1;
     } else {
-        const remainingTokens = machineView.userTokens.remaining_tokens;
+        const remainingTokens = machineView.usage.remaining_tokens;
         remainingTokenPercentage = (remainingTokens / maxTokens) * 100;
 
         remainingTokenPercentage = Math.round(remainingTokenPercentage);
@@ -324,14 +313,14 @@ export function updateTokenInfo(machineView: any) {
     return { timeToReset, remainingTokenPercentage, remaingTokenLessThanOne };
 }
 
-export async function getBackendUrlAndView(rpcClient: RpcClientType): Promise<{ backendUrl: string; view: string }> {
+export async function getView(rpcClient: RpcClientType): Promise<string> {
     const machineView = await rpcClient?.getVisualizerState();
     switch (machineView?.view) {
         case MACHINE_VIEW.Overview:
         case MACHINE_VIEW.ADD_ARTIFACT:
-            return { backendUrl: MI_ARTIFACT_GENERATION_BACKEND_URL, view: "Overview" };
+            return "Overview";
         default:
-            return { backendUrl: MI_ARTIFACT_EDIT_BACKEND_URL, view: "Artifact" };
+            return "Artifact";
     }
 }
 
@@ -382,8 +371,6 @@ export function convertChat(entry: CopilotChatEntry): ChatMessage {
 }
 
 export async function fetchCodeGenerationsWithRetry(
-    url: string,
-    isRutimeVersionThresholdReached: boolean,
     chatHistory: CopilotChatEntry[],
     files: FileObject[],
     images: ImageObject[],
@@ -392,102 +379,31 @@ export async function fetchCodeGenerationsWithRetry(
     view?: string,
     thinking?: boolean
 ): Promise<Response> {
-
-    const context = await getContext(rpcClient, view);
-    const imageList = images.map((image) => image.imageBase64);
-    const defaultPayloads = await rpcClient.getMiDiagramRpcClient().getAllInputDefaultPayloads();
-    const fileList = isRutimeVersionThresholdReached ? files : files.map((file) => JSON.stringify(file));
-
-    return fetchWithRetry(BackendRequestType.UserPrompt, url, {
-        messages: chatHistory,
-        context: context[0].context,
-        files: fileList,
-        images: imageList,
-        payloads: defaultPayloads,
-    }, rpcClient, controller, chatHistory, thinking);
-}
-
-export async function fetchWithRetry(
-    type: BackendRequestType,
-    url: string,
-    body: {},
-    rpcClient: RpcClientType,
-    controller: AbortController,
-    chatHistory?: CopilotChatEntry[],
-    thinking?: boolean
-): Promise<Response> {
-    let retryCount = 0;
-    const maxRetries = 2;
-    const token = await rpcClient?.getMiDiagramRpcClient().getUserAccessToken();
-
-    const bodyWithThinking = {
-        ...body,
-        thinking: thinking || false
-    };
-
-    let response = await fetch(url, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token.token}`,
-        },
-        body: JSON.stringify(bodyWithThinking),
-        signal: controller.signal,
-    });
-
-    const handleFetchError = (response: Response) => {
-        const newMessages = [...chatHistory];
-        const statusText = getStatusText(response.status);
-        let error = `Failed to fetch response. Status: ${statusText}`;
-
-        if (response.status == 429) {
-            response.json().then((body) => {
-                error += body.detail;
-            });
-        } else if (response.status == 422) {
-            error = getStatusText(422);
-        }
-
-        newMessages[newMessages.length - 1].content += error;
-        newMessages[newMessages.length - 1].type = MessageType.Error;
-        return newMessages;
-    };
-
-    if (response.status == 401) {
-        await rpcClient?.getMiDiagramRpcClient().refreshAccessToken();
-        const newToken = await rpcClient?.getMiDiagramRpcClient().getUserAccessToken();
-
-        response = await fetch(url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${newToken.token}`,
-            },
-            body: JSON.stringify(bodyWithThinking),
-            signal: controller.signal,
+    // Use RPC call to extension for streaming code generation
+        try {
+        const response = await rpcClient.getMiAiPanelRpcClient().generateCode({
+            chatHistory: chatHistory,
+            files: files,
+            images: images,
+            view: view,
+            thinking: thinking
         });
-    } else if (response.status == 404) {
-        if (retryCount < maxRetries) {
-            retryCount++;
-            const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            return fetchWithRetry(type, url, body, rpcClient, controller, chatHistory, thinking); // Retry the request with all parameters
-        } else {
-            openUpdateExtensionView(rpcClient);
-            throw new Error("Resource not found : Check backend URL");
-        }
-    } else if (!response.ok) {
-        switch (type) {
-            case BackendRequestType.Suggestions:
-                openUpdateExtensionView(rpcClient);
-                throw new Error("Failed to fetch initial questions");
-            case BackendRequestType.UserPrompt:
-                handleFetchError(response);
-                throw new Error("Failed to fetch code genrations");
-            default:
-        }
-    } else {
-        return response;
+
+        // Return a mock Response object since we're now using streaming via events
+        // The actual streaming data will come through RPC notifications
+        return new Response(JSON.stringify(response), {
+            status: 200,
+            statusText: 'OK',
+            headers: { 'Content-Type': 'application/json' }
+        });
+    } catch (error) {
+        console.error('Error in code generation RPC call:', error);
+        // Return error response
+        return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
+            status: 500,
+            statusText: 'Internal Server Error',
+            headers: { 'Content-Type': 'application/json' }
+        });
     }
 }
 
@@ -601,69 +517,7 @@ export const isDarkMode = (): boolean => {
         return window.matchMedia("(prefers-color-scheme: dark)").matches;
     }
             
-    return false;                         
-}
-
-/**
- * Function to send diagnostics to the LLM backend and get a response
- * @param diagnostics The diagnostics response received from the code diagnostics
- * @param xmlCodes The XML code content for each file
- * @param rpcClient The RPC client instance
- * @param controller The abort controller for the fetch request
- * @returns Promise with the response from the LLM backend
- */
-export async function getDiagnosticsReponseFromLlm(
-    diagnostics: any,
-    xmlCodes: any,
-    rpcClient: RpcClientType,
-    controller: AbortController
-): Promise<Response> {
-    try {
-        // Get the backend URL
-        const backendRootUri = await fetchBackendUrl(rpcClient);
-        if (!backendRootUri) {
-            throw new Error("Failed to fetch backend URL");
-        }
-
-        // Construct the full URL
-        const url = backendRootUri + MI_DIAGNOSTICS_RESPONSE_BACKEND_URL;
-        
-        // Get the context
-        const context = await getContext(rpcClient);
-        
-        // Get the user token
-        const token = await rpcClient?.getMiDiagramRpcClient().getUserAccessToken();
-        
-        // Prepare the request body
-        const requestBody = {
-            diagnostics: diagnostics.diagnostics,
-            xmlCodes: xmlCodes,
-            context: context[0].context
-        };
-        
-        // Send the request to the backend
-        return fetchWithRetry(
-            BackendRequestType.UserPrompt,
-            url,
-            requestBody,
-            rpcClient,
-            controller,
-            undefined,
-            false // Not in thinking mode for diagnostics
-        );
-    } catch (error) {
-        console.error("Error sending diagnostics to LLM:", error);
-        
-        const errorMessage = error instanceof Error 
-            ? error.message 
-            : "Unknown error occurred when analyzing diagnostics";
-        
-        return Promise.reject({
-            status: "error",
-            message: `Failed to analyze diagnostics: ${errorMessage}`,
-            originalError: error
-        });
-    }
+    return false;
 }
 
 /**

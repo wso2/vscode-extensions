@@ -27,12 +27,12 @@ import { WaitingForLoginMessage } from '../WaitingForLoginWindow';
 import { DisabledMessage } from '../DisabledWindow';
 import { UpdateMIExtension } from '../UpdateExtension';
 import { MICopilotContextProvider } from "./component/MICopilotContext";
+import { WaitingForLoginSection } from './component/WaitingForLoginSection';
 
 export const AIPanel = () => {
     const { rpcClient } = useVisualizerContext();
     const [viewComponent, setViewComponent] = useState<React.ReactNode>();
     const [state, setState] = React.useState<AIMachineStateValue>();
-
 
     rpcClient?.onAIStateChanged((newState: AIMachineStateValue) => {
         setState(newState);
@@ -48,21 +48,60 @@ export const AIPanel = () => {
 
     const fetchContext = () => {
         rpcClient.getAIVisualizerState().then((machineView) => {
-            switch (machineView?.state) {
-                case "Ready":
+            const state = machineView?.state;
+            const loginMethod = machineView?.loginMethod;
+            const errorMessage = machineView?.errorMessage;
+            
+            // Handle hierarchical Authenticating state
+            if (typeof state === 'object' && state !== null && 'Authenticating' in state) {
+                const authenticatingState = (state as any).Authenticating;
+                
+                // Determine if we're validating
+                const isValidating = authenticatingState === 'validatingApiKey';
+                
+                // Show the appropriate form based on the substate
+                if (authenticatingState === 'apiKeyFlow' || authenticatingState === 'validatingApiKey') {
+                    setViewComponent(
+                        <WaitingForLoginSection 
+                            loginMethod={loginMethod} 
+                            isValidating={isValidating}
+                            errorMessage={errorMessage}
+                        />
+                    );
+                } else {
+                    // For ssoFlow or determineFlow, show waiting message
+                    setViewComponent(
+                        <WaitingForLoginSection 
+                            loginMethod={loginMethod}
+                            errorMessage={errorMessage}
+                        />
+                    );
+                }
+                return;
+            }
+            
+            switch (state) {
+                case "Authenticated":
                     setViewComponent(
                         <MICopilotContextProvider>
                             <AICodeGenerator />
                         </MICopilotContextProvider>
                     );
                     break;
-                case "loggedOut":
+                case "UsageExceeded":
+                    setViewComponent(
+                        <MICopilotContextProvider>
+                            <AICodeGenerator isUsageExceeded={true} />
+                        </MICopilotContextProvider>
+                    );
+                    break;
+                case "Unauthenticated":
                     setViewComponent(<SignInToCopilotMessage />);
                     break;
-                case "WaitingForLogin":
+                case "Initialize":
                     setViewComponent(<WaitingForLoginMessage />);
                     break;
-                case "notSupported":
+                case "NotSupported":
                     setViewComponent(
                         <div style={{ padding: "20px", textAlign: "center" }}>
                             <Alert
@@ -73,11 +112,8 @@ export const AIPanel = () => {
                         </div>
                     )
                     break;
-                case "disabled":
+                case "Disabled":
                     setViewComponent(<DisabledMessage />);
-                    break;
-                case "updateExtension":
-                    setViewComponent(<UpdateMIExtension />);
                     break;
                 default:
                     setViewComponent(null);

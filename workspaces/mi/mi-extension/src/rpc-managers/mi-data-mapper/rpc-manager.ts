@@ -54,9 +54,9 @@ import { MiDiagramRpcManager } from "../mi-diagram/rpc-manager";
 import { UndoRedoManager } from "../../undoRedoManager";
 import { DMProject } from "../../datamapper/DMProject";
 import { DM_OPERATORS_FILE_NAME, DM_OPERATORS_IMPORT_NAME, READONLY_MAPPING_FUNCTION_NAME, RUNTIME_VERSION_440 } from "../../constants";
-import { refreshAuthCode } from '../../ai-panel/auth';
-import { fetchBackendUrl, openSignInView, readTSFile, removeMapFunctionEntry, makeRequest, showMappingEndNotification, showSignedOutNotification } from "../../util/ai-datamapper-utils";
+import { readTSFile, removeMapFunctionEntry, showMappingEndNotification } from "../../util/ai-datamapper-utils";
 import { compareVersions } from "../../util/onboardingUtils";
+import { mapDataMapper } from "../../ai-panel/copilot/data-mapper/mapper";
 
 const undoRedoManager = new UndoRedoManager();
 
@@ -227,52 +227,6 @@ export class MiDataMapperRpcManager implements MIDataMapperAPI {
         });
     }
 
-    async authenticateUser(): Promise<boolean> {
-        let token;
-        try {
-            // Get the user token from the secrets
-            token = await extension.context.secrets.get('MIAIUser');
-            if (!token) {
-                throw new Error('Token not available');
-            }
-            const url = await fetchBackendUrl(this.projectUri) + '/user/usage';
-            let response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-            if (!response.ok) {
-                if (response.status === 401 || response.status === 403) {
-                    token = await refreshAuthCode();
-                    if (!token) {
-                        throw new Error('Token refresh failed');
-                    }
-                    // retry the request with the new token
-                    response = await fetch(url, {
-                        method: 'GET',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`,
-                        },
-                    });
-                    if (!response.ok) {
-                        throw new Error('Token verification failed after refresh');
-                    }
-                } else {
-                    throw new Error(`Error while checking token: ${response.statusText}`);
-                }
-            }
-        } catch (error) {
-            console.error('Error while getting or refreshing user token: ', error);
-            showSignedOutNotification(this.projectUri);
-            openSignInView(this.projectUri);
-            return false;
-        }
-        return true;  // token is available and valid
-    }
-
     // Function to ask whether the user wants to replace all existing mappings with ai generated mappings
     async confirmMappingAction(): Promise<boolean> {
         // Define the message based on the action
@@ -322,75 +276,51 @@ export class MiDataMapperRpcManager implements MIDataMapperAPI {
         }
     }
 
-    // Main function to get the mapping from OpenAI and write it to the relevant files
+    // Main function to get the mapping from AI and write it to the relevant files
     async getMappingFromAI(): Promise<void> {
         try {
             // Function to read the TypeScript file
             let tsContent = await readTSFile(this.projectUri);
-            const backendRootUri = await fetchBackendUrl(this.projectUri);
-            const url = backendRootUri + '/data-mapper/map';
-            let token;
-            try {
-                // Get the user token from the secrets
-                token = await extension.context.secrets.get('MIAIUser');
+            
+            console.log("Generating data mapping using Copilot...");
+            
+            // Call the local data mapper function
+            const mappingString = await mapDataMapper({
+                tsFile: tsContent
+            });
+            
+            console.log("Data mapping generated successfully using Copilot");
+            
+            // Remove the mapFunction line from the mapping string
+            const mappingRet = removeMapFunctionEntry(mappingString);
+
+            if (!mappingRet?.trim()) {
+                throw new Error("MI Copilot did not return a valid mapping body.");
             }
-            catch (error) {
-                console.error('Error while getting user token.');
-                showSignedOutNotification(this.projectUri);
-                openSignInView(this.projectUri);
-                return; // If there is no token, return early to exit the function
-            }
-            let response;
-            try {
-                // Make a request to the backend to get the data mapping
-                response = await makeRequest(url, token, tsContent);
-            } catch (error) {
-                console.error('Error while making request to backend', error);
-                showMappingEndNotification(this.projectUri);
-                openSignInView(this.projectUri);
-                return; // If there is an error in the request, return early to exit the function
-            }
-            try {
-                interface DataMapResponse {
-                    mapping: string;
-                    event: string;
-                    usage: string;
-                }
-                // Parse the response from the request
-                const data = await response as DataMapResponse;
-                if (data.event === "data_mapping_success") {
-                    // Extract the mapping string and pass it to the writeDataMapping function
-                    const mappingString = data.mapping;
-                    // Remove the mapFunction line from the mapping string
-                    const mappingRet = removeMapFunctionEntry(mappingString);
-                    // Create an object of type DataMapWriteRequest
-                    const dataMapWriteRequest: DataMapWriteRequest = {
-                        dataMapping: mappingRet
-                    };
-                    await this.writeDataMapping(dataMapWriteRequest);
-                    // Show a notification to the user
-                    showMappingEndNotification(this.projectUri);
-                }
-                else {
-                    // Log error or perform error handling
-                    console.error('Data mapping was not successful');
-                }
-            }
-            catch (error) {
-                console.error('Error while generating data mapping', error);
-                throw error;
-            }
+            
+            // Create an object of type DataMapWriteRequest
+            const dataMapWriteRequest: DataMapWriteRequest = {
+                dataMapping: mappingRet
+            };
+            
+            await this.writeDataMapping(dataMapWriteRequest);
+            
+            // Show a notification to the user
+            showMappingEndNotification(this.projectUri);
         }
-        catch (requestError) {
-            console.error('Error while making request to backend', requestError);
-            return;
+        catch (error) {
+            console.error('Error while generating data mapping', error);
+            window.showErrorMessage(
+                `Failed to generate data mapping: ${error instanceof Error ? error.message : 'Unknown error'}`
+            );
+            throw error;
         }
     }
 
     async createDMFiles(params: GenerateDMInputRequest): Promise<GenerateDMInputResponse> {
         return new Promise(async (resolve, reject) => {
             try {
-                const dmContent = `import * as ${DM_OPERATORS_IMPORT_NAME} from "./${DM_OPERATORS_FILE_NAME}";\n\n/**\n* inputType:unknown\n*/\ninterface InputRoot {\n}\n\n/**\n* outputType:unknown\n*/\ninterface OutputRoot {\n}\n\nexport function mapFunction(input: InputRoot): OutputRoot {\nreturn {}\n};`;
+                const dmContent = `import * as ${DM_OPERATORS_IMPORT_NAME} from "./${DM_OPERATORS_FILE_NAME}";\ndeclare var DM_PROPERTIES: any;\n\n/**\n* inputType:unknown\n*/\ninterface InputRoot {\n}\n\n/**\n* outputType:unknown\n*/\ninterface OutputRoot {\n}\n\nexport function mapFunction(input: InputRoot): OutputRoot {\nreturn {}\n};`;
                 const { filePath, dmName } = params;
                 const workspaceFolder = workspace.getWorkspaceFolder(Uri.file(filePath));
                 let miDiagramRpcManager: MiDiagramRpcManager = new MiDiagramRpcManager(this.projectUri);

@@ -39,6 +39,7 @@ export function DataSourceRDBMSForm(props: DataSourceRDBMSFormProps) {
     const [isInitialLoading, setIsInitialLoading] = React.useState(true);
     const [isEnableURLEdit, setIsEnableURLEdit] = React.useState(false);
     const [prevDbType, setPrevDbType] = React.useState(props.watch('rdbms.databaseEngine'));
+    const [hasExtractedUrl, setHasExtractedUrl] = React.useState(false);
 
     const databaseEngines: OptionProps[] = [
         { value: "MySQL" },
@@ -55,23 +56,36 @@ export function DataSourceRDBMSForm(props: DataSourceRDBMSFormProps) {
     ];
 
     useEffect(() => {
-        if (isInitialLoading) {
+        if (props.isEditDatasource && !hasExtractedUrl && props.watch('rdbms.url')) {
+            extractValuesFromUrl(props.watch('rdbms.url'), props.watch('rdbms.databaseEngine'));
+            setHasExtractedUrl(true);
             setIsInitialLoading(false);
+            return;
+        }
+        
+        if (isInitialLoading) {
             if (props.watch('rdbms.driverClassName') === "" && props.watch('rdbms.url') === "") {
                 props.setValue('rdbms.driverClassName', driverMap.get("MySQL").driverClass);
                 props.setValue('rdbms.url', driverMap.get("MySQL").jdbcUrl);
             }
+            setIsInitialLoading(false);
+            return;
         }
-
-        props.isEditDatasource && extractValuesFromUrl(props.watch('rdbms.url'), props.watch('rdbms.databaseEngine'));
 
         const driverUrl = driverMap.get(props.watch("rdbms.databaseEngine"));
         if (prevDbType !== props.watch('rdbms.databaseEngine')) {
             setPrevDbType(props.watch('rdbms.databaseEngine'));
-            props.setValue('rdbms.hostname', "localhost");
-            props.setValue('rdbms.port', driverUrl.port);
+            // Reset hostname and port to defaults when:
+            // 1. Creating a new datasource (not editing), OR
+            // 2. User is changing the database engine (prevDbType is already set)
+            const shouldResetHostnameAndPort = !props.isEditDatasource || prevDbType !== '';
+            if (shouldResetHostnameAndPort) {
+                props.setValue('rdbms.hostname', "localhost");
+                props.setValue('rdbms.port', driverUrl.port);
+            }
             props.setValue('rdbms.driverClassName', driverUrl.driverClass);
         }
+
         props.setValue('rdbms.url', replacePlaceholders(driverUrl.jdbcUrl));
 
     }, [props.watch('rdbms.databaseEngine'), props.watch('rdbms.hostname'), props.watch('rdbms.port'), props.watch('rdbms.databaseName'), props.isEditDatasource]);
@@ -110,10 +124,9 @@ export function DataSourceRDBMSForm(props: DataSourceRDBMSFormProps) {
             const match = url.match(regex);
             if (match && match.groups) {
                 const { host, port, database } = match.groups;
-
-                !props.watch('rdbms.hostname') && props.setValue('rdbms.hostname', host);
-                !props.watch('rdbms.port') &&props.setValue('rdbms.port', port);
-                !props.watch('rdbms.databaseName') && props.setValue('rdbms.databaseName', database);
+                props.setValue('rdbms.hostname', host);
+                props.setValue('rdbms.port', port);
+                props.setValue('rdbms.databaseName', database);
             }
         }
     };

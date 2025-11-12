@@ -65,7 +65,9 @@ import {
     UpdateAiDependenciesRequest,
     RuntimeServiceDetails,
     MavenDeployPluginDetails,
-    ProjectConfig
+    ProjectConfig,
+    ReloadDependenciesRequest,
+    DependencyStatusResponse
 } from "@wso2/mi-core";
 import * as https from "https";
 import Mustache from "mustache";
@@ -92,6 +94,22 @@ import { extractCAppDependenciesAsProjects } from "../../visualizer/activate";
 import { findMultiModuleProjectsInWorkspaceDir } from "../../util/migrationUtils";
 
 Mustache.escape = escapeXml;
+
+/**
+ * Extracts and parses dependencies from error message based on a regex pattern
+ * @param errorMessage - The complete error message
+ * @param pattern - Regex pattern to match the specific error category
+ * @returns Array of dependency strings (in format: groupId-artifactId-version)
+ */
+function extractDependenciesFromError(errorMessage: string, pattern: RegExp): string[] {
+    const match = errorMessage.match(pattern);
+    if (match && match[1]) {
+        const cleanedList = match[1].replace(/\.$/, '').trim();
+        return cleanedList.split(',').map(c => c.trim()).filter(c => c.length > 0);
+    }
+    return [];
+}
+
 export class MiVisualizerRpcManager implements MIVisualizerAPI {
     constructor(private projectUri: string) { }
 
@@ -188,21 +206,119 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     /**
      * Reloads the dependencies for the current integration project.
      *
+     * @param params - An object containing the parameters for reloading dependencies.
      * @returns {Promise<boolean>} A promise that resolves to `true` when all dependency reload operations are complete.
      */
-    async reloadDependencies(): Promise<boolean> {
+    async reloadDependencies(params?: ReloadDependenciesRequest): Promise<boolean> {
         return new Promise(async (resolve) => {
+            let reloadDependenciesResult = true;
             const langClient = getStateMachine(this.projectUri).context().langClient!;
-            await langClient?.updateConnectorDependencies();
-            await extractCAppDependenciesAsProjects(this.projectUri);
-            const loadResult = await langClient?.loadDependentCAppResources();
-            if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
-                await window.showWarningMessage(
-                    loadResult,
-                    { modal: true }
-                );
+            const updateDependenciesResult = await langClient?.updateConnectorDependencies();
+            if (!updateDependenciesResult.toLowerCase().startsWith("success")) {              
+                const connectorsNotDownloaded: string[] = [];
+                const unavailableDependencies: string[] = [];
+                const missingDescriptorDependencies: string[] = [];
+                const versioningMismatchDependencies: string[] = [];
+                
+                // Extract connectors not downloaded
+                connectorsNotDownloaded.push(...extractDependenciesFromError(
+                    updateDependenciesResult,
+                    /Some connectors were not downloaded:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/
+                ));
+                
+                // Extract unavailable integration project dependencies
+                unavailableDependencies.push(...extractDependenciesFromError(
+                    updateDependenciesResult,
+                    /Following integration project dependencies were unavailable:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/
+                ));
+                
+                // Extract dependencies without descriptor file
+                missingDescriptorDependencies.push(...extractDependenciesFromError(
+                    updateDependenciesResult,
+                    /Following dependencies do not contain the descriptor file:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/
+                ));
+
+                // Extract dependencies with versioning mismatches
+                versioningMismatchDependencies.push(...extractDependenciesFromError(
+                    updateDependenciesResult,
+                    /Versioned deployment status is different from the dependent project:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/
+                ));
+                
+                const allFailedDependencies = [
+                    ...connectorsNotDownloaded,
+                    ...unavailableDependencies,
+                    ...missingDescriptorDependencies,
+                    ...versioningMismatchDependencies
+                ];
+                
+                if (allFailedDependencies.length > 0 && params?.newDependencies && params.newDependencies.length > 0) {
+                    const projectDetails = await langClient.getProjectDetails();
+                    const existingDependencies = projectDetails.dependencies || [];
+                    const allExistingDeps = [
+                        ...(existingDependencies.connectorDependencies || []),
+                        ...(existingDependencies.integrationProjectDependencies || []),
+                        ...(existingDependencies.otherDependencies || [])
+                    ];
+
+                    // Find and remove failed dependencies that are in newDependencies
+                    const dependenciesToRemove = params.newDependencies
+                        .filter(newDep => {
+                            const dependencyString = `${newDep.groupId}-${newDep.artifact}-${newDep.version}`;
+                            return allFailedDependencies.includes(dependencyString);
+                        })
+                        .map(newDep => {
+                            const existingDep = allExistingDeps.find(existing =>
+                                existing.groupId === newDep.groupId &&
+                                existing.artifact === newDep.artifact &&
+                                existing.version === newDep.version
+                            );
+                            return existingDep;
+                        })
+                        .filter((dep): dep is NonNullable<typeof dep> => dep !== undefined);
+
+                    if (dependenciesToRemove.length > 0) {
+                        reloadDependenciesResult = false;
+                        const newDep = params.newDependencies[0];
+                        const dependencyString = `${newDep.groupId}-${newDep.artifact}-${newDep.version}`;
+                        
+                        let warningMessage = "";
+                        if (connectorsNotDownloaded.includes(dependencyString)) {
+                            warningMessage = "Connector downloading failed.";
+                        } else if (unavailableDependencies.includes(dependencyString)) {
+                            warningMessage = "Dependency downloading failed.";
+                        } else if (missingDescriptorDependencies.includes(dependencyString)) {
+                            warningMessage = "The dependency does not contain the descriptor file.";
+                        } else if (versioningMismatchDependencies.includes(dependencyString)) {
+                            warningMessage = "Versioned deployment status is different from the parent project.";
+                        } else {
+                            warningMessage = "The dependency could not be downloaded.";
+                        }
+                        
+                        await window.showWarningMessage(
+                            warningMessage,
+                            { modal: true }
+                        );
+
+                        await this.updatePomValues({
+                            pomValues: dependenciesToRemove.map(dep => ({ range: dep.range, value: '' }))
+                        });
+                    }
+                }
             }
-            resolve(true);
+            
+            try {
+                await extractCAppDependenciesAsProjects(this.projectUri);
+                const loadResult = await langClient?.loadDependentCAppResources();
+                if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
+                    await window.showWarningMessage(
+                        loadResult,
+                        { modal: true }
+                    );
+                }
+            } catch (error) {
+                console.error("Error extracting CApp dependencies:", error);
+            }
+            resolve(reloadDependenciesResult);
         });
     }
 
@@ -246,6 +362,14 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
             }
 
             resolve(true);
+        });
+    }
+
+    async getDependencyStatusList(): Promise<DependencyStatusResponse> {
+        return new Promise(async (resolve) => {
+            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const res = await langClient.getDependencyStatusList();
+            resolve(res);
         });
     }
 
@@ -301,6 +425,7 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
         return new Promise(async (resolve) => {
             const langClient = getStateMachine(this.projectUri).context().langClient!;
             const res = await langClient.updateConnectorDependencies();
+            await extractCAppDependenciesAsProjects(this.projectUri);
             resolve(res);
         });
     }

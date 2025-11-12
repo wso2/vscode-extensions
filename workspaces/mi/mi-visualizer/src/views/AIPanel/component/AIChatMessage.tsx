@@ -23,14 +23,13 @@ import {
     ChatMessage as StyledChatMessage,
     RoleContainer,
     EditDeleteButtons,
-    PreviewContainerRole,
     FlexRow,
 } from "../styles";
 import { CodeSegment } from "./CodeSegment";
 import { splitContent } from "../utils";
 import { useMICopilotContext } from "./MICopilotContext";
-import { MarkdownRendererProps, ChatMessage, CopilotChatEntry } from "../types";
-import { Role, MessageType } from "../types";
+import { MarkdownRendererProps } from "../types";
+import { Role, MessageType, ChatMessage, CopilotChatEntry } from "@wso2/mi-core";
 import Attachments from "./Attachments";
 import FeedbackBar from "./FeedbackBar";
 
@@ -68,7 +67,6 @@ interface ChatMessageProps {
  */
 const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
     const {
-        isRuntimeVersionThresholdReached,
         messages,
         setMessages,
         setCurrentUserprompt,
@@ -139,9 +137,6 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
             <RoleContainer>
                 {message.role === Role.MIUser ? <Codicon name="account" /> : <Codicon name="hubot" />}
                 <h3 style={{ margin: 0 }}>{message.role}</h3>
-                {message.role === Role.MICopilot && isRuntimeVersionThresholdReached ? (
-                    <PreviewContainerRole>V3-Preview</PreviewContainerRole>
-                ) : null}
             </RoleContainer>
 
             {splitContent(message.content).map((segment, i) =>
@@ -182,7 +177,7 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
             {message.role === Role.MICopilot && 
              message.type === MessageType.AssistantMessage && 
              !backendRequestTriggered &&
-             index === messages.length - 2 && (
+             index === messages.length - 1 && (
                 <FeedbackBar
                     messageIndex={index}
                     onFeedback={handleFeedback}
