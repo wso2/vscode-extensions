@@ -37,6 +37,7 @@ import { ParamEditor } from "./Parameters/ParamEditor";
 import { Parameters } from "./Parameters/Parameters";
 import { EntryPointTypeCreator } from "../../../../../components/EntryPointTypeCreator";
 import { hasEditableParameters } from "../../utils";
+import { has } from "lodash";
 
 const OptionalConfigRow = styled.div`
     display: flex;
@@ -129,23 +130,13 @@ export function DatabindForm(props: DatabindFormProps) {
         setFunctionModel(model);
     }, [model]);
 
-    // TODO: Should come from BE
-    const parameterDescriptionMap: Record<string, string> = {
-        "rabbitmq-caller": "Enable this to manually acknowledge or reject received messages in your RabbitMQ service.",
-        "kafka-caller": "Enable this to access the Kafka caller in your service for manual offset management and partition operations.",
-        "ftp-caller": "Enable this to access the FTP caller in your service for advanced file operations and control.",
-        "ftp-fileinfo": "The FTP info parameter provides metadata about the FTP connection and file details.",
-    };
-
     /**
-     * Gets the description of a parameter by its name and module
-     * @param parameterName - The name of the parameter to find
+     * Gets the description of a parameter from its metadata
+     * @param param - The parameter model
      * @returns The parameter description or empty string if not found
      */
-    const getParameterDescription = (parameterName: string): string => {
-        const moduleName = functionModel?.codedata?.moduleName || "";
-        const key = `${moduleName}-${parameterName}`.toLowerCase();
-        return parameterDescriptionMap[key] || "";
+    const getParameterDescription = (param: ParameterModel): string => {
+        return param.metadata?.description || "";
     };
 
     /**
@@ -336,6 +327,9 @@ export function DatabindForm(props: DatabindFormProps) {
 
     const payloadParameter = functionModel.parameters?.find((param) => param.kind === "DATA_BINDING" && param.enabled);
 
+    // Check if there's any DATA_BINDING parameter available (enabled or not)
+    const hasDataBindingParameter = functionModel.parameters?.some((param) => param.kind === "DATA_BINDING");
+
     const advancedParameters = functionModel.parameters?.filter((param) => param.kind !== "DATA_BINDING" && param.optional) || [];
 
     // Get payload field name from properties, default to "Payload", and capitalize it
@@ -350,198 +344,188 @@ export function DatabindForm(props: DatabindFormProps) {
             {(isLoading || isSaving) && <ProgressIndicator id="remote-loading-bar" />}
             <SidePanelBody>
                 <EditorContentColumn>
-                    {/* Message Configuration Section */}
-                    <MessageConfigContainer>
-                        <MessageConfigTitle>
-                            <Typography sx={{ marginBlockEnd: 0 }} variant="h4">
-                                Message Configuration
-                            </Typography>
-                            <Divider />
-                        </MessageConfigTitle>
-                        <MessageConfigSection>
-                            <MessageConfigContent>
-                                <PayloadSection>
-                                    {/* Payload Section */}
-                                    {!payloadParameter && !editModel && (
-                                        <AddButtonWrapper>
-                                            <Tooltip content={`Define ${payloadFieldName} for easier access in the flow diagram`} position="bottom">
-                                                <LinkButton onClick={onAddPayloadClick}>
-                                                    <Codicon name="add" />
-                                                    Define {payloadFieldName}
-                                                </LinkButton>
-                                            </Tooltip>
-                                        </AddButtonWrapper>
-                                    )}
-                                    {payloadParameter && (
-                                        <>
-                                            <Typography sx={{ marginBlockEnd: 8 }} variant="body2">
-                                                {payloadFieldName}
-                                            </Typography>
-                                            <Parameters
-                                                parameters={[payloadParameter]}
-                                                onChange={handlePayloadParamChange}
-                                                onEditClick={onEditPayloadClick}
-                                                showPayload={true}
-                                            />
-                                        </>
-                                    )}
-
-                                    {/* Payload Editor */}
-                                    {editModel && editModel.kind === "DATA_BINDING" && (
-                                        <ParamEditor
-                                            param={editModel}
-                                            onChange={onChangeParam}
-                                            onSave={onSaveParam}
-                                            onCancel={onParamEditCancel}
-                                            payloadFieldName={payloadFieldName}
-                                        />
-                                    )}
-                                </PayloadSection>
-
-                                {/* Advanced Message Configurations Collapsible Section */}
-                                {/* <OptionalConfigRow>
-                                    <span>Advanced Message Configurations</span>
-                                    <OptionalConfigButtonContainer>
-                                        {!showMessageTypeConfig && (
-                                            <LinkButton
-                                                onClick={handleShowMessageTypeConfig}
-                                                sx={{
-                                                    fontSize: 12,
-                                                    padding: 8,
-                                                    color: ThemeColors.PRIMARY,
-                                                    gap: 4,
-                                                    userSelect: "none",
-                                                }}
-                                            >
-                                                <Codicon
-                                                    name={"chevron-down"}
-                                                    iconSx={{ fontSize: 12 }}
-                                                    sx={{ height: 12 }}
-                                                />
-                                                Expand
-                                            </LinkButton>
-                                        )}
-                                        {showMessageTypeConfig && (
-                                            <LinkButton
-                                                onClick={handleHideMessageTypeConfig}
-                                                sx={{
-                                                    fontSize: 12,
-                                                    padding: 8,
-                                                    color: ThemeColors.PRIMARY,
-                                                    gap: 4,
-                                                    userSelect: "none",
-                                                }}
-                                            >
-                                                <Codicon
-                                                    name={"chevron-up"}
-                                                    iconSx={{ fontSize: 12 }}
-                                                    sx={{ height: 12 }}
-                                                />
-                                                Collapse
-                                            </LinkButton>
-                                        )}
-                                    </OptionalConfigButtonContainer>
-                                </OptionalConfigRow>
-                                {showMessageTypeConfig && (
-                                    <OptionalConfigContent>
-                                        <MessageTypeNameFieldContainer>
-                                            <TextField
-                                                label="Message Schema Name"
-                                                value={messageTypeNameValue}
-                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleMessageTypeNameChange(e.target.value)}
-                                                placeholder="Enter message schema name"
-                                                errorMsg=""
-                                            />
-                                        </MessageTypeNameFieldContainer>
-                                    </OptionalConfigContent>
-                                )} */}
-                            </MessageConfigContent>
-                        </MessageConfigSection>
-                    </MessageConfigContainer>
-
-
-                    {/* Advanced Parameters Section - Only show if there are additional parameters beyond the first */}
-                    {hasEditableParameters(advancedParameters) && (
+                    {hasDataBindingParameter ? (
                         <>
-                            <Divider sx={{ margin: 0 }} />
-                            <OptionalConfigRow>
-                                Advanced Parameters
-                                <OptionalConfigButtonContainer>
-                                    {!showAdvancedParameters && (
-                                        <LinkButton
-                                            onClick={handleShowAdvancedParameters}
-                                            sx={{
-                                                fontSize: 12,
-                                                padding: 8,
-                                                color: ThemeColors.PRIMARY,
-                                                gap: 4,
-                                                userSelect: "none",
-                                            }}
-                                        >
-                                            <Codicon
-                                                name={"chevron-down"}
-                                                iconSx={{ fontSize: 12 }}
-                                                sx={{ height: 12 }}
-                                            />
-                                            Expand
-                                        </LinkButton>
-                                    )}
+                            {/* Message Configuration Section - Only shown when data binding is available */}
+                            <MessageConfigContainer>
+                                <MessageConfigTitle>
+                                    <Typography sx={{ marginBlockEnd: 0 }} variant="h4">
+                                        Message Configuration
+                                    </Typography>
+                                    <Divider />
+                                </MessageConfigTitle>
+
+                                <MessageConfigSection>
+                                    <MessageConfigContent>
+                                        <PayloadSection>
+                                            {/* Payload Section */}
+                                            {!payloadParameter && !editModel && (
+                                                <AddButtonWrapper>
+                                                    <Tooltip content={`Define ${payloadFieldName} for easier access in the flow diagram`} position="bottom">
+                                                        <LinkButton onClick={onAddPayloadClick}>
+                                                            <Codicon name="add" />
+                                                            Define {payloadFieldName}
+                                                        </LinkButton>
+                                                    </Tooltip>
+                                                </AddButtonWrapper>
+                                            )}
+                                            {payloadParameter && (
+                                                <>
+                                                    <Typography sx={{ marginBlockEnd: 8 }} variant="body2">
+                                                        {payloadFieldName}
+                                                    </Typography>
+                                                    <Parameters
+                                                        parameters={[payloadParameter]}
+                                                        onChange={handlePayloadParamChange}
+                                                        onEditClick={onEditPayloadClick}
+                                                        showPayload={true}
+                                                    />
+                                                </>
+                                            )}
+
+                                            {/* Payload Editor */}
+                                            {editModel && editModel.kind === "DATA_BINDING" && (
+                                                <ParamEditor
+                                                    param={editModel}
+                                                    onChange={onChangeParam}
+                                                    onSave={onSaveParam}
+                                                    onCancel={onParamEditCancel}
+                                                    payloadFieldName={payloadFieldName}
+                                                />
+                                            )}
+                                        </PayloadSection>
+                                    </MessageConfigContent>
+                                </MessageConfigSection>
+                            </MessageConfigContainer>
+
+                            {/* Advanced Parameters Section - Collapsible when data binding is available */}
+                            {hasEditableParameters(advancedParameters) && (
+                                <>
+                                    <Divider sx={{ margin: 0 }} />
+                                    <OptionalConfigRow>
+                                        Advanced Parameters
+                                        <OptionalConfigButtonContainer>
+                                            {!showAdvancedParameters && (
+                                                <LinkButton
+                                                    onClick={handleShowAdvancedParameters}
+                                                    sx={{
+                                                        fontSize: 12,
+                                                        padding: 8,
+                                                        color: ThemeColors.PRIMARY,
+                                                        gap: 4,
+                                                        userSelect: "none",
+                                                    }}
+                                                >
+                                                    <Codicon
+                                                        name={"chevron-down"}
+                                                        iconSx={{ fontSize: 12 }}
+                                                        sx={{ height: 12 }}
+                                                    />
+                                                    Expand
+                                                </LinkButton>
+                                            )}
+                                            {showAdvancedParameters && (
+                                                <LinkButton
+                                                    onClick={handleHideAdvancedParameters}
+                                                    sx={{
+                                                        fontSize: 12,
+                                                        padding: 8,
+                                                        color: ThemeColors.PRIMARY,
+                                                        gap: 4,
+                                                        userSelect: "none",
+                                                    }}
+                                                >
+                                                    <Codicon
+                                                        name={"chevron-up"}
+                                                        iconSx={{ fontSize: 12 }}
+                                                        sx={{ height: 12 }}
+                                                    />
+                                                    Collapse
+                                                </LinkButton>
+                                            )}
+                                        </OptionalConfigButtonContainer>
+                                    </OptionalConfigRow>
                                     {showAdvancedParameters && (
-                                        <LinkButton
-                                            onClick={handleHideAdvancedParameters}
-                                            sx={{
-                                                fontSize: 12,
-                                                padding: 8,
-                                                color: ThemeColors.PRIMARY,
-                                                gap: 4,
-                                                userSelect: "none",
-                                            }}
-                                        >
-                                            <Codicon
-                                                name={"chevron-up"}
-                                                iconSx={{ fontSize: 12 }}
-                                                sx={{ height: 12 }}
-                                            />
-                                            Collapse
-                                        </LinkButton>
-                                    )}
-                                </OptionalConfigButtonContainer>
-                            </OptionalConfigRow>
-                            {showAdvancedParameters && (
-                                <OptionalConfigContent>
-                                    <CheckBoxGroup direction="vertical">
-                                        {advancedParameters.map((param: ParameterModel, index) => (
-                                            <CheckBox
-                                                key={index}
-                                                label={
-                                                    param.metadata.label.charAt(0).toUpperCase() +
-                                                    param.metadata.label.slice(1)
-                                                }
-                                                checked={param.enabled}
-                                                onChange={(checked) => {
-                                                    // Create a new array with updated parameters to avoid mutating parent state
-                                                    const updatedParameters = functionModel.parameters.map((p) => {
-                                                        if (p.metadata.label === param.metadata.label && p.name.value === param.name.value) {
-                                                            return {
-                                                                ...p,
-                                                                enabled: checked,
-                                                                name: {
-                                                                    ...p.name,
-                                                                    value: param.metadata.label
-                                                                        .toLowerCase()
-                                                                        .replace(/ /g, "_")
-                                                                }
-                                                            };
+                                        <OptionalConfigContent>
+                                            <CheckBoxGroup direction="vertical">
+                                                {advancedParameters.map((param: ParameterModel, index) => (
+                                                    <CheckBox
+                                                        key={index}
+                                                        label={
+                                                            param.metadata.label.charAt(0).toUpperCase() +
+                                                            param.metadata.label.slice(1)
                                                         }
-                                                        return p;
-                                                    });
-                                                    handleParamChange(updatedParameters);
-                                                }}
-                                                sx={{ description: getParameterDescription(param.name.value), marginTop: 0 }}
-                                            />
-                                        ))}
-                                    </CheckBoxGroup>
-                                </OptionalConfigContent>
+                                                        checked={param.enabled}
+                                                        onChange={(checked) => {
+                                                            const updatedParameters = functionModel.parameters.map((p) => {
+                                                                if (p.metadata.label === param.metadata.label && p.name.value === param.name.value) {
+                                                                    return {
+                                                                        ...p,
+                                                                        enabled: checked,
+                                                                        name: {
+                                                                            ...p.name,
+                                                                            value: param.metadata.label
+                                                                                .toLowerCase()
+                                                                                .replace(/ /g, "_")
+                                                                        }
+                                                                    };
+                                                                }
+                                                                return p;
+                                                            });
+                                                            handleParamChange(updatedParameters);
+                                                        }}
+                                                        sx={{ description: getParameterDescription(param), marginTop: 0 }}
+                                                    />
+                                                ))}
+                                            </CheckBoxGroup>
+                                        </OptionalConfigContent>
+                                    )}
+                                </>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            {/* Simple Parameters Section - Only shown when NO data binding */}
+                            {hasEditableParameters(advancedParameters) && (
+                                <>
+                                    {/* <Typography sx={{ marginBlockEnd: 12 }} variant="h4">
+                                        Parameters
+                                    </Typography>
+                                    <Divider /> */}
+                                    <div style={{ marginTop: 16 }}>
+                                        <CheckBoxGroup direction="vertical">
+                                            {advancedParameters.map((param: ParameterModel, index) => (
+                                                <CheckBox
+                                                    key={index}
+                                                    label={
+                                                        param.metadata.label.charAt(0).toUpperCase() +
+                                                        param.metadata.label.slice(1)
+                                                    }
+                                                    checked={param.enabled}
+                                                    onChange={(checked) => {
+                                                        const updatedParameters = functionModel.parameters.map((p) => {
+                                                            if (p.metadata.label === param.metadata.label && p.name.value === param.name.value) {
+                                                                return {
+                                                                    ...p,
+                                                                    enabled: checked,
+                                                                    name: {
+                                                                        ...p.name,
+                                                                        value: param.metadata.label
+                                                                            .toLowerCase()
+                                                                            .replace(/ /g, "_")
+                                                                    }
+                                                                };
+                                                            }
+                                                            return p;
+                                                        });
+                                                        handleParamChange(updatedParameters);
+                                                    }}
+                                                    sx={{ description: getParameterDescription(param), marginTop: 0 }}
+                                                />
+                                            ))}
+                                        </CheckBoxGroup>
+                                    </div>
+                                </>
                             )}
                         </>
                     )}
