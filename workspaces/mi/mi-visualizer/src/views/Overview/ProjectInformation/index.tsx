@@ -60,9 +60,9 @@ export function ProjectInformation(props: ProjectInformationProps) {
             try {
                 const response = await rpcClient.getMiVisualizerRpcClient().getProjectDetails();
                 setProjectDetails(response);
-                setDependencies(response.dependencies.connectorDependencies, setConnectorDependencies);
-                setDependencies(response.dependencies.integrationProjectDependencies, setIntegrationProjectDependencies);
-                setDependencies(response.dependencies.otherDependencies, setOtherDependencies);
+                setDependencies(response.dependencies?.connectorDependencies, setConnectorDependencies);
+                setDependencies(response.dependencies?.integrationProjectDependencies, setIntegrationProjectDependencies);
+                setDependencies(response.dependencies?.otherDependencies, setOtherDependencies);
             } catch (error) {
                 console.error("Error fetching project details:", error);
             }
@@ -72,7 +72,7 @@ export function ProjectInformation(props: ProjectInformationProps) {
 
     const setDependencies = (dependencies: DependencyDetails[], setDependencies: any) => {
         setDependencies({
-            paramValues: dependencies.map((dep, index) => (
+            paramValues: dependencies?.map((dep, index) => (
                 {
                     id: index,
                     key: dep.artifact,
@@ -163,7 +163,7 @@ export function ProjectInformation(props: ProjectInformationProps) {
                     allowDuplicates={false}
                     sx={{ opacity: 0.8 }}
                     paramConfigs={{
-                        paramValues: configurables.map((config, index) => (
+                        paramValues: configurables?.map((config, index) => (
                             {
                                 id: index,
                                 key: config.key,
@@ -237,19 +237,19 @@ export function ProjectInformation(props: ProjectInformationProps) {
             </Typography>
             <Item>
                 <Icon name="project" sx={{ marginRight: '8px' }} />
-                <Typography>Name: {primaryDetails.projectName.value}</Typography>
+                <Typography>Name: {primaryDetails?.projectName?.value}</Typography>
             </Item>
             <Item>
                 <Icon name="info" isCodicon sx={{ marginRight: '8px' }} />
-                <Typography>Description: {primaryDetails.projectDescription.value}</Typography>
+                <Typography>Description: {primaryDetails?.projectDescription?.value}</Typography>
             </Item>
             <Item>
                 <Icon name="versions" isCodicon sx={{ marginRight: '8px' }} />
-                <Typography>Version: {primaryDetails.projectVersion.value}</Typography>
+                <Typography>Version: {primaryDetails?.projectVersion?.value}</Typography>
             </Item>
             <Item>
                 <Icon name="vm" isCodicon sx={{ marginRight: '8px' }} />
-                <Typography>Runtime Version: {primaryDetails.runtimeVersion.value}</Typography>
+                <Typography>Runtime Version: {primaryDetails?.runtimeVersion?.value}</Typography>
             </Item>
 
             <Divider />
