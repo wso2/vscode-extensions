@@ -36,8 +36,7 @@ const fs = require('fs');
 interface MachineContext extends VisualizerLocation {
     langClient: ExtendedLanguageClient | null;
     dependenciesResolved?: boolean;
-    isProject?: boolean;
-    isInWI?: boolean;
+    isInWI: boolean;
 }
 
 const stateMachine = createMachine<MachineContext>({
@@ -50,8 +49,7 @@ const stateMachine = createMachine<MachineContext>({
         errors: [],
         view: MACHINE_VIEW.Welcome,
         dependenciesResolved: false,
-        isProject: false,
-        isInWI: vscode.extensions.getExtension('wso2.wso2-integrator')?.isActive || false
+        isInWI: false
     },
     states: {
         initialize: {
@@ -64,8 +62,7 @@ const stateMachine = createMachine<MachineContext>({
                         target: 'environmentSetup',
                         cond: (context, event) => (event.data.isProject === true || event.data.isOldProject === true) && event.data.isEnvironmentSetUp === false,
                         actions: assign({
-                            view: (context, event) => MACHINE_VIEW.SETUP_ENVIRONMENT,
-                            isProject: (context, event) => event.data.isProject
+                            view: (context, event) => MACHINE_VIEW.SETUP_ENVIRONMENT
                         })
                     },
                     {
@@ -77,8 +74,7 @@ const stateMachine = createMachine<MachineContext>({
                             view: (context, event) => MACHINE_VIEW.UnsupportedProject,
                             projectUri: (context, event) => event.data.projectUri,
                             isOldProject: (context, event) => true,
-                            displayOverview: (context, event) => true,
-                            isProject: (context, event) => false
+                            displayOverview: (context, event) => true
                         })
                     },
                     {
@@ -89,29 +85,26 @@ const stateMachine = createMachine<MachineContext>({
                         actions: assign({
                             view: (context, event) => MACHINE_VIEW.UnsupportedWorkspace,
                             projectUri: (context, event) => event.data.projectUri,
-                            displayOverview: (context, event) => true,
-                            isProject: (context, event) => false
+                            displayOverview: (context, event) => true
                         })
                     },
                     {
                         target: 'lsInit',
                         cond: (context, event) =>
-                            event.data.isProject === true,
+                            event.data.isOldProject || event.data.isProject,
                         actions: assign({
                             view: (context, event) => event.data.view,
                             customProps: (context, event) => event.data.customProps,
                             projectUri: (context, event) => event.data.projectUri,
-                            isProject: (context, event) => true,
                             displayOverview: (context, event) => event.data.displayOverview
                         })
                     },
                     {
                         target: 'newProject',
                         // Assuming false means new project
-                        cond: (context, event) => event.data.isProject === false && event.data.isOldProject === false,
+                        cond: (context, event) => !context.isInWI && event.data.isProject === false && event.data.isOldProject === false,
                         actions: assign({
-                            view: (context, event) => MACHINE_VIEW.Welcome,
-                            isProject: (context, event) => false
+                            view: (context, event) => MACHINE_VIEW.Welcome
                         })
                     }
                     // No need for an explicit action for the false case unless you want to assign something specific
@@ -121,7 +114,6 @@ const stateMachine = createMachine<MachineContext>({
                     actions: assign({
                         view: (context, event) => MACHINE_VIEW.Disabled,
                         errors: (context, event) => event.data,
-                        isProject: (context, event) => false
                     })
                 }
             }
@@ -176,23 +168,16 @@ const stateMachine = createMachine<MachineContext>({
                 onDone: [
                     {
                         target: 'ready',
-                        cond: (context, event) => context.isProject === true && context.displayOverview === true,
+                        cond: (context, event) => context.displayOverview === true,
                         actions: assign({
                             langClient: (context, event) => event.data
                         })
                     },
                     {
                         target: 'ready.viewReady',
-                        cond: (context, event) => context.isProject === true && context.displayOverview === false,
+                        cond: (context, event) => context.displayOverview === false,
                         actions: assign({
                             langClient: (context, event) => event.data
-                        })
-                    },
-                    {
-                        target: 'disabled',
-                        cond: (context, event) => context.isProject !== true,
-                        actions: assign({
-                            view: (context, event) => MACHINE_VIEW.Disabled
                         })
                     }
                 ],
@@ -435,11 +420,6 @@ const stateMachine = createMachine<MachineContext>({
                     return reject(new Error("Project URI is not defined"));
                 }
 
-                if (context.isProject !== true) {
-                    log("Skipping webview creation - not a valid MI project");
-                    return resolve(true);
-                }
-
                 if (!webviews.has(context.projectUri)) {
                     const panel = new VisualizerWebview(context.view!, context.projectUri, extension.webviewReveal);
                     webviews.set(context.projectUri!, panel);
@@ -472,11 +452,6 @@ const stateMachine = createMachine<MachineContext>({
         },
         resolveMissingDependencies: (context, event) => {
             return new Promise(async (resolve, reject) => {
-                if (context.isProject !== true) {
-                    log("Skipping dependency resolution - not a valid MI project");
-                    return resolve(true);
-                }
-
                 if (!context?.projectUri) {
                     return reject(new Error("Project URI is not defined"));
                 }
@@ -491,11 +466,6 @@ const stateMachine = createMachine<MachineContext>({
         },
         findView: (context, event): Promise<VisualizerLocation> => {
             return new Promise(async (resolve, reject) => {
-                if (context.isProject !== true) {
-                    log("Skipping view finding - not a valid MI project");
-                    return resolve(context as VisualizerLocation);
-                }
-
                 const langClient = context.langClient!;
                 const viewLocation = context;
 
@@ -688,11 +658,6 @@ const stateMachine = createMachine<MachineContext>({
         },
         activateOtherFeatures: (context, event) => {
             return new Promise(async (resolve, reject) => {
-                if (context.isProject !== true) {
-                    log("Skipping feature activation - not a valid MI project");
-                    return resolve(true);
-                }
-
                 const ls = await MILanguageClient.getInstance(context.projectUri!);
                 const treeviewId = context.isInWI ? 'wso2-integrator.explorer' : 'MI.project-explorer';
                 await activateProjectExplorer(treeviewId, extension.context, ls.languageClient!);
@@ -709,11 +674,6 @@ const stateMachine = createMachine<MachineContext>({
         },
         focusProjectExplorer: (context, event) => {
             return new Promise(async (resolve, reject) => {
-                if (context.isProject !== true) {
-                    log("Skipping project explorer focus - not a valid MI project");
-                    return resolve(true);
-                }
-
                 vscode.commands.executeCommand(COMMANDS.FOCUS_PROJECT_EXPLORER);
                 resolve(true);
             });
@@ -742,7 +702,8 @@ export const getStateMachine = (projectUri: string): {
             projectUri: projectUri,
             langClient: null,
             errors: [],
-            view: MACHINE_VIEW.Welcome
+            view: MACHINE_VIEW.Welcome,
+            isInWI: vscode.extensions.getExtension('wso2.wso2-integrator') ? true : false
         })).start();
         stateMachines.set(projectUri, stateService);
     }
@@ -855,16 +816,6 @@ export function refreshUI(projectUri: string) {
 function updateProjectExplorer(location: VisualizerLocation | undefined) {
     if (location && location.documentUri) {
         const projectRoot = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(location.documentUri))?.uri?.fsPath;
-
-        if (projectRoot) {
-            const stateMachine = getStateMachine(projectRoot);
-            const context = stateMachine?.context();
-            
-            if (context?.isProject !== true) {
-                log("Skipping project explorer update - not a valid MI project");
-                return;
-            }
-        }
 
         const relativePath = vscode.workspace.asRelativePath(location.documentUri);
         const isTestFile = relativePath.startsWith(`src${path.sep}test${path.sep}`);
