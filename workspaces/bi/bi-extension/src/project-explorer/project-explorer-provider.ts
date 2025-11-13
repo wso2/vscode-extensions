@@ -19,7 +19,7 @@
 import * as vscode from 'vscode';
 import { window, Uri, commands } from 'vscode';
 import path = require('path');
-import { DIRECTORY_MAP, ProjectStructureArtifactResponse, ProjectStructureResponse, SHARED_COMMANDS, BI_COMMANDS, PackageConfigSchema, BallerinaProject, VisualizerLocation } from "@wso2/ballerina-core";
+import { DIRECTORY_MAP, ProjectStructureArtifactResponse, ProjectStructureResponse, SHARED_COMMANDS, BI_COMMANDS, PackageConfigSchema, BallerinaProject, VisualizerLocation, ProjectStructure } from "@wso2/ballerina-core";
 import { extension } from "../biExtentionContext";
 
 interface Property {
@@ -160,12 +160,17 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
             }
 
             // Get the state context from ballerina extension as it maintain the event driven tree data
-            let projectStructure;
+            let projectStructure: ProjectStructureResponse;
             if (typeof stateContext === 'object' && stateContext !== null && 'projectStructure' in stateContext && stateContext.projectStructure !== null) {
                 projectStructure = stateContext.projectStructure;
-                const projectTree = generateTreeData(packageName, packagePath, projectStructure);
-                if (projectTree) {
-                    data.push(projectTree);
+
+                // Generate the tree data for the projects
+                const projects = projectStructure.projects;
+                for (const project of projects) {
+                    const projectTree = generateTreeData(project.projectName, project.projectPath, project);
+                    if (projectTree) {
+                        data.push(projectTree);
+                    }
                 }
             }
 
@@ -178,7 +183,7 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
 function generateTreeData(
     packageName: string,
     packagePath: string,
-    components: ProjectStructureResponse
+    components: ProjectStructure
 ): ProjectExplorerEntry | undefined {
     const projectRootEntry = new ProjectExplorerEntry(
         `${packageName}`,
@@ -194,7 +199,7 @@ function generateTreeData(
     return projectRootEntry;
 }
 
-function getEntriesBI(components: ProjectStructureResponse): ProjectExplorerEntry[] {
+function getEntriesBI(components: ProjectStructure): ProjectExplorerEntry[] {
     const entries: ProjectExplorerEntry[] = [];
 
     // ---------- Entry Points ----------
