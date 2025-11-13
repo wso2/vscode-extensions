@@ -429,6 +429,27 @@ export function FTPResourceForm(props: FTPFormProps) {
     // Get message type name value from properties
     const messageTypeNameValue = functionModel.properties?.wrapperTypeName?.value || "";
 
+    /**
+     * Get the search kind based on the FTP function's metadata label
+     * Maps FTP function types to their corresponding search kinds for context-aware type suggestions
+     */
+    const getFTPSearchKind = (): string | undefined => {
+        const functionLabel = functionModel.metadata?.label;
+        if (!functionLabel) {
+            return undefined;
+        }
+
+        if (functionLabel.includes("onFileJson") || functionLabel.toLowerCase().includes("json")) {
+            return "FTP_JSON";
+        } else if (functionLabel.includes("onFileXml") || functionLabel.toLowerCase().includes("xml")) {
+            return "FTP_XML";
+        } else if (functionLabel.includes("onFileCsv") || functionLabel.includes("onFileCSV") || functionLabel.toLowerCase().includes("csv")) {
+            return "FTP_CSV";
+        }
+
+        return undefined;
+    };
+
     return (
         <>
             {(isLoading || isSaving) && <ProgressIndicator id="remote-loading-bar" />}
@@ -604,7 +625,8 @@ export function FTPResourceForm(props: FTPFormProps) {
                     protocol: "MESSAGE_BROKER",
                     serviceName: payloadContext?.serviceName || '',
                     queueOrTopic: getQueueDescriptionByModule(serviceModuleName) || "FTP File Transfer",
-                    messageDocumentation: "FTP file event payload"
+                    messageDocumentation: "FTP file event payload",
+                    searchKind: getFTPSearchKind()
                 }}
                 modalWidth={650}
                 modalHeight={600}

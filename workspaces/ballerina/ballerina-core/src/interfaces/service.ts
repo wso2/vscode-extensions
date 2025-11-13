@@ -122,6 +122,7 @@ export interface MessageQueuePayloadContext {
     serviceName: string;
     queueOrTopic?: string;
     messageDocumentation?: string;
+    searchKind?: string;
 }
 
 export type PayloadContext = HttpPayloadContext | MessageQueuePayloadContext;
