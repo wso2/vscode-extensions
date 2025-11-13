@@ -145,6 +145,7 @@ export function GroupNodeWidget(props: CallNodeWidgetProps) {
     const hasBreakpoint = node.hasBreakpoint();
     const isActiveBreakpoint = node.isActiveBreakpoint();
     const description = getNodeDescription(node.stNode);
+    const [isLegacyProject, setIsLegacyProject] = React.useState<boolean>(false);
 
     const tooltip = hasDiagnotics
         ? node
@@ -162,6 +163,10 @@ export function GroupNodeWidget(props: CallNodeWidgetProps) {
     const handlePopoverClose = () => {
         setIsPopoverOpen(false);
     };
+
+    useEffect(() => {
+        rpcClient.getMiDiagramRpcClient().isLegacyProject().then(setIsLegacyProject);
+    }, []);
 
     useEffect(() => {
         node.setSelected(sidePanelContext?.node === node);
@@ -192,7 +197,7 @@ export function GroupNodeWidget(props: CallNodeWidgetProps) {
                     )}
                     <S.TopPortWidget port={node.getPort("in")!} engine={engine} />
                     <div style={{ display: "flex", flexDirection: "row", width: NODE_DIMENSIONS.DEFAULT.WIDTH }}>
-                        <S.IconContainer>{getMediatorIconsFromFont(node.stNode.tag)}</S.IconContainer>
+                        <S.IconContainer>{getMediatorIconsFromFont(node.stNode.tag, undefined, isLegacyProject)}</S.IconContainer>
                         <div>
                             {isHovered && (
                                 <OptionsMenu appearance="icon" onClick={handleOnClickMenu}>

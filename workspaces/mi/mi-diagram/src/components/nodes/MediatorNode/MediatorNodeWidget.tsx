@@ -99,6 +99,7 @@ export function MediatorNodeWidget(props: CallNodeWidgetProps) {
     const isActiveBreakpoint = node.isActiveBreakpoint();
     const mediatorNode = ((node.stNode as Tool).mediator ?? node.stNode) as STNode;
     const description = getNodeDescription(mediatorNode);
+    const [isLegacyProject, setIsLegacyProject] = React.useState<boolean>(false);
 
     const handleOnClickMenu = (event: any) => {
         setIsPopoverOpen(!isPopoverOpen);
@@ -109,6 +110,10 @@ export function MediatorNodeWidget(props: CallNodeWidgetProps) {
     const handlePopoverClose = () => {
         setIsPopoverOpen(false);
     }
+
+    useEffect(() => {
+        rpcClient.getMiDiagramRpcClient().isLegacyProject().then(setIsLegacyProject);
+    }, []);
 
     useEffect(() => {
         node.setSelected(sidePanelContext?.node === node);
@@ -139,7 +144,7 @@ export function MediatorNodeWidget(props: CallNodeWidgetProps) {
                     )}
                     <S.TopPortWidget port={node.getPort("in")!} engine={engine} />
                     <div style={{ display: "flex", flexDirection: "row", width: NODE_DIMENSIONS.DEFAULT.WIDTH }}>
-                        <S.IconContainer>{getMediatorIconsFromFont(mediatorNode.tag)}</S.IconContainer>
+                        <S.IconContainer>{getMediatorIconsFromFont(mediatorNode.tag, undefined, isLegacyProject)}</S.IconContainer>
                         <div>
                             {isHovered && (
                                 <div>
