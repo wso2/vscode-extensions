@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { RunCommandRequest, RunCommandResponse, FileOrDirRequest, FileOrDirResponse, WorkspaceRootResponse, GetConfigurationRequest, GetConfigurationResponse, GetSubFoldersRequest, GetSubFoldersResponse, ProjectDirResponse, GetSupportedMIVersionsResponse, CreateProjectRequest, CreateProjectResponse, GettingStartedData, SampleDownloadRequest, BIProjectRequest } from "../../types/rpc.types";
+import { RunCommandRequest, RunCommandResponse, FileOrDirRequest, FileOrDirResponse, WorkspaceRootResponse, GetConfigurationRequest, GetConfigurationResponse, GetSubFoldersRequest, GetSubFoldersResponse, ProjectDirResponse, GetSupportedMIVersionsResponse, GettingStartedData, SampleDownloadRequest, BIProjectRequest, CreateMiProjectRequest, CreateMiProjectResponse, GetMigrationToolsResponse, MigrateRequest, PullMigrationToolRequest, ImportIntegrationRPCRequest, ImportIntegrationResponse, ShowErrorMessageRequest } from "../../types/rpc.types";
 
 export * from "./rpc-type";
 export * from "../../types/rpc.types";
@@ -32,8 +32,13 @@ export interface WIVisualizerAPI {
     getSupportedMIVersionsHigherThan: (version: string) => Promise<GetSupportedMIVersionsResponse>;
     getSubFolderNames: (params: GetSubFoldersRequest) => Promise<GetSubFoldersResponse>;
     askProjectDirPath: () => Promise<ProjectDirResponse>;
-    createProject: (params: CreateProjectRequest) => Promise<CreateProjectResponse>;
+    createMiProject: (params: CreateMiProjectRequest) => Promise<CreateMiProjectResponse>;
     fetchSamplesFromGithub: () => Promise<GettingStartedData>;
     downloadSelectedSampleFromGithub: (params: SampleDownloadRequest) => void;
     createBIProject: (params: BIProjectRequest) => Promise<void>;
+    getMigrationTools: () => Promise<GetMigrationToolsResponse>;
+    migrateProject: (params: MigrateRequest) => Promise<void>;
+    pullMigrationTool: (params: PullMigrationToolRequest) => Promise<void>;
+    importIntegration: (params: ImportIntegrationRPCRequest) => Promise<ImportIntegrationResponse>;
+    showErrorMessage: (params: ShowErrorMessageRequest) => Promise<void>;
 }

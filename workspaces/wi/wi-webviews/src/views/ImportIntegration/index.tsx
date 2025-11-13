@@ -17,24 +17,13 @@
  */
 
 import {
-    MigrationTool,
-    ProjectRequest,
+    BIProjectRequest,
+    DownloadProgress,
+    ImportIntegrationResponse,
     ImportIntegrationRPCRequest,
     MigrateRequest,
-    DownloadProgress,
-    ImportIntegrationResponse
+    MigrationTool
 } from "@wso2/wi-core";
-// import {
-//     DownloadProgress,
-//     EVENT_TYPE,
-//     ImportIntegrationResponse,
-//     ImportIntegrationRPCRequest,
-//     MACHINE_VIEW,
-//     MigrateRequest,
-//     MigrationTool,
-//     ProjectRequest,
-// } from "@wso2/ballerina-core";
-// import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { Icon, Typography } from "@wso2/ui-toolkit";
 import { Stepper, StepperContainer } from "@wso2/ui-toolkit/lib/components/Stepper/Stepper";
 import { useEffect, useState } from "react";
@@ -43,9 +32,10 @@ import { ImportIntegrationForm } from "./ImportIntegrationForm";
 import { MigrationProgressView } from "./MigrationProgressView";
 import { FormContainer, TitleContainer, IconButton } from "./styles";
 import { FinalIntegrationParams } from "./types";
+import { useVisualizerContext } from "../../contexts";
 
 export function ImportIntegration({ onBack }: { onBack?: () => void }) {
-    // const { rpcClient } = useRpcContext();
+    const { rpcClient } = useVisualizerContext();
 
     // State managed by the parent component
     const [step, setStep] = useState(0);
@@ -64,10 +54,10 @@ export function ImportIntegration({ onBack }: { onBack?: () => void }) {
 
     const pullIntegrationTool = (commandName: string, version: string) => {
         setPullingTool(true);
-        // rpcClient.getMigrateIntegrationRpcClient().pullMigrationTool({
-        //     toolName: commandName,
-        //     version: version,
-        // });
+        rpcClient.getMainRpcClient().pullMigrationTool({
+            toolName: commandName,
+            version: version,
+        });
     };
 
     // Handler to begin the import and switch to the migration progress view
@@ -76,41 +66,41 @@ export function ImportIntegration({ onBack }: { onBack?: () => void }) {
         selectedIntegration: MigrationTool,
         toolPullProgress: DownloadProgress
     ) => {
-        // if (selectedIntegration.needToPull && toolPullProgress && toolPullProgress.step === -1) {
-        //     console.error("Cannot start import, tool download failed.");
-        // }
-        // setStep(1);
-        // console.log("Starting import with params:", importParams);
+        if (selectedIntegration.needToPull && toolPullProgress && toolPullProgress.step === -1) {
+            console.error("Cannot start import, tool download failed.");
+        }
+        setStep(1);
+        console.log("Starting import with params:", importParams);
 
-        // const params: ImportIntegrationRPCRequest = {
-        //     packageName: "",
-        //     commandName: selectedIntegration.commandName,
-        //     sourcePath: importParams.importSourcePath,
-        //     parameters: importParams.parameters,
-        // };
-        // rpcClient
-        //     .getMigrateIntegrationRpcClient()
-        //     .importIntegration(params)
-        //     .then((response) => {
-        //         setMigrationCompleted(true);
-        //         setMigrationResponse(response);
-        //         if (!response.error) {
-        //             setMigrationSuccessful(true);
-        //         }
-        //     })
-        //     .catch((error) => {
-        //         console.error("Error during TIBCO import:", error);
-        //     });
+        const params: ImportIntegrationRPCRequest = {
+            packageName: "",
+            commandName: selectedIntegration.commandName,
+            sourcePath: importParams.importSourcePath,
+            parameters: importParams.parameters,
+        };
+        rpcClient
+            .getMainRpcClient()
+            .importIntegration(params)
+            .then((response) => {
+                setMigrationCompleted(true);
+                setMigrationResponse(response);
+                if (!response.error) {
+                    setMigrationSuccessful(true);
+                }
+            })
+            .catch((error: any) => {
+                console.error("Error during TIBCO import:", error);
+            });
     };
 
-    const handleCreateIntegrationFiles = (project: ProjectRequest) => {
+    const handleCreateIntegrationFiles = (project: BIProjectRequest) => {
         console.log("Creating integration files with params:", importParams);
         if (migrationResponse) {
-            // const params: MigrateRequest = {
-            //     project: project,
-            //     textEdits: migrationResponse.textEdits,
-            // };
-            // rpcClient.getMigrateIntegrationRpcClient().migrateProject(params);
+            const params: MigrateRequest = {
+                project: project,
+                textEdits: migrationResponse.textEdits,
+            };
+            rpcClient.getMainRpcClient().migrateProject(params);
         }
     };
 
@@ -127,38 +117,38 @@ export function ImportIntegration({ onBack }: { onBack?: () => void }) {
     };
 
     const getMigrationTools = () => {
-        // rpcClient
-        //     .getMigrateIntegrationRpcClient()
-        //     .getMigrationTools()
-        //     .then((response) => {
-        //         console.log("Available migration tools:", response.tools);
-        //         setMigrationTools(response.tools);
-        //     });
+        rpcClient
+            .getMainRpcClient()
+            .getMigrationTools()
+            .then((response) => {
+                console.log("Available migration tools:", response.tools);
+                setMigrationTools(response.tools);
+            });
     };
 
-    // useEffect(() => {
-    //     getMigrationTools();
+    useEffect(() => {
+        getMigrationTools();
 
-    //     rpcClient.onDownloadProgress((progressUpdate) => {
-    //         setToolPullProgress(progressUpdate);
-    //         if (progressUpdate.success) {
-    //             setPullingTool(false);
-    //         }
+        rpcClient.onDownloadProgress((progressUpdate) => {
+            setToolPullProgress(progressUpdate);
+            if (progressUpdate.success) {
+                setPullingTool(false);
+            }
 
-    //         if (progressUpdate.step === -1) {
-    //             setPullingTool(false);
-    //             rpcClient.getCommonRpcClient().showErrorMessage({ message: progressUpdate.message })
-    //         }
-    //     });
+            if (progressUpdate.step === -1) {
+                setPullingTool(false);
+                rpcClient.getMainRpcClient().showErrorMessage({ message: progressUpdate.message })
+            }
+        });
 
-    //     rpcClient.onMigrationToolStateChanged((state) => {
-    //         setMigrationToolState(state);
-    //     });
+        rpcClient.onMigrationToolStateChanged((state) => {
+            setMigrationToolState(state);
+        });
 
-    //     rpcClient.onMigrationToolLogs((log) => {
-    //         setMigrationToolLogs((prevLogs) => [...prevLogs, log]);
-    //     });
-    // }, [rpcClient]);
+        rpcClient.onMigrationToolLogs((log) => {
+            setMigrationToolLogs((prevLogs) => [...prevLogs, log]);
+        });
+    }, [rpcClient]);
 
     useEffect(() => {
         if (selectedIntegration?.needToPull && toolPullProgress && toolPullProgress.success && importParams) {

@@ -22,8 +22,7 @@ import { ExtensionAPIs } from "./extensionAPIs";
 import { ext } from "./extensionVariables";
 import { Uri } from "vscode";
 import path from "path";
-import { Messenger } from "vscode-messenger";
-import { registerMainRpcHandlers } from "./rpc-managers/main/rpc-handler";
+import { RPCLayer } from "./RPCLayer";
 
 /**
  * Webview manager for WSO2 Integrator
@@ -75,15 +74,12 @@ export class WebviewManager {
 			() => {
 				this.currentPanel = undefined;
 				this.currentViewType = undefined;
+				RPCLayer.dispose("wi-webview"); // Use a constant identifier for WI webview
 			},
 			null,
 			ext.context.subscriptions,
 		);
-
-		// Handle messages from the webview
-		const messenger = new Messenger();
-		messenger.registerWebviewPanel(this.currentPanel);
-		registerMainRpcHandlers(messenger);
+		RPCLayer.create(this.currentPanel, "wi-webview");
 	}
 
 	/**

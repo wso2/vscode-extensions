@@ -30,18 +30,27 @@ import {
     GetSubFoldersResponse,
     ProjectDirResponse,
     GetSupportedMIVersionsResponse,
-    CreateProjectRequest,
-    CreateProjectResponse,
+    CreateMiProjectRequest,
+    CreateMiProjectResponse,
     GettingStartedData,
     GettingStartedCategory,
     GettingStartedSample,
     SampleDownloadRequest,
-    BIProjectRequest
+    BIProjectRequest,
+    GetMigrationToolsResponse,
+    MigrateRequest,
+    ImportIntegrationRPCRequest,
+    ImportIntegrationResponse,
+    ImportIntegrationRequest,
+    ShowErrorMessageRequest
 } from "@wso2/wi-core";
-import { commands, window, workspace, Uri } from "vscode";
-import { askFileOrFolderPath, askFilePath, askProjectPath, handleOpenFile } from "./utils";
+import { commands, window, workspace, Uri, MarkdownString, extensions } from "vscode";
+import { askFileOrFolderPath, askFilePath, askProjectPath, BALLERINA_INTEGRATOR_ISSUES_URL, getUsername, handleOpenFile, sanitizeName } from "./utils";
 import * as fs from "fs";
+import * as path from "path";
 import axios from "axios";
+import { extension } from "../../bi/biExtentionContext";
+import { pullMigrationTool } from "./migrate-integration";
 
 export class MainRpcManager implements WIVisualizerAPI {
     constructor(private projectUri?: string) { }
@@ -123,6 +132,11 @@ export class MainRpcManager implements WIVisualizerAPI {
             const { path: folderPath } = params;
             const subFolders: string[] = [];
 
+            if (!folderPath || folderPath.trim() === '') {
+                resolve({ folders: subFolders });
+                return;
+            }
+
             try {
                 const subItems = fs.readdirSync(folderPath, { withFileTypes: true });
                 for (const item of subItems) {
@@ -150,18 +164,30 @@ export class MainRpcManager implements WIVisualizerAPI {
         });
     }
 
-    async createProject(params: CreateProjectRequest): Promise<CreateProjectResponse> {
-        // TODO: Import createBIProjectPure from ballerina-core
-        // For now, create a placeholder implementation
-        return new Promise(async (resolve) => {
+    async createMiProject(params: CreateMiProjectRequest): Promise<CreateMiProjectResponse> {
+        return new Promise(async (resolve, reject) => {
             try {
-                // This should call createBIProjectPure(params)
-                console.log("Creating project with params:", params);
-                resolve({ filePath: "" });
+                console.log("Creating MI project with params:", params);
+
+                const miCommandParams = {
+                    name: params.name,
+                    path: path.join(params.directory, params.name),
+                    scope: "user",
+                    open: params.open
+                };
+
+                const result = await commands.executeCommand("MI.project-explorer.create-project", miCommandParams);
+                
+                if (result) {
+                    resolve(result as CreateMiProjectResponse);
+                } else {
+                    resolve({ filePath: '' });
+                }
             } catch (error) {
-                console.error("Error creating project:", error);
-                window.showErrorMessage(`Failed to create project: ${error}`);
-                resolve({ filePath: "Error" });
+                console.error("Error creating MI project:", error);
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                window.showErrorMessage(`Failed to create MI project: ${errorMessage}`);
+                reject(error);
             }
         });
     }
@@ -215,18 +241,33 @@ export class MainRpcManager implements WIVisualizerAPI {
         const url = 'https://mi-connectors.wso2.com/samples/samples/';
         const workspaceFolders = workspace.workspaceFolders;
         const projectUri = this.projectUri ?? (workspaceFolders ? workspaceFolders[0].uri.fsPath : "");
-        if (projectUri) {
-            handleOpenFile(projectUri, params.zipFileName, url);
-        } else {
-            window.showErrorMessage('No workspace folder found');
+        handleOpenFile(projectUri, params.zipFileName, url);
+    }
+
+    private getLangClient() {
+        if (!extension.langClient) {
+            const ballerinaExt = extensions.getExtension('wso2.ballerina');
+            if (!ballerinaExt) {
+                throw new Error('Ballerina extension is not installed');
+            }
+            if (!ballerinaExt.isActive) {
+                throw new Error('Ballerina extension is not activated yet');
+            }
+            extension.langClient = ballerinaExt.exports.ballerinaExtInstance.langClient;
+            extension.biSupported = ballerinaExt.exports.ballerinaExtInstance.biSupported;
+            extension.isNPSupported = ballerinaExt.exports.ballerinaExtInstance.isNPSupported;
         }
+        return extension.langClient as any;
+    }
+
+    async getMigrationTools(): Promise<GetMigrationToolsResponse> {
+        return this.getLangClient().getMigrationTools();
     }
 
     async createBIProject(params: BIProjectRequest): Promise<void> {
         return new Promise(async (resolve, reject) => {
             try {
                 const result = await commands.executeCommand('BI.project.createBIProjectPure', params);
-                console.log("Command executed successfully, result:", result);
                 resolve();
             } catch (error) {
                 console.error("Error creating BI project:", error);
@@ -235,5 +276,55 @@ export class MainRpcManager implements WIVisualizerAPI {
                 reject(error);
             }
         });
+    }
+
+    async migrateProject(params: MigrateRequest): Promise<void> {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const result = await commands.executeCommand('BI.project.createBIProjectMigration', params);
+                resolve();
+            } catch (error) {
+                console.error("Error creating BI project:", error);
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                window.showErrorMessage(`Failed to create BI project: ${errorMessage}`);
+                reject(error);
+            }
+        });
+    }
+
+    async pullMigrationTool(args: { toolName: string; version: string }): Promise<void> {
+        try {
+            await pullMigrationTool(args.toolName, args.version);
+        } catch (error) {
+            console.error(`Failed to pull migration tool '${args.toolName}' version '${args.version}':`, error);
+            throw error;
+        }
+    }
+
+    async importIntegration(params: ImportIntegrationRPCRequest): Promise<ImportIntegrationResponse> {
+        const orgName = getUsername();
+        const langParams: ImportIntegrationRequest = {
+            orgName: orgName,
+            packageName: sanitizeName(params.packageName),
+            sourcePath: params.sourcePath,
+            parameters: params.parameters,
+        };
+        const langClient = this.getLangClient();
+        langClient.registerMigrationToolCallbacks();
+        switch (params.commandName) {
+            case "migrate-tibco":
+                return langClient.importTibcoToBI(langParams);
+            case "migrate-mule":
+                return langClient.importMuleToBI(langParams);
+            default:
+                console.error(`Unsupported integration type: ${params.commandName}`);
+                throw new Error(`Unsupported integration type: ${params.commandName}`);
+        }
+    }
+
+    async showErrorMessage(params: ShowErrorMessageRequest): Promise<void> {
+        const messageWithLink = new MarkdownString(params.message);
+        messageWithLink.appendMarkdown(`\n\nPlease [create an issue](${BALLERINA_INTEGRATOR_ISSUES_URL}) if the issue persists.`);
+        window.showErrorMessage(messageWithLink.value);
     }
 }

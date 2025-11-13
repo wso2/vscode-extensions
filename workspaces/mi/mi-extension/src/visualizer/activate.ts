@@ -95,15 +95,16 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
             if (args && args.name && args.path && args.scope) {
                 const rpcManager = new MiDiagramRpcManager("");
                 if (rpcManager) {
-                    await rpcManager.createProject(
+                    const result = await rpcManager.createProject(
                         {
                             directory: path.dirname(args.path),
                             name: path.basename(args.path),
-                            open: false,
+                            open: args.open ?? false,
                             miVersion: "4.4.0"
                         }
                     );
                     await createSettingsFile(args);
+                    return result;
                 }
 
                 async function createSettingsFile(args) {

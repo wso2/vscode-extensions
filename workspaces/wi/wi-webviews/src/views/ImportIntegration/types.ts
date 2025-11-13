@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { DownloadProgress, ImportIntegrationResponse, MigrationTool, ProjectRequest } from "@wso2/wi-core";
+import { DownloadProgress, ImportIntegrationResponse, MigrationTool, BIProjectRequest } from "@wso2/wi-core";
 
 export interface FinalIntegrationParams {
     importSourcePath: string;
@@ -71,7 +71,7 @@ export interface MigrationProgressProps {
 }
 
 export interface ConfigureProjectFormProps {
-    onNext: (project: ProjectRequest) => void;
+    onNext: (project: BIProjectRequest) => void;
     onBack: () => void;
 }
 
