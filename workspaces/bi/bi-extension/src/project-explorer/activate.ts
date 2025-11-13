@@ -25,11 +25,11 @@ interface ExplorerActivationConfig {
 	context: ExtensionContext;
 	isBI: boolean;
 	isBallerina?: boolean;
-	isMultiRoot?: boolean;
+	isBalWorkspace?: boolean;
 }
 
 export function activateProjectExplorer(config: ExplorerActivationConfig) {
-	const { context, isBI, isBallerina, isMultiRoot } = config;
+	const { context, isBI, isBallerina, isBalWorkspace } = config;
 
 	if (extension.langClient && extension.biSupported) {
 		setLoadingStatus();
@@ -39,7 +39,7 @@ export function activateProjectExplorer(config: ExplorerActivationConfig) {
 	const projectTree = createProjectTree(projectExplorerDataProvider);
 
 	if (isBallerina) {
-		registerBallerinaCommands(projectExplorerDataProvider, isBI, isMultiRoot);
+		registerBallerinaCommands(projectExplorerDataProvider, isBI, isBalWorkspace);
 	}
 
 	handleVisibilityChangeEvents(projectTree, projectExplorerDataProvider, isBallerina);
@@ -54,11 +54,12 @@ function createProjectTree(dataProvider: ProjectExplorerEntryProvider) {
 	return window.createTreeView(BI_COMMANDS.PROJECT_EXPLORER, { treeDataProvider: dataProvider });
 }
 
-function registerBallerinaCommands(dataProvider: ProjectExplorerEntryProvider, isBI: boolean, isMultiRoot?: boolean) {
+function registerBallerinaCommands(dataProvider: ProjectExplorerEntryProvider, isBI: boolean, isBalWorkspace?: boolean) {
 	commands.registerCommand(BI_COMMANDS.REFRESH_COMMAND, () => dataProvider.refresh());
+	commands.executeCommand('setContext', 'BI.isWorkspaceSupported', extension.isWorkspaceSupported ?? false);
 
-	if (isMultiRoot) {
-		commands.executeCommand('setContext', 'BI.isMultiRoot', true);
+	if (extension.isWorkspaceSupported && isBalWorkspace) {
+		commands.executeCommand('setContext', 'BI.isBalWorkspace', true);
 	}
 	if (isBI) {
 		registerBICommands();

@@ -25,6 +25,7 @@ export class ExtensionVariables {
     public langClient!: ExtendedLangClientInterface;
     public biSupported?: boolean;
     public isNPSupported?: boolean;
+    public isWorkspaceSupported?: boolean;
 }
 
 export const extension = new ExtensionVariables();
