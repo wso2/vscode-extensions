@@ -34,11 +34,10 @@ import { compareVersions } from '../util/onboardingUtils';
 import { removeFromHistory } from '../history';
 import * as fs from "fs";
 import { webviews } from '../visualizer/webview';
-import { log } from '../util/logger';
 import { MILanguageClient } from '../lang-client/activator';
 
 let isProjectExplorerInitialized = false;
-export async function activateProjectExplorer(context: ExtensionContext, lsClient: ExtendedLanguageClient) {
+export async function activateProjectExplorer(treeviewId: string, context: ExtensionContext, lsClient: ExtendedLanguageClient) {
 	if (isProjectExplorerInitialized) {
 		return;
 	}
@@ -47,7 +46,7 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 	const projectExplorerDataProvider = new ProjectExplorerEntryProvider(context);
 	await projectExplorerDataProvider.refresh();
 	let registryExplorerDataProvider;
-	const projectTree = window.createTreeView('wso2-integrator.explorer', { treeDataProvider: projectExplorerDataProvider });
+	const projectTree = window.createTreeView(treeviewId, { treeDataProvider: projectExplorerDataProvider });
 
 	const projectDetailsRes = await lsClient?.getProjectDetails();
 	const runtimeVersion = projectDetailsRes.primaryDetails.runtimeVersion.value;

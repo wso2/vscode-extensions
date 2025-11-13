@@ -37,6 +37,7 @@ interface MachineContext extends VisualizerLocation {
     langClient: ExtendedLanguageClient | null;
     dependenciesResolved?: boolean;
     isProject?: boolean;
+    isInWI?: boolean;
 }
 
 const stateMachine = createMachine<MachineContext>({
@@ -49,7 +50,8 @@ const stateMachine = createMachine<MachineContext>({
         errors: [],
         view: MACHINE_VIEW.Welcome,
         dependenciesResolved: false,
-        isProject: false
+        isProject: false,
+        isInWI: vscode.extensions.getExtension('wso2.wso2-integrator')?.isActive || false
     },
     states: {
         initialize: {
@@ -692,7 +694,8 @@ const stateMachine = createMachine<MachineContext>({
                 }
 
                 const ls = await MILanguageClient.getInstance(context.projectUri!);
-                await activateProjectExplorer(extension.context, ls.languageClient!);
+                const treeviewId = context.isInWI ? 'wso2-integrator.explorer' : 'MI.project-explorer';
+                await activateProjectExplorer(treeviewId, extension.context, ls.languageClient!);
                 await activateTestExplorer(extension.context);
                 resolve(true);
             });
