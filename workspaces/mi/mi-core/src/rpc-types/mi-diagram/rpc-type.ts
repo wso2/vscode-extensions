@@ -47,7 +47,6 @@ import {
     ImportProjectResponse,
     ESBConfigsResponse,
     HighlightCodeRequest,
-    AIUserInput,
     WriteContentToFileRequest,
     WriteContentToFileResponse,
     WriteIdpSchemaFileToRegistryRequest,
@@ -337,7 +336,6 @@ export const askOpenAPIDirPath: RequestType<void, FileDirResponse> = { method: `
 export const createProject: RequestType<CreateProjectRequest, CreateProjectResponse> = { method: `${_preFix}/createProject` };
 export const importProject: RequestType<ImportProjectRequest, ImportProjectResponse> = { method: `${_preFix}/importProject` };
 export const migrateProject: RequestType<MigrateProjectRequest, MigrateProjectResponse> = { method: `${_preFix}/migrateProject` };
-export const getAIResponse: RequestType<AIUserInput, string> = { method: `${_preFix}/getAIResponse` };
 export const writeContentToFile: RequestType<WriteContentToFileRequest, WriteContentToFileResponse> = { method: `${_preFix}/writeContentToFile` };
 export const handleFileWithFS: RequestType<HandleFileRequest, HandleFileResponse> = { method: `${_preFix}/handleFileWithFS` };
 export const writeIdpSchemaFileToRegistry: RequestType<WriteIdpSchemaFileToRegistryRequest, WriteIdpSchemaFileToRegistryResponse> = { method: `${_preFix}/writeIdpSchemaFileToRegistry` };

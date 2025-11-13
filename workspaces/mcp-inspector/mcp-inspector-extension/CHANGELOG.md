@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2] - 2025-11-06
+
+### Fixed
+- **Intermittent 404 Errors** — Resolved loading issues by fixing static file path resolution, adding startup delay to prevent race conditions, and implementing automatic retry logic with exponential backoff
+
 ## [0.7.1] - 2025-11-05
 
 ### Added
