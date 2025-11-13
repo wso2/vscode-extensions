@@ -15,6 +15,13 @@ import { StateMachinePopup } from './stateMachinePopup';
 import { checkIsBallerinaPackage, checkIsBI, fetchScope, getOrgPackageName, UndoRedoManager, getProjectTomlValues } from './utils';
 import { buildProjectArtifactsStructure } from './utils/project-artifacts';
 import { activateDevantFeatures } from './features/devant/activator';
+import { 
+    isCloudEditorEnvironment, 
+    getCurrentAccessToken, 
+    shouldUpdateToken, 
+    updateBallerinaSettingsWithStsToken, 
+    getDevantStsToken 
+} from './utils/auth-utils';
 
 interface MachineContext extends VisualizerLocation {
     langClient: ExtendedLangClient | null;
@@ -26,6 +33,34 @@ interface MachineContext extends VisualizerLocation {
 export let history: History;
 export let undoRedoManager: IUndoRedoManager;
 let pendingProjectRootUpdateResolvers: Array<() => void> = [];
+
+/**
+ * Helper function to update STS token when packages are being pulled
+ * This ensures authenticated access to private packages in cloud editor environments
+ */
+async function updateStsTokenForPackagePull(): Promise<void> {
+    // Only update in cloud editor environment
+    if (!isCloudEditorEnvironment()) {
+        return;
+    }
+
+    try {
+        // Get the STS token from platform extension
+        const stsToken = await getDevantStsToken();
+        
+        if (stsToken && stsToken.trim() !== "") {
+            const currentToken = await getCurrentAccessToken();
+            
+            // Only update if token needs updating
+            if (shouldUpdateToken(currentToken, stsToken)) {
+                await updateBallerinaSettingsWithStsToken(stsToken);
+            }
+        }
+    } catch (error) {
+        console.error('Failed to update STS token for package pull:', error);
+        // Don't throw - allow package pull to proceed even if token update fails
+    }
+}
 
 const stateMachine = createMachine<MachineContext>(
     {
@@ -63,6 +98,8 @@ const stateMachine = createMachine<MachineContext>(
                         projectUri: (context, event) => event.projectPath
                     }),
                     async (context, event) => {
+                        // Update STS token before building project structure (for package pulls)
+                        await updateStsTokenForPackagePull();
                         await buildProjectArtifactsStructure(event.projectPath, StateMachine.langClient(), true);
                         notifyCurrentWebview();
                         // Resolve the next pending promise waiting for project root update completion
@@ -100,6 +137,8 @@ const stateMachine = createMachine<MachineContext>(
                                     package: (context, event) => event.data.packageName,
                                 }),
                                 async (context, event) => {
+                                    // Update STS token before building project structure (for package pulls)
+                                    await updateStsTokenForPackagePull();
                                     await buildProjectArtifactsStructure(event.data.projectPath, StateMachine.langClient(), true);
                                     notifyCurrentWebview();
                                 }
@@ -344,6 +383,9 @@ const stateMachine = createMachine<MachineContext>(
                     // If the project uri is not set, we don't need to build the project structure
                     if (context.projectUri) {
 
+                        // Update STS token before building project structure (for package pulls)
+                        await updateStsTokenForPackagePull();
+
                         // Add a 2 second delay before registering artifacts
                         await new Promise(resolve => setTimeout(resolve, 1000));
                         // Initial Project Structure
@@ -405,6 +447,9 @@ const stateMachine = createMachine<MachineContext>(
                         resolve(true);
                         return;
                     }
+
+                    // Update STS token before running bal build (for package pulls)
+                    await updateStsTokenForPackagePull();
 
                     const taskDefinition: TaskDefinition = {
                         type: 'shell',
@@ -740,7 +785,10 @@ export function updateView(refreshTreeView?: boolean, projectUri?: string) {
 
     stateService.send({ type: "VIEW_UPDATE", viewLocation: lastView ? newLocation : { view: "Overview" } });
     if (refreshTreeView) {
-        buildProjectArtifactsStructure(projectUri || StateMachine.context().projectUri, StateMachine.langClient(), true);
+        // Update STS token before building project structure (for package pulls)
+        updateStsTokenForPackagePull().then(() => {
+            buildProjectArtifactsStructure(projectUri || StateMachine.context().projectUri, StateMachine.langClient(), true);
+        });
     }
     notifyCurrentWebview();
 }
