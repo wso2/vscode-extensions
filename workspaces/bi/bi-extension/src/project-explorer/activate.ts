@@ -56,8 +56,9 @@ function createProjectTree(dataProvider: ProjectExplorerEntryProvider) {
 
 function registerBallerinaCommands(dataProvider: ProjectExplorerEntryProvider, isBI: boolean, isBalWorkspace?: boolean) {
 	commands.registerCommand(BI_COMMANDS.REFRESH_COMMAND, () => dataProvider.refresh());
+	commands.executeCommand('setContext', 'BI.isWorkspaceSupported', extension.isWorkspaceSupported ?? false);
 
-	if (isBalWorkspace) {
+	if (extension.isWorkspaceSupported && isBalWorkspace) {
 		commands.executeCommand('setContext', 'BI.isBalWorkspace', true);
 	}
 	if (isBI) {
