@@ -98,7 +98,7 @@ const stateMachine = createMachine<MachineContext>({
     actions: {
         activateBasedOnProjectType: (context, event) => {
             ext.log(`Activating for project type: ${context.projectType}`);
-            
+
             if (context.projectType === ProjectType.BI_BALLERINA) {
                 // Activate BI tree view
                 activateBIProjectExplorer({
@@ -107,12 +107,14 @@ const stateMachine = createMachine<MachineContext>({
                     isBallerina: context.isBallerina,
                     isMultiRoot: context.isMultiRoot
                 });
+                vscode.commands.executeCommand('setContext', 'WI.projectType', 'bi');
             } else if (context.projectType === ProjectType.MI) {
                 // Activate MI tree view
                 ext.log('MI project detected - MI tree view would be activated here');
+                vscode.commands.executeCommand('setContext', 'WI.projectType', 'mi');
             } else {
                 // No known project type, show welcome screen
-                showWelcomeScreen(context);
+                // showWelcomeScreen(context);
             }
         },
         showWelcomeScreen: (context, event) => {
@@ -123,7 +125,7 @@ const stateMachine = createMachine<MachineContext>({
 
 async function activateExtensionsBasedOnProjectType(context: MachineContext): Promise<void> {
     ext.log(`Activating extensions for project type: ${context.projectType}`);
-    
+
     // Initialize extension APIs and activate appropriate extensions based on project type
     if (context.projectType === ProjectType.BI_BALLERINA) {
         // Activate only BI extension for Ballerina projects
@@ -134,20 +136,20 @@ async function activateExtensionsBasedOnProjectType(context: MachineContext): Pr
         ext.log('Initializing MI extension for MI project');
         await context.extensionAPIs.initialize();
     }
-    
+
     // Set context keys for available extensions
     await vscode.commands.executeCommand("setContext", CONTEXT_KEYS.BI_AVAILABLE, context.extensionAPIs.isBIAvailable());
     await vscode.commands.executeCommand("setContext", CONTEXT_KEYS.MI_AVAILABLE, context.extensionAPIs.isMIAvailable());
-    
+
     // Create webview manager
     context.webviewManager = new WebviewManager(context.extensionAPIs);
     ext.context.subscriptions.push({
         dispose: () => context.webviewManager?.dispose(),
     });
-    
+
     // Register commands
     registerCommands(ext.context, context.webviewManager, context.extensionAPIs);
-    
+
     ext.log('Extensions activated successfully');
 }
 
@@ -159,10 +161,10 @@ async function detectProjectType(): Promise<{
     isMI?: boolean;
 }> {
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    
+
     // Check if it's an MI project
     const isMiProject = workspaceRoot ? await checkIfMiProject(workspaceRoot) : false;
-    
+
     if (isMiProject) {
         ext.log('Detected MI project');
         return {
@@ -170,20 +172,20 @@ async function detectProjectType(): Promise<{
             isMI: true
         };
     }
-    
+
     // Check for BI/Ballerina project
     const projectInfo: ProjectInfo = fetchProjectInfo();
     const ballerinaExt = vscode.extensions.getExtension('wso2.ballerina');
-    
+
     if (projectInfo.isBallerina && ballerinaExt) {
         ext.log('Detected BI/Ballerina project');
-        
+
         // Initialize Ballerina extension context
         extension.context = ext.context;
         extension.langClient = ballerinaExt.exports.ballerinaExtInstance.langClient;
         extension.biSupported = ballerinaExt.exports.ballerinaExtInstance.biSupported;
         extension.isNPSupported = ballerinaExt.exports.ballerinaExtInstance.isNPSupported;
-        
+
         return {
             projectType: ProjectType.BI_BALLERINA,
             isBI: projectInfo.isBI,
@@ -191,7 +193,7 @@ async function detectProjectType(): Promise<{
             isMultiRoot: projectInfo.isMultiRoot
         };
     }
-    
+
     ext.log('No known project type detected');
     return {
         projectType: ProjectType.NONE
@@ -203,12 +205,12 @@ function showWelcomeScreen(context: MachineContext): void {
         const extensionAPIs = context.extensionAPIs || new ExtensionAPIs();
         const webviewManager = new WebviewManager(extensionAPIs);
         context.webviewManager = webviewManager;
-        
+
         ext.context.subscriptions.push({
             dispose: () => webviewManager.dispose(),
         });
     }
-    
+
     context.webviewManager.showWelcome();
 }
 

@@ -58,14 +58,15 @@
         },
         {
           "id": "MI.mock-services",
-          "name": "MI Mock Services"
+          "name": "MI Mock Services",
+          "when": "WI.projectType == 'mi'"
         }
       ]
     },
     "viewsWelcome": [
       {
         "view": "wso2-integrator.explorer",
-        "contents": "Welcome to WSO2 Integrator! This extension provides a unified development environment for BI and MI integrations.\n[Open Welcome Page](command:wso2.integrator.openWelcome)\nTo learn more about WSO2 Integrator [read our docs](https://wso2.com/integration)."
+        "contents": ""
       }
     ],
     "commands": [
@@ -192,15 +193,15 @@
   "scripts": {
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "vscode:prepublish": "npm run build",
-    "build": "webpack --mode production && npm run postbuild",
-    "postbuild": "npm run copyJSLibs",
+    "vscode:prepublish": "npm run copyJSLibs",
+    "build": "npm run package",
     "copyJSLibs": "copyfiles -f ../wi-webviews/lib/main.js resources/jslibs",
     "watch": "tsc -p . -w",
     "compile": "tsc -p ./",
     "compile-tests": "tsc -p . --outDir out",
     "test": "node ./out/test/runTest.js",
-    "package": "vsce package"
+    "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release; else vsce package --no-dependencies; fi"
+
   },
   "devDependencies": {
     "@vscode/vsce": "^3.4.0",
