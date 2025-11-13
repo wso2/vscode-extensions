@@ -18,7 +18,6 @@
 
 import * as vscode from "vscode";
 import { ViewType } from "@wso2/wi-core";
-import type { WebviewProps } from "@wso2/wi-core";
 import { ExtensionAPIs } from "./extensionAPIs";
 import { ext } from "./extensionVariables";
 import { Uri } from "vscode";
@@ -47,7 +46,6 @@ export class WebviewManager {
 		if (this.currentPanel) {
 			this.currentViewType = viewType;
 			this.currentPanel.reveal(columnToShowIn);
-			this.sendWebviewData(viewType);
 			return;
 		}
 
@@ -70,7 +68,7 @@ export class WebviewManager {
 		this.currentViewType = viewType;
 
 		// Set the webview's html content
-		this.currentPanel.webview.html = this.getWebviewContent(this.currentPanel.webview);
+		this.currentPanel.webview.html = this.getWebviewContent(this.currentPanel.webview, viewType);
 
 		// Handle panel disposal
 		this.currentPanel.onDidDispose(
@@ -86,9 +84,6 @@ export class WebviewManager {
 		const messenger = new Messenger();
 		messenger.registerWebviewPanel(this.currentPanel);
 		registerMainRpcHandlers(messenger);
-
-		// Send initial data
-		this.sendWebviewData(viewType);
 	}
 
 	/**
@@ -118,7 +113,7 @@ export class WebviewManager {
 	/**
 	 * Get webview HTML content
 	 */
-	private getWebviewContent(webview: vscode.Webview): string {
+	private getWebviewContent(webview: vscode.Webview, type: ViewType): string {
 		const isDevMode = process.env.WEB_VIEW_DEV_MODE === "true";
 
 		const componentName = "main";
@@ -247,60 +242,13 @@ export class WebviewManager {
 				<script>
 					function render() {
 						wiWebview.renderWebview(
-							document.getElementById("root")
+							document.getElementById("root"), "${type}"
 						);
 					}
 					render();
 				</script>
 			</body>
 			</html>`;
-	}
-
-	/**
-	 * Send webview data based on view type
-	 */
-	private sendWebviewData(viewType: ViewType): void {
-		if (!this.currentPanel) {
-			return;
-		}
-
-		const props: WebviewProps = {
-			type: viewType,
-			biAvailable: this.extensionAPIs.isBIAvailable(),
-			miAvailable: this.extensionAPIs.isMIAvailable(),
-		};
-
-		this.currentPanel.webview.postMessage({
-			command: "initialize",
-			data: props,
-		});
-	}
-
-	/**
-	 * Send welcome data to webview
-	 * @deprecated Use sendWebviewData instead
-	 */
-	private sendWelcomeData(): void {
-		this.sendWebviewData(ViewType.WELCOME);
-	}
-
-	/**
-	 * Handle messages from webview
-	 */
-	private handleWebviewMessage(message: { command: string; data?: unknown }): void {
-		switch (message.command) {
-			case "openBI":
-				vscode.commands.executeCommand("wso2.integrator.openBIIntegration");
-				break;
-			case "openMI":
-				vscode.commands.executeCommand("wso2.integrator.openMIIntegration");
-				break;
-			case "refresh":
-				this.sendWelcomeData();
-				break;
-			default:
-				ext.log(`Unknown webview command: ${message.command}`);
-		}
 	}
 
 	/**

@@ -18,22 +18,17 @@
 
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { ViewType, type WebviewProps } from "@wso2/wi-core";
+import { ViewType } from "@wso2/wi-core";
 import IntegratorWebview from "./IntegratorWebview";
 import { VisualizerContextProvider } from "./contexts/RpcContext";
 import "./style.css";
 
-const defaultProps: WebviewProps = {
-	type: ViewType.WELCOME,
-	biAvailable: true,
-	miAvailable: true,
-};
-export function renderWebview(target: HTMLElement) {
+export function renderWebview(target: HTMLElement, type: ViewType) {
 	const reactRoot = ReactDOM.createRoot(target);
 	reactRoot.render(
 		<React.StrictMode>
 			<VisualizerContextProvider>
-				<IntegratorWebview {...defaultProps} />
+				<IntegratorWebview type={type} />
 			</VisualizerContextProvider>
 		</React.StrictMode>,
 	);
