@@ -174,27 +174,25 @@ export function FTPResourceForm(props: FTPFormProps) {
     };
 
     const handlePayloadParamChange = (params: ParameterModel[]) => {
-        // Check if a DATA_BINDING parameter was removed
-        const dataBindingParam = functionModel.parameters?.find((p) => p.kind === "DATA_BINDING");
-        const isInNewParams = params.some((p) => p.kind === "DATA_BINDING");
+        // Check if the content parameter was removed (params array is empty after deletion)
+        const contentParam = functionModel.parameters?.find((p) => p.metadata?.label === "content");
+        const isContentInNewParams = params.some((p) => p.metadata?.label === "content");
 
-        if (dataBindingParam && !isInNewParams) {
-            // Instead of deleting, disable the DATA_BINDING parameter and enable the first parameter
-            // Create a new array to avoid mutating the original
+        if (contentParam && !isContentInNewParams) {
+            // Content parameter was deleted - remove only the content parameter, keep all others
+            const updatedParams = functionModel.parameters.filter((p) => p.metadata?.label !== "content");
+            handleParamChange(updatedParams);
+        } else {
+            // Update only the content parameter, preserve all other parameters
             const updatedParams = functionModel.parameters.map((p) => {
-                if (p.kind === "DATA_BINDING") {
-                    return { ...p, enabled: false };
-                }
-                if (p.kind === "REQUIRED" && !isInNewParams) {
-                    return { ...p, enabled: true };
+                if (p.metadata?.label === "content") {
+                    // Find the updated content parameter from params
+                    const updatedContent = params.find(param => param.metadata?.label === "content");
+                    return updatedContent || p;
                 }
                 return p;
             });
-
             handleParamChange(updatedParams);
-        } else {
-            // Normal parameter change
-            handleParamChange(params);
         }
     };
 
@@ -246,8 +244,10 @@ export function FTPResourceForm(props: FTPFormProps) {
     const handleTypeCreated = (type: Type | string) => {
         // When a type is created, set it as the payload type
         const payloadParam = functionModel.parameters?.find(param => param.metadata?.label === "content");
+        const typeValue = typeof type === 'string' ? type : (type as Type).name;
+
         if (payloadParam) {
-            // Create a completely new object to ensure React detects the change
+            // Parameter exists - update it
             const updatedPayloadModel = {
                 ...payloadParam,
                 name: {
@@ -256,28 +256,77 @@ export function FTPResourceForm(props: FTPFormProps) {
                 },
                 type: {
                     ...payloadParam.type,
-                    value: typeof type === 'string' ? type : (type as Type).name
+                    value: typeValue
                 },
                 enabled: true
             };
 
-            // Find the index of the payload parameter
             const index = functionModel.parameters.findIndex(param => param.metadata?.label === "content");
             if (index >= 0) {
                 const updatedParameters = [...functionModel.parameters];
                 updatedParameters[index] = updatedPayloadModel;
-
-                // // Disable the first parameter if it's a REQUIRED parameter
-                // if (functionModel.parameters.length > 0 && functionModel.parameters[0].kind === "REQUIRED") {
-                //     updatedParameters[0] = {
-                //         ...updatedParameters[0],
-                //         enabled: false
-                //     };
-                // }
-
                 handleParamChange(updatedParameters);
             }
+        } else {
+            // Parameter doesn't exist - create a new one
+            const newContentParameter: ParameterModel = {
+                metadata: {
+                    label: "content",
+                    description: "The file content"
+                },
+                kind: "REQUIRED",
+                type: {
+                    metadata: {
+                        label: "Parameter Type",
+                        description: "The type of the parameter"
+                    },
+                    placeholder: "DATA_BINDING_TYPE",
+                    valueType: "TYPE",
+                    value: typeValue,
+                    enabled: true,
+                    editable: false,
+                    optional: true,
+                    advanced: false
+                },
+                name: {
+                    metadata: {
+                        label: "content",
+                        description: "The file content"
+                    },
+                    placeholder: "content",
+                    valueType: "IDENTIFIER",
+                    value: "content",
+                    enabled: true,
+                    editable: true,
+                    optional: false,
+                    advanced: false
+                },
+                defaultValue: {
+                    metadata: {
+                        label: "Default Value",
+                        description: "The default value of the parameter"
+                    },
+                    placeholder: "",
+                    valueType: "EXPRESSION",
+                    value: "",
+                    enabled: true,
+                    editable: true,
+                    optional: true,
+                    advanced: false
+                },
+                enabled: true,
+                editable: true,
+                optional: false,
+                advanced: false,
+                hidden: false,
+                isGraphqlId: false
+            };
+
+            // Add the new parameter to the front of the parameters array
+            const updatedParameters = [newContentParameter, ...functionModel.parameters];
+            handleParamChange(updatedParameters);
         }
+
         // Close the modal
         setIsTypeEditorOpen(false);
     };
