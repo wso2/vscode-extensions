@@ -55,6 +55,15 @@ export function ParamEditor(props: ParamProps) {
     const updateFormFields = () => {
         const fields: FormField[] = [];
 
+        // FTP content type options
+        const ftpContentTypes = [
+            { label: "JSON", value: "json" },
+            { label: "XML", value: "xml" },
+            { label: "CSV", value: "string[][]" },
+            { label: "Text", value: "string" },
+            { label: "Binary", value: "byte[]" }
+        ];
+
         // Add type field for payload
         fields.push({
             key: `type`,
@@ -62,11 +71,12 @@ export function ParamEditor(props: ParamProps) {
             type: param.type.valueType,
             optional: false,
             editable: true,
-            documentation: '',
+            documentation: 'Select the content type for the FTP file',
             enabled: param.type?.enabled,
-            value: param.type.value || "json",
+            value: param.type.value === "DATA_BINDING_TYPE" ? "json" : (param.type.value || "json"),
             defaultValue: "json",
-            valueTypeConstraint: ""
+            valueTypeConstraint: "",
+            itemOptions: ftpContentTypes
         });
 
         setCurrentFields(fields);

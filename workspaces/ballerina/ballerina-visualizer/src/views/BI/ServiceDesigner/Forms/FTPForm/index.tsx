@@ -344,7 +344,29 @@ export function FTPResourceForm(props: FTPFormProps) {
         setEditingIndex(-1);
     };
 
-    const payloadParameter = functionModel.parameters?.find((param) => param.metadata?.label === "content" && param.enabled && param.type?.value );
+    /**
+     * Check if content parameter needs initialization
+     * Returns true if the parameter doesn't exist OR has DATA_BINDING_TYPE as type value
+     */
+    const isContentParameterUninitialized = (parameter: ParameterModel | undefined): boolean => {
+        // If parameter doesn't exist, it needs initialization
+        if (!parameter) {
+            return true;
+        }
+        // If parameter exists but has DATA_BINDING_TYPE, it needs initialization
+        return parameter.type?.value === "DATA_BINDING_TYPE";
+    };
+
+    // Find the content parameter
+    const contentParameter = functionModel.parameters?.find((param) => param.metadata?.label === "content");
+
+    // Check if content parameter is uninitialized
+    const isContentUninitialized = isContentParameterUninitialized(contentParameter);
+
+    // Only show the parameter if it's initialized (not DATA_BINDING_TYPE) and enabled
+    const payloadParameter = contentParameter && !isContentUninitialized && contentParameter.enabled && contentParameter.type?.value
+        ? contentParameter
+        : undefined;
 
     // Check if there's any DATA_BINDING parameter available (enabled or not)
     const hasDataBindingParameter = functionModel.parameters?.some((param) => param.kind === "DATA_BINDING");
@@ -376,7 +398,8 @@ export function FTPResourceForm(props: FTPFormProps) {
                                     <MessageConfigContent>
                                         <PayloadSection>
                                             {/* Payload Section */}
-                                            {!payloadParameter && !editModel  && (
+                                            {/* Show "Define Content" button when parameter is uninitialized (doesn't exist or has DATA_BINDING_TYPE) */}
+                                            {isContentUninitialized && !editModel && (
                                                 <AddButtonWrapper>
                                                     <Tooltip content={`Define ${payloadFieldName} for easier access in the flow diagram`} position="bottom">
                                                         <LinkButton onClick={onAddPayloadClick}>
@@ -386,7 +409,8 @@ export function FTPResourceForm(props: FTPFormProps) {
                                                     </Tooltip>
                                                 </AddButtonWrapper>
                                             )}
-                                            {payloadParameter && (
+                                            {/* Show configured parameter only when it's initialized */}
+                                            {payloadParameter && !isContentUninitialized && (
                                                 <>
                                                     <Typography sx={{ marginBlockEnd: 8 }} variant="body2">
                                                         {payloadFieldName}
@@ -401,7 +425,7 @@ export function FTPResourceForm(props: FTPFormProps) {
                                             )}
 
                                             {/* Payload Editor */}
-                                            {editModel && editModel.kind === "DATA_BINDING" && (
+                                            {editModel && editModel.metadata?.label === "content" && (
                                                 <ParamEditor
                                                     param={editModel}
                                                     onChange={onChangeParam}
@@ -504,8 +528,10 @@ export function FTPResourceForm(props: FTPFormProps) {
                     primaryButton={{
                         text: isSaving ? "Saving..." : "Save",
                         onClick: handleSave,
-                        tooltip: isSaving ? "Saving..." : "Save",
-                        disabled: isSaving,
+                        tooltip: isContentUninitialized
+                            ? `Please define ${payloadFieldName} before saving`
+                            : (isSaving ? "Saving..." : "Save"),
+                        disabled: isSaving || isContentUninitialized,
                         loading: isSaving,
                     }}
                     secondaryButton={{
