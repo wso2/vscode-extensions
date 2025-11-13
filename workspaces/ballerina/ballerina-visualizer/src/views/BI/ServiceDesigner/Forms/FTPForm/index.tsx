@@ -99,7 +99,7 @@ export const EditorContentColumn = styled.div`
     gap: 10px;
 `;
 
-export interface DatabindFormProps {
+export interface FTPFormProps {
     model: FunctionModel;
     isSaving?: boolean;
     onSave: (functionModel: FunctionModel, openDiagram?: boolean) => void;
@@ -108,9 +108,10 @@ export interface DatabindFormProps {
     payloadContext?: MessageQueuePayloadContext;
     serviceProperties?: ConfigProperties;
     serviceModuleName?: string;
+    filePath?: string;
 }
 
-export function DatabindForm(props: DatabindFormProps) {
+export function FTPResourceForm(props: FTPFormProps) {
     const { model, isSaving = false, onSave, onClose, isNew = false, payloadContext, serviceProperties, serviceModuleName } = props;
 
     const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -244,18 +245,36 @@ export function DatabindForm(props: DatabindFormProps) {
 
     const handleTypeCreated = (type: Type | string) => {
         // When a type is created, set it as the payload type
-        const payloadParam = functionModel.parameters?.find(param => param.kind === "DATA_BINDING");
+        const payloadParam = functionModel.parameters?.find(param => param.metadata?.label === "content");
         if (payloadParam) {
-            const updatedPayloadModel = { ...payloadParam };
-            updatedPayloadModel.name.value = "payload";
-            updatedPayloadModel.type.value = typeof type === 'string' ? type : (type as Type).name;
-            updatedPayloadModel.enabled = true;
+            // Create a completely new object to ensure React detects the change
+            const updatedPayloadModel = {
+                ...payloadParam,
+                name: {
+                    ...payloadParam.name,
+                    value: "content"
+                },
+                type: {
+                    ...payloadParam.type,
+                    value: typeof type === 'string' ? type : (type as Type).name
+                },
+                enabled: true
+            };
 
             // Find the index of the payload parameter
-            const index = functionModel.parameters.findIndex(param => param.kind === "DATA_BINDING");
+            const index = functionModel.parameters.findIndex(param => param.metadata?.label === "content");
             if (index >= 0) {
                 const updatedParameters = [...functionModel.parameters];
                 updatedParameters[index] = updatedPayloadModel;
+
+                // // Disable the first parameter if it's a REQUIRED parameter
+                // if (functionModel.parameters.length > 0 && functionModel.parameters[0].kind === "REQUIRED") {
+                //     updatedParameters[0] = {
+                //         ...updatedParameters[0],
+                //         enabled: false
+                //     };
+                // }
+
                 handleParamChange(updatedParameters);
             }
         }
@@ -325,7 +344,7 @@ export function DatabindForm(props: DatabindFormProps) {
         setEditingIndex(-1);
     };
 
-    const payloadParameter = functionModel.parameters?.find((param) => param.kind === "DATA_BINDING" && param.enabled);
+    const payloadParameter = functionModel.parameters?.find((param) => param.metadata?.label === "content" && param.enabled && param.type?.value );
 
     // Check if there's any DATA_BINDING parameter available (enabled or not)
     const hasDataBindingParameter = functionModel.parameters?.some((param) => param.kind === "DATA_BINDING");
@@ -507,8 +526,10 @@ export function DatabindForm(props: DatabindFormProps) {
                 initialTypeName={generatePayloadTypeName()}
                 modalTitle={"Define " + payloadFieldName}
                 payloadContext={{
-                    ...payloadContext,
-                    queueOrTopic: getQueueDescriptionByModule(serviceModuleName)
+                    protocol: "MESSAGE_BROKER",
+                    serviceName: payloadContext?.serviceName || '',
+                    queueOrTopic: getQueueDescriptionByModule(serviceModuleName) || "FTP File Transfer",
+                    messageDocumentation: "FTP file event payload"
                 }}
                 modalWidth={650}
                 modalHeight={600}

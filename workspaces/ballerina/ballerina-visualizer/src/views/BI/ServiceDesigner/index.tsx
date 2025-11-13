@@ -46,6 +46,7 @@ import { getCustomEntryNodeIcon } from "../ComponentListView/EventIntegrationPan
 import { McpToolForm } from "./Forms/McpToolForm";
 import { removeForwardSlashes, canDataBind, getReadableListenerName } from "./utils";
 import { DatabindForm } from "./Forms/DatabindForm";
+import { FTPResourceForm } from "./Forms/FTPForm";
 
 const LoadingContainer = styled.div`
     display: flex;
@@ -201,8 +202,6 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
 
     const [listeners, setListeners] = useState<string[]>([]);
     const [readonlyProperties, setReadonlyProperties] = useState<Set<ReadonlyProperty>>(new Set());
-    const [isHttpService, setIsHttpService] = useState<boolean>(false);
-    const [isMcpService, setIsMcpService] = useState<boolean>(false);
     const [objectMethods, setObjectMethods] = useState<FunctionModel[]>([]);
     const [dropdownOptions, setDropdownOptions] = useState<DropdownOptionProps[]>([]);
     const [initMethod, setInitMethod] = useState<FunctionModel>(undefined);
@@ -298,8 +297,6 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
             }
 
             setReadonlyProperties(readonlyProps);
-            setIsHttpService(service.moduleName === "http");
-            setIsMcpService(service.moduleName === "mcp");
         }
 
         // Extract object methods if available (for service classes)
@@ -798,7 +795,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                         /> Configure
                                     </Button>
                                     {
-                                        serviceModel && (isHttpService || isMcpService) && (
+                                        serviceModel && (serviceModel.moduleName === "http" || serviceModel.moduleName === "mcp") && (
                                             <>
                                                 <Button appearance="secondary" tooltip="Try Service" onClick={handleServiceTryIt}>
                                                     <Icon name="play" isCodicon={true} sx={{ marginRight: 8, fontSize: 16 }} /> <ButtonText>Try It</ButtonText>
@@ -806,7 +803,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                             </>
                                         )
                                     }
-                                    {serviceModel && !isMcpService && dropdownOptions.length > 0 && (
+                                    {serviceModel && serviceModel.moduleName !== "mcp" && dropdownOptions.length > 0 && (
                                         <AddServiceElementDropdown
                                             buttonTitle="More"
                                             toolTip="More options"
@@ -900,7 +897,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
 
 
                             {/* Listing Resources in HTTP */}
-                            {isHttpService && (
+                            {serviceModel.moduleName === "http" && (
                                 <>
 
                                     <>
@@ -959,7 +956,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             )}
 
                             {/* Listing Tools in MCP */}
-                            {isMcpService && (
+                            {serviceModel.moduleName === "mcp" && (
                                 <>
                                     <SectionHeader
                                         title="Tools"
@@ -1013,12 +1010,12 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                 </>
                             )}
 
-                            {/* Listing service type bound functions */}
-                            {!(isHttpService || isMcpService) && (
+                            {/* Listing event handlers for other service types (FTP, Kafka, RabbitMQ, etc.) */}
+                            {serviceModel.moduleName !== "http" && serviceModel.moduleName !== "mcp" && (
                                 <>
                                     <SectionHeader
                                         title="Event Handlers"
-                                        subtitle={enabledHandlers.length === 0 ? "" : `Define how the service responds to events`}
+                                        subtitle={enabledHandlers.length === 0 ? "" : "Define how the service responds to events"}
                                     >
                                         <ActionGroup>
                                             {enabledHandlers.length !== 0 && unusedHandlers.length > 0 && (
@@ -1139,7 +1136,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             )}
 
                             {/* This is for adding a http resource */}
-                            {functionModel && isHttpService && functionModel.kind === "RESOURCE" && isNew && (
+                            {functionModel && serviceModel.moduleName === "http" && functionModel.kind === "RESOURCE" && isNew && (
                                 <PanelContainer
                                     title={"Select HTTP Method to Add"}
                                     show={showForm}
@@ -1162,7 +1159,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             )}
 
                             {/* This is for editing a http resource */}
-                            {functionModel && isHttpService && functionModel.kind === "RESOURCE" && !isNew && (
+                            {functionModel && serviceModel.moduleName === "http" && functionModel.kind === "RESOURCE" && !isNew && (
                                 <PanelContainer
                                     title={"Resource Configuration"}
                                     show={showForm}
@@ -1184,8 +1181,32 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                 </PanelContainer>
                             )}
 
+                            {functionModel && serviceModel.moduleName==="ftp" &&
+                                <PanelContainer
+                                    title={"Resource Configuration"}
+                                    show={showForm}
+                                    onClose={handleNewFunctionClose}
+                                    width={400}
+                                >
+                                    <FTPResourceForm
+                                        model={functionModel}
+                                        isSaving={isSaving}
+                                        filePath={filePath}
+                                        onSave={handleResourceSubmit}
+                                        onClose={handleNewFunctionClose}
+                                        isNew={isNew}
+                                        payloadContext={{
+                                            protocol: "MESSAGE_BROKER",
+                                            serviceName: serviceModel.name || '',
+                                        }}
+                                        serviceModuleName={serviceModel.moduleName}
+                                    />
+                                </PanelContainer>
+
+                            }
+
                             {/* This is for adding or editing functions with data binding */}
-                            {functionModel && !isHttpService && !isMcpService && canDataBind(functionModel) && (
+                            {functionModel && serviceModel.moduleName!=="ftp" && serviceModel.moduleName !== "http" && serviceModel.moduleName !== "mcp" && canDataBind(functionModel) && (
                                 <PanelContainer
                                     title={"Message Handler Configuration"}
                                     show={showForm}
@@ -1210,7 +1231,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             )}
 
                             {/* This is for adding or editing functions */}
-                            {functionModel && !isHttpService && !isMcpService && !canDataBind(functionModel) && (
+                            {functionModel && serviceModel.moduleName !== "http" && serviceModel.moduleName !== "mcp" && !canDataBind(functionModel) && (
                                 <PanelContainer
                                     title={"Function Configuration"}
                                     show={showForm}
@@ -1226,7 +1247,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             )}
 
                             {/* This is for adding a new handler to the service */}
-                            {serviceModel && !isHttpService && (
+                            {serviceModel && serviceModel.moduleName !== "http" && (
                                 <PanelContainer
                                     title={"Select Handler to Add"}
                                     show={showFunctionConfigForm}
@@ -1257,7 +1278,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                 />
                             </PanelContainer>
 
-                            {functionModel && isMcpService && (
+                            {functionModel && serviceModel.moduleName === "mcp" && (
                                 <PanelContainer
                                     title={"Tool Configuration"}
                                     show={showForm}
