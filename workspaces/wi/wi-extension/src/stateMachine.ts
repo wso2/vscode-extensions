@@ -29,8 +29,8 @@ import { ExtensionAPIs } from './extensionAPIs';
 import { registerCommands } from './commands';
 
 export enum ProjectType {
-    BI_BALLERINA = 'BI_BALLERINA',
-    MI = 'MI',
+    BI_BALLERINA = 'WSO2: BI',
+    MI = 'WSO2: MI',
     NONE = 'NONE'
 }
 
@@ -42,6 +42,24 @@ interface MachineContext {
     isMI?: boolean;
     extensionAPIs: ExtensionAPIs;
     webviewManager: WebviewManager;
+    mode: ProjectType;
+}
+
+/**
+ * Get the default integrator mode from configuration
+ */
+function getDefaultIntegratorMode(): ProjectType {
+    const configValue = vscode.workspace.getConfiguration("wso2-integrator").get<string>("integrator.defaultIntegrator");
+    
+    // Map string config values to ProjectType enum
+    switch (configValue) {
+        case 'WSO2: BI':
+            return ProjectType.BI_BALLERINA;
+        case 'WSO2: MI':
+            return ProjectType.MI;
+        default:
+            return ProjectType.NONE;
+    }
 }
 
 const stateMachine = createMachine<MachineContext>({
@@ -52,7 +70,8 @@ const stateMachine = createMachine<MachineContext>({
     context: {
         projectType: ProjectType.NONE,
         extensionAPIs: new ExtensionAPIs(),
-        webviewManager: undefined as any // Will be initialized in actions
+        webviewManager: undefined as any, // Will be initialized in action
+        mode: getDefaultIntegratorMode()
     },
     states: {
         initialize: {
@@ -87,11 +106,31 @@ const stateMachine = createMachine<MachineContext>({
             }
         },
         ready: {
-            entry: "activateBasedOnProjectType"
+            entry: "activateBasedOnProjectType",
+            on: {
+                UPDATE_MODE: {
+                    actions: assign({
+                        mode: (context, event: any) => {
+                            ext.log(`Mode updated in context: ${event.mode}`);
+                            return event.mode;
+                        }
+                    })
+                }
+            }
         },
         disabled: {
             // Project type could not be detected or no known project
-            entry: "showWelcomeScreen"
+            entry: "showWelcomeScreen",
+            on: {
+                UPDATE_MODE: {
+                    actions: assign({
+                        mode: (context, event: any) => {
+                            ext.log(`Mode updated in context: ${event.mode}`);
+                            return event.mode;
+                        }
+                    })
+                }
+            }
         },
     }
 }, {
@@ -222,6 +261,23 @@ export const StateMachine = {
     initialize: () => {
         ext.log('Starting state machine');
         stateService.start();
+        
+        // Listen for configuration changes
+        const configChangeDisposable = vscode.workspace.onDidChangeConfiguration((event) => {
+            if (event.affectsConfiguration('wso2-integrator.integrator.defaultIntegrator')) {
+                const newMode = getDefaultIntegratorMode();
+                ext.log(`Configuration changed: defaultIntegrator = ${newMode}`);
+                
+                // Update the state machine context
+                stateService.send({
+                    type: 'UPDATE_MODE',
+                    mode: newMode
+                });
+            }
+        });
+        
+        // Register disposable
+        ext.context.subscriptions.push(configChangeDisposable);
     },
     getContext: () => stateService.getSnapshot().context
 };
