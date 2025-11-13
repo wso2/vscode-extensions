@@ -17,6 +17,7 @@
 import { CoreMessage, ModelMessage, generateObject } from "ai";
 import { getAnthropicClient, ANTHROPIC_SONNET_4 } from "../connection";
 import {
+    CodeRepairResult,
     DatamapperResponse,
     DataModelStructure,
     MappingFields,
@@ -24,12 +25,12 @@ import {
 } from "./types";
 import { GeneratedMappingSchema, RepairedSourceFilesSchema } from "./schema";
 import { AIPanelAbortController } from "../../../../../src/rpc-managers/ai-panel/utils";
-import { DataMapperModelResponse, DMModel, Mapping, repairCodeRequest, SourceFile, DiagnosticList, ImportInfo, ProcessMappingParametersRequest, Command, MetadataWithAttachments, InlineMappingsSourceResult, ProcessContextTypeCreationRequest, ProjectImports, ImportStatements, TemplateId, GetModuleDirParams, TextEdit, DataMapperSourceResponse, DataMapperSourceRequest, AllDataMapperSourceRequest } from "@wso2/ballerina-core";
+import { DataMapperModelResponse, DMModel, Mapping, repairCodeRequest, SourceFile, DiagnosticList, ImportInfo, ProcessMappingParametersRequest, Command, MetadataWithAttachments, InlineMappingsSourceResult, ProcessContextTypeCreationRequest, ProjectImports, ImportStatements, TemplateId, GetModuleDirParams, TextEdit, DataMapperSourceResponse, DataMapperSourceRequest, AllDataMapperSourceRequest, SyntaxTree } from "@wso2/ballerina-core";
 import { getDataMappingPrompt } from "./dataMappingPrompt";
 import { getBallerinaCodeRepairPrompt } from "./codeRepairPrompt";
 import { CopilotEventHandler, createWebviewEventHandler } from "../event";
 import { getErrorMessage } from "../utils";
-import { buildMappingFileArray, buildRecordMap, collectExistingFunctions, collectModuleInfo, createTempBallerinaDir, createTempFileAndGenerateMetadata, getFunctionDefinitionFromSyntaxTree, getUniqueFunctionFilePaths, prepareMappingContext, generateInlineMappingsSource, generateTypesFromContext, repairCodeAndGetUpdatedContent, extractImports, generateDataMapperModel, determineCustomFunctionsPath, generateMappings, getCustomFunctionsContent } from "../../dataMapping";
+import { buildMappingFileArray, buildRecordMap, collectExistingFunctions, collectModuleInfo, createTempBallerinaDir, createTempFileAndGenerateMetadata, getFunctionDefinitionFromSyntaxTree, getUniqueFunctionFilePaths, prepareMappingContext, generateInlineMappingsSource, generateTypesFromContext, repairCodeAndGetUpdatedContent, extractImports, generateDataMapperModel, determineCustomFunctionsPath, generateMappings, getCustomFunctionsContent, repairAndCheckDiagnostics } from "../../dataMapping";
 import { BiDiagramRpcManager, getBallerinaFiles } from "../../../../../src/rpc-managers/bi-diagram/rpc-manager";
 import { updateSourceCode } from "../../../../../src/utils/source-utils";
 import { StateMachine } from "../../../../stateMachine";
@@ -38,6 +39,10 @@ import { commands, Uri, window } from "vscode";
 import { CLOSE_AI_PANEL_COMMAND, OPEN_AI_PANEL_COMMAND } from "../../constants";
 import path from "path";
 import { URI } from "vscode-uri";
+import { FunctionDefinition, ModulePart, ResourceAccessorDefinition, STKindChecker, STNode } from "@wso2/syntax-tree";
+import { writeBallerinaFileDidOpenTemp } from "../../../../../src/utils/modification";
+import { ExtendedLangClient } from "../../../../../src/core/extended-language-client";
+import fs from 'fs';
 
 // =============================================================================
 // ENHANCED MAIN ORCHESTRATOR FUNCTION
@@ -250,12 +255,10 @@ export async function generateMappingCodeCore(mappingRequest: ProcessMappingPara
         throw new Error("Function name is required in the mapping parameters");
     }
 
-    if (!eventHandler) {
-        throw new Error("Event handler is required for code generation");
-    }
-
     // Initialize generation process
     eventHandler({ type: "start" });
+    eventHandler({ type: "content_block", content: "Building the transformation logic using your provided data structures and mapping hints\n\n" });
+    eventHandler({ type: "content_block", content: "<progress>Reading project files and collecting imports...</progress>" });
     let assistantResponse: string = "";
     const biDiagramRpcManager = new BiDiagramRpcManager();
     const langClient = StateMachine.langClient();
@@ -298,7 +301,6 @@ export async function generateMappingCodeCore(mappingRequest: ProcessMappingPara
         const fileContentResults = await Promise.all(
             uniqueFunctionFilePaths.map(async (filePath) => {
                 const projectFsPath = URI.parse(filePath).fsPath;
-                const fs = require("fs");
                 const fileContent = await fs.promises.readFile(projectFsPath, "utf-8");
                 return { filePath, content: fileContent };
             })
@@ -337,7 +339,7 @@ export async function generateMappingCodeCore(mappingRequest: ProcessMappingPara
     const allMappingsRequest = await generateMappings({
         metadata: tempFileMetadata,
         attachments: mappingRequest.attachments
-    }, context);
+    }, context, eventHandler);
 
     const sourceCodeResponse = await getAllDataMapperSource(allMappingsRequest);
 
@@ -357,11 +359,11 @@ export async function generateMappingCodeCore(mappingRequest: ProcessMappingPara
     const isSameFile = customFunctionsTargetPath && 
         path.resolve(mainFilePath) === path.resolve(path.join(tempDirectory, customFunctionsFileName));
 
-    let codeRepairResult: { finalContent: string; customFunctionsContent: string };
+    let codeRepairResult: CodeRepairResult;
     const customContent = await getCustomFunctionsContent(allMappingsRequest.customFunctionsFilePath);
+    eventHandler({ type: "content_block", content: "\n<progress>Repairing generated code...</progress>" });
 
     if (isSameFile) {
-        const fs = require('fs');
         const mainContent = fs.readFileSync(mainFilePath, 'utf8');
 
         if (customContent) {
@@ -388,7 +390,49 @@ export async function generateMappingCodeCore(mappingRequest: ProcessMappingPara
         }, langClient, projectRoot);
     }
 
-    const generatedFunctionDefinition = await getFunctionDefinitionFromSyntaxTree(
+    // Repair and check diagnostics for both main file and custom functions file
+    const filePaths = [tempFileMetadata.codeData.lineRange.fileName];
+    if (allMappingsRequest.customFunctionsFilePath && !isSameFile) {
+        filePaths.push(allMappingsRequest.customFunctionsFilePath);
+    }
+
+    let diags = await repairAndCheckDiagnostics(langClient, projectRoot, {
+        tempDir: tempDirectory,
+        filePaths
+    });
+
+    // Handle error for mappings with 'check' expressions (BCE3032 error)
+    const hasCheckError = diags.diagnosticsList.some((diagEntry) =>
+        diagEntry.diagnostics.some(d => d.code === "BCE3032")
+    );
+
+    if (hasCheckError) {
+        // Fix main file if it has check errors - add |error to all functions
+        const mainFileDiags = diags.diagnosticsList.find(
+            d => d.uri.includes(path.basename(tempFileMetadata.codeData.lineRange.fileName))
+        );
+        if (mainFileDiags?.diagnostics.some(d => d.code === "BCE3032")) {
+            const tempFilePath = tempFileMetadata.codeData.lineRange.fileName;
+            const updatedContent = await addErrorToAllFunctionReturnTypes(langClient, tempFilePath);
+            codeRepairResult.finalContent = updatedContent;
+        }
+
+        // Fix custom functions file if it has check errors - add |error to all functions
+        if (allMappingsRequest.customFunctionsFilePath && !isSameFile) {
+            const customFileDiags = diags.diagnosticsList.find(
+                d => d.uri.includes(path.basename(allMappingsRequest.customFunctionsFilePath!))
+            );
+            if (customFileDiags?.diagnostics.some(d => d.code === "BCE3032")) {
+                const updatedCustomContent = await addErrorToAllFunctionReturnTypes(
+                    langClient,
+                    allMappingsRequest.customFunctionsFilePath
+                );
+                codeRepairResult.customFunctionsContent = updatedCustomContent;
+            }
+        }
+    }
+
+    let generatedFunctionDefinition = await getFunctionDefinitionFromSyntaxTree(
         langClient,
         tempFileMetadata.codeData.lineRange.fileName,
         targetFunctionName
@@ -405,7 +449,7 @@ export async function generateMappingCodeCore(mappingRequest: ProcessMappingPara
     );
 
     // Build assistant response
-    assistantResponse = `Mappings consist of the following:\n`;
+    assistantResponse = `The generated data mapping details are as follows:\n`;
     if (mappingRequest.parameters.inputRecord.length === 1) {
         assistantResponse += `- **Input Record**: ${mappingContext.mappingDetails.inputParams[0]}\n`;
     } else {
@@ -413,6 +457,18 @@ export async function generateMappingCodeCore(mappingRequest: ProcessMappingPara
     }
     assistantResponse += `- **Output Record**: ${mappingContext.mappingDetails.outputParam}\n`;
     assistantResponse += `- **Function Name**: ${targetFunctionName}\n`;
+
+    if (mappingRequest.attachments.length > 0) {
+        const attachmentNames = [];
+        for (const att of (mappingRequest.attachments)) {
+            attachmentNames.push(att.name);
+        }
+        assistantResponse += `- **Attachments**: ${attachmentNames.join(", ")}\n`;
+    }
+
+    if (tempFileMetadata.mappingsModel.mappings.length > 0) {
+        assistantResponse += `\n**Note**: When you click **Add to Integration**, it will override your existing mappings.\n`;
+    }
 
     if (isSameFile) {
         const mergedContent = `${generatedFunctionDefinition.source}\n${customContent}`;
@@ -450,7 +506,6 @@ async function collectAllImportsFromProject(): Promise<ProjectImports> {
     const importStatements: ImportStatements[] = [];
 
     for (const ballerinaFile of ballerinaSourceFiles) {
-        const fs = require("fs");
         const sourceFileContent = fs.readFileSync(ballerinaFile, "utf8");
         const extractedImports = extractImports(sourceFileContent, ballerinaFile);
         importStatements.push(extractedImports);
@@ -481,7 +536,6 @@ function getCurrentActiveFileName(): string {
 function getModuleDirectory(params: GetModuleDirParams): string {
     const { filePath, moduleName } = params;
     const generatedPath = path.join(filePath, "generated", moduleName);
-    const fs = require("fs");
     if (fs.existsSync(generatedPath) && fs.statSync(generatedPath).isDirectory()) {
         return "generated";
     } else {
@@ -500,7 +554,6 @@ export async function getAllDataMapperSource(
 
     return { textEdits: consolidatedTextEdits };
 }
-
 
 // Builds individual source requests from the provided parameters by creating a request for each mapping
 export function buildSourceRequests(allMappingsRequest: AllDataMapperSourceRequest): DataMapperSourceRequest[] {
@@ -603,6 +656,163 @@ export function combineTextEdits(sortedTextEdits: TextEdit[]): TextEdit {
     };
 }
 
+// Visits each node and its children, skipping 'parent' and 'typeData' properties
+function traverseSyntaxTree(node: STNode, visitor: (node: STNode) => void): void {
+    if (!node || typeof node !== 'object') {
+        return;
+    }
+
+    visitor(node);
+
+    for (const key in node) {
+        if (key === 'parent' || key === 'typeData') { continue; }
+        const value = node[key];
+        if (Array.isArray(value)) {
+            for (const item of value) {
+                traverseSyntaxTree(item, visitor);
+            }
+        } else if (typeof value === 'object' && value !== null) {
+            traverseSyntaxTree(value, visitor);
+        }
+    }
+}
+
+// Checks if a node is a function or resource accessor with a return type descriptor.
+function isFunctionWithReturnType(node: STNode): node is FunctionDefinition | ResourceAccessorDefinition {
+    return (STKindChecker.isFunctionDefinition(node) || STKindChecker.isResourceAccessorDefinition(node)) &&
+        !!node.functionSignature?.returnTypeDesc;
+}
+
+// Recursively traverses syntax tree to find all function definitions and resource accessors
+function findAllFunctionsInSyntaxTree(node: STNode): (FunctionDefinition | ResourceAccessorDefinition)[] {
+    const functions: (FunctionDefinition | ResourceAccessorDefinition)[] = [];
+
+    traverseSyntaxTree(node, (currentNode) => {
+        if (isFunctionWithReturnType(currentNode)) {
+            functions.push(currentNode);
+        }
+    });
+
+    return functions;
+}
+
+// Checks if a syntax tree node contains a variable declaration with the specified name
+function nodeContainsVariable(node: STNode, variableName: string): boolean {
+    let found = false;
+
+    traverseSyntaxTree(node, (currentNode) => {
+        if (found) { return; }
+
+        if (STKindChecker.isLocalVarDecl(currentNode)) {
+            const bindingPattern = currentNode.typedBindingPattern?.bindingPattern;
+            if (STKindChecker.isCaptureBindingPattern(bindingPattern) &&
+                bindingPattern.variableName?.value === variableName) {
+                found = true;
+            }
+        }
+    });
+    return found;
+}
+
+// Recursively searches for a function containing a specific variable declaration
+function findFunctionContainingVariable(node: STNode, variableName: string): FunctionDefinition | ResourceAccessorDefinition | null {
+    let result: FunctionDefinition | ResourceAccessorDefinition | null = null;
+
+    traverseSyntaxTree(node, (currentNode) => {
+        if (result) { return; }
+
+        if (isFunctionWithReturnType(currentNode) && nodeContainsVariable(currentNode.functionBody, variableName)) {
+            result = currentNode;
+        }
+    });
+
+    return result;
+}
+
+// Adds |error to return type of a function if not already present
+function addErrorToReturnType(fileContent: string, returnTypeSource: string): string {
+    if (returnTypeSource && !returnTypeSource.includes('|error')) {
+        return fileContent.replaceAll(
+            returnTypeSource,
+            `${returnTypeSource.trim()}|error `
+        );
+    }
+    return fileContent;
+}
+
+// Adds |error to the return types of all functions in a file
+async function addErrorToAllFunctionReturnTypes(
+    langClient: ExtendedLangClient,
+    filePath: string
+): Promise<string> {
+    let fileContent = fs.readFileSync(filePath, 'utf8');
+
+    const st = await langClient.getSyntaxTree({
+        documentIdentifier: {
+            uri: Uri.file(filePath).toString(),
+        },
+    }) as SyntaxTree;
+
+    const modulePart = st.syntaxTree as ModulePart;
+    const allFunctions = findAllFunctionsInSyntaxTree(modulePart);
+
+    // Add |error to each function's return type if not already present
+    for (const func of allFunctions) {
+        if (func.functionSignature?.returnTypeDesc) {
+            const returnType = func.functionSignature.returnTypeDesc;
+            fileContent = addErrorToReturnType(fileContent, returnType.source);
+        }
+    }
+
+    writeBallerinaFileDidOpenTemp(filePath, fileContent);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    return fs.readFileSync(filePath, 'utf8');
+}
+
+// Adds |error to the return type of the function that contains a specific inline variable
+async function addErrorToInlineVariableContainingFunction(
+    langClient: ExtendedLangClient,
+    tempFilePath: string,
+    variableName: string,
+    inlineMappingsResult: InlineMappingsSourceResult,
+    codeToDisplay: string,
+    codeRepairResult: CodeRepairResult
+): Promise<{ codeToDisplay: string; finalContent: string }> {
+    let fileContent = fs.readFileSync(tempFilePath, 'utf8');
+
+    const st = await langClient.getSyntaxTree({
+        documentIdentifier: {
+            uri: Uri.file(tempFilePath).toString(),
+        },
+    }) as SyntaxTree;
+
+    const modulePart = st.syntaxTree as ModulePart;
+    const containingFunc = findFunctionContainingVariable(modulePart, variableName);
+
+    if (containingFunc?.functionSignature?.returnTypeDesc) {
+        const returnType = containingFunc.functionSignature.returnTypeDesc.type;
+
+        if (returnType?.source) {
+            fileContent = addErrorToReturnType(fileContent, returnType.source);
+            writeBallerinaFileDidOpenTemp(tempFilePath, fileContent);
+            await new Promise((resolve) => setTimeout(resolve, 100));
+
+            if (variableName) {
+                codeToDisplay = await extractVariableDefinitionSource(
+                    tempFilePath,
+                    inlineMappingsResult.tempFileMetadata.codeData,
+                    variableName
+                ) || codeToDisplay;
+            }
+            codeRepairResult.finalContent = fileContent;
+        }
+    }
+
+    const updatedFileContent = fs.readFileSync(tempFilePath, 'utf8');
+    return { codeToDisplay, finalContent: updatedFileContent };
+}
+
 // =============================================================================
 // INLINE MAPPING CODE GENERATION WITH EVENT HANDLERS
 // =============================================================================
@@ -617,12 +827,10 @@ export async function generateInlineMappingCodeCore(inlineMappingRequest: Metada
         throw new Error("Code data is required in the metadata");
     }
 
-    if (!eventHandler) {
-        throw new Error("Event handler is required for code generation");
-    }
-
     // Initialize generation process
     eventHandler({ type: "start" });
+    eventHandler({ type: "content_block", content: "Building the transformation logic using your provided data structures and mapping hints\n\n" });
+    eventHandler({ type: "content_block", content: "<progress>Reading project files and collecting imports...</progress>" });
     let assistantResponse: string = "";
     const projectImports = await collectAllImportsFromProject();
     const allImportStatements = projectImports.imports.flatMap(file => file.statements || []);
@@ -643,7 +851,7 @@ export async function generateInlineMappingCodeCore(inlineMappingRequest: Metada
     const projectRoot = context.projectPath;
 
     const inlineMappingsResult: InlineMappingsSourceResult =
-        await generateInlineMappingsSource(inlineMappingRequest, langClient, context);
+        await generateInlineMappingsSource(inlineMappingRequest, langClient, context, eventHandler);
 
     await updateSourceCode({ textEdits: inlineMappingsResult.sourceResponse.textEdits, skipPayloadCheck: true });
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -661,11 +869,11 @@ export async function generateInlineMappingCodeCore(inlineMappingRequest: Metada
     const isSameFile = customFunctionsTargetPath && 
         path.resolve(mainFilePath) === path.resolve(path.join(inlineMappingsResult.tempDir, customFunctionsFileName));
 
-    let codeRepairResult: { finalContent: string; customFunctionsContent: string };
+    let codeRepairResult: CodeRepairResult;
     const customContent = await getCustomFunctionsContent(inlineMappingsResult.allMappingsRequest.customFunctionsFilePath);
+    eventHandler({ type: "content_block", content: "\n<progress>Repairing generated code...</progress>" });
 
     if (isSameFile) {
-        const fs = require('fs');
         const mainContent = fs.readFileSync(mainFilePath, 'utf8');
 
         if (customContent) {
@@ -691,13 +899,6 @@ export async function generateInlineMappingCodeCore(inlineMappingRequest: Metada
         }, langClient, projectRoot);
     }
 
-    const generatedSourceFiles = buildMappingFileArray(
-        context.documentUri,
-        codeRepairResult.finalContent,
-        customFunctionsTargetPath,
-        codeRepairResult.customFunctionsContent,
-    );
-
     const variableName = inlineMappingRequest.metadata.name || inlineMappingsResult.tempFileMetadata.name;
 
     let codeToDisplay = codeRepairResult.finalContent;
@@ -712,9 +913,76 @@ export async function generateInlineMappingCodeCore(inlineMappingRequest: Metada
         }
     }
 
+    // Repair and check diagnostics for both main file and custom functions file
+    const inlineFilePaths = [inlineMappingsResult.tempFileMetadata.codeData.lineRange.fileName];
+    if (inlineMappingsResult.allMappingsRequest.customFunctionsFilePath && !isSameFile) {
+        inlineFilePaths.push(inlineMappingsResult.allMappingsRequest.customFunctionsFilePath);
+    }
+
+    let diags = await repairAndCheckDiagnostics(langClient, projectRoot, {
+        tempDir: inlineMappingsResult.tempDir,
+        filePaths: inlineFilePaths
+    });
+
+    // Handle error for inline mappings with 'check' expressions (BCE3032 error)
+    const hasCheckError = diags.diagnosticsList.some(diagEntry =>
+        diagEntry.diagnostics.some(d => d.code === "BCE3032")
+    );
+
+    if (hasCheckError) {
+        // Fix main file if it has check errors
+        const mainFileDiags = diags.diagnosticsList.find(
+            d => d.uri.includes(path.basename(inlineMappingsResult.tempFileMetadata.codeData.lineRange.fileName))
+        );
+        if (mainFileDiags?.diagnostics.some(d => d.code === "BCE3032")) {
+            const tempFilePath = inlineMappingsResult.tempFileMetadata.codeData.lineRange.fileName;
+            const result = await addErrorToInlineVariableContainingFunction(
+                langClient,
+                tempFilePath,
+                variableName,
+                inlineMappingsResult,
+                codeToDisplay,
+                codeRepairResult
+            );
+            codeToDisplay = result.codeToDisplay;
+            codeRepairResult.finalContent = result.finalContent;
+        }
+
+        // Fix custom functions file if it has check errors - add |error to all functions
+        if (inlineMappingsResult.allMappingsRequest.customFunctionsFilePath && !isSameFile) {
+            const customFileDiags = diags.diagnosticsList.find(
+                d => d.uri.includes(path.basename(inlineMappingsResult.allMappingsRequest.customFunctionsFilePath!))
+            );
+            if (customFileDiags?.diagnostics.some(d => d.code === "BCE3032")) {
+                const updatedCustomContent = await addErrorToAllFunctionReturnTypes(
+                    langClient,
+                    inlineMappingsResult.allMappingsRequest.customFunctionsFilePath
+                );
+                codeRepairResult.customFunctionsContent = updatedCustomContent;
+            }
+        }
+    }
+
+    const generatedSourceFiles = buildMappingFileArray(
+        context.documentUri,
+        codeRepairResult.finalContent,
+        customFunctionsTargetPath,
+        codeRepairResult.customFunctionsContent,
+    );
+
     // Build assistant response
     assistantResponse = `Here are the data mappings:\n\n`;
-    assistantResponse += `\n**Note**: When you click **Add to Integration**, it will override your existing mappings.\n`;
+    if (inlineMappingRequest.attachments.length > 0) {
+        const attachmentNames = [];
+        for (const att of (inlineMappingRequest.attachments)) {
+            attachmentNames.push(att.name);
+        }
+        assistantResponse += `- **Attachments**: ${attachmentNames.join(", ")}\n`;
+    }
+
+    if (inlineMappingRequest.metadata.mappingsModel.mappings.length > 0) {
+        assistantResponse += `\n**Note**: When you click **Add to Integration**, it will override your existing mappings.\n`;
+    }
 
     if (isSameFile) {
         const mergedCodeDisplay = customContent ? `${codeToDisplay}\n${customContent}` : codeToDisplay;
@@ -750,12 +1018,8 @@ export async function generateInlineMappingCode(inlineMappingRequest: MetadataWi
 
 // Core context type creation function that emits events and generates Ballerina record types
 export async function generateContextTypesCore(typeCreationRequest: ProcessContextTypeCreationRequest, eventHandler: CopilotEventHandler): Promise<void> {
-    if (!typeCreationRequest.attachments || typeCreationRequest.attachments.length === 0) {
+    if (typeCreationRequest.attachments.length === 0) {
         throw new Error("Attachments are required for type creation");
-    }
-
-    if (!eventHandler) {
-        throw new Error("Event handler is required for type creation");
     }
 
     // Initialize generation process
@@ -775,9 +1039,9 @@ export async function generateContextTypesCore(typeCreationRequest: ProcessConte
         );
 
         // Build assistant response
-        const sourceAttachmentNames = typeCreationRequest.attachments?.map(a => a.name).join(", ") || "attachment";
-        const fileText = typeCreationRequest.attachments?.length === 1 ? "file" : "files";
-        assistantResponse = `Record types generated from the ${sourceAttachmentNames} ${fileText} shown below.\n`;
+        const sourceAttachmentNames = typeCreationRequest.attachments.map(a => a.name).join(", ");
+        const fileText = typeCreationRequest.attachments.length === 1 ? "file" : "files";
+        assistantResponse = `Types generated from the ${sourceAttachmentNames} ${fileText} shown below.\n`;
         assistantResponse += `<code filename="${filePath}" type="type_creator">\n\`\`\`ballerina\n${typesCode}\n\`\`\`\n</code>`;
 
         // Send assistant response through event handler
@@ -801,14 +1065,15 @@ export async function generateContextTypes(typeCreationRequest: ProcessContextTy
     }
 }
 
+// Opens the AI panel with data mapper chat interface
 export async function openChatWindowWithCommand(): Promise<void> {
     const langClient = StateMachine.langClient();
     const context = StateMachine.context();
     const model = await generateDataMapperModel({}, langClient, context);
 
-    // Automatically open AI mapping chat window with the generated model
     const { identifier, dataMapperMetadata } = context;
 
+    // Automatically close and open AI mapping chat window with the generated model
     commands.executeCommand(CLOSE_AI_PANEL_COMMAND);
     commands.executeCommand(OPEN_AI_PANEL_COMMAND, {
         type: 'command-template',
