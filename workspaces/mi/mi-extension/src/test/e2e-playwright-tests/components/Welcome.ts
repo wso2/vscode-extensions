@@ -1,4 +1,4 @@
-/**
+1/**
  * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
@@ -75,7 +75,7 @@ export class Welcome {
             await downloadJavaAndMi.click();
             try {
                 console.log(`Waiting for I Agree button`);
-                const iAgreeBtn = await getVsCodeButton(container!, 'I Agree', 'primary', 60000);
+                const iAgreeBtn = await getVsCodeButton(container!, 'I Agree', 'primary');
                 await iAgreeBtn.click();
             } catch (error) {
                 console.log('No terms and conditions to accept');
