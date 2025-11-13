@@ -134,14 +134,18 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
         const data: ProjectExplorerEntry[] = [];
         if (extension.langClient) {
             const stateContext: VisualizerLocation = await commands.executeCommand(SHARED_COMMANDS.GET_STATE_CONTEXT);
-            const ballerinaWorkspace = stateContext?.workspacePath;
+            if (!stateContext) {
+                return [];
+            }
+
+            const ballerinaWorkspace = stateContext.workspacePath;
             const workspaceFolderOfPackage = vscode
                 .workspace
                 .workspaceFolders
                 .find(folder => folder.uri.fsPath === stateContext.projectPath);
 
-            let packageName = workspaceFolderOfPackage?.name;
-            let packagePath = workspaceFolderOfPackage?.uri.fsPath;
+            let packageName: string;
+            let packagePath: string;
 
             if (!workspaceFolderOfPackage) {
                 if (ballerinaWorkspace) {
@@ -150,6 +154,9 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
                 } else {
                     return [];
                 }
+            } else {
+                packageName = workspaceFolderOfPackage.name;
+                packagePath = workspaceFolderOfPackage.uri.fsPath;
             }
 
             // Get the state context from ballerina extension as it maintain the event driven tree data
