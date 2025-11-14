@@ -24,6 +24,7 @@ import {
 	CommandIds,
 	type ContextItem,
 	type ICmdParamsBase,
+	ICreateDirCtxCmdParams,
 	type Organization,
 	type Project,
 	type UserInfo,
@@ -41,7 +42,7 @@ import { getUserInfoForCmd, isRpcActive, selectOrg, selectProjectWithCreateNew, 
 
 export function createDirectoryContextCommand(context: ExtensionContext) {
 	context.subscriptions.push(
-		commands.registerCommand(CommandIds.CreateDirectoryContext, async (params: ICmdParamsBase) => {
+		commands.registerCommand(CommandIds.CreateDirectoryContext, async (params: ICreateDirCtxCmdParams) => {
 			setExtensionName(params?.extName);
 			const extensionName = webviewStateStore.getState().state.extensionName;
 			try {
@@ -98,7 +99,8 @@ export function createDirectoryContextCommand(context: ExtensionContext) {
 						ext?.clients?.rpcClient?.changeOrgContext(selectedOrg?.id?.toString()!),
 					);
 
-					const components = await window.withProgress(
+					if (!params || !params?.skipComponentExistCheck) {
+						const components = await window.withProgress(
 						{
 							title: `Fetching ${extensionName === "Devant" ? "integrations" : "components"} of project ${selectedProject.name}...`,
 							location: ProgressLocation.Notification,
@@ -110,33 +112,34 @@ export function createDirectoryContextCommand(context: ExtensionContext) {
 								projectHandle: selectedProject.handler,
 								projectId: selectedProject.id,
 							}),
-					);
+						);
 
-					if (components.length > 0) {
-						// Check if user is trying to link with the correct Git directory
-						const hasMatchingRemote = components.some((componentItem) => {
-							const repoUrl = getComponentKindRepoSource(componentItem.spec.source).repo;
-							const parsedRepoUrl = parseGitURL(repoUrl);
-							if (parsedRepoUrl) {
-								const [repoOrg, repoName, repoProvider] = parsedRepoUrl;
-								return remotes.some((remoteItem) => {
-									const parsedRemoteUrl = parseGitURL(remoteItem.fetchUrl);
-									if (parsedRemoteUrl) {
-										const [repoRemoteOrg, repoRemoteName, repoRemoteProvider] = parsedRemoteUrl;
-										return repoOrg === repoRemoteOrg && repoName === repoRemoteName && repoRemoteProvider === repoProvider;
-									}
-								});
-							}
-						});
+						if (components.length > 0) {
+							// Check if user is trying to link with the correct Git directory
+							const hasMatchingRemote = components.some((componentItem) => {
+								const repoUrl = getComponentKindRepoSource(componentItem.spec.source).repo;
+								const parsedRepoUrl = parseGitURL(repoUrl);
+								if (parsedRepoUrl) {
+									const [repoOrg, repoName, repoProvider] = parsedRepoUrl;
+									return remotes.some((remoteItem) => {
+										const parsedRemoteUrl = parseGitURL(remoteItem.fetchUrl);
+										if (parsedRemoteUrl) {
+											const [repoRemoteOrg, repoRemoteName, repoRemoteProvider] = parsedRemoteUrl;
+											return repoOrg === repoRemoteOrg && repoName === repoRemoteName && repoRemoteProvider === repoProvider;
+										}
+									});
+								}
+							});
 
-						if (!hasMatchingRemote) {
-							const resp = await window.showInformationMessage(
-								"The selected directory does not have any Git remotes that match with the repositories associated with the selected project. Do you wish to continue?",
-								{ modal: true },
-								"Continue",
-							);
-							if (resp !== "Continue") {
-								return;
+							if (!hasMatchingRemote) {
+								const resp = await window.showInformationMessage(
+									"The selected directory does not have any Git remotes that match with the repositories associated with the selected project. Do you wish to continue?",
+									{ modal: true },
+									"Continue",
+								);
+								if (resp !== "Continue") {
+									return;
+								}
 							}
 						}
 					}

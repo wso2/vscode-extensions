@@ -5,6 +5,10 @@ export interface ICmdParamsBase {
 	extName?: ExtensionName;
 }
 
+export interface ICreateDirCtxCmdParams extends ICmdParamsBase {
+	skipComponentExistCheck?: boolean;
+}
+
 export interface ICloneProjectCmdParams extends ICmdParamsBase {
 	organization: Organization;
 	project: Project;
