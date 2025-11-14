@@ -25,8 +25,9 @@ import { parse } from "toml";
 
 export interface ProjectInfo {
     isBI: boolean;
-    isBallerina: boolean;
-    isBalWorkspace: boolean;
+    isBallerinaPackage: boolean;
+    isBallerinaWorkspace: boolean;
+    isEmptyWorkspace?: boolean;
 };
 
 export function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) {
@@ -43,8 +44,8 @@ export function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) 
  *
  * @returns A Promise that resolves to ProjectInfo containing:
  *          - isBI: true if the workspace is a Ballerina Integrator project
- *          - isBallerina: true if the workspace contains a valid Ballerina project/workspace
- *          - isBalWorkspace: true if the workspace is a Ballerina workspace with multiple packages
+ *          - isBallerinaPackage: true if the workspace contains a valid Ballerina project/workspace
+ *          - isBallerinaWorkspace: true if the workspace is a Ballerina workspace with multiple packages
  *
  * @remarks
  * - Returns all false values if no workspace folders exist or multiple workspace folders are present
@@ -54,49 +55,29 @@ export async function fetchProjectInfo(): Promise<ProjectInfo> {
     const workspaceFolders = workspace.workspaceFolders;
 
     if (!workspaceFolders || workspaceFolders.length > 1) {
-        return { isBI: false, isBallerina: false, isBalWorkspace: false };
+        return { isBI: false, isBallerinaPackage: false, isBallerinaWorkspace: false };
     }
 
     const workspaceUri = workspaceFolders[0].uri;
     const isBallerinaWorkspace = await checkIsBallerinaWorkspace(workspaceUri);
 
     if (isBallerinaWorkspace) {
+        const isBI = checkIsBI(workspaceUri);
         const workspaceTomlValues = await getWorkspaceTomlValues(workspaceUri.fsPath);
-        if (!workspaceTomlValues?.workspace?.packages) {
-            return { isBI: false, isBallerina: false, isBalWorkspace: false };
-        }
-        const packagePaths = workspaceTomlValues.workspace.packages;
-
-        const filteredPackagePaths = await filterPackagePaths(packagePaths, workspaceUri.fsPath);
-
-        let isBICount = 0; // Counter for workspaces with isBI set to true
-        let isBalCount = 0; // Counter for workspaces with Ballerina project
-
-        for (const pkgPath of filteredPackagePaths) {
-            let packagePath = path.join(workspaceUri.fsPath, pkgPath);
-            if (path.isAbsolute(pkgPath)) {
-                packagePath = path.resolve(pkgPath);
-            }
-            const isBallerina = await checkIsBallerinaPackage(Uri.file(packagePath));
-            if (isBallerina) {
-                isBalCount++;
-                if (checkIsBI(Uri.file(packagePath))) {
-                    isBICount++;
-                }
-            }
-        }
+        const isEmptyWorkspace = workspaceTomlValues?.workspace?.packages?.length === 0;
 
         return {
-            isBI: isBICount > 0,
-            isBallerina: isBalCount > 0,
-            isBalWorkspace: true
+            isBI: isBI,
+            isBallerinaPackage: false,
+            isBallerinaWorkspace: extension.isWorkspaceSupported,
+            isEmptyWorkspace: isEmptyWorkspace
         };
     }
 
     return {
         isBI: checkIsBI(workspaceUri),
-        isBallerina: await checkIsBallerinaPackage(workspaceUri),
-        isBalWorkspace: false
+        isBallerinaPackage: await checkIsBallerinaPackage(workspaceUri),
+        isBallerinaWorkspace: false
     };
 }
 
@@ -160,7 +141,7 @@ export async function checkIsBallerinaWorkspace(uri: Uri): Promise<boolean> {
 
     try {
         const tomlValues = await getWorkspaceTomlValues(uri.fsPath);
-        return tomlValues?.workspace !== undefined;
+        return tomlValues?.workspace !== undefined && tomlValues.workspace?.packages !== undefined;
     } catch (error) {
         // If there's an error reading the file, it's not a valid Ballerina workspace
         console.error(`Error reading workspace Ballerina.toml: ${error}`);
@@ -195,7 +176,7 @@ async function getProjectTomlValues(projectPath: string): Promise<PackageTomlVal
  * @returns A Promise that resolves to the parsed TOML values if successful,
  *          or undefined if the file doesn't exist or parsing fails
  */
-async function getWorkspaceTomlValues(workspacePath: string): Promise<WorkspaceTomlValues | undefined> {
+export async function getWorkspaceTomlValues(workspacePath: string): Promise<WorkspaceTomlValues | undefined> {
     const ballerinaTomlPath = path.join(workspacePath, 'Ballerina.toml');
     if (fs.existsSync(ballerinaTomlPath)) {
         const tomlContent = await fs.promises.readFile(ballerinaTomlPath, 'utf-8');
