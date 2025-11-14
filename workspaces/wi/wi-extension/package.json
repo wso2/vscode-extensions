@@ -158,11 +158,6 @@
       ],
       "view/title": [
         {
-          "command": "wso2.integrator.openWelcome",
-          "when": "view == wso2-integrator.explorer",
-          "group": "navigation@1"
-        },
-        {
           "command": "wso2.integrator.refreshView",
           "when": "view == wso2-integrator.explorer",
           "group": "navigation@2"
