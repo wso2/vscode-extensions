@@ -189,7 +189,6 @@ export enum MessageStoreTypes {
 export * from "./swagger";
 
 export const APIS = {
-    MI_COPILOT_BACKEND: process.env.MI_COPILOT_BACKEND as string,
     MI_CONNECTOR_STORE: process.env.MI_CONNECTOR_STORE as string,
     MI_CONNECTOR_STORE_BACKEND: process.env.MI_CONNECTOR_STORE_BACKEND as string,
     MI_CONNECTOR_STORE_BACKEND_SEARCH: process.env.MI_CONNECTOR_STORE_BACKEND_SEARCH as string,
@@ -199,6 +198,7 @@ export const DM_OPERATORS_FILE_NAME = "dm-utils";
 export const DM_OPERATORS_IMPORT_NAME = "dmUtils";
 export const LAST_EXPORTED_CAR_PATH = "last-exported-car-path";
 export const RUNTIME_VERSION_440 = "4.4.0";
+export const RUNTIME_VERSION_450 = "4.5.0";
 export const DEFAULT_ICON = "https://mi-connectors.wso2.com/icons/wordpress.gif";
 
 export const ERROR_MESSAGES = {

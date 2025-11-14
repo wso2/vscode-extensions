@@ -46,7 +46,6 @@ import {
     ImportProjectResponse,
     ESBConfigsResponse,
     HighlightCodeRequest,
-    AIUserInput,
     WriteContentToFileRequest,
     WriteContentToFileResponse,
     HandleFileRequest,
@@ -253,8 +252,6 @@ import {
     DeployProjectRequest,
     DeployProjectResponse,
     DevantMetadata,
-    GetCodeDiagnosticsReqeust,
-    GetCodeDiagnosticsResponse,
     GetConnectorIconRequest,
     GetConnectorIconResponse,
     SubmitFeedbackRequest,
@@ -335,7 +332,6 @@ export interface MiDiagramAPI {
     createProject: (params: CreateProjectRequest) => Promise<CreateProjectResponse>;
     importProject: (params: ImportProjectRequest) => Promise<ImportProjectResponse>;
     migrateProject: (params: MigrateProjectRequest) => Promise<MigrateProjectResponse>;
-    getAIResponse: (params: AIUserInput) => Promise<string>;
     writeContentToFile: (params: WriteContentToFileRequest) => Promise<WriteContentToFileResponse>;
     handleFileWithFS: (params: HandleFileRequest) => Promise<HandleFileResponse>;
     writeIdpSchemaFileToRegistry: (params: WriteIdpSchemaFileToRegistryRequest) => Promise<WriteIdpSchemaFileToRegistryResponse>;
@@ -436,7 +432,6 @@ export interface MiDiagramAPI {
     testConnectorConnection: (params: TestConnectorConnectionRequest) => Promise<TestConnectorConnectionResponse>;
     saveConfig: (params: SaveConfigRequest) => Promise<SaveConfigResponse>;
     getEULALicense: () => Promise<string>;
-    getCodeDiagnostics: (params: GetCodeDiagnosticsReqeust) => Promise<GetCodeDiagnosticsResponse>;
     shouldDisplayPayloadAlert: () => Promise<boolean>;
     displayPayloadAlert: () => Promise<void>;
     closePayloadAlert: () => Promise<void>;

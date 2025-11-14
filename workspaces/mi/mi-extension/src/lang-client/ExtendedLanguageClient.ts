@@ -75,8 +75,6 @@ import {
     CheckDBDriverResponse,
     RemoveDBDriverResponse,
     LocalInboundConnectorsResponse,
-    GetCodeDiagnosticsReqeust,
-    GetCodeDiagnosticsResponse,
     XmlCode,
     UpdateAiDependenciesResponse,
     UpdateAiDependenciesRequest,

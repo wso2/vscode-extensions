@@ -53,8 +53,7 @@ import {
     getMappingFromAI,
     writeDataMapping,
     DataMapWriteRequest, 
-    confirmMappingAction,
-    authenticateUser
+    confirmMappingAction
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -132,9 +131,5 @@ export class MiDataMapperRpcClient implements MIDataMapperAPI {
 
     confirmMappingAction(): Promise<boolean> {
         return this._messenger.sendRequest(confirmMappingAction, HOST_EXTENSION);
-    }
-
-    authenticateUser(): Promise<boolean> {
-        return this._messenger.sendRequest(authenticateUser, HOST_EXTENSION);
     }
 }

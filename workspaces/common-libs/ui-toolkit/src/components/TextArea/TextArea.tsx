@@ -76,6 +76,12 @@ export const TextArea = React.forwardRef<HTMLTextAreaElement, TextAreaProps>(
 
         const { iconComponent, onClick: iconClick } = icon || {};
 
+        useEffect(() => {
+            if (autoFocus) {
+                (ref as React.MutableRefObject<HTMLTextAreaElement>)?.current?.focus();
+            }
+        }, [autoFocus, ref]);
+
         const handleChange = (e: any) => {
             onTextChange && onTextChange(e.target.value);
             props.onChange && props.onChange(e);
@@ -94,7 +100,7 @@ export const TextArea = React.forwardRef<HTMLTextAreaElement, TextAreaProps>(
                     className={className}
                     style={{ width: "100%" }}
                     {...rest}
-                    { ...!props.name ? { value: props.value ? props.value : ""} : {} } // If name is not provided, then value should be empty (for react-hook-form)
+                    {...!props.name ? { value: props.value ? props.value : "" } : {}} // If name is not provided, then value should be empty (for react-hook-form)
                     onChange={handleChange}
                     onInput={handleChange}
                     aria-label={ariaLabel ? ariaLabel : `${label}`}
@@ -138,17 +144,17 @@ export const AutoResizeTextArea = React.forwardRef<HTMLTextAreaElement, AutoResi
             requestAnimationFrame(() => {
                 // get the raw scroll height of the text area without paddings
                 const scrollHeight = getRawScrollHeight(textAreaComponent);
-    
+
                 // calculate the number of rows
                 const contentBasedRows = Math.ceil(scrollHeight / lineHeight.current);
                 const newRows = calculateTextAreaRows(contentBasedRows, growRange);
-    
+
                 // set the rows for both HTML element and react element to avoid state mismatch
                 setTextAreaRows(textAreaComponent, newRows);
                 setRows(newRows);
             });
 
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+            // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [textAreaRef.current, lineHeight.current, growRange]);
 
         /* Handle initial render */
@@ -164,7 +170,7 @@ export const AutoResizeTextArea = React.forwardRef<HTMLTextAreaElement, AutoResi
 
             updateRows();
 
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+            // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [props.value])
 
         return <TextArea aria-label={ariaLabel} {...rest} rows={rows} ref={textAreaRef} />
