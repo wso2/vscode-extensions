@@ -4,7 +4,7 @@ All notable changes to the **WSO2 Integrator: BI** extension will be documented 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [1.5.0](https://github.com/wso2/vscode-extensions/compare/ballerina-integrator-1.4.0...ballerina-integrator-1.5.0) - 2025-11-05
+## [1.5.0](https://github.com/wso2/vscode-extensions/compare/ballerina-integrator-1.4.0...ballerina-integrator-1.5.0) - 2025-11-11
 
 ### Added
 
