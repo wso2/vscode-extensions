@@ -170,7 +170,13 @@ export class MiDataMapperRpcManager implements MIDataMapperAPI {
 
     async formatDMC(documentUri: string): Promise<void> {
         const uri = Uri.file(documentUri);
-        const edits: TextEdit[] = await commands.executeCommand("vscode.executeFormatDocumentProvider", uri);
+        let edits: TextEdit[];
+        try {
+            edits = await commands.executeCommand("vscode.executeFormatDocumentProvider", uri);
+        } catch (error) {
+            console.error("Error occurred while formatting DMC file: ", error);
+            return;
+        }
         const workspaceEdit = new WorkspaceEdit();
         workspaceEdit.set(uri, edits);
         await workspace.applyEdit(workspaceEdit);
