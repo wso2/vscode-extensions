@@ -63,10 +63,10 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                             .then(option => {
                                 if (option === 'Extract') {
                                     window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, title: 'Select the location to extract the CAPP', openLabel: 'Select Folder' })
-                                        .then(extractUri => {
+                                        .then(async extractUri => {
                                             if (extractUri && extractUri[0]) {
-                                                importCapp({ source: uri[0].fsPath, directory: extractUri[0].fsPath, open: false });
-                                                handleOpenProject(extractUri[0]);
+                                                await importCapp({ source: uri[0].fsPath, directory: extractUri[0].fsPath, open: false });
++                                               handleOpenProject(extractUri[0]);
                                             }
                                         });
                                 }
