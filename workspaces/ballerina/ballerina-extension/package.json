@@ -481,6 +481,11 @@
                 "category": "Ballerina"
             },
             {
+                "command": "ballerina.configureDefaultDevantChunker",
+                "title": "Configure default Devant chunker",
+                "category": "Ballerina"
+            },
+            {
                 "command": "ballerina.configureDefaultModelForNaturalFunctions",
                 "title": "Configure default model for natural functions (Experimental)",
                 "category": "Ballerina"
