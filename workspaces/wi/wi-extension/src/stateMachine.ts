@@ -153,7 +153,7 @@ const stateMachine = createMachine<MachineContext>({
                 vscode.commands.executeCommand('setContext', 'WI.projectType', 'mi');
             } else {
                 // No known project type, show welcome screen
-                // showWelcomeScreen(context);
+                showWelcomeScreen(context);
             }
         },
         showWelcomeScreen: (context, event) => {

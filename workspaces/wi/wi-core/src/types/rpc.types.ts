@@ -168,15 +168,6 @@ export interface ImportIntegrationRPCRequest {
     parameters?: Record<string, any>;
 }
 
-export interface ImportIntegrationResponse {
-    error: string;
-    textEdits: {
-        [key: string]: string;
-    };
-    report: string;
-    jsonReport: string;
-}
-
 export interface ImportIntegrationRequest {
     packageName: string;
     orgName: string;

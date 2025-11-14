@@ -92,12 +92,3 @@ export interface DownloadProgress {
     message: string;
     step?: number;
 }
-
-export interface ImportIntegrationResponse {
-    error: string;
-    textEdits: {
-        [key: string]: string;
-    };
-    report: string;
-    jsonReport: string;
-}
