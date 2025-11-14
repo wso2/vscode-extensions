@@ -119,12 +119,25 @@ export const FormTypeEditor = (props: FormTypeEditorProps) => {
                                 context: context,
                             });
                         } else {
+                            // Determine typeConstraint from function label for FTP functions
+                            let typeConstraint: string | undefined = undefined;
+                            if (payloadContext?.protocol === "MESSAGE_BROKER" && payloadContext.functionLabel) {
+                                const functionLabel = payloadContext.functionLabel;
+                                if (functionLabel.includes("onFileJson") || functionLabel.toLowerCase().includes("json")) {
+                                    typeConstraint = "json";
+                                } else if (functionLabel.includes("onFileXml") || functionLabel.toLowerCase().includes("xml")) {
+                                    typeConstraint = "record|xml";
+                                } else if (functionLabel.includes("onFileCsv") || functionLabel.includes("onFileCSV") || functionLabel.toLowerCase().includes("csv")) {
+                                    typeConstraint = "string[]|record";
+                                }
+                            }
                             types = await rpcClient.getBIDiagramRpcClient().getVisibleTypes({
                                 filePath: filePath,
                                 position: {
                                     line: targetLineRange.startLine.line,
                                     offset: targetLineRange.startLine.offset
                                 },
+                                typeConstraint: typeConstraint
                             });
                         }
                         const basicTypes = getTypes(types);
