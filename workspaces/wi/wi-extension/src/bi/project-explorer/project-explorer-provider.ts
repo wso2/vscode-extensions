@@ -128,7 +128,7 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
             const workspace = vscode
                 .workspace
                 .workspaceFolders
-                .find(folder => folder.uri.fsPath === stateContext.projectUri);
+                .find(folder => folder.uri.fsPath === stateContext.projectPath);
 
             if (!workspace) {
                 return [];
