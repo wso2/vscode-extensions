@@ -22,13 +22,13 @@ import { ProjectActivityView } from "./ProjectActivityView";
 
 export function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) {
 	if (shouldUseWebViewDevMode(pathList)) {
-		return process.env.WEB_VIEW_DEV_HOST;
+		return process.env.WEB_VIEW_DEV_HOST_CHOREO;
 	}
 	return webview.asWebviewUri(Uri.joinPath(extensionUri, ...pathList));
 }
 
 function shouldUseWebViewDevMode(pathList: string[]): boolean {
-	return pathList[pathList.length - 1] === "main.js" && process.env.WEB_VIEW_DEV_MODE === "true" && process.env.WEB_VIEW_DEV_HOST !== undefined;
+	return pathList[pathList.length - 1] === "main.js" && process.env.WEB_VIEW_DEV_MODE_CHOREO === "true" && process.env.WEB_VIEW_DEV_HOST_CHOREO !== undefined;
 }
 
 export function activateActivityWebViews(context: vscode.ExtensionContext) {

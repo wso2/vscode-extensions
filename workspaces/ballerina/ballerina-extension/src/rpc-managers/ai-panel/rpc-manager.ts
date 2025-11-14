@@ -24,6 +24,8 @@ import {
     AIPanelPrompt,
     AddFilesToProjectRequest,
     AddToProjectRequest,
+    BIIntelSecrets,
+    AllDataMapperSourceRequest,
     BIModuleNodesRequest,
     BISourceCodeResponse,
     DeleteFromProjectRequest,
@@ -123,10 +125,17 @@ export class AiPanelRpcManager implements AIPanelAPI {
             }
 
             try {
-                const workspaceFolderPath = workspace.workspaceFolders[0].uri.fsPath;
+                let projectIdentifier: string;
+                const cloudProjectId = process.env.CLOUD_INITIAL_PROJECT_ID;
+                
+                if (cloudProjectId) {
+                    projectIdentifier = cloudProjectId;
+                } else {
+                    projectIdentifier = workspace.workspaceFolders[0].uri.fsPath;
+                }
 
                 const hash = crypto.createHash('sha256')
-                    .update(workspaceFolderPath)
+                    .update(projectIdentifier)
                     .digest('hex');
 
                 resolve(hash);
@@ -146,11 +155,14 @@ export class AiPanelRpcManager implements AIPanelAPI {
     async getAccessToken(): Promise<string> {
         return new Promise(async (resolve, reject) => {
             try {
-                const accessToken = await getAccessToken();
-                if (!accessToken) {
+                const credentials = await getAccessToken();
+
+                if (!credentials) {
                     reject(new Error("Access Token is undefined"));
                     return;
                 }
+                const secrets = credentials.secrets as BIIntelSecrets;
+                const accessToken = secrets.accessToken;
                 resolve(accessToken);
             } catch (error) {
                 reject(error);

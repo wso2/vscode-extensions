@@ -282,6 +282,7 @@ export const onMigrationToolStateChanged: NotificationType<string> = { method: '
 export const projectContentUpdated: NotificationType<boolean> = { method: 'projectContentUpdated' };
 export const getVisualizerLocation: RequestType<void, VisualizerLocation> = { method: 'getVisualizerLocation' };
 export const webviewReady: NotificationType<void> = { method: `webviewReady` };
+export const dependencyPullProgress: NotificationType<string> = { method: 'dependencyPullProgress' };
 
 // Artifact updated request and notification
 export const onArtifactUpdatedNotification: NotificationType<ProjectStructureArtifactResponse[]> = { method: 'onArtifactUpdatedNotification' };
@@ -346,16 +347,22 @@ export type AIMachineSendableEvent =
 export enum LoginMethod {
     BI_INTEL = 'biIntel',
     ANTHROPIC_KEY = 'anthropic_key',
+    DEVANT_ENV = 'devant_env',
     AWS_BEDROCK = 'aws_bedrock'
 }
 
-interface BIIntelSecrets {
+export interface BIIntelSecrets {
     accessToken: string;
     refreshToken: string;
 }
 
-interface AnthropicKeySecrets {
+export interface AnthropicKeySecrets {
     apiKey: string;
+}
+
+export interface DevantEnvSecrets {
+    accessToken: string;
+    expiresAt: number;
 }
 
 interface AwsBedrockSecrets {
@@ -375,12 +382,22 @@ export type AuthCredentials =
         secrets: AnthropicKeySecrets;
     }
     | {
+        loginMethod: LoginMethod.DEVANT_ENV;
+        secrets: DevantEnvSecrets;
+    }
+    | {
         loginMethod: LoginMethod.AWS_BEDROCK;
         secrets: AwsBedrockSecrets;
     };
 
 export interface AIUserToken {
-    token: string; // For BI Intel, this is the access token and for Anthropic, this is the API key
+    credentials: AuthCredentials;
+    usageToken?: string;
+    metadata?: {
+        lastRefresh?: string;
+        expiresAt?: string;
+        [key: string]: any;
+    };
 }
 
 export interface AIMachineContext {
