@@ -25,7 +25,7 @@ import { CopilotEventHandler } from './service/event';
 import { addConfigFile, AIProviderConfigType, getConfigFilePath } from './utils';
 import { StateMachine } from "../../stateMachine";
 import { CONFIGURE_DEFAULT_DEVANT_CHUNKER_COMMAND, CONFIGURE_DEFAULT_MODEL_COMMAND, DEFAULT_DEVANT_CHUNKER_ADDED, DEFAULT_PROVIDER_ADDED, LOGIN_REQUIRED_WARNING_FOR_DEFAULT_DEVANT_CHUNKER, LOGIN_REQUIRED_WARNING_FOR_DEFAULT_MODEL, SIGN_IN_BI_COPILOT } from './constants';
-import { REFRESH_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE, TOKEN_REFRESH_ONLY_SUPPORTED_FOR_BI_INTEL } from '../..//utils/ai/auth';
+import { REFRESH_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE, TOKEN_REFRESH_ONLY_SUPPORTED_FOR_BI_INTEL } from '../../utils/ai/auth';
 import { AIStateMachine } from '../../views/ai-panel/aiMachine';
 import { AIMachineEventType } from '@wso2/ballerina-core';
 import { generateMappingCodeCore } from './service/datamapper/datamapper';
