@@ -22,9 +22,9 @@ import { activateCopilotLoginCommand, resetBIAuth } from './completions';
 import { generateCodeCore } from './service/code/code';
 import { GenerateCodeRequest, ProcessMappingParametersRequest } from '@wso2/ballerina-core';
 import { CopilotEventHandler } from './service/event';
-import { addConfigFile, getConfigFilePath } from './utils';
+import { addConfigFile, AIProviderConfigType, getConfigFilePath } from './utils';
 import { StateMachine } from "../../stateMachine";
-import { CONFIGURE_DEFAULT_MODEL_COMMAND, DEFAULT_PROVIDER_ADDED, LOGIN_REQUIRED_WARNING_FOR_DEFAULT_MODEL, SIGN_IN_BI_COPILOT } from './constants';
+import { CONFIGURE_DEFAULT_DEVANT_CHUNKER_COMMAND, CONFIGURE_DEFAULT_MODEL_COMMAND, DEFAULT_DEVANT_CHUNKER_ADDED, DEFAULT_PROVIDER_ADDED, LOGIN_REQUIRED_WARNING_FOR_DEFAULT_DEVANT_CHUNKER, LOGIN_REQUIRED_WARNING_FOR_DEFAULT_MODEL, SIGN_IN_BI_COPILOT } from './constants';
 import { REFRESH_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE, TOKEN_REFRESH_ONLY_SUPPORTED_FOR_BI_INTEL } from '../..//utils/ai/auth';
 import { AIStateMachine } from '../../views/ai-panel/aiMachine';
 import { AIMachineEventType } from '@wso2/ballerina-core';
@@ -92,13 +92,35 @@ export function activateAIFeatures(ballerinaExternalInstance: BallerinaExtension
         const configPath = await getConfigFilePath(ballerinaExternalInstance, projectPath);
         if (configPath !== null) {
             try {
-                const result = await addConfigFile(configPath);
+                const result = await addConfigFile(configPath, AIProviderConfigType.WSO2_MODEL_PROVIDER);
                 if (result) {
                     window.showInformationMessage(DEFAULT_PROVIDER_ADDED);
                 }
             } catch (error) {
                 if ((error as Error).message === REFRESH_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE || (error as Error).message === TOKEN_REFRESH_ONLY_SUPPORTED_FOR_BI_INTEL) {
                     window.showWarningMessage(LOGIN_REQUIRED_WARNING_FOR_DEFAULT_MODEL, SIGN_IN_BI_COPILOT).then(selection => {
+                        if (selection === SIGN_IN_BI_COPILOT) {
+                            AIStateMachine.service().send(AIMachineEventType.LOGIN);
+                        }
+                    });
+                } else {
+                    window.showErrorMessage((error as Error).message);
+                }
+            }
+        }
+    });
+
+    commands.registerCommand(CONFIGURE_DEFAULT_DEVANT_CHUNKER_COMMAND, async (...args: any[]) => {
+        const configPath = await getConfigFilePath(ballerinaExternalInstance, projectPath);
+        if (configPath !== null) {
+            try {
+                const result = await addConfigFile(configPath, AIProviderConfigType.DEVANT_CHUNKER);
+                if (result) {
+                    window.showInformationMessage(DEFAULT_DEVANT_CHUNKER_ADDED);
+                }
+            } catch (error) {
+                if ((error as Error).message === REFRESH_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE || (error as Error).message === TOKEN_REFRESH_ONLY_SUPPORTED_FOR_BI_INTEL) {
+                    window.showWarningMessage(LOGIN_REQUIRED_WARNING_FOR_DEFAULT_DEVANT_CHUNKER, SIGN_IN_BI_COPILOT).then(selection => {
                         if (selection === SIGN_IN_BI_COPILOT) {
                             AIStateMachine.service().send(AIMachineEventType.LOGIN);
                         }
