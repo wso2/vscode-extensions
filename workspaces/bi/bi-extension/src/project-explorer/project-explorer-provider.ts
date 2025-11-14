@@ -167,7 +167,7 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
                 // Generate the tree data for the projects
                 const projects = projectStructure.projects;
                 for (const project of projects) {
-                    const projectTree = generateTreeData(project.projectName, project.projectPath, project);
+                    const projectTree = generateTreeData(project.projectTitle || project.projectName, project.projectPath, project);
                     if (projectTree) {
                         data.push(projectTree);
                     }
@@ -192,6 +192,11 @@ function generateTreeData(
         'project',
         true
     );
+    projectRootEntry.command = {
+        "title": "Visualize",
+        "command": SHARED_COMMANDS.SHOW_VISUALIZER,
+        "arguments": [packagePath, null, false, packagePath]
+    };
     projectRootEntry.contextValue = 'bi-project';
     const children = getEntriesBI(components);
     projectRootEntry.children = children;
@@ -212,10 +217,11 @@ function getEntriesBI(components: ProjectStructure): ProjectExplorerEntry[] {
     );
     entryPoints.contextValue = "entryPoint";
     entryPoints.children = [];
+    const projectPath = components.projectPath;
     if (components.directoryMap[DIRECTORY_MAP.AUTOMATION].length > 0) {
-        entryPoints.children.push(...getComponents(components.directoryMap[DIRECTORY_MAP.AUTOMATION], DIRECTORY_MAP.AUTOMATION));
+        entryPoints.children.push(...getComponents(components.directoryMap[DIRECTORY_MAP.AUTOMATION], DIRECTORY_MAP.AUTOMATION, projectPath));
     }
-    entryPoints.children.push(...getComponents(components.directoryMap[DIRECTORY_MAP.SERVICE], DIRECTORY_MAP.SERVICE));
+    entryPoints.children.push(...getComponents(components.directoryMap[DIRECTORY_MAP.SERVICE], DIRECTORY_MAP.SERVICE, projectPath));
     if (entryPoints.children.length > 0) {
         entryPoints.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
     }
@@ -230,7 +236,7 @@ function getEntriesBI(components: ProjectStructure): ProjectExplorerEntry[] {
         false
     );
     listeners.contextValue = "listeners";
-    listeners.children = getComponents(components.directoryMap[DIRECTORY_MAP.LISTENER], DIRECTORY_MAP.LISTENER);
+    listeners.children = getComponents(components.directoryMap[DIRECTORY_MAP.LISTENER], DIRECTORY_MAP.LISTENER, projectPath);
     if (listeners.children.length > 0) {
         listeners.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
     }
@@ -245,7 +251,7 @@ function getEntriesBI(components: ProjectStructure): ProjectExplorerEntry[] {
         false
     );
     connections.contextValue = "connections";
-    connections.children = getComponents(components.directoryMap[DIRECTORY_MAP.CONNECTION], DIRECTORY_MAP.CONNECTION);
+    connections.children = getComponents(components.directoryMap[DIRECTORY_MAP.CONNECTION], DIRECTORY_MAP.CONNECTION, projectPath);
     if (connections.children.length > 0) {
         connections.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
     }
@@ -262,7 +268,7 @@ function getEntriesBI(components: ProjectStructure): ProjectExplorerEntry[] {
     types.contextValue = "types";
     types.children = getComponents([
         ...components.directoryMap[DIRECTORY_MAP.TYPE]
-    ], DIRECTORY_MAP.TYPE);
+    ], DIRECTORY_MAP.TYPE, projectPath);
     if (types.children.length > 0) {
         types.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
     }
@@ -277,7 +283,7 @@ function getEntriesBI(components: ProjectStructure): ProjectExplorerEntry[] {
         false
     );
     functions.contextValue = "functions";
-    functions.children = getComponents(components.directoryMap[DIRECTORY_MAP.FUNCTION], DIRECTORY_MAP.FUNCTION);
+    functions.children = getComponents(components.directoryMap[DIRECTORY_MAP.FUNCTION], DIRECTORY_MAP.FUNCTION, projectPath);
     if (functions.children.length > 0) {
         functions.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
     }
@@ -292,7 +298,7 @@ function getEntriesBI(components: ProjectStructure): ProjectExplorerEntry[] {
         false
     );
     dataMappers.contextValue = "dataMappers";
-    dataMappers.children = getComponents(components.directoryMap[DIRECTORY_MAP.DATA_MAPPER], DIRECTORY_MAP.DATA_MAPPER);
+    dataMappers.children = getComponents(components.directoryMap[DIRECTORY_MAP.DATA_MAPPER], DIRECTORY_MAP.DATA_MAPPER, projectPath);
     if (dataMappers.children.length > 0) {
         dataMappers.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
     }
@@ -319,7 +325,7 @@ function getEntriesBI(components: ProjectStructure): ProjectExplorerEntry[] {
             false
         );
         naturalFunctions.contextValue = "naturalFunctions";
-        naturalFunctions.children = getComponents(components.directoryMap[DIRECTORY_MAP.NP_FUNCTION], DIRECTORY_MAP.NP_FUNCTION);
+        naturalFunctions.children = getComponents(components.directoryMap[DIRECTORY_MAP.NP_FUNCTION], DIRECTORY_MAP.NP_FUNCTION, projectPath);
         if (naturalFunctions.children.length > 0) {
             naturalFunctions.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
         }
@@ -335,7 +341,7 @@ function getEntriesBI(components: ProjectStructure): ProjectExplorerEntry[] {
         false
     );
     localConnectors.contextValue = "localConnectors";
-    localConnectors.children = getComponents(components.directoryMap[DIRECTORY_MAP.LOCAL_CONNECTORS], DIRECTORY_MAP.CONNECTOR);
+    localConnectors.children = getComponents(components.directoryMap[DIRECTORY_MAP.LOCAL_CONNECTORS], DIRECTORY_MAP.CONNECTOR, projectPath);
     if (localConnectors.children.length > 0) {
         localConnectors.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
     }
@@ -345,7 +351,7 @@ function getEntriesBI(components: ProjectStructure): ProjectExplorerEntry[] {
     return entries;
 }
 
-function getComponents(items: ProjectStructureArtifactResponse[], itemType: DIRECTORY_MAP): ProjectExplorerEntry[] {
+function getComponents(items: ProjectStructureArtifactResponse[], itemType: DIRECTORY_MAP, projectPath: string): ProjectExplorerEntry[] {
     if (!items) {
         return [];
     }
@@ -364,14 +370,14 @@ function getComponents(items: ProjectStructureArtifactResponse[], itemType: DIRE
         fileEntry.command = {
             "title": "Visualize",
             "command": SHARED_COMMANDS.SHOW_VISUALIZER,
-            "arguments": [comp.path, comp.position, resetHistory]
+            "arguments": [comp.path, comp.position, resetHistory, projectPath]
         };
         fileEntry.contextValue = itemType;
         fileEntry.tooltip = comp.context;
         // Get the children for services only
         if (itemType === DIRECTORY_MAP.SERVICE) {
-            const resourceFunctions = getComponents(comp.resources, DIRECTORY_MAP.RESOURCE);
-            const remoteFunctions = getComponents(comp.resources, DIRECTORY_MAP.REMOTE);
+            const resourceFunctions = getComponents(comp.resources, DIRECTORY_MAP.RESOURCE, projectPath);
+            const remoteFunctions = getComponents(comp.resources, DIRECTORY_MAP.REMOTE, projectPath);
             fileEntry.children = [...resourceFunctions, ...remoteFunctions];
             if (fileEntry.children.length > 0) {
                 fileEntry.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
