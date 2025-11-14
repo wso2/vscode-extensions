@@ -211,7 +211,6 @@
         "contents": "WSO2 Integrator: MI is not set up. Please set up the MI server and Java home to continue.",
         "when": "config.integrator.defaultIntegrator == '' && MI.status == 'notSetUp'"
       },
-
       {
         "view": "wso2-integrator.explorer",
         "contents": "Loading...",

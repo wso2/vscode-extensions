@@ -194,7 +194,7 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "vscode:prepublish": "npm run copyJSLibs",
-    "build": "npm run package",
+    "build": "npm run compile && npm run package",
     "copyJSLibs": "copyfiles -f ../wi-webviews/lib/main.js resources/jslibs",
     "watch": "tsc -p . -w",
     "compile": "tsc -p ./",
