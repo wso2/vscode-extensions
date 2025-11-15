@@ -141,11 +141,6 @@
             ],
             "view/title": [
                 {
-                    "command": "BI.project-explorer.switch-project",
-                    "when": "view == BI.project-explorer && BI.isBallerinaWorkspace == true && BI.status != 'emptyWorkspace'",
-                    "group": "navigation"
-                },
-                {
                     "command": "BI.project-explorer.add",
                     "when": "view == BI.project-explorer && BI.isBallerinaWorkspace == true",
                     "group": "navigation"
