@@ -20,7 +20,7 @@ import { DropdownButton } from "./DropdownButton";
 import Typography from "../Typography/Typography";
 import styled from "@emotion/styled";
 import { Icon } from "../Icon/Icon";
-import type { Meta, StoryObj } from "@storybook/react-vite";
+import type { Meta, StoryObj } from "@storybook/react";
 
 const IconWrapper = styled.div`
     height: 20px;

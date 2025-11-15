@@ -16,8 +16,8 @@
  * under the License.
  */
 import React from "react";
-import type { Meta, StoryObj } from '@storybook/react-vite';
-import { ComponentCard } from "./ComponentCard";
+import type { Meta, StoryObj } from '@storybook/react';
+import { ComponentCard, ComponentCardProps } from "./ComponentCard";
 import { Typography } from "../Typography/Typography";
 import { Icon } from "../Icon/Icon";
 
@@ -56,7 +56,7 @@ export const EditorCard: Story = {
         },
         onClick: (e: any) => { console.log(e) }
     },
-    render: args => (
+    render: (args: ComponentCardProps) => (
         <ComponentCard {...args}>
             <Icon name="ArchitectureViewIcon" sx={{marginRight: 5}} />
             <Typography variant="h4">Test Component</Typography>
@@ -71,7 +71,7 @@ export const ChoreoCard: Story = {
         sx: { width: 900, height: 50 },
         onClick: (e: any) => { console.log(e) }
     },
-    render: args => (
+    render: (args: ComponentCardProps) => (
         <ComponentCard {...args}>
             <Icon name="ArchitectureViewIcon" sx={{marginRight: 5}} />
             <Typography variant="h4">Test Component</Typography>

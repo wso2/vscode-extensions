@@ -16,8 +16,9 @@
  * under the License.
  */
 import React from "react";
-import { Meta, StoryObj } from "@storybook/react-vite";
+import { Meta, StoryObj } from "@storybook/react";
 import { SidePanel } from "./SidePanel";
+import { ResizableSidePanel } from "./ResizableSidePanel";
 import { SidePanelBody, SidePanelTitleContainer } from "../../styles/SidePanel";
 import { Button } from "../Button/Button";
 import { Codicon } from "../Codicon/Codicon";
@@ -176,4 +177,79 @@ export const SidePanelWithSubPanel: Story = {
             </>
         );
     }
+};
+
+// Resizable SidePanel Stories
+type ResizableStory = StoryObj<typeof ResizableSidePanel>;
+
+export const ResizableRightPanel: ResizableStory = {
+    render: () => {
+        const [isOpen, setIsOpen] = React.useState(false);
+        
+        const openPanel = () => setIsOpen(!isOpen);
+        const closePanel = () => setIsOpen(false);
+        
+        return (
+            <>
+                <div style={{ display: "flex", justifyContent: "center", cursor: "pointer", color: colors.editorForeground }} onClick={openPanel}>
+                    Click to Open Resizable Side Panel (Right)
+                </div>
+                <ResizableSidePanel 
+                    isOpen={isOpen} 
+                    alignment="right" 
+                    defaultWidth={400}
+                    minWidth={250}
+                    maxWidth={1000}
+                    onClose={closePanel}
+                    onResize={width => console.log('New width:', width)}
+                    resizable={true}
+                >
+                    <SidePanelTitleContainer>
+                        <div>Resizable Panel</div>
+                        <Button onClick={closePanel} appearance="icon"><Codicon name="close" /></Button>
+                    </SidePanelTitleContainer>
+                    <SidePanelBody>
+                        <p>Drag the left edge to resize this panel.</p>
+                        <p>Min width: 250px, Max width: 800px</p>
+                    </SidePanelBody>
+                </ResizableSidePanel>
+            </>
+        );
+    },
+};
+
+export const ResizableLeftPanel: ResizableStory = {
+    render: () => {
+        const [isOpen, setIsOpen] = React.useState(false);
+        
+        const openPanel = () => setIsOpen(!isOpen);
+        const closePanel = () => setIsOpen(false);
+        
+        return (
+            <>
+                <div style={{ display: "flex", justifyContent: "center", cursor: "pointer", color: colors.editorForeground }} onClick={openPanel}>
+                    Click to Open Resizable Side Panel (Left)
+                </div>
+                <ResizableSidePanel 
+                    isOpen={isOpen} 
+                    alignment="left" 
+                    defaultWidth={400}
+                    minWidth={250}
+                    maxWidth={800}
+                    onClose={closePanel}
+                    onResize={width => console.log('New width:', width)}
+                    resizable={true}
+                >
+                    <SidePanelTitleContainer>
+                        <div>Resizable Panel</div>
+                        <Button onClick={closePanel} appearance="icon"><Codicon name="close" /></Button>
+                    </SidePanelTitleContainer>
+                    <SidePanelBody>
+                        <p>Drag the right edge to resize this panel.</p>
+                        <p>Min width: 250px, Max width: 800px</p>
+                    </SidePanelBody>
+                </ResizableSidePanel>
+            </>
+        );
+    },
 };

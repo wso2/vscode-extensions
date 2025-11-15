@@ -15,7 +15,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { TypeSelector as AppTypeSelector } from "./TypeSelector";
 
 const meta = {

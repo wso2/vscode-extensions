@@ -16,8 +16,8 @@
  * under the License.
  */
 import React from "react";
-import { Meta, StoryObj } from "@storybook/react-vite";
-import { Tooltip } from "./Tooltip";
+import { Meta, StoryObj } from "@storybook/react";
+import {  Tooltip , TooltipProps } from "./Tooltip";
 import styled from "@emotion/styled";
 
 const Container = styled.div`
@@ -59,7 +59,7 @@ export default meta;
 type Story = StoryObj<typeof Tooltip>;
 
 export const Default: Story = {
-    render: args =>
+    render: (args: TooltipProps) =>
         <Container>
             <Tooltip {...args}>
                 <TextContainer>Hover Over Me</TextContainer>
@@ -69,7 +69,7 @@ export const Default: Story = {
 };
 
 export const TooltipWithOffset: Story = {
-    render: args =>
+    render: (args: TooltipProps) =>
         <Container>
             <Tooltip {...args}>
                 <TextContainer>Hover Over Me</TextContainer>
@@ -81,7 +81,7 @@ export const TooltipWithOffset: Story = {
 const TooltipContent = () => <LargeTooltipContent>Tooltip Content</LargeTooltipContent>;
 
 export const Overflow: Story = {
-    render: args =>
+    render: (args: TooltipProps) =>
         <Tooltip {...args}>
             <LargeTextContainer>Hover Over Me</LargeTextContainer>
         </Tooltip>,

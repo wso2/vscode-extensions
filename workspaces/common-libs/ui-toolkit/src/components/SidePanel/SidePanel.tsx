@@ -63,7 +63,7 @@ const SidePanelContainer = styled.div<SidePanelProps>`
 const SubPanelContainer = styled.div<SidePanelProps>`
     position: fixed;
     top: 0;
-    ${(props: SidePanelProps) => props.alignment === "left" ? "left" : "right"}: ${(props: SidePanelProps) => `${props.width}px`};
+    ${(props: SidePanelProps) => props.alignment === "left" ? `left: ${props.width}px;` : `right: ${props.width}px;`}
     width: ${(props: SidePanelProps) => props?.subPanelWidth ? `${props?.subPanelWidth}px` : `calc(100vw - ${props.width}px)`};
     height: 100%;
     box-shadow: 0 5px 10px 0 var(--vscode-badge-background);
