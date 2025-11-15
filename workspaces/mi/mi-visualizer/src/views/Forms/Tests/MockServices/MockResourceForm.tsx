@@ -171,7 +171,8 @@ export function MockResourceForm(props: MockResourceFormProps) {
             />
 
             <ComponentCard id="mockResourceRequestCard" sx={cardStyle} disbaleHoverEffect>
-                <FormGroup title="Expected request to resource" isCollapsed={false}>
+                <br/>
+                <FormGroup title="Expected Request to Resource" isCollapsed={false}>
                     <Controller
                         name="requestHeaders"
                         control={control}
@@ -203,7 +204,8 @@ export function MockResourceForm(props: MockResourceFormProps) {
             </ComponentCard>
 
             <ComponentCard id="mockResourceResponseCard" sx={cardStyle} disbaleHoverEffect>
-                <FormGroup title="Expected response from resource" isCollapsed={false}>
+                <br/>
+                <FormGroup title="Expected Response from Resource" isCollapsed={false}>
                     <Dropdown
                         label="Response Status Code"
                         id="responseStatusCode"

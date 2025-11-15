@@ -237,11 +237,11 @@ export function ProjectInformation(props: ProjectInformationProps) {
             </Typography>
             <Item>
                 <Icon name="project" sx={{ marginRight: '8px' }} />
-                <Typography>Name: {primaryDetails?.projectName?.value}</Typography>
+                <Typography>Group ID: {buildDetails?.advanceDetails?.projectGroupId?.value}</Typography>
             </Item>
             <Item>
-                <Icon name="info" isCodicon sx={{ marginRight: '8px' }} />
-                <Typography>Description: {primaryDetails?.projectDescription?.value}</Typography>
+                <Icon name="project" sx={{ marginRight: '8px' }} />
+                <Typography>Artifact ID: {buildDetails?.advanceDetails?.projectArtifactId?.value}</Typography>
             </Item>
             <Item>
                 <Icon name="versions" isCodicon sx={{ marginRight: '8px' }} />
