@@ -192,7 +192,7 @@ function generateTreeData(
         'project',
         true
     );
-    projectRootEntry.resourceUri = Uri.file(packagePath);
+    projectRootEntry.resourceUri = Uri.parse(`bi-category:${packagePath}`);
     projectRootEntry.contextValue = 'bi-project';
     const children = getEntriesBI(components);
     projectRootEntry.children = children;
@@ -212,7 +212,7 @@ function getEntriesBI(project: ProjectStructure): ProjectExplorerEntry[] {
         'start',
         false
     );
-    entryPoints.resourceUri = Uri.file(projectPath);
+    entryPoints.resourceUri = Uri.parse(`bi-category:${projectPath}`);
     entryPoints.contextValue = "entryPoint";
     entryPoints.children = [];
     if (project.directoryMap[DIRECTORY_MAP.AUTOMATION].length > 0) {
@@ -232,7 +232,7 @@ function getEntriesBI(project: ProjectStructure): ProjectExplorerEntry[] {
         'radio',
         false
     );
-    listeners.resourceUri = Uri.file(projectPath);
+    listeners.resourceUri = Uri.parse(`bi-category:${projectPath}`);
     listeners.contextValue = "listeners";
     listeners.children = getComponents(project.directoryMap[DIRECTORY_MAP.LISTENER], DIRECTORY_MAP.LISTENER, projectPath);
     if (listeners.children.length > 0) {
@@ -248,7 +248,7 @@ function getEntriesBI(project: ProjectStructure): ProjectExplorerEntry[] {
         'connection',
         false
     );
-    connections.resourceUri = Uri.file(projectPath);
+    connections.resourceUri = Uri.parse(`bi-category:${projectPath}`);
     connections.contextValue = "connections";
     connections.children = getComponents(project.directoryMap[DIRECTORY_MAP.CONNECTION], DIRECTORY_MAP.CONNECTION, projectPath);
     if (connections.children.length > 0) {
@@ -264,7 +264,7 @@ function getEntriesBI(project: ProjectStructure): ProjectExplorerEntry[] {
         'type',
         false
     );
-    types.resourceUri = Uri.file(projectPath);
+    types.resourceUri = Uri.parse(`bi-category:${projectPath}`);
     types.contextValue = "types";
     types.children = getComponents([
         ...project.directoryMap[DIRECTORY_MAP.TYPE]
@@ -282,7 +282,7 @@ function getEntriesBI(project: ProjectStructure): ProjectExplorerEntry[] {
         'function',
         false
     );
-    functions.resourceUri = Uri.file(projectPath);
+    functions.resourceUri = Uri.parse(`bi-category:${projectPath}`);
     functions.contextValue = "functions";
     functions.children = getComponents(project.directoryMap[DIRECTORY_MAP.FUNCTION], DIRECTORY_MAP.FUNCTION, projectPath);
     if (functions.children.length > 0) {
@@ -298,7 +298,7 @@ function getEntriesBI(project: ProjectStructure): ProjectExplorerEntry[] {
         'dataMapper',
         false
     );
-    dataMappers.resourceUri = Uri.file(projectPath);
+    dataMappers.resourceUri = Uri.parse(`bi-category:${projectPath}`);
     dataMappers.contextValue = "dataMappers";
     dataMappers.children = getComponents(project.directoryMap[DIRECTORY_MAP.DATA_MAPPER], DIRECTORY_MAP.DATA_MAPPER, projectPath);
     if (dataMappers.children.length > 0) {
@@ -314,7 +314,7 @@ function getEntriesBI(project: ProjectStructure): ProjectExplorerEntry[] {
         'config',
         false
     );
-    configs.resourceUri = Uri.file(projectPath);
+    configs.resourceUri = Uri.parse(`bi-category:${projectPath}`);
     configs.contextValue = "configurations";
     entries.push(configs);
 
@@ -327,7 +327,7 @@ function getEntriesBI(project: ProjectStructure): ProjectExplorerEntry[] {
             'function',
             false
         );
-        naturalFunctions.resourceUri = Uri.file(projectPath);
+        naturalFunctions.resourceUri = Uri.parse(`bi-category:${projectPath}`);
         naturalFunctions.contextValue = "naturalFunctions";
         naturalFunctions.children = getComponents(project.directoryMap[DIRECTORY_MAP.NP_FUNCTION], DIRECTORY_MAP.NP_FUNCTION, projectPath);
         if (naturalFunctions.children.length > 0) {
@@ -344,7 +344,7 @@ function getEntriesBI(project: ProjectStructure): ProjectExplorerEntry[] {
         'connection',
         false
     );
-    localConnectors.resourceUri = Uri.file(projectPath);
+    localConnectors.resourceUri = Uri.parse(`bi-category:${projectPath}`);
     localConnectors.contextValue = "localConnectors";
     localConnectors.children = getComponents(project.directoryMap[DIRECTORY_MAP.LOCAL_CONNECTORS], DIRECTORY_MAP.CONNECTOR, projectPath);
     if (localConnectors.children.length > 0) {
@@ -372,7 +372,7 @@ function getComponents(items: ProjectStructureArtifactResponse[], itemType: DIRE
             comp.path,
             comp.icon
         );
-        fileEntry.resourceUri = Uri.file(projectPath);
+        fileEntry.resourceUri = Uri.parse(`bi-category:${projectPath}`);
         fileEntry.command = {
             "title": "Visualize",
             "command": SHARED_COMMANDS.SHOW_VISUALIZER,
