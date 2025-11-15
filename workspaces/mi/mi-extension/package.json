@@ -162,6 +162,19 @@
           "type": "boolean",
           "default": true,
           "description": "Update car plugin version automatically"
+        },
+        "MI.logging.loggingLevel": {
+          "type": "string",
+          "enum": [
+            "off",
+            "error",
+            "warn",
+            "info",
+            "debug"
+          ],
+          "default": "error",
+          "description": "The verbosity of logging. The Order is off < error < warn < info < debug.",
+          "scope": "window"
         }
       }
     },
