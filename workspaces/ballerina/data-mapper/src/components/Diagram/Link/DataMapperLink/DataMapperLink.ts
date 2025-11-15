@@ -30,6 +30,7 @@ export enum MappingType {
 	ArrayToSingletonAggregate = "array-singleton-aggregate",
 	Incompatible = "incompatible",
 	ContainsUnions = "contains-unions",
+	NumericToString = "numeric-string",
 	Default = undefined // This is for non-array mappings currently
 }
 
