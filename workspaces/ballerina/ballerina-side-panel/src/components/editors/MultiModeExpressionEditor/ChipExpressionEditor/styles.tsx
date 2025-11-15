@@ -21,11 +21,11 @@ import { keyframes } from "@emotion/react";
 import { CHIP_EXPRESSION_EDITOR_HEIGHT } from "./constants";
 import { ThemeColors } from "@wso2/ui-toolkit";
 
-export const ChipEditorField = styled.div`
+export const ChipEditorField = styled.div<{ customHeight?: string }>`
     font-family: monospace;
     font-size: 12px;
-    min-height: ${CHIP_EXPRESSION_EDITOR_HEIGHT}px;
-    height: 100%;
+    min-height: ${props => props.customHeight || `${CHIP_EXPRESSION_EDITOR_HEIGHT}px`};
+    height: ${props => props.customHeight || '100%'};
     width: 100%;
     padding: 1px 25px 1px 8px;
     background-color: var(--vscode-input-background);
@@ -87,7 +87,7 @@ export const ContextMenuContainer = styled.div<{ top: number; left: number }>`
     background-color: ${ThemeColors.SURFACE_CONTAINER};
     border-radius: 4px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
-    z-index: 1000;
+    z-index: 1600;
     min-width: 120px;
     width: ${COMPLETIONS_WIDTH}px;
     overflow: hidden;

@@ -44,6 +44,11 @@
             },
             {
                 "view": "BI.project-explorer",
+                "contents": "Your workspace is ready for integrations!\n\nGet started by adding your first integration. You can create one manually or let AI help you generate it.\n\n[Add New Integration](command:ballerina.open.bi.new)\n[Generate with AI](command:ballerina.open.ai.panel)",
+                "when": "BI.status == emptyWorkspace"
+            },
+            {
+                "view": "BI.project-explorer",
                 "contents": "Welcome to WSO2 Integrator: BI for VS Code! Ballerina distribution is required but not found. [Set up Ballerina distribution](command:ballerina.open.bi.welcome) to get started.\nExplore more at [ballerina.io](https://ballerina.io)",
                 "when": "BI.status == 'noLS'"
             },
@@ -137,12 +142,12 @@
             "view/title": [
                 {
                     "command": "BI.project-explorer.switch-project",
-                    "when": "view == BI.project-explorer && BI.isBalWorkspace == true",
+                    "when": "view == BI.project-explorer && BI.isBallerinaWorkspace == true && BI.status != 'emptyWorkspace'",
                     "group": "navigation"
                 },
                 {
                     "command": "BI.project-explorer.add",
-                    "when": "view == BI.project-explorer && BI.project == true && BI.isWorkspaceSupported == true",
+                    "when": "view == BI.project-explorer && BI.isBallerinaWorkspace == true",
                     "group": "navigation"
                 },
                 {
