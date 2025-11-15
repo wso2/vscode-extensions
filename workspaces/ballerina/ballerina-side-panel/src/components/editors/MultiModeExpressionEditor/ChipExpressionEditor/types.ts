@@ -27,6 +27,19 @@ export const INPUT_MODE_MAP = {
   //later add more when needed
 };
 
+export enum TokenType {
+  LITERAL = "literal",
+  VARIABLE = "variable",
+  FUNCTION = "function",
+  PARAMETER = "parameter",
+  START_EVENT = "start_event",
+  END_EVENT = "end_event",
+  TYPE_CAST = "type_cast",
+  VALUE = "value",
+  DOCUMENT = "document",
+  PROPERTY = "property"
+}
+
 export type ExpressionColumnOffset = {
   startColumn: number;
   endColumn: number;
@@ -44,6 +57,14 @@ export type Token = {
   tokenType: 'variable'
 }
 
+export type DocumentType = 'ImageDocument' | 'FileDocument' | 'AudioDocument';
+
+export type TokenMetadata = {
+  content: string;
+  fullValue: string;
+  documentType?: DocumentType; // Present only for document tokens
+};
+
 export type ExpressionModel = {
   id: string
   value: string,
@@ -51,10 +72,11 @@ export type ExpressionModel = {
   startColumn: number,
   startLine: number,
   length: number,
-  type: 'variable' | 'function' | 'literal' | 'parameter',
+  type: TokenType,
   isFocused?: boolean
   focusOffsetStart?: number,
   focusOffsetEnd?: number
+  metadata?: TokenMetadata; // Present when type is 'document' or 'variable' with interpolation
 }
 
 export type CursorPosition = {
