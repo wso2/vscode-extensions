@@ -102,10 +102,15 @@ async function handleVisibilityChange(
 ) {
 	if (res.visible) {
 		if ((isBallerinaPackage || isBallerinaWorkspace) && extension.biSupported) {
-			commands.executeCommand(SHARED_COMMANDS.SHOW_VISUALIZER);
+			if (isBallerinaPackage) {
+				commands.executeCommand(SHARED_COMMANDS.SHOW_VISUALIZER);
+			}
 			if (!isEmptyWorkspace) {
 				await commands.executeCommand(SHARED_COMMANDS.FORCE_UPDATE_PROJECT_ARTIFACTS);
 				dataProvider.refresh();
+				if (isBallerinaWorkspace) {
+					commands.executeCommand(BI_COMMANDS.SHOW_OVERVIEW);
+				}
 			}
 		} else {
 			handleNonBallerinaVisibility();
