@@ -166,8 +166,9 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
 
                 // Generate the tree data for the projects
                 const projects = projectStructure.projects;
+                const isSingleProject = projects.length === 1;
                 for (const project of projects) {
-                    const projectTree = generateTreeData(project.projectTitle || project.projectName, project.projectPath, project);
+                    const projectTree = generateTreeData(project, isSingleProject);
                     if (projectTree) {
                         data.push(projectTree);
                     }
@@ -180,21 +181,21 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
     return [];
 }
 
-function generateTreeData(
-    packageName: string,
-    packagePath: string,
-    components: ProjectStructure
-): ProjectExplorerEntry | undefined {
+function generateTreeData(project: ProjectStructure, isSingleProject: boolean): ProjectExplorerEntry | undefined {
+    const packageName = project.projectTitle || project.projectName;
+    const packagePath = project.projectPath;
+
+    // Start collapsed - VSCode will maintain expansion state automatically
     const projectRootEntry = new ProjectExplorerEntry(
         `${packageName}`,
-        vscode.TreeItemCollapsibleState.Expanded,
+        isSingleProject ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed,
         packagePath,
         'project',
         true
     );
     projectRootEntry.resourceUri = Uri.parse(`bi-category:${packagePath}`);
     projectRootEntry.contextValue = 'bi-project';
-    const children = getEntriesBI(components);
+    const children = getEntriesBI(project);
     projectRootEntry.children = children;
 
     return projectRootEntry;
