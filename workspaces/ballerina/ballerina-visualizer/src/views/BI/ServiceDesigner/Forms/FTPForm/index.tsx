@@ -434,144 +434,135 @@ export function FTPResourceForm(props: FTPFormProps) {
             {(isLoading || isSaving) && <ProgressIndicator id="remote-loading-bar" />}
             <SidePanelBody>
                 <EditorContentColumn>
-                            {/* Message Configuration Section - Only shown when data binding is available */}
-                            <MessageConfigContainer>
-                                <MessageConfigTitle>
-                                    <Typography sx={{ marginBlockEnd: 0 }} variant="h4">
-                                        Message Configuration
-                                    </Typography>
-                                    <Divider />
-                                </MessageConfigTitle>
 
-                                <MessageConfigSection>
-                                    <MessageConfigContent>
-                                        <PayloadSection>
-                                            {/* Payload Section */}
-                                            {/* Show "Define Content" button when parameter is uninitialized (doesn't exist or has DATA_BINDING_TYPE) */}
-                                            {isContentUninitialized && !editModel && (
-                                                <AddButtonWrapper>
-                                                    <Tooltip content={`Define ${payloadFieldName} for easier access in the flow diagram`} position="bottom">
-                                                        <LinkButton onClick={onAddPayloadClick}>
-                                                            <Codicon name="add" />
-                                                            Define {payloadFieldName}
-                                                        </LinkButton>
-                                                    </Tooltip>
-                                                </AddButtonWrapper>
-                                            )}
-                                            {/* Show configured parameter only when it's initialized */}
-                                            {payloadParameter && !isContentUninitialized && (
-                                                <>
-                                                    <Typography sx={{ marginBlockEnd: 8 }} variant="body2">
-                                                        {payloadFieldName}
-                                                    </Typography>
-                                                    <Parameters
-                                                        parameters={[payloadParameter]}
-                                                        onChange={handlePayloadParamChange}
-                                                        onEditClick={onEditPayloadClick}
-                                                        showPayload={true}
-                                                    />
-                                                </>
-                                            )}
+                    <MessageConfigSection>
+                        <MessageConfigContent>
+                            <PayloadSection>
+                                {/* Payload Section */}
+                                {/* Show "Define Content" button when parameter is uninitialized (doesn't exist or has DATA_BINDING_TYPE) */}
+                                {isContentUninitialized && !editModel && (
+                                    <AddButtonWrapper>
+                                        <Tooltip content={`Define ${payloadFieldName} for easier access in the flow diagram`} position="bottom">
+                                            <LinkButton onClick={onAddPayloadClick}>
+                                                <Codicon name="add" />
+                                                Define {payloadFieldName}
+                                            </LinkButton>
+                                        </Tooltip>
+                                    </AddButtonWrapper>
+                                )}
+                                {/* Show configured parameter only when it's initialized */}
+                                {payloadParameter && !isContentUninitialized && (
+                                    <>
+                                        <Typography sx={{ marginBlockEnd: 8 }} variant="body2">
+                                            {payloadFieldName}
+                                        </Typography>
+                                        <Parameters
+                                            parameters={[payloadParameter]}
+                                            onChange={handlePayloadParamChange}
+                                            onEditClick={onEditPayloadClick}
+                                            showPayload={true}
+                                        />
+                                    </>
+                                )}
 
-                                            {/* Payload Editor */}
-                                            {editModel && editModel.metadata?.label === "content" && (
-                                                <ParamEditor
-                                                    param={editModel}
-                                                    onChange={onChangeParam}
-                                                    onSave={onSaveParam}
-                                                    onCancel={onParamEditCancel}
-                                                    payloadFieldName={payloadFieldName}
-                                                />
-                                            )}
-                                        </PayloadSection>
-                                    </MessageConfigContent>
-                                </MessageConfigSection>
-                            </MessageConfigContainer>
+                                {/* Payload Editor */}
+                                {editModel && editModel.metadata?.label === "content" && (
+                                    <ParamEditor
+                                        param={editModel}
+                                        onChange={onChangeParam}
+                                        onSave={onSaveParam}
+                                        onCancel={onParamEditCancel}
+                                        payloadFieldName={payloadFieldName}
+                                    />
+                                )}
+                            </PayloadSection>
+                        </MessageConfigContent>
+                    </MessageConfigSection>
 
-                            {/* Advanced Parameters Section - Collapsible when data binding is available */}
-                            {hasEditableParameters(advancedParameters) && (
-                                <>
-                                    <Divider sx={{ margin: 0 }} />
-                                    <OptionalConfigRow>
-                                        Advanced Parameters
-                                        <OptionalConfigButtonContainer>
-                                            {!showAdvancedParameters && (
-                                                <LinkButton
-                                                    onClick={handleShowAdvancedParameters}
-                                                    sx={{
-                                                        fontSize: 12,
-                                                        padding: 8,
-                                                        color: ThemeColors.PRIMARY,
-                                                        gap: 4,
-                                                        userSelect: "none",
-                                                    }}
-                                                >
-                                                    <Codicon
-                                                        name={"chevron-down"}
-                                                        iconSx={{ fontSize: 12 }}
-                                                        sx={{ height: 12 }}
-                                                    />
-                                                    Expand
-                                                </LinkButton>
-                                            )}
-                                            {showAdvancedParameters && (
-                                                <LinkButton
-                                                    onClick={handleHideAdvancedParameters}
-                                                    sx={{
-                                                        fontSize: 12,
-                                                        padding: 8,
-                                                        color: ThemeColors.PRIMARY,
-                                                        gap: 4,
-                                                        userSelect: "none",
-                                                    }}
-                                                >
-                                                    <Codicon
-                                                        name={"chevron-up"}
-                                                        iconSx={{ fontSize: 12 }}
-                                                        sx={{ height: 12 }}
-                                                    />
-                                                    Collapse
-                                                </LinkButton>
-                                            )}
-                                        </OptionalConfigButtonContainer>
-                                    </OptionalConfigRow>
-                                    {showAdvancedParameters && (
-                                        <OptionalConfigContent>
-                                            <CheckBoxGroup direction="vertical">
-                                                {advancedParameters.map((param: ParameterModel, index) => (
-                                                    <CheckBox
-                                                        key={index}
-                                                        label={
-                                                            param.metadata.label.charAt(0).toUpperCase() +
-                                                            param.metadata.label.slice(1)
-                                                        }
-                                                        checked={param.enabled}
-                                                        onChange={(checked) => {
-                                                            const updatedParameters = functionModel.parameters.map((p) => {
-                                                                if (p.metadata.label === param.metadata.label && p.name.value === param.name.value) {
-                                                                    return {
-                                                                        ...p,
-                                                                        enabled: checked,
-                                                                        name: {
-                                                                            ...p.name,
-                                                                            value: param.metadata.label
-                                                                                .toLowerCase()
-                                                                                .replace(/ /g, "_")
-                                                                        }
-                                                                    };
-                                                                }
-                                                                return p;
-                                                            });
-                                                            handleParamChange(updatedParameters);
-                                                        }}
-                                                        sx={{ description: getParameterDescription(param), marginTop: 0 }}
-                                                    />
-                                                ))}
-                                            </CheckBoxGroup>
-                                        </OptionalConfigContent>
+                    {/* Advanced Parameters Section - Collapsible when data binding is available */}
+                    {hasEditableParameters(advancedParameters) && (
+                        <>
+                            <Divider sx={{ margin: 0 }} />
+                            <OptionalConfigRow>
+                                Advanced Parameters
+                                <OptionalConfigButtonContainer>
+                                    {!showAdvancedParameters && (
+                                        <LinkButton
+                                            onClick={handleShowAdvancedParameters}
+                                            sx={{
+                                                fontSize: 12,
+                                                padding: 8,
+                                                color: ThemeColors.PRIMARY,
+                                                gap: 4,
+                                                userSelect: "none",
+                                            }}
+                                        >
+                                            <Codicon
+                                                name={"chevron-down"}
+                                                iconSx={{ fontSize: 12 }}
+                                                sx={{ height: 12 }}
+                                            />
+                                            Expand
+                                        </LinkButton>
                                     )}
-                                </>
+                                    {showAdvancedParameters && (
+                                        <LinkButton
+                                            onClick={handleHideAdvancedParameters}
+                                            sx={{
+                                                fontSize: 12,
+                                                padding: 8,
+                                                color: ThemeColors.PRIMARY,
+                                                gap: 4,
+                                                userSelect: "none",
+                                            }}
+                                        >
+                                            <Codicon
+                                                name={"chevron-up"}
+                                                iconSx={{ fontSize: 12 }}
+                                                sx={{ height: 12 }}
+                                            />
+                                            Collapse
+                                        </LinkButton>
+                                    )}
+                                </OptionalConfigButtonContainer>
+                            </OptionalConfigRow>
+                            {showAdvancedParameters && (
+                                <OptionalConfigContent>
+                                    <CheckBoxGroup direction="vertical">
+                                        {advancedParameters.map((param: ParameterModel, index) => (
+                                            <CheckBox
+                                                key={index}
+                                                label={
+                                                    param.metadata.label.charAt(0).toUpperCase() +
+                                                    param.metadata.label.slice(1)
+                                                }
+                                                checked={param.enabled}
+                                                onChange={(checked) => {
+                                                    const updatedParameters = functionModel.parameters.map((p) => {
+                                                        if (p.metadata.label === param.metadata.label && p.name.value === param.name.value) {
+                                                            return {
+                                                                ...p,
+                                                                enabled: checked,
+                                                                name: {
+                                                                    ...p.name,
+                                                                    value: param.metadata.label
+                                                                        .toLowerCase()
+                                                                        .replace(/ /g, "_")
+                                                                }
+                                                            };
+                                                        }
+                                                        return p;
+                                                    });
+                                                    handleParamChange(updatedParameters);
+                                                }}
+                                                sx={{ description: getParameterDescription(param), marginTop: 0 }}
+                                            />
+                                        ))}
+                                    </CheckBoxGroup>
+                                </OptionalConfigContent>
                             )}
+                        </>
+                    )}
                 </EditorContentColumn>
                 <ActionButtons
                     primaryButton={{

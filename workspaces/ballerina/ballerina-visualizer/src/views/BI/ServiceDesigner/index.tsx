@@ -1014,7 +1014,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             {serviceModel.moduleName !== "http" && serviceModel.moduleName !== "mcp" && (
                                 <>
                                     <SectionHeader
-                                        title="Event Handlers"
+                                        title={serviceModel.moduleName==="ftp"? "Action Handlers" : "Event Handlers"}
                                         subtitle={enabledHandlers.length === 0 ? "" : "Define how the service responds to events"}
                                     >
                                         <ActionGroup>
@@ -1183,7 +1183,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
 
                             {functionModel && serviceModel.moduleName==="ftp" &&
                                 <PanelContainer
-                                    title={"Resource Configuration"}
+                                    title={"FTP Handler Configuration"}
                                     show={showForm}
                                     onClose={handleNewFunctionClose}
                                     width={400}
