@@ -51,6 +51,8 @@ import * as path from "path";
 import axios from "axios";
 import { extension } from "../../bi/biExtentionContext";
 import { pullMigrationTool } from "./migrate-integration";
+import { MigrationReportWebview } from "../../migration-report/webview";
+import { OpenMigrationReportRequest, SaveMigrationReportRequest } from "@wso2/ballerina-core";
 
 export class MainRpcManager implements WIVisualizerAPI {
     constructor(private projectUri?: string) { }
@@ -326,5 +328,28 @@ export class MainRpcManager implements WIVisualizerAPI {
         const messageWithLink = new MarkdownString(params.message);
         messageWithLink.appendMarkdown(`\n\nPlease [create an issue](${BALLERINA_INTEGRATOR_ISSUES_URL}) if the issue persists.`);
         window.showErrorMessage(messageWithLink.value);
+    }
+
+    async openMigrationReport(params: OpenMigrationReportRequest): Promise<void> {
+        MigrationReportWebview.createOrShow(params.fileName, params.reportContent);
+    }
+
+    async saveMigrationReport(params: SaveMigrationReportRequest): Promise<void> {
+        const vscode = await import('vscode');
+
+        // Show save dialog
+        const saveUri = await vscode.window.showSaveDialog({
+            defaultUri: vscode.Uri.file(params.defaultFileName),
+            filters: {
+                'HTML files': ['html'],
+                'All files': ['*']
+            }
+        });
+
+        if (saveUri) {
+            // Write the report content to the selected file
+            await vscode.workspace.fs.writeFile(saveUri, Buffer.from(params.reportContent, 'utf8'));
+            vscode.window.showInformationMessage(`Migration report saved to ${saveUri.fsPath}`);
+        }
     }
 }
