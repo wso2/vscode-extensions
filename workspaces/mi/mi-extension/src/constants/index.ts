@@ -204,3 +204,5 @@ export const DEFAULT_ICON = "https://mi-connectors.wso2.com/icons/wordpress.gif"
 export const ERROR_MESSAGES = {
     ERROR_DOWNLOADING_MODULES: "Unable to download the default modules. These modules can be added after project creation. Do you wish to skip them now and proceed with the project creation?",
 };
+
+export const WI_EXTENSION_ID = 'wso2.wso2-integrator';

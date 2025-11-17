@@ -18,7 +18,7 @@ import { ExtendedLanguageClient } from './lang-client/ExtendedLanguageClient';
 import { VisualizerWebview, webviews } from './visualizer/webview';
 import { RPCLayer } from './RPCLayer';
 import { history } from './history/activator';
-import { COMMANDS } from './constants';
+import { COMMANDS, WI_EXTENSION_ID } from './constants';
 import { activateProjectExplorer } from './project-explorer/activate';
 import { MockService, STNode, UnitTest, Task, InboundEndpoint } from '../../syntax-tree/lib/src';
 import { logDebug } from './util/logger';
@@ -698,7 +698,7 @@ export const getStateMachine = (projectUri: string, context?: VisualizerLocation
             langClient: null,
             errors: [],
             view: MACHINE_VIEW.Overview,
-            isInWI: vscode.extensions.getExtension('wso2.wso2-integrator')?.isActive ?? false,
+            isInWI: vscode.extensions.getExtension(WI_EXTENSION_ID)?.isActive ?? false,
             ...context
         })).start();
         stateMachines.set(projectUri, stateService);
