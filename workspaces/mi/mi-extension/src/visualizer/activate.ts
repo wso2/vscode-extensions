@@ -65,8 +65,16 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                                     window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, title: 'Select the location to extract the CAPP', openLabel: 'Select Folder' })
                                         .then(async extractUri => {
                                             if (extractUri && extractUri[0]) {
-                                                await importCapp({ source: uri[0].fsPath, directory: extractUri[0].fsPath, open: false });
-+                                               handleOpenProject(extractUri[0]);
+                                                try {
+                                                    const result = await importCapp({ source: uri[0].fsPath, directory: extractUri[0].fsPath, open: false });
+                                                    if (result.filePath) {
+                                                        handleOpenProject(extractUri[0]);
+                                                    } else {
+                                                        window.showErrorMessage('Failed to import CAPP. Please check the file and try again.');
+                                                    }
+                                                } catch (error: any) {
+                                                    window.showErrorMessage(`CAPP import failed: ${error.message}`);
+                                                }
                                             }
                                         });
                                 }
