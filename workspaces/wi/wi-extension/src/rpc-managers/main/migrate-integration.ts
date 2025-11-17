@@ -18,7 +18,7 @@
 
 import { DownloadProgress, onDownloadProgress } from "@wso2/wi-core";
 import { exec } from "child_process";
-import { debug } from "./logger";
+import { debug } from "./ballerinaLogger";
 import { RPCLayer } from "../../RPCLayer";
 import * as vscode from "vscode";
 

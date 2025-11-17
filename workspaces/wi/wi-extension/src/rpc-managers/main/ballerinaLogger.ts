@@ -73,27 +73,32 @@ export function getOutputChannel() {
  * Each log entry is appended to the corresponding day's file, prefixed with the current date and time.
  */
 function persistDebugLogs(value: string): void {
-    const homeDir = os.homedir();
-    const logFolder = path.join(homeDir, '.ballerina', 'vscode-extension-logs');
-    const date = new Date().toLocaleString();
-    const logLine = `${date} ${value}`;
-    const output = withNewLine(logLine);
-    // Create destination folder if it doesn't exist
-    if (!fs.existsSync(logFolder)) {
-        fs.mkdirSync(logFolder, { recursive: true });
-    }
-    // Create log file if it doesn't exist
-    const logFileDate = new Date().toISOString().split('T')[0];
-    const fileName = `${logFileDate}.log`;
-    if (!fs.existsSync(path.join(logFolder, fileName))) {
-        fs.writeFileSync(path.join(logFolder, fileName), '');
-    }
-    const logFilePath = path.join(logFolder, fileName);
-    fs.appendFileSync(logFilePath, output);
+    try {
+        const homeDir = os.homedir();
+        const logFolder = path.join(homeDir, '.ballerina', 'vscode-extension-logs');
+        const date = new Date().toLocaleString();
+        const logLine = `${date} ${value}`;
+        const output = withNewLine(logLine);
+        // Create destination folder if it doesn't exist
+        if (!fs.existsSync(logFolder)) {
+            fs.mkdirSync(logFolder, { recursive: true });
+        }
+        // Create log file if it doesn't exist
+        const logFileDate = new Date().toISOString().split('T')[0];
+        const fileName = `${logFileDate}.log`;
+        if (!fs.existsSync(path.join(logFolder, fileName))) {
+            fs.writeFileSync(path.join(logFolder, fileName), '');
+        }
+        const logFilePath = path.join(logFolder, fileName);
+        fs.appendFileSync(logFilePath, output);
 
-    // Remove the oldest log file if there are more than 10 log files
-    const logFiles = fs.readdirSync(logFolder);
-    if (logFiles.length > 10) {
-        fs.unlinkSync(path.join(logFolder, logFiles[0]));
+        // Remove the oldest log file if there are more than 10 log files
+        const logFiles = fs.readdirSync(logFolder);
+        if (logFiles.length > 10) {
+            fs.unlinkSync(path.join(logFolder, logFiles[0]));
+        }
+    } catch (error) {
+        // Silently fail to avoid disrupting the extension, but log to console
+        console.error('Failed to persist debug logs:', error);
     }
 }
