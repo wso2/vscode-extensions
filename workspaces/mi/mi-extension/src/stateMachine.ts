@@ -698,7 +698,7 @@ export const getStateMachine = (projectUri: string, context?: VisualizerLocation
             langClient: null,
             errors: [],
             view: MACHINE_VIEW.Overview,
-            isInWI: vscode.extensions.getExtension('wso2.wso2-integrator') ? true : false,
+            isInWI: vscode.extensions.getExtension('wso2.wso2-integrator')?.isActive ?? false,
             ...context
         })).start();
         stateMachines.set(projectUri, stateService);
