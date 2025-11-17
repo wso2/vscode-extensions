@@ -7,7 +7,7 @@
   "icon": "resources/icons/wso2-integrator-logo.png",
   "license": "Apache-2.0",
   "repository": {
-    "url": "https://github.com/wso2/ballerina-plugin-vscode"
+    "url": "https://github.com/wso2/vscode-extensions"
   },
   "engines": {
     "vscode": "^1.100.0"
