@@ -142,7 +142,7 @@
             "view/title": [
                 {
                     "command": "BI.project-explorer.add",
-                    "when": "view == BI.project-explorer && BI.isBallerinaWorkspace == true",
+                    "when": "view == BI.project-explorer && BI.isWorkspaceSupported == true",
                     "group": "navigation"
                 },
                 {
