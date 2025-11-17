@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { DownloadProgress, onDownloadProgress } from "@wso2/ballerina-core";
+import { DownloadProgress, onDownloadProgress } from "@wso2/wi-core";
 import { exec } from "child_process";
 import { debug } from "./logger";
 import { RPCLayer } from "../../RPCLayer";
