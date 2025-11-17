@@ -41,7 +41,7 @@ interface MachineContext {
     isMultiRoot?: boolean;
     isMI?: boolean;
     extensionAPIs: ExtensionAPIs;
-    webviewManager: WebviewManager;
+    webviewManager?: WebviewManager;
     mode: ProjectType;
 }
 
@@ -70,7 +70,6 @@ const stateMachine = createMachine<MachineContext>({
     context: {
         projectType: ProjectType.NONE,
         extensionAPIs: new ExtensionAPIs(),
-        webviewManager: undefined as any, // Will be initialized in action
         mode: getDefaultIntegratorMode()
     },
     states: {
