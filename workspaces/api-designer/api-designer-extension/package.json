@@ -83,7 +83,7 @@
     "clean": "rimraf ./dist",
     "compile": "tsc -p .",
     "watch": "tsc -p . -w",
-    "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release; else vsce package --no-dependencies; fi",
+    "package": "node ../../common-libs/scripts/package-vsix.js",
     "build": "pnpm clean && pnpm run copyFonts && webpack --mode production --devtool hidden-source-map && pnpm run package && pnpm run postbuild",
     "compile-tests": "pnpm run compile",
     "watch-tests": "pnpm run watch",

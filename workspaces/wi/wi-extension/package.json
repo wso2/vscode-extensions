@@ -190,7 +190,7 @@
     "compile": "tsc -p ./",
     "compile-tests": "tsc -p . --outDir out",
     "test": "node ./out/test/runTest.js",
-    "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release; else vsce package --no-dependencies; fi"
+    "package": "node ../../common-libs/scripts/package-vsix.js"
 
   },
   "devDependencies": {
