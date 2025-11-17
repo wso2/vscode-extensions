@@ -95,7 +95,8 @@ function persistDebugLogs(value: string): void {
         // Remove the oldest log file if there are more than 10 log files
         const logFiles = fs.readdirSync(logFolder);
         if (logFiles.length > 10) {
-            fs.unlinkSync(path.join(logFolder, logFiles[0]));
+            const sortedFiles = logFiles.sort();
+            fs.unlinkSync(path.join(logFolder, sortedFiles[0]));
         }
     } catch (error) {
         // Silently fail to avoid disrupting the extension, but log to console
