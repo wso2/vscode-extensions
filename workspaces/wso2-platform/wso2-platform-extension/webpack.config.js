@@ -22,19 +22,18 @@ const CopyPlugin = require("copy-webpack-plugin");
 const PermissionsOutputPlugin = require("webpack-permissions-plugin");
 const webpack = require("webpack");
 const dotenv = require("dotenv");
-const { createEnvDefinePlugin } = require("../../../common/scripts/env-webpack-helper");
+const { createEnvDefinePlugin } = require('../../../common/scripts/env-webpack-helper');
 
 const envPath = path.resolve(__dirname, ".env");
 const env = dotenv.config({ path: envPath }).parsed;
-
 console.log("Fetching values for environment variables...");
 const { envKeys, missingVars } = createEnvDefinePlugin(env);
 if (missingVars.length > 0) {
-	console.warn(
-		`\n⚠️  Environment Variable Configuration Warning:\n
-		Missing required environment variables: ${missingVars.join(", ")}\n
-		Please provide values in either .env file or runtime environment.\n`,
-	);
+  console.warn(
+    '\n⚠️  Environment Variable Configuration Warning:\n' +
+    `Missing required environment variables: ${missingVars.join(', ')}\n` +
+    `Please provide values in either .env file or runtime environment.\n`
+  );
 }
 
 //@ts-check
@@ -82,7 +81,7 @@ const extensionConfig = {
 			},
 		],
 	},
-	devtool: "source-map",
+	devtool: !process.env.CI ? "source-map" : undefined,
 	infrastructureLogging: {
 		level: "log",
 	},

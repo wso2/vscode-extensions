@@ -19,7 +19,7 @@ export interface ICloneProjectCmdParams extends ICmdParamsBase {
 	integrationDisplayType: string;
 }
 
-export interface ICommitAndPuhCmdParams extends ICmdParamsBase {
+export interface ICommitAndPushCmdParams extends ICmdParamsBase {
 	componentPath: string;
 }
 

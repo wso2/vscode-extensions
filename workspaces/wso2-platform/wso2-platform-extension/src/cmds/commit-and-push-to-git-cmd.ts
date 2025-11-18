@@ -21,7 +21,7 @@ import {
 	ComponentKind,
 	type ContextStoreComponentState,
 	GitProvider,
-	type ICommitAndPuhCmdParams,
+	type ICommitAndPushCmdParams,
 	type Organization,
 	parseGitURL,
 } from "@wso2/wso2-platform-core";
@@ -37,7 +37,7 @@ import { getUserInfoForCmd, isRpcActive, setExtensionName } from "./cmd-utils";
 
 export function commitAndPushToGitCommand(context: ExtensionContext) {
 	context.subscriptions.push(
-		commands.registerCommand(CommandIds.CommitAndPushToGit, async (params: ICommitAndPuhCmdParams) => {
+		commands.registerCommand(CommandIds.CommitAndPushToGit, async (params: ICommitAndPushCmdParams) => {
 			setExtensionName(params?.extName);
 			const extensionName = webviewStateStore.getState().state.extensionName;
 			try {
