@@ -362,8 +362,8 @@ importers:
         specifier: ^8.32.0
         version: 8.57.1
       glob:
-        specifier: ^8.1.0
-        version: 8.1.0
+        specifier: ^11.1.0
+        version: 11.1.0
       mocha:
         specifier: ^10.2.0
         version: 10.8.2
@@ -830,8 +830,8 @@ importers:
         specifier: ^9.1.0
         version: 9.1.0(typescript@5.8.3)(webpack@5.102.1)
       glob:
-        specifier: ^11.0.2
-        version: 11.0.3
+        specifier: ^11.1.0
+        version: 11.1.0
       react-scripts-ts:
         specifier: ^3.1.0
         version: 3.1.0(@swc/core@1.15.2(@swc/helpers@0.5.17))(babel-core@7.0.0-bridge.0(@babel/core@7.27.7))(babel-runtime@6.26.0)(typescript@5.8.3)(webpack-cli@6.0.1)
@@ -2548,8 +2548,8 @@ importers:
         specifier: ^8.57.1
         version: 8.57.1
       glob:
-        specifier: ^11.0.2
-        version: 11.0.3
+        specifier: ^11.1.0
+        version: 11.1.0
       mocha:
         specifier: ^11.2.2
         version: 11.7.5
@@ -3118,8 +3118,8 @@ importers:
         specifier: ^6.3.0
         version: 6.3.0
       glob:
-        specifier: ^11.0.2
-        version: 11.0.3
+        specifier: ^11.1.0
+        version: 11.1.0
       http-server:
         specifier: ^14.1.1
         version: 14.1.1
@@ -3861,8 +3861,8 @@ importers:
         specifier: ^9.27.0
         version: 9.27.0(jiti@2.6.1)
       glob:
-        specifier: ^11.0.2
-        version: 11.0.3
+        specifier: ^11.1.0
+        version: 11.1.0
       mocha:
         specifier: ^11.4.0
         version: 11.7.5
@@ -14467,9 +14467,6 @@ packages:
     resolution: {integrity: sha512-gehEzmPn2nAwr39eay+x3X34Ra+M2QlVUTLhkXPjWdeO8RF9kszk116avgBJM3ZyNHgHXBNx+VmPaFC36k0PzA==}
     deprecated: This package is no longer supported.
 
-  fs.realpath@1.0.0:
-    resolution: {integrity: sha512-OO0pH2lK6a0hZnAdau5ItzHPI6pUlvI7jMVnxUQRtw4owF2wk8lOSabtGDCTP4Ggrg2MbGnWO9X8K1t4+fGMDw==}
-
   fsevents@1.2.13:
     resolution: {integrity: sha512-oWb1Z6mkHIskLzEJ/XWX0srkpkTQ7vaopMQkyaEIoq0fmtFVxOthb8cCxeT+p3ynTdkk/RZwbgG4brR5BeWECw==}
     engines: {node: '>= 4.0'}
@@ -14667,27 +14664,10 @@ packages:
     resolution: {integrity: sha512-ZyqlgowMbfj2NPjxaZZ/EtsXlOch28FRXgMd64vqZWk1bT9+wvSRLYD1om9M7QfQru51zJPAT17qXm4/zd+9QA==}
     engines: {node: '>= 0.10'}
 
-  glob@10.4.5:
-    resolution: {integrity: sha512-7Bv8RF0k6xjo7d4A/PxYLbUCfb6c+Vpd2/mB2yRDlew7Jb5hEXiCD9ibfO7wpk8i4sevK6DFny9h7EYbM3/sHg==}
-    hasBin: true
-
-  glob@11.0.3:
-    resolution: {integrity: sha512-2Nim7dha1KVkaiF4q6Dj+ngPPMdfvLJEOpZk/jKiUAkqKebpGAWQXAq9z1xu9HKu5lWfqw/FASuccEjyznjPaA==}
+  glob@11.1.0:
+    resolution: {integrity: sha512-vuNwKSaKiqm7g0THUBu2x7ckSs3XJLXE+2ssL7/MfTGPLLcrJQ/4Uq1CjPTtO5cCIiRxqvN6Twy1qOwhL0Xjcw==}
     engines: {node: 20 || >=22}
     hasBin: true
-
-  glob@5.0.15:
-    resolution: {integrity: sha512-c9IPMazfRITpmAAKi22dK1VKxGDX9ehhqfABDriL/lzO92xcUKEJPQHrVA/2YHSNFB4iFlykVmWvwo48nr3OxA==}
-    deprecated: Glob versions prior to v9 are no longer supported
-
-  glob@7.2.3:
-    resolution: {integrity: sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==}
-    deprecated: Glob versions prior to v9 are no longer supported
-
-  glob@8.1.0:
-    resolution: {integrity: sha512-r8hpEjiQEYlF2QU0df3dS+nxxSIreXQS1qRhMJM0Q5NDdR386C7jb7Hwwod8Fgiuex+k0GFjgft18yvxm5XoCQ==}
-    engines: {node: '>=12'}
-    deprecated: Glob versions prior to v9 are no longer supported
 
   global-dirs@0.1.1:
     resolution: {integrity: sha512-NknMLn7F2J7aflwFOlGdNIuCDpN3VGoSoB+aap3KABFWbHVn1TCgFC+np23J8W2BiZbjfEw3BFBycSMv1AFblg==}
@@ -15300,10 +15280,6 @@ packages:
 
   infer-owner@1.0.4:
     resolution: {integrity: sha512-IClj+Xz94+d7irH5qRyfJonOdfTzuDaifE6ZPWfx0N0+/ATZCbuTPq2prFl526urkQd90WyUKIh1DfBQ2hMz9A==}
-
-  inflight@1.0.6:
-    resolution: {integrity: sha512-k92I/b08q4wvFscXCLvqfsHCrjrF7yiXsQuIVvVE7N82W3+aqpzuUdBbfhWcy/FZR3/4IgflMgKLOsvPDrGCJA==}
-    deprecated: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
 
   inherits@2.0.3:
     resolution: {integrity: sha512-x00IRNXNy63jwGkJmzPigoySHbaqpNuzKbBOmzK+g2OdZpQ9w+sxCN+VSB3ja7IAge2OP2qpfxTjeNcyjmW1uw==}
@@ -42400,8 +42376,6 @@ snapshots:
       imurmurhash: 0.1.4
       readable-stream: 2.3.8
 
-  fs.realpath@1.0.0: {}
-
   fsevents@1.2.13:
     dependencies:
       bindings: 1.5.0
@@ -42611,25 +42585,7 @@ snapshots:
     dependencies:
       find-index: 0.1.1
 
-  glob@10.4.5:
-    dependencies:
-      foreground-child: 3.3.1
-      jackspeak: 3.4.3
-      minimatch: 9.0.5
-      minipass: 7.1.2
-      package-json-from-dist: 1.0.1
-      path-scurry: 1.11.1
-
-  glob@11.0.3:
-    dependencies:
-      foreground-child: 3.3.1
-      jackspeak: 4.1.1
-      minimatch: 10.1.1
-      minipass: 7.1.2
-      package-json-from-dist: 1.0.1
-      path-scurry: 2.0.1
-
-  glob@5.0.15:
+  glob@11.1.0:
     dependencies:
       inflight: 1.0.6
       inherits: 2.0.4
@@ -42645,14 +42601,6 @@ snapshots:
       minimatch: 3.1.2
       once: 1.4.0
       path-is-absolute: 1.0.1
-
-  glob@8.1.0:
-    dependencies:
-      fs.realpath: 1.0.0
-      inflight: 1.0.6
-      inherits: 2.0.4
-      minimatch: 5.1.6
-      once: 1.4.0
 
   global-dirs@0.1.1:
     dependencies:
@@ -43483,11 +43431,6 @@ snapshots:
   indexes-of@1.0.1: {}
 
   infer-owner@1.0.4: {}
-
-  inflight@1.0.6:
-    dependencies:
-      once: 1.4.0
-      wrappy: 1.0.2
 
   inherits@2.0.3: {}
 
