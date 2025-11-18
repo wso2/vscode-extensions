@@ -11,3 +11,11 @@ CVE-2025-9910
 # No fix released by the author
 # https://github.com/wso2/vscode-extensions/issues/550
 CVE-2020-36851
+
+# Command injection vulnerability in glob CLI
+# Affects: glob 10.4.5 and 11.0.3
+# Risk Assessment: HIGH severity but CLI-specific vulnerability
+# Decision: Not using glob CLI functionality, only using glob as a library dependency
+# The vulnerability only affects usage with -c/--cmd flag which executes shell commands
+# Related Issue: https://github.com/wso2/product-ballerina-integrator/issues/1943
+CVE-2025-64756
