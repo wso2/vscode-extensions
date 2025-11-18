@@ -145,7 +145,7 @@ importers:
         version: 5.8.3
       webpack:
         specifier: ^5.94.0
-        version: 5.102.1(@swc/core@1.15.2(@swc/helpers@0.5.17))(webpack-cli@5.1.4)
+        version: 5.102.1(webpack-cli@5.1.4)
       webpack-cli:
         specifier: ^5.1.4
         version: 5.1.4(webpack@5.102.1)
@@ -321,7 +321,7 @@ importers:
         version: 5.8.3
       webpack:
         specifier: ^5.94.0
-        version: 5.102.1(@swc/core@1.15.2(@swc/helpers@0.5.17))(webpack-cli@5.1.4)
+        version: 5.102.1(webpack-cli@5.1.4)
       webpack-cli:
         specifier: ~5.1.4
         version: 5.1.4(webpack-dev-server@5.2.2)(webpack@5.102.1)
@@ -663,9 +663,6 @@ importers:
       webpack-cli:
         specifier: ^6.0.1
         version: 6.0.1(webpack@5.102.1)
-      webpack-merge-and-include-globally:
-        specifier: ^2.3.4
-        version: 2.3.4(webpack@5.102.1)
       yarn:
         specifier: ^1.22.19
         version: 1.22.22
@@ -1218,7 +1215,7 @@ importers:
         version: 5.8.3
       webpack:
         specifier: ^5.94.0
-        version: 5.102.1(@swc/core@1.15.2(@swc/helpers@0.5.17))(webpack-cli@5.1.4)
+        version: 5.102.1(webpack-cli@5.1.4)
       webpack-cli:
         specifier: ^5.1.4
         version: 5.1.4(webpack-dev-server@5.2.2)(webpack@5.102.1)
@@ -2273,7 +2270,7 @@ importers:
         version: 5.8.3
       webpack:
         specifier: ^5.94.0
-        version: 5.102.1(@swc/core@1.15.2(@swc/helpers@0.5.17))(webpack-cli@5.1.4)
+        version: 5.102.1(webpack-cli@5.1.4)
       webpack-cli:
         specifier: ^5.1.4
         version: 5.1.4(webpack-dev-server@5.2.2)(webpack@5.102.1)
@@ -4137,7 +4134,7 @@ importers:
         version: 3.17.5
       webpack:
         specifier: ^5.94.0
-        version: 5.102.1(@swc/core@1.15.2(@swc/helpers@0.5.17))(webpack-cli@5.1.4)
+        version: 5.102.1(webpack-cli@5.1.4)
       webpack-cli:
         specifier: ~5.1.4
         version: 5.1.4(webpack-dev-server@5.2.2)(webpack@5.102.1)
@@ -13550,9 +13547,6 @@ packages:
   es6-promise@4.2.8:
     resolution: {integrity: sha512-HJDGx5daxeIvxdBxvG2cb9g4tEvwIk3i8+nhX0yGrYmZUzbkdg8QbDevheDB8gd0//uPj4c1EQua8Q+MViT0/w==}
 
-  es6-promisify@6.1.1:
-    resolution: {integrity: sha512-HBL8I3mIki5C1Cc9QjKUenHtnG0A5/xA8Q/AllRcfiwl2CZFXGK7ddBiCoRwAix4i2KxcQfjtIVcrVbB3vbmwg==}
-
   es6-shim@0.35.8:
     resolution: {integrity: sha512-Twf7I2v4/1tLoIXMT8HlqaBSS5H2wQTs2wx3MNYCI8K1R1/clXyCazrcVCPm/FuO9cyV8+leEaZOWD5C253NDg==}
 
@@ -19928,10 +19922,6 @@ packages:
     resolution: {integrity: sha512-g6QUff04oZpHs0eG5p83rFLhHeV00ug/Yf9nZM6fLeUrPguBTkTQOdpAWWspMh55TZfVQDPaN3NQJfbVRAxdIw==}
     engines: {iojs: '>=1.0.0', node: '>=0.10.0'}
 
-  rev-hash@3.0.0:
-    resolution: {integrity: sha512-s+87HfEKAu95TaTxnbCobn0/BkbzR23LHSwVdYvr8mn5+PPjzy+hTWyh92b5oaLgig9TKPe5d6ZcubsVBtUrZg==}
-    engines: {node: '>=8'}
-
   rfdc@1.4.1:
     resolution: {integrity: sha512-q1b3N5QkRUWUl7iyylaaj3kOpIT0N2i9MqIEQXP73GVsN9cw3fdx8X63cEmWhJGi2PPCF23Ijp7ktmd39rawIA==}
 
@@ -22497,11 +22487,6 @@ packages:
     engines: {node: '>=0.10'}
     peerDependencies:
       webpack: 1 || 2 || 3
-
-  webpack-merge-and-include-globally@2.3.4:
-    resolution: {integrity: sha512-s5dd7m3ycVBlC7C6GAx91JQzbjhxC/NJRuT2sCkg8WCcF8CE1x/7xwVXqgmt0Fr/H/0sX5C5HE2RdU6+vCY5yg==}
-    peerDependencies:
-      webpack: '>=1.0.0'
 
   webpack-merge@5.10.0:
     resolution: {integrity: sha512-+4zXKdx7UnO+1jaN4l2lHVD+mFvnlZQP/6ljaJVb4SZiwIKeUnrT5l0gkT8z+n4hKpC+jpOv6O9R+gLtag7pSA==}
@@ -37317,7 +37302,7 @@ snapshots:
   '@webpack-cli/configtest@2.1.1(webpack-cli@5.1.4)(webpack@5.102.1)':
     dependencies:
       webpack: 5.102.1(webpack-cli@5.1.4)
-      webpack-cli: 5.1.4(webpack@5.102.1)
+      webpack-cli: 5.1.4(webpack-dev-server@5.2.2)(webpack@5.102.1)
 
   '@webpack-cli/configtest@3.0.1(webpack-cli@6.0.1)(webpack@5.102.1)':
     dependencies:
@@ -37332,7 +37317,7 @@ snapshots:
   '@webpack-cli/info@2.0.2(webpack-cli@5.1.4)(webpack@5.102.1)':
     dependencies:
       webpack: 5.102.1(webpack-cli@5.1.4)
-      webpack-cli: 5.1.4(webpack@5.102.1)
+      webpack-cli: 5.1.4(webpack-dev-server@5.2.2)(webpack@5.102.1)
 
   '@webpack-cli/info@3.0.1(webpack-cli@6.0.1)(webpack@5.102.1)':
     dependencies:
@@ -40949,8 +40934,6 @@ snapshots:
       es6-symbol: 3.1.4
 
   es6-promise@4.2.8: {}
-
-  es6-promisify@6.1.1: {}
 
   es6-shim@0.35.8: {}
 
@@ -49901,8 +49884,6 @@ snapshots:
 
   reusify@1.1.0: {}
 
-  rev-hash@3.0.0: {}
-
   rfdc@1.4.1: {}
 
   rimraf@2.6.3:
@@ -53518,13 +53499,6 @@ snapshots:
       lodash: 4.17.21
       webpack: 5.102.1(@swc/core@1.15.2(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
 
-  webpack-merge-and-include-globally@2.3.4(webpack@5.102.1):
-    dependencies:
-      es6-promisify: 6.1.1
-      glob: 7.2.3
-      rev-hash: 3.0.0
-      webpack: 5.102.1(webpack-cli@6.0.1)
-
   webpack-merge@5.10.0:
     dependencies:
       clone-deep: 4.0.1
@@ -53720,7 +53694,7 @@ snapshots:
       watchpack: 2.4.4
       webpack-sources: 3.3.3
     optionalDependencies:
-      webpack-cli: 5.1.4(webpack@5.102.1)
+      webpack-cli: 5.1.4(webpack-dev-server@5.2.2)(webpack@5.102.1)
     transitivePeerDependencies:
       - '@swc/core'
       - esbuild
