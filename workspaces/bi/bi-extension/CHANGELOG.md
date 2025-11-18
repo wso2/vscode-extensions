@@ -25,7 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
-- **Ballerina Version Compatibility** — The "New Project" and "NP functions" features are now only shown for Ballerina versions 2201.13.0 and above.
+- **Ballerina Version Compatibility** — The "New Project" and "Natural Programming functions" features are now only shown for Ballerina versions 2201.13.0 and above.
 
 ## [1.5.0](https://github.com/wso2/vscode-extensions/compare/ballerina-integrator-1.4.0...ballerina-integrator-1.5.0) - 2025-11-11
 
