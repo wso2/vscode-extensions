@@ -68,8 +68,8 @@
       "glob": "^8.1.0",
       "mocha": "^10.2.0",
       "typescript": "5.8.3",
-      "vsce": "^2.15.0",
-      "copyfiles": "^2.4.1"
+      "copyfiles": "^2.4.1",
+      "@vscode/vsce": "^3.7.0"
     }
   }
   
