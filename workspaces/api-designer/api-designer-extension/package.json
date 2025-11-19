@@ -136,6 +136,6 @@
     "cors-anywhere": "^0.4.4",
     "@apidevtools/json-schema-ref-parser": "11.6.1",
     "adm-zip": "~0.5.14",
-    "js-yaml": "~4.1.0"
+    "js-yaml": "~4.1.1"
   }
 }
