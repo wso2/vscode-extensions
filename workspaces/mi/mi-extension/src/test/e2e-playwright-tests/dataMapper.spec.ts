@@ -255,14 +255,14 @@ export default function createTests() {
       await loc1.click({ force: true });
       await dmWebView.getByTestId('expression-label-for-input.iPrimDirectErr.OUT-to-objectOutput.oPrimDirectErr.IN')
         .locator('.codicon-trash').click({ force: true });
-      await loc1.waitFor({ state: 'detached' });
+      // await loc1.waitFor({ state: 'detached' });
 
       await loc2.locator('.codicon-trash').click({ force: true });
       // await loc2.waitFor({ state: 'detached' });
 
-      const loc3_ = dmWebView.getByTestId('link-from-input.iManyOne3.OUT-to-datamapper-intermediate-port').nth(1);
+      const loc3_ = dmWebView.getByTestId('link-from-input.iManyOne3.OUT-to-datamapper-intermediate-port');
       await loc3_.click({ force: true });
-      await dmWebView.locator('div[data-testid^="sub-link-label-for-input.iManyOne3.OUT-to-"]').nth(1)
+      await dmWebView.locator('div[data-testid^="sub-link-label-for-input.iManyOne3.OUT-to-"]')
         .locator('.codicon-trash').click({ force: true });
       await loc3_.waitFor({ state: 'detached' });
 
