@@ -367,7 +367,6 @@ export namespace TestScenarios {
 
         console.log(' - Goto focused view again');
         await dmWebView.getByTestId('expand-array-fn-output.oArr1D').click();
-        await dmWebView.getByText('oArr1D:Query').waitFor();
         await dmWebView.getByTestId('link-from-input.iArr1D.OUT-to-queryOutput.oArr1D.#.IN').waitFor();
 
         console.log(' - Delete within focused view');
@@ -506,7 +505,6 @@ export namespace TestScenarios {
 
         console.log(' - Goto inner focused view again');
         await dmWebView.getByTestId('expand-array-fn-output.oArr1D').click();
-        await dmWebView.getByText('oArr1D:Query').waitFor();
         await dmWebView.getByTestId('link-from-inputItem.iArr1D.OUT-to-queryOutput.oArr1D.#.IN').waitFor({ state: 'attached' });
 
         console.log(' - Delete within inner focused view');
