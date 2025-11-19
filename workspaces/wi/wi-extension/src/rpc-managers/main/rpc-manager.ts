@@ -49,7 +49,6 @@ import { askFileOrFolderPath, askFilePath, askProjectPath, BALLERINA_INTEGRATOR_
 import * as fs from "fs";
 import * as path from "path";
 import axios from "axios";
-import { extension } from "../../bi/biExtentionContext";
 import { pullMigrationTool } from "./migrate-integration";
 
 export class MainRpcManager implements WIVisualizerAPI {
@@ -177,7 +176,7 @@ export class MainRpcManager implements WIVisualizerAPI {
                 };
 
                 const result = await commands.executeCommand("MI.project-explorer.create-project", miCommandParams);
-                
+
                 if (result) {
                     resolve(result as CreateMiProjectResponse);
                 } else {
@@ -245,19 +244,15 @@ export class MainRpcManager implements WIVisualizerAPI {
     }
 
     private getLangClient() {
-        if (!extension.langClient) {
-            const ballerinaExt = extensions.getExtension('wso2.ballerina');
-            if (!ballerinaExt) {
-                throw new Error('Ballerina extension is not installed');
-            }
-            if (!ballerinaExt.isActive) {
-                throw new Error('Ballerina extension is not activated yet');
-            }
-            extension.langClient = ballerinaExt.exports.ballerinaExtInstance.langClient;
-            extension.biSupported = ballerinaExt.exports.ballerinaExtInstance.biSupported;
-            extension.isNPSupported = ballerinaExt.exports.ballerinaExtInstance.isNPSupported;
+        const ballerinaExt = extensions.getExtension('wso2.ballerina');
+        if (!ballerinaExt) {
+            throw new Error('Ballerina extension is not installed');
         }
-        return extension.langClient as any;
+        if (!ballerinaExt.isActive) {
+            throw new Error('Ballerina extension is not activated yet');
+        }
+        const langClient = ballerinaExt.exports.ballerinaExtInstance.langClient;
+        return langClient as any;
     }
 
     async getMigrationTools(): Promise<GetMigrationToolsResponse> {

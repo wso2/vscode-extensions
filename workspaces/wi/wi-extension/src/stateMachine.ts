@@ -19,11 +19,9 @@
 import { assign, createMachine, interpret } from 'xstate';
 import * as vscode from 'vscode';
 import { CONTEXT_KEYS } from '@wso2/wi-core';
-import { activateBIProjectExplorer } from './bi/project-explorer/activate';
 import { ext } from './extensionVariables';
 import { fetchProjectInfo, ProjectInfo } from './bi/utils';
 import { checkIfMiProject } from './mi/utils';
-import { extension } from './bi/biExtentionContext';
 import { WebviewManager } from './webviewManager';
 import { ExtensionAPIs } from './extensionAPIs';
 import { registerCommands } from './commands';
@@ -138,16 +136,8 @@ const stateMachine = createMachine<MachineContext>({
             ext.log(`Activating for project type: ${context.projectType}`);
 
             if (context.projectType === ProjectType.BI_BALLERINA) {
-                // Activate BI tree view
-                activateBIProjectExplorer({
-                    context: ext.context,
-                    isBI: context.isBI,
-                    isBallerina: context.isBallerina,
-                    isMultiRoot: context.isMultiRoot
-                });
                 vscode.commands.executeCommand('setContext', 'WI.projectType', 'bi');
             } else if (context.projectType === ProjectType.MI) {
-                // Activate MI tree view
                 ext.log('MI project detected - MI tree view would be activated here');
                 vscode.commands.executeCommand('setContext', 'WI.projectType', 'mi');
             } else {
@@ -193,10 +183,6 @@ async function activateExtensionsBasedOnProjectType(context: MachineContext): Pr
 
 async function detectProjectType(): Promise<{
     projectType: ProjectType;
-    isBI?: boolean;
-    isBallerina?: boolean;
-    isMultiRoot?: boolean;
-    isMI?: boolean;
 }> {
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
@@ -206,8 +192,7 @@ async function detectProjectType(): Promise<{
     if (isMiProject) {
         ext.log('Detected MI project');
         return {
-            projectType: ProjectType.MI,
-            isMI: true
+            projectType: ProjectType.MI
         };
     }
 
@@ -218,17 +203,8 @@ async function detectProjectType(): Promise<{
     if (projectInfo.isBallerina && ballerinaExt) {
         ext.log('Detected BI/Ballerina project');
 
-        // Initialize Ballerina extension context
-        extension.context = ext.context;
-        extension.langClient = ballerinaExt.exports.ballerinaExtInstance.langClient;
-        extension.biSupported = ballerinaExt.exports.ballerinaExtInstance.biSupported;
-        extension.isNPSupported = ballerinaExt.exports.ballerinaExtInstance.isNPSupported;
-
         return {
             projectType: ProjectType.BI_BALLERINA,
-            isBI: projectInfo.isBI,
-            isBallerina: projectInfo.isBallerina,
-            isMultiRoot: projectInfo.isMultiRoot
         };
     }
 
