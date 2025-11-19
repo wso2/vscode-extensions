@@ -44,7 +44,7 @@
             },
             {
                 "view": "BI.project-explorer",
-                "contents": "Your workspace is ready for integrations!\n\nGet started by adding your first integration. You can create one manually or let AI help you generate it.\n\n[Add New Integration](command:ballerina.open.bi.new)\n[Generate with AI](command:ballerina.open.ai.panel)",
+                "contents": "No integrations found in this workspace.\n\n[$(add) Create Integration](command:BI.project-explorer.add)",
                 "when": "BI.status == emptyWorkspace"
             },
             {
