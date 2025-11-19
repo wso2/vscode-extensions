@@ -15,7 +15,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { SHARED_COMMANDS, BI_COMMANDS, MACHINE_VIEW } from '@wso2/ballerina-core';
+import { SHARED_COMMANDS, BI_COMMANDS } from '@wso2/ballerina-core';
 
 import { ProjectExplorerEntry, ProjectExplorerEntryProvider } from './project-explorer-provider';
 import { ExtensionContext, TreeView, commands, window, workspace } from 'vscode';
@@ -38,8 +38,6 @@ export function activateProjectExplorer(config: ExplorerActivationConfig) {
 
 	const projectExplorerDataProvider = new ProjectExplorerEntryProvider();
 	const projectTree = createProjectTree(projectExplorerDataProvider);
-
-	projectExplorerDataProvider.setTreeView(projectTree);
 
 	if (isBallerinaPackage || isBallerinaWorkspace) {
 		registerBallerinaCommands(projectExplorerDataProvider, isBI, isBallerinaWorkspace, isEmptyWorkspace);
@@ -70,17 +68,6 @@ function registerBallerinaCommands(
 	isEmptyWorkspace?: boolean
 ) {
 	commands.registerCommand(BI_COMMANDS.REFRESH_COMMAND, () => dataProvider.refresh());
-	commands.registerCommand(
-		BI_COMMANDS.NOTIFY_PROJECT_EXPLORER,
-		(event: {
-			projectPath: string,
-			workspacePath: string,
-			documentUri: string,
-			view: MACHINE_VIEW
-		}) => {
-			dataProvider.revealInTreeView(event.documentUri, event.projectPath, event.view);
-		}
-	);
 	commands.executeCommand('setContext', 'BI.isWorkspaceSupported', extension.isWorkspaceSupported ?? false);
 
 	if (isBallerinaWorkspace) {
