@@ -16,4 +16,9 @@
  * under the License.
  */
 
+import { BI_COMMANDS } from "@wso2/ballerina-core";
+
 // ADD ALL THE NON-SHARED BI ONLY ATTRIBUTES HERE.
+export const WI_EXTENSION_ID = 'wso2.wso2-integrator';
+export const WI_PROJECT_EXPLORER_VIEW_ID = 'wso2-integrator.explorer';
+export const BI_PROJECT_EXPLORER_VIEW_ID = BI_COMMANDS.PROJECT_EXPLORER;
