@@ -18,7 +18,7 @@ import { ExtendedLanguageClient } from './lang-client/ExtendedLanguageClient';
 import { VisualizerWebview, webviews } from './visualizer/webview';
 import { RPCLayer } from './RPCLayer';
 import { history } from './history/activator';
-import { COMMANDS, WI_EXTENSION_ID } from './constants';
+import { COMMANDS, MI_PROJECT_EXPLORER_VIEW_ID, WI_EXTENSION_ID, WI_PROJECT_EXPLORER_VIEW_ID } from './constants';
 import { activateProjectExplorer } from './project-explorer/activate';
 import { MockService, STNode, UnitTest, Task, InboundEndpoint } from '../../syntax-tree/lib/src';
 import { logDebug } from './util/logger';
@@ -391,7 +391,8 @@ const stateMachine = createMachine<MachineContext>({
             return new Promise(async (resolve, reject) => {
                 console.log("Waiting for LS to be ready " + new Date().toLocaleTimeString());
                 try {
-                    vscode.commands.executeCommand(COMMANDS.FOCUS_PROJECT_EXPLORER);
+                    const treeViewId = context.isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : MI_PROJECT_EXPLORER_VIEW_ID;
+                    vscode.commands.executeCommand(`${treeViewId}.focus`);
                     const instance = await MILanguageClient.getInstance(context.projectUri!);
                     const errors = instance.getErrors();
                     if (errors.length) {
@@ -654,7 +655,7 @@ const stateMachine = createMachine<MachineContext>({
         activateOtherFeatures: (context, event) => {
             return new Promise(async (resolve, reject) => {
                 const ls = await MILanguageClient.getInstance(context.projectUri!);
-                const treeviewId = context.isInWI ? 'wso2-integrator.explorer' : 'MI.project-explorer';
+                const treeviewId = context.isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : MI_PROJECT_EXPLORER_VIEW_ID;
                 await activateProjectExplorer(treeviewId, extension.context, ls.languageClient!);
                 await activateTestExplorer(extension.context);
                 resolve(true);
@@ -669,7 +670,8 @@ const stateMachine = createMachine<MachineContext>({
         },
         focusProjectExplorer: (context, event) => {
             return new Promise(async (resolve, reject) => {
-                vscode.commands.executeCommand(COMMANDS.FOCUS_PROJECT_EXPLORER);
+                const treeViewId = context.isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : MI_PROJECT_EXPLORER_VIEW_ID;
+                vscode.commands.executeCommand(`${treeViewId}.focus`);
                 resolve(true);
             });
         }
@@ -698,7 +700,7 @@ export const getStateMachine = (projectUri: string, context?: VisualizerLocation
             langClient: null,
             errors: [],
             view: MACHINE_VIEW.Overview,
-            isInWI: vscode.extensions.getExtension(WI_EXTENSION_ID)?.isActive ?? false,
+            isInWI: vscode.extensions.getExtension(WI_EXTENSION_ID) ? true : false,
             ...context
         })).start();
         stateMachines.set(projectUri, stateService);
