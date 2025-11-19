@@ -206,4 +206,5 @@ export const ERROR_MESSAGES = {
 
 export const WI_EXTENSION_ID = 'wso2.wso2-integrator';
 export const WI_PROJECT_EXPLORER_VIEW_ID = 'wso2-integrator.explorer';
+export const WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND = 'wso2-integrator.explorer.refresh';
 export const MI_PROJECT_EXPLORER_VIEW_ID = 'MI.project-explorer';

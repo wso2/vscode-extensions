@@ -20,7 +20,7 @@ import { SHARED_COMMANDS, BI_COMMANDS } from '@wso2/ballerina-core';
 import { ProjectExplorerEntry, ProjectExplorerEntryProvider } from './project-explorer-provider';
 import { ExtensionContext, TreeView, commands, window, workspace } from 'vscode';
 import { extension } from '../biExtentionContext';
-import { BI_PROJECT_EXPLORER_VIEW_ID, WI_PROJECT_EXPLORER_VIEW_ID } from '../constants';
+import { BI_PROJECT_EXPLORER_VIEW_ID, WI_PROJECT_EXPLORER_VIEW_ID, WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND } from '../constants';
 
 interface ExplorerActivationConfig {
 	context: ExtensionContext;
@@ -71,7 +71,7 @@ function registerBallerinaCommands(
 	isBallerinaWorkspace?: boolean,
 	isEmptyWorkspace?: boolean
 ) {
-	commands.registerCommand(BI_COMMANDS.REFRESH_COMMAND, () => dataProvider.refresh());
+	commands.registerCommand(isInWI ? WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND : BI_COMMANDS.REFRESH_COMMAND, () => dataProvider.refresh());
 	commands.executeCommand('setContext', 'BI.isWorkspaceSupported', extension.isWorkspaceSupported ?? false);
 
 	if (isBallerinaWorkspace) {

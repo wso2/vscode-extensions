@@ -21,7 +21,7 @@ import { history } from './history/activator';
 import { COMMANDS, MI_PROJECT_EXPLORER_VIEW_ID, WI_EXTENSION_ID, WI_PROJECT_EXPLORER_VIEW_ID } from './constants';
 import { activateProjectExplorer } from './project-explorer/activate';
 import { MockService, STNode, UnitTest, Task, InboundEndpoint } from '../../syntax-tree/lib/src';
-import { logDebug } from './util/logger';
+import { log, logDebug } from './util/logger';
 import { deriveConfigName, getSources } from './util/dataMapper';
 import { fileURLToPath } from 'url';
 import path = require('path');
@@ -656,7 +656,7 @@ const stateMachine = createMachine<MachineContext>({
             return new Promise(async (resolve, reject) => {
                 const ls = await MILanguageClient.getInstance(context.projectUri!);
                 const treeviewId = context.isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : MI_PROJECT_EXPLORER_VIEW_ID;
-                await activateProjectExplorer(treeviewId, extension.context, ls.languageClient!);
+                await activateProjectExplorer(treeviewId, extension.context, ls.languageClient!, context.isInWI);
                 await activateTestExplorer(extension.context);
                 resolve(true);
             });
@@ -695,6 +695,7 @@ export const getStateMachine = (projectUri: string, context?: VisualizerLocation
         if (!workspaces) {
             console.warn('No workspace folder is open.');
         }
+        log(vscode.extensions.all.map(ext => ext.id).join(', '));
         stateService = interpret(stateMachine.withContext({
             projectUri: projectUri,
             langClient: null,
