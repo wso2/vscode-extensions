@@ -62,7 +62,8 @@
             "ballerina-integrator": [
                 {
                     "id": "BI.project-explorer",
-                    "name": ""
+                    "name": "",
+                    "when": "!config.integrator.defaultIntegrator"
                 }
             ]
         },
