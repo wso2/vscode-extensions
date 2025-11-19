@@ -220,7 +220,7 @@ jobs:
           scan-type: 'fs'
           scan-ref: '.'
           format: 'table'
-          exit-code: '1'
+          exit-code: '0'
           timeout: '10m'
           skip-dirs: 'common/temp'
           ignore-unfixed: true

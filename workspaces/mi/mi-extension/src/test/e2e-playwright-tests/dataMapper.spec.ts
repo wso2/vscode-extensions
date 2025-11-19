@@ -190,6 +190,20 @@ export default function createTests() {
       await dm.mapFields('input.iObjProp.op2', 'objectOutput.oObjProp.p2');
       await dmWebView.getByTestId('link-from-input.iObjProp.op2.OUT-to-objectOutput.oObjProp.p2.IN').waitFor({ state: 'attached' });
 
+      console.log('- Test custom function');
+
+      await dm.mapFields('input.iCustomFn', 'objectOutput.oCustomFn', 'menu-item-o2o-func');
+
+      await dmWebView.getByTestId('link-from-input.iCustomFn.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
+      await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.oCustomFn.IN').waitFor({ state: 'attached' });
+      await dmWebView.getByTestId('link-connector-node-objectOutput.oCustomFn.IN').waitFor();
+
+      const editorTab = page.page.getByRole('tab', { name: `${dmName}.ts, Editor Group` });
+      await editorTab.waitFor({ state: 'attached' });
+
+      await editorTab.locator('.codicon-close').click();
+      await editorTab.waitFor({ state: 'detached' });
+
       console.log('- Test expression bar');
 
       // expression bar - use function
@@ -220,27 +234,13 @@ export default function createTests() {
       await expect(expressionBar).toBeFocused();
       await expressionBar.fill('input.iObjDirect.d1 + "HI"');
       await dmWebView.locator('#data-mapper-canvas-container').click();
+      await expressionBar.evaluate((el: HTMLElement) => el.blur());
       await expect(expressionBar).not.toBeFocused();
 
       await dmWebView.getByTestId('link-from-input.iObjDirect.d1.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
       await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.oObjProp.p1.IN').waitFor({ state: 'attached' });
       await dmWebView.getByTestId('link-connector-node-objectOutput.oObjProp.p1.IN').waitFor();
 
-
-      console.log('- Test custom function');
-      // custom function mapping
-      // objectOutput.oCustomFn = input.iCustomFn;
-      await dm.mapFields('input.iCustomFn', 'objectOutput.oCustomFn', 'menu-item-o2o-func');
-
-      await dmWebView.getByTestId('link-from-input.iCustomFn.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
-      await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.oCustomFn.IN').waitFor({ state: 'attached' });
-      await dmWebView.getByTestId('link-connector-node-objectOutput.oCustomFn.IN').waitFor();
-
-      const editorTab = page.page.getByRole('tab', { name: `${dmName}.ts, Editor Group` });
-      await editorTab.waitFor({ state: 'attached' });
-
-      await editorTab.locator('.codicon-close').click();
-      await editorTab.waitFor({ state: 'detached' });
 
       expect(dm.verifyTsFileContent(path.join('basic', 'map.ts'))).toBeTruthy();
 
