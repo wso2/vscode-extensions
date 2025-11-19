@@ -253,6 +253,10 @@ export class DataMapper {
     public compareFiles(file1: string, file2: string) {
         const file1Content = fs.readFileSync(file1, 'utf8').replace(/\r\n/g, '\n');
         const file2Content = fs.readFileSync(file2, 'utf8').replace(/\r\n/g, '\n');
+        console.log("File1:");
+        console.log(file1Content);
+        console.log("File2:");
+        console.log(file2Content);
         return file1Content === file2Content;
     }
 
