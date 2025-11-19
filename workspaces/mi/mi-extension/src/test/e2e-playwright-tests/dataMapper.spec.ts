@@ -255,18 +255,20 @@ export default function createTests() {
       await loc1.click({ force: true });
       await dmWebView.getByTestId('expression-label-for-input.iPrimDirectErr.OUT-to-objectOutput.oPrimDirectErr.IN')
         .locator('.codicon-trash').click({ force: true });
-      // await loc1.waitFor({ state: 'detached' });
+      await loc1.waitFor({ state: 'detached' });
 
       await loc2.locator('.codicon-trash').click({ force: true });
+      await page.page.waitForTimeout(5000);
       // await loc2.waitFor({ state: 'detached' });
 
-      const loc3_ = dmWebView.getByTestId('link-from-input.iManyOne3.OUT-to-datamapper-intermediate-port');
+      const loc3_ = dmWebView.getByTestId('link-from-input.iManyOne3.OUT-to-datamapper-intermediate-port').first();
       await loc3_.click({ force: true });
-      await dmWebView.locator('div[data-testid^="sub-link-label-for-input.iManyOne3.OUT-to-"]')
+      await dmWebView.locator('div[data-testid^="sub-link-label-for-input.iManyOne3.OUT-to-"]').first()
         .locator('.codicon-trash').click({ force: true });
       await loc3_.waitFor({ state: 'detached' });
 
       await loc4.locator('.codicon-trash').click({ force: true });
+      await page.page.waitForTimeout(5000);
       // await loc4.waitFor({ state: 'detached' });
 
       expect(dm.verifyTsFileContent('basic/del.ts')).toBeTruthy();
