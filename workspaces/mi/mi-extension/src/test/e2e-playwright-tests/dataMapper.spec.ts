@@ -260,9 +260,9 @@ export default function createTests() {
       // await loc2.locator('.codicon-trash').click({ force: true });
       // await loc2.waitFor({ state: 'detached' });
 
-      const loc3_ = dmWebView.getByTestId('link-from-input.iManyOne3.OUT-to-datamapper-intermediate-port').first();
+      const loc3_ = dmWebView.getByTestId('link-from-input.iManyOne3.OUT-to-datamapper-intermediate-port').nth(1);
       await loc3_.click({ force: true });
-      await dmWebView.locator('div[data-testid^="sub-link-label-for-input.iManyOne3.OUT-to-"]').first()
+      await dmWebView.locator('div[data-testid^="sub-link-label-for-input.iManyOne3.OUT-to-"]').nth(1)
         .locator('.codicon-trash').click({ force: true });
       await loc3_.waitFor({ state: 'detached' });
 
