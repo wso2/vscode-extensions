@@ -236,33 +236,6 @@
             "preLaunchTask": "watch-mi-tests"
         },
         {
-            "name": "WSO2 Integrator Extension",
-            "type": "extensionHost",
-            "request": "launch",
-            "env": {
-                "WEB_VIEW_DEV_MODE": "true",
-                "WEB_VIEW_DEV_HOST": "http://localhost:3000",
-            },
-            "trace":true,
-            "debugWebviews": true,
-            "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/wi/wi-extension"
-            ],
-            "outFiles": [
-                "${workspaceFolder}/workspaces/wi/wi-extension/dist/**/*.js",
-                "${workspaceFolder}/workspaces/wi/wi-webviews/lib/**/*"
-            ],
-            "skipFiles": [
-                "**/node_modules/**"
-            ],
-            "rendererDebugOptions": {
-                "sourceMaps": true,
-                "webRoot": "${workspaceFolder}/workspaces/wi/wi-webviews",
-            },
-            "preLaunchTask": "npm: watch-wi",
-            "envFile": "${workspaceFolder}/workspaces/wi/wi-extension/.env"
-        },
-        {
             "name": "Ballerina Extension AI Tests",
             "type": "extensionHost",
             "request": "launch",

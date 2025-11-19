@@ -229,22 +229,6 @@
 				"isDefault": true
 			}
 		},
-        {
-            "label": "npm: watch-wi",
-			"type": "npm",
-			"script": "watch",
-            "path": "workspaces/wi/wi-extension",
-            "problemMatcher": "$tsc-watch",
-			"isBackground": true,
-			"presentation": {
-				"reveal": "never",
-				"group": "watchers"
-			},
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			}
-		},
 		{
             "label": "watch-mi-tests",
 			"type": "npm",
