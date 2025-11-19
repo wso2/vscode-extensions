@@ -29,7 +29,7 @@ import axios from 'axios';
 import * as net from 'net';
 import { MACHINE_VIEW } from '@wso2/mi-core';
 import { getStateMachine } from '../stateMachine';
-import { ERROR_LOG, INFO_LOG, logDebug } from '../util/logger';
+import { logDebug, LogLevel } from '../util/logger';
 import * as toml from "@iarna/toml";
 import { DebuggerConfig } from './config';
 import { ChildProcess } from 'child_process';
@@ -104,7 +104,7 @@ export function checkServerReadiness(): Promise<void> {
                 .then((response: { status: number; data: any; }) => {
                     if (response.status === 200) {
                         if (response.data.status === 'ready') {
-                            logDebug('Server is ready with CApp deployed', INFO_LOG);
+                            logDebug('Server is ready with CApp deployed', LogLevel.INFO);
                             resolve();
                         } else {
                             reject(response.data.status);
@@ -115,7 +115,7 @@ export function checkServerReadiness(): Promise<void> {
                         if (elapsedTime < maxTimeout) {
                             setTimeout(checkReadiness, retryInterval);
                         } else {
-                            logDebug('Timeout reached while checking server readiness', ERROR_LOG);
+                            logDebug('Timeout reached while checking server readiness', LogLevel.ERROR);
                             reject('CApp has encountered deployment issues. Please refer to the output for error logs.');
                         }
                     }
@@ -126,7 +126,7 @@ export function checkServerReadiness(): Promise<void> {
                         setTimeout(checkReadiness, retryInterval);
                     } else {
                         const errorMsg = error?.errors[0]?.message;
-                        logDebug(`Error while checking for Server readiness: ${errorMsg}`, ERROR_LOG);
+                        logDebug(`Error while checking for Server readiness: ${errorMsg}`, LogLevel.ERROR);
                         reject(`CApp has encountered deployment issues. Please refer to the output for error logs.`);
                     }
                 });
@@ -224,7 +224,7 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
                                 const sourceFiles = await getCarFiles(targetDirectory);
                                 if (sourceFiles.length === 0) {
                                     const errorMessage = "No .car files were found in the target directory. Built without copying to the server's carbonapps directory.";
-                                    logDebug(errorMessage, ERROR_LOG);
+                                    logDebug(errorMessage, LogLevel.ERROR);
                                     reject(errorMessage);
                                 } else {
                                     const targetPath = path.join(serverPath, 'repository', 'deployment', 'server', 'carbonapps');
@@ -233,7 +233,7 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
                                         fs.copyFileSync(sourceFile.fsPath, destinationFile);
                                         DebuggerConfig.setCopiedCapp(destinationFile);
                                     });
-                                    logDebug('Build and copy tasks executed successfully', INFO_LOG);
+                                    logDebug('Build and copy tasks executed successfully', LogLevel.INFO);
                                     resolve();
                                 }
                             } catch (err) {
@@ -426,7 +426,7 @@ export async function executeTasks(projectUri: string, serverPath: string, isDeb
                             resolve();
                             // Proceed with connecting to the port
                         } else {
-                            logDebug('Server is running, but the debugger command port not acitve', ERROR_LOG);
+                            logDebug('Server is running, but the debugger command port not acitve', LogLevel.ERROR);
                             reject(`Server command port isn't actively listening. Stop any running MI servers and restart the debugger.`);
                         }
                     });
@@ -444,7 +444,7 @@ export async function executeTasks(projectUri: string, serverPath: string, isDeb
             }
         }).catch((error) => {
             reject(error);
-            logDebug(`Error executing BuildTask: ${error}`, ERROR_LOG);
+            logDebug(`Error executing BuildTask: ${error}`, LogLevel.ERROR);
         });
     });
 
@@ -457,7 +457,7 @@ export async function executeTasks(projectUri: string, serverPath: string, isDeb
                         resolve();
                         // Proceed with connecting to the port
                     } else {
-                        logDebug(`The ${DebuggerConfig.getCommandPort()} port is not actively listening or the timeout has been reached.`, ERROR_LOG);
+                        logDebug(`The ${DebuggerConfig.getCommandPort()} port is not actively listening or the timeout has been reached.`, LogLevel.ERROR);
                         reject(`Server command port isn't actively listening. Stop any running MI servers and restart the debugger.`);
                     }
                 });
@@ -519,7 +519,7 @@ export async function deleteCapp(serverPath: string): Promise<void> {
                 resolve();
             }
         } catch (err) {
-            logDebug(`Error deleting Capp: ${err}`, ERROR_LOG);
+            logDebug(`Error deleting Capp: ${err}`, LogLevel.ERROR);
             reject(err);
         }
     });
@@ -534,7 +534,7 @@ export async function deleteCopiedCapAndLibs() {
         await deleteSpecificFiles(copiedLibs);
 
     } catch (err) {
-        logDebug(`Failed to delete Capp and Libs: ${err}`, ERROR_LOG);
+        logDebug(`Failed to delete Capp and Libs: ${err}`, LogLevel.ERROR);
         throw err;
     }
 }
@@ -549,7 +549,7 @@ export async function deleteSpecificFiles(filesToDelete: string[]): Promise<void
             }
             resolve();
         } catch (err) {
-            logDebug(`Error deleting files: ${err}`, ERROR_LOG);
+            logDebug(`Error deleting files: ${err}`, LogLevel.ERROR);
             reject(err);
         }
     });
@@ -581,7 +581,7 @@ export function createTempDebugBatchFile(batchFilePath: string, binPath: string)
 
         fs.readFile(destFilePath, 'utf8', (err, data) => {
             if (err) {
-                logDebug(`Error reading the micro-integrator-debug.bat file: ${err}`, ERROR_LOG);
+                logDebug(`Error reading the micro-integrator-debug.bat file: ${err}`, LogLevel.ERROR);
                 reject(`Error while reading the micro-integrator-debug.bat file: ${err}`);
                 return;
             }
@@ -590,7 +590,7 @@ export function createTempDebugBatchFile(batchFilePath: string, binPath: string)
 
             fs.writeFile(destFilePath, updatedContent, 'utf8', (err) => {
                 if (err) {
-                    logDebug(`Error writing the micro-integrator-debug.bat file: ${err}`, ERROR_LOG);
+                    logDebug(`Error writing the micro-integrator-debug.bat file: ${err}`, LogLevel.ERROR);
                     reject(`Error while updating the micro-integrator-debug.bat file: ${err}`);
                     return;
                 }
@@ -622,7 +622,7 @@ export async function readPortOffset(serverConfigPath: string): Promise<number |
         }
         return undefined;
     } catch (error) {
-        logDebug(`Failed to read or parse deployment.toml: ${error}`, ERROR_LOG);
+        logDebug(`Failed to read or parse deployment.toml: ${error}`, LogLevel.ERROR);
         return undefined;
     }
 }
@@ -656,7 +656,7 @@ export async function setManagementCredentials(serverConfigPath: string) {
             }
         }
     } catch (error) {
-        logDebug(`Failed to read or parse deployment.toml: ${error}`, ERROR_LOG);
+        logDebug(`Failed to read or parse deployment.toml: ${error}`, LogLevel.ERROR);
     }
 }
 

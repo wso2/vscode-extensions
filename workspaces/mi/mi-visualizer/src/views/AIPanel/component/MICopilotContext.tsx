@@ -19,7 +19,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { FileObject, ImageObject } from "@wso2/mi-core";
-import { PROJECT_RUNTIME_VERSION_THRESHOLD } from "../constants";
 import { LoaderWrapper, ProgressRing } from "../styles";
 import {
     ChatMessage,
@@ -32,7 +31,6 @@ import {
     FileHistoryEntry,
 } from "../types";
 import {
-    fetchBackendUrl,
     getProjectRuntimeVersion,
     getProjectUUID,
     compareVersions,
@@ -46,7 +44,6 @@ import { useFeedback } from "./useFeedback";
 interface MICopilotContextType {
     rpcClient: RpcClientType;
     projectRuntimeVersion: string;
-    isRuntimeVersionThresholdReached: boolean;
     projectUUID: string;
 
     // State for showing communication in UI
@@ -116,7 +113,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     const { rpcClient } = useVisualizerContext();
 
     const [projectRuntimeVersion, setProjectRuntimeVersion] = useState("");
-    const [isRuntimeVersionThresholdReached, setIsRuntimeVersionThresholdReached] = useState(false);
     const [projectUUID, setProjectUUID] = useState("");
     const [isLoading, setIsLoading] = useState(true);
 
@@ -158,9 +154,6 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
 
                 const runtimeVersion = await getProjectRuntimeVersion(rpcClient);
                 setProjectRuntimeVersion(runtimeVersion);
-                setIsRuntimeVersionThresholdReached(
-                    compareVersions(runtimeVersion, PROJECT_RUNTIME_VERSION_THRESHOLD) >= 0
-                );
 
                 const uuid = await getProjectUUID(rpcClient);
                 setProjectUUID(uuid);
@@ -172,13 +165,29 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
 
                 const machineView = await rpcClient.getAIVisualizerState();
 
-                // Update Token Information
+                // Fetch and update usage information
+                rpcClient.getMiAiPanelRpcClient().fetchUsage().then((usage) => {
+                    if (usage) {
+                        // Update Token Information from fresh state
+                        rpcClient.getAIVisualizerState().then((updatedMachineView) => {
+                            const { timeToReset, remainingTokenPercentage } = updateTokenInfo(updatedMachineView);
+                            setRemainingTokenPercentage(remainingTokenPercentage);
+                            setTimeToReset(timeToReset);
+                        }).catch((error) => {
+                            console.error('Failed to update token information:', error);
+                        });
+                    }
+                }).catch((error) => {
+                    console.error('Failed to fetch usage information:', error);
+                });
+
+                // Initial token info from current state
                 const { timeToReset, remainingTokenPercentage } = updateTokenInfo(machineView);
                 setRemainingTokenPercentage(remainingTokenPercentage);
                 setTimeToReset(timeToReset);
 
                 // Handle Initial Prompt Loading
-                if (machineView.initialPrompt.aiPrompt) {
+                if (machineView.initialPrompt?.aiPrompt) {
                     const initialPrompt = machineView.initialPrompt.aiPrompt;
                     const initialFiles = machineView.initialPrompt.files || [];
                     const initialImages = machineView.initialPrompt.images || [];
@@ -263,23 +272,28 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     }, [chatClearEventTriggered]);
 
     // Update local storage whenever backend call finishes
-    useMemo(() => {
+    // Add debounce to prevent saving during abort cleanup
+    useEffect(() => {
         if (!isLoading && !backendRequestTriggered) {
-            localStorage.setItem(localStorageKeys.chatFile, JSON.stringify(copilotChat));
-            localStorage.setItem(localStorageKeys.questionFile, questions[questions.length - 1] || "");
-        }
-    }, [isLoading, backendRequestTriggered]);
+            // Debounce localStorage writes to allow abort cleanup to complete
+            const timeoutId = setTimeout(() => {
+                localStorage.setItem(localStorageKeys.chatFile, JSON.stringify(copilotChat));
+                localStorage.setItem(localStorageKeys.questionFile, questions[questions.length - 1] || "");
+            }, 300); // 300ms delay ensures abort cleanup completes (200ms abort flag reset + buffer)
 
-    useMemo(() => {
+            return () => clearTimeout(timeoutId);
+        }
+    }, [isLoading, backendRequestTriggered, copilotChat, questions]);
+
+    useEffect(() => {
         if (!isLoading) {
             localStorage.setItem(localStorageKeys.fileHistory, JSON.stringify(FileHistory));
         }
-    }, [FileHistory]);
+    }, [isLoading, FileHistory]);
 
     const currentContext: MICopilotContextType = {
         rpcClient,
         projectRuntimeVersion,
-        isRuntimeVersionThresholdReached,
         projectUUID,
         messages,
         questions,

@@ -26,7 +26,7 @@ import { checkServerReadiness, isADiagramView } from './debugHelper';
 import { webviews } from '../visualizer/webview';
 import { extension } from '../MIExtensionContext';
 import { reject } from 'lodash';
-import { ERROR_LOG, INFO_LOG, logDebug } from '../util/logger';
+import { LogLevel, logDebug } from '../util/logger';
 
 export interface RuntimeBreakpoint {
     id: number;
@@ -83,7 +83,7 @@ export class Debugger extends EventEmitter {
         try {
             const workspace = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(path));
             if (!workspace) {
-                logDebug(`No workspace found for path: ${path}`, ERROR_LOG);
+                logDebug(`No workspace found for path: ${path}`, LogLevel.ERROR);
                 return;
             }
             const projectUri = workspace.uri.fsPath;
@@ -133,7 +133,7 @@ export class Debugger extends EventEmitter {
                 // LS call for breakpoint info
                 const breakpointInfo = await this.getBreakpointInformation(breakpointPerFile, normalizedPath);
                 if (!breakpointInfo) {
-                    logDebug(`No breakpoint information available for path: ${normalizedPath}`, ERROR_LOG);
+                    logDebug(`No breakpoint information available for path: ${normalizedPath}`, LogLevel.ERROR);
                     return vscodeBreakpointsPerFile;
                 }
                 // map the runtime breakpoint to the breakpoint info
@@ -165,7 +165,7 @@ export class Debugger extends EventEmitter {
                         };
                         this.runtimeVscodeBreakpointMap.set(runtimeBreakpointInfo, breakpointPerFile[i]);
                     } else {
-                        logDebug(`Breakpoint Information for ${breakpointPerFile[i]?.filePath}:${breakpointPerFile[i]?.line} is null`, ERROR_LOG);
+                        logDebug(`Breakpoint Information for ${breakpointPerFile[i]?.filePath}:${breakpointPerFile[i]?.line} is null`, LogLevel.ERROR);
                     }
                 }
 
@@ -178,7 +178,7 @@ export class Debugger extends EventEmitter {
                 return vscodeBreakpointsPerFile;
             }
         } catch (error) {
-            logDebug(`Error updating breakpoints: ${error}`, ERROR_LOG);
+            logDebug(`Error updating breakpoints: ${error}`, LogLevel.ERROR);
             return Promise.reject(error);
         }
     }
@@ -187,7 +187,7 @@ export class Debugger extends EventEmitter {
         try {
             const workspace = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(path));
             if (!workspace) {
-                logDebug(`No workspace found for path: ${path}`, ERROR_LOG);
+                logDebug(`No workspace found for path: ${path}`, LogLevel.ERROR);
                 return;
             }
             const projectUri = workspace.uri.fsPath;
@@ -225,7 +225,7 @@ export class Debugger extends EventEmitter {
                 // LS call for breakpoint info
                 const breakpointInfo = await this.getBreakpointInformation(stepOverBreakpoints, normalizedPath);
                 if (!breakpointInfo) {
-                    logDebug(`No step-over breakpoint information available for path: ${normalizedPath}`, ERROR_LOG);
+                    logDebug(`No step-over breakpoint information available for path: ${normalizedPath}`, LogLevel.ERROR);
                     return;
                 }
                 // map the runtime breakpoint to the breakpoint info
@@ -257,7 +257,7 @@ export class Debugger extends EventEmitter {
                         };
                         this.stepOverBreakpointMap.set(runtimeBreakpointInfo, stepOverBreakpoints[i]);
                     } else {
-                        logDebug(`Breakpoint Information for ${stepOverBreakpoints[i]?.filePath}:${stepOverBreakpoints[i]?.line} is null`, ERROR_LOG);
+                        logDebug(`Breakpoint Information for ${stepOverBreakpoints[i]?.filePath}:${stepOverBreakpoints[i]?.line} is null`, LogLevel.ERROR);
                     }
                 }
                 if (this.isDebuggerActive) {
@@ -274,7 +274,7 @@ export class Debugger extends EventEmitter {
     public async getBreakpointInformation(breakpoints: RuntimeBreakpoint[], filePath: string): Promise<BreakpointInfo[]> {
         const workspace = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(filePath));
         if (!workspace) {
-            logDebug(`No workspace found for path: ${filePath}`, ERROR_LOG);
+            logDebug(`No workspace found for path: ${filePath}`, LogLevel.ERROR);
             throw new Error(`No workspace found for path: ${filePath}`);
         }
         const projectUri = workspace.uri.fsPath;
@@ -391,17 +391,17 @@ export class Debugger extends EventEmitter {
                         }
                         resolve();
                     }).catch((error) => {
-                        logDebug(`Error while sending the resume command: ${error}`, ERROR_LOG);
+                        logDebug(`Error while sending the resume command: ${error}`, LogLevel.ERROR);
                         reject(`Error while resuming the debugger server: ${error}`);
                     });
 
                 }).catch((error) => {
-                    logDebug(`Error while checking server readiness: ${error}`, ERROR_LOG);
+                    logDebug(`Error while checking server readiness: ${error}`, LogLevel.ERROR);
                     reject(error);
                 });
 
             }).catch((error) => {
-                logDebug(`Error while connecting the debugger to the MI server: ${error}`, ERROR_LOG);
+                logDebug(`Error while connecting the debugger to the MI server: ${error}`, LogLevel.ERROR);
                 reject(`Error while connecting the debugger to the MI server: ${error}`);
             });
         });
@@ -419,7 +419,7 @@ export class Debugger extends EventEmitter {
 
             // Error handling for the command client
             this.commandClient?.on('error', (error) => {
-                logDebug(`Command client error: ${error}`, ERROR_LOG);
+                logDebug(`Command client error: ${error}`, LogLevel.ERROR);
                 reject(error); // Reject the promise if there's an error
             });
 
@@ -430,7 +430,7 @@ export class Debugger extends EventEmitter {
 
             // Error handling for the event client
             this.eventClient?.on('error', (error) => {
-                logDebug(`Event client error: ${error}`, ERROR_LOG);
+                logDebug(`Event client error: ${error}`, LogLevel.ERROR);
                 reject(error);
             });
 
@@ -450,7 +450,7 @@ export class Debugger extends EventEmitter {
                     const message = incompleteMessage.slice(0, newlineIndex);
 
                     // Call a function with the received message
-                    logDebug(`Event received: ${message}`, INFO_LOG);
+                    logDebug(`Event received: ${message}`, LogLevel.INFO);
 
                     // convert to eventData to json
                     const eventDataJson = JSON.parse(message);
@@ -591,7 +591,7 @@ export class Debugger extends EventEmitter {
             let incompleteMessage = '';
 
             // Send request on the command port
-            logDebug(`Command: ${request}`, INFO_LOG);
+            logDebug(`Command: ${request}`, LogLevel.INFO);
             this.commandClient?.write(request);
 
             // Listen for response from the command port
@@ -609,7 +609,7 @@ export class Debugger extends EventEmitter {
                     const message = incompleteMessage.slice(0, newlineIndex);
 
                     // Call a function with the received message
-                    logDebug(`Command response: ${message}`, INFO_LOG);
+                    logDebug(`Command response: ${message}`, LogLevel.INFO);
                     resolve(message); // Resolve the promise with the message
 
                     // Remove the processed message from incompleteMessage
@@ -644,7 +644,7 @@ export class Debugger extends EventEmitter {
 
                 variables.push(jsonResponse);
             } catch (error) {
-                logDebug(`Error sending properties-command for ${context}: ${error}`, ERROR_LOG);
+                logDebug(`Error sending properties-command for ${context}: ${error}`, LogLevel.ERROR);
             }
         }
         return variables;

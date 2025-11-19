@@ -3023,7 +3023,7 @@ ${endpointAttributes}
         return new Promise(async (resolve) => {
             const projectUuid = uuidv4();
             const { directory, name, open, groupID, artifactID, version, miVersion } = params;
-            const initialDependencies = generateInitialDependencies();
+            const initialDependencies = compareVersions(miVersion, RUNTIME_VERSION_440) >= 0 ? generateInitialDependencies() : '';
             const tempName = name.replace(/\./g, '');
             const folderStructure: FileStructure = {
                 [tempName]: { // Project folder
@@ -3163,32 +3163,6 @@ ${endpointAttributes}
             }
             resolve({ path: getDefaultProjectPath() });
         });
-    }
-
-    async getAIResponse(params: AIUserInput): Promise<string> {
-        let result = '';
-        try {
-            const response = await axios.post(APIS.MI_COPILOT_BACKEND, {
-                chat_history: params.chat_history,
-            }, { responseType: 'stream' });
-
-            response.data.pipe(new Transform({
-                transform(chunk, encoding, callback) {
-                    const chunkAsString = chunk.toString();
-                    result += chunkAsString;
-                    callback();
-                }
-            }));
-
-            return new Promise((resolve, reject) => {
-                response.data.on('end', () => resolve(result));
-                response.data.on('error', (err: Error) => reject(err));
-            });
-
-        } catch (error) {
-            console.error('Error calling the AI endpoint:', error);
-            throw new Error('Failed to call AI endpoint');
-        }
     }
 
     async writeContentToFile(params: WriteContentToFileRequest): Promise<WriteContentToFileResponse> {
@@ -3535,38 +3509,14 @@ ${endpointAttributes}
 
     async getWorkspaceContext(): Promise<GetWorkspaceContextResponse> {
         const artifactDirPath = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'artifacts');
-        const resourcesDirPath = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'resources');
         const fileContents: string[] = [];
 
-        // Helper function to recursively read files from a directory
-        const readFilesRecursively = async (dirPath: string, excludeFolders: string[] = []): Promise<void> => {
-            if (!fs.existsSync(dirPath)) {
-                return;
-            }
-
-            const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
-
-            for (const entry of entries) {
-                const fullPath = path.join(dirPath, entry.name);
-
-                if (entry.isDirectory()) {
-                    // Skip excluded folders
-                    if (!excludeFolders.includes(entry.name)) {
-                        await readFilesRecursively(fullPath, excludeFolders);
-                    }
-                } else if (entry.isFile()) {
-                    try {
-                        const content = await fs.promises.readFile(fullPath, 'utf-8');
-                        fileContents.push(content);
-                    } catch (error) {
-                        // Skip files that can't be read as text
-                        console.warn(`Could not read file as text: ${fullPath}`);
-                    }
-                }
-            }
+        // Helper function to check if a file is an XML file
+        const isXmlFile = (fileName: string): boolean => {
+            return fileName.toLowerCase().endsWith('.xml');
         };
 
-        // Read artifacts folders
+        // Read artifacts folders - ONLY XML files from artifacts directory
         var resourceFolders = ['apis', 'endpoints', 'inbound-endpoints', 'local-entries', 'message-processors', 'message-stores', 'proxy-services', 'sequences', 'tasks', 'templates'];
         for (const folder of resourceFolders) {
             const folderPath = path.join(artifactDirPath, folder);
@@ -3575,21 +3525,27 @@ ${endpointAttributes}
                 const files = await fs.promises.readdir(folderPath);
 
                 for (const file of files) {
+                    // Only process XML files
+                    if (!isXmlFile(file)) {
+                        continue;
+                    }
+
                     const filePath = path.join(folderPath, file);
                     const stats = await fs.promises.stat(filePath);
 
                     if (stats.isFile()) {
-                        const content = await fs.promises.readFile(filePath, 'utf-8');
-                        fileContents.push(content);
+                        try {
+                            const content = await fs.promises.readFile(filePath, 'utf-8');
+                            fileContents.push(content);
+                        } catch (error) {
+                            console.warn(`Could not read XML file: ${filePath}`, error);
+                        }
                     }
                 }
             }
         }
 
-        // Read resources folders recursively, excluding specified folders
-        const excludedFolders = ['api-definitions', 'metadata', 'connectors'];
-        await readFilesRecursively(resourcesDirPath, excludedFolders);
-
+        console.log(`[getWorkspaceContext] Loaded ${fileContents.length} XML files from artifacts folder`);
         return { context: fileContents, rootPath: this.projectUri };
     }
 
@@ -4159,6 +4115,12 @@ ${endpointAttributes}
         const artifactDirPath = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'artifacts');
         const fileContents: string[] = [];
         fileContents.push(currentFileContent);
+
+        // Helper function to check if a file is an XML file
+        const isXmlFile = (fileName: string): boolean => {
+            return fileName.toLowerCase().endsWith('.xml');
+        };
+
         var resourceFolders = ['apis', 'endpoints', 'inbound-endpoints', 'local-entries', 'message-processors', 'message-stores', 'proxy-services', 'sequences', 'tasks', 'templates'];
         for (const folder of resourceFolders) {
             const folderPath = path.join(artifactDirPath, folder);
@@ -4167,6 +4129,11 @@ ${endpointAttributes}
                 const files = await fs.promises.readdir(folderPath);
 
                 for (const file of files) {
+                    // Only process XML files
+                    if (!isXmlFile(file)) {
+                        continue;
+                    }
+
                     const filePath = path.join(folderPath, file);
                     if (filePath === currentFile) {
                         continue;
@@ -4174,8 +4141,12 @@ ${endpointAttributes}
                     const stats = await fs.promises.stat(filePath);
 
                     if (stats.isFile()) {
-                        const content = await fs.promises.readFile(filePath, 'utf-8');
-                        fileContents.push(content);
+                        try {
+                            const content = await fs.promises.readFile(filePath, 'utf-8');
+                            fileContents.push(content);
+                        } catch (error) {
+                            console.warn(`Could not read XML file: ${filePath}`, error);
+                        }
                     }
                 }
             }
