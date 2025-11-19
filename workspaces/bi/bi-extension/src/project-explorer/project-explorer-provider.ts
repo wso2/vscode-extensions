@@ -76,25 +76,47 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
     readonly onDidChangeTreeData: vscode.Event<ProjectExplorerEntry | undefined | null | void>
         = this._onDidChangeTreeData.event;
     private _treeView: vscode.TreeView<ProjectExplorerEntry> | undefined;
+    private _isRefreshing: boolean = false;
+    private _pendingRefresh: boolean = false;
 
     setTreeView(treeView: vscode.TreeView<ProjectExplorerEntry>): void {
         this._treeView = treeView;
     }
 
     refresh(): void {
+        // If already refreshing, mark that we need another refresh after current one completes
+        if (this._isRefreshing) {
+            this._pendingRefresh = true;
+            return;
+        }
+
+        this._isRefreshing = true;
+        this._pendingRefresh = false;
+
         window.withProgress({
             location: { viewId: BI_COMMANDS.PROJECT_EXPLORER },
             title: 'Loading project structure'
         }, async () => {
             try {
-                const data = await getProjectStructureData();
+                this._data = [];
+                
+                const data = await getProjectStructureData();                
                 this._data = data;
                 // Fire the event after data is fully populated
                 this._onDidChangeTreeData.fire();
             } catch (err) {
-                console.error(err);
+                console.error('[ProjectExplorer] Error during refresh:', err);
                 this._data = [];
                 this._onDidChangeTreeData.fire();
+            } finally {
+                this._isRefreshing = false;
+                
+                // If another refresh was requested while we were refreshing, do it now
+                if (this._pendingRefresh) {
+                    console.log('[ProjectExplorer] Executing pending refresh');
+                    this._pendingRefresh = false;
+                    this.refresh();
+                }
             }
         });
     }
@@ -304,8 +326,18 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
 
                 // Generate the tree data for the projects
                 const projects = projectStructure.projects;
-                const isSingleProject = projects.length === 1;
+                // Filter projects to avoid duplicates - only include unique project paths
+                const uniqueProjects = new Map<string, typeof projects[0]>();
                 for (const project of projects) {
+                    if (!uniqueProjects.has(project.projectPath)) {
+                        uniqueProjects.set(project.projectPath, project);
+                    }
+                }
+                
+                const filteredProjects = Array.from(uniqueProjects.values());
+                
+                const isSingleProject = filteredProjects.length === 1;
+                for (const project of filteredProjects) {
                     const projectTree = generateTreeData(project, isSingleProject);
                     if (projectTree) {
                         data.push(projectTree);
@@ -534,4 +566,3 @@ function getComponents(items: ProjectStructureArtifactResponse[], itemType: DIRE
     }
     return entries;
 }
-
