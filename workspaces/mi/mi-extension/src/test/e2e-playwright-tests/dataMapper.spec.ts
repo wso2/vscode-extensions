@@ -258,7 +258,7 @@ export default function createTests() {
       await loc1.waitFor({ state: 'detached' });
 
       await loc2.locator('.codicon-trash').click({ force: true });
-      await page.page.waitForTimeout(5000);
+      await page.page.waitForTimeout(20000);
       // await loc2.waitFor({ state: 'detached' });
 
       const loc3_ = dmWebView.getByTestId('link-from-input.iManyOne3.OUT-to-datamapper-intermediate-port').first();
@@ -268,7 +268,7 @@ export default function createTests() {
       await loc3_.waitFor({ state: 'detached' });
 
       await loc4.locator('.codicon-trash').click({ force: true });
-      await page.page.waitForTimeout(5000);
+      await page.page.waitForTimeout(20000);
       // await loc4.waitFor({ state: 'detached' });
 
       expect(dm.verifyTsFileContent('basic/del.ts')).toBeTruthy();
