@@ -616,7 +616,7 @@ importers:
         specifier: ^0.4.5
         version: 0.4.5
       js-yaml:
-        specifier: ^4.1.0
+        specifier: ^4.1.1
         version: 4.1.1
       keytar:
         specifier: ^7.9.0
@@ -971,6 +971,18 @@ importers:
 
   ../../workspaces/ballerina/ballerina-side-panel:
     dependencies:
+      '@codemirror/autocomplete':
+        specifier: ~6.19.1
+        version: 6.19.1
+      '@codemirror/commands':
+        specifier: ~6.10.0
+        version: 6.10.0
+      '@codemirror/state':
+        specifier: ~6.5.2
+        version: 6.5.2
+      '@codemirror/view':
+        specifier: ~6.38.6
+        version: 6.38.8
       '@emotion/react':
         specifier: ^11.14.0
         version: 11.14.0(@types/react@18.2.0)(react@18.2.0)
@@ -4193,247 +4205,6 @@ importers:
       typescript:
         specifier: 5.8.3
         version: 5.8.3
-
-  ../../workspaces/wi/wi-core:
-    dependencies:
-      vscode-messenger-common:
-        specifier: ^0.5.1
-        version: 0.5.1
-      vscode-messenger-webview:
-        specifier: ^0.5.1
-        version: 0.5.1
-    devDependencies:
-      '@biomejs/biome':
-        specifier: ^1.9.4
-        version: 1.9.4
-      '@types/vscode':
-        specifier: ^1.100.0
-        version: 1.102.0
-      typescript:
-        specifier: 5.8.3
-        version: 5.8.3
-
-  ../../workspaces/wi/wi-extension:
-    dependencies:
-      '@emotion/styled':
-        specifier: ^11.14.0
-        version: 11.14.1(@emotion/react@11.14.0(@types/react@18.2.0)(react@19.1.0))(@types/react@18.2.0)(react@19.1.0)
-      '@types/unzipper':
-        specifier: ~0.10.11
-        version: 0.10.11
-      '@wso2/ballerina-core':
-        specifier: workspace:*
-        version: link:../../ballerina/ballerina-core
-      '@wso2/font-wso2-vscode':
-        specifier: workspace:*
-        version: link:../../common-libs/font-wso2-vscode
-      '@wso2/ui-toolkit':
-        specifier: workspace:*
-        version: link:../../common-libs/ui-toolkit
-      '@wso2/wi-core':
-        specifier: workspace:*
-        version: link:../wi-core
-      axios:
-        specifier: ~1.13.2
-        version: 1.13.2
-      unzipper:
-        specifier: ~0.12.3
-        version: 0.12.3
-      vscode-messenger:
-        specifier: ~0.5.1
-        version: 0.5.1
-      xstate:
-        specifier: ~4.38.3
-        version: 4.38.3
-    devDependencies:
-      '@playwright/test':
-        specifier: ~1.55.1
-        version: 1.55.1
-      '@types/mocha':
-        specifier: ^10.0.3
-        version: 10.0.10
-      '@types/node':
-        specifier: 22.15.18
-        version: 22.15.18
-      '@types/vscode':
-        specifier: ^1.100.0
-        version: 1.102.0
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^6.21.0
-        version: 6.21.0(@typescript-eslint/parser@8.33.1(eslint@8.57.1)(typescript@5.8.3))(eslint@8.57.1)(typescript@5.8.3)
-      '@typescript-eslint/parser':
-        specifier: ^8.32.1
-        version: 8.33.1(eslint@8.57.1)(typescript@5.8.3)
-      '@vscode/test-electron':
-        specifier: ^2.5.2
-        version: 2.5.2
-      '@vscode/vsce':
-        specifier: ^3.4.0
-        version: 3.4.2
-      '@wso2/playwright-vscode-tester':
-        specifier: workspace:*
-        version: link:../../common-libs/playwright-vscode-tester
-      copy-webpack-plugin:
-        specifier: ^13.0.0
-        version: 13.0.0(webpack@5.101.0)
-      copyfiles:
-        specifier: ^2.4.1
-        version: 2.4.1
-      eslint:
-        specifier: ^8.57.1
-        version: 8.57.1
-      glob:
-        specifier: ^11.0.2
-        version: 11.0.3
-      mocha:
-        specifier: ^11.2.2
-        version: 11.7.1
-      source-map-support:
-        specifier: ^0.5.21
-        version: 0.5.21
-      ts-loader:
-        specifier: ^9.5.2
-        version: 9.5.2(typescript@5.8.3)(webpack@5.101.0)
-      typescript:
-        specifier: 5.8.3
-        version: 5.8.3
-      webpack:
-        specifier: ^5.94.0
-        version: 5.101.0(webpack-cli@6.0.1)
-      webpack-cli:
-        specifier: ^6.0.1
-        version: 6.0.1(webpack@5.101.0)
-      webpack-permissions-plugin:
-        specifier: ^1.0.9
-        version: 1.0.10
-
-  ../../workspaces/wi/wi-rpc-client:
-    dependencies:
-      '@types/vscode-webview':
-        specifier: ^1.57.5
-        version: 1.57.5
-      '@wso2/wi-core':
-        specifier: workspace:*
-        version: link:../wi-core
-      react:
-        specifier: 19.1.0
-        version: 19.1.0
-      react-dom:
-        specifier: 19.1.0
-        version: 19.1.0(react@19.1.0)
-      vscode-messenger-common:
-        specifier: ^0.5.1
-        version: 0.5.1
-      vscode-messenger-webview:
-        specifier: ^0.5.1
-        version: 0.5.1
-    devDependencies:
-      '@types/react':
-        specifier: 18.2.0
-        version: 18.2.0
-      '@types/react-dom':
-        specifier: 18.2.0
-        version: 18.2.0
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^8.32.1
-        version: 8.33.1(@typescript-eslint/parser@8.33.1(eslint@9.27.0(jiti@2.5.1))(typescript@5.8.3))(eslint@9.27.0(jiti@2.5.1))(typescript@5.8.3)
-      '@typescript-eslint/parser':
-        specifier: ^8.32.1
-        version: 8.33.1(eslint@9.27.0(jiti@2.5.1))(typescript@5.8.3)
-      eslint:
-        specifier: ^9.27.0
-        version: 9.27.0(jiti@2.5.1)
-      typescript:
-        specifier: 5.8.3
-        version: 5.8.3
-
-  ../../workspaces/wi/wi-webviews:
-    dependencies:
-      '@emotion/styled':
-        specifier: ~11.14.1
-        version: 11.14.1(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0)
-      '@hookform/resolvers':
-        specifier: ^5.2.2
-        version: 5.2.2(react-hook-form@7.66.0(react@18.2.0))
-      '@pmmmwh/react-refresh-webpack-plugin':
-        specifier: ~0.6.1
-        version: 0.6.1(@types/webpack@5.28.5(webpack-cli@6.0.1))(react-refresh@0.11.0)(type-fest@4.41.0)(webpack-dev-server@5.2.2)(webpack-hot-middleware@2.26.1)(webpack@5.101.0)
-      '@vscode/webview-ui-toolkit':
-        specifier: ^1.4.0
-        version: 1.4.0(react@18.2.0)
-      '@wso2/ui-toolkit':
-        specifier: workspace:*
-        version: link:../../common-libs/ui-toolkit
-      '@wso2/wi-core':
-        specifier: workspace:*
-        version: link:../wi-core
-      '@wso2/wi-rpc-client':
-        specifier: workspace:*
-        version: link:../wi-rpc-client
-      classnames:
-        specifier: ~2.5.1
-        version: 2.5.1
-      react:
-        specifier: 18.2.0
-        version: 18.2.0
-      react-dom:
-        specifier: 18.2.0
-        version: 18.2.0(react@18.2.0)
-      react-hook-form:
-        specifier: ~7.66.0
-        version: 7.66.0(react@18.2.0)
-      vscode-messenger-common:
-        specifier: ^0.5.1
-        version: 0.5.1
-      vscode-messenger-webview:
-        specifier: ^0.5.1
-        version: 0.5.1
-      yup:
-        specifier: ~1.7.1
-        version: 1.7.1
-    devDependencies:
-      '@biomejs/biome':
-        specifier: ^1.9.4
-        version: 1.9.4
-      '@types/node':
-        specifier: ^22.15.21
-        version: 22.15.35
-      '@types/react':
-        specifier: 18.2.0
-        version: 18.2.0
-      '@types/react-dom':
-        specifier: 18.2.0
-        version: 18.2.0
-      copyfiles:
-        specifier: ~2.4.1
-        version: 2.4.1
-      css-loader:
-        specifier: ^7.1.2
-        version: 7.1.2(webpack@5.101.0)
-      react-hot-loader:
-        specifier: ~4.13.1
-        version: 4.13.1(@types/react@18.2.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
-      source-map-loader:
-        specifier: ~5.0.0
-        version: 5.0.0(webpack@5.101.0)
-      style-loader:
-        specifier: ^4.0.0
-        version: 4.0.0(webpack@5.101.0)
-      ts-loader:
-        specifier: ^9.5.1
-        version: 9.5.2(typescript@5.8.3)(webpack@5.101.0)
-      typescript:
-        specifier: 5.8.3
-        version: 5.8.3
-      webpack:
-        specifier: ^5.94.0
-        version: 5.101.0(webpack-cli@6.0.1)
-      webpack-cli:
-        specifier: ^6.0.1
-        version: 6.0.1(webpack-dev-server@5.2.2)(webpack@5.101.0)
-      webpack-dev-server:
-        specifier: ^5.2.1
-        version: 5.2.2(webpack-cli@6.0.1)(webpack@5.101.0)
 
   ../../workspaces/wso2-platform/wso2-platform-core:
     dependencies:
@@ -11709,9 +11480,6 @@ packages:
 
   axios@1.12.2:
     resolution: {integrity: sha512-vMJzPewAlRyOgxV2dU0Cuz2O8zzzx9VYtbJOaBgXFeLc4IV/Eg50n4LowmehOOR61S8ZMpc2K5Sa7g6A4jfkUw==}
-
-  axios@1.13.2:
-    resolution: {integrity: sha512-VPk9ebNqPcy5lRGuSlKx752IlDatOjT9paPlm8A7yOuW2Fbvp4X3JznJtT4f0GzGLLiWE9W8onz51SqLYwzGaA==}
 
   axobject-query@4.1.0:
     resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
@@ -19903,12 +19671,6 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17 || ^18 || ^19
 
-  react-hook-form@7.66.0:
-    resolution: {integrity: sha512-xXBqsWGKrY46ZqaHDo+ZUYiMUgi8suYu5kdrS20EG8KiL7VRQitEbNjm+UcrDYrNi1YLyfpmAeGjCZYXLT9YBw==}
-    engines: {node: '>=18.0.0'}
-    peerDependencies:
-      react: ^16.8.0 || ^17 || ^18 || ^19
-
   react-hot-loader@4.13.1:
     resolution: {integrity: sha512-ZlqCfVRqDJmMXTulUGic4lN7Ic1SXgHAFw7y/Jb7t25GBgTR0fYAJ8uY4mrpxjRyWGWmqw77qJQGnYbzCvBU7g==}
     engines: {node: '>= 6'}
@@ -23498,9 +23260,6 @@ packages:
   yup@1.6.1:
     resolution: {integrity: sha512-JED8pB50qbA4FOkDol0bYF/p60qSEDQqBD0/qeIrUCG1KbPBIQ776fCUNb9ldbPcSTxA69g/47XTo4TqWiuXOA==}
 
-  yup@1.7.1:
-    resolution: {integrity: sha512-GKHFX2nXul2/4Dtfxhozv701jLQHdf6J34YDh2cEkpqoo8le5Mg6/LrdseVLrFarmFygZTlfIhHx/QKfb/QWXw==}
-
   zenscroll@4.0.2:
     resolution: {integrity: sha512-jEA1znR7b4C/NnaycInCU6h/d15ZzCd1jmsruqOKnZP6WXQSMH3W2GL+OXbkruslU4h+Tzuos0HdswzRUk/Vgg==}
 
@@ -26800,11 +26559,6 @@ snapshots:
       '@standard-schema/utils': 0.3.0
       react-hook-form: 7.63.0(react@18.2.0)
 
-  '@hookform/resolvers@5.2.2(react-hook-form@7.66.0(react@18.2.0))':
-    dependencies:
-      '@standard-schema/utils': 0.3.0
-      react-hook-form: 7.66.0(react@18.2.0)
-
   '@humanfs/core@0.19.1': {}
 
   '@humanfs/node@0.16.7':
@@ -28311,22 +28065,6 @@ snapshots:
       '@types/webpack': 5.28.5(webpack-cli@5.1.4)
       type-fest: 4.41.0
       webpack-dev-server: 5.2.2(webpack-cli@5.1.4)(webpack@5.103.0)
-      webpack-hot-middleware: 2.26.1
-
-  '@pmmmwh/react-refresh-webpack-plugin@0.6.1(@types/webpack@5.28.5(webpack-cli@6.0.1))(react-refresh@0.11.0)(type-fest@4.41.0)(webpack-dev-server@5.2.2)(webpack-hot-middleware@2.26.1)(webpack@5.101.0)':
-    dependencies:
-      anser: 2.3.2
-      core-js-pure: 3.45.0
-      error-stack-parser: 2.1.4
-      html-entities: 2.6.0
-      react-refresh: 0.11.0
-      schema-utils: 4.3.2
-      source-map: 0.7.6
-      webpack: 5.101.0(webpack-cli@6.0.1)
-    optionalDependencies:
-      '@types/webpack': 5.28.5(webpack-cli@6.0.1)
-      type-fest: 4.41.0
-      webpack-dev-server: 5.2.2(webpack-cli@6.0.1)(webpack@5.101.0)
       webpack-hot-middleware: 2.26.1
 
   '@projectstorm/geometry@6.7.4': {}
@@ -38797,14 +38535,6 @@ snapshots:
     dependencies:
       follow-redirects: 1.15.11
       form-data: 4.0.5
-      proxy-from-env: 1.1.0
-    transitivePeerDependencies:
-      - debug
-
-  axios@1.13.2:
-    dependencies:
-      follow-redirects: 1.15.11
-      form-data: 4.0.4
       proxy-from-env: 1.1.0
     transitivePeerDependencies:
       - debug
@@ -50120,10 +49850,6 @@ snapshots:
     dependencies:
       react: 18.2.0
 
-  react-hook-form@7.66.0(react@18.2.0):
-    dependencies:
-      react: 18.2.0
-
   react-hot-loader@4.13.1(@types/react@18.2.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
     dependencies:
       fast-levenshtein: 2.0.6
@@ -55478,13 +55204,6 @@ snapshots:
       type-fest: 2.19.0
 
   yup@1.6.1:
-    dependencies:
-      property-expr: 2.0.6
-      tiny-case: 1.0.3
-      toposort: 2.0.2
-      type-fest: 2.19.0
-
-  yup@1.7.1:
     dependencies:
       property-expr: 2.0.6
       tiny-case: 1.0.3

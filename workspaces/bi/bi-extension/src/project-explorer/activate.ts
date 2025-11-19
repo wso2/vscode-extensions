@@ -25,13 +25,15 @@ import { BI_PROJECT_EXPLORER_VIEW_ID, WI_PROJECT_EXPLORER_VIEW_ID } from '../con
 interface ExplorerActivationConfig {
 	context: ExtensionContext;
 	isBI: boolean;
-	isBallerina?: boolean;
-	isBalWorkspace?: boolean;
+	isBallerinaPackage?: boolean;
+	isBallerinaWorkspace?: boolean;
+	isEmptyWorkspace?: boolean;
 	isInWI: boolean;
 }
 
 export function activateProjectExplorer(config: ExplorerActivationConfig) {
-	const { context, isBI, isBallerina, isBalWorkspace, isInWI } = config;
+	const { context, isBI, isBallerinaPackage, isBallerinaWorkspace, isEmptyWorkspace, isInWI } = config;
+
 	if (extension.langClient && extension.biSupported) {
 		setLoadingStatus();
 	}
@@ -40,11 +42,17 @@ export function activateProjectExplorer(config: ExplorerActivationConfig) {
 	const projectExplorerDataProvider = new ProjectExplorerEntryProvider();
 	const projectTree = createProjectTree(projectExplorerDataProvider, treeviewId);
 
-	if (isBallerina) {
-		registerBallerinaCommands(projectExplorerDataProvider, isBI, isInWI, isBalWorkspace);
+	if (isBallerinaPackage || isBallerinaWorkspace) {
+		registerBallerinaCommands(projectExplorerDataProvider, isBI, isInWI, isBallerinaWorkspace, isEmptyWorkspace);
 	}
 
-	handleVisibilityChangeEvents(projectTree, projectExplorerDataProvider, isBallerina);
+	handleVisibilityChangeEvents(
+		projectTree,
+		projectExplorerDataProvider,
+		isBallerinaPackage,
+		isBallerinaWorkspace,
+		isEmptyWorkspace
+	);
 	context.subscriptions.push(workspace.onDidDeleteFiles(() => projectExplorerDataProvider.refresh()));
 }
 
@@ -56,28 +64,58 @@ function createProjectTree(dataProvider: ProjectExplorerEntryProvider, treeviewI
 	return window.createTreeView(treeviewId, { treeDataProvider: dataProvider });
 }
 
-function registerBallerinaCommands(dataProvider: ProjectExplorerEntryProvider, isBI: boolean, isInWI: boolean, isBalWorkspace?: boolean) {
+function registerBallerinaCommands(
+	dataProvider: ProjectExplorerEntryProvider,
+	isBI: boolean,
+	isInWI: boolean,
+	isBallerinaWorkspace?: boolean,
+	isEmptyWorkspace?: boolean
+) {
 	commands.registerCommand(BI_COMMANDS.REFRESH_COMMAND, () => dataProvider.refresh());
 	commands.executeCommand('setContext', 'BI.isWorkspaceSupported', extension.isWorkspaceSupported ?? false);
 
-	if (extension.isWorkspaceSupported && isBalWorkspace) {
-		commands.executeCommand('setContext', 'BI.isBalWorkspace', true);
+	if (isBallerinaWorkspace) {
+		commands.executeCommand('setContext', 'BI.isBallerinaWorkspace', true);
+		if (isEmptyWorkspace) {
+			commands.executeCommand('setContext', 'BI.status', 'emptyWorkspace');
+		}
 	}
 	if (isBI) {
 		registerBICommands(isInWI);
 	}
 }
 
-function handleVisibilityChangeEvents(tree: TreeView<ProjectExplorerEntry>, dataProvider: ProjectExplorerEntryProvider, isBallerina?: boolean) {
-	tree.onDidChangeVisibility(async res => await handleVisibilityChange(res, dataProvider, isBallerina));
+function handleVisibilityChangeEvents(
+	tree: TreeView<ProjectExplorerEntry>,
+	dataProvider: ProjectExplorerEntryProvider,
+	isBallerinaPackage?: boolean,
+	isBallerinaWorkspace?: boolean,
+	isEmptyWorkspace?: boolean
+) {
+	tree.onDidChangeVisibility(async res => await handleVisibilityChange(
+		res, dataProvider, isBallerinaPackage, isBallerinaWorkspace, isEmptyWorkspace)
+	);
 }
 
-async function handleVisibilityChange(res: { visible: boolean }, dataProvider: ProjectExplorerEntryProvider, isBallerina?: boolean) {
+async function handleVisibilityChange(
+	res: { visible: boolean },
+	dataProvider: ProjectExplorerEntryProvider,
+	isBallerinaPackage?: boolean,
+	isBallerinaWorkspace?: boolean,
+	isEmptyWorkspace?: boolean
+) {
 	if (res.visible) {
-		if (isBallerina && extension.biSupported) {
-			commands.executeCommand(SHARED_COMMANDS.SHOW_VISUALIZER);
-			await commands.executeCommand(SHARED_COMMANDS.FORCE_UPDATE_PROJECT_ARTIFACTS);
-			dataProvider.refresh();
+		if ((isBallerinaPackage || isBallerinaWorkspace) && extension.biSupported) {
+			if (isBallerinaPackage) {
+				commands.executeCommand(SHARED_COMMANDS.SHOW_VISUALIZER);
+			}
+			if (!isEmptyWorkspace) {
+				await commands.executeCommand(SHARED_COMMANDS.FORCE_UPDATE_PROJECT_ARTIFACTS);
+				dataProvider.refresh();
+				if (isBallerinaWorkspace) {
+					commands.executeCommand(BI_COMMANDS.SHOW_OVERVIEW);
+				}
+			}
 		} else {
 			handleNonBallerinaVisibility();
 		}

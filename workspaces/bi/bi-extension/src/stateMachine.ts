@@ -25,8 +25,9 @@ import * as vscode from 'vscode';
 
 interface MachineContext {
     isBI: boolean;
-    isBallerina?: boolean;
-    isBalWorkspace?: boolean;
+    isBallerinaPackage?: boolean;
+    isBallerinaWorkspace?: boolean;
+    isEmptyWorkspace?: boolean;
     isInWI: boolean;
 }
 
@@ -48,8 +49,9 @@ const stateMachine = createMachine<MachineContext>({
                         target: 'ready',
                         actions: assign({
                             isBI: (context, event) => event.data.isBI,
-                            isBallerina: (context, event) => event.data.isBallerina,
-                            isBalWorkspace: (context, event) => event.data.isBalWorkspace
+                            isBallerinaPackage: (context, event) => event.data.isBallerinaPackage,
+                            isBallerinaWorkspace: (context, event) => event.data.isBallerinaWorkspace,
+                            isEmptyWorkspace: (context, event) => event.data.isEmptyWorkspace
                         })
                     },
                 ],
@@ -71,8 +73,9 @@ const stateMachine = createMachine<MachineContext>({
             activateProjectExplorer({
                 context: extension.context,
                 isBI: context.isBI,
-                isBallerina: context.isBallerina,
-                isBalWorkspace: context.isBalWorkspace,
+                isBallerinaPackage: context.isBallerinaPackage,
+                isBallerinaWorkspace: context.isBallerinaWorkspace,
+                isEmptyWorkspace: context.isEmptyWorkspace,
                 isInWI: context.isInWI
             });
         }

@@ -247,7 +247,7 @@
     "byline": "^5.0.0",
     "dotenv": "^16.0.3",
     "file-type": "^18.2.1",
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^4.1.1",
     "yaml": "^2.8.0",
     "jschardet": "^3.1.4",
     "vscode-messenger": "^0.5.1",
