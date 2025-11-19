@@ -615,22 +615,6 @@
     {
       "packageName": "mcp-server-inspector",
       "projectFolder": "workspaces/mcp-inspector/mcp-inspector-extension"
-    },
-    {
-      "packageName": "@wso2/wi-core",
-      "projectFolder": "workspaces/wi/wi-core"
-    },
-    {
-      "packageName": "wso2-integrator",
-      "projectFolder": "workspaces/wi/wi-extension"
-    },
-    {
-      "packageName": "@wso2/wi-webviews",
-      "projectFolder": "workspaces/wi/wi-webviews"
-    },
-    {
-      "packageName": "@wso2/wi-rpc-client",
-      "projectFolder": "workspaces/wi/wi-rpc-client"
     }
   ]
 }
