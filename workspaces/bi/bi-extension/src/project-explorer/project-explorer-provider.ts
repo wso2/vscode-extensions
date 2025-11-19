@@ -19,16 +19,7 @@
 import * as vscode from 'vscode';
 import { window, Uri, commands } from 'vscode';
 import path = require('path');
-import {
-    DIRECTORY_MAP,
-    ProjectStructureArtifactResponse,
-    ProjectStructureResponse,
-    SHARED_COMMANDS,
-    BI_COMMANDS,
-    VisualizerLocation,
-    ProjectStructure,
-    MACHINE_VIEW
-} from "@wso2/ballerina-core";
+import { DIRECTORY_MAP, ProjectStructureArtifactResponse, ProjectStructureResponse, SHARED_COMMANDS, BI_COMMANDS, PackageConfigSchema, BallerinaProject, VisualizerLocation, ProjectStructure } from "@wso2/ballerina-core";
 import { extension } from "../biExtentionContext";
 
 interface Property {
@@ -71,11 +62,6 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
         = new vscode.EventEmitter<ProjectExplorerEntry | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<ProjectExplorerEntry | undefined | null | void>
         = this._onDidChangeTreeData.event;
-    private _treeView: vscode.TreeView<ProjectExplorerEntry> | undefined;
-
-    setTreeView(treeView: vscode.TreeView<ProjectExplorerEntry>): void {
-        this._treeView = treeView;
-    }
 
     refresh(): void {
         window.withProgress({
@@ -93,76 +79,6 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
                 this._onDidChangeTreeData.fire();
             }
         });
-    }
-
-    revealInTreeView(
-        documentUri: string | undefined,
-        projectPath: string | undefined,
-        view: MACHINE_VIEW | undefined
-    ): void {
-        if (!this._treeView) {
-            return;
-        }
-
-        let itemToReveal: ProjectExplorerEntry | undefined;
-
-        // Case 1: If documentUri is present, find the tree item with matching path
-        if (documentUri) {
-            itemToReveal = this.findItemByPath(documentUri);
-        }
-        // Case 2: If documentUri is undefined but projectPath is present and view is not 'WorkspaceOverview'
-        else if (projectPath && view !== MACHINE_VIEW.WorkspaceOverview) {
-            itemToReveal = this.findItemByPath(projectPath);
-        }
-
-        // Reveal the item if found
-        if (itemToReveal) {
-            this._treeView.reveal(itemToReveal, { 
-                select: true, 
-                focus: true, 
-                expand: true 
-            });
-        }
-    }
-
-    /**
-     * Recursively search for a tree item by its path (stored in the info property)
-     */
-    private findItemByPath(targetPath: string): ProjectExplorerEntry | undefined {
-        for (const rootItem of this._data) {
-            // Check if the root item matches
-            if (rootItem.info === targetPath) {
-                return rootItem;
-            }
-            // Recursively search children
-            const found = this.searchChildren(rootItem, targetPath);
-            if (found) {
-                return found;
-            }
-        }
-        return undefined;
-    }
-
-    /**
-     * Recursively search through children for a matching path
-     */
-    private searchChildren(parent: ProjectExplorerEntry, targetPath: string): ProjectExplorerEntry | undefined {
-        if (!parent.children) {
-            return undefined;
-        }
-        
-        for (const child of parent.children) {
-            if (child.info === targetPath) {
-                return child;
-            }
-            
-            const found = this.searchChildren(child, targetPath);
-            if (found) {
-                return found;
-            }
-        }
-        
-        return undefined;
     }
 
     constructor() {
