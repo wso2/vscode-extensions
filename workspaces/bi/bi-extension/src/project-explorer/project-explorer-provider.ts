@@ -225,22 +225,6 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
                pos1.endColumn === pos2.endColumn;
     }
 
-    /**
-     * Recursively search for a tree item by its path (stored in the info property)
-     * @deprecated Use findItemByPathAndPosition instead
-     */
-    private findItemByPath(targetPath: string): ProjectExplorerEntry | undefined {
-        return this.findItemByPathAndPosition(targetPath, undefined);
-    }
-
-    /**
-     * Recursively search through children for a matching path
-     * @deprecated Use searchChildrenByPathAndPosition instead
-     */
-    private searchChildren(parent: ProjectExplorerEntry, targetPath: string): ProjectExplorerEntry | undefined {
-        return this.searchChildrenByPathAndPosition(parent, targetPath, undefined);
-    }
-
     constructor() {
         this._data = [];
     }
