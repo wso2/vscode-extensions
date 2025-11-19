@@ -27,7 +27,8 @@ import {
     BI_COMMANDS,
     VisualizerLocation,
     ProjectStructure,
-    MACHINE_VIEW
+    MACHINE_VIEW,
+    NodePosition
 } from "@wso2/ballerina-core";
 import { extension } from "../biExtentionContext";
 
@@ -43,17 +44,20 @@ interface Property {
 export class ProjectExplorerEntry extends vscode.TreeItem {
     children: ProjectExplorerEntry[] | undefined;
     info: string | undefined;
+    position: NodePosition | undefined;
 
     constructor(
         public readonly label: string,
         public collapsibleState: vscode.TreeItemCollapsibleState,
         info: string | undefined = undefined,
         icon: string = 'folder',
-        isCodicon: boolean = false
+        isCodicon: boolean = false,
+        position: NodePosition | undefined = undefined
     ) {
         super(label, collapsibleState);
         this.tooltip = `${this.label}`;
         this.info = info;
+        this.position = position;
         if (icon && isCodicon) {
             this.iconPath = new vscode.ThemeIcon(icon);
         } else if (icon) {
@@ -98,6 +102,7 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
     revealInTreeView(
         documentUri: string | undefined,
         projectPath: string | undefined,
+        position: NodePosition | undefined,
         view: MACHINE_VIEW | undefined
     ): void {
         if (!this._treeView) {
@@ -106,13 +111,13 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
 
         let itemToReveal: ProjectExplorerEntry | undefined;
 
-        // Case 1: If documentUri is present, find the tree item with matching path
+        // Case 1: If documentUri is present, find the tree item with matching path and position
         if (documentUri) {
-            itemToReveal = this.findItemByPath(documentUri);
+            itemToReveal = this.findItemByPathAndPosition(documentUri, position);
         }
         // Case 2: If documentUri is undefined but projectPath is present and view is not 'WorkspaceOverview'
         else if (projectPath && view !== MACHINE_VIEW.WorkspaceOverview) {
-            itemToReveal = this.findItemByPath(projectPath);
+            itemToReveal = this.findItemByPathAndPosition(projectPath, position);
         }
 
         // Reveal the item if found
@@ -126,16 +131,16 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
     }
 
     /**
-     * Recursively search for a tree item by its path (stored in the info property)
+     * Recursively search for a tree item by its path and position
      */
-    private findItemByPath(targetPath: string): ProjectExplorerEntry | undefined {
+    private findItemByPathAndPosition(targetPath: string, targetPosition: NodePosition | undefined): ProjectExplorerEntry | undefined {
         for (const rootItem of this._data) {
             // Check if the root item matches
-            if (rootItem.info === targetPath) {
+            if (this.matchesPathAndPosition(rootItem, targetPath, targetPosition)) {
                 return rootItem;
             }
             // Recursively search children
-            const found = this.searchChildren(rootItem, targetPath);
+            const found = this.searchChildrenByPathAndPosition(rootItem, targetPath, targetPosition);
             if (found) {
                 return found;
             }
@@ -144,25 +149,74 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
     }
 
     /**
-     * Recursively search through children for a matching path
+     * Recursively search through children for a matching path and position
      */
-    private searchChildren(parent: ProjectExplorerEntry, targetPath: string): ProjectExplorerEntry | undefined {
+    private searchChildrenByPathAndPosition(parent: ProjectExplorerEntry, targetPath: string, targetPosition: NodePosition | undefined): ProjectExplorerEntry | undefined {
         if (!parent.children) {
             return undefined;
         }
         
         for (const child of parent.children) {
-            if (child.info === targetPath) {
+            if (this.matchesPathAndPosition(child, targetPath, targetPosition)) {
                 return child;
             }
             
-            const found = this.searchChildren(child, targetPath);
+            const found = this.searchChildrenByPathAndPosition(child, targetPath, targetPosition);
             if (found) {
                 return found;
             }
         }
         
         return undefined;
+    }
+
+    /**
+     * Check if an item matches the given path and position
+     */
+    private matchesPathAndPosition(item: ProjectExplorerEntry, targetPath: string, targetPosition: NodePosition | undefined): boolean {
+        // Path must match
+        if (item.info !== targetPath) {
+            return false;
+        }
+
+        // If no target position is provided, match by path only
+        if (!targetPosition) {
+            return true;
+        }
+
+        // If target position is provided but item has no position, don't match
+        if (!item.position) {
+            return true; // Fall back to path-only matching for items without position
+        }
+
+        // Compare positions
+        return this.positionsMatch(item.position, targetPosition);
+    }
+
+    /**
+     * Check if two positions match
+     */
+    private positionsMatch(pos1: NodePosition, pos2: NodePosition): boolean {
+        return pos1.startLine === pos2.startLine &&
+               pos1.startColumn === pos2.startColumn &&
+               pos1.endLine === pos2.endLine &&
+               pos1.endColumn === pos2.endColumn;
+    }
+
+    /**
+     * Recursively search for a tree item by its path (stored in the info property)
+     * @deprecated Use findItemByPathAndPosition instead
+     */
+    private findItemByPath(targetPath: string): ProjectExplorerEntry | undefined {
+        return this.findItemByPathAndPosition(targetPath, undefined);
+    }
+
+    /**
+     * Recursively search through children for a matching path
+     * @deprecated Use searchChildrenByPathAndPosition instead
+     */
+    private searchChildren(parent: ProjectExplorerEntry, targetPath: string): ProjectExplorerEntry | undefined {
+        return this.searchChildrenByPathAndPosition(parent, targetPath, undefined);
     }
 
     constructor() {
@@ -455,7 +509,9 @@ function getComponents(items: ProjectStructureArtifactResponse[], itemType: DIRE
             comp.name,
             vscode.TreeItemCollapsibleState.None,
             comp.path,
-            comp.icon
+            comp.icon,
+            false,
+            comp.position
         );
         fileEntry.resourceUri = Uri.parse(`bi-category:${projectPath}`);
         fileEntry.command = {
