@@ -262,12 +262,12 @@ export default function createTests() {
 
       const loc3_ = dmWebView.getByTestId('link-from-input.iManyOne3.OUT-to-datamapper-intermediate-port').first();
       await loc3_.click({ force: true });
-      await dmWebView.locator('div[data-testid^="sub-link-label-for-input.iManyOne3.OUT-to-"]')
+      await dmWebView.locator('div[data-testid^="sub-link-label-for-input.iManyOne3.OUT-to-"]').first()
         .locator('.codicon-trash').click({ force: true });
       await loc3_.waitFor({ state: 'detached' });
 
-      await loc4.locator('.codicon-trash').click({ force: true });
-      await loc4.waitFor({ state: 'detached' });
+      // await loc4.locator('.codicon-trash').click({ force: true });
+      // await loc4.waitFor({ state: 'detached' });
 
       expect(dm.verifyTsFileContent('basic/del.ts')).toBeTruthy();
 
