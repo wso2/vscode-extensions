@@ -36,9 +36,9 @@ import {
     buildOnFocusOutListner,
     buildOnSelectionChange,
     ProgrammerticSelectionChange,
-    SyncDocValueWithPropValue
+    SyncDocValueWithPropValue,
+    prosemarkExtensions
 } from "../CodeUtils";
-import { mapSanitizedToRaw } from "../utils";
 import { history } from "@codemirror/commands";
 import { autocompletion } from "@codemirror/autocomplete";
 import { FloatingButtonContainer, FloatingToggleButton, ChipEditorContainer } from "../styles";
@@ -50,6 +50,7 @@ import FXButton from "./FxButton";
 import { HelperPaneToggleButton } from "./HelperPaneToggleButton";
 import { HelperPane } from "./HelperPane";
 import { listContinuationKeymap } from "../../../ExpandedEditor/utils/templateUtils";
+import { markdown } from "@codemirror/lang-markdown";
 
 type HelperPaneState = {
     isOpen: boolean;
@@ -91,6 +92,7 @@ export type ChipExpressionEditorComponentProps = {
     onEditorViewReady?: (view: EditorView) => void;
     toolbarRef?: React.RefObject<HTMLDivElement>;
     enableListContinuation?: boolean;
+    enableProsemark?: boolean;
 }
 
 export const ChipExpressionEditorComponent = (props: ChipExpressionEditorComponentProps) => {
@@ -275,6 +277,10 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
                     closeOnBlur: true
                 }),
                 tooltips({ position: "absolute" }),
+                ...(props.enableProsemark ? [
+                    markdown(),
+                    ...prosemarkExtensions(),
+                ] : []),
                 chipPlugin,
                 tokenField,
                 chipTheme,

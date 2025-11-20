@@ -18,30 +18,34 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
-        "react": "18.2.0",
-        "react-dom": "18.2.0",
+        "@codemirror/autocomplete": "~6.19.1",
+        "@codemirror/commands": "~6.10.0",
+        "@codemirror/lang-markdown": "^6.5.0",
+        "@codemirror/language-data": "^6.5.2",
+        "@codemirror/state": "~6.5.2",
+        "@codemirror/view": "~6.38.8",
         "@emotion/react": "^11.14.0",
         "@emotion/styled": "^11.14.0",
-        "@wso2/ui-toolkit": "workspace:*",
+        "@github/markdown-toolbar-element": "^2.2.3",
+        "@lezer/markdown": "^1.6.0",
+        "@prosemark/core": "^0.0.3",
         "@wso2/ballerina-core": "workspace:*",
         "@wso2/ballerina-rpc-client": "workspace:*",
+        "@wso2/ui-toolkit": "workspace:*",
         "lodash": "~4.17.21",
+        "react": "18.2.0",
+        "react-dom": "18.2.0",
         "react-hook-form": "7.56.4",
         "react-markdown": "~10.1.0",
         "rehype-raw": "^7.0.0",
-        "remark-gfm": "^4.0.1",
-        "@github/markdown-toolbar-element": "^2.2.3",
-        "@codemirror/commands": "~6.10.0",
-        "@codemirror/state": "~6.5.2",
-        "@codemirror/view": "~6.38.6",
-        "@codemirror/autocomplete": "~6.19.1"
+        "remark-gfm": "^4.0.1"
     },
     "devDependencies": {
         "@storybook/react": "^6.5.16",
+        "@types/lodash": "~4.17.16",
         "@types/react": "18.2.0",
         "@types/react-dom": "18.2.0",
-        "typescript": "5.8.3",
-        "@types/lodash": "~4.17.16",
-        "copyfiles": "^2.4.1"
+        "copyfiles": "^2.4.1",
+        "typescript": "5.8.3"
     }
 }

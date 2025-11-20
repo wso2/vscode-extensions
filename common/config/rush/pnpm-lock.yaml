@@ -977,11 +977,17 @@ importers:
       '@codemirror/commands':
         specifier: ~6.10.0
         version: 6.10.0
+      '@codemirror/lang-markdown':
+        specifier: ^6.5.0
+        version: 6.5.0
+      '@codemirror/language-data':
+        specifier: ^6.5.2
+        version: 6.5.2
       '@codemirror/state':
         specifier: ~6.5.2
         version: 6.5.2
       '@codemirror/view':
-        specifier: ~6.38.6
+        specifier: ~6.38.8
         version: 6.38.8
       '@emotion/react':
         specifier: ^11.14.0
@@ -992,6 +998,12 @@ importers:
       '@github/markdown-toolbar-element':
         specifier: ^2.2.3
         version: 2.2.3
+      '@lezer/markdown':
+        specifier: ^1.6.0
+        version: 1.6.0
+      '@prosemark/core':
+        specifier: ^0.0.3
+        version: 0.0.3(@codemirror/autocomplete@6.19.1)(@codemirror/commands@6.10.0)(@codemirror/lang-markdown@6.5.0)(@codemirror/language-data@6.5.2)(@codemirror/language@6.11.3)(@codemirror/lint@6.8.5)(@codemirror/search@6.5.11)(@codemirror/state@6.5.2)(@codemirror/view@6.38.8)(@lezer/highlight@1.2.3)
       '@wso2/ballerina-core':
         specifier: workspace:*
         version: link:../ballerina-core
@@ -7034,6 +7046,20 @@ packages:
   '@projectstorm/react-diagrams@7.0.4':
     resolution: {integrity: sha512-GJLpo3zhJzjcmx3PfztNDTS7jpePj9TPjXV2CgJmCDZAPHDU8q/f4AyXoJfqvoWlmVnjrzQgtcOU2KbUlNu3dQ==}
 
+  '@prosemark/core@0.0.3':
+    resolution: {integrity: sha512-L47sILf+MQQlXmQGR+O4RdqDwGmIJze6KdQW868ujhsvwyh29gn8Ysc5aZ5ta67/dGSVxc46sKRTwQhBjxgS7Q==}
+    peerDependencies:
+      '@codemirror/autocomplete': ^6.19.1
+      '@codemirror/commands': ^6.8.1
+      '@codemirror/lang-markdown': ^6.3.4
+      '@codemirror/language': ^6.11.3
+      '@codemirror/language-data': ^6.5.1
+      '@codemirror/lint': ^6.9.1
+      '@codemirror/search': ^6.5.11
+      '@codemirror/state': ^6.5.2
+      '@codemirror/view': ^6.38.6
+      '@lezer/highlight': ^1.2.0
+
   '@protobufjs/aspromise@1.1.2':
     resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
 
@@ -8144,6 +8170,10 @@ packages:
 
   '@sinclair/typebox@0.34.41':
     resolution: {integrity: sha512-6gS8pZzSXdyRHTIqoqSVknxolr1kzfy4/CeDnrzsVz8TTIWUbOBr6gnzOmTYJ3eXQNh4IYHIGi5aIL7sOZ2G/g==}
+
+  '@sindresorhus/is@4.6.0':
+    resolution: {integrity: sha512-t09vSN3MdfsyCHoFcTRCH/iUtG7OJ0CsjzB8cjAmKc/va/kIgeDI/TxsigdncE/4be734m0cvIYwNaV4i2XqAw==}
+    engines: {node: '>=10'}
 
   '@sindresorhus/is@5.6.0':
     resolution: {integrity: sha512-TV7t8GKYaJWsn00tFDqBw8+Uqmr8A0fRU1tvTQhyZzGv0sJCGRQL3JGMI3ucuKo3XIZdUP+Lx7/gh2t3lewy7g==}
@@ -13646,6 +13676,9 @@ packages:
   emoji-regex@9.2.2:
     resolution: {integrity: sha512-L18DaJsXSUk2+42pv8mLs5jJT2hqFkFE4j21wOmgbUqsZ2hL72NsUU785g9RXgo3s0ZNgVl42TiHp3ZtOv/Vyg==}
 
+  emojilib@2.4.0:
+    resolution: {integrity: sha512-5U0rVMU5Y2n2+ykNLQqMoqklN9ICBT/KsvC1Gz6vqHbz2AXXGkG+Pm5rMWk/8Vjrr/mY9985Hi8DYzn1F09Nyw==}
+
   emojis-list@2.1.0:
     resolution: {integrity: sha512-knHEZMgs8BB+MInokmNTg/OyPlAddghe1YBgNwJBc5zsJi/uyIcXoSDsL/W9ymOsBoBGdPIHXYJ9+qKFwRwDng==}
     engines: {node: '>= 0.10'}
@@ -18027,6 +18060,10 @@ packages:
     engines: {node: '>=10.5.0'}
     deprecated: Use your platform's native DOMException instead
 
+  node-emoji@2.2.0:
+    resolution: {integrity: sha512-Z3lTE9pLaJF47NyMhd4ww1yFTAP8YhYI8SleJiHzM46Fgpm5cnNzSl9XfzFNqbaz+VlJrIj3fXQ4DeN1Rjm6cw==}
+    engines: {node: '>=18'}
+
   node-fetch-commonjs@3.3.2:
     resolution: {integrity: sha512-VBlAiynj3VMLrotgwOS3OyECFxas5y7ltLcK4t41lMUZeaK15Ym4QRkqN0EQKAFL42q9i21EPKjzLUPfltR72A==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
@@ -20767,6 +20804,10 @@ packages:
     engines: {node: ^18.0.0 || >=20.0.0}
     hasBin: true
 
+  skin-tone@2.0.0:
+    resolution: {integrity: sha512-kUMbT1oBJCpgrnKoSr0o6wPtvRWT9W9UKvGLwfJYO2WuahZRHOpEyL1ckyMGgMWh0UdpmaoFqKKD29WTomNEGA==}
+    engines: {node: '>=8'}
+
   slash@1.0.0:
     resolution: {integrity: sha512-3TYDR7xWt4dIqV2JauJr+EJeW356RXijHeUlO+8djJ+uBXPn8/2dpzBc8yQhh583sVvc9CvFAeQVgijsH+PNNg==}
     engines: {node: '>=0.10.0'}
@@ -22179,6 +22220,10 @@ packages:
 
   unicode-canonical-property-names-ecmascript@2.0.1:
     resolution: {integrity: sha512-dA8WbNeb2a6oQzAQ55YlT5vQAWGV9WXOsi3SskE3bcCdM0P4SDd+24zS/OCacdRq5BkdsRj9q3Pg6YyQoxIGqg==}
+    engines: {node: '>=4'}
+
+  unicode-emoji-modifier-base@1.0.0:
+    resolution: {integrity: sha512-yLSH4py7oFH3oG/9K+XWrz1pSi3dfUrWEnInbxMfArOfc1+33BlGPQtLsOYwvdMy11AwUBetYuaRxSPqgkq+8g==}
     engines: {node: '>=4'}
 
   unicode-match-property-ecmascript@2.0.0:
@@ -28264,6 +28309,23 @@ snapshots:
       - '@types/react'
       - supports-color
 
+  '@prosemark/core@0.0.3(@codemirror/autocomplete@6.19.1)(@codemirror/commands@6.10.0)(@codemirror/lang-markdown@6.5.0)(@codemirror/language-data@6.5.2)(@codemirror/language@6.11.3)(@codemirror/lint@6.8.5)(@codemirror/search@6.5.11)(@codemirror/state@6.5.2)(@codemirror/view@6.38.8)(@lezer/highlight@1.2.3)':
+    dependencies:
+      '@codemirror/autocomplete': 6.19.1
+      '@codemirror/commands': 6.10.0
+      '@codemirror/lang-markdown': 6.5.0
+      '@codemirror/language': 6.11.3
+      '@codemirror/language-data': 6.5.2
+      '@codemirror/lint': 6.8.5
+      '@codemirror/search': 6.5.11
+      '@codemirror/state': 6.5.2
+      '@codemirror/view': 6.38.8
+      '@lezer/common': 1.3.0
+      '@lezer/highlight': 1.2.3
+      '@lezer/markdown': 1.6.0
+      ajv: 8.17.1
+      node-emoji: 2.2.0
+
   '@protobufjs/aspromise@1.1.2': {}
 
   '@protobufjs/base64@1.1.2': {}
@@ -30076,6 +30138,8 @@ snapshots:
   '@sinclair/typebox@0.27.8': {}
 
   '@sinclair/typebox@0.34.41': {}
+
+  '@sindresorhus/is@4.6.0': {}
 
   '@sindresorhus/is@5.6.0': {}
 
@@ -34616,7 +34680,7 @@ snapshots:
       react-docgen-typescript: 2.4.0(typescript@5.8.3)
       tslib: 2.8.1
       typescript: 5.8.3
-      webpack: 5.103.0(@swc/core@1.15.2(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
+      webpack: 5.103.0(webpack-cli@5.1.4)
     transitivePeerDependencies:
       - supports-color
 
@@ -40629,7 +40693,7 @@ snapshots:
       postcss-value-parser: 4.2.0
       schema-utils: 2.7.1
       semver: 6.3.1
-      webpack: 5.103.0(@swc/core@1.15.2(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
+      webpack: 5.103.0(webpack-cli@5.1.4)
 
   css-loader@5.2.7(webpack@5.103.0):
     dependencies:
@@ -40695,7 +40759,7 @@ snapshots:
       postcss-value-parser: 4.2.0
       semver: 7.7.3
     optionalDependencies:
-      webpack: 5.103.0(@swc/core@1.15.2(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
+      webpack: 5.103.0(webpack-cli@5.1.4)
 
   css-select@4.3.0:
     dependencies:
@@ -41353,6 +41417,8 @@ snapshots:
   emoji-regex@8.0.0: {}
 
   emoji-regex@9.2.2: {}
+
+  emojilib@2.4.0: {}
 
   emojis-list@2.1.0: {}
 
@@ -43885,7 +43951,7 @@ snapshots:
       pretty-error: 2.1.2
       tapable: 1.1.3
       util.promisify: 1.0.0
-      webpack: 5.103.0(@swc/core@1.15.2(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
+      webpack: 5.103.0(webpack-cli@5.1.4)
 
   html-webpack-plugin@5.6.5(webpack@5.103.0(@swc/core@1.15.2(@swc/helpers@0.5.17))(esbuild@0.25.12)):
     dependencies:
@@ -47957,6 +48023,13 @@ snapshots:
 
   node-domexception@1.0.0: {}
 
+  node-emoji@2.2.0:
+    dependencies:
+      '@sindresorhus/is': 4.6.0
+      char-regex: 1.0.2
+      emojilib: 2.4.0
+      skin-tone: 2.0.0
+
   node-fetch-commonjs@3.3.2:
     dependencies:
       node-domexception: 1.0.0
@@ -48957,7 +49030,7 @@ snapshots:
       postcss: 7.0.39
       schema-utils: 3.3.0
       semver: 7.7.3
-      webpack: 5.103.0(@swc/core@1.15.2(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
+      webpack: 5.103.0(webpack-cli@5.1.4)
 
   postcss-loader@8.2.0(postcss@8.5.6)(typescript@5.8.3)(webpack@5.103.0):
     dependencies:
@@ -49637,7 +49710,7 @@ snapshots:
     dependencies:
       loader-utils: 2.0.4
       schema-utils: 3.3.0
-      webpack: 5.103.0(@swc/core@1.15.2(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
+      webpack: 5.103.0(webpack-cli@5.1.4)
 
   rc-config-loader@4.1.3:
     dependencies:
@@ -51121,7 +51194,7 @@ snapshots:
       neo-async: 2.6.2
     optionalDependencies:
       sass: 1.94.1
-      webpack: 5.103.0(@swc/core@1.15.2(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
+      webpack: 5.103.0(webpack-cli@5.1.4)
 
   sass@1.94.1:
     dependencies:
@@ -51455,6 +51528,10 @@ snapshots:
       nanospinner: 1.2.2
       picocolors: 1.1.1
       tinyglobby: 0.2.15
+
+  skin-tone@2.0.0:
+    dependencies:
+      unicode-emoji-modifier-base: 1.0.0
 
   slash@1.0.0: {}
 
@@ -52015,7 +52092,7 @@ snapshots:
 
   style-loader@4.0.0(webpack@5.103.0):
     dependencies:
-      webpack: 5.103.0(@swc/core@1.15.2(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
+      webpack: 5.103.0(webpack-cli@5.1.4)
 
   style-mod@4.1.3: {}
 
@@ -52552,7 +52629,7 @@ snapshots:
       serialize-javascript: 5.0.1
       source-map: 0.6.1
       terser: 5.44.1
-      webpack: 5.103.0(@swc/core@1.15.2(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
+      webpack: 5.103.0(webpack-cli@5.1.4)
       webpack-sources: 1.4.3
 
   terser-webpack-plugin@5.3.14(@swc/core@1.15.2(@swc/helpers@0.5.17))(esbuild@0.25.12)(webpack@5.103.0(@swc/core@1.15.2(@swc/helpers@0.5.17))(esbuild@0.25.12)):
@@ -53392,6 +53469,8 @@ snapshots:
 
   unicode-canonical-property-names-ecmascript@2.0.1: {}
 
+  unicode-emoji-modifier-base@1.0.0: {}
+
   unicode-match-property-ecmascript@2.0.0:
     dependencies:
       unicode-canonical-property-names-ecmascript: 2.0.1
@@ -53680,7 +53759,7 @@ snapshots:
       loader-utils: 2.0.4
       mime-types: 2.1.35
       schema-utils: 3.3.0
-      webpack: 5.103.0(@swc/core@1.15.2(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
+      webpack: 5.103.0(webpack-cli@5.1.4)
     optionalDependencies:
       file-loader: 6.2.0(webpack@5.103.0)
 
@@ -54232,7 +54311,7 @@ snapshots:
       mime: 2.6.0
       mkdirp: 0.5.6
       range-parser: 1.2.1
-      webpack: 5.103.0(@swc/core@1.15.2(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
+      webpack: 5.103.0(webpack-cli@5.1.4)
       webpack-log: 2.0.0
 
   webpack-dev-middleware@4.3.0(webpack@5.103.0):
@@ -54499,7 +54578,7 @@ snapshots:
 
   webpack-filter-warnings-plugin@1.2.1(webpack@5.103.0):
     dependencies:
-      webpack: 5.103.0(@swc/core@1.15.2(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
+      webpack: 5.103.0(webpack-cli@5.1.4)
 
   webpack-hot-middleware@2.26.1:
     dependencies:
