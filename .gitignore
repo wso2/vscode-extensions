@@ -85,3 +85,5 @@ pnpm-lock.yaml
 
 # AI evaluation results
 **/results
+
+workspaces/ballerina/ballerina-extension/src/features/telemetry/telemetry-events.json
