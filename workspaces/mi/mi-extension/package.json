@@ -199,7 +199,7 @@
         {
           "id": "MI.mock-services",
           "name": "Mock Services",
-          "when": "!config.integrator.defaultIntegrator"
+          "when": "MI.status == 'projectLoaded'"
         }
       ]
     },
