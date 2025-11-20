@@ -478,7 +478,7 @@ export function DataMapperView(props: DataMapperProps) {
     };
 
     const goToFunction = async (functionRange: LineRange) => {
-        const documentUri: string = await rpcClient.getVisualizerRpcClient().joinProjectPath(functionRange.fileName);
+        const documentUri: string = (await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: [functionRange.fileName] })).filePath;
         const position: NodePosition = {
             startLine: functionRange.startLine.line,
             startColumn: functionRange.startLine.offset,
@@ -714,7 +714,7 @@ export function DataMapperView(props: DataMapperProps) {
 };
 
 const getModelSignature = (model: DMModel | ExpandedDMModel): ModelSignature => ({
-    inputs: model.inputs.map(i => i.name),
+    inputs: [...model.inputs.map(i => i.name), ...(model.query?.inputs || [])],
     output: model.output.name,
     subMappings: model.subMappings?.map(s => (s as IORoot | IOType).name) || [],
     refs: 'refs' in model ? JSON.stringify(model.refs) : ''
