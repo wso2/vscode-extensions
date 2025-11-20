@@ -933,7 +933,7 @@
         {
           "command": "MI.test.add.case",
           "group": "inline",
-          "when": "testId in test.suites"
+          "when": "MI.status == 'projectLoaded' && testId in test.suites"
         },
         {
           "command": "MI.test.edit.case",
