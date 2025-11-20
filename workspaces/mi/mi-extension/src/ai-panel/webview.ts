@@ -24,6 +24,7 @@ import { RPCLayer } from '../RPCLayer';
 import { extension } from '../MIExtensionContext';
 import { StateMachineAI } from './aiMachine';
 import { AI_EVENT_TYPE } from '@wso2/mi-core';
+import { debug } from 'console';
 
 export class AiPanelWebview {
     public static currentPanel: AiPanelWebview | undefined;
@@ -74,7 +75,7 @@ export class AiPanelWebview {
           <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
           <meta name="theme-color" content="#000000">
           <title>WSO2 Integrator: MI</title>
-         
+
           <style>
             body, html, #root {
                 height: 100%;
@@ -117,5 +118,6 @@ export class AiPanelWebview {
 
         RPCLayer._messengers.delete(AiPanelWebview.webviewName);
         this._panel = undefined;
+        console.log('AI Panel webview disposed');
     }
 }
