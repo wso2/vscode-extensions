@@ -76,7 +76,3 @@ export function mapFunction(input: Root): OutputRoot {
         oExp: dmUtils.toUppercase(input.iExp)
     }
 }
-
-function mapObjectToObject(iCustomFn: Root["iCustomFn"]): OutputRoot["oCustomFn"] {
-    return {};
-}
