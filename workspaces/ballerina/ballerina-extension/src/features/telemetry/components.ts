@@ -45,3 +45,4 @@ export const CMP_CHOREO_AUTHENTICATION = "component.choreo.authentication";
 export const CMP_PERF_ANALYZER = "component.perf.analyzer";
 export const CMP_NOTEBOOK = "component.notebook";
 export const CMP_OPEN_VSCODE_URL = "component.open.vscode.url";
+export const CMP_AI_PANEL = "component.ai.panel";
