@@ -98,7 +98,7 @@ import {
     updateRequirementSpecification,
     getrequestId,
     createrequestId,
-    logAddToIntegrationTelemetry
+    addToIntegrationTelemetry
 } from "@wso2/ballerina-core";
 import { Messenger } from "vscode-messenger";
 import { AiPanelRpcManager } from "./rpc-manager";
@@ -162,5 +162,5 @@ export function registerAiPanelRpcHandlers(messenger: Messenger) {
     messenger.onRequest(isUserAuthenticated, () => rpcManger.isUserAuthenticated());
     messenger.onRequest(getrequestId, () => rpcManger.getrequestId());
     messenger.onRequest(createrequestId, () => rpcManger.createrequestId());
-    messenger.onNotification(logAddToIntegrationTelemetry, (args: { requestId: string; fileCount: number }) => rpcManger.logAddToIntegrationTelemetry(args));
+    messenger.onNotification(addToIntegrationTelemetry, (args: { requestId: string; fileCount: number }) => rpcManger.addToIntegrationTelemetry(args));
 }

@@ -14,7 +14,7 @@
  * KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations
  * under the License.
- * 
+ *
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
@@ -108,7 +108,7 @@ import {
     updateRequirementSpecification,
     getrequestId,
     createrequestId,
-    logAddToIntegrationTelemetry
+    addToIntegrationTelemetry
 } from "@wso2/ballerina-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -348,7 +348,7 @@ export class AiPanelRpcClient implements AIPanelAPI {
         return this._messenger.sendRequest(createrequestId, HOST_EXTENSION);
     }
 
-    logAddToIntegrationTelemetry(params: { requestId: string; fileCount: number }): void {
-        return this._messenger.sendNotification(logAddToIntegrationTelemetry, HOST_EXTENSION, params);
+    addToIntegrationTelemetry(params: { requestId: string; fileCount: number }): void {
+        return this._messenger.sendNotification(addToIntegrationTelemetry, HOST_EXTENSION, params);
     }
 }

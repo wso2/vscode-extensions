@@ -80,4 +80,4 @@ export const addFilesToProject: RequestType<AddFilesToProjectRequest, boolean> =
 export const isUserAuthenticated: RequestType<void, boolean> = { method: `${_preFix}/isUserAuthenticated` };
 export const getrequestId: RequestType<void, string> = { method: `${_preFix}/getrequestId` };
 export const createrequestId: RequestType<void, string> = { method: `${_preFix}/createrequestId` };
-export const logAddToIntegrationTelemetry: NotificationType<{ requestId: string; fileCount: number }> = { method: `${_preFix}/logAddToIntegrationTelemetry` };
+export const addToIntegrationTelemetry: NotificationType<{ requestId: string; fileCount: number }> = { method: `${_preFix}/addToIntegrationTelemetry` };
