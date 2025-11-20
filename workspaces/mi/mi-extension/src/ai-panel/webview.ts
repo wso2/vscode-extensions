@@ -24,7 +24,6 @@ import { RPCLayer } from '../RPCLayer';
 import { extension } from '../MIExtensionContext';
 import { StateMachineAI } from './aiMachine';
 import { AI_EVENT_TYPE } from '@wso2/mi-core';
-import { debug } from 'console';
 
 export class AiPanelWebview {
     public static currentPanel: AiPanelWebview | undefined;
@@ -118,6 +117,5 @@ export class AiPanelWebview {
 
         RPCLayer._messengers.delete(AiPanelWebview.webviewName);
         this._panel = undefined;
-        console.log('AI Panel webview disposed');
     }
 }

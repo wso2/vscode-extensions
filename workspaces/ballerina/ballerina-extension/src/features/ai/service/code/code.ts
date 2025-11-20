@@ -48,6 +48,9 @@ import { CopilotEventHandler, createWebviewEventHandler } from "../event";
 import { AIPanelAbortController } from "../../../../../src/rpc-managers/ai-panel/utils";
 import { getRequirementAnalysisCodeGenPrefix, getRequirementAnalysisTestGenPrefix } from "./np_prompts";
 import { createEditExecute, createEditTool, createMultiEditExecute, createBatchEditTool, createReadExecute, createReadTool, createWriteExecute, createWriteTool, FILE_BATCH_EDIT_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_SINGLE_EDIT_TOOL_NAME, FILE_WRITE_TOOL_NAME } from "../libs/text_editor_tool";
+import { extension } from "../../../../BalExtensionContext";
+import { AITelemetryService } from "../ai-telemerty-service";
+import { ChatService } from "../chat-service";
 
 const SEARCH_LIBRARY_TOOL_NAME = "LibraryProviderTool";
 
@@ -68,7 +71,18 @@ function appendFinalMessages(
 }
 
 // Core code generation function that emits events
-export async function generateCodeCore(params: GenerateCodeRequest, eventHandler: CopilotEventHandler): Promise<void> {
+export async function generateCodeCore(params: GenerateCodeRequest, eventHandler: CopilotEventHandler, requestId?: string): Promise<void> {
+    const command = Command.Code;
+
+    // Log telemetry for code generation request
+    if (requestId) {
+        AITelemetryService.generationRequest(
+            extension.ballerinaExtInstance,
+            requestId,
+            command
+        );
+    }
+
     const projects: ProjectSource[] = await getProjectSource(params.operationType);
     const activeProject = projects.find(p => p.isActive) || projects[0];
     const packageName = activeProject.projectName;
@@ -144,7 +158,7 @@ export async function generateCodeCore(params: GenerateCodeRequest, eventHandler
                     assistantResponse += `\n\n<toolcall>Analyzing request & selecting libraries...</toolcall>`;
                 }
                 else if ([FILE_WRITE_TOOL_NAME, FILE_SINGLE_EDIT_TOOL_NAME, FILE_BATCH_EDIT_TOOL_NAME, FILE_READ_TOOL_NAME].includes(toolName)) {
-                    if(!codeGenStart) {
+                    if (!codeGenStart) {
                         codeGenStart = true;
                         // TODO: temporary solution until this get refactored properly
                         // send this pattern <code\s+filename="([^"]+)"(?:\s+type=("test"|"ai_map"|"ai_map_inline"))?>\s*```(\w+)\s*([\s\S]*?)```\s*<\/code>
@@ -191,6 +205,16 @@ export async function generateCodeCore(params: GenerateCodeRequest, eventHandler
                 const error = part.error;
                 console.error("Error during Code generation:", error);
                 eventHandler({ type: "error", content: getErrorMessage(error) });
+
+                // Log telemetry for code generation error
+                if (requestId) {
+                    AITelemetryService.generationError(
+                        extension.ballerinaExtInstance,
+                        requestId,
+                        command,
+                        getErrorMessage(error)
+                    );
+                }
                 break;
             }
             case "text-start": {
@@ -271,6 +295,15 @@ export async function generateCodeCore(params: GenerateCodeRequest, eventHandler
                 eventHandler({ type: "diagnostics", diagnostics: diagnostics });
                 eventHandler({ type: "messages", messages: allMessages });
                 eventHandler({ type: "stop", command: Command.Code });
+
+                // Log telemetry for successful code generation
+                if (requestId) {
+                    AITelemetryService.generationSucess(
+                        extension.ballerinaExtInstance,
+                        requestId,
+                        command
+                    );
+                }
                 break;
             }
         }
@@ -299,11 +332,28 @@ ${sourceFile.content}
 // Main public function that uses the default event handler
 export async function generateCode(params: GenerateCodeRequest): Promise<void> {
     const eventHandler = createWebviewEventHandler(Command.Code);
+
+    // Create requestId for telemetry tracking when user submits query
+    const chatService = new ChatService(extension.ballerinaExtInstance.context!);
+    let requestId: string | undefined;
+
     try {
-        await generateCodeCore(params, eventHandler);
+        requestId = await chatService.createrequestId();
+        await generateCodeCore(params, eventHandler, requestId);
     } catch (error) {
         console.error("Error during code generation:", error);
         eventHandler({ type: "error", content: getErrorMessage(error) });
+
+        // Log telemetry for unexpected errors
+        if (requestId) {
+            const command = params.operationType || 'CODE_GENERATION';
+            AITelemetryService.generationError(
+                extension.ballerinaExtInstance,
+                requestId,
+                command,
+                getErrorMessage(error)
+            );
+        }
     }
 }
 

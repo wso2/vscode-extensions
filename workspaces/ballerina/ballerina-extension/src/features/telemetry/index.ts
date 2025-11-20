@@ -18,7 +18,8 @@
 
 import TelemetryReporter from "vscode-extension-telemetry";
 import { BallerinaExtension } from "../../core";
-import { logTelemetryEventLocally } from "./local-telemetry-logger";
+import { logTelemetryEventLocally, logTelemetryExceptionLocally } from "./local-telemetry-logger";
+import { eventNames } from "process";
 
 //Ballerina-VSCode-Extention repo key as default
 const DEFAULT_KEY = "3a82b093-5b7b-440c-9aa2-3b8e8e5704e7";
@@ -53,6 +54,9 @@ export function sendTelemetryEvent(extension: BallerinaExtension, eventName: str
 
 export function sendTelemetryException(extension: BallerinaExtension, error: Error, componentName: string,
     params: { [key: string]: string } = {}) {
+    const telemetryProperties = getTelemetryProperties(extension, componentName, params);
+    logTelemetryExceptionLocally(error, componentName, telemetryProperties);
+
     // temporarily disabled in codeserver due to GDPR issue
     if (extension.isTelemetryEnabled() && !extension.getCodeServerContext().codeServerEnv) {
         extension.telemetryReporter.sendTelemetryException(error, getTelemetryProperties(extension, componentName,
