@@ -105,7 +105,10 @@ import {
     showSignInAlert,
     submitFeedback,
     updateDevelopmentDocument,
-    updateRequirementSpecification
+    updateRequirementSpecification,
+    getrequestId,
+    createrequestId,
+    logAddToIntegrationTelemetry
 } from "@wso2/ballerina-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -335,5 +338,17 @@ export class AiPanelRpcClient implements AIPanelAPI {
 
     isUserAuthenticated(): Promise<boolean> {
         return this._messenger.sendRequest(isUserAuthenticated, HOST_EXTENSION);
+    }
+
+    getrequestId(): Promise<string> {
+        return this._messenger.sendRequest(getrequestId, HOST_EXTENSION);
+    }
+
+    createrequestId(): Promise<string> {
+        return this._messenger.sendRequest(createrequestId, HOST_EXTENSION);
+    }
+
+    logAddToIntegrationTelemetry(params: { requestId: string; fileCount: number }): void {
+        return this._messenger.sendNotification(logAddToIntegrationTelemetry, HOST_EXTENSION, params);
     }
 }

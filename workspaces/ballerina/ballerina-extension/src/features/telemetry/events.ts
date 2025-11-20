@@ -125,4 +125,5 @@ export const TM_EVENT_OPEN_REPO_SAME_FOLDER = "vscode.open.exist.repo.same.folde
 
 export const TM_EVENT_AI_CODE_GENERATION_REQUEST = "ballerina.ai.code-generation.request";
 export const TM_EVENT_AI_CODE_GENERATION_STATUS = "ballerina.ai.code-generation.status";
+export const TM_EVENT_AI_ADD_TO_INTEGRATION = "ballerina.ai.add-to-integration";
 

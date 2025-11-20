@@ -102,6 +102,9 @@ import { AIPanelAbortController, addToIntegration, cleanDiagnosticMessages, isEr
 import { fetchData } from "./utils/fetch-data-utils";
 import { checkToken } from "../../../src/views/ai-panel/utils";
 import { getWorkspaceTomlValues } from "./../../../src/utils/config";
+import { AITelemetryService } from "../../features/ai/service/ai-telemerty-service";
+import { ChatService } from "../../features/ai/service/chat-service";
+
 export class AiPanelRpcManager implements AIPanelAPI {
 
     // ==================================
@@ -704,6 +707,24 @@ export class AiPanelRpcManager implements AIPanelAPI {
         } catch (error) {
             return false;
         }
+    }
+
+    async getrequestId(): Promise<string> {
+        const chatService = new ChatService(extension.context);
+        return await chatService.getrequestId();
+    }
+
+    async createrequestId(): Promise<string> {
+        const chatService = new ChatService(extension.context);
+        return await chatService.createrequestId();
+    }
+
+    async logAddToIntegrationTelemetry(params: { requestId: string; fileCount: number }): Promise<void> {
+        AITelemetryService.addToIntegration(
+            extension.ballerinaExtInstance,
+            params.requestId,
+            params.fileCount
+        );
     }
 }
 
