@@ -20,12 +20,14 @@ import {
     sendTelemetryException,
     TM_EVENT_AI_CODE_GENERATION_REQUEST,
     TM_EVENT_AI_CODE_GENERATION_STATUS,
+    TM_EVENT_AI_ADD_TO_INTEGRATION,
     CMP_AI_PANEL
 } from '../../telemetry';
 
 export const AI_TELEMETRY_EVENTS = {
     GENERATION_REQUEST: TM_EVENT_AI_CODE_GENERATION_REQUEST,
     GENERATION_STATUS: TM_EVENT_AI_CODE_GENERATION_STATUS,
+    ADD_TO_INTEGRATION: TM_EVENT_AI_ADD_TO_INTEGRATION,
 } as const;
 
 export class AITelemetryService {
@@ -83,6 +85,24 @@ export class AITelemetryService {
         sendTelemetryException(
             extension,
             error,
+            CMP_AI_PANEL,
+            customDimensions
+        );
+    }
+
+    public static addToIntegration(
+        extension: BallerinaExtension,
+        requestId: string,
+        fileCount: number
+    ): void {
+        const customDimensions = {
+            requestId,
+            fileCount: fileCount.toString()
+        };
+
+        sendTelemetryEvent(
+            extension,
+            AI_TELEMETRY_EVENTS.ADD_TO_INTEGRATION,
             CMP_AI_PANEL,
             customDimensions
         );

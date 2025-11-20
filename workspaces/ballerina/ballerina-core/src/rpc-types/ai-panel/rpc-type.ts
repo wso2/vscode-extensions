@@ -14,7 +14,7 @@
  * KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations
  * under the License.
- * 
+ *
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import { DataMapperModelResponse } from "../../interfaces/extended-lang-client";
@@ -78,3 +78,6 @@ export const abortAIGeneration: NotificationType<void> = { method: `${_preFix}/a
 export const getGeneratedDocumentation: NotificationType<DocGenerationRequest> = { method: `${_preFix}/getGeneratedDocumentation` };
 export const addFilesToProject: RequestType<AddFilesToProjectRequest, boolean> = { method: `${_preFix}/addFilesToProject` };
 export const isUserAuthenticated: RequestType<void, boolean> = { method: `${_preFix}/isUserAuthenticated` };
+export const getrequestId: RequestType<void, string> = { method: `${_preFix}/getrequestId` };
+export const createrequestId: RequestType<void, string> = { method: `${_preFix}/createrequestId` };
+export const logAddToIntegrationTelemetry: NotificationType<{ requestId: string; fileCount: number }> = { method: `${_preFix}/logAddToIntegrationTelemetry` };
