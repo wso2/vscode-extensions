@@ -24,6 +24,8 @@ import { CompletionItem } from "@wso2/ui-toolkit";
 import { ThemeColors } from "@wso2/ui-toolkit";
 import { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import { TokenType, TokenMetadata, CompoundTokenSequence } from "./types";
+import { prosemarkBasicSetup, prosemarkBaseThemeSetup } from '@prosemark/core';
+import { Extension } from '@codemirror/state';
 import {
     CHIP_TEXT_STYLES,
     BASE_CHIP_STYLES,
@@ -618,3 +620,10 @@ export const buildHelperPaneKeymap = (getIsHelperPaneOpen: () => boolean, onClos
         }
     ];
 };
+
+export function prosemarkExtensions(): Extension[] {
+    return [
+        prosemarkBasicSetup(),
+        prosemarkBaseThemeSetup()
+    ];
+}
