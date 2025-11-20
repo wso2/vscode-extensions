@@ -269,6 +269,7 @@ export interface VisualizerLocation {
     connectorData?: any[];
     previousContext?: any;
     env?: { [key: string]: string | undefined };
+    isLoading?: boolean;
 }
 
 export interface PopupVisualizerLocation extends VisualizerLocation {
