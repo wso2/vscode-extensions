@@ -51,6 +51,7 @@ export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
     formDiagnostics
 }) => {
     const [editorView, setEditorView] = useState<EditorView | null>(null);
+    const [isPreviewMode, setIsPreviewMode] = useState<boolean>(true);
     const [helperPaneToggle, setHelperPaneToggle] = useState<{
         ref: React.RefObject<HTMLButtonElement>;
         isOpen: boolean;
@@ -75,17 +76,22 @@ export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
         });
     };
 
+    const handleModeToggle = () => {
+        setIsPreviewMode(prev => !prev);
+    };
+
     return (
         <>
             <TemplateMarkdownToolbar
                 ref={toolbarRef}
                 editorView={editorView}
-                isPreviewMode={false}
-                onTogglePreview={undefined}
+                isPreviewMode={isPreviewMode}
+                onModeToggle={handleModeToggle}
                 helperPaneToggle={helperPaneToggle || undefined}
             />
             <ExpressionContainer>
                 <ChipExpressionEditorComponent
+                    key={isPreviewMode ? 'preview' : 'source'}
                     value={value}
                     onChange={handleChange}
                     completions={completions}
@@ -102,7 +108,7 @@ export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
                     onEditorViewReady={setEditorView}
                     toolbarRef={toolbarRef}
                     enableListContinuation={true}
-                    enableProsemark={true}
+                    enableProsemark={isPreviewMode}
                 />
             </ExpressionContainer>
             {error ?
