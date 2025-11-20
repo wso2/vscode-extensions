@@ -256,7 +256,7 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
         <>
             <div className="grid gap-4 md:grid-cols-2" ref={compDetailsSections}>
                 <label className="col-span-full mb-2 opacity-80">
-                    You integration must exist in a remote Git repository in order to continue
+                    Your integration must exist in a remote Git repository in order to continue
                 </label>
                 <Dropdown
                     label="Git Provider"
