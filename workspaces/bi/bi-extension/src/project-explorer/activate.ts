@@ -41,6 +41,9 @@ export function activateProjectExplorer(config: ExplorerActivationConfig) {
 
 	projectExplorerDataProvider.setTreeView(projectTree);
 
+	// Always register core commands so they're available to the Ballerina extension
+	registerCoreCommands(projectExplorerDataProvider);
+
 	if (isBallerinaPackage || isBallerinaWorkspace) {
 		registerBallerinaCommands(projectExplorerDataProvider, isBI, isBallerinaWorkspace, isEmptyWorkspace);
 	}
@@ -63,13 +66,8 @@ function createProjectTree(dataProvider: ProjectExplorerEntryProvider) {
 	return window.createTreeView(BI_COMMANDS.PROJECT_EXPLORER, { treeDataProvider: dataProvider });
 }
 
-function registerBallerinaCommands(
-	dataProvider: ProjectExplorerEntryProvider,
-	isBI: boolean,
-	isBallerinaWorkspace?: boolean,
-	isEmptyWorkspace?: boolean
-) {
-	commands.registerCommand(BI_COMMANDS.REFRESH_COMMAND, () => dataProvider.refresh());
+function registerCoreCommands(dataProvider: ProjectExplorerEntryProvider) {
+	// Register the notify command that's called by the Ballerina extension
 	commands.registerCommand(
 		BI_COMMANDS.NOTIFY_PROJECT_EXPLORER,
 		(event: {
@@ -81,6 +79,17 @@ function registerBallerinaCommands(
 			dataProvider.revealInTreeView(event.documentUri, event.projectPath, event.position, event.view);
 		}
 	);
+	
+	// Register the refresh command
+	commands.registerCommand(BI_COMMANDS.REFRESH_COMMAND, () => dataProvider.refresh());
+}
+
+function registerBallerinaCommands(
+	dataProvider: ProjectExplorerEntryProvider,
+	isBI: boolean,
+	isBallerinaWorkspace?: boolean,
+	isEmptyWorkspace?: boolean
+) {
 	commands.executeCommand('setContext', 'BI.isWorkspaceSupported', extension.isWorkspaceSupported ?? false);
 
 	if (isBallerinaWorkspace) {
