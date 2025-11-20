@@ -219,8 +219,8 @@ export default function createTests() {
       // await expressionBar.press('Enter');
       // await dmWebView.getByTestId('link-from-input.iExp.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
       // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.oExp.IN').waitFor({ state: 'attached' });
-      // const loc4 = dmWebView.getByTestId('link-connector-node-objectOutput.oExp.IN');
-      // await loc4.waitFor();
+      const loc4 = dmWebView.getByTestId('link-connector-node-objectOutput.oExp.IN');
+      await loc4.waitFor();
 
       // // await expressionBar.press('Enter');
       // await dmWebView.locator('#data-mapper-canvas-container').click();
