@@ -69,11 +69,6 @@ export function mapFunction(input: Root): OutputRoot {
         oObjProp: {
             p1: input.iObjDirect.d1 + "HI",
             p2: input.iObjProp.op2
-        },
-        oCustomFn: mapObjectToObject(input.iCustomFn)
+        }
     }
-}
-
-function mapObjectToObject(iCustomFn: Root["iCustomFn"]): OutputRoot["oCustomFn"] {
-    return {};
 }

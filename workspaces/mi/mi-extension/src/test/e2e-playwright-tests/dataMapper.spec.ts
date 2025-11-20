@@ -190,59 +190,59 @@ export default function createTests() {
       await dm.mapFields('input.iObjProp.op2', 'objectOutput.oObjProp.p2');
       await dmWebView.getByTestId('link-from-input.iObjProp.op2.OUT-to-objectOutput.oObjProp.p2.IN').waitFor({ state: 'attached' });
 
-      console.log('- Test custom function');
+      console.log('- Test expression bar');
 
-      await dm.mapFields('input.iCustomFn', 'objectOutput.oCustomFn', 'menu-item-o2o-func');
+      // expression bar - use function
+      await dmWebView.locator('[id="recordfield-objectOutput\\.oExp"]').click();
+      const expressionBar = dmWebView.locator('#expression-bar').getByRole('textbox', { name: 'Text field' });
+      await expect(expressionBar).toBeFocused();
+      await expressionBar.fill('toupper');
+      await dmWebView.getByText('dmUtils toUppercaseConverts a').click();
+      await expect(expressionBar).toHaveValue('dmUtils.toUppercase()');
+      await expect(expressionBar).toBeFocused();
 
-      await dmWebView.getByTestId('link-from-input.iCustomFn.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
-      await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.oCustomFn.IN').waitFor({ state: 'attached' });
-      await dmWebView.getByTestId('link-connector-node-objectOutput.oCustomFn.IN').waitFor();
-
-      const editorTab = page.page.getByRole('tab', { name: `${dmName}.ts, Editor Group` });
-      await editorTab.waitFor({ state: 'attached' });
-
-      await editorTab.locator('.codicon-close').click();
-      await editorTab.waitFor({ state: 'detached' });
-
-      // console.log('- Test expression bar');
-
-      // // expression bar - use function
-      // await dmWebView.locator('[id="recordfield-objectOutput\\.oExp"]').click();
-      // const expressionBar = dmWebView.locator('#expression-bar').getByRole('textbox', { name: 'Text field' });
-      // await expect(expressionBar).toBeFocused();
-      // await expressionBar.fill('toupper');
-      // await dmWebView.getByText('dmUtils toUppercaseConverts a').click();
-      // await expect(expressionBar).toHaveValue('dmUtils.toUppercase()');
-      // await expect(expressionBar).toBeFocused();
-
-      // await dmWebView.locator('[id="recordfield-input\\.iExp"]').click();
-      // await expressionBar.press('Enter');
-      // await dmWebView.getByTestId('link-from-input.iExp.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
-      // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.oExp.IN').waitFor({ state: 'attached' });
+      await dmWebView.locator('[id="recordfield-input\\.iExp"]').click();
+      await expressionBar.press('Enter');
+      await dmWebView.getByTestId('link-from-input.iExp.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
+      await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.oExp.IN').waitFor({ state: 'attached' });
       const loc4 = dmWebView.getByTestId('link-connector-node-objectOutput.oExp.IN');
       await loc4.waitFor();
 
-      // // await expressionBar.press('Enter');
-      // await dmWebView.locator('#data-mapper-canvas-container').click();
+      // await expressionBar.press('Enter');
+      await dmWebView.locator('#data-mapper-canvas-container').click();
 
-      // await expect(expressionBar).not.toBeFocused();
+      await expect(expressionBar).not.toBeFocused();
 
-      // // TODO: need to test edit button
+      // TODO: need to test edit button
 
-      // // expression editor - edit existing
-      // await dmWebView.locator('[id="recordfield-objectOutput\\.oObjProp\\.p1"]').click();
-      // await expect(expressionBar).toBeFocused();
-      // await expressionBar.fill('input.iObjDirect.d1 + "HI"');
-      // await dmWebView.locator('#data-mapper-canvas-container').click();
-      // await expressionBar.evaluate((el: HTMLElement) => el.blur());
-      // await expect(expressionBar).not.toBeFocused();
+      // expression editor - edit existing
+      await dmWebView.locator('[id="recordfield-objectOutput\\.oObjProp\\.p1"]').click();
+      await expect(expressionBar).toBeFocused();
+      await expressionBar.fill('input.iObjDirect.d1 + "HI"');
+      await dmWebView.locator('#data-mapper-canvas-container').click();
+      await expect(expressionBar).not.toBeFocused();
 
-      // await dmWebView.getByTestId('link-from-input.iObjDirect.d1.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
-      // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.oObjProp.p1.IN').waitFor({ state: 'attached' });
-      // await dmWebView.getByTestId('link-connector-node-objectOutput.oObjProp.p1.IN').waitFor();
+      await dmWebView.getByTestId('link-from-input.iObjDirect.d1.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
+      await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.oObjProp.p1.IN').waitFor({ state: 'attached' });
+      await dmWebView.getByTestId('link-connector-node-objectOutput.oObjProp.p1.IN').waitFor();
 
 
-      // expect(dm.verifyTsFileContent(path.join('basic', 'map.ts'))).toBeTruthy();
+      // console.log('- Test custom function');
+      // custom function mapping
+      // objectOutput.oCustomFn = input.iCustomFn;
+      // await dm.mapFields('input.iCustomFn', 'objectOutput.oCustomFn', 'menu-item-o2o-func');
+
+      // await dmWebView.getByTestId('link-from-input.iCustomFn.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
+      // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.oCustomFn.IN').waitFor({ state: 'attached' });
+      // await dmWebView.getByTestId('link-connector-node-objectOutput.oCustomFn.IN').waitFor();
+
+      // const editorTab = page.page.getByRole('tab', { name: `${dmName}.ts, Editor Group` });
+      // await editorTab.waitFor({ state: 'attached' });
+
+      // await editorTab.locator('.codicon-close').click();
+      // await editorTab.waitFor({ state: 'detached' });
+
+      expect(dm.verifyTsFileContent(path.join('basic', 'map.ts'))).toBeTruthy();
 
 
       console.log('- Test basic mapping delete');
@@ -258,7 +258,6 @@ export default function createTests() {
       await loc1.waitFor({ state: 'detached' });
 
       await loc2.locator('.codicon-trash').click({ force: true });
-      // await page.page.waitForTimeout(20000);
       await loc2.waitFor({ state: 'detached' });
 
       const loc3_ = dmWebView.getByTestId('link-from-input.iManyOne3.OUT-to-datamapper-intermediate-port');
@@ -268,7 +267,6 @@ export default function createTests() {
       await loc3_.waitFor({ state: 'detached' });
 
       await loc4.locator('.codicon-trash').click({ force: true });
-      // await page.page.waitForTimeout(20000);
       await loc4.waitFor({ state: 'detached' });
 
       expect(dm.verifyTsFileContent('basic/del.ts')).toBeTruthy();
