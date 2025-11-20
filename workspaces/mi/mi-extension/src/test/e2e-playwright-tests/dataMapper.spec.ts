@@ -235,6 +235,7 @@ export default function createTests() {
       await expect(expressionBar).toBeFocused();
       await expressionBar.fill('input.iObjDirect.d1 + "HI"');
       await dmWebView.locator('#data-mapper-canvas-container').click();
+      await expressionBar.evaluate((el: HTMLElement) => el.blur());
       await expect(expressionBar).not.toBeFocused();
 
       await dmWebView.getByTestId('link-from-input.iObjDirect.d1.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
