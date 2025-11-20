@@ -26,6 +26,7 @@ import { extension } from '../../BalExtensionContext';
 import { constructDebugConfig } from "../debugger";
 const fs = require('fs');
 import path from 'path';
+import { PlatformExtRpcManager } from '../../rpc-managers/platform-ext/rpc-manager';
 
 /**
  * Extract project path from a test item
@@ -424,6 +425,8 @@ export async function startDebugging(testDebug: boolean, args: any[])
     const uri: Uri = Uri.parse(StateMachine.context().projectPath);
     const workspaceFolder: WorkspaceFolder | undefined = workspace.getWorkspaceFolder(uri);
     const debugConfig: DebugConfiguration = await constructDebugConfig(uri, testDebug, args);
+
+    await new PlatformExtRpcManager().setupDevantProxyForDebugging(debugConfig);
 
     return debug.startDebugging(workspaceFolder, debugConfig).then(
         // Wait for debug session to be complete.

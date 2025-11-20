@@ -72,6 +72,6 @@ export const locationStore = createStore(
 					.filter((item) => existsSync(item.fsPath));
 			},
 		}),
-		getGlobalStateStore("location-zustand-storage-v2"),
+		getGlobalStateStore("location-zustand-storage"),
 	),
 );

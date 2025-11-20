@@ -24,6 +24,7 @@ import {
     ParameterValue,
     Parameter,
     FormImports,
+    Node,
 } from "@wso2/ballerina-side-panel";
 import { AddNodeVisitor, RemoveNodeVisitor, NodeIcon, traverseFlow, ConnectorIcon, AIModelIcon } from "@wso2/bi-diagram";
 import {
@@ -56,6 +57,7 @@ import {
     SubPanel,
     SubPanelView,
     NodeMetadata,
+    PackageTomlValues,
     Type,
 } from "@wso2/ballerina-core";
 import {
@@ -77,6 +79,7 @@ import { DocSection } from "../components/ExpressionEditor";
 import ballerina from "../languages/ballerina.js";
 import { FUNCTION_REGEX } from "../resources/constants";
 import { ConnectionKind, getConnectionKindConfig } from "../components/ConnectionSelector";
+import { ConnectionListItem, ContextItemEnriched } from "@wso2/wso2-platform-core";
 hljs.registerLanguage("ballerina", ballerina);
 
 export const BALLERINA_INTEGRATOR_ISSUES_URL = "https://github.com/wso2/product-ballerina-integrator/issues";
@@ -131,6 +134,60 @@ function convertDiagramCategoryToSidePanelCategory(category: Category, functionT
         icon: <ConnectorIcon url={icon} style={{ width: "20px", height: "20px", fontSize: "20px" }} codedata={codedata} />,
         items: items,
     };
+}
+
+/** Map devant connection details with BI connection and to figure out which Devant connection are not used */
+export function enrichCategoryWithDevant(
+    selected: ContextItemEnriched,
+    tomlValues: PackageTomlValues,
+    connections: ConnectionListItem[] = [],
+    panelCategories: PanelCategory[] = [],
+    importingConn?: ConnectionListItem
+): PanelCategory[] {
+    const updated = panelCategories?.map((category) => {
+        if (category.title === "Connections" && tomlValues && selected?.org && selected?.project) {
+            const usedConnIds: string[] = [];
+            const mappedCategoryItems = category.items?.map((categoryItem) => {
+                const matchingConn = tomlValues?.tool?.openapi?.find((openapiItem: any) => {
+                    return (categoryItem as PanelCategory)?.items?.some(
+                        (item) =>
+                            (item as Node)?.metadata?.codedata?.module ===
+                            `${tomlValues?.package?.name}.${openapiItem?.targetModule}`
+                    );
+                });
+                if (matchingConn) {
+                    const matchingDevantConn = connections?.find(
+                        (conn) => conn.name === matchingConn?.remoteConnection
+                    );
+                    if (matchingDevantConn) {
+                        usedConnIds.push(matchingDevantConn.groupUuid);
+                        return {
+                            ...categoryItem,
+                            devant: matchingDevantConn,
+                            unusedDevantConn: false,
+                        };
+                    }
+                }
+                return categoryItem;
+            });
+            const unusedCategoryItems: PanelCategory[] = connections
+                .filter((conn) => !usedConnIds.includes(conn.groupUuid))
+                .map((conn) => ({
+                    title: conn.name?.replaceAll("-","_").replaceAll(" ","_"),
+                    items: [] as PanelItem[],
+                    description: "Unused Devant connection",
+                    devant: conn,
+                    unusedDevantConn: true,
+                    isLoading: importingConn?.name === conn.name,
+                }));
+            return {
+                ...category,
+                items: [...mappedCategoryItems, ...unusedCategoryItems],
+            };
+        }
+        return category;
+    });
+    return updated;
 }
 
 export function convertBICategoriesToSidePanelCategories(categories: Category[]): PanelCategory[] {

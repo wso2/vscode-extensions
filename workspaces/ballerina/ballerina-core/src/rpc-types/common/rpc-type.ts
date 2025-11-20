@@ -33,7 +33,9 @@ import {
     FileOrDirRequest,
     WorkspaceRootResponse,
     ShowErrorMessageRequest,
-    WorkspaceTypeResponse
+    WorkspaceTypeResponse,
+    SetWebviewCacheRequestParam,
+    ShowInfoModalRequest
 } from "./interfaces";
 import { RequestType, NotificationType } from "vscode-messenger-common";
 
@@ -51,5 +53,9 @@ export const experimentalEnabled: RequestType<void, boolean> = { method: `${_pre
 export const isNPSupported: RequestType<void, boolean> = { method: `${_preFix}/isNPSupported` };
 export const getWorkspaceRoot: RequestType<void, WorkspaceRootResponse> = { method: `${_preFix}/getWorkspaceRoot` };
 export const showErrorMessage: NotificationType<ShowErrorMessageRequest> = { method: `${_preFix}/showErrorMessage` };
+export const showInformationModal: RequestType<ShowInfoModalRequest, string> = { method: `${_preFix}/showInformationModal` };
 export const getCurrentProjectTomlValues: RequestType<void, void> = { method: `${_preFix}/getCurrentProjectTomlValues` };
 export const getWorkspaceType: RequestType<void, WorkspaceTypeResponse> = { method: `${_preFix}/getWorkspaceType` };
+export const SetWebviewCache: RequestType<SetWebviewCacheRequestParam, void> = { method: `${_preFix}/setWebviewCache` };
+export const RestoreWebviewCache: RequestType<IDBValidKey, unknown> = { method: `${_preFix}/restoreWebviewCache` };
+export const ClearWebviewCache: RequestType<IDBValidKey, void> = { method: `${_preFix}/clearWebviewCache` };

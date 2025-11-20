@@ -17,7 +17,7 @@
  */
 
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { VSCodeLink } from "@vscode/webview-ui-toolkit/react";
 import { EndpointType, type NewComponentWebviewProps } from "@wso2/wso2-platform-core";
 import React, { type FC, type ReactNode } from "react";

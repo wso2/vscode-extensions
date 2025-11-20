@@ -16,24 +16,63 @@
  * under the License.
  */
 
-import type { ComponentKind, IWso2PlatformExtensionAPI, openClonedDirReq } from "@wso2/wso2-platform-core";
+import type { ComponentKind, GetMarketplaceListReq, IWso2PlatformExtensionAPI, openClonedDirReq, GetMarketplaceIdlReq, CreateComponentConnectionReq, CreateLocalConnectionsConfigReq, GetConnectionsReq, DeleteConnectionReq, DeleteLocalConnectionsConfigReq, GetMarketplaceItemReq, GetConnectionItemReq, StartProxyServerReq, StopProxyServerReq, AuthState, ContextStoreComponentState, ContextItemEnriched, GetProjectEnvsReq } from "@wso2/wso2-platform-core";
 import { ext } from "./extensionVariables";
 import { hasDirtyRepo } from "./git/util";
 import { authStore } from "./stores/auth-store";
 import { contextStore } from "./stores/context-store";
 import { webviewStateStore } from "./stores/webview-state-store";
 import { openClonedDir } from "./uri-handlers";
-import { isSamePath } from "./utils";
+import { createConnectionConfig, deleteLocalConnectionConfig, isSamePath } from "./utils";
+
 export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
-	public isLoggedIn = () => !!authStore.getState().state?.userInfo;
-	public getDirectoryComponents = (fsPath: string) =>
-		(contextStore
-			.getState()
-			.state?.components?.filter((item) => isSamePath(item?.componentFsPath, fsPath))
+	private getComponentsOfDir = (fsPath: string, components?: ContextStoreComponentState[]) => {
+		return (components?.filter((item) => isSamePath(item?.componentFsPath, fsPath))
 			?.map((item) => item?.component)
-			?.filter((item) => !!item) as ComponentKind[]) ?? [];
+			?.filter((item) => !!item) as ComponentKind[]) ?? []
+	}
+
+	public waitUntilInitialized = async (): Promise<boolean> => {
+		while (true) {
+			try {
+				const active = ext.clients.rpcClient.isActive();
+				if (active) {
+					return true;
+				}
+			} catch {
+				// ignore errors and retry
+			}
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+		}
+	}
+
+	public isLoggedIn = () => !!authStore.getState().state?.userInfo;
+	public getDirectoryComponents = (fsPath: string) => this.getComponentsOfDir(fsPath, contextStore.getState().state?.components);
 	public localRepoHasChanges = (fsPath: string) => hasDirtyRepo(fsPath, ext.context, ["context.yaml"]);
 	public getWebviewStateStore = () => webviewStateStore.getState().state;
 	public getContextStateStore = () => contextStore.getState().state;
 	public openClonedDir = (params: openClonedDirReq) => openClonedDir(params);
+	public getStsToken = () => ext.clients.rpcClient.getStsToken();
+	public getMarketplaceItems = (params: GetMarketplaceListReq) => ext.clients.rpcClient.getMarketplaceItems(params);
+	public getMarketplaceItem = (params: GetMarketplaceItemReq) => ext.clients.rpcClient.getMarketplaceItem(params);
+	public getSelectedContext = () => contextStore.getState().state?.selected || null;
+	public getMarketplaceIdl = (params: GetMarketplaceIdlReq) => ext.clients.rpcClient.getMarketplaceIdl(params);
+	public createComponentConnection = (params: CreateComponentConnectionReq) => ext.clients.rpcClient.createComponentConnection(params);
+	public createConnectionConfig = (params: CreateLocalConnectionsConfigReq) => createConnectionConfig(params);
+	public getConnections = (params: GetConnectionsReq) => ext.clients.rpcClient.getConnections(params);
+	public getConnection = (params: GetConnectionItemReq) => ext.clients.rpcClient.getConnectionItem(params);
+	public deleteConnection = (params: DeleteConnectionReq) => ext.clients.rpcClient.deleteConnection(params);
+	public deleteLocalConnectionsConfig = (params: DeleteLocalConnectionsConfigReq) => deleteLocalConnectionConfig(params);
+	public getDevantConsoleUrl = async() => (await ext.clients.rpcClient.getConfigFromCli()).devantConsoleUrl;
+	public getProjectEnvs = async(params: GetProjectEnvsReq) => ext.clients.rpcClient.getEnvs(params);
+	public startProxyServer = async(params: StartProxyServerReq) => ext.clients.rpcClient.startProxyServer(params);
+	public stopProxyServer = async(params: StopProxyServerReq) => ext.clients.rpcClient.stopProxyServer(params);
+
+	// Auth state subscriptions
+	public subscribeAuthState = (callback: (state: AuthState)=>void) => authStore.subscribe((state)=>callback(state.state));
+	public subscribeIsLoggedIn = (callback: (isLoggedIn: boolean)=>void) => authStore.subscribe((state)=>callback(!!state.state?.userInfo));
+
+	// Context state subscriptions
+	public subscribeContextState = (callback: (state: ContextItemEnriched | undefined)=>void) => contextStore.subscribe((state)=>callback(state.state?.selected));
+	public subscribeDirComponents = (fsPath: string, callback: (comps: ComponentKind[])=>void) => contextStore.subscribe((state)=>callback(this.getComponentsOfDir(fsPath, state.state.components)));
 }

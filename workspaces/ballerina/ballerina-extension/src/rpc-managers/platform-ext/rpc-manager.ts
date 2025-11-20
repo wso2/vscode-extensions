@@ -1,0 +1,626 @@
+/**
+ * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+import {
+    onPlatformExtStoreStateChange,
+    PlatformExtAPI,
+    SyntaxTree,
+    PackageTomlValues,
+    DIRECTORY_MAP,
+    findDevantScopeByModule,
+} from "@wso2/ballerina-core";
+import { extensions, Uri, window } from "vscode";
+import * as vscode from "vscode";
+import * as fs from "fs";
+import * as path from "path";
+import {
+    ComponentDisplayType,
+    ConnectionListItem,
+    DeleteLocalConnectionsConfigReq,
+    GetConnectionsReq,
+    GetMarketplaceIdlReq,
+    GetMarketplaceItemReq,
+    GetMarketplaceListReq,
+    getTypeForDisplayType,
+    IWso2PlatformExtensionAPI,
+    MarketplaceIdlResp,
+    MarketplaceItem,
+    MarketplaceListResp,
+    ServiceInfoVisibilityEnum,
+    GetConnectionItemReq,
+    StartProxyServerResp,
+    StopProxyServerReq,
+    ConnectionDetailed,
+    CommandIds as PlatformExtCommandIds,
+    DevantScopes,
+    ICreateComponentCmdParams,
+} from "@wso2/wso2-platform-core";
+import { log } from "../../utils/logger";
+import {
+    CreateDevantConnectionReq,
+    CreateDevantConnectionResp,
+    ImportDevantConnectionReq,
+    ImportDevantConnectionResp,
+} from "@wso2/ballerina-core/lib/rpc-types/platform-ext/interfaces";
+import * as toml from "@iarna/toml";
+import { StateMachine } from "../../stateMachine";
+import { CommonRpcManager } from "../common/rpc-manager";
+import { CaptureBindingPattern, ModulePart, ModuleVarDecl, STKindChecker } from "@wso2/syntax-tree";
+import { DeleteBiDevantConnectionReq } from "./types";
+import { platformExtStore } from "./platform-store";
+import { Messenger } from "vscode-messenger";
+import { VisualizerWebview } from "../../views/visualizer/webview";
+import { getDomain, hasContextYaml, initializeDevantConnection } from "./platform-utils";
+import { debounce } from "lodash";
+import { BiDiagramRpcManager } from "../bi-diagram/rpc-manager";
+
+export class PlatformExtRpcManager implements PlatformExtAPI {
+    static platformExtAPI: IWso2PlatformExtensionAPI;
+    private async getPlatformExt() {
+        if (PlatformExtRpcManager.platformExtAPI) {
+            return PlatformExtRpcManager.platformExtAPI;
+        }
+        const platformExt = extensions.getExtension("wso2.wso2-platform");
+        if (!platformExt) {
+            throw new Error("platform ext not installed");
+        }
+        if (!platformExt.isActive) {
+            await platformExt.activate();
+        }
+        const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports;
+        await platformExtAPI.waitUntilInitialized();
+        PlatformExtRpcManager.platformExtAPI = platformExtAPI;
+        return platformExtAPI;
+    }
+
+    public async initStateSubscription(messenger: Messenger) {
+        await platformExtStore.persist.rehydrate();
+
+        const platformExt = await this.getPlatformExt();
+
+        const isLoggedIn = platformExt.isLoggedIn();
+        const components = platformExt.getDirectoryComponents(StateMachine.context().projectPath);
+        const selectedContext = platformExt.getSelectedContext();
+        const matchingComponent = components.find(
+            (item) => platformExtStore.getState().state?.selectedComponent?.metadata?.id === item.metadata?.id
+        );
+        const hasLocalChanges = await platformExt.localRepoHasChanges(StateMachine.context().projectPath);
+        const hasProjectYaml = hasContextYaml(StateMachine.context().projectPath);
+
+        platformExtStore.getState().setState({
+            isLoggedIn,
+            components,
+            selectedContext,
+            selectedComponent: matchingComponent || components[0],
+            hasLocalChanges,
+            hasPossibleComponent: components.length > 0 || hasProjectYaml,
+        });
+
+        await this.refreshConnectionList();
+
+        platformExt.subscribeIsLoggedIn((isLoggedIn) => {
+            platformExtStore.getState().setState({ isLoggedIn });
+        });
+        platformExt.subscribeDirComponents(StateMachine.context().projectPath, (components) => {
+            const hasProjectYaml = hasContextYaml(StateMachine.context().projectPath);
+            const matchingComponent = components.find(
+                (item) => platformExtStore.getState().state?.selectedComponent?.metadata?.id === item.metadata?.id
+            );
+            platformExtStore.getState().setState({
+                components,
+                selectedComponent: matchingComponent || components[0],
+                hasPossibleComponent: components.length > 0 || hasProjectYaml,
+            });
+        });
+        platformExt.subscribeContextState((selectedContext) => {
+            platformExtStore.getState().setState({ selectedContext });
+        });
+
+        const debouncedOnFilChange = debounce(async () => {
+            const hasLocalChanges = await platformExt.localRepoHasChanges(StateMachine.context().projectPath);
+            platformExtStore.getState().setState({ hasLocalChanges });
+        }, 2000);
+
+        const fileWatcher = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(StateMachine.context().projectPath, "**/*")
+        );
+        fileWatcher.onDidCreate(debouncedOnFilChange);
+        fileWatcher.onDidChange(debouncedOnFilChange);
+        fileWatcher.onDidDelete(debouncedOnFilChange);
+
+        // todo: move devant related initializers here
+
+        const debouncedRefreshConnectionList = debounce(() => this.refreshConnectionList(), 500);
+
+        platformExtStore.subscribe((state, prevState) => {
+            messenger.sendNotification(
+                onPlatformExtStoreStateChange,
+                { type: "webview", webviewType: VisualizerWebview.viewType },
+                state.state
+            );
+
+            let refetchConnections = false;
+            if (!state.state?.isLoggedIn && prevState?.state?.isLoggedIn) {
+                // if user is logging out
+                // todo: check if this needs to be enabled again
+                // platformExtStore.getState().setState({connections: []});
+            } else if (
+                state.state?.selectedComponent &&
+                state.state?.selectedComponent.metadata?.id !== prevState?.state?.selectedComponent?.metadata?.id
+            ) {
+                // if component selection has changed
+                // todo: remove connections related to previous component
+                // todo: test after applying fix to support multiple components
+                // platformExtStore.getState().setState({connections: platformExtStore.getState().state?.connections?.filter(item=>item.componentId)});
+                refetchConnections = true;
+            } else if (
+                state.state?.selectedContext?.project &&
+                state.state?.selectedContext?.project?.id !== prevState.state?.selectedContext?.project?.id
+            ) {
+                // if project selection has changed
+                platformExtStore.getState().setState({ connections: [] });
+                refetchConnections = true;
+            }
+
+            if (refetchConnections) {
+                debouncedRefreshConnectionList();
+            }
+        });
+    }
+
+    // todo: check and delete unused rpc functions
+    async getMarketplaceItems(params: GetMarketplaceListReq): Promise<MarketplaceListResp> {
+        try {
+            const platformExt = await this.getPlatformExt();
+            return platformExt?.getMarketplaceItems(params);
+        } catch (err) {
+            log(`Failed to invoke getMarketplaceItems: ${err}`);
+        }
+    }
+
+    async getMarketplaceItem(params: GetMarketplaceItemReq): Promise<MarketplaceItem> {
+        try {
+            const platformExt = await this.getPlatformExt();
+            return platformExt?.getMarketplaceItem(params);
+        } catch (err) {
+            log(`Failed to invoke getMarketplaceItem: ${err}`);
+        }
+    }
+
+    async getMarketplaceIdl(params: GetMarketplaceIdlReq): Promise<MarketplaceIdlResp> {
+        try {
+            const platformExt = await this.getPlatformExt();
+            return platformExt?.getMarketplaceIdl(params);
+        } catch (err) {
+            log(`Failed to invoke getMarketplaceIdl: ${err}`);
+        }
+    }
+
+    async getConnections(params: GetConnectionsReq): Promise<ConnectionListItem[]> {
+        try {
+            const platformExt = await this.getPlatformExt();
+            return platformExt?.getConnections(params);
+        } catch (err) {
+            log(`Failed to invoke getConnections: ${err}`);
+        }
+    }
+
+    async getConnection(params: GetConnectionItemReq): Promise<ConnectionDetailed> {
+        try {
+            const platformExt = await this.getPlatformExt();
+            return platformExt?.getConnection(params);
+        } catch (err) {
+            log(`Failed to invoke getConnection: ${err}`);
+        }
+    }
+
+    async deleteLocalConnectionsConfig(params: DeleteLocalConnectionsConfigReq): Promise<void> {
+        try {
+            const platformExt = await this.getPlatformExt();
+            platformExt?.deleteLocalConnectionsConfig(params);
+        } catch (err) {
+            log(`Failed to delete connection config: ${err}`);
+        }
+    }
+
+    async getDevantConsoleUrl(): Promise<string> {
+        try {
+            const platformExt = await this.getPlatformExt();
+            return await platformExt?.getDevantConsoleUrl();
+        } catch (err) {
+            log(`Failed to delete connection config: ${err}`);
+        }
+    }
+
+    async stopProxyServer(params: StopProxyServerReq): Promise<void> {
+        try {
+            const platformExt = await this.getPlatformExt();
+            return platformExt?.stopProxyServer(params);
+        } catch (err) {
+            log(`Failed to delete connection config: ${err}`);
+        }
+    }
+
+    setSelectedComponent(componentId: string): void {
+        const selectedComponent = platformExtStore
+            .getState()
+            .state?.components?.find((item) => item.metadata?.id === componentId);
+        if (selectedComponent) {
+            platformExtStore.getState().setState({ selectedComponent });
+        }
+    }
+
+    setConnectedToDevant(connectedToDevant: boolean): void {
+        platformExtStore.getState().setState({ connectedToDevant });
+    }
+
+    async deployIntegrationInDevant(): Promise<void> {
+        const projectStructure = await new BiDiagramRpcManager().getProjectStructure();
+        if (!projectStructure) {
+            return;
+        }
+
+        const project = projectStructure.projects.find(project => project.projectPath === StateMachine.context()?.projectPath);
+        if (!project) { return; }
+
+        const services = project.directoryMap[DIRECTORY_MAP.SERVICE];
+        const automation = project.directoryMap[DIRECTORY_MAP.AUTOMATION];
+
+        let scopes: DevantScopes[] = [];
+        if (services?.length > 0) {
+            const svcScopes = services
+                .map((svc) => findDevantScopeByModule(svc?.moduleName))
+                .filter((svc) => svc !== undefined);
+            scopes.push(...Array.from(new Set(svcScopes)));
+        }
+        if (automation?.length > 0) {
+            scopes.push(DevantScopes.AUTOMATION);
+        }
+
+        let integrationType: DevantScopes;
+
+        if (scopes.length === 1) {
+            integrationType = scopes[0];
+        } else if (scopes?.length > 1) {
+            const selectedScope = await window.showQuickPick(scopes, {
+                placeHolder:
+                    "You have multiple artifact types within this project. Select the artifact type to be deployed",
+            });
+            if (!selectedScope) {
+                return;
+            }
+            integrationType = selectedScope as DevantScopes;
+        }
+
+        const deployementParams: ICreateComponentCmdParams = {
+            integrationType: integrationType,
+            buildPackLang: "ballerina",
+            name: path.basename(StateMachine.context().projectPath),
+            componentDir: StateMachine.context().projectPath,
+            extName: "Devant",
+        };
+        vscode.commands.executeCommand(PlatformExtCommandIds.CreateNewComponent, deployementParams);
+    }
+
+    async getAllConnections(): Promise<ConnectionListItem[]> {
+        try {
+            const platformExt = await this.getPlatformExt();
+            if (
+                platformExtStore.getState().state.isLoggedIn &&
+                platformExtStore.getState().state.selectedContext?.project?.id
+            ) {
+                const projectPromise = platformExt.getConnections({
+                    orgId: platformExtStore.getState().state.selectedContext?.org?.id?.toString(),
+                    projectId: platformExtStore.getState().state.selectedContext?.project?.id,
+                    componentId: "",
+                });
+
+                const componentPromise: Promise<ConnectionListItem[]> = platformExtStore.getState().state
+                    .selectedComponent
+                    ? platformExt.getConnections({
+                          orgId: platformExtStore.getState().state.selectedContext?.org?.id?.toString(),
+                          projectId: platformExtStore.getState().state.selectedContext?.project?.id,
+                          componentId: platformExtStore.getState().state.selectedComponent?.metadata?.id,
+                      })
+                    : Promise.resolve([]);
+
+                const [projectConnections, componentConnections] = await Promise.all([
+                    projectPromise,
+                    componentPromise,
+                ]);
+
+                return [...componentConnections, ...projectConnections];
+            }
+            return [];
+        } catch (err) {
+            log(`Failed to get all connections: ${err}`);
+        }
+    }
+
+    async setupDevantProxyForDebugging(debugConfig: vscode.DebugConfiguration): Promise<void> {
+        const devantProxyResp = await this.startProxyServer();
+
+        if (devantProxyResp.proxyServerPort) {
+            debugConfig.env = { ...(debugConfig.env || {}), ...devantProxyResp.envVars };
+            if (devantProxyResp.requiresProxy) {
+                (debugConfig.env.BAL_CONFIG_VAR_DEVANTPROXYHOST = "127.0.0.1"),
+                    (debugConfig.env.BAL_CONFIG_VAR_DEVANTPROXYPORT = `${devantProxyResp.proxyServerPort}`);
+            } else {
+                delete debugConfig.env.BAL_CONFIG_VAR_DEVANTPROXYHOST;
+                delete debugConfig.env.BAL_CONFIG_VAR_DEVANTPROXYPORT;
+            }
+
+            const disposable = vscode.debug.onDidTerminateDebugSession((session) => {
+                if (session.configuration === debugConfig) {
+                    this.stopProxyServer({ proxyPort: devantProxyResp.proxyServerPort });
+                    disposable.dispose();
+                }
+            });
+        }
+    }
+
+    async startProxyServer(): Promise<StartProxyServerResp & { requiresProxy: boolean }> {
+        // todo: need to take in params from config
+        try {
+            const platformExt = await this.getPlatformExt();
+            const configBalFile = path.join(StateMachine.context().projectPath, "config.bal");
+            const configBalFileUri = Uri.file(configBalFile);
+            const syntaxTree = (await StateMachine.context().langClient.getSyntaxTree({
+                documentIdentifier: { uri: configBalFileUri.toString() },
+            })) as SyntaxTree;
+            let requiresProxy = false;
+            if (
+                (syntaxTree?.syntaxTree as ModulePart)?.members?.find(
+                    (member) =>
+                        STKindChecker.isModuleVarDecl(member) &&
+                        (member.typedBindingPattern?.bindingPattern as CaptureBindingPattern)?.variableName?.value ===
+                            "devantProxyConfig"
+                )
+            ) {
+                requiresProxy = true;
+            }
+            if (
+                platformExtStore.getState().state?.isLoggedIn &&
+                platformExtStore.getState().state?.selectedContext?.org &&
+                platformExtStore.getState().state?.selectedContext?.project &&
+                platformExtStore.getState().state?.connections?.filter((item) => item.isUsed)?.length > 0 &&
+                platformExtStore.getState().state?.connectedToDevant
+            ) {
+                // TODO: need to check whether at least one devant connection being used
+                const resp = await window.withProgress(
+                    {
+                        location: vscode.ProgressLocation.Notification,
+                        title: "Connecting to Devant before running/debugging the application...",
+                    },
+                    () =>
+                        platformExt?.startProxyServer({
+                            orgId: platformExtStore.getState().state?.selectedContext?.org?.id?.toString(),
+                            project: platformExtStore.getState().state?.selectedContext?.project?.id,
+                            component: platformExtStore.getState().state?.selectedComponent?.metadata?.id || "",
+                        })
+                );
+                return { ...resp, requiresProxy };
+            }
+            return { envVars: {}, proxyServerPort: 0, requiresProxy };
+        } catch (err) {
+            log(`Failed to delete connection config: ${err}`);
+            return { envVars: {}, proxyServerPort: 0, requiresProxy: false };
+        }
+    }
+
+    async deleteBiDevantConnection(params: DeleteBiDevantConnectionReq): Promise<void> {
+        try {
+            StateMachine.setEditMode();
+            const platformExt = await this.getPlatformExt();
+            const syntaxTree = (await StateMachine.context().langClient.getSyntaxTree({
+                documentIdentifier: { uri: Uri.file(params.filePath).toString() },
+            })) as SyntaxTree;
+
+            const matchingConnection = (syntaxTree.syntaxTree as ModulePart)?.members?.find((member) => {
+                return (
+                    member.position?.startLine === params?.startLine &&
+                    member.position?.startColumn === params?.startColumn &&
+                    member.position?.endLine === params?.endLine &&
+                    member.position?.endColumn === params?.endColumn
+                );
+            });
+
+            if (matchingConnection) {
+                const moduleName: string = (matchingConnection as ModuleVarDecl)?.initializer?.typeData?.typeSymbol
+                    ?.moduleID?.moduleName;
+                const balPackage = StateMachine.context().package;
+                const tomlValues = await new CommonRpcManager().getCurrentProjectTomlValues();
+                const matchingTomlEntry = tomlValues?.tool?.openapi?.find(
+                    (item) => `${balPackage}.${item.targetModule}` === moduleName
+                );
+                if (matchingTomlEntry && matchingTomlEntry?.remoteConnection) {
+                    const updatedToml: PackageTomlValues = {
+                        ...tomlValues,
+                        tool: {
+                            ...tomlValues?.tool,
+                            openapi: tomlValues.tool?.openapi?.filter(
+                                (item) => `${balPackage}.${item.targetModule}` !== moduleName
+                            ),
+                        },
+                    };
+
+                    const projectPath = StateMachine.context().projectPath;
+                    const balTomlPath = path.join(projectPath, "Ballerina.toml");
+                    const updatedTomlContent = toml.stringify(JSON.parse(JSON.stringify(updatedToml)));
+                    fs.writeFileSync(balTomlPath, updatedTomlContent, "utf-8");
+
+                    const devantUrl = await this.getDevantConsoleUrl();
+                    if (!platformExtStore.getState().state?.isLoggedIn) {
+                        window
+                            .showErrorMessage(
+                                "Unable to delete Devant connection as you are not logged into Devant. please head over to Devant console to delete the Devant connection",
+                                "Open Devant"
+                            )
+                            .then((resp) => {
+                                if (resp === "Open Devant") {
+                                    vscode.env.openExternal(Uri.parse(devantUrl));
+                                }
+                            });
+                        StateMachine.setReadyMode();
+                        return;
+                    }
+                    const selected = platformExtStore.getState().state?.selectedContext;
+                    const matchingConnListItem = platformExtStore
+                        .getState()
+                        .state?.connections.find((connItem) => connItem.name === matchingTomlEntry?.remoteConnection);
+                    if (matchingConnListItem) {
+                        await this.deleteLocalConnectionsConfig({
+                            componentDir: projectPath,
+                            connectionName: matchingTomlEntry?.remoteConnection,
+                        });
+                        if (matchingConnListItem?.componentId) {
+                            await platformExt.deleteConnection({
+                                componentPath: projectPath,
+                                connectionId: matchingConnListItem.groupUuid,
+                                connectionName: matchingConnListItem.name,
+                                orgId: selected.org.id.toString(),
+                            });
+                        } else {
+                            window
+                                .showInformationMessage(
+                                    "In-order to delete your project level Devant connection, please head over to Devant console",
+                                    "Open Devant"
+                                )
+                                .then((resp) => {
+                                    if (resp === "Open Devant") {
+                                        vscode.env.openExternal(
+                                            Uri.parse(
+                                                `${devantUrl}/organizations/${selected.org.handle}/projects/${selected.project.id}/admin/connections`
+                                            )
+                                        );
+                                    }
+                                });
+                        }
+                    }
+                }
+            }
+
+            this.refreshConnectionList();
+            StateMachine.setReadyMode();
+        } catch (err) {
+            StateMachine.setReadyMode();
+            window.showErrorMessage("Failed to delete Devant connection");
+            log(`Failed to invoke deleteDevantConnection: ${err}`);
+        }
+    }
+
+    async importDevantComponentConnection(params: ImportDevantConnectionReq): Promise<ImportDevantConnectionResp> {
+        try {
+            const platformExt = await this.getPlatformExt();
+            StateMachine.setEditMode();
+
+            let visibility: ServiceInfoVisibilityEnum = ServiceInfoVisibilityEnum.Public;
+            if (params.connectionListItem?.schemaName?.toLowerCase()?.includes("organization")) {
+                visibility = ServiceInfoVisibilityEnum.Organization;
+            } else if (params.connectionListItem?.schemaName?.toLowerCase()?.includes("project")) {
+                visibility = ServiceInfoVisibilityEnum.Project;
+            }
+
+            const connectionItem = await this.getConnection({
+                orgId: platformExtStore.getState().state?.selectedContext?.org?.id?.toString(),
+                connectionGroupId: params.connectionListItem?.groupUuid,
+            });
+
+            const marketplaceItem = await this.getMarketplaceItem({
+                orgId: platformExtStore.getState().state?.selectedContext?.org?.id?.toString(),
+                serviceId: params?.connectionListItem?.serviceId,
+            });
+
+            const resp = await initializeDevantConnection({
+                platformExt,
+                name: params.connectionListItem.name,
+                marketplaceItem: marketplaceItem,
+                visibility: visibility,
+                configurations: connectionItem?.configurations,
+                securityType: params.connectionListItem?.schemaName?.toLowerCase()?.includes("oauth")
+                    ? "oauth"
+                    : "apikey",
+            });
+
+            StateMachine.setReadyMode();
+            this.refreshConnectionList();
+            return { connectionName: resp.connectionName };
+        } catch (err) {
+            StateMachine.setReadyMode();
+            window.showErrorMessage("Failed to import Devant connection");
+            log(`Failed to invoke importDevantComponentConnection: ${err}`);
+        }
+    }
+
+    async createDevantComponentConnection(params: CreateDevantConnectionReq): Promise<CreateDevantConnectionResp> {
+        try {
+            const platformExt = await this.getPlatformExt();
+            StateMachine.setEditMode();
+            const projectPath = StateMachine.context().projectPath;
+            const isProjectLevel =
+                !!!platformExtStore.getState().state?.selectedComponent?.metadata?.id || params?.params?.isProjectLevel;
+
+            const createdConnection = await platformExt?.createComponentConnection({
+                componentId: isProjectLevel ? "" : platformExtStore.getState().state?.selectedComponent?.metadata?.id,
+                name: params.params.name,
+                orgId: platformExtStore.getState().state?.selectedContext?.org.id?.toString(),
+                orgUuid: platformExtStore.getState().state?.selectedContext?.org?.uuid,
+                projectId: platformExtStore.getState().state?.selectedContext?.project.id,
+                serviceSchemaId: params.params.schemaId,
+                serviceId: params.marketplaceItem.serviceId,
+                serviceVisibility: params.params.visibility!,
+                componentType: isProjectLevel
+                    ? "non-component"
+                    : getTypeForDisplayType(platformExtStore.getState().state?.selectedComponent?.spec?.type),
+                componentPath: projectPath,
+                generateCreds: true,
+            });
+
+            const resp = await initializeDevantConnection({
+                platformExt,
+                name: params.params.name,
+                marketplaceItem: params.marketplaceItem,
+                visibility: params.params.visibility!,
+                configurations: createdConnection.configurations,
+                securityType: createdConnection?.schemaName?.toLowerCase()?.includes("oauth") ? "oauth" : "apikey",
+            });
+
+            StateMachine.setReadyMode();
+            this.refreshConnectionList();
+            return { connectionName: resp.connectionName };
+        } catch (err) {
+            StateMachine.setReadyMode();
+            window.showErrorMessage("Failed to create Devant connection");
+            log(`Failed to invoke createDevantComponentConnection: ${err}`);
+        }
+    }
+
+    async refreshConnectionList(): Promise<void> {
+        try {
+            const platformExt = await this.getPlatformExt();
+            const connections = await this.getAllConnections();
+            const tomlValues = await new CommonRpcManager().getCurrentProjectTomlValues();
+            const connectionsUsed = connections.map((connItem) => ({
+                ...connItem,
+                isUsed: tomlValues?.tool?.openapi?.some((apiItem) => apiItem.remoteConnection === connItem.name),
+            }));
+            platformExtStore.getState().setState({ connections: connectionsUsed });
+        } catch (err) {
+            log(`Failed to refresh connection list: ${err}`);
+        }
+    }
+}

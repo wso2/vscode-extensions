@@ -31,11 +31,14 @@ import type {
 	DeploymentLogsData,
 	DeploymentTrack,
 	Environment,
+	GitRepoMetadata,
+	GithubOrganization,
 	MarketplaceItem,
 	Pagination,
 	Project,
 	ProjectBuildLogsData,
 	ProxyDeploymentInfo,
+	SubscriptionItem,
 } from "./common.types";
 import type { InboundConfig } from "./config-file.types";
 
@@ -52,6 +55,11 @@ export interface GetBranchesReq {
 export interface GetCredentialsReq {
 	orgId: string;
 	orgUuid: string;
+}
+export interface GetCredentialDetailsReq {
+	orgId: string;
+	orgUuid: string;
+	credentialId: string;
 }
 export interface IsRepoAuthorizedReq {
 	orgId: string;
@@ -250,6 +258,11 @@ export interface GetMarketplaceListReq {
 	request: GetMarketplaceItemsParams;
 }
 
+export interface GetMarketplaceItemReq {
+	orgId: string;
+	serviceId: string;
+}
+
 export interface GetMarketplaceIdlReq {
 	orgId: string;
 	serviceId: string;
@@ -385,6 +398,10 @@ export interface GetBuildLogsReq {
 	displayType: string;
 	projectId: string;
 	buildId: number;
+	orgUuid: string;
+	buildRef: string;
+	deploymentTrackId: string;
+	clusterId: string;
 }
 
 export interface GetBuildLogsForTypeReq {
@@ -392,6 +409,76 @@ export interface GetBuildLogsForTypeReq {
 	componentId: string;
 	logType: string;
 	buildId: number;
+}
+
+export interface GetSubscriptionsReq {
+	orgId: string;
+	cloudType?: string;
+}
+
+export interface UpdateCodeServerReq {
+	orgId: string;
+	orgUuid: string;
+	orgHandle: string;
+	projectId: string;
+	componentId: string;
+	sourceCommitHash: string;
+}
+
+export interface GetGitTokenForRepositoryReq {
+	orgId: string;
+	gitOrg: string;
+	gitRepo: string;
+	secretRef: string;
+}
+
+export interface GetGitTokenForRepositoryResp {
+	token: string;
+	gitOrganization: string;
+	gitRepository: string;
+	vendor: string;
+	username: string;
+	serverUrl: string;
+}
+
+export interface GetGitMetadataReq {
+	orgId: string;
+	gitOrgName: string;
+	gitRepoName: string;
+	branch: string;
+	relativePath: string;
+	secretRef: string;
+}
+
+export interface GetGitMetadataResp {
+	metadata: GitRepoMetadata;
+}
+
+export interface SubscriptionsResp {
+	count: number;
+	list: SubscriptionItem[];
+	cloudType: string;
+	emailType: string;
+}
+
+export interface GetAuthorizedGitOrgsReq {
+	orgId: string;
+	credRef: string;
+}
+
+export interface GetAuthorizedGitOrgsResp {
+	gitOrgs: GithubOrganization[];
+}
+
+export interface GetCliRpcResp {
+	billingConsoleUrl: string;
+	choreoConsoleUrl: string;
+	devantConsoleUrl: string;
+	ghApp: {
+		installUrl: string;
+		authUrl: string;
+		clientId: string;
+	};
 }
 
 export interface IChoreoRPCClient {
@@ -405,7 +492,9 @@ export interface IChoreoRPCClient {
 	getBuildPacks(params: BuildPackReq): Promise<Buildpack[]>;
 	getRepoBranches(params: GetBranchesReq): Promise<string[]>;
 	isRepoAuthorized(params: IsRepoAuthorizedReq): Promise<IsRepoAuthorizedResp>;
+	getAuthorizedGitOrgs(params: GetAuthorizedGitOrgsReq): Promise<GetAuthorizedGitOrgsResp>;
 	getCredentials(params: GetCredentialsReq): Promise<CredentialItem[]>;
+	getCredentialDetails(params: GetCredentialDetailsReq): Promise<CredentialItem>;
 	deleteComponent(params: DeleteCompReq): Promise<void>;
 	getBuilds(params: GetBuildsReq): Promise<BuildKind[]>;
 	createBuild(params: CreateBuildReq): Promise<BuildKind>;
@@ -419,7 +508,7 @@ export interface IChoreoRPCClient {
 	getMarketplaceItems(params: GetMarketplaceListReq): Promise<MarketplaceListResp>;
 	getMarketplaceIdl(params: GetMarketplaceIdlReq): Promise<MarketplaceIdlResp>;
 	getConnections(params: GetConnectionsReq): Promise<ConnectionListItem[]>;
-	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionListItem>;
+	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionDetailed>;
 	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed>;
 	deleteConnection(params: DeleteConnectionReq): Promise<void>;
 	getConnectionGuide(params: GetConnectionGuideReq): Promise<GetConnectionGuideResp>;
@@ -433,6 +522,9 @@ export interface IChoreoRPCClient {
 	cancelApprovalRequest(params: CancelApprovalReq): Promise<void>;
 	requestPromoteApproval(params: RequestPromoteApprovalReq): Promise<void>;
 	promoteProxyDeployment(params: PromoteProxyDeploymentReq): Promise<void>;
+	getSubscriptions(params: GetSubscriptionsReq): Promise<SubscriptionsResp>;
+	getGitTokenForRepository(params: GetGitTokenForRepositoryReq): Promise<GetGitTokenForRepositoryResp>;
+	getGitRepoMetadata(params: GetGitMetadataReq): Promise<GetGitMetadataResp>;
 }
 
 export class ChoreoRpcWebview implements IChoreoRPCClient {
@@ -462,8 +554,14 @@ export class ChoreoRpcWebview implements IChoreoRPCClient {
 	isRepoAuthorized(params: IsRepoAuthorizedReq): Promise<IsRepoAuthorizedResp> {
 		return this._messenger.sendRequest(ChoreoRpcIsRepoAuthorizedRequest, HOST_EXTENSION, params);
 	}
+	getAuthorizedGitOrgs(params: GetAuthorizedGitOrgsReq): Promise<GetAuthorizedGitOrgsResp> {
+		return this._messenger.sendRequest(ChoreoRpcGetAuthorizedGitOrgsRequest, HOST_EXTENSION, params);
+	}
 	getCredentials(params: GetCredentialsReq): Promise<CredentialItem[]> {
 		return this._messenger.sendRequest(ChoreoRpcGetCredentialsRequest, HOST_EXTENSION, params);
+	}
+	getCredentialDetails(params: GetCredentialDetailsReq): Promise<CredentialItem> {
+		return this._messenger.sendRequest(ChoreoRpcGetCredentialDetailsRequest, HOST_EXTENSION, params);
 	}
 	deleteComponent(params: DeleteCompReq): Promise<void> {
 		return this._messenger.sendRequest(ChoreoRpcDeleteComponentRequest, HOST_EXTENSION, params);
@@ -507,7 +605,7 @@ export class ChoreoRpcWebview implements IChoreoRPCClient {
 	getConnections(params: GetConnectionsReq): Promise<ConnectionListItem[]> {
 		return this._messenger.sendRequest(ChoreoRpcGetConnections, HOST_EXTENSION, params);
 	}
-	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionListItem> {
+	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionDetailed> {
 		return this._messenger.sendRequest(ChoreoRpcGetConnectionItem, HOST_EXTENSION, params);
 	}
 	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed> {
@@ -549,6 +647,15 @@ export class ChoreoRpcWebview implements IChoreoRPCClient {
 	promoteProxyDeployment(params: PromoteProxyDeploymentReq): Promise<void> {
 		return this._messenger.sendRequest(ChoreoRpcPromoteProxyDeployment, HOST_EXTENSION, params);
 	}
+	getSubscriptions(params: GetSubscriptionsReq): Promise<SubscriptionsResp> {
+		return this._messenger.sendRequest(ChoreoRpcGetSubscriptions, HOST_EXTENSION, params);
+	}
+	getGitTokenForRepository(params: GetGitTokenForRepositoryReq): Promise<GetGitTokenForRepositoryResp> {
+		return this._messenger.sendRequest(ChoreoRpcGetGitTokenForRepository, HOST_EXTENSION, params);
+	}
+	getGitRepoMetadata(params: GetGitMetadataReq): Promise<GetGitMetadataResp> {
+		return this._messenger.sendRequest(ChoreoRpcGetGitRepoMetadata, HOST_EXTENSION, params);
+	}
 }
 
 export const ChoreoRpcGetProjectsRequest: RequestType<string, Project[]> = { method: "rpc/project/getProjects" };
@@ -559,7 +666,11 @@ export const ChoreoRpcCreateComponentRequest: RequestType<CreateComponentReq, Co
 export const ChoreoRpcGetBuildPacksRequest: RequestType<BuildPackReq, Buildpack[]> = { method: "rpc/component/getBuildPacks" };
 export const ChoreoRpcGetBranchesRequest: RequestType<GetBranchesReq, string[]> = { method: "rpc/repo/getBranches" };
 export const ChoreoRpcIsRepoAuthorizedRequest: RequestType<IsRepoAuthorizedReq, IsRepoAuthorizedResp> = { method: "rpc/repo/isRepoAuthorized" };
+export const ChoreoRpcGetAuthorizedGitOrgsRequest: RequestType<GetAuthorizedGitOrgsReq, GetAuthorizedGitOrgsResp> = {
+	method: "rpc/repo/getAuthorizedGitOrgs",
+};
 export const ChoreoRpcGetCredentialsRequest: RequestType<GetCredentialsReq, CredentialItem[]> = { method: "rpc/repo/getCredentials" };
+export const ChoreoRpcGetCredentialDetailsRequest: RequestType<GetCredentialDetailsReq, CredentialItem> = { method: "rpc/repo/getCredentialDetails" };
 export const ChoreoRpcDeleteComponentRequest: RequestType<DeleteCompReq, void> = { method: "rpc/component/delete" };
 export const ChoreoRpcCreateBuildRequest: RequestType<CreateBuildReq, BuildKind> = { method: "rpc/build/create" };
 export const ChoreoRpcGetDeploymentTracksRequest: RequestType<GetDeploymentTracksReq, DeploymentTrack[]> = {
@@ -584,7 +695,7 @@ export const ChoreoRpcGetMarketplaceItemIdl: RequestType<GetMarketplaceIdlReq, M
 export const ChoreoRpcGetConnections: RequestType<GetConnectionsReq, ConnectionListItem[]> = {
 	method: "rpc/connections/getConnections",
 };
-export const ChoreoRpcGetConnectionItem: RequestType<GetConnectionItemReq, ConnectionListItem> = {
+export const ChoreoRpcGetConnectionItem: RequestType<GetConnectionItemReq, ConnectionDetailed> = {
 	method: "rpc/connections/getConnectionItem",
 };
 export const ChoreoRpcCreateComponentConnection: RequestType<CreateComponentConnectionReq, ConnectionDetailed> = {
@@ -611,4 +722,13 @@ export const ChoreoRpcRequestPromoteApproval: RequestType<RequestPromoteApproval
 };
 export const ChoreoRpcPromoteProxyDeployment: RequestType<PromoteProxyDeploymentReq, void> = {
 	method: "rpc/deployment/promoteProxy",
+};
+export const ChoreoRpcGetSubscriptions: RequestType<GetSubscriptionsReq, SubscriptionsResp> = {
+	method: "rpc/auth/getSubscriptions",
+};
+export const ChoreoRpcGetGitTokenForRepository: RequestType<GetGitTokenForRepositoryReq, GetGitTokenForRepositoryResp> = {
+	method: "rpc/repo/gitTokenForRepository",
+};
+export const ChoreoRpcGetGitRepoMetadata: RequestType<GetGitMetadataReq, GetGitMetadataResp> = {
+	method: "rpc/repo/getRepoMetadata",
 };

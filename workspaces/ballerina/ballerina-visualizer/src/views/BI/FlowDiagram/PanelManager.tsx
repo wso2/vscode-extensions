@@ -40,6 +40,7 @@ import { FormSubmitOptions } from ".";
 import { ConnectionConfig, ConnectionCreator, ConnectionSelectionList, ConnectionKind } from "../../../components/ConnectionSelector";
 import { RelativeLoader } from "../../../components/RelativeLoader";
 import { LoaderContainer } from "../../../components/RelativeLoader/styles";
+import { ConnectionListItem } from "@wso2/wso2-platform-core";
 
 const Container = styled.div`
     display: flex;
@@ -143,6 +144,10 @@ interface PanelManagerProps {
     onAddMcpServer?: (node: FlowNode) => void;
     onSelectNewConnection?: (nodeId: string, metadata?: any) => void;
     onUpdateNodeWithConnection?: (selectedNode: FlowNode) => void;
+
+    // Devant handlers
+    onImportDevantConn?: (devantConn: ConnectionListItem) => void
+    onLinkDevantProject?: () => void;
 }
 
 export function PanelManager(props: PanelManagerProps) {
@@ -197,7 +202,8 @@ export function PanelManager(props: PanelManagerProps) {
         onSelectNewConnection,
         onUpdateNodeWithConnection,
         onNavigateToPanel,
-        onChangeSelectedNode
+        onImportDevantConn,
+        onLinkDevantProject
     } = props;
 
     const handleOnBackToAddTool = () => {
@@ -243,6 +249,8 @@ export function PanelManager(props: PanelManagerProps) {
                         onSelect={onSelectNode}
                         onAddConnection={onAddConnection}
                         onClose={onClose}
+                        onImportDevantConn={onImportDevantConn}
+                        onLinkDevantProject={onLinkDevantProject}
                     />
                 );
 

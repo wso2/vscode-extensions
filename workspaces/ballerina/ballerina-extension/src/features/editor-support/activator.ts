@@ -17,7 +17,7 @@
  */
 
 import { isSupportedVersion, VERSION } from "../../utils";
-import { commands, debug, DebugConfiguration, Uri, window, workspace, WorkspaceFolder } from "vscode";
+import { commands, debug, DebugConfiguration, ProgressLocation, Uri, window, workspace, WorkspaceFolder } from "vscode";
 import { BallerinaExtension } from "../../core";
 import { ReadOnlyContentProvider } from "./readonly-content-provider";
 import * as gitStatus from "./git-status";
@@ -25,6 +25,7 @@ import { INTERNAL_DEBUG_COMMAND, clearTerminal, FOCUS_DEBUG_CONSOLE_COMMAND, SOU
 import { sendTelemetryEvent, TM_EVENT_SOURCE_DEBUG_CODELENS, CMP_EXECUTOR_CODELENS, TM_EVENT_TEST_DEBUG_CODELENS } from "../telemetry";
 import { constructDebugConfig } from "../debugger";
 import { StringSplitFeature, StringSplitter } from "./split-provider";
+import { PlatformExtRpcManager } from "../../rpc-managers/platform-ext/rpc-manager";
 
 export function activate(ballerinaExtInstance: BallerinaExtension) {
     if (!ballerinaExtInstance.context || !ballerinaExtInstance.langClient) {
@@ -71,12 +72,13 @@ export function activate(ballerinaExtInstance: BallerinaExtension) {
     }
 }
 
-
 export async function startDebugging(uri: Uri, testDebug: boolean = false, suggestTryit: boolean = false, noDebugMode: boolean = false): Promise<boolean> {
     const workspaceFolder: WorkspaceFolder | undefined = workspace.getWorkspaceFolder(uri);
     const debugConfig: DebugConfiguration = await constructDebugConfig(uri, testDebug);
     debugConfig.suggestTryit = suggestTryit;
     debugConfig.noDebug = noDebugMode;
+
+    await new PlatformExtRpcManager().setupDevantProxyForDebugging(debugConfig);
 
     return debug.startDebugging(workspaceFolder, debugConfig);
 }

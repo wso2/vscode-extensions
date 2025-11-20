@@ -17,17 +17,61 @@
  */
 
 import type { DeploymentStatus } from "../enums";
-import type { ContextStoreState, WebviewState } from "./store.types";
+import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq, GetConnectionsReq, DeleteConnectionReq, GetMarketplaceItemReq, GetConnectionItemReq, GetProjectEnvsReq } from "./cli-rpc.types";
+import { CreateLocalConnectionsConfigReq, DeleteLocalConnectionsConfigReq } from "./messenger-rpc.types";
+import type { AuthState, ContextItemEnriched, ContextStoreState, WebviewState } from "./store.types";
 
 export type ExtensionName = "WSO2" | "Choreo" | "Devant";
 
 export interface IWso2PlatformExtensionAPI {
+	waitUntilInitialized(): Promise<boolean>;
 	isLoggedIn(): boolean;
 	getDirectoryComponents(fsPath: string): ComponentKind[];
 	localRepoHasChanges(fsPath: string): Promise<boolean>;
 	getWebviewStateStore(): WebviewState;
 	getContextStateStore(): ContextStoreState;
 	openClonedDir(params: openClonedDirReq): Promise<void>;
+	getStsToken(): Promise<string>;
+	getMarketplaceItems(params: GetMarketplaceListReq): Promise<MarketplaceListResp>;
+	getMarketplaceItem(params: GetMarketplaceItemReq): Promise<MarketplaceItem>;
+	getSelectedContext(): ContextItemEnriched | null;
+	getMarketplaceIdl(params: GetMarketplaceIdlReq): Promise<MarketplaceIdlResp>;
+	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed>;
+	createConnectionConfig: (params: CreateLocalConnectionsConfigReq) => Promise<string>;
+	getConnections: (params: GetConnectionsReq) => Promise<ConnectionListItem[]>;
+	getConnection: (params: GetConnectionItemReq) => Promise<ConnectionDetailed>;
+	deleteConnection: (params: DeleteConnectionReq) => Promise<void>;
+	deleteLocalConnectionsConfig: (params: DeleteLocalConnectionsConfigReq) => void;
+	getDevantConsoleUrl: () => Promise<string>;
+	getProjectEnvs: (params: GetProjectEnvsReq)=> Promise<Environment[]>
+	startProxyServer: (params: StartProxyServerReq) => Promise<StartProxyServerResp>;
+	stopProxyServer: (params: StopProxyServerReq) => Promise<void>;
+
+	// Auth Subscription
+	subscribeAuthState(callback: (state: AuthState)=>void): void;
+	subscribeIsLoggedIn(callback: (isLoggedIn: boolean)=>void): void;
+
+	// Context Subscription
+	subscribeDirComponents(fsPath: string, callback: (comps: ComponentKind[])=>void): void;
+	subscribeContextState(callback: (state: ContextItemEnriched | undefined)=>void): void;
+}
+
+export interface StartProxyServerReq {
+	orgId: string;
+	project: string;
+	component?: string;
+	env?: string;
+	skipConnection?: string[];
+}
+
+
+export interface StartProxyServerResp {
+	proxyServerPort: number;
+	envVars: { [key: string]: string };
+}
+
+export interface StopProxyServerReq {
+	proxyPort: number;
 }
 
 export interface openClonedDirReq {
@@ -67,6 +111,7 @@ export interface ComponentKindSource {
 	bitbucket?: ComponentKindGitProviderSource;
 	github?: ComponentKindGitProviderSource;
 	gitlab?: ComponentKindGitProviderSource;
+	secretRef?: string;
 }
 
 export interface ComponentKindBuildDocker {
@@ -172,6 +217,8 @@ export interface BuildKind {
 		completedAt: string;
 		images: { id: string; createdAt: string; updatedAt: string }[];
 		gitCommit: { message: string; author: string; date: string; email: string };
+		clusterId: string;
+		buildRef: string;
 	};
 }
 
@@ -264,6 +311,7 @@ export interface Environment {
 	apimSandboxEnvId?: string;
 	apimEnvId?: string;
 	isMigrating: boolean;
+	templateId: string;
 }
 
 export interface ComponentEP {
@@ -421,21 +469,24 @@ export interface ConnectionListItem extends ConnectionBase {
 	resourceType: string;
 }
 
-export interface ConnectionDetailed {
-	configurations: {
-		[id: string]: {
-			environmentUuid: string;
-			entries: {
-				[entryName: string]: {
-					key: string;
-					keyUuid: string;
-					value: string;
-					isSensitive: boolean;
-					isFile: boolean;
-				};
+export interface ConnectionConfigurations {
+	[id: string]: {
+		environmentUuid: string;
+		entries: {
+			[entryName: string]: {
+				key: string;
+				keyUuid: string;
+				value: string;
+				isSensitive: boolean;
+				isFile: boolean;
+				envVariableName: string;
 			};
 		};
 	};
+}
+
+export interface ConnectionDetailed extends ConnectionListItem{
+	configurations: ConnectionConfigurations;
 	envMapping: object;
 	visibilities: {
 		organizationUuid: string;
@@ -548,4 +599,45 @@ export interface CredentialItem {
 	organizationUuid: string;
 	type: string;
 	referenceToken: string;
+	serverUrl: string;
+}
+
+export interface SubscriptionItem {
+	subscriptionId: string;
+	tierId: string;
+	supportPlanId: string;
+	cloudType: string;
+	subscriptionType: string;
+	subscriptionBillingProvider: string;
+	subscriptionBillingProviderStatus: string;
+}
+
+export interface GithubRepository {
+	name: string;
+}
+
+export interface GithubOrganization {
+	orgName: string;
+	orgHandler: string;
+	repositories: GithubRepository[];
+}
+
+export interface GitRepoMetadata {
+	isBareRepo: boolean;
+	isSubPathEmpty: boolean;
+	isSubPathValid: boolean;
+	isValidRepo: boolean;
+	hasBallerinaTomlInPath: boolean;
+	hasBallerinaTomlInRoot: boolean;
+	isDockerfilePathValid: boolean;
+	hasDockerfileInPath: boolean;
+	isDockerContextPathValid: boolean;
+	isOpenApiFilePathValid: boolean;
+	hasOpenApiFileInPath: boolean;
+	hasPomXmlInPath: boolean;
+	hasPomXmlInRoot: boolean;
+	isBuildpackPathValid: boolean;
+	isTestRunnerPathValid: boolean;
+	isProcfileExists: boolean;
+	isEndpointYamlExists: boolean;
 }

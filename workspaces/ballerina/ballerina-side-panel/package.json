@@ -28,6 +28,7 @@
         "lodash": "~4.17.21",
         "react-hook-form": "7.56.4",
         "react-markdown": "~10.1.0",
+        "@wso2/wso2-platform-core": "workspace:*",
         "@github/markdown-toolbar-element": "^2.2.3",
         "@codemirror/commands": "~6.10.0",
         "@codemirror/state": "~6.5.2",
