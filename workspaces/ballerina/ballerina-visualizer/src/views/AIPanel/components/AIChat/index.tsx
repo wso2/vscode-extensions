@@ -842,7 +842,7 @@ const AIChat: React.FC = () => {
                     const requestId = await rpcClient.getAiPanelRpcClient().getrequestId();
                     if (requestId) {
                         // Call telemetry RPC method
-                        await rpcClient.getAiPanelRpcClient().logAddToIntegrationTelemetry({
+                        await rpcClient.getAiPanelRpcClient().addToIntegrationTelemetry({
                             requestId,
                             fileCount: fileChanges.length
                         });

@@ -85,5 +85,5 @@ export interface AIPanelAPI {
     isUserAuthenticated: () => Promise<boolean>;
     getrequestId: () => Promise<string>;
     createrequestId: () => Promise<string>;
-    logAddToIntegrationTelemetry: (params: { requestId: string; fileCount: number }) => void;
+    addToIntegrationTelemetry: (params: { requestId: string; fileCount: number }) => void;
 }

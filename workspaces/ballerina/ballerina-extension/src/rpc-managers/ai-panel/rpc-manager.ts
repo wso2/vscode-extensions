@@ -719,7 +719,7 @@ export class AiPanelRpcManager implements AIPanelAPI {
         return await chatService.createrequestId();
     }
 
-    async logAddToIntegrationTelemetry(params: { requestId: string; fileCount: number }): Promise<void> {
+    async addToIntegrationTelemetry(params: { requestId: string; fileCount: number }): Promise<void> {
         AITelemetryService.addToIntegration(
             extension.ballerinaExtInstance,
             params.requestId,
