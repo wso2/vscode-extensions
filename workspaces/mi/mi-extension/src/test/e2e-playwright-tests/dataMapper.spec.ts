@@ -190,6 +190,21 @@ export default function createTests() {
       await dm.mapFields('input.iObjProp.op2', 'objectOutput.oObjProp.p2');
       await dmWebView.getByTestId('link-from-input.iObjProp.op2.OUT-to-objectOutput.oObjProp.p2.IN').waitFor({ state: 'attached' });
 
+      console.log('- Test custom function');
+      // custom function mapping
+      // objectOutput.oCustomFn = input.iCustomFn;
+      await dm.mapFields('input.iCustomFn', 'objectOutput.oCustomFn', 'menu-item-o2o-func');
+
+      await dmWebView.getByTestId('link-from-input.iCustomFn.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
+      await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.oCustomFn.IN').waitFor({ state: 'attached' });
+      await dmWebView.getByTestId('link-connector-node-objectOutput.oCustomFn.IN').waitFor();
+
+      const editorTab = page.page.getByRole('tab', { name: `${dmName}.ts, Editor Group` });
+      await editorTab.waitFor({ state: 'attached' });
+
+      await editorTab.locator('.codicon-close').click();
+      await editorTab.waitFor({ state: 'detached' });
+
       console.log('- Test expression bar');
 
       // expression bar - use function
@@ -226,22 +241,6 @@ export default function createTests() {
       await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.oObjProp.p1.IN').waitFor({ state: 'attached' });
       await dmWebView.getByTestId('link-connector-node-objectOutput.oObjProp.p1.IN').waitFor();
 
-
-      // console.log('- Test custom function');
-      // custom function mapping
-      // objectOutput.oCustomFn = input.iCustomFn;
-      // await dm.mapFields('input.iCustomFn', 'objectOutput.oCustomFn', 'menu-item-o2o-func');
-
-      // await dmWebView.getByTestId('link-from-input.iCustomFn.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
-      // await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-objectOutput.oCustomFn.IN').waitFor({ state: 'attached' });
-      // await dmWebView.getByTestId('link-connector-node-objectOutput.oCustomFn.IN').waitFor();
-
-      // const editorTab = page.page.getByRole('tab', { name: `${dmName}.ts, Editor Group` });
-      // await editorTab.waitFor({ state: 'attached' });
-
-      // await editorTab.locator('.codicon-close').click();
-      // await editorTab.waitFor({ state: 'detached' });
-
       expect(dm.verifyTsFileContent(path.join('basic', 'map.ts'))).toBeTruthy();
 
 
@@ -257,17 +256,17 @@ export default function createTests() {
         .locator('.codicon-trash').click({ force: true });
       await loc1.waitFor({ state: 'detached' });
 
-      await loc2.locator('.codicon-trash').click({ force: true });
-      await loc2.waitFor({ state: 'detached' });
+      // await loc2.locator('.codicon-trash').click({ force: true });
+      // await loc2.waitFor({ state: 'detached' });
 
-      const loc3_ = dmWebView.getByTestId('link-from-input.iManyOne3.OUT-to-datamapper-intermediate-port');
-      await loc3_.click({ force: true });
-      await dmWebView.locator('div[data-testid^="sub-link-label-for-input.iManyOne3.OUT-to-"]')
-        .locator('.codicon-trash').click({ force: true });
-      await loc3_.waitFor({ state: 'detached' });
+      // const loc3_ = dmWebView.getByTestId('link-from-input.iManyOne3.OUT-to-datamapper-intermediate-port');
+      // await loc3_.click({ force: true });
+      // await dmWebView.locator('div[data-testid^="sub-link-label-for-input.iManyOne3.OUT-to-"]')
+      //   .locator('.codicon-trash').click({ force: true });
+      // await loc3_.waitFor({ state: 'detached' });
 
-      await loc4.locator('.codicon-trash').click({ force: true });
-      await loc4.waitFor({ state: 'detached' });
+      // await loc4.locator('.codicon-trash').click({ force: true });
+      // await loc4.waitFor({ state: 'detached' });
 
       expect(dm.verifyTsFileContent('basic/del.ts')).toBeTruthy();
 

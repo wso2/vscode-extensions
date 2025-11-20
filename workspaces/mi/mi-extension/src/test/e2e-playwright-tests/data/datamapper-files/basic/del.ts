@@ -63,12 +63,19 @@ interface OutputRoot {
 */
 export function mapFunction(input: Root): OutputRoot {
     return {
-        oManyOneErr: input.iManyOne2 + input.iManyOneErr,
-        oObjDirect: input.iObjDirect,
-        oObjDirectErr: input.iObjDirect,
-        oObjProp: {
-            p1: input.iObjDirect.d1 + "HI",
-            p2: input.iObjProp.op2
-        }
+                oManyOne: input.iManyOne1 + input.iManyOne2 + input.iManyOne3,
+                oManyOneErr: input.iManyOne2 + input.iManyOneErr + input.iManyOne3,
+                oObjDirect: input.iObjDirect,
+                oObjDirectErr: input.iObjDirect,
+                oObjProp: {
+                    p1: input.iObjDirect.d1 + "HI",
+                    p2: input.iObjProp.op2
+                },
+                oCustomFn: mapObjectToObject(input.iCustomFn),
+                oExp: dmUtils.toUppercase(input.iExp)
     }
+}
+
+function mapObjectToObject(iCustomFn: Root["iCustomFn"]): OutputRoot["oCustomFn"] {
+    return {};
 }

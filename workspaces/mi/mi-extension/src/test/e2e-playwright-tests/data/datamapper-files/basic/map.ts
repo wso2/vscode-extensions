@@ -73,6 +73,11 @@ export function mapFunction(input: Root): OutputRoot {
             p1: input.iObjDirect.d1 + "HI",
             p2: input.iObjProp.op2
         },
+        oCustomFn: mapObjectToObject(input.iCustomFn),
         oExp: dmUtils.toUppercase(input.iExp)
     }
+}
+
+function mapObjectToObject(iCustomFn: Root["iCustomFn"]): OutputRoot["oCustomFn"] {
+    return {};
 }
