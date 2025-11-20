@@ -99,6 +99,7 @@ async function getContext(projectUri: string): Promise<VisualizerLocation> {
             diagnostics: context.diagnostics,
             dataMapperProps: context.dataMapperProps,
             errors: context.errors,
+            isLoading: context.isLoading,
             env: {
                 MI_AUTH_ORG: process.env.MI_AUTH_ORG || '',
                 MI_AUTH_CLIENT_ID: process.env.MI_AUTH_CLIENT_ID || '',
