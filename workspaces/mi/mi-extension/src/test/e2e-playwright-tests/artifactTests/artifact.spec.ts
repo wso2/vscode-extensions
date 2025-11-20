@@ -256,7 +256,9 @@ export default function createTests() {
       await projectExplorer.findItem(['Project testProject', 'Other Artifacts', 'Class Mediators'], true);
     });
 
-    test('Ballerina Module Tests', async () => {
+    // Remove test skip after fixing https://github.com/ballerina-platform/ballerina-lang/issues/44401
+
+    test.skip('Ballerina Module Tests', async () => {
       await toggleNotifications(false);
       const testAttempt = test.info().retry + 1;
       const ballerinaModuleName = "TestBallerinaModule" + testAttempt;
