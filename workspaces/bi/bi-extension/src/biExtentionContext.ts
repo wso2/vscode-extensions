@@ -26,6 +26,7 @@ export class ExtensionVariables {
     public biSupported?: boolean;
     public isNPSupported?: boolean;
     public isWorkspaceSupported?: boolean;
+    public isEmptyWorkspace?: boolean;
 }
 
 export const extension = new ExtensionVariables();

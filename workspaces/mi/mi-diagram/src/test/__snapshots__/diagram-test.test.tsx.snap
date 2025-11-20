@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`Diagram component renders correctly with valid XML files Diagram work correctly for data service - DataService1.xml 1`] = `
 "<div>

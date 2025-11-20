@@ -68,7 +68,7 @@
     "clean": "rimraf dist out *.vsix"
   },
   "devDependencies": {
-    "@vscode/vsce": "^3.4.0",
+    "@vscode/vsce": "^3.7.0",
     "@types/vscode": "^1.84.0",
     "@types/mocha": "^10.0.3",
     "@types/node": "22.15.18",
