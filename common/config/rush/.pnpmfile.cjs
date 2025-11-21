@@ -60,6 +60,9 @@ module.exports = {
         if (pkg.dependencies['min-document']) {
           pkg.dependencies['min-document'] = '^2.19.1';
         }
+        if (pkg.dependencies['js-yaml']) {
+          pkg.dependencies['js-yaml'] = '^4.1.1';
+        }
       }
 
       if (pkg.devDependencies) {
