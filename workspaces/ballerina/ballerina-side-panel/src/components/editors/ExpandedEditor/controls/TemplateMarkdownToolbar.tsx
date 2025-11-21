@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import styled from "@emotion/styled";
 import { ThemeColors, Icon, Switch } from "@wso2/ui-toolkit";
 import { EditorView } from "@codemirror/view";
@@ -91,6 +91,77 @@ const ToolbarDivider = styled.div`
     margin: 0 4px;
 `;
 
+const SplitButtonContainer = styled.div`
+    position: relative;
+    display: flex;
+    align-items: center;
+`;
+
+const SplitButtonMain = styled(ToolbarButton)`
+    border-radius: 4px 0 0 4px;
+    border: 1px solid ${ThemeColors.OUTLINE_VARIANT};
+    border-right: none;
+    min-width: 40px;
+    font-size: 12px;
+    font-weight: 600;
+`;
+
+const SplitButtonDropdown = styled(ToolbarButton)`
+    width: 24px;
+    border-radius: 0 4px 4px 0;
+    border: 1px solid ${ThemeColors.OUTLINE_VARIANT};
+`;
+
+const DropdownMenu = styled.div<{ isOpen: boolean }>`
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 120px;
+    background-color: var(--vscode-dropdown-background);
+    border: 1px solid ${ThemeColors.OUTLINE_VARIANT};
+    border-radius: 4px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    display: ${props => props.isOpen ? 'block' : 'none'};
+    overflow: hidden;
+`;
+
+const DropdownItem = styled.button<{ size: number }>`
+    width: 100%;
+    padding: 8px 12px;
+    background-color: transparent;
+    color: ${ThemeColors.ON_SURFACE};
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    font-size: ${props => {
+        const sizes: { [key: number]: string } = {
+            1: '16px',
+            2: '15px',
+            3: '14px',
+            4: '13px',
+            5: '12px',
+            6: '11px'
+        };
+        return sizes[props.size] || '14px';
+    }};
+    font-weight: ${props => props.size <= 3 ? '600' : '500'};
+    transition: background-color 0.2s ease;
+
+    &:hover {
+        background-color: ${ThemeColors.SECONDARY_CONTAINER};
+    }
+
+    &:active {
+        background-color: ${ThemeColors.SECONDARY_CONTAINER};
+    }
+
+    &:focus-visible {
+        outline: 2px solid ${ThemeColors.PRIMARY};
+        outline-offset: -2px;
+    }
+`;
+
 interface TemplateMarkdownToolbarProps {
     editorView: EditorView | null;
     isPreviewMode?: boolean;
@@ -104,6 +175,24 @@ interface TemplateMarkdownToolbarProps {
 
 export const TemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, TemplateMarkdownToolbarProps>(
     ({ editorView, isPreviewMode = true, onModeToggle, helperPaneToggle }, ref) => {
+        const [currentHeadingLevel, setCurrentHeadingLevel] = useState(1);
+        const [isHeadingDropdownOpen, setIsHeadingDropdownOpen] = useState(false);
+        const dropdownRef = useRef<HTMLDivElement>(null);
+
+        // Close dropdown when clicking outside
+        useEffect(() => {
+            const handleClickOutside = (event: MouseEvent) => {
+                if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                    setIsHeadingDropdownOpen(false);
+                }
+            };
+
+            if (isHeadingDropdownOpen) {
+                document.addEventListener('mousedown', handleClickOutside);
+                return () => document.removeEventListener('mousedown', handleClickOutside);
+            }
+        }, [isHeadingDropdownOpen]);
+
         // Prevent buttons from taking focus away from the editor
         const handleMouseDown = (e: React.MouseEvent) => {
             e.preventDefault();
@@ -113,11 +202,20 @@ export const TemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, Template
         const handleItalic = () => insertMarkdownFormatting(editorView, '_');
         const handleCode = () => insertMarkdownFormatting(editorView, '`');
         const handleLink = () => insertMarkdownLink(editorView);
-        const handleHeader = () => insertMarkdownHeader(editorView, 3);
+        const handleHeader = (level?: number) => {
+            const headingLevel = level ?? currentHeadingLevel;
+            insertMarkdownHeader(editorView, headingLevel);
+            if (level !== undefined) {
+                setCurrentHeadingLevel(level);
+                setIsHeadingDropdownOpen(false);
+            }
+        };
         const handleQuote = () => insertMarkdownBlockquote(editorView);
         const handleUnorderedList = () => insertMarkdownUnorderedList(editorView);
         const handleOrderedList = () => insertMarkdownOrderedList(editorView);
         const handleTaskList = () => insertMarkdownTaskList(editorView);
+
+        const toggleHeadingDropdown = () => setIsHeadingDropdownOpen(!isHeadingDropdownOpen);
 
         return (
             <ToolbarContainer ref={ref}>
@@ -151,9 +249,34 @@ export const TemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, Template
 
                     <ToolbarDivider />
 
-                    <ToolbarButton title="Heading" onClick={handleHeader} onMouseDown={handleMouseDown}>
-                        <Icon name="bi-heading" sx={{ width: "24px", height: "24px", fontSize: "24px" }} />
-                    </ToolbarButton>
+                    <SplitButtonContainer ref={dropdownRef}>
+                        <SplitButtonMain
+                            title={`Heading ${currentHeadingLevel}`}
+                            onClick={() => handleHeader()}
+                            onMouseDown={handleMouseDown}
+                        >
+                            H{currentHeadingLevel}
+                        </SplitButtonMain>
+                        <SplitButtonDropdown
+                            title="Select heading level"
+                            onClick={toggleHeadingDropdown}
+                            onMouseDown={handleMouseDown}
+                        >
+                            <Icon name="bi-arrow-down" sx={{ width: "16px", height: "16px", fontSize: "16px" }} />
+                        </SplitButtonDropdown>
+                        <DropdownMenu isOpen={isHeadingDropdownOpen}>
+                            {[1, 2, 3, 4, 5, 6].map((level) => (
+                                <DropdownItem
+                                    key={level}
+                                    size={level}
+                                    onClick={() => handleHeader(level)}
+                                    onMouseDown={handleMouseDown}
+                                >
+                                    Heading {level}
+                                </DropdownItem>
+                            ))}
+                        </DropdownMenu>
+                    </SplitButtonContainer>
 
                     <ToolbarButton title="Blockquote" onClick={handleQuote} onMouseDown={handleMouseDown}>
                         <Icon name="bi-quote" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
@@ -177,8 +300,8 @@ export const TemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, Template
                 {onModeToggle && (
                     <Switch
                         checked={!isPreviewMode}
-                        leftLabel="Preview"
-                        rightLabel="Source"
+                        leftLabel="Default"
+                        rightLabel="Raw"
                         onChange={onModeToggle}
                         checkedColor="var(--vscode-button-background)"
                         checkedBorder="1px solid color-mix(in srgb, var(--vscode-dropdown-border) 75%, transparent)"
