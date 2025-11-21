@@ -36,9 +36,9 @@ import {
     buildOnFocusOutListner,
     buildOnSelectionChange,
     ProgrammerticSelectionChange,
-    SyncDocValueWithPropValue
+    SyncDocValueWithPropValue,
+    prosemarkExtensions
 } from "../CodeUtils";
-import { mapSanitizedToRaw } from "../utils";
 import { history } from "@codemirror/commands";
 import { autocompletion } from "@codemirror/autocomplete";
 import { FloatingButtonContainer, FloatingToggleButton, ChipEditorContainer } from "../styles";
@@ -50,6 +50,7 @@ import FXButton from "./FxButton";
 import { HelperPaneToggleButton } from "./HelperPaneToggleButton";
 import { HelperPane } from "./HelperPane";
 import { listContinuationKeymap } from "../../../ExpandedEditor/utils/templateUtils";
+import { markdown } from "@codemirror/lang-markdown";
 
 type HelperPaneState = {
     isOpen: boolean;
@@ -91,6 +92,7 @@ export type ChipExpressionEditorComponentProps = {
     onEditorViewReady?: (view: EditorView) => void;
     toolbarRef?: React.RefObject<HTMLDivElement>;
     enableListContinuation?: boolean;
+    enableProsemark?: boolean;
 }
 
 export const ChipExpressionEditorComponent = (props: ChipExpressionEditorComponentProps) => {
@@ -103,7 +105,6 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
     const [isTokenUpdateScheduled, setIsTokenUpdateScheduled] = useState(true);
     const completionsRef = useRef(props.completions);
     const helperPaneToggleButtonRef = useRef<HTMLButtonElement>(null);
-    const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
 
     const { expressionEditor } = useFormContext();
     const expressionEditorRpcManager = expressionEditor?.rpcManager;
@@ -120,7 +121,6 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
         const isRangeSelection = cursor.position.to !== cursor.position.from;
 
         if (newValue === '' || isTrigger || isRangeSelection) {
-            savedSelectionRef.current = { from: cursor.position.from, to: cursor.position.to };
             setHelperPaneState({ isOpen: true, top: cursor.top, left: cursor.left });
         } else {
             setHelperPaneState({ isOpen: false, top: 0, left: 0 });
@@ -128,12 +128,10 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
     });
 
     const handleFocusListner = buildOnFocusListner((cursor: CursorInfo) => {
-        savedSelectionRef.current = { from: cursor.position.from, to: cursor.position.to };
         setHelperPaneState({ isOpen: true, top: cursor.top, left: cursor.left });
     });
 
     const handleSelectionChange = buildOnSelectionChange((cursor: CursorInfo) => {
-        savedSelectionRef.current = { from: cursor.position.from, to: cursor.position.to };
         setHelperPaneState({ isOpen: true, top: cursor.top, left: cursor.left });
     });
 
@@ -153,7 +151,7 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
         const view = viewRef.current;
 
         // Use saved selection if available, otherwise fall back to current selection
-        const currentSelection = savedSelectionRef.current || view.state.selection.main;
+        const currentSelection = view.state.selection.main;
         const { from, to } = options?.replaceFullText ? { from: 0, to: view.state.doc.length } : currentSelection;
 
         let finalValue = newValue;
@@ -171,7 +169,7 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
                     let functionDef = newValue;
                     let prefix = '';
                     let suffix = '';
-                    
+
                     // Check if it's within a string template
                     const stringTemplateMatch = newValue.match(/^(.*\$\{)([^}]+)(\}.*)$/);
                     if (stringTemplateMatch) {
@@ -179,12 +177,12 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
                         functionDef = stringTemplateMatch[2];
                         suffix = stringTemplateMatch[3];
                     }
-                    
+
                     let cursorPositionForExtraction = from + prefix.length + functionDef.length - 1;
                     if (functionDef.endsWith(')}')) {
                         cursorPositionForExtraction -= 1;
                     }
-                    
+
                     const fnSignature = await props.extractArgsFromFunction(functionDef, cursorPositionForExtraction);
 
                     if (fnSignature && fnSignature.args && fnSignature.args.length > 0) {
@@ -207,9 +205,6 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
             setIsTokenUpdateScheduled(true);
         }
         setHelperPaneState(prev => ({ ...prev, isOpen: !options.closeHelperPane }));
-
-        // Clear saved selection after use
-        savedSelectionRef.current = null;
     }
 
     const handleHelperPaneManualToggle = () => {
@@ -221,7 +216,6 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
         // Save current cursor position before toggling
         if (viewRef.current) {
             const selection = viewRef.current.state.selection.main;
-            savedSelectionRef.current = { from: selection.from, to: selection.to };
         }
 
         const buttonRect = helperPaneToggleButtonRef.current.getBoundingClientRect();
@@ -275,6 +269,10 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
                     closeOnBlur: true
                 }),
                 tooltips({ position: "absolute" }),
+                ...(props.enableProsemark ? [
+                    markdown(),
+                    ...prosemarkExtensions(),
+                ] : []),
                 chipPlugin,
                 tokenField,
                 chipTheme,

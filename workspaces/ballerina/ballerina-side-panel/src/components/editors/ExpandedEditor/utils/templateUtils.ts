@@ -215,7 +215,7 @@ const toggleList = (view: EditorView | null, config: ListConfig) => {
 
     const allListed = lines.every(line => {
         const trimmed = line.trim();
-        return trimmed === "" || config.isListed(trimmed);
+        return trimmed !== "" && config.isListed(trimmed);
     });
 
     const processedLines = lines.map((line, index) => {
