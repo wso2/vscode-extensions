@@ -36,10 +36,16 @@ export class AITelemetryService {
         extension: BallerinaExtension,
         requestId: string,
         command: string,
+        user: {
+            loginType: string,
+            loginEmail: string
+        }
     ): void {
         const customDimensions = {
             requestId,
-            command
+            command,
+            loginType: user.loginType,
+            loginEmail: user.loginEmail
         };
 
         sendTelemetryEvent(

@@ -100,7 +100,7 @@ vscode.authentication.onDidChangeSessions(async e => {
             await extension.context.secrets.delete('GITHUB_COPILOT_TOKEN');
             await extension.context.secrets.delete('GITHUB_TOKEN');
         } else {
-            //it could be a login(which we havent captured) or a logout 
+            //it could be a login(which we havent captured) or a logout
             // vscode.window.showInformationMessage(
             //     'WSO2 Integrator: BI supports completions with GitHub Copilot.',
             //     'Login with GitHub Copilot'
@@ -275,4 +275,28 @@ export const getRefreshedAccessToken = async (): Promise<string> => {
             reject(error);
         }
     });
+};
+
+// ==================================
+// Extract the email address from the BI Intel
+// ==================================
+export const getBIIntelUserEmail = async (): Promise<string | undefined> => {
+    try {
+        const credentials = await getAuthCredentials();
+        if (!credentials || credentials.loginMethod !== LoginMethod.BI_INTEL) {
+            return undefined;
+        }
+
+        const { accessToken } = credentials.secrets;
+        if (!accessToken) {
+            return undefined;
+        }
+
+        // Decode the JWT token to extract user information
+        const decoded = jwtDecode<JwtPayload & { email?: string }>(accessToken);
+        return decoded.email;
+    } catch (error) {
+        console.error('Error extracting email from JWT:', error);
+        return undefined;
+    }
 };

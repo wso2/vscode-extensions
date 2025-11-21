@@ -51,6 +51,7 @@ import { createEditExecute, createEditTool, createMultiEditExecute, createBatchE
 import { extension } from "../../../../BalExtensionContext";
 import { AITelemetryService } from "../ai-telemerty-service";
 import { ChatService } from "../chat-service";
+import { getLoginMethod, getBIIntelUserEmail } from "../../../../utils/ai/auth";
 
 const SEARCH_LIBRARY_TOOL_NAME = "LibraryProviderTool";
 
@@ -75,12 +76,20 @@ export async function generateCodeCore(params: GenerateCodeRequest, eventHandler
     const command = Command.Code;
     const generationStartTime = new Date().toISOString();
 
+    // Get login information for telemetry
+    const loginMethod = await getLoginMethod();
+    const loginEmail = await getBIIntelUserEmail();
+
     // Log telemetry for code generation request
     if (requestId) {
         AITelemetryService.generationRequest(
             extension.ballerinaExtInstance,
             requestId,
-            command
+            command,
+            {
+                loginType: loginMethod || "UNKNOWN",
+                loginEmail: loginEmail || "UNKNOWN"
+            }
         );
     }
 
