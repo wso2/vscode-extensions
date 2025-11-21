@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { Attachment, AttachmentStatus, DiagnosticEntry, DataMapperModelResponse, Mapping, FileChanges, DMModel, SourceFile, repairCodeRequest} from "@wso2/ballerina-core";
+import { Attachment, AttachmentStatus, DiagnosticEntry, DataMapperModelResponse, Mapping, FileChanges, DMModel, SourceFile, repairCodeRequest } from "@wso2/ballerina-core";
 import { Position, Range, Uri, workspace, WorkspaceEdit } from 'vscode';
 
 import path from "path";
@@ -25,9 +25,12 @@ import { AIChatError } from "./utils/errors";
 import { processDataMapperInput } from "../../../src/features/ai/service/datamapper/context_api";
 import { DataMapperRequest, DataMapperResponse, FileData } from "../../../src/features/ai/service/datamapper/types";
 import { getAskResponse } from "../../../src/features/ai/service/ask/ask";
-import { MappingFileRecord} from "./types";
+import { MappingFileRecord } from "./types";
 import { generateAutoMappings, generateRepairCode } from "../../../src/features/ai/service/datamapper/datamapper";
 import { ArtifactNotificationHandler, ArtifactsUpdated } from "../../utils/project-artifacts-handler";
+import { AITelemetryService } from "../../../src/features/ai/service/ai-telemerty-service";
+import { extension } from "../../BalExtensionContext";
+import { ChatService } from "../../../src/features/ai/service/chat-service";
 
 // const BACKEND_BASE_URL = BACKEND_URL.replace(/\/v2\.0$/, "");
 //TODO: Temp workaround as custom domain seem to block file uploads
@@ -112,6 +115,22 @@ export async function addToIntegration(workspaceFolderPath: string, fileChanges:
         }
         fs.writeFileSync(absoluteFilePath, fileChange.content, 'utf8');
     }
+
+    // Log telemetry for add to integration
+    try {
+        const chatService = new ChatService(extension.context);
+        const requestId = await chatService.getrequestId();
+        if (requestId) {
+            AITelemetryService.addToIntegration(
+                extension.ballerinaExtInstance,
+                requestId,
+            );
+            console.log(`Add to integration telemetry logged - RequestID: ${requestId}, FileCount: ${fileChanges.length}`);
+        }
+    } catch (error) {
+        console.error("Failed to log add to integration telemetry:", error);
+    }
+
     return new Promise((resolve, reject) => {
         if (!isBalFileAdded) {
             resolve([]);

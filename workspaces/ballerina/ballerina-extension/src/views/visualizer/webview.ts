@@ -194,7 +194,7 @@ export class VisualizerWebview {
                 75%   {clip-path: polygon(50% 50%,100% 100%, 100% 100%,  100% 100%, 100% 100%, 50%  100%, 0%   100% )}
                 100%  {clip-path: polygon(50% 50%,50%  100%,  50% 100%,   50% 100%,  50% 100%, 50%  100%, 0%   100% )}
             }
-            @keyframes l20-2{ 
+            @keyframes l20-2{
                 0%    {transform:scaleY(1)  rotate(0deg)}
                 49.99%{transform:scaleY(1)  rotate(135deg)}
                 50%   {transform:scaleY(-1) rotate(0deg)}
@@ -236,10 +236,10 @@ export class VisualizerWebview {
                 animation: dots 1.5s infinite;
             }
             @keyframes fadeIn {
-                0% { 
+                0% {
                     opacity: 0;
                 }
-                100% { 
+                100% {
                     opacity: 1;
                 }
             }

@@ -30,13 +30,13 @@ export function activateAiPanel(ballerinaExtInstance: BallerinaExtension) {
             const { workspacePath, view, projectPath, projectInfo } = context;
 
             // Determine if package selection is required
-            const requiresPackageSelection = 
-                workspacePath && 
+            const requiresPackageSelection =
+                workspacePath &&
                 (view === MACHINE_VIEW.WorkspaceOverview || !projectPath);
 
             if (requiresPackageSelection) {
                 const availablePackages = projectInfo?.children.map((child) => child.projectPath) ?? [];
-                
+
                 // No packages available, open webview with no context
                 if (availablePackages.length === 0) {
                     openAIWebview(null);

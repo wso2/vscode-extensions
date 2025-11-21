@@ -14,7 +14,7 @@
  * KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations
  * under the License.
- * 
+ *
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
@@ -95,7 +95,7 @@ import {
     TestGeneratorIntermediaryState,
     TestPlanGenerationRequest,
     updateDevelopmentDocument,
-    updateRequirementSpecification
+    updateRequirementSpecification,
 } from "@wso2/ballerina-core";
 import { Messenger } from "vscode-messenger";
 import { AiPanelRpcManager } from "./rpc-manager";

@@ -14,7 +14,7 @@
  * KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations
  * under the License.
- * 
+ *
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
@@ -102,6 +102,7 @@ import { AIPanelAbortController, addToIntegration, cleanDiagnosticMessages, isEr
 import { fetchData } from "./utils/fetch-data-utils";
 import { checkToken } from "../../../src/views/ai-panel/utils";
 import { getWorkspaceTomlValues } from "./../../../src/utils/config";
+
 export class AiPanelRpcManager implements AIPanelAPI {
 
     // ==================================

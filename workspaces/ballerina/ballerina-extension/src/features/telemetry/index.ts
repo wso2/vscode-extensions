@@ -18,6 +18,7 @@
 
 import TelemetryReporter from "vscode-extension-telemetry";
 import { BallerinaExtension } from "../../core";
+import { logTelemetryEventLocally, logTelemetryExceptionLocally } from "./local-telemetry-logger";
 
 //Ballerina-VSCode-Extention repo key as default
 const DEFAULT_KEY = "3a82b093-5b7b-440c-9aa2-3b8e8e5704e7";
@@ -39,6 +40,10 @@ export function createTelemetryReporter(ext: BallerinaExtension): TelemetryRepor
 
 export function sendTelemetryEvent(extension: BallerinaExtension, eventName: string, componentName: string,
     customDimensions: { [key: string]: string; } = {}, measurements: { [key: string]: number; } = {}) {
+
+    const telemetryProperties = getTelemetryProperties(extension, eventName, customDimensions);
+    logTelemetryEventLocally(eventName, componentName, telemetryProperties, measurements);
+
     // temporarily disabled in codeserver due to GDPR issue
     if (extension.isTelemetryEnabled() && !extension.getCodeServerContext().codeServerEnv) {
         extension.telemetryReporter.sendTelemetryEvent(eventName, getTelemetryProperties(extension, componentName,
@@ -48,6 +53,9 @@ export function sendTelemetryEvent(extension: BallerinaExtension, eventName: str
 
 export function sendTelemetryException(extension: BallerinaExtension, error: Error, componentName: string,
     params: { [key: string]: string } = {}) {
+    const telemetryProperties = getTelemetryProperties(extension, componentName, params);
+    logTelemetryExceptionLocally(error, componentName, telemetryProperties);
+
     // temporarily disabled in codeserver due to GDPR issue
     if (extension.isTelemetryEnabled() && !extension.getCodeServerContext().codeServerEnv) {
         extension.telemetryReporter.sendTelemetryException(error, getTelemetryProperties(extension, componentName,
