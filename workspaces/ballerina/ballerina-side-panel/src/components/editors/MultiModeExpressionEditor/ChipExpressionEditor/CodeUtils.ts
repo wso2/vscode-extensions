@@ -17,14 +17,14 @@
  */
 
 import { StateEffect, StateField, RangeSet, Transaction, SelectionRange, Annotation } from "@codemirror/state";
-import { WidgetType, Decoration, ViewPlugin, EditorView, ViewUpdate } from "@codemirror/view";
+import { WidgetType, Decoration, ViewPlugin, EditorView, ViewUpdate, keymap, dropCursor } from "@codemirror/view";
 import { filterCompletionsByPrefixAndType, getParsedExpressionTokens, detectTokenPatterns, ParsedToken, mapRawToSanitized } from "./utils";
-import { defaultKeymap, historyKeymap } from "@codemirror/commands";
+import { defaultKeymap, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { CompletionItem } from "@wso2/ui-toolkit";
 import { ThemeColors } from "@wso2/ui-toolkit";
-import { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
+import { closeBracketsKeymap, CompletionContext, completionKeymap, CompletionResult } from "@codemirror/autocomplete";
 import { TokenType, TokenMetadata, CompoundTokenSequence } from "./types";
-import { prosemarkBasicSetup, prosemarkBaseThemeSetup } from '@prosemark/core';
+import { prosemarkBaseThemeSetup, codeBlockDecorationsExtension, defaultFoldableSyntaxExtensions, defaultHideExtensions, taskExtension, prosemarkBasicSetup } from '@prosemark/core';
 import { Extension } from '@codemirror/state';
 import {
     CHIP_TEXT_STYLES,
@@ -623,7 +623,19 @@ export const buildHelperPaneKeymap = (getIsHelperPaneOpen: () => boolean, onClos
 
 export function prosemarkExtensions(): Extension[] {
     return [
-        prosemarkBasicSetup(),
+        dropCursor(),
+        keymap.of([
+            ...closeBracketsKeymap,
+            ...defaultKeymap,
+            ...historyKeymap,
+            ...completionKeymap,
+            ...lintKeymap,
+            indentWithTab
+        ]),
+        EditorView.lineWrapping,
+        defaultHideExtensions,
+        codeBlockDecorationsExtension,
+        defaultFoldableSyntaxExtensions,
         prosemarkBaseThemeSetup()
     ];
 }
