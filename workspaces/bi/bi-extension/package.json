@@ -2,7 +2,7 @@
     "name": "ballerina-integrator",
     "displayName": "WSO2 Integrator: BI",
     "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
-    "version": "1.3.2",
+    "version": "1.5.1",
     "publisher": "wso2",
     "icon": "resources/images/wso2-ballerina-integrator-logo.png",
     "repository": {
@@ -41,6 +41,11 @@
                 "view": "BI.project-explorer",
                 "contents": "Welcome to WSO2 Integrator: BI. Your current ballerina distribution is not supported. Please update to version 2201.12.3 or above.\n[Update Now](command:ballerina.update-ballerina-visually)\nPlease restart VS Code after updating the ballerina distribution.\nTo learn more about how to use WSO2 Integrator: BI in VS Code [read our docs](https://bi.docs.wso2.com/get-started/quick-start-guide/).",
                 "when": "BI.status == 'updateNeed'"
+            },
+            {
+                "view": "BI.project-explorer",
+                "contents": "No integrations found in this workspace.\n\n[$(add) Create Integration](command:BI.project-explorer.add)",
+                "when": "BI.status == emptyWorkspace"
             },
             {
                 "view": "BI.project-explorer",
@@ -136,13 +141,8 @@
             ],
             "view/title": [
                 {
-                    "command": "BI.project-explorer.switch-project",
-                    "when": "view == BI.project-explorer && BI.isMultiRoot == true",
-                    "group": "navigation"
-                },
-                {
                     "command": "BI.project-explorer.add",
-                    "when": "view == BI.project-explorer && BI.project == true",
+                    "when": "view == BI.project-explorer && BI.isWorkspaceSupported == true",
                     "group": "navigation"
                 },
                 {
@@ -175,10 +175,11 @@
     "dependencies": {
         "@wso2/ballerina-core": "workspace:*",
         "@wso2/font-wso2-vscode": "workspace:*",
-        "xstate": "^4.38.3"
+        "xstate": "^4.38.3",
+        "toml": "^3.0.0"
     },
     "devDependencies": {
-        "@vscode/vsce": "^3.4.0",
+        "@vscode/vsce": "^3.7.0",
         "@types/vscode": "^1.84.0",
         "@types/mocha": "^10.0.3",
         "@types/node": "22.15.18",
@@ -186,7 +187,7 @@
         "@typescript-eslint/parser": "^8.32.1",
         "@vscode/test-electron": "^2.5.2",
         "eslint": "^8.57.1",
-        "glob": "^11.0.2",
+        "glob": "^11.1.0",
         "mocha": "^11.2.2",
         "typescript": "5.8.3",
         "copyfiles": "^2.4.1",

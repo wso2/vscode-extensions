@@ -109,22 +109,100 @@ export type MachineStateValue =
     | { ready: 'viewReady' } | { ready: 'viewEditing' } | { ready: 'resolveMissingDependencies' }
     | { newProject: 'viewReady' }| { environmentSetup: 'viewReady' };
 
-export type AIMachineStateValue = 'Initialize' | 'loggedOut' | 'Ready' | 'WaitingForLogin' | 'Executing' | 'updateExtension' | 'disabled' | 'notSupported';
+export type AIMachineStateValue =
+    | 'Initialize'          // (checking auth, first load)
+    | 'Unauthenticated'     // (show login window)
+    | { Authenticating: 'determineFlow' | 'ssoFlow' | 'apiKeyFlow' | 'validatingApiKey' } // hierarchical substates
+    | 'Authenticated'       // (ready, main view)
+    | 'UsageExceeded'       // (free usage quota exceeded, prompt user to set API key)
+    | 'Disabled'            // (optional: if AI Chat is globally unavailable)
+    | 'NotSupported';       // (workspace not supported)
 
 export type PopupMachineStateValue = 'initialize' | 'ready' | { open: 'active' } | { ready: 'reopen' } | { ready: 'notify' } | 'disabled';
 
 export type MiServerRunStatus = 'Running' | 'Stopped';
 
 export enum AI_EVENT_TYPE {
+    CHECK_AUTH = 'CHECK_AUTH',
     LOGIN = "LOGIN",
+    AUTH_WITH_API_KEY = 'AUTH_WITH_API_KEY',
+    SUBMIT_API_KEY = 'SUBMIT_API_KEY',
     SIGN_IN_SUCCESS = "SIGN_IN_SUCCESS",
     LOGOUT = "LOGOUT",
+    SILENT_LOGOUT = "SILENT_LOGOUT",
     EXECUTE = "EXECUTE",
     CLEAR = "CLEAR",
     CLEAR_PROMPT = "CLEAR_PROMPT",
     DISPOSE = "DISPOSE",
+    COMPLETE_AUTH = 'COMPLETE_AUTH',
     CANCEL = "CANCEL",
+    CANCEL_LOGIN = 'CANCEL_LOGIN',
     RETRY = "RETRY",
+    USAGE_EXCEEDED = "USAGE_EXCEEDED",
+    USAGE_RESET = "USAGE_RESET",
+    UPDATE_USAGE = "UPDATE_USAGE",
+}
+
+export type AIMachineEventMap = {
+    [AI_EVENT_TYPE.CHECK_AUTH]: undefined;
+    [AI_EVENT_TYPE.LOGIN]: undefined;
+    [AI_EVENT_TYPE.AUTH_WITH_API_KEY]: undefined;
+    [AI_EVENT_TYPE.SUBMIT_API_KEY]: { apiKey: string };
+    [AI_EVENT_TYPE.SIGN_IN_SUCCESS]: undefined;
+    [AI_EVENT_TYPE.LOGOUT]: undefined;
+    [AI_EVENT_TYPE.SILENT_LOGOUT]: undefined;
+    [AI_EVENT_TYPE.EXECUTE]: undefined;
+    [AI_EVENT_TYPE.CLEAR]: undefined;
+    [AI_EVENT_TYPE.CLEAR_PROMPT]: undefined;
+    [AI_EVENT_TYPE.DISPOSE]: undefined;
+    [AI_EVENT_TYPE.COMPLETE_AUTH]: undefined;
+    [AI_EVENT_TYPE.CANCEL]: undefined;
+    [AI_EVENT_TYPE.CANCEL_LOGIN]: undefined;
+    [AI_EVENT_TYPE.RETRY]: undefined;
+    [AI_EVENT_TYPE.USAGE_EXCEEDED]: undefined;
+    [AI_EVENT_TYPE.USAGE_RESET]: undefined;
+    [AI_EVENT_TYPE.UPDATE_USAGE]: { usage: any };
+};
+
+export type AIMachineSendableEvent =
+    | { [K in keyof AIMachineEventMap]: AIMachineEventMap[K] extends undefined
+        ? { type: K }
+        : { type: K; payload: AIMachineEventMap[K] }
+    }[keyof AIMachineEventMap];
+
+export enum LoginMethod {
+    MI_INTEL = 'miIntel',
+    ANTHROPIC_KEY = 'anthropic_key'
+}
+
+interface MIIntelSecrets {
+    accessToken: string;
+    refreshToken: string;
+}
+
+interface AnthropicKeySecrets {
+    apiKey: string;
+}
+
+export type AuthCredentials =
+    | {
+        loginMethod: LoginMethod.MI_INTEL;
+        secrets: MIIntelSecrets;
+    }
+    | {
+        loginMethod: LoginMethod.ANTHROPIC_KEY;
+        secrets: AnthropicKeySecrets;
+    };
+
+export interface AIUserToken {
+    token: string; // For MI Intel, this is the access token and for Anthropic, this is the API key
+}
+
+export interface AIMachineContext {
+    loginMethod?: LoginMethod;
+    userToken?: AIUserToken;
+    usage?: AIUserTokens;
+    errorMessage?: string;
 }
 
 export enum EVENT_TYPE {
@@ -191,6 +269,7 @@ export interface VisualizerLocation {
     connectorData?: any[];
     previousContext?: any;
     env?: { [key: string]: string | undefined };
+    isLoading?: boolean;
 }
 
 export interface PopupVisualizerLocation extends VisualizerLocation {
@@ -201,7 +280,10 @@ export interface AIVisualizerLocation {
     view?: AI_MACHINE_VIEW | null;
     initialPrompt?: PromptObject;
     state?: AIMachineStateValue;
-    userTokens?: AIUserTokens;
+    loginMethod?: LoginMethod;
+    userToken?: AIUserToken;
+    usage?: AIUserTokens;
+    errorMessage?: string;
 }
 
 export interface AIUserTokens {

@@ -24,12 +24,13 @@ import { extension } from '../biExtentionContext';
 interface ExplorerActivationConfig {
 	context: ExtensionContext;
 	isBI: boolean;
-	isBallerina?: boolean;
-	isMultiRoot?: boolean;
+	isBallerinaPackage?: boolean;
+	isBallerinaWorkspace?: boolean;
+	isEmptyWorkspace?: boolean;
 }
 
 export function activateProjectExplorer(config: ExplorerActivationConfig) {
-	const { context, isBI, isBallerina, isMultiRoot } = config;
+	const { context, isBI, isBallerinaPackage, isBallerinaWorkspace, isEmptyWorkspace } = config;
 
 	if (extension.langClient && extension.biSupported) {
 		setLoadingStatus();
@@ -38,11 +39,17 @@ export function activateProjectExplorer(config: ExplorerActivationConfig) {
 	const projectExplorerDataProvider = new ProjectExplorerEntryProvider();
 	const projectTree = createProjectTree(projectExplorerDataProvider);
 
-	if (isBallerina) {
-		registerBallerinaCommands(projectExplorerDataProvider, isBI, isMultiRoot);
+	if (isBallerinaPackage || isBallerinaWorkspace) {
+		registerBallerinaCommands(projectExplorerDataProvider, isBI, isBallerinaWorkspace, isEmptyWorkspace);
 	}
 
-	handleVisibilityChangeEvents(projectTree, projectExplorerDataProvider, isBallerina);
+	handleVisibilityChangeEvents(
+		projectTree,
+		projectExplorerDataProvider,
+		isBallerinaPackage,
+		isBallerinaWorkspace,
+		isEmptyWorkspace
+	);
 	context.subscriptions.push(workspace.onDidDeleteFiles(() => projectExplorerDataProvider.refresh()));
 }
 
@@ -54,27 +61,57 @@ function createProjectTree(dataProvider: ProjectExplorerEntryProvider) {
 	return window.createTreeView(BI_COMMANDS.PROJECT_EXPLORER, { treeDataProvider: dataProvider });
 }
 
-function registerBallerinaCommands(dataProvider: ProjectExplorerEntryProvider, isBI: boolean, isMultiRoot?: boolean) {
+function registerBallerinaCommands(
+	dataProvider: ProjectExplorerEntryProvider,
+	isBI: boolean,
+	isBallerinaWorkspace?: boolean,
+	isEmptyWorkspace?: boolean
+) {
 	commands.registerCommand(BI_COMMANDS.REFRESH_COMMAND, () => dataProvider.refresh());
+	commands.executeCommand('setContext', 'BI.isWorkspaceSupported', extension.isWorkspaceSupported ?? false);
 
-	if (isMultiRoot) {
-		commands.executeCommand('setContext', 'BI.isMultiRoot', true);
+	if (isBallerinaWorkspace) {
+		commands.executeCommand('setContext', 'BI.isBallerinaWorkspace', true);
+		if (isEmptyWorkspace) {
+			commands.executeCommand('setContext', 'BI.status', 'emptyWorkspace');
+		}
 	}
 	if (isBI) {
 		registerBICommands();
 	}
 }
 
-function handleVisibilityChangeEvents(tree: TreeView<ProjectExplorerEntry>, dataProvider: ProjectExplorerEntryProvider, isBallerina?: boolean) {
-	tree.onDidChangeVisibility(async res => await handleVisibilityChange(res, dataProvider, isBallerina));
+function handleVisibilityChangeEvents(
+	tree: TreeView<ProjectExplorerEntry>,
+	dataProvider: ProjectExplorerEntryProvider,
+	isBallerinaPackage?: boolean,
+	isBallerinaWorkspace?: boolean,
+	isEmptyWorkspace?: boolean
+) {
+	tree.onDidChangeVisibility(async res => await handleVisibilityChange(
+		res, dataProvider, isBallerinaPackage, isBallerinaWorkspace, isEmptyWorkspace)
+	);
 }
 
-async function handleVisibilityChange(res: { visible: boolean }, dataProvider: ProjectExplorerEntryProvider, isBallerina?: boolean) {
+async function handleVisibilityChange(
+	res: { visible: boolean },
+	dataProvider: ProjectExplorerEntryProvider,
+	isBallerinaPackage?: boolean,
+	isBallerinaWorkspace?: boolean,
+	isEmptyWorkspace?: boolean
+) {
 	if (res.visible) {
-		if (isBallerina && extension.biSupported) {
-			commands.executeCommand(SHARED_COMMANDS.SHOW_VISUALIZER);
-			await commands.executeCommand(SHARED_COMMANDS.FORCE_UPDATE_PROJECT_ARTIFACTS);
-			dataProvider.refresh();
+		if ((isBallerinaPackage || isBallerinaWorkspace) && extension.biSupported) {
+			if (isBallerinaPackage) {
+				commands.executeCommand(SHARED_COMMANDS.SHOW_VISUALIZER);
+			}
+			if (!isEmptyWorkspace) {
+				await commands.executeCommand(SHARED_COMMANDS.FORCE_UPDATE_PROJECT_ARTIFACTS);
+				dataProvider.refresh();
+				if (isBallerinaWorkspace) {
+					commands.executeCommand(BI_COMMANDS.SHOW_OVERVIEW);
+				}
+			}
 		} else {
 			handleNonBallerinaVisibility();
 		}
