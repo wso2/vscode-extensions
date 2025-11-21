@@ -478,6 +478,8 @@ function getCustomEntryNodeIcon(type: string) {
             return "bi-mcp";
         case "solace":
             return "bi-solace";
+        case "gcloud.pubsub":
+            return "bi-pubsub";
         default:
             return "bi-globe";
     }
