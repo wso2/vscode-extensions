@@ -2,6 +2,15 @@
 
 All notable changes to the "micro-integrator" extension will be documented in this file.
 
+## [3.0.1] - 2025-11-21
+
+### Fixed
+
+Fixed: Error when opening a diagram view on a new tab ([#1346](https://github.com/wso2/mi-vscode/issues/1346))   
+Fixed: Cannot add email connector operations after adding a foreach mediator ([#1348](https://github.com/wso2/mi-vscode/issues/1348))  
+Fixed: Path level paramaters are not getting recognized in OpenAPI definition ([#1353](https://github.com/wso2/mi-vscode/issues/1353))   
+Fixed: Unit test execution command ignores the test.server.path argument ([#1354](https://github.com/wso2/mi-vscode/issues/1354))  
+
 ## [3.0.0] - 2025-11-03
 
 ### Improvements
