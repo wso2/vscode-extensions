@@ -142,7 +142,6 @@ const AIChat: React.FC = () => {
 
     const [showSettings, setShowSettings] = useState(false);
     const [currentFileArray, setCurrentFileArray] = useState<SourceFile[]>([]);
-    const [currentRequestId, setCurrentRequestId] = useState<string | undefined>(undefined);
 
     //TODO: Need a better way of storing data related to last generation to be in the repair state.
     const currentDiagnosticsRef = useRef<DiagnosticEntry[]>([]);
@@ -836,21 +835,6 @@ const AIChat: React.FC = () => {
 
             if (fileChanges.length > 0) {
                 await rpcClient.getAiPanelRpcClient().addFilesToProject({ fileChanges });
-
-                // Log telemetry for add to integration
-                try {
-                    const requestId = await rpcClient.getAiPanelRpcClient().getrequestId();
-                    if (requestId) {
-                        // Call telemetry RPC method
-                        await rpcClient.getAiPanelRpcClient().addToIntegrationTelemetry({
-                            requestId,
-                            fileCount: fileChanges.length
-                        });
-                        console.log(`Add to integration telemetry logged - RequestID: ${requestId}, FileCount: ${fileChanges.length}`);
-                    }
-                } catch (error) {
-                    console.error("Failed to log add to integration telemetry:", error);
-                }
             }
 
             const developerMdContent = await rpcClient.getAiPanelRpcClient().readDeveloperMdFile(chatLocation);

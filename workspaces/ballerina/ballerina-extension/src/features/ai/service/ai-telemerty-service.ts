@@ -97,11 +97,10 @@ export class AITelemetryService {
     public static addToIntegration(
         extension: BallerinaExtension,
         requestId: string,
-        fileCount: number
     ): void {
         const customDimensions = {
             requestId,
-            fileCount: fileCount.toString()
+            status: 'true'
         };
 
         sendTelemetryEvent(

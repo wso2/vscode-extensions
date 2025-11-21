@@ -14,7 +14,7 @@
  * KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations
  * under the License.
- * 
+ *
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
@@ -102,8 +102,6 @@ import { AIPanelAbortController, addToIntegration, cleanDiagnosticMessages, isEr
 import { fetchData } from "./utils/fetch-data-utils";
 import { checkToken } from "../../../src/views/ai-panel/utils";
 import { getWorkspaceTomlValues } from "./../../../src/utils/config";
-import { AITelemetryService } from "../../features/ai/service/ai-telemerty-service";
-import { ChatService } from "../../features/ai/service/chat-service";
 
 export class AiPanelRpcManager implements AIPanelAPI {
 
@@ -707,24 +705,6 @@ export class AiPanelRpcManager implements AIPanelAPI {
         } catch (error) {
             return false;
         }
-    }
-
-    async getrequestId(): Promise<string> {
-        const chatService = new ChatService(extension.context);
-        return await chatService.getrequestId();
-    }
-
-    async createrequestId(): Promise<string> {
-        const chatService = new ChatService(extension.context);
-        return await chatService.createrequestId();
-    }
-
-    async addToIntegrationTelemetry(params: { requestId: string; fileCount: number }): Promise<void> {
-        AITelemetryService.addToIntegration(
-            extension.ballerinaExtInstance,
-            params.requestId,
-            params.fileCount
-        );
     }
 }
 

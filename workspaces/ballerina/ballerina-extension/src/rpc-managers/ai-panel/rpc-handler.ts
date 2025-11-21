@@ -14,7 +14,7 @@
  * KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations
  * under the License.
- * 
+ *
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
@@ -96,9 +96,6 @@ import {
     TestPlanGenerationRequest,
     updateDevelopmentDocument,
     updateRequirementSpecification,
-    getrequestId,
-    createrequestId,
-    addToIntegrationTelemetry
 } from "@wso2/ballerina-core";
 import { Messenger } from "vscode-messenger";
 import { AiPanelRpcManager } from "./rpc-manager";
@@ -160,7 +157,4 @@ export function registerAiPanelRpcHandlers(messenger: Messenger) {
     messenger.onNotification(getGeneratedDocumentation, (args: DocGenerationRequest) => rpcManger.getGeneratedDocumentation(args));
     messenger.onRequest(addFilesToProject, (args: AddFilesToProjectRequest) => rpcManger.addFilesToProject(args));
     messenger.onRequest(isUserAuthenticated, () => rpcManger.isUserAuthenticated());
-    messenger.onRequest(getrequestId, () => rpcManger.getrequestId());
-    messenger.onRequest(createrequestId, () => rpcManger.createrequestId());
-    messenger.onNotification(addToIntegrationTelemetry, (args: { requestId: string; fileCount: number }) => rpcManger.addToIntegrationTelemetry(args));
 }
