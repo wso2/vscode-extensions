@@ -608,7 +608,7 @@ export const buildCompletionSource = (getCompletions: () => Promise<CompletionIt
     };
 };
 
-export const buildHelperPaneKeymap = (getIsHelperPaneOpen: () => boolean, onClose: () => void) => {
+export const buildHelperPaneKeymap = (getIsHelperPaneOpen: () => boolean, onClose: () => void, onToggle?: () => void) => {
     return [
         {
             key: "Escape",
@@ -617,7 +617,15 @@ export const buildHelperPaneKeymap = (getIsHelperPaneOpen: () => boolean, onClos
                 onClose();
                 return true;
             }
-        }
+        },
+        ...(onToggle ? [{
+            key: "Ctrl-/",
+            mac: "Cmd-/",
+            run: (_view: EditorView) => {
+                onToggle();
+                return true;
+            }
+        }] : [])
     ];
 };
 
