@@ -19,7 +19,6 @@
 import TelemetryReporter from "vscode-extension-telemetry";
 import { BallerinaExtension } from "../../core";
 import { logTelemetryEventLocally, logTelemetryExceptionLocally } from "./local-telemetry-logger";
-import { eventNames } from "process";
 
 //Ballerina-VSCode-Extention repo key as default
 const DEFAULT_KEY = "3a82b093-5b7b-440c-9aa2-3b8e8e5704e7";

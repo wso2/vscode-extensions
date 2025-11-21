@@ -73,6 +73,7 @@ function appendFinalMessages(
 // Core code generation function that emits events
 export async function generateCodeCore(params: GenerateCodeRequest, eventHandler: CopilotEventHandler, requestId?: string): Promise<void> {
     const command = Command.Code;
+    const generationStartTime = new Date().toISOString();
 
     // Log telemetry for code generation request
     if (requestId) {
@@ -298,10 +299,13 @@ export async function generateCodeCore(params: GenerateCodeRequest, eventHandler
 
                 // Log telemetry for successful code generation
                 if (requestId) {
+                    const generationEndTime = new Date().toISOString();
                     AITelemetryService.generationSucess(
                         extension.ballerinaExtInstance,
                         requestId,
-                        command
+                        command,
+                        generationStartTime,
+                        generationEndTime,
                     );
                 }
                 break;

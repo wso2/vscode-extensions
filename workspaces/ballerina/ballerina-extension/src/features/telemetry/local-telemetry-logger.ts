@@ -37,7 +37,7 @@ interface TelemetryException {
         stack?: string;
     };
     componentName: string;
-    params: { [key: string]: string };
+    customDimensions: { [key: string]: string };
 }
 
 type TelemetryEntry = TelemetryEvent | TelemetryException;
@@ -108,7 +108,7 @@ export function logTelemetryEventLocally(
 export function logTelemetryExceptionLocally(
     error: Error,
     componentName: string,
-    params: { [key: string]: string } = {}
+    customDimensions: { [key: string]: string } = {}
 ): void {
     const telemetryData = readTelemetryData();
 
@@ -121,7 +121,7 @@ export function logTelemetryExceptionLocally(
             stack: error.stack
         },
         componentName,
-        params
+        customDimensions
     };
 
     telemetryData.push(exception);

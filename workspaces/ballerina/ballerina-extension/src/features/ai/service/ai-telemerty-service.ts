@@ -53,12 +53,16 @@ export class AITelemetryService {
     public static generationSucess(
         extension: BallerinaExtension,
         requestId: string,
-        command: string
+        command: string,
+        startTime: string,
+        endTime: string
     ): void {
         const customDimensions = {
             requestId,
             command,
-            status: 'success'
+            status: 'success',
+            startTime,
+            endTime
         };
 
         sendTelemetryEvent(
