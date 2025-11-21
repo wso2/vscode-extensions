@@ -60,7 +60,7 @@
     "lint": "eslint src",
     "test": "node ./out/test/runTest.js",
     "build": "pnpm run compile && pnpm run lint && pnpm run postbuild",
-    "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release; else vsce package --no-dependencies; fi",
+    "package": "node ../../common-libs/scripts/package-vsix.js",
     "rebuild": "pnpm run clean && pnpm run compile && pnpm run postbuild",
     "postbuild": "pnpm run package && pnpm run copyVSIX",
     "copyVSIX": "copyfiles *.vsix ./vsix",

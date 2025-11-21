@@ -20,6 +20,7 @@ import { SHARED_COMMANDS, BI_COMMANDS } from '@wso2/ballerina-core';
 import { ProjectExplorerEntry, ProjectExplorerEntryProvider } from './project-explorer-provider';
 import { ExtensionContext, TreeView, commands, window, workspace } from 'vscode';
 import { extension } from '../biExtentionContext';
+import { BI_PROJECT_EXPLORER_VIEW_ID, WI_PROJECT_EXPLORER_VIEW_ID, WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND } from '../constants';
 
 interface ExplorerActivationConfig {
 	context: ExtensionContext;
@@ -27,20 +28,22 @@ interface ExplorerActivationConfig {
 	isBallerinaPackage?: boolean;
 	isBallerinaWorkspace?: boolean;
 	isEmptyWorkspace?: boolean;
+	isInWI: boolean;
 }
 
 export function activateProjectExplorer(config: ExplorerActivationConfig) {
-	const { context, isBI, isBallerinaPackage, isBallerinaWorkspace, isEmptyWorkspace } = config;
+	const { context, isBI, isBallerinaPackage, isBallerinaWorkspace, isEmptyWorkspace, isInWI } = config;
 
 	if (extension.langClient && extension.biSupported) {
 		setLoadingStatus();
 	}
 
+	const treeviewId = isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : BI_PROJECT_EXPLORER_VIEW_ID;
 	const projectExplorerDataProvider = new ProjectExplorerEntryProvider();
-	const projectTree = createProjectTree(projectExplorerDataProvider);
+	const projectTree = createProjectTree(projectExplorerDataProvider, treeviewId);
 
 	if (isBallerinaPackage || isBallerinaWorkspace) {
-		registerBallerinaCommands(projectExplorerDataProvider, isBI, isBallerinaWorkspace, isEmptyWorkspace);
+		registerBallerinaCommands(projectExplorerDataProvider, isBI, isInWI, isBallerinaWorkspace, isEmptyWorkspace);
 	}
 
 	handleVisibilityChangeEvents(
@@ -57,17 +60,18 @@ function setLoadingStatus() {
 	commands.executeCommand('setContext', 'BI.status', 'loading');
 }
 
-function createProjectTree(dataProvider: ProjectExplorerEntryProvider) {
-	return window.createTreeView(BI_COMMANDS.PROJECT_EXPLORER, { treeDataProvider: dataProvider });
+function createProjectTree(dataProvider: ProjectExplorerEntryProvider, treeviewId: string) {
+	return window.createTreeView(treeviewId, { treeDataProvider: dataProvider });
 }
 
 function registerBallerinaCommands(
 	dataProvider: ProjectExplorerEntryProvider,
 	isBI: boolean,
+	isInWI: boolean,
 	isBallerinaWorkspace?: boolean,
 	isEmptyWorkspace?: boolean
 ) {
-	commands.registerCommand(BI_COMMANDS.REFRESH_COMMAND, () => dataProvider.refresh());
+	commands.registerCommand(isInWI ? WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND : BI_COMMANDS.REFRESH_COMMAND, () => dataProvider.refresh());
 	commands.executeCommand('setContext', 'BI.isWorkspaceSupported', extension.isWorkspaceSupported ?? false);
 
 	if (isBallerinaWorkspace) {
@@ -77,7 +81,7 @@ function registerBallerinaCommands(
 		}
 	}
 	if (isBI) {
-		registerBICommands();
+		registerBICommands(isInWI);
 	}
 }
 
@@ -131,8 +135,9 @@ function handleNonBallerinaVisibility() {
 	commands.executeCommand(SHARED_COMMANDS.OPEN_BI_WELCOME);
 }
 
-function registerBICommands() {
-	commands.executeCommand(BI_COMMANDS.FOCUS_PROJECT_EXPLORER);
+function registerBICommands(isInWI) {
+	const treeViewId = isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : BI_PROJECT_EXPLORER_VIEW_ID;
+	commands.executeCommand(`${treeViewId}.focus`);
 	commands.executeCommand(SHARED_COMMANDS.SHOW_VISUALIZER);
 	commands.executeCommand('setContext', 'BI.project', true);
 }

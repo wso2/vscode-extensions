@@ -20,12 +20,15 @@ import { assign, createMachine, interpret } from 'xstate';
 import { activateProjectExplorer } from './project-explorer/activate';
 import { extension } from './biExtentionContext';
 import { fetchProjectInfo, ProjectInfo } from './utils';
+import { WI_EXTENSION_ID } from './constants';
+import * as vscode from 'vscode';
 
 interface MachineContext {
     isBI: boolean;
     isBallerinaPackage?: boolean;
     isBallerinaWorkspace?: boolean;
     isEmptyWorkspace?: boolean;
+    isInWI: boolean;
 }
 
 const stateMachine = createMachine<MachineContext>({
@@ -34,7 +37,8 @@ const stateMachine = createMachine<MachineContext>({
     initial: 'initialize',
     predictableActionArguments: true,
     context: {
-        isBI: false
+        isBI: false,
+        isInWI: vscode.extensions.getExtension(WI_EXTENSION_ID) ? true : false
     },
     states: {
         initialize: {
@@ -71,7 +75,8 @@ const stateMachine = createMachine<MachineContext>({
                 isBI: context.isBI,
                 isBallerinaPackage: context.isBallerinaPackage,
                 isBallerinaWorkspace: context.isBallerinaWorkspace,
-                isEmptyWorkspace: context.isEmptyWorkspace
+                isEmptyWorkspace: context.isEmptyWorkspace,
+                isInWI: context.isInWI
             });
         }
     },
