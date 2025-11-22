@@ -103,6 +103,11 @@ export function ReferenceNodeWidget(props: ReferenceNodeWidgetProps) {
     const referenceValue = node.referenceName?.split("=")[1];
     const isClickable = referenceKey !== "sequence" && referenceKey !== "inSequence" && referenceKey !== "outSequence" && referenceKey !== "faultSequence" && node.stNode.tag !== "target";
     const description = referenceValue || getNodeDescription(node.stNode);
+    const [isLegacyProject, setIsLegacyProject] = React.useState<boolean>(false);
+
+    useEffect(() => {
+        rpcClient.getMiDiagramRpcClient().isLegacyProject().then(setIsLegacyProject);
+    }, []);
 
     useEffect(() => {
         if (node.mediatorName === MEDIATORS.DATAMAPPER) {
@@ -226,7 +231,7 @@ export function ReferenceNodeWidget(props: ReferenceNodeWidgetProps) {
                 >
                     <S.TopPortWidget port={node.getPort("in")!} engine={engine} />
                     <div style={{ display: "flex", flexDirection: "row", width: NODE_DIMENSIONS.DEFAULT.WIDTH }}>
-                        <S.IconContainer>{getMediatorIconsFromFont(node.stNode.tag)}</S.IconContainer>
+                        <S.IconContainer>{getMediatorIconsFromFont(node.stNode.tag, undefined, isLegacyProject)}</S.IconContainer>
                         <div>
                             {isHovered && (
                                 <OptionsMenu appearance="icon" onClick={handleOnClickMenu}>

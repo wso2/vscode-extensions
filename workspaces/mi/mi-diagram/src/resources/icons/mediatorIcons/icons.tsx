@@ -24,7 +24,7 @@ export function getMostPopularIconColor() {
     return "#ff7f36";
 }
 
-export function getMediatorIconsFromFont(mediator: string, isMostPopular?: boolean) {
+export function getMediatorIconsFromFont(mediator: string, isMostPopular?: boolean, renderIconsForLegacy?: boolean) {
     let icon: ReactNode = null;
     let color: string;
 
@@ -93,17 +93,35 @@ export function getMediatorIconsFromFont(mediator: string, isMostPopular?: boole
         case MEDIATORS.SPRING.toLowerCase():
         case MEDIATORS.CONDITIONALROUTER.toLowerCase():
         case MEDIATORS.BAM.toLowerCase():
+            color = "#e0e0d8";
+            break;
+        case MEDIATORS.PROPERTYGROUP.toLowerCase():
+        case MEDIATORS.CALLTEMPLATE.toLowerCase():
+        case MEDIATORS.CALL.toLowerCase():
+            if (renderIconsForLegacy) {
+                color = "#3e97d3";
+            } else {
+                color = "#e0e0d8";
+            }
+            break;
         case MEDIATORS.CLONE.toLowerCase():
         case MEDIATORS.ITERATE.toLowerCase():
         case MEDIATORS.AGGREGATE.toLowerCase():
-        case MEDIATORS.PROPERTYGROUP.toLowerCase():
-        case MEDIATORS.CALL.toLowerCase():
-        case MEDIATORS.CALLTEMPLATE.toLowerCase():
+            if (renderIconsForLegacy) {
+                color = "#26b99a";
+            } else {
+                color = "#e0e0d8";
+            }
+            break;
         case MEDIATORS.ENTITLEMENT.toLowerCase():
         case MEDIATORS.OAUTH.toLowerCase():
         case MEDIATORS.NTLM.toLowerCase():
-            color = "#e0e0d8";
-            break;
+            if (renderIconsForLegacy) {
+                color = "#ffc369";
+            } else {
+                color = "#e0e0d8";
+            }
+            break
         default:
             color = "#FFB02E";
     }

@@ -240,7 +240,8 @@ export function AddressEndpointWizard(props: AddressEndpointWizardProps) {
                 id: 0,
                 type: "TextField",
                 label: "Parameter",
-                defaultValue: "parameter_value",
+                placeholder: "parameter_value",
+                defaultValue: "",
                 isRequired: true
             }]
     }

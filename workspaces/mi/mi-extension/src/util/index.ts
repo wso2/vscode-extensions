@@ -178,6 +178,7 @@ export function createGitignoreFile(targetPath: string): Promise<void> {
 		// Common .gitignore patterns
 		const gitignoreContent = `
 .wso2mi/
+.env
 ##############################
 ## Java
 ##############################
@@ -204,6 +205,8 @@ dependency-reduced-pom.xml
 buildNumber.properties
 .mvn/timing.properties
 .mvn/wrapper/maven-wrapper.jar
+mvnw
+mvnw.cmd
 
 ##############################
 ## Visual Studio Code
