@@ -67,6 +67,11 @@ export const TOKEN_TYPE_COLORS: Partial<Record<TokenType, { background: string; 
         background: "rgba(59, 130, 246, 0.15)",
         border: "rgba(59, 130, 246, 0.4)",
         icon: "rgba(59, 130, 246, 0.9)"
+    },
+    [TokenType.ERROR]: {
+        background: 'rgba(246, 59, 59, 0.15)',
+        border: 'rgba(204, 0, 0, 0.4)',
+        icon: 'rgba(246, 59, 59, 0.9)'
     }
 };
 
@@ -86,7 +91,8 @@ export const STANDARD_ICON_CLASS_MAP: Partial<Record<TokenType, string>> = {
     [TokenType.VARIABLE]: 'fw-bi-variable',
     [TokenType.FUNCTION]: 'fw-bi-function',
     [TokenType.PARAMETER]: 'fw-bi-variable',
-    [TokenType.PROPERTY]: 'fw-bi-variable'
+    [TokenType.PROPERTY]: 'fw-bi-variable',
+    [TokenType.ERROR]: 'fw-bi-error',
 };
 
 export const getTokenIconClass = (tokenType: TokenType, subType?: string): string => {

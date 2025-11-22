@@ -165,6 +165,12 @@ export type Diagnostic = {
 export type DiagnosticMessage = {
     message: string;
     severity: "ERROR" | "WARNING" | "INFO";
+    range?: {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
+    };
+    code?: number | string;
+    source?: string;
 };
 
 export type CodeData = {

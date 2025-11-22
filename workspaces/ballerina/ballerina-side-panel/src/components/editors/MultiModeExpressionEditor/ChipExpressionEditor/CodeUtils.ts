@@ -26,6 +26,8 @@ import { closeBracketsKeymap, CompletionContext, completionKeymap, CompletionRes
 import { TokenType, TokenMetadata, CompoundTokenSequence } from "./types";
 import { prosemarkBaseThemeSetup, codeBlockDecorationsExtension, defaultFoldableSyntaxExtensions, defaultHideExtensions, taskExtension, prosemarkBasicSetup } from '@prosemark/core';
 import { Extension } from '@codemirror/state';
+import { linter, Diagnostic, lintKeymap } from "@codemirror/lint";
+import { DiagnosticMessage } from "@wso2/ballerina-core";
 import {
     CHIP_TEXT_STYLES,
     BASE_CHIP_STYLES,
@@ -54,7 +56,7 @@ export const ProgrammerticSelectionChange = Annotation.define<boolean>();
 export const SyncDocValueWithPropValue = Annotation.define<boolean>();
 
 
-export function createChip(text: string, type: TokenType, start: number, end: number, view: EditorView, metadata?: TokenMetadata) {
+export function createChip(text: string, type: TokenType, start: number, end: number, view: EditorView, metadata?: TokenMetadata, diagnostic?: { severity: string; message: string }) {
     class ChipWidget extends WidgetType {
         constructor(
             readonly text: string,
@@ -62,7 +64,8 @@ export function createChip(text: string, type: TokenType, start: number, end: nu
             readonly start: number,
             readonly end: number,
             readonly view: EditorView,
-            readonly metadata?: TokenMetadata
+            readonly metadata?: TokenMetadata,
+            readonly diagnostic?: { severity: string; message: string }
         ) {
             super();
         }
@@ -91,6 +94,24 @@ export function createChip(text: string, type: TokenType, start: number, end: nu
 
             const colors = getTokenTypeColor(this.type);
 
+            // Determine border color and underline based on diagnostic severity
+            let tokenType = this.type;
+            let backgroundColor = colors.background;
+            let borderColor = colors.border;
+            let iconColor = colors.icon;
+            let underlineColor = '';
+            if (this.diagnostic) {
+                switch (this.diagnostic.severity) {
+                    case 'ERROR':
+                        tokenType = TokenType.ERROR;
+                        backgroundColor = 'rgba(246, 59, 59, 0.15)';
+                        borderColor = 'rgba(204, 0, 0, 0.4)';
+                        iconColor = 'rgba(246, 59, 59, 0.9)';
+                        underlineColor = 'var(--vscode-editorError-foreground, #f48771)';
+                        break;
+                }
+            }
+
             // Apply base styles to the chip container
             Object.assign(span.style, {
                 ...BASE_CHIP_STYLES,
@@ -100,21 +121,36 @@ export function createChip(text: string, type: TokenType, start: number, end: nu
                 marginLeft: "2px",
             });
 
+            // Add title attribute for tooltip
+            if (this.diagnostic) {
+                span.title = this.diagnostic.message;
+            }
+
             // Create icon element for standard chip
             const icon = document.createElement("i");
-            let iconClass = getTokenIconClass(this.type, this.metadata?.documentType);
+            let iconClass = getTokenIconClass(tokenType, this.metadata?.documentType);
             if (iconClass) {
                 icon.className = iconClass;
             }
             Object.assign(icon.style, {
                 ...BASE_ICON_STYLES,
-                color: colors.icon
+                color: iconColor
             });
 
             // Create text span with ellipsis handling
             const textSpan = document.createElement("span");
             textSpan.textContent = displayText;
-            Object.assign(textSpan.style, CHIP_TEXT_STYLES);
+            const textStyles: any = { ...CHIP_TEXT_STYLES };
+
+            // Add squiggly underline to text only for diagnostics
+            if (underlineColor) {
+                textStyles.textDecoration = `wavy underline ${underlineColor}`;
+                textStyles.textDecorationSkipInk = 'none';
+                textStyles.textUnderlineOffset = '2px';
+                textStyles.paddingBottom = '2px';
+            }
+
+            Object.assign(textSpan.style, textStyles);
 
             span.appendChild(icon);
             span.appendChild(textSpan);
@@ -124,11 +160,14 @@ export function createChip(text: string, type: TokenType, start: number, end: nu
             return false;
         }
         eq(other: ChipWidget) {
-            return other.text === this.text && other.start === this.start && other.end === this.end;
+            return other.text === this.text &&
+                other.start === this.start &&
+                other.end === this.end &&
+                JSON.stringify(other.diagnostic) === JSON.stringify(this.diagnostic);
         }
     }
     return Decoration.replace({
-        widget: new ChipWidget(text, type, start, end, view, metadata),
+        widget: new ChipWidget(text, type, start, end, view, metadata, diagnostic),
         inclusive: false,
         block: false
     });
@@ -200,11 +239,30 @@ export const completionTheme = EditorView.theme({
 
 export const tokensChangeEffect = StateEffect.define<TokensChangePayload>();
 export const removeChipEffect = StateEffect.define<number>(); // contains token ID
+export const diagnosticsChangeEffect = StateEffect.define<DiagnosticMessage[]>();
 
 export type TokenFieldState = {
     tokens: ParsedToken[];
     compounds: CompoundTokenSequence[];
 };
+
+export type DiagnosticsFieldState = {
+    diagnostics: DiagnosticMessage[];
+};
+
+export const diagnosticsField = StateField.define<DiagnosticsFieldState>({
+    create() {
+        return { diagnostics: [] };
+    },
+    update(oldState, tr) {
+        for (let effect of tr.effects) {
+            if (effect.is(diagnosticsChangeEffect)) {
+                return { diagnostics: effect.value };
+            }
+        }
+        return oldState;
+    }
+});
 
 export const tokenField = StateField.define<TokenFieldState>({
     create() {
@@ -261,6 +319,30 @@ export const tokenField = StateField.define<TokenFieldState>({
         return { tokens, compounds };
     }
 });
+
+export const diagnosticRangeToDocPositions = (
+    range: { start: { line: number; character: number }; end: { line: number; character: number } },
+    doc: { lines: number; line: (n: number) => { from: number; length: number }; length: number }
+): { from: number; to: number } | null => {
+    const { start, end } = range;
+
+    const startLine = Math.max(0, Math.min(start.line, doc.lines - 1));
+    const endLine = Math.max(0, Math.min(end.line, doc.lines - 1));
+
+    const startLineObj = doc.line(startLine + 1); // doc.line is 1-indexed
+    const endLineObj = doc.line(endLine + 1);
+
+    const from = Math.min(
+        startLineObj.from + Math.min(start.character, startLineObj.length),
+        doc.length
+    );
+    const to = Math.min(
+        endLineObj.from + Math.min(end.character, endLineObj.length),
+        doc.length
+    );
+
+    return { from, to };
+};
 
 export const iterateTokenStream = (
     tokens: ParsedToken[],
@@ -335,18 +417,40 @@ export const chipPlugin = ViewPlugin.fromClass(
             const hasTokensChangeEffect = update.transactions.some(tr =>
                 tr.effects.some(e => e.is(tokensChangeEffect))
             );
+            const hasDiagnosticsChangeEffect = update.transactions.some(tr =>
+                tr.effects.some(e => e.is(diagnosticsChangeEffect))
+            );
             const hasDocOrViewportChange = update.docChanged || update.viewportChanged;
-            if (hasDocOrViewportChange || hasTokensChangeEffect) {
+            if (hasDocOrViewportChange || hasTokensChangeEffect || hasDiagnosticsChangeEffect) {
                 this.decorations = this.buildDecorations(update.view);
             }
         }
         buildDecorations(view: EditorView) {
             const widgets: any[] = []; // Type as any[] to allow pushing Range<Decoration>
             const { tokens, compounds } = view.state.field(tokenField);
+            const { diagnostics } = view.state.field(diagnosticsField);
             const docContent = view.state.doc.toString();
+            const doc = view.state.doc;
+
+            // Helper function to find diagnostic for a range
+            const findDiagnosticForRange = (start: number, end: number) => {
+                for (const diagnostic of diagnostics) {
+                    if (!diagnostic.range) continue;
+
+                    const positions = diagnosticRangeToDocPositions(diagnostic.range, doc);
+                    if (!positions) continue;
+
+                    // Check if diagnostic range overlaps with chip range
+                    if (!(positions.to <= start || positions.from >= end)) {
+                        return { severity: diagnostic.severity, message: diagnostic.message };
+                    }
+                }
+                return undefined;
+            };
 
             iterateTokenStream(tokens, compounds, docContent, {
                 onCompound: (compound) => {
+                    const diagnostic = findDiagnosticForRange(compound.start, compound.end);
                     widgets.push(
                         createChip(
                             compound.displayText,
@@ -354,18 +458,22 @@ export const chipPlugin = ViewPlugin.fromClass(
                             compound.start,
                             compound.end,
                             view,
-                            compound.metadata
+                            compound.metadata,
+                            diagnostic
                         ).range(compound.start, compound.end)
                     );
                 },
                 onToken: (token, text) => {
+                    const diagnostic = findDiagnosticForRange(token.start, token.end);
                     widgets.push(
                         createChip(
                             text,
                             token.type,
                             token.start,
                             token.end,
-                            view
+                            view,
+                            undefined,
+                            diagnostic
                         ).range(token.start, token.end)
                     );
                 }
@@ -646,4 +754,32 @@ export function prosemarkExtensions(): Extension[] {
         defaultFoldableSyntaxExtensions,
         prosemarkBaseThemeSetup()
     ];
+}
+
+export function buildLintingExtension(diagnostics: DiagnosticMessage[]): Extension {
+    return linter((view) => {
+        const doc = view.state.doc;
+        const cmDiagnostics: Diagnostic[] = [];
+
+        for (const diagnostic of diagnostics) {
+            if (!diagnostic.range) {
+                continue;
+            }
+
+            const positions = diagnosticRangeToDocPositions(diagnostic.range, doc);
+            if (!positions) {
+                continue;
+            }
+
+            cmDiagnostics.push({
+                from: positions.from,
+                to: positions.to,
+                severity: diagnostic.severity.toLowerCase() as "error" | "warning" | "info",
+                message: diagnostic.message,
+                source: diagnostic.source,
+            });
+        }
+
+        return cmDiagnostics;
+    });
 }

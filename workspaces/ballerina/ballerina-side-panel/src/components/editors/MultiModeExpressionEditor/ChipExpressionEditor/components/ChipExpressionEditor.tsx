@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { EditorState } from "@codemirror/state";
+import { EditorState, Compartment } from "@codemirror/state";
 import { EditorView, keymap, tooltips } from "@codemirror/view";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useFormContext } from "../../../../../context";
@@ -36,7 +36,10 @@ import {
     buildOnFocusOutListner,
     buildOnSelectionChange,
     ProgrammerticSelectionChange,
-    SyncDocValueWithPropValue
+    SyncDocValueWithPropValue,
+    buildLintingExtension,
+    diagnosticsField,
+    diagnosticsChangeEffect
 } from "../CodeUtils";
 import { history } from "@codemirror/commands";
 import { autocompletion } from "@codemirror/autocomplete";
@@ -44,7 +47,7 @@ import { FloatingButtonContainer, FloatingToggleButton, ChipEditorContainer } fr
 import { HelperpaneOnChangeOptions } from "../../../../Form/types";
 import { CompletionItem, FnSignatureDocumentation, HelperPaneHeight } from "@wso2/ui-toolkit";
 import { CloseHelperIcon, ExpandIcon, MinimizeIcon, OpenHelperIcon } from "./FloatingButtonIcons";
-import { LineRange } from "@wso2/ballerina-core";
+import { LineRange, DiagnosticMessage } from "@wso2/ballerina-core";
 import FXButton from "./FxButton";
 import { HelperPaneToggleButton } from "./HelperPaneToggleButton";
 import { HelperPane } from "./HelperPane";
@@ -92,6 +95,7 @@ export type ChipExpressionEditorComponentProps = {
     toolbarRef?: React.RefObject<HTMLDivElement>;
     enableListContinuation?: boolean;
     enableProsemark?: boolean;
+    formDiagnostics?: DiagnosticMessage[];
 }
 
 export const ChipExpressionEditorComponent = (props: ChipExpressionEditorComponentProps) => {
@@ -106,6 +110,7 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
     const helperPaneToggleButtonRef = useRef<HTMLButtonElement>(null);
     const completionsFetchScheduledRef = useRef<boolean>(false);
     const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
+    const lintCompartment = useRef(new Compartment());
 
     const { expressionEditor } = useFormContext();
     const expressionEditorRpcManager = expressionEditor?.rpcManager;
@@ -158,9 +163,48 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
         return buildCompletionSource(waitForStateChange);
     }, [props.completions]);
 
-    const helperPaneKeymap = buildHelperPaneKeymap(() => helperPaneState.isOpen, () => {
-        setHelperPaneState(prev => ({ ...prev, isOpen: false }));
-    });
+    const handleHelperPaneKeyboardToggle = () => {
+        if (!viewRef.current) return;
+
+        // If helper pane is open, just close it
+        if (helperPaneState.isOpen) {
+            setHelperPaneState(prev => ({ ...prev, isOpen: false }));
+            return;
+        }
+
+        // If helper pane is closed, open it at the cursor position
+        const view = viewRef.current;
+        const cursorCoords = view.coordsAtPos(view.state.selection.main.head);
+
+        if (cursorCoords && editorRef?.current) {
+            const editorRect = editorRef.current.getBoundingClientRect();
+            let top = cursorCoords.bottom - editorRect.top;
+            let left = cursorCoords.left - editorRect.left;
+
+            // Add overflow correction for window boundaries
+            const HELPER_PANE_WIDTH = 300;
+            const viewportWidth = window.innerWidth;
+            const absoluteLeft = cursorCoords.left;
+            const overflow = absoluteLeft + HELPER_PANE_WIDTH - viewportWidth;
+
+            if (overflow > 0) {
+                left -= overflow;
+            }
+
+            setHelperPaneState({ isOpen: true, top, left });
+        } else {
+            // Fallback if cursor coordinates aren't available
+            setHelperPaneState({ isOpen: true, top: 0, left: 0 });
+        }
+    };
+
+    const helperPaneKeymap = buildHelperPaneKeymap(
+        () => helperPaneState.isOpen,
+        () => {
+            setHelperPaneState(prev => ({ ...prev, isOpen: false }));
+        },
+        handleHelperPaneKeyboardToggle
+    );
 
     const onHelperItemSelect = async (value: string, options: HelperpaneOnChangeOptions) => {
         const newValue = value
@@ -286,8 +330,14 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
                     closeOnBlur: true
                 }),
                 tooltips({ position: "absolute" }),
+                lintCompartment.current.of(
+                    props.formDiagnostics && props.formDiagnostics.length > 0
+                        ? buildLintingExtension(props.formDiagnostics)
+                        : []
+                ),
                 chipPlugin,
                 tokenField,
+                diagnosticsField,
                 chipTheme,
                 completionTheme,
                 EditorView.lineWrapping,
@@ -380,6 +430,20 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
     useEffect(() => {
         setIsTokenUpdateScheduled(true);
     }, [Boolean(props.sanitizedExpression), Boolean(props.rawExpression)]);
+
+    // Update linting and chip highlighting when formDiagnostics change
+    useEffect(() => {
+        if (!viewRef.current) return;
+        const effects = [
+            lintCompartment.current.reconfigure(
+                props.formDiagnostics && props.formDiagnostics.length > 0
+                    ? buildLintingExtension(props.formDiagnostics)
+                    : []
+            ),
+            diagnosticsChangeEffect.of(props.formDiagnostics || [])
+        ];
+        viewRef.current.dispatch({ effects });
+    }, [props.formDiagnostics]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
