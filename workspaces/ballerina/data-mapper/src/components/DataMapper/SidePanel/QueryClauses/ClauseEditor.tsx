@@ -42,12 +42,13 @@ export function ClauseEditor(props: ClauseEditorProps) {
 
     const [clauseType, setClauseType] = React.useState<string>(_clauseType ?? IntermediateClauseType.WHERE);
     const clauseTypeItems: OptionProps[] = [
-        { content: "condition", value: IntermediateClauseType.WHERE },
-        { content: "local variable", value: IntermediateClauseType.LET },
-        { content: "sort by", value: IntermediateClauseType.ORDER_BY },
-        { content: "limit", value: IntermediateClauseType.LIMIT },
-        { content: "from", value: IntermediateClauseType.FROM },
-        { content: "join", value: IntermediateClauseType.JOIN },
+        { content: "Condition", value: IntermediateClauseType.WHERE },
+        { content: "Local variable", value: IntermediateClauseType.LET },
+        { content: "Sort by", value: IntermediateClauseType.ORDER_BY },
+        { content: "Limit", value: IntermediateClauseType.LIMIT },
+        { content: "From", value: IntermediateClauseType.FROM },
+        { content: "Join", value: IntermediateClauseType.JOIN },
+        { content: "Group by", value: IntermediateClauseType.GROUP_BY }
     ]
 
     const nameField: DMFormField = {
@@ -132,6 +133,8 @@ export function ClauseEditor(props: ClauseEditorProps) {
         if (clauseType === IntermediateClauseType.JOIN) {
             clause.properties.type = "var";
             clause.properties.isOuter = false;
+        } else if (clauseType === IntermediateClauseType.GROUP_BY) {
+            clause.properties.type = "var";
         }
         onSubmit(clause);
     }
@@ -151,6 +154,8 @@ export function ClauseEditor(props: ClauseEditorProps) {
                 return [expressionField, orderField];
             case IntermediateClauseType.JOIN:
                 return [expressionField, nameField, lhsExpressionField, rhsExpressionField];
+            case IntermediateClauseType.GROUP_BY:
+                return [nameField, expressionField];
             default:
                 return [expressionField];
         }
