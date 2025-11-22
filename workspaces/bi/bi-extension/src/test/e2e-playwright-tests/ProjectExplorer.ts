@@ -58,4 +58,10 @@ export class ProjectExplorer {
         await this.page.waitForTimeout(500); // To fix intermittent issues
         await locator.click();
     }
+
+    public async refresh(projectName: string) {
+        await this.page.getByRole('treeitem', { name: projectName }).hover();
+        const refreshBtn = this.page.getByRole('button', { name: 'Refresh' });
+        await refreshBtn.click();
+    }
 }
