@@ -18,105 +18,102 @@
 
 import { EditorState, Transaction } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { toggleMark, setBlockType, wrapIn } from "prosemirror-commands";
+import { toggleMark, setBlockType, wrapIn, lift } from "prosemirror-commands";
 import { wrapInList, liftListItem } from "prosemirror-schema-list";
-import { schema } from "prosemirror-schema-basic";
 import { MarkType, NodeType } from "prosemirror-model";
 
 export type Command = (state: EditorState, dispatch?: (tr: Transaction) => void, view?: EditorView) => boolean;
 
-export const toggleBold: Command = toggleMark(schema.marks.strong);
+export const toggleBold: Command = (state, dispatch, view) => {
+    return toggleMark(state.schema.marks.strong)(state, dispatch, view);
+};
 
-export const toggleItalic: Command = toggleMark(schema.marks.em);
+export const toggleItalic: Command = (state, dispatch, view) => {
+    return toggleMark(state.schema.marks.em)(state, dispatch, view);
+};
 
-export const toggleCode: Command = toggleMark(schema.marks.code);
+export const toggleCode: Command = (state, dispatch, view) => {
+    return toggleMark(state.schema.marks.code)(state, dispatch, view);
+};
 
-export const toggleLink: Command = (state, dispatch, view) => {
-    const linkMark = schema.marks.link;
+export const toggleLink: Command = (state, dispatch) => {
+    // Dynamically get the link mark from the current state's schema
+    const linkMarkType = state.schema.marks.link;
     const { from, to } = state.selection;
 
-    // Check if link mark is active
-    if (isMarkActive(state, linkMark)) {
-        // Remove link by toggling it off
-        return toggleMark(linkMark)(state, dispatch, view);
+    if (from === to) return false;
+
+    if (state.doc.rangeHasMark(from, to, linkMarkType)) {
+        if (dispatch) {
+            dispatch((state.tr as any).removeMark(from, to, linkMarkType));
+        }
+        return true;
     }
 
-    // Add link with placeholder URL
     if (dispatch) {
         const href = "url";
-        const mark = linkMark.create({ href });
-        dispatch(state.tr.addStoredMark(mark));
+        const mark = linkMarkType.create({ href });
+        dispatch((state.tr as any).addMark(from, to, mark));
     }
     return true;
 };
 
-export const setHeading = (level: number): Command => {
-    return setBlockType(schema.nodes.heading, { level });
+export const toggleHeading = (level: number): Command => {
+    return (state, dispatch, view) => {
+        const { schema } = state;
+        const isActive = isNodeActive(state, schema.nodes.heading, { level });
+
+        if (isActive) {
+            return setBlockType(schema.nodes.paragraph)(state, dispatch, view);
+        }
+        return setBlockType(schema.nodes.heading, { level })(state, dispatch, view);
+    };
 };
 
-export const setParagraph: Command = setBlockType(schema.nodes.paragraph);
+export const setParagraph: Command = (state, dispatch, view) => {
+    return setBlockType(state.schema.nodes.paragraph)(state, dispatch, view);
+};
 
 export const toggleBlockquote: Command = (state, dispatch, view) => {
-    const { $from } = state.selection;
-
-    // Check if we're already in a blockquote
-    for (let d = $from.depth; d >= 0; d--) {
-        const node = $from.node(d);
-        if (node.type === schema.nodes.blockquote) {
-            // Lift out of blockquote - use wrapIn to toggle
-            return wrapIn(schema.nodes.blockquote)(state, dispatch, view);
-        }
+    const blockquote = state.schema.nodes.blockquote;
+    if (isNodeActive(state, blockquote)) {
+        return lift(state, dispatch);
     }
-
-    // Wrap in blockquote
-    return wrapIn(schema.nodes.blockquote)(state, dispatch, view);
+    return wrapIn(blockquote)(state, dispatch, view);
 };
 
 export const toggleBulletList: Command = (state, dispatch, view) => {
-    const { $from } = state.selection;
+    const bulletList = state.schema.nodes.bullet_list;
+    const listItem = state.schema.nodes.list_item;
 
-    // Check if we're already in a bullet list
-    for (let d = $from.depth; d >= 0; d--) {
-        const node = $from.node(d);
-        if (node.type === schema.nodes.bullet_list) {
-            // Lift out of list
-            return liftListItem(schema.nodes.list_item)(state, dispatch, view);
-        }
+    if (isListActive(state, bulletList)) {
+        return liftListItem(listItem)(state, dispatch, view);
     }
-
-    // Wrap in bullet list
-    return wrapInList(schema.nodes.bullet_list)(state, dispatch, view);
+    return wrapInList(bulletList)(state, dispatch, view);
 };
 
 export const toggleOrderedList: Command = (state, dispatch, view) => {
-    const { $from } = state.selection;
+    const orderedList = state.schema.nodes.ordered_list;
+    const listItem = state.schema.nodes.list_item;
 
-    // Check if we're already in an ordered list
-    for (let d = $from.depth; d >= 0; d--) {
-        const node = $from.node(d);
-        if (node.type === schema.nodes.ordered_list) {
-            // Lift out of list
-            return liftListItem(schema.nodes.list_item)(state, dispatch, view);
-        }
+    if (isListActive(state, orderedList)) {
+        return liftListItem(listItem)(state, dispatch, view);
     }
-
-    // Wrap in ordered list
-    return wrapInList(schema.nodes.ordered_list)(state, dispatch, view);
+    return wrapInList(orderedList)(state, dispatch, view);
 };
+
+// --- Helpers ---
 
 export const isMarkActive = (state: EditorState, type: MarkType): boolean => {
     const { from, to, $from, empty } = state.selection;
-
     if (empty) {
         return !!type.isInSet(state.storedMarks || $from.marks());
     }
-
     return state.doc.rangeHasMark(from, to, type);
 };
 
 export const isNodeActive = (state: EditorState, type: NodeType, attrs?: Record<string, any>): boolean => {
-    const { $from, to } = state.selection;
-
+    const { $from } = state.selection;
     for (let d = $from.depth; d >= 0; d--) {
         const node = $from.node(d);
         if (node.type === type) {
@@ -124,6 +121,21 @@ export const isNodeActive = (state: EditorState, type: NodeType, attrs?: Record<
             return Object.keys(attrs).every(key => node.attrs[key] === attrs[key]);
         }
     }
+    return false;
+};
 
+export const isListActive = (state: EditorState, listType: NodeType): boolean => {
+    const { $from } = state.selection;
+    for (let d = $from.depth; d >= 0; d--) {
+        const node = $from.node(d);
+        if (node.type.name === 'list_item') {
+            if (d > 0) {
+                const parent = $from.node(d - 1);
+                if (parent.type === listType) {
+                    return true;
+                }
+            }
+        }
+    }
     return false;
 };

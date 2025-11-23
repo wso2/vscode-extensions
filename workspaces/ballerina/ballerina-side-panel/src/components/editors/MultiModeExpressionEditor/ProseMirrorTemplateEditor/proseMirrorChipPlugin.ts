@@ -46,9 +46,9 @@ export const chipPluginKey = new PluginKey('chipPlugin');
 const chipNodeSpec: NodeSpec = {
     inline: true,
     group: "inline",
-    atom: true,  // Makes the chip atomic - cursor jumps over it
-    selectable: true,
-    draggable: false,
+    atom: true,
+    selectable: false,
+    draggable: true,
     attrs: {
         tokenType: { default: TokenType.VARIABLE },
         text: { default: "" },
@@ -122,6 +122,8 @@ export function createChipSchema(): Schema {
         marks: markdownSchema.spec.marks
     });
 }
+
+export const chipSchema = createChipSchema();
 
 export interface TokenUpdate {
     tokens: number[] | null;

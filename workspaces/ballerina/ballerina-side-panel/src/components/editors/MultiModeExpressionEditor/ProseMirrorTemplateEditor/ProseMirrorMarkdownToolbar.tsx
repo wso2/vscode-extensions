@@ -16,22 +16,22 @@
  * under the License.
  */
 
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import styled from "@emotion/styled";
 import { ThemeColors, Icon } from "@wso2/ui-toolkit";
 import { EditorView } from "prosemirror-view";
-import { schema } from "prosemirror-schema-basic";
 import {
     toggleBold,
     toggleItalic,
     toggleCode,
     toggleLink,
-    setHeading,
+    toggleHeading,
     toggleBlockquote,
     toggleBulletList,
     toggleOrderedList,
     isMarkActive,
-    isNodeActive
+    isNodeActive,
+    isListActive
 } from "./proseMirrorCommands";
 import { HelperPaneToggleButton } from "../../MultiModeExpressionEditor/ChipExpressionEditor/components/HelperPaneToggleButton";
 
@@ -95,6 +95,77 @@ const ToolbarDivider = styled.div`
     margin: 0 4px;
 `;
 
+const SplitButtonContainer = styled.div`
+    position: relative;
+    display: flex;
+    align-items: center;
+`;
+
+const SplitButtonMain = styled(ToolbarButton)`
+    border-radius: 4px 0 0 4px;
+    border: 1px solid ${ThemeColors.OUTLINE_VARIANT};
+    border-right: none;
+    min-width: 40px;
+    font-size: 12px;
+    font-weight: 600;
+`;
+
+const SplitButtonDropdown = styled(ToolbarButton)`
+    width: 24px;
+    border-radius: 0 4px 4px 0;
+    border: 1px solid ${ThemeColors.OUTLINE_VARIANT};
+`;
+
+const DropdownMenu = styled.div<{ isOpen: boolean }>`
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 120px;
+    background-color: var(--vscode-dropdown-background);
+    border: 1px solid ${ThemeColors.OUTLINE_VARIANT};
+    border-radius: 4px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    display: ${props => props.isOpen ? 'block' : 'none'};
+    overflow: hidden;
+`;
+
+const DropdownItem = styled.button<{ size: number }>`
+    width: 100%;
+    padding: 8px 12px;
+    background-color: transparent;
+    color: ${ThemeColors.ON_SURFACE};
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    font-size: ${props => {
+        const sizes: { [key: number]: string } = {
+            1: '16px',
+            2: '15px',
+            3: '14px',
+            4: '13px',
+            5: '12px',
+            6: '11px'
+        };
+        return sizes[props.size] || '14px';
+    }};
+    font-weight: ${props => props.size <= 3 ? '600' : '500'};
+    transition: background-color 0.2s ease;
+
+    &:hover {
+        background-color: ${ThemeColors.SECONDARY_CONTAINER};
+    }
+
+    &:active {
+        background-color: ${ThemeColors.SECONDARY_CONTAINER};
+    }
+
+    &:focus-visible {
+        outline: 2px solid ${ThemeColors.PRIMARY};
+        outline-offset: -2px;
+    }
+`;
+
 interface ProseMirrorMarkdownToolbarProps {
     editorView: EditorView | null;
     helperPaneToggle?: {
@@ -109,6 +180,9 @@ export const ProseMirrorMarkdownToolbar = React.forwardRef<HTMLDivElement, Prose
     helperPaneToggle
 }, ref) => {
     const [, forceUpdate] = React.useReducer(x => x + 1, 0);
+    const [currentHeadingLevel, setCurrentHeadingLevel] = useState(1);
+    const [isHeadingDropdownOpen, setIsHeadingDropdownOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     // Update toolbar state when editor state changes
     React.useEffect(() => {
@@ -129,6 +203,20 @@ export const ProseMirrorMarkdownToolbar = React.forwardRef<HTMLDivElement, Prose
         };
     }, [editorView]);
 
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsHeadingDropdownOpen(false);
+            }
+        };
+
+        if (isHeadingDropdownOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }
+    }, [isHeadingDropdownOpen]);
+
     // Prevent buttons from taking focus away from the editor
     const handleMouseDown = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -140,15 +228,31 @@ export const ProseMirrorMarkdownToolbar = React.forwardRef<HTMLDivElement, Prose
         editorView.focus();
     };
 
-    // Check if marks/nodes are active
-    const isBoldActive = editorView ? isMarkActive(editorView.state, schema.marks.strong) : false;
-    const isItalicActive = editorView ? isMarkActive(editorView.state, schema.marks.em) : false;
-    const isCodeActive = editorView ? isMarkActive(editorView.state, schema.marks.code) : false;
-    const isLinkActive = editorView ? isMarkActive(editorView.state, schema.marks.link) : false;
-    const isH3Active = editorView ? isNodeActive(editorView.state, schema.nodes.heading, { level: 3 }) : false;
-    const isBlockquoteActive = editorView ? isNodeActive(editorView.state, schema.nodes.blockquote) : false;
-    const isBulletListActive = editorView ? isNodeActive(editorView.state, schema.nodes.bullet_list) : false;
-    const isOrderedListActive = editorView ? isNodeActive(editorView.state, schema.nodes.ordered_list) : false;
+    const handleHeader = (level?: number) => {
+        const headingLevel = level ?? currentHeadingLevel;
+        executeCommand(toggleHeading(headingLevel));
+        if (level !== undefined) {
+            setCurrentHeadingLevel(level);
+            setIsHeadingDropdownOpen(false);
+        }
+    };
+
+    const toggleHeadingDropdown = () => setIsHeadingDropdownOpen(!isHeadingDropdownOpen);
+
+    const schema = editorView?.state.schema;
+
+    const isBoldActive = editorView && schema ? isMarkActive(editorView.state, schema.marks.strong) : false;
+    const isItalicActive = editorView && schema ? isMarkActive(editorView.state, schema.marks.em) : false;
+    const isCodeActive = editorView && schema ? isMarkActive(editorView.state, schema.marks.code) : false;
+    const isLinkActive = editorView && schema ? isMarkActive(editorView.state, schema.marks.link) : false;
+
+    const isCurrentHeadingActive = editorView && schema
+        ? isNodeActive(editorView.state, schema.nodes.heading, { level: currentHeadingLevel })
+        : false;
+
+    const isBlockquoteActive = editorView && schema ? isNodeActive(editorView.state, schema.nodes.blockquote) : false;
+    const isBulletListActive = editorView && schema ? isListActive(editorView.state, schema.nodes.bullet_list) : false;
+    const isOrderedListActive = editorView && schema ? isListActive(editorView.state, schema.nodes.ordered_list) : false;
 
     return (
         <ToolbarContainer ref={ref}>
@@ -207,15 +311,37 @@ export const ProseMirrorMarkdownToolbar = React.forwardRef<HTMLDivElement, Prose
 
                 <ToolbarDivider />
 
-                <ToolbarButton
-                    title="Heading"
-                    disabled={!editorView}
-                    isActive={isH3Active}
-                    onClick={() => executeCommand(setHeading(3))}
-                    onMouseDown={handleMouseDown}
-                >
-                    <Icon name="bi-heading" sx={{ width: "24px", height: "24px", fontSize: "24px" }} />
-                </ToolbarButton>
+                <SplitButtonContainer ref={dropdownRef}>
+                    <SplitButtonMain
+                        title={`Heading ${currentHeadingLevel}`}
+                        disabled={!editorView}
+                        isActive={isCurrentHeadingActive}
+                        onClick={() => handleHeader()}
+                        onMouseDown={handleMouseDown}
+                    >
+                        H{currentHeadingLevel}
+                    </SplitButtonMain>
+                    <SplitButtonDropdown
+                        title="Select heading level"
+                        disabled={!editorView}
+                        onClick={toggleHeadingDropdown}
+                        onMouseDown={handleMouseDown}
+                    >
+                        <Icon name="bi-arrow-down" sx={{ width: "16px", height: "16px", fontSize: "16px" }} />
+                    </SplitButtonDropdown>
+                    <DropdownMenu isOpen={isHeadingDropdownOpen}>
+                        {[1, 2, 3, 4, 5, 6].map((level) => (
+                            <DropdownItem
+                                key={level}
+                                size={level}
+                                onClick={() => handleHeader(level)}
+                                onMouseDown={handleMouseDown}
+                            >
+                                Heading {level}
+                            </DropdownItem>
+                        ))}
+                    </DropdownMenu>
+                </SplitButtonContainer>
 
                 <ToolbarButton
                     title="Blockquote"

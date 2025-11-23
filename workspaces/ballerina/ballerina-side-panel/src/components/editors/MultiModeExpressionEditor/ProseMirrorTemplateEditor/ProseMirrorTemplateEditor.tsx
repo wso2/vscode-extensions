@@ -24,6 +24,7 @@ import { keymap } from "prosemirror-keymap";
 import { history, undo, redo } from "prosemirror-history";
 import { baseKeymap } from "prosemirror-commands";
 import { gapCursor } from "prosemirror-gapcursor";
+import { splitListItem, liftListItem, sinkListItem } from "prosemirror-schema-list";
 import { defaultMarkdownParser, defaultMarkdownSerializer, MarkdownParser, MarkdownSerializer } from "prosemirror-markdown";
 import markdownit from "markdown-it";
 import { ThemeColors, CompletionItem, FnSignatureDocumentation, HelperPaneHeight } from "@wso2/ui-toolkit";
@@ -423,6 +424,9 @@ export const ProseMirrorTemplateEditor: React.FC<ProseMirrorTemplateEditorProps>
                     "Mod-z": undo,
                     "Mod-y": redo,
                     "Mod-Shift-z": redo,
+                    "Enter": splitListItem(chipSchema.nodes.list_item),
+                    "Mod-[": liftListItem(chipSchema.nodes.list_item),
+                    "Mod-]": sinkListItem(chipSchema.nodes.list_item),
                 }),
                 keymap(baseKeymap),
                 gapCursor(),
