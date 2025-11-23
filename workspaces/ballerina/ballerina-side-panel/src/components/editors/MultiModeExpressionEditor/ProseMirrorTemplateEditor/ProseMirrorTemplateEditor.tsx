@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import styled from "@emotion/styled";
 import { EditorState } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
@@ -32,6 +32,7 @@ import { HelperpaneOnChangeOptions } from "../../../Form/types";
 import { ProseMirrorMarkdownToolbar } from "./ProseMirrorMarkdownToolbar";
 import { useFormContext } from "../../../../context/form";
 import { createChipPlugin, createChipSchema, updateChipTokens } from "./proseMirrorChipPlugin";
+import { HelperPane } from "../ChipExpressionEditor/components/HelperPane";
 
 const EditorContainer = styled.div`
     flex: 1;
@@ -40,7 +41,8 @@ const EditorContainer = styled.div`
     border-radius: 0 0 3px 3px;
     border-top: none;
     background-color: var(--vscode-input-background);
-    
+    position: relative;
+
     .ProseMirror {
         padding: 8px 12px;
         outline: none;
@@ -177,6 +179,14 @@ const customMarkdownSerializer = new MarkdownSerializer(
     defaultMarkdownSerializer.marks
 );
 
+type HelperPaneState = {
+    isOpen: boolean;
+    top: number;
+    left: number;
+    clickedChipPos?: number;
+    clickedChipNode?: any;
+}
+
 interface ProseMirrorTemplateEditorProps {
     value: string;
     onChange: (value: string, cursorPosition: number) => void;
@@ -213,12 +223,159 @@ export const ProseMirrorTemplateEditor: React.FC<ProseMirrorTemplateEditorProps>
     sanitizedExpression,
     rawExpression,
     onEditorViewReady,
+    getHelperPane,
+    disableAutoOpenHelperPane,
+    onHelperPaneStateChange,
+    extractArgsFromFunction,
 }) => {
     const editorRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
+    const helperPaneRef = useRef<HTMLDivElement>(null);
+    const helperPaneToggleButtonRef = useRef<HTMLButtonElement>(null);
+    const toolbarRef = useRef<HTMLDivElement>(null);
+
+    const [helperPaneState, setHelperPaneState] = useState<HelperPaneState>({
+        isOpen: false,
+        top: 0,
+        left: 0
+    });
 
     const { expressionEditor } = useFormContext();
     const rpcManager = expressionEditor?.rpcManager;
+
+    // Handle chip click to show helper pane
+    const handleChipClick = (event: MouseEvent, chipPos: number, chipNode: any) => {
+        if (!viewRef.current || !editorRef.current) return;
+
+        const target = event.target as HTMLElement;
+        const chipElement = target.closest('.pm-chip') as HTMLElement;
+        if (!chipElement) return;
+
+        const chipRect = chipElement.getBoundingClientRect();
+        const editorRect = editorRef.current.getBoundingClientRect();
+
+        // Get the scroll position from the editor container
+        const scrollTop = editorRef.current.scrollTop || 0;
+
+        // Position relative to the editor container, accounting for scroll
+        let top = chipRect.bottom - editorRect.top + scrollTop;
+        let left = chipRect.left - editorRect.left;
+
+        // Add overflow correction for window boundaries
+        const HELPER_PANE_WIDTH = 300;
+        const viewportWidth = window.innerWidth;
+        const absoluteLeft = chipRect.left;
+        const overflow = absoluteLeft + HELPER_PANE_WIDTH - viewportWidth;
+
+        if (overflow > 0) {
+            left -= overflow;
+        }
+
+        setHelperPaneState({
+            isOpen: true,
+            top,
+            left,
+            clickedChipPos: chipPos,
+            clickedChipNode: chipNode
+        });
+    };
+
+    // Handle helper pane toggle button click
+    const handleHelperPaneManualToggle = () => {
+        if (!helperPaneToggleButtonRef?.current || !editorRef?.current || !viewRef.current) return;
+
+        if (helperPaneState.isOpen) {
+            setHelperPaneState(prev => ({ ...prev, isOpen: false }));
+            return;
+        }
+
+        const scrollTop = editorRef.current.scrollTop || 0;
+
+        const top = scrollTop;
+        const left = 10;
+
+        setHelperPaneState({
+            isOpen: true,
+            top,
+            left
+        });
+    };
+
+    // Handle helper pane selection
+    const onHelperItemSelect = async (newValue: string, options?: HelperpaneOnChangeOptions) => {
+        if (!viewRef.current) return;
+
+        const view = viewRef.current;
+        let finalValue = newValue;
+        let cursorPosition = view.state.selection.from;
+
+        // If a chip was clicked, replace it
+        if (helperPaneState.clickedChipPos !== undefined && helperPaneState.clickedChipNode) {
+            const chipPos = helperPaneState.clickedChipPos;
+            const chipNode = helperPaneState.clickedChipNode;
+            const chipSize = chipNode.nodeSize;
+
+            // HACK: this should be handled properly with completion items template
+            if (newValue.endsWith('()') || newValue.endsWith(')}')) {
+                if (extractArgsFromFunction) {
+                    try {
+                        // Extract the function definition from string templates like "${func()}"
+                        let functionDef = newValue;
+                        let prefix = '';
+                        let suffix = '';
+
+                        // Check if it's within a string template
+                        const stringTemplateMatch = newValue.match(/^(.*\$\{)([^}]+)(\}.*)$/);
+                        if (stringTemplateMatch) {
+                            prefix = stringTemplateMatch[1];
+                            functionDef = stringTemplateMatch[2];
+                            suffix = stringTemplateMatch[3];
+                        }
+
+                        let cursorPositionForExtraction = prefix.length + functionDef.length - 1;
+                        if (functionDef.endsWith(')}')) {
+                            cursorPositionForExtraction -= 1;
+                        }
+
+                        const fnSignature = await extractArgsFromFunction(functionDef, cursorPositionForExtraction);
+
+                        if (fnSignature && fnSignature.args && fnSignature.args.length > 0) {
+                            const placeholderArgs = fnSignature.args.map((arg, index) => `$${index + 1}`);
+                            const updatedFunctionDef = functionDef.slice(0, -2) + '(' + placeholderArgs.join(', ') + ')';
+                            finalValue = prefix + updatedFunctionDef + suffix;
+                        }
+                    } catch (error) {
+                        console.warn('Failed to extract function arguments:', error);
+                    }
+                }
+            }
+
+            // Replace the chip with the new text
+            const textNode = view.state.schema.text(finalValue);
+            const tr = view.state.tr;
+            (tr as any).replaceRangeWith(chipPos, chipPos + chipSize, textNode);
+            view.dispatch(tr);
+
+            cursorPosition = chipPos + finalValue.length;
+        } else {
+            // Insert at current cursor position
+            const { from, to } = view.state.selection;
+            const tr = view.state.tr.insertText(finalValue, from, to);
+            view.dispatch(tr);
+            cursorPosition = from + finalValue.length;
+        }
+
+        setHelperPaneState({
+            isOpen: !options?.closeHelperPane,
+            top: helperPaneState.top,
+            left: helperPaneState.left
+        });
+
+        // Trigger onChange to update parent
+        const serialized = customMarkdownSerializer.serialize(view.state.doc);
+        const newEditorValue = rawExpression ? rawExpression(serialized) : serialized;
+        onChange(newEditorValue, cursorPosition);
+    };
 
     const fetchAndUpdateTokens = async (editorView: EditorView) => {
         if (!rpcManager || !fileName) return;
@@ -255,7 +412,7 @@ export const ProseMirrorTemplateEditor: React.FC<ProseMirrorTemplateEditorProps>
         if (!editorRef.current) return;
 
         const sanitizedValue = sanitizedExpression ? sanitizedExpression(value) : value;
-        const chipPlugin = createChipPlugin(chipSchema);
+        const chipPlugin = createChipPlugin(chipSchema, handleChipClick);
 
         const state = EditorState.create({
             doc: customMarkdownParser.parse(sanitizedValue),
@@ -313,13 +470,75 @@ export const ProseMirrorTemplateEditor: React.FC<ProseMirrorTemplateEditorProps>
         }
     }, [value]);
 
-    // Handle helper pane state change
+    // Expose helper pane state to parent component
+    useEffect(() => {
+        if (onHelperPaneStateChange) {
+            onHelperPaneStateChange({
+                isOpen: helperPaneState.isOpen,
+                ref: helperPaneToggleButtonRef,
+                toggle: handleHelperPaneManualToggle
+            });
+        }
+    }, [helperPaneState.isOpen]);
+
+    // Handle click outside to close helper pane
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (!helperPaneState.isOpen) return;
+
+            const target = event.target as Element;
+            const isClickInsideEditor = editorRef.current?.contains(target);
+            const isClickInsideHelperPane = helperPaneRef.current?.contains(target);
+            const isClickOnToggleButton = helperPaneToggleButtonRef.current?.contains(target);
+            const isClickInsideToolbar = toolbarRef.current?.contains(target);
+
+            if (!isClickInsideEditor && !isClickInsideHelperPane && !isClickOnToggleButton && !isClickInsideToolbar) {
+                setHelperPaneState(prev => ({ ...prev, isOpen: false }));
+            }
+        };
+
+        const handleEscapeKey = (event: KeyboardEvent) => {
+            if (!helperPaneState.isOpen) return;
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                setHelperPaneState(prev => ({ ...prev, isOpen: false }));
+            }
+        };
+
+        if (helperPaneState.isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+            document.addEventListener('keydown', handleEscapeKey);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEscapeKey);
+        };
+    }, [helperPaneState.isOpen]);
+
     return (
         <>
             <ProseMirrorMarkdownToolbar
+                ref={toolbarRef}
                 editorView={viewRef.current}
+                helperPaneToggle={getHelperPane ? {
+                    ref: helperPaneToggleButtonRef,
+                    isOpen: helperPaneState.isOpen,
+                    onClick: handleHelperPaneManualToggle
+                } : undefined}
             />
-            <EditorContainer ref={editorRef} />
+            <EditorContainer ref={editorRef}>
+                {helperPaneState.isOpen && getHelperPane && (
+                    <HelperPane
+                        ref={helperPaneRef}
+                        top={helperPaneState.top}
+                        left={helperPaneState.left}
+                        getHelperPane={getHelperPane}
+                        value={value}
+                        onChange={onHelperItemSelect}
+                    />
+                )}
+            </EditorContainer>
         </>
     );
 };

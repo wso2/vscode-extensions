@@ -370,7 +370,10 @@ function replaceTextWithChips(
  * Creates the chip plugin for ProseMirror
  * This plugin replaces text ranges with atomic chip nodes when tokens are received
  */
-export function createChipPlugin(schema: Schema) {
+export function createChipPlugin(
+    schema: Schema,
+    onChipClick?: (event: MouseEvent, chipPos: number, chipNode: any) => void
+) {
     return new Plugin<ChipPluginState>({
         key: chipPluginKey,
 
@@ -439,6 +442,31 @@ export function createChipPlugin(schema: Schema) {
             }
 
             return null;
+        },
+
+        // Handle click events on chips
+        props: {
+            handleDOMEvents: {
+                click: (view, event) => {
+                    if (!onChipClick) return false;
+
+                    const target = event.target as HTMLElement;
+                    const chipElement = target.closest('.pm-chip');
+
+                    if (chipElement) {
+                        // Find the chip node at this position
+                        const pos = view.posAtDOM(chipElement, 0);
+                        const node = view.state.doc.nodeAt(pos);
+
+                        if (node && node.type.name === 'chip') {
+                            onChipClick(event, pos, node);
+                            return true; // Event handled
+                        }
+                    }
+
+                    return false; // Let other handlers process the event
+                }
+            }
         }
     });
 }
