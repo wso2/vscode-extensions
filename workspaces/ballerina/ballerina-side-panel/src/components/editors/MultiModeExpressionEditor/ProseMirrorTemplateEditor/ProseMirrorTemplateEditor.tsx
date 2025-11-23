@@ -79,8 +79,10 @@ const EditorContainer = styled.div`
     }
 
     .ProseMirror blockquote {
-        margin: 0.5em 0;
+        margin: 1em 0;
         padding-left: 1em;
+        padding-top: 0.1em;
+        padding-bottom: 0.1em;
         border-left: 3px solid ${ThemeColors.PRIMARY};
         color: ${ThemeColors.ON_SURFACE_VARIANT};
     }
@@ -103,57 +105,6 @@ const EditorContainer = styled.div`
     .ProseMirror pre code {
         background: none;
         padding: 0;
-    }
-
-    /* Chip styles */
-    .pm-chip {
-        display: inline-flex;
-        align-items: center;
-        margin: 0 2px;
-        user-select: none;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        vertical-align: middle;
-
-        &:hover {
-            opacity: 0.8;
-            transform: translateY(-1px);
-        }
-    }
-
-    .pm-chip-variable {
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-size: 12px;
-        min-height: 20px;
-        min-width: 25px;
-    }
-
-    .pm-chip-document {
-        padding: 4px 8px;
-        border-radius: 4px;
-        gap: 6px;
-        font-size: 13px;
-        min-height: 24px;
-    }
-
-    /* Hide the original text that's replaced by chips */
-    .pm-chip-hidden-text {
-        font-size: 0 !important;
-        line-height: 0 !important;
-        color: transparent !important;
-        user-select: none;
-        display: inline;
-        width: 0;
-        height: 0;
-        overflow: hidden;
-        position: relative;
-    }
-
-    /* Ensure chips are properly aligned */
-    .ProseMirror .pm-chip {
-        position: relative;
-        z-index: 1;
     }
 `;
 
