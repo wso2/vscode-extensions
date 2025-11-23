@@ -18,10 +18,12 @@
 
 import React, { useState, useRef } from "react";
 import styled from "@emotion/styled";
-import { EditorView } from "@codemirror/view";
+import { EditorView as CodeMirrorView } from "@codemirror/view";
+import { EditorView as ProseMirrorView } from "prosemirror-view";
 import { EditorModeExpressionProps } from "./types";
 import { ChipExpressionEditorComponent } from "../../MultiModeExpressionEditor/ChipExpressionEditor/components/ChipExpressionEditor";
-import { TemplateMarkdownToolbar } from "../controls/TemplateMarkdownToolbar";
+import { ProseMirrorTemplateEditor } from "../../MultiModeExpressionEditor/ProseMirrorTemplateEditor/ProseMirrorTemplateEditor";
+// import { ProseMirrorMarkdownToolbar } from "../controls/ProseMirrorMarkdownToolbar";
 import { ErrorBanner } from "@wso2/ui-toolkit";
 
 const ExpressionContainer = styled.div`
@@ -55,8 +57,10 @@ export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
     error,
     formDiagnostics
 }) => {
-    const [editorView, setEditorView] = useState<EditorView | null>(null);
     const [isPreviewMode, setIsPreviewMode] = useState<boolean>(true);
+    const [isSourceView, setIsSourceView] = useState<boolean>(false);
+    const [codeMirrorView, setCodeMirrorView] = useState<CodeMirrorView | null>(null);
+    const [proseMirrorView, setProseMirrorView] = useState<ProseMirrorView | null>(null);
     const [helperPaneToggle, setHelperPaneToggle] = useState<{
         ref: React.RefObject<HTMLButtonElement>;
         isOpen: boolean;
@@ -120,38 +124,59 @@ export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
 
     const adjustedDiagnostics = computeDiagnostics();
 
+    const handleToggleView = () => {
+        setIsSourceView(!isSourceView);
+    };
+
     return (
         <>
-            <TemplateMarkdownToolbar
+            {/* <ProseMirrorMarkdownToolbar
                 ref={toolbarRef}
-                editorView={editorView}
-                isPreviewMode={isPreviewMode}
-                onModeToggle={handleModeToggle}
+                editorView={proseMirrorView}
+                isSourceView={isSourceView}
+                onToggleView={handleToggleView}
                 helperPaneToggle={helperPaneToggle || undefined}
-            />
-            <ExpressionContainer>
-                <ChipExpressionEditorComponent
-                    key={isPreviewMode ? 'preview' : 'source'}
-                    value={value}
-                    onChange={handleChange}
-                    completions={completions}
-                    sanitizedExpression={sanitizedExpression}
-                    fileName={fileName}
-                    targetLineRange={targetLineRange}
-                    extractArgsFromFunction={extractArgsFromFunction}
-                    getHelperPane={getHelperPane}
-                    rawExpression={rawExpression}
-                    isInExpandedMode={true}
-                    isExpandedVersion={true}
-                    showHelperPaneToggle={false}
-                    onHelperPaneStateChange={handleHelperPaneStateChange}
-                    onEditorViewReady={setEditorView}
-                    toolbarRef={toolbarRef}
-                    enableListContinuation={true}
-                    enableProsemark={isPreviewMode}
-                    formDiagnostics={adjustedDiagnostics}
-                />
-            </ExpressionContainer>
+            /> */}
+            {isSourceView ? (
+                <ExpressionContainer>
+                    <ChipExpressionEditorComponent
+                        value={value}
+                        onChange={handleChange}
+                        completions={completions}
+                        sanitizedExpression={sanitizedExpression}
+                        fileName={fileName}
+                        targetLineRange={targetLineRange}
+                        extractArgsFromFunction={extractArgsFromFunction}
+                        getHelperPane={getHelperPane}
+                        rawExpression={rawExpression}
+                        isInExpandedMode={true}
+                        isExpandedVersion={true}
+                        showHelperPaneToggle={false}
+                        onHelperPaneStateChange={handleHelperPaneStateChange}
+                        onEditorViewReady={setCodeMirrorView}
+                        toolbarRef={toolbarRef}
+                        enableListContinuation={true}
+                    />
+                </ExpressionContainer>
+            ) : (
+                <ExpressionContainer>
+                    <ProseMirrorTemplateEditor
+                        value={value}
+                        onChange={handleChange}
+                        completions={completions}
+                        fileName={fileName}
+                        targetLineRange={targetLineRange}
+                        sanitizedExpression={sanitizedExpression}
+                        rawExpression={rawExpression}
+                        extractArgsFromFunction={extractArgsFromFunction}
+                        getHelperPane={getHelperPane}
+                        onEditorViewReady={setProseMirrorView}
+                        disableAutoOpenHelperPane={false}
+                        onHelperPaneStateChange={handleHelperPaneStateChange}
+                    />
+                </ExpressionContainer>
+            )
+            }
             {
                 adjustedDiagnostics && adjustedDiagnostics.length > 0 &&
                 <ErrorBanner sx={{ maxHeight: "50px", overflowY: "auto" }} errorMsg={adjustedDiagnostics.map(d => {
