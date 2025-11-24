@@ -337,6 +337,10 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
 
     };
 
+    const handleRefSetCursor = (value: string, cursorPosition: number) => {
+        setCursor(inputRef, 'input', value, cursorPosition, manualFocusTrigger);
+    };  
+
     const handleRefFocus = (manualTrigger?: boolean) => {
         if (document.activeElement !== elementRef.current) {
             manualFocusTrigger.current = manualTrigger ?? false;
@@ -375,6 +379,7 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
         inputElement: inputRef.current?.shadowRoot?.querySelector('input'),
         focus: handleRefFocus,
         blur: handleRefBlur,
+        setCursor: handleRefSetCursor,
         saveExpression: async (value?: string, ref?: React.MutableRefObject<string>) => {
             await handleExpressionSaveMutation(value, ref);
         }
