@@ -82,7 +82,15 @@ import {
     DependencyStatusResponse,
     GenerateMappingsParamsRequest,
     McpToolsRequest,
-    McpToolsResponse
+    McpToolsResponse,
+    LoadDriverAndTestConnectionRequest,
+    GetDynamicFieldsRequest,
+    GetDynamicFieldsResponse,
+    GetStoredProceduresResponse,
+    DriverDownloadRequest,
+    DriverDownloadResponse,
+    DriverMavenCoordinatesRequest,
+    DriverMavenCoordinatesResponse
 } from "@wso2/mi-core";
 import { readFileSync } from "fs";
 import { CancellationToken, FormattingOptions, Position, Uri, workspace } from "vscode";
@@ -489,5 +497,24 @@ export class ExtendedLanguageClient extends LanguageClient {
 
     async getCodeActions(params: CodeActionParams): Promise<CodeAction[]> {
         return this.sendRequest("textDocument/codeAction", params);
+    }
+    async loadDriverAndTestConnection(req: LoadDriverAndTestConnectionRequest): Promise<TestDbConnectionResponse> {
+        return this.sendRequest("synapse/loadDriverAndTestConnection", req);
+    }
+
+    async getDynamicFields(req: GetDynamicFieldsRequest): Promise<GetDynamicFieldsResponse> {
+        return this.sendRequest("synapse/getDynamicFields", req);
+    }
+
+    async getStoredProcedures(req: DSSQueryGenRequest): Promise<GetStoredProceduresResponse> {
+        return this.sendRequest("synapse/getStoredProcedures", req);
+    }
+
+    async downloadDriverForConnector(params: DriverDownloadRequest): Promise<DriverDownloadResponse> {
+        return this.sendRequest("synapse/downloadDriverForConnector", params);
+    }
+
+    async getDriverMavenCoordinates(params: DriverMavenCoordinatesRequest): Promise<DriverMavenCoordinatesResponse> {
+        return this.sendRequest("synapse/getDriverMavenCoordinates", params);
     }
 }
