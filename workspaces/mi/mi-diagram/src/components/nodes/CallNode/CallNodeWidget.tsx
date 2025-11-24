@@ -131,11 +131,6 @@ export function CallNodeWidget(props: CallNodeWidgetProps) {
     const nodeDescription = getNodeDescription(node.stNode);
     const hasBreakpoint = node.hasBreakpoint();
     const isActiveBreakpoint = node.isActiveBreakpoint();
-    const [isLegacyProject, setIsLegacyProject] = React.useState<boolean>(false);
-
-    useEffect(() => {
-        rpcClient.getMiDiagramRpcClient().isLegacyProject().then(setIsLegacyProject);
-    }, []);
 
     useEffect(() => {
         node.setSelected(sidePanelContext?.node === node);
@@ -225,7 +220,7 @@ export function CallNodeWidget(props: CallNodeWidgetProps) {
                     )}
                     <S.TopPortWidget port={node.getPort("in")!} engine={engine} />
                     <div style={{ display: "flex", flexDirection: "row", width: NODE_DIMENSIONS.DEFAULT.WIDTH }}>
-                        <S.IconContainer>{getMediatorIconsFromFont(node.stNode.tag, undefined, isLegacyProject)}</S.IconContainer>
+                        <S.IconContainer>{getMediatorIconsFromFont(node.stNode.tag)}</S.IconContainer>
                         <div>
                             {isHovered && (
                                 <OptionsMenu appearance="icon" onClick={handleOnClickMenu}>
@@ -268,7 +263,7 @@ export function CallNodeWidget(props: CallNodeWidgetProps) {
                                 <div style={{
                                     transform: "translate(-50%, -50%)",
                                 }}>
-                                    {getMediatorIconsFromFont(node.endpoint.type, undefined, isLegacyProject)}
+                                    {getMediatorIconsFromFont(node.endpoint.type)}
                                 </div>
                             </foreignObject>
                         </g>}

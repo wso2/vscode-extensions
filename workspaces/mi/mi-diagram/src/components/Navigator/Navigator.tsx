@@ -68,11 +68,6 @@ export function Navigator(props: NavigatorProps) {
     const sidePanelContext = React.useContext(SidePanelContext);
     const [navigatorList, setNavigatorList] = useState<React.ReactNode>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isLegacyProject, setIsLegacyProject] = React.useState<boolean>(false);
-
-    useEffect(() => {
-        rpcClient.getMiDiagramRpcClient().isLegacyProject().then(setIsLegacyProject);
-    }, []);
 
     async function GenerateTree(props: GenerateTreeProps) {
         // Depth-first search to find nodes matching search term
@@ -145,7 +140,7 @@ export function Navigator(props: NavigatorProps) {
             let nodeContent = fullContent.length > maxLength
                 ? `${fullContent.substring(0, maxLength)}...`
                 : fullContent;
-            let nodeIcon = getMediatorIconsFromFont(mediatorNode.tag, undefined, isLegacyProject);
+            let nodeIcon = getMediatorIconsFromFont(mediatorNode.tag);
             if (node.stNode.tag.includes('.')) {
                 // Fetch connector icon
                 const connectorIcon = await rpcClient.getMiDiagramRpcClient().getConnectorIcon({ 

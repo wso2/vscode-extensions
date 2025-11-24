@@ -50,11 +50,6 @@ export function Mediators(props: MediatorProps) {
     const [localConnectors, setLocalConnectors] = React.useState<any>();
     const [expandedModules, setExpandedModules] = React.useState<any[]>([]);
     const mediatorListRef = React.useRef<HTMLDivElement>(null);
-    const [isLegacyProject, setIsLegacyProject] = React.useState<boolean>(false);
-
-    useEffect(() => {
-        rpcClient.getMiDiagramRpcClient().isLegacyProject().then(setIsLegacyProject);
-    }, []);
 
     useEffect(() => {
         fetchMediators();
@@ -172,7 +167,7 @@ export function Mediators(props: MediatorProps) {
                 </div>;
         } else {
             title = mediatorDetails.title;
-            icon = getMediatorIconsFromFont(mediator.tag, isMostPopular, isLegacyProject);
+            icon = getMediatorIconsFromFont(mediator.tag, isMostPopular);
             page =
                 <div style={{ padding: '20px' }}>
                     <MediatorPage
@@ -319,7 +314,7 @@ export function Mediators(props: MediatorProps) {
                                 target.src = DEFAULT_ICON;
                             }}
                         /> :
-                        getMediatorIconsFromFont(mediator.tag, key === "most popular", isLegacyProject)
+                        getMediatorIconsFromFont(mediator.tag, key === "most popular")
                 }
                 onClick={() => getMediator(mediator, key === "most popular",
                     <img

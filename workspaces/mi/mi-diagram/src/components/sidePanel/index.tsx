@@ -155,8 +155,7 @@ const SidePanelList = (props: SidePanelListProps) => {
                     });
 
                     const title = isStartNode ? undefined : `Edit ${mediatorDetails?.title || sidePanelContext.tag}`;
-                    const renderIconsForLegacy = await rpcClient.getMiDiagramRpcClient().isLegacyProject();
-                    const icon = isStartNode ? undefined : getMediatorIconsFromFont(sidePanelContext.tag, false, renderIconsForLegacy);
+                    const icon = isStartNode ? undefined : getMediatorIconsFromFont(sidePanelContext.tag, false);
                     const page = <MediatorPage
                         mediatorData={mediatorDetails}
                         mediatorType={sidePanelContext.tag}
