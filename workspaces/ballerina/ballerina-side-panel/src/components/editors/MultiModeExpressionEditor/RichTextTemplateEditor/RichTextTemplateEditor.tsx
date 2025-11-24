@@ -244,40 +244,42 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
     const handleHelperPaneKeyboardToggle = () => {
         if (!viewRef.current || !editorRef.current) return false;
 
-        // If helper pane is open, just close it
-        if (helperPaneState.isOpen) {
-            setHelperPaneState(prev => ({ ...prev, isOpen: false }));
-            return true;
-        }
-
-        // If helper pane is closed, open it at the cursor position
-        const view = viewRef.current;
-        const cursorPos = view.state.selection.$head.pos;
-        const coords = view.coordsAtPos(cursorPos);
-
-        if (coords && editorRef.current) {
-            const editorRect = editorRef.current.getBoundingClientRect();
-            const scrollTop = editorRef.current.scrollTop || 0;
-
-            // Position relative to the editor container, accounting for scroll
-            let top = coords.bottom - editorRect.top + scrollTop;
-            let left = coords.left - editorRect.left;
-
-            // Add overflow correction for window boundaries
-            const viewportWidth = window.innerWidth;
-            const absoluteLeft = coords.left;
-            const overflow = absoluteLeft + HELPER_PANE_WIDTH - viewportWidth;
-
-            if (overflow > 0) {
-                left -= overflow;
+        setHelperPaneState(prev => {
+            // If helper pane is open, just close it
+            if (prev.isOpen) {
+                return { ...prev, isOpen: false };
             }
 
-            setHelperPaneState({ isOpen: true, top, left });
-        } else {
+            // If helper pane is closed, open it at the cursor position
+            const view = viewRef.current!;
+            const editorElement = editorRef.current!;
+            const cursorPos = view.state.selection.$head.pos;
+            const coords = view.coordsAtPos(cursorPos);
+
+            if (coords) {
+                const editorRect = editorElement.getBoundingClientRect();
+                const scrollTop = editorElement.scrollTop || 0;
+
+                // Position relative to the editor container, accounting for scroll
+                let top = coords.bottom - editorRect.top + scrollTop;
+                let left = coords.left - editorRect.left;
+
+                // Add overflow correction for window boundaries
+                const viewportWidth = window.innerWidth;
+                const absoluteLeft = coords.left;
+                const overflow = absoluteLeft + HELPER_PANE_WIDTH - viewportWidth;
+
+                if (overflow > 0) {
+                    left -= overflow;
+                }
+
+                return { isOpen: true, top, left };
+            }
+
             // Fallback if cursor coordinates aren't available
-            const scrollTop = editorRef.current.scrollTop || 0;
-            setHelperPaneState({ isOpen: true, top: scrollTop, left: 10 });
-        }
+            const scrollTop = editorElement.scrollTop || 0;
+            return { isOpen: true, top: scrollTop, left: 10 };
+        });
 
         return true;
     };

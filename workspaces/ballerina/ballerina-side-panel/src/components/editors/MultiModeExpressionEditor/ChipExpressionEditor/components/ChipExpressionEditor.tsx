@@ -97,6 +97,8 @@ export type ChipExpressionEditorComponentProps = {
     formDiagnostics?: DiagnosticMessage[];
 }
 
+const HELPER_PANE_WIDTH = 300;
+
 export const ChipExpressionEditorComponent = (props: ChipExpressionEditorComponentProps) => {
     const [helperPaneState, setHelperPaneState] = useState<HelperPaneState>({ isOpen: false, top: 0, left: 0 });
 
@@ -165,36 +167,35 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
     const handleHelperPaneKeyboardToggle = () => {
         if (!viewRef.current) return;
 
-        // If helper pane is open, just close it
-        if (helperPaneState.isOpen) {
-            setHelperPaneState(prev => ({ ...prev, isOpen: false }));
-            return;
-        }
-
-        // If helper pane is closed, open it at the cursor position
-        const view = viewRef.current;
-        const cursorCoords = view.coordsAtPos(view.state.selection.main.head);
-
-        if (cursorCoords && editorRef?.current) {
-            const editorRect = editorRef.current.getBoundingClientRect();
-            let top = cursorCoords.bottom - editorRect.top;
-            let left = cursorCoords.left - editorRect.left;
-
-            // Add overflow correction for window boundaries
-            const HELPER_PANE_WIDTH = 300;
-            const viewportWidth = window.innerWidth;
-            const absoluteLeft = cursorCoords.left;
-            const overflow = absoluteLeft + HELPER_PANE_WIDTH - viewportWidth;
-
-            if (overflow > 0) {
-                left -= overflow;
+        setHelperPaneState(prev => {
+            // If helper pane is open, just close it
+            if (prev.isOpen) {
+                return { ...prev, isOpen: false };
             }
 
-            setHelperPaneState({ isOpen: true, top, left });
-        } else {
+            // If helper pane is closed, open it at the cursor position
+            const view = viewRef.current!;
+            const cursorCoords = view.coordsAtPos(view.state.selection.main.head);
+
+            if (cursorCoords && editorRef.current) {
+                const editorRect = editorRef.current.getBoundingClientRect();
+                let top = cursorCoords.bottom - editorRect.top;
+                let left = cursorCoords.left - editorRect.left;
+
+                const viewportWidth = window.innerWidth;
+                const absoluteLeft = cursorCoords.left;
+                const overflow = absoluteLeft + HELPER_PANE_WIDTH - viewportWidth;
+
+                if (overflow > 0) {
+                    left -= overflow;
+                }
+
+                return { isOpen: true, top, left };
+            }
+
             // Fallback if cursor coordinates aren't available
-            setHelperPaneState({ isOpen: true, top: 0, left: 0 });
-        }
+            return { isOpen: true, top: 0, left: 0 };
+        });
     };
 
     const helperPaneKeymap = buildHelperPaneKeymap(
@@ -284,7 +285,6 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
         let left = buttonRect.left - editorRect.left;
 
         // Add overflow correction for window boundaries
-        const HELPER_PANE_WIDTH = 300;
         const viewportWidth = window.innerWidth;
         const absoluteLeft = buttonRect.left;
         const overflow = absoluteLeft + HELPER_PANE_WIDTH - viewportWidth;
