@@ -53,7 +53,6 @@ export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
     error,
     formDiagnostics
 }) => {
-    const [isPreviewMode, setIsPreviewMode] = useState<boolean>(true);
     const [isSourceView, setIsSourceView] = useState<boolean>(false);
     const [codeMirrorView, setCodeMirrorView] = useState<CodeMirrorView | null>(null);
     const [proseMirrorView, setProseMirrorView] = useState<ProseMirrorView | null>(null);

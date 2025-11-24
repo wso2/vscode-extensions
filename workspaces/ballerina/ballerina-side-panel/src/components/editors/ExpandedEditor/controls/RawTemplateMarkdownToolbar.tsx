@@ -227,7 +227,7 @@ export const RawTemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, RawTe
 
     const handleBold = () => insertMarkdownFormatting(editorView, '**');
     const handleItalic = () => insertMarkdownFormatting(editorView, '_');
-    const handleCode = () => insertMarkdownFormatting(editorView, '`');
+    // const handleCode = () => insertMarkdownFormatting(editorView, '`'); // Inline code formatting disabled for now
     const handleLink = () => insertMarkdownLink(editorView);
     const handleQuote = () => insertMarkdownBlockquote(editorView);
     const handleUnorderedList = () => insertMarkdownUnorderedList(editorView);

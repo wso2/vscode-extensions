@@ -254,7 +254,7 @@ export const RichTemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, Rich
 
     const isBoldActive = editorView && schema ? isMarkActive(editorView.state, schema.marks.strong) : false;
     const isItalicActive = editorView && schema ? isMarkActive(editorView.state, schema.marks.em) : false;
-    const isCodeActive = editorView && schema ? isMarkActive(editorView.state, schema.marks.code) : false;
+    // const isCodeActive = editorView && schema ? isMarkActive(editorView.state, schema.marks.code) : false; // Inline code formatting disabled for now
     const isLinkActive = editorView && schema ? isMarkActive(editorView.state, schema.marks.link) : false;
 
     const isCurrentHeadingActive = editorView && schema
