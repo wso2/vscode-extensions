@@ -321,7 +321,7 @@ export const RichTemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, Rich
                     <Icon name="bi-italic" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
                 </ToolbarButton>
 
-                <ToolbarButton
+                {/* <ToolbarButton
                     title="Inline Code"
                     disabled={!editorView}
                     isActive={isCodeActive}
@@ -329,7 +329,7 @@ export const RichTemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, Rich
                     onMouseDown={handleMouseDown}
                 >
                     <Icon name="bi-code" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
-                </ToolbarButton>
+                </ToolbarButton> */}
 
                 <ToolbarButton
                     title="Insert Link"

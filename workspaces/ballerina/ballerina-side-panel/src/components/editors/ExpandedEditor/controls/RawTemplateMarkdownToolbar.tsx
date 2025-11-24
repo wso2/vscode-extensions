@@ -301,14 +301,14 @@ export const RawTemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, RawTe
                     <Icon name="bi-italic" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
                 </ToolbarButton>
 
-                <ToolbarButton
+                {/* <ToolbarButton
                     title="Inline Code"
                     disabled={!editorView}
                     onClick={handleCode}
                     onMouseDown={handleMouseDown}
                 >
                     <Icon name="bi-code" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
-                </ToolbarButton>
+                </ToolbarButton> */}
 
                 <ToolbarButton
                     title="Insert Link"
