@@ -23,7 +23,8 @@ import { EditorView as ProseMirrorView } from "prosemirror-view";
 import { EditorModeExpressionProps } from "./types";
 import { ChipExpressionEditorComponent } from "../../MultiModeExpressionEditor/ChipExpressionEditor/components/ChipExpressionEditor";
 import { RichTextTemplateEditor } from "../../MultiModeExpressionEditor/RichTextTemplateEditor/RichTextTemplateEditor";
-import { TemplateTemplateEditor } from "../controls/TemplateMarkdownToolbar";
+import { RichTemplateMarkdownToolbar } from "../controls/RichTemplateMarkdownToolbar";
+import { RawTemplateMarkdownToolbar } from "../controls/RawTemplateMarkdownToolbar";
 import { ErrorBanner } from "@wso2/ui-toolkit";
 
 const ExpressionContainer = styled.div`
@@ -66,7 +67,8 @@ export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
         isOpen: boolean;
         onClick: () => void;
     } | null>(null);
-    const toolbarRef = useRef<HTMLDivElement>(null);
+    const richToolbarRef = useRef<HTMLDivElement>(null);
+    const rawToolbarRef = useRef<HTMLDivElement>(null);
 
     // Convert onChange signature from (value: string) => void to (value: string, cursorPosition: number) => void
     const handleChange = (updatedValue: string, updatedCursorPosition: number) => {
@@ -130,13 +132,23 @@ export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
 
     return (
         <>
-            <TemplateTemplateEditor
-                ref={toolbarRef}
-                editorView={proseMirrorView}
-                isSourceView={isSourceView}
-                onToggleView={handleToggleView}
-                helperPaneToggle={helperPaneToggle || undefined}
-            />
+            {isSourceView ? (
+                <RawTemplateMarkdownToolbar
+                    ref={rawToolbarRef}
+                    editorView={codeMirrorView}
+                    isSourceView={isSourceView}
+                    onToggleView={handleToggleView}
+                    helperPaneToggle={helperPaneToggle || undefined}
+                />
+            ) : (
+                <RichTemplateMarkdownToolbar
+                    ref={richToolbarRef}
+                    editorView={proseMirrorView}
+                    isSourceView={isSourceView}
+                    onToggleView={handleToggleView}
+                    helperPaneToggle={helperPaneToggle || undefined}
+                />
+            )}
             {isSourceView ? (
                 <ExpressionContainer>
                     <ChipExpressionEditorComponent
@@ -154,7 +166,7 @@ export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
                         showHelperPaneToggle={false}
                         onHelperPaneStateChange={handleHelperPaneStateChange}
                         onEditorViewReady={setCodeMirrorView}
-                        toolbarRef={toolbarRef}
+                        toolbarRef={rawToolbarRef}
                         enableListContinuation={true}
                     />
                 </ExpressionContainer>

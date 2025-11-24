@@ -19,20 +19,19 @@
 import React, { useState, useRef, useEffect } from "react";
 import styled from "@emotion/styled";
 import { ThemeColors, Icon, Switch } from "@wso2/ui-toolkit";
-import { EditorView } from "prosemirror-view";
+import { EditorView } from "@codemirror/view";
 import {
-    toggleBold,
-    toggleItalic,
-    toggleCode,
-    toggleLink,
-    toggleHeading,
-    toggleBlockquote,
-    toggleBulletList,
-    toggleOrderedList,
-    isMarkActive,
-    isNodeActive,
-    isListActive
-} from "../../MultiModeExpressionEditor/RichTextTemplateEditor/markdownCommands";
+    insertMarkdownFormatting,
+    insertMarkdownHeader,
+    insertMarkdownLink,
+    insertMarkdownBlockquote,
+    insertMarkdownUnorderedList,
+    insertMarkdownOrderedList,
+    undoCommand,
+    redoCommand,
+    canUndo,
+    canRedo
+} from "../utils/templateUtils";
 import { HelperPaneToggleButton } from "../../MultiModeExpressionEditor/ChipExpressionEditor/components/HelperPaneToggleButton";
 
 const ToolbarContainer = styled.div`
@@ -166,7 +165,7 @@ const DropdownItem = styled.button<{ size: number }>`
     }
 `;
 
-interface TemplateTemplateEditorProps {
+interface RawTemplateMarkdownToolbarProps {
     editorView: EditorView | null;
     isSourceView?: boolean;
     onToggleView?: () => void;
@@ -177,7 +176,7 @@ interface TemplateTemplateEditorProps {
     };
 }
 
-export const TemplateTemplateEditor = React.forwardRef<HTMLDivElement, TemplateTemplateEditorProps>(({
+export const RawTemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, RawTemplateMarkdownToolbarProps>(({
     editorView,
     isSourceView = false,
     onToggleView,
@@ -226,15 +225,17 @@ export const TemplateTemplateEditor = React.forwardRef<HTMLDivElement, TemplateT
         e.preventDefault();
     };
 
-    const executeCommand = (command: (state: any, dispatch?: any, view?: any) => boolean) => {
-        if (!editorView) return;
-        command(editorView.state, editorView.dispatch, editorView);
-        editorView.focus();
-    };
+    const handleBold = () => insertMarkdownFormatting(editorView, '**');
+    const handleItalic = () => insertMarkdownFormatting(editorView, '_');
+    const handleCode = () => insertMarkdownFormatting(editorView, '`');
+    const handleLink = () => insertMarkdownLink(editorView);
+    const handleQuote = () => insertMarkdownBlockquote(editorView);
+    const handleUnorderedList = () => insertMarkdownUnorderedList(editorView);
+    const handleOrderedList = () => insertMarkdownOrderedList(editorView);
 
     const handleHeader = (level?: number) => {
         const headingLevel = level ?? currentHeadingLevel;
-        executeCommand(toggleHeading(headingLevel));
+        insertMarkdownHeader(editorView, headingLevel);
         if (level !== undefined) {
             setCurrentHeadingLevel(level);
             setIsHeadingDropdownOpen(false);
@@ -243,20 +244,8 @@ export const TemplateTemplateEditor = React.forwardRef<HTMLDivElement, TemplateT
 
     const toggleHeadingDropdown = () => setIsHeadingDropdownOpen(!isHeadingDropdownOpen);
 
-    const schema = editorView?.state.schema;
-
-    const isBoldActive = editorView && schema ? isMarkActive(editorView.state, schema.marks.strong) : false;
-    const isItalicActive = editorView && schema ? isMarkActive(editorView.state, schema.marks.em) : false;
-    const isCodeActive = editorView && schema ? isMarkActive(editorView.state, schema.marks.code) : false;
-    const isLinkActive = editorView && schema ? isMarkActive(editorView.state, schema.marks.link) : false;
-
-    const isCurrentHeadingActive = editorView && schema
-        ? isNodeActive(editorView.state, schema.nodes.heading, { level: currentHeadingLevel })
-        : false;
-
-    const isBlockquoteActive = editorView && schema ? isNodeActive(editorView.state, schema.nodes.blockquote) : false;
-    const isBulletListActive = editorView && schema ? isListActive(editorView.state, schema.nodes.bullet_list) : false;
-    const isOrderedListActive = editorView && schema ? isListActive(editorView.state, schema.nodes.ordered_list) : false;
+    const isUndoAvailable = editorView ? canUndo(editorView) : false;
+    const isRedoAvailable = editorView ? canRedo(editorView) : false;
 
     return (
         <ToolbarContainer ref={ref}>
@@ -275,10 +264,29 @@ export const TemplateTemplateEditor = React.forwardRef<HTMLDivElement, TemplateT
                 <ToolbarDivider />
 
                 <ToolbarButton
+                    title="Undo (Ctrl+Z / Cmd+Z)"
+                    disabled={!editorView || !isUndoAvailable}
+                    onClick={() => undoCommand(editorView)}
+                    onMouseDown={handleMouseDown}
+                >
+                    <Icon name="bi-undo" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
+                </ToolbarButton>
+
+                <ToolbarButton
+                    title="Redo (Ctrl+Y / Cmd+Y)"
+                    disabled={!editorView || !isRedoAvailable}
+                    onClick={() => redoCommand(editorView)}
+                    onMouseDown={handleMouseDown}
+                >
+                    <Icon name="bi-redo" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
+                </ToolbarButton>
+
+                <ToolbarDivider />
+
+                <ToolbarButton
                     title="Bold"
                     disabled={!editorView}
-                    isActive={isBoldActive}
-                    onClick={() => executeCommand(toggleBold)}
+                    onClick={handleBold}
                     onMouseDown={handleMouseDown}
                 >
                     <Icon name="bi-bold" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
@@ -287,8 +295,7 @@ export const TemplateTemplateEditor = React.forwardRef<HTMLDivElement, TemplateT
                 <ToolbarButton
                     title="Italic"
                     disabled={!editorView}
-                    isActive={isItalicActive}
-                    onClick={() => executeCommand(toggleItalic)}
+                    onClick={handleItalic}
                     onMouseDown={handleMouseDown}
                 >
                     <Icon name="bi-italic" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
@@ -297,8 +304,7 @@ export const TemplateTemplateEditor = React.forwardRef<HTMLDivElement, TemplateT
                 <ToolbarButton
                     title="Inline Code"
                     disabled={!editorView}
-                    isActive={isCodeActive}
-                    onClick={() => executeCommand(toggleCode)}
+                    onClick={handleCode}
                     onMouseDown={handleMouseDown}
                 >
                     <Icon name="bi-code" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
@@ -307,8 +313,7 @@ export const TemplateTemplateEditor = React.forwardRef<HTMLDivElement, TemplateT
                 <ToolbarButton
                     title="Insert Link"
                     disabled={!editorView}
-                    isActive={isLinkActive}
-                    onClick={() => executeCommand(toggleLink)}
+                    onClick={handleLink}
                     onMouseDown={handleMouseDown}
                 >
                     <Icon name="bi-link" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
@@ -320,7 +325,6 @@ export const TemplateTemplateEditor = React.forwardRef<HTMLDivElement, TemplateT
                     <SplitButtonMain
                         title={`Heading ${currentHeadingLevel}`}
                         disabled={!editorView}
-                        isActive={isCurrentHeadingActive}
                         onClick={() => handleHeader()}
                         onMouseDown={handleMouseDown}
                     >
@@ -351,8 +355,7 @@ export const TemplateTemplateEditor = React.forwardRef<HTMLDivElement, TemplateT
                 <ToolbarButton
                     title="Blockquote"
                     disabled={!editorView}
-                    isActive={isBlockquoteActive}
-                    onClick={() => executeCommand(toggleBlockquote)}
+                    onClick={handleQuote}
                     onMouseDown={handleMouseDown}
                 >
                     <Icon name="bi-quote" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
@@ -363,8 +366,7 @@ export const TemplateTemplateEditor = React.forwardRef<HTMLDivElement, TemplateT
                 <ToolbarButton
                     title="Bulleted List"
                     disabled={!editorView}
-                    isActive={isBulletListActive}
-                    onClick={() => executeCommand(toggleBulletList)}
+                    onClick={handleUnorderedList}
                     onMouseDown={handleMouseDown}
                 >
                     <Icon name="bi-bulleted" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
@@ -373,8 +375,7 @@ export const TemplateTemplateEditor = React.forwardRef<HTMLDivElement, TemplateT
                 <ToolbarButton
                     title="Numbered List"
                     disabled={!editorView}
-                    isActive={isOrderedListActive}
-                    onClick={() => executeCommand(toggleOrderedList)}
+                    onClick={handleOrderedList}
                     onMouseDown={handleMouseDown}
                 >
                     <Icon name="bi-numbered" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
@@ -399,4 +400,4 @@ export const TemplateTemplateEditor = React.forwardRef<HTMLDivElement, TemplateT
     );
 });
 
-TemplateTemplateEditor.displayName = 'TemplateTemplateEditor';
+RawTemplateMarkdownToolbar.displayName = 'RawTemplateMarkdownToolbar';

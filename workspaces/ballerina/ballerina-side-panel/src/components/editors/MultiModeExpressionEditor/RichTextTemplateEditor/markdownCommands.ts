@@ -21,6 +21,7 @@ import { EditorView } from "prosemirror-view";
 import { toggleMark, setBlockType, wrapIn, lift } from "prosemirror-commands";
 import { wrapInList, liftListItem } from "prosemirror-schema-list";
 import { MarkType, NodeType } from "prosemirror-model";
+import { undo, redo } from "prosemirror-history";
 
 export type Command = (state: EditorState, dispatch?: (tr: Transaction) => void, view?: EditorView) => boolean;
 
@@ -135,4 +136,20 @@ export const isListActive = (state: EditorState, listType: NodeType): boolean =>
         }
     }
     return false;
+};
+
+export const undoCommand: Command = (state, dispatch, view) => {
+    return undo(state, dispatch);
+};
+
+export const redoCommand: Command = (state, dispatch, view) => {
+    return redo(state, dispatch);
+};
+
+export const canUndo = (state: EditorState): boolean => {
+    return undo(state);
+};
+
+export const canRedo = (state: EditorState): boolean => {
+    return redo(state);
 };

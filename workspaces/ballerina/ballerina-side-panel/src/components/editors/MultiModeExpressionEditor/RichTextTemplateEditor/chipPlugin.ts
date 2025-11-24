@@ -416,6 +416,9 @@ export function createChipPlugin(
                 const tr = newState.tr;
                 replaceTextWithChips(tr, schema, parsedTokens, compounds, plainText);
 
+                // Mark this transaction as non-undoable since it's an automatic transformation
+                tr.setMeta('addToHistory', false);
+
                 return tr;
             }
 
