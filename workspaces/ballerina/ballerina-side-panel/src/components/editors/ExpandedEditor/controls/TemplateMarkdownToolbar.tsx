@@ -268,6 +268,7 @@ export const TemplateTemplateEditor = React.forwardRef<HTMLDivElement, TemplateT
                         isOpen={helperPaneToggle.isOpen}
                         onClick={helperPaneToggle.onClick}
                         sx={{ marginBottom: 0 }}
+                        title="Toggle Helper Panel (Ctrl+/ or Cmd+/)"
                     />
                 )}
 

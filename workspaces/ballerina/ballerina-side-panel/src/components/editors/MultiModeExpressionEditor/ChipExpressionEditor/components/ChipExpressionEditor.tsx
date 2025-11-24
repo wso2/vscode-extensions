@@ -488,6 +488,7 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
                     ref={helperPaneToggleButtonRef}
                     isOpen={helperPaneState.isOpen}
                     onClick={handleHelperPaneManualToggle}
+                    title="Toggle Helper Panel (Ctrl+/ or Cmd+/)"
                 />
             )}
             <ChipEditorContainer ref={fieldContainerRef} style={{
