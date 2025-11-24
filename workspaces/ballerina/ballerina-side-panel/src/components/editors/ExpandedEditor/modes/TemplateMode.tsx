@@ -22,8 +22,8 @@ import { EditorView as CodeMirrorView } from "@codemirror/view";
 import { EditorView as ProseMirrorView } from "prosemirror-view";
 import { EditorModeExpressionProps } from "./types";
 import { ChipExpressionEditorComponent } from "../../MultiModeExpressionEditor/ChipExpressionEditor/components/ChipExpressionEditor";
-import { ProseMirrorTemplateEditor } from "../../MultiModeExpressionEditor/ProseMirrorTemplateEditor/ProseMirrorTemplateEditor";
-// import { ProseMirrorMarkdownToolbar } from "../controls/ProseMirrorMarkdownToolbar";
+import { RichTextTemplateEditor } from "../../MultiModeExpressionEditor/RichTextTemplateEditor/RichTextTemplateEditor";
+import { TemplateTemplateEditor } from "../controls/TemplateMarkdownToolbar";
 import { ErrorBanner } from "@wso2/ui-toolkit";
 
 const ExpressionContainer = styled.div`
@@ -130,13 +130,13 @@ export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
 
     return (
         <>
-            {/* <ProseMirrorMarkdownToolbar
+            <TemplateTemplateEditor
                 ref={toolbarRef}
                 editorView={proseMirrorView}
                 isSourceView={isSourceView}
                 onToggleView={handleToggleView}
                 helperPaneToggle={helperPaneToggle || undefined}
-            /> */}
+            />
             {isSourceView ? (
                 <ExpressionContainer>
                     <ChipExpressionEditorComponent
@@ -160,7 +160,7 @@ export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
                 </ExpressionContainer>
             ) : (
                 <ExpressionContainer>
-                    <ProseMirrorTemplateEditor
+                    <RichTextTemplateEditor
                         value={value}
                         onChange={handleChange}
                         completions={completions}

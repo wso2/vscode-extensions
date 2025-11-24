@@ -19,16 +19,20 @@
 import React, { useState, useRef, useEffect } from "react";
 import styled from "@emotion/styled";
 import { ThemeColors, Icon, Switch } from "@wso2/ui-toolkit";
-import { EditorView } from "@codemirror/view";
+import { EditorView } from "prosemirror-view";
 import {
-    insertMarkdownFormatting,
-    insertMarkdownHeader,
-    insertMarkdownLink,
-    insertMarkdownBlockquote,
-    insertMarkdownUnorderedList,
-    insertMarkdownOrderedList,
-    insertMarkdownTaskList
-} from "../utils/templateUtils";
+    toggleBold,
+    toggleItalic,
+    toggleCode,
+    toggleLink,
+    toggleHeading,
+    toggleBlockquote,
+    toggleBulletList,
+    toggleOrderedList,
+    isMarkActive,
+    isNodeActive,
+    isListActive
+} from "../../MultiModeExpressionEditor/RichTextTemplateEditor/markdownCommands";
 import { HelperPaneToggleButton } from "../../MultiModeExpressionEditor/ChipExpressionEditor/components/HelperPaneToggleButton";
 
 const ToolbarContainer = styled.div`
@@ -50,16 +54,16 @@ const ToolbarButtonGroup = styled.div`
     flex-wrap: wrap;
 `;
 
-const ToolbarButton = styled.button`
+const ToolbarButton = styled.button<{ isActive?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: center;
     width: 32px;
     height: 32px;
     padding: 0;
-    background-color: transparent;
+    background-color: ${(props: { isActive?: boolean }) => props.isActive ? ThemeColors.SECONDARY_CONTAINER : 'transparent'};
     color: ${ThemeColors.ON_SURFACE};
-    border: 1px solid transparent;
+    border: 1px solid ${(props: { isActive?: boolean }) => props.isActive ? ThemeColors.OUTLINE : 'transparent'};
     border-radius: 4px;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -122,7 +126,7 @@ const DropdownMenu = styled.div<{ isOpen: boolean }>`
     border-radius: 4px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     z-index: 1000;
-    display: ${props => props.isOpen ? 'block' : 'none'};
+    display: ${(props: { isOpen: boolean }) => props.isOpen ? 'block' : 'none'};
     overflow: hidden;
 `;
 
@@ -134,7 +138,7 @@ const DropdownItem = styled.button<{ size: number }>`
     border: none;
     text-align: left;
     cursor: pointer;
-    font-size: ${props => {
+    font-size: ${(props: { size: number }) => {
         const sizes: { [key: number]: string } = {
             1: '16px',
             2: '15px',
@@ -145,7 +149,7 @@ const DropdownItem = styled.button<{ size: number }>`
         };
         return sizes[props.size] || '14px';
     }};
-    font-weight: ${props => props.size <= 3 ? '600' : '500'};
+    font-weight: ${(props: { size: number }) => props.size <= 3 ? '600' : '500'};
     transition: background-color 0.2s ease;
 
     &:hover {
@@ -162,10 +166,10 @@ const DropdownItem = styled.button<{ size: number }>`
     }
 `;
 
-interface TemplateMarkdownToolbarProps {
+interface TemplateTemplateEditorProps {
     editorView: EditorView | null;
-    isPreviewMode?: boolean;
-    onModeToggle?: () => void;
+    isSourceView?: boolean;
+    onToggleView?: () => void;
     helperPaneToggle?: {
         ref: React.RefObject<HTMLButtonElement>;
         isOpen: boolean;
@@ -173,146 +177,225 @@ interface TemplateMarkdownToolbarProps {
     };
 }
 
-export const TemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, TemplateMarkdownToolbarProps>(
-    ({ editorView, isPreviewMode = true, onModeToggle, helperPaneToggle }, ref) => {
-        const [currentHeadingLevel, setCurrentHeadingLevel] = useState(1);
-        const [isHeadingDropdownOpen, setIsHeadingDropdownOpen] = useState(false);
-        const dropdownRef = useRef<HTMLDivElement>(null);
+export const TemplateTemplateEditor = React.forwardRef<HTMLDivElement, TemplateTemplateEditorProps>(({
+    editorView,
+    isSourceView = false,
+    onToggleView,
+    helperPaneToggle
+}, ref) => {
+    const [, forceUpdate] = React.useReducer(x => x + 1, 0);
+    const [currentHeadingLevel, setCurrentHeadingLevel] = useState(1);
+    const [isHeadingDropdownOpen, setIsHeadingDropdownOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
-        // Close dropdown when clicking outside
-        useEffect(() => {
-            const handleClickOutside = (event: MouseEvent) => {
-                if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                    setIsHeadingDropdownOpen(false);
-                }
-            };
+    // Update toolbar state when editor state changes
+    React.useEffect(() => {
+        if (!editorView) return;
 
-            if (isHeadingDropdownOpen) {
-                document.addEventListener('mousedown', handleClickOutside);
-                return () => document.removeEventListener('mousedown', handleClickOutside);
-            }
-        }, [isHeadingDropdownOpen]);
-
-        // Prevent buttons from taking focus away from the editor
-        const handleMouseDown = (e: React.MouseEvent) => {
-            e.preventDefault();
+        const updateListener = () => {
+            forceUpdate();
         };
 
-        const handleBold = () => insertMarkdownFormatting(editorView, '**');
-        const handleItalic = () => insertMarkdownFormatting(editorView, '_');
-        const handleCode = () => insertMarkdownFormatting(editorView, '`');
-        const handleLink = () => insertMarkdownLink(editorView);
-        const handleHeader = (level?: number) => {
-            const headingLevel = level ?? currentHeadingLevel;
-            insertMarkdownHeader(editorView, headingLevel);
-            if (level !== undefined) {
-                setCurrentHeadingLevel(level);
+        editorView.dom.addEventListener('input', updateListener);
+        editorView.dom.addEventListener('click', updateListener);
+        editorView.dom.addEventListener('keyup', updateListener);
+
+        return () => {
+            editorView.dom.removeEventListener('input', updateListener);
+            editorView.dom.removeEventListener('click', updateListener);
+            editorView.dom.removeEventListener('keyup', updateListener);
+        };
+    }, [editorView]);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setIsHeadingDropdownOpen(false);
             }
         };
-        const handleQuote = () => insertMarkdownBlockquote(editorView);
-        const handleUnorderedList = () => insertMarkdownUnorderedList(editorView);
-        const handleOrderedList = () => insertMarkdownOrderedList(editorView);
-        const handleTaskList = () => insertMarkdownTaskList(editorView);
 
-        const toggleHeadingDropdown = () => setIsHeadingDropdownOpen(!isHeadingDropdownOpen);
+        if (isHeadingDropdownOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }
+    }, [isHeadingDropdownOpen]);
 
-        return (
-            <ToolbarContainer ref={ref}>
-                <ToolbarButtonGroup>
-                    {helperPaneToggle && (
-                        <HelperPaneToggleButton
-                            ref={helperPaneToggle.ref}
-                            isOpen={helperPaneToggle.isOpen}
-                            onClick={helperPaneToggle.onClick}
-                            sx={{ marginBottom: 0 }}
-                        />
-                    )}
+    // Prevent buttons from taking focus away from the editor
+    const handleMouseDown = (e: React.MouseEvent) => {
+        e.preventDefault();
+    };
 
-                    <ToolbarDivider />
+    const executeCommand = (command: (state: any, dispatch?: any, view?: any) => boolean) => {
+        if (!editorView) return;
+        command(editorView.state, editorView.dispatch, editorView);
+        editorView.focus();
+    };
 
-                    <ToolbarButton title="Bold" onClick={handleBold} onMouseDown={handleMouseDown}>
-                        <Icon name="bi-bold" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
-                    </ToolbarButton>
+    const handleHeader = (level?: number) => {
+        const headingLevel = level ?? currentHeadingLevel;
+        executeCommand(toggleHeading(headingLevel));
+        if (level !== undefined) {
+            setCurrentHeadingLevel(level);
+            setIsHeadingDropdownOpen(false);
+        }
+    };
 
-                    <ToolbarButton title="Italic" onClick={handleItalic} onMouseDown={handleMouseDown}>
-                        <Icon name="bi-italic" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
-                    </ToolbarButton>
+    const toggleHeadingDropdown = () => setIsHeadingDropdownOpen(!isHeadingDropdownOpen);
 
-                    <ToolbarButton title="Inline Code" onClick={handleCode} onMouseDown={handleMouseDown}>
-                        <Icon name="bi-code" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
-                    </ToolbarButton>
+    const schema = editorView?.state.schema;
 
-                    <ToolbarButton title="Insert Link" onClick={handleLink} onMouseDown={handleMouseDown}>
-                        <Icon name="bi-link" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
-                    </ToolbarButton>
+    const isBoldActive = editorView && schema ? isMarkActive(editorView.state, schema.marks.strong) : false;
+    const isItalicActive = editorView && schema ? isMarkActive(editorView.state, schema.marks.em) : false;
+    const isCodeActive = editorView && schema ? isMarkActive(editorView.state, schema.marks.code) : false;
+    const isLinkActive = editorView && schema ? isMarkActive(editorView.state, schema.marks.link) : false;
 
-                    <ToolbarDivider />
+    const isCurrentHeadingActive = editorView && schema
+        ? isNodeActive(editorView.state, schema.nodes.heading, { level: currentHeadingLevel })
+        : false;
 
-                    <SplitButtonContainer ref={dropdownRef}>
-                        <SplitButtonMain
-                            title={`Heading ${currentHeadingLevel}`}
-                            onClick={() => handleHeader()}
-                            onMouseDown={handleMouseDown}
-                        >
-                            H{currentHeadingLevel}
-                        </SplitButtonMain>
-                        <SplitButtonDropdown
-                            title="Select heading level"
-                            onClick={toggleHeadingDropdown}
-                            onMouseDown={handleMouseDown}
-                        >
-                            <Icon name="bi-arrow-down" sx={{ width: "16px", height: "16px", fontSize: "16px" }} />
-                        </SplitButtonDropdown>
-                        <DropdownMenu isOpen={isHeadingDropdownOpen}>
-                            {[1, 2, 3, 4, 5, 6].map((level) => (
-                                <DropdownItem
-                                    key={level}
-                                    size={level}
-                                    onClick={() => handleHeader(level)}
-                                    onMouseDown={handleMouseDown}
-                                >
-                                    Heading {level}
-                                </DropdownItem>
-                            ))}
-                        </DropdownMenu>
-                    </SplitButtonContainer>
+    const isBlockquoteActive = editorView && schema ? isNodeActive(editorView.state, schema.nodes.blockquote) : false;
+    const isBulletListActive = editorView && schema ? isListActive(editorView.state, schema.nodes.bullet_list) : false;
+    const isOrderedListActive = editorView && schema ? isListActive(editorView.state, schema.nodes.ordered_list) : false;
 
-                    <ToolbarButton title="Blockquote" onClick={handleQuote} onMouseDown={handleMouseDown}>
-                        <Icon name="bi-quote" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
-                    </ToolbarButton>
-
-                    <ToolbarDivider />
-
-                    <ToolbarButton title="Bulleted List" onClick={handleUnorderedList} onMouseDown={handleMouseDown}>
-                        <Icon name="bi-bulleted" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
-                    </ToolbarButton>
-
-                    <ToolbarButton title="Numbered List" onClick={handleOrderedList} onMouseDown={handleMouseDown}>
-                        <Icon name="bi-numbered" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
-                    </ToolbarButton>
-
-                    <ToolbarButton title="Task List" onClick={handleTaskList} onMouseDown={handleMouseDown}>
-                        <Icon name="bi-checklist" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
-                    </ToolbarButton>
-                </ToolbarButtonGroup>
-
-                {onModeToggle && (
-                    <Switch
-                        checked={!isPreviewMode}
-                        leftLabel="Default"
-                        rightLabel="Raw"
-                        onChange={onModeToggle}
-                        checkedColor="var(--vscode-button-background)"
-                        checkedBorder="1px solid color-mix(in srgb, var(--vscode-dropdown-border) 75%, transparent)"
-                        enableTransition={false}
-                        sx={{
-                            borderColor: ThemeColors.OUTLINE_VARIANT
-                        }}
+    return (
+        <ToolbarContainer ref={ref}>
+            <ToolbarButtonGroup>
+                {helperPaneToggle && (
+                    <HelperPaneToggleButton
+                        ref={helperPaneToggle.ref}
+                        disabled={!editorView}
+                        isOpen={helperPaneToggle.isOpen}
+                        onClick={helperPaneToggle.onClick}
+                        sx={{ marginBottom: 0 }}
                     />
                 )}
-            </ToolbarContainer>
-        );
-    });
 
-TemplateMarkdownToolbar.displayName = 'TemplateMarkdownToolbar';
+                <ToolbarDivider />
+
+                <ToolbarButton
+                    title="Bold"
+                    disabled={!editorView}
+                    isActive={isBoldActive}
+                    onClick={() => executeCommand(toggleBold)}
+                    onMouseDown={handleMouseDown}
+                >
+                    <Icon name="bi-bold" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
+                </ToolbarButton>
+
+                <ToolbarButton
+                    title="Italic"
+                    disabled={!editorView}
+                    isActive={isItalicActive}
+                    onClick={() => executeCommand(toggleItalic)}
+                    onMouseDown={handleMouseDown}
+                >
+                    <Icon name="bi-italic" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
+                </ToolbarButton>
+
+                <ToolbarButton
+                    title="Inline Code"
+                    disabled={!editorView}
+                    isActive={isCodeActive}
+                    onClick={() => executeCommand(toggleCode)}
+                    onMouseDown={handleMouseDown}
+                >
+                    <Icon name="bi-code" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
+                </ToolbarButton>
+
+                <ToolbarButton
+                    title="Insert Link"
+                    disabled={!editorView}
+                    isActive={isLinkActive}
+                    onClick={() => executeCommand(toggleLink)}
+                    onMouseDown={handleMouseDown}
+                >
+                    <Icon name="bi-link" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
+                </ToolbarButton>
+
+                <ToolbarDivider />
+
+                <SplitButtonContainer ref={dropdownRef}>
+                    <SplitButtonMain
+                        title={`Heading ${currentHeadingLevel}`}
+                        disabled={!editorView}
+                        isActive={isCurrentHeadingActive}
+                        onClick={() => handleHeader()}
+                        onMouseDown={handleMouseDown}
+                    >
+                        H{currentHeadingLevel}
+                    </SplitButtonMain>
+                    <SplitButtonDropdown
+                        title="Select heading level"
+                        disabled={!editorView}
+                        onClick={toggleHeadingDropdown}
+                        onMouseDown={handleMouseDown}
+                    >
+                        <Icon name="bi-arrow-down" sx={{ width: "16px", height: "16px", fontSize: "16px" }} />
+                    </SplitButtonDropdown>
+                    <DropdownMenu isOpen={isHeadingDropdownOpen}>
+                        {[1, 2, 3, 4, 5, 6].map((level) => (
+                            <DropdownItem
+                                key={level}
+                                size={level}
+                                onClick={() => handleHeader(level)}
+                                onMouseDown={handleMouseDown}
+                            >
+                                Heading {level}
+                            </DropdownItem>
+                        ))}
+                    </DropdownMenu>
+                </SplitButtonContainer>
+
+                <ToolbarButton
+                    title="Blockquote"
+                    disabled={!editorView}
+                    isActive={isBlockquoteActive}
+                    onClick={() => executeCommand(toggleBlockquote)}
+                    onMouseDown={handleMouseDown}
+                >
+                    <Icon name="bi-quote" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
+                </ToolbarButton>
+
+                <ToolbarDivider />
+
+                <ToolbarButton
+                    title="Bulleted List"
+                    disabled={!editorView}
+                    isActive={isBulletListActive}
+                    onClick={() => executeCommand(toggleBulletList)}
+                    onMouseDown={handleMouseDown}
+                >
+                    <Icon name="bi-bulleted" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
+                </ToolbarButton>
+
+                <ToolbarButton
+                    title="Numbered List"
+                    disabled={!editorView}
+                    isActive={isOrderedListActive}
+                    onClick={() => executeCommand(toggleOrderedList)}
+                    onMouseDown={handleMouseDown}
+                >
+                    <Icon name="bi-numbered" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
+                </ToolbarButton>
+            </ToolbarButtonGroup>
+
+            {onToggleView && (
+                <Switch
+                    checked={isSourceView}
+                    leftLabel="Default"
+                    rightLabel="Raw"
+                    onChange={onToggleView}
+                    checkedColor="var(--vscode-button-background)"
+                    checkedBorder="1px solid color-mix(in srgb, var(--vscode-dropdown-border) 75%, transparent)"
+                    enableTransition={false}
+                    sx={{
+                        borderColor: ThemeColors.OUTLINE_VARIANT
+                    }}
+                />
+            )}
+        </ToolbarContainer>
+    );
+});
+
+TemplateTemplateEditor.displayName = 'TemplateTemplateEditor';

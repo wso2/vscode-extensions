@@ -67,8 +67,6 @@ const chipNodeSpec: NodeSpec = {
             diagnostic
         );
 
-        // Return a spec that ProseMirror can use to create the DOM
-        // We need to convert our HTMLElement to a DOM spec format
         return [
             'span',
             {
@@ -111,9 +109,6 @@ const chipNodeSpec: NodeSpec = {
     }]
 };
 
-/**
- * Create extended schema with chip node
- */
 export function createChipSchema(): Schema {
     const nodes = markdownSchema.spec.nodes.addToEnd('chip', chipNodeSpec);
 
@@ -136,9 +131,6 @@ interface ChipPluginState {
     lastProcessedTokens: string | null; // Track processed tokens to avoid re-processing
 }
 
-/**
- * Creates a chip DOM element
- */
 function createChipElement(
     text: string,
     type: TokenType,
@@ -220,13 +212,6 @@ function createChipElement(
     return span;
 }
 
-/**
- * Converts text offset to ProseMirror document position
- *
- * Since ProseMirror's document structure includes node boundaries,
- * we need to walk through the document counting characters until
- * we reach the target offset.
- */
 function findDocPosition(doc: any, textOffset: number): number {
     // Clamp offset to valid range
     if (textOffset <= 0) return 0;
@@ -257,10 +242,6 @@ function findDocPosition(doc: any, textOffset: number): number {
     return docPos || 0;
 }
 
-/**
- * Replaces text ranges with chip nodes in the document
- * Returns a transaction with all replacements applied
- */
 function replaceTextWithChips(
     tr: any,
     schema: Schema,
@@ -367,11 +348,6 @@ function replaceTextWithChips(
     return tr;
 }
 
-
-/**
- * Creates the chip plugin for ProseMirror
- * This plugin replaces text ranges with atomic chip nodes when tokens are received
- */
 export function createChipPlugin(
     schema: Schema,
     onChipClick?: (event: MouseEvent, chipPos: number, chipNode: any) => void
@@ -473,10 +449,6 @@ export function createChipPlugin(
     });
 }
 
-
-/**
- * Updates tokens in the editor
- */
 export function updateChipTokens(view: any, tokenUpdate: TokenUpdate) {
     const tr = view.state.tr.setMeta(chipPluginKey, tokenUpdate);
     view.dispatch(tr);

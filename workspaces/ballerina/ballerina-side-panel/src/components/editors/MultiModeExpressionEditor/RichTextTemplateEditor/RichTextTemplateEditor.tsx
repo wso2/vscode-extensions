@@ -30,9 +30,8 @@ import markdownit from "markdown-it";
 import { ThemeColors, CompletionItem, FnSignatureDocumentation, HelperPaneHeight } from "@wso2/ui-toolkit";
 import { LineRange } from "@wso2/ballerina-core/lib/interfaces/common";
 import { HelperpaneOnChangeOptions } from "../../../Form/types";
-import { ProseMirrorMarkdownToolbar } from "./ProseMirrorMarkdownToolbar";
 import { useFormContext } from "../../../../context/form";
-import { createChipPlugin, createChipSchema, updateChipTokens } from "./proseMirrorChipPlugin";
+import { createChipPlugin, createChipSchema, updateChipTokens } from "./chipPlugin";
 import { HelperPane } from "../ChipExpressionEditor/components/HelperPane";
 
 const EditorContainer = styled.div`
@@ -139,7 +138,7 @@ type HelperPaneState = {
     clickedChipNode?: any;
 }
 
-interface ProseMirrorTemplateEditorProps {
+interface RichTextTemplateEditorProps {
     value: string;
     onChange: (value: string, cursorPosition: number) => void;
     completions?: CompletionItem[];
@@ -167,7 +166,7 @@ interface ProseMirrorTemplateEditorProps {
     }) => void;
 }
 
-export const ProseMirrorTemplateEditor: React.FC<ProseMirrorTemplateEditorProps> = ({
+export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
     value,
     onChange,
     fileName,
@@ -333,16 +332,13 @@ export const ProseMirrorTemplateEditor: React.FC<ProseMirrorTemplateEditorProps>
         if (!rpcManager || !fileName) return;
 
         try {
-            // Get the plain text from the ProseMirror document (markdown syntax is stripped)
             const plainText = editorView.state.doc.textContent;
             if (!plainText) return;
 
             const startLine = targetLineRange?.startLine;
 
-            // Wrap plain text for API semantic analysis (needs backticks)
             const wrappedForAPI = rawExpression ? rawExpression(plainText) : plainText;
 
-            // Fetch tokens for the wrapped version
             const tokens = await rpcManager.getExpressionTokens(
                 wrappedForAPI,
                 fileName,
@@ -473,15 +469,6 @@ export const ProseMirrorTemplateEditor: React.FC<ProseMirrorTemplateEditorProps>
 
     return (
         <>
-            <ProseMirrorMarkdownToolbar
-                ref={toolbarRef}
-                editorView={viewRef.current}
-                helperPaneToggle={getHelperPane ? {
-                    ref: helperPaneToggleButtonRef,
-                    isOpen: helperPaneState.isOpen,
-                    onClick: handleHelperPaneManualToggle
-                } : undefined}
-            />
             <EditorContainer ref={editorRef}>
                 {helperPaneState.isOpen && getHelperPane && (
                     <HelperPane

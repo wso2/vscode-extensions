@@ -37,7 +37,6 @@ export const toggleCode: Command = (state, dispatch, view) => {
 };
 
 export const toggleLink: Command = (state, dispatch) => {
-    // Dynamically get the link mark from the current state's schema
     const linkMarkType = state.schema.marks.link;
     const { from, to } = state.selection;
 
@@ -101,8 +100,6 @@ export const toggleOrderedList: Command = (state, dispatch, view) => {
     }
     return wrapInList(orderedList)(state, dispatch, view);
 };
-
-// --- Helpers ---
 
 export const isMarkActive = (state: EditorState, type: MarkType): boolean => {
     const { from, to, $from, empty } = state.selection;
