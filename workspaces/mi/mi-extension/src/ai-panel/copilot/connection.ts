@@ -16,7 +16,8 @@
 
 import { createAnthropic } from "@ai-sdk/anthropic";
 import * as vscode from "vscode";
-import { getAccessToken, getLoginMethod, getRefreshedAccessToken } from "../auth";
+import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
+import { getAccessToken, getLoginMethod, getRefreshedAccessToken, getAwsBedrockCredentials } from "../auth";
 import { StateMachineAI, openAIWebview } from "../aiMachine";
 import { AI_EVENT_TYPE, LoginMethod } from "@wso2/mi-core";
 import { logInfo, logDebug, logError } from "./logger";
@@ -27,6 +28,30 @@ export const ANTHROPIC_SONNET_4_5 = "claude-sonnet-4-5-20250929";
 type AnthropicModel =
     | typeof ANTHROPIC_HAIKU_4_5
     | typeof ANTHROPIC_SONNET_4_5;
+
+/**
+ * Maps AWS regions to their corresponding Bedrock inference profile prefixes
+ * @param region - AWS region string (e.g., 'us-east-1', 'eu-west-1', 'ap-southeast-1')
+ * @returns The appropriate regional prefix for Bedrock model IDs
+ */
+export function getBedrockRegionalPrefix(region: string): string {
+    const regionPrefix = region.split('-')[0].toLowerCase();
+    
+    switch (regionPrefix) {
+        case 'us':
+            return region.startsWith('us-gov-') ? 'us-gov' : 'us';
+        case 'eu':
+            return 'eu';
+        case 'ap':
+            return 'apac';
+        case 'ca':
+        case 'sa':
+            return 'us'; // Canada and South America regions use US prefix
+        default:
+            console.warn(`Unknown region prefix: ${regionPrefix}, defaulting to 'us'`);
+            return 'us';
+    }
+}
 
 let cachedAnthropic: ReturnType<typeof createAnthropic> | null = null;
 let cachedAuthMethod: LoginMethod | null = null;
@@ -149,6 +174,35 @@ export const getAnthropicClient = async (model: AnthropicModel): Promise<any> =>
                 baseURL: "https://api.anthropic.com/v1",
                 apiKey: apiKey,
             });
+        } else if (loginMethod === LoginMethod.AWS_BEDROCK) {
+            const awsCredentials = await getAwsBedrockCredentials();
+            if (!awsCredentials) {
+                throw new Error('AWS Bedrock credentials not found');
+            }
+            
+            const bedrock = createAmazonBedrock({
+                region: awsCredentials.region,
+                accessKeyId: awsCredentials.accessKeyId,
+                secretAccessKey: awsCredentials.secretAccessKey,
+                sessionToken: awsCredentials.sessionToken,
+            });
+            
+            // Map Anthropic model names to AWS Bedrock model IDs (base models without region prefix)
+            const baseModelMap: Record<AnthropicModel, string> = {
+                [ANTHROPIC_HAIKU_4_5]: "anthropic.claude-haiku-4-5-20251001-v1:0",
+                [ANTHROPIC_SONNET_4_5]: "anthropic.claude-sonnet-4-5-20250929-v1:0",
+            };
+            
+            const baseModelId = baseModelMap[model];
+            if (!baseModelId) {
+                throw new Error(`Unsupported model for AWS Bedrock: ${model}`);
+            }
+            
+            // Get regional prefix based on AWS region
+            const regionalPrefix = getBedrockRegionalPrefix(awsCredentials.region);
+            const bedrockModelId = `${regionalPrefix}.${baseModelId}`;
+            
+            return bedrock(bedrockModelId);
         } else {
             throw new Error(`Unsupported login method: ${loginMethod}`);
         }
@@ -162,9 +216,18 @@ export const getAnthropicClient = async (model: AnthropicModel): Promise<any> =>
 };
 
 /**
- * Returns cache control options for prompt caching
- * @returns Cache control options for Anthropic
+ * Returns provider-aware cache control options for prompt caching
+ * @returns Cache control options based on the current login method
  */
 export const getProviderCacheControl = async () => {
-    return { anthropic: { cacheControl: { type: "ephemeral" } } };
+    const loginMethod = await getLoginMethod();
+    
+    switch (loginMethod) {
+        case LoginMethod.AWS_BEDROCK:
+            return { bedrock: { cachePoint: { type: 'default' } } };
+        case LoginMethod.ANTHROPIC_KEY:
+        case LoginMethod.MI_INTEL:
+        default:
+            return { anthropic: { cacheControl: { type: "ephemeral" } } };
+    }
 };

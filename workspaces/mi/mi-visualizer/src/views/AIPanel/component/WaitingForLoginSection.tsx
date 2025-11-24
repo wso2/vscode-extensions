@@ -194,9 +194,32 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
     const [apiKey, setApiKey] = useState("");
     const [showApiKey, setShowApiKey] = useState(false);
     const [clientError, setClientError] = useState<string>("");
+    const [awsCredentials, setAwsCredentials] = useState({
+        accessKeyId: "",
+        secretAccessKey: "",
+        region: "",
+        sessionToken: ""
+    });
+    const [showAccessKey, setShowAccessKey] = useState(false);
+    const [showSecretKey, setShowSecretKey] = useState(false);
+    const [showSessionToken, setShowSessionToken] = useState(false);
 
     const cancelLogin = () => {
         rpcClient.sendAIStateEvent(AI_EVENT_TYPE.CANCEL_LOGIN);
+    };
+
+    const connectWithAwsCredentials = () => {
+        if (awsCredentials.accessKeyId.trim() && awsCredentials.secretAccessKey.trim() && awsCredentials.region.trim()) {
+            rpcClient.sendAIStateEvent({
+                type: AI_EVENT_TYPE.SUBMIT_AWS_CREDENTIALS,
+                payload: {
+                    accessKeyId: awsCredentials.accessKeyId.trim(),
+                    secretAccessKey: awsCredentials.secretAccessKey.trim(),
+                    region: awsCredentials.region.trim(),
+                    sessionToken: awsCredentials.sessionToken.trim() || undefined
+                },
+            });
+        }
     };
 
     const connectWithKey = () => {
@@ -238,8 +261,27 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
         }
     };
 
+    const handleAwsCredentialChange = (field: keyof typeof awsCredentials) => (e: any) => {
+        setAwsCredentials(prev => ({
+            ...prev,
+            [field]: e.target.value
+        }));
+    };
+
     const toggleApiKeyVisibility = () => {
         setShowApiKey(!showApiKey);
+    };
+
+    const toggleAccessKeyVisibility = () => {
+        setShowAccessKey(!showAccessKey);
+    };
+
+    const toggleSecretKeyVisibility = () => {
+        setShowSecretKey(!showSecretKey);
+    };
+
+    const toggleSessionTokenVisibility = () => {
+        setShowSessionToken(!showSessionToken);
     };
     
     // Show either server error (from validation) or client error (from form validation)
@@ -289,6 +331,120 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
                             {...(isValidating ? { disabled: true } : {})}
                         >
                             {isValidating ? "Validating..." : "Connect with Key"}
+                        </VSCodeButton>
+                        <VSCodeButton
+                            appearance="secondary"
+                            onClick={cancelLogin}
+                            {...(isValidating ? { disabled: true } : {})}
+                        >
+                            Cancel
+                        </VSCodeButton>
+                    </ButtonContainer>
+                </AlertContainer>
+            </Container>
+        );
+    }
+
+    if (loginMethod === LoginMethod.AWS_BEDROCK) {
+        const isFormValid = awsCredentials.accessKeyId.trim() && 
+                           awsCredentials.secretAccessKey.trim() && 
+                           awsCredentials.region.trim();
+
+        return (
+            <Container>
+                <AlertContainer variant="primary">
+                    <Title>Connect with AWS Bedrock</Title>
+                    <SubTitle>
+                        Enter your AWS credentials to connect to BI Copilot via AWS Bedrock. Your credentials will be securely stored
+                        and used for authentication.
+                    </SubTitle>
+
+                    <InputContainer>
+                        <InputRow>
+                            <StyledTextField
+                                type={showAccessKey ? "text" : "password"}
+                                placeholder="AWS Access Key ID"
+                                value={awsCredentials.accessKeyId}
+                                onInput={handleAwsCredentialChange('accessKeyId')}
+                                {...(isValidating ? { disabled: true } : {})}
+                            />
+                            <EyeButton
+                                type="button"
+                                onClick={toggleAccessKeyVisibility}
+                                title={showAccessKey ? "Hide access key" : "Show access key"}
+                                {...(isValidating ? { disabled: true } : {})}
+                            >
+                                <Codicon name={showAccessKey ? "eye-closed" : "eye"} />
+                            </EyeButton>
+                        </InputRow>
+                    </InputContainer>
+
+                    <InputContainer>
+                        <InputRow>
+                            <StyledTextField
+                                type={showSecretKey ? "text" : "password"}
+                                placeholder="AWS Secret Access Key"
+                                value={awsCredentials.secretAccessKey}
+                                onInput={handleAwsCredentialChange('secretAccessKey')}
+                                {...(isValidating ? { disabled: true } : {})}
+                            />
+                            <EyeButton
+                                type="button"
+                                onClick={toggleSecretKeyVisibility}
+                                title={showSecretKey ? "Hide secret key" : "Show secret key"}
+                                {...(isValidating ? { disabled: true } : {})}
+                            >
+                                <Codicon name={showSecretKey ? "eye-closed" : "eye"} />
+                            </EyeButton>
+                        </InputRow>
+                    </InputContainer>
+
+                    <InputContainer>
+                        <InputRow>
+                            <StyledTextField
+                                type="text"
+                                placeholder="AWS Region (e.g., us-east-1)"
+                                value={awsCredentials.region}
+                                onInput={handleAwsCredentialChange('region')}
+                                {...(isValidating ? { disabled: true } : {})}
+                            />
+                        </InputRow>
+                    </InputContainer>
+
+                    <InputContainer>
+                        <InputRow>
+                            <StyledTextField
+                                type={showSessionToken ? "text" : "password"}
+                                placeholder="Session Token (optional)"
+                                value={awsCredentials.sessionToken}
+                                onInput={handleAwsCredentialChange('sessionToken')}
+                                {...(isValidating ? { disabled: true } : {})}
+                            />
+                            <EyeButton
+                                type="button"
+                                onClick={toggleSessionTokenVisibility}
+                                title={showSessionToken ? "Hide session token" : "Show session token"}
+                                {...(isValidating ? { disabled: true } : {})}
+                            >
+                                <Codicon name={showSessionToken ? "eye-closed" : "eye"} />
+                            </EyeButton>
+                        </InputRow>
+                    </InputContainer>
+
+                    {errorMessage && (
+                        <ErrorMessage>
+                            <Codicon name="error" />
+                            <span>{errorMessage}</span>
+                        </ErrorMessage>
+                    )}
+
+                    <ButtonContainer>
+                        <VSCodeButton
+                            appearance="primary"
+                            onClick={connectWithAwsCredentials}
+                            {...(isValidating || !isFormValid ? { disabled: true } : {})}
+                        >
+                            {isValidating ? "Validating..." : "Connect with AWS Bedrock"}
                         </VSCodeButton>
                         <VSCodeButton
                             appearance="secondary"
