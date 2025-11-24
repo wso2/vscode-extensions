@@ -531,7 +531,6 @@ export class DynamicFieldsHandler {
         //const userConsent = connection.parameters?.find(p => p.name === FIELD_NAMES.USER_CONSENT)?.value;
 
         this.setValue(FIELD_NAMES.QUERY_TYPE, isOnline ? UI_MODES.ONLINE : UI_MODES.OFFLINE);
-        console.log("Query type set to:", this.getValues(FIELD_NAMES.QUERY_TYPE));
         //this.setValue(FIELD_NAMES.ASSISTANCE_MODE, this.getValues(FIELD_NAMES.QUERY_TYPE) === UI_MODES.ONLINE ? true : false);
         const tableNames = isOnline ? Object.keys(tables) : [];
 
@@ -601,18 +600,14 @@ export class DynamicFieldsHandler {
         if (!connection) {
             return undefined;
         }
-        console.log("Validating connection:", connection.name);
         // 1. Check User Consent
         const userConsent = connection.parameters?.find(p => p.name === FIELD_NAMES.USER_CONSENT)?.value;
         if (userConsent !== 'true') {
-            console.log("User consent not provided for the selected connection.");
             this.setElementVisibility(this.formData.elements, FIELD_NAMES.ASSISTANCE_MODE, true); // Hide assistance mode if no user consent
             return undefined; // Not an error, but not valid for operations
         }
         this.setElementVisibility(this.formData.elements, FIELD_NAMES.ASSISTANCE_MODE, false); // Show assistance mode if have user consent
-        console.log("Query type:", this.getValues(FIELD_NAMES.QUERY_TYPE));
         if(this.findElementByName(this.formData.elements, FIELD_NAMES.QUERY_TYPE)?.currentValue) {
-            console.log("Current query type:", this.findElementByName(this.formData.elements, FIELD_NAMES.QUERY_TYPE)?.currentValue);
             if(this.findElementByName(this.formData.elements, FIELD_NAMES.QUERY_TYPE)?.currentValue === UI_MODES.OFFLINE && this.getValues(FIELD_NAMES.QUERY_TYPE) === UI_MODES.OFFLINE) {
                 this.setValue(FIELD_NAMES.ASSISTANCE_MODE, false);
                 return undefined;
@@ -622,16 +617,7 @@ export class DynamicFieldsHandler {
         } else {
             this.setValue(FIELD_NAMES.ASSISTANCE_MODE, true);
         }
-        // if (this.getValues(FIELD_NAMES.ASSISTANCE_MODE) === false) {
-        //     console.log("Assistance mode disabled, skipping connection validation.");
-        //     this.setCustomError(getNameForController(FIELD_NAMES.CONFIG_KEY), null);
-        //     this.setValue(FIELD_NAMES.ASSISTANCE_MODE, true);
-        //     //return undefined;
-        // }
-        // if (this.getValues(FIELD_NAMES.QUERY_TYPE) && this.getValues(FIELD_NAMES.QUERY_TYPE) === UI_MODES.OFFLINE) {
-        //     this.setCustomError(getNameForController(FIELD_NAMES.CONFIG_KEY), null);
-        //     return undefined;
-        // }
+
         // 2. Check Required Parameters exist
         const requiredParams = [FIELD_NAMES.DRIVER_CLASS, FIELD_NAMES.DB_USER, FIELD_NAMES.DB_PASSWORD, FIELD_NAMES.DB_URL, FIELD_NAMES.CONNECTION_TYPE];
         const hasAllParams = requiredParams.every(paramName =>
@@ -688,7 +674,6 @@ export class DynamicFieldsHandler {
                 host: '', port: '', dbName: ''
             };
             const testResult = await this.rpcClient.getMiDiagramRpcClient().loadDriverAndTestConnection(testArgs);
-            console.log("Test DB Connection Result:", testResult);
             if (!testResult.success) {
                 this.setCustomError(getNameForController(FIELD_NAMES.CONFIG_KEY),
                     ERROR_MESSAGES.CONNECTION_FAILED + (testResult.message ? `: ${testResult.message}` : ''));
@@ -815,7 +800,6 @@ export class DynamicFieldsHandler {
             const match = fieldDef.name.match(REGEX.DYNAMIC_FIELD_NAME);
             let originalColumnName = fieldDef.displayName;
             let columnType = undefined;
-            console.log("Processing field:", fieldDef.name,"Display Name:", originalColumnName, "Value:", formValue, "Match:", match);
             if (match) {
                 //originalColumnName = match[3];
                 columnType = match[2];
@@ -1013,10 +997,6 @@ export class DynamicFieldsHandler {
                 }
             }
             // Skip the regular query building since restored from existing form values - Form Edit Scenario
-            console.log("Query and fields populated from existing parameters.");
-            console.log("Query:", query);
-            console.log("queryBuilt. ----",queryBuilt);
-            console.log("Element:", element);
             if (!queryBuilt && query !== "" && element.name !== FIELD_NAMES.TABLE_NAME) {
                 await this._handleManualQueryChange(query, parentField, operationType, config, element);
                 return;
@@ -1420,7 +1400,6 @@ export class DynamicFieldsHandler {
 
             // Extract parts: column, operator, valueStr
             const [, rawColumn, , rawValueStr] = conditionMatch;
-            console.log("Parsing WHERE condition - Column:", rawColumn, "Value:", rawValueStr);
             //const columnName = rawColumn.replace(/[^a-zA-Z0-9]/g, '').trim();
             const columnName = rawColumn.trim().replace(/[`'"\[\]]/g, ''); // Remove quotes/brackets
 
@@ -1471,7 +1450,6 @@ export class DynamicFieldsHandler {
             console.warn(ERROR_MESSAGES.INSERT_MISMATCH);
             return { success: false, fields: {}, errorMessage: ERROR_MESSAGES.INSERT_MISMATCH };
         }
-        console.log("Parsing INSERT - columns:", columns, "values:", values, "availableFields:", availableFields);
         for (let i = 0; i < columns.length; i++) {
             const columnName = columns[i];
             const valueStr = values[i];
@@ -1483,7 +1461,6 @@ export class DynamicFieldsHandler {
                 columnType: "VARCHAR",
                 helpTip: ''
             };
-            console.log("INSERT - Processing column:", columnName, "with value:", valueStr, "dynamicField:", dynamicField);
             if (!dynamicField) {
                 console.warn(`Dynamic field definition not found for INSERT column: ${columnName}`);
                 return { success: false, fields: {}, errorMessage: `Field "${columnName}" not found for this table.` };
@@ -1560,7 +1537,6 @@ export class DynamicFieldsHandler {
     /** Helper: Parses SELECT columns */
     private _parseSelectColumns(columnsStr: string | undefined, availableFields: Record<string, DynamicFieldValue>, connectionInfo: boolean): { success: boolean, fields: Record<string, DynamicFieldValue>, errorMessage?: string } {
         if (!columnsStr) return { success: false, fields: {}, errorMessage: "No columns specified for SELECT." };
-        console.log("Parsing SELECT columns:", columnsStr, "availableFields:", availableFields);
         // Handle SELECT * case
         // if (columnsStr.trim() === '*') {
         //     return { success: true, fields: availableFields };
@@ -1646,7 +1622,6 @@ export class DynamicFieldsHandler {
     }
 
     private async _handleAssistanceModeChange(value: any, fieldName: string, rpc?: string): Promise<void> {
-        console.log("Assistance mode changed==:", value);
         if (value == true) {
             this.setValue(FIELD_NAMES.QUERY_TYPE, UI_MODES.ONLINE);
             this.onConnectionChange(fieldName,rpc)
