@@ -18,7 +18,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import styled from "@emotion/styled";
-import { EditorState } from "prosemirror-state";
+import { EditorState, Plugin } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { keymap } from "prosemirror-keymap";
 import { history, undo, redo } from "prosemirror-history";
@@ -106,6 +106,8 @@ const EditorContainer = styled.div`
         padding: 0;
     }
 `;
+
+const HELPER_PANE_WIDTH = 300;
 
 const markdownTokenizer = markdownit("commonmark", { html: false }).disable(["autolink", "html_inline", "html_block"]);
 
@@ -213,7 +215,6 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
         let left = chipRect.left - editorRect.left;
 
         // Add overflow correction for window boundaries
-        const HELPER_PANE_WIDTH = 300;
         const viewportWidth = window.innerWidth;
         const absoluteLeft = chipRect.left;
         const overflow = absoluteLeft + HELPER_PANE_WIDTH - viewportWidth;
@@ -229,6 +230,48 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
             clickedChipPos: chipPos,
             clickedChipNode: chipNode
         });
+    };
+
+    // Handle helper pane keyboard toggle
+    const handleHelperPaneKeyboardToggle = () => {
+        if (!viewRef.current || !editorRef.current) return false;
+
+        // If helper pane is open, just close it
+        if (helperPaneState.isOpen) {
+            setHelperPaneState(prev => ({ ...prev, isOpen: false }));
+            return true;
+        }
+
+        // If helper pane is closed, open it at the cursor position
+        const view = viewRef.current;
+        const cursorPos = view.state.selection.$head.pos;
+        const coords = view.coordsAtPos(cursorPos);
+
+        if (coords && editorRef.current) {
+            const editorRect = editorRef.current.getBoundingClientRect();
+            const scrollTop = editorRef.current.scrollTop || 0;
+
+            // Position relative to the editor container, accounting for scroll
+            let top = coords.bottom - editorRect.top + scrollTop;
+            let left = coords.left - editorRect.left;
+
+            // Add overflow correction for window boundaries
+            const viewportWidth = window.innerWidth;
+            const absoluteLeft = coords.left;
+            const overflow = absoluteLeft + HELPER_PANE_WIDTH - viewportWidth;
+
+            if (overflow > 0) {
+                left -= overflow;
+            }
+
+            setHelperPaneState({ isOpen: true, top, left });
+        } else {
+            // Fallback if cursor coordinates aren't available
+            const scrollTop = editorRef.current.scrollTop || 0;
+            setHelperPaneState({ isOpen: true, top: scrollTop, left: 10 });
+        }
+
+        return true;
     };
 
     // Handle helper pane toggle button click
@@ -362,6 +405,30 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
         const sanitizedValue = sanitizedExpression ? sanitizedExpression(value) : value;
         const chipPlugin = createChipPlugin(chipSchema, handleChipClick);
 
+        // Plugin to close helper pane when cursor moves
+        const cursorMovePlugin = new Plugin({
+            view() {
+                return {
+                    update(view, prevState) {
+                        if (!view.state.doc.eq(prevState.doc)) {
+                            return;
+                        }
+                        const oldSelection = prevState.selection;
+                        const newSelection = view.state.selection;
+
+                        if (oldSelection.from !== newSelection.from || oldSelection.to !== newSelection.to) {
+                            setHelperPaneState(prev => {
+                                if (prev.isOpen) {
+                                    return { ...prev, isOpen: false };
+                                }
+                                return prev;
+                            });
+                        }
+                    }
+                };
+            }
+        });
+
         const state = EditorState.create({
             doc: customMarkdownParser.parse(sanitizedValue),
             schema: chipSchema,
@@ -374,10 +441,19 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
                     "Enter": splitListItem(chipSchema.nodes.list_item),
                     "Mod-[": liftListItem(chipSchema.nodes.list_item),
                     "Mod-]": sinkListItem(chipSchema.nodes.list_item),
+                    "Mod-/": () => handleHelperPaneKeyboardToggle(),
+                    "Escape": () => {
+                        if (helperPaneState.isOpen) {
+                            setHelperPaneState(prev => ({ ...prev, isOpen: false }));
+                            return true;
+                        }
+                        return false;
+                    }
                 }),
                 keymap(baseKeymap),
                 gapCursor(),
-                chipPlugin
+                chipPlugin,
+                cursorMovePlugin
             ]
         });
 
