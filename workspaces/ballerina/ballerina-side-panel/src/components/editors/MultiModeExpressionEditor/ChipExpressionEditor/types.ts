@@ -38,8 +38,7 @@ export enum TokenType {
   TYPE_CAST = "type_cast",
   VALUE = "value",
   DOCUMENT = "document",
-  PROPERTY = "property",
-  ERROR = "error"
+  PROPERTY = "property"
 }
 
 export type ExpressionColumnOffset = {

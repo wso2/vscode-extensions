@@ -38,11 +38,6 @@ const ExpressionContainer = styled.div`
     .ͼ1 .cm-scroller {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji" !important;
     }    
-
-    .ͼ1 .cm-lintRange-error {
-        background-image: none;
-        text-decoration: wavy underline red;
-    }
 `;
 
 export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
@@ -86,45 +81,6 @@ export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
             onClick: state.toggle
         });
     };
-
-    const handleModeToggle = () => {
-        setIsPreviewMode(prev => !prev);
-    };
-
-    // hack: Adjust diagnostic line numbers based on targetLineRange since LS 
-    // provides diagnostics based on the full file
-    const computeDiagnostics = () => {
-        if (!formDiagnostics || !targetLineRange) {
-            return formDiagnostics;
-        }
-
-        return formDiagnostics.map(diagnostic => {
-            if (!diagnostic.range) {
-                return diagnostic;
-            }
-
-            if (diagnostic.range.start.line >= targetLineRange.startLine.line) {
-                return {
-                    ...diagnostic,
-                    range: {
-                        start: {
-                            line: diagnostic.range.start.line - targetLineRange.startLine.line,
-                            character: diagnostic.range.start.character
-                        },
-                        end: {
-                            line: diagnostic.range.end.line - targetLineRange.startLine.line,
-                            character: diagnostic.range.end.character
-                        }
-                    }
-                };
-            }
-
-            // Use the diagnostic range as is if it's before the target line range
-            return diagnostic;
-        });
-    };
-
-    const adjustedDiagnostics = computeDiagnostics();
 
     const handleToggleView = () => {
         setIsSourceView(!isSourceView);
@@ -189,8 +145,8 @@ export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
             )
             }
             {
-                adjustedDiagnostics && adjustedDiagnostics.length > 0 &&
-                <ErrorBanner sx={{ maxHeight: "50px", overflowY: "auto" }} errorMsg={adjustedDiagnostics.map(d => {
+                formDiagnostics && formDiagnostics.length > 0 &&
+                <ErrorBanner sx={{ maxHeight: "50px", overflowY: "auto" }} errorMsg={formDiagnostics.map(d => {
                     return d.message;
                 }).join(', ')} />
             }

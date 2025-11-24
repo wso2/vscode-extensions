@@ -55,7 +55,6 @@ import {
     formatJSONLikeString,
     stripHtmlTags,
     updateFormFieldWithImports,
-    updateFormFieldWithDiagnostics,
     isPrioritizedField,
     hasRequiredParameters,
     hasOptionalParameters,
@@ -802,8 +801,7 @@ export const Form = forwardRef((props: FormProps) => {
                                 return;
                             }
 
-                            let updatedField = updateFormFieldWithImports(field, formImports);
-                            updatedField = updateFormFieldWithDiagnostics(updatedField, diagnosticsInfo);
+                            const updatedField = updateFormFieldWithImports(field, formImports);
                             renderedComponents.push(
                                 <S.Row key={updatedField.key}>
                                     <EditorFactory
@@ -887,8 +885,7 @@ export const Form = forwardRef((props: FormProps) => {
                         showAdvancedOptions &&
                         formFields.map((field) => {
                             if (field.advanced && !field.hidden) {
-                                let updatedField = updateFormFieldWithImports(field, formImports);
-                                updatedField = updateFormFieldWithDiagnostics(updatedField, diagnosticsInfo);
+                                const updatedField = updateFormFieldWithImports(field, formImports);
                                 return (
                                     <S.Row key={updatedField.key}>
                                         <EditorFactory
@@ -915,7 +912,7 @@ export const Form = forwardRef((props: FormProps) => {
                     <S.CategoryRow topBorder={!compact && hasParameters}>
                         {variableField && (
                             <EditorFactory
-                                field={updateFormFieldWithDiagnostics(variableField, diagnosticsInfo)}
+                                field={variableField}
                                 handleOnFieldFocus={handleOnFieldFocus}
                                 recordTypeFields={recordTypeFields}
                                 onIdentifierEditingStateChange={handleIdentifierEditingStateChange}
@@ -924,7 +921,7 @@ export const Form = forwardRef((props: FormProps) => {
                         )}
                         {typeField && !isInferredReturnType && (
                             <EditorFactory
-                                field={updateFormFieldWithDiagnostics(typeField, diagnosticsInfo)}
+                                field={typeField}
                                 openRecordEditor={
                                     openRecordEditor &&
                                     ((open: boolean, newType?: string | NodeProperties) => handleOpenRecordEditor(open, typeField, newType))
@@ -941,7 +938,7 @@ export const Form = forwardRef((props: FormProps) => {
                         {targetTypeField && (
                             <>
                                 <EditorFactory
-                                    field={updateFormFieldWithDiagnostics(targetTypeField, diagnosticsInfo)}
+                                    field={targetTypeField}
                                     handleOnFieldFocus={handleOnFieldFocus}
                                     recordTypeFields={recordTypeFields}
                                     onIdentifierEditingStateChange={handleIdentifierEditingStateChange}

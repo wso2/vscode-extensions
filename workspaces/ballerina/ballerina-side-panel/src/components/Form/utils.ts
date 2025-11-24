@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { NodeKind, DiagnosticMessage, FormDiagnostics, Diagnostic } from "@wso2/ballerina-core";
+import { NodeKind } from "@wso2/ballerina-core";
 import { FormField, FormImports } from "../..";
 
 // This function allows us to format strings by adding indentation as tabs to the lines
@@ -88,44 +88,3 @@ export function isDefaultModelProvider(formFields: FormField[]): boolean {
         field.enabled === false
     );
 }
-
-const convertVSCodeDiagnosticToMessage = (diagnostic: Diagnostic): DiagnosticMessage => {
-
-    return {
-        message: diagnostic.message,
-        severity: "ERROR",
-        range: diagnostic.range ? {
-            start: {
-                line: diagnostic.range.start.line,
-                character: diagnostic.range.start.character
-            },
-            end: {
-                line: diagnostic.range.end.line,
-                character: diagnostic.range.end.character
-            }
-        } : undefined,
-        code: diagnostic.code,
-        source: diagnostic.source
-    };
-};
-
-export const updateFormFieldWithDiagnostics = (
-    field: FormField,
-    diagnosticsInfo?: FormDiagnostics[]
-): FormField => {
-    if (!diagnosticsInfo) {
-        return field;
-    }
-
-    const fieldDiagnostics = diagnosticsInfo.find((d) => d.key === field.key);
-    if (!fieldDiagnostics || !fieldDiagnostics.diagnostics || fieldDiagnostics.diagnostics.length === 0) {
-        return field;
-    }
-
-    const diagnosticMessages: DiagnosticMessage[] = fieldDiagnostics.diagnostics.map(convertVSCodeDiagnosticToMessage);
-
-    return {
-        ...field,
-        diagnostics: diagnosticMessages
-    };
-};

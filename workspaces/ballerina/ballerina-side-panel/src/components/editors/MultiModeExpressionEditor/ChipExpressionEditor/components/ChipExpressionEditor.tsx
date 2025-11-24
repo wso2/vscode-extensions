@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { EditorState, Compartment } from "@codemirror/state";
+import { EditorState } from "@codemirror/state";
 import { EditorView, keymap, tooltips } from "@codemirror/view";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useFormContext } from "../../../../../context";
@@ -36,10 +36,7 @@ import {
     buildOnFocusOutListner,
     buildOnSelectionChange,
     ProgrammerticSelectionChange,
-    SyncDocValueWithPropValue,
-    buildLintingExtension,
-    diagnosticsField,
-    diagnosticsChangeEffect
+    SyncDocValueWithPropValue
 } from "../CodeUtils";
 import { history } from "@codemirror/commands";
 import { autocompletion } from "@codemirror/autocomplete";
@@ -47,7 +44,7 @@ import { FloatingButtonContainer, FloatingToggleButton, ChipEditorContainer } fr
 import { HelperpaneOnChangeOptions } from "../../../../Form/types";
 import { CompletionItem, FnSignatureDocumentation, HelperPaneHeight } from "@wso2/ui-toolkit";
 import { CloseHelperIcon, ExpandIcon, MinimizeIcon, OpenHelperIcon } from "./FloatingButtonIcons";
-import { LineRange, DiagnosticMessage } from "@wso2/ballerina-core";
+import { LineRange } from "@wso2/ballerina-core";
 import FXButton from "./FxButton";
 import { HelperPaneToggleButton } from "./HelperPaneToggleButton";
 import { HelperPane } from "./HelperPane";
@@ -94,7 +91,6 @@ export type ChipExpressionEditorComponentProps = {
     onEditorViewReady?: (view: EditorView) => void;
     toolbarRef?: React.RefObject<HTMLDivElement>;
     enableListContinuation?: boolean;
-    formDiagnostics?: DiagnosticMessage[];
 }
 
 const HELPER_PANE_WIDTH = 300;
@@ -110,8 +106,6 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
     const completionsRef = useRef<CompletionItem[]>(props.completions);
     const helperPaneToggleButtonRef = useRef<HTMLButtonElement>(null);
     const completionsFetchScheduledRef = useRef<boolean>(false);
-    const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
-    const lintCompartment = useRef(new Compartment());
 
     const { expressionEditor } = useFormContext();
     const expressionEditorRpcManager = expressionEditor?.rpcManager;
@@ -329,14 +323,8 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
                     closeOnBlur: true
                 }),
                 tooltips({ position: "absolute" }),
-                lintCompartment.current.of(
-                    props.formDiagnostics && props.formDiagnostics.length > 0
-                        ? buildLintingExtension(props.formDiagnostics)
-                        : []
-                ),
                 chipPlugin,
                 tokenField,
-                diagnosticsField,
                 chipTheme,
                 completionTheme,
                 EditorView.lineWrapping,
@@ -429,20 +417,6 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
     useEffect(() => {
         setIsTokenUpdateScheduled(true);
     }, [Boolean(props.sanitizedExpression), Boolean(props.rawExpression)]);
-
-    // Update linting and chip highlighting when formDiagnostics change
-    useEffect(() => {
-        if (!viewRef.current) return;
-        const effects = [
-            lintCompartment.current.reconfigure(
-                props.formDiagnostics && props.formDiagnostics.length > 0
-                    ? buildLintingExtension(props.formDiagnostics)
-                    : []
-            ),
-            diagnosticsChangeEffect.of(props.formDiagnostics || [])
-        ];
-        viewRef.current.dispatch({ effects });
-    }, [props.formDiagnostics]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
