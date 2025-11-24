@@ -20,6 +20,7 @@ export { Diagram } from "./components/Diagram";
 export * from "./components/Form";
 export { getParamManagerValues, getParamManagerFromValues } from "./components/Form/common";
 export { FormGenerator } from "./components/Form/FormGenerator";
+//export { DatabaseDriverForm } from "./components/Form/DBDriverManager";
 import Mustache from "mustache";
 import { escapeXml } from "./utils/commons";
 

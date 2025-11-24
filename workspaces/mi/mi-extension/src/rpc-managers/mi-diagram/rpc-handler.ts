@@ -318,7 +318,19 @@ import {
     UpdateRegistryPropertyRequest,
     updatePropertiesInArtifactXML,
     getPropertiesFromArtifactXML,
-    formatPomFile
+    formatPomFile,
+    getDynamicFields,
+    GetDynamicFieldsRequest,
+    getStoredProcedures,
+    GetStoredProceduresResponse,
+    DriverDownloadRequest,
+    DriverDownloadResponse,
+    DriverMavenCoordinatesRequest,
+    DriverMavenCoordinatesResponse,
+    downloadDriverForConnector,
+    getDriverMavenCoordinates,
+    loadDriverAndTestConnection,
+    LoadDriverAndTestConnectionRequest
     // getBackendRootUrl - REMOVED: Backend URLs deprecated, all AI features use local LLM
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
@@ -506,4 +518,9 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(isKubernetesConfigured, () => rpcManger.isKubernetesConfigured());
     messenger.onRequest(updatePropertiesInArtifactXML, (args: UpdateRegistryPropertyRequest) => rpcManger.updatePropertiesInArtifactXML(args));
     messenger.onRequest(getPropertiesFromArtifactXML, (args: string) => rpcManger.getPropertiesFromArtifactXML(args));
+    messenger.onRequest(loadDriverAndTestConnection, (args: LoadDriverAndTestConnectionRequest) => rpcManger.loadDriverAndTestConnection(args));
+    messenger.onRequest(getDynamicFields, (args: GetDynamicFieldsRequest) => rpcManger.getDynamicFields(args));
+    messenger.onRequest(getStoredProcedures, (args: DSSFetchTablesRequest) => rpcManger.getStoredProcedures(args));
+    messenger.onRequest(downloadDriverForConnector, (args: DriverDownloadRequest) => rpcManger.downloadDriverForConnector(args));
+    messenger.onRequest(getDriverMavenCoordinates, (args: DriverMavenCoordinatesRequest) => rpcManger.getDriverMavenCoordinates(args));
 }

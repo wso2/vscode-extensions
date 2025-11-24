@@ -288,7 +288,15 @@ import {
     GetMockServicesResponse,
     ConfigureKubernetesRequest,
     ConfigureKubernetesResponse,
-    UpdateRegistryPropertyRequest
+    UpdateRegistryPropertyRequest,
+    LoadDriverAndTestConnectionRequest,
+    GetDynamicFieldsRequest,
+    GetDynamicFieldsResponse,
+    GetStoredProceduresResponse,
+    DriverDownloadRequest,
+    DriverDownloadResponse,
+    DriverMavenCoordinatesRequest,
+    DriverMavenCoordinatesResponse
 } from "@wso2/mi-core";
 import axios from 'axios';
 import { error } from "console";
@@ -6072,6 +6080,68 @@ ${keyValuesXML}`;
             }
         }
         return updatedXml;
+    }
+
+    async getDynamicFields(params: GetDynamicFieldsRequest): Promise<GetDynamicFieldsResponse> {
+        return new Promise(async (resolve) => {
+            try {
+                const langClient = getStateMachine(this.projectUri).context().langClient!;
+                const response = await langClient.getDynamicFields({
+                    connectorName: params.connectorName,
+                    operationName: params.operationName,
+                    fieldName: params.fieldName,
+                    selectedValue: params.selectedValue,
+                    connection: params.connection
+                });
+
+                if (!response || !response.columns || !response.columns.length) {
+                    resolve({ columns: [] });
+                    return;
+                }
+
+                resolve(response);
+            } catch (error) {
+                console.error(`Error getting dynamic fields: ${error}`);
+                resolve({ columns: [] });
+            }
+        });
+    }
+
+    async getStoredProcedures(params: DSSFetchTablesRequest): Promise<GetStoredProceduresResponse> {
+        return new Promise(async (resolve) => {
+            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const res = await langClient.getStoredProcedures({
+                ...params, tableData: "", datasourceName: ""
+            });
+            resolve(res);
+        });
+    }
+
+    async downloadDriverForConnector(params: DriverDownloadRequest): Promise<DriverDownloadResponse> {
+        return new Promise(async (resolve) => {
+            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const res = await langClient.downloadDriverForConnector(params);
+            resolve(res);
+        });
+    }
+
+    async loadDriverAndTestConnection(req: LoadDriverAndTestConnectionRequest): Promise<TestDbConnectionResponse> {
+
+        return new Promise(async (resolve) => {
+            const langClient = getStateMachine(this.projectUri).context().langClient;
+            const response = await langClient?.loadDriverAndTestConnection(req);
+            resolve({ success: response ? response.success : false });
+        });
+    }
+
+    async getDriverMavenCoordinates(params: DriverMavenCoordinatesRequest): Promise<DriverMavenCoordinatesResponse> {
+        return new Promise(async (resolve) => {
+
+            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const res = await langClient.getDriverMavenCoordinates(params);
+            resolve(res);
+
+        });
     }
 
     async getPropertiesFromArtifactXML(targetFile: string): Promise<Property[] | undefined> {
