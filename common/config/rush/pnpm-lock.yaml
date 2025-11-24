@@ -3658,6 +3658,9 @@ importers:
 
   ../../workspaces/mi/mi-extension:
     dependencies:
+      '@ai-sdk/amazon-bedrock':
+        specifier: ~3.0.56
+        version: 3.0.56(zod@3.25.76)
       '@ai-sdk/anthropic':
         specifier: ^2.0.35
         version: 2.0.45(zod@3.25.76)
@@ -23301,6 +23304,16 @@ packages:
 snapshots:
 
   '@adobe/css-tools@4.4.4': {}
+
+  '@ai-sdk/amazon-bedrock@3.0.56(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/anthropic': 2.0.45(zod@3.25.76)
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.17(zod@3.25.76)
+      '@smithy/eventstream-codec': 4.2.5
+      '@smithy/util-utf8': 4.2.0
+      aws4fetch: 1.0.20
+      zod: 3.25.76
 
   '@ai-sdk/amazon-bedrock@3.0.56(zod@4.1.11)':
     dependencies:
