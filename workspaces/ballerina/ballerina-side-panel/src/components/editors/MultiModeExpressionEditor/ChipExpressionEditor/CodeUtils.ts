@@ -17,14 +17,13 @@
  */
 
 import { StateEffect, StateField, RangeSet, Transaction, SelectionRange, Annotation } from "@codemirror/state";
-import { WidgetType, Decoration, ViewPlugin, EditorView, ViewUpdate, keymap, dropCursor } from "@codemirror/view";
+import { WidgetType, Decoration, ViewPlugin, EditorView, ViewUpdate } from "@codemirror/view";
 import { filterCompletionsByPrefixAndType, getParsedExpressionTokens, detectTokenPatterns, ParsedToken, mapRawToSanitized } from "./utils";
 import { defaultKeymap, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { CompletionItem } from "@wso2/ui-toolkit";
 import { ThemeColors } from "@wso2/ui-toolkit";
-import { closeBracketsKeymap, CompletionContext, completionKeymap, CompletionResult } from "@codemirror/autocomplete";
+import { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import { TokenType, TokenMetadata, CompoundTokenSequence } from "./types";
-import { prosemarkBaseThemeSetup, codeBlockDecorationsExtension, defaultFoldableSyntaxExtensions, defaultHideExtensions, taskExtension, prosemarkBasicSetup } from '@prosemark/core';
 import { Extension } from '@codemirror/state';
 import { linter, Diagnostic, lintKeymap } from "@codemirror/lint";
 import { DiagnosticMessage } from "@wso2/ballerina-core";
@@ -736,25 +735,6 @@ export const buildHelperPaneKeymap = (getIsHelperPaneOpen: () => boolean, onClos
         }] : [])
     ];
 };
-
-export function prosemarkExtensions(): Extension[] {
-    return [
-        dropCursor(),
-        keymap.of([
-            ...closeBracketsKeymap,
-            ...defaultKeymap,
-            ...historyKeymap,
-            ...completionKeymap,
-            ...lintKeymap,
-            indentWithTab
-        ]),
-        EditorView.lineWrapping,
-        defaultHideExtensions,
-        codeBlockDecorationsExtension,
-        defaultFoldableSyntaxExtensions,
-        prosemarkBaseThemeSetup()
-    ];
-}
 
 export function buildLintingExtension(diagnostics: DiagnosticMessage[]): Extension {
     return linter((view) => {

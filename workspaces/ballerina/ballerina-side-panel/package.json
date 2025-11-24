@@ -28,8 +28,6 @@
         "@emotion/react": "^11.14.0",
         "@emotion/styled": "^11.14.0",
         "@github/markdown-toolbar-element": "^2.2.3",
-        "@lezer/markdown": "^1.6.0",
-        "@prosemark/core": "^0.0.3",
         "@wso2/ballerina-core": "workspace:*",
         "@wso2/ballerina-rpc-client": "workspace:*",
         "@wso2/ui-toolkit": "workspace:*",

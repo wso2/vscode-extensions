@@ -94,7 +94,6 @@ export type ChipExpressionEditorComponentProps = {
     onEditorViewReady?: (view: EditorView) => void;
     toolbarRef?: React.RefObject<HTMLDivElement>;
     enableListContinuation?: boolean;
-    enableProsemark?: boolean;
     formDiagnostics?: DiagnosticMessage[];
 }
 
