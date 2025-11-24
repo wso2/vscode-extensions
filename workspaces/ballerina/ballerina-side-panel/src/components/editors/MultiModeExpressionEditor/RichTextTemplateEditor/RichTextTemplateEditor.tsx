@@ -33,6 +33,15 @@ import { HelperpaneOnChangeOptions } from "../../../Form/types";
 import { useFormContext } from "../../../../context/form";
 import { createChipPlugin, createChipSchema, updateChipTokens } from "./chipPlugin";
 import { HelperPane } from "../ChipExpressionEditor/components/HelperPane";
+import {
+    toggleBold,
+    toggleItalic,
+    toggleLink,
+    toggleHeading,
+    toggleBlockquote,
+    toggleBulletList,
+    toggleOrderedList
+} from "./markdownCommands";
 
 const EditorContainer = styled.div`
     flex: 1;
@@ -437,12 +446,35 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
             plugins: [
                 history(),
                 keymap({
+                    // Undo/Redo
                     "Mod-z": undo,
                     "Mod-y": redo,
                     "Mod-Shift-z": redo,
+
+                    // Text formatting
+                    "Mod-b": toggleBold,
+                    "Mod-i": toggleItalic,
+                    "Mod-k": toggleLink,
+
+                    // Headings
+                    "Mod-Alt-1": toggleHeading(1),
+                    "Mod-Alt-2": toggleHeading(2),
+                    "Mod-Alt-3": toggleHeading(3),
+                    "Mod-Alt-4": toggleHeading(4),
+                    "Mod-Alt-5": toggleHeading(5),
+                    "Mod-Alt-6": toggleHeading(6),
+
+                    // Block formatting
+                    "Mod-Shift-9": toggleBlockquote,
+                    "Mod-Shift-8": toggleBulletList,
+                    "Mod-Shift-7": toggleOrderedList,
+
+                    // List management
                     "Enter": splitListItem(chipSchema.nodes.list_item),
                     "Mod-[": liftListItem(chipSchema.nodes.list_item),
                     "Mod-]": sinkListItem(chipSchema.nodes.list_item),
+
+                    // Helper pane
                     "Mod-/": () => handleHelperPaneKeyboardToggle(),
                     "Escape": () => {
                         if (helperPaneState.isOpen) {
