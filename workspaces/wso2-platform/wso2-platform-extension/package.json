@@ -4,7 +4,7 @@
   "description": "Manage WSO2 Choreo and Devant projects in VS Code.",
   "license": "Apache-2.0",
   "version": "1.0.13",
-  "cliVersion": "v1.2.212509091800",
+  "cliVersion": "v1.2.212511181730",
   "publisher": "wso2",
   "bugs": {
     "url": "https://github.com/wso2/choreo-vscode/issues"
@@ -26,6 +26,12 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "jsonValidation": [
+      {
+        "fileMatch": "launch.json",
+        "url": "./schemas/launch-config-schema.json"
+      }
+    ],
     "commands": [
       {
         "command": "wso2.wso2-platform.sign.in",

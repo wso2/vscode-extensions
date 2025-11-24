@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "choreoConnect": {
+      "oneOf": [
+        {
+          "type": "boolean",
+          "const": true,
+          "description": "Enable Choreo with default settings"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "project": {
+              "type": "string",
+              "description": "Choreo project identifier"
+            },
+            "component": {
+              "type": "string",
+              "description": "Choreo component identifier"
+            },
+            "env": {
+              "type": "string",
+              "description": "Choreo environment"
+            },
+            "skipConnection": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "List of connections to skip"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "configurations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "choreoConnect": {
+            "$ref": "#/definitions/choreoConnect"
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}
