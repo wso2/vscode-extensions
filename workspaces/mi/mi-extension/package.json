@@ -1103,6 +1103,7 @@
     "vscode-messenger-common": "0.5.1",
     "xml2js": "0.6.2",
     "xstate": "4.38.3",
-    "zod": "4.1.11"
+    "zod": "4.1.11",
+    "@ai-sdk/amazon-bedrock": "~3.0.56"
   }
 }
