@@ -232,7 +232,10 @@ export const RichTemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, Rich
 
     const executeCommand = (command: (state: any, dispatch?: any, view?: any) => boolean) => {
         if (!editorView) return;
-        command(editorView.state, editorView.dispatch, editorView);
+        const didChange = command(editorView.state, editorView.dispatch, editorView);
+        if (didChange) {
+            forceUpdate();
+        }
         editorView.focus();
     };
 
