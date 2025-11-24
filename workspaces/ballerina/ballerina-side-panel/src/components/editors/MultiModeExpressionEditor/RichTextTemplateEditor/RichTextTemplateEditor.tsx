@@ -528,6 +528,15 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
                     const cursorPos = (newState.selection as any).$head?.pos || 0;
                     onChange(newValue, cursorPos);
                 }
+            },
+            handleDOMEvents: {
+                keydown: (view, event) => {
+                    // Prevent Cmd+B from propagating to VSCode (which would open the sidebar)
+                    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'b' && !event.shiftKey && !event.altKey) {
+                        event.stopPropagation();
+                    }
+                    return false;
+                }
             }
         });
 
