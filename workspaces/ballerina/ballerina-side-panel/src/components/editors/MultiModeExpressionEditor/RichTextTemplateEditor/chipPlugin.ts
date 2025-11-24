@@ -148,60 +148,29 @@ function createChipElement(
 
     // Get colors
     const colors = getTokenTypeColor(type);
-    let tokenType = type;
-    let backgroundColor = colors.background;
-    let borderColor = colors.border;
-    let iconColor = colors.icon;
-    let underlineColor = '';
-
-    // Apply diagnostic styling if present
-    if (diagnostic) {
-        switch (diagnostic.severity) {
-            case 'ERROR':
-                tokenType = TokenType.ERROR;
-                backgroundColor = 'rgba(246, 59, 59, 0.15)';
-                borderColor = 'rgba(204, 0, 0, 0.4)';
-                iconColor = 'rgba(246, 59, 59, 0.9)';
-                underlineColor = 'var(--vscode-editorError-foreground, #f48771)';
-                break;
-        }
-    }
 
     // Apply base chip styles
     Object.assign(span.style, {
         ...BASE_CHIP_STYLES,
-        background: backgroundColor,
-        border: `1px solid ${borderColor}`
+        background: colors.background,
+        border: `1px solid ${colors.border}`
     });
-
-    // Add tooltip if diagnostic
-    if (diagnostic) {
-        span.title = diagnostic.message;
-    }
 
     // Create icon element
     const icon = document.createElement('i');
-    const iconClass = getTokenIconClass(tokenType, metadata?.documentType);
+    const iconClass = getTokenIconClass(type, metadata?.documentType);
     if (iconClass) {
         icon.className = iconClass;
     }
     Object.assign(icon.style, {
         ...BASE_ICON_STYLES,
-        color: iconColor
+        color: colors.icon
     });
 
     // Create text span
     const textSpan = document.createElement('span');
     textSpan.textContent = displayText;
     const textStyles: any = { ...CHIP_TEXT_STYLES };
-
-    // Add underline for errors
-    if (underlineColor) {
-        textStyles.textDecoration = `wavy underline ${underlineColor}`;
-        textStyles.textDecorationSkipInk = 'none';
-        textStyles.textUnderlineOffset = '2px';
-        textStyles.paddingBottom = '2px';
-    }
 
     Object.assign(textSpan.style, textStyles);
 
