@@ -183,7 +183,6 @@ export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
                         extractArgsFromFunction={extractArgsFromFunction}
                         getHelperPane={getHelperPane}
                         onEditorViewReady={setProseMirrorView}
-                        disableAutoOpenHelperPane={false}
                         onHelperPaneStateChange={handleHelperPaneStateChange}
                     />
                 </ExpressionContainer>

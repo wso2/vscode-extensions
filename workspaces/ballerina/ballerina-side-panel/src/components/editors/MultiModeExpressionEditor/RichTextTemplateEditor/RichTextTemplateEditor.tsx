@@ -160,7 +160,6 @@ interface RichTextTemplateEditorProps {
         helperPaneHeight: HelperPaneHeight
     ) => React.ReactNode;
     onEditorViewReady?: (view: EditorView) => void;
-    disableAutoOpenHelperPane?: boolean;
     onHelperPaneStateChange?: (state: {
         isOpen: boolean;
         ref: React.RefObject<HTMLButtonElement>;
@@ -177,7 +176,6 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
     rawExpression,
     onEditorViewReady,
     getHelperPane,
-    disableAutoOpenHelperPane,
     onHelperPaneStateChange,
     extractArgsFromFunction,
 }) => {
@@ -186,6 +184,7 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
     const helperPaneRef = useRef<HTMLDivElement>(null);
     const helperPaneToggleButtonRef = useRef<HTMLButtonElement>(null);
     const toolbarRef = useRef<HTMLDivElement>(null);
+    const pendingTokenFetchRef = useRef(false);
 
     const [helperPaneState, setHelperPaneState] = useState<HelperPaneState>({
         isOpen: false,
@@ -334,7 +333,7 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
                         const fnSignature = await extractArgsFromFunction(functionDef, cursorPositionForExtraction);
 
                         if (fnSignature && fnSignature.args && fnSignature.args.length > 0) {
-                            const placeholderArgs = fnSignature.args.map((arg, index) => `$${index + 1}`);
+                            const placeholderArgs = fnSignature.args.map((_arg, index) => `$${index + 1}`);
                             const updatedFunctionDef = functionDef.slice(0, -2) + '(' + placeholderArgs.join(', ') + ')';
                             finalValue = prefix + updatedFunctionDef + suffix;
                         }
@@ -373,6 +372,9 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
 
     const fetchAndUpdateTokens = async (editorView: EditorView) => {
         if (!rpcManager || !fileName) return;
+        if (!pendingTokenFetchRef.current) return;
+
+        pendingTokenFetchRef.current = false;
 
         try {
             const plainText = editorView.state.doc.textContent;
@@ -463,8 +465,32 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
                 const newState = view.state.apply(transaction);
                 view.updateState(newState);
 
-                // Call onChange when document changes
+                // Check if we should fetch tokens based on what was typed
                 if ((transaction as any).docChanged) {
+                    // Check if this is undo/redo
+                    const meta = (transaction as any).getMeta('history$');
+                    if (meta) {
+                        pendingTokenFetchRef.current = true;
+                        fetchAndUpdateTokens(view);
+                    } else {
+                        // Check what text was inserted
+                        let shouldTrigger = false;
+                        (transaction as any).steps?.forEach((step: any) => {
+                            if (step.slice?.content) {
+                                const insertedText = step.slice.content.textBetween(0, step.slice.content.size);
+                                if (insertedText.includes(' ') || insertedText.includes('}')) {
+                                    shouldTrigger = true;
+                                }
+                            }
+                        });
+
+                        if (shouldTrigger) {
+                            pendingTokenFetchRef.current = true;
+                            fetchAndUpdateTokens(view);
+                        }
+                    }
+
+                    // Call onChange when document changes
                     const serialized = customMarkdownSerializer.serialize(newState.doc);
                     const newValue = rawExpression ? rawExpression(serialized) : serialized;
                     const cursorPos = (newState.selection as any).$head?.pos || 0;
@@ -480,6 +506,7 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
         }
 
         // Fetch initial tokens
+        pendingTokenFetchRef.current = true;
         fetchAndUpdateTokens(view);
 
         return () => {
