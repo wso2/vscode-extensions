@@ -384,8 +384,8 @@ export const processFunctionWithArguments = async (
             suffix = stringTemplateMatch[3];
         }
 
-        // Calculate cursor position for extraction
-        let cursorPositionForExtraction = prefix.length + functionDef.length - 1;
+        // Calculate cursor position for extraction relative to the functionDef string
+        let cursorPositionForExtraction = functionDef.length - 1;
         if (functionDef.endsWith(')}')) {
             cursorPositionForExtraction -= 1;
         }
@@ -399,8 +399,10 @@ export const processFunctionWithArguments = async (
             const updatedFunctionDef = functionDef.slice(0, -2) + '(' + placeholderArgs.join(', ') + ')';
             const finalValue = prefix + updatedFunctionDef + suffix;
 
-            // Calculate cursor adjustment (position should be before the closing parenthesis)
-            const cursorAdjustment = finalValue.length - 1 - basePosition;
+            // Cursor adjustment is relative to the start of the inserted value
+            const closingParenIndex = finalValue.lastIndexOf(")");
+            const cursorAdjustment =
+                closingParenIndex >= 0 ? closingParenIndex : finalValue.length;
 
             return { finalValue, cursorAdjustment };
         }
@@ -409,5 +411,6 @@ export const processFunctionWithArguments = async (
     }
 
     // Return original value if extraction failed or no arguments
+    // Keep caret at the end of the inserted snippet.
     return { finalValue: value, cursorAdjustment: value.length };
 };
