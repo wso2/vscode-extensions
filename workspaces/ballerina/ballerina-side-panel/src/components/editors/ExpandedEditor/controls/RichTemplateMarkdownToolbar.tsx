@@ -302,8 +302,9 @@ export const RichTemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, Rich
                         disabled={!editorView}
                         isOpen={helperPaneToggle.isOpen}
                         onClick={helperPaneToggle.onClick}
-                        sx={{ marginBottom: 0 }}
+                        sx={{ marginBottom: 0, width: '90px' }}
                         title="Toggle Helper Panel (Ctrl+/ or Cmd+/)"
+                        displayText="Insert"
                     />
                 )}
 
@@ -439,7 +440,7 @@ export const RichTemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, Rich
             {onToggleView && (
                 <Switch
                     checked={isSourceView}
-                    leftLabel="Rich"
+                    leftLabel="Rich Text"
                     rightLabel="Raw"
                     onChange={onToggleView}
                     checkedColor="var(--vscode-button-background)"

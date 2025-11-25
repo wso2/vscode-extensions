@@ -33,11 +33,7 @@ const ExpressionContainer = styled.div`
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    overflow: hidden;
-
-    .ͼ1 .cm-scroller {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji" !important;
-    }    
+    overflow: hidden; 
 `;
 
 export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
@@ -51,7 +47,8 @@ export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
     getHelperPane,
     rawExpression,
     error,
-    formDiagnostics
+    formDiagnostics,
+    inputMode
 }) => {
     const [isSourceView, setIsSourceView] = useState<boolean>(false);
     const [codeMirrorView, setCodeMirrorView] = useState<CodeMirrorView | null>(null);
@@ -123,6 +120,7 @@ export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
                         onEditorViewReady={setCodeMirrorView}
                         toolbarRef={rawToolbarRef}
                         enableListContinuation={true}
+                        inputMode={inputMode}
                     />
                 </ExpressionContainer>
             ) : (

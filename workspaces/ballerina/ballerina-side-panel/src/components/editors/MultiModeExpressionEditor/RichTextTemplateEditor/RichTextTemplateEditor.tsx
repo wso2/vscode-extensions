@@ -190,13 +190,25 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
     const { expressionEditor } = useFormContext();
     const rpcManager = expressionEditor?.rpcManager;
 
-    // Helper pane state management
-    const { helperPaneState, setHelperPaneState, handleManualToggle, handleKeyboardToggle } = useHelperPane(
+    // Helper pane state management with fixed placement for toolbar button
+    const { helperPaneState, setHelperPaneState, handleKeyboardToggle } = useHelperPane(
         {
             editorRef,
             toggleButtonRef: helperPaneToggleButtonRef,
             helperPaneWidth: HELPER_PANE_WIDTH,
-            onStateChange: onHelperPaneStateChange
+            onStateChange: onHelperPaneStateChange,
+            customManualToggle: (setHelperPaneState) => {
+                if (!editorRef?.current || !viewRef.current) return;
+
+                setHelperPaneState(prev => {
+                    if (prev.isOpen) {
+                        return { ...prev, isOpen: false };
+                    }
+
+                    const scrollTop = editorRef.current!.scrollTop || 0;
+                    return { isOpen: true, top: scrollTop, left: 10 };
+                });
+            }
         },
         () => {
             const view = viewRef.current;

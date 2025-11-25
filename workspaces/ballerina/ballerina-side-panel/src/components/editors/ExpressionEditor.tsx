@@ -830,6 +830,7 @@ export const ExpressionEditor = (props: ExpressionEditorProps) => {
                                     getHelperPane={handleGetHelperPane}
                                     error={error}
                                     formDiagnostics={formDiagnostics}
+                                    inputMode={inputModeRef.current}
                                 />
                             )}
                         </div>

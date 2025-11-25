@@ -49,10 +49,10 @@ import FXButton from "./FxButton";
 import { HelperPaneToggleButton } from "./HelperPaneToggleButton";
 import { HelperPane } from "./HelperPane";
 import { listContinuationKeymap } from "../../../ExpandedEditor/utils/templateUtils";
-import { markdown } from "@codemirror/lang-markdown";
 import { HELPER_PANE_WIDTH } from "../constants";
 import { processFunctionWithArguments } from "../utils";
 import { useHelperPaneClickOutside, useHelperPane } from "../hooks/useHelperPane";
+import { InputMode } from "../types";
 
 export type ChipExpressionEditorComponentProps = {
     onTokenRemove?: (token: string) => void;
@@ -89,6 +89,7 @@ export type ChipExpressionEditorComponentProps = {
     onEditorViewReady?: (view: EditorView) => void;
     toolbarRef?: React.RefObject<HTMLDivElement>;
     enableListContinuation?: boolean;
+    inputMode?: InputMode;
 }
 
 export const ChipExpressionEditorComponent = (props: ChipExpressionEditorComponentProps) => {
@@ -104,13 +105,22 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
     const { expressionEditor } = useFormContext();
     const expressionEditorRpcManager = expressionEditor?.rpcManager;
 
-    // Helper pane state management
+    // Helper pane state management with conditional fixed placement for toolbar toggle in PROMPT mode
     const { helperPaneState, setHelperPaneState, handleManualToggle, handleKeyboardToggle } = useHelperPane(
         {
             editorRef,
             toggleButtonRef: helperPaneToggleButtonRef,
             helperPaneWidth: HELPER_PANE_WIDTH,
-            onStateChange: props.onHelperPaneStateChange
+            onStateChange: props.onHelperPaneStateChange,
+            customManualToggle: props.inputMode === InputMode.PROMPT && props.isInExpandedMode ? (setHelperPaneState) => {
+                if (!editorRef?.current) return;
+
+                setHelperPaneState(prev => {
+                    if (prev.isOpen) return { ...prev, isOpen: false };
+                    const scrollTop = editorRef.current!.scrollTop || 0;
+                    return { isOpen: true, top: scrollTop, left: 10 };
+                });
+            } : undefined
         },
         () => viewRef.current?.coordsAtPos(viewRef.current.state.selection.main.head) || null
     );

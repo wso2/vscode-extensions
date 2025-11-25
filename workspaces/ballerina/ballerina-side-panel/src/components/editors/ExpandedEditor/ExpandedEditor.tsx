@@ -61,6 +61,7 @@ interface ExpandedPromptEditorProps {
     // Error diagnostics props
     error?: FieldError;
     formDiagnostics?: DiagnosticMessage[];
+    inputMode?: InputMode;
 }
 
 const ModalContainer = styled.div`
@@ -168,7 +169,8 @@ export const ExpandedEditor: React.FC<ExpandedPromptEditorProps> = ({
     extractArgsFromFunction,
     getHelperPane,
     error,
-    formDiagnostics
+    formDiagnostics,
+    inputMode
 }) => {
     const promptFields = ["query", "instructions", "role"];
 
@@ -245,7 +247,8 @@ export const ExpandedEditor: React.FC<ExpandedPromptEditorProps> = ({
             extractArgsFromFunction,
             getHelperPane,
             error,
-            formDiagnostics
+            formDiagnostics,
+            inputMode
         })
     };
     // HACK: Must find a proper central way to manager popups

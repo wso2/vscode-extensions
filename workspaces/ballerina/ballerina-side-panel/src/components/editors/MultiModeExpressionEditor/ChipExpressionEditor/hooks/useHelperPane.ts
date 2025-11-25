@@ -80,6 +80,7 @@ export interface UseHelperPaneConfig {
     toggleButtonRef: React.RefObject<HTMLButtonElement>;
     helperPaneWidth: number;
     onStateChange?: (state: HelperPaneStateChangeCallback) => void;
+    customManualToggle?: (setHelperPaneState: React.Dispatch<React.SetStateAction<HelperPaneState>>) => void;
 }
 
 export interface UseHelperPaneReturn {
@@ -97,7 +98,7 @@ export const useHelperPane = (
     config: UseHelperPaneConfig,
     getCursorCoords: GetCursorCoords
 ): UseHelperPaneReturn => {
-    const { editorRef, toggleButtonRef, helperPaneWidth, onStateChange } = config;
+    const { editorRef, toggleButtonRef, helperPaneWidth, onStateChange, customManualToggle } = config;
 
     const [helperPaneState, setHelperPaneState] = useState<HelperPaneState>({
         isOpen: false,
@@ -106,6 +107,11 @@ export const useHelperPane = (
     });
 
     const handleManualToggle = useCallback(() => {
+        if (customManualToggle) {
+            customManualToggle(setHelperPaneState);
+            return;
+        }
+
         if (!toggleButtonRef?.current || !editorRef?.current) return;
 
         setHelperPaneState(prev => {
@@ -120,7 +126,7 @@ export const useHelperPane = (
 
             return { ...prev, ...position, isOpen: true };
         });
-    }, [toggleButtonRef, editorRef, helperPaneWidth]);
+    }, [customManualToggle, toggleButtonRef, editorRef, helperPaneWidth]);
 
     const handleKeyboardToggle = useCallback((): boolean => {
         if (!editorRef?.current) return false;
@@ -153,7 +159,7 @@ export const useHelperPane = (
                 toggle: handleManualToggle
             });
         }
-    }, [helperPaneState.isOpen, onStateChange, toggleButtonRef, handleManualToggle]);
+    }, [helperPaneState.isOpen]);
 
     return {
         helperPaneState,
