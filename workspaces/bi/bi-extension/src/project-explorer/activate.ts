@@ -15,7 +15,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { SHARED_COMMANDS, BI_COMMANDS } from '@wso2/ballerina-core';
+import { SHARED_COMMANDS, BI_COMMANDS, MACHINE_VIEW, NodePosition } from '@wso2/ballerina-core';
 
 import { ProjectExplorerEntry, ProjectExplorerEntryProvider } from './project-explorer-provider';
 import { ExtensionContext, TreeView, commands, window, workspace } from 'vscode';
@@ -42,6 +42,11 @@ export function activateProjectExplorer(config: ExplorerActivationConfig) {
 	const projectExplorerDataProvider = new ProjectExplorerEntryProvider();
 	const projectTree = createProjectTree(projectExplorerDataProvider, treeviewId);
 
+	projectExplorerDataProvider.setTreeView(projectTree);
+
+	// Always register core commands so they're available to the Ballerina extension
+	registerCoreCommands(projectExplorerDataProvider, isInWI);
+
 	if (isBallerinaPackage || isBallerinaWorkspace) {
 		registerBallerinaCommands(projectExplorerDataProvider, isBI, isInWI, isBallerinaWorkspace, isEmptyWorkspace);
 	}
@@ -64,6 +69,24 @@ function createProjectTree(dataProvider: ProjectExplorerEntryProvider, treeviewI
 	return window.createTreeView(treeviewId, { treeDataProvider: dataProvider });
 }
 
+function registerCoreCommands(dataProvider: ProjectExplorerEntryProvider, isInWI: boolean) {
+	// Register the notify command that's called by the Ballerina extension
+	commands.registerCommand(
+		BI_COMMANDS.NOTIFY_PROJECT_EXPLORER,
+		(event: {
+			projectPath: string,
+			documentUri: string,
+			position: NodePosition,
+			view: MACHINE_VIEW
+		}) => {
+			dataProvider.revealInTreeView(event.documentUri, event.projectPath, event.position, event.view);
+		}
+	);
+	
+	// Register the refresh command
+	commands.registerCommand(isInWI ? WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND : BI_COMMANDS.REFRESH_COMMAND, () => dataProvider.refresh());
+}
+
 function registerBallerinaCommands(
 	dataProvider: ProjectExplorerEntryProvider,
 	isBI: boolean,
@@ -71,7 +94,6 @@ function registerBallerinaCommands(
 	isBallerinaWorkspace?: boolean,
 	isEmptyWorkspace?: boolean
 ) {
-	commands.registerCommand(isInWI ? WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND : BI_COMMANDS.REFRESH_COMMAND, () => dataProvider.refresh());
 	commands.executeCommand('setContext', 'BI.isWorkspaceSupported', extension.isWorkspaceSupported ?? false);
 
 	if (isBallerinaWorkspace) {
