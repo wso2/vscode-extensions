@@ -80,7 +80,11 @@ export function createDirectoryContextCommand(context: ExtensionContext) {
 						directoryUrl = componentDir[0];
 					}
 
-					gitRoot = await getGitRoot(context, directoryUrl.fsPath);
+					try {
+						gitRoot = await getGitRoot(context, directoryUrl.fsPath);
+					}catch{
+						// ignore error
+					}
 					if (!gitRoot) {
 						if(params?.fsPath){
 							const git = await initGit(context);

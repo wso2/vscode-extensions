@@ -48,12 +48,12 @@ export interface IWso2PlatformExtensionAPI {
 	stopProxyServer: (params: StopProxyServerReq) => Promise<void>;
 
 	// Auth Subscription
-	subscribeAuthState(callback: (state: AuthState)=>void): void;
-	subscribeIsLoggedIn(callback: (isLoggedIn: boolean)=>void): void;
+	subscribeAuthState(callback: (state: AuthState)=>void): () => void;
+	subscribeIsLoggedIn(callback: (isLoggedIn: boolean)=>void): () => void;
 
 	// Context Subscription
-	subscribeDirComponents(fsPath: string, callback: (comps: ComponentKind[])=>void): void;
-	subscribeContextState(callback: (state: ContextItemEnriched | undefined)=>void): void;
+	subscribeDirComponents(fsPath: string, callback: (comps: ComponentKind[])=>void): () => void;
+	subscribeContextState(callback: (state: ContextItemEnriched | undefined)=>void): () => void;
 }
 
 export interface StartProxyServerReq {
