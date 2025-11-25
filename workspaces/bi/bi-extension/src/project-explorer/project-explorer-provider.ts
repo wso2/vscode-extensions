@@ -143,7 +143,7 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
         }
 
         // Reveal the item if found
-        if (itemToReveal) {
+        if (itemToReveal && this._treeView.visible) {
             this._treeView.reveal(itemToReveal, { 
                 select: true, 
                 focus: true, 
