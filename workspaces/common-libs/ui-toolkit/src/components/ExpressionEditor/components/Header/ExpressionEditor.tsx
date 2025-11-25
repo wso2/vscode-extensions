@@ -424,7 +424,7 @@ export const ExpressionEditor = forwardRef<HeaderExpressionEditorRef, HeaderExpr
                 createPortal(
                     <DropdownContainer ref={dropdownContainerRef} sx={{ ...dropdownElPosition }}>
                         <Transition show={showCompletions} {...ANIMATION}>
-                            <div onMouseDown={(e) => { e.preventDefault(); }}>
+                            <div onMouseDown={e => { e.preventDefault(); }}>
                                 <Codicon
                                     id='expression-editor-close'
                                     sx={{
