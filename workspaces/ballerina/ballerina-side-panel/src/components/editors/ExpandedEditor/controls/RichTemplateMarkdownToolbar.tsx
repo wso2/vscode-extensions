@@ -439,7 +439,7 @@ export const RichTemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, Rich
             {onToggleView && (
                 <Switch
                     checked={isSourceView}
-                    leftLabel="Default"
+                    leftLabel="Rich"
                     rightLabel="Raw"
                     onChange={onToggleView}
                     checkedColor="var(--vscode-button-background)"
