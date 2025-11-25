@@ -104,3 +104,12 @@ export type TokenPattern = {
   extractor: (tokens: any[], startIndex: number, endIndex: number, docText: string) => TokenMetadata | null;
   priority: number;
 };
+
+// Helper pane state management
+export type HelperPaneState = {
+  isOpen: boolean;
+  top: number;
+  left: number;
+  clickedChipPos?: number;
+  clickedChipNode?: any;
+};

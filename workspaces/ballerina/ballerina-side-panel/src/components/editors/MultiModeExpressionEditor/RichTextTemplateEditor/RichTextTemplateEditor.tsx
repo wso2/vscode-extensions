@@ -41,6 +41,9 @@ import {
     toggleBulletList,
     toggleOrderedList
 } from "./markdownCommands";
+import { HELPER_PANE_WIDTH } from "../ChipExpressionEditor/constants";
+import { calculateHelperPanePosition, processFunctionWithArguments } from "../ChipExpressionEditor/utils";
+import { useHelperPaneClickOutside, useHelperPane } from "../ChipExpressionEditor/hooks/useHelperPane";
 
 const EditorContainer = styled.div`
     flex: 1;
@@ -115,8 +118,6 @@ const EditorContainer = styled.div`
     }
 `;
 
-const HELPER_PANE_WIDTH = 300;
-
 const markdownTokenizer = markdownit("commonmark", { html: false }).disable(["autolink", "html_inline", "html_block"]);
 
 // Create chip schema once
@@ -139,14 +140,6 @@ const customMarkdownSerializer = new MarkdownSerializer(
     },
     defaultMarkdownSerializer.marks
 );
-
-type HelperPaneState = {
-    isOpen: boolean;
-    top: number;
-    left: number;
-    clickedChipPos?: number;
-    clickedChipNode?: any;
-}
 
 interface RichTextTemplateEditorProps {
     value: string;
@@ -194,14 +187,24 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
     const toolbarRef = useRef<HTMLDivElement>(null);
     const pendingTokenFetchRef = useRef(false);
 
-    const [helperPaneState, setHelperPaneState] = useState<HelperPaneState>({
-        isOpen: false,
-        top: 0,
-        left: 0
-    });
-
     const { expressionEditor } = useFormContext();
     const rpcManager = expressionEditor?.rpcManager;
+
+    // Helper pane state management
+    const { helperPaneState, setHelperPaneState, handleManualToggle, handleKeyboardToggle } = useHelperPane(
+        {
+            editorRef,
+            toggleButtonRef: helperPaneToggleButtonRef,
+            helperPaneWidth: HELPER_PANE_WIDTH,
+            onStateChange: onHelperPaneStateChange
+        },
+        () => {
+            const view = viewRef.current;
+            if (!view) return null;
+            const cursorPos = view.state.selection.$head.pos;
+            return view.coordsAtPos(cursorPos) || null;
+        }
+    );
 
     // Handle chip click to show helper pane
     const handleChipClick = (event: MouseEvent, chipPos: number, chipNode: any) => {
@@ -217,90 +220,13 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
         // Get the scroll position from the editor container
         const scrollTop = editorRef.current.scrollTop || 0;
 
-        // Position relative to the editor container, accounting for scroll
-        let top = chipRect.bottom - editorRect.top + scrollTop;
-        let left = chipRect.left - editorRect.left;
-
-        // Add overflow correction for window boundaries
-        const viewportWidth = window.innerWidth;
-        const absoluteLeft = chipRect.left;
-        const overflow = absoluteLeft + HELPER_PANE_WIDTH - viewportWidth;
-
-        if (overflow > 0) {
-            left -= overflow;
-        }
+        const position = calculateHelperPanePosition(chipRect, editorRect, HELPER_PANE_WIDTH, scrollTop);
 
         setHelperPaneState({
             isOpen: true,
-            top,
-            left,
+            ...position,
             clickedChipPos: chipPos,
             clickedChipNode: chipNode
-        });
-    };
-
-    // Handle helper pane keyboard toggle
-    const handleHelperPaneKeyboardToggle = () => {
-        if (!viewRef.current || !editorRef.current) return false;
-
-        setHelperPaneState(prev => {
-            // If helper pane is open, just close it
-            if (prev.isOpen) {
-                return { ...prev, isOpen: false };
-            }
-
-            // If helper pane is closed, open it at the cursor position
-            const view = viewRef.current!;
-            const editorElement = editorRef.current!;
-            const cursorPos = view.state.selection.$head.pos;
-            const coords = view.coordsAtPos(cursorPos);
-
-            if (coords) {
-                const editorRect = editorElement.getBoundingClientRect();
-                const scrollTop = editorElement.scrollTop || 0;
-
-                // Position relative to the editor container, accounting for scroll
-                let top = coords.bottom - editorRect.top + scrollTop;
-                let left = coords.left - editorRect.left;
-
-                // Add overflow correction for window boundaries
-                const viewportWidth = window.innerWidth;
-                const absoluteLeft = coords.left;
-                const overflow = absoluteLeft + HELPER_PANE_WIDTH - viewportWidth;
-
-                if (overflow > 0) {
-                    left -= overflow;
-                }
-
-                return { isOpen: true, top, left };
-            }
-
-            // Fallback if cursor coordinates aren't available
-            const scrollTop = editorElement.scrollTop || 0;
-            return { isOpen: true, top: scrollTop, left: 10 };
-        });
-
-        return true;
-    };
-
-    // Handle helper pane toggle button click
-    const handleHelperPaneManualToggle = () => {
-        if (!helperPaneToggleButtonRef?.current || !editorRef?.current || !viewRef.current) return;
-
-        if (helperPaneState.isOpen) {
-            setHelperPaneState(prev => ({ ...prev, isOpen: false }));
-            return;
-        }
-
-        const scrollTop = editorRef.current.scrollTop || 0;
-
-        const top = scrollTop;
-        const left = 10;
-
-        setHelperPaneState({
-            isOpen: true,
-            top,
-            left
         });
     };
 
@@ -321,35 +247,8 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
             // HACK: this should be handled properly with completion items template
             if (newValue.endsWith('()') || newValue.endsWith(')}')) {
                 if (extractArgsFromFunction) {
-                    try {
-                        // Extract the function definition from string templates like "${func()}"
-                        let functionDef = newValue;
-                        let prefix = '';
-                        let suffix = '';
-
-                        // Check if it's within a string template
-                        const stringTemplateMatch = newValue.match(/^(.*\$\{)([^}]+)(\}.*)$/);
-                        if (stringTemplateMatch) {
-                            prefix = stringTemplateMatch[1];
-                            functionDef = stringTemplateMatch[2];
-                            suffix = stringTemplateMatch[3];
-                        }
-
-                        let cursorPositionForExtraction = prefix.length + functionDef.length - 1;
-                        if (functionDef.endsWith(')}')) {
-                            cursorPositionForExtraction -= 1;
-                        }
-
-                        const fnSignature = await extractArgsFromFunction(functionDef, cursorPositionForExtraction);
-
-                        if (fnSignature && fnSignature.args && fnSignature.args.length > 0) {
-                            const placeholderArgs = fnSignature.args.map((_arg, index) => `$${index + 1}`);
-                            const updatedFunctionDef = functionDef.slice(0, -2) + '(' + placeholderArgs.join(', ') + ')';
-                            finalValue = prefix + updatedFunctionDef + suffix;
-                        }
-                    } catch (error) {
-                        console.warn('Failed to extract function arguments:', error);
-                    }
+                    const result = await processFunctionWithArguments(newValue, chipPos, extractArgsFromFunction);
+                    finalValue = result.finalValue;
                 }
             }
 
@@ -476,7 +375,7 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
                     "Mod-]": sinkListItem(chipSchema.nodes.list_item),
 
                     // Helper pane
-                    "Mod-/": () => handleHelperPaneKeyboardToggle(),
+                    "Mod-/": () => handleKeyboardToggle(),
                     "Escape": () => {
                         if (helperPaneState.isOpen) {
                             setHelperPaneState(prev => ({ ...prev, isOpen: false }));
@@ -566,51 +465,22 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
         }
     }, [value]);
 
-    // Expose helper pane state to parent component
-    useEffect(() => {
-        if (onHelperPaneStateChange) {
-            onHelperPaneStateChange({
-                isOpen: helperPaneState.isOpen,
-                ref: helperPaneToggleButtonRef,
-                toggle: handleHelperPaneManualToggle
-            });
+    // Handle click outside and escape key for helper pane
+    useHelperPaneClickOutside({
+        enabled: helperPaneState.isOpen,
+        refs: {
+            editor: editorRef,
+            helperPane: helperPaneRef,
+            toggleButton: helperPaneToggleButtonRef,
+            toolbar: toolbarRef
+        },
+        onClickOutside: () => {
+            setHelperPaneState(prev => ({ ...prev, isOpen: false }));
+        },
+        onEscapeKey: () => {
+            setHelperPaneState(prev => ({ ...prev, isOpen: false }));
         }
-    }, [helperPaneState.isOpen]);
-
-    // Handle click outside to close helper pane
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (!helperPaneState.isOpen) return;
-
-            const target = event.target as Element;
-            const isClickInsideEditor = editorRef.current?.contains(target);
-            const isClickInsideHelperPane = helperPaneRef.current?.contains(target);
-            const isClickOnToggleButton = helperPaneToggleButtonRef.current?.contains(target);
-            const isClickInsideToolbar = toolbarRef.current?.contains(target);
-
-            if (!isClickInsideEditor && !isClickInsideHelperPane && !isClickOnToggleButton && !isClickInsideToolbar) {
-                setHelperPaneState(prev => ({ ...prev, isOpen: false }));
-            }
-        };
-
-        const handleEscapeKey = (event: KeyboardEvent) => {
-            if (!helperPaneState.isOpen) return;
-            if (event.key === 'Escape') {
-                event.preventDefault();
-                event.stopPropagation();
-                setHelperPaneState(prev => ({ ...prev, isOpen: false }));
-            }
-        };
-
-        if (helperPaneState.isOpen) {
-            document.addEventListener('mousedown', handleClickOutside);
-            document.addEventListener('keydown', handleEscapeKey);
-        }
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-            document.removeEventListener('keydown', handleEscapeKey);
-        };
-    }, [helperPaneState.isOpen]);
+    });
 
     return (
         <>
