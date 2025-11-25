@@ -97,24 +97,48 @@ export const toggleBlockquote: Command = (state, dispatch, view) => {
     return wrapIn(blockquote)(state, dispatch, view);
 };
 
-export const toggleBulletList: Command = (state, dispatch, view) => {
-    const bulletList = state.schema.nodes.bullet_list;
-    const listItem = state.schema.nodes.list_item;
+const convertListType = (state: EditorState, dispatch: ((tr: Transaction) => void) | undefined, fromListType: NodeType, toListType: NodeType): boolean => {
+    if (!dispatch) return true;
 
-    if (isListActive(state, bulletList)) {
-        return liftListItem(listItem)(state, dispatch, view);
+    const { $from } = state.selection;
+    for (let d = $from.depth; d >= 0; d--) {
+        if ($from.node(d).type === fromListType) {
+            const pos = $from.before(d);
+            const node = $from.node(d);
+            const tr = (state.tr as any).replaceWith(pos, pos + node.nodeSize, toListType.create(node.attrs, node.content));
+            dispatch(tr.setSelection(state.selection.map(tr.doc, tr.mapping)));
+            return true;
+        }
     }
-    return wrapInList(bulletList)(state, dispatch, view);
+    return false;
+};
+
+export const toggleBulletList: Command = (state, dispatch, view) => {
+    const { bullet_list, ordered_list, list_item } = state.schema.nodes;
+
+    if (isListActive(state, bullet_list)) {
+        return liftListItem(list_item)(state, dispatch, view);
+    }
+
+    if (isListActive(state, ordered_list)) {
+        return convertListType(state, dispatch, ordered_list, bullet_list);
+    }
+
+    return wrapInList(bullet_list)(state, dispatch, view);
 };
 
 export const toggleOrderedList: Command = (state, dispatch, view) => {
-    const orderedList = state.schema.nodes.ordered_list;
-    const listItem = state.schema.nodes.list_item;
+    const { bullet_list, ordered_list, list_item } = state.schema.nodes;
 
-    if (isListActive(state, orderedList)) {
-        return liftListItem(listItem)(state, dispatch, view);
+    if (isListActive(state, ordered_list)) {
+        return liftListItem(list_item)(state, dispatch, view);
     }
-    return wrapInList(orderedList)(state, dispatch, view);
+
+    if (isListActive(state, bullet_list)) {
+        return convertListType(state, dispatch, bullet_list, ordered_list);
+    }
+
+    return wrapInList(ordered_list)(state, dispatch, view);
 };
 
 export const isMarkActive = (state: EditorState, type: MarkType): boolean => {
