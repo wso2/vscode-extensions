@@ -37,25 +37,40 @@ export const toggleCode: Command = (state, dispatch, view) => {
     return toggleMark(state.schema.marks.code)(state, dispatch, view);
 };
 
-export const toggleLink: Command = (state, dispatch) => {
-    const linkMarkType = state.schema.marks.link;
-    const { from, to } = state.selection;
+export const toggleLink = (href?: string, title?: string): Command => {
+    return (state, dispatch) => {
+        const linkMarkType = state.schema.marks.link;
+        const { from, to } = state.selection;
 
-    if (from === to) return false;
+        // If there's a selection and it already has a link, remove it
+        if (from !== to && state.doc.rangeHasMark(from, to, linkMarkType)) {
+            if (dispatch) {
+                dispatch((state.tr as any).removeMark(from, to, linkMarkType));
+            }
+            return true;
+        }
 
-    if (state.doc.rangeHasMark(from, to, linkMarkType)) {
+        // Can't add a link without an href
+        if (!href) return false;
+
         if (dispatch) {
-            dispatch((state.tr as any).removeMark(from, to, linkMarkType));
+            const mark = linkMarkType.create({ href });
+            const tr = state.tr;
+
+            if (from === to) {
+                // No selection: insert new text with link
+                const linkText = title || href;
+                const textNode = state.schema.text(linkText, [mark]);
+                tr.replaceSelectionWith(textNode, false);
+            } else {
+                // Has selection: wrap selection with link
+                (tr as any).addMark(from, to, mark);
+            }
+
+            dispatch(tr);
         }
         return true;
-    }
-
-    if (dispatch) {
-        const href = "url";
-        const mark = linkMarkType.create({ href });
-        dispatch((state.tr as any).addMark(from, to, mark));
-    }
-    return true;
+    };
 };
 
 export const toggleHeading = (level: number): Command => {
@@ -138,11 +153,11 @@ export const isListActive = (state: EditorState, listType: NodeType): boolean =>
     return false;
 };
 
-export const undoCommand: Command = (state, dispatch, view) => {
+export const undoCommand: Command = (state, dispatch) => {
     return undo(state, dispatch);
 };
 
-export const redoCommand: Command = (state, dispatch, view) => {
+export const redoCommand: Command = (state, dispatch) => {
     return redo(state, dispatch);
 };
 

@@ -36,7 +36,6 @@ import { HelperPane } from "../ChipExpressionEditor/components/HelperPane";
 import {
     toggleBold,
     toggleItalic,
-    toggleLink,
     toggleHeading,
     toggleBlockquote,
     toggleBulletList,
@@ -456,7 +455,7 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
                     // Text formatting
                     "Mod-b": toggleBold,
                     "Mod-i": toggleItalic,
-                    "Mod-k": toggleLink,
+                    // Mod-k removed: link insertion now requires dialog from toolbar
 
                     // Headings
                     "Mod-Alt-1": toggleHeading(1),
@@ -532,7 +531,7 @@ export const RichTextTemplateEditor: React.FC<RichTextTemplateEditorProps> = ({
                 }
             },
             handleDOMEvents: {
-                keydown: (view, event) => {
+                keydown: (_view, event) => {
                     // Prevent Cmd+B from propagating to VSCode (which would open the sidebar)
                     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'b' && !event.shiftKey && !event.altKey) {
                         event.stopPropagation();

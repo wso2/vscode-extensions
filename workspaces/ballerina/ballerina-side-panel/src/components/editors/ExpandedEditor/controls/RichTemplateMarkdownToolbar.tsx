@@ -23,7 +23,6 @@ import { EditorView } from "prosemirror-view";
 import {
     toggleBold,
     toggleItalic,
-    toggleCode,
     toggleLink,
     toggleHeading,
     toggleBlockquote,
@@ -38,6 +37,7 @@ import {
     canRedo
 } from "../../MultiModeExpressionEditor/RichTextTemplateEditor/markdownCommands";
 import { HelperPaneToggleButton } from "../../MultiModeExpressionEditor/ChipExpressionEditor/components/HelperPaneToggleButton";
+import { LinkDialog } from "./LinkDialog";
 
 const ToolbarContainer = styled.div`
     display: flex;
@@ -190,6 +190,8 @@ export const RichTemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, Rich
     const [, forceUpdate] = React.useReducer(x => x + 1, 0);
     const [currentHeadingLevel, setCurrentHeadingLevel] = useState(1);
     const [isHeadingDropdownOpen, setIsHeadingDropdownOpen] = useState(false);
+    const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
+    const [selectedTextForLink, setSelectedTextForLink] = useState("");
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     // Update toolbar state when editor state changes
@@ -249,6 +251,29 @@ export const RichTemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, Rich
     };
 
     const toggleHeadingDropdown = () => setIsHeadingDropdownOpen(!isHeadingDropdownOpen);
+
+    const handleLinkButtonClick = () => {
+        if (!editorView) return;
+
+        const schema = editorView.state.schema;
+        const { from, to } = editorView.state.selection;
+
+        // If already has link, remove it immediately
+        if (from !== to && editorView.state.doc.rangeHasMark(from, to, schema.marks.link)) {
+            executeCommand(toggleLink());
+            return;
+        }
+
+        // Get selected text if any to pre-fill title field
+        const selectedText = editorView.state.doc.textBetween(from, to, ' ');
+        setSelectedTextForLink(selectedText);
+        setIsLinkDialogOpen(true);
+    };
+
+    const handleInsertLink = (href: string, title?: string) => {
+        executeCommand(toggleLink(href, title));
+        setIsLinkDialogOpen(false);
+    };
 
     const schema = editorView?.state.schema;
 
@@ -338,7 +363,7 @@ export const RichTemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, Rich
                     title="Insert Link"
                     disabled={!editorView}
                     isActive={isLinkActive}
-                    onClick={() => executeCommand(toggleLink)}
+                    onClick={handleLinkButtonClick}
                     onMouseDown={handleMouseDown}
                 >
                     <Icon name="bi-link" sx={{ width: "20px", height: "20px", fontSize: "20px" }} />
@@ -425,6 +450,13 @@ export const RichTemplateMarkdownToolbar = React.forwardRef<HTMLDivElement, Rich
                     }}
                 />
             )}
+
+            <LinkDialog
+                isOpen={isLinkDialogOpen}
+                onClose={() => setIsLinkDialogOpen(false)}
+                onInsert={handleInsertLink}
+                initialTitle={selectedTextForLink}
+            />
         </ToolbarContainer>
     );
 });
