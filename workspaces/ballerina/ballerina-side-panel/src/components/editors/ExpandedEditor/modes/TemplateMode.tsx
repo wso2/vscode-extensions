@@ -143,11 +143,10 @@ export const TemplateMode: React.FC<EditorModeExpressionProps> = ({
                 </ExpressionContainer>
             )
             }
-            {
+            {error ?
+                <ErrorBanner sx={{ maxHeight: "50px", overflowY: "auto" }} errorMsg={error.message.toString()} /> :
                 formDiagnostics && formDiagnostics.length > 0 &&
-                <ErrorBanner sx={{ maxHeight: "50px", overflowY: "auto" }} errorMsg={formDiagnostics.map(d => {
-                    return d.message;
-                }).join(', ')} />
+                <ErrorBanner sx={{ maxHeight: "50px", overflowY: "auto" }} errorMsg={formDiagnostics.map(d => d.message).join(', ')} />
             }
         </>
     );
