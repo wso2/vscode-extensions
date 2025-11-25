@@ -447,11 +447,11 @@ importers:
   ../../workspaces/ballerina/ballerina-extension:
     dependencies:
       '@ai-sdk/amazon-bedrock':
-        specifier: ^3.0.25
-        version: 3.0.51(zod@4.1.11)
+        specifier: ^3.0.57
+        version: 3.0.57(zod@4.1.11)
       '@ai-sdk/anthropic':
-        specifier: ^2.0.20
-        version: 2.0.41(zod@4.1.11)
+        specifier: ^2.0.45
+        version: 2.0.45(zod@4.1.11)
       '@opentelemetry/auto-instrumentations-node':
         specifier: ^0.67.0
         version: 0.67.0(@opentelemetry/api@1.9.0)(@opentelemetry/core@2.2.0(@opentelemetry/api@1.9.0))(encoding@0.1.13)
@@ -486,8 +486,8 @@ importers:
         specifier: workspace:*
         version: link:../../wso2-platform/wso2-platform-core
       ai:
-        specifier: ^5.0.56
-        version: 5.0.87(zod@4.1.11)
+        specifier: ^5.0.101
+        version: 5.0.101(zod@4.1.11)
       cors-anywhere:
         specifier: ^0.4.4
         version: 0.4.4
@@ -511,7 +511,7 @@ importers:
         version: 4.0.0
       langfuse-vercel:
         specifier: ^3.38.6
-        version: 3.38.6(ai@5.0.87(zod@4.1.11))
+        version: 3.38.6(ai@5.0.101(zod@4.1.11))
       lodash:
         specifier: ^4.17.21
         version: 4.17.21
@@ -4487,26 +4487,26 @@ packages:
   '@adobe/css-tools@4.4.4':
     resolution: {integrity: sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg==}
 
-  '@ai-sdk/amazon-bedrock@3.0.51':
-    resolution: {integrity: sha512-nPyUZDH9XS5iqgxM2ZPK2kSE1M1UoXdWaqWRqZ7k90BZu32VEreL1Z3pTTo58qEj9OuOkdlQ1oO5DujIE7VDLA==}
+  '@ai-sdk/amazon-bedrock@3.0.57':
+    resolution: {integrity: sha512-mOUSLe+RgZzx0rtL1p9QXmSd/08z1EkBR+vQ1ydpd1t5P0Nx2kB8afiukEgM8nuDvmO9eYQlp7VTy1n5ffPs2g==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/anthropic@2.0.41':
-    resolution: {integrity: sha512-ZQebpyE6rM3JoeEyhJXUNDiRfVegw8ZrxT+rB8yurxI5JXDnlGpYQvSPmdR8TQfMbps4YkggfbcOwMeEZaTS+g==}
+  '@ai-sdk/anthropic@2.0.45':
+    resolution: {integrity: sha512-Ipv62vavDCmrV/oE/lXehL9FzwQuZOnnlhPEftWizx464Wb6lvnBTJx8uhmEYruFSzOWTI95Z33ncZ4tA8E6RQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/gateway@2.0.6':
-    resolution: {integrity: sha512-FmhR6Tle09I/RUda8WSPpJ57mjPWzhiVVlB50D+k+Qf/PBW0CBtnbAUxlNSR5v+NIZNLTK3C56lhb23ntEdxhQ==}
+  '@ai-sdk/gateway@2.0.15':
+    resolution: {integrity: sha512-i1YVKzC1dg9LGvt+GthhD7NlRhz9J4+ZRj3KELU14IZ/MHPsOBiFeEoCCIDLR+3tqT8/+5nIsK3eZ7DFRfMfdw==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/provider-utils@3.0.16':
-    resolution: {integrity: sha512-lsWQY9aDXHitw7C1QRYIbVGmgwyT98TF3MfM8alNIXKpdJdi+W782Rzd9f1RyOfgRmZ08gJ2EYNDhWNK7RqpEA==}
+  '@ai-sdk/provider-utils@3.0.17':
+    resolution: {integrity: sha512-TR3Gs4I3Tym4Ll+EPdzRdvo/rc8Js6c4nVhFLuvGLX/Y4V9ZcQMa/HTiYsHEgmYrf1zVi6Q145UEZUfleOwOjw==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -10885,8 +10885,8 @@ packages:
   '@ungap/structured-clone@1.3.0':
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
 
-  '@vercel/oidc@3.0.3':
-    resolution: {integrity: sha512-yNEQvPcVrK9sIe637+I0jD6leluPxzwJKx/Haw6F4H77CdDsszUn5V3o96LPziXkSNE2B83+Z3mjqGKBK/R6Gg==}
+  '@vercel/oidc@3.0.5':
+    resolution: {integrity: sha512-fnYhv671l+eTTp48gB4zEsTW/YtRgRPnkI2nT7x6qw5rkI1Lq2hTmQIpHPgyThI0znLK+vX2n9XxKdXZ7BUbbw==}
     engines: {node: '>= 20'}
 
   '@vitest/expect@2.0.5':
@@ -11293,8 +11293,8 @@ packages:
     resolution: {integrity: sha512-0poP0T7el6Vq3rstR8Mn4V/IQrpBLO6POkUSrN7RhyY+GF/InCFShQzsQ39T25gkHhLgSLByyAz+Kjb+c2L98w==}
     engines: {node: '>=12'}
 
-  ai@5.0.87:
-    resolution: {integrity: sha512-9Cjx7o8IY9zAczigX0Tk/BaQwjPe/M6DpEjejKSBNrf8mOPIvyM+pJLqJSC10IsKci3FPsnaizJeJhoetU1Wfw==}
+  ai@5.0.101:
+    resolution: {integrity: sha512-/P4fgs2PGYTBaZi192YkPikOudsl9vccA65F7J7LvoNTOoP5kh1yAsJPsKAy6FXU32bAngai7ft1UDyC3u7z5g==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -23478,30 +23478,30 @@ snapshots:
 
   '@adobe/css-tools@4.4.4': {}
 
-  '@ai-sdk/amazon-bedrock@3.0.51(zod@4.1.11)':
+  '@ai-sdk/amazon-bedrock@3.0.57(zod@4.1.11)':
     dependencies:
-      '@ai-sdk/anthropic': 2.0.41(zod@4.1.11)
+      '@ai-sdk/anthropic': 2.0.45(zod@4.1.11)
       '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.16(zod@4.1.11)
+      '@ai-sdk/provider-utils': 3.0.17(zod@4.1.11)
       '@smithy/eventstream-codec': 4.2.4
       '@smithy/util-utf8': 4.2.0
       aws4fetch: 1.0.20
       zod: 4.1.11
 
-  '@ai-sdk/anthropic@2.0.41(zod@4.1.11)':
+  '@ai-sdk/anthropic@2.0.45(zod@4.1.11)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.16(zod@4.1.11)
+      '@ai-sdk/provider-utils': 3.0.17(zod@4.1.11)
       zod: 4.1.11
 
-  '@ai-sdk/gateway@2.0.6(zod@4.1.11)':
+  '@ai-sdk/gateway@2.0.15(zod@4.1.11)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.16(zod@4.1.11)
-      '@vercel/oidc': 3.0.3
+      '@ai-sdk/provider-utils': 3.0.17(zod@4.1.11)
+      '@vercel/oidc': 3.0.5
       zod: 4.1.11
 
-  '@ai-sdk/provider-utils@3.0.16(zod@4.1.11)':
+  '@ai-sdk/provider-utils@3.0.17(zod@4.1.11)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
       '@standard-schema/spec': 1.0.0
@@ -38140,7 +38140,7 @@ snapshots:
 
   '@ungap/structured-clone@1.3.0': {}
 
-  '@vercel/oidc@3.0.3': {}
+  '@vercel/oidc@3.0.5': {}
 
   '@vitest/expect@2.0.5':
     dependencies:
@@ -38669,11 +38669,11 @@ snapshots:
       clean-stack: 4.2.0
       indent-string: 5.0.0
 
-  ai@5.0.87(zod@4.1.11):
+  ai@5.0.101(zod@4.1.11):
     dependencies:
-      '@ai-sdk/gateway': 2.0.6(zod@4.1.11)
+      '@ai-sdk/gateway': 2.0.15(zod@4.1.11)
       '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.16(zod@4.1.11)
+      '@ai-sdk/provider-utils': 3.0.17(zod@4.1.11)
       '@opentelemetry/api': 1.9.0
       zod: 4.1.11
 
@@ -46664,9 +46664,9 @@ snapshots:
     dependencies:
       mustache: 4.2.0
 
-  langfuse-vercel@3.38.6(ai@5.0.87(zod@4.1.11)):
+  langfuse-vercel@3.38.6(ai@5.0.101(zod@4.1.11)):
     dependencies:
-      ai: 5.0.87(zod@4.1.11)
+      ai: 5.0.101(zod@4.1.11)
       langfuse: 3.38.6
       langfuse-core: 3.38.6
 
