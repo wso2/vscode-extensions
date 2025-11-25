@@ -355,7 +355,7 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
                 <AlertContainer variant="primary">
                     <Title>Connect with AWS Bedrock</Title>
                     <SubTitle>
-                        Enter your AWS credentials to connect to BI Copilot via AWS Bedrock. Your credentials will be securely stored
+                        Enter your AWS credentials to connect to MI Copilot via AWS Bedrock. Your credentials will be securely stored
                         and used for authentication.
                     </SubTitle>
 
