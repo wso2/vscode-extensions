@@ -7,6 +7,7 @@ export interface ICmdParamsBase {
 
 export interface ICreateDirCtxCmdParams extends ICmdParamsBase {
 	skipComponentExistCheck?: boolean;
+	fsPath?: string;
 }
 
 export interface ICloneProjectCmdParams extends ICmdParamsBase {

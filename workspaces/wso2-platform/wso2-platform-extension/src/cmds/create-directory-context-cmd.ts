@@ -39,6 +39,7 @@ import { contextStore, getContextKey, waitForContextStoreToLoad } from "../store
 import { webviewStateStore } from "../stores/webview-state-store";
 import { convertFsPathToUriPath, isSubpath, openDirectory } from "../utils";
 import { getUserInfoForCmd, isRpcActive, selectOrg, selectProjectWithCreateNew, setExtensionName } from "./cmd-utils";
+import { initGit } from "../git/main";
 
 export function createDirectoryContextCommand(context: ExtensionContext) {
 	context.subscriptions.push(
@@ -61,6 +62,8 @@ export function createDirectoryContextCommand(context: ExtensionContext) {
 
 					if (gitRoot) {
 						directoryUrl = Uri.parse(convertFsPathToUriPath(gitRoot));
+					} else if(params?.fsPath){
+						directoryUrl = Uri.parse(convertFsPathToUriPath(params.fsPath))
 					} else {
 						const componentDir = await window.showOpenDialog({
 							canSelectFolders: true,
@@ -79,12 +82,13 @@ export function createDirectoryContextCommand(context: ExtensionContext) {
 
 					gitRoot = await getGitRoot(context, directoryUrl.fsPath);
 					if (!gitRoot) {
-						throw new Error("Selected directory is not within a git repository");
-					}
-
-					const remotes = await getGitRemotes(context, gitRoot);
-					if (remotes.length === 0) {
-						throw new Error("The Selected directory does not have any Git remotes");
+						if(params?.fsPath){
+							const git = await initGit(context);
+							await git?.init(params?.fsPath)
+							gitRoot = params?.fsPath;
+						}else {
+							throw new Error("Selected directory is not within a git repository");
+						}
 					}
 
 					const selectedOrg = await selectOrg(userInfo, "Select organization");
@@ -100,6 +104,10 @@ export function createDirectoryContextCommand(context: ExtensionContext) {
 					);
 
 					if (!params || !params?.skipComponentExistCheck) {
+						const remotes = await getGitRemotes(context, gitRoot);
+						if (remotes.length === 0) {
+							throw new Error("The Selected directory does not have any Git remotes");
+						}
 						const components = await window.withProgress(
 						{
 							title: `Fetching ${extensionName === "Devant" ? "integrations" : "components"} of project ${selectedProject.name}...`,

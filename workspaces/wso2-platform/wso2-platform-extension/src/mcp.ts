@@ -40,11 +40,13 @@ export function activateMcp(context: vscode.ExtensionContext) {
 				return servers;
 			},
 			resolveMcpServerDefinition: async (def, _token) => {
-				const userInfo = await getUserInfoForCmd("connect with Choreo MCP server");
-				if (userInfo) {
-					return def;
-				}
-				return undefined;
+				return def;
+				// Please uncomment the following if need to use vscode auth flow when connecting to Choreo MCP server
+				// const userInfo = await getUserInfoForCmd("connect with Choreo MCP server");
+				// if (userInfo) {
+				// 	return def;
+				// }
+				// return undefined;
 			},
 		}),
 	);
