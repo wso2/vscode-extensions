@@ -134,7 +134,7 @@ export function AddConnection(props: AddConnectionProps) {
                 setFormData(connectionSchema);
                 const parameters = connectionFound.parameters
                 const driverParams = parameters.filter((param: { name: string; }) => param.name === 'groupId' || param.name === 'artifactId' || param.name === 'version' || param.name === 'driverPath');
-                // populate parameters that doeas not exist in uischema
+                // populate parameters that does not exist in uischema
                 const generatedParams = {
                     ...params, paramValues: generateParams(driverParams)
                 };
