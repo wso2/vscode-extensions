@@ -449,8 +449,7 @@ import {
     Property,
     updatePropertiesInArtifactXML,
     getPropertiesFromArtifactXML,
-    formatPomFile,
-    isLegacyProject
+    formatPomFile
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -1184,9 +1183,5 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     getPropertiesFromArtifactXML(params: string): Promise<Property[] | undefined> {
         return this._messenger.sendRequest(getPropertiesFromArtifactXML, HOST_EXTENSION, params);
-    }
-
-    isLegacyProject(): Promise<boolean> {
-        return this._messenger.sendRequest(isLegacyProject, HOST_EXTENSION);
     }
 }

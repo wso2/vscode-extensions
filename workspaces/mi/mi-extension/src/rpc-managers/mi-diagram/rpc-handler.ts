@@ -318,8 +318,7 @@ import {
     UpdateRegistryPropertyRequest,
     updatePropertiesInArtifactXML,
     getPropertiesFromArtifactXML,
-    formatPomFile,
-    isLegacyProject
+    formatPomFile
     // getBackendRootUrl - REMOVED: Backend URLs deprecated, all AI features use local LLM,
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
@@ -507,5 +506,4 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(isKubernetesConfigured, () => rpcManger.isKubernetesConfigured());
     messenger.onRequest(updatePropertiesInArtifactXML, (args: UpdateRegistryPropertyRequest) => rpcManger.updatePropertiesInArtifactXML(args));
     messenger.onRequest(getPropertiesFromArtifactXML, (args: string) => rpcManger.getPropertiesFromArtifactXML(args));
-    messenger.onRequest(isLegacyProject, () => rpcManger.isLegacyProject());
 }

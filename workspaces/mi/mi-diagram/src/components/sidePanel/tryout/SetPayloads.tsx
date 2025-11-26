@@ -53,7 +53,7 @@ export function SetPayloads(props: SetPayloadsProps) {
     const showNotSupportedError = artifactModel?.tag === 'query';
 
     useEffect(() => {
-        rpcClient.getMiDiagramRpcClient().getInputPayloads({ documentUri, artifactModel }).then((res) => {
+        rpcClient.getMiDiagramRpcClient().getInputPayloads({ documentUri, artifactModel }).then(async (res) => {
             const requests = Array.isArray(res.payloads)
                 ? res.payloads.map(payload => ({
                     name: payload.name,
@@ -79,9 +79,7 @@ export function SetPayloads(props: SetPayloadsProps) {
             setIsLoading(false);
             setIsAPI(artifactModel.tag === 'resource');
             setSupportPayload(supportsRequestBody('methods' in artifactModel ? artifactModel.methods as string[] : ["POST"]));
-            rpcClient.getMiDiagramRpcClient().isLegacyProject().then((isLegacy: boolean) => {
-                setShowLegacyRuntimeError(isLegacy);
-            });
+            setShowLegacyRuntimeError((await rpcClient.getVisualizerState()).isLegacyRuntime);
         });
     }, []);
 

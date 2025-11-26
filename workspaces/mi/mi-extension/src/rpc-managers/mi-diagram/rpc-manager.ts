@@ -6119,11 +6119,6 @@ ${keyValuesXML}`;
         );
         return undefined;
     }
-
-    async isLegacyProject(): Promise<boolean> {
-        const runtimeVersion = await getMIVersionFromPom(this.projectUri);
-        return runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0 : true;
-    }
 }
 
 async function exposeVersionedServices(projectUri: string): Promise<boolean> {
