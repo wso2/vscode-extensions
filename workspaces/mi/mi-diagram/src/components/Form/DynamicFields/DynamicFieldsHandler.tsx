@@ -16,7 +16,6 @@
  * under the License.
  */
 
-import { config } from 'process';
 import { Element, getNameForController, DynamicField, DynamicFieldGroup } from '../FormGenerator';
 
 interface ConnectionParameter {
