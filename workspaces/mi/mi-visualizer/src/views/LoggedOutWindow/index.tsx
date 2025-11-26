@@ -140,6 +140,10 @@ export const SignInToCopilotMessage = (props: { showProjectHeader?: boolean }) =
         rpcClient.sendAIStateEvent(AI_EVENT_TYPE.AUTH_WITH_API_KEY);
     };
 
+    const handleAwsBedrockClick = () => {
+        rpcClient.sendAIStateEvent(AI_EVENT_TYPE.AUTH_WITH_AWS_BEDROCK);
+    };
+
     return (
         <PanelWrapper>
             <TopSpacer />
@@ -168,6 +172,7 @@ export const SignInToCopilotMessage = (props: { showProjectHeader?: boolean }) =
                 <StyledButton onClick={signInToMIAI}>Login to MI Copilot</StyledButton>
                 <Divider>or</Divider>
                 <TextButton onClick={handleAnthropicKeyClick}>Enter your Anthropic API key</TextButton>
+                <TextButton onClick={handleAwsBedrockClick}>Enter your AWS Bedrock credentials</TextButton>
             </FooterContent>
         </PanelWrapper>
     );
