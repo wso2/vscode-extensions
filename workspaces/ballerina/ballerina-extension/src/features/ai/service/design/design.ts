@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Command, GenerateAgentCodeRequest, ProjectSource, AIChatMachineEventType} from "@wso2/ballerina-core";
+import { Command, GenerateAgentCodeRequest, ProjectSource, AIChatMachineEventType } from "@wso2/ballerina-core";
 import { ModelMessage, stepCountIs, streamText } from "ai";
 import { getAnthropicClient, getProviderCacheControl, ANTHROPIC_SONNET_4 } from "../connection";
 import { getErrorMessage, populateHistoryForAgent } from "../utils";
@@ -35,6 +35,7 @@ import { createConnectorGeneratorTool, CONNECTOR_GENERATOR_TOOL } from "../libs/
 import { LangfuseExporter } from 'langfuse-vercel';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+import { TelemetryEventEmitter, TM_EVENT_BALLERINA_AI_QUERY_SUBMIT, TM_EVENT_BALLERINA_AI_CODE_GENERATION, CMP_BALLERINA_AI } from "../../../telemetry";
 
 const LANGFUSE_SECRET = process.env.LANGFUSE_SECRET;
 const LANGFUSE_PUBLIC = process.env.LANGFUSE_PUBLIC;
@@ -62,6 +63,16 @@ export async function generateDesignCore(params: GenerateAgentCodeRequest, event
 
     const cacheOptions = await getProviderCacheControl();
 
+    // Send telemetry when the user submits a query
+    TelemetryEventEmitter.instance.fire({
+        eventName: TM_EVENT_BALLERINA_AI_QUERY_SUBMIT,
+        componentName: CMP_BALLERINA_AI,
+        customDimensions: {
+            messageId: messageId,
+            command: Command.Design,
+            operationType: params.operationType,
+        },
+    });
 
     const modifiedFiles: string[] = [];
 
@@ -279,6 +290,18 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
 
                 updateAndSaveChat(messageId, userMessageContent, assistantMessages, eventHandler);
                 eventHandler({ type: "stop", command: Command.Design });
+
+                // Send telemetry after generation
+                TelemetryEventEmitter.instance.fire({
+                    eventName: TM_EVENT_BALLERINA_AI_CODE_GENERATION,
+                    componentName: CMP_BALLERINA_AI,
+                    customDimensions: {
+                        messageId: messageId,
+                        finishReason: finishReason,
+                        modifiedFilesCount: modifiedFiles.length.toString(),
+                    }
+                });
+
                 AIChatStateMachine.sendEvent({
                     type: AIChatMachineEventType.FINISH_EXECUTION,
                 });
@@ -286,7 +309,7 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
                 break;
             }
         }
-        }
+    }
 }
 
 /**
