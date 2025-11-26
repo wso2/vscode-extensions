@@ -92,8 +92,8 @@ export default function createTests() {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
 
-            const isDataMapperOpend = await webView.getByRole('heading', { name: 'Data Mapper' }).isVisible();
-            if (!isDataMapperOpend) {
+            const isDataMapperOpened = await webView.getByRole('heading', { name: 'Data Mapper' }).isVisible();
+            if (!isDataMapperOpened) {
                 await webView.getByRole('heading', { name: 'sample' }).waitFor();
                 await page.page.getByRole('treeitem', { name: 'main' }).click();
 
@@ -102,7 +102,7 @@ export default function createTests() {
                 await webView.getByRole('button', { name: 'Open in Data Mapper' }).click({ force: true });
             }
 
-            await TestScenarios.testBasicMappings(webView, 'automation.bal', 'inline', isDataMapperOpend);
+            await TestScenarios.testBasicMappings(webView, 'automation.bal', 'inline', isDataMapperOpened);
 
             console.log('Inline Data Mapper - Basic: COMPLETE TEST ATTEMPT', testAttempt);
         });
@@ -120,8 +120,8 @@ export default function createTests() {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
 
-            const isDataMapperOpend = await webView.getByRole('heading', { name: 'Data Mapper' }).isVisible();
-            if (!isDataMapperOpend) {
+            const isDataMapperOpened = await webView.getByRole('heading', { name: 'Data Mapper' }).isVisible();
+            if (!isDataMapperOpened) {
                 await webView.getByRole('heading', { name: 'sample' }).waitFor();
                 await page.page.getByRole('treeitem', { name: 'main' }).click();
 
@@ -130,7 +130,7 @@ export default function createTests() {
                 await webView.getByRole('button', { name: 'Open in Data Mapper' }).click({ force: true });
             }
 
-            await TestScenarios.testArrayInnerMappings(webView, 'automation.bal', 'inline', isDataMapperOpend);
+            await TestScenarios.testArrayInnerMappings(webView, 'automation.bal', 'inline', isDataMapperOpened);
 
             console.log('Inline Data Mapper - Array Inner: COMPLETE TEST ATTEMPT', testAttempt);
         });
@@ -148,8 +148,8 @@ export default function createTests() {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
 
-            const isDataMapperOpend = await webView.getByRole('heading', { name: 'Data Mapper' }).isVisible();
-            if (!isDataMapperOpend) {
+            const isDataMapperOpened = await webView.getByRole('heading', { name: 'Data Mapper' }).isVisible();
+            if (!isDataMapperOpened) {
                 await webView.getByRole('heading', { name: 'sample' }).waitFor();
                 await page.page.getByRole('treeitem', { name: 'main' }).click();
 
@@ -158,7 +158,7 @@ export default function createTests() {
                 await webView.getByRole('button', { name: 'Open in Data Mapper' }).click({ force: true });
             }
 
-            await TestScenarios.testArrayRootMappings(webView, 'automation.bal', 'inline', isDataMapperOpend);
+            await TestScenarios.testArrayRootMappings(webView, 'automation.bal', 'inline', isDataMapperOpened);
 
             console.log('Inline Data Mapper - Array Root: COMPLETE TEST ATTEMPT', testAttempt);
         });

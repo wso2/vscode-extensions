@@ -85,13 +85,13 @@ export default function createTests() {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
 
-            const isDataMapperOpend = await webView.getByRole('heading', { name: 'Data Mapper' }).isVisible();
-            if (!isDataMapperOpend) {
+            const isDataMapperOpened = await webView.getByRole('heading', { name: 'Data Mapper' }).isVisible();
+            if (!isDataMapperOpened) {
                 await webView.getByRole('heading', { name: 'sample' }).waitFor();
                 await page.page.getByRole('treeitem', { name: 'output' }).click();
             }
 
-            await TestScenarios.testBasicMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
+            await TestScenarios.testBasicMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpened);
 
             console.log('Reusable Data Mapper - Basic: COMPLETE TEST ATTEMPT', testAttempt);
         });
@@ -109,13 +109,13 @@ export default function createTests() {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
 
-            const isDataMapperOpend = await webView.getByRole('heading', { name: 'Data Mapper' }).isVisible();
-            if (!isDataMapperOpend) {
+            const isDataMapperOpened = await webView.getByRole('heading', { name: 'Data Mapper' }).isVisible();
+            if (!isDataMapperOpened) {
                 await webView.getByRole('heading', { name: 'sample' }).waitFor();
                 await page.page.getByRole('treeitem', { name: 'output' }).click();
             }
 
-            await TestScenarios.testArrayInnerMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
+            await TestScenarios.testArrayInnerMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpened);
 
             console.log('Reusable Data Mapper - Array Inner: COMPLETE TEST ATTEMPT', testAttempt);
         });
@@ -133,13 +133,13 @@ export default function createTests() {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
 
-            const isDataMapperOpend = await webView.getByRole('heading', { name: 'Data Mapper' }).isVisible();
-            if (!isDataMapperOpend) {
+            const isDataMapperOpened = await webView.getByRole('heading', { name: 'Data Mapper' }).isVisible();
+            if (!isDataMapperOpened) {
                 await webView.getByRole('heading', { name: 'sample' }).waitFor();
                 await page.page.getByRole('treeitem', { name: 'output' }).click();
             }
 
-            await TestScenarios.testArrayRootMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpend);
+            await TestScenarios.testArrayRootMappings(webView, 'data_mappings.bal', 'reusable', isDataMapperOpened);
 
             console.log('Reusable Data Mapper - Array Root: COMPLETE TEST ATTEMPT', testAttempt);
         });
