@@ -22,8 +22,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { BallerinaExtension } from "src/core";
-import Handlebars from "handlebars";
-import { clientManager, findRunningBallerinaProcesses, handleError, HTTPYAC_CONFIG_TEMPLATE, TRYIT_TEMPLATE, waitForBallerinaService } from "./utils";
+import { clientManager, findRunningBallerinaProcesses, handleError, waitForBallerinaService } from "./utils";
+import { createBrunoCollectionStructure } from "./bruno-utils";
 import { BIDesignModelResponse, OpenAPISpec } from "@wso2/ballerina-core";
 import { getProjectWorkingDirectory } from "../../utils/file-utils";
 import { startDebugging } from "../editor-support/activator";
@@ -32,14 +32,38 @@ import { createGraphqlView } from "../../views/graphql";
 import { StateMachine } from "../../stateMachine";
 import { getCurrentProjectRoot } from "../../utils/project-utils";
 
-// File constants
-const FILE_NAMES = {
-    TRYIT: 'tryit.http',
-    HTTPYAC_CONFIG: 'httpyac.config.js',
-    ERROR_LOG: 'httpyac_errors.log'
-};
+const BRUNO_EXTENSION_ID = 'bruno-api-client.bruno';
 
-let errorLogWatcher: FileSystemWatcher | undefined;
+/**
+ * Check if Bruno extension is installed
+ */
+function isBrunoInstalled(): boolean {
+    return vscode.extensions.getExtension(BRUNO_EXTENSION_ID) !== undefined;
+}
+
+/**
+ * Prompt user to install Bruno extension
+ */
+async function promptBrunoInstallation(): Promise<boolean> {
+    const choice = await vscode.window.showWarningMessage(
+        'The Bruno extension is required for the Try It feature. Would you like to install it?',
+        'Install Bruno',
+        'Cancel'
+    );
+
+    if (choice === 'Install Bruno') {
+        try {
+            await vscode.commands.executeCommand('workbench.extensions.installExtension', BRUNO_EXTENSION_ID);
+            vscode.window.showInformationMessage('Bruno extension installed successfully. Please reload VS Code.');
+            return true;
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to install Bruno extension: ${error}`);
+            return false;
+        }
+    }
+
+    return false;
+}
 
 export function activateTryItCommand(ballerinaExtInstance: BallerinaExtension) {
     try {
@@ -54,9 +78,7 @@ export function activateTryItCommand(ballerinaExtInstance: BallerinaExtension) {
             }
         });
 
-        return Disposable.from(disposable, {
-            dispose: disposeErrorWatcher
-        });
+        return disposable;
     } catch (error) {
         handleError(error, "Activating Try It command");
     }
@@ -164,12 +186,30 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
         }
 
         if (selectedService.type === ServiceType.HTTP) {
+            // Check if Bruno extension is installed
+            if (!isBrunoInstalled()) {
+                const installed = await promptBrunoInstallation();
+                if (!installed) {
+                    vscode.window.showInformationMessage('Bruno extension is required for Try It. Please install it to continue.');
+                    return;
+                }
+            }
+
             const openapiSpec: OAISpec = await getOpenAPIDefinition(selectedService);
             const selectedPort: number = await getServicePort(projectPath, selectedService, openapiSpec);
             selectedService.port = selectedPort;
 
-            const tryitFileUri = await generateTryItFileContent(targetDir, openapiSpec, selectedService, resourceMetadata);
-            await openInSplitView(tryitFileUri, 'http');
+            // Create Test Directory
+            const testDirPath = path.join(projectPath, 'test-api');
+            if (!fs.existsSync(testDirPath)) {
+                fs.mkdirSync(testDirPath);
+            }
+            const collectionDirUri = await generateTryItFileContent(testDirPath, openapiSpec, selectedService, resourceMetadata);
+            if (collectionDirUri) {
+                // Open the Bruno collection directory
+                await vscode.commands.executeCommand('vscode.openFolder', collectionDirUri, false);
+                vscode.window.showInformationMessage(`Bruno collection created at: ${collectionDirUri.fsPath}`);
+            }
         } else if (selectedService.type === ServiceType.GRAPHQL) {
             const selectedPort: number = await getServicePort(projectPath, selectedService);
             const port = selectedPort;
@@ -189,9 +229,6 @@ async function openTryItView(withNotice: boolean = false, resourceMetadata?: Res
 
             await openChatView(selectedService.basePath, selectedPort.toString());
         }
-
-        // Setup the error log watcher
-        setupErrorLogWatcher(targetDir);
     } catch (error) {
         handleError(error, "Opening Try It view");
     }
@@ -361,76 +398,20 @@ async function getAvailableServices(projectDir: string): Promise<ServiceInfo[] |
 
 async function generateTryItFileContent(targetDir: string, openapiSpec: OAISpec, service: ServiceInfo, resourceMetadata?: ResourceMetadata): Promise<vscode.Uri | undefined> {
     try {
-        // Register Handlebars helpers
-        registerHandlebarsHelpers(openapiSpec);
+        // Create Bruno collection structure
+        const collectionDir = createBrunoCollectionStructure(
+            targetDir,
+            openapiSpec,
+            service.name || 'ballerina-service',
+            service.port,
+            service.basePath,
+            resourceMetadata
+        );
 
-        let isResourceMode = false;
-        let resourcePath = '';
-        // Filter paths based on resourceMetadata if provided
-        if (resourceMetadata) {
-            const originalPaths = openapiSpec.paths;
-            const filteredPaths: Record<string, Record<string, Operation>> = {};
-
-            let matchingPath = '';
-            for (const path in originalPaths) {
-                const pathMatches = comparePathPatterns(path, resourceMetadata.pathValue);
-                if (pathMatches) {
-                    matchingPath = path;
-                    break;
-                }
-            }
-
-            if (matchingPath && originalPaths[matchingPath]) {
-                isResourceMode = true;
-                resourcePath = matchingPath;
-
-                const method = resourceMetadata.methodValue.toLowerCase();
-                if (originalPaths[matchingPath][method]) {
-                    // Create entry with only the specified method
-                    filteredPaths[matchingPath] = {
-                        [method]: {
-                            ...originalPaths[matchingPath][method]
-                        }
-                    };
-                } else {
-                    // Method not found in matching path
-                    vscode.window.showWarningMessage(`Method ${resourceMetadata.methodValue} not found for path ${matchingPath}. Showing all methods for this path.`);
-                    filteredPaths[matchingPath] = originalPaths[matchingPath];
-                }
-
-                openapiSpec.paths = filteredPaths;
-            } else {
-                // Path not found in OpenAPI spec
-                vscode.window.showWarningMessage(
-                    `Path ${resourceMetadata.pathValue} not found in service ${service.name || service.basePath}. Showing all resources.`
-                );
-            }
-        }
-
-        const tryitCompiledTemplate = Handlebars.compile(TRYIT_TEMPLATE);
-        const tryitContent = tryitCompiledTemplate({
-            ...openapiSpec,
-            port: service.port.toString(),
-            basePath: service.basePath === '/' ? '' : sanitizePath(service.basePath), // to avoid double slashes in the URL
-            serviceName: service.name || '/',
-            isResourceMode: isResourceMode,
-            resourceMethod: isResourceMode ? resourceMetadata?.methodValue.toUpperCase() : '',
-            resourcePath: resourcePath,
-        });
-
-        const httpyacCompiledTemplate = Handlebars.compile(HTTPYAC_CONFIG_TEMPLATE);
-        const httpyacContent = httpyacCompiledTemplate({
-            errorLogFile: FILE_NAMES.ERROR_LOG,
-        });
-
-        const tryitFilePath = path.join(targetDir, FILE_NAMES.TRYIT);
-        const configFilePath = path.join(targetDir, FILE_NAMES.HTTPYAC_CONFIG);
-        fs.writeFileSync(tryitFilePath, tryitContent);
-        fs.writeFileSync(configFilePath, httpyacContent);
-
-        return vscode.Uri.file(tryitFilePath);
+        // Return the collection directory URI to open in Bruno
+        return vscode.Uri.file(collectionDir);
     } catch (error) {
-        handleError(error, "Try It client initialization failed");
+        handleError(error, "Bruno collection initialization failed");
         return undefined;
     }
 }
@@ -595,279 +576,6 @@ async function checkBallerinaProcessRunning(projectDir: string): Promise<boolean
     }
 }
 
-function registerHandlebarsHelpers(openapiSpec: OAISpec): void {
-    // handlebar helper to process query parameters
-    if (!Handlebars.helpers.queryParams) {
-        Handlebars.registerHelper('queryParams', function (parameters) {
-            if (!parameters || !parameters.length) {
-                return '';
-            }
-
-            const queryParams = parameters
-                .filter(param => param.in === 'query')
-                .map(param => {
-                    const value = param.schema?.default || `{?}`;
-                    return `${param.name}=${value}`;
-                })
-                .join('&');
-
-            return new Handlebars.SafeString(queryParams && queryParams.length > 0 ? `?${queryParams}` : '');
-        });
-    }
-
-    // handlebar helper to process header parameters
-    if (!Handlebars.helpers.headerParams) {
-        Handlebars.registerHelper('headerParams', function (parameters) {
-            if (!parameters || !parameters.length) {
-                return '';
-            }
-
-            const headerParams = parameters
-                .filter(param => param.in === 'header')
-                .map(param => {
-                    const value = param.schema?.default || `{?}`;
-                    return `${param.name}: ${value}`;
-                })
-                .join('\n');
-
-            return new Handlebars.SafeString(headerParams ? `\n${headerParams}` : '');
-        });
-
-        // Helper to group parameters by type (path, query, header)
-        if (!Handlebars.helpers.groupParams) {
-            Handlebars.registerHelper('groupParams', function (parameters) {
-                if (!parameters || !parameters.length) {
-                    return {};
-                }
-
-                return parameters.reduce((acc: any, param) => {
-                    if (!acc[param.in]) {
-                        acc[param.in] = [];
-                    }
-                    acc[param.in].push(param);
-                    return acc;
-                }, {});
-            });
-        }
-    }
-
-    if (!Handlebars.helpers.eq) {
-        Handlebars.registerHelper('eq', (value1, value2) => value1 === value2);
-    }
-
-    // Helper to get the content type from request body
-    if (!Handlebars.helpers.getContentType) {
-        Handlebars.registerHelper('getContentType', (requestBody) => {
-            const contentTypes = Object.keys(requestBody.content);
-            return contentTypes[0] || 'application/json';
-        });
-    }
-
-    // Helper to generate schema description
-    if (!Handlebars.helpers.generateSchemaDescription) {
-        Handlebars.registerHelper('generateSchemaDescription', function (requestBody) {
-            const contentType = Object.keys(requestBody.content)[0];
-            const schema = requestBody.content[contentType].schema;
-            // Pass the full OpenAPI spec context to resolve references
-            return generateSchemaDoc(schema, 0, openapiSpec);
-        });
-    }
-
-    // Helper to generate request body
-    if (!Handlebars.helpers.generateRequestBody) {
-        Handlebars.registerHelper('generateRequestBody', function (requestBody) {
-            return new Handlebars.SafeString(generateRequestBody(requestBody, openapiSpec));
-        });
-    }
-
-    if (!Handlebars.helpers.not) {
-        Handlebars.registerHelper('not', function (value) {
-            return !value;
-        });
-    }
-
-    if (!Handlebars.helpers.uppercase) {
-        Handlebars.registerHelper('uppercase', (str: string) => str.toUpperCase());
-    }
-
-    if (!Handlebars.helpers.trim) {
-        Handlebars.registerHelper('trim', (str?: string) => str ? str.trim() : '');
-    }
-}
-
-function generateSchemaDoc(schema: Schema, depth: number, context: OAISpec): string {
-    const indent = '  '.repeat(depth);
-
-    // Handle schema reference
-    if ('$ref' in schema) {
-        const resolvedSchema = resolveSchemaRef(schema.$ref, context);
-        if (!resolvedSchema) {
-            return "";
-        }
-        return generateSchemaDoc(resolvedSchema, depth, context);
-    }
-
-    if (schema.type === 'object' && schema.properties) {
-        let doc = `${indent}${schema.type}\n`;
-        for (const [propName, prop] of Object.entries(schema.properties)) {
-            const propSchema = '$ref' in prop ? resolveSchemaRef(prop.$ref, context) || prop : prop;
-            const format = propSchema.format ? `(${propSchema.format})` : '';
-            const description = propSchema.description ? ` - ${propSchema.description}` : '';
-            doc += `${indent}- ${propName}: ${propSchema.type}${format}${description}\n`;
-
-            if (propSchema.type === 'object' && 'properties' in propSchema) {
-                doc += generateSchemaDoc(propSchema, depth + 1, context);
-            } else if (propSchema.type === 'array' && 'items' in propSchema) {
-                const itemsSchema = '$ref' in propSchema.items
-                    ? resolveSchemaRef(propSchema.items.$ref, context) || propSchema.items
-                    : propSchema.items;
-                doc += `${indent}  items: ${generateSchemaDoc(itemsSchema as Schema, depth + 1, context).trimStart()}`;
-            }
-
-            // Add enum values if present
-            if (propSchema.enum) {
-                doc += `${indent}  enum: [${propSchema.enum.join(', ')}]\n`;
-            }
-        }
-        return doc;
-    } else if (schema.type === 'array') {
-        let doc = `array\n`;
-        if (schema.type === 'array' && 'items' in schema) {
-            const itemsSchema = '$ref' in schema.items
-                ? resolveSchemaRef(schema.items.$ref, context) || schema.items
-                : schema.items;
-            doc += `${indent}items: ${generateSchemaDoc(itemsSchema as Schema, depth + 1, context).trimStart()}`;
-        }
-        return doc;
-    }
-
-    return `${schema.type}${schema.format ? ` (${schema.format})` : ''}`;
-}
-
-// Helper to get content type and generate appropriate payload
-function generateRequestBody(requestBody: RequestBody, context: OAISpec): string {
-    const contentType = Object.keys(requestBody.content)[0];
-    const schema = requestBody.content[contentType].schema;
-    const schemaDoc = generateSchemaDoc(schema, 1, context);
-    const isJson = contentType === 'application/json';
-
-    // Generate the comment block with schema documentation using line comments
-    const commentLines = [
-        `# ${getCommentText(contentType)}`
-    ];
-    if (schemaDoc.trim()) {
-        commentLines.push(
-            '#',
-            '# Expected schema:',
-            ...schemaDoc.split('\n').map(line => line.trim() ? `# ${line}` : '')
-        );
-    }
-
-    // For JSON, generate sample data. For other types, return empty string
-    const payload = isJson ? JSON.stringify(generateSampleValue(schema, context), null, 2) : '';
-    return `${commentLines.join('\n')}\n${payload}`;
-}
-
-function getCommentText(contentType: string): string {
-    switch (contentType) {
-        case 'application/json':
-            return 'Modify the JSON payload as needed';
-        case 'application/x-www-form-urlencoded':
-            return 'Complete the form URL-encoded payload';
-        case 'multipart/form-data':
-            return 'Complete the multipart form data payload';
-        case 'text/plain':
-            return 'Enter your text content here';
-        default:
-            return `Complete the payload for content type: ${contentType}`;
-    }
-}
-
-function generateSampleValue(schema: Schema, context: OAISpec): any {
-    // Handle schema reference
-    if (schema.$ref) {
-        const resolvedSchema = resolveSchemaRef(schema.$ref, context);
-        if (!resolvedSchema) {
-            return { error: `Reference not found: ${schema.$ref}` };
-        }
-        return generateSampleValue(resolvedSchema, context);
-    }
-
-    if (!schema.type) {
-        return {};
-    }
-
-    switch (schema.type) {
-        case 'object':
-            if (!schema.properties) {
-                return {};
-            }
-            const obj: Record<string, any> = {};
-            for (const [propName, prop] of Object.entries(schema.properties)) {
-                // Handle property references
-                const propSchema = '$ref' in prop ? resolveSchemaRef(prop.$ref, context) || prop : prop;
-                obj[propName] = generateSampleValue(propSchema as Schema, context);
-            }
-            return obj;
-
-        case 'array':
-            if (!schema.items) {
-                return [];
-            }
-            // Handle array item references
-            const itemsSchema = '$ref' in schema.items ? resolveSchemaRef(schema.items.$ref, context) || schema.items : schema.items;
-            return [generateSampleValue(itemsSchema as Schema, context)];
-        case 'string':
-            if (schema.enum && schema.enum.length > 0) {
-                return schema.enum[0];
-            }
-            if (schema.format) {
-                switch (schema.format) {
-                    case 'date':
-                        return "2024-02-06";
-                    case 'date-time':
-                        return "2024-02-06T12:00:00Z";
-                    case 'email':
-                        return "user@example.com";
-                    case 'uuid':
-                        return "123e4567-e89b-12d3-a456-426614174000";
-                    default:
-                        return "{?}";
-                }
-            }
-            return schema.default || "{?}";
-        case 'integer':
-        case 'number':
-            return schema.default || 0;
-        case 'boolean':
-            return schema.default || false;
-        case 'null':
-            return null;
-        default:
-            return undefined;
-    }
-}
-
-function resolveSchemaRef(ref: string, context: OAISpec): Schema | undefined {
-    if (!ref.startsWith('#/')) {
-        // Currently only supporting local references
-        return undefined;
-    }
-
-    const parts = ref.substring(2).split('/');
-    let current: any = context;
-
-    for (const part of parts) {
-        if (current && typeof current === 'object' && part in current) {
-            current = current[part];
-        } else {
-            return undefined;
-        }
-    }
-
-    return current as Schema;
-}
-
 // helper function to compare listeners
 function compareListeners(serviceInfoListener: { name: string, port?: string }, serviceMetadataListener: string): boolean {
     // named listeners
@@ -886,42 +594,6 @@ function compareListeners(serviceInfoListener: { name: string, port?: string }, 
     }
 
     return false;
-}
-
-// Function to setup error log watching
-function setupErrorLogWatcher(targetDir: string) {
-    const errorLogPath = path.join(targetDir, FILE_NAMES.ERROR_LOG);
-
-    // Dispose existing watcher if any
-    disposeErrorWatcher();
-
-    if (!fs.existsSync(errorLogPath)) {
-        fs.writeFileSync(errorLogPath, '');
-    }
-
-    // Setup the file watcher Watch for changes in the error log file
-    errorLogWatcher = workspace.createFileSystemWatcher(errorLogPath);
-    errorLogWatcher.onDidChange(() => {
-        try {
-            const content = fs.readFileSync(errorLogPath, 'utf-8');
-            if (content.trim()) {
-                // Show a notification with "Show Details" button
-                window.showWarningMessage(
-                    'The request contains missing required parameters. Please provide values for the placeholders before sending the request.',
-                    'Show Details'
-                ).then(selection => {
-                    if (selection === 'Show Details') {
-                        // Show the full error in an output channel
-                        const outputChannel = window.createOutputChannel('WSO2 Integrator: BI Tryit - Log');
-                        outputChannel.appendLine(content.trim());
-                        outputChannel.show();
-                    }
-                });
-            }
-        } catch (error) {
-            console.error('Error reading error log file:', error);
-        }
-    });
 }
 
 function sanitizeBallerinaPathSegment(pathSegment: string): string {
@@ -962,14 +634,6 @@ function sanitizePath(path) {
 
     // Remove leading/trailing whitespace and escape backslashes
     return path.trim().replace(/\\(.)/g, '$1');
-}
-
-// cleanup function for the watcher
-function disposeErrorWatcher() {
-    if (errorLogWatcher) {
-        errorLogWatcher.dispose();
-        errorLogWatcher = undefined;
-    }
 }
 
 // Service information interface
