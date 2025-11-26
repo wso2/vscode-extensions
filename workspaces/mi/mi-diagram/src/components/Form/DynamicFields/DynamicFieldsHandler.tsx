@@ -1621,7 +1621,7 @@ export class DynamicFieldsHandler {
     }
 
     private async _handleAssistanceModeChange(value: any, fieldName: string, rpc?: string): Promise<void> {
-        if (value == true) {
+        if (value === true) {
             this.setValue(FIELD_NAMES.QUERY_TYPE, UI_MODES.ONLINE);
             this.onConnectionChange(fieldName,rpc)
         } else {
