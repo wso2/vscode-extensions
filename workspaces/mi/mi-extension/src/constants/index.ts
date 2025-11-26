@@ -74,7 +74,6 @@ export const COMMANDS = {
     CREATE_PROJECT_COMMAND: 'MI.project-explorer.create-project',
     IMPORT_PROJECT_COMMAND: 'MI.project-explorer.import-project',
     REVEAL_ITEM_COMMAND: 'MI.project-explorer.revealItem',
-    FOCUS_PROJECT_EXPLORER: 'MI.project-explorer.focus',
     OPEN_SERVICE_DESIGNER: 'MI.project-explorer.open-service-designer',
     OPEN_PROJECT_OVERVIEW: 'MI.project-explorer.open-project-overview',
     ADD_REGISTERY_RESOURCE_COMMAND: 'MI.project-explorer.add-registry-resource',
@@ -204,3 +203,8 @@ export const DEFAULT_ICON = "https://mi-connectors.wso2.com/icons/wordpress.gif"
 export const ERROR_MESSAGES = {
     ERROR_DOWNLOADING_MODULES: "Unable to download the default modules. These modules can be added after project creation. Do you wish to skip them now and proceed with the project creation?",
 };
+
+export const WI_EXTENSION_ID = 'wso2.wso2-integrator';
+export const WI_PROJECT_EXPLORER_VIEW_ID = 'wso2-integrator.explorer';
+export const WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND = 'wso2-integrator.explorer.refresh';
+export const MI_PROJECT_EXPLORER_VIEW_ID = 'MI.project-explorer';
