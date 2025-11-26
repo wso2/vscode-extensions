@@ -158,8 +158,7 @@ export function createDirectoryContextCommand(context: ExtensionContext) {
 
 					const contextFilePath = updateContextFile(gitRoot, userInfo, selectedProject, selectedOrg, projectList);
 
-					// todo: check this in windows
-					const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSubpath(gitRoot!, item.uri?.fsPath));
+					const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSubpath(item.uri?.fsPath, gitRoot!));
 
 					if (isWithinWorkspace) {
 						contextStore.getState().refreshState();
