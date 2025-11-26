@@ -78,8 +78,9 @@ export class DataMapper {
     }
 
     public async refresh() {
-        await this.webView.getByTitle('Refresh').click();
-        await this.waitForProgressEnd();
+        await this.webView.evaluate(async () => {
+            await (window as any).__refreshDM();
+        });
     }
 
     public async mapFields(sourceFieldFQN: string, targetFieldFQN: string, menuOptionId?: string) {
