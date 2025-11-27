@@ -125,5 +125,5 @@ export const TM_EVENT_OPEN_REPO_SAME_FOLDER = "vscode.open.exist.repo.same.folde
 
 // events for AI features
 export const TM_EVENT_BALLERINA_AI_QUERY_SUBMIT = "ballerina.ai.query.submit";
-export const TM_EVENT_BALLERINA_AI_CODE_GENERATION = "ballerina.ai.code.generation";
+export const TM_EVENT_BALLERINA_AI_GENERATION_FINISHED = "ballerina.ai.generation.finished";
 export const TM_EVENT_BALLERINA_AI_REVERT = "ballerina.ai.code.revert";

@@ -25,7 +25,7 @@ import { generateDesign } from '../../features/ai/service/design/design';
 import { captureWorkspaceSnapshot, restoreWorkspaceSnapshot } from './checkpoint/checkpointUtils';
 import { getCheckpointConfig } from './checkpoint/checkpointConfig';
 import { notifyCheckpointCaptured } from '../../RPCLayer';
-import { TelemetryEventEmitter, TM_EVENT_BALLERINA_AI_REVERT, CMP_BALLERINA_AI } from '../../features/telemetry';
+import { sendTelemetryEvent, TM_EVENT_BALLERINA_AI_REVERT, CMP_BALLERINA_AI } from '../../features/telemetry';
 
 // Extracted utilities
 import { generateProjectId, generateSessionId } from './idGenerators';
@@ -89,13 +89,9 @@ const restoreCheckpointAction = (context: AIChatMachineContext, event: any) => {
     }
 
     // Send telemetry when the user clicks the revert button
-    TelemetryEventEmitter.instance.fire({
-        eventName: TM_EVENT_BALLERINA_AI_REVERT,
-        componentName: CMP_BALLERINA_AI,
-        customDimensions: {
-            messageId: checkpoint.messageId,
-            checkpointId: checkpointId,
-        }
+    sendTelemetryEvent(extension.ballerinaExtInstance, TM_EVENT_BALLERINA_AI_REVERT, CMP_BALLERINA_AI, {
+        messageId: checkpoint.messageId,
+        checkpointId: checkpointId,
     });
 
     const messageIndex = context.chatHistory.findIndex(m => m.id === checkpoint.messageId);
