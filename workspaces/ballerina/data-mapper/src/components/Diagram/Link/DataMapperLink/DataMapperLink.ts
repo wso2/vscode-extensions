@@ -31,6 +31,7 @@ export enum MappingType {
 	ArrayJoin = "array-join",
 	Incompatible = "incompatible",
 	ContainsUnions = "contains-unions",
+	NumericToString = "numeric-string",
 	Default = undefined // This is for non-array mappings currently
 }
 
