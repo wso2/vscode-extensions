@@ -85,12 +85,6 @@ const AddConnector = (props: AddConnectorProps) => {
                 documentUri: props.documentUri,
                 connectorName: props.formData?.connectorName ?? props.connectorName.replace(/\s/g, '')
             });
-            const setComboValues = (elementName: string, newValues: string[]) => {
-                setComboValuesMap(prev => ({
-                    ...prev,
-                    [elementName]: newValues
-                }));
-            };
             // Fetch connections for old connectors (No ConnectionType)
             const connectionsNames = connectionsData.connections.map(connection => connection.name);
             setConnections(connectionsNames);
