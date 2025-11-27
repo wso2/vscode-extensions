@@ -211,7 +211,7 @@ export function AddConnection(props: AddConnectionProps) {
 
         // Fill the values
         Object.keys(values).forEach((key: string) => {
-            if ((key !== 'configRef' && key !== 'connectionType' && key !== 'connectionName') && values[key] != null && values[key] !== undefined) {
+            if ((key !== 'configRef' && key !== 'connectionType' && key !== 'connectionName') && values[key] != null) {
                 if (typeof values[key] === 'object' && values[key] !== null) {
                     if (Array.isArray(values[key])) {
                         // Handle param manager input type
