@@ -18,8 +18,7 @@
 
 import TelemetryReporter from "vscode-extension-telemetry";
 import { BallerinaExtension } from "../../core";
-import { getLoginMethod, getUserId } from "../../utils/ai/auth";
-import { TelemetryEventEmitter } from "./telemetry-event-emitter";
+import { getCachedLoginMethod, getCachedBiIntelId } from "./context";
 
 //Ballerina-VSCode-Extention repo key as default
 const DEFAULT_KEY = "3a82b093-5b7b-440c-9aa2-3b8e8e5704e7";
@@ -37,22 +36,14 @@ export function createTelemetryReporter(ext: BallerinaExtension): TelemetryRepor
         ext.context.subscriptions.push(reporter);
     }
 
-    // Subscribe to telemetry events
-    TelemetryEventEmitter.instance.onDidFire(async (payload) => {
-        if (ext.isTelemetryEnabled() && !ext.getCodeServerContext().codeServerEnv) {
-            const properties = await getTelemetryProperties(ext, payload.componentName, payload.customDimensions || {});
-            reporter.sendTelemetryEvent(payload.eventName, properties, payload.measurements || {});
-        }
-    });
-
     return reporter;
 }
 
-export async function sendTelemetryEvent(extension: BallerinaExtension, eventName: string, componentName: string,
+export function sendTelemetryEvent(extension: BallerinaExtension, eventName: string, componentName: string,
     customDimensions: { [key: string]: string; } = {}, measurements: { [key: string]: number; } = {}) {
     // temporarily disabled in codeserver due to GDPR issue
     if (extension.isTelemetryEnabled() && !extension.getCodeServerContext().codeServerEnv) {
-        extension.telemetryReporter.sendTelemetryEvent(eventName, await getTelemetryProperties(extension, componentName,
+        extension.telemetryReporter.sendTelemetryEvent(eventName, getTelemetryProperties(extension, componentName,
             customDimensions), measurements);
     }
 }
@@ -61,16 +52,14 @@ export async function sendTelemetryException(extension: BallerinaExtension, erro
     params: { [key: string]: string } = {}) {
     // temporarily disabled in codeserver due to GDPR issue
     if (extension.isTelemetryEnabled() && !extension.getCodeServerContext().codeServerEnv) {
-        extension.telemetryReporter.sendTelemetryException(error, await getTelemetryProperties(extension, componentName,
+        extension.telemetryReporter.sendTelemetryException(error, getTelemetryProperties(extension, componentName,
             params));
     }
 }
 
-export async function getTelemetryProperties(extension: BallerinaExtension, component: string, params: { [key: string]: string; } = {})
-    : Promise<{ [key: string]: string; }> {
+export function getTelemetryProperties(extension: BallerinaExtension, component: string, params: { [key: string]: string; } = {})
+    : { [key: string]: string; } {
 
-    const userId = await getUserId();
-    const userLoginType = await getLoginMethod();
     return {
         ...params,
         'ballerina.version': extension ? extension.ballerinaVersion : '',
@@ -83,8 +72,8 @@ export async function getTelemetryProperties(extension: BallerinaExtension, comp
         'component': CHOREO_COMPONENT_ID,
         'project': CHOREO_PROJECT_ID,
         'org': CHOREO_ORG_ID,
-        'clientId': userId || '', // clientId
-        'ClientLoginType': userLoginType || '' // clientLoginType
+        'loginType': getCachedLoginMethod() !== undefined ? getCachedLoginMethod() : 'undefined',
+        'biIntelId': getCachedBiIntelId() !== undefined ? getCachedBiIntelId() : 'undefined',
     };
 }
 
@@ -99,4 +88,4 @@ export * from "./events";
 export * from "./exceptions";
 export * from "./components";
 export * from "./activator";
-export * from "./telemetry-event-emitter";
+export * from "./context";

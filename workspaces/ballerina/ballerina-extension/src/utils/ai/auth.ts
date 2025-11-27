@@ -22,7 +22,7 @@ import { AUTH_CLIENT_ID, AUTH_ORG } from '../../features/ai/utils';
 import axios from 'axios';
 import { jwtDecode, JwtPayload } from 'jwt-decode';
 import { AuthCredentials, LoginMethod } from '@wso2/ballerina-core';
-import * as crypto from 'crypto';
+import { initializeTelemetryContext } from '../../features/telemetry';
 
 export const REFRESH_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE = "Refresh token is not available.";
 export const TOKEN_REFRESH_ONLY_SUPPORTED_FOR_BI_INTEL = "Token refresh is only supported for BI Intelligence authentication";
@@ -125,6 +125,8 @@ async function copilotTokenExists() {
 export const storeAuthCredentials = async (credentials: AuthCredentials): Promise<void> => {
     const credentialsJson = JSON.stringify(credentials);
     await extension.context.secrets.store(AUTH_CREDENTIALS_SECRET_KEY, credentialsJson);
+    // Refresh telemetry identity after storing new credentials
+    initializeTelemetryContext();
 };
 
 export const getAuthCredentials = async (): Promise<AuthCredentials | undefined> => {
@@ -231,39 +233,20 @@ export const getAwsBedrockCredentials = async (): Promise<{
 };
 
 // ==================================
-// Unique user identifier for auth
+// Unique user identifier for BIIntel
 // ==================================
-export const getUserId = async (): Promise<string | undefined> => {
+export const getBiIntelId = async (): Promise<string | undefined> => {
     try {
         const credentials = await getAuthCredentials();
-        if (!credentials) {
+        if (!credentials || credentials.loginMethod !== LoginMethod.BI_INTEL) {
             return undefined;
         }
 
-        switch (credentials.loginMethod) {
-            case LoginMethod.BI_INTEL:
-                try {
-                    const { accessToken } = credentials.secrets;
-                    const decoded = jwtDecode<JwtPayload>(accessToken);
-                    return decoded.sub;
-                } catch (error) {
-                    console.error('Error decoding JWT token:', error);
-                    return undefined;
-                }
-
-            case LoginMethod.ANTHROPIC_KEY:
-                const apiKey = credentials.secrets.apiKey;
-                return crypto.createHash('sha256').update(apiKey).digest('hex');
-
-            case LoginMethod.AWS_BEDROCK:
-                const accessKeyId = credentials.secrets.accessKeyId;
-                return crypto.createHash('sha256').update(accessKeyId).digest('hex');
-
-            default:
-                return undefined;
-        }
+        const { accessToken } = credentials.secrets;
+        const decoded = jwtDecode<JwtPayload>(accessToken);
+        return decoded.sub;
     } catch (error) {
-        console.error('Error getting user ID:', error);
+        console.error('Error decoding JWT token:', error);
         return undefined;
     }
 };
