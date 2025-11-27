@@ -519,7 +519,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                         version: existingVersion,
                         driverPath: null
                     }));
-                } if (existingDriverPath) {
+                } else if (existingDriverPath) {
                     setValue("driverPath", null);
                 }
             }
