@@ -2,19 +2,6 @@
 
 WSO2 Integrator: MI Visual Studio Code extension (MI for VSCode) is a comprehensive integration solution that simplifies your digital transformation journey. It streamlines connectivity among applications, services, data, and the cloud using a user-friendly low-code graphical designing experience and revolutionizes your integration development workflow. As an integration developer, you can execute all the development lifecycle phases using this tool. When your integration solutions are production-ready, you can easily push the artifacts to your continuous integration/continuous deployment pipeline.
 
-## Prerequisites
-
-You need the following to work with the MI for VS Code extension.
-
-- Java Development Kit (JDK)
-- WSO2 Integrator: MI runtime
-
-If these are not installed on your local machine, the WSO2 Integrator: MI for VS Code extension will automatically prompt you to download and configure them during the project creation step, depending on the project runtime version.
-
-If a different JDK or WSO2 MI version is installed on your local machine, you'll be prompted to download the required versions.
-
-If the required JDK and WSO2 MI versions are already installed, you can directly configure the Java Home and MI Home paths in this step.
-
 ## Get Started
 
 1. Launch VS Code with the WSO2 Integrator: MI for Visual Studio Code (MI for VS Code) extension installed. When the extension is installed properly, you can see the WSO2 Integrator: MI icon in the Activity Bar of the VS Code editor.
