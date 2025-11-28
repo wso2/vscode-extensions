@@ -18,6 +18,7 @@
 
 import TelemetryReporter from "vscode-extension-telemetry";
 import { BallerinaExtension } from "../../core";
+import { getCachedLoginMethod, getCachedBiIntelId } from "./context";
 
 //Ballerina-VSCode-Extention repo key as default
 const DEFAULT_KEY = "3a82b093-5b7b-440c-9aa2-3b8e8e5704e7";
@@ -34,6 +35,7 @@ export function createTelemetryReporter(ext: BallerinaExtension): TelemetryRepor
     if (ext.context) {
         ext.context.subscriptions.push(reporter);
     }
+
     return reporter;
 }
 
@@ -46,7 +48,7 @@ export function sendTelemetryEvent(extension: BallerinaExtension, eventName: str
     }
 }
 
-export function sendTelemetryException(extension: BallerinaExtension, error: Error, componentName: string,
+export async function sendTelemetryException(extension: BallerinaExtension, error: Error, componentName: string,
     params: { [key: string]: string } = {}) {
     // temporarily disabled in codeserver due to GDPR issue
     if (extension.isTelemetryEnabled() && !extension.getCodeServerContext().codeServerEnv) {
@@ -57,6 +59,7 @@ export function sendTelemetryException(extension: BallerinaExtension, error: Err
 
 export function getTelemetryProperties(extension: BallerinaExtension, component: string, params: { [key: string]: string; } = {})
     : { [key: string]: string; } {
+
     return {
         ...params,
         'ballerina.version': extension ? extension.ballerinaVersion : '',
@@ -69,6 +72,8 @@ export function getTelemetryProperties(extension: BallerinaExtension, component:
         'component': CHOREO_COMPONENT_ID,
         'project': CHOREO_PROJECT_ID,
         'org': CHOREO_ORG_ID,
+        'loginType': getCachedLoginMethod() !== undefined ? getCachedLoginMethod() : 'undefined',
+        'biIntelId': getCachedBiIntelId() !== undefined ? getCachedBiIntelId() : 'undefined',
     };
 }
 
@@ -83,3 +88,4 @@ export * from "./events";
 export * from "./exceptions";
 export * from "./components";
 export * from "./activator";
+export * from "./context";

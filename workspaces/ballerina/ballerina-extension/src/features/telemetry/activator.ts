@@ -21,7 +21,7 @@ import { debug } from "../../utils";
 import { window } from "vscode";
 import {
     CMP_EDITOR_SUPPORT, getMessageObject, getTelemetryProperties, sendTelemetryEvent, TM_ERROR_LANG_SERVER,
-    TM_EVENT_EDIT_DIAGRAM, TM_EVENT_EDIT_SOURCE, TM_EVENT_KILL_TERMINAL, TM_FEATURE_USAGE_LANG_SERVER
+    TM_EVENT_EDIT_DIAGRAM, TM_EVENT_EDIT_SOURCE, TM_EVENT_KILL_TERMINAL, TM_FEATURE_USAGE_LANG_SERVER,
 } from ".";
 
 const schedule = require('node-schedule');
@@ -30,7 +30,8 @@ const schedule = require('node-schedule');
 const TM_EVENT_TYPE_ERROR = "ErrorTelemetryEvent";
 const TM_EVENT_TYPE_FEATURE_USAGE = "FeatureUsageTelemetryEvent";
 
-export function activate(ballerinaExtInstance: BallerinaExtension) {
+export async function activate(ballerinaExtInstance: BallerinaExtension) {
+
     const reporter = ballerinaExtInstance.telemetryReporter;
     const langClient = <ExtendedLangClient>ballerinaExtInstance.langClient;
 

@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Command, GenerateAgentCodeRequest, ProjectSource, AIChatMachineEventType} from "@wso2/ballerina-core";
+import { Command, GenerateAgentCodeRequest, ProjectSource, AIChatMachineEventType } from "@wso2/ballerina-core";
 import { ModelMessage, stepCountIs, streamText } from "ai";
 import { getAnthropicClient, getProviderCacheControl, ANTHROPIC_SONNET_4 } from "../connection";
 import { getErrorMessage, populateHistoryForAgent } from "../utils";
@@ -35,6 +35,8 @@ import { createConnectorGeneratorTool, CONNECTOR_GENERATOR_TOOL } from "../libs/
 import { LangfuseExporter } from 'langfuse-vercel';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+import { sendTelemetryEvent, TM_EVENT_BALLERINA_AI_QUERY_SUBMIT, TM_EVENT_BALLERINA_AI_GENERATION_FINISHED, CMP_BALLERINA_AI } from "../../../telemetry";
+import { extension } from "../../../../BalExtensionContext";
 
 const LANGFUSE_SECRET = process.env.LANGFUSE_SECRET;
 const LANGFUSE_PUBLIC = process.env.LANGFUSE_PUBLIC;
@@ -60,6 +62,12 @@ export async function generateDesignCore(params: GenerateAgentCodeRequest, event
     const { path: tempProjectPath } = await getTempProject(project, hasHistory);
     const cacheOptions = await getProviderCacheControl();
 
+    // Send telemetry when the user submits a query
+    sendTelemetryEvent(extension.ballerinaExtInstance, TM_EVENT_BALLERINA_AI_QUERY_SUBMIT, CMP_BALLERINA_AI, {
+        messageId: messageId,
+        command: Command.Design,
+        operationType: params.operationType,
+    });
 
     const modifiedFiles: string[] = [];
 
@@ -269,6 +277,14 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
 
                 updateAndSaveChat(messageId, userMessageContent, assistantMessages, eventHandler);
                 eventHandler({ type: "stop", command: Command.Design });
+
+                // Send telemetry after generation
+                sendTelemetryEvent(extension.ballerinaExtInstance, TM_EVENT_BALLERINA_AI_GENERATION_FINISHED, CMP_BALLERINA_AI, {
+                    messageId: messageId,
+                    finishReason: finishReason,
+                    modifiedFilesCount: modifiedFiles.length.toString(),
+                });
+
                 AIChatStateMachine.sendEvent({
                     type: AIChatMachineEventType.FINISH_EXECUTION,
                 });
@@ -276,7 +292,7 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
                 break;
             }
         }
-        }
+    }
 }
 
 /**

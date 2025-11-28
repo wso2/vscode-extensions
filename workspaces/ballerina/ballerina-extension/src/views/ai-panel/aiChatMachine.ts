@@ -28,6 +28,7 @@ import { generateDesign } from '../../features/ai/service/design/design';
 import { captureWorkspaceSnapshot, restoreWorkspaceSnapshot } from './checkpoint/checkpointUtils';
 import { getCheckpointConfig } from './checkpoint/checkpointConfig';
 import { notifyCheckpointCaptured } from '../../RPCLayer';
+import { sendTelemetryEvent, TM_EVENT_BALLERINA_AI_REVERT, CMP_BALLERINA_AI } from '../../features/telemetry';
 
 const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -176,6 +177,12 @@ const restoreCheckpointAction = (context: AIChatMachineContext, event: any) => {
         console.error(`[Checkpoint] Checkpoint ${checkpointId} not found`);
         return;
     }
+
+    // Send telemetry when the user clicks the revert button
+    sendTelemetryEvent(extension.ballerinaExtInstance, TM_EVENT_BALLERINA_AI_REVERT, CMP_BALLERINA_AI, {
+        messageId: checkpoint.messageId,
+        checkpointId: checkpointId,
+    });
 
     const messageIndex = context.chatHistory.findIndex(m => m.id === checkpoint.messageId);
     const restoredHistory = messageIndex >= 0 ? context.chatHistory.slice(0, messageIndex) : context.chatHistory;

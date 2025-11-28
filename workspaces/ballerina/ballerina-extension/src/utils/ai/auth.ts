@@ -22,6 +22,7 @@ import { AUTH_CLIENT_ID, AUTH_ORG } from '../../features/ai/utils';
 import axios from 'axios';
 import { jwtDecode, JwtPayload } from 'jwt-decode';
 import { AuthCredentials, LoginMethod } from '@wso2/ballerina-core';
+import { initializeTelemetryContext } from '../../features/telemetry';
 
 export const REFRESH_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE = "Refresh token is not available.";
 export const TOKEN_REFRESH_ONLY_SUPPORTED_FOR_BI_INTEL = "Token refresh is only supported for BI Intelligence authentication";
@@ -100,7 +101,7 @@ vscode.authentication.onDidChangeSessions(async e => {
             await extension.context.secrets.delete('GITHUB_COPILOT_TOKEN');
             await extension.context.secrets.delete('GITHUB_TOKEN');
         } else {
-            //it could be a login(which we havent captured) or a logout 
+            //it could be a login(which we havent captured) or a logout
             // vscode.window.showInformationMessage(
             //     'WSO2 Integrator: BI supports completions with GitHub Copilot.',
             //     'Login with GitHub Copilot'
@@ -124,6 +125,8 @@ async function copilotTokenExists() {
 export const storeAuthCredentials = async (credentials: AuthCredentials): Promise<void> => {
     const credentialsJson = JSON.stringify(credentials);
     await extension.context.secrets.store(AUTH_CREDENTIALS_SECRET_KEY, credentialsJson);
+    // Refresh telemetry identity after storing new credentials
+    initializeTelemetryContext();
 };
 
 export const getAuthCredentials = async (): Promise<AuthCredentials | undefined> => {
@@ -227,6 +230,25 @@ export const getAwsBedrockCredentials = async (): Promise<{
         return undefined;
     }
     return credentials.secrets;
+};
+
+// ==================================
+// Unique user identifier for BIIntel
+// ==================================
+export const getBiIntelId = async (): Promise<string | undefined> => {
+    try {
+        const credentials = await getAuthCredentials();
+        if (!credentials || credentials.loginMethod !== LoginMethod.BI_INTEL) {
+            return undefined;
+        }
+
+        const { accessToken } = credentials.secrets;
+        const decoded = jwtDecode<JwtPayload>(accessToken);
+        return decoded.sub;
+    } catch (error) {
+        console.error('Error decoding JWT token:', error);
+        return undefined;
+    }
 };
 
 export const getRefreshedAccessToken = async (): Promise<string> => {
