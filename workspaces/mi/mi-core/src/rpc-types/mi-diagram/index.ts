@@ -264,6 +264,14 @@ import {
     ConfigureKubernetesRequest,
     ConfigureKubernetesResponse,
     UpdateRegistryPropertyRequest,
+    LoadDriverAndTestConnectionRequest,
+    GetDynamicFieldsRequest,
+    GetDynamicFieldsResponse,
+    GetStoredProceduresResponse,
+    DriverDownloadRequest,
+    DriverDownloadResponse,
+    DriverMavenCoordinatesRequest,
+    DriverMavenCoordinatesResponse,
     Property
 } from "./types";
 
@@ -444,4 +452,9 @@ export interface MiDiagramAPI {
     isKubernetesConfigured: () => Promise<boolean>;
     updatePropertiesInArtifactXML: (params: UpdateRegistryPropertyRequest) => Promise<string>;
     getPropertiesFromArtifactXML: (params: string) => Promise<Property[] | undefined>;
+    loadDriverAndTestConnection: (params: LoadDriverAndTestConnectionRequest) => Promise<TestDbConnectionResponse>;
+    getDynamicFields: (params: GetDynamicFieldsRequest) => Promise<GetDynamicFieldsResponse>;
+    getStoredProcedures: (params: DSSFetchTablesRequest) => Promise<GetStoredProceduresResponse>;
+    downloadDriverForConnector: (params: DriverDownloadRequest) => Promise<DriverDownloadResponse>;
+    getDriverMavenCoordinates: (params: DriverMavenCoordinatesRequest) => Promise<DriverMavenCoordinatesResponse>;
 }

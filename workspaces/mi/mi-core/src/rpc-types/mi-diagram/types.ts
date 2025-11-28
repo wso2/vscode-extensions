@@ -1925,6 +1925,7 @@ export interface DSSFetchTablesRequest {
     username: string;
     password: string;
     url: string;
+    driverPath: string;
 }
 
 export interface DSSFetchTablesResponse {
@@ -2249,4 +2250,67 @@ export interface GetMockServicesResponse{
 export interface UpdateRegistryPropertyRequest {
     targetFile: string;
     properties: Property[];
+}
+
+export interface DynamicField {
+    type: string;
+    value: {
+        name: string;
+        displayName: string;
+        inputType: string;
+        required: string;
+        helpTip: string;
+        placeholder: string;
+        defaultValue: string;
+    };
+}
+
+export interface GetDynamicFieldsRequest {
+    connectorName: string;
+    operationName: string;
+    fieldName: string;
+    selectedValue: string;
+    connection: ConnectorConnection;
+}
+
+export interface GetDynamicFieldsResponse {
+    columns: DynamicField[];
+}
+
+export interface GetStoredProceduresResponse {
+    procedures: string[];
+}
+
+export interface DriverDownloadRequest {
+    groupId: string;
+    artifactId: string;
+    version: string;
+}
+
+export interface DriverDownloadResponse {
+    driverPath: string;
+}
+export interface DriverMavenCoordinatesRequest {
+    filePath: string;
+    connectorName: string;
+    connectionType: string;
+}
+
+export interface DriverMavenCoordinatesResponse {
+    groupId: string;
+    artifactId: string;
+    version: string;
+    found: boolean;
+}
+
+export interface LoadDriverAndTestConnectionRequest {
+    dbType: string;
+    username: string;
+    password: string;
+    host: string;
+    port: string;
+    dbName: string;
+    url: string;
+    className: string;
+    driverPath: string;
 }
