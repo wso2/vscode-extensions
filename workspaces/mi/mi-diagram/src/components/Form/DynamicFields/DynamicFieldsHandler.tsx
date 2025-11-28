@@ -154,7 +154,7 @@ const REGEX = {
 };
 
 const EXPRESSION_TYPES = ['stringOrExpression', 'integerOrExpression', 'expression', 'keyOrExpression', 'resourceOrExpression',
-    'textOrExpression', 'textAreaOrExpression', 'stringOrExpresion'
+    'textOrExpression', 'textAreaOrExpression', 'stringOrExpression'
 ];
 
 const NO_QUOTES_SQL_TYPES = ['INT', 'INTEGER', 'BIGINT', 'SMALLINT', 'TINYINT', 'FLOAT', 'DOUBLE', 'DECIMAL', 'NUMERIC', 'BOOLEAN', 'BIT', 'DATE', 'TIME', 'TIMESTAMP', 'DATETIME'];
@@ -200,7 +200,7 @@ export class DynamicFieldsHandler {
                     if (element.inputType === 'string' && element.name === FIELD_NAMES.TABLE_NAME) {
                         const parentElement = this.findElementByName(this.formData.elements, FIELD_NAMES.TABLE_NAME);
                         const queryBuildConfig = parentElement?.onValueChange?.params?.[0]?.onDynamicFieldChange?.params?.[0];
-                        await this._buildQueryFromDynamicFields(FIELD_NAMES.TABLE_NAME, queryBuildConfig.queryType , queryBuildConfig, element);
+                        await this._buildQueryFromDynamicFields(FIELD_NAMES.TABLE_NAME, queryBuildConfig?.queryType , queryBuildConfig, element);
                     } else {
                         await this._handleDynamicContentChange(value, fieldName, element);
                     }
@@ -645,8 +645,10 @@ export class DynamicFieldsHandler {
             }
 
             let isDriverDownloaded = false;
+            let retryCount = 0;
+            const maxRetries = 5;   
             if (!driverPath) {
-                while (!isDriverDownloaded) {
+                while (!isDriverDownloaded && retryCount < maxRetries) {
                     const args = {
                         groupId: groupId,
                         artifactId: artifactId,
@@ -657,7 +659,11 @@ export class DynamicFieldsHandler {
                     if (driverPath) {
                         isDriverDownloaded = true;
                     }
+                    retryCount++;
                 }
+            }
+            if (!isDriverDownloaded) {
+                this.setCustomError(getNameForController(FIELD_NAMES.CONFIG_KEY), "Failed to download the DB driver after 5 attempts.");
             }
             connection.parameters.push({
                 name: FIELD_NAMES.DRIVER_PATH,
@@ -871,10 +877,10 @@ export class DynamicFieldsHandler {
     }
 
     /** Sets a field value, handling simple strings and expression objects */
-    private _setFieldValue(fieldName: string, value: string | number | boolean | null | undefined, isExpression: boolean = false): void {
+    private _setFieldValue(fieldName: string, value: string | number | boolean | null | undefined, isExpression: boolean = false, parentField: string = 'table'): void {
         // Check if the target element expects a simple value or an object
         const targetElement = this.findElementByName(this.formData.elements, getNameForController(fieldName));
-        const dynamicField = this.dynamicFields['table']?.fields.find((f: DynamicField) => f.value.name === fieldName);
+        const dynamicField = this.dynamicFields[parentField]?.fields.find((f: DynamicField) => f.value.name === fieldName);
         const expectsObject = targetElement != null ? EXPRESSION_TYPES.includes(targetElement?.inputType) : EXPRESSION_TYPES.includes(dynamicField?.value?.inputType);
         if (expectsObject) {
             this.setValue(getNameForController(fieldName), {
@@ -1108,7 +1114,7 @@ export class DynamicFieldsHandler {
 
             case QUERY_TYPES.CALL:
 
-                let callTemplate = 'CALL {0}({1})';
+                let callTemplate;
 
                 // Customize call template based on DB type
                 switch (dbType) {
@@ -1479,6 +1485,9 @@ export class DynamicFieldsHandler {
     /** Helper: Parses CALL parameters */
     private _parseCallParams(valuesStr: string | undefined, availableFields: Record<string, DynamicFieldValue>, connectionInfo: boolean): { success: boolean, fields: Record<string, DynamicFieldValue>, errorMessage?: string } {
         const matchedFields: Record<string, DynamicFieldValue> = {};
+        if (!valuesStr) {  
+            return { success: false, fields: {}, errorMessage: "No parameters provided." };  
+        } 
         const values = valuesStr.split(',').map(val => val.trim().replace(/^['"]|['"]$/g, ''));
 
         // there should be values matching all of the dynamic fields
