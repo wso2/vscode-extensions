@@ -18,9 +18,8 @@ export interface GenericRadioGroupProps {
   required?: boolean;
   orientation?: 'vertical' | 'horizontal';
 }
-// Removed unused helpTipElement definition as helpTip is not defined.
-// The helpTipElement prop is already passed to the component.
 
+// The helpTipElement prop is already passed to the component.
 export const GenericRadioGroup: React.FC<GenericRadioGroupProps> = ({
   name,
   label,

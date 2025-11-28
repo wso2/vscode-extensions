@@ -893,12 +893,7 @@ export function FormGenerator(props: FormGeneratorProps) {
 
     function ParamManagerComponent(element: Element, isRequired: boolean, helpTipElement: JSX.Element, field: any) {
         useEffect(() => {
-            try {
-                handleValueChange(field.value, element.name.toString(), element);
-            } catch {
-                console.error("Error initializing ParamManagerComponent");
-            }
-
+            handleValueChange(field.value, element.name.toString(), element);
         }, []); // run only on mount
         return <ComponentCard id={'parameterManager-' + element.name} sx={cardStyle} disbaleHoverEffect>
             <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -926,11 +921,7 @@ export function FormGenerator(props: FormGeneratorProps) {
     const ExpressionFieldComponent = ({ element, canChange, field, helpTipElement, placeholder, isRequired }: { element: Element, canChange: boolean, field: any, helpTipElement: JSX.Element, placeholder: string, isRequired: boolean }) => {
         const name = getNameForController(element.name);
         useEffect(() => {
-            try {
-                handleValueChange(field.value, name, element);
-            } catch {
-                console.error("Error initializing ExpressionFieldComponent");
-            }
+            handleValueChange(field.value, name, element);
 
         }, []);
         return expressionEditorField !== name ? (

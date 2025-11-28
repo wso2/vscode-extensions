@@ -2253,64 +2253,64 @@ export interface UpdateRegistryPropertyRequest {
 }
 
 export interface DynamicField {
-type: string;
-value: {
-name: string;
-displayName: string;
-inputType: string;
-required: string;
-helpTip: string;
-placeholder: string;
-defaultValue: string;
-};
+    type: string;
+    value: {
+        name: string;
+        displayName: string;
+        inputType: string;
+        required: string;
+        helpTip: string;
+        placeholder: string;
+        defaultValue: string;
+    };
 }
 
 export interface GetDynamicFieldsRequest {
-connectorName: string;
-operationName: string;
-fieldName: string;
-selectedValue: string;
-connection: ConnectorConnection;
+    connectorName: string;
+    operationName: string;
+    fieldName: string;
+    selectedValue: string;
+    connection: ConnectorConnection;
 }
 
 export interface GetDynamicFieldsResponse {
-columns: DynamicField[];
+    columns: DynamicField[];
 }
 
 export interface GetStoredProceduresResponse {
-procedures: string[];
+    procedures: string[];
 }
 
 export interface DriverDownloadRequest {
-groupId: string;
-artifactId: string;
-version: string;
+    groupId: string;
+    artifactId: string;
+    version: string;
 }
 
 export interface DriverDownloadResponse {
-driverPath: string;
+    driverPath: string;
 }
 export interface DriverMavenCoordinatesRequest {
-filePath: string;
-connectorName: string;
-connectionType: string;
+    filePath: string;
+    connectorName: string;
+    connectionType: string;
 }
 
 export interface DriverMavenCoordinatesResponse {
-groupId: string;
-artifactId: string;
-version: string;
-found: boolean;
+    groupId: string;
+    artifactId: string;
+    version: string;
+    found: boolean;
 }
 
 export interface LoadDriverAndTestConnectionRequest {
-dbType: string;
-username: string;
-password: string;
-host: string;
-port: string;
-dbName: string;
-url: string;
-className: string;
-driverPath: string;
+    dbType: string;
+    username: string;
+    password: string;
+    host: string;
+    port: string;
+    dbName: string;
+    url: string;
+    className: string;
+    driverPath: string;
 }
