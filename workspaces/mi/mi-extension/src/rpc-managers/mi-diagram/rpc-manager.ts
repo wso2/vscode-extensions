@@ -5420,7 +5420,7 @@ ${keyValuesXML}`;
         const langClient = getStateMachine(this.projectUri).context().langClient!;
         let response;
         if (params.isRuntimeService) {
-            const versionedUrl = exposeVersionedServices(this.projectUri);
+            const versionedUrl = await exposeVersionedServices(this.projectUri);
             response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, port: DebuggerConfig.getServerPort(), projectPath: versionedUrl ? this.projectUri : "", ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         } else {
             response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
@@ -6121,7 +6121,13 @@ ${keyValuesXML}`;
     }
 }
 
-function exposeVersionedServices(projectUri: string): boolean {
+async function exposeVersionedServices(projectUri: string): Promise<boolean> {
+    const langClient = getStateMachine(projectUri).context().langClient!;
+    const projectDetailsRes = await langClient?.getProjectDetails();
+    const isVersionedDeploymentEnabled = projectDetailsRes?.buildDetails?.versionedDeployment?.value;
+    if (!isVersionedDeploymentEnabled) {
+        return false;
+    }
     const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
     const serverPath = config.get<string>('SERVER_PATH') || undefined;
     const configPath = serverPath ? path.join(serverPath, 'conf', 'deployment.toml') : '';
