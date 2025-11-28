@@ -385,6 +385,9 @@ importers:
       '@wso2/syntax-tree':
         specifier: workspace:*
         version: link:../syntax-tree
+      ai:
+        specifier: ^5.0.101
+        version: 5.0.101(zod@4.1.11)
       handlebars:
         specifier: ~4.7.8
         version: 4.7.8
