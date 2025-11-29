@@ -16,8 +16,8 @@
  * under the License.
  */
 
-import { EditorState } from "@codemirror/state";
-import { EditorView, keymap, tooltips } from "@codemirror/view";
+import { EditorState, Compartment } from "@codemirror/state";
+import { EditorView, keymap, tooltips, placeholder } from "@codemirror/view";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useFormContext } from "../../../../../context";
 import {
@@ -90,6 +90,9 @@ export type ChipExpressionEditorComponentProps = {
     toolbarRef?: React.RefObject<HTMLDivElement>;
     enableListContinuation?: boolean;
     inputMode?: InputMode;
+    hideFxButton?: boolean;
+    disabled?: boolean;
+    placeholder?: string;
 }
 
 export const ChipExpressionEditorComponent = (props: ChipExpressionEditorComponentProps) => {
@@ -104,6 +107,14 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
 
     const { expressionEditor } = useFormContext();
     const expressionEditorRpcManager = expressionEditor?.rpcManager;
+
+    // Create a stable compartment for the editable configuration
+    const editableCompartment = useMemo(() => new Compartment(), []);
+
+    // Memoize the getCursorCoords function to avoid unnecessary re-renders
+    const getCursorCoords = React.useCallback(() => {
+        return viewRef.current?.coordsAtPos(viewRef.current.state.selection.main.head) || null;
+    }, []);
 
     // Helper pane state management with conditional fixed placement for toolbar toggle in PROMPT mode
     const { helperPaneState, setHelperPaneState, handleManualToggle, handleKeyboardToggle } = useHelperPane(
@@ -122,7 +133,7 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
                 });
             } : undefined
         },
-        () => viewRef.current?.coordsAtPos(viewRef.current.state.selection.main.head) || null
+        getCursorCoords
     );
 
     const needTokenRefetchListner = buildNeedTokenRefetchListner(() => {
@@ -200,9 +211,14 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
         // and extracting args
         if (newValue.endsWith('()') || newValue.endsWith(')}')) {
             if (props.extractArgsFromFunction) {
-                const result = await processFunctionWithArguments(newValue, from, props.extractArgsFromFunction);
-                finalValue = result.finalValue;
-                cursorPosition = from + result.cursorAdjustment;
+                try {
+                    const result = await processFunctionWithArguments(newValue, from, props.extractArgsFromFunction);
+                    finalValue = result.finalValue;
+                    cursorPosition = from + result.cursorAdjustment;
+                } catch (error) {
+                    console.error('Failed to process function arguments:', error);
+                    // Fallback to using the original value without argument processing
+                }
             }
         }
 
@@ -232,28 +248,30 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
                     activateOnTyping: true,
                     closeOnBlur: true
                 }),
+                ...(props.placeholder ? [placeholder(props.placeholder)] : []),
                 tooltips({ position: "absolute" }),
                 chipPlugin,
                 tokenField,
                 chipTheme,
                 completionTheme,
                 EditorView.lineWrapping,
+                editableCompartment.of(EditorView.editable.of(!props.disabled)),
                 needTokenRefetchListner,
                 handleChangeListner,
                 handleFocusListner,
                 handleFocusOutListner,
                 handleSelectionChange,
-                ...(props.isInExpandedMode
+                ...(props.isInExpandedMode || props.hideFxButton
                     ? [EditorView.theme({
                         "&": { height: "100%" },
                         ".cm-scroller": { overflow: "auto" }
                     })]
-                    : props.sx && 'height' in props.sx
+                    : props.sx && 'height' in props.sx && props.sx.height
                         ? [EditorView.theme({
                             "&": {
-                                height: typeof (props.sx as any).height === 'number' ?
-                                    `${(props.sx as any).height}px` :
-                                    (props.sx as any).height
+                                height: typeof props.sx.height === 'number' ?
+                                    `${props.sx.height}px` :
+                                    props.sx.height
                             },
                             ".cm-scroller": { overflow: "auto" }
                         })]
@@ -328,6 +346,14 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
         setIsTokenUpdateScheduled(true);
     }, [Boolean(props.sanitizedExpression), Boolean(props.rawExpression)]);
 
+    // Update editor editable state when disabled prop changes
+    useEffect(() => {
+        if (!viewRef.current) return;
+        viewRef.current.dispatch({
+            effects: editableCompartment.reconfigure(EditorView.editable.of(!props.disabled))
+        });
+    }, [props.disabled, editableCompartment]);
+
     // Handle click outside and escape key for helper pane
     useHelperPaneClickOutside({
         enabled: helperPaneState.isOpen,
@@ -361,16 +387,16 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
             <ChipEditorContainer ref={fieldContainerRef} style={{
                 position: 'relative',
                 ...props.sx,
-                ...(props.isInExpandedMode ? { height: '100%' } : { height: 'auto' })
+                ...(props.isInExpandedMode || props.hideFxButton ? { height: '100%' } : { height: 'auto' })
             }}>
-                {!props.isInExpandedMode && <FXButton />}
+                {!props.isInExpandedMode && !props.hideFxButton && !props.disabled && <FXButton />}
                 <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                     <div ref={editorRef} style={{
                         border: '1px solid var(--vscode-dropdown-border)',
                         ...props.sx,
-                        ...(props.isInExpandedMode ? { height: '100%' } : { height: 'auto', maxHeight: '150px' })
+                        ...(props.isInExpandedMode || props.hideFxButton ? { height: '100%' } : { height: 'auto', maxHeight: '150px' })
                     }} />
-                    {helperPaneState.isOpen &&
+                    {helperPaneState.isOpen && !props.disabled &&
                         <HelperPane
                             ref={helperPaneRef}
                             top={helperPaneState.top}
@@ -380,21 +406,23 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
                             onChange={onHelperItemSelect}
                         />
                     }
-                    <FloatingButtonContainer>
-                        {!props.isExpandedVersion &&
-                            <FloatingToggleButton
-                                ref={helperPaneToggleButtonRef}
-                                onClick={handleManualToggle}
-                                title={helperPaneState.isOpen ? "Close Helper Panel" : "Open Helper Panel"}
-                            >
-                                {helperPaneState.isOpen ? <CloseHelperIcon /> : <OpenHelperIcon />}
-                            </FloatingToggleButton>}
-                        {props.onOpenExpandedMode && (
-                            <FloatingToggleButton onClick={props.onOpenExpandedMode} title={props.isInExpandedMode ? "Minimize Editor" : "Expand Editor"}>
-                                {props.isInExpandedMode ? <MinimizeIcon /> : <ExpandIcon />}
-                            </FloatingToggleButton>
-                        )}
-                    </FloatingButtonContainer>
+                    {!props.disabled && (
+                        <FloatingButtonContainer>
+                            {!props.isExpandedVersion &&
+                                <FloatingToggleButton
+                                    ref={helperPaneToggleButtonRef}
+                                    onClick={handleManualToggle}
+                                    title={helperPaneState.isOpen ? "Close Helper Panel" : "Open Helper Panel"}
+                                >
+                                    {helperPaneState.isOpen ? <CloseHelperIcon /> : <OpenHelperIcon />}
+                                </FloatingToggleButton>}
+                            {props.onOpenExpandedMode && (
+                                <FloatingToggleButton onClick={props.onOpenExpandedMode} title={props.isInExpandedMode ? "Minimize Editor" : "Expand Editor"}>
+                                    {props.isInExpandedMode ? <MinimizeIcon /> : <ExpandIcon />}
+                                </FloatingToggleButton>
+                            )}
+                        </FloatingButtonContainer>
+                    )}
                 </div>
             </ChipEditorContainer>
         </>
