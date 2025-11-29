@@ -33,7 +33,7 @@ export interface ErrorProps {
 export function ErrorScreen(props: ErrorProps) {
     const classes = useStyles();
     const { resetBoundary } = useErrorBoundary();
-    const issueUrl = props.issueUrl || "https://github.com/wso2/ballerina-plugin-vscode/issues";
+    const issueUrl = props.issueUrl || "https://github.com/wso2/vscode-extensions/issues";
 
     return (
         <div className={classes.root}>

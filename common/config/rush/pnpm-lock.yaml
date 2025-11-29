@@ -527,6 +527,9 @@ importers:
       toml:
         specifier: ^3.0.0
         version: 3.0.0
+      unzipper:
+        specifier: ~0.12.3
+        version: 0.12.3
       uuid:
         specifier: ^11.1.0
         version: 11.1.0
