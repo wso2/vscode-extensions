@@ -35,9 +35,10 @@ import {
     CursorInfo,
     buildOnFocusOutListner,
     buildOnSelectionChange,
-    SyncDocValueWithPropValue
+    SyncDocValueWithPropValue,
+    isSelectionOnToken
 } from "../CodeUtils";
-import { mapSanitizedToRaw } from "../utils";
+import { mapSanitizedToRaw, TOKEN_START_CHAR_OFFSET_INDEX } from "../utils";
 import { history } from "@codemirror/commands";
 import { autocompletion } from "@codemirror/autocomplete";
 import { FloatingButtonContainer, FloatingToggleButton, ChipEditorContainer } from "../styles";
@@ -49,6 +50,8 @@ import FXButton from "./FxButton";
 import { HelperPaneToggleButton } from "./HelperPaneToggleButton";
 import { HelperPane } from "./HelperPane";
 import { listContinuationKeymap } from "../../../ExpandedEditor/utils/templateUtils";
+import { ChipExpressionEditorDefaultConfiguration } from "../ChipExpressionDefaultConfig";
+import { ChipExpressionEditorConfig } from "../../Configurations";
 
 type HelperPaneState = {
     isOpen: boolean;
@@ -90,11 +93,12 @@ export type ChipExpressionEditorComponentProps = {
     onEditorViewReady?: (view: EditorView) => void;
     toolbarRef?: React.RefObject<HTMLDivElement>;
     enableListContinuation?: boolean;
+    configuration?: ChipExpressionEditorDefaultConfiguration;
 }
 
 export const ChipExpressionEditorComponent = (props: ChipExpressionEditorComponentProps) => {
+    const { configuration = new ChipExpressionEditorConfig() } = props;
     const [helperPaneState, setHelperPaneState] = useState<HelperPaneState>({ isOpen: false, top: 0, left: 0 });
-
     const editorRef = useRef<HTMLDivElement>(null);
     const helperPaneRef = useRef<HTMLDivElement>(null);
     const fieldContainerRef = useRef<HTMLDivElement>(null);
@@ -114,7 +118,7 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
 
     const handleChangeListner = buildOnChangeListner((newValue, cursor) => {
         completionsFetchScheduledRef.current = true;
-        props.onChange(newValue, cursor.position.to);
+        props.onChange(configuration.deserializeValue(newValue), cursor.position.to);
         const textBeforeCursor = newValue.slice(0, cursor.position.to);
         const lastNonSpaceChar = textBeforeCursor.trimEnd().slice(-1);
         const isTrigger = lastNonSpaceChar === '+' || lastNonSpaceChar === ':';
@@ -164,13 +168,15 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
     });
 
     const onHelperItemSelect = async (value: string, options: HelperpaneOnChangeOptions) => {
-        const newValue = value
         if (!viewRef.current) return;
         const view = viewRef.current;
 
         // Use saved selection if available, otherwise fall back to current selection
         const currentSelection = savedSelectionRef.current || view.state.selection.main;
         const { from, to } = options?.replaceFullText ? { from: 0, to: view.state.doc.length } : currentSelection;
+        
+        const selectionIsOnToken = isSelectionOnToken(currentSelection.from, currentSelection.to, view);
+        const newValue = selectionIsOnToken ? value : configuration.getHelperValue(value);
 
         let finalValue = newValue;
         let cursorPosition = from + newValue.length;
@@ -187,7 +193,7 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
                     let functionDef = newValue;
                     let prefix = '';
                     let suffix = '';
-                    
+
                     // Check if it's within a string template
                     const stringTemplateMatch = newValue.match(/^(.*\$\{)([^}]+)(\}.*)$/);
                     if (stringTemplateMatch) {
@@ -195,12 +201,12 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
                         functionDef = stringTemplateMatch[2];
                         suffix = stringTemplateMatch[3];
                     }
-                    
+
                     let cursorPositionForExtraction = from + prefix.length + functionDef.length - 1;
                     if (functionDef.endsWith(')}')) {
                         cursorPositionForExtraction -= 1;
                     }
-                    
+
                     const fnSignature = await props.extractArgsFromFunction(functionDef, cursorPositionForExtraction);
 
                     if (fnSignature && fnSignature.args && fnSignature.args.length > 0) {
@@ -339,8 +345,14 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
 
     useEffect(() => {
         if (props.value == null || !viewRef.current) return;
+        const serializedValue = configuration.serializeValue(props.value);
+        const deserializeValue = configuration.deserializeValue(props.value);
+        if (deserializeValue.trim() !== props.value.trim()) {
+            props.onChange(deserializeValue, deserializeValue.length);
+            return
+        }
         const updateEditorState = async () => {
-            const sanitizedValue = props.sanitizedExpression ? props.sanitizedExpression(props.value) : props.value;
+            const sanitizedValue = props.sanitizedExpression ? props.sanitizedExpression(serializedValue) : serializedValue;
             const currentDoc = viewRef.current!.state.doc.toString();
             const isExternalUpdate = sanitizedValue !== currentDoc;
 
@@ -348,15 +360,18 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
 
             const startLine = props.targetLineRange?.startLine;
             const tokenStream = await expressionEditorRpcManager?.getExpressionTokens(
-                props.value,
+                deserializeValue,
                 props.fileName,
                 startLine !== undefined ? startLine : undefined
             );
+            let prefixCorrectedTokenStream = tokenStream;
+            if (tokenStream && tokenStream.length >= 5) {
+                prefixCorrectedTokenStream = [...tokenStream];
+                prefixCorrectedTokenStream[TOKEN_START_CHAR_OFFSET_INDEX] -= configuration.getSerializationPrefix().length;
+            }
             setIsTokenUpdateScheduled(false);
-            const effects = tokenStream ? [tokensChangeEffect.of({
-                tokens: tokenStream,
-                rawValue: props.value,
-                sanitizedValue: sanitizedValue
+            const effects = prefixCorrectedTokenStream ? [tokensChangeEffect.of({
+                tokens: prefixCorrectedTokenStream
             })] : [];
             const changes = isExternalUpdate
                 ? { from: 0, to: viewRef.current!.state.doc.length, insert: sanitizedValue }
@@ -438,7 +453,11 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
                 ...(props.isInExpandedMode ? { height: '100%' } : { height: 'auto' })
             }}>
                 {!props.isInExpandedMode && <FXButton />}
-                <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                <div style={{
+                    position: 'relative',
+                    width: '100%',
+                    ...(props.isInExpandedMode || (props.sx && 'height' in props.sx) ? { height: '100%' } : {})
+                }}>
                     <div ref={editorRef} style={{
                         border: '1px solid var(--vscode-dropdown-border)',
                         ...props.sx,
