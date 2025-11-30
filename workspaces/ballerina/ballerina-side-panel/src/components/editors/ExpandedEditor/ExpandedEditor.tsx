@@ -61,6 +61,7 @@ interface ExpandedPromptEditorProps {
     // Error diagnostics props
     error?: FieldError;
     formDiagnostics?: DiagnosticMessage[];
+    inputMode?: InputMode;
 }
 
 const ModalContainer = styled.div`
@@ -146,10 +147,10 @@ const TitleWrapper = styled.div`
  * Map of mode components - add new modes here
  */
 const MODE_COMPONENTS: Record<EditorMode, React.ComponentType<any>> = {
-    text: TextMode,
-    prompt: PromptMode,
-    expression: ExpressionMode,
-    template: TemplateMode
+    [InputMode.TEXT]: TextMode,
+    [InputMode.PROMPT]: PromptMode,
+    [InputMode.EXP]: ExpressionMode,
+    [InputMode.TEMPLATE]: TemplateMode
 };
 
 export const ExpandedEditor: React.FC<ExpandedPromptEditorProps> = ({
@@ -168,28 +169,22 @@ export const ExpandedEditor: React.FC<ExpandedPromptEditorProps> = ({
     extractArgsFromFunction,
     getHelperPane,
     error,
-    formDiagnostics
+    formDiagnostics,
+    inputMode
 }) => {
     const promptFields = ["query", "instructions", "role"];
 
     // Determine mode - use prop if provided, otherwise auto-detect
     const defaultMode: EditorMode = propMode ?? (
-        promptFields.includes(field.key) ? "prompt" : "text"
+        promptFields.includes(field.key) ? InputMode.PROMPT : InputMode.TEXT
     );
 
     const [mode, setMode] = useState<EditorMode>(defaultMode);
-    const [showPreview, setShowPreview] = useState(false);
     const [mouseDownTarget, setMouseDownTarget] = useState<EventTarget | null>(null);
 
     useEffect(() => {
         setMode(defaultMode);
     }, [defaultMode]);
-
-    useEffect(() => {
-        if (mode === "text") {
-            setShowPreview(false);
-        }
-    }, [mode]);
 
     const handleMinimize = () => {
         onClose();
@@ -217,13 +212,21 @@ export const ExpandedEditor: React.FC<ExpandedPromptEditorProps> = ({
         value: value,
         onChange: onChange,
         field,
-        // Props for modes with preview support
-        ...(mode === "prompt" && {
-            isPreviewMode: showPreview,
-            onTogglePreview: (enabled: boolean) => setShowPreview(enabled)
+        // Props for prompt mode
+        ...(mode === InputMode.PROMPT && {
+            completions,
+            fileName,
+            targetLineRange,
+            sanitizedExpression,
+            rawExpression,
+            extractArgsFromFunction,
+            getHelperPane,
+            error,
+            formDiagnostics,
+            inputMode
         }),
         // Props for expression mode
-        ...(mode === "expression" && {
+        ...(mode === InputMode.EXP && {
             completions,
             fileName,
             targetLineRange,
@@ -235,7 +238,7 @@ export const ExpandedEditor: React.FC<ExpandedPromptEditorProps> = ({
             formDiagnostics
         }),
         // Props for template mode
-        ...(mode === "template" && {
+        ...(mode === InputMode.TEMPLATE && {
             completions,
             fileName,
             targetLineRange,
@@ -243,10 +246,9 @@ export const ExpandedEditor: React.FC<ExpandedPromptEditorProps> = ({
             rawExpression,
             extractArgsFromFunction,
             getHelperPane,
-            isPreviewMode: showPreview,
-            onTogglePreview: (enabled: boolean) => setShowPreview(enabled),
             error,
-            formDiagnostics
+            formDiagnostics,
+            inputMode
         })
     };
     // HACK: Must find a proper central way to manager popups

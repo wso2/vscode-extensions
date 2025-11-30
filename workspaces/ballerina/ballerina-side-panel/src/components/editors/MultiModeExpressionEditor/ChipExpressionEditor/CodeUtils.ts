@@ -19,11 +19,12 @@
 import { StateEffect, StateField, RangeSet, Transaction, SelectionRange, Annotation } from "@codemirror/state";
 import { WidgetType, Decoration, ViewPlugin, EditorView, ViewUpdate } from "@codemirror/view";
 import { filterCompletionsByPrefixAndType, getParsedExpressionTokens, detectTokenPatterns, ParsedToken, mapRawToSanitized } from "./utils";
-import { defaultKeymap, historyKeymap } from "@codemirror/commands";
+import { defaultKeymap, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { CompletionItem } from "@wso2/ui-toolkit";
 import { ThemeColors } from "@wso2/ui-toolkit";
 import { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import { TokenType, TokenMetadata, CompoundTokenSequence } from "./types";
+import { Extension } from '@codemirror/state';
 import {
     CHIP_TEXT_STYLES,
     BASE_CHIP_STYLES,
@@ -606,7 +607,7 @@ export const buildCompletionSource = (getCompletions: () => Promise<CompletionIt
     };
 };
 
-export const buildHelperPaneKeymap = (getIsHelperPaneOpen: () => boolean, onClose: () => void) => {
+export const buildHelperPaneKeymap = (getIsHelperPaneOpen: () => boolean, onClose: () => void, onToggle?: () => void) => {
     return [
         {
             key: "Escape",
@@ -615,6 +616,14 @@ export const buildHelperPaneKeymap = (getIsHelperPaneOpen: () => boolean, onClos
                 onClose();
                 return true;
             }
-        }
+        },
+        ...(onToggle ? [{
+            key: "Ctrl-/",
+            mac: "Cmd-/",
+            run: (_view: EditorView) => {
+                onToggle();
+                return true;
+            }
+        }] : [])
     ];
 };
