@@ -1,13 +1,6 @@
 # Trivy ignore file for known low-risk vulnerabilities
 # Format: CVE-ID or vulnerability ID
 
-# Low severity vulnerability in jsondiffpatch package
-# Used as transitive dependency via 'ai' package
-# Risk Assessment: LOW severity, limited impact on diff operations
-# Decision: Acceptable risk - waiting for ai package to update jsondiffpatch dependency
-# Related Issue: https://github.com/wso2/product-ballerina-integrator/issues/1274
-CVE-2025-9910
-
 # No fix released by the author
 # https://github.com/wso2/vscode-extensions/issues/550
 CVE-2020-36851

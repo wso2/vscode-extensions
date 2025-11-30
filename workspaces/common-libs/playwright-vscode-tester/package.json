@@ -25,7 +25,7 @@
   },
   "dependencies": {
     
-    "@vscode/vsce": "~3.4.2",
+    "@vscode/vsce": "^3.7.0",
     "compare-versions": "~6.1.1",
     "fs-extra": "~11.3.0",
     "hpagent": "~1.2.0",

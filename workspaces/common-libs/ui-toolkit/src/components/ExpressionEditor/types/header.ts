@@ -22,4 +22,5 @@ export type HeaderExpressionEditorProps = ExpressionEditorProps;
 
 export type HeaderExpressionEditorRef = ExpressionEditorRef & {
     inputElement: HTMLInputElement;
+    setCursor: (value: string, cursorPosition: number) => void;
 };

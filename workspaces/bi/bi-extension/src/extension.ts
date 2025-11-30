@@ -27,6 +27,7 @@ export function activate(context: vscode.ExtensionContext) {
 		extension.langClient = ballerinaExt.exports.ballerinaExtInstance.langClient;
 		extension.biSupported = ballerinaExt.exports.ballerinaExtInstance.biSupported;
 		extension.isNPSupported = ballerinaExt.exports.ballerinaExtInstance.isNPSupported;
+		extension.isWorkspaceSupported = ballerinaExt.exports.ballerinaExtInstance?.isWorkspaceSupported;
 		StateMachine.initialize();
 		return;
 	}

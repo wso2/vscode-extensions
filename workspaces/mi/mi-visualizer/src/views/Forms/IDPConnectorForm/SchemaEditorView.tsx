@@ -26,7 +26,6 @@ import {
     parameterConfigForFields,
     parameterConfigForTables,
     tableConflictCheck,
-    fetchWithCopilot,
     validateJson,
     convertJsonSchemaToArrays,
     handleFetchError
@@ -188,22 +187,21 @@ export function SchemaEditorView({
             base64Images.push(base64String);
         }
         try {
-            const response = await fetchWithCopilot({
-                rpcClient,
-                body: {
-                    operation: "generate",
-                    images: base64Images
-                },
-                controllerRef: controllerRef1,
+            // Call new RPC method instead of backend
+            const result = await rpcClient.getMiAiPanelRpcClient().processIdp({
+                operation: "generate",
+                images: base64Images,
+                userInput: "",
+                jsonSchema: ""
             });
-            const data = await response.json();
-            if (!validateJson(data.message)) {
+
+            if (!validateJson(result.schema)) {
                 setErrors("Invalid JSON schema");
                 return;
             }
-            setSchema(data.message);
-            handleFileWrite(data.message);
-            const processedSchema = convertJsonSchemaToArrays(data.message);
+            setSchema(result.schema);
+            handleFileWrite(result.schema);
+            const processedSchema = convertJsonSchemaToArrays(result.schema);
             setTables(processedSchema.arrays);
             setFields(processedSchema.fields);
         } catch (error: any) {
@@ -266,25 +264,22 @@ export function SchemaEditorView({
             }
         }
         try {
-            const response = await fetchWithCopilot({
-                rpcClient: rpcClient,
-                body: {
-                    operation: "finetune",
-                    user_input: userInput,
-                    json_schema: schema,
-                    images: base64Images,
-                },
-                controllerRef: controllerRef2,
+            // Call new RPC method instead of backend
+            const result = await rpcClient.getMiAiPanelRpcClient().processIdp({
+                operation: "finetune",
+                userInput: userInput,
+                jsonSchema: schema,
+                images: base64Images,
             });
-            const data = await response.json();
-            if (!validateJson(data.message)) {
+
+            if (!validateJson(result.schema)) {
                 setErrors("Invalid JSON schema");
                 return;
             }
-            setSchema(data.message);
-            handleFileWrite(data.message);
+            setSchema(result.schema);
+            handleFileWrite(result.schema);
             setUserInput("");
-            const processedSchema = convertJsonSchemaToArrays(data.message);
+            const processedSchema = convertJsonSchemaToArrays(result.schema);
             setTables(processedSchema.arrays);
             setFields(processedSchema.fields);
         } catch (error: any) {

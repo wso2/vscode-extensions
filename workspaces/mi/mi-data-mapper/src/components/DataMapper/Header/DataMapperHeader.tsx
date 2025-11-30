@@ -30,6 +30,7 @@ import { DataMapWriteRequest } from "@wso2/mi-core";
 import { FunctionDeclaration } from "ts-morph";
 import { DMType } from "@wso2/mi-core";
 import { doesMappingExist } from "../../../index";
+import { hasFields } from "../../Diagram/utils/node-utils";
 
 export interface DataMapperHeaderProps {
     fnST: FunctionDeclaration;
@@ -53,18 +54,19 @@ export function DataMapperHeader(props: DataMapperHeaderProps) {
     const { filePath, views, switchView, hasEditDisabled, onClose, applyModifications, onDataMapButtonClick: onDataMapClick, onDataMapClearClick: onClear, setIsLoading, isLoading, setIsMapping, isMapping, fnST, inputTrees, outputTree } = props;
     const { rpcClient } = useVisualizerContext();
 
+    // Check if both input and output schemas have valid fields
+    // Note: [].every() returns true, so we must check length > 0 first
+    const hasValidSchemas = inputTrees.length > 0 && inputTrees.every((tree) => hasFields(tree)) && hasFields(outputTree);
+
     const handleDataMapButtonClick = async () => {
         try {
             let mappingExist = doesMappingExist(fnST, inputTrees, outputTree), choice;
             if (mappingExist) {
                 choice = await rpcClient.getMiDataMapperRpcClient().confirmMappingAction();
             }
-            if (!mappingExist || choice) {
+            console.log("valid schemas:", hasValidSchemas);
+            if ((!mappingExist || choice) && hasValidSchemas) {
                 props.setIsLoading(true);
-                let authstatus = await rpcClient.getMiDataMapperRpcClient().authenticateUser();
-                if (authstatus === false) {
-                    return;
-                }
                 props.setIsMapping(true);
                 await rpcClient.getMiDataMapperRpcClient().getMappingFromAI();
             }
@@ -102,6 +104,7 @@ export function DataMapperHeader(props: DataMapperHeaderProps) {
                             <AIMapButton
                                 onClick={handleDataMapButtonClick}
                                 isLoading={isLoading}
+                                disabled={!hasValidSchemas}
                             />
 
                             <DeleteButton

@@ -83,7 +83,7 @@
     "clean": "rimraf ./dist",
     "compile": "tsc -p .",
     "watch": "tsc -p . -w",
-    "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release; else vsce package --no-dependencies; fi",
+    "package": "node ../../common-libs/scripts/package-vsix.js",
     "build": "pnpm clean && pnpm run copyFonts && webpack --mode production --devtool hidden-source-map && pnpm run package && pnpm run postbuild",
     "compile-tests": "pnpm run compile",
     "watch-tests": "pnpm run watch",
@@ -113,7 +113,7 @@
   },
   "dependencies": {
     "copyfiles": "^2.4.1",
-    "@vscode/vsce": "~2.21.0",
+    "@vscode/vsce": "^3.7.0",
     "vscode-messenger": "^0.4.5",
     "vscode-messenger-common": "^0.4.5",
     "@wso2/api-designer-core": "workspace:*",
@@ -136,6 +136,6 @@
     "cors-anywhere": "^0.4.4",
     "@apidevtools/json-schema-ref-parser": "11.6.1",
     "adm-zip": "~0.5.14",
-    "js-yaml": "~4.1.0"
+    "js-yaml": "~4.1.1"
   }
 }

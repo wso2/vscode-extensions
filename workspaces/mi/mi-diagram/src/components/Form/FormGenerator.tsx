@@ -152,6 +152,49 @@ export function getNameForController(name: string | number) {
     return String(name).replace(/\./g, '__dot__');
 }
 
+/**
+ * Recursively remap object keys to avoid corrupting user values
+ * @param value - The value to remap
+ * @returns The remapped value
+ */
+function remapKeys(value: any): any {
+    if (Array.isArray(value)) {
+        return value.map(remapKeys);
+    }
+    if (value && typeof value === "object") {
+        return Object.fromEntries(
+            Object.entries(value).map(([key, val]) => {
+                const nextKey =
+                    key === "configKey" ? "config_key" :
+                    key === "isExpression" ? "is_expression" :
+                    key === "insertText" ? "insert_text" :
+                    key;
+                return [nextKey, remapKeys(val)];
+            })
+        );
+    }
+    return value;
+}
+
+function remapKeysReverse(value: any): any {
+    if (Array.isArray(value)) {
+        return value.map(remapKeysReverse);
+    }
+    if (value && typeof value === "object") {
+        return Object.fromEntries(
+            Object.entries(value).map(([key, val]) => {
+                const nextKey =
+                    key === "config_key" ? "configKey" :
+                    key === "is_expression" ? "isExpression" :
+                    key === "insert_text" ? "insertText" :
+                    key;
+                return [nextKey, remapKeysReverse(val)];
+            })
+        );
+    }
+    return value;
+}
+
 export function FormGenerator(props: FormGeneratorProps) {
     const { rpcClient } = useVisualizerContext();
     const sidePanelContext = React.useContext(SidePanelContext);
@@ -404,13 +447,6 @@ export function FormGenerator(props: FormGeneratorProps) {
     };
 
     const handleGenerateAi = async () => {
-        let token: any;
-        try {
-            token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
-        } catch (error) {
-            rpcClient.getMiDiagramRpcClient().executeCommand({ commands: ["MI.openAiPanel"] }).catch(console.error);
-            throw new Error("User not authenticated");
-        }
         try {
             setGeneratedFormDetails(null);
             setIsAutoFillBtnClicked(false);
@@ -469,37 +505,45 @@ export function FormGenerator(props: FormGeneratorProps) {
                 form_description: formData.doc || "",
             };
             const values = getValues();
-            const base_url = (await rpcClient.getMiDiagramRpcClient().getBackendRootUrl()).url;
-            const response = await fetch(`${base_url}/form/auto-fill`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token.token}`
-                },
-                body: JSON.stringify({
-                    payloads,
-                    variables,
-                    params,
-                    properties,
-                    headers,
-                    configs,
-                    current_values: values,
-                    form_details: formDetails,
-                    connection_names: connectionNames,
-                    question: currentInput,
-                    feild_descriptions: fieldDescriptions,
-                }).replaceAll("insertText", "insert_text").replaceAll("configKey", "config_key").replaceAll("isExpression", "is_expression"),
+
+            // Convert helper pane data to JSON strings with structural key remapping
+            // Convert payload format: insertText → insert_text (structurally, not via string replacement)
+            // Only serialize if the source data exists (avoid sending [null])
+            const convertedPayloadsStr = payloads ? JSON.stringify(remapKeys(payloads)) : undefined;
+            const convertedVariablesStr = variables ? JSON.stringify(variables) : undefined;
+            const convertedParamsStr = params ? JSON.stringify(params) : undefined;
+            const convertedPropertiesStr = properties ? JSON.stringify(properties) : undefined;
+            const convertedHeadersStr = headers ? JSON.stringify(headers) : undefined;
+            const convertedConfigsStr = configs ? JSON.stringify(configs) : undefined;
+
+            // Convert current values format: configKey → config_key, isExpression → is_expression
+            const convertedValues = remapKeys(values);
+
+            // Flatten connectionNames object to array of all connection names
+            const allConnectionNames = Object.values(connectionNames).flat();
+
+            // Call RPC method instead of backend API
+            // Only include arrays when the corresponding JSON string exists
+            const response = await rpcClient.getMiAiPanelRpcClient().autoFillForm({
+                payloads: convertedPayloadsStr ? [convertedPayloadsStr] : undefined,
+                variables: convertedVariablesStr ? [convertedVariablesStr] : undefined,
+                params: convertedParamsStr ? [convertedParamsStr] : undefined,
+                properties: convertedPropertiesStr ? [convertedPropertiesStr] : undefined,
+                headers: convertedHeadersStr ? [convertedHeadersStr] : undefined,
+                configs: convertedConfigsStr ? [convertedConfigsStr] : undefined,
+                current_values: convertedValues,
+                form_details: JSON.stringify(formDetails),
+                connection_names: allConnectionNames,
+                question: currentInput,
+                field_descriptions: fieldDescriptions,
             });
-            if (!response.ok) {
-                throw new Error("Failed to fetch suggestion");
-            }
-            const responseData = await response.json();
-            if (!responseData.suggestion) {
-                throw new Error("No valid suggestion found");
-            }
-            if (generatedFormDetails !== responseData.suggestion) {
-                const result = JSON.stringify(responseData.suggestion).replaceAll("is_expression", "isExpression");
-                setGeneratedFormDetails(JSON.parse(result));
+
+            // Convert response back: is_expression → isExpression, config_key → configKey
+            if (response.filled_values) {
+                const result = remapKeysReverse(response.filled_values);
+                setGeneratedFormDetails(result);
+            } else {
+                throw new Error("No filled values returned from auto-fill");
             }
         } catch (error) {
             console.error("Error in handleGenerateAi:", error);

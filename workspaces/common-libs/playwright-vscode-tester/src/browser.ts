@@ -94,7 +94,8 @@ export class VSBrowser {
             "extensions.autoUpdate": false,
             "chat.disableAIFeatures": true,
             "github.copilot.enable": false,
-            "github.copilot.chat.enable": false
+            "github.copilot.chat.enable": false,
+            "workbench.secondarySideBar.defaultVisibility": "hidden"
         };
         if (Object.keys(this.customSettings).length > 0) {
             console.log('Detected user defined code settings');

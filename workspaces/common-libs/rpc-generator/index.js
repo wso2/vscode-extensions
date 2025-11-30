@@ -324,7 +324,6 @@ const handlerFunction = handlerSourceFile.addFunction({
     }]
 });
 handleImportStatment(handlerSourceFile, 'vscode-messenger', 'Messenger');
-
 // Add statements to the function
 const managerObject = `const rpcManger = new ${managerClassName}();`
 handlerFunction.addStatements(managerObject);
@@ -332,6 +331,7 @@ typeMethods.forEach(value => {
     handleMessengerTypes(handlerFunction, value, handlerSourceFile);
 })
 
+console.log(`Adding handler function: ${headerComment}...`);
 handleImportStatment(handlerSourceFile, './rpc-manager', managerClassName);
 
 // Format imports into new lines

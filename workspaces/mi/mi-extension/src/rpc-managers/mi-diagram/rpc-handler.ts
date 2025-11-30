@@ -166,7 +166,6 @@ import {
     exportProject,
     fetchDSSTables,
     generateDSSQueries,
-    getAIResponse,
     getAPIDirectory,
     getAddressEndpoint,
     getAllAPIcontexts,
@@ -319,8 +318,8 @@ import {
     UpdateRegistryPropertyRequest,
     updatePropertiesInArtifactXML,
     getPropertiesFromArtifactXML,
-    formatPomFile,
-    getBackendRootUrl
+    formatPomFile
+    // getBackendRootUrl - REMOVED: Backend URLs deprecated, all AI features use local LLM,
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
 import { MiDiagramRpcManager } from "./rpc-manager";
@@ -391,7 +390,6 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(createProject, (args: CreateProjectRequest) => rpcManger.createProject(args));
     messenger.onRequest(importProject, (args: ImportProjectRequest) => rpcManger.importProject(args));
     messenger.onRequest(migrateProject, (args: MigrateProjectRequest) => rpcManger.migrateProject(args));
-    messenger.onRequest(getAIResponse, (args: AIUserInput) => rpcManger.getAIResponse(args));
     messenger.onRequest(writeContentToFile, (args: WriteContentToFileRequest) => rpcManger.writeContentToFile(args));
     messenger.onRequest(writeMockServices, (args: WriteMockServicesRequest) => rpcManger.writeMockServices(args));
     messenger.onRequest(handleFileWithFS, (args: HandleFileRequest) => rpcManger.handleFileWithFS(args));

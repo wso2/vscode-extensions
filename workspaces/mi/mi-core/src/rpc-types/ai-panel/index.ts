@@ -18,9 +18,14 @@
 
 import {
     GenerateSuggestionsRequest, GenerateSuggestionsResponse,
-    GetBackendRootUrlResponse,
     GenerateCodeRequest, GenerateCodeResponse,
-    AbortCodeGenerationResponse
+    AbortCodeGenerationResponse,
+    GenerateUnitTestRequest, GenerateUnitTestResponse,
+    GenerateUnitTestCaseRequest, GenerateUnitTestCaseResponse,
+    ProcessIdpRequest, ProcessIdpResponse,
+    FillIdpSchemaRequest, FillIdpSchemaResponse,
+    DmcToTsRequest, DmcToTsResponse,
+    AutoFillFormRequest, AutoFillFormResponse
 } from "./types";
 
 // Export types for external use
@@ -32,32 +37,74 @@ export type {
     AbortCodeGenerationResponse,
     CodeGenerationEvent,
     XmlCodeEntry,
-    CorrectedCodeItem
+    CorrectedCodeItem,
+    GenerateUnitTestRequest,
+    GenerateUnitTestResponse,
+    GenerateUnitTestCaseRequest,
+    GenerateUnitTestCaseResponse,
+    ProcessIdpRequest,
+    ProcessIdpResponse,
+    FillIdpSchemaRequest,
+    FillIdpSchemaResponse,
+    DmcToTsRequest,
+    DmcToTsResponse,
+    AutoFillFormRequest,
+    AutoFillFormResponse
 } from './types';
 
 export interface MIAIPanelAPI {
     // ==================================
     // General Functions
     // ==================================
-    getBackendRootUrl: () => Promise<GetBackendRootUrlResponse>
     generateSuggestions: (request: GenerateSuggestionsRequest) => Promise<GenerateSuggestionsResponse>
     generateCode: (request: GenerateCodeRequest) => Promise<GenerateCodeResponse>
     abortCodeGeneration: () => Promise<AbortCodeGenerationResponse>
-    
+
     // ==================================
     // API Key Management
     // ==================================
-    setAnthropicApiKey: () => Promise<void>
     hasAnthropicApiKey: () => Promise<boolean | undefined>
+
+    // ==================================
+    // Usage Management
+    // ==================================
+    fetchUsage: () => Promise<{ max_usage: number; remaining_tokens: number; time_to_reset: number } | undefined>
+
+    // ==================================
+    // Unit Test Generation
+    // ==================================
+    generateUnitTest: (request: GenerateUnitTestRequest) => Promise<GenerateUnitTestResponse>
+    generateUnitTestCase: (request: GenerateUnitTestCaseRequest) => Promise<GenerateUnitTestCaseResponse>
+
+    // ==================================
+    // IDP (Intelligent Document Processor)
+    // ==================================
+    processIdp: (request: ProcessIdpRequest) => Promise<ProcessIdpResponse>
+    fillIdpSchema: (request: FillIdpSchemaRequest) => Promise<FillIdpSchemaResponse>
+
+    // ==================================
+    // DMC to TypeScript Conversion
+    // ==================================
+    dmcToTs: (request: DmcToTsRequest) => Promise<DmcToTsResponse>
+
+    // ==================================
+    // Auto-Fill Form
+    // ==================================
+    autoFillForm: (request: AutoFillFormRequest) => Promise<AutoFillFormResponse>
 }
 
 // Export RPC type definitions
 export {
-    getBackendRootUrl,
     generateSuggestions,
     generateCode,
     abortCodeGeneration,
     codeGenerationEvent,
-    setAnthropicApiKey,
-    hasAnthropicApiKey
+    hasAnthropicApiKey,
+    fetchUsage,
+    generateUnitTest,
+    generateUnitTestCase,
+    processIdp,
+    fillIdpSchema,
+    dmcToTs,
+    autoFillForm
 } from './rpc-type';

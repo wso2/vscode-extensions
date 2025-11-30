@@ -101,7 +101,6 @@ export const CodeSegment: React.FC<CodeSegmentProps> = ({ segmentText, loading, 
     };
 
     const handleAddToWorkspace = async (e: React.MouseEvent) => {
-        console.log(name, " - Adding to workspace : ", name);
         e.stopPropagation();
         await fetchFileInfo();
 
@@ -154,7 +153,6 @@ export const CodeSegment: React.FC<CodeSegmentProps> = ({ segmentText, loading, 
     };
 
     const handleRevertToLastCheckpoint = async (e: React.MouseEvent) => {
-        console.log(name, " - Reverting to last checkpoint");
         e.stopPropagation();
         await fetchFileInfo();
 

@@ -35,8 +35,8 @@ const SlidingWindowContainer = styled.div`
     position: relative;
     width: 320px;
     max-height: 350px;
-    overflow-x: scroll;
-    overflow-y: scroll;
+    overflow-x: hidden;
+    overflow-y: hidden;
     padding: 0px;
     background-color: var(--vscode-dropdown-background);
     transition: height 0.3s ease-in-out;
@@ -294,3 +294,5 @@ export const CopilotFooter = styled.div`
     align-items: center;
     gap: 8px;
 `;
+
+export { useSlidingPane };

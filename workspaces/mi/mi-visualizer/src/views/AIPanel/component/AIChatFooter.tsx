@@ -23,15 +23,19 @@ import SuggestionsList from "./SuggestionsList";
 import { useMICopilotContext } from "./MICopilotContext";
 import { handleFileAttach } from "../utils";
 import { USER_INPUT_PLACEHOLDER_MESSAGE, VALID_FILE_TYPES } from "../constants";
-import { generateSuggestions, generateId, getBackendUrlAndView, fetchCodeGenerationsWithRetry, getDiagnosticsReponseFromLlm, replaceCodeBlock, setupCodeGenerationEventListener } from "../utils";
-import { BackendRequestType, FixedConfigItem, CorrectedCodeItem, } from "../types";
-import { Role, MessageType, CopilotChatEntry, ChatMessage } from "@wso2/mi-core";
+import { generateSuggestions, generateId, getView, fetchCodeGenerationsWithRetry, replaceCodeBlock, setupCodeGenerationEventListener, updateTokenInfo } from "../utils";
+import { BackendRequestType } from "../types";
+import { Role, MessageType, CopilotChatEntry } from "@wso2/mi-core";
 import Attachments from "./Attachments";
+
+interface AIChatFooterProps {
+    isUsageExceeded?: boolean;
+}
 
 /**
  * Footer component containing chat input and controls
  */
-const AIChatFooter: React.FC = () => {
+const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) => {
     const {
         rpcClient,
         messages,
@@ -59,6 +63,8 @@ const AIChatFooter: React.FC = () => {
     const isStopButtonClicked = useRef(false);
     const isResponseReceived = useRef(false);
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
+    const abortedRef = useRef(false);
+    const lastUserPromptRef = useRef<string>("");
     const [isFocused, setIsFocused] = useState(false);
     const isDarkMode = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 
@@ -83,71 +89,81 @@ const AIChatFooter: React.FC = () => {
 
     // Handle code generation streaming events from extension
     const handleCodeGenerationEvent = (event: any) => {
+        // Ignore all events if generation was aborted
+        if (abortedRef.current) {
+            return;
+        }
+
         switch (event.type) {
             case "code_generation_start":
-                // Start of code generation - could show loading indicator
-                console.log("Code generation started");
+                // Start of code generation
                 setAssistantResponse("");
                 break;
-            
+
             case "content_block":
                 // Handle streaming content blocks
                 if (event.content) {
-                    const response = JSON.parse(event.content);
-                    if (response.content !== null && response.content !== undefined) {
-                        const content = response.content;
-                        const usage = response.usage;
+                    const content = event.content;
 
-                        if (usage.max_usage == -1) {
-                            setRemainingTokenPercentage(-1);
-                        } else {
-                            const remainingTokens = Number(usage.remaining_tokens);
-                            const maxTokens = Number(usage.max_usage);
-                            let percentage = Math.round((remainingTokens / maxTokens) * 100);
-                            if (percentage < 0) percentage = 0;
-                            setRemainingTokenPercentage(percentage);
+                    // Update assistant response state
+                    setAssistantResponse(prev => prev + content);
+
+                    // Update the last copilot message in real-time
+                    setMessages((prevMessages) => {
+                        const newMessages = [...prevMessages];
+                        if (newMessages.length > 0) {
+                            newMessages[newMessages.length - 1].content += content;
                         }
-                    
-                        // Update assistant response state
-                        setAssistantResponse(prev => prev + content);
-                        
-                        // Update the last copilot message in real-time
-                        setMessages((prevMessages) => {
-                            const newMessages = [...prevMessages];
-                            if (newMessages.length > 0) {
-                                newMessages[newMessages.length - 1].content += content;
-                            }
-                            return newMessages;
-                        });
-                    } 
-                    else if (response.questions && response.questions.length > 0) {
-                        setQuestions((prevQuestions) => [...prevQuestions, ...response.questions]);
-                    }
-                } 
+                        return newMessages;
+                    });
+                }
                 break;
             
             case "code_generation_end":
                 // Final content replacement
-                console.log("Code generation completed");
                 if (event.content) {
                     setAssistantResponse(event.content);
                     handleCodeGenerationComplete(event.content);
                 }
+                // Fetch and update usage after code generation
+                rpcClient?.getMiAiPanelRpcClient().fetchUsage().then((usage) => {
+                    if (usage) {
+                        rpcClient?.getAIVisualizerState().then((machineView) => {
+                            const { remainingTokenPercentage } = updateTokenInfo(machineView);
+                            setRemainingTokenPercentage(remainingTokenPercentage);
+                        });
+                    }
+                }).catch((error) => {
+                    console.error("Error fetching usage after code generation:", error);
+                });
+
+                // If diagnostics won't run, generate suggestions immediately
+                // Otherwise, wait for code_diagnostic_end event
+                if (!event.willRunDiagnostics) {
+                    // Clear old suggestions immediately before generating new ones
+                    setQuestions([]);
+                    const suggestionController = new AbortController();
+                    generateSuggestions(copilotChat, rpcClient, suggestionController).then((response) => {
+                        if (response && response.length > 0) {
+                            setQuestions(response);
+                        }
+                    }).catch((error) => {
+                        console.error("Error generating suggestions after code generation:", error);
+                    });
+                }
                 break;
 
             case "code_diagnostic_start":
-                console.log("Code diagnostics started");
                 setIsValidating(true);
                 break;
 
             case "code_diagnostic_end":
-                console.log("Code diagnostics completed");
                 setIsValidating(false);
-                
+
                 // Handle corrected codes if available
                 if (event.correctedCodes && event.correctedCodes.length > 0) {
                     const fileCorrections = new Map<string, string>();
-                    
+
                     event.correctedCodes.forEach((item: any) => {
                         if (item.name && (item.configuration || item.code)) {
                             const correctedCode = item.configuration || item.code;
@@ -161,28 +177,38 @@ const AIChatFooter: React.FC = () => {
                         setMessages((prevMessages) => {
                             const newMessages = [...prevMessages];
                             const lastMessage = newMessages[newMessages.length - 1];
-                            
+
                             if (lastMessage && lastMessage.role === Role.MICopilot) {
                                 let updatedContent = lastMessage.content;
-                                
+
                                 fileCorrections.forEach((correctedCode, fileName) => {
                                     updatedContent = replaceCodeBlock(updatedContent, fileName, correctedCode);
                                 });
-                                
+
                                 newMessages[newMessages.length - 1] = {
                                     ...lastMessage,
                                     content: updatedContent
                                 };
                             }
-                            
+
                             return newMessages;
                         });
                     }
                 }
+
+                // Clear old suggestions immediately before generating new ones
+                setQuestions([]);
+                // Generate fresh suggestions after code generation completes
+                generateSuggestions(copilotChat, rpcClient, new AbortController()).then((response) => {
+                    if (response && response.length > 0) {
+                        setQuestions(response);
+                    }
+                }).catch((error) => {
+                    console.error("Error generating suggestions after code generation:", error);
+                });
                 break;
             
             case "error":
-                console.error("Code generation error:", event.error);
                 setMessages((prevMessages) => [...prevMessages, {
                     id: generateId(),
                     role: Role.MICopilot,
@@ -192,14 +218,18 @@ const AIChatFooter: React.FC = () => {
                 setBackendRequestTriggered(false);
                 setIsValidating(false);
                 break;
-            
+
             case "stop":
                 // Code generation completed
-                console.log("Code generation completed");
                 break;
-            
+
+            case "aborted":
+                // Abort acknowledged by extension - all streaming has stopped
+                setBackendRequestTriggered(false);
+                break;
+
             default:
-                console.log("Unknown event type:", event.type);
+                break;
         }
     };
 
@@ -227,6 +257,8 @@ const AIChatFooter: React.FC = () => {
     // Handle stopping the response generation
     const handleStop = async () => {
         isStopButtonClicked.current = true;
+        // Set abort flag BEFORE making any async calls to prevent race conditions
+        abortedRef.current = true;
 
         try {
             // Request the extension to abort code generation
@@ -243,7 +275,10 @@ const AIChatFooter: React.FC = () => {
                 setIsValidating(false);
             }
 
-            // Remove the last user and copilot messages
+            // Clear assistant response state
+            setAssistantResponse("");
+
+            // Remove the last user and copilot messages from UI state
             setMessages((prevMessages) => {
                 const newMessages = [...prevMessages];
                 newMessages.pop(); // Remove the last copilot message
@@ -251,23 +286,39 @@ const AIChatFooter: React.FC = () => {
                 return newMessages;
             });
 
-            // Generate suggestions based on chat history
-            await generateSuggestions(copilotChat, rpcClient, new AbortController()).then((response) => {
-                setQuestions((prevMessages) => [...prevMessages, ...response]);
+            // IMPORTANT: Also remove the last user message from copilotChat
+            // to prevent partial conversations from persisting in localStorage
+            setCopilotChat((prevChat) => {
+                const newChat = [...prevChat];
+                if (newChat.length > 0) {
+                    newChat.pop(); // Remove the last user message
+                }
+                return newChat;
             });
 
-            // Explicitly adjust the textarea height after suggestion generation
+            // Restore the original user prompt to the input box
+            setCurrentUserprompt(lastUserPromptRef.current);
+
+            // Explicitly adjust the textarea height
             if (textAreaRef.current) {
                 setTimeout(() => {
                     textAreaRef.current.style.height = "auto";
                     textAreaRef.current.style.height = `${textAreaRef.current.scrollHeight}px`;
                 }, 0);
             }
+
+            // Reset abort flag after a delay to ensure all buffered events are ignored
+            setTimeout(() => {
+                abortedRef.current = false;
+            }, 200);
         } catch (error) {
             console.error("Error stopping code generation:", error);
+            // Reset abort flag on error as well
+            abortedRef.current = false;
         } finally {
-            isStopButtonClicked.current = false;
-            
+            // Don't reset isStopButtonClicked here - keep it true so handleSend's finally
+            // block won't clear the restored prompt. It will be reset on next send.
+
             // Reset backend request triggered state
             setBackendRequestTriggered(false);
         }
@@ -285,6 +336,9 @@ const AIChatFooter: React.FC = () => {
     };
 
     async function handleSend(requestType: BackendRequestType = BackendRequestType.UserPrompt, prompt?: string | "") {
+        // Reset stop button flag at the start of a new send
+        isStopButtonClicked.current = false;
+
         // Block empty user inputs and avoid state conflicts
         if (currentUserPrompt === "" && !Object.values(BackendRequestType).includes(requestType)) {
             return;
@@ -308,6 +362,9 @@ const AIChatFooter: React.FC = () => {
         setCurrentChatId(chatId);
         
         const updateChats = (userPrompt: string, userMessageType?: MessageType) => {
+            // Store the user prompt for potential abort restoration
+            lastUserPromptRef.current = userPrompt;
+
             // Append labels to the user prompt
             setMessages((prevMessages) => [
                 ...prevMessages,
@@ -343,7 +400,7 @@ const AIChatFooter: React.FC = () => {
                 break;
         }
 
-        const { backendUrl, view } = await getBackendUrlAndView(rpcClient);
+        const view = await getView(rpcClient);
 
         try {
             // Call the RPC method for streaming code generation
@@ -501,10 +558,11 @@ const AIChatFooter: React.FC = () => {
                                     setIsFocused(false);
                                 }}
                                 onKeyDown={handleTextKeydown}
-                                placeholder={placeholder}
+                                placeholder={isUsageExceeded ? "Usage quota exceeded. Please logout and log in with your own API key to continue." : placeholder}
+                                disabled={isUsageExceeded}
                                 style={{
                                     flex: 1,
-                                    overflowY: "auto", 
+                                    overflowY: "auto",
                                     padding: "5px 15px 5px 10px",
                                     borderRadius: "4px",
                                     border: "none",
@@ -516,6 +574,8 @@ const AIChatFooter: React.FC = () => {
                                         : "var(--vscode-editorHoverWidget-background)",
                                     color: "var(--vscode-input-foreground)",
                                     position: "relative",
+                                    opacity: isUsageExceeded ? 0.5 : 1,
+                                    cursor: isUsageExceeded ? "not-allowed" : "text"
                                 }}
                                 rows={2}
                             />
@@ -564,10 +624,9 @@ const AIChatFooter: React.FC = () => {
                                 color: isDarkMode
                                     ? "var(--vscode-input-foreground)"
                                     : "var(--vscode-editor-foreground)",
-                                opacity: backendRequestTriggered || isValidating ? 0.5 : 1,
-                                cursor: backendRequestTriggered || isValidating ? "not-allowed" : "pointer"
+                                opacity: (backendRequestTriggered || isValidating || isUsageExceeded) ? 0.5 : 1,
+                                cursor: (backendRequestTriggered || isValidating || isUsageExceeded) ? "not-allowed" : "pointer"
                             }}
-                            disabled={backendRequestTriggered || isValidating}
                         >
                             <Codicon name="new-file" />
                         </StyledTransParentButton>
@@ -611,7 +670,7 @@ const AIChatFooter: React.FC = () => {
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                             handleFileAttach(e, files, setFiles, images, setImages, setFileUploadStatus)
                         }
-                        disabled={backendRequestTriggered || isValidating}
+                        disabled={backendRequestTriggered || isValidating || isUsageExceeded}
                     />
                     
                     <StyledTransParentButton
@@ -619,8 +678,10 @@ const AIChatFooter: React.FC = () => {
                         style={{
                             width: "30px",
                             color: isDarkMode ? "var(--vscode-input-foreground)" : "var(--vscode-editor-foreground)",
+                            opacity: isUsageExceeded ? 0.5 : 1,
+                            cursor: isUsageExceeded ? "not-allowed" : "pointer"
                         }}
-                        disabled={(currentUserPrompt.trim() === "" && !backendRequestTriggered && !isValidating)}
+                        disabled={(currentUserPrompt.trim() === "" && !backendRequestTriggered && !isValidating) || isUsageExceeded}
                     >
                         <span
                             className={`codicon ${(backendRequestTriggered || isValidating) ? "codicon-stop-circle" : "codicon-send"}`}

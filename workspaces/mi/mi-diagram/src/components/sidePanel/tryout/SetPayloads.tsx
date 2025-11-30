@@ -49,9 +49,11 @@ export function SetPayloads(props: SetPayloadsProps) {
     const [requestsNames, setRequestsNames] = React.useState<string[]>([]);
     const [isAPI, setIsAPI] = React.useState(false);
     const [supportPayload, setSupportPayload] = React.useState(false);
+    const [showLegacyRuntimeError, setShowLegacyRuntimeError] = React.useState(false);
+    const showNotSupportedError = artifactModel?.tag === 'query';
 
     useEffect(() => {
-        rpcClient.getMiDiagramRpcClient().getInputPayloads({ documentUri, artifactModel }).then((res) => {
+        rpcClient.getMiDiagramRpcClient().getInputPayloads({ documentUri, artifactModel }).then(async (res) => {
             const requests = Array.isArray(res.payloads)
                 ? res.payloads.map(payload => ({
                     name: payload.name,
@@ -77,6 +79,7 @@ export function SetPayloads(props: SetPayloadsProps) {
             setIsLoading(false);
             setIsAPI(artifactModel.tag === 'resource');
             setSupportPayload(supportsRequestBody('methods' in artifactModel ? artifactModel.methods as string[] : ["POST"]));
+            setShowLegacyRuntimeError((await rpcClient.getVisualizerState()).isLegacyRuntime);
         });
     }, []);
 
@@ -252,33 +255,45 @@ export function SetPayloads(props: SetPayloadsProps) {
 
     return (
         <TryoutContainer>
-            <Typography
-                sx={{ padding: "10px", marginBottom: "10px", borderBottom: "1px solid var(--vscode-editorWidget-border)" }}
-                variant="body3">
-                {`Save Payload for Expression Completions and Mediator Tryouts`}
-            </Typography>
-            <AutoComplete
-                name="defaultPayload"
-                label="Default Payload"
-                items={requestsNames}
-                value={defaultPayload}
-                onValueChange={setDefaultPayload}
-                required={true}
-                allowItemCreate={false}
-            />
-            <ParameterManager
-                formData={parameterManagerConfig}
-                parameters={requests}
-                setParameters={setRequests}
-            />
+            {showNotSupportedError ? (
+                <Typography variant="body2" sx={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            <Icon name="warning" isCodicon /> Try-Out feature is not supported for this artifact type.
+                        </Typography>
+            ) : showLegacyRuntimeError ? (
+                <Typography variant="body2" sx={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            <Icon name="warning" isCodicon /> Please update your MI runtime to the latest version to use the tryout feature.
+                        </Typography>
+            ) : (
+                <>
+                    <Typography
+                    sx={{ padding: "10px", marginBottom: "10px", borderBottom: "1px solid var(--vscode-editorWidget-border)" }}
+                    variant="body3">
+                        {`Save Payload for Expression Completions and Mediator Tryouts`}
+                    </Typography>
+                    <AutoComplete
+                        name="defaultPayload"
+                        label="Default Payload"
+                        items={requestsNames}
+                        value={defaultPayload}
+                        onValueChange={setDefaultPayload}
+                        required={true}
+                        allowItemCreate={false}
+                    />
+                    <ParameterManager
+                        formData={parameterManagerConfig}
+                        parameters={requests}
+                        setParameters={setRequests}
+                    />
 
-            <FormActions>
-                <Button onClick={closeSidePanel} appearance="secondary">
-                    Cancel
-                </Button>
-                <Button onClick={onSavePayload} sx={{ marginRight: "10px" }}>
-                    Save
-                </Button>
-            </FormActions>
+                    <FormActions>
+                        <Button onClick={closeSidePanel} appearance="secondary">
+                            Cancel
+                        </Button>
+                        <Button onClick={onSavePayload} sx={{ marginRight: "10px" }}>
+                            Save
+                        </Button>
+                    </FormActions>
+                </>
+            )}
         </TryoutContainer>);
 };

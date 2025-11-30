@@ -32,6 +32,8 @@ export interface ButtonProps {
     sx?: React.CSSProperties;
     buttonSx?: React.CSSProperties;
     onClick?: (() => void) | ((event: React.MouseEvent<HTMLElement | SVGSVGElement>) => void);
+    onMouseDown?: (event: React.MouseEvent) => void;
+    onMouseUp?: (event: React.MouseEvent) => void;
 }
 
 export const IconLabel = styled.div`
