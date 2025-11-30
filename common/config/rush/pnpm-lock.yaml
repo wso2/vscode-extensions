@@ -1071,12 +1071,6 @@ importers:
       react-markdown:
         specifier: ~10.1.0
         version: 10.1.0(@types/react@18.2.0)(react@18.2.0)
-      rehype-raw:
-        specifier: ^7.0.0
-        version: 7.0.0
-      remark-gfm:
-        specifier: ^4.0.1
-        version: 4.0.1
     devDependencies:
       '@storybook/react':
         specifier: ^6.5.16
@@ -6169,9 +6163,6 @@ packages:
 
   '@gar/promisify@1.1.3':
     resolution: {integrity: sha512-k2Ty1JcVojjJFwrg/ThKi2ujJ7XNLYaFGNB/bWT9wGR+oSMJHMa5w+CUq6p/pVrKeNNgA7pCqEcjSnHVoqJQFw==}
-
-  '@github/markdown-toolbar-element@2.2.3':
-    resolution: {integrity: sha512-AlquKGee+IWiAMYVB0xyHFZRMnu4n3X4HTvJHu79GiVJ1ojTukCWyxMlF5NMsecoLcBKsuBhx3QPv2vkE/zQ0A==}
 
   '@graphiql/react@0.26.2':
     resolution: {integrity: sha512-aO4GWf/kJmqrjO+PORT/NPxwGvPGlg+mwye1v8xAlf8Q9j7P0hVtVBawYaSLUCCfJ/QnH7JAP+0VRamyooZZCw==}
@@ -26607,8 +26598,6 @@ snapshots:
 
   '@gar/promisify@1.1.3': {}
 
-  '@github/markdown-toolbar-element@2.2.3': {}
-
   '@graphiql/react@0.26.2(@codemirror/language@6.11.3)(@types/node@22.15.35)(@types/react-dom@18.2.0)(@types/react@18.2.0)(graphql@16.12.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
       '@graphiql/toolkit': 0.11.3(@types/node@22.15.35)(graphql@16.12.0)
@@ -27130,10 +27119,7 @@ snapshots:
       jest-runner: 25.5.4
       jest-runtime: 25.5.4
     transitivePeerDependencies:
-      - bufferutil
-      - canvas
       - supports-color
-      - utf-8-validate
 
   '@jest/test-sequencer@29.7.0':
     dependencies:
