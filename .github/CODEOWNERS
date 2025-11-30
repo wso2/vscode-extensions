@@ -2,6 +2,7 @@
 *.css @hevayo @gigara @tharindulak
 *.scss @hevayo @gigara @tharindulak
 .trivyignore @hevayo @gigara
+/.github/ @hevayo @gigara @kanushka
 package.json @hevayo @gigara @kanushka
 package-lock.json @hevayo @gigara @kanushka
 pnpm-lock.yaml @hevayo @gigara @kanushka
