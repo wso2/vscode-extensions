@@ -26,7 +26,6 @@
         "@codemirror/view": "~6.38.8",
         "@emotion/react": "^11.14.0",
         "@emotion/styled": "^11.14.0",
-        "@github/markdown-toolbar-element": "^2.2.3",
         "@wso2/ballerina-core": "workspace:*",
         "@wso2/ballerina-rpc-client": "workspace:*",
         "@wso2/ui-toolkit": "workspace:*",
@@ -46,9 +45,7 @@
         "react": "18.2.0",
         "react-dom": "18.2.0",
         "react-hook-form": "7.56.4",
-        "react-markdown": "~10.1.0",
-        "rehype-raw": "^7.0.0",
-        "remark-gfm": "^4.0.1"
+        "react-markdown": "~10.1.0"
     },
     "devDependencies": {
         "@storybook/react": "^6.5.16",
