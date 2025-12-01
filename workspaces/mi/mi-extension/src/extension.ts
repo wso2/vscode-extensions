@@ -34,6 +34,7 @@ import { webviews } from './visualizer/webview';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import { COMMANDS } from './constants';
+import { enableLSForWorkspace } from './util/workspace';
 const os = require('os');
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -92,6 +93,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	activateRuntimeService(context, firstProject);
 	activateVisualizer(context, firstProject);
 	activateAiPanel(context);
+
+	workspace.workspaceFolders?.forEach(folder => {
+		enableLSForWorkspace(folder.uri.fsPath);
+	});
 }
 
 export async function deactivate(): Promise<void> {

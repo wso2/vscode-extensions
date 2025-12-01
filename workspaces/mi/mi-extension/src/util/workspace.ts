@@ -21,7 +21,8 @@ import * as fs from "fs";
 import { COMMANDS } from "../constants";
 import path from "path";
 import { MILanguageClient } from "../lang-client/activator";
-import { extension } from "../MIExtensionContext";
+import * as vscode from 'vscode';
+import { webviews } from "../visualizer/webview";
 
 export async function replaceFullContentToFile(documentUri: string, content: string) {
     // Create the file if not present
@@ -45,7 +46,7 @@ export async function replaceFullContentToFile(documentUri: string, content: str
         // Wait for the file to be fully created and accessible
         const maxRetries = 5;
         const retryDelay = 100;
-        
+
         let retries = 0;
         while (retries < maxRetries) {
             try {
@@ -91,12 +92,12 @@ export async function askForProject(): Promise<string> {
     return projects.get(quickPick)!;
 }
 
-export async function saveIdpSchemaToFile(folderPath: string, fileName:string, fileContent?: string,imageOrPdf?:string): Promise<boolean> {
-    const documentUri = path.join(folderPath, fileName +".json");
+export async function saveIdpSchemaToFile(folderPath: string, fileName: string, fileContent?: string, imageOrPdf?: string): Promise<boolean> {
+    const documentUri = path.join(folderPath, fileName + ".json");
     if (!fs.existsSync(folderPath)) {
         fs.mkdirSync(folderPath, { recursive: true });
     }
-    if(fileContent){
+    if (fileContent) {
         fs.writeFileSync(documentUri, fileContent, 'utf-8');
     }
     if (imageOrPdf) {
@@ -110,27 +111,63 @@ export async function saveIdpSchemaToFile(folderPath: string, fileName:string, f
         }
         const mimeTypeMatch = imageOrPdf.match(/^data:(.*?);base64,/);
         if (mimeTypeMatch) {
-            const mimeType = mimeTypeMatch[1]; 
+            const mimeType = mimeTypeMatch[1];
             let extension = "";
             if (mimeType === "application/pdf") {
                 extension = ".pdf";
             } else if (mimeType.startsWith("image/")) {
-                extension = mimeType.split("/")[1]; 
+                extension = mimeType.split("/")[1];
                 extension = `.${extension}`;
             } else {
                 console.error("Unsupported MIME type:", mimeType);
-                return false; 
+                return false;
             }
-            const base64Data = imageOrPdf.replace(/^data:.*;base64,/, ""); 
+            const base64Data = imageOrPdf.replace(/^data:.*;base64,/, "");
             const binaryData = Buffer.from(base64Data, "base64");
             const filePath = path.join(folderPath, fileName + extension);
             fs.writeFileSync(filePath, binaryData);
         } else {
             console.error("Invalid base64 string format.");
-            return false; 
+            return false;
         }
     }
     commands.executeCommand(COMMANDS.REFRESH_COMMAND);
     return true;
 }
 
+export function enableLSForWorkspace(workspacePath: string): void {
+    window.onDidChangeActiveTextEditor(async (event) => {
+        const artifactsPath = path.join(workspacePath, 'src', 'main', 'wso2mi', 'artifacts');
+        const hasActiveWebview = webviews.has(workspacePath);
+
+        if (hasActiveWebview) {
+            return;
+        }
+        if (!event) { // No text editors
+            await MILanguageClient.stopInstance(workspacePath);
+            return;
+        }
+        if (!event.document.uri.fsPath.startsWith(artifactsPath)) {
+            return;
+        }
+        const hasActiveDocument = hasActiveDocumentInWorkspace(workspacePath);
+
+        if (hasActiveDocument) {
+            await MILanguageClient.getInstance(workspacePath);
+        } else {
+            await MILanguageClient.stopInstance(workspacePath);
+        }
+    });
+}
+
+export function hasActiveDocumentInWorkspace(workspacePath: string): boolean {
+    const artifactsPath = path.join(workspacePath, 'src', 'main', 'wso2mi', 'artifacts');
+    for (const tabGroup of vscode.window.tabGroups.all) {
+        for (const tab of tabGroup.tabs) {
+            if (tab.input instanceof vscode.TabInputText && tab.input.uri.fsPath.startsWith(artifactsPath)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}

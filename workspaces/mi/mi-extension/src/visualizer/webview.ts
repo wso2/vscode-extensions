@@ -29,6 +29,7 @@ import { MACHINE_VIEW } from '@wso2/mi-core';
 import { refreshDiagram } from './activate';
 import { MILanguageClient } from '../lang-client/activator';
 import { deletePopupStateMachine } from '../stateMachinePopup';
+import { hasActiveDocumentInWorkspace } from '../util/workspace';
 
 export const webviews: Map<string, VisualizerWebview> = new Map();
 export class VisualizerWebview {
@@ -124,7 +125,7 @@ export class VisualizerWebview {
         // The JS file from the React build output
         const jsFiles = getComposerJSFiles(extension.context, 'Visualizer', webview);
         console.debug('JS files to be included:', jsFiles);
-        
+
         const scriptUri = jsFiles.map(jsFile => {
             const scriptTag = '<script charset="UTF-8" src="' + jsFile + '"></script>';
             console.debug('Generated script tag:', scriptTag);
@@ -277,7 +278,12 @@ export class VisualizerWebview {
         deleteStateMachine(this.projectUri);
         deletePopupStateMachine(this.projectUri);
         RPCLayer._messengers.delete(this.projectUri);
-        await MILanguageClient.stopInstance(this.projectUri);
+        const hasActiveDocument = hasActiveDocumentInWorkspace(this.projectUri);
+
+        if (!hasActiveDocument) {
+            await MILanguageClient.stopInstance(this.projectUri);
+        }
+
         this._panel?.dispose();
 
         while (this._disposables.length) {
