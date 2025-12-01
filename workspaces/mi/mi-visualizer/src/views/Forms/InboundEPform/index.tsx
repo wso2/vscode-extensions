@@ -107,6 +107,7 @@ export function InboundEPWizard(props: InboundEPWizardProps) {
             setLocalConnectors(localConnectors["inbound-connector-data"]);
             setStoreConnectors(data);
         } catch (e) {
+            rpcClient.getMiVisualizerRpcClient().showNotification({message: "Error occurred while fetching inbound-connectors", type: "error"});
             console.error("Error fetching connectors", e);
         }
         setIsFetchingConnectors(false);
