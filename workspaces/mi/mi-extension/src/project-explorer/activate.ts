@@ -20,7 +20,7 @@ import * as vscode from 'vscode';
 import { ProjectExplorerEntry, ProjectExplorerEntryProvider } from './project-explorer-provider';
 import { getStateMachine, openView, refreshUI } from '../stateMachine';
 import { EVENT_TYPE, MACHINE_VIEW, VisualizerLocation } from '@wso2/mi-core';
-import { COMMANDS, WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND } from '../constants';
+import { COMMANDS } from '../constants';
 import { ExtensionContext, TreeItem, Uri, ViewColumn, commands, window, workspace } from 'vscode';
 import path = require("path");
 import { deleteRegistryResource, deleteDataMapperResources, deleteSchemaResources } from '../util/fileOperations';
@@ -52,7 +52,13 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 	const runtimeVersion = projectDetailsRes.primaryDetails.runtimeVersion.value;
 	const isRegistrySupported = compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0;
 
-	commands.registerCommand(isInWI ? WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND : COMMANDS.REFRESH_COMMAND, () => { return projectExplorerDataProvider.refresh(); });
+	commands.registerCommand(COMMANDS.REFRESH_COMMAND, () => { 
+		if (isInWI) {
+			commands.executeCommand(COMMANDS.WI_PROJECT_EXPLORER_VIEW_REFRESH);
+			return;
+		}
+		return projectExplorerDataProvider.refresh(); 
+	});
 
 	commands.registerCommand(COMMANDS.ADD_ARTIFACT_COMMAND, (entry: ProjectExplorerEntry) => {
 		openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.ADD_ARTIFACT, projectUri: entry.info?.path });
