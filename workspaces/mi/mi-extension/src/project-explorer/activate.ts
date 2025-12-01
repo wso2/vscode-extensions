@@ -34,11 +34,10 @@ import { compareVersions } from '../util/onboardingUtils';
 import { removeFromHistory } from '../history';
 import * as fs from "fs";
 import { webviews } from '../visualizer/webview';
-import { log } from '../util/logger';
 import { MILanguageClient } from '../lang-client/activator';
 
 let isProjectExplorerInitialized = false;
-export async function activateProjectExplorer(context: ExtensionContext, lsClient: ExtendedLanguageClient) {
+export async function activateProjectExplorer(treeviewId: string, context: ExtensionContext, lsClient: ExtendedLanguageClient, isInWI: boolean) {
 	if (isProjectExplorerInitialized) {
 		return;
 	}
@@ -47,13 +46,19 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 	const projectExplorerDataProvider = new ProjectExplorerEntryProvider(context);
 	await projectExplorerDataProvider.refresh();
 	let registryExplorerDataProvider;
-	const projectTree = window.createTreeView('MI.project-explorer', { treeDataProvider: projectExplorerDataProvider });
+	const projectTree = window.createTreeView(treeviewId, { treeDataProvider: projectExplorerDataProvider });
 
 	const projectDetailsRes = await lsClient?.getProjectDetails();
 	const runtimeVersion = projectDetailsRes.primaryDetails.runtimeVersion.value;
 	const isRegistrySupported = compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0;
 
-	commands.registerCommand(COMMANDS.REFRESH_COMMAND, () => { return projectExplorerDataProvider.refresh(); });
+	commands.registerCommand(COMMANDS.REFRESH_COMMAND, () => { 
+		if (isInWI) {
+			commands.executeCommand(COMMANDS.WI_PROJECT_EXPLORER_VIEW_REFRESH);
+			return;
+		}
+		return projectExplorerDataProvider.refresh(); 
+	});
 
 	commands.registerCommand(COMMANDS.ADD_ARTIFACT_COMMAND, (entry: ProjectExplorerEntry) => {
 		openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.ADD_ARTIFACT, projectUri: entry.info?.path });
@@ -635,7 +640,7 @@ export async function activateProjectExplorer(context: ExtensionContext, lsClien
 			if (projectUri) {
 				const currentLocation = getStateMachine(projectUri).context();
 				if (currentLocation.documentUri === file) {
-                    openView(EVENT_TYPE.REPLACE_VIEW, { view: MACHINE_VIEW.Overview, projectUri });
+					openView(EVENT_TYPE.REPLACE_VIEW, { view: MACHINE_VIEW.Overview, projectUri });
 				} else if (currentLocation?.view === MACHINE_VIEW.Overview) {
 					refreshUI(projectUri);
 				}
