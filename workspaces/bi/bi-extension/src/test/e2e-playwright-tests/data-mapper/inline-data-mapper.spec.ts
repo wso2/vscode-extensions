@@ -63,7 +63,7 @@ export default function createTests() {
             await webView.getByText('OutRoot').click();
             await expect(varType).toHaveValue('OutRoot');
 
-            await webView.getByRole('button', { name: 'Open in Data Mapper' }).click({ force: true });
+            await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
 
             console.log(' - Wait for Data Mapper to open');
             await webView.locator('#data-mapper-canvas-container').waitFor();
@@ -99,7 +99,7 @@ export default function createTests() {
 
                 await webView.getByRole('heading', { name: 'Automation' }).waitFor();
                 await webView.getByText('output = {}').click();
-                await webView.getByRole('button', { name: 'Open in Data Mapper' }).click({ force: true });
+                await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
             }
 
             await TestScenarios.testBasicMappings(webView, 'automation.bal', 'inline', isDataMapperOpened);
@@ -127,7 +127,7 @@ export default function createTests() {
 
                 await webView.getByRole('heading', { name: 'Automation' }).waitFor();
                 await webView.getByText('output = {}').click();
-                await webView.getByRole('button', { name: 'Open in Data Mapper' }).click({ force: true });
+                await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
             }
 
             await TestScenarios.testArrayInnerMappings(webView, 'automation.bal', 'inline', isDataMapperOpened);
@@ -155,7 +155,7 @@ export default function createTests() {
 
                 await webView.getByRole('heading', { name: 'Automation' }).waitFor();
                 await webView.getByText('output = []').click();
-                await webView.getByRole('button', { name: 'Open in Data Mapper' }).click({ force: true });
+                await webView.getByRole('button', { name: 'Open in Data Mapper' }).click();
             }
 
             await TestScenarios.testArrayRootMappings(webView, 'automation.bal', 'inline', isDataMapperOpened);
