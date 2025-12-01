@@ -154,26 +154,28 @@ export async function executeCopyTask(task: vscode.Task) {
 export async function executeBuildTask(projectUri: string, serverPath: string, shouldCopyTarget: boolean = true, postBuildTask?: Function) {
     return new Promise<void>(async (resolve, reject) => {
 
-        const isEqual = await compareFilesByMD5(path.join(serverPath, "conf", "deployment.toml"),
-            path.join(projectUri, "deployment", "deployment.toml"));
-        if (!isEqual) {
-            const copyConf = await vscode.window.showWarningMessage(
-                'Deployment configurations in the runtime is different from the project. How do you want to proceed?',
-                { modal: true },
-                "Use Project Configurations", "Use Server Configurations"
-            );
-            if (copyConf === 'Use Project Configurations') {
-                fs.copyFileSync(path.join(serverPath, "conf", "deployment.toml"), path.join(serverPath, "conf", "deployment-backup.toml"));
-                fs.copyFileSync(path.join(projectUri, "deployment", "deployment.toml"), path.join(serverPath, "conf", "deployment.toml"));
-                vscode.window.showInformationMessage("A backup of the server configuration is stored at conf/deployment-backup.toml.");
-            } else if (copyConf === 'Use Server Configurations') {
-                fs.copyFileSync(path.join(serverPath, "conf", "deployment.toml"), path.join(projectUri, "deployment", "deployment.toml"));
-                DebuggerConfig.setConfigPortOffset(projectUri);
-            } else {
-                reject('Deployment configurations in the project should be as the same as the runtime.');
-                return;
+        if (shouldCopyTarget) {
+            const isEqual = await compareFilesByMD5(path.join(serverPath, "conf", "deployment.toml"),
+                path.join(projectUri, "deployment", "deployment.toml"));
+            if (!isEqual) {
+                const copyConf = await vscode.window.showWarningMessage(
+                    'Deployment configurations in the runtime is different from the project. How do you want to proceed?',
+                    { modal: true },
+                    "Use Project Configurations", "Use Server Configurations"
+                );
+                if (copyConf === 'Use Project Configurations') {
+                    fs.copyFileSync(path.join(serverPath, "conf", "deployment.toml"), path.join(serverPath, "conf", "deployment-backup.toml"));
+                    fs.copyFileSync(path.join(projectUri, "deployment", "deployment.toml"), path.join(serverPath, "conf", "deployment.toml"));
+                    vscode.window.showInformationMessage("A backup of the server configuration is stored at conf/deployment-backup.toml.");
+                } else if (copyConf === 'Use Server Configurations') {
+                    fs.copyFileSync(path.join(serverPath, "conf", "deployment.toml"), path.join(projectUri, "deployment", "deployment.toml"));
+                    DebuggerConfig.setConfigPortOffset(projectUri);
+                } else {
+                    reject('Deployment configurations in the project should be as the same as the runtime.');
+                    return;
+                }
             }
-        }
+      }
 
         const buildCommand = getBuildCommand(projectUri);
         const envVariables = {
@@ -186,6 +188,16 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
         buildProcess.stdout.on('data', (data) => {
             serverLog(data.toString('utf8'));
         });
+
+        if (shouldCopyTarget) {
+            buildProcess.on('close', async (code) => {
+                if (code === 0) {
+                    vscode.window.showInformationMessage('Project build was successful');
+                } else {
+                    vscode.window.showErrorMessage('Failed to build integration project.');
+                }
+            });
+        }
 
         buildProcess.stderr.on('data', (data) => {
             serverLog(`Build error:\n${data.toString('utf8')}`);
