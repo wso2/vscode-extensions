@@ -695,7 +695,7 @@ export const getStateMachine = (projectUri: string, context?: VisualizerLocation
         if (!workspaces) {
             console.warn('No workspace folder is open.');
         }
-        log(vscode.extensions.all.map(ext => ext.id).join(', '));
+
         stateService = interpret(stateMachine.withContext({
             projectUri: projectUri,
             langClient: null,
