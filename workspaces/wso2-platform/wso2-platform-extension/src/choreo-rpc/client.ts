@@ -35,6 +35,7 @@ import type {
 	CreateConfigYamlReq,
 	CreateDeploymentReq,
 	CreateProjectReq,
+	CreateThirdPartyConnectionReq,
 	CredentialItem,
 	DeleteCompReq,
 	DeleteConnectionReq,
@@ -516,6 +517,14 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 			throw new Error("RPC client is not initialized");
 		}
 		const response: ConnectionDetailed = await this.client.sendRequest("connections/createComponentConnection", params);
+		return response;
+	}
+
+	async createThirdPartyConnection(params: CreateThirdPartyConnectionReq): Promise<ConnectionDetailed> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: ConnectionDetailed = await this.client.sendRequest("connections/createThirdPartyConnection", params);
 		return response;
 	}
 

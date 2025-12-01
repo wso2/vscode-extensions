@@ -17,7 +17,7 @@
  */
 
 import type { DeploymentStatus } from "../enums";
-import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq, GetConnectionsReq, DeleteConnectionReq, GetMarketplaceItemReq, GetConnectionItemReq, GetProjectEnvsReq } from "./cli-rpc.types";
+import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq, GetConnectionsReq, DeleteConnectionReq, GetMarketplaceItemReq, GetConnectionItemReq, GetProjectEnvsReq, CreateThirdPartyConnectionReq } from "./cli-rpc.types";
 import { CreateLocalConnectionsConfigReq, DeleteLocalConnectionsConfigReq } from "./messenger-rpc.types";
 import type { AuthState, ContextItemEnriched, ContextStoreState, WebviewState } from "./store.types";
 
@@ -37,6 +37,7 @@ export interface IWso2PlatformExtensionAPI {
 	getSelectedContext(): ContextItemEnriched | null;
 	getMarketplaceIdl(params: GetMarketplaceIdlReq): Promise<MarketplaceIdlResp>;
 	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed>;
+	createThirdPartyConnection(params: CreateThirdPartyConnectionReq): Promise<ConnectionDetailed>;
 	createConnectionConfig: (params: CreateLocalConnectionsConfigReq) => Promise<string>;
 	getConnections: (params: GetConnectionsReq) => Promise<ConnectionListItem[]>;
 	getConnection: (params: GetConnectionItemReq) => Promise<ConnectionDetailed>;
@@ -440,6 +441,8 @@ export interface MarketplaceItem {
 	tags?: string[];
 	categories?: string[];
 	visibility: ("PUBLIC" | "ORGANIZATION" | "PROJECT")[];
+	isThirdParty?: boolean;
+	endpointRefs?: Record<string, string>[];
 }
 
 export interface ConnectionStatus {
@@ -485,9 +488,9 @@ export interface ConnectionConfigurations {
 	};
 }
 
-export interface ConnectionDetailed extends ConnectionListItem{
+export interface ConnectionDetailed extends ConnectionListItem {
 	configurations: ConnectionConfigurations;
-	envMapping: object;
+	envMapping: Record<string, string>;
 	visibilities: {
 		organizationUuid: string;
 		projectUuid: string;

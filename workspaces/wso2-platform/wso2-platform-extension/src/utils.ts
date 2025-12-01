@@ -522,7 +522,10 @@ export const createConnectionConfig = async (params: CreateLocalConnectionsConfi
 	}
 
 	const componentYamlPath = join(params.componentDir, ".choreo", "component.yaml");
-	const resourceRef = `service:/${project.handler}/${component.metadata?.handler}/v1/${params?.marketplaceItem?.component?.endpointId}/${params.visibility}`;
+	let resourceRef = `service:/${project.handler}/${component.metadata?.handler}/v1/${params?.marketplaceItem?.component?.endpointId}/${params.visibility}`;
+	if(params.marketplaceItem?.isThirdParty){
+		resourceRef = `thirdparty:${params.marketplaceItem?.name}/${params.marketplaceItem?.version}`;
+	}
 	if (existsSync(componentYamlPath)) {
 		const componentYamlFileContent: ComponentYamlContent = yaml.load(readFileSync(componentYamlPath, "utf8")) as any;
 		const schemaVersion = Number(componentYamlFileContent.schemaVersion);

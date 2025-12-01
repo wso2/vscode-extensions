@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import type { ComponentKind, GetMarketplaceListReq, IWso2PlatformExtensionAPI, openClonedDirReq, GetMarketplaceIdlReq, CreateComponentConnectionReq, CreateLocalConnectionsConfigReq, GetConnectionsReq, DeleteConnectionReq, DeleteLocalConnectionsConfigReq, GetMarketplaceItemReq, GetConnectionItemReq, StartProxyServerReq, StopProxyServerReq, AuthState, ContextStoreComponentState, ContextItemEnriched, GetProjectEnvsReq } from "@wso2/wso2-platform-core";
+import type { ComponentKind, GetMarketplaceListReq, IWso2PlatformExtensionAPI, openClonedDirReq, GetMarketplaceIdlReq, CreateComponentConnectionReq, CreateLocalConnectionsConfigReq, GetConnectionsReq, DeleteConnectionReq, DeleteLocalConnectionsConfigReq, GetMarketplaceItemReq, GetConnectionItemReq, StartProxyServerReq, StopProxyServerReq, AuthState, ContextStoreComponentState, ContextItemEnriched, GetProjectEnvsReq, CreateThirdPartyConnectionReq } from "@wso2/wso2-platform-core";
 import { ext } from "./extensionVariables";
 import { hasDirtyRepo } from "./git/util";
 import { authStore } from "./stores/auth-store";
@@ -58,6 +58,7 @@ export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 	public getSelectedContext = () => contextStore.getState().state?.selected || null;
 	public getMarketplaceIdl = (params: GetMarketplaceIdlReq) => ext.clients.rpcClient.getMarketplaceIdl(params);
 	public createComponentConnection = (params: CreateComponentConnectionReq) => ext.clients.rpcClient.createComponentConnection(params);
+	public createThirdPartyConnection = (params: CreateThirdPartyConnectionReq) => ext.clients.rpcClient.createThirdPartyConnection(params);
 	public createConnectionConfig = (params: CreateLocalConnectionsConfigReq) => createConnectionConfig(params);
 	public getConnections = (params: GetConnectionsReq) => ext.clients.rpcClient.getConnections(params);
 	public getConnection = (params: GetConnectionItemReq) => ext.clients.rpcClient.getConnectionItem(params);

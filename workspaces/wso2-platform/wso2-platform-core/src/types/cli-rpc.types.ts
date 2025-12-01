@@ -293,6 +293,18 @@ export interface CreateComponentConnectionReq {
 	generateCreds: boolean;
 }
 
+export interface CreateThirdPartyConnectionReq {
+	orgId: string;
+	orgUuid: string;
+	projectId: string;
+	componentId: string;
+	name: string;
+	serviceId: string;
+	serviceSchemaId: string;
+	endpointName: string;
+	sensitiveKeys: string[];
+}
+
 export interface DeleteConnectionReq {
 	orgId: string;
 	connectionId: string;
