@@ -18,7 +18,7 @@ import { ExtendedLanguageClient } from './lang-client/ExtendedLanguageClient';
 import { VisualizerWebview, webviews } from './visualizer/webview';
 import { RPCLayer } from './RPCLayer';
 import { history } from './history/activator';
-import { COMMANDS, MI_PROJECT_EXPLORER_VIEW_ID, WI_EXTENSION_ID, WI_PROJECT_EXPLORER_VIEW_ID } from './constants';
+import { COMMANDS, MI_PROJECT_EXPLORER_VIEW_ID, WI_EXTENSION_ID, WI_PROJECT_EXPLORER_VIEW_ID, RUNTIME_VERSION_440 } from './constants';
 import { activateProjectExplorer } from './project-explorer/activate';
 import { MockService, STNode, UnitTest, Task, InboundEndpoint } from '../../syntax-tree/lib/src';
 import { log, logDebug } from './util/logger';
@@ -27,7 +27,7 @@ import { fileURLToPath } from 'url';
 import path = require('path');
 import { activateTestExplorer } from './test-explorer/activator';
 import { DMProject } from './datamapper/DMProject';
-import { setupEnvironment } from './util/onboardingUtils';
+import { setupEnvironment, getMIVersionFromPom, compareVersions } from './util/onboardingUtils';
 import { getPopupStateMachine } from './stateMachinePopup';
 import { askForProject } from './util/workspace';
 import { containsMultiModuleNatureInProjectFile, containsMultiModuleNatureInPomFile, findMultiModuleProjectsInWorkspaceDir } from './util/migrationUtils';
@@ -37,6 +37,7 @@ interface MachineContext extends VisualizerLocation {
     langClient: ExtendedLanguageClient | null;
     dependenciesResolved?: boolean;
     isInWI: boolean;
+    isLegacyRuntime?: boolean;
 }
 
 const stateMachine = createMachine<MachineContext>({
@@ -96,7 +97,10 @@ const stateMachine = createMachine<MachineContext>({
                             view: (context, event) => event.data.view,
                             customProps: (context, event) => event.data.customProps,
                             projectUri: (context, event) => event.data.projectUri,
-                            displayOverview: (context, event) => event.data.displayOverview
+                            isOldProject: (context, event) => event.data.isOldProject,
+                            displayOverview: (context, event) => event.data.displayOverview,
+                            isLegacyRuntime: (context, event) => event.data.isLegacyRuntime
+
                         })
                     },
                     {
@@ -907,6 +911,9 @@ async function checkIfMiProject(projectUri: string, view: MACHINE_VIEW = MACHINE
         console.log(`Current workspace path: ${projectUri}`);
     }
 
+    const runtimeVersion = await getMIVersionFromPom(projectUri);
+    const isLegacyRuntime = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0 : true;
+
     console.log(`Project detection completed for path: ${projectUri} at ${new Date().toLocaleTimeString()}`);
     return {
         isProject,
@@ -916,7 +923,8 @@ async function checkIfMiProject(projectUri: string, view: MACHINE_VIEW = MACHINE
         projectUri, // Return the path of the detected project
         view,
         customProps,
-        isEnvironmentSetUp
+        isEnvironmentSetUp,
+        isLegacyRuntime
     };
 }
 
