@@ -620,18 +620,24 @@ export class Debugger extends EventEmitter {
     }
 
     public async sendPropertiesCommand(): Promise<JSON[]> {
-        const contextList = ["axis2", "axis2-client", "transport", "operation", "synapse"];
+        const contextList = ["axis2", "axis2-client", "transport", "operation", "synapse", "variable"];
         const variables: JSON[] = [];
         const propertyMapping = {
             "axis2Transport-properties": "Transport Scope Properties",
             "axis2Operation-properties": "Operation Scope Properties",
             "axis2Client-properties": "Axis2-Client Scope Properties",
             "axis2-properties": "Axis2 Scope Properties",
-            "synapse-properties": "Synapse Scope Properties"
+            "synapse-properties": "Synapse Scope Properties",
+            "message-variables": "Variables"
         };
 
         for (const context of contextList) {
-            let propertiesCommand: any = { "command": "get", "command-argument": "properties", "context": context };
+            let propertiesCommand: any;
+            if (context === "variable") {
+                propertiesCommand = { "command": "get", "command-argument": "variables", "context": context};
+            } else {
+                propertiesCommand = { "command": "get", "command-argument": "properties", "context": context };
+            }
             try {
                 const response = await this.sendRequest(JSON.stringify(propertiesCommand));
                 const jsonResponse = JSON.parse(response);

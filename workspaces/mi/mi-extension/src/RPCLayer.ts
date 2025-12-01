@@ -100,6 +100,7 @@ async function getContext(projectUri: string): Promise<VisualizerLocation> {
             dataMapperProps: context.dataMapperProps,
             errors: context.errors,
             isLoading: context.isLoading,
+            isLegacyRuntime: context.isLegacyRuntime,
             env: {
                 MI_AUTH_ORG: process.env.MI_AUTH_ORG || '',
                 MI_AUTH_CLIENT_ID: process.env.MI_AUTH_CLIENT_ID || '',
