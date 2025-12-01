@@ -46,6 +46,11 @@ export default function createTests() {
 
             await webView.getByRole('textbox', { name: 'Data Mapper Name*Name of the' }).fill('output');
 
+            const outputType = webView.getByRole('textbox', { name: 'Output' });
+            await outputType.click({ force: true });
+            await webView.getByText('OutRoot').click({ force: true });
+            await expect(outputType).toHaveValue('OutRoot');
+
             await webView.getByText('Add Input').click();
             const inputType = webView.getByRole('textbox', { name: 'Type' });
             await inputType.click();
@@ -56,11 +61,6 @@ export default function createTests() {
             await webView.getByRole('textbox', { name: 'Name*Name of the parameter' }).fill('input');
             await webView.getByRole('button', { name: 'Add' }).click();
             await webView.getByTestId('input-item').waitFor();
-
-            const outputType = webView.getByRole('textbox', { name: 'Output' });
-            await outputType.click();
-            await webView.getByText('OutRoot').click();
-            await expect(outputType).toHaveValue('OutRoot');
 
             await webView.getByRole('button', { name: 'Create', exact: true }).click();
 
