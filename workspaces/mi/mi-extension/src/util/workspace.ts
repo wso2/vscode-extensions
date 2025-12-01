@@ -137,7 +137,6 @@ export async function saveIdpSchemaToFile(folderPath: string, fileName: string, 
 
 export function enableLSForWorkspace(workspacePath: string): void {
     window.onDidChangeActiveTextEditor(async (event) => {
-        const artifactsPath = path.join(workspacePath, 'src', 'main', 'wso2mi', 'artifacts');
         const hasActiveWebview = webviews.has(workspacePath);
 
         if (hasActiveWebview) {
@@ -145,9 +144,6 @@ export function enableLSForWorkspace(workspacePath: string): void {
         }
         if (!event) { // No text editors
             await MILanguageClient.stopInstance(workspacePath);
-            return;
-        }
-        if (!event.document.uri.fsPath.startsWith(artifactsPath)) {
             return;
         }
         const hasActiveDocument = hasActiveDocumentInWorkspace(workspacePath);
