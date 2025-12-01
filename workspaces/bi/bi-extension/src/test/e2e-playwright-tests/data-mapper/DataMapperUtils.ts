@@ -368,7 +368,8 @@ export namespace TestScenarios {
 
         console.log(' - Goto focused view again');
         await dmWebView.getByTestId('expand-array-fn-output.oArr1D').click();
-        await dmWebView.getByTestId('link-from-input.iArr1D.OUT-to-queryOutput.oArr1D.#.IN').waitFor();
+        await dmWebView.getByTestId('link-from-input.iArr1D.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
+        await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-queryOutput.oArr1D.#.IN').waitFor({ state: 'attached' });
 
         console.log(' - Delete within focused view');
         await loc1.click({ force: true });
@@ -476,8 +477,9 @@ export namespace TestScenarios {
         console.log(' - Map roots using query expression');
 
         await dm.mapFields('input', 'arrayOutput.output', 'a2a-inner');
-        const locH = dmWebView.getByTestId('link-from-input.OUT-to-queryOutput.output.#.IN');
-        await locH.waitFor({ state: 'attached' });
+        await dmWebView.getByTestId('link-from-input.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
+        await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-queryOutput.output.#.IN').waitFor({ state: 'attached' });
+
 
         console.log(' - Map using query expression within focused view');
         await dm.mapFields('inputItem.iArr1D', 'queryOutput.output.oArr1D', 'a2a-inner');
@@ -506,7 +508,8 @@ export namespace TestScenarios {
 
         console.log(' - Goto inner focused view again');
         await dmWebView.getByTestId('expand-array-fn-output.oArr1D').click();
-        await dmWebView.getByTestId('link-from-inputItem.iArr1D.OUT-to-queryOutput.oArr1D.#.IN').waitFor({ state: 'attached' });
+        await dmWebView.getByTestId('link-from-inputItem.iArr1D.OUT-to-datamapper-intermediate-port').waitFor({ state: 'attached' });
+        await dmWebView.getByTestId('link-from-datamapper-intermediate-port-to-queryOutput.oArr1D.#.IN').waitFor({ state: 'attached' });
 
         console.log(' - Delete within inner focused view');
         await loc1.click({ force: true });
