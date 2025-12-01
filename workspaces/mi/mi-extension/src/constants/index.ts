@@ -53,6 +53,7 @@ export const COMMANDS = {
     OPEN_DSS_SERVICE_DESIGNER: "MI.project-explorer.open-dss-service-designer",
     ADD_MEDIATOR: "MI.addMediator",
     REFRESH_COMMAND: 'MI.project-explorer.refresh',
+    WI_PROJECT_EXPLORER_VIEW_REFRESH: 'wso2-integrator.explorer.refresh',
     ADD_COMMAND: 'MI.project-explorer.add',
     ADD_ARTIFACT_COMMAND: 'MI.project-explorer.add.artifact',
     ADD_API_COMMAND: 'MI.project-explorer.add-api',
