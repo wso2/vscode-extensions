@@ -37,11 +37,13 @@ import { webviews } from '../visualizer/webview';
 import { MILanguageClient } from '../lang-client/activator';
 
 let isProjectExplorerInitialized = false;
-export async function activateProjectExplorer(treeviewId: string, context: ExtensionContext, lsClient: ExtendedLanguageClient, isInWI: boolean) {
+export async function activateProjectExplorer(treeviewId: string, context: ExtensionContext, projectUri: string, isInWI: boolean) {
 	if (isProjectExplorerInitialized) {
 		return;
 	}
 	isProjectExplorerInitialized = true;
+	const ls = await MILanguageClient.getInstance(projectUri);
+	const lsClient: ExtendedLanguageClient | undefined = ls.languageClient;
 
 	const projectExplorerDataProvider = new ProjectExplorerEntryProvider(context);
 	await projectExplorerDataProvider.refresh();
@@ -52,12 +54,12 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 	const runtimeVersion = projectDetailsRes.primaryDetails.runtimeVersion.value;
 	const isRegistrySupported = compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0;
 
-	commands.registerCommand(COMMANDS.REFRESH_COMMAND, () => { 
+	commands.registerCommand(COMMANDS.REFRESH_COMMAND, () => {
 		if (isInWI) {
 			commands.executeCommand(COMMANDS.WI_PROJECT_EXPLORER_VIEW_REFRESH);
 			return;
 		}
-		return projectExplorerDataProvider.refresh(); 
+		return projectExplorerDataProvider.refresh();
 	});
 
 	commands.registerCommand(COMMANDS.ADD_ARTIFACT_COMMAND, (entry: ProjectExplorerEntry) => {

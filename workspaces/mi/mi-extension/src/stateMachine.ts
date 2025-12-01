@@ -658,9 +658,8 @@ const stateMachine = createMachine<MachineContext>({
         },
         activateOtherFeatures: (context, event) => {
             return new Promise(async (resolve, reject) => {
-                const ls = await MILanguageClient.getInstance(context.projectUri!);
                 const treeviewId = context.isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : MI_PROJECT_EXPLORER_VIEW_ID;
-                await activateProjectExplorer(treeviewId, extension.context, ls.languageClient!, context.isInWI);
+                await activateProjectExplorer(treeviewId, extension.context, context.projectUri!, context.isInWI);
                 await activateTestExplorer(extension.context);
                 resolve(true);
             });
