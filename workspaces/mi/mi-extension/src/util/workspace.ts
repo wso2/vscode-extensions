@@ -16,12 +16,11 @@
  * under the License.
  */
 
-import { Position, Range, Uri, WorkspaceEdit, commands, workspace, window } from "vscode";
+import { Position, Range, Uri, WorkspaceEdit, commands, workspace, window, TabInputText } from "vscode";
 import * as fs from "fs";
 import { COMMANDS } from "../constants";
 import path from "path";
 import { MILanguageClient } from "../lang-client/activator";
-import * as vscode from 'vscode';
 import { webviews } from "../visualizer/webview";
 
 export async function replaceFullContentToFile(documentUri: string, content: string) {
@@ -158,9 +157,9 @@ export function enableLSForWorkspace(workspacePath: string): void {
 
 export function hasActiveDocumentInWorkspace(workspacePath: string): boolean {
     const artifactsPath = path.join(workspacePath, 'src', 'main', 'wso2mi', 'artifacts');
-    for (const tabGroup of vscode.window.tabGroups.all) {
+    for (const tabGroup of window.tabGroups.all) {
         for (const tab of tabGroup.tabs) {
-            if (tab.input instanceof vscode.TabInputText && tab.input.uri.fsPath.startsWith(artifactsPath)) {
+            if (tab.input instanceof TabInputText && tab.input.uri.fsPath.startsWith(artifactsPath)) {
                 return true;
             }
         }
