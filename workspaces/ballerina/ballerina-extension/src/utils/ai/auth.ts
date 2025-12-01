@@ -22,7 +22,6 @@ import { AUTH_CLIENT_ID, AUTH_ORG } from '../../features/ai/utils';
 import axios from 'axios';
 import { jwtDecode, JwtPayload } from 'jwt-decode';
 import { AuthCredentials, LoginMethod } from '@wso2/ballerina-core';
-import { initializeTelemetryContext } from '../../features/telemetry';
 
 export const REFRESH_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE = "Refresh token is not available.";
 export const TOKEN_REFRESH_ONLY_SUPPORTED_FOR_BI_INTEL = "Token refresh is only supported for BI Intelligence authentication";
@@ -125,8 +124,6 @@ async function copilotTokenExists() {
 export const storeAuthCredentials = async (credentials: AuthCredentials): Promise<void> => {
     const credentialsJson = JSON.stringify(credentials);
     await extension.context.secrets.store(AUTH_CREDENTIALS_SECRET_KEY, credentialsJson);
-    // Refresh telemetry identity after storing new credentials
-    initializeTelemetryContext();
 };
 
 export const getAuthCredentials = async (): Promise<AuthCredentials | undefined> => {

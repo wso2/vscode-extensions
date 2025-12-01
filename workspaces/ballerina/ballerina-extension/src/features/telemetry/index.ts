@@ -18,7 +18,7 @@
 
 import TelemetryReporter from "vscode-extension-telemetry";
 import { BallerinaExtension } from "../../core";
-import { getCachedLoginMethod, getCachedBiIntelId } from "./context";
+import { getLoginMethod, getBiIntelId } from "../../utils/ai/auth";
 
 //Ballerina-VSCode-Extention repo key as default
 const DEFAULT_KEY = "3a82b093-5b7b-440c-9aa2-3b8e8e5704e7";
@@ -35,15 +35,14 @@ export function createTelemetryReporter(ext: BallerinaExtension): TelemetryRepor
     if (ext.context) {
         ext.context.subscriptions.push(reporter);
     }
-
     return reporter;
 }
 
-export function sendTelemetryEvent(extension: BallerinaExtension, eventName: string, componentName: string,
+export async function sendTelemetryEvent(extension: BallerinaExtension, eventName: string, componentName: string,
     customDimensions: { [key: string]: string; } = {}, measurements: { [key: string]: number; } = {}) {
     // temporarily disabled in codeserver due to GDPR issue
     if (extension.isTelemetryEnabled() && !extension.getCodeServerContext().codeServerEnv) {
-        extension.telemetryReporter.sendTelemetryEvent(eventName, getTelemetryProperties(extension, componentName,
+        extension.telemetryReporter.sendTelemetryEvent(eventName, await getTelemetryProperties(extension, componentName,
             customDimensions), measurements);
     }
 }
@@ -52,13 +51,16 @@ export async function sendTelemetryException(extension: BallerinaExtension, erro
     params: { [key: string]: string } = {}) {
     // temporarily disabled in codeserver due to GDPR issue
     if (extension.isTelemetryEnabled() && !extension.getCodeServerContext().codeServerEnv) {
-        extension.telemetryReporter.sendTelemetryException(error, getTelemetryProperties(extension, componentName,
+        extension.telemetryReporter.sendTelemetryException(error, await getTelemetryProperties(extension, componentName,
             params));
     }
 }
 
-export function getTelemetryProperties(extension: BallerinaExtension, component: string, params: { [key: string]: string; } = {})
-    : { [key: string]: string; } {
+export async function getTelemetryProperties(extension: BallerinaExtension, component: string, params: { [key: string]: string; } = {})
+    : Promise<{ [key: string]: string; }> {
+
+    const loginType = await getLoginMethod();
+    const biIntelId = await getBiIntelId();
 
     return {
         ...params,
@@ -72,11 +74,10 @@ export function getTelemetryProperties(extension: BallerinaExtension, component:
         'component': CHOREO_COMPONENT_ID,
         'project': CHOREO_PROJECT_ID,
         'org': CHOREO_ORG_ID,
-        'loginType': getCachedLoginMethod() !== undefined ? getCachedLoginMethod() : 'undefined',
-        'biIntelId': getCachedBiIntelId() !== undefined ? getCachedBiIntelId() : 'undefined',
-    };
+        'loginType': loginType,
+        'biIntelId': biIntelId,
+    }
 }
-
 export function getMessageObject(message?: string): { [key: string]: string; } {
     if (message) {
         return { 'ballerina.message': message };
@@ -88,4 +89,3 @@ export * from "./events";
 export * from "./exceptions";
 export * from "./components";
 export * from "./activator";
-export * from "./context";

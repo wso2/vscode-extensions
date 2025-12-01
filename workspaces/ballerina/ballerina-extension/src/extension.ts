@@ -21,7 +21,7 @@ import { BallerinaExtension } from './core';
 import { activate as activateBBE } from './views/bbe';
 import {
     activate as activateTelemetryListener, CMP_EXTENSION_CORE, sendTelemetryEvent,
-    TM_EVENT_EXTENSION_ACTIVATE, initializeTelemetryContext
+    TM_EVENT_EXTENSION_ACTIVATE
 } from './features/telemetry';
 import { activateDebugConfigProvider } from './features/debugger';
 import { activate as activateProjectFeatures } from './features/project';
@@ -125,9 +125,6 @@ export async function activateBallerina(): Promise<BallerinaExtension> {
     try {
         debug('Sending telemetry event.');
         sendTelemetryEvent(ballerinaExtInstance, TM_EVENT_EXTENSION_ACTIVATE, CMP_EXTENSION_CORE);
-
-        // Initialize telemetry identity context
-        initializeTelemetryContext();
     } catch (error) {
         debug('Error sending telemetry event.');
     }

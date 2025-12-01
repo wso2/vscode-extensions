@@ -30,18 +30,17 @@ const schedule = require('node-schedule');
 const TM_EVENT_TYPE_ERROR = "ErrorTelemetryEvent";
 const TM_EVENT_TYPE_FEATURE_USAGE = "FeatureUsageTelemetryEvent";
 
-export async function activate(ballerinaExtInstance: BallerinaExtension) {
-
+export function activate(ballerinaExtInstance: BallerinaExtension) {
     const reporter = ballerinaExtInstance.telemetryReporter;
     const langClient = <ExtendedLangClient>ballerinaExtInstance.langClient;
 
     // Start listening telemtry events from language server
-    langClient.onNotification('telemetry/event', (event: LSTelemetryEvent) => {
+    langClient.onNotification('telemetry/event', async (event: LSTelemetryEvent) => {
         let props: { [key: string]: string; };
         switch (event.type) {
             case TM_EVENT_TYPE_ERROR:
                 const errorEvent: LSErrorTelemetryEvent = <LSErrorTelemetryEvent>event;
-                props = getTelemetryProperties(ballerinaExtInstance, event.component, getMessageObject(TM_EVENT_TYPE_ERROR));
+                props = await getTelemetryProperties(ballerinaExtInstance, event.component, getMessageObject(TM_EVENT_TYPE_ERROR));
                 props["ballerina.langserver.error.description"] = errorEvent.message;
                 props["ballerina.langserver.error.stacktrace"] = errorEvent.errorStackTrace;
                 props["ballerina.langserver.error.message"] = errorEvent.errorMessage;
@@ -49,7 +48,7 @@ export async function activate(ballerinaExtInstance: BallerinaExtension) {
                 break;
             case TM_EVENT_TYPE_FEATURE_USAGE:
                 const usageEvent: LSFeatureUsageTelemetryEvent = <LSFeatureUsageTelemetryEvent>event;
-                props = getTelemetryProperties(ballerinaExtInstance, event.component,
+                props = await getTelemetryProperties(ballerinaExtInstance, event.component,
                     getMessageObject(TM_EVENT_TYPE_FEATURE_USAGE));
                 props["ballerina.langserver.feature.name"] = usageEvent.featureName;
                 props["ballerina.langserver.feature.class"] = usageEvent.featureClass;
