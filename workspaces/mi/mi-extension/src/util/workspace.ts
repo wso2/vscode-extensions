@@ -134,29 +134,29 @@ export async function saveIdpSchemaToFile(folderPath: string, fileName: string, 
     return true;
 }
 
-export function enableLSForWorkspace(workspacePath: string): void {
+export function enableLSForProject(projectUri: string): void {
     window.onDidChangeActiveTextEditor(async (event) => {
-        const hasActiveWebview = webviews.has(workspacePath);
+        const hasActiveWebview = webviews.has(projectUri);
 
         if (hasActiveWebview) {
             return;
         }
         if (!event) { // No text editors
-            await MILanguageClient.stopInstance(workspacePath);
+            await MILanguageClient.stopInstance(projectUri);
             return;
         }
-        const hasActiveDocument = hasActiveDocumentInWorkspace(workspacePath);
+        const hasActiveDocument = hasActiveDocumentInProject(projectUri);
 
         if (hasActiveDocument) {
-            await MILanguageClient.getInstance(workspacePath);
+            await MILanguageClient.getInstance(projectUri);
         } else {
-            await MILanguageClient.stopInstance(workspacePath);
+            await MILanguageClient.stopInstance(projectUri);
         }
     });
 }
 
-export function hasActiveDocumentInWorkspace(workspacePath: string): boolean {
-    const artifactsPath = path.join(workspacePath, 'src', 'main', 'wso2mi', 'artifacts');
+export function hasActiveDocumentInProject(projectUri: string): boolean {
+    const artifactsPath = path.join(projectUri, 'src', 'main', 'wso2mi', 'artifacts');
     for (const tabGroup of window.tabGroups.all) {
         for (const tab of tabGroup.tabs) {
             if (tab.input instanceof TabInputText && tab.input.uri.fsPath.startsWith(artifactsPath)) {
