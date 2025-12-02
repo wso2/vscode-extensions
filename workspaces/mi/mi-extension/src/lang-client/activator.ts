@@ -102,7 +102,7 @@ const versionRegex = /(\d+\.\d+\.?\d*)/g;
 export class MILanguageClient {
     private static _instances: Map<string, MILanguageClient> = new Map();
     private static lsChannelCache: Map<string, vscode.OutputChannel> = new Map();
-    public languageClient: ExtendedLanguageClient | undefined;
+    private languageClient: ExtendedLanguageClient | undefined;
 
     // eslint-disable-next-line @typescript-eslint/naming-convention
     private COMPATIBLE_JDK_VERSION = "11"; // Minimum JDK version required to run the language server
@@ -110,13 +110,19 @@ export class MILanguageClient {
 
     constructor(private projectUri: string) { }
 
-    public static async getInstance(projectUri: string): Promise<MILanguageClient> {
+    public static async getInstance(projectUri: string): Promise<ExtendedLanguageClient> {
         if (!this._instances.has(projectUri)) {
             const instance = new MILanguageClient(projectUri);
             await instance.launch(projectUri);
             this._instances.set(projectUri, instance);
         }
-        return this._instances.get(projectUri)!;
+        const languageClient = this._instances.get(projectUri)!.languageClient;
+        if (!languageClient) {
+            const errorMessage = "Language client failed to initialize";
+            window.showErrorMessage(errorMessage);
+            throw new Error(errorMessage);
+        }
+        return languageClient;
     }
 
     public static async stopInstance(projectUri: string) {

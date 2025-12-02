@@ -397,12 +397,7 @@ const stateMachine = createMachine<MachineContext>({
                 try {
                     const treeViewId = context.isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : MI_PROJECT_EXPLORER_VIEW_ID;
                     vscode.commands.executeCommand(`${treeViewId}.focus`);
-                    const instance = await MILanguageClient.getInstance(context.projectUri!);
-                    const errors = instance.getErrors();
-                    if (errors.length) {
-                        return reject(errors);
-                    }
-                    const ls = instance.languageClient;
+                    const ls = await MILanguageClient.getInstance(context.projectUri!);
                     vscode.commands.executeCommand('setContext', 'MI.status', 'projectLoaded');
 
                     resolve(ls);

@@ -102,7 +102,7 @@ export async function activate(context: vscode.ExtensionContext) {
 export async function deactivate(): Promise<void> {
 	const clients = await MILanguageClient.getAllInstances();
 	clients.forEach(async client => {
-		await client?.languageClient?.stop();
+		await client?.stop();
 	});
 
 	// close all webviews

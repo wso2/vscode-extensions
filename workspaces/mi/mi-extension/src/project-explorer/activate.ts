@@ -42,15 +42,14 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 		return;
 	}
 	isProjectExplorerInitialized = true;
-	const ls = await MILanguageClient.getInstance(projectUri);
-	const lsClient: ExtendedLanguageClient | undefined = ls.languageClient;
+	const lsClient: ExtendedLanguageClient = await MILanguageClient.getInstance(projectUri);
 
 	const projectExplorerDataProvider = new ProjectExplorerEntryProvider(context);
 	await projectExplorerDataProvider.refresh();
 	let registryExplorerDataProvider;
 	const projectTree = window.createTreeView(treeviewId, { treeDataProvider: projectExplorerDataProvider });
 
-	const projectDetailsRes = await lsClient?.getProjectDetails();
+	const projectDetailsRes = await lsClient.getProjectDetails();
 	const runtimeVersion = projectDetailsRes.primaryDetails.runtimeVersion.value;
 	const isRegistrySupported = compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0;
 
@@ -573,7 +572,7 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 				if (filePath !== "") {
 					const fileName = path.basename(filePath);
 					const langClient = await MILanguageClient.getInstance(workspace.uri.fsPath);
-					const fileUsageIdentifiers = await langClient?.languageClient?.getResourceUsages(filePath);
+					const fileUsageIdentifiers = await langClient.getResourceUsages(filePath);
 					const fileUsageMessage = fileUsageIdentifiers?.length && fileUsageIdentifiers?.length > 0 ? "It is used in:\n" + fileUsageIdentifiers.join(", ") : "No usage found";
 					window.showInformationMessage("Do you want to delete : " + fileName + "\n\n" + fileUsageMessage, { modal: true }, "Yes")
 						.then(async answer => {
