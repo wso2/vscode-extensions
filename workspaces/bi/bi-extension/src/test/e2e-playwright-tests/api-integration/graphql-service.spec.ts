@@ -20,7 +20,7 @@ import { addArtifact, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
 import { GraphQLServiceUtils} from './graphqlUtils';
-import { TypeEditorUtils } from '../type/TypeEditorUtils';
+import { TypeEditorUtils } from '../type-editor/TypeEditorUtils';
 
 const TEST_DATA = {
     editedBasePath: (attempt: number) => `/editedSample${attempt}`,

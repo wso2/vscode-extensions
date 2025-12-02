@@ -16,7 +16,6 @@
  * under the License.
  */
 
-import { ExtendedPage } from "@wso2/playwright-vscode-tester";
 import { getWebview } from "./webview";
 import { page } from "./setup";
 

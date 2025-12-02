@@ -17,7 +17,7 @@
  */
 import { Frame,Page } from '@playwright/test';
 import { Form } from '@wso2/playwright-vscode-tester';
-import { TypeEditorUtils } from '../type/TypeEditorUtils';
+import { TypeEditorUtils } from '../type-editor/TypeEditorUtils';
 
 export class GraphQLServiceUtils {
     /**
