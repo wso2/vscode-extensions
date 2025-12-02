@@ -513,7 +513,7 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 						window.showErrorMessage('Cannot find workspace folder');
 						return;
 					}
-					const langClient = getStateMachine(workspace.uri.fsPath).context().langClient;
+					const langClient = await MILanguageClient.getInstance(workspace.uri.fsPath);
 					if (!langClient) {
 						window.showErrorMessage('Language client not found.');
 						return;
@@ -660,7 +660,7 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 			window.showErrorMessage('Cannot find workspace folder');
 			throw new Error('Cannot find workspace folder');
 		}
-		const langClient = getStateMachine(workspace.uri.fsPath).context().langClient;
+		const langClient = await MILanguageClient.getInstance(workspace.uri.fsPath);
 
 		// Read the POM file
 		const workspaceFolder = vscode.workspace.getWorkspaceFolder(Uri.file(filePath));
