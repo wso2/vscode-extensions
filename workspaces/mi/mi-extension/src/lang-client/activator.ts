@@ -102,6 +102,9 @@ const versionRegex = /(\d+\.\d+\.?\d*)/g;
 export class MILanguageClient {
     private static _instances: Map<string, MILanguageClient> = new Map();
     private static lsChannelCache: Map<string, vscode.OutputChannel> = new Map();
+    private static stopTimers: Map<string, NodeJS.Timeout> = new Map();
+    private static stoppingInstances: Set<string> = new Set();
+    private static readonly STOP_DEBOUNCE_MS = 3000; // 30 seconds
     private languageClient: ExtendedLanguageClient | undefined;
 
     // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -111,6 +114,20 @@ export class MILanguageClient {
     constructor(private projectUri: string) { }
 
     public static async getInstance(projectUri: string): Promise<ExtendedLanguageClient> {
+        // Cancel any pending stop operation for this project
+        const existingTimer = this.stopTimers.get(projectUri);
+        if (existingTimer) {
+            clearTimeout(existingTimer);
+            this.stopTimers.delete(projectUri);
+        }
+
+        // If instance is currently stopping, wait for it to complete and create a new one
+        if (this.stoppingInstances.has(projectUri)) {
+            // Wait a bit for the stop operation to complete
+            await new Promise(resolve => setTimeout(resolve, 100));
+            this.stoppingInstances.delete(projectUri);
+        }
+
         if (!this._instances.has(projectUri)) {
             const instance = new MILanguageClient(projectUri);
             await instance.launch(projectUri);
@@ -126,11 +143,25 @@ export class MILanguageClient {
     }
 
     public static async stopInstance(projectUri: string) {
-        const instance = this._instances.get(projectUri);
-        if (instance) {
-            await instance.stop();
-            this._instances.delete(projectUri);
+        // Cancel any existing timer for this project
+        const existingTimer = this.stopTimers.get(projectUri);
+        if (existingTimer) {
+            clearTimeout(existingTimer);
         }
+
+        // Schedule the stop operation with debounce
+        const timer = setTimeout(async () => {
+            this.stoppingInstances.add(projectUri);
+            const instance = this._instances.get(projectUri);
+            if (instance) {
+                await instance.stop();
+                this._instances.delete(projectUri);
+            }
+            this.stopTimers.delete(projectUri);
+            this.stoppingInstances.delete(projectUri);
+        }, this.STOP_DEBOUNCE_MS);
+
+        this.stopTimers.set(projectUri, timer);
     }
 
     public static async getAllInstances(): Promise<MILanguageClient[]> {
