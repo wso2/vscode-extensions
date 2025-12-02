@@ -452,6 +452,9 @@ importers:
       '@ai-sdk/anthropic':
         specifier: ^2.0.20
         version: 2.0.49(zod@4.1.11)
+      '@iarna/toml':
+        specifier: ^2.2.5
+        version: 2.2.5
       '@types/lodash':
         specifier: ^4.14.200
         version: 4.17.17
@@ -524,9 +527,6 @@ importers:
       source-map-support:
         specifier: ^0.5.21
         version: 0.5.21
-      toml:
-        specifier: ^3.0.0
-        version: 3.0.0
       unzipper:
         specifier: ~0.12.3
         version: 0.12.3
@@ -2507,15 +2507,15 @@ importers:
 
   ../../workspaces/bi/bi-extension:
     dependencies:
+      '@iarna/toml':
+        specifier: ^2.2.5
+        version: 2.2.5
       '@wso2/ballerina-core':
         specifier: workspace:*
         version: link:../../ballerina/ballerina-core
       '@wso2/font-wso2-vscode':
         specifier: workspace:*
         version: link:../../common-libs/font-wso2-vscode
-      toml:
-        specifier: ^3.0.0
-        version: 3.0.0
       xstate:
         specifier: ^4.38.3
         version: 4.38.3
@@ -21708,9 +21708,6 @@ packages:
     resolution: {integrity: sha512-Y2fmSnZjQdDb9W4w4r1tswlMHylzWIeOKpx0aZH9BgGtACHhrk3OkT52AzwcuqTRBZtvvnTjDBh8eynMulu8Vg==}
     engines: {node: '>=14.16'}
 
-  toml@3.0.0:
-    resolution: {integrity: sha512-y/mWCZinnvxjTKYhJ+pYxwD0mRLVvOtdS2Awbgxln6iEnt4rk0yBxeSBHkGJcPucRiG0e55mwWp+g/05rsrd6w==}
-
   toposort@1.0.7:
     resolution: {integrity: sha512-FclLrw8b9bMWf4QlCJuHBEVhSRsqDj6u3nIjAzPeJvgl//1hBlffdlk0MALceL14+koWEdU4ofRAXofbODxQzg==}
 
@@ -37943,8 +37940,8 @@ snapshots:
 
   '@webpack-cli/configtest@3.0.1(webpack-cli@6.0.1)(webpack@5.103.0)':
     dependencies:
-      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
-      webpack-cli: 6.0.1(webpack-dev-server@5.2.2)(webpack@5.103.0)
+      webpack: 5.103.0(webpack-cli@6.0.1)
+      webpack-cli: 6.0.1(webpack@5.103.0)
 
   '@webpack-cli/info@1.5.0(webpack-cli@4.10.0)':
     dependencies:
@@ -37958,8 +37955,8 @@ snapshots:
 
   '@webpack-cli/info@3.0.1(webpack-cli@6.0.1)(webpack@5.103.0)':
     dependencies:
-      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
-      webpack-cli: 6.0.1(webpack-dev-server@5.2.2)(webpack@5.103.0)
+      webpack: 5.103.0(webpack-cli@6.0.1)
+      webpack-cli: 6.0.1(webpack@5.103.0)
 
   '@webpack-cli/serve@1.7.0(webpack-cli@4.10.0)':
     dependencies:
@@ -52772,8 +52769,6 @@ snapshots:
     dependencies:
       '@tokenizer/token': 0.3.0
       ieee754: 1.2.1
-
-  toml@3.0.0: {}
 
   toposort@1.0.7: {}
 
