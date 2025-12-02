@@ -101,7 +101,7 @@ const versionRegex = /(\d+\.\d+\.?\d*)/g;
 
 export class MILanguageClient {
     private static _instances: Map<string, MILanguageClient> = new Map();
-    private static lsChannelCache: Map<string, vscode.OutputChannel> = new Map();
+    private static lsChannels: Map<string, vscode.OutputChannel> = new Map();
     private static stopTimers: Map<string, NodeJS.Timeout> = new Map();
     private static stoppingInstances: Set<string> = new Set();
     private static readonly STOP_DEBOUNCE_MS = 3000; // 30 seconds
@@ -173,10 +173,10 @@ export class MILanguageClient {
     }
 
     public static getOrCreateOutputChannel(projectUri: string): vscode.OutputChannel {
-        let channel = this.lsChannelCache.get(projectUri);
+        let channel = this.lsChannels.get(projectUri);
         if (!channel) {
             channel = vscode.window.createOutputChannel(`Synapse Language Server - ${path.basename(projectUri)}`);
-            this.lsChannelCache.set(projectUri, channel);
+            this.lsChannels.set(projectUri, channel);
         }
         return channel;
     }
