@@ -95,7 +95,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	activateAiPanel(context);
 
 	workspace.workspaceFolders?.forEach(folder => {
-		enableLSForProject(folder.uri.fsPath);
+		context.subscriptions.push(enableLSForProject(folder.uri.fsPath));
 	});
 }
 

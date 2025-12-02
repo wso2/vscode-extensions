@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { Position, Range, Uri, WorkspaceEdit, commands, workspace, window, TabInputText } from "vscode";
+import { Position, Range, Uri, WorkspaceEdit, commands, workspace, window, TabInputText, Disposable } from "vscode";
 import * as fs from "fs";
 import { COMMANDS } from "../constants";
 import path from "path";
@@ -134,8 +134,8 @@ export async function saveIdpSchemaToFile(folderPath: string, fileName: string, 
     return true;
 }
 
-export function enableLSForProject(projectUri: string): void {
-    window.onDidChangeActiveTextEditor(async (event) => {
+export function enableLSForProject(projectUri: string): Disposable {
+    return window.onDidChangeActiveTextEditor(async (event) => {
         const hasActiveWebview = webviews.has(projectUri);
 
         if (hasActiveWebview) {
