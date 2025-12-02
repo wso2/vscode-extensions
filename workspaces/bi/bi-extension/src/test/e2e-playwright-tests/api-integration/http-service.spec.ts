@@ -1,5 +1,3 @@
-
-
 /**
  * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
@@ -23,13 +21,13 @@ import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
 
 export default function createTests() {
-    test.describe('Type Diagram Artifact Tests', {
+    test.describe('HTTP Service Tests', {
         tag: '@group1',
     }, async () => {
         initTest();
-        test('Create Type Diagram Artifact', async ({ }, testInfo) => {
+        test('Create HTTP Service', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
-            console.log('Creating a new type diagram in test attempt: ', testAttempt);
+            console.log('Creating a new service in test attempt: ', testAttempt);
             // Creating a HTTP Service
             await addArtifact('HTTP Service', 'http-service-card');
             const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
@@ -58,7 +56,7 @@ export default function createTests() {
             }
         });
 
-        test('Editing Type Diagram Artifact', async ({ }, testInfo) => {
+        test('Editing HTTP Service', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
             console.log('Editing a service in test attempt: ', testAttempt);
             const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);

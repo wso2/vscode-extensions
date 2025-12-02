@@ -19,7 +19,7 @@ import { test } from '@playwright/test';
 import { Form } from '@wso2/playwright-vscode-tester';
 import fs from 'fs';
 import path from 'path';
-import { getWebview, initMigrationTest, page } from '../utils';
+import { getWebview, initMigrationTest, page } from '../utils/helpers';
 
 export default function createTests() {
     test.describe('Import Integration Tests', {

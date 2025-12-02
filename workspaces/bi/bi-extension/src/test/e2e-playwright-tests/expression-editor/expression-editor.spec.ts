@@ -17,10 +17,9 @@
  */
 
 import { test } from '@playwright/test';
-import { addArtifact, initTest, page } from '../utils';
+import { addArtifact, initTest, page } from '../utils/helpers';
 import { switchToIFrame } from '@wso2/playwright-vscode-tester';
-import { Diagram } from '../components/Diagram';
-import { SidePanel } from '../components/SidePanel';
+import { Diagram, SidePanel } from '../utils/pages';
 
 export default function createTests() {
     test.describe('Expression Editor Tests', {
