@@ -27,6 +27,7 @@ import { webviews } from '../visualizer/webview';
 import { extension } from '../MIExtensionContext';
 import { reject } from 'lodash';
 import { LogLevel, logDebug } from '../util/logger';
+import { MILanguageClient } from '../lang-client/activator';
 
 export interface RuntimeBreakpoint {
     id: number;
@@ -87,7 +88,7 @@ export class Debugger extends EventEmitter {
                 return;
             }
             const projectUri = workspace.uri.fsPath;
-            const langClient = getStateMachine(projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const breakpointPerFile: RuntimeBreakpoint[] = [];
             // To maintain the valid and invalid breakpoints in the vscode
             const vscodeBreakpointsPerFile: RuntimeBreakpoint[] = [];
@@ -191,7 +192,7 @@ export class Debugger extends EventEmitter {
                 return;
             }
             const projectUri = workspace.uri.fsPath;
-            const langClient = getStateMachine(projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const stepOverBreakpoints: RuntimeBreakpoint[] = [];
             if (path) {
                 // create BreakpointPosition array
@@ -278,7 +279,7 @@ export class Debugger extends EventEmitter {
             throw new Error(`No workspace found for path: ${filePath}`);
         }
         const projectUri = workspace.uri.fsPath;
-        const langClient = getStateMachine(projectUri).context().langClient!;
+        const langClient = await MILanguageClient.getInstance(this.projectUri);
         // create BreakpointPosition[] array
         const breakpointPositions = breakpoints.map((breakpoint) => {
             return { line: breakpoint.line, column: breakpoint?.column };
@@ -296,7 +297,7 @@ export class Debugger extends EventEmitter {
 
     public async getNextMediatorBreakpoint(): Promise<StepOverBreakpointResponse> {
         try {
-            const langClient = getStateMachine(this.projectUri).context().langClient;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             if (!langClient) {
                 throw new Error('Language client is not initialized');
             }

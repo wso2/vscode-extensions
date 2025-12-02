@@ -36,6 +36,7 @@ import { MiDiagramRpcManager } from '../rpc-managers/mi-diagram/rpc-manager';
 import { log } from '../util/logger';
 import { CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR } from '../util/onboardingUtils';
 import { getHash } from '../util/fileOperations';
+import { MILanguageClient } from '../lang-client/activator';
 
 export function activateVisualizer(context: vscode.ExtensionContext, firstProject: string) {
     context.subscriptions.push(
@@ -233,7 +234,7 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
 
             if (e.document.uri.fsPath.endsWith('pom.xml')) {
                 const projectUri = vscode.workspace.getWorkspaceFolder(e.document.uri)?.uri.fsPath;
-                const langClient = getStateMachine(projectUri!).context().langClient;
+                const langClient = await MILanguageClient.getInstance(projectUri!);
                 
                 const confirmUpdate = await vscode.window.showInformationMessage(
                     'The pom.xml file has been modified. Do you want to update the dependencies?',
