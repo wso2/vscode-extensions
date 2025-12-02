@@ -104,7 +104,7 @@ export class MILanguageClient {
     private static lsChannels: Map<string, vscode.OutputChannel> = new Map();
     private static stopTimers: Map<string, NodeJS.Timeout> = new Map();
     private static stoppingInstances: Set<string> = new Set();
-    private static readonly STOP_DEBOUNCE_MS = 3000; // 30 seconds
+    private static readonly STOP_DEBOUNCE_MS = 30000; // 30 seconds
     private languageClient: ExtendedLanguageClient | undefined;
 
     // eslint-disable-next-line @typescript-eslint/naming-convention
