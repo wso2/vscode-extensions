@@ -145,7 +145,7 @@ export function enableLSForProject(projectUri: string): void {
             await MILanguageClient.stopInstance(projectUri);
             return;
         }
-        const hasActiveDocument = hasActiveDocumentInProject(projectUri);
+        const hasActiveDocument = hasOpenedDocumentInProject(projectUri);
 
         if (hasActiveDocument) {
             await MILanguageClient.getInstance(projectUri);
@@ -155,7 +155,7 @@ export function enableLSForProject(projectUri: string): void {
     });
 }
 
-export function hasActiveDocumentInProject(projectUri: string): boolean {
+export function hasOpenedDocumentInProject(projectUri: string): boolean {
     const artifactsPath = path.join(projectUri, 'src', 'main', 'wso2mi', 'artifacts');
     for (const tabGroup of window.tabGroups.all) {
         for (const tab of tabGroup.tabs) {
