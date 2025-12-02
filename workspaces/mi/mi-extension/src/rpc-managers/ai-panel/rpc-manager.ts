@@ -50,6 +50,7 @@ import { codeDiagnostics } from "../../ai-panel/copilot/diagnostics/diagnostics"
 import { getLoginMethod } from '../../ai-panel/auth';
 import { LoginMethod } from '@wso2/mi-core';
 import { logInfo, logWarn, logError, logDebug } from '../../ai-panel/copilot/logger';
+import { MILanguageClient } from '../../lang-client/activator';
 
 export class MIAIPanelRpcManager implements MIAIPanelAPI {
     private eventHandler: CopilotEventHandler;
@@ -374,13 +375,7 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
             this.eventHandler.handleCodeDiagnosticStart(xmlCodes);  
 
             // Get diagnostics using existing RPC infrastructure
-            const { getStateMachine } = await import('../../stateMachine');
-            const stateMachine = getStateMachine(this.projectUri);
-            if (!stateMachine) {
-                throw new Error('State machine not found for project');
-            }
-
-            const langClient = stateMachine.context().langClient;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             if (!langClient) {
                 throw new Error('Language client not available');
             }

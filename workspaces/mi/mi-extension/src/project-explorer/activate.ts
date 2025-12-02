@@ -37,27 +37,28 @@ import { webviews } from '../visualizer/webview';
 import { MILanguageClient } from '../lang-client/activator';
 
 let isProjectExplorerInitialized = false;
-export async function activateProjectExplorer(treeviewId: string, context: ExtensionContext, lsClient: ExtendedLanguageClient, isInWI: boolean) {
+export async function activateProjectExplorer(treeviewId: string, context: ExtensionContext, projectUri: string, isInWI: boolean) {
 	if (isProjectExplorerInitialized) {
 		return;
 	}
 	isProjectExplorerInitialized = true;
+	const lsClient: ExtendedLanguageClient = await MILanguageClient.getInstance(projectUri);
 
 	const projectExplorerDataProvider = new ProjectExplorerEntryProvider(context);
 	await projectExplorerDataProvider.refresh();
 	let registryExplorerDataProvider;
 	const projectTree = window.createTreeView(treeviewId, { treeDataProvider: projectExplorerDataProvider });
 
-	const projectDetailsRes = await lsClient?.getProjectDetails();
+	const projectDetailsRes = await lsClient.getProjectDetails();
 	const runtimeVersion = projectDetailsRes.primaryDetails.runtimeVersion.value;
 	const isRegistrySupported = compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0;
 
-	commands.registerCommand(COMMANDS.REFRESH_COMMAND, () => { 
+	commands.registerCommand(COMMANDS.REFRESH_COMMAND, () => {
 		if (isInWI) {
 			commands.executeCommand(COMMANDS.WI_PROJECT_EXPLORER_VIEW_REFRESH);
 			return;
 		}
-		return projectExplorerDataProvider.refresh(); 
+		return projectExplorerDataProvider.refresh();
 	});
 
 	commands.registerCommand(COMMANDS.ADD_ARTIFACT_COMMAND, (entry: ProjectExplorerEntry) => {
@@ -512,7 +513,7 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 						window.showErrorMessage('Cannot find workspace folder');
 						return;
 					}
-					const langClient = getStateMachine(workspace.uri.fsPath).context().langClient;
+					const langClient = await MILanguageClient.getInstance(workspace.uri.fsPath);
 					if (!langClient) {
 						window.showErrorMessage('Language client not found.');
 						return;
@@ -571,7 +572,7 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 				if (filePath !== "") {
 					const fileName = path.basename(filePath);
 					const langClient = await MILanguageClient.getInstance(workspace.uri.fsPath);
-					const fileUsageIdentifiers = await langClient?.languageClient?.getResourceUsages(filePath);
+					const fileUsageIdentifiers = await langClient.getResourceUsages(filePath);
 					const fileUsageMessage = fileUsageIdentifiers?.length && fileUsageIdentifiers?.length > 0 ? "It is used in:\n" + fileUsageIdentifiers.join(", ") : "No usage found";
 					window.showInformationMessage("Do you want to delete : " + fileName + "\n\n" + fileUsageMessage, { modal: true }, "Yes")
 						.then(async answer => {
@@ -659,7 +660,7 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 			window.showErrorMessage('Cannot find workspace folder');
 			throw new Error('Cannot find workspace folder');
 		}
-		const langClient = getStateMachine(workspace.uri.fsPath).context().langClient;
+		const langClient = await MILanguageClient.getInstance(workspace.uri.fsPath);
 
 		// Read the POM file
 		const workspaceFolder = vscode.workspace.getWorkspaceFolder(Uri.file(filePath));
