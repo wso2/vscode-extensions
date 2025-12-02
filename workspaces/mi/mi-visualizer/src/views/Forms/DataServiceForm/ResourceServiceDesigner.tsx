@@ -33,7 +33,7 @@ interface ServiceDesignerProps {
     syntaxTree: any;
     documentUri: string;
 }
-export function DSSServiceDesignerView({ syntaxTree, documentUri }: ServiceDesignerProps) {
+export function DSSResourceServiceDesignerView({ syntaxTree, documentUri }: ServiceDesignerProps) {
     const { rpcClient } = useVisualizerContext();
     const [resourceServiceModel, setResourceServiceModel] = React.useState<Service>(null);
     const [operationServiceModel, setOperationServiceModel] = React.useState<Service>(null);
@@ -68,6 +68,7 @@ export function DSSServiceDesignerView({ syntaxTree, documentUri }: ServiceDesig
                 description: resource.description ? resource.description.textNode : "",
                 enableStreaming: !resource.disableStreaming,
                 returnRequestStatus: resource.returnRequestStatus ?? false,
+                queryId: resource.callQuery ? resource.callQuery.href : "",
                 position: {
                     startLine: resource.range.startTagRange.start.line,
                     startColumn: resource.range.startTagRange.start.character,
@@ -120,6 +121,7 @@ export function DSSServiceDesignerView({ syntaxTree, documentUri }: ServiceDesig
             };
             const currentOperation: any = {
                 name: operation.name,
+                queryId: operation.callQuery ? operation.callQuery.href : "",
                 description: operation.description ? operation.description.textNode : "",
                 enableStreaming: !operation.disableStreaming,
                 position: {
@@ -232,6 +234,16 @@ export function DSSServiceDesignerView({ syntaxTree, documentUri }: ServiceDesig
         setOperationFormOpen(true);
     };
 
+    const handleManageQueries = () => {
+        rpcClient.getMiVisualizerRpcClient().openView({
+            type: EVENT_TYPE.OPEN_VIEW,
+            location: {
+                view: MACHINE_VIEW.DSSQueryServiceDesigner,
+                documentUri: documentUri
+            }
+        });
+    }
+
     const handleCancel = () => {
         setResourceFormOpen(false);
         setOperationFormOpen(false);
@@ -306,7 +318,10 @@ export function DSSServiceDesignerView({ syntaxTree, documentUri }: ServiceDesig
         <>
             {(resourceServiceModel || operationServiceModel) && (
                 <View>
-                    <ViewHeader title="Data Service Designer" icon="APIResource" onEdit={handleDataServiceEdit}>
+                    <ViewHeader title="Data Service Resource Designer" icon="APIResource" onEdit={handleDataServiceEdit}>
+                        <VSCodeButton appearance="primary" title="Manage Queries" onClick={handleManageQueries}>
+                            <Codicon name="list-unordered" sx={{ marginRight: 5 }} /> Manage Queries
+                        </VSCodeButton>
                         {showResources ? (
                             <React.Fragment>
                                 <VSCodeButton appearance="primary" title="Add Resource" onClick={handleResourceAdd}>
