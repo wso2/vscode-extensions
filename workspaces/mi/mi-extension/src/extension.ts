@@ -34,7 +34,7 @@ import { webviews } from './visualizer/webview';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import { COMMANDS } from './constants';
-import { enableLSForProject } from './util/workspace';
+import { enableLS } from './util/workspace';
 const os = require('os');
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -95,7 +95,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	activateAiPanel(context);
 
 	workspace.workspaceFolders?.forEach(folder => {
-		context.subscriptions.push(enableLSForProject(folder.uri.fsPath));
+		context.subscriptions.push(...enableLS());
 	});
 }
 

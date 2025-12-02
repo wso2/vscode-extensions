@@ -134,25 +134,43 @@ export async function saveIdpSchemaToFile(folderPath: string, fileName: string, 
     return true;
 }
 
-export function enableLSForProject(projectUri: string): Disposable {
-    return window.onDidChangeActiveTextEditor(async (event) => {
-        const hasActiveWebview = webviews.has(projectUri);
+export function enableLS(): Disposable[] {
+    const disposables: Disposable[] = [];
 
-        if (hasActiveWebview) {
+    const disposable1 = window.onDidChangeActiveTextEditor(async (event) => {
+        if (!event) {
             return;
         }
-        if (!event) { // No text editors
-            await MILanguageClient.stopInstance(projectUri);
+        const document = event.document;
+        const projectUri = workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
+        if (!projectUri) {
             return;
         }
         const hasActiveDocument = hasOpenedDocumentInProject(projectUri);
 
         if (hasActiveDocument) {
             await MILanguageClient.getInstance(projectUri);
-        } else {
+        }
+    });
+
+    const disposable2 = workspace.onDidCloseTextDocument(async (document) => {
+        const projectUri = workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
+        if (!projectUri) {
+            return;
+        }
+        const hasActiveWebview = webviews.has(projectUri);
+
+        if (hasActiveWebview) {
+            return;
+        }
+        const hasActiveDocument = hasOpenedDocumentInProject(projectUri);
+
+        if (!hasActiveDocument) {
             await MILanguageClient.stopInstance(projectUri);
         }
     });
+    disposables.push(disposable1, disposable2);
+    return disposables;
 }
 
 export function hasOpenedDocumentInProject(projectUri: string): boolean {
