@@ -273,7 +273,7 @@ export function FormGenerator(props: FormGeneratorProps) {
     const [driverError, setDriverError] = useState("");
     const dynamicFieldsHandler = useRef<DynamicFieldsHandler>(null);
     const [dynamicFields, setDynamicFields] = useState<Record<string, DynamicFieldGroup>>({});
-    const [elements, setElements] = useState(formData.elements);
+    const [, setElements] = useState(formData.elements);
     const updateElements = (newElements: any) => {
         setElements(newElements);
         formData.elements = newElements;
