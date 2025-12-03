@@ -38,6 +38,7 @@ import { serverLog, showServerOutputChannel } from '../util/serverLogger';
 import { getJavaHomeFromConfig, getServerPathFromConfig } from '../util/onboardingUtils';
 import * as crypto from 'crypto';
 import { Uri, workspace } from "vscode";
+import { MILanguageClient } from '../lang-client/activator';
 
 const child_process = require('child_process');
 const findProcess = require('find-process');
@@ -422,7 +423,8 @@ export async function stopServer(projectUri: string, serverPath: string, isWindo
 export async function executeTasks(projectUri: string, serverPath: string, isDebug: boolean): Promise<void> {
     const maxTimeout = 120000;
     return new Promise<void>(async (resolve, reject) => {
-        const isTerminated = await getStateMachine(projectUri).context().langClient?.shutdownTryoutServer();
+        const langClient = await MILanguageClient.getInstance(projectUri);
+        const isTerminated = await langClient.shutdownTryoutServer();
         if (!isTerminated) {
             reject('Failed to terminate the tryout server. Kill the server manually and try again.');
         }
