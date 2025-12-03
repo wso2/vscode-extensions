@@ -988,7 +988,7 @@ importers:
         specifier: ~6.11.3
         version: 6.11.3
       '@codemirror/language-data':
-        specifier: ^6.5.2
+        specifier: ~6.5.2
         version: 6.5.2
       '@codemirror/lint':
         specifier: ~6.8.1
@@ -1024,41 +1024,41 @@ importers:
         specifier: ~4.17.21
         version: 4.17.21
       markdown-it:
-        specifier: ^14.1.0
+        specifier: ~14.1.0
         version: 14.1.0
       prosemirror-commands:
-        specifier: ^1.5.2
+        specifier: ~1.7.1
         version: 1.7.1
       prosemirror-gapcursor:
-        specifier: ^1.4.0
+        specifier: ~1.4.0
         version: 1.4.0
       prosemirror-history:
-        specifier: ^1.3.2
+        specifier: ~1.5.0
         version: 1.5.0
       prosemirror-inputrules:
-        specifier: ^1.4.0
+        specifier: ~1.5.1
         version: 1.5.1
       prosemirror-keymap:
-        specifier: ^1.2.2
+        specifier: ~1.2.2
         version: 1.2.3
       prosemirror-markdown:
-        specifier: ^1.12.0
+        specifier: ~1.13.2
         version: 1.13.2
       prosemirror-model:
-        specifier: ^1.19.4
+        specifier: ~1.25.4
         version: 1.25.4
       prosemirror-schema-basic:
-        specifier: ^1.2.2
+        specifier: ~1.2.2
         version: 1.2.4
       prosemirror-schema-list:
-        specifier: ^1.3.0
+        specifier: ~1.5.1
         version: 1.5.1
       prosemirror-state:
-        specifier: ^1.4.3
+        specifier: ~1.4.3
         version: 1.4.4
       prosemirror-view:
-        specifier: ^1.33.0
-        version: 1.41.3
+        specifier: ~1.41.3
+        version: 1.41.4
       react:
         specifier: 18.2.0
         version: 18.2.0
@@ -19508,8 +19508,8 @@ packages:
   prosemirror-transform@1.10.5:
     resolution: {integrity: sha512-RPDQCxIDhIBb1o36xxwsaeAvivO8VLJcgBtzmOwQ64bMtsVFh5SSuJ6dWSxO1UsHTiTXPCgQm3PDJt7p6IOLbw==}
 
-  prosemirror-view@1.41.3:
-    resolution: {integrity: sha512-SqMiYMUQNNBP9kfPhLO8WXEk/fon47vc52FQsUiJzTBuyjKgEcoAwMyF04eQ4WZ2ArMn7+ReypYL60aKngbACQ==}
+  prosemirror-view@1.41.4:
+    resolution: {integrity: sha512-WkKgnyjNncri03Gjaz3IFWvCAE94XoiEgvtr0/r2Xw7R8/IjK3sKLSiDoCHWcsXSAinVaKlGRZDvMCsF1kbzjA==}
 
   protobufjs@7.5.4:
     resolution: {integrity: sha512-CvexbZtbov6jW2eXAvLukXjXUW1TzFaivC46BpWc/3BpcCysb5Vffu+B3XHMm8lVEuy2Mm4XGex8hBSg1yapPg==}
@@ -27119,7 +27119,10 @@ snapshots:
       jest-runner: 25.5.4
       jest-runtime: 25.5.4
     transitivePeerDependencies:
+      - bufferutil
+      - canvas
       - supports-color
+      - utf-8-validate
 
   '@jest/test-sequencer@29.7.0':
     dependencies:
@@ -49634,13 +49637,13 @@ snapshots:
       prosemirror-keymap: 1.2.3
       prosemirror-model: 1.25.4
       prosemirror-state: 1.4.4
-      prosemirror-view: 1.41.3
+      prosemirror-view: 1.41.4
 
   prosemirror-history@1.5.0:
     dependencies:
       prosemirror-state: 1.4.4
       prosemirror-transform: 1.10.5
-      prosemirror-view: 1.41.3
+      prosemirror-view: 1.41.4
       rope-sequence: 1.3.4
 
   prosemirror-inputrules@1.5.1:
@@ -49677,13 +49680,13 @@ snapshots:
     dependencies:
       prosemirror-model: 1.25.4
       prosemirror-transform: 1.10.5
-      prosemirror-view: 1.41.3
+      prosemirror-view: 1.41.4
 
   prosemirror-transform@1.10.5:
     dependencies:
       prosemirror-model: 1.25.4
 
-  prosemirror-view@1.41.3:
+  prosemirror-view@1.41.4:
     dependencies:
       prosemirror-model: 1.25.4
       prosemirror-state: 1.4.4
