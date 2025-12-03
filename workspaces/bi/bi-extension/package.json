@@ -2,7 +2,7 @@
     "name": "ballerina-integrator",
     "displayName": "WSO2 Integrator: BI",
     "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
-    "version": "1.5.2",
+    "version": "1.5.3",
     "publisher": "wso2",
     "icon": "resources/images/wso2-ballerina-integrator-logo.png",
     "repository": {
@@ -67,7 +67,8 @@
             "ballerina-integrator": [
                 {
                     "id": "BI.project-explorer",
-                    "name": ""
+                    "name": "",
+                    "when": "!config.integrator.defaultIntegrator"
                 }
             ]
         },
@@ -162,7 +163,7 @@
         "lint": "eslint src --ext ts",
         "test": "node ./out/test/runTest.js",
         "build": "pnpm run compile && pnpm run lint && pnpm run postbuild",
-        "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release; else vsce package --no-dependencies; fi",
+        "package": "node ../../common-libs/scripts/package-vsix.js",
         "copyFonts": "copyfiles -f ./node_modules/@wso2/font-wso2-vscode/dist/* ./resources/font-wso2-vscode/dist/",
         "rebuild": "pnpm run clean && pnpm run compile && pnpm run postbuild",
         "postbuild": "pnpm run copyFonts && pnpm run package && pnpm run copyVSIX",
@@ -176,7 +177,7 @@
         "@wso2/ballerina-core": "workspace:*",
         "@wso2/font-wso2-vscode": "workspace:*",
         "xstate": "^4.38.3",
-        "toml": "^3.0.0"
+        "@iarna/toml": "^2.2.5"
     },
     "devDependencies": {
         "@vscode/vsce": "^3.7.0",

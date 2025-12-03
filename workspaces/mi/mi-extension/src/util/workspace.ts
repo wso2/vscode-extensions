@@ -16,12 +16,12 @@
  * under the License.
  */
 
-import { Position, Range, Uri, WorkspaceEdit, commands, workspace, window } from "vscode";
+import { Position, Range, Uri, WorkspaceEdit, commands, workspace, window, TabInputText, Disposable } from "vscode";
 import * as fs from "fs";
 import { COMMANDS } from "../constants";
 import path from "path";
 import { MILanguageClient } from "../lang-client/activator";
-import { extension } from "../MIExtensionContext";
+import { webviews } from "../visualizer/webview";
 
 export async function replaceFullContentToFile(documentUri: string, content: string) {
     // Create the file if not present
@@ -45,7 +45,7 @@ export async function replaceFullContentToFile(documentUri: string, content: str
         // Wait for the file to be fully created and accessible
         const maxRetries = 5;
         const retryDelay = 100;
-        
+
         let retries = 0;
         while (retries < maxRetries) {
             try {
@@ -69,7 +69,7 @@ export async function askForProject(): Promise<string> {
     for (const wrkspace of workspace.workspaceFolders!) {
         const lsClient = await MILanguageClient.getInstance(wrkspace.uri.fsPath);
         if (lsClient) {
-            const projectDetails = await lsClient.languageClient?.getProjectDetails();
+            const projectDetails = await lsClient.getProjectDetails();
             if (projectDetails?.primaryDetails?.projectName?.value) {
                 if (projects.has(projectDetails.primaryDetails.projectName.value)) {
                     projects.set(wrkspace.uri.fsPath, wrkspace.uri.fsPath);
@@ -91,12 +91,12 @@ export async function askForProject(): Promise<string> {
     return projects.get(quickPick)!;
 }
 
-export async function saveIdpSchemaToFile(folderPath: string, fileName:string, fileContent?: string,imageOrPdf?:string): Promise<boolean> {
-    const documentUri = path.join(folderPath, fileName +".json");
+export async function saveIdpSchemaToFile(folderPath: string, fileName: string, fileContent?: string, imageOrPdf?: string): Promise<boolean> {
+    const documentUri = path.join(folderPath, fileName + ".json");
     if (!fs.existsSync(folderPath)) {
         fs.mkdirSync(folderPath, { recursive: true });
     }
-    if(fileContent){
+    if (fileContent) {
         fs.writeFileSync(documentUri, fileContent, 'utf-8');
     }
     if (imageOrPdf) {
@@ -110,27 +110,77 @@ export async function saveIdpSchemaToFile(folderPath: string, fileName:string, f
         }
         const mimeTypeMatch = imageOrPdf.match(/^data:(.*?);base64,/);
         if (mimeTypeMatch) {
-            const mimeType = mimeTypeMatch[1]; 
+            const mimeType = mimeTypeMatch[1];
             let extension = "";
             if (mimeType === "application/pdf") {
                 extension = ".pdf";
             } else if (mimeType.startsWith("image/")) {
-                extension = mimeType.split("/")[1]; 
+                extension = mimeType.split("/")[1];
                 extension = `.${extension}`;
             } else {
                 console.error("Unsupported MIME type:", mimeType);
-                return false; 
+                return false;
             }
-            const base64Data = imageOrPdf.replace(/^data:.*;base64,/, ""); 
+            const base64Data = imageOrPdf.replace(/^data:.*;base64,/, "");
             const binaryData = Buffer.from(base64Data, "base64");
             const filePath = path.join(folderPath, fileName + extension);
             fs.writeFileSync(filePath, binaryData);
         } else {
             console.error("Invalid base64 string format.");
-            return false; 
+            return false;
         }
     }
     commands.executeCommand(COMMANDS.REFRESH_COMMAND);
     return true;
 }
 
+export function enableLS(): Disposable[] {
+    const disposables: Disposable[] = [];
+
+    const disposable1 = window.onDidChangeActiveTextEditor(async (event) => {
+        if (!event) {
+            return;
+        }
+        const document = event.document;
+        const projectUri = workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
+        if (!projectUri) {
+            return;
+        }
+        const hasActiveDocument = hasOpenedDocumentInProject(projectUri);
+
+        if (hasActiveDocument) {
+            await MILanguageClient.getInstance(projectUri);
+        }
+    });
+
+    const disposable2 = workspace.onDidCloseTextDocument(async (document) => {
+        const projectUri = workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
+        if (!projectUri) {
+            return;
+        }
+        const hasActiveWebview = webviews.has(projectUri);
+
+        if (hasActiveWebview) {
+            return;
+        }
+        const hasActiveDocument = hasOpenedDocumentInProject(projectUri);
+
+        if (!hasActiveDocument) {
+            await MILanguageClient.stopInstance(projectUri);
+        }
+    });
+    disposables.push(disposable1, disposable2);
+    return disposables;
+}
+
+export function hasOpenedDocumentInProject(projectUri: string): boolean {
+    const artifactsPath = path.join(projectUri, 'src', 'main', 'wso2mi', 'artifacts');
+    for (const tabGroup of window.tabGroups.all) {
+        for (const tab of tabGroup.tabs) {
+            if (tab.input instanceof TabInputText && tab.input.uri.fsPath.startsWith(artifactsPath)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}

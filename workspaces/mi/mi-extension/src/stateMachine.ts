@@ -14,41 +14,40 @@ import {
     VisualizerLocation,
     webviewReady
 } from '@wso2/mi-core';
-import { ExtendedLanguageClient } from './lang-client/ExtendedLanguageClient';
 import { VisualizerWebview, webviews } from './visualizer/webview';
 import { RPCLayer } from './RPCLayer';
 import { history } from './history/activator';
-import { COMMANDS } from './constants';
+import { COMMANDS, MI_PROJECT_EXPLORER_VIEW_ID, WI_EXTENSION_ID, WI_PROJECT_EXPLORER_VIEW_ID, RUNTIME_VERSION_440 } from './constants';
 import { activateProjectExplorer } from './project-explorer/activate';
 import { MockService, STNode, UnitTest, Task, InboundEndpoint } from '../../syntax-tree/lib/src';
-import { logDebug } from './util/logger';
+import { log, logDebug } from './util/logger';
 import { deriveConfigName, getSources } from './util/dataMapper';
 import { fileURLToPath } from 'url';
 import path = require('path');
 import { activateTestExplorer } from './test-explorer/activator';
 import { DMProject } from './datamapper/DMProject';
-import { setupEnvironment } from './util/onboardingUtils';
+import { setupEnvironment, getMIVersionFromPom, compareVersions } from './util/onboardingUtils';
 import { getPopupStateMachine } from './stateMachinePopup';
 import { askForProject } from './util/workspace';
 import { containsMultiModuleNatureInProjectFile, containsMultiModuleNatureInPomFile, findMultiModuleProjectsInWorkspaceDir } from './util/migrationUtils';
 const fs = require('fs');
 
 interface MachineContext extends VisualizerLocation {
-    langClient: ExtendedLanguageClient | null;
     dependenciesResolved?: boolean;
+    isInWI: boolean;
+    isLegacyRuntime?: boolean;
 }
 
 const stateMachine = createMachine<MachineContext>({
-    /** @xstate-layout N4IgpgJg5mDOIC5QFsCWA6VA7VAXVAhgDaoBeYAxBAPZZiZYBu1A1vQMYAWY7LACgCdqAKx64A2gAYAuolAAHarDypackAA9EAJm0A2dJICs2yQE49k7QEYT1vXoA0IAJ469ADnTWPAdiOSDkY+gX4AvmHOaAwqxGSUNHQMzGzoXDz8QqLsEtaySCCKyvhqBVoINgbGphZWtpVOrojW-uhGetomehYWHtpmRhFRGNixJORUtPTYKRzcvIIiYuLa+QpKKqWg5aZVJuaWNnYOzm4IfehmAMy+ACz+vleS1mbaV9pDINGj+HETidMmKw5hlFtkJFc1oUNiUsOodlc9jVDvV7I0zlcBug7k9btdfHpbHjPt8cL9xgkpslgWl5pkljlxLcoUVNnCyjpbkiDnVjujEITtOgPCKRf1Xo9jCSRmTCBSKGABEIBOh5EQCLgAGbUATIWmgrLLGTqVmw+GIEynZoedroLmPW67PoEjzStK0Og5HUASTJkySMxp0XYHrEPrJCED7A1qiwUmk8ZNMNj5oQvjMt0Mt3svg8xl8L35FSMV28RjMjxMHgs7w8ejd8kNOQAImBcGJIP7AbN0NFGwzcK32zlIJGgdHYfHEwVTSmOQgOlaEPYWpc9I8M9ZbpJbqK3dQiBAwWIhx2IF3qalogej03B22z2PmBPY1PjTPk1tNIhfNol7ZfEkO112zHcrm3FpfDdIhYF9PAL0DK8MBguDcCfagX1oN8WU-dltkQe4jGxQCPExDxbluTEzGsf8iXQJ4jBLSwAj0K4Xmg2C-QBS96GiFCIyjGMsJkcQ8iTYo53whAuSI3wSLIiiqJoppl0Cax0E8Yx2kRG1JFdSIvmQzj4MVZVVXVLUdT1PjjLQwTJxE991gkr9ykI4i9IUyizGo-9CQMbo9BLEtAiMPo3QEMACAgFx0AIHJUEYDUwAAeVwbgBAAMSi3AAFdItgBCgSQ9BIui2L4vwJL2zSjLso1fK4HQzC40cnCXLw79VOubxbjCm4rhFDpJF8f9fy8UijD68jrCsfRBgM6Iypi9BGFQMAAHcABlqGi7AoCKnslqila1s2na9qwKBmqE1qEyc6EOtTWwOmFPRpu0G08QGUaVPsIxfHQbRfwzbcnjzFoIpO2Kzo2zLsAgfbDqDDBlph9a4YR-aboc+72rZZ6My8V5uhuEUKxuIw-PA7FZsdDxbERK4rgW4ZSuh1aMYAZVweKWCR7jEN41GOdhnm+ex+zXza8SCfnN4bDtewKLkl5Qb8gGgZBijJHB54oMWkXys5zaAFV5AgZLz0F4rhfZ43YfNy32wgHHpbx2WzXnFpWOFZmXkkQOt06P8-sU4DdfA9MOlJqGHYxgA5Ag1qgK3kZKtGTY2pOU6tt3hI9j8nvl951Ozd77gLHyKP-d4hW8rkgjCkw49OjGACVoYoFK+AAUQTgB9AA1b1e4AdWnZy5ak2aeq3frHiG0xfrOexmaB2abgeaj3tZwz7bbzbO-Kih297vgtoAQQAYV74fR4nh7Z1c5pzFLefSMXutl--EtAeb-oIEGZWH0mzTOsNj4xQoAnS+I8ADil8AAqvdJ6PWnl1We79poDSXiNf8FF1K1BZiHIK5Y97HXjkfLumVvRbTvr3Zs3pEGoOfp1comDeoL0Gt-PBf1TBAR8BmQk9xtykWsK3dGm1e6I3wFdCgDCmED2bClBOKCn64Wei8UsZhqxBXXBWOs1hQ6ry3GYDS1ZsxvApgDchGA6AbWPDkLOF1EZyJtkdOxm1HG4GcbtVx10pYFxYRo+cDN1KWEdC0AYg0WYrx-FYei9wbAZmop9DMbp7HeKzpAlw3c+6DxHuPYJxcpLfzaGxYGgR9C2GuEuSwBhfy6FmjYfwoMIgGSwNQCAcB1BoE9pJLqABaIswzDCB3GRMoOW43Q-DlPEfpL9pLGJ-LoNo1hMSfReFNVitw3QhiwJ6XA4Y8ALLYRaN4Gl54+WIdYZWS5OjqW4dROm2ZfwswbHeU8I4ICnOejueu9xqIUUdGFe5wR6Lk1uTuV5bxbHoBvN4r5LtfnzmCKWYR5Zrh2DuSpBm3gHDrlmoHLemIOKoRRVJYGQpej+CsISNeyzlzlnReBYwEFczMQkRSrqjwDCYjCv0Fo-RcweH-FUtougGb9CmuBBwEi4oJWqqldKip6p5QKty8ouZMz8r6NREGIqxo7jaHUHwn1WmgP3uAjGLj9qauaMzMxfgAgMyjqYq41NqWYksJiPSLR3jythvDLA-j7XLgJKWUibEzDjODpaP6rEvVEJjQzR4HxDYH0kRtcWvA7VF3QTsW5hCfLkXAv1KanrLjet1im-16awGiwxk7K2YaXpeCeKYIxu5tzbPwdmcxAxZqMT0npS1FDD7Z2TqgVOyL81e0pcEPlFcTA2EpoyrcFFvDVmCFpEdIpA0d2hmG6sgNA79D6l29ZBJaKvTrHmZ4LNmZsQPVImReap7zowY64UtLXX3HdbRMKWtgYlmos8PqbpEawAIAAIyIJAMNu8N5+FzKYci5Fbj-lImYhwfguRckCCCjJXi7xhuCpcvqjx-adFBSpYIZjGKMQ2UK+wY7PEOLvL4y6UAyOkQowDJ9RjGKipUoSJ1Qm2U7OBsRjjA5slHrnQM9hzwhQAzSc8Ewry6k3DenmKa5YCwvANhEIAA */
     id: 'mi',
     initial: 'initialize',
     predictableActionArguments: true,
     context: {
         projectUri: "",
-        langClient: null,
         errors: [],
         view: MACHINE_VIEW.Welcome,
-        dependenciesResolved: false
+        dependenciesResolved: false,
+        isInWI: false
     },
     states: {
         initialize: {
@@ -73,7 +72,7 @@ const stateMachine = createMachine<MachineContext>({
                             view: (context, event) => MACHINE_VIEW.UnsupportedProject,
                             projectUri: (context, event) => event.data.projectUri,
                             isOldProject: (context, event) => true,
-                            displayOverview: (context, event) => true,
+                            displayOverview: (context, event) => true
                         })
                     },
                     {
@@ -84,7 +83,7 @@ const stateMachine = createMachine<MachineContext>({
                         actions: assign({
                             view: (context, event) => MACHINE_VIEW.UnsupportedWorkspace,
                             projectUri: (context, event) => event.data.projectUri,
-                            displayOverview: (context, event) => true,
+                            displayOverview: (context, event) => true
                         })
                     },
                     {
@@ -96,13 +95,15 @@ const stateMachine = createMachine<MachineContext>({
                             customProps: (context, event) => event.data.customProps,
                             projectUri: (context, event) => event.data.projectUri,
                             isOldProject: (context, event) => event.data.isOldProject,
-                            displayOverview: (context, event) => event.data.displayOverview
+                            displayOverview: (context, event) => event.data.displayOverview,
+                            isLegacyRuntime: (context, event) => event.data.isLegacyRuntime
+
                         })
                     },
                     {
                         target: 'newProject',
                         // Assuming false means new project
-                        cond: (context, event) => event.data.isProject === false && event.data.isOldProject === false,
+                        cond: (context, event) => !context.isInWI && event.data.isProject === false && event.data.isOldProject === false,
                         actions: assign({
                             view: (context, event) => MACHINE_VIEW.Welcome
                         })
@@ -113,7 +114,7 @@ const stateMachine = createMachine<MachineContext>({
                     target: 'disabled',
                     actions: assign({
                         view: (context, event) => MACHINE_VIEW.Disabled,
-                        errors: (context, event) => event.data
+                        errors: (context, event) => event.data,
                     })
                 }
             }
@@ -170,14 +171,12 @@ const stateMachine = createMachine<MachineContext>({
                         target: 'ready',
                         cond: (context, event) => context.displayOverview === true,
                         actions: assign({
-                            langClient: (context, event) => event.data
                         })
                     },
                     {
                         target: 'ready.viewReady',
                         cond: (context, event) => context.displayOverview === false,
                         actions: assign({
-                            langClient: (context, event) => event.data,
                             isLoading: (context, event) => false
                         })
                     }
@@ -391,13 +390,9 @@ const stateMachine = createMachine<MachineContext>({
             return new Promise(async (resolve, reject) => {
                 console.log("Waiting for LS to be ready " + new Date().toLocaleTimeString());
                 try {
-                    vscode.commands.executeCommand(COMMANDS.FOCUS_PROJECT_EXPLORER);
-                    const instance = await MILanguageClient.getInstance(context.projectUri!);
-                    const errors = instance.getErrors();
-                    if (errors.length) {
-                        return reject(errors);
-                    }
-                    const ls = instance.languageClient;
+                    const treeViewId = context.isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : MI_PROJECT_EXPLORER_VIEW_ID;
+                    vscode.commands.executeCommand(`${treeViewId}.focus`);
+                    const ls = await MILanguageClient.getInstance(context.projectUri!);
                     vscode.commands.executeCommand('setContext', 'MI.status', 'projectLoaded');
 
                     resolve(ls);
@@ -414,6 +409,7 @@ const stateMachine = createMachine<MachineContext>({
                 if (!context?.projectUri) {
                     return reject(new Error("Project URI is not defined"));
                 }
+
                 if (!webviews.has(context.projectUri)) {
                     const panel = new VisualizerWebview(context.view!, context.projectUri, extension.webviewReveal);
                     webviews.set(context.projectUri!, panel);
@@ -460,7 +456,7 @@ const stateMachine = createMachine<MachineContext>({
         },
         findView: (context, event): Promise<VisualizerLocation> => {
             return new Promise(async (resolve, reject) => {
-                const langClient = context.langClient!;
+                const langClient = await MILanguageClient.getInstance(context.projectUri!);
                 const viewLocation = context;
 
                 if (context.view === MACHINE_VIEW.IdpConnectorSchemaGeneratorForm) {
@@ -600,7 +596,7 @@ const stateMachine = createMachine<MachineContext>({
                     }
                 }
                 if (viewLocation.view === MACHINE_VIEW.ResourceView) {
-                    const res = await langClient!.getDiagnostics({ documentUri: context.documentUri! });
+                    const res = await langClient.getDiagnostics({ documentUri: context.documentUri! });
                     if (res.diagnostics && res.diagnostics.length > 0) {
                         viewLocation.diagnostics = res.diagnostics;
                     }
@@ -652,8 +648,8 @@ const stateMachine = createMachine<MachineContext>({
         },
         activateOtherFeatures: (context, event) => {
             return new Promise(async (resolve, reject) => {
-                const ls = await MILanguageClient.getInstance(context.projectUri!);
-                await activateProjectExplorer(extension.context, ls.languageClient!);
+                const treeviewId = context.isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : MI_PROJECT_EXPLORER_VIEW_ID;
+                await activateProjectExplorer(treeviewId, extension.context, context.projectUri!, context.isInWI);
                 await activateTestExplorer(extension.context);
                 resolve(true);
             });
@@ -667,7 +663,8 @@ const stateMachine = createMachine<MachineContext>({
         },
         focusProjectExplorer: (context, event) => {
             return new Promise(async (resolve, reject) => {
-                vscode.commands.executeCommand(COMMANDS.FOCUS_PROJECT_EXPLORER);
+                const treeViewId = context.isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : MI_PROJECT_EXPLORER_VIEW_ID;
+                vscode.commands.executeCommand(`${treeViewId}.focus`);
                 resolve(true);
             });
         }
@@ -691,11 +688,12 @@ export const getStateMachine = (projectUri: string, context?: VisualizerLocation
         if (!workspaces) {
             console.warn('No workspace folder is open.');
         }
+
         stateService = interpret(stateMachine.withContext({
             projectUri: projectUri,
-            langClient: null,
             errors: [],
             view: MACHINE_VIEW.Overview,
+            isInWI: vscode.extensions.getExtension(WI_EXTENSION_ID) ? true : false,
             ...context
         })).start();
         stateMachines.set(projectUri, stateService);
@@ -901,6 +899,9 @@ async function checkIfMiProject(projectUri: string, view: MACHINE_VIEW = MACHINE
         console.log(`Current workspace path: ${projectUri}`);
     }
 
+    const runtimeVersion = await getMIVersionFromPom(projectUri);
+    const isLegacyRuntime = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0 : true;
+
     console.log(`Project detection completed for path: ${projectUri} at ${new Date().toLocaleTimeString()}`);
     return {
         isProject,
@@ -910,7 +911,8 @@ async function checkIfMiProject(projectUri: string, view: MACHINE_VIEW = MACHINE
         projectUri, // Return the path of the detected project
         view,
         customProps,
-        isEnvironmentSetUp
+        isEnvironmentSetUp,
+        isLegacyRuntime
     };
 }
 

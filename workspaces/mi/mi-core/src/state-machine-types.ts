@@ -270,6 +270,7 @@ export interface VisualizerLocation {
     previousContext?: any;
     env?: { [key: string]: string | undefined };
     isLoading?: boolean;
+    isLegacyRuntime?: boolean;
 }
 
 export interface PopupVisualizerLocation extends VisualizerLocation {
