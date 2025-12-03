@@ -113,7 +113,7 @@ export async function activate(context: ExtensionContext) {
 
     // Wait for the ballerina extension to be ready
     await StateMachine.initialize();
-
+    
     // Then return the ballerina extension context
     return { ballerinaExtInstance: extension.ballerinaExtInstance, projectPath: StateMachine.context().projectPath };
 }

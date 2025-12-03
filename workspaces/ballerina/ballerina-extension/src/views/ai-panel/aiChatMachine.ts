@@ -25,13 +25,16 @@ import { generateDesign } from '../../features/ai/service/design/design';
 import { captureWorkspaceSnapshot, restoreWorkspaceSnapshot } from './checkpoint/checkpointUtils';
 import { getCheckpointConfig } from './checkpoint/checkpointConfig';
 import { notifyCheckpointCaptured } from '../../RPCLayer';
-import { sendTelemetryEvent, TM_EVENT_BALLERINA_AI_REVERT, CMP_BALLERINA_AI } from '../../features/telemetry';
+import { StateMachine } from '../../stateMachine';
 
 // Extracted utilities
 import { generateProjectId, generateSessionId } from './idGenerators';
 import { addUserMessage, updateChatMessage, convertChatHistoryToModelMessages, convertChatHistoryToUIMessages } from './chatHistoryUtils';
 import { saveChatState, loadChatState, clearChatState, clearChatStateAction, getAllProjectIds, clearAllChatStates, getChatStateMetadata } from './chatStatePersistence';
 import { normalizeCodeContext } from './codeContextUtils';
+
+import { sendTelemetryEvent, TM_EVENT_BALLERINA_AI_REVERT, CMP_BALLERINA_AI } from '../../features/telemetry';
+
 
 const cleanupOldCheckpoints = (checkpoints: Checkpoint[]): Checkpoint[] => {
     const config = getCheckpointConfig();

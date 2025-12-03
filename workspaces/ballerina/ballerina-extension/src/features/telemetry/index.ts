@@ -59,7 +59,7 @@ export async function sendTelemetryException(extension: BallerinaExtension, erro
 export async function getTelemetryProperties(extension: BallerinaExtension, component: string, params: { [key: string]: string; } = {})
     : Promise<{ [key: string]: string; }> {
 
-    const loginType = await getLoginMethod();
+    const userType = await getLoginMethod();
     const biIntelId = await getBiIntelId();
 
     return {
@@ -74,7 +74,7 @@ export async function getTelemetryProperties(extension: BallerinaExtension, comp
         'component': CHOREO_COMPONENT_ID,
         'project': CHOREO_PROJECT_ID,
         'org': CHOREO_ORG_ID,
-        'loginType': loginType,
+        'userType': userType,
         'biIntelId': biIntelId,
     }
 }
