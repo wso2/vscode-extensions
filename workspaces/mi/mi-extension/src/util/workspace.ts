@@ -40,7 +40,13 @@ export async function replaceFullContentToFile(documentUri: string, content: str
 
         edit.replace(Uri.file(documentUri), fullRange, content);
     }
+
     await workspace.applyEdit(edit);
+    const file = Uri.file(documentUri);
+    let document = workspace.textDocuments.find(doc => doc.uri.fsPath === documentUri) 
+                    || await workspace.openTextDocument(file);
+    await document.save();
+
     if (isNewFile) {
         // Wait for the file to be fully created and accessible
         const maxRetries = 5;
