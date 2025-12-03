@@ -36,6 +36,7 @@ import { MiDiagramRpcManager } from '../rpc-managers/mi-diagram/rpc-manager';
 import { log } from '../util/logger';
 import { CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR } from '../util/onboardingUtils';
 import { getHash } from '../util/fileOperations';
+import { MILanguageClient } from '../lang-client/activator';
 
 export function activateVisualizer(context: vscode.ExtensionContext, firstProject: string) {
     context.subscriptions.push(
@@ -208,9 +209,8 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
     // Listen for pom changes and update dependencies
     context.subscriptions.push(
         // Handle the text change and diagram update with rpc notification
-        vscode.workspace.onDidChangeTextDocument(async function (document) {
-            const projectUri = vscode.workspace.getWorkspaceFolder(document.document.uri)?.uri.fsPath;
-
+        vscode.workspace.onDidChangeTextDocument(async function (e : vscode.TextDocumentChangeEvent) {
+            const projectUri = vscode.workspace.getWorkspaceFolder(e.document.uri)?.uri.fsPath;
             if (!projectUri) {
                 return;
             }
@@ -221,20 +221,20 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                 return;
             }
 
-            if (!REFRESH_ENABLED_DOCUMENTS.includes(document.document.languageId) || !projectUri) {
+            if (!REFRESH_ENABLED_DOCUMENTS.includes(e.document.languageId) || !projectUri) {
                 return;
             }
 
             if (webview?.getWebview()?.active || AiPanelWebview.currentPanel?.getWebview()?.active) {
-                await document.document.save();
-                if (!getStateMachine(projectUri).context().view?.endsWith('Form') && document?.document?.uri?.fsPath?.includes(artifactsDir)) {
+                await e.document.save();
+                if (!getStateMachine(projectUri).context().view?.endsWith('Form') && e?.document?.uri?.fsPath?.includes(artifactsDir)) {
                     refreshDiagram(projectUri);
                 }
             }
 
-            if (document.document.uri.fsPath.endsWith('pom.xml')) {
-                const projectUri = vscode.workspace.getWorkspaceFolder(document.document.uri)?.uri.fsPath;
-                const langClient = getStateMachine(projectUri!).context().langClient;
+            if (e.document.uri.fsPath.endsWith('pom.xml')) {
+                const projectUri = vscode.workspace.getWorkspaceFolder(e.document.uri)?.uri.fsPath;
+                const langClient = await MILanguageClient.getInstance(projectUri!);
                 
                 const confirmUpdate = await vscode.window.showInformationMessage(
                     'The pom.xml file has been modified. Do you want to update the dependencies?',
