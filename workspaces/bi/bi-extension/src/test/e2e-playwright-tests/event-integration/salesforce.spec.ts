@@ -1,5 +1,4 @@
 
-
 /**
  * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
@@ -23,65 +22,103 @@ import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
 
 export default function createTests() {
-    test.describe('Type Diagram Artifact Tests', {
+    test.describe('Salesforce Integration Tests', {
         tag: '@group1',
     }, async () => {
+        let listenerName: string;
         initTest();
-        test('Create Type Diagram Artifact', async ({ }, testInfo) => {
+        test('Create Salesforce Integration', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
-            console.log('Creating a new type diagram in test attempt: ', testAttempt);
+            console.log('Creating a new service in test attempt: ', testAttempt);
             // Creating a HTTP Service
-            await addArtifact('HTTP Service', 'http-service-card');
+            await addArtifact('Salesforce Integration', 'trigger-salesforce');
             const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
-            const sampleName = `/sample${testAttempt}`;
+            // Create a new listener
+            listenerName = `listenerSalesforce${testAttempt}`;
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
             await form.fill({
                 values: {
-                    'Service Base Path*': {
+                    'Name*The name of the listener': {
                         type: 'input',
-                        value: sampleName,
+                        value: listenerName,
+                    },
+                    'auth': {
+                        type: 'textarea',
+                        value: `{ username: "test", password: "test" }`,
+                        additionalProps: { clickLabel: true }
                     }
                 }
             });
+            await form.submit('Next', true);
+
+            // Check for title
+            const configTitle = artifactWebView.locator('h3', { hasText: 'Salesforce Event Handler Configuration' });
+            await configTitle.waitFor({ timeout: 90000 });
+
+            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
+            await selectedListener.waitFor();
+
             await form.submit('Create');
-            const context = artifactWebView.locator(`text=${sampleName}`);
-            await context.waitFor();
+
+            const onCreate = artifactWebView.locator(`text="onCreate"`);
+            await onCreate.waitFor();
+
+            const onUpdate = artifactWebView.locator(`text="onUpdate"`);
+            await onUpdate.waitFor();
+
+            const onDelete = artifactWebView.locator(`text="onDelete"`);
+            await onDelete.waitFor();
+
+            const onRestore = artifactWebView.locator(`text="onRestore"`);
+            await onRestore.waitFor();
+
             const projectExplorer = new ProjectExplorer(page.page);
-            await projectExplorer.findItem(['sample', `HTTP Service - ${sampleName}`], true);
+            await projectExplorer.findItem(['sample', `Salesforce Event Handler`], true);
+
             const updateArtifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!updateArtifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
         });
 
-        test('Editing Type Diagram Artifact', async ({ }, testInfo) => {
+        test('Editing Salesforce Integration', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
             console.log('Editing a service in test attempt: ', testAttempt);
             const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
+
             const editBtn = artifactWebView.locator('vscode-button[title="Edit Service"]');
             await editBtn.waitFor();
             await editBtn.click({ force: true });
+
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
-            const sampleName = `/editedSample${testAttempt}`;
-            await form.fill({
-                values: {
-                    'Service Base Path*': {
-                        type: 'input',
-                        value: sampleName,
-                    }
-                }
-            });
+
+            const configTitle = artifactWebView.locator('h3', { hasText: 'Salesforce Event Handler Configuration' });
+            await configTitle.waitFor({ timeout: 90000 });
+
+            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
+            await selectedListener.waitFor();
+
             await form.submit('Save');
-            const context = artifactWebView.locator(`text=${sampleName}`);
-            await context.waitFor();
+
+            const onCreate = artifactWebView.locator(`text="onCreate"`);
+            await onCreate.waitFor();
+
+            const onUpdate = artifactWebView.locator(`text="onUpdate"`);
+            await onUpdate.waitFor();
+
+            const onDelete = artifactWebView.locator(`text="onDelete"`);
+            await onDelete.waitFor();
+
+            const onRestore = artifactWebView.locator(`text="onRestore"`);
+            await onRestore.waitFor();
         });
     });
 }

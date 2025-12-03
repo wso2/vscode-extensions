@@ -1,5 +1,3 @@
-
-
 /**
  * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
@@ -23,64 +21,85 @@ import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
 
 export default function createTests() {
-    test.describe('Type Diagram Artifact Tests', {
+    test.describe('TCP Service Tests', {
         tag: '@group1',
     }, async () => {
+        let listenerName: string;
         initTest();
-        test('Create Type Diagram Artifact', async ({ }, testInfo) => {
+        test('Create TCP Service', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
-            console.log('Creating a new type diagram in test attempt: ', testAttempt);
+            console.log('Creating a new service in test attempt: ', testAttempt);
             // Creating a HTTP Service
-            await addArtifact('HTTP Service', 'http-service-card');
+            await addArtifact('TCP Service', 'tcp-service-card');
             const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
-            const sampleName = `/sample${testAttempt}`;
+
+            // Create a new listener
+            listenerName = `listenerTcp${testAttempt}`;
+            const listenerPort = `6060`;
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
+            console.log('Filling TCP Service form');
             await form.fill({
                 values: {
-                    'Service Base Path*': {
+                    'Name*The name of the listener': {
                         type: 'input',
-                        value: sampleName,
+                        value: listenerName,
+                    },
+                    'localPort': {
+                        type: 'textarea',
+                        value: listenerPort,
+                        additionalProps: { clickLabel: true }
                     }
                 }
             });
-            await form.submit('Create');
-            const context = artifactWebView.locator(`text=${sampleName}`);
+            console.log('Submitting TCP Service form');
+            await form.submit('Next', true);
+
+            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
+            await selectedListener.waitFor();
+
+            // Create a new TCP Service
+            const configTitle = artifactWebView.locator('h3', { hasText: 'TCP Service Configuration' });
+            await configTitle.waitFor();
+
+            await form.submit('Create', true);
+
+            const context = artifactWebView.locator(`text="onConnect"`);
             await context.waitFor();
+
             const projectExplorer = new ProjectExplorer(page.page);
-            await projectExplorer.findItem(['sample', `HTTP Service - ${sampleName}`], true);
+            await projectExplorer.findItem(['sample', `TCP Service`], true);
+
             const updateArtifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!updateArtifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
         });
 
-        test('Editing Type Diagram Artifact', async ({ }, testInfo) => {
+        test('Editing TCP Service', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
             console.log('Editing a service in test attempt: ', testAttempt);
             const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
+
             const editBtn = artifactWebView.locator('vscode-button[title="Edit Service"]');
             await editBtn.waitFor();
             await editBtn.click({ force: true });
+
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
-            const sampleName = `/editedSample${testAttempt}`;
-            await form.fill({
-                values: {
-                    'Service Base Path*': {
-                        type: 'input',
-                        value: sampleName,
-                    }
-                }
-            });
-            await form.submit('Save');
-            const context = artifactWebView.locator(`text=${sampleName}`);
+
+            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
+            await selectedListener.waitFor();
+
+            await form.submit('Save', true);
+
+            const context = artifactWebView.locator(`text="onConnect"`);
             await context.waitFor();
         });
     });

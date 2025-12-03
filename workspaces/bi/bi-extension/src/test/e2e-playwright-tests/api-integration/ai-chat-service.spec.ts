@@ -1,5 +1,4 @@
 
-
 /**
  * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
@@ -23,65 +22,55 @@ import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
 
 export default function createTests() {
-    test.describe('Type Diagram Artifact Tests', {
+    test.describe('AI Chat Agent Tests', {
         tag: '@group1',
     }, async () => {
         initTest();
-        test('Create Type Diagram Artifact', async ({ }, testInfo) => {
+        test('Create AI Chat Agent', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
-            console.log('Creating a new type diagram in test attempt: ', testAttempt);
-            // Creating a HTTP Service
-            await addArtifact('HTTP Service', 'http-service-card');
+            console.log('Creating a new AI Chat Agent in test attempt: ', testAttempt);
+            // Creating a AI Chat Agent
+            await addArtifact('AI Chat Agent', 'ai-agent-card');
             const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
-            const sampleName = `/sample${testAttempt}`;
+            const sampleName = `sample${testAttempt}`;
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
             await form.fill({
                 values: {
-                    'Service Base Path*': {
+                    'NameName of the agent': {
                         type: 'input',
                         value: sampleName,
                     }
                 }
             });
             await form.submit('Create');
-            const context = artifactWebView.locator(`text=${sampleName}`);
-            await context.waitFor();
+            console.log('AI Chat Agent creation form submitted');
+            // Wait until the create button is detached
+            await artifactWebView.getByRole('button', { name: 'Creating' }).waitFor({ state: 'detached' });
+            await artifactWebView.getByRole('button', { name: 'Creating...' }).waitFor({ state: 'detached', timeout: 240000 });
+
+            // Check if the diagram canvas is visible
+            const diagramCanvas = artifactWebView.locator('#bi-diagram-canvas');
+            await diagramCanvas.waitFor({ state: 'visible', timeout: 240000 });
+
+            const diagramTitle = artifactWebView.locator('h2', { hasText: 'AI Chat Agent' });
+            await diagramTitle.waitFor();
+
+            // Check if the agent call node is visible
+            const agentCallNode = artifactWebView.locator('[data-testid="agent-call-node"]');
+            await agentCallNode.waitFor();
+
+            // Check if the AI Chat Agent is created in the project explorer
             const projectExplorer = new ProjectExplorer(page.page);
-            await projectExplorer.findItem(['sample', `HTTP Service - ${sampleName}`], true);
+            await projectExplorer.findItem(['sample', `AI Agent Services - /${sampleName}`], true);
+
             const updateArtifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!updateArtifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
-        });
-
-        test('Editing Type Diagram Artifact', async ({ }, testInfo) => {
-            const testAttempt = testInfo.retry + 1;
-            console.log('Editing a service in test attempt: ', testAttempt);
-            const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
-            if (!artifactWebView) {
-                throw new Error('WSO2 Integrator: BI webview not found');
-            }
-            const editBtn = artifactWebView.locator('vscode-button[title="Edit Service"]');
-            await editBtn.waitFor();
-            await editBtn.click({ force: true });
-            const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
-            await form.switchToFormView(false, artifactWebView);
-            const sampleName = `/editedSample${testAttempt}`;
-            await form.fill({
-                values: {
-                    'Service Base Path*': {
-                        type: 'input',
-                        value: sampleName,
-                    }
-                }
-            });
-            await form.submit('Save');
-            const context = artifactWebView.locator(`text=${sampleName}`);
-            await context.waitFor();
         });
     });
 }
