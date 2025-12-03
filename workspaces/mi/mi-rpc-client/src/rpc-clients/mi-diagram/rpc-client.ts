@@ -18,7 +18,6 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
-    AIUserInput,
     ApiDirectoryResponse,
     ApplyEditRequest,
     ApplyEditResponse,
@@ -89,7 +88,6 @@ import {
     GetAvailableConnectorResponse,
     GetAvailableResourcesRequest,
     GetAvailableResourcesResponse,
-    GetBackendRootUrlResponse,
     GetProxyRootUrlResponse,
     GetConnectionFormRequest,
     GetConnectionFormResponse,
@@ -243,7 +241,6 @@ import {
     editOpenAPISpec,
     executeCommand,
     exportProject,
-    getAIResponse,
     getAPIDirectory,
     getAddressEndpoint,
     getAllArtifacts,
@@ -257,7 +254,6 @@ import {
     getAvailableConnectors,
     getAvailableRegistryResources,
     getAvailableResources,
-    getBackendRootUrl,
     getProxyRootUrl,
     getConnectionForm,
     getConnector,
@@ -721,10 +717,6 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
         return this._messenger.sendRequest(migrateProject, HOST_EXTENSION, params);
     }
 
-    getAIResponse(params: AIUserInput): Promise<string> {
-        return this._messenger.sendRequest(getAIResponse, HOST_EXTENSION, params);
-    }
-
     writeContentToFile(params: WriteContentToFileRequest): Promise<WriteContentToFileResponse> {
         return this._messenger.sendRequest(writeContentToFile, HOST_EXTENSION, params);
     }
@@ -819,10 +811,6 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     getSelectiveArtifacts(params: GetSelectiveArtifactsRequest): Promise<GetSelectiveArtifactsResponse> {
         return this._messenger.sendRequest(getSelectiveArtifacts, HOST_EXTENSION, params);
-    }
-
-    getBackendRootUrl(): Promise<GetBackendRootUrlResponse> {
-        return this._messenger.sendRequest(getBackendRootUrl, HOST_EXTENSION);
     }
 
     getProxyRootUrl(): Promise<GetProxyRootUrlResponse> {
