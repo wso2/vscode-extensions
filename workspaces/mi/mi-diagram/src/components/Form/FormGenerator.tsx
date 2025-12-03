@@ -250,7 +250,6 @@ export function FormGenerator(props: FormGeneratorProps) {
         disableFields,
         range,
         connectionName,
-        connections,
         parameters,
         setComboValues
     } = props;
