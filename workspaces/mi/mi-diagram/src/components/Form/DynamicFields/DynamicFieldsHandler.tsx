@@ -579,7 +579,6 @@ export class DynamicFieldsHandler {
             // if configRef is ""/connection is undefined set the first connection as default
             if (!connection && connectorData.connections.length > 0) {
                 // get all values
-                const allValues = Object.values(this.getValues());
                 this.setValue(getNameForController(FIELD_NAMES.CONFIG_KEY), connectorData.connections[0].name);
                 return connectorData.connections[0];
             }
