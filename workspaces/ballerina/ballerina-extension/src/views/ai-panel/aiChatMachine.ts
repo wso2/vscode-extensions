@@ -33,6 +33,9 @@ import { addUserMessage, updateChatMessage, convertChatHistoryToModelMessages, c
 import { saveChatState, loadChatState, clearChatState, clearChatStateAction, getAllProjectIds, clearAllChatStates, getChatStateMetadata } from './chatStatePersistence';
 import { normalizeCodeContext } from './codeContextUtils';
 
+import { sendTelemetryEvent, TM_EVENT_BALLERINA_AI_REVERT, CMP_BALLERINA_AI } from '../../features/telemetry';
+
+
 const cleanupOldCheckpoints = (checkpoints: Checkpoint[]): Checkpoint[] => {
     const config = getCheckpointConfig();
     if (checkpoints.length <= config.maxCount) {
@@ -87,6 +90,12 @@ const restoreCheckpointAction = (context: AIChatMachineContext, event: any) => {
         console.error(`[Checkpoint] Checkpoint ${checkpointId} not found`);
         return;
     }
+
+    // Send telemetry when the user clicks the revert button
+    sendTelemetryEvent(extension.ballerinaExtInstance, TM_EVENT_BALLERINA_AI_REVERT, CMP_BALLERINA_AI, {
+        messageId: checkpoint.messageId,
+        checkpointId: checkpointId,
+    });
 
     const messageIndex = context.chatHistory.findIndex(m => m.id === checkpoint.messageId);
     const restoredHistory = messageIndex >= 0 ? context.chatHistory.slice(0, messageIndex) : context.chatHistory;

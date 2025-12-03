@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Command, GenerateAgentCodeRequest, ProjectSource, AIChatMachineEventType} from "@wso2/ballerina-core";
+import { Command, GenerateAgentCodeRequest, ProjectSource, AIChatMachineEventType } from "@wso2/ballerina-core";
 import { ModelMessage, stepCountIs, streamText } from "ai";
 import { getAnthropicClient, getProviderCacheControl, ANTHROPIC_SONNET_4 } from "../connection";
 import { getErrorMessage, populateHistoryForAgent } from "../utils";
@@ -35,6 +35,8 @@ import { createConnectorGeneratorTool, CONNECTOR_GENERATOR_TOOL } from "../libs/
 import { LangfuseExporter } from 'langfuse-vercel';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+import { sendTelemetryEvent, sendTelemetryException, TM_EVENT_BALLERINA_AI_QUERY_SUBMIT, TM_EVENT_BALLERINA_AI_GENERATION_COMPLETED, TM_EVENT_BALLERINA_AI_GENERATION_ERROR, TM_EVENT_BALLERINA_AI_GENERATION_ABORTED, TM_EVENT_BALLERINA_AI_DIAGNOSTICS, CMP_BALLERINA_AI } from "../../../telemetry";
+import { extension } from "../../../../BalExtensionContext";
 
 const LANGFUSE_SECRET = process.env.LANGFUSE_SECRET;
 const LANGFUSE_PUBLIC = process.env.LANGFUSE_PUBLIC;
@@ -62,6 +64,18 @@ export async function generateDesignCore(params: GenerateAgentCodeRequest, event
 
     const cacheOptions = await getProviderCacheControl();
 
+    // Get state machine context for telemetry
+    const stateContext = AIChatStateMachine.context();
+
+    // Send telemetry when the user submits a query
+    sendTelemetryEvent(extension.ballerinaExtInstance, TM_EVENT_BALLERINA_AI_QUERY_SUBMIT, CMP_BALLERINA_AI, {
+        projectId: stateContext.projectId || 'unknown',
+        messageId: messageId,
+        command: Command.Design,
+        operationType: params.operationType,
+        isPlanMode: isPlanModeEnabled.toString(),
+        approvalMode: stateContext.autoApproveEnabled ? 'auto' : 'manual',
+    });
 
     const modifiedFiles: string[] = [];
 
@@ -119,15 +133,36 @@ export async function generateDesignCore(params: GenerateAgentCodeRequest, event
     let accumulatedMessages: any[] = [];
     let currentAssistantContent: any[] = [];
 
+    // Timing metrics for telemetry
+    let generationStartTime: number | undefined;
+    let firstTokenTime: number | undefined;
+    let lastTokenTime: number | undefined;
+
     for await (const part of fullStream) {
         switch (part.type) {
             case "text-delta": {
+                // Capture first token time
+                if (!firstTokenTime) {
+                    firstTokenTime = Date.now();
+                    generationStartTime = firstTokenTime;
+                }
+                // Update last token time
+                lastTokenTime = Date.now();
+
                 const textPart = part.text;
                 eventHandler({ type: "content_block", content: textPart });
                 accumulateTextContent(currentAssistantContent, textPart);
                 break;
             }
             case "tool-call": {
+                // Capture first token time for tool calls as well
+                if (!firstTokenTime) {
+                    firstTokenTime = Date.now();
+                    generationStartTime = firstTokenTime;
+                }
+                // Update last token time
+                lastTokenTime = Date.now();
+
                 const toolName = part.toolName;
                 accumulateToolCall(currentAssistantContent, part);
 
@@ -199,6 +234,20 @@ export async function generateDesignCore(params: GenerateAgentCodeRequest, event
                         toolOutput: { success: true, action }
                     });
                 } else if (toolName === DIAGNOSTICS_TOOL_NAME) {
+                    // Send telemetry for diagnostics
+                    const diagnosticsResult = result as any;
+                    const hasErrors = diagnosticsResult?.diagnostics?.some((d: any) => d.severity === 'Error') || false;
+                    const errorCount = diagnosticsResult?.diagnostics?.filter((d: any) => d.severity === 'Error').length || 0;
+                    const warningCount = diagnosticsResult?.diagnostics?.filter((d: any) => d.severity === 'Warning').length || 0;
+
+                    sendTelemetryEvent(extension.ballerinaExtInstance, TM_EVENT_BALLERINA_AI_DIAGNOSTICS, CMP_BALLERINA_AI, {
+                        projectId: stateContext.projectId || 'unknown',
+                        messageId: messageId,
+                        hasErrors: hasErrors.toString(),
+                        errorCount: errorCount.toString(),
+                        warningCount: warningCount.toString(),
+                    });
+
                     eventHandler({
                         type: "tool_result",
                         toolName,
@@ -212,8 +261,26 @@ export async function generateDesignCore(params: GenerateAgentCodeRequest, event
             case "error": {
                 const error = part.error;
                 console.error("[Design] Error:", error);
+
+                // Send telemetry for generation error
+                const errorObj = error instanceof Error ? error : new Error(String(error));
+                sendTelemetryEvent(extension.ballerinaExtInstance, TM_EVENT_BALLERINA_AI_GENERATION_ERROR, CMP_BALLERINA_AI, {
+                    projectId: stateContext.projectId || 'unknown',
+                    messageId: messageId,
+                    errorMessage: getErrorMessage(error),
+                    errorType: errorObj.name || 'Unknown',
+                    generationStartTime: generationStartTime?.toString() || 'unknown',
+                    errorTime: Date.now().toString(),
+                });
+
+                sendTelemetryException(extension.ballerinaExtInstance, errorObj, CMP_BALLERINA_AI, {
+                    projectId: stateContext.projectId || 'unknown',
+                    messageId: messageId,
+                });
+
                 // Cleanup temp project on error
                 cleanupTempProject(tempProjectPath);
+
                 eventHandler({ type: "error", content: getErrorMessage(error) });
                 break;
             }
@@ -223,6 +290,19 @@ export async function generateDesignCore(params: GenerateAgentCodeRequest, event
             }
             case "abort": {
                 console.log("[Design] Aborted by user.");
+                const abortTime = Date.now();
+
+                // Send telemetry for generation abort
+                sendTelemetryEvent(extension.ballerinaExtInstance, TM_EVENT_BALLERINA_AI_GENERATION_ABORTED, CMP_BALLERINA_AI, {
+                    projectId: stateContext.projectId || 'unknown',
+                    messageId: messageId,
+                    generationStartTime: generationStartTime?.toString() || 'unknown',
+                    abortTime: abortTime.toString(),
+                    firstTokenTime: firstTokenTime?.toString() || 'unknown',
+                    lastTokenTime: lastTokenTime?.toString() || 'unknown',
+                    modifiedFilesCount: modifiedFiles.length.toString(),
+                });
+
                 let messagesToSave: any[] = [];
                 try {
                     const partialResponse = await response;
@@ -264,6 +344,7 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
                 const finishReason = part.finishReason;
                 const finalResponse = await response;
                 const assistantMessages = finalResponse.messages || [];
+                const generationEndTime = Date.now();
 
                 console.log(`[Design] Finished with reason: ${finishReason}`);
 
@@ -279,6 +360,21 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
 
                 updateAndSaveChat(messageId, userMessageContent, assistantMessages, eventHandler);
                 eventHandler({ type: "stop", command: Command.Design });
+
+                // Send telemetry for generation completion
+                sendTelemetryEvent(extension.ballerinaExtInstance, TM_EVENT_BALLERINA_AI_GENERATION_COMPLETED, CMP_BALLERINA_AI, {
+                    projectId: stateContext.projectId || 'unknown',
+                    messageId: messageId,
+                    finishReason: finishReason,
+                    modifiedFilesCount: modifiedFiles.length.toString(),
+                    generationStartTime: generationStartTime?.toString() || 'unknown',
+                    generationEndTime: generationEndTime.toString(),
+                    firstTokenTime: firstTokenTime?.toString() || 'unknown',
+                    lastTokenTime: lastTokenTime?.toString() || 'unknown',
+                    isPlanMode: isPlanModeEnabled.toString(),
+                    approvalMode: stateContext.autoApproveEnabled ? 'auto' : 'manual',
+                });
+
                 AIChatStateMachine.sendEvent({
                     type: AIChatMachineEventType.FINISH_EXECUTION,
                 });
@@ -286,7 +382,7 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
                 break;
             }
         }
-        }
+    }
 }
 
 /**
