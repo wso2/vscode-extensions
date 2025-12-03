@@ -1371,7 +1371,6 @@ export class DynamicFieldsHandler {
             this.setCustomError(queryFieldName, null);
 
         } catch (error: any) {
-            parseSuccess = false;
             parseErrorMessage = error.message || ERROR_MESSAGES.COMPLEX_QUERY;
             console.warn(`Query parsing error: ${parseErrorMessage}`);
             this.setCustomError(queryFieldName, `Query parsing error: ${parseErrorMessage}`);
