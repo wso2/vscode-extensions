@@ -1562,7 +1562,7 @@ export class DynamicFieldsHandler {
 
     /** Helper: Handles optional clauses like ORDER BY, LIMIT, OFFSET during parsing */
     private _handleOptionalClause(clauseValue: string | undefined, fieldName: string, checkExpression: boolean = false, isCombo: boolean = false) {
-        const ctrlName = getNameForController(fieldName);
+        
         if (clauseValue) {
             const cleanValue = clauseValue.replace(/[`"\[\]]/g, '');
             const isExpression = checkExpression && REGEX.SYNAPSE_EXPRESSION.test(clauseValue);
