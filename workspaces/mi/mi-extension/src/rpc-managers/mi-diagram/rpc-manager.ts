@@ -632,7 +632,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
 
             const getSwaggerName = (swaggerDefPath: string) => {
                 const ext = path.extname(swaggerDefPath);
-                return `${name}${apiVersion !== "" ? `_v${apiVersion}` : ''}${ext}`;
+                return `${name}${apiVersion !== "" ? `_v${apiVersion}` : ''}${ext === ".yml" ? ".yaml" : ext }`;
             };
             let fileName: string;
             let response: GenerateAPIResponse = { apiXml: "", endpointXml: "" };
@@ -680,10 +680,11 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                 fileName = `${name}${apiVersion !== "" ? `_v${apiVersion}` : ''}`;
 
                 if (saveSwaggerDef && swaggerDefPath) {
+                    const ext = path.extname(swaggerDefPath);
                     const swaggerRegPath = path.join(
                         this.projectUri,
                         SWAGGER_REL_DIR,
-                        fileName + path.extname(swaggerDefPath)
+                        fileName + (ext === ".yml" ? ".yaml" : ext)
                     );
                     fs.mkdirSync(path.dirname(swaggerRegPath), { recursive: true });
                     fs.copyFileSync(swaggerDefPath, swaggerRegPath);
@@ -2649,6 +2650,10 @@ ${endpointAttributes}
             }
 
             await workspace.applyEdit(edit);
+            const file = Uri.file(params.documentUri);
+            let document = workspace.textDocuments.find(doc => doc.uri.fsPath === params.documentUri) 
+                            || await workspace.openTextDocument(file);
+            await document.save();
 
             if (!params.disableFormatting) {
                 const formatEdits = (editRequest: ExtendedTextEdit) => {

@@ -616,7 +616,7 @@ export function deleteDataMapperResources(filePath: string): Promise<{ status: b
             removeEntryFromArtifactXML(projectDir, artifactXmlSavePath, dmName + '_inputSchema.json');
             removeEntryFromArtifactXML(projectDir, artifactXmlSavePath, dmName + '_outputSchema.json');
             removeEntryFromArtifactXML(projectDir, artifactXmlSavePath, dmName + '.dmc');
-            workspace.fs.delete(Uri.parse(projectDirPath), { recursive: true, useTrash: true });
+            workspace.fs.delete(Uri.file(projectDirPath), { recursive: true, useTrash: true });
             resolve({ status: true, info: "Datamapper resources removed" });
         }
     });
