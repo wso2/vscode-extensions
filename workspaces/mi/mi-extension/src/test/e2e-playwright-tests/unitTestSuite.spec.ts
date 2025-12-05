@@ -100,12 +100,12 @@ export default function createTests() {
         });
       });
 
-      await test.step('Add a unit test', async () => {
+      await test.step('Add a unit test by Button click', async () => {
         const unitTest = new UnitTest(page.page);
         await unitTest.init();
-        await unitTest.openUnitTestFormByExplorer();
+        await unitTest.openUnitTestFormByMainBtn();
         await unitTest.createUnitTest({
-          name: `unitTest1-${testAttempt}`,
+          name: `unitTestByBtn1-${testAttempt}`,
           artifactType: 'API',
           artifact: 'unitTestAPI1-' + testAttempt,
           supportiveArtifacts: ['unitTestSeq1-' + testAttempt, 'unitTestSeq2-' + testAttempt],
@@ -256,12 +256,12 @@ export default function createTests() {
         });
       });
 
-      await test.step('Add a unit test by Button click', async () => {
+      await test.step('Add a unit test', async () => {
         const unitTest = new UnitTest(page.page);
         await unitTest.init();
-        await unitTest.openUnitTestFormByMainBtn();
+        await unitTest.openUnitTestFormByExplorer();
         await unitTest.createUnitTest({
-          name: `unitTestByBtn1-${testAttempt}`,
+          name: `unitTest1-${testAttempt}`,
           artifactType: 'API',
           artifact: 'unitTestAPI1-' + testAttempt,
           supportiveArtifacts: ['unitTestSeq1-' + testAttempt, 'unitTestSeq2-' + testAttempt],
