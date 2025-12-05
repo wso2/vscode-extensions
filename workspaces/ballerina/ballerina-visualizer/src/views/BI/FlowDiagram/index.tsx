@@ -1326,7 +1326,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 if (response.artifacts.length > 0) {
                     if (updatedNode?.codedata?.symbol === GET_DEFAULT_MODEL_PROVIDER
                         || (updatedNode?.codedata?.node === "AGENT_CALL" && updatedNode?.properties?.model?.value === "")) {
-                        await rpcClient.getAIAgentRpcClient().configureDefaultModelProvider();
+                        await rpcClient.getAIAgentRpcClient().configureDefaultModelProvider({ projectPath });
                     }
                     if (noFormSubmitOptions) {
                         selectedNodeRef.current = undefined;

@@ -24,9 +24,17 @@ import { StateMachine } from "../../stateMachine";
 import { getRefreshedAccessToken, REFRESH_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE } from '../../../src/utils/ai/auth';
 import { AIStateMachine } from '../../../src/views/ai-panel/aiMachine';
 import { AIMachineEventType } from '@wso2/ballerina-core/lib/state-machine-types';
-import { CONFIG_FILE_NAME, ERROR_NO_BALLERINA_SOURCES, PROGRESS_BAR_MESSAGE_FROM_WSO2_DEFAULT_MODEL } from './constants';
-import { getCurrentBallerinaProjectFromContext } from '../config-generator/configGenerator';
-import { BallerinaProject } from '@wso2/ballerina-core';
+import {
+    CONFIG_FILE_NAME,
+    CONFIG_KEY_ACCESS_TOKEN,
+    CONFIG_KEY_SERVICE_URL,
+    DEVANT_CHUNKER_CONFIG_TABLE,
+    DEVANT_CHUNKER_SERVICE_URL,
+    ERROR_NO_BALLERINA_SOURCES,
+    PROGRESS_BAR_MESSAGE_FROM_DEFAULT_DEVANT_CHUNKER,
+    PROGRESS_BAR_MESSAGE_FROM_WSO2_DEFAULT_MODEL,
+    WSO2_PROVIDER_CONFIG_TABLE
+} from './constants';
 import { BallerinaExtension } from 'src/core';
 
 const config = workspace.getConfiguration('ballerina');
@@ -37,6 +45,12 @@ export const AUTH_REDIRECT_URL: string = config.get('authRedirectURL') || proces
 
 // This refers to old backend before FE Migration. We need to eventually remove this.
 export const OLD_BACKEND_URL: string = BACKEND_URL + "/v2.0";
+
+// AI Provider Configuration Types
+export enum AIProviderConfigType {
+    WSO2_MODEL_PROVIDER = 'wso2ModelProvider',
+    DEVANT_CHUNKER = 'devantChunker'
+}
 
 export async function closeAllBallerinaFiles(dirPath: string): Promise<void> {
     // Check if the directory exists
@@ -85,47 +99,14 @@ export async function closeAllBallerinaFiles(dirPath: string): Promise<void> {
 }
 
 export async function getConfigFilePath(ballerinaExtInstance: BallerinaExtension, rootPath: string): Promise<string> {
-    if (await isBallerinaProjectAsync(rootPath)) {
-        return rootPath;
-    }
+    const { resolveConfigFilePath } = await import('../../utils/project-utils');
+    const result = await resolveConfigFilePath(ballerinaExtInstance, rootPath);
 
-    const activeTextEditor = vscode.window.activeTextEditor;
-    const currentProject = ballerinaExtInstance.getDocumentContext().getCurrentProject();
-    let activeFilePath = "";
-    let configPath = "";
-
-    if (rootPath !== "") {
-        return rootPath;
-    }
-
-    if (activeTextEditor) {
-        activeFilePath = activeTextEditor.document.uri.fsPath;
-    }
-
-    if (currentProject == null && activeFilePath == "") {
+    if (result === null) {
         return await showNoBallerinaSourceWarningMessage();
     }
 
-    try {
-        const currentBallerinaProject: BallerinaProject = await getCurrentBallerinaProjectFromContext(ballerinaExtInstance);
-
-        if (!currentBallerinaProject) {
-            return await showNoBallerinaSourceWarningMessage();
-        }
-
-        if (currentBallerinaProject.kind == 'SINGLE_FILE_PROJECT') {
-            configPath = path.dirname(currentBallerinaProject.path);
-        } else {
-            configPath = currentBallerinaProject.path;
-        }
-
-        if (configPath == undefined || configPath == "") {
-            return await showNoBallerinaSourceWarningMessage();
-        }
-        return configPath;
-    } catch (error) {
-        return await showNoBallerinaSourceWarningMessage();
-    }
+    return result;
 }
 
 export async function getTokenForDefaultModel() {
@@ -163,13 +144,15 @@ function addOrReplaceConfigLine(lines: string[], key: string, value: string) {
     }
 }
 
-function addDefaultModelConfig(
-    projectPath: string, token: string, backendUrl: string): boolean {
-    const targetTable = `[ballerina.ai.wso2ProviderConfig]`;
-    const SERVICE_URL_KEY = 'serviceUrl';
-    const ACCESS_TOKEN_KEY = 'accessToken';
-    const urlLine = `${SERVICE_URL_KEY} = "${backendUrl}"`;
-    const accessTokenLine = `${ACCESS_TOKEN_KEY} = "${token}"`;
+function addAIProviderConfig(
+    projectPath: string,
+    token: string,
+    serviceUrl: string,
+    configTable: string
+): boolean {
+    const targetTable = configTable;
+    const urlLine = `${CONFIG_KEY_SERVICE_URL} = "${serviceUrl}"`;
+    const accessTokenLine = `${CONFIG_KEY_ACCESS_TOKEN} = "${token}"`;
     const configFilePath = findFileCaseInsensitive(projectPath, CONFIG_FILE_NAME);
 
     let fileContent = '';
@@ -202,15 +185,15 @@ function addDefaultModelConfig(
     let lines = tableContent.split('\n');
 
     // Add or replace serviceUrl
-    addOrReplaceConfigLine(lines, SERVICE_URL_KEY, backendUrl);
+    addOrReplaceConfigLine(lines, CONFIG_KEY_SERVICE_URL, serviceUrl);
     // Add or replace accessToken (after serviceUrl)
     // Ensure accessToken is after serviceUrl
-    let serviceUrlIdx = lines.findIndex(l => l.trim().startsWith(`${SERVICE_URL_KEY} =`));
-    let accessTokenIdx = lines.findIndex(l => l.trim().startsWith(`${ACCESS_TOKEN_KEY} =`));
+    let serviceUrlIdx = lines.findIndex(l => l.trim().startsWith(`${CONFIG_KEY_SERVICE_URL} =`));
+    let accessTokenIdx = lines.findIndex(l => l.trim().startsWith(`${CONFIG_KEY_ACCESS_TOKEN} =`));
     if (accessTokenIdx === -1) {
-        lines.splice(serviceUrlIdx + 1, 0, `${ACCESS_TOKEN_KEY} = "${token}"`);
+        lines.splice(serviceUrlIdx + 1, 0, `${CONFIG_KEY_ACCESS_TOKEN} = "${token}"`);
     } else {
-        lines[accessTokenIdx] = `${ACCESS_TOKEN_KEY} = "${token}"`;
+        lines[accessTokenIdx] = `${CONFIG_KEY_ACCESS_TOKEN} = "${token}"`;
         // Move accessToken if not after serviceUrl
         if (accessTokenIdx !== serviceUrlIdx + 1) {
             const accessTokenLine = lines[accessTokenIdx];
@@ -226,11 +209,17 @@ function addDefaultModelConfig(
     return true;
 }
 
-export async function addConfigFile(configPath: string): Promise<boolean> {
+export async function addConfigFile(
+    configPath: string,
+    configType: AIProviderConfigType = AIProviderConfigType.WSO2_MODEL_PROVIDER
+): Promise<boolean> {
+    // Determine the configuration details based on the type
+    const configDetails = getConfigDetails(configType);
+
     const progress = await vscode.window.withProgress(
         {
             location: vscode.ProgressLocation.Notification,
-            title: PROGRESS_BAR_MESSAGE_FROM_WSO2_DEFAULT_MODEL,
+            title: configDetails.progressMessage,
             cancellable: false,
         },
         async () => {
@@ -240,7 +229,12 @@ export async function addConfigFile(configPath: string): Promise<boolean> {
                     AIStateMachine.service().send(AIMachineEventType.LOGOUT);
                     throw new Error(REFRESH_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE);
                 }
-                const success = addDefaultModelConfig(configPath, token, await getBackendURL());
+                const success = addAIProviderConfig(
+                    configPath,
+                    token,
+                    configDetails.serviceUrl,
+                    configDetails.configTable
+                );
                 if (success) {
                     return true;
                 }
@@ -251,6 +245,32 @@ export async function addConfigFile(configPath: string): Promise<boolean> {
         }
     );
     return progress;
+}
+
+/**
+ * Helper function to get configuration details based on the config type
+ */
+function getConfigDetails(configType: AIProviderConfigType): {
+    configTable: string;
+    serviceUrl: string;
+    progressMessage: string;
+} {
+    switch (configType) {
+        case AIProviderConfigType.WSO2_MODEL_PROVIDER:
+            return {
+                configTable: WSO2_PROVIDER_CONFIG_TABLE,
+                serviceUrl: OLD_BACKEND_URL,
+                progressMessage: PROGRESS_BAR_MESSAGE_FROM_WSO2_DEFAULT_MODEL,
+            };
+        case AIProviderConfigType.DEVANT_CHUNKER:
+            return {
+                configTable: DEVANT_CHUNKER_CONFIG_TABLE,
+                serviceUrl: DEVANT_CHUNKER_SERVICE_URL,
+                progressMessage: PROGRESS_BAR_MESSAGE_FROM_DEFAULT_DEVANT_CHUNKER,
+            };
+        default:
+            throw new Error(`Unknown configuration type: ${configType}`);
+    }
 }
 
 export async function isBallerinaProjectAsync(rootPath: string): Promise<boolean> {
@@ -270,7 +290,7 @@ export async function isBallerinaProjectAsync(rootPath: string): Promise<boolean
     }
 }
 
-async function showNoBallerinaSourceWarningMessage() {
+export async function showNoBallerinaSourceWarningMessage() {
     return await vscode.window.showWarningMessage(ERROR_NO_BALLERINA_SOURCES);
 }
 

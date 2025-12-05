@@ -39,9 +39,8 @@ import {
 } from "./constants";
 import { isError, isNumber } from 'lodash';
 import { HttpStatusCode } from 'axios';
-import { isBallerinaProjectAsync, OLD_BACKEND_URL } from '../ai/utils';
-import { AIMachineEventType, BallerinaProject, LoginMethod } from '@wso2/ballerina-core';
-import { getCurrentBallerinaProjectFromContext } from '../config-generator/configGenerator';
+import { OLD_BACKEND_URL } from '../ai/utils';
+import { AIMachineEventType, LoginMethod } from '@wso2/ballerina-core';
 import { BallerinaExtension } from 'src/core';
 import { getAccessToken as getAccesstokenFromUtils, getLoginMethod, getRefreshedAccessToken, REFRESH_TOKEN_NOT_AVAILABLE_ERROR_MESSAGE, TOKEN_REFRESH_ONLY_SUPPORTED_FOR_BI_INTEL } from '../../../src/utils/ai/auth';
 import { AIStateMachine } from '../../../src/views/ai-panel/aiMachine';
@@ -653,47 +652,14 @@ export function getVsCodeRootPath(): string {
 }
 
 export async function getConfigFilePath(ballerinaExtInstance: BallerinaExtension, rootPath: string): Promise<string> {
-    if (await isBallerinaProjectAsync(rootPath)) {
-        return rootPath;
-    }
+    const { resolveConfigFilePath } = await import('../../utils/project-utils');
+    const result = await resolveConfigFilePath(ballerinaExtInstance, rootPath);
 
-    const activeTextEditor = vscode.window.activeTextEditor;
-    const currentProject = ballerinaExtInstance.getDocumentContext().getCurrentProject();
-    let activeFilePath = "";
-    let configPath = "";
-
-    if (rootPath != "") {
-        return rootPath;
-    }
-
-    if (activeTextEditor) {
-        activeFilePath = activeTextEditor.document.uri.fsPath;
-    }
-
-    if (currentProject == null && activeFilePath == "") {
+    if (result === null) {
         return await showNoBallerinaSourceWarningMessage();
     }
 
-    try {
-        const currentBallerinaProject: BallerinaProject = await getCurrentBallerinaProjectFromContext(ballerinaExtInstance);
-
-        if (!currentBallerinaProject) {
-            return await showNoBallerinaSourceWarningMessage();
-        }
-
-        if (currentBallerinaProject.kind == 'SINGLE_FILE_PROJECT') {
-            configPath = path.dirname(currentBallerinaProject.path);
-        } else {
-            configPath = currentBallerinaProject.path;
-        }
-
-        if (configPath == undefined && configPath == "") {
-            return await showNoBallerinaSourceWarningMessage();
-        }
-        return configPath;
-    } catch (error) {
-        return await showNoBallerinaSourceWarningMessage();
-    }
+    return result;
 }
 
 async function showNoBallerinaSourceWarningMessage() {

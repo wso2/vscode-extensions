@@ -35,6 +35,7 @@ import {
     AIToolsRequest,
     AIToolsResponse,
     configureDefaultModelProvider,
+    ConfigureDefaultModelProviderRequest,
     createAIAgent,
     genTool,
     getAiModuleOrg,
@@ -99,8 +100,8 @@ export class AiAgentRpcClient implements AIAgentAPI {
         return this._messenger.sendRequest(genTool, HOST_EXTENSION, params);
     }
 
-    configureDefaultModelProvider(): Promise<void> {
-        this._messenger.sendNotification(configureDefaultModelProvider, HOST_EXTENSION);
+    configureDefaultModelProvider(params: ConfigureDefaultModelProviderRequest): Promise<void> {
+        this._messenger.sendNotification(configureDefaultModelProvider, HOST_EXTENSION, params);
         return Promise.resolve();
     }
 
