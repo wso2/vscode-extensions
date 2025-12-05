@@ -26,7 +26,8 @@ import {
     FormExpressionEditorProps,
     HelperpaneOnChangeOptions,
     InputMode,
-    ExpandedEditor
+    ExpandedEditor,
+    RawTemplateEditorConfig
 } from "@wso2/ballerina-side-panel";
 import {
     CompletionItem,
@@ -365,11 +366,10 @@ export const NPPromptEditor: React.FC<NPPromptEditorProps> = (props) => {
                         isInExpandedMode={isExpandedModalOpen}
                         inputMode={inputMode}
                         onOpenExpandedMode={handleOpenExpandedMode}
-                        sanitizedExpression={getSanitizedExp}
-                        rawExpression={getRawExp}
                         hideFxButton={true}
                         disabled={disabled}
                         placeholder={placeholder}
+                        configuration={new RawTemplateEditorConfig()}
                     />
                     {enableDiagnostics && formDiagnostics && formDiagnostics.length > 0 && (
                         <ErrorBanner errorMsg={formDiagnostics.map((d: any) => d.message).join(', ')} />
@@ -383,7 +383,7 @@ export const NPPromptEditor: React.FC<NPPromptEditorProps> = (props) => {
                         field={{
                             key: "expression",
                             label: "Prompt",
-                            type: null,
+                            type: undefined,
                             optional: false,
                             editable: true,
                             documentation: "",
@@ -400,8 +400,6 @@ export const NPPromptEditor: React.FC<NPPromptEditorProps> = (props) => {
                         completions={completions}
                         fileName={fileName}
                         targetLineRange={targetLineRange}
-                        sanitizedExpression={getSanitizedExp}
-                        rawExpression={getRawExp}
                         extractArgsFromFunction={chipExtractArgsFromFunction}
                         getHelperPane={wrappedGetHelperPane}
                         inputMode={inputMode}

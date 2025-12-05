@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { EditorState } from "@codemirror/state";
+import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView, keymap, tooltips, placeholder, hoverTooltip } from "@codemirror/view";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useFormContext } from "../../../../../context";
@@ -43,12 +43,12 @@ import {
     createTooltipContainer,
     createTooltipPositioningHandlers
 } from "../CodeUtils";
-import { TOKEN_START_CHAR_OFFSET_INDEX } from "../utils";
+import { correctTokenStreamPositions } from "../utils";
 import { history } from "@codemirror/commands";
 import { autocompletion } from "@codemirror/autocomplete";
 import { FloatingButtonContainer, FloatingToggleButton, ChipEditorContainer } from "../styles";
 import { HelperpaneOnChangeOptions } from "../../../../Form/types";
-import { CompletionItem, FnSignatureDocumentation, HELPER_PANE_WIDTH, HelperPaneHeight } from "@wso2/ui-toolkit";
+import { CompletionItem, FnSignatureDocumentation, HelperPaneHeight } from "@wso2/ui-toolkit";
 import { CloseHelperIcon, ExpandIcon, MinimizeIcon, OpenHelperIcon } from "./FloatingButtonIcons";
 import { LineRange } from "@wso2/ballerina-core";
 import { HelperPaneToggleButton } from "./HelperPaneToggleButton";
@@ -105,7 +105,6 @@ export type ChipExpressionEditorComponentProps = {
 
 export const ChipExpressionEditorComponent = (props: ChipExpressionEditorComponentProps) => {
     const { configuration = new ChipExpressionEditorConfig() } = props;
-    const [helperPaneState, setHelperPaneState] = useState<HelperPaneState>({ isOpen: false, top: 0, left: 0 });
     const editorRef = useRef<HTMLDivElement>(null);
     const helperPaneRef = useRef<HTMLDivElement>(null);
     const fieldContainerRef = useRef<HTMLDivElement>(null);
@@ -308,7 +307,6 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
         // Save current cursor position before toggling
         if (viewRef.current) {
             const selection = viewRef.current.state.selection.main;
-            savedSelectionRef.current = { from: selection.from, to: selection.to };
         }
 
         const buttonRect = helperPaneToggleButtonRef.current.getBoundingClientRect();
@@ -432,11 +430,14 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
                 props.fileName,
                 startLine !== undefined ? startLine : undefined
             );
-            let prefixCorrectedTokenStream = tokenStream;
-            if (tokenStream && tokenStream.length >= 5) {
-                prefixCorrectedTokenStream = [...tokenStream];
-                prefixCorrectedTokenStream[TOKEN_START_CHAR_OFFSET_INDEX] -= configuration.getSerializationPrefix().length;
-            }
+            const prefixCorrectedTokenStream = tokenStream
+                ? correctTokenStreamPositions(
+                    tokenStream,
+                    sanitizedValue,
+                    configuration.getSerializationPrefix().length,
+                    configuration.getSerializationSuffix().length
+                )
+                : tokenStream;
             setIsTokenUpdateScheduled(false);
             const effects = prefixCorrectedTokenStream ? [tokensChangeEffect.of({
                 tokens: prefixCorrectedTokenStream
@@ -512,7 +513,7 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
                 ...props.sx,
                 ...(props.isInExpandedMode || props.hideFxButton ? { height: '100%' } : props.sx && 'height' in props.sx ? {} : { height: 'auto' })
             }}>
-                {!props.isInExpandedMode && configuration.getAdornment()({ onClick: () => {}})}
+                {!props.isInExpandedMode && !props.hideFxButton && configuration.getAdornment()({ onClick: () => {}})}
                 <div style={{
                     position: 'relative',
                     width: '100%',
