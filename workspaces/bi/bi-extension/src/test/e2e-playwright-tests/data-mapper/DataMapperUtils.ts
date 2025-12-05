@@ -18,7 +18,7 @@
 
 import { expect, Frame, Locator } from "@playwright/test";
 import * as fs from 'fs';
-import { newProjectPath, page } from '../utils';
+import { newProjectPath, page } from '../utils/helpers';
 import path from "path";
 
 const dmDataDir = path.join(__dirname, 'dm-data');

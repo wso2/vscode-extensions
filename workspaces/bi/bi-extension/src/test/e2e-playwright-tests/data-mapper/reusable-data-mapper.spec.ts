@@ -17,7 +17,7 @@
  */
 
 import { expect, test } from '@playwright/test';
-import { initTest, page } from '../utils';
+import { initTest, page } from '../utils/helpers';
 import { switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { TestScenarios, FileUtils } from './DataMapperUtils';
 

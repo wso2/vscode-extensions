@@ -17,11 +17,10 @@
  */
 
 import { expect, test } from '@playwright/test';
-import { initTest, page } from '../utils';
+import { initTest, page } from '../utils/helpers';
 import { switchToIFrame } from '@wso2/playwright-vscode-tester';
-import { Diagram } from '../components/Diagram';
+import { Diagram, ProjectExplorer } from '../utils/pages';
 import { TestScenarios, FileUtils } from './DataMapperUtils';
-import { ProjectExplorer } from '../ProjectExplorer';
 
 export default function createTests() {
     test.describe('Inline Data Mapper Tests', {
