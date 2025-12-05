@@ -2,7 +2,7 @@
 
 All notable changes to the "micro-integrator" extension will be documented in this file.
 
-## [3.1.0] - 2025-12-05
+## [3.1.0] - 2025-12-08
 
 ### New Features
 
