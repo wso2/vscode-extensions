@@ -452,6 +452,9 @@ export class UnitTest {
         await testExplorer.init();
         await this._page.waitForTimeout(1000);
         const treeItem = await testExplorer.findItem([`${this.projectName} (Not yet run)`, `${name} (Not yet run)`]) as Locator;
+        if (!treeItem) {
+            throw new Error(`Unit test "${name}" not found in Test Explorer`);
+        }
         console.log(`Expand the explorer to ensure the unit test "${name}" is visible`);
         await treeItem.getByLabel('Add test case').waitFor();
         await treeItem.getByLabel('Add test case').click();
@@ -463,6 +466,9 @@ export class UnitTest {
         const testExplorer = new ProjectExplorer(this._page, 'Test Explorer');
         await testExplorer.init();
         const treeItem = await testExplorer.findItem([`${this.projectName} (Not yet run)`, `${name} (Not yet run)`]) as Locator;
+        if (!treeItem) {
+            throw new Error(`Unit test "${name}" not found in Test Explorer`);
+        }
         await treeItem.getByText(name, { exact: true }).click();
         await treeItem.getByRole('button', { name: 'Edit test suite' }).click();
     }
