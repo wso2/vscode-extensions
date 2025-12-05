@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { Page } from "@playwright/test";
+import { Locator, Page } from "@playwright/test";
 import { Form } from "./Form";
 import { ProjectExplorer } from "./ProjectExplorer";
 
@@ -451,10 +451,10 @@ export class UnitTest {
         const testExplorer = new ProjectExplorer(this._page, 'Test Explorer');
         await testExplorer.init();
         await this._page.waitForTimeout(1000);
-        await testExplorer.findItem([`${this.projectName} (Not yet run)`, `${name} (Not yet run)`]);
+        const treeItem = await testExplorer.findItem([`${this.projectName} (Not yet run)`, `${name} (Not yet run)`]) as Locator;
         console.log(`Expand the explorer to ensure the unit test "${name}" is visible`);
-        await this._page.getByLabel('Add test case').waitFor();
-        await this._page.getByLabel('Add test case').click();
+        await treeItem.getByLabel('Add test case').waitFor();
+        await treeItem.getByLabel('Add test case').click();
         console.log(`Clicked on "Add test case" button for unit test "${name}"`);
     }
 
@@ -462,9 +462,9 @@ export class UnitTest {
         console.log('Opening Edit view of Unit Test:', name);
         const testExplorer = new ProjectExplorer(this._page, 'Test Explorer');
         await testExplorer.init();
-        await testExplorer.findItem([`${this.projectName} (Not yet run)`, `${name} (Not yet run)`]);
-        await this._page.getByText(name, { exact: true }).click();
-        await this._page.getByRole('button', { name: 'Edit test suite' }).click();
+        const treeItem = await testExplorer.findItem([`${this.projectName} (Not yet run)`, `${name} (Not yet run)`]) as Locator;
+        await treeItem.getByText(name, { exact: true }).click();
+        await treeItem.getByRole('button', { name: 'Edit test suite' }).click();
     }
 
     private async openEditViewOfMockService(name: string) {
