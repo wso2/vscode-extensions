@@ -35,8 +35,6 @@ import {
     PROGRESS_BAR_MESSAGE_FROM_WSO2_DEFAULT_MODEL,
     WSO2_PROVIDER_CONFIG_TABLE
 } from './constants';
-import { getCurrentBallerinaProjectFromContext } from '../config-generator/configGenerator';
-import { BallerinaProject } from '@wso2/ballerina-core';
 import { BallerinaExtension } from 'src/core';
 
 const config = workspace.getConfiguration('ballerina');
@@ -101,47 +99,14 @@ export async function closeAllBallerinaFiles(dirPath: string): Promise<void> {
 }
 
 export async function getConfigFilePath(ballerinaExtInstance: BallerinaExtension, rootPath: string): Promise<string> {
-    if (await isBallerinaProjectAsync(rootPath)) {
-        return rootPath;
-    }
+    const { resolveConfigFilePath } = await import('../../utils/project-utils');
+    const result = await resolveConfigFilePath(ballerinaExtInstance, rootPath);
 
-    const activeTextEditor = vscode.window.activeTextEditor;
-    const currentProject = ballerinaExtInstance.getDocumentContext().getCurrentProject();
-    let activeFilePath = "";
-    let configPath = "";
-
-    if (rootPath !== "") {
-        return rootPath;
-    }
-
-    if (activeTextEditor) {
-        activeFilePath = activeTextEditor.document.uri.fsPath;
-    }
-
-    if (currentProject == null && activeFilePath == "") {
+    if (result === null) {
         return await showNoBallerinaSourceWarningMessage();
     }
 
-    try {
-        const currentBallerinaProject: BallerinaProject = await getCurrentBallerinaProjectFromContext(ballerinaExtInstance);
-
-        if (!currentBallerinaProject) {
-            return await showNoBallerinaSourceWarningMessage();
-        }
-
-        if (currentBallerinaProject.kind == 'SINGLE_FILE_PROJECT') {
-            configPath = path.dirname(currentBallerinaProject.path);
-        } else {
-            configPath = currentBallerinaProject.path;
-        }
-
-        if (configPath == undefined || configPath == "") {
-            return await showNoBallerinaSourceWarningMessage();
-        }
-        return configPath;
-    } catch (error) {
-        return await showNoBallerinaSourceWarningMessage();
-    }
+    return result;
 }
 
 export async function getTokenForDefaultModel() {
@@ -325,7 +290,7 @@ export async function isBallerinaProjectAsync(rootPath: string): Promise<boolean
     }
 }
 
-async function showNoBallerinaSourceWarningMessage() {
+export async function showNoBallerinaSourceWarningMessage() {
     return await vscode.window.showWarningMessage(ERROR_NO_BALLERINA_SOURCES);
 }
 
