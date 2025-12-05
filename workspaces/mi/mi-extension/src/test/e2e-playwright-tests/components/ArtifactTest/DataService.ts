@@ -67,9 +67,9 @@ export class DataService {
         await projectExplorer.goToOverview("testProject");
         await projectExplorer.findItem(['Project testProject', 'Data Services', prevName], true);
 
-        const webView = await switchToIFrame('Data Service Designer', this._page);
+        const webView = await switchToIFrame('DSS Resource Designer', this._page);
         if (!webView) {
-            throw new Error("Failed to switch to Data Service Designer iframe");
+            throw new Error("Failed to switch to DSS Resource Designer iframe");
         }
         const frame = webView.locator('div#root');
         await frame.getByTestId('edit-button').getByLabel('Icon Button').click();
@@ -156,9 +156,9 @@ export class DataService {
         await projectExplorer.goToOverview("testProject");
         await projectExplorer.findItem(['Project testProject', 'Data Services', prevName], true);
 
-        const webView = await switchToIFrame('Data Service Designer', this._page);
+        const webView = await switchToIFrame('DSS Resource Designer', this._page);
         if (!webView) {
-            throw new Error("Failed to switch to Data Service Designer iframe");
+            throw new Error("Failed to switch to DSS Resource Designer iframe");
         }
         const frame = webView.locator('div#root');
         await frame.waitFor();
@@ -292,9 +292,9 @@ export class DataService {
         await projectExplorer.goToOverview("testProject");
         await projectExplorer.findItem(['Project testProject', 'Data Services', prevName], true);
 
-        const webView = await switchToIFrame('Data Service Designer', this._page);
+        const webView = await switchToIFrame('DSS Resource Designer', this._page);
         if (!webView) {
-            throw new Error("Failed to switch to Data Service Designer iframe");
+            throw new Error("Failed to switch to DSS Resource Designer iframe");
         }
         const frame = webView.locator('div#root');
         await frame.waitFor();
@@ -413,9 +413,9 @@ export class DataService {
         await projectExplorer.goToOverview("testProject");
         await projectExplorer.findItem(['Project testProject', 'Data Services', prevName], true);
 
-        const webView = await switchToIFrame('Data Service Designer', this._page);
+        const webView = await switchToIFrame('DSS Resource Designer', this._page);
         if (!webView) {
-            throw new Error("Failed to switch to Data Service Designer iframe");
+            throw new Error("Failed to switch to DSS Resource Designer iframe");
         }
         const frame = webView.locator('div#root');
         await frame.waitFor();
@@ -514,9 +514,9 @@ export class DataService {
         await projectExplorer.goToOverview("testProject");
         await projectExplorer.findItem(['Project testProject', 'Data Services', prevName], true);
 
-        const webView = await switchToIFrame('Data Service Designer', this._page);
+        const webView = await switchToIFrame('DSS Resource Designer', this._page);
         if (!webView) {
-            throw new Error("Failed to switch to Data Service Designer iframe");
+            throw new Error("Failed to switch to DSS Resource Designer iframe");
         }
         const frame = webView.locator('div#root');
         await frame.waitFor();
