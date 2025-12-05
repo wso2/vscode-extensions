@@ -92,9 +92,15 @@ export class UnitTest {
 
     public async init() {
         console.log('Selecting Testing section in VS Code');
-        const testBtn = this._page.getByRole('tab', { name: 'Testing' }).locator('a');
-        await testBtn.waitFor();
-        await testBtn.click();
+        const testActivity = this._page.getByRole('tab', { name: 'Testing' });
+        await testActivity.waitFor();
+        if ((await testActivity.getAttribute('aria-selected')) !== 'true') {
+            const testBtn = testActivity.locator('a');
+            await testBtn.waitFor();
+            await testBtn.click();
+        } else {
+            console.log('Testing section is already selected');
+        }
     }
 
     public async openUnitTestFormByMainBtn() {
@@ -126,7 +132,7 @@ export class UnitTest {
         console.log('Opening Mock Service Form');
         const form = new Form(this._page, 'Mock Service');
         await form.switchToFormView();
-        return form;    
+        return form;
     }
 
     private async addSupportiveArtifacts(parentForm: Form, artifacts: string[]) {
@@ -134,14 +140,14 @@ export class UnitTest {
         for (const artifact of artifacts) {
             console.log('Adding supportive artifact: ', artifact);
             const paramManager = await parentForm.getSimpleParamManager('Supportive Artifact', 'testSuiteSupportiveArtifactsSection');
-            const form = await paramManager.getAddNewForm();      
+            const form = await paramManager.getAddNewForm();
             await form.fill({
-            values: {
-                'Name': {
-                    type: 'combo',
-                    value: artifact
+                values: {
+                    'Name': {
+                        type: 'combo',
+                        value: artifact
+                    }
                 }
-            }
             });
             await form.submit('Save');
         }
@@ -189,7 +195,7 @@ export class UnitTest {
             values: {
                 'Name*': {
                     type: 'input',
-                    value: testCase.name 
+                    value: testCase.name
                 },
                 'Resource path*': {
                     type: 'input',
@@ -197,7 +203,7 @@ export class UnitTest {
                 },
                 'Resource method': {
                     type: 'dropdown',
-                    value: testCase.resourceMethod  
+                    value: testCase.resourceMethod
                 },
                 'Resource Protocol': {
                     type: 'dropdown',
@@ -260,7 +266,7 @@ export class UnitTest {
             });
         }
     }
-    
+
     private async addTestCases(parentForm: Form, testCases: TestCaseData[]) {
         console.log('Adding test cases to Unit Test');
         for (const testCase of testCases) {
@@ -311,7 +317,7 @@ export class UnitTest {
                 const requestHeaderForm = await requestHeaderParamManager.getAddNewForm();
                 await this.fillResourceHeaderForm(requestHeaderForm, header);
                 await requestHeaderForm.submit('Save');
-            }   
+            }
             console.log('Adding mock service response headers');
             for (const header of resource.expectedResponse.headers ?? []) {
                 const responseHeaderParamManager = await resourceForm.getDefaultParamManager('Response', 'Add Header', 'card-select-mockResourceResponseCard');
@@ -463,7 +469,7 @@ export class UnitTest {
 
     private async openEditViewOfMockService(name: string) {
         console.log('Opening Edit view of Mock Service:', name);
-        const mockServiceExplorer = new ProjectExplorer(this._page, 'Mock Services'); 
+        const mockServiceExplorer = new ProjectExplorer(this._page, 'Mock Services');
         await mockServiceExplorer.init();
         await mockServiceExplorer.findItem([this.projectName + ' ', name + ' '], true);
         await this._page.getByRole('button', { name: 'Edit mock service' }).click();
@@ -471,7 +477,7 @@ export class UnitTest {
 
     public async addMockServiceFromSidePanel(data: MockServiceData) {
         console.log('Adding Mock Service from side panel');
-        const mockServiceExplorer = new ProjectExplorer(this._page, 'Mock Services'); 
+        const mockServiceExplorer = new ProjectExplorer(this._page, 'Mock Services');
         await mockServiceExplorer.init();
         await mockServiceExplorer.findItem([this.projectName + ' '], true);
         await this._page.getByLabel('Add mock service').waitFor();
