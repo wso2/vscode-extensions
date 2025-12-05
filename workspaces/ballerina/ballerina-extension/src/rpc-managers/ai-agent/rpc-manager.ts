@@ -34,6 +34,7 @@ import {
     AIToolsResponse,
     AgentTool,
     AgentToolRequest,
+    ConfigureDefaultModelProviderRequest,
     FlowNode,
     McpToolUpdateRequest,
     McpToolsRequest,
@@ -509,8 +510,8 @@ export class AiAgentRpcManager implements AIAgentAPI {
         });
     }
 
-    async configureDefaultModelProvider(): Promise<void> {
-        await vscode.commands.executeCommand(CONFIGURE_DEFAULT_MODEL_COMMAND);
+    async configureDefaultModelProvider(params: ConfigureDefaultModelProviderRequest): Promise<void> {
+        await vscode.commands.executeCommand(CONFIGURE_DEFAULT_MODEL_COMMAND, params.projectPath);
     }
 
     async configureDefaultDevantChunker(): Promise<void> {

@@ -275,7 +275,7 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
 
             // If the selected model is the default WSO2 model provider, configure it
             if (defaultModelNode?.codedata?.symbol === GET_DEFAULT_MODEL_PROVIDER) {
-                await rpcClient.getAIAgentRpcClient().configureDefaultModelProvider();
+                await rpcClient.getAIAgentRpcClient().configureDefaultModelProvider({ projectPath: projectPath.current });
             }
 
             if (newServiceArtifact) {

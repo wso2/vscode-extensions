@@ -86,9 +86,9 @@ export function activateAIFeatures(ballerinaExternalInstance: BallerinaExtension
         });
     }
 
-    const projectPath = StateMachine.context().projectPath;
-
     commands.registerCommand(CONFIGURE_DEFAULT_MODEL_COMMAND, async (...args: any[]) => {
+        const projectPath = args[0] || StateMachine.context().projectPath;
+
         const configPath = await getConfigFilePath(ballerinaExternalInstance, projectPath);
         if (configPath !== null) {
             try {
@@ -111,6 +111,8 @@ export function activateAIFeatures(ballerinaExternalInstance: BallerinaExtension
     });
 
     commands.registerCommand(CONFIGURE_DEFAULT_DEVANT_CHUNKER_COMMAND, async (...args: any[]) => {
+        const projectPath = args[0] || StateMachine.context().projectPath;
+
         const configPath = await getConfigFilePath(ballerinaExternalInstance, projectPath);
         if (configPath !== null) {
             try {

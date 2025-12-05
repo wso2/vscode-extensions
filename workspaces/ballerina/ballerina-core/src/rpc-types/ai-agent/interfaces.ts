@@ -83,6 +83,10 @@ export interface McpToolUpdateRequest {
     updatedNode?: FlowNode;
 }
 
+export interface ConfigureDefaultModelProviderRequest {
+    projectPath?: string;
+}
+
 export interface ToolParameters {
     metadata: Metadata;
     valueType: string;
