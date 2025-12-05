@@ -824,7 +824,7 @@ function updateProjectExplorer(location: VisualizerLocation | undefined) {
 async function checkIfMiProject(projectUri: string, view: MACHINE_VIEW = MACHINE_VIEW.Overview) {
     console.log(`Detecting project in ${projectUri} - ${new Date().toLocaleTimeString()}`);
 
-    let isProject = false, isOldProject = false, isOldWorkspace = false, displayOverview = true, isEnvironmentSetUp = false;
+    let isProject = false, isOldProject = false, isOldWorkspace = false, displayOverview = true, isEnvironmentSetUp = false, isLegacyRuntime = true;
     const customProps: any = {};
     try {
         // Check for pom.xml files excluding node_modules directory
@@ -871,6 +871,9 @@ async function checkIfMiProject(projectUri: string, view: MACHINE_VIEW = MACHINE
             }
         }
 
+        const runtimeVersion = await getMIVersionFromPom(projectUri);
+        isLegacyRuntime = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0 : true;
+
         vscode.commands.executeCommand('setContext', 'MI.status', 'projectDetected');
         vscode.commands.executeCommand('setContext', 'MI.projectType', 'miProject'); // for command enablements
         await extension.context.workspaceState.update('projectType', 'miProject');
@@ -898,9 +901,6 @@ async function checkIfMiProject(projectUri: string, view: MACHINE_VIEW = MACHINE
         // console.log project path
         console.log(`Current workspace path: ${projectUri}`);
     }
-
-    const runtimeVersion = await getMIVersionFromPom(projectUri);
-    const isLegacyRuntime = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0 : true;
 
     console.log(`Project detection completed for path: ${projectUri} at ${new Date().toLocaleTimeString()}`);
     return {

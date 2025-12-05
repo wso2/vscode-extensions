@@ -17,28 +17,28 @@
  */
 
 import { test } from '@playwright/test';
-import { page } from './utils';
+import { page } from './utils/helpers';
 const fs = require('fs');
 const path = require('path');
 const videosFolder = path.join(__dirname, '..', 'test-resources', 'videos');
 
 import automation from './automation/automation.spec';
 
-import httpService from './api-services/http-service.spec';
-import aiChatService from './api-services/ai-chat-service.spec';
-import graphqlService from './api-services/graphql-service.spec';
-import tcpService from './api-services/tcp-service.spec';
+import httpService from './api-integration/http-service.spec';
+import aiChatService from './api-integration/ai-chat-service.spec';
+import graphqlService from './api-integration/graphql-service.spec';
+import tcpService from './api-integration/tcp-service.spec';
 
-import kafkaIntegration from './event-integrations/kafka.spec';
-import rabbitmqIntegration from './event-integrations/rabbitmq.spec';
-import mqttIntegration from './event-integrations/mqtt.spec';
-import azureIntegration from './event-integrations/azure.spec';
-import salesforceIntegration from './event-integrations/salesforce.spec';
-import twillioIntegration from './event-integrations/twillio.spec';
-import githubIntegration from './event-integrations/github.spec';
+import kafkaIntegration from './event-integration/kafka.spec';
+import rabbitmqIntegration from './event-integration/rabbitmq.spec';
+import mqttIntegration from './event-integration/mqtt.spec';
+import azureIntegration from './event-integration/azure.spec';
+import salesforceIntegration from './event-integration/salesforce.spec';
+import twillioIntegration from './event-integration/twillio.spec';
+import githubIntegration from './event-integration/github.spec';
 
-import ftpIntegration from './file-integrations/ftp.spec';
-import directoryIntegration from './file-integrations/directory.spec';
+import ftpIntegration from './file-integration/ftp.spec';
+import directoryIntegration from './file-integration/directory.spec';
 
 import functionArtifact from './other-artifacts/function.spec';
 import naturalFunctionArtifact from './other-artifacts/np.spec';
@@ -46,8 +46,8 @@ import typeDiagramArtifact from './other-artifacts/type.spec';
 import connectionArtifact from './other-artifacts/connection.spec';
 
 import configuration from './configuration/configuration.spec';
-import typeTest from './type/type.spec';
-import serviceTest from './service-class-designer/service-class.spec';
+import typeTest from './type-editor/type.spec';
+import serviceTest from './service-designer/service-class.spec';
 
 import importIntegration from './import-integration/import-integration.spec';
 
