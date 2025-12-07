@@ -1302,7 +1302,6 @@ export class DynamicFieldsHandler {
                 });
             } else {
                 // If connectionInfo is false, set the values to the parameters
-                const paramManagerElement = this.findElementByName(this.formData.elements, FIELD_NAMES.COLUMNS);
                 const paramManagerValues = this.getValues(getNameForController(FIELD_NAMES.COLUMNS)) || [];
 
                 // match matched fields with the param manager values, if found update and if not found add
