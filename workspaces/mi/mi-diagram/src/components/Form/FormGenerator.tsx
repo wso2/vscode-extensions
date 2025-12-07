@@ -274,10 +274,6 @@ export function FormGenerator(props: FormGeneratorProps) {
     const dynamicFieldsHandler = useRef<DynamicFieldsHandler>(null);
     const [dynamicFields, setDynamicFields] = useState<Record<string, DynamicFieldGroup>>({});
     const [, setElements] = useState(formData.elements);
-    const updateElements = (newElements: any) => {
-        setElements(newElements);
-        formData.elements = newElements;
-    };
     const setCustomError = (fieldName: string, message: string | null) => {
         setCustomErrors(prevErrors => ({
             ...prevErrors,
