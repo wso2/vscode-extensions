@@ -742,7 +742,7 @@ export class DynamicFieldsHandler {
         const collectedValues: Record<string, DynamicFieldValue> = {};
 
         // Handling ParamManager (Offline Mode)
-        const paramManagerElement = this.findElementByName(this.formData.elements, FIELD_NAMES.COLUMNS);
+        
         if (currentQueryType === UI_MODES.OFFLINE) {
             const paramManagerValues = formValues[FIELD_NAMES.COLUMNS] || [];
             if (Array.isArray(paramManagerValues)) {
