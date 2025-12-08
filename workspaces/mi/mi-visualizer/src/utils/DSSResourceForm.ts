@@ -175,6 +175,14 @@ export const onResourceEdit = (data: ResourceFormData, selectedResource: any, do
             documentUri: documentUri,
             range: resourceStartTagRange
         }).then(async () => {
+            if (referenceQueryTagRange) {
+                await rpcClient.getMiDiagramRpcClient().applyEdit({
+                    text: queryReferenceXML,
+                    documentUri: documentUri,
+                    range: referenceQueryTagRange
+                });
+            }
+        }).then(async () => {
             await rpcClient.getMiDiagramRpcClient().applyEdit({
                     text: descriptionXML,
                     documentUri: documentUri,
@@ -182,15 +190,7 @@ export const onResourceEdit = (data: ResourceFormData, selectedResource: any, do
                         start: descriptionStartTagRange ? descriptionStartTagRange.start : resourceStartTagRange.end,
                         end: descriptionEndTagRange ? descriptionEndTagRange.end : resourceStartTagRange.end
                     }
-                })
-        }).then(async () => {
-            if (referenceQueryTagRange) {
-                await rpcClient.getMiDiagramRpcClient().applyEdit({
-                    text: queryReferenceXML,
-                    documentUri: documentUri,
-                    range: referenceQueryTagRange
-                })
-            }
+            });
         });
 };
 
@@ -215,23 +215,23 @@ export const onOperationEdit = (data: OperationFormData, selectedOperation: any,
             documentUri: documentUri,
             range: operationStartTagRange,
         }).then(async () => {
-        await rpcClient.getMiDiagramRpcClient().applyEdit({
+            if (referenceQueryTagRange) {
+                await rpcClient.getMiDiagramRpcClient().applyEdit({
+                        text: queryReferenceXML,
+                        documentUri: documentUri,
+                        range: referenceQueryTagRange
+                });
+            }
+        }).then(async () => {
+            await rpcClient.getMiDiagramRpcClient().applyEdit({
                 text: descriptionXML,
                 documentUri: documentUri,
                 range: {
                     start: descriptionStartTagRange ? descriptionStartTagRange.start : operationStartTagRange.end,
                     end: descriptionEndTagRange ? descriptionEndTagRange.end : operationStartTagRange.end
                 }
-            }).then(async () => {
-                if (referenceQueryTagRange) {
-                    await rpcClient.getMiDiagramRpcClient().applyEdit({
-                        text: queryReferenceXML,
-                        documentUri: documentUri,
-                        range: referenceQueryTagRange
-                    })
-                }
             });
-    })
+        });
 };
 
 export const onQueryEdit = (data: QueryFormData, selectedQuery: any, documentUri: string, rpcClient: RpcClient) => {
