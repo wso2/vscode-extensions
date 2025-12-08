@@ -56,13 +56,16 @@ export function ModuleSuggestions(props: ModuleSuggestionProps) {
             setIsSearching(true);
             if (value) {
                 try {
+                    let data: any[] = [];
                     const runtimeVersion = await rpcClient.getMiDiagramRpcClient().getMIVersionFromPom();
                     const response = await fetch(`${process.env.MI_CONNECTOR_STORE_BACKEND_SEARCH.replace('${searchValue}', value).replace('${version}', runtimeVersion.version)}`);
-                    const data = await response.json();
+                    if (response.ok) {
+                        data = await response.json();
+                    }
                     setFilteredModules(data);
                 } catch (e) {
                     console.error("Error fetching modules", e);
-                    setFilteredModules(undefined);
+                    setFilteredModules([]);
                 }
             } else {
                 setFilteredModules([]);

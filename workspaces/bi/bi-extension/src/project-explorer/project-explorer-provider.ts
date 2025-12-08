@@ -19,7 +19,17 @@
 import * as vscode from 'vscode';
 import { window, Uri, commands } from 'vscode';
 import path = require('path');
-import { DIRECTORY_MAP, ProjectStructureArtifactResponse, ProjectStructureResponse, SHARED_COMMANDS, BI_COMMANDS, PackageConfigSchema, BallerinaProject, VisualizerLocation, ProjectStructure } from "@wso2/ballerina-core";
+import {
+    DIRECTORY_MAP,
+    ProjectStructureArtifactResponse,
+    ProjectStructureResponse,
+    SHARED_COMMANDS,
+    BI_COMMANDS,
+    VisualizerLocation,
+    ProjectStructure,
+    MACHINE_VIEW,
+    NodePosition
+} from "@wso2/ballerina-core";
 import { extension } from "../biExtentionContext";
 
 interface Property {
@@ -34,17 +44,20 @@ interface Property {
 export class ProjectExplorerEntry extends vscode.TreeItem {
     children: ProjectExplorerEntry[] | undefined;
     info: string | undefined;
+    position: NodePosition | undefined;
 
     constructor(
         public readonly label: string,
         public collapsibleState: vscode.TreeItemCollapsibleState,
         info: string | undefined = undefined,
         icon: string = 'folder',
-        isCodicon: boolean = false
+        isCodicon: boolean = false,
+        position: NodePosition | undefined = undefined
     ) {
         super(label, collapsibleState);
         this.tooltip = `${this.label}`;
         this.info = info;
+        this.position = position;
         if (icon && isCodicon) {
             this.iconPath = new vscode.ThemeIcon(icon);
         } else if (icon) {
@@ -62,23 +75,154 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
         = new vscode.EventEmitter<ProjectExplorerEntry | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<ProjectExplorerEntry | undefined | null | void>
         = this._onDidChangeTreeData.event;
+    private _treeView: vscode.TreeView<ProjectExplorerEntry> | undefined;
+    private _isRefreshing: boolean = false;
+    private _pendingRefresh: boolean = false;
+
+    setTreeView(treeView: vscode.TreeView<ProjectExplorerEntry>): void {
+        this._treeView = treeView;
+    }
 
     refresh(): void {
+        // If already refreshing, mark that we need another refresh after current one completes
+        if (this._isRefreshing) {
+            this._pendingRefresh = true;
+            return;
+        }
+
+        this._isRefreshing = true;
+        this._pendingRefresh = false;
+
         window.withProgress({
             location: { viewId: BI_COMMANDS.PROJECT_EXPLORER },
             title: 'Loading project structure'
         }, async () => {
             try {
-                const data = await getProjectStructureData();
+                this._data = [];
+                
+                const data = await getProjectStructureData();                
                 this._data = data;
                 // Fire the event after data is fully populated
                 this._onDidChangeTreeData.fire();
             } catch (err) {
-                console.error(err);
+                console.error('[ProjectExplorer] Error during refresh:', err);
                 this._data = [];
                 this._onDidChangeTreeData.fire();
+            } finally {
+                this._isRefreshing = false;
+                
+                // If another refresh was requested while we were refreshing, do it now
+                if (this._pendingRefresh) {
+                    console.log('[ProjectExplorer] Executing pending refresh');
+                    this._pendingRefresh = false;
+                    this.refresh();
+                }
             }
         });
+    }
+
+    revealInTreeView(
+        documentUri: string | undefined,
+        projectPath: string | undefined,
+        position: NodePosition | undefined,
+        view: MACHINE_VIEW | undefined
+    ): void {
+        if (!this._treeView) {
+            return;
+        }
+
+        let itemToReveal: ProjectExplorerEntry | undefined;
+
+        // Case 1: If documentUri is present, find the tree item with matching path and position
+        if (documentUri) {
+            itemToReveal = this.findItemByPathAndPosition(documentUri, position);
+        }
+        // Case 2: If documentUri is undefined but projectPath is present and view is not 'WorkspaceOverview'
+        else if (projectPath && view !== MACHINE_VIEW.WorkspaceOverview) {
+            itemToReveal = this.findItemByPathAndPosition(projectPath, position);
+        }
+
+        // Reveal the item if found
+        if (itemToReveal && this._treeView.visible) {
+            this._treeView.reveal(itemToReveal, { 
+                select: true, 
+                focus: true, 
+                expand: true 
+            });
+        }
+    }
+
+    /**
+     * Recursively search for a tree item by its path and position
+     */
+    private findItemByPathAndPosition(targetPath: string, targetPosition: NodePosition | undefined): ProjectExplorerEntry | undefined {
+        for (const rootItem of this._data) {
+            // Check if the root item matches
+            if (this.matchesPathAndPosition(rootItem, targetPath, targetPosition)) {
+                return rootItem;
+            }
+            // Recursively search children
+            const found = this.searchChildrenByPathAndPosition(rootItem, targetPath, targetPosition);
+            if (found) {
+                return found;
+            }
+        }
+        return undefined;
+    }
+
+    /**
+     * Recursively search through children for a matching path and position
+     */
+    private searchChildrenByPathAndPosition(parent: ProjectExplorerEntry, targetPath: string, targetPosition: NodePosition | undefined): ProjectExplorerEntry | undefined {
+        if (!parent.children) {
+            return undefined;
+        }
+        
+        for (const child of parent.children) {
+            if (this.matchesPathAndPosition(child, targetPath, targetPosition)) {
+                return child;
+            }
+            
+            const found = this.searchChildrenByPathAndPosition(child, targetPath, targetPosition);
+            if (found) {
+                return found;
+            }
+        }
+        
+        return undefined;
+    }
+
+    /**
+     * Check if an item matches the given path and position
+     */
+    private matchesPathAndPosition(item: ProjectExplorerEntry, targetPath: string, targetPosition: NodePosition | undefined): boolean {
+        // Path must match
+        if (item.info !== targetPath) {
+            return false;
+        }
+
+        // If no target position is provided, match by path only
+        if (!targetPosition) {
+            return true;
+        }
+
+        // If target position is provided but item has no position, don't match
+        if (!item.position) {
+            return true; // Fall back to path-only matching for items without position
+        }
+
+        // Compare positions
+        return this.positionsMatch(item.position, targetPosition);
+    }
+
+    /**
+     * Check if two positions match
+     */
+    private positionsMatch(pos1: NodePosition, pos2: NodePosition): boolean {
+        return pos1.startLine === pos2.startLine &&
+               pos1.startColumn === pos2.startColumn &&
+               pos1.endLine === pos2.endLine &&
+               pos1.endColumn === pos2.endColumn;
     }
 
     constructor() {
@@ -166,8 +310,18 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
 
                 // Generate the tree data for the projects
                 const projects = projectStructure.projects;
-                const isSingleProject = projects.length === 1;
+                // Filter projects to avoid duplicates - only include unique project paths
+                const uniqueProjects = new Map<string, typeof projects[0]>();
                 for (const project of projects) {
+                    if (!uniqueProjects.has(project.projectPath)) {
+                        uniqueProjects.set(project.projectPath, project);
+                    }
+                }
+                
+                const filteredProjects = Array.from(uniqueProjects.values());
+                
+                const isSingleProject = filteredProjects.length === 1;
+                for (const project of filteredProjects) {
                     const projectTree = generateTreeData(project, isSingleProject);
                     if (projectTree) {
                         data.push(projectTree);
@@ -371,7 +525,9 @@ function getComponents(items: ProjectStructureArtifactResponse[], itemType: DIRE
             comp.name,
             vscode.TreeItemCollapsibleState.None,
             comp.path,
-            comp.icon
+            comp.icon,
+            false,
+            comp.position
         );
         fileEntry.resourceUri = Uri.parse(`bi-category:${projectPath}`);
         fileEntry.command = {
@@ -394,4 +550,3 @@ function getComponents(items: ProjectStructureArtifactResponse[], itemType: DIRE
     }
     return entries;
 }
-
