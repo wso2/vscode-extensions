@@ -220,12 +220,25 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
     } = props;
 
     const { rpcClient } = useRpcContext();
-    const [fields, setFields] = useState<FormField[]>([]);
+    const [baseFields, setBaseFields] = useState<FormField[]>([]);
     const [formImports, setFormImports] = useState<FormImports>({});
     const [typeEditorState, setTypeEditorState] = useState<TypeEditorState>({ isOpen: false, newTypeValue: "" });
     const [visualizableField, setVisualizableField] = useState<VisualizableField>();
     const [recordTypeFields, setRecordTypeFields] = useState<RecordTypeField[]>([]);
     const [valueTypeConstraints, setValueTypeConstraints] = useState<string>();
+
+    const fields = useMemo(() => {
+        if (!props.fieldOverrides || baseFields.length === 0) {
+            return baseFields;
+        }
+        return baseFields.map(field => {
+            const override = props.fieldOverrides[field.key];
+            if (override) {
+                return { ...field, ...override };
+            }
+            return field;
+        });
+    }, [baseFields, props.fieldOverrides]);
 
     /* Expression editor related state and ref variables */
     const prevCompletionFetchText = useRef<string>("");
@@ -355,6 +368,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         };
     }, [node]);
 
+
     const handleFormOpen = () => {
         rpcClient
             .getBIDiagramRpcClient()
@@ -435,21 +449,10 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         setRecordTypeFields(recordTypeFields);
 
         // get node properties
-        let fields = convertNodePropertiesToFormFields(enrichedNodeProperties || formProperties, connections, clientName);
-
-        // Apply field overrides if provided
-        if (props.fieldOverrides) {
-            fields = fields.map(field => {
-                const override = props.fieldOverrides[field.key];
-                if (override) {
-                    return { ...field, ...override };
-                }
-                return field;
-            });
-        }
+        const fields = convertNodePropertiesToFormFields(enrichedNodeProperties || formProperties, connections, clientName);
 
         const sortedFields = sortFieldsByPriority(fields);
-        setFields(sortedFields);
+        setBaseFields(sortedFields);
         setFormImports(getImportsForFormFields(sortedFields));
     };
 
@@ -472,7 +475,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             }
             return updatedField;
         });
-        setFields(updatedFields);
+        setBaseFields(updatedFields);
     }
 
     const handleOnSubmit = (data: FormValues, dirtyFields: any) => {
@@ -524,7 +527,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
             }
             return updatedField;
         });
-        setFields(updatedFields);
+        setBaseFields(updatedFields);
         setTypeEditorState({ isOpen, fieldKey: editingField?.key, newTypeValue: f[editingField?.key] });
     };
 
@@ -842,7 +845,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         if (type.codedata.node === "RECORD") {
             handleSelectedTypeChange(convertRecordTypeToCompletionItem(type));
         }
-        setFields(updatedFields);
+        setBaseFields(updatedFields);
     };
 
     const handleValueTypeConstChange = async (valueTypeConstraint: string) => {
