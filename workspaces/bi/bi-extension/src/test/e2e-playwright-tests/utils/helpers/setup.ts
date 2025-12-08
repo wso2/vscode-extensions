@@ -70,7 +70,7 @@ async function resumeVSCode() {
         await page.executePaletteCommand('Reload Window');
     } else {
         console.log('Starting VSCode');
-        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, path.join(newProjectPath, 'testProject'), 'bi-test-profile');
+        vscode = await startVSCode(resourcesFolder, vscodeVersion, undefined, false, extensionsFolder, path.join(newProjectPath, 'sample'), 'bi-test-profile');
         await new Promise(resolve => setTimeout(resolve, 5000));
     }
     page = new ExtendedPage(await vscode!.firstWindow({ timeout: 60000 }));
@@ -159,7 +159,7 @@ export async function createProject(page: ExtendedPage, projectName?: string) {
 export function initTest(newProject: boolean = false, skipProjectCreation: boolean = false, cleanupAfter?: boolean, projectName?: string) {
     test.beforeAll(async ({ }, testInfo) => {
         console.log(`\n▶️  STARTING TEST: ${testInfo.title} (Attempt ${testInfo.retry + 1})`);
-        if (!existsSync(path.join(newProjectPath, projectName ?? 'testProject')) || newProject) {
+        if (!existsSync(path.join(newProjectPath, projectName ?? 'sample')) || newProject) {
             if (fs.existsSync(newProjectPath)) {
                 fs.rmSync(newProjectPath, { recursive: true });
             }
@@ -191,7 +191,7 @@ export function initMigrationTest() {
     test.beforeAll(async ({ }, testInfo) => {
         console.log(`>>> Starting migration tests. Title: ${testInfo.title}, Attempt: ${testInfo.retry + 1}`);
         console.log('Setting up BI extension for migration testing');
-        if (!existsSync(path.join(newProjectPath, 'testProject'))) {
+        if (!existsSync(path.join(newProjectPath, 'sample'))) {
             if (fs.existsSync(newProjectPath)) {
                 fs.rmSync(newProjectPath, { recursive: true });
             }
