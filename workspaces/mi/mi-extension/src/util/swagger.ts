@@ -24,6 +24,7 @@ import path from "path";
 import * as vscode from 'vscode';
 import { deleteRegistryResource } from "./fileOperations";
 import { getStateMachine } from "../stateMachine";
+import { MILanguageClient } from "../lang-client/activator";
 
 const fs = require('fs');
 
@@ -296,7 +297,7 @@ export function generateSwagger(apiPath: string): Promise<SwaggerFromAPIResponse
         if (!fs.existsSync(dirPath)) {
             fs.mkdirSync(dirPath, { recursive: true });
         }
-        const langClient = getStateMachine(projectUri).context().langClient!;
+        const langClient = await MILanguageClient.getInstance(projectUri);
         const response = await langClient.swaggerFromAPI({ apiPath: apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         const generatedSwagger = response.swagger;
         fs.writeFileSync(swaggerPath, generatedSwagger);
