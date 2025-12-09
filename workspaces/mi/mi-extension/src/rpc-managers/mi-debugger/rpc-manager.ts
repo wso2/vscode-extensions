@@ -33,13 +33,14 @@ import {
 } from "@wso2/mi-core";
 import * as vscode from "vscode";
 import { getStateMachine, refreshUI } from "../../stateMachine";
+import { MILanguageClient } from "../../lang-client/activator";
 
 export class MiDebuggerRpcManager implements MiDebuggerAPI {
     constructor(private projectUri: string) { }
 
     async validateBreakpoints(params: ValidateBreakpointsRequest): Promise<ValidateBreakpointsResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const definition = await langClient.validateBreakpoints(params);
 
             resolve(definition);
@@ -48,7 +49,7 @@ export class MiDebuggerRpcManager implements MiDebuggerAPI {
 
     async getBreakpointInfo(params: GetBreakpointInfoRequest): Promise<GetBreakpointInfoResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const breakpointInfo = await langClient.getBreakpointInfo(params);
 
             resolve(breakpointInfo);
@@ -113,7 +114,7 @@ export class MiDebuggerRpcManager implements MiDebuggerAPI {
 
     async getStepOverBreakpoint(params: StepOverBreakpointRequest): Promise<StepOverBreakpointResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const breakpointInfo = await langClient.getStepOverBreakpoint(params);
 
             resolve(breakpointInfo);

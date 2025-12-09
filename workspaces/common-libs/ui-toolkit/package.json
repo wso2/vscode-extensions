@@ -61,7 +61,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-storybook": "^0.8.0",
     "gh-pages": "^6.3.0",
-    "glob": "^11.0.2",
+    "glob": "^11.1.0",
     "http-server": "^14.1.1",
     "react-error-boundary": "^6.0.0",
     "react-hook-form": "7.56.4",
