@@ -21,28 +21,28 @@ import styled from "@emotion/styled";
 import { colors } from "../Commons/Colors";
 
 const StepNumber = styled.div`
-    color: var(--vscode-editor-background);
+    color: ${(props: { color?: string; }) => props.color};
 `;
 
 export const InCompletedStepCard: React.FC<StepCardProps> = (props: StepCardProps) => (
     <StepCard id={props.id} className={props.className}>
         {props.titleAlignment === "right" ? (
             <>
-                <StepCircle color={props?.isCurrentStep ? colors.vscodeTextLinkForeground : colors.indentGuideActiveBackgound}>
-                    <StepNumber>
+                <StepCircle color={props?.isCurrentStep ? colors.vscodeButtonBackground : colors.indentGuideActiveBackgound}>
+                    <StepNumber color={props?.isCurrentStep ? colors.vscodeButtonForeground : colors.editorForeground}>
                         {props.step.id + 1}
                     </StepNumber>
                 </StepCircle>
                 <StepTitle color={props?.isCurrentStep ? colors.editorForeground : colors.indentGuideActiveBackgound}>
                     {props.step.title}
                 </StepTitle>
-                {(props.totalSteps === props.step.id + 1) ? null : <HorizontalBar/>}
+                {(props.totalSteps === props.step.id + 1) ? null : <HorizontalBar />}
             </>
         ) :
             <>
                 <IconTitleWrapper>
-                    <StepCircle color={props.isCurrentStep ? colors.vscodeTextLinkForeground : colors.indentGuideActiveBackgound}>
-                        <StepNumber>
+                    <StepCircle color={props.isCurrentStep ? colors.vscodeButtonBackground : colors.indentGuideActiveBackgound}>
+                        <StepNumber color={props?.isCurrentStep ? colors.vscodeButtonForeground : colors.editorForeground}>
                             {props.step.id + 1}
                         </StepNumber>
                     </StepCircle>
