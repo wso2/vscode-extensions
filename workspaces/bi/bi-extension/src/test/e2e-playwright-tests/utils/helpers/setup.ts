@@ -122,6 +122,8 @@ export async function setupBallerinaIntegrator() {
     }
 }
 
+export const DEFAULT_PROJECT_NAME = 'sample';
+
 export async function createProject(page: ExtendedPage, projectName?: string) {
     console.log('Creating new project');
     
@@ -139,7 +141,7 @@ export async function createProject(page: ExtendedPage, projectName?: string) {
         values: {
             'Integration Name*': {
                 type: 'input',
-                value: projectName ?? 'sample',
+                value: projectName ?? DEFAULT_PROJECT_NAME,
             },
             'Select Path': {
                 type: 'file',

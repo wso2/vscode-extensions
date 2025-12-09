@@ -82,8 +82,8 @@ The following test IDs should be added for better testability:
 2. Add a variable declaration node to the diagram
 3. Click on the variable declaration node to configure it
 4. Verify the variable declaration form opens
-5. Verify the "Data Mapper" button/icon is visible in the form
-6. Click on the "Data Mapper" button/icon
+5. Verify the "Inline Data Mapper" button/icon is visible in the form when we create and select a new type called Person
+6. Click on the "Inline Data Mapper" button/icon
 7. Verify the inline data mapper opens (as popup or inline view)
 8. Verify the inline data mapper editor is displayed
 9. Verify the input section shows available variables from the flow context
