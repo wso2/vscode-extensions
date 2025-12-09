@@ -37,3 +37,5 @@ export const undoRedoState: RequestType<void, UndoRedoStateResponse> = { method:
 export const joinProjectPath: RequestType<JoinProjectPathRequest, JoinProjectPathResponse> = { method: `${_preFix}/joinProjectPath` };
 export const getThemeKind: RequestType<void, ColorThemeKind> = { method: `${_preFix}/getThemeKind` };
 export const updateCurrentArtifactLocation: RequestType<UpdatedArtifactsResponse, ProjectStructureArtifactResponse> = { method: `${_preFix}/updateCurrentArtifactLocation` };
+export const reviewAccepted: NotificationType<void> = { method: `${_preFix}/reviewAccepted` };
+export const reviewRejected: NotificationType<void> = { method: `${_preFix}/reviewRejected` };
