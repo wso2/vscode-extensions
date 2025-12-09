@@ -43,6 +43,7 @@ const SidePanelContainer = styled.div<ResizableSidePanelProps & { currentWidth: 
     height: ${(props: ResizableSidePanelProps & { currentWidth: number }) => props.alignment === "bottom" ? `${props.currentWidth}px` : "100%"};
     background-color: var(--vscode-editor-background);
     color: var(--vscode-editor-foreground);
+    box-shadow: 0 5px 10px 0 var(--vscode-badge-background);
     z-index: 2000;
     opacity: ${(props: ResizableSidePanelProps & { currentWidth: number }) => props.isOpen ? 1 : 0};
     transform: ${(props: ResizableSidePanelProps & { currentWidth: number }) => {
