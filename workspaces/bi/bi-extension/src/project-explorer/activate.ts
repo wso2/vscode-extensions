@@ -91,7 +91,7 @@ function registerCoreCommands(dataProvider: ProjectExplorerEntryProvider, isInWI
 				commands.executeCommand(WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND);
 				return;
 			}
-			dataProvider.refresh()
+			dataProvider.refresh();
 		}
 	);
 }
