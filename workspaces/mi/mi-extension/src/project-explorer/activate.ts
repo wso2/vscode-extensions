@@ -383,7 +383,7 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 	commands.registerCommand(COMMANDS.OPEN_DSS_SERVICE_DESIGNER, async (entry: ProjectExplorerEntry | Uri) => {
 		revealWebviewPanel(false);
 		const documentUri = entry instanceof ProjectExplorerEntry ? entry.info?.path : entry.fsPath;
-		openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.DSSServiceDesigner, documentUri });
+		openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.DSSResourceServiceDesigner, documentUri });
 	});
 
 	commands.registerCommand(COMMANDS.EDIT_K8_CONFIGURATION_COMMAND, async () => {

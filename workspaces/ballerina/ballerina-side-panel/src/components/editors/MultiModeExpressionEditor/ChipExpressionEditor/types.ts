@@ -20,12 +20,18 @@ export enum InputMode {
   TEXT = "Text",
   EXP = "Expression",
   RECORD = "Record",
-  TEMPLATE = "Template"
+  TEMPLATE = "Template",
+  NUMBER = "Number",
+  BOOLEAN = "Boolean",
+  SQL = "SQL"
 }
 
 export const INPUT_MODE_MAP = {
   string: InputMode.TEXT,
-  "ai:Prompt": InputMode.TEMPLATE
+  "ai:Prompt": InputMode.TEMPLATE,
+  int: InputMode.NUMBER,
+  boolean: InputMode.BOOLEAN,
+  "sql:ParameterizedQuery": InputMode.SQL
 };
 
 export enum TokenType {

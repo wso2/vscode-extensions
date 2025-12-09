@@ -73,6 +73,17 @@ export interface Resource {
     additionalActions?: Item[]; // Additional actions for the resource
 }
 
+export interface Query {
+    name: string;
+    methods: any[];
+    isOpen?: boolean;
+    expandable?: boolean;
+    additionalInfo?: JSX.Element; // Additional information to be displayed in the resource expanded view
+    additionalActions?: Item[]; // Additional actions for the resource
+    params?: ParameterConfig[];
+    advancedParams?: Map<string, ParameterConfig>;
+}
+
 export interface PathConfig {
     path: string;
     resources: ParameterConfig[];

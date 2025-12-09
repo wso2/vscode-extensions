@@ -33,7 +33,12 @@ import {
     getEditOperationTemplate,
     getEditResourceTemplate,
     getEditDescriptionTemplate,
-    getAddQuery
+    getEditQueryReferenceTemplate,
+    getAddQuery, 
+    getAddFullQuery, 
+    getQueryConfig, 
+    getExpressionQuery, 
+    getSQLQuery
 } from "./core/DSS";
 
 export function getXML(name: string, data: { [key: string]: any }) {
@@ -62,8 +67,16 @@ export function getXML(name: string, data: { [key: string]: any }) {
             return Mustache.render(getEditOperationTemplate(), data);
         case DSS_TEMPLATES.EDIT_DESCRIPTION:
             return Mustache.render(getEditDescriptionTemplate(), data);
+        case DSS_TEMPLATES.EDIT_QUERY_REFERENCE:
+            return Mustache.render(getEditQueryReferenceTemplate(), data);
         case DSS_TEMPLATES.ADD_QUERY:
             return Mustache.render(getAddQuery(), data);
+        case DSS_TEMPLATES.ADD_FULL_QUERY:
+            return Mustache.render(getAddFullQuery(), data);
+        case DSS_TEMPLATES.UPDATE_QUERY_CONFIG:
+            return Mustache.render(getQueryConfig(), data);
+        case DSS_TEMPLATES.UPDATE_QUERY:
+            return data.isExpression ? Mustache.render(getExpressionQuery(), data) : Mustache.render(getSQLQuery(), data);
         default:
             return "";
     }
