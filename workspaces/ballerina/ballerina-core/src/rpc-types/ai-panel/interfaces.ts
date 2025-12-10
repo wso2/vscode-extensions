@@ -21,7 +21,7 @@ import { FunctionDefinition } from "@wso2/syntax-tree";
 import { AIMachineContext, AIMachineStateValue, ChatMessage } from "../../state-machine-types";
 import { Command, TemplateId } from "../../interfaces/ai-panel";
 import { AllDataMapperSourceRequest, DataMapperSourceResponse, ExtendedDataMapperMetadata } from "../../interfaces/extended-lang-client";
-import { ComponentInfo, DataMapperMetadata, Diagnostics, ImportStatements, LinePosition, Project } from "../..";
+import { ComponentInfo, DataMapperMetadata, Diagnostics, ImportStatements, LinePosition, LineRange, NodeKind, Project } from "../..";
 
 // ==================================
 // General Interfaces
@@ -452,3 +452,30 @@ export interface DocGenerationRequest {
 
 export const GENERATE_TEST_AGAINST_THE_REQUIREMENT = "Generate tests against the requirements";
 export const GENERATE_CODE_AGAINST_THE_REQUIREMENT = "Generate code based on the requirements";
+
+
+// AI schema related interfaces
+
+export interface SemanticDiffRequest {
+    projectPath: string;
+}
+
+export type ChangeType = "ADDITION" | "MODIFICATION" | "DELETION";
+
+export interface SemanticDiff {
+    changeType: ChangeType;
+    nodeKind: NodeKind;
+    uri: string;
+    lineRange: LineRange;
+}
+
+export interface SemanticDiffOutput {
+    loadDesignDiagrams: boolean;
+    semanticDiffs: SemanticDiff[];
+}
+
+export interface SemanticDiffResponse {
+    description: string;
+    projectPath: string;
+    output: SemanticDiffOutput;
+}

@@ -41,42 +41,39 @@ import {
     LLMDiagnostics,
     LoginMethod,
     MetadataWithAttachments,
-    OperationType,
     PostProcessRequest,
     PostProcessResponse,
     ProcessContextTypeCreationRequest,
     ProcessMappingParametersRequest,
     ProjectDiagnostics,
-    ProjectModule,
     ProjectSource,
     RelevantLibrariesAndFunctionsRequest,
     RelevantLibrariesAndFunctionsResponse,
     RepairParams,
     RequirementSpecification,
-    SourceFile,
+    SemanticDiffRequest,
+    SemanticDiffResponse,
     SubmitFeedbackRequest,
     TestGenerationMentions,
     TestGenerationRequest,
     TestGenerationResponse,
     TestGeneratorIntermediaryState,
-    TestPlanGenerationRequest,
+    TestPlanGenerationRequest
 } from "@wso2/ballerina-core";
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import path from "path";
-import { parse } from 'toml';
 import { workspace } from 'vscode';
 
+import { AIChatMachineEventType } from "@wso2/ballerina-core/lib/state-machine-types";
 import { isNumber } from "lodash";
 import { ExtendedLangClient } from "src/core";
 import { fetchWithAuth } from "../../../src/features/ai/service/connection";
 import { openChatWindowWithCommand } from "../../../src/features/ai/service/datamapper/datamapper";
-import { generateDesign } from "../../../src/features/ai/service/design/design";
 import { generateOpenAPISpec } from "../../../src/features/ai/service/openapi/openapi";
-import { AIStateMachine, openAIPanelWithPrompt } from "../../../src/views/ai-panel/aiMachine";
 import { AIChatStateMachine } from "../../../src/views/ai-panel/aiChatMachine";
-import { AIChatMachineEventType } from "@wso2/ballerina-core/lib/state-machine-types";
+import { AIStateMachine, openAIPanelWithPrompt } from "../../../src/views/ai-panel/aiMachine";
 import { checkToken } from "../../../src/views/ai-panel/utils";
 import { extension } from "../../BalExtensionContext";
 import { generateDocumentationForService } from "../../features/ai/service/documentation/doc_generator";
@@ -97,14 +94,11 @@ import { refreshDataMapper } from "../data-mapper/utils";
 import {
     DEVELOPMENT_DOCUMENT,
     NATURAL_PROGRAMMING_DIR_NAME, REQUIREMENT_DOC_PREFIX,
-    REQUIREMENT_MD_DOCUMENT,
-    REQUIREMENT_TEXT_DOCUMENT,
-    REQ_KEY, TEST_DIR_NAME
+    TEST_DIR_NAME
 } from "./constants";
 import { attemptRepairProject, checkProjectDiagnostics } from "./repair-utils";
-import { AIPanelAbortController, addToIntegration, cleanDiagnosticMessages, isErrorCode, requirementsSpecification, searchDocumentation } from "./utils";
+import { AIPanelAbortController, addToIntegration, cleanDiagnosticMessages, searchDocumentation } from "./utils";
 import { fetchData } from "./utils/fetch-data-utils";
-import { getWorkspaceTomlValues } from "./../../../src/utils/config";
 
 export class AiPanelRpcManager implements AIPanelAPI {
 
@@ -764,16 +758,25 @@ export class AiPanelRpcManager implements AIPanelAPI {
     async openAIPanel(params: AIPanelPrompt): Promise<void> {
         openAIPanelWithPrompt(params);
     }
-}
 
+    async getSemanticDiff(params: SemanticDiffRequest): Promise<SemanticDiffResponse> {
+        return new Promise(async (resolve) => {
+            const context = StateMachine.context();
+            console.log(">>> requesting semantic diff from ls", JSON.stringify(params));
+            try {
+                const res: SemanticDiffResponse = await context.langClient.getSemanticDiff(params);
+                console.log(">>> semantic diff response from ls", JSON.stringify(res));
+                resolve(res);
+            } catch (error) {
+                console.log(">>> error in getting semantic diff", error);
+                resolve(undefined);
+            }
+        });
+    }   
+}
 
 interface SummaryResponse {
     summary: string;
-}
-
-interface BalModification {
-    fileUri: string;
-    moduleName: string;
 }
 
 async function setupProjectEnvironment(project: ProjectSource): Promise<{ langClient: ExtendedLangClient, tempDir: string } | null> {
