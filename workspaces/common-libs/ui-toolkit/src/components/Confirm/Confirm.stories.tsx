@@ -16,8 +16,8 @@
  * under the License.
  */
 import React, { useState } from "react";
-import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Confirm } from "./Confirm";
+import type { Meta, StoryObj } from '@storybook/react';
+import { Confirm, ConfirmProps } from "./Confirm";
 import { Button } from "../Button/Button";
 
 const meta = {
@@ -41,7 +41,7 @@ export const ConfirmDefault: Story = {
             horizontal: "left",
         },
     },
-    render: args => {
+    render: (args: ConfirmProps) => {
         const [isOpen, setIsOpen] = useState(false);
         const [anchorEvent, setAnchorEvent] = useState<null | HTMLElement>(null);
         const openPanel = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {

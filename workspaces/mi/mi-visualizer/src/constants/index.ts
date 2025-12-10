@@ -69,6 +69,10 @@ export const DSS_TEMPLATES = {
     EDIT_OPERATION: "edit-dss-operation",
     EDIT_DESCRIPTION: "edit-dss-description",
     ADD_QUERY: "add-dss-query",
+    ADD_FULL_QUERY: "add-full-dss-query",
+    UPDATE_QUERY_CONFIG: "update-query-config",
+    UPDATE_QUERY: "update-query",
+    EDIT_QUERY_REFERENCE: "edit-query-reference"
 } as const;
 
 export enum EndpointTypes {
