@@ -100,7 +100,7 @@ vscode.authentication.onDidChangeSessions(async e => {
             await extension.context.secrets.delete('GITHUB_COPILOT_TOKEN');
             await extension.context.secrets.delete('GITHUB_TOKEN');
         } else {
-            //it could be a login(which we havent captured) or a logout 
+            //it could be a login(which we havent captured) or a logout
             // vscode.window.showInformationMessage(
             //     'WSO2 Integrator: BI supports completions with GitHub Copilot.',
             //     'Login with GitHub Copilot'
@@ -227,6 +227,25 @@ export const getAwsBedrockCredentials = async (): Promise<{
         return undefined;
     }
     return credentials.secrets;
+};
+
+// ==================================
+// Unique user identifier for BIIntel
+// ==================================
+export const getBiIntelId = async (): Promise<string | undefined> => {
+    try {
+        const credentials = await getAuthCredentials();
+        if (!credentials || credentials.loginMethod !== LoginMethod.BI_INTEL) {
+            return undefined;
+        }
+
+        const { accessToken } = credentials.secrets;
+        const decoded = jwtDecode<JwtPayload>(accessToken);
+        return decoded.sub;
+    } catch (error) {
+        console.error('Error decoding JWT token:', error);
+        return undefined;
+    }
 };
 
 export const getRefreshedAccessToken = async (): Promise<string> => {
