@@ -16,8 +16,8 @@
  * under the License.
  */
 import React from "react";
-import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Item, Menu } from "./Menu";
+import type { Meta, StoryObj } from '@storybook/react';
+import {  Item, Menu , MenuProps } from "./Menu";
 import { MenuItem } from "./MenuItem";
 
 const items: Item[] = [
@@ -35,7 +35,7 @@ type Story = StoryObj<typeof Menu>;
 
 export const MenuC: Story = {
     args: { id: "menu" },
-    render: args => (
+    render: (args: MenuProps) => (
         <Menu {...args}>
             {items.map((item: Item) => (
                 <MenuItem key={`item ${item.id}`} item={item} onClick={() => {console.log(`Clicked Item ${item.id}`)}} />
