@@ -20,6 +20,7 @@
 	},
 	"exclude": [
 		"./resources",
-		"./src/test/e2e-playwright-tests/data"
+		"./src/test/e2e-playwright-tests/data",
+		"./src/test/test-resources"
 	]
 }

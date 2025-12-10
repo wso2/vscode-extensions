@@ -57,6 +57,7 @@ import { DM_OPERATORS_FILE_NAME, DM_OPERATORS_IMPORT_NAME, READONLY_MAPPING_FUNC
 import { readTSFile, removeMapFunctionEntry, showMappingEndNotification } from "../../util/ai-datamapper-utils";
 import { compareVersions } from "../../util/onboardingUtils";
 import { mapDataMapper } from "../../ai-panel/copilot/data-mapper/mapper";
+import { MILanguageClient } from "../../lang-client/activator";
 
 const undoRedoManager = new UndoRedoManager();
 
@@ -170,7 +171,13 @@ export class MiDataMapperRpcManager implements MIDataMapperAPI {
 
     async formatDMC(documentUri: string): Promise<void> {
         const uri = Uri.file(documentUri);
-        const edits: TextEdit[] = await commands.executeCommand("vscode.executeFormatDocumentProvider", uri);
+        let edits: TextEdit[];
+        try {
+            edits = await commands.executeCommand("vscode.executeFormatDocumentProvider", uri);
+        } catch (error) {
+            console.error("Error occurred while formatting DMC file: ", error);
+            return;
+        }
         const workspaceEdit = new WorkspaceEdit();
         workspaceEdit.set(uri, edits);
         await workspace.applyEdit(workspaceEdit);
@@ -325,7 +332,7 @@ export class MiDataMapperRpcManager implements MIDataMapperAPI {
                 const workspaceFolder = workspace.getWorkspaceFolder(Uri.file(filePath));
                 let miDiagramRpcManager: MiDiagramRpcManager = new MiDiagramRpcManager(this.projectUri);
 
-                const langClient = getStateMachine(this.projectUri).context().langClient;
+                const langClient = await MILanguageClient.getInstance(this.projectUri);
                 const projectDetailsRes = await langClient?.getProjectDetails();
                 const runtimeVersion = projectDetailsRes.primaryDetails.runtimeVersion.value;
                 const isResourceContentUsed = compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0;

@@ -2,6 +2,46 @@
 
 All notable changes to the "micro-integrator" extension will be documented in this file.
 
+## [3.1.0] - 2025-12-08
+
+### New Features
+
+Added: Nested query support for data services via a seperate query view  
+Added: Oracle synonym support for data service resource generation  
+
+### Fixed
+
+Fixed: .env file should be added to the gitignore by default ([#668](https://github.com/wso2/mi-vscode/issues/668))  
+Fixed: Show a message when the CApp generation is successful ([#1289](https://github.com/wso2/mi-vscode/issues/1289))  
+Fixed: Add parameter doesn't add parameter values to the xml in cdc inbound endpoint ([#1204](https://github.com/wso2/mi-vscode/issues/1204))  
+Fixed: No error shown we retry connectors without internet connection ([#1314](https://github.com/wso2/mi-vscode/issues/1314))  
+Fixed: Variables are not shown in the mediation debugger ([#1308](https://github.com/wso2/mi-vscode/issues/1308))  
+Fixed: UI alignment issue in mock services ([#1042](https://github.com/wso2/mi-vscode/issues/1042))  
+Fixed: Improve Marketplace Page for Micro Integrator Extension ([#1022](https://github.com/wso2/mi-vscode/issues/1022))  
+Fixed: Issues in HTTP Endpoint Template create form ([#970](https://github.com/wso2/mi-vscode/issues/970))  
+Fixed: Adding new connector version without validation breaks pom.xml ([#1259](https://github.com/wso2/mi-vscode/issues/1259))  
+Fixed: Runtime services panel shows the versioned APIs when versioning is disabled ([#1343](https://github.com/wso2/mi-vscode/issues/1343))  
+Fixed: Build CApp option ask about deployment.toml configs ([#1306](https://github.com/wso2/mi-vscode/issues/1306))  
+Fixed: Remove Server Type in remote deployment settings page ([#1295](https://github.com/wso2/mi-vscode/issues/1295))  
+Fixed: The groupId, artifactId of a project is not visible in the Project summary ([#1293](https://github.com/wso2/mi-vscode/issues/1293))  
+Fixed: Error When Searching Mediators Offline ([#1098](https://github.com/wso2/mi-vscode/issues/1098))  
+Fixed: "Maximum redelivery attempts" field in Message Forwarding Processors does not allow -1 as a value ([#695](https://github.com/wso2/mi-vscode/issues/695))  
+Fixed: Dataservice resource diagram start node has the option to set a payload for tryout ([#715](https://github.com/wso2/mi-vscode/issues/715))  
+Fixed: Can add TryOut payload to start node in 4.3.0 projects ([#1347](https://github.com/wso2/mi-vscode/issues/643))  
+Fixed: Text editor does not provide synapse suggestions ([#643](https://github.com/wso2/mi-vscode/issues/1347))  
+Fixed: Cannot delete a datamapper in Windows OS ([#1361](https://github.com/wso2/mi-vscode/issues/1361))  
+Fixed: User given OpenAPI definition is not exposed by the MI server ([#1362](https://github.com/wso2/mi-vscode/issues/1362))  
+Fixed: API update option not appearing after OpenAPI definition update ([#1363](https://github.com/wso2/mi-vscode/issues/1363))   
+
+## [3.0.1] - 2025-11-21
+
+### Fixed
+
+Fixed: Error when opening a diagram view on a new tab ([#1346](https://github.com/wso2/mi-vscode/issues/1346))   
+Fixed: Cannot add email connector operations after adding a foreach mediator ([#1348](https://github.com/wso2/mi-vscode/issues/1348))  
+Fixed: Path level parameters are not getting recognized in OpenAPI definition ([#1353](https://github.com/wso2/mi-vscode/issues/1353))   
+Fixed: Unit test execution command ignores the test.server.path argument ([#1354](https://github.com/wso2/mi-vscode/issues/1354))  
+
 ## [3.0.0] - 2025-11-03
 
 ### Improvements

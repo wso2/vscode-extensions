@@ -1488,7 +1488,7 @@ export async function updateCarPluginVersion(projectUri: string): Promise<void> 
     if (!carPluginVersion || carPluginVersion === LATEST_CAR_PLUGIN_VERSION) {
         return;
     }
-    if(carPluginVersion < LATEST_CAR_PLUGIN_VERSION) {
+    if(compareVersions(carPluginVersion, LATEST_CAR_PLUGIN_VERSION) < 0) {
         await updateRuntimeVersionsInPom(result.project.properties['project.runtime.version']);
     }
 }
