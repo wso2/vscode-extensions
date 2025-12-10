@@ -38,6 +38,7 @@ import { startDebugging } from "../editor-support/activator";
 import { createBIProjectFromMigration, createBIProjectPure } from "../../utils/bi";
 import { createVersionNumber, isSupportedSLVersion } from ".././../utils";
 import { extension } from "../../BalExtensionContext";
+import { AiPanelRpcManager } from "../../rpc-managers/ai-panel/rpc-manager";
 
 const FOCUS_DEBUG_CONSOLE_COMMAND = 'workbench.debug.action.focusRepl';
 const TRACE_SERVER_OFF = "off";
@@ -188,43 +189,15 @@ export function activate(context: BallerinaExtension) {
     });
 
     // Test command with sample data
-    commands.registerCommand('BI.review.changes.test', () => {
-        const projectPath = StateMachine.context().projectPath || '/Users/gayanka/dev/wso2/test/test_11_25_6';
-        
-        const sampleReviewData = {
-            views: [
-                {
-                    type: 'component' as const,
-                    filePath: '',
-                    position: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
-                    projectPath: projectPath,
-                    label: 'Component Diagram - Project Overview'
-                },
-                {
-                    type: 'flow' as const,
-                    filePath: '/Users/gayanka/dev/wso2/test/test_11_25_6/automation.bal',
-                    position: { startLine: 2, startColumn: 0, endLine: 9, endColumn: 1 },
-                    projectPath: projectPath,
-                    label: 'Flow Diagram - automation.bal (Lines 2-9)'
-                },
-                {
-                    type: 'flow' as const,
-                    filePath: '/Users/gayanka/dev/wso2/test/test_11_25_6/functions.bal',
-                    position: { startLine: 2, startColumn: 0, endLine: 5, endColumn: 1 },
-                    projectPath: projectPath,
-                    label: 'Flow Diagram - functions.bal (Lines 2-5)'
-                }
-            ],
-            currentIndex: 0
-        };
-
-        console.log('[Review Mode Test] Opening review mode with data:', sampleReviewData);
-        
-        openView(EVENT_TYPE.OPEN_VIEW, { 
-            view: MACHINE_VIEW.ReviewMode, 
-            reviewData: sampleReviewData,
-            projectPath: projectPath
-        });
+    commands.registerCommand('BI.review.changes.test', async () => {
+        const projectPath = StateMachine.context().projectPath;
+        if (!projectPath) {
+            window.showErrorMessage('No project path found');
+            return;
+        }
+        const rpcClient = new AiPanelRpcManager();
+        const semanticDiff = await rpcClient.getSemanticDiff({ projectPath });
+        console.log(">>> semantic diff", semanticDiff);
     });
 
     commands.registerCommand(BI_COMMANDS.DELETE_COMPONENT, async (item?: TreeItem & { info?: string }) => {
