@@ -17,7 +17,7 @@
  */
 
 import React from "react";
-import { Meta, StoryObj } from "@storybook/react-vite";
+import { Meta, StoryObj } from "@storybook/react";
 import { SplitView } from "./SplitView";
 import styled from "@emotion/styled";
 

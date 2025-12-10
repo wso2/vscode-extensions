@@ -28,7 +28,7 @@ export function escapeXml(text: string) {
     .replace(/"/g, '&quot;');
 };
 
-export const LATEST_CAR_PLUGIN_VERSION = "5.4.11";
+export const LATEST_CAR_PLUGIN_VERSION = "5.4.13";
 
 export const rootPomXmlContent = (projectName: string, groupID: string, artifactID: string, projectUuid: string, version: string, miVersion: string, initialDependencies: string) => {
   const addDeploymentType = compareVersions(miVersion, RUNTIME_VERSION_450) >= 0;
@@ -417,7 +417,7 @@ export const rootPomXmlContent = (projectName: string, groupID: string, artifact
         <plugin>
           <groupId>org.wso2.maven</groupId>
           <artifactId>synapse-unit-test-maven-plugin</artifactId>
-          <version>5.2.109</version>
+          <version>5.4.13</version>
           <executions>
             <execution>
               <id>synapse-unit-test</id>
