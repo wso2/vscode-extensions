@@ -15,7 +15,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { addArtifact, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
@@ -37,34 +37,21 @@ export default function createTests() {
             }
 
             // Create a new listener
-            listenerName = `listenerTcp${testAttempt}`;
+            listenerName = `tcpListener`;
             const listenerPort = `6060`;
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
             console.log('Filling TCP Service form');
             await form.fill({
                 values: {
-                    'Name*The name of the listener': {
-                        type: 'input',
-                        value: listenerName,
-                    },
                     'localPort': {
-                        type: 'textarea',
+                        type: 'cmEditor',
                         value: listenerPort,
                         additionalProps: { clickLabel: true }
                     }
                 }
             });
             console.log('Submitting TCP Service form');
-            await form.submit('Next', true);
-
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
-
-            // Create a new TCP Service
-            const configTitle = artifactWebView.locator('h3', { hasText: 'TCP Service Configuration' });
-            await configTitle.waitFor();
-
             await form.submit('Create', true);
 
             const context = artifactWebView.locator(`text="onConnect"`);
@@ -98,6 +85,17 @@ export default function createTests() {
             await selectedListener.waitFor();
 
             await form.submit('Save', true);
+
+            // Wait for the save changes button inside the container with id "save-changes-btn",
+            // ensuring the disabled attribute is present and the button text is "Save Changes"
+            const saveChangesBtn = artifactWebView.locator('#save-changes-btn vscode-button[appearance="primary"]');
+            await saveChangesBtn.waitFor({ state: 'visible' });
+            await expect(saveChangesBtn).toHaveClass('disabled', { timeout: 5000 });
+            await expect(saveChangesBtn).toHaveText('Save Changes');
+            // Click back button
+            const backBtn = artifactWebView.locator('[data-testid="back-button"]');
+            await backBtn.waitFor();
+            await backBtn.click();
 
             const context = artifactWebView.locator(`text="onConnect"`);
             await context.waitFor();

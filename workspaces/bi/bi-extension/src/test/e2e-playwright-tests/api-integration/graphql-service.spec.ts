@@ -15,24 +15,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { Frame, test } from '@playwright/test';
+import { expect, Frame, test } from '@playwright/test';
 import { addArtifact, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
-import { GraphQLServiceUtils} from './graphqlUtils';
+import { GraphQLServiceUtils } from './graphqlUtils';
 import { TypeEditorUtils } from '../type-editor/TypeEditorUtils';
 
 const TEST_DATA = {
     editedBasePath: (attempt: number) => `/editedSample${attempt}`,
     query: {
-    name: 'query1',
-    fieldType: 'string',
+        name: 'query1',
+        fieldType: 'string',
     },
     mutation: [{
         name: 'mutation1',
         editedName: 'editedMutation1',
         fieldType: 'boolean',
-    },{
+    }, {
         name: 'mutation2',
         fieldType: 'float',
         expression: '"Hello World!"',
@@ -54,7 +54,7 @@ export default function createTests() {
         tag: '@group1',
     }, async () => {
         initTest();
-        
+
         // Global utility instances for all tests
         let graphqlServiceUtils: GraphQLServiceUtils;
         let typeEditorUtils: TypeEditorUtils;
@@ -85,7 +85,7 @@ export default function createTests() {
 
             // Check if the AI Chat Agent is created in the project explorer
             const projectExplorer = new ProjectExplorer(page.page);
-            await projectExplorer.findItem(['sample', `GraphQL Service`], true);
+            await projectExplorer.findItem(['sample', `GraphQL Service - /graphql`], true);
 
             const updateArtifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!updateArtifactWebView) {
@@ -111,6 +111,17 @@ export default function createTests() {
                 }
             });
             await form.submit('Save');
+
+            // Wait for the save changes button inside the container with id "save-changes-btn",
+            // ensuring the disabled attribute is present and the button text is "Save Changes"
+            const saveChangesBtn = artifactWebView.locator('#save-changes-btn vscode-button[appearance="primary"]');
+            await saveChangesBtn.waitFor({ state: 'visible' });
+            await expect(saveChangesBtn).toHaveClass('disabled', { timeout: 5000 });
+            await expect(saveChangesBtn).toHaveText('Save Changes');
+            // Click back button
+            const backBtn = artifactWebView.locator('[data-testid="back-button"]');
+            await backBtn.waitFor();
+            await backBtn.click();
 
             // Check if the type diagram canvas is visible
             const typeDiagram = artifactWebView.getByTestId('type-diagram');
@@ -161,7 +172,7 @@ export default function createTests() {
             await artifactWebView.getByTestId(`type-node-${editedBasePath}`).getByText(`${editedBasePath}`).click({ force: true });
             const editButton = await artifactWebView.getByTestId(`edit-button-${TEST_DATA.mutation[0].name}`);
             await editButton.click();
-            
+
             // Fill mutation name
             const mutationNameInput = artifactWebView.getByRole('textbox', { name: 'Mutation Name*The name of the mutation' });
             await typeEditorUtils.waitForElement(mutationNameInput);

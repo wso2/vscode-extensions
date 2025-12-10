@@ -15,7 +15,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { addArtifact, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
@@ -71,13 +71,24 @@ export default function createTests() {
             const sampleName = `/editedSample${testAttempt}`;
             await form.fill({
                 values: {
-                    'Service Base Path*': {
+                    'Base Path*': {
                         type: 'input',
                         value: sampleName,
                     }
                 }
             });
-            await form.submit('Save');
+            await form.submit('Save Changes');
+            // Wait for the save changes button inside the container with id "save-changes-btn",
+            // ensuring the disabled attribute is present and the button text is "Save Changes"
+            const saveChangesBtn = artifactWebView.locator('#save-changes-btn vscode-button[appearance="primary"]');
+            await saveChangesBtn.waitFor({ state: 'visible' });
+            await expect(saveChangesBtn).toHaveClass('disabled', { timeout: 5000 });
+            await expect(saveChangesBtn).toHaveText('Save Changes');
+            // Click back button
+            const backBtn = artifactWebView.locator('[data-testid="back-button"]');
+            await backBtn.waitFor();
+            await backBtn.click();
+
             const context = artifactWebView.locator(`text=${sampleName}`);
             await context.waitFor();
         });

@@ -23,7 +23,7 @@ export interface FormFillProps {
     values: {
         [key: string]: {
             value: string,
-            type: 'input' | 'dropdown' | 'checkbox' | 'combo' | 'expression' | 'file' | 'inlineExpression' | 'radio' | 'textarea',
+            type: 'input' | 'dropdown' | 'checkbox' | 'combo' | 'expression' | 'file' | 'inlineExpression' | 'radio' | 'textarea' | 'cmEditor',
             additionalProps?: {
                 [key: string]: any
             }
@@ -37,7 +37,7 @@ export interface ParamManagerValues {
 }
 
 export class Form {
-    private container!: Locator|Frame;
+    private container!: Locator | Frame;
     private webview!: Frame;
 
     constructor(private _page?: Page, private _name?: string, container?: Locator | Frame) {
@@ -157,6 +157,35 @@ export class Form {
                         await container.waitFor();
                         const textInput = container.locator('textarea');
                         await textInput.fill(data.value);
+                        break;
+                    }
+                    case 'cmEditor': {
+                        // Handles fields rendered as CodeMirror cm-editor
+                        // Try to directly find the ex-editor-{key} container, then interact with its .cm-editor
+                        const exEditorTestId = `ex-editor-${key}`;
+                        const containerDiv = this.container.locator(`div[data-testid="${exEditorTestId}"]`);
+                        let found = await containerDiv.count();
+                        let cmEditor;
+                        if (found) {
+                            cmEditor = containerDiv.locator('.cm-editor');
+                        } else {
+                            // Fallback: try to find by ancestor (for legacy markup or as last resort)
+                            const labelLocator = this.container.locator(`label:has-text("${key}")`);
+                            await labelLocator.waitFor();
+                            const fallbackDiv = labelLocator.locator('xpath=ancestor::div[contains(@data-testid, "ex-editor-")]');
+                            if (await fallbackDiv.count()) {
+                                cmEditor = fallbackDiv.locator('.cm-editor');
+                            } else {
+                                // fallback: just go up two ancestors from label
+                                const grandParent = labelLocator.locator('..').locator('..');
+                                cmEditor = grandParent.locator('.cm-editor');
+                            }
+                        }
+                        await cmEditor.waitFor();
+                        const editorInput = cmEditor.locator('div[contenteditable="true"]');
+                        await editorInput.waitFor();
+                        await editorInput.click({ clickCount: 3 }); // Focus and select for replacement
+                        await editorInput.fill(data.value);
                         break;
                     }
                     case 'inlineExpression': {
