@@ -17,11 +17,12 @@
  */
 
 import type { DeploymentStatus } from "../enums";
-import type { ContextStoreState, WebviewState } from "./store.types";
+import type { AuthState, ContextItemEnriched, ContextStoreState, WebviewState } from "./store.types";
 
 export type ExtensionName = "WSO2" | "Choreo" | "Devant";
 
 export interface IWso2PlatformExtensionAPI {
+	getAuthState(): AuthState;
 	isLoggedIn(): boolean;
 	getDirectoryComponents(fsPath: string): ComponentKind[];
 	localRepoHasChanges(fsPath: string): Promise<boolean>;
@@ -29,6 +30,16 @@ export interface IWso2PlatformExtensionAPI {
 	getContextStateStore(): ContextStoreState;
 	openClonedDir(params: openClonedDirReq): Promise<void>;
 	getStsToken(): Promise<string>;
+	getSelectedContext(): ContextItemEnriched | null;
+	getDevantConsoleUrl: () => Promise<string>;
+
+	// Auth Subscription
+	subscribeAuthState(callback: (state: AuthState)=>void): () => void;
+	subscribeIsLoggedIn(callback: (isLoggedIn: boolean)=>void): () => void;
+
+	// Context Subscription
+	subscribeDirComponents(fsPath: string, callback: (comps: ComponentKind[])=>void): () => void;
+	subscribeContextState(callback: (state: ContextItemEnriched | undefined)=>void): () => void;
 }
 
 export interface openClonedDirReq {
