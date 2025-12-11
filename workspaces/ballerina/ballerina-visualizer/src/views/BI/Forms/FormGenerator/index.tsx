@@ -42,6 +42,7 @@ import {
     DataMapperDisplayMode
 } from "@wso2/ballerina-core";
 import {
+    FieldDerivation,
     FormField,
     FormValues,
     Form,
@@ -143,6 +144,7 @@ interface FormProps {
     navigateToPanel?: (panel: SidePanelView, connectionKind?: ConnectionKind) => void;
     fieldPriority?: Record<string, number>; // Map of field keys to priority numbers (lower = rendered first)
     fieldOverrides?: Record<string, Partial<FormField>>;
+    derivedFields?: FieldDerivation[]; // Configuration for auto-deriving field values from other fields
 }
 
 // Styled component for the action button description
@@ -1541,6 +1543,7 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                     scopeFieldAddon={scopeFieldAddon}
                     onChange={onChange}
                     injectedComponents={injectedComponents}
+                    derivedFields={props.derivedFields}
                 />
             )}
             {stack.map((item, i) => (
