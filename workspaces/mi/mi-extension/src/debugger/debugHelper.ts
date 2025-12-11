@@ -93,9 +93,11 @@ function checkServerLiveness(): Promise<boolean> {
     });
 }
 
-export function checkServerReadiness(): Promise<void> {
+export function checkServerReadiness(projectUri: string): Promise<void> {
     const startTime = Date.now();
-    const maxTimeout = 120000;
+    const config = workspace.getConfiguration('MI', Uri.file(projectUri));
+    const configuredTimeout = config.get("serverTimeoutInSecs");
+    const maxTimeout = (Number.isFinite(Number(configuredTimeout)) && Number(configuredTimeout) > 0) ? Number(configuredTimeout) * 1000 : 120000;
     const retryInterval = 2000;
 
     return new Promise((resolve, reject) => {
@@ -421,7 +423,9 @@ export async function stopServer(projectUri: string, serverPath: string, isWindo
 }
 
 export async function executeTasks(projectUri: string, serverPath: string, isDebug: boolean): Promise<void> {
-    const maxTimeout = 120000;
+    const config = workspace.getConfiguration('MI', Uri.file(projectUri));
+    const configuredTimeout = config.get("serverTimeoutInSecs");
+    const maxTimeout = (Number.isFinite(Number(configuredTimeout)) && Number(configuredTimeout) > 0) ? Number(configuredTimeout) * 1000 : 120000;
     return new Promise<void>(async (resolve, reject) => {
         const langClient = await MILanguageClient.getInstance(projectUri);
         const isTerminated = await langClient.shutdownTryoutServer();
