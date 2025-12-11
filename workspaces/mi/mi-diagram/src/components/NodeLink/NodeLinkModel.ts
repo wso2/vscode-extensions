@@ -32,6 +32,7 @@ export interface NodeLinkModelOptions {
     showAddButton?: boolean; // default true
     showArrow?: boolean; // default true
     brokenLine?: boolean; // default false
+    addBottomOffset?: boolean;
     stRange?: Range | Position;
     trailingSpace?: string;
     onAddClick?: () => void;
@@ -74,7 +75,7 @@ export class NodeLinkModel extends DefaultLinkModel {
             if (nodeOptions.label) {
                 this.label = nodeOptions.label;
                 this.linkBottomOffset = LINK_BOTTOM_OFFSET + 80;
-            } else if (nodeOptions.label === "") {
+            } else if (nodeOptions.addBottomOffset) {
                 this.linkBottomOffset = LINK_BOTTOM_OFFSET + 32;
             }
             if (nodeOptions.showAddButton === false) {
