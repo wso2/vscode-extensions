@@ -24,7 +24,7 @@ import { View, ViewContent, ViewHeader } from "../../components/View";
 import { EditProxyForm, ProxyProps } from "../Forms/EditForms/EditProxyForm";
 import { generateProxyData, onProxyEdit } from "../../utils/form";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
-import { EVENT_TYPE, MACHINE_VIEW } from "@wso2/mi-core";
+import { EVENT_TYPE, MACHINE_VIEW, Platform } from "@wso2/mi-core";
 import path from "path";
 
 export interface ProxyViewProps {
@@ -47,17 +47,19 @@ export const ProxyView = ({ model: ProxyModel, documentUri, diagnostics }: Proxy
     const handleEditProxy = () => {
         setFormOpen(true);
     }
-    const onSave = (data: EditProxyForm) => {
+    const onSave = async (data: EditProxyForm) => {
         let artifactNameChanged = false;
         let documentPath = documentUri;
-        if (path.basename(documentUri).split('.')[0] !== data.name) {
-            rpcClient.getMiDiagramRpcClient().renameFile({existingPath: documentUri, newPath: path.join(path.dirname(documentUri), `${data.name}.xml`)});
+        const machineView = await rpcClient.getVisualizerState();
+        const proxyName = machineView.platform === Platform.WINDOWS ? path.win32.basename(documentUri).split('.')[0] : path.basename(documentUri).split('.')[0];
+        if (proxyName !== data.name) {
+            await rpcClient.getMiDiagramRpcClient().renameFile({existingPath: documentUri, newPath: path.join(path.dirname(documentUri), `${data.name}.xml`)});
             artifactNameChanged = true;
             documentPath = path.join(path.dirname(documentUri), `${data.name}.xml`);
         }
         onProxyEdit(data, model, documentPath, rpcClient);
         if (artifactNameChanged) {
-            rpcClient.getMiVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: { view: MACHINE_VIEW.Overview } });
+            await rpcClient.getMiVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: { view: MACHINE_VIEW.Overview } });
         } else {
             setFormOpen(false);
         }
