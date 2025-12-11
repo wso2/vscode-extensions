@@ -98,7 +98,7 @@ export default function createTests() {
             await backBtn.click();
 
             const projectExplorer = new ProjectExplorer(page.page);
-            await projectExplorer.findItem(['sample', `RabbitMQ Event Integration - "${updatedQueueName}"`], true);
+            await projectExplorer.findItem(['sample', `RabbitMQ Event Integration - ${updatedQueueName}`], true);
 
             const updatedQueueNameElement = artifactWebView.locator(`text=${updatedQueueName}`);
             await updatedQueueNameElement.waitFor({ state: 'visible' });

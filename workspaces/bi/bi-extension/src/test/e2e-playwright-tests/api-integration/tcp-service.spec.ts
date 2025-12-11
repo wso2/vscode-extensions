@@ -47,7 +47,7 @@ export default function createTests() {
                     'localPort': {
                         type: 'cmEditor',
                         value: listenerPort,
-                        additionalProps: { clickLabel: true }
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
                     }
                 }
             });

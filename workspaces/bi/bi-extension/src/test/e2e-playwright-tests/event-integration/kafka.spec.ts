@@ -52,30 +52,18 @@ export default function createTests() {
                     'bootstrapServers': {
                         type: 'cmEditor',
                         value: bootstrapServers,
-                        additionalProps: { clickLabel: true }
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
                     },
                     'topics': {
                         type: 'cmEditor',
                         value: topic,
-                        additionalProps: { clickLabel: true }
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
                     }
                 }
             });
 
-            // Step 12-15: Expand Advanced Configurations if needed
-            const advancedConfig = artifactWebView.locator('text=Advanced Configurations').or(
-                artifactWebView.locator('*').filter({ hasText: /Advanced Configurations/i })
-            );
-            if (await advancedConfig.count() > 0) {
-                const expandBtn = advancedConfig.locator('..').locator('button, [role="button"]').first();
-                if (await expandBtn.count() > 0) {
-                    await expandBtn.click();
-                    await page.page.waitForTimeout(500);
-                }
-            }
-
             // Step 15: Create the integration
-            await form.submit('Create', true);
+            await form.submit('Create');
 
             const kafkaListener = `kafkaListener`;
             // Step 13: Verify integration is updated
@@ -121,12 +109,12 @@ export default function createTests() {
                     'bootstrapServers': {
                         type: 'cmEditor',
                         value: updatedBootstrapServers,
-                        additionalProps: { clickLabel: true }
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
                     },
                     'topics': {
                         type: 'cmEditor',
                         value: updatedTopic,
-                        additionalProps: { clickLabel: true }
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
                     }
                 }
             });
@@ -178,7 +166,7 @@ export default function createTests() {
                     'topics': {
                         type: 'cmEditor',
                         value: multipleTopics,
-                        additionalProps: { clickLabel: true }
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
                     }
                 }
             });
