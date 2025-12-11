@@ -42,8 +42,11 @@ export async function sendTelemetryEvent(extension: BallerinaExtension, eventNam
     customDimensions: { [key: string]: string; } = {}, measurements: { [key: string]: number; } = {}) {
     // temporarily disabled in codeserver due to GDPR issue
     if (extension.isTelemetryEnabled() && !extension.getCodeServerContext().codeServerEnv) {
-        extension.telemetryReporter.sendTelemetryEvent(eventName, await getTelemetryProperties(extension, componentName,
-            customDimensions), measurements);
+        // Only send whitelisted events to App Insights
+        if (shouldSendToAppInsights(eventName, componentName)) {
+            extension.telemetryReporter.sendTelemetryEvent(eventName, await getTelemetryProperties(extension, componentName,
+                customDimensions), measurements);
+        }
     }
 }
 
@@ -85,7 +88,22 @@ export function getMessageObject(message?: string): { [key: string]: string; } {
     return {};
 }
 
+// Whitelist of component names
+const WHITELISTED_COMPONENTS = new Set([
+    'ballerina.ai.generation',
+]);
+
+// Whitelist of specific event names
+const WHITELISTED_EVENTS = new Set([
+    'editor-workspace-ballerina-extension-activate',
+]);
+
+export function shouldSendToAppInsights(eventName: string, componentName: string): boolean {
+    return WHITELISTED_EVENTS.has(eventName) || WHITELISTED_COMPONENTS.has(componentName);
+}
+
 export * from "./events";
 export * from "./exceptions";
 export * from "./components";
 export * from "./activator";
+

@@ -39,7 +39,7 @@ import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { getProjectSource } from "../../utils/project-utils";
 import { sendTelemetryEvent, sendTelemetryException } from "../../../telemetry";
-import { TM_EVENT_BALLERINA_AI_GENERATION_SUBMITTED, TM_EVENT_BALLERINA_AI_GENERATION_COMPLETED, TM_EVENT_BALLERINA_AI_GENERATION_FAILED, TM_EVENT_BALLERINA_AI_GENERATION_ABORTED, TM_EVENT_BALLERINA_AI_GENERATION_DIAGNOSTICS, CMP_BALLERINA_AI_GENERATION } from "../../../telemetry";
+import { TM_EVENT_BALLERINA_AI_GENERATION_SUBMITTED, TM_EVENT_BALLERINA_AI_GENERATION_COMPLETED, TM_EVENT_BALLERINA_AI_GENERATION_FAILED, TM_EVENT_BALLERINA_AI_GENERATION_ABORTED, CMP_BALLERINA_AI_GENERATION } from "../../../telemetry";
 import { extension } from "../../../../BalExtensionContext";
 
 
@@ -127,6 +127,10 @@ export async function generateDesignCore(
 
     // Timing metrics for telemetry - capture at generation start
     const generationStartTime = Date.now();
+
+    // Diagnostic tracking during generation - tracks all compilation errors that occur
+    let diagnosticCheckCount = 0;
+    let totalCompilationErrorsDuringGeneration = 0;
 
     const { fullStream, response } = streamText({
         model: await getAnthropicClient(ANTHROPIC_SONNET_4),
@@ -232,6 +236,14 @@ export async function generateDesignCore(
                         toolOutput: { success: true, action }
                     });
                 } else if (toolName === DIAGNOSTICS_TOOL_NAME) {
+                    // Track diagnostic errors during generation
+                    const diagnosticsResult = result as any;
+                    if (diagnosticsResult && diagnosticsResult.diagnostics) {
+                        const errorCount = diagnosticsResult.diagnostics.length;
+                        diagnosticCheckCount++;
+                        totalCompilationErrorsDuringGeneration += errorCount;
+                    }
+
                     eventHandler({
                         type: "tool_result",
                         toolName,
@@ -330,15 +342,6 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
 
                 const finalDiagnostics = await checkCompilationErrors(tempProjectPath);
                 if (finalDiagnostics.diagnostics && finalDiagnostics.diagnostics.length > 0) {
-                    // Send telemetry for final diagnostics check
-                    sendTelemetryEvent(extension.ballerinaExtInstance, TM_EVENT_BALLERINA_AI_GENERATION_DIAGNOSTICS, CMP_BALLERINA_AI_GENERATION, {
-                        projectId: stateContext.projectId || 'unknown',
-                        messageId: messageId,
-                        hasErrors: 'true',
-                        errorCount: finalDiagnostics.diagnostics.length.toString(),
-                        stage: 'completion',
-                    });
-
                     eventHandler({
                         type: "diagnostics",
                         diagnostics: finalDiagnostics.diagnostics
@@ -367,6 +370,9 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
                     durationMs: (generationEndTime - generationStartTime).toString(),
                     isPlanMode: isPlanModeEnabled.toString(),
                     approvalMode: stateContext.autoApproveEnabled ? 'auto' : 'manual',
+                    diagnosticChecksCount: diagnosticCheckCount.toString(),
+                    totalCompilationErrorsDuringGeneration: totalCompilationErrorsDuringGeneration.toString(),
+                    finalCompilationErrorsAfterGeneration: (finalDiagnostics.diagnostics?.length || 0).toString(),
                 });
 
                 AIChatStateMachine.sendEvent({

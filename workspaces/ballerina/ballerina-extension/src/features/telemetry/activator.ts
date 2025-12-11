@@ -44,7 +44,9 @@ export function activate(ballerinaExtInstance: BallerinaExtension) {
                 props["ballerina.langserver.error.description"] = errorEvent.message;
                 props["ballerina.langserver.error.stacktrace"] = errorEvent.errorStackTrace;
                 props["ballerina.langserver.error.message"] = errorEvent.errorMessage;
-                reporter.sendTelemetryEvent(TM_ERROR_LANG_SERVER, props);
+
+                // TODO: Enable once when the language server telemerty complete
+                // reporter.sendTelemetryEvent(TM_ERROR_LANG_SERVER, props);
                 break;
             case TM_EVENT_TYPE_FEATURE_USAGE:
                 const usageEvent: LSFeatureUsageTelemetryEvent = <LSFeatureUsageTelemetryEvent>event;
@@ -53,7 +55,9 @@ export function activate(ballerinaExtInstance: BallerinaExtension) {
                 props["ballerina.langserver.feature.name"] = usageEvent.featureName;
                 props["ballerina.langserver.feature.class"] = usageEvent.featureClass;
                 props["ballerina.langserver.feature.message"] = usageEvent.featureMessage;
-                reporter.sendTelemetryEvent(TM_FEATURE_USAGE_LANG_SERVER, props);
+
+                // TODO: Enable once when the language server telemerty complete
+                // reporter.sendTelemetryEvent(TM_FEATURE_USAGE_LANG_SERVER, props);
                 break;
             default:
                 // Do nothing
