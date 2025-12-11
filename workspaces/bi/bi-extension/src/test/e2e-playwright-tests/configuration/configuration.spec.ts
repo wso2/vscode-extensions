@@ -16,9 +16,9 @@
  * under the License.
  */
 import { expect, test } from '@playwright/test';
-import { addArtifact, enableICP, initTest, page } from '../utils';
+import { addArtifact, enableICP, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
-import { ConfigEditor } from '../ConfigEditor';
+import { ConfigEditor } from '../utils/pages';
 import { config } from 'process';
 
 export default function createTests() {

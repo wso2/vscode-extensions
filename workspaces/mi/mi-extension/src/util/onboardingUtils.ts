@@ -35,6 +35,7 @@ import { XMLParser, XMLBuilder } from "fast-xml-parser";
 const AdmZip = require('adm-zip');
 // Add Latest MI version as the first element in the array
 export const supportedJavaVersionsForMI: { [key: string]: string } = {
+    '4.5.0': '21',
     '4.4.0': '21',
     '4.3.0': '17',
     '4.2.0': '17',
@@ -43,6 +44,7 @@ export const supportedJavaVersionsForMI: { [key: string]: string } = {
 export const LATEST_MI_VERSION = "4.4.0";
 const COMPATIBLE_JDK_VERSION = "11";
 const miDownloadUrls: { [key: string]: string } = {
+    '4.5.0': 'https://mi-distribution.wso2.com/4.5.0/wso2mi-4.5.0.zip',
     '4.4.0-UPDATED': 'https://mi-distribution.wso2.com/4.4.0/wso2mi-4.4.0-UPDATED.zip',
     '4.4.0': 'https://mi-distribution.wso2.com/4.4.0/wso2mi-4.4.0.zip',
     '4.3.0': 'https://mi-distribution.wso2.com/4.3.0/wso2mi-4.3.0.zip'
@@ -181,7 +183,7 @@ export function generateInitialDependencies(): string {
         <dependency>
             <groupId>org.wso2.integration.connector</groupId>
             <artifactId>mi-connector-http</artifactId>
-            <version>0.1.13</version>
+            <version>0.1.14</version>
             <type>zip</type>
             <exclusions>
                 <exclusion>
@@ -1486,7 +1488,7 @@ export async function updateCarPluginVersion(projectUri: string): Promise<void> 
     if (!carPluginVersion || carPluginVersion === LATEST_CAR_PLUGIN_VERSION) {
         return;
     }
-    if(carPluginVersion < LATEST_CAR_PLUGIN_VERSION) {
+    if(compareVersions(carPluginVersion, LATEST_CAR_PLUGIN_VERSION) < 0) {
         await updateRuntimeVersionsInPom(result.project.properties['project.runtime.version']);
     }
 }

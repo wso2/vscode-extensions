@@ -53,6 +53,7 @@ export const COMMANDS = {
     OPEN_DSS_SERVICE_DESIGNER: "MI.project-explorer.open-dss-service-designer",
     ADD_MEDIATOR: "MI.addMediator",
     REFRESH_COMMAND: 'MI.project-explorer.refresh',
+    WI_PROJECT_EXPLORER_VIEW_REFRESH: 'wso2-integrator.explorer.refresh',
     ADD_COMMAND: 'MI.project-explorer.add',
     ADD_ARTIFACT_COMMAND: 'MI.project-explorer.add.artifact',
     ADD_API_COMMAND: 'MI.project-explorer.add-api',
@@ -74,7 +75,6 @@ export const COMMANDS = {
     CREATE_PROJECT_COMMAND: 'MI.project-explorer.create-project',
     IMPORT_PROJECT_COMMAND: 'MI.project-explorer.import-project',
     REVEAL_ITEM_COMMAND: 'MI.project-explorer.revealItem',
-    FOCUS_PROJECT_EXPLORER: 'MI.project-explorer.focus',
     OPEN_SERVICE_DESIGNER: 'MI.project-explorer.open-service-designer',
     OPEN_PROJECT_OVERVIEW: 'MI.project-explorer.open-project-overview',
     ADD_REGISTERY_RESOURCE_COMMAND: 'MI.project-explorer.add-registry-resource',
@@ -132,7 +132,7 @@ export const DEFAULT_PROJECT_VERSION = "1.0.0";
 
 export const READONLY_MAPPING_FUNCTION_NAME = "mapFunction";
 
-export const REFRESH_ENABLED_DOCUMENTS = ["SynapseXml", "typescript", "markdown", "json"];
+export const REFRESH_ENABLED_DOCUMENTS = ["xml", "SynapseXml", "typescript", "markdown", "json"];
 
 export enum EndpointTypes {
     DEFAULT_ENDPOINT = "DEFAULT_ENDPOINT",
@@ -189,7 +189,6 @@ export enum MessageStoreTypes {
 export * from "./swagger";
 
 export const APIS = {
-    MI_COPILOT_BACKEND: process.env.MI_COPILOT_BACKEND as string,
     MI_CONNECTOR_STORE: process.env.MI_CONNECTOR_STORE as string,
     MI_CONNECTOR_STORE_BACKEND: process.env.MI_CONNECTOR_STORE_BACKEND as string,
     MI_CONNECTOR_STORE_BACKEND_SEARCH: process.env.MI_CONNECTOR_STORE_BACKEND_SEARCH as string,
@@ -199,8 +198,13 @@ export const DM_OPERATORS_FILE_NAME = "dm-utils";
 export const DM_OPERATORS_IMPORT_NAME = "dmUtils";
 export const LAST_EXPORTED_CAR_PATH = "last-exported-car-path";
 export const RUNTIME_VERSION_440 = "4.4.0";
+export const RUNTIME_VERSION_450 = "4.5.0";
 export const DEFAULT_ICON = "https://mi-connectors.wso2.com/icons/wordpress.gif";
 
 export const ERROR_MESSAGES = {
     ERROR_DOWNLOADING_MODULES: "Unable to download the default modules. These modules can be added after project creation. Do you wish to skip them now and proceed with the project creation?",
 };
+
+export const WI_EXTENSION_ID = 'wso2.wso2-integrator';
+export const WI_PROJECT_EXPLORER_VIEW_ID = 'wso2-integrator.explorer';
+export const MI_PROJECT_EXPLORER_VIEW_ID = 'MI.project-explorer';

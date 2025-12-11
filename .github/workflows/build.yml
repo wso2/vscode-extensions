@@ -352,7 +352,7 @@ jobs:
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: ${{ matrix.name }}-e2e-test-results-${{ matrix.group }}-${{ env.PREVIOUS_ATTEMPT }}
+          name: ${{ matrix.name }}-e2e-test-results-${{ matrix.os }}-${{ matrix.group }}-${{ env.PREVIOUS_ATTEMPT }}
           path: workspaces/${{ matrix.path }}/test-results
 
       - name: install packages
@@ -413,7 +413,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ${{ matrix.name }}I-e2e-test-results-${{ matrix.os }}-${{ matrix.group }}-${{ github.run_attempt }}
+          name: ${{ matrix.name }}-e2e-test-results-${{ matrix.os }}-${{ matrix.group }}-${{ github.run_attempt }}
           path: workspaces/${{ matrix.path }}/test-results/**
           retention-days: 5
           include-hidden-files: true

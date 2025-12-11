@@ -158,7 +158,8 @@ export const paramTemplateConfigs: ParamConfig = {
             id: 0,
             type: "TextField",
             label: "Parameter",
-            defaultValue: "parameter_value",
+            placeholder: "parameter_value",
+            defaultValue: "",
             isRequired: true
         }
     ]

@@ -16,7 +16,7 @@
  * under the License.
  */
 import React, { useState } from "react";
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { Dialog } from "./Dialog";
 import { Button } from "../Button/Button";
 

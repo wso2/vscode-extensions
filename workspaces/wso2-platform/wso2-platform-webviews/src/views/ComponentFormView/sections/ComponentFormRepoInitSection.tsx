@@ -20,6 +20,7 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { RequiredFormInput } from "@wso2/ui-toolkit";
 import { GitProvider, type NewComponentWebviewProps, buildGitURL } from "@wso2/wso2-platform-core";
+import classNames from "classnames";
 import debounce from "lodash.debounce";
 import React, { type FC, useCallback, useEffect, useState } from "react";
 import type { SubmitHandler, UseFormReturn } from "react-hook-form";
@@ -46,19 +47,20 @@ interface Props extends NewComponentWebviewProps {
 const connectMoreRepoText = "Connect More Repositories";
 const createNewRpoText = "Create New Repository";
 const createNewCredText = "Create New Credential";
+const addOrganization = "Add";
 
 export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organization, form, initializingRepo }) => {
 	const [compDetailsSections] = useAutoAnimate();
 	const { extensionName } = useExtWebviewContext();
 	const [creatingRepo, setCreatingRepo] = useState(false);
 
-	const orgName = form.watch("org");
+	const org = form.watch("org");
 	const repo = form.watch("repo");
 	const subPath = form.watch("subPath");
 	const serverUrl = form.watch("serverUrl");
 	const provider = form.watch("gitProvider");
 	const credential = form.watch("credential");
-	const repoError = form.formState?.errors?.repo;
+	const orgName = [addOrganization].includes(org) ? "" : org;
 	const repoName = [connectMoreRepoText, createNewRpoText].includes(repo) ? "" : repo;
 
 	const {
@@ -83,9 +85,11 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 	const { isLoading: isLoadingGitlabCreds } = useQuery({
 		queryKey: ["gitlab-creds", { provider, credential }],
 		queryFn: () =>
-			ChoreoWebViewAPI.getInstance()
-				.getChoreoRpcClient()
-				.getCredentialDetails({ orgId: organization?.id?.toString(), orgUuid: organization.uuid, credentialId: credential }),
+			ChoreoWebViewAPI.getInstance().getChoreoRpcClient().getCredentialDetails({
+				orgId: organization?.id?.toString(),
+				orgUuid: organization.uuid,
+				credentialId: credential,
+			}),
 		enabled: provider === GitProvider.GITLAB_SERVER && !!credential,
 		onSuccess: (data) => form.setValue("serverUrl", data?.serverUrl),
 	});
@@ -140,31 +144,16 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 		}
 	}, [branches]);
 
-	useEffect(() => {
-		// TODO: avoid using useEffect and try to override the onChange handler
-		if (repo === createNewRpoText) {
-			setTimeout(() => form.setValue("repo", ""), 1000);
-			let newRepoLink = "https://github.com/new";
-			if (provider === GitProvider.BITBUCKET) {
-				newRepoLink = `https://bitbucket.org/${orgName}/workspace/create/repository`;
-			} else if (provider === GitProvider.GITLAB_SERVER) {
-				newRepoLink = `${serverUrl}/projects/new`;
-			}
-			ChoreoWebViewAPI.getInstance().openExternal(newRepoLink);
-			setCreatingRepo(true);
-		} else if (repo === connectMoreRepoText) {
-			setTimeout(() => form.setValue("repo", ""), 1000);
-			ChoreoWebViewAPI.getInstance().triggerGithubInstallFlow(organization.id?.toString());
+	const handleCreateNewRepo = () => {
+		let newRepoLink = "https://github.com/new";
+		if (provider === GitProvider.BITBUCKET) {
+			newRepoLink = `https://bitbucket.org/${orgName}/workspace/create/repository`;
+		} else if (provider === GitProvider.GITLAB_SERVER) {
+			newRepoLink = `${serverUrl}/projects/new`;
 		}
-	}, [repo]);
-
-	useEffect(() => {
-		// TODO: avoid using useEffect and try to override the onChange handler
-		if (credential === createNewCredText) {
-			setTimeout(() => form.setValue("credential", ""), 1000);
-			ChoreoWebViewAPI.getInstance().openExternalChoreo(`organizations/${organization.handle}/settings/credentials`);
-		}
-	}, [credential]);
+		ChoreoWebViewAPI.getInstance().openExternal(newRepoLink);
+		setCreatingRepo(true);
+	};
 
 	useEffect(() => {
 		setCreatingRepo(false);
@@ -241,10 +230,17 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 		);
 	}
 
+	const orgDropdownItems = [];
+	if (provider === GitProvider.GITHUB) {
+		orgDropdownItems.push({ value: addOrganization }, { type: "separator", value: "" } as { value: string });
+	}
+
+	orgDropdownItems.push(...(gitOrgs?.gitOrgs ?? [])?.map((item) => ({ value: item.orgName })));
+
 	return (
 		<>
 			<div className="grid gap-4 md:grid-cols-2" ref={compDetailsSections}>
-				<label className="col-span-full mb-2 opacity-80">You integration must exist in a remote Git repository in order to continue</label>
+				<label className="col-span-full mb-2 opacity-80">Your integration must exist in a remote Git repository in order to continue</label>
 				<Dropdown
 					label="Git Provider"
 					key="gen-details-provider"
@@ -264,7 +260,10 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 						className="col-span-full"
 						key="invalid-repo-banner"
 						title={`Please authorize ${extensionName} to access your GitHub repositories.`}
-						actionLink={{ title: "Authorize", onClick: () => ChoreoWebViewAPI.getInstance().triggerGithubAuthFlow(organization.id?.toString()) }}
+						actionLink={{
+							title: "Authorize",
+							onClick: () => ChoreoWebViewAPI.getInstance().triggerGithubAuthFlow(organization.id?.toString()),
+						}}
 					/>
 				)}
 				{provider !== GitProvider.GITHUB && (
@@ -276,6 +275,15 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 						control={form.control}
 						items={credentialDropdownItems}
 						loading={isLoadingGitCred}
+						onChange={(e) => {
+							const value = (e.target as HTMLSelectElement).value;
+							if (credential === createNewCredText) {
+								form.setValue("credential", "");
+								ChoreoWebViewAPI.getInstance().openExternalChoreo(`organizations/${organization.handle}/settings/credentials`);
+							} else {
+								form.setValue("credential", value);
+							}
+						}}
 					/>
 				)}
 				{(provider === GitProvider.GITHUB || credential) && (
@@ -286,22 +294,44 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 							required
 							name="org"
 							control={form.control}
-							items={gitOrgs?.gitOrgs?.map((item) => ({ value: item.orgName }))}
+							items={orgDropdownItems}
 							loading={loadingGitOrgs || (provider === GitProvider.GITLAB_SERVER ? isLoadingGitlabCreds : false)}
+							onChange={(e) => {
+								const value = (e.target as HTMLSelectElement).value;
+								if (value === addOrganization) {
+									ChoreoWebViewAPI.getInstance().triggerGithubInstallFlow(organization.id?.toString());
+									form.setValue("org", "");
+								} else {
+									form.setValue("org", value);
+								}
+							}}
 						/>
-						{creatingRepo ? (
-							<div className="flex w-full flex-col" key="connect-repo-btn">
-								<div className="flex justify-between gap-1">
-									<span className="flex gap-1">
-										<label className="font-light">Repository</label>
-										<RequiredFormInput />
-									</span>
-									{repoError?.message && (
-										<label className="line-clamp-1 flex-1 text-right text-vsc-errorForeground" title={repoError?.message}>
-											{repoError?.message}
-										</label>
-									)}
-								</div>
+						<div className="relative">
+							<Dropdown
+								label="Repository"
+								key={"gen-details-repo"}
+								required
+								name="repo"
+								control={form.control}
+								items={repoDropdownItems}
+								disabled={!matchingOrgItem}
+								onChange={(e) => {
+									const value = (e.target as HTMLSelectElement).value;
+									if (value === createNewRpoText) {
+										handleCreateNewRepo();
+										form.setValue("repo", "");
+									} else if (value === connectMoreRepoText) {
+										ChoreoWebViewAPI.getInstance().triggerGithubInstallFlow(organization.id?.toString());
+										form.setValue("repo", "");
+									} else {
+										form.setValue("repo", value);
+									}
+								}}
+							/>
+							<div
+								className={classNames("w-full flex-col bg-vsc-panel-background", creatingRepo ? "absolute bottom-0 left-0 z-50 flex" : "hidden")}
+								key="connect-repo-btn"
+							>
 								<div className="flex items-center gap-1">
 									<Button
 										onClick={() => {
@@ -318,17 +348,8 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 									</Button>
 								</div>
 							</div>
-						) : (
-							<Dropdown
-								label="Repository"
-								key="gen-details-repo"
-								required
-								name="repo"
-								control={form.control}
-								items={repoDropdownItems}
-								disabled={!matchingOrgItem}
-							/>
-						)}
+						</div>
+
 						{repoName && branches?.length > 0 && (
 							<Dropdown
 								label="Branch"
