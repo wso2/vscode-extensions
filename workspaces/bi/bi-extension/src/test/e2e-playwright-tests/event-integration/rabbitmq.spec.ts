@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { addArtifact, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
@@ -37,60 +37,27 @@ export default function createTests() {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
             // Create a new listener
-            listenerName = `listenerRabbitmq${testAttempt}`;
+            listenerName = `rabbitmqListener`;
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
+
             await form.fill({
                 values: {
-                    'Name*The name of the listener': {
-                        type: 'input',
-                        value: listenerName,
-                    },
-                    'host': {
-                        type: 'textarea',
-                        value: `"localhost"`,
-                        additionalProps: { clickLabel: true }
-                    },
-                    'port': {
-                        type: 'textarea',
-                        value: '5676',
-                        additionalProps: { clickLabel: true }
+                    'basePath': {
+                        type: 'cmEditor',
+                        value: '"myQueueName"',
+                        additionalProps: { clickLabel: true, switchMode: 'expression-mode', window: global.window }
                     }
                 }
             });
-            await form.submit('Next', true);
+            await form.submit('Create');
 
-            // Check for title
-            const configTitle = artifactWebView.locator('h3', { hasText: 'RabbitMQ Event Handler Configuration' });
-            await configTitle.waitFor();
-
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
+            const selectedListener = artifactWebView.locator(`text=${listenerName}`);
             await selectedListener.waitFor();
 
-            await form.fill({
-                values: {
-                    'Queue Name*The name of the queue': {
-                        type: 'input',
-                        value: '"testQueue"',
-                    }
-                }
-            });
-
-            await form.submit('Create', true);
-
-            const onMessage = artifactWebView.locator(`text="onMessage"`);
-            await onMessage.waitFor();
-
-            const onError = artifactWebView.locator(`text="onError"`);
-            await onError.waitFor();
-
+            // Verify integration appears in project tree
             const projectExplorer = new ProjectExplorer(page.page);
-            await projectExplorer.findItem(['sample', `RabbitMQ Event Handler`], true);
-
-            const updateArtifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
-            if (!updateArtifactWebView) {
-                throw new Error('WSO2 Integrator: BI webview not found');
-            }
+            await projectExplorer.findItem(['sample', `RabbitMQ Event Integration - "myQueueName"`], true);
         });
 
         test('Editing RabbitMQ Integration', async ({ }, testInfo) => {
@@ -105,31 +72,36 @@ export default function createTests() {
             await editBtn.waitFor();
             await editBtn.click({ force: true });
 
+            const updatedQueueName = `"updated-queue-name"`;
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
-
-            const configTitle = artifactWebView.locator('h3', { hasText: 'RabbitMQ Event Handler Configuration' });
-            await configTitle.waitFor();
-
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
-
             await form.fill({
                 values: {
                     'Queue Name*The name of the queue': {
                         type: 'input',
-                        value: '"editedTestQueue"',
+                        value: updatedQueueName
                     }
                 }
             });
+            await form.submit('Save Changes');
 
-            await form.submit('Save');
+            // Wait for the save changes button inside the container with id "save-changes-btn",
+            // ensuring the disabled attribute is present and the button text is "Save Changes"
+            const saveChangesBtn = artifactWebView.locator('#save-changes-btn vscode-button[appearance="primary"]');
+            await saveChangesBtn.waitFor({ state: 'visible' });
+            await expect(saveChangesBtn).toHaveClass('disabled', { timeout: 5000 });
+            await expect(saveChangesBtn).toHaveText('Save Changes');
 
-            const onMessage = artifactWebView.locator(`text="onMessage"`);
-            await onMessage.waitFor();
+            // Click back button
+            const backBtn = artifactWebView.locator('[data-testid="back-button"]');
+            await backBtn.waitFor();
+            await backBtn.click();
 
-            const onError = artifactWebView.locator(`text="onError"`);
-            await onError.waitFor();
+            const projectExplorer = new ProjectExplorer(page.page);
+            await projectExplorer.findItem(['sample', `RabbitMQ Event Integration - "${updatedQueueName}"`], true);
+
+            const updatedQueueNameElement = artifactWebView.locator(`text=${updatedQueueName}`);
+            await updatedQueueNameElement.waitFor({ state: 'visible' });
         });
     });
 }
