@@ -74,31 +74,26 @@ export async function activate(context: vscode.ExtensionContext) {
 	const rpcClient = new ChoreoRPCClient();
 	ext.clients = { rpcClient: rpcClient };
 
-	initRPCServer()
-		.then(async () => {
-			await ext.clients.rpcClient.init();
-			authStore.getState().initAuth();
-			continueCreateComponent();
-			if (ext.isChoreoExtInstalled) {
-				addTerminalHandlers();
-				context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("*", new ChoreoConfigurationProvider()));
-				activateChoreoMcp(context);
-			}
-			if (ext.isDevantCloudEditor) {
-				activateDevantFeatures();
-			}
-			getLogger().debug("WSO2 Platform Extension activated");
-			ext.config = await ext.clients.rpcClient.getConfigFromCli();
-		})
-		.catch((e) => {
-			getLogger().error("Failed to initialize rpc client", e);
-		});
+	await initRPCServer()
+	await ext.clients.rpcClient.init();
+	authStore.getState().initAuth();
+	continueCreateComponent();
+	if (ext.isChoreoExtInstalled) {
+		addTerminalHandlers();
+		context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("*", new ChoreoConfigurationProvider()));
+		activateChoreoMcp(context);
+	}
+	if (ext.isDevantCloudEditor) {
+		activateDevantFeatures();
+	}
+	ext.config = await ext.clients.rpcClient.getConfigFromCli();
 	activateCmds(context);
 	activateURIHandlers();
 	activateCodeLenses(context);
 	registerPreInitHandlers();
 	registerYamlLanguageServer();
 	activateStatusbar(context);
+	getLogger().debug("WSO2 Platform Extension activated");
 	return ext.api;
 }
 
