@@ -65,7 +65,8 @@ export enum MACHINE_VIEW {
     DefaultEndpointForm = "Default Endpoint Form",
     DataServiceForm = "Data Service Form",
     DssDataSourceForm = "DSS Data Source Form",
-    DSSServiceDesigner = "Data Service Designer",
+    DSSResourceServiceDesigner = "DSS Resource Designer",
+    DSSQueryServiceDesigner = "DSS Query Designer",
     ProjectCreationForm = "Project Creation Form",
     ImportProjectForm = "Import Project Form",
     LocalEntryForm = "Local Entry Form",
@@ -270,6 +271,7 @@ export interface VisualizerLocation {
     previousContext?: any;
     env?: { [key: string]: string | undefined };
     isLoading?: boolean;
+    isLegacyRuntime?: boolean;
 }
 
 export interface PopupVisualizerLocation extends VisualizerLocation {

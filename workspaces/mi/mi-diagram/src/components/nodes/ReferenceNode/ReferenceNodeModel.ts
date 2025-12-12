@@ -56,7 +56,7 @@ export class ReferenceNodeModel extends BaseNodeModel {
             rpcClient.getMiVisualizerRpcClient().openView({
                 type: EVENT_TYPE.OPEN_VIEW,
                 location: {
-                    view: MACHINE_VIEW.DSSServiceDesigner,
+                    view: MACHINE_VIEW.DSSResourceServiceDesigner,
                     documentUri: uri
                 }
             });

@@ -273,7 +273,7 @@ export function DataServiceWizard(props: DataServiceWizardProps) {
         } else if (isNewDataService) {
             rpcClient.getMiVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: { view: MACHINE_VIEW.Overview } });
         } else {
-            rpcClient.getMiVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: { view: MACHINE_VIEW.DSSServiceDesigner, documentUri: props.path } });
+            rpcClient.getMiVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: { view: MACHINE_VIEW.DSSResourceServiceDesigner, documentUri: props.path } });
         }
     };
 
