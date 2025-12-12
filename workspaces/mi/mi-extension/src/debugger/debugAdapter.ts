@@ -202,7 +202,7 @@ export class MiDebugAdapter extends LoggingDebugSession {
         response.body.supportsReadMemoryRequest = true;
         response.body.supportsWriteMemoryRequest = true;
 
-        response.body.supportSuspendDebuggee = true;
+        response.body.supportSuspendDebuggee = false;
         response.body.supportTerminateDebuggee = true;
         // response.body.supportsFunctionBreakpoints = true;
         response.body.supportsDelayedStackTraceLoading = false;
@@ -290,7 +290,7 @@ export class MiDebugAdapter extends LoggingDebugSession {
                         executeTasks(this.projectUri, serverPath, isDebugAllowed)
                             .then(async () => {
                                 if (args?.noDebug) {
-                                    checkServerReadiness().then(() => {
+                                    checkServerReadiness(this.projectUri).then(() => {
                                         openRuntimeServicesWebview(this.projectUri);
                                         extension.isServerStarted = true;
                                         RPCLayer._messengers.get(this.projectUri)?.sendNotification(miServerRunStateChanged, { type: 'webview', webviewType: 'micro-integrator.runtime-services-panel' }, 'Running');

@@ -376,7 +376,7 @@ export class Debugger extends EventEmitter {
         return new Promise(async (resolve, reject) => {
             this.startDebugger().then(() => {
                 extension.preserveActivity = true;
-                checkServerReadiness().then(() => {
+                checkServerReadiness(this.projectUri).then(() => {
                     this.sendResumeCommand().then(async () => {
                         const allRuntimeBreakpoints = this.getAllRuntimeBreakpoints();
                         if (allRuntimeBreakpoints.size > 0) {
