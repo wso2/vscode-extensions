@@ -53,9 +53,10 @@ export const ProxyView = ({ model: ProxyModel, documentUri, diagnostics }: Proxy
         const machineView = await rpcClient.getVisualizerState();
         const proxyName = machineView.platform === Platform.WINDOWS ? path.win32.basename(documentUri).split('.')[0] : path.basename(documentUri).split('.')[0];
         if (proxyName !== data.name) {
-            await rpcClient.getMiDiagramRpcClient().renameFile({existingPath: documentUri, newPath: path.join(path.dirname(documentUri), `${data.name}.xml`)});
+            const updatedPath = machineView.platform === Platform.WINDOWS ? path.join(path.win32.dirname(documentUri), `${data.name}.xml`) : path.join(path.dirname(documentUri), `${data.name}.xml`);
+            await rpcClient.getMiDiagramRpcClient().renameFile({existingPath: documentUri, newPath: updatedPath});
             artifactNameChanged = true;
-            documentPath = path.join(path.dirname(documentUri), `${data.name}.xml`);
+            documentPath = updatedPath;
         }
         onProxyEdit(data, model, documentPath, rpcClient);
         if (artifactNameChanged) {
