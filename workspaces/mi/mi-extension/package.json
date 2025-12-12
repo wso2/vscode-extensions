@@ -163,6 +163,12 @@
           "default": true,
           "description": "Update car plugin version automatically"
         },
+        "MI.serverTimeoutInSecs": {
+          "type": "number",
+          "default": 120,
+          "minimum": 30,
+          "description": "Maximum wait time for server startup in seconds"
+        },
         "MI.logging.loggingLevel": {
           "type": "string",
           "enum": [
@@ -501,6 +507,11 @@
         "command": "MI.build-and-run",
         "title": "Build and Run",
         "icon": "$(play)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.terminate-server",
+        "title": "Stop MI Server Session",
         "category": "MI"
       },
       {
