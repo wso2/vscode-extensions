@@ -128,3 +128,4 @@ export const TM_EVENT_BALLERINA_AI_GENERATION_COMPLETED = "ballerina.ai.generati
 export const TM_EVENT_BALLERINA_AI_GENERATION_FAILED = "ballerina.ai.generation.failed";
 export const TM_EVENT_BALLERINA_AI_GENERATION_ABORTED = "ballerina.ai.generation.aborted";
 export const TM_EVENT_BALLERINA_AI_GENERATION_REVERTED = "ballerina.ai.generation.reverted";
+export const  TM_EVENT_BALLERINA_AI_GENERATION_FEEDBACK = "ballerina.ai.generation.feedback";

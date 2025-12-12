@@ -41,6 +41,7 @@ import { getProjectSource } from "../../utils/project-utils";
 import { sendTelemetryEvent, sendTelemetryException } from "../../../telemetry";
 import { TM_EVENT_BALLERINA_AI_GENERATION_SUBMITTED, TM_EVENT_BALLERINA_AI_GENERATION_COMPLETED, TM_EVENT_BALLERINA_AI_GENERATION_FAILED, TM_EVENT_BALLERINA_AI_GENERATION_ABORTED, CMP_BALLERINA_AI_GENERATION } from "../../../telemetry";
 import { extension } from "../../../../BalExtensionContext";
+import { getProjectMetrics } from "../../../telemetry/common/project-metrics";
 
 
 const LANGFUSE_SECRET = process.env.LANGFUSE_SECRET;
@@ -78,32 +79,8 @@ export async function generateDesignCore(
 
     const cacheOptions = await getProviderCacheControl();
 
-    // Get state machine context for telemetry
     const stateContext = AIChatStateMachine.context();
-
-    let totalFileCount = 0;
-    let totalLineCount = 0;
-
-    for (const project of projects) {
-        const projectFiles = project.sourceFiles || [];
-        totalFileCount += projectFiles.length;
-
-        for (const file of projectFiles) {
-            totalLineCount += file.content.split('\n').length;
-        }
-
-        // Also count module files if present
-        if (project.projectModules) {
-            for (const module of project.projectModules) {
-                const moduleFiles = module.sourceFiles || [];
-                totalFileCount += moduleFiles.length;
-
-                for (const file of moduleFiles) {
-                    totalLineCount += file.content.split('\n').length;
-                }
-            }
-        }
-    }
+    const projectMetrics = await getProjectMetrics();
 
     // Send telemetry when the user submits a query
     sendTelemetryEvent(extension.ballerinaExtInstance, TM_EVENT_BALLERINA_AI_GENERATION_SUBMITTED, CMP_BALLERINA_AI_GENERATION, {
@@ -113,8 +90,8 @@ export async function generateDesignCore(
         operationType: params.operationType,
         isPlanMode: isPlanModeEnabled.toString(),
         approvalMode: stateContext.autoApproveEnabled ? 'auto' : 'manual',
-        inputFileCount: totalFileCount.toString(),
-        inputLineCount: totalLineCount.toString(),
+        inputFileCount: projectMetrics.fileCount.toString(),
+        inputLineCount: projectMetrics.lineCount.toString(),
     });
 
     const modifiedFiles: string[] = [];
@@ -158,7 +135,7 @@ export async function generateDesignCore(
     let diagnosticCheckCount = 0;
     let totalCompilationErrorsDuringGeneration = 0;
 
-    const { fullStream, response, usage: usagePromise } = streamText({
+    const { fullStream, response, usage } = streamText({
         model: await getAnthropicClient(ANTHROPIC_SONNET_4),
         maxOutputTokens: 8192,
         temperature: 0,
@@ -366,11 +343,10 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
                 const assistantMessages = finalResponse.messages || [];
                 const generationEndTime = Date.now();
 
-                // Extract token usage information
-                const usage = await usagePromise;
-                const inputTokens = usage.inputTokens || 0;
-                const outputTokens = usage.outputTokens || 0;
-                const totalTokens = usage.totalTokens || 0;
+                const usageInfo = await usage;
+                const inputTokens = usageInfo.inputTokens || 0;
+                const outputTokens = usageInfo.outputTokens || 0;
+                const totalTokens = usageInfo.totalTokens || 0;
 
                 const finalDiagnostics = await checkCompilationErrors(tempProjectPath);
                 if (finalDiagnostics.diagnostics && finalDiagnostics.diagnostics.length > 0) {
@@ -392,6 +368,9 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
                 updateAndSaveChat(messageId, userMessageContent, assistantMessages, eventHandler);
                 eventHandler({ type: "stop", command: Command.Design });
 
+                // Get final project metrics after generation
+                const finalProjectMetrics = await getProjectMetrics();
+
                 // Send telemetry for generation completion
                 sendTelemetryEvent(extension.ballerinaExtInstance, TM_EVENT_BALLERINA_AI_GENERATION_COMPLETED, CMP_BALLERINA_AI_GENERATION, {
                     projectId: stateContext.projectId || 'unknown',
@@ -408,6 +387,8 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
                     inputTokens: inputTokens.toString(),
                     outputTokens: outputTokens.toString(),
                     totalTokens: totalTokens.toString(),
+                    outputFileCount: finalProjectMetrics.fileCount.toString(),
+                    outputLineCount: finalProjectMetrics.lineCount.toString(),
                 });
 
                 AIChatStateMachine.sendEvent({
