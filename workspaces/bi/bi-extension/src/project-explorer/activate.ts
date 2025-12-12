@@ -84,13 +84,16 @@ function registerCoreCommands(dataProvider: ProjectExplorerEntryProvider, isInWI
 	);
 
 	// Register the refresh command
-	commands.registerCommand(BI_COMMANDS.REFRESH_COMMAND, () => {
-		if (isInWI) {
-			commands.executeCommand(WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND);
-			return;
+	commands.registerCommand(
+		BI_COMMANDS.REFRESH_COMMAND,
+		() => {
+			if (isInWI) {
+				commands.executeCommand(WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND);
+				return;
+			}
+			dataProvider.refresh();
 		}
-		dataProvider.refresh()
-	});
+	);
 }
 
 function registerBallerinaCommands(
