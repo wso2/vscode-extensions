@@ -80,6 +80,7 @@ import { AIChatMachineEventType } from "@wso2/ballerina-core/lib/state-machine-t
 import { checkToken } from "../../../src/views/ai-panel/utils";
 import { extension } from "../../BalExtensionContext";
 import { generateDocumentationForService } from "../../features/ai/service/documentation/doc_generator";
+import { submitFeedback as submitFeedbackService } from "../../features/ai/service/feedback/feedback";
 // import { generateHealthcareCode } from "../../features/ai/service/healthcare/healthcare";
 import { selectRequiredFunctions } from "../../features/ai/service/libs/funcs";
 import { GenerationType } from "../../features/ai/service/libs/libs";
@@ -595,34 +596,35 @@ export class AiPanelRpcManager implements AIPanelAPI {
     }
 
     async submitFeedback(content: SubmitFeedbackRequest): Promise<boolean> {
-        return new Promise(async (resolve) => {
-            try {
-                const payload = {
-                    feedback: content.feedbackText,
-                    positive: content.positive,
-                    messages: content.messages,
-                    diagnostics: cleanDiagnosticMessages(content.diagnostics)
-                };
+        return submitFeedbackService(content);
+        // return new Promise(async (resolve) => {
+        //     try {
+        //         const payload = {
+        //             feedback: content.feedbackText,
+        //             positive: content.positive,
+        //             messages: content.messages,
+        //             diagnostics: cleanDiagnosticMessages(content.diagnostics)
+        //         };
 
-                const response = await fetchWithAuth(`${OLD_BACKEND_URL}/feedback`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
+        //         const response = await fetchWithAuth(`${OLD_BACKEND_URL}/feedback`, {
+        //             method: 'POST',
+        //             headers: {
+        //                 'Content-Type': 'application/json'
+        //             },
+        //             body: JSON.stringify(payload)
+        //         });
 
-                if (response.ok) {
-                    resolve(true);
-                } else {
-                    console.error("Failed to submit feedback");
-                    resolve(false);
-                }
-            } catch (error) {
-                console.error("Error submitting feedback:", error);
-                resolve(false);
-            }
-        });
+        //         if (response.ok) {
+        //             resolve(true);
+        //         } else {
+        //             console.error("Failed to submit feedback");
+        //             resolve(false);
+        //         }
+        //     } catch (error) {
+        //         console.error("Error submitting feedback:", error);
+        //         resolve(false);
+        //     }
+        // });
     }
 
     async getRelevantLibrariesAndFunctions(params: RelevantLibrariesAndFunctionsRequest): Promise<RelevantLibrariesAndFunctionsResponse> {
