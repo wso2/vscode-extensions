@@ -23,7 +23,6 @@ import { ResponseError } from "vscode-jsonrpc";
 import { ErrorCode } from "../choreo-rpc/constants";
 import { ext } from "../extensionVariables";
 import { getLogger } from "../logger/logger";
-import { authStore } from "../stores/auth-store";
 import { isRpcActive, setExtensionName } from "./cmd-utils";
 
 export function signInWithAuthCodeCommand(context: ExtensionContext) {
@@ -45,7 +44,7 @@ export function signInWithAuthCodeCommand(context: ExtensionContext) {
 					ext.clients.rpcClient.signInWithAuthCode(authCode).then(async (userInfo) => {
 						if (userInfo) {
 							const region = await ext.clients.rpcClient.getCurrentRegion();
-							authStore.getState().loginSuccess(userInfo, region);
+							ext.authProvider?.getState().loginSuccess(userInfo, region);
 						}
 					});
 				} else {

@@ -20,15 +20,12 @@ import { existsSync, readFileSync } from "fs";
 import * as os from "os";
 import * as path from "path";
 import {
-	ChoreoBuildPackNames,
 	ChoreoComponentType,
 	CommandIds,
 	type ComponentKind,
 	DevantScopes,
 	type ExtensionName,
 	type ICreateComponentCmdParams,
-	type Organization,
-	type Project,
 	type SubmitComponentCreateReq,
 	type WorkspaceConfig,
 	getComponentKindRepoSource,
@@ -37,16 +34,15 @@ import {
 	getTypeOfIntegrationType,
 	parseGitURL,
 } from "@wso2/wso2-platform-core";
-import { type ExtensionContext, ProgressLocation, type QuickPickItem, Uri, commands, env, window, workspace } from "vscode";
+import { type ExtensionContext, ProgressLocation, type QuickPickItem, Uri, commands, window, workspace } from "vscode";
 import { ext } from "../extensionVariables";
 import { initGit } from "../git/main";
 import { getGitRemotes, getGitRoot } from "../git/util";
 import { getLogger } from "../logger/logger";
-import { authStore } from "../stores/auth-store";
 import { contextStore, waitForContextStoreToLoad } from "../stores/context-store";
 import { dataCacheStore } from "../stores/data-cache-store";
 import { webviewStateStore } from "../stores/webview-state-store";
-import { convertFsPathToUriPath, delay, isSamePath, isSubpath, openDirectory } from "../utils";
+import { convertFsPathToUriPath, isSamePath, isSubpath, openDirectory } from "../utils";
 import { showComponentDetailsView } from "../webviews/ComponentDetailsView";
 import { ComponentFormView, type IComponentCreateFormParams } from "../webviews/ComponentFormView";
 import { getUserInfoForCmd, isRpcActive, selectOrg, selectProjectWithCreateNew, setExtensionName } from "./cmd-utils";
@@ -221,7 +217,7 @@ export function createNewComponentCommand(context: ExtensionContext) {
 						);
 						if (resp !== "Proceed") {
 							const projectCache = dataCacheStore.getState().getProjects(selectedOrg?.handle);
-							updateContextFile(gitRoot, authStore.getState().state.userInfo!, selectedProject, selectedOrg, projectCache);
+							updateContextFile(gitRoot, ext.authProvider?.getState().state.userInfo!, selectedProject, selectedOrg, projectCache);
 							contextStore.getState().refreshState();
 							return;
 						}
@@ -362,7 +358,7 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 						}
 					}
 				} else {
-					updateContextFile(gitRoot, authStore.getState().state.userInfo!, project, org, projectCache);
+					updateContextFile(gitRoot, ext.authProvider?.getState().state.userInfo!, project, org, projectCache);
 					contextStore.getState().refreshState();
 				}
 			}

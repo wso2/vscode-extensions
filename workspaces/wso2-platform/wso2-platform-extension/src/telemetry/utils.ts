@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { authStore } from "../stores/auth-store";
+import { ext } from "../extensionVariables";
 import { getTelemetryReporter } from "./telemetry";
 
 // export async function sendProjectTelemetryEvent(eventName: string, properties?: { [key: string]: string; }, measurements?: { [key: string]: number; }) {
@@ -46,8 +46,8 @@ export function sendTelemetryException(error: Error, properties?: { [key: string
 // Create common properties for all events
 export function getCommonProperties(): { [key: string]: string } {
 	return {
-		idpId: authStore.getState().state?.userInfo?.userId!,
+		idpId: ext.authProvider?.getState().state?.userInfo?.userId!,
 		// check if the email ends with "@wso2.com"
-		isWSO2User: authStore.getState().state?.userInfo?.userEmail?.endsWith("@wso2.com") ? "true" : "false",
+		isWSO2User: ext.authProvider?.getState().state?.userInfo?.userEmail?.endsWith("@wso2.com") ? "true" : "false",
 	};
 }

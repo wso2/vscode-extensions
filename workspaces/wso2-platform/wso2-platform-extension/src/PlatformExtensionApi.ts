@@ -19,14 +19,13 @@
 import type { ComponentKind, IWso2PlatformExtensionAPI, openClonedDirReq } from "@wso2/wso2-platform-core";
 import { ext } from "./extensionVariables";
 import { hasDirtyRepo } from "./git/util";
-import { authStore } from "./stores/auth-store";
 import { contextStore } from "./stores/context-store";
 import { webviewStateStore } from "./stores/webview-state-store";
 import { openClonedDir } from "./uri-handlers";
 import { isSamePath } from "./utils";
 
 export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
-	public isLoggedIn = () => !!authStore.getState().state?.userInfo;
+	public isLoggedIn = () => !!ext.authProvider?.getState().state?.userInfo;
 	public getDirectoryComponents = (fsPath: string) =>
 		(contextStore
 			.getState()

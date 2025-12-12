@@ -31,7 +31,6 @@ import {
 import { type ExtensionContext, ProgressLocation, type QuickPickItem, QuickPickItemKind, Uri, commands, window } from "vscode";
 import { ext } from "../extensionVariables";
 import { initGit } from "../git/main";
-import { authStore } from "../stores/auth-store";
 import { dataCacheStore } from "../stores/data-cache-store";
 import { webviewStateStore } from "../stores/webview-state-store";
 import { createDirectory, openDirectory } from "../utils";
@@ -168,7 +167,7 @@ export function cloneRepoCommand(context: ExtensionContext) {
 						]);
 
 						// set context.yaml
-						updateContextFile(clonedResp[0].clonedPath, authStore.getState().state.userInfo!, selectedProject, selectedOrg, projectCache);
+						updateContextFile(clonedResp[0].clonedPath, ext.authProvider?.getState().state.userInfo!, selectedProject, selectedOrg, projectCache);
 						const subDir = params?.component?.spec?.source ? getComponentKindRepoSource(params?.component?.spec?.source)?.path || "" : "";
 						const subDirFullPath = join(clonedResp[0].clonedPath, subDir);
 						if (params?.technology === "ballerina") {
