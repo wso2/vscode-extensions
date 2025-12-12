@@ -17,8 +17,8 @@
  */
 
 import React from "react";
-import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Grid } from "./Grid";
+import type { Meta, StoryObj } from '@storybook/react';
+import {  Grid , GridProps } from "./Grid";
 import { GridItem } from "./GridItem";
 
 interface Item {
@@ -46,7 +46,7 @@ type Story = StoryObj<typeof Grid>;
 
 export const GridC: Story = {
     args: { columns: 3 },
-    render: args => (
+    render: (args: GridProps) => (
         <Grid {...args}>
             {items.map(item => (
                 <GridItem

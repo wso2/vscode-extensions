@@ -3,7 +3,7 @@
   "displayName": "WSO2 Integrator: MI",
   "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
   "icon": "resources/images/wso2-micro-integrator-image.png",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "publisher": "wso2",
   "engines": {
     "vscode": "^1.100.0"
@@ -162,6 +162,12 @@
           "type": "boolean",
           "default": true,
           "description": "Update car plugin version automatically"
+        },
+        "MI.serverTimeoutInSecs": {
+          "type": "number",
+          "default": 120,
+          "minimum": 30,
+          "description": "Maximum wait time for server startup in seconds"
         },
         "MI.logging.loggingLevel": {
           "type": "string",
@@ -501,6 +507,11 @@
         "command": "MI.build-and-run",
         "title": "Build and Run",
         "icon": "$(play)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.terminate-server",
+        "title": "Stop MI Server Session",
         "category": "MI"
       },
       {
