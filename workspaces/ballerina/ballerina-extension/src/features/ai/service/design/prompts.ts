@@ -3,6 +3,7 @@ import { LIBRARY_PROVIDER_TOOL } from "../libs/libs";
 import { TASK_WRITE_TOOL_NAME } from "../libs/task_write_tool";
 import { FILE_BATCH_EDIT_TOOL_NAME, FILE_SINGLE_EDIT_TOOL_NAME, FILE_WRITE_TOOL_NAME } from "../libs/text_editor_tool";
 import { CONNECTOR_GENERATOR_TOOL } from "../libs/connectorGeneratorTool";
+import { getLanglibInstructions } from "../libs/langlibs";
 import { formatCodebaseStructure, formatCodeContext } from "./utils";
 import { CodeContext, ProjectSource } from "@wso2/ballerina-core";
 
@@ -123,6 +124,8 @@ When generating Ballerina code strictly follow these syntax and structure guidel
 - For GraphQL service related queries, if the user hasn't specified their own GraphQL Schema, write the proposed GraphQL schema for the user query right after the explanation before generating the Ballerina code. Use the same names as the GraphQL Schema when defining record types.
 - Some libaries has instructions field in their API documentation. Follow those instructions strictly when using those libraries.
 - You should only generate tests if the user explicitly asks for them in the query. You must use the 'ballerina/test' and whatever services associated when writing tests. Respect the instructions field in ballerina/test library and testGenerationInstruction field in whatever library associated with the service in the library API documentation when writing tests.
+
+${getLanglibInstructions()}
 
 ### Local Connectors
 - If the codebase structure shows connector modules in generated/moduleName, import using: import packageName.moduleName
