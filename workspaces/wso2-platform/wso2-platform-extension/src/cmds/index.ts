@@ -18,6 +18,7 @@
 
 import type { ExtensionContext } from "vscode";
 import { cloneRepoCommand } from "./clone-project-cmd";
+import { commitAndPushToGitCommand } from "./commit-and-push-to-git-cmd";
 import { createComponentDependencyCommand } from "./create-comp-dependency-cmd";
 import { createNewComponentCommand } from "./create-component-cmd";
 import { createDirectoryContextCommand } from "./create-directory-context-cmd";
@@ -49,4 +50,5 @@ export function activateCmds(context: ExtensionContext) {
 	createComponentDependencyCommand(context);
 	viewComponentDependencyCommand(context);
 	openCompSrcCommand(context);
+	commitAndPushToGitCommand(context);
 }

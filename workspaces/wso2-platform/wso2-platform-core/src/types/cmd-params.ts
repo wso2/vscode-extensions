@@ -5,6 +5,11 @@ export interface ICmdParamsBase {
 	extName?: ExtensionName;
 }
 
+export interface ICreateDirCtxCmdParams extends ICmdParamsBase {
+	skipComponentExistCheck?: boolean;
+	fsPath?: string;
+}
+
 export interface ICloneProjectCmdParams extends ICmdParamsBase {
 	organization: Organization;
 	project: Project;
@@ -13,6 +18,10 @@ export interface ICloneProjectCmdParams extends ICmdParamsBase {
 	technology: string;
 	integrationType: string;
 	integrationDisplayType: string;
+}
+
+export interface ICommitAndPushCmdParams extends ICmdParamsBase {
+	componentPath: string;
 }
 
 export interface ICreateDependencyParams extends ICmdParamsBase {

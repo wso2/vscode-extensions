@@ -27,21 +27,21 @@ import { getGlobalStateStore } from "./store-utils";
 interface AuthStore {
 	state: AuthState;
 	resetState: () => void;
-	loginSuccess: (userInfo: UserInfo) => void;
+	loginSuccess: (userInfo: UserInfo, region: "US" | "EU") => void;
 	logout: () => Promise<void>;
 	initAuth: () => Promise<void>;
 }
 
-const initialState: AuthState = { userInfo: null };
+const initialState: AuthState = { userInfo: null, region: "US" };
 
 export const authStore = createStore(
 	persist<AuthStore>(
 		(set, get) => ({
 			state: initialState,
 			resetState: () => set(() => ({ state: initialState })),
-			loginSuccess: (userInfo) => {
+			loginSuccess: (userInfo, region) => {
 				dataCacheStore.getState().setOrgs(userInfo.organizations);
-				set(({ state }) => ({ state: { ...state, userInfo } }));
+				set(({ state }) => ({ state: { ...state, userInfo, region } }));
 				contextStore.getState().refreshState();
 			},
 			logout: async () => {
@@ -54,7 +54,8 @@ export const authStore = createStore(
 				try {
 					const userInfo = await ext.clients.rpcClient.getUserInfo();
 					if (userInfo) {
-						get().loginSuccess(userInfo);
+						const region = await ext.clients.rpcClient.getCurrentRegion();
+						get().loginSuccess(userInfo, region);
 						const contextStoreState = contextStore.getState().state;
 						if (contextStoreState.selected?.org) {
 							ext?.clients?.rpcClient?.changeOrgContext(contextStoreState.selected?.org?.id?.toString());

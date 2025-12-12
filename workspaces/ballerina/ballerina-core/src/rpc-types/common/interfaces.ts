@@ -91,6 +91,11 @@ export interface ShowErrorMessageRequest {
     message: string;
 }
 
+export interface ShowInfoModalRequest {
+    message: string;
+    items?: string[];
+}
+
 export interface TomlWorkspace {
     packages: string[];
 }
@@ -108,12 +113,24 @@ export interface WorkspaceTomlValues {
 
 export interface PackageTomlValues {
     package: TomlPackage;
+    tool?: {
+        openapi?: {
+            id: string;
+            targetModule: string;
+            filePath: string;
+            remoteId?: string;
+        }[];
+    }
 }
 
 export interface WorkspaceTypeResponse {
     type: "SINGLE_PROJECT" | "MULTIPLE_PROJECTS" | "BALLERINA_WORKSPACE" | "VSCODE_WORKSPACE" | "UNKNOWN"
 }
 
+export interface SetWebviewCacheRequestParam {
+	cacheKey: IDBValidKey;
+	data: unknown;
+}
 export interface SampleDownloadRequest {
     zipFileName: string;
 }
