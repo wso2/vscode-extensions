@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Command, GenerateAgentCodeRequest, ProjectSource, AIChatMachineEventType} from "@wso2/ballerina-core";
+import { Command, GenerateAgentCodeRequest, ProjectSource, AIChatMachineEventType } from "@wso2/ballerina-core";
 import { ModelMessage, stepCountIs, streamText } from "ai";
 import { getAnthropicClient, getProviderCacheControl, ANTHROPIC_SONNET_4 } from "../connection";
 import { getErrorMessage, populateHistoryForAgent } from "../utils";
@@ -38,6 +38,11 @@ import { LangfuseExporter } from 'langfuse-vercel';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { getProjectSource } from "../../utils/project-utils";
+import { sendTelemetryEvent, sendTelemetryException } from "../../../telemetry";
+import { TM_EVENT_BALLERINA_AI_GENERATION_SUBMITTED, TM_EVENT_BALLERINA_AI_GENERATION_COMPLETED, TM_EVENT_BALLERINA_AI_GENERATION_FAILED, TM_EVENT_BALLERINA_AI_GENERATION_ABORTED, CMP_BALLERINA_AI_GENERATION } from "../../../telemetry";
+import { extension } from "../../../../BalExtensionContext";
+import { getProjectMetrics } from "../../../telemetry/common/project-metrics";
+
 
 const LANGFUSE_SECRET = process.env.LANGFUSE_SECRET;
 const LANGFUSE_PUBLIC = process.env.LANGFUSE_PUBLIC;
@@ -74,6 +79,21 @@ export async function generateDesignCore(
 
     const cacheOptions = await getProviderCacheControl();
 
+    const stateContext = AIChatStateMachine.context();
+    const projectMetrics = await getProjectMetrics();
+
+    // Send telemetry when the user submits a query
+    sendTelemetryEvent(extension.ballerinaExtInstance, TM_EVENT_BALLERINA_AI_GENERATION_SUBMITTED, CMP_BALLERINA_AI_GENERATION, {
+        projectId: stateContext.projectId || 'unknown',
+        messageId: messageId,
+        command: Command.Design,
+        operationType: params.operationType,
+        isPlanMode: isPlanModeEnabled.toString(),
+        approvalMode: stateContext.autoApproveEnabled ? 'auto' : 'manual',
+        inputFileCount: projectMetrics.fileCount.toString(),
+        inputLineCount: projectMetrics.lineCount.toString(),
+    });
+
     const modifiedFiles: string[] = [];
 
     const userMessageContent = getUserPrompt(params.usecase, tempProjectPath, projects, isPlanModeEnabled, params.codeContext);
@@ -108,7 +128,14 @@ export async function generateDesignCore(
         [DIAGNOSTICS_TOOL_NAME]: createDiagnosticsTool(tempProjectPath),
     };
 
-    const { fullStream, response } = streamText({
+    // Timing metrics for telemetry - capture at generation start
+    const generationStartTime = Date.now();
+
+    // Diagnostic tracking during generation - tracks all compilation errors that occur
+    let diagnosticCheckCount = 0;
+    let totalCompilationErrorsDuringGeneration = 0;
+
+    const { fullStream, response, usage } = streamText({
         model: await getAnthropicClient(ANTHROPIC_SONNET_4),
         maxOutputTokens: 8192,
         temperature: 0,
@@ -140,6 +167,7 @@ export async function generateDesignCore(
                 break;
             }
             case "tool-call": {
+
                 const toolName = part.toolName;
                 accumulateToolCall(currentAssistantContent, part);
 
@@ -211,6 +239,14 @@ export async function generateDesignCore(
                         toolOutput: { success: true, action }
                     });
                 } else if (toolName === DIAGNOSTICS_TOOL_NAME) {
+                    // Track diagnostic errors during generation
+                    const diagnosticsResult = result as any;
+                    if (diagnosticsResult && diagnosticsResult.diagnostics) {
+                        const errorCount = diagnosticsResult.diagnostics.length;
+                        diagnosticCheckCount++;
+                        totalCompilationErrorsDuringGeneration += errorCount;
+                    }
+
                     eventHandler({
                         type: "tool_result",
                         toolName,
@@ -227,6 +263,22 @@ export async function generateDesignCore(
                 if (shouldCleanup) {
                     cleanupTempProject(tempProjectPath);
                 }
+
+                // Send telemetry for generation error
+                const errorObj = error instanceof Error ? error : new Error(String(error));
+                const errorTime = Date.now();
+                sendTelemetryException(extension.ballerinaExtInstance, errorObj, CMP_BALLERINA_AI_GENERATION, {
+                    event: TM_EVENT_BALLERINA_AI_GENERATION_FAILED,
+                    projectId: stateContext.projectId || 'unknown',
+                    messageId: messageId,
+                    errorMessage: getErrorMessage(error),
+                    errorType: errorObj.name || 'Unknown',
+                    generationStartTime: generationStartTime.toString(),
+                    errorTime: errorTime.toString(),
+                    durationMs: (errorTime - generationStartTime).toString(),
+                });
+
+
                 eventHandler({ type: "error", content: getErrorMessage(error) });
                 return tempProjectPath;
             }
@@ -236,6 +288,18 @@ export async function generateDesignCore(
             }
             case "abort": {
                 console.log("[Design] Aborted by user.");
+                const abortTime = Date.now();
+
+                // Send telemetry for generation abort
+                sendTelemetryEvent(extension.ballerinaExtInstance, TM_EVENT_BALLERINA_AI_GENERATION_ABORTED, CMP_BALLERINA_AI_GENERATION, {
+                    projectId: stateContext.projectId || 'unknown',
+                    messageId: messageId,
+                    generationStartTime: generationStartTime.toString(),
+                    abortTime: abortTime.toString(),
+                    durationMs: (abortTime - generationStartTime).toString(),
+                    modifiedFilesCount: modifiedFiles.length.toString(),
+                });
+
                 let messagesToSave: any[] = [];
                 try {
                     const partialResponse = await response;
@@ -277,6 +341,12 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
             case "finish": {
                 const finalResponse = await response;
                 const assistantMessages = finalResponse.messages || [];
+                const generationEndTime = Date.now();
+
+                const usageInfo = await usage;
+                const inputTokens = usageInfo.inputTokens || 0;
+                const outputTokens = usageInfo.outputTokens || 0;
+                const totalTokens = usageInfo.totalTokens || 0;
 
                 const finalDiagnostics = await checkCompilationErrors(tempProjectPath);
                 if (finalDiagnostics.diagnostics && finalDiagnostics.diagnostics.length > 0) {
@@ -297,6 +367,30 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
 
                 updateAndSaveChat(messageId, userMessageContent, assistantMessages, eventHandler);
                 eventHandler({ type: "stop", command: Command.Design });
+
+                // Get final project metrics after generation
+                const finalProjectMetrics = await getProjectMetrics();
+
+                // Send telemetry for generation completion
+                sendTelemetryEvent(extension.ballerinaExtInstance, TM_EVENT_BALLERINA_AI_GENERATION_COMPLETED, CMP_BALLERINA_AI_GENERATION, {
+                    projectId: stateContext.projectId || 'unknown',
+                    messageId: messageId,
+                    modifiedFilesCount: modifiedFiles.length.toString(),
+                    generationStartTime: generationStartTime.toString(),
+                    generationEndTime: generationEndTime.toString(),
+                    durationMs: (generationEndTime - generationStartTime).toString(),
+                    isPlanMode: isPlanModeEnabled.toString(),
+                    approvalMode: stateContext.autoApproveEnabled ? 'auto' : 'manual',
+                    diagnosticChecksCount: diagnosticCheckCount.toString(),
+                    totalCompilationErrorsDuringGeneration: totalCompilationErrorsDuringGeneration.toString(),
+                    finalCompilationErrorsAfterGeneration: (finalDiagnostics.diagnostics?.length || 0).toString(),
+                    inputTokens: inputTokens.toString(),
+                    outputTokens: outputTokens.toString(),
+                    totalTokens: totalTokens.toString(),
+                    outputFileCount: finalProjectMetrics.fileCount.toString(),
+                    outputLineCount: finalProjectMetrics.lineCount.toString(),
+                });
+
                 AIChatStateMachine.sendEvent({
                     type: AIChatMachineEventType.FINISH_EXECUTION,
                 });
@@ -304,7 +398,7 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
                 return tempProjectPath;
             }
         }
-        }
+    }
 
     return tempProjectPath;
 }

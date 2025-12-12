@@ -108,7 +108,6 @@ export const TM_EVENT_OPEN_VARIABLE_VIEW = "notebook.variable-view.open";
 export const TM_EVENT_UPDATE_VARIABLE_VIEW = "notebook.variable-view.update";
 export const TM_EVENT_START_NOTEBOOK_DEBUG = "notebook.start.debug";
 
-
 // events for open vscode from url
 export const TM_EVENT_OPEN_FILE_URL_START = "vscode.open.file.url.start";
 export const TM_EVENT_OPEN_FILE_CHANGE_PATH = "vscode.open.file.change.path";
@@ -122,3 +121,11 @@ export const TM_EVENT_OPEN_REPO_CHANGE_PATH = "vscode.open.repo.change.path";
 export const TM_EVENT_OPEN_REPO_CANCELED = "vscode.open.repo.canceled";
 export const TM_EVENT_OPEN_REPO_NEW_FOLDER = "vscode.open.exist.repo.new.folder";
 export const TM_EVENT_OPEN_REPO_SAME_FOLDER = "vscode.open.exist.repo.same.folder";
+
+// events for AI features
+export const TM_EVENT_BALLERINA_AI_GENERATION_SUBMITTED = "ballerina.ai.generation.submitted";
+export const TM_EVENT_BALLERINA_AI_GENERATION_COMPLETED = "ballerina.ai.generation.completed";
+export const TM_EVENT_BALLERINA_AI_GENERATION_FAILED = "ballerina.ai.generation.failed";
+export const TM_EVENT_BALLERINA_AI_GENERATION_ABORTED = "ballerina.ai.generation.aborted";
+export const TM_EVENT_BALLERINA_AI_GENERATION_REVERTED = "ballerina.ai.generation.reverted";
+export const  TM_EVENT_BALLERINA_AI_GENERATION_FEEDBACK = "ballerina.ai.generation.feedback";
