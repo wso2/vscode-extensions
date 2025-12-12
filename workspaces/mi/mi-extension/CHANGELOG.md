@@ -2,11 +2,20 @@
 
 All notable changes to the "micro-integrator" extension will be documented in this file.
 
+## [3.1.1] - 2025-12-12
+
+### Fixed
+
+Fixed: Diagram issue when using Filter and If-Else mediators ([#1356](https://github.com/wso2/mi-vscode/issues/1356))  
+Fixed: Ballerina Executable Not Found Error ([#1357](https://github.com/wso2/mi-vscode/issues/1357))  
+Fixed: Cannot edit a proxy in Windows OS ([#1368](https://github.com/wso2/mi-vscode/issues/1368))  
+Fixed: Issues in the build and run functionality ([#1369](https://github.com/wso2/mi-vscode/issues/1369))  
+
 ## [3.1.0] - 2025-12-08
 
 ### New Features
 
-Added: Nested query support for data services via a seperate query view  
+Added: Nested query support for data services via a separate query view  
 Added: Oracle synonym support for data service resource generation  
 
 ### Fixed

@@ -21,7 +21,7 @@ import { CancellationToken, DebugConfiguration, ProviderResult, Uri, window, wor
 import { MiDebugAdapter } from './debugAdapter';
 import { COMMANDS } from '../constants';
 import { extension } from '../MIExtensionContext';
-import {executeBuildTask, executeRemoteDeployTask, getServerPath} from './debugHelper';
+import {executeBuildTask, executeRemoteDeployTask, getServerPath, stopServer} from './debugHelper';
 import { getDockerTask } from './tasks';
 import { getStateMachine, refreshUI } from '../stateMachine';
 import * as fs from 'fs';
@@ -222,9 +222,14 @@ export function activateDebugger(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(vscode.commands.registerCommand(COMMANDS.BUILD_AND_RUN_PROJECT, async (args: any) => {
         const webview = [...webviews.values()].find(webview => webview.getWebview()?.active);
-
+        let projectUri: string | undefined = undefined;
         if (webview && webview?.getProjectUri()) {
-            const projectUri = webview.getProjectUri();
+            projectUri = webview.getProjectUri();
+        }
+        if (!projectUri) {
+            projectUri = await askForProject();
+        }
+        if (projectUri) {
             const projectWorkspace = workspace.getWorkspaceFolder(Uri.file(projectUri));
             const launchJsonPath = path.join(projectUri, '.vscode', 'launch.json');
             const envPath = path.join(projectUri, '.env');
@@ -276,6 +281,34 @@ export function activateDebugger(context: vscode.ExtensionContext) {
             }
         } else {
             vscode.window.showErrorMessage('No workspace folder found');
+        }
+    }));
+
+    context.subscriptions.push(vscode.commands.registerCommand(COMMANDS.TERMINATE_SERVER, async () => {
+
+        const webview = [...webviews.values()].find(webview => webview.getWebview()?.active);
+        let projectUri: string | undefined = undefined;
+        if (webview && webview?.getProjectUri()) {
+            projectUri = webview.getProjectUri();
+        }
+        if (!projectUri) {
+            projectUri = await askForProject();
+        }
+        if (projectUri) {
+            try {
+                getServerPath(projectUri).then(async (serverPath) => {
+                    if (!serverPath) {
+                        vscode.window.showErrorMessage("Server path not found to terminate the server.");
+                        return;
+                    }
+                    await stopServer(projectUri, serverPath, process.platform === 'win32');
+                    vscode.commands.executeCommand('setContext', 'MI.isRunning', 'false');
+                });
+            } catch(error) {
+                vscode.window.showErrorMessage('Error occurred while terminating the server.');
+            }
+        } else {
+            vscode.window.showErrorMessage('Error occurred while determining the project to terminate the server.');
         }
     }));
 
