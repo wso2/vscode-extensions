@@ -51,6 +51,9 @@ import serviceTest from './service-designer/service-class.spec';
 
 import importIntegration from './import-integration/import-integration.spec';
 
+import reusableDataMapper from './data-mapper/reusable-data-mapper.spec';
+import inlineDataMapper from './data-mapper/inline-data-mapper.spec';
+
 test.describe.configure({ mode: 'default' });
 
 test.beforeAll(async () => {
@@ -95,8 +98,13 @@ test.describe(connectionArtifact);
 test.describe(configuration); // TODO: This tests is failing due to https://github.com/wso2/product-ballerina-integrator/issues/1231. Enable after fixing the issue.
 test.describe(typeTest); // TODO: This tests is failing due to https://github.com/wso2/product-ballerina-integrator/issues/1222. Enable after fixing the issue.
 test.describe(serviceTest);
+
 // <----Import Integration Test---->
 test.describe(importIntegration);
+
+// <----Data Mapper Test---->
+test.describe(reusableDataMapper);
+test.describe(inlineDataMapper);
 
 test.afterAll(async () => {
     console.log('\n' + '='.repeat(80));

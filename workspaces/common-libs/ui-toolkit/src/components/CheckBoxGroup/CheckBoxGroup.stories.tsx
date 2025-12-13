@@ -16,7 +16,7 @@
  * under the License.
  */
 import React from "react";
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Meta, StoryObj } from '@storybook/react';
 import { CheckBox, CheckBoxGroup, CheckBoxGroupProps } from "./CheckBoxGroup";
 import styled from "@emotion/styled";
 
