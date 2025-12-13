@@ -115,7 +115,8 @@
                 "CELL_VIEW_DEV_HOST": "http://localhost:3001/cellDiagram.js"
             },
             "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/wso2-platform/wso2-platform-extension"
+                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/wso2-platform/wso2-platform-extension",
+                "--enable-proposed-api=wso2.wso2-platform"
             ],
             "outFiles": [
                 "${workspaceFolder}/workspaces/wso2-platform/wso2-platform-extension/dist/**/*.js"
@@ -128,8 +129,8 @@
             "type": "extensionHost",
             "request": "launch",
             "env": {
-                "WEB_VIEW_DEV_MODE": "true",
-                "WEB_VIEW_DEV_HOST": "http://localhost:3000/main.js",
+                "WEB_VIEW_DEV_MODE_CHOREO": "true",
+                "WEB_VIEW_DEV_HOST_CHOREO": "http://localhost:3001/main.js",
                 "CELL_VIEW_DEV_MODE": "true",
                 "CELL_VIEW_DEV_HOST": "http://localhost:3001/cellDiagram.js"
             },
@@ -178,8 +179,8 @@
             ],
             "envFile": "${workspaceFolder}/workspaces/choreo/choreo-extension/.env",
             "env": {
-                "WEB_VIEW_DEV_MODE": "true",
-                "WEB_VIEW_DEV_HOST": "http://localhost:3000/main.js",
+                "WEB_VIEW_DEV_MODE_CHOREO": "true",
+                "WEB_VIEW_DEV_HOST_CHOREO": "http://localhost:3001/main.js",
             },
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",

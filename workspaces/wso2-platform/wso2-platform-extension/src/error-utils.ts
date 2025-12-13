@@ -16,11 +16,10 @@
  * under the License.
  */
 
-import { CommandIds } from "@wso2/wso2-platform-core";
 import { commands, window as w } from "vscode";
 import { ResponseError } from "vscode-jsonrpc";
 import { ErrorCode } from "./choreo-rpc/constants";
-import { choreoEnvConfig } from "./config";
+import { ext } from "./extensionVariables";
 import { getLogger } from "./logger/logger";
 import { authStore } from "./stores/auth-store";
 import { webviewStateStore } from "./stores/webview-state-store";
@@ -84,7 +83,10 @@ export function handlerError(err: any) {
 				w.showErrorMessage("Failed to create project due to reaching maximum number of projects allowed within the free tier.", "Upgrade").then(
 					(res) => {
 						if (res === "Upgrade") {
-							commands.executeCommand("vscode.open", `${choreoEnvConfig.getBillingUrl()}/cloud/choreo/upgrade`);
+							commands.executeCommand(
+								"vscode.open",
+								`${ext.config?.billingConsoleUrl}/cloud/${extensionName === "Devant" ? "devant" : "choreo"}/upgrade`,
+							);
 						}
 					},
 				);
@@ -95,7 +97,10 @@ export function handlerError(err: any) {
 					"Upgrade",
 				).then((res) => {
 					if (res === "Upgrade") {
-						commands.executeCommand("vscode.open", `${choreoEnvConfig.getBillingUrl()}/cloud/choreo/upgrade`);
+						commands.executeCommand(
+							"vscode.open",
+							`${ext.config?.billingConsoleUrl}/cloud/${extensionName === "Devant" ? "devant" : "choreo"}/upgrade`,
+						);
 					}
 				});
 				break;
@@ -117,11 +122,10 @@ export function handlerError(err: any) {
 			case ErrorCode.NoAccountAvailable:
 				w.showErrorMessage(`It looks like you don't have an account yet. Please sign up before logging in.`, "Sign Up").then((res) => {
 					if (res === "Sign Up") {
-						if (extensionName === "Devant") {
-							commands.executeCommand("vscode.open", `${choreoEnvConfig.getDevantUrl()}/signup`);
-						} else {
-							commands.executeCommand("vscode.open", `${choreoEnvConfig.getConsoleUrl()}/signup`);
-						}
+						commands.executeCommand(
+							"vscode.open",
+							` ${extensionName === "Devant" ? ext.config?.devantConsoleUrl : ext.config?.choreoConsoleUrl}/signup`,
+						);
 					}
 				});
 				break;
@@ -131,11 +135,7 @@ export function handlerError(err: any) {
 					`Open ${extensionName} Console`,
 				).then((res) => {
 					if (res === `Open ${extensionName} Console`) {
-						if (extensionName === "Devant") {
-							commands.executeCommand("vscode.open", choreoEnvConfig.getDevantUrl());
-						} else {
-							commands.executeCommand("vscode.open", choreoEnvConfig.getConsoleUrl());
-						}
+						commands.executeCommand("vscode.open", extensionName === "Devant" ? ext.config?.devantConsoleUrl : ext.config?.choreoConsoleUrl);
 					}
 				});
 				break;

@@ -82,7 +82,8 @@ const markDownOverrides: { [key: string]: FC<PropsWithChildren<any>> } = {
 		<blockquote className="my-2 rounded-sm border-l-4 border-opacity-30 pl-4 italic text-opacity-60">{children}</blockquote>
 	),
 	// TODO: move into separate component
-	code: ({ inline, children, className }) => {
+	code: ({ children, className, node }) => {
+		const isInline = !className &&  node?.position?.end?.line === node?.position?.start?.line
 		// Extract language from className
 		const match = /language-(\w+)/.exec(className || "");
 		const language: any = match != null ? match[1] : "markdown";
@@ -92,7 +93,7 @@ const markDownOverrides: { [key: string]: FC<PropsWithChildren<any>> } = {
 			mutationFn: (text: string) => clipboardy.write(text),
 			onSuccess: () => ChoreoWebViewAPI.getInstance().showInfoMsg("Code has been copied to the clipboard."),
 		});
-		if (inline) {
+		if (isInline) {
 			return <code className="bg-transparent font-mono text-[11px] ">{children}</code>;
 		}
 
@@ -216,7 +217,7 @@ const markDownOverrides: { [key: string]: FC<PropsWithChildren<any>> } = {
 
 export const Markdown: FC<Props> = ({ children }) => {
 	return (
-		<ReactMarkdown className="flex flex-col" remarkPlugins={[gfm]} rehypePlugins={[rehypeRaw]} components={markDownOverrides}>
+		<ReactMarkdown remarkPlugins={[gfm]} rehypePlugins={[rehypeRaw]} components={markDownOverrides}>
 			{children}
 		</ReactMarkdown>
 	);
