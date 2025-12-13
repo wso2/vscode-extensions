@@ -17,7 +17,8 @@
  */
 
 import * as vscode from "vscode";
-import { type ConfigurationChangeEvent, commands, window, workspace } from "vscode";
+import { type ConfigurationChangeEvent, authentication, commands, window, workspace } from "vscode";
+import { WSO2AuthenticationProvider, WSO2_AUTH_PROVIDER_ID } from "./auth/wso2-auth-provider";
 import { PlatformExtensionApi } from "./PlatformExtensionApi";
 import { ChoreoRPCClient } from "./choreo-rpc";
 import { initRPCServer } from "./choreo-rpc/activate";
@@ -30,7 +31,6 @@ import { ext } from "./extensionVariables";
 import { getLogger, initLogger } from "./logger/logger";
 import { activateChoreoMcp } from "./mcp";
 import { activateStatusbar } from "./status-bar";
-import { authStore } from "./stores/auth-store";
 import { contextStore } from "./stores/context-store";
 import { dataCacheStore } from "./stores/data-cache-store";
 import { locationStore } from "./stores/location-store";
@@ -53,15 +53,12 @@ export async function activate(context: vscode.ExtensionContext) {
 	getLogger().info(`CLI version: ${getCliVersion()}`);
 
 	// Initialize stores
-	await authStore.persist.rehydrate();
 	await contextStore.persist.rehydrate();
 	await dataCacheStore.persist.rehydrate();
 	await locationStore.persist.rehydrate();
 
 	// Set context values
-	authStore.subscribe(({ state }) => {
-		vscode.commands.executeCommand("setContext", "isLoggedIn", !!state.userInfo);
-	});
+	// Note: authProvider will be set up below, so we'll subscribe to it in initAuth
 	contextStore.subscribe(({ state }) => {
 		vscode.commands.executeCommand("setContext", "isLoadingContextDirs", state.loading);
 		vscode.commands.executeCommand("setContext", "hasSelectedProject", !!state.selected);
@@ -74,9 +71,23 @@ export async function activate(context: vscode.ExtensionContext) {
 	const rpcClient = new ChoreoRPCClient();
 	ext.clients = { rpcClient: rpcClient };
 
-	await initRPCServer()
+	// Initialize and register authentication provider
+	const authProvider = new WSO2AuthenticationProvider(context.secrets);
+	ext.authProvider = authProvider;
+	context.subscriptions.push(
+		authentication.registerAuthenticationProvider(WSO2_AUTH_PROVIDER_ID, "WSO2 Platform", authProvider, {
+			supportsMultipleAccounts: false,
+		}),
+	);
+
+	// Subscribe to auth state changes
+	authProvider.subscribe(({ state }) => {
+		vscode.commands.executeCommand("setContext", "isLoggedIn", !!state.userInfo);
+	});
+
+	await initRPCServer();
 	await ext.clients.rpcClient.init();
-	authStore.getState().initAuth();
+	authProvider.getState().initAuth();
 	continueCreateComponent();
 	if (ext.isChoreoExtInstalled) {
 		addTerminalHandlers();
@@ -116,7 +127,7 @@ function registerPreInitHandlers(): any {
 			);
 			if (selection === "Restart Now") {
 				if (affectsConfiguration("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment")) {
-					authStore.getState().logout();
+					ext.authProvider?.getState().logout();
 				}
 				commands.executeCommand("workbench.action.reloadWindow");
 			}

@@ -19,7 +19,7 @@
 import { CommandIds, type ComponentKind, type ExtensionName, type Organization, type Project, type UserInfo } from "@wso2/wso2-platform-core";
 import { ProgressLocation, type QuickPickItem, QuickPickItemKind, type WorkspaceFolder, commands, window, workspace } from "vscode";
 import { type ExtensionVariables, ext } from "../extensionVariables";
-import { authStore, waitForLogin } from "../stores/auth-store";
+import { waitForLogin } from "../auth/wso2-auth-provider";
 import { dataCacheStore } from "../stores/data-cache-store";
 import { webviewStateStore } from "../stores/webview-state-store";
 
@@ -326,7 +326,7 @@ export async function quickPickWithLoader<T>(params: {
 }
 
 export const getUserInfoForCmd = async (message: string): Promise<UserInfo | null> => {
-	let userInfo = authStore.getState().state.userInfo;
+	let userInfo = ext.authProvider?.getState().state.userInfo;
 	const extensionName = webviewStateStore.getState().state.extensionName;
 	if (!userInfo) {
 		const loginSelection = await window.showInformationMessage(
@@ -351,7 +351,7 @@ export const getUserInfoForCmd = async (message: string): Promise<UserInfo | nul
 			return null;
 		}
 	}
-	return userInfo;
+	return userInfo!;
 };
 
 export const setExtensionName = (extName?: ExtensionName) => {

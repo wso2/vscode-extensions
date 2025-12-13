@@ -21,7 +21,6 @@ import { ResponseError } from "vscode-jsonrpc";
 import { ErrorCode } from "./choreo-rpc/constants";
 import { ext } from "./extensionVariables";
 import { getLogger } from "./logger/logger";
-import { authStore } from "./stores/auth-store";
 import { webviewStateStore } from "./stores/webview-state-store";
 
 export function handlerError(err: any) {
@@ -44,20 +43,20 @@ export function handlerError(err: any) {
 				getLogger().error("InternalError", err);
 				break;
 			case ErrorCode.UnauthorizedError:
-				if (authStore.getState().state?.userInfo) {
-					authStore.getState().logout();
+				if (ext.authProvider?.getState().state?.userInfo) {
+					ext.authProvider?.getState().logout();
 					w.showErrorMessage("Unauthorized. Please sign in again.");
 				}
 				break;
 			case ErrorCode.TokenNotFoundError:
-				if (authStore.getState().state?.userInfo) {
-					authStore.getState().logout();
+				if (ext.authProvider?.getState().state?.userInfo) {
+					ext.authProvider?.getState().logout();
 					w.showErrorMessage("Token not found. Please sign in again.");
 				}
 				break;
 			case ErrorCode.InvalidTokenError:
-				if (authStore.getState().state?.userInfo) {
-					authStore.getState().logout();
+				if (ext.authProvider?.getState().state?.userInfo) {
+					ext.authProvider?.getState().logout();
 					w.showErrorMessage("Invalid token. Please sign in again.");
 				}
 				break;
@@ -65,8 +64,8 @@ export function handlerError(err: any) {
 				getLogger().error("ForbiddenError", err);
 				break;
 			case ErrorCode.RefreshTokenError:
-				if (authStore.getState().state?.userInfo) {
-					authStore.getState().logout();
+				if (ext.authProvider?.getState().state?.userInfo) {
+					ext.authProvider?.getState().logout();
 					w.showErrorMessage("Failed to refresh user session. Please sign in again.");
 				}
 				break;

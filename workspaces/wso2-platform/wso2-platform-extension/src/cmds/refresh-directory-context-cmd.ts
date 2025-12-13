@@ -19,7 +19,6 @@
 import { CommandIds, type ICmdParamsBase } from "@wso2/wso2-platform-core";
 import { type ExtensionContext, commands, window } from "vscode";
 import { ext } from "../extensionVariables";
-import { authStore } from "../stores/auth-store";
 import { contextStore } from "../stores/context-store";
 import { isRpcActive, setExtensionName } from "./cmd-utils";
 
@@ -29,7 +28,7 @@ export function refreshContextCommand(context: ExtensionContext) {
 			try {
 				isRpcActive(ext);
 				setExtensionName(params?.extName);
-				const userInfo = authStore.getState().state.userInfo;
+				const userInfo = ext.authProvider?.getState().state.userInfo;
 				if (!userInfo) {
 					throw new Error("You are not logged in. Please log in and retry.");
 				}
