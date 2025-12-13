@@ -71,22 +71,27 @@ export const VerticalStepperItem: FC<StepItemProps> = ({
 
 	return (
 		<div>
-			<div className="flex items-center gap-2">
-				<div
-					ref={stepperItemIconRef}
-					className={classNames(
-						"flex h-5 w-5 items-center justify-center rounded-[100px] font-thin text-xs transition-colors duration-500",
-						index <= currentStep ? "bg-vsc-button-background text-vsc-button-foreground" : "bg-vsc-editorIndentGuide-background",
-					)}
-				>
-					{index < currentStep ? <Codicon name="check" className="!text-xs" /> : <span>{index + 1}</span>}
+			{totalSteps > 1 && (
+				<div className="flex items-center gap-2">
+					<div
+						ref={stepperItemIconRef}
+						className={classNames(
+							"flex h-5 w-5 items-center justify-center rounded-[100px] font-thin text-xs transition-colors duration-500",
+							index <= currentStep ? "bg-vsc-button-background text-vsc-button-foreground" : "bg-vsc-editorIndentGuide-background",
+						)}
+					>
+						{index < currentStep ? <Codicon name="check" className="!text-xs" /> : <span>{index + 1}</span>}
+					</div>
+					<div className={classNames("text-base", index <= currentStep ? "font-semibold" : "font-light opacity-70")}>{item.label}</div>
 				</div>
-				<div className={classNames("text-base", index <= currentStep ? "font-semibold" : "font-light opacity-70")}>{item.label}</div>
-			</div>
+			)}
+
 			<div className="flex">
-				<div className={classNames("w-5 justify-center py-2", index === currentStep ? "hidden sm:flex" : "flex")}>
-					<div className={classNames("h-full w-1 rounded-[4px]", index < totalSteps - 1 && "min-h-4 bg-vsc-editorIndentGuide-background")} />
-				</div>
+				{totalSteps > 1 && (
+					<div className={classNames("w-5 justify-center py-2", index === currentStep ? "hidden sm:flex" : "flex")}>
+						<div className={classNames("h-full w-1 rounded-[4px]", index < totalSteps - 1 && "min-h-4 bg-vsc-editorIndentGuide-background")} />
+					</div>
+				)}
 				<div ref={stepperItemRef} className="flex-1">
 					{index === currentStep && (
 						<div key={item.label} className="sm:p-2">

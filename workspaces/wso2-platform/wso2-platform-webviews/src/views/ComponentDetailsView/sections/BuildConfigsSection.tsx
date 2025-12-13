@@ -30,6 +30,9 @@ import { type IRightPanelSectionItem, RightPanelSection, RightPanelSectionItem }
 
 export const BuildConfigsSection: FC<{ component: ComponentKind }> = ({ component }) => {
 	const buildConfigList = getBuildConfigViewList(component);
+	if (buildConfigList.length === 0) {
+		return null;
+	}
 
 	return (
 		<RightPanelSection title="Build Configurations">
