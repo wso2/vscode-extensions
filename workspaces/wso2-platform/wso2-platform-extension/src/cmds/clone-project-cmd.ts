@@ -167,7 +167,11 @@ export function cloneRepoCommand(context: ExtensionContext) {
 						]);
 
 						// set context.yaml
-						updateContextFile(clonedResp[0].clonedPath, ext.authProvider?.getState().state.userInfo!, selectedProject, selectedOrg, projectCache);
+						const userInfo = ext.authProvider?.getState()?.state?.userInfo;
+						if (!userInfo) {
+							throw new Error("User information is not available. Please ensure you are logged in.");
+						}
+						updateContextFile(clonedResp[0].clonedPath, userInfo, selectedProject, selectedOrg, projectCache);
 						const subDir = params?.component?.spec?.source ? getComponentKindRepoSource(params?.component?.spec?.source)?.path || "" : "";
 						const subDirFullPath = join(clonedResp[0].clonedPath, subDir);
 						if (params?.technology === "ballerina") {
