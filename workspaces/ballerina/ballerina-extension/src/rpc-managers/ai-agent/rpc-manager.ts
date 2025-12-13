@@ -34,6 +34,7 @@ import {
     AIToolsResponse,
     AgentTool,
     AgentToolRequest,
+    ConfigureDefaultModelProviderRequest,
     FlowNode,
     McpToolUpdateRequest,
     McpToolsRequest,
@@ -46,7 +47,7 @@ import vscode from "vscode";
 import { URI, Utils } from "vscode-uri";
 import { StateMachine } from "../../stateMachine";
 import { updateSourceCode } from "../../utils/source-utils";
-import { CONFIGURE_DEFAULT_MODEL_COMMAND } from "../../features/ai/constants";
+import { CONFIGURE_DEFAULT_DEVANT_CHUNKER_COMMAND, CONFIGURE_DEFAULT_MODEL_COMMAND } from "../../features/ai/constants";
 
 
 interface EntryPosition {
@@ -509,7 +510,11 @@ export class AiAgentRpcManager implements AIAgentAPI {
         });
     }
 
-    async configureDefaultModelProvider(): Promise<void> {
-        await vscode.commands.executeCommand(CONFIGURE_DEFAULT_MODEL_COMMAND);
+    async configureDefaultModelProvider(params: ConfigureDefaultModelProviderRequest): Promise<void> {
+        await vscode.commands.executeCommand(CONFIGURE_DEFAULT_MODEL_COMMAND, params.projectPath);
+    }
+
+    async configureDefaultDevantChunker(): Promise<void> {
+        await vscode.commands.executeCommand(CONFIGURE_DEFAULT_DEVANT_CHUNKER_COMMAND);
     }
 }

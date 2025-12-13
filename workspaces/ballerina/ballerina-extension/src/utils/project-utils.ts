@@ -20,12 +20,15 @@ import { extension } from "../BalExtensionContext";
 import { Uri, window, workspace, RelativePattern, WorkspaceFolder } from "vscode";
 import * as path from 'path';
 import { checkIsBallerinaPackage, isSupportedVersion, VERSION } from "./config";
-import { BallerinaProject } from "@wso2/ballerina-core";
+import { BallerinaProject, ProjectInfo } from "@wso2/ballerina-core";
 import { readFileSync } from 'fs';
 import { dirname, sep } from 'path';
 import { parseTomlToConfig } from '../features/config-generator/utils';
 import { PROJECT_TYPE } from "../features/project";
 import { StateMachine } from "../stateMachine";
+import { BallerinaExtension } from '../core';
+import { isBallerinaProjectAsync, showNoBallerinaSourceWarningMessage } from '../features/ai/utils';
+import { getCurrentBallerinaProjectFromContext } from '../features/config-generator/configGenerator';
 
 const BALLERINA_TOML_REGEX = `**${sep}Ballerina.toml`;
 const BALLERINA_FILE_REGEX = `**${sep}*.bal`;
@@ -201,11 +204,11 @@ export function tryGetCurrentBallerinaFile(): string | undefined {
 async function resolveProjectRootFromFile(filePath: string): Promise<string | undefined> {
     try {
         const project = await getCurrentBallerinaProject(filePath);
-        
+
         if (project.kind === PROJECT_TYPE.SINGLE_FILE) {
             return filePath;
         }
-        
+
         return project.path;
     } catch {
         return undefined;
@@ -218,6 +221,103 @@ async function resolveProjectRootFromFile(filePath: string): Promise<string | un
  */
 function getWorkspaceRoot(): string | undefined {
     return workspace.workspaceFolders?.[0]?.uri.fsPath;
+}
+
+// Resolves the Config.toml file path for configuration commands.
+export async function resolveConfigFilePath(
+    ballerinaExtInstance: BallerinaExtension,
+    rootPath: string
+): Promise<string | null> {
+    if (await isBallerinaProjectAsync(rootPath)) {
+        return rootPath;
+    }
+
+    if (rootPath && rootPath !== "") {
+        return rootPath;
+    }
+
+    const workspaceRoot = getWorkspaceRoot();
+    if (!workspaceRoot) {
+        return await showNoBallerinaSourceWarningMessage();
+    }
+
+    const projectInfo = await ballerinaExtInstance.langClient?.getProjectInfo({
+        projectPath: workspaceRoot
+    });
+
+    const isMultiProject = projectInfo?.children && projectInfo.children.length > 0;
+
+    if (isMultiProject) {
+        const activeTextEditor = window.activeTextEditor;
+        if (activeTextEditor) {
+            const activeFilePath = activeTextEditor.document.uri.fsPath;
+            const matchingChild = projectInfo.children!.find(child =>
+                activeFilePath.startsWith(child.projectPath || '')
+            );
+            if (matchingChild && matchingChild.projectPath) {
+                return matchingChild.projectPath;
+            }
+        }
+
+        const packages = projectInfo.children!
+            .filter(child => child.projectPath)
+            .map(child => ({
+                label: path.basename(child.projectPath),
+                path: child.projectPath
+            }));
+
+        if (packages.length === 0) {
+            return await showNoBallerinaSourceWarningMessage();
+        }
+
+        const selectedPackage = await window.showQuickPick(
+            packages.map(pkg => pkg.label),
+            { placeHolder: "Select a package to configure" }
+        );
+
+        if (!selectedPackage) {
+            return null;
+        }
+
+        const selectedPkg = packages.find(pkg => pkg.label === selectedPackage);
+        return selectedPkg?.path || null;
+    }
+
+    const activeTextEditor = window.activeTextEditor;
+    const currentProject = ballerinaExtInstance.getDocumentContext().getCurrentProject();
+    let activeFilePath = "";
+
+    if (activeTextEditor) {
+        activeFilePath = activeTextEditor.document.uri.fsPath;
+    }
+
+    if (currentProject == null && activeFilePath == "") {
+        return await showNoBallerinaSourceWarningMessage();
+    }
+
+    try {
+        const currentBallerinaProject: BallerinaProject | undefined =
+            await getCurrentBallerinaProjectFromContext(ballerinaExtInstance);
+
+        if (!currentBallerinaProject) {
+            return await showNoBallerinaSourceWarningMessage();
+        }
+
+        let configPath = "";
+        if (currentBallerinaProject.kind == 'SINGLE_FILE_PROJECT') {
+            configPath = path.dirname(currentBallerinaProject.path || '');
+        } else {
+            configPath = currentBallerinaProject.path || '';
+        }
+
+        if (configPath == undefined || configPath == "") {
+            return await showNoBallerinaSourceWarningMessage();
+        }
+
+        return configPath;
+    } catch (error) {
+        return await showNoBallerinaSourceWarningMessage();
+    }
 }
 
 export {
