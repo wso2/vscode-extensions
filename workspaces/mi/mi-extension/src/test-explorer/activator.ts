@@ -97,7 +97,7 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
         const fileUri = `${id.split('.xml/')[0]}.xml`;
         const testCaseName = id.split('.xml/')[1];
         const langClient = await MILanguageClient.getInstance(getProjectRoot(Uri.parse(fileUri))!);
-        const st = await langClient?.languageClient?.getSyntaxTree({
+        const st = await langClient.getSyntaxTree({
             documentIdentifier: {
                 uri: fileUri
             },
@@ -160,7 +160,7 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
         try {
             const projectRoot = getProjectRoot(Uri.file(fileUri));
             const langClient = await MILanguageClient.getInstance(projectRoot!);
-            const st = await langClient?.languageClient?.getSyntaxTree({
+            const st = await langClient.getSyntaxTree({
                 documentIdentifier: {
                     uri: fileUri
                 },
@@ -271,7 +271,7 @@ export async function activateTestExplorer(extensionContext: ExtensionContext) {
 export async function createTests(uri: Uri) {
     const projectRoot = getProjectRoot(uri);
     const langClient = await MILanguageClient.getInstance(projectRoot!);
-    const projectDetails = await langClient?.languageClient?.getProjectDetails();
+    const projectDetails = await langClient.getProjectDetails();
     const projectName = projectDetails?.primaryDetails?.projectName?.value ?? getProjectName(uri);
 
     if (!testController || !projectRoot || !projectName) {
@@ -351,7 +351,7 @@ async function getTestCaseNamesAndTestSuiteType(uri: Uri) {
     }
 
     const langClient = await MILanguageClient.getInstance(projectUri);
-    const st = await langClient?.languageClient?.getSyntaxTree({
+    const st = await langClient.getSyntaxTree({
         documentIdentifier: {
             uri: uri.fsPath
         },
@@ -363,7 +363,7 @@ async function getTestCaseNamesAndTestSuiteType(uri: Uri) {
     const unitTestST: UnitTest = st?.syntaxTree["unit-test"];
     const testArtifact = unitTestST?.unitTestArtifacts?.testArtifact?.artifact?.textNode;
 
-    const projectStructure = await langClient.languageClient!.getProjectStructure(projectUri);
+    const projectStructure = await langClient!.getProjectStructure(projectUri);
 
     const artifacts = projectStructure.directoryMap.src?.main?.wso2mi?.artifacts;
     const apis = artifacts?.apis?.map((api: ProjectStructureArtifactResponse) => { return { name: api.name, path: api.path.split(projectUri)[1], type: "Api" } });
@@ -397,7 +397,7 @@ async function getTestCases(uri: Uri) {
     const projectRoot = getProjectRoot(uri);
     const langClient = await MILanguageClient.getInstance(projectRoot!);
 
-    const st = await langClient?.languageClient?.getSyntaxTree({
+    const st = await langClient.getSyntaxTree({
         documentIdentifier: {
             uri: uri.fsPath
         },
