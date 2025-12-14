@@ -73,10 +73,6 @@ describe('VSCode Data mapper Webview UI Tests', () => {
         await DataMapper.fitToScreen();
     });
 
-    it('Create mapping using query expression', async () => {
-        await DataMapper.clickOnConvertToQuery('input.Assets', 'Output.Assets');
-    });
-
     it('Navigate into query expression', async () => {
         await DataMapper.navigateIntoQueryExpr('Output.Assets');
         await DataMapper.waitTillInputsAndOutputRender(['expandedQueryExpr.source.AssetsItem'], 'mappingConstructor');

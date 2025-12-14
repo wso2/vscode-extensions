@@ -158,24 +158,6 @@ export class DataMapper {
         await fitToScreenButtonElement.click();
     }
 
-    static async clickOnConvertToQuery(sourceField: string, targetField: string) {
-        // Click on the link
-        const link = By.xpath(`//*[@data-testid='link-from-${sourceField}.OUT-to-mappingConstructor.${targetField}.IN']`);
-        const linkElement = await waitUntilElementIsEnabled(link);
-        await linkElement.click();
-
-        // Click on code action button
-        const codeActionButtonLocator = By.xpath("//*[@data-testid='expression-label-code-action']");
-        const codeActionButton = await waitUntil(codeActionButtonLocator);
-        await codeActionButton.click();
-
-        // Click on convert to query code action
-        const codeAction = await waitUntilElementIsEnabled(By.xpath("//li[contains(text(), 'Convert to Query')]"));
-        await codeAction.click();
-
-        await this.waitTillQueryExprWidgetRender(sourceField, targetField);
-    }
-
     static async navigateIntoQueryExpr(targetField: string) {
         const goToQueryExpressionButtonLocator = By.xpath(`//*[@data-testid='expand-query-${targetField}']`);
         const goToQueryExpressionButton = await waitUntilElementIsEnabled(goToQueryExpressionButtonLocator);

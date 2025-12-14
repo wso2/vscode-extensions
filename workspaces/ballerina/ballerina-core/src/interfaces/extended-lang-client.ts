@@ -383,17 +383,6 @@ export interface AddArrayElementRequest {
     subMappingName?: string;
 }
 
-export interface ConvertToQueryRequest {
-    filePath: string;
-    codedata: CodeData;
-    mapping: Mapping;
-    clauseType: ResultClauseType;
-    varName?: string;
-    targetField: string;
-    propertyKey?: string;
-    subMappingName?: string;
-}
-
 export interface AddClausesRequest {
     filePath: string;
     codedata: CodeData;

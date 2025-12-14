@@ -19,7 +19,6 @@
  */
 import {
     AddArrayElementRequest,
-    ConvertToQueryRequest,
     AddClausesRequest,
     DeleteClauseRequest,
     DataMapperModelRequest,
@@ -57,7 +56,6 @@ export const getDataMapperModel: RequestType<DataMapperModelRequest, DataMapperM
 export const getDataMapperSource: RequestType<DataMapperSourceRequest, DataMapperSourceResponse> = { method: `${_preFix}/getDataMapperSource` };
 export const getVisualizableFields: RequestType<VisualizableFieldsRequest, VisualizableFieldsResponse> = { method: `${_preFix}/getVisualizableFields` };
 export const addNewArrayElement: RequestType<AddArrayElementRequest, DataMapperSourceResponse> = { method: `${_preFix}/addNewArrayElement` };
-export const convertToQuery: RequestType<ConvertToQueryRequest, DataMapperSourceResponse> = { method: `${_preFix}/convertToQuery` };
 export const addClauses: RequestType<AddClausesRequest, DataMapperSourceResponse> = { method: `${_preFix}/addClauses` };
 export const deleteClause: RequestType<DeleteClauseRequest, DataMapperSourceResponse> = { method: `${_preFix}/deleteClause` };
 export const addSubMapping: RequestType<AddSubMappingRequest, DataMapperSourceResponse> = { method: `${_preFix}/addSubMapping` };

@@ -25,7 +25,6 @@ export interface IDataMapperContext {
     addView: (view: View) => void;
     applyModifications: (outputId: string, expression: string, viewId: string, name: string) => Promise<void>;
     addArrayElement: (outputId: string, viewId: string, name: string) => Promise<void>;
-    convertToQuery: (mapping: Mapping, clauseType: ResultClauseType, viewId: string, name: string) => Promise<void>;
     deleteMapping: (mapping: Mapping, viewId: string) => Promise<void>;
     deleteSubMapping: (index: number, viewId: string) => Promise<void>;
     addClauses: (clause: IntermediateClause, targetField: string, isNew: boolean, index:number) => Promise<void>;
@@ -45,7 +44,6 @@ export class DataMapperContext implements IDataMapperContext {
         public addView: (view: View) => void,
         public applyModifications: (outputId: string, expression: string, viewId: string, name: string) => Promise<void>,
         public addArrayElement: (outputId: string, viewId: string, name: string) => Promise<void>,
-        public convertToQuery: (mapping: Mapping, clauseType: ResultClauseType, viewId: string, name: string) => Promise<void>,
         public deleteMapping: (mapping: Mapping, viewId: string) => Promise<void>,
         public deleteSubMapping: (index: number, viewId: string) => Promise<void>,
         public addClauses: (clause: IntermediateClause, targetField: string, isNew: boolean, index:number) => Promise<void>,

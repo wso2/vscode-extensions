@@ -24,7 +24,6 @@ import {
     ClausePositionRequest,
     ClausePositionResponse,
     ClearTypeCacheResponse,
-    ConvertToQueryRequest,
     DMModelRequest,
     DataMapperAPI,
     DataMapperModelRequest,
@@ -52,7 +51,6 @@ import {
     addNewArrayElement,
     addSubMapping,
     clearTypeCache,
-    convertToQuery,
     deleteClause,
     deleteMapping,
     deleteSubMapping,
@@ -98,10 +96,6 @@ export class DataMapperRpcClient implements DataMapperAPI {
 
     addNewArrayElement(params: AddArrayElementRequest): Promise<DataMapperSourceResponse> {
         return this._messenger.sendRequest(addNewArrayElement, HOST_EXTENSION, params);
-    }
-
-    convertToQuery(params: ConvertToQueryRequest): Promise<DataMapperSourceResponse> {
-        return this._messenger.sendRequest(convertToQuery, HOST_EXTENSION, params);
     }
 
     addClauses(params: AddClausesRequest): Promise<DataMapperSourceResponse> {

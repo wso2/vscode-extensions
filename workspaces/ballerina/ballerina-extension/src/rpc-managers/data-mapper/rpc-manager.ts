@@ -24,7 +24,6 @@ import {
     ClausePositionRequest,
     ClausePositionResponse,
     ClearTypeCacheResponse,
-    ConvertToQueryRequest,
     DataMapperAPI,
     DataMapperModelRequest,
     DataMapperModelResponse,
@@ -132,28 +131,6 @@ export class DataMapperRpcManager implements DataMapperAPI {
                 .addArrayElement(params)
                 .then((resp) => {
                     console.log(">>> Data mapper add array element response", resp);
-                    updateAndRefreshDataMapper(
-                        resp.textEdits,
-                        params.filePath,
-                        params.codedata,
-                        params.varName,
-                        params.targetField,
-                        params.subMappingName
-                    )
-                    .then(() => {
-                        resolve({ textEdits: resp.textEdits });
-                    });
-                });
-        });
-    }
-
-    async convertToQuery(params: ConvertToQueryRequest): Promise<DataMapperSourceResponse> {
-        return new Promise(async (resolve) => {
-            await StateMachine
-                .langClient()
-                .convertToQuery(params)
-                .then((resp) => {
-                    console.log(">>> Data mapper convert to query response", resp);
                     updateAndRefreshDataMapper(
                         resp.textEdits,
                         params.filePath,

@@ -22,7 +22,6 @@ import debounce from "lodash/debounce";
 
 import {
     AddArrayElementRequest,
-    ConvertToQueryRequest,
     ExpandedDMModel,
     DMFormProps,
     DMModel,
@@ -38,7 +37,6 @@ import {
     NodePosition,
     EVENT_TYPE,
     LineRange,
-    ResultClauseType,
     IOType,
     MACHINE_VIEW,
     VisualizerLocation,
@@ -289,28 +287,6 @@ export function DataMapperView(props: DataMapperViewProps) {
                 {...formProps}
             />
         )
-    }
-
-    const convertToQuery = async (mapping: Mapping, clauseType: ResultClauseType, viewId: string, name: string) => {
-        try {
-            const convertToQueryRequest: ConvertToQueryRequest = {
-                filePath,
-                codedata: viewState.codedata,
-                mapping,
-                clauseType,
-                varName: name,
-                targetField: viewId,
-                propertyKey: "expression", // TODO: Remove this once the API is updated
-                subMappingName: viewState.subMappingName
-            };
-            const resp = await rpcClient
-                .getDataMapperRpcClient()
-                .convertToQuery(convertToQueryRequest);
-            console.log(">>> [Data Mapper] convertToQuery response:", resp);
-        } catch (error) {
-            console.error(error);
-            setIsFileUpdateError(true);
-        }
     }
 
     const addClauses = async (clause: IntermediateClause, targetField: string, isNew: boolean, index: number) => {
@@ -729,7 +705,6 @@ export function DataMapperView(props: DataMapperViewProps) {
                             addArrayElement={addArrayElement}
                             handleView={handleView}
                             generateForm={generateForm}
-                            convertToQuery={convertToQuery}
                             addClauses={addClauses}
                             deleteClause={deleteClause}
                             getClausePosition={getClausePosition}
