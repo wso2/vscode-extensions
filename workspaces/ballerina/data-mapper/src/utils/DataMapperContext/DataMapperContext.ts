@@ -27,7 +27,6 @@ export interface IDataMapperContext {
     addArrayElement: (outputId: string, viewId: string, name: string) => Promise<void>;
     deleteMapping: (mapping: Mapping, viewId: string) => Promise<void>;
     deleteSubMapping: (index: number, viewId: string) => Promise<void>;
-    addClauses: (clause: IntermediateClause, targetField: string, isNew: boolean, index:number) => Promise<void>;
     mapWithCustomFn: (mapping: Mapping, metadata: FnMetadata, viewId: string) => Promise<void>;
     mapWithTransformFn: (mapping: Mapping, metadata: FnMetadata, viewId: string) => Promise<void>;
     goToFunction: (functionRange: LineRange) => Promise<void>;
@@ -46,7 +45,6 @@ export class DataMapperContext implements IDataMapperContext {
         public addArrayElement: (outputId: string, viewId: string, name: string) => Promise<void>,
         public deleteMapping: (mapping: Mapping, viewId: string) => Promise<void>,
         public deleteSubMapping: (index: number, viewId: string) => Promise<void>,
-        public addClauses: (clause: IntermediateClause, targetField: string, isNew: boolean, index:number) => Promise<void>,
         public mapWithCustomFn: (mapping: Mapping, metadata: FnMetadata, viewId: string) => Promise<void>,
         public mapWithTransformFn: (mapping: Mapping, metadata: FnMetadata, viewId: string) => Promise<void>,
         public goToFunction: (functionRange: LineRange) => Promise<void>,

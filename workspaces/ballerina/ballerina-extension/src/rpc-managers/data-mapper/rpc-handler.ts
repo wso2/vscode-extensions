@@ -19,8 +19,6 @@
  */
 import {
     AddArrayElementRequest,
-    addClauses,
-    AddClausesRequest,
     addNewArrayElement,
     addSubMapping,
     AddSubMappingRequest,
@@ -67,7 +65,6 @@ export function registerDataMapperRpcHandlers(messenger: Messenger) {
     messenger.onRequest(getDataMapperSource, (args: DataMapperSourceRequest) => rpcManger.getDataMapperSource(args));
     messenger.onRequest(getVisualizableFields, (args: VisualizableFieldsRequest) => rpcManger.getVisualizableFields(args));
     messenger.onRequest(addNewArrayElement, (args: AddArrayElementRequest) => rpcManger.addNewArrayElement(args));
-    messenger.onRequest(addClauses, (args: AddClausesRequest) => rpcManger.addClauses(args));
     messenger.onRequest(deleteClause, (args: DeleteClauseRequest) => rpcManger.deleteClause(args));
     messenger.onRequest(addSubMapping, (args: AddSubMappingRequest) => rpcManger.addSubMapping(args));
     messenger.onRequest(deleteMapping, (args: DeleteMappingRequest) => rpcManger.deleteMapping(args));

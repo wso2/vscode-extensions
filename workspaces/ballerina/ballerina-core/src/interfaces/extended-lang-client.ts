@@ -383,17 +383,6 @@ export interface AddArrayElementRequest {
     subMappingName?: string;
 }
 
-export interface AddClausesRequest {
-    filePath: string;
-    codedata: CodeData;
-    index: number;
-    clause: IntermediateClause;
-    varName?: string;
-    targetField: string;
-    propertyKey?: string;
-    subMappingName?: string;
-}
-
 export interface DeleteClauseRequest {
     filePath: string;
     codedata: CodeData;

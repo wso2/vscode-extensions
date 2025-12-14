@@ -48,7 +48,6 @@ import {
 } from "../Diagram/Node";
 import { SubMappingNodeInitVisitor } from "../../visitors/SubMappingNodeInitVisitor";
 import { SubMappingConfigForm } from "./SidePanel/SubMappingConfig/SubMappingConfigForm";
-import { ClausesPanel } from "./SidePanel/QueryClauses/ClausesPanel";
 
 const fadeIn = keyframes`
     from { opacity: 0.5; }
@@ -133,7 +132,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
         deleteMapping,
         deleteSubMapping,
         generateForm,
-        addClauses,
         deleteClause,
         getClausePosition,
         mapWithCustomFn,
@@ -162,7 +160,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
             resetSubMappingConfig: state.resetSubMappingConfig
         }))
     );
-    const { isQueryClausesPanelOpen} = useDMQueryClausesPanelStore();
 
     const { resetSearchStore } = useDMSearchStore();
     const { rpcClient } = useRpcContext();
@@ -243,7 +240,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
                 addArrayElement,
                 deleteMapping,
                 deleteSubMapping,
-                addClauses,
                 mapWithCustomFn,
                 mapWithTransformFn,
                 goToFunction,
@@ -360,17 +356,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
                             updateView={editView}
                             addSubMapping={addNewSubMapping}
                             generateForm={generateForm}
-                        />
-                    )}
-                    {isQueryClausesPanelOpen && (
-                        <ClausesPanel
-                            query={model.query}
-                            targetField={views[views.length - 1].targetField}
-                            addClauses={addClauses}
-                            deleteClause={deleteClause}
-                            getClausePosition={getClausePosition}
-                            generateForm={generateForm}
-                            genUniqueName={genUniqueName}
                         />
                     )}
                 </>

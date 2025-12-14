@@ -19,7 +19,6 @@
  */
 import {
     AddArrayElementRequest,
-    AddClausesRequest,
     AddSubMappingRequest,
     ClausePositionRequest,
     ClausePositionResponse,
@@ -47,7 +46,6 @@ import {
     PropertyResponse,
     VisualizableFieldsRequest,
     VisualizableFieldsResponse,
-    addClauses,
     addNewArrayElement,
     addSubMapping,
     clearTypeCache,
@@ -96,10 +94,6 @@ export class DataMapperRpcClient implements DataMapperAPI {
 
     addNewArrayElement(params: AddArrayElementRequest): Promise<DataMapperSourceResponse> {
         return this._messenger.sendRequest(addNewArrayElement, HOST_EXTENSION, params);
-    }
-
-    addClauses(params: AddClausesRequest): Promise<DataMapperSourceResponse> {
-        return this._messenger.sendRequest(addClauses, HOST_EXTENSION, params);
     }
 
     deleteClause(params: DeleteClauseRequest): Promise<DataMapperSourceResponse> {

@@ -26,7 +26,6 @@ import {
     DMFormProps,
     DMModel,
     ModelState,
-    AddClausesRequest,
     DMViewState,
     IntermediateClause,
     TriggerCharacter,
@@ -287,32 +286,6 @@ export function DataMapperView(props: DataMapperViewProps) {
                 {...formProps}
             />
         )
-    }
-
-    const addClauses = async (clause: IntermediateClause, targetField: string, isNew: boolean, index: number) => {
-        try {
-            const addClausesRequest: AddClausesRequest = {
-                filePath,
-                codedata: {
-                    ...viewState.codedata,
-                    isNew
-                },
-                index,
-                clause,
-                targetField,
-                varName: name,
-                subMappingName: viewState.subMappingName
-            };
-            console.log(">>> [Data Mapper] addClauses request:", addClausesRequest);
-
-            const resp = await rpcClient
-                .getDataMapperRpcClient()
-                .addClauses(addClausesRequest);
-            console.log(">>> [Data Mapper] addClauses response:", resp);
-        } catch (error) {
-            console.error(error);
-            setIsFileUpdateError(true);
-        }
     }
 
     const deleteClause = async (targetField: string, index: number) => {
@@ -705,7 +678,6 @@ export function DataMapperView(props: DataMapperViewProps) {
                             addArrayElement={addArrayElement}
                             handleView={handleView}
                             generateForm={generateForm}
-                            addClauses={addClauses}
                             deleteClause={deleteClause}
                             getClausePosition={getClausePosition}
                             addSubMapping={addSubMapping}

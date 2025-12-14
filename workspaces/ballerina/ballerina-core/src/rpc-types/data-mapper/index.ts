@@ -17,7 +17,6 @@
  */
 import {
     AddArrayElementRequest,
-    AddClausesRequest,
     DeleteClauseRequest,
     DataMapperModelRequest,
     DataMapperModelResponse,
@@ -53,7 +52,6 @@ export interface DataMapperAPI {
     getDataMapperSource: (params: DataMapperSourceRequest) => Promise<DataMapperSourceResponse>;
     getVisualizableFields: (params: VisualizableFieldsRequest) => Promise<VisualizableFieldsResponse>;
     addNewArrayElement: (params: AddArrayElementRequest) => Promise<DataMapperSourceResponse>;
-    addClauses: (params: AddClausesRequest) => Promise<DataMapperSourceResponse>;
     deleteClause: (params: DeleteClauseRequest) => Promise<DataMapperSourceResponse>;
     addSubMapping: (params: AddSubMappingRequest) => Promise<DataMapperSourceResponse>;
     deleteMapping: (params: DeleteMappingRequest) => Promise<DataMapperSourceResponse>;

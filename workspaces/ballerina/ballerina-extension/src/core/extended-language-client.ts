@@ -219,7 +219,6 @@ import {
     MemoryManagersRequest,
     MemoryManagersResponse,
     ArtifactsNotification,
-    AddClausesRequest,
     PropertyRequest,
     PropertyResponse,
     OpenConfigTomlRequest,
@@ -362,7 +361,6 @@ enum EXTENDED_APIS {
     DATA_MAPPER_GET_SOURCE = 'dataMapper/getSource',
     DATA_MAPPER_VISUALIZABLE = 'dataMapper/visualizable',
     DATA_MAPPER_ADD_ELEMENT = 'dataMapper/addElement',
-    DATA_MAPPER_ADD_CLAUSES = 'dataMapper/addClauses',
     DATA_MAPPER_DELETE_CLAUSE = 'dataMapper/deleteClause',
     DATA_MAPPER_ADD_SUB_MAPPING = 'dataMapper/addSubMapping',
     DATA_MAPPER_DELETE_MAPPING = 'dataMapper/deleteMapping',
@@ -802,10 +800,6 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
 
     async addArrayElement(params: AddArrayElementRequest): Promise<DataMapperSourceResponse> {
         return this.sendRequest<DataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_ADD_ELEMENT, params);
-    }
-
-    async addClauses(params: AddClausesRequest): Promise<DataMapperSourceResponse> {
-        return this.sendRequest<DataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_ADD_CLAUSES, params);
     }
 
     async deleteClause(params: DeleteClauseRequest): Promise<DataMapperSourceResponse> {

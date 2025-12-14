@@ -19,7 +19,6 @@
  */
 import {
     AddArrayElementRequest,
-    AddClausesRequest,
     AddSubMappingRequest,
     ClausePositionRequest,
     ClausePositionResponse,
@@ -131,28 +130,6 @@ export class DataMapperRpcManager implements DataMapperAPI {
                 .addArrayElement(params)
                 .then((resp) => {
                     console.log(">>> Data mapper add array element response", resp);
-                    updateAndRefreshDataMapper(
-                        resp.textEdits,
-                        params.filePath,
-                        params.codedata,
-                        params.varName,
-                        params.targetField,
-                        params.subMappingName
-                    )
-                    .then(() => {
-                        resolve({ textEdits: resp.textEdits });
-                    });
-                });
-        });
-    }
-
-    async addClauses(params: AddClausesRequest): Promise<DataMapperSourceResponse> {
-        return new Promise(async (resolve) => {
-            await StateMachine
-                .langClient()
-                .addClauses(params)
-                .then((resp) => {
-                    console.log(">>> Data mapper add clauses response", resp);
                     updateAndRefreshDataMapper(
                         resp.textEdits,
                         params.filePath,
