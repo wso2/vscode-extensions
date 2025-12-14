@@ -29,7 +29,6 @@ import {
     DataMapperModelResponse,
     DataMapperSourceRequest,
     DataMapperSourceResponse,
-    DeleteClauseRequest,
     DeleteMappingRequest,
     DeleteSubMappingRequest,
     ExpandedDMModelResponse,
@@ -49,7 +48,6 @@ import {
     addNewArrayElement,
     addSubMapping,
     clearTypeCache,
-    deleteClause,
     deleteMapping,
     deleteSubMapping,
     getClausePosition,
@@ -94,10 +92,6 @@ export class DataMapperRpcClient implements DataMapperAPI {
 
     addNewArrayElement(params: AddArrayElementRequest): Promise<DataMapperSourceResponse> {
         return this._messenger.sendRequest(addNewArrayElement, HOST_EXTENSION, params);
-    }
-
-    deleteClause(params: DeleteClauseRequest): Promise<DataMapperSourceResponse> {
-        return this._messenger.sendRequest(deleteClause, HOST_EXTENSION, params);
     }
 
     addSubMapping(params: AddSubMappingRequest): Promise<DataMapperSourceResponse> {

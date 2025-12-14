@@ -39,7 +39,6 @@ import {
     IOType,
     MACHINE_VIEW,
     VisualizerLocation,
-    DeleteClauseRequest,
     IORoot,
     IntermediateClauseType,
     TriggerKind
@@ -286,28 +285,6 @@ export function DataMapperView(props: DataMapperViewProps) {
                 {...formProps}
             />
         )
-    }
-
-    const deleteClause = async (targetField: string, index: number) => {
-        try {
-            const deleteClauseRequest: DeleteClauseRequest = {
-                filePath,
-                codedata: viewState.codedata,
-                index,
-                targetField,
-                varName: name,
-                subMappingName: viewState.subMappingName
-            };
-            console.log(">>> [Data Mapper] deleteClause request:", deleteClauseRequest);
-
-            const resp = await rpcClient
-                .getDataMapperRpcClient()
-                .deleteClause(deleteClauseRequest);
-            console.log(">>> [Data Mapper] deleteClause response:", resp);
-        } catch (error) {
-            console.error(error);
-            setIsFileUpdateError(true);
-        }
     }
 
     const getClausePosition = async (targetField: string, index: number) => {
@@ -678,7 +655,6 @@ export function DataMapperView(props: DataMapperViewProps) {
                             addArrayElement={addArrayElement}
                             handleView={handleView}
                             generateForm={generateForm}
-                            deleteClause={deleteClause}
                             getClausePosition={getClausePosition}
                             addSubMapping={addSubMapping}
                             deleteMapping={deleteMapping}

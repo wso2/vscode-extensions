@@ -132,7 +132,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
         deleteMapping,
         deleteSubMapping,
         generateForm,
-        deleteClause,
         getClausePosition,
         mapWithCustomFn,
         mapWithTransformFn,

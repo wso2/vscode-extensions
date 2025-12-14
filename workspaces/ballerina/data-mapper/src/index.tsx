@@ -67,7 +67,6 @@ export interface DataMapperEditorProps {
     reusable?: boolean;
     applyModifications: (outputId: string, expression: string, viewId: string, name: string) => Promise<void>;
     addArrayElement: (outputId: string, viewId: string, name: string) => Promise<void>;
-    deleteClause: (targetField: string, index: number) => Promise<void>;
     getClausePosition: (targetField: string, index: number) => Promise<LinePosition>;
     addSubMapping: (subMappingName: string, type: string, index: number, targetField: string, importsCodedata?: CodeData) => Promise<void>;
     deleteMapping: (mapping: Mapping, viewId: string) => Promise<void>;

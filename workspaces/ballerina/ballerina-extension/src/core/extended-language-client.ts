@@ -259,7 +259,6 @@ import {
     ServiceModelInitResponse,
     ServiceInitSourceRequest,
     DeleteSubMappingRequest,
-    DeleteClauseRequest,
     ClearTypeCacheResponse,
     FormDiagnosticsRequest,
     FormDiagnosticsResponse,
@@ -361,7 +360,6 @@ enum EXTENDED_APIS {
     DATA_MAPPER_GET_SOURCE = 'dataMapper/getSource',
     DATA_MAPPER_VISUALIZABLE = 'dataMapper/visualizable',
     DATA_MAPPER_ADD_ELEMENT = 'dataMapper/addElement',
-    DATA_MAPPER_DELETE_CLAUSE = 'dataMapper/deleteClause',
     DATA_MAPPER_ADD_SUB_MAPPING = 'dataMapper/addSubMapping',
     DATA_MAPPER_DELETE_MAPPING = 'dataMapper/deleteMapping',
     DATA_MAPPER_DELETE_SUB_MAPPING = 'dataMapper/deleteSubMapping',
@@ -800,10 +798,6 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
 
     async addArrayElement(params: AddArrayElementRequest): Promise<DataMapperSourceResponse> {
         return this.sendRequest<DataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_ADD_ELEMENT, params);
-    }
-
-    async deleteClause(params: DeleteClauseRequest): Promise<DataMapperSourceResponse> {
-        return this.sendRequest<DataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_DELETE_CLAUSE, params);
     }
 
     async addSubMapping(params: AddSubMappingRequest): Promise<DataMapperSourceResponse> {
