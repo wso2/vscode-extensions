@@ -166,7 +166,6 @@ import {
     DataMapperModelResponse,
     VisualizableFieldsRequest,
     VisualizableFieldsResponse,
-    AddArrayElementRequest,
     GetTestFunctionRequest,
     GetTestFunctionResponse,
     AddOrUpdateTestFunctionRequest,
@@ -242,7 +241,6 @@ import {
     GetDataMapperCodedataRequest,
     GetDataMapperCodedataResponse,
     GetSubMappingCodedataRequest,
-    AddSubMappingRequest,
     DeleteMappingRequest,
     MapWithFnRequest,
     AIToolResponse,
@@ -258,7 +256,6 @@ import {
     GetMigrationToolsResponse,
     ServiceModelInitResponse,
     ServiceInitSourceRequest,
-    DeleteSubMappingRequest,
     ClearTypeCacheResponse,
     FormDiagnosticsRequest,
     FormDiagnosticsResponse,
@@ -359,10 +356,7 @@ enum EXTENDED_APIS {
     DATA_MAPPER_MAPPINGS = 'dataMapper/mappings',
     DATA_MAPPER_GET_SOURCE = 'dataMapper/getSource',
     DATA_MAPPER_VISUALIZABLE = 'dataMapper/visualizable',
-    DATA_MAPPER_ADD_ELEMENT = 'dataMapper/addElement',
-    DATA_MAPPER_ADD_SUB_MAPPING = 'dataMapper/addSubMapping',
     DATA_MAPPER_DELETE_MAPPING = 'dataMapper/deleteMapping',
-    DATA_MAPPER_DELETE_SUB_MAPPING = 'dataMapper/deleteSubMapping',
     DATA_MAPPER_MAP_WITH_CUSTOM_FN = 'dataMapper/customFunction',
     DATA_MAPPER_MAP_WITH_TRANSFORM_FN = 'dataMapper/transformationFunction',
     DATA_MAPPER_CODEDATA = 'dataMapper/nodePosition',
@@ -796,20 +790,8 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
         return this.sendRequest<VisualizableFieldsResponse>(EXTENDED_APIS.DATA_MAPPER_VISUALIZABLE, params);
     }
 
-    async addArrayElement(params: AddArrayElementRequest): Promise<DataMapperSourceResponse> {
-        return this.sendRequest<DataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_ADD_ELEMENT, params);
-    }
-
-    async addSubMapping(params: AddSubMappingRequest): Promise<DataMapperSourceResponse> {
-        return this.sendRequest<DataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_ADD_SUB_MAPPING, params);
-    }
-
     async deleteMapping(params: DeleteMappingRequest): Promise<DataMapperSourceResponse> {
         return this.sendRequest<DataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_DELETE_MAPPING, params);
-    }
-
-    async deleteSubMapping(params: DeleteSubMappingRequest): Promise<DataMapperSourceResponse> {
-        return this.sendRequest<DataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_DELETE_SUB_MAPPING, params);
     }
 
     async mapWithCustomFn(params: MapWithFnRequest): Promise<DataMapperSourceResponse> {

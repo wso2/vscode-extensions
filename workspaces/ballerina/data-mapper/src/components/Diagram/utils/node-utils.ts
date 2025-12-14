@@ -16,22 +16,20 @@
  * under the License.
  */
 import { DataMapperNodeModel } from "../Node/commons/DataMapperNode";
-import { InputNode, SubMappingNode } from "../Node";
+import { InputNode } from "../Node";
 import { View } from "../../DataMapper/Views/DataMapperView";
 
 
-export function findInputNode(field: string, outputNode: DataMapperNodeModel, views?: View[], lastViewIndex?: number): InputNode | SubMappingNode | undefined {
+export function findInputNode(field: string, outputNode: DataMapperNodeModel, views?: View[], lastViewIndex?: number): InputNode | undefined {
     const nodes = outputNode.getModel().getNodes();
     
     // Helper function to find input node by field path
-    const findNodeByField = (fieldStartsWith: string): InputNode | SubMappingNode | undefined => {
+    const findNodeByField = (fieldStartsWith: string): InputNode | undefined => {
         return nodes.find(node => {
             if (node instanceof InputNode) {
                 return node.inputType.id === fieldStartsWith;
-            } else if (node instanceof SubMappingNode) {
-                return node.subMappings.some(subMapping => subMapping.name === fieldStartsWith);
             }
-        }) as InputNode | SubMappingNode | undefined;
+        }) as InputNode | undefined;
     };
 
     // try finding input node using 'field' (map from other input ports)

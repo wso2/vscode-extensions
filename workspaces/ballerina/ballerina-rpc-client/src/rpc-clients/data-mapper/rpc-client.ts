@@ -18,8 +18,6 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
-    AddArrayElementRequest,
-    AddSubMappingRequest,
     ClausePositionRequest,
     ClausePositionResponse,
     ClearTypeCacheResponse,
@@ -30,7 +28,6 @@ import {
     DataMapperSourceRequest,
     DataMapperSourceResponse,
     DeleteMappingRequest,
-    DeleteSubMappingRequest,
     ExpandedDMModelResponse,
     FieldPropertyRequest,
     GetDataMapperCodedataRequest,
@@ -45,11 +42,8 @@ import {
     PropertyResponse,
     VisualizableFieldsRequest,
     VisualizableFieldsResponse,
-    addNewArrayElement,
-    addSubMapping,
     clearTypeCache,
     deleteMapping,
-    deleteSubMapping,
     getClausePosition,
     getDataMapperCodedata,
     getDataMapperModel,
@@ -90,20 +84,8 @@ export class DataMapperRpcClient implements DataMapperAPI {
         return this._messenger.sendRequest(getVisualizableFields, HOST_EXTENSION, params);
     }
 
-    addNewArrayElement(params: AddArrayElementRequest): Promise<DataMapperSourceResponse> {
-        return this._messenger.sendRequest(addNewArrayElement, HOST_EXTENSION, params);
-    }
-
-    addSubMapping(params: AddSubMappingRequest): Promise<DataMapperSourceResponse> {
-        return this._messenger.sendRequest(addSubMapping, HOST_EXTENSION, params);
-    }
-
     deleteMapping(params: DeleteMappingRequest): Promise<DataMapperSourceResponse> {
         return this._messenger.sendRequest(deleteMapping, HOST_EXTENSION, params);
-    }
-
-    deleteSubMapping(params: DeleteSubMappingRequest): Promise<DataMapperSourceResponse> {
-        return this._messenger.sendRequest(deleteSubMapping, HOST_EXTENSION, params);
     }
 
     mapWithCustomFn(params: MapWithFnRequest): Promise<DataMapperSourceResponse> {

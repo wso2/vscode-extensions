@@ -25,15 +25,13 @@ import {
     QueryExprConnectorNode,
     LinkConnectorNode,
     QueryOutputNode,
-    SubMappingNode,
     ClauseConnectorNode
 } from "../Node";
 import { IO_NODE_DEFAULT_WIDTH } from "../utils/constants";
 import { DataMapperLinkModel } from "../Link";
 
 export const INPUT_NODES = [
-    InputNode,
-    SubMappingNode
+    InputNode
 ];
 
 export const OUTPUT_NODES = [

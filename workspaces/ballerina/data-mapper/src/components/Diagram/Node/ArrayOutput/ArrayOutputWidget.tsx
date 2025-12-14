@@ -142,19 +142,6 @@ export function ArrayOutputWidget(props: ArrayOutputWidgetProps) {
 		}
 	};
 
-	const handleAddArrayElement = async () => {
-		setLoading(true);
-        const varName = context.views[0].targetField;
-        const viewId = context.views[context.views.length - 1].targetField;
-
-        try {
-            await context.addArrayElement(mapping.output, viewId, varName);
-        } finally {
-            if (!expanded) handleExpand();
-			setLoading(false);
-        }
-    };
-
 	const onRightClick = (event: React.MouseEvent) => {
 		event.preventDefault();
 		setIOConfigPanelType("Output");
@@ -187,7 +174,6 @@ export function ArrayOutputWidget(props: ArrayOutputWidgetProps) {
 				{ title: ValueConfigOption.InitializeArrayWithElement, onClick: handleArrayInitWithElement }
 			]
 			: [
-				{ title: ValueConfigOption.AddElement, onClick: handleAddArrayElement }
 			]),
 		...(elements.length > 0 ? [{ title: ValueConfigOption.DeleteArray, onClick: handleArrayDeletion }] : [])
 	];

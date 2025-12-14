@@ -18,8 +18,6 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
-    AddArrayElementRequest,
-    AddSubMappingRequest,
     ClausePositionRequest,
     ClausePositionResponse,
     ClearTypeCacheResponse,
@@ -29,7 +27,6 @@ import {
     DataMapperSourceRequest,
     DataMapperSourceResponse,
     DeleteMappingRequest,
-    DeleteSubMappingRequest,
     DMModelRequest,
     ExpandedDMModel,
     ExpandedDMModelResponse,
@@ -122,43 +119,6 @@ export class DataMapperRpcManager implements DataMapperAPI {
         });
     }
 
-    async addNewArrayElement(params: AddArrayElementRequest): Promise<DataMapperSourceResponse> {
-        return new Promise(async (resolve) => {
-            await StateMachine
-                .langClient()
-                .addArrayElement(params)
-                .then((resp) => {
-                    console.log(">>> Data mapper add array element response", resp);
-                    updateAndRefreshDataMapper(
-                        resp.textEdits,
-                        params.filePath,
-                        params.codedata,
-                        params.varName,
-                        params.targetField,
-                        params.subMappingName
-                    )
-                    .then(() => {
-                        resolve({ textEdits: resp.textEdits });
-                    });
-                });
-        });
-    }
-
-    async addSubMapping(params: AddSubMappingRequest): Promise<DataMapperSourceResponse> {
-        return new Promise(async (resolve) => {
-            await StateMachine
-                .langClient()
-                .addSubMapping(params)
-                .then((resp) => {
-                    console.log(">>> Data mapper add sub mapping response", resp);
-                    updateAndRefreshDataMapper(resp.textEdits, params.filePath, params.codedata, params.varName)
-                    .then(() => {
-                        resolve({ textEdits: resp.textEdits });
-                    });
-                });
-        });
-    }
-
     async getDataMapperCodedata(params: GetDataMapperCodedataRequest): Promise<GetDataMapperCodedataResponse> {
         return new Promise(async (resolve) => {
             const dataMapperCodedata = await StateMachine
@@ -216,28 +176,6 @@ export class DataMapperRpcManager implements DataMapperAPI {
                 .deleteMapping(params)
                 .then((resp) => {
                     console.log(">>> Data mapper delete mapping response", resp);
-                    updateAndRefreshDataMapper(
-                        resp.textEdits,
-                        params.filePath,
-                        params.codedata,
-                        params.varName,
-                        params.targetField,
-                        params.subMappingName
-                    )
-                    .then(() => {
-                        resolve({ textEdits: resp.textEdits });
-                    });
-                });
-        });
-    }
-
-    async deleteSubMapping(params: DeleteSubMappingRequest): Promise<DataMapperSourceResponse> {
-        return new Promise(async (resolve) => {
-            await StateMachine
-                .langClient()
-                .deleteSubMapping(params)
-                .then((resp) => {
-                    console.log(">>> Data mapper delete sub-mapping response", resp);
                     updateAndRefreshDataMapper(
                         resp.textEdits,
                         params.filePath,

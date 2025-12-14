@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { AddSubMappingRequest, CodeData } from "@wso2/ballerina-core";
+import { CodeData } from "@wso2/ballerina-core";
 
 // Constants for default values related to the sub mapping form
 const EMPTY_LABEL = "";
@@ -52,23 +52,4 @@ const createFlowNode = (subMappingName: string, type: string, codedata: CodeData
     codedata: codedata,
     branches: [] as any[],
     properties: createFlowNodeProperties(subMappingName, type, defaultValue)
-});
-
-// Helper function to create AddSubMappingRequest
-export const createAddSubMappingRequest = (
-    filePath: string,
-    codedata: CodeData,
-    index: number,
-    targetField: string,
-    subMappingName: string,
-    type: string,
-    varName: string,
-    defaultValue: string
-): AddSubMappingRequest => ({
-    filePath,
-    codedata,
-    index,
-    targetField,
-    flowNode: createFlowNode(subMappingName, type, codedata, defaultValue),
-    varName
 });

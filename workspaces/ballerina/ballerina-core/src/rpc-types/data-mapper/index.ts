@@ -16,7 +16,6 @@
  * under the License.
  */
 import {
-    AddArrayElementRequest,
     DataMapperModelRequest,
     DataMapperModelResponse,
     DataMapperSourceRequest,
@@ -31,9 +30,7 @@ import {
     GetDataMapperCodedataResponse,
     GetSubMappingCodedataRequest,
     AllDataMapperSourceRequest,
-    AddSubMappingRequest,
     DeleteMappingRequest,
-    DeleteSubMappingRequest,
     MapWithFnRequest,
     DMModelRequest,
     ProcessTypeReferenceResponse,
@@ -50,10 +47,7 @@ export interface DataMapperAPI {
     getDataMapperModel: (params: DataMapperModelRequest) => Promise<DataMapperModelResponse>;
     getDataMapperSource: (params: DataMapperSourceRequest) => Promise<DataMapperSourceResponse>;
     getVisualizableFields: (params: VisualizableFieldsRequest) => Promise<VisualizableFieldsResponse>;
-    addNewArrayElement: (params: AddArrayElementRequest) => Promise<DataMapperSourceResponse>;
-    addSubMapping: (params: AddSubMappingRequest) => Promise<DataMapperSourceResponse>;
     deleteMapping: (params: DeleteMappingRequest) => Promise<DataMapperSourceResponse>;
-    deleteSubMapping: (params: DeleteSubMappingRequest) => Promise<DataMapperSourceResponse>;
     mapWithCustomFn: (params: MapWithFnRequest) => Promise<DataMapperSourceResponse>;
     mapWithTransformFn: (params: MapWithFnRequest) => Promise<DataMapperSourceResponse>;
     getDataMapperCodedata: (params: GetDataMapperCodedataRequest) => Promise<GetDataMapperCodedataResponse>;

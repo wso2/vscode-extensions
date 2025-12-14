@@ -36,7 +36,6 @@ const EDIT_SUB_MAPPING_HEADER = "Edit Sub Mapping";
 export type SubMappingConfigFormProps = {
     views: View[];
     updateView: (updatedView: View) => void;
-    addSubMapping: (subMappingName: string, type: string, index: number, targetField: string, importsCodedata?: CodeData) => Promise<void>;
     generateForm: (formProps: DMFormProps) => JSX.Element;
 };
 
@@ -46,7 +45,7 @@ interface FormValues {
 }
 
 export function SubMappingConfigForm(props: SubMappingConfigFormProps) {
-    const { views, addSubMapping, generateForm } = props;
+    const { views, generateForm } = props;
 
     const [isAddingNewSubMapping, setIsAddingNewSubMapping] = useState(false);
     const [formValues, setFormValues] = useState<FormValues>({ name: "", type: "" });
@@ -92,8 +91,6 @@ export function SubMappingConfigForm(props: SubMappingConfigFormProps) {
         setIsAddingNewSubMapping(true);
         
         try {
-            const targetField = views[views.length - 1].targetField;
-            await addSubMapping(data.name, data.type, nextSubMappingIndex, targetField, importsCodedata);
         } finally {
             setIsAddingNewSubMapping(false);
         }

@@ -373,38 +373,10 @@ export interface VisualizableFieldsResponse {
     visualizableProperties: VisualizableField;
 }
 
-export interface AddArrayElementRequest {
-    filePath: string;
-    codedata: CodeData;
-    varName?: string;
-    outputId: string;
-    targetField: string;
-    propertyKey?: string;
-    subMappingName?: string;
-}
-
-export interface AddSubMappingRequest {
-    filePath: string;
-    codedata: CodeData;
-    index: number;
-    flowNode: FlowNode;
-    varName?: string;
-    targetField: string;
-}
-
 export interface DeleteMappingRequest {
     filePath: string;
     codedata: CodeData;
     mapping: Mapping;
-    varName?: string;
-    targetField: string;
-    subMappingName?: string;
-}
-
-export interface DeleteSubMappingRequest {
-    filePath: string;
-    codedata: CodeData;
-    index: number;
     varName?: string;
     targetField: string;
     subMappingName?: string;

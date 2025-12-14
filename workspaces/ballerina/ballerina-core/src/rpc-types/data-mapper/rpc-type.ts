@@ -18,7 +18,6 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
-    AddArrayElementRequest,
     DataMapperModelRequest,
     DataMapperModelResponse,
     DataMapperSourceRequest,
@@ -33,9 +32,7 @@ import {
     GetDataMapperCodedataResponse,
     GetSubMappingCodedataRequest,
     AllDataMapperSourceRequest,
-    AddSubMappingRequest,
     DeleteMappingRequest,
-    DeleteSubMappingRequest,
     MapWithFnRequest,
     DMModelRequest,
     ProcessTypeReferenceResponse,
@@ -53,10 +50,7 @@ export const getInitialIDMSource: RequestType<InitialIDMSourceRequest, InitialID
 export const getDataMapperModel: RequestType<DataMapperModelRequest, DataMapperModelResponse> = { method: `${_preFix}/getDataMapperModel` };
 export const getDataMapperSource: RequestType<DataMapperSourceRequest, DataMapperSourceResponse> = { method: `${_preFix}/getDataMapperSource` };
 export const getVisualizableFields: RequestType<VisualizableFieldsRequest, VisualizableFieldsResponse> = { method: `${_preFix}/getVisualizableFields` };
-export const addNewArrayElement: RequestType<AddArrayElementRequest, DataMapperSourceResponse> = { method: `${_preFix}/addNewArrayElement` };
-export const addSubMapping: RequestType<AddSubMappingRequest, DataMapperSourceResponse> = { method: `${_preFix}/addSubMapping` };
 export const deleteMapping: RequestType<DeleteMappingRequest, DataMapperSourceResponse> = { method: `${_preFix}/deleteMapping` };
-export const deleteSubMapping: RequestType<DeleteSubMappingRequest, DataMapperSourceResponse> = { method: `${_preFix}/deleteSubMapping` };
 export const mapWithCustomFn: RequestType<MapWithFnRequest, DataMapperSourceResponse> = { method: `${_preFix}/mapWithCustomFn` };
 export const mapWithTransformFn: RequestType<MapWithFnRequest, DataMapperSourceResponse> = { method: `${_preFix}/mapWithTransformFn` };
 export const getDataMapperCodedata: RequestType<GetDataMapperCodedataRequest, GetDataMapperCodedataResponse> = { method: `${_preFix}/getDataMapperCodedata` };

@@ -18,18 +18,12 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
-    AddArrayElementRequest,
-    addNewArrayElement,
-    addSubMapping,
-    AddSubMappingRequest,
     ClausePositionRequest,
     clearTypeCache,
     DataMapperModelRequest,
     DataMapperSourceRequest,
     deleteMapping,
     DeleteMappingRequest,
-    deleteSubMapping,
-    DeleteSubMappingRequest,
     DMModelRequest,
     FieldPropertyRequest,
     getClausePosition,
@@ -62,10 +56,7 @@ export function registerDataMapperRpcHandlers(messenger: Messenger) {
     messenger.onRequest(getDataMapperModel, (args: DataMapperModelRequest) => rpcManger.getDataMapperModel(args));
     messenger.onRequest(getDataMapperSource, (args: DataMapperSourceRequest) => rpcManger.getDataMapperSource(args));
     messenger.onRequest(getVisualizableFields, (args: VisualizableFieldsRequest) => rpcManger.getVisualizableFields(args));
-    messenger.onRequest(addNewArrayElement, (args: AddArrayElementRequest) => rpcManger.addNewArrayElement(args));
-    messenger.onRequest(addSubMapping, (args: AddSubMappingRequest) => rpcManger.addSubMapping(args));
     messenger.onRequest(deleteMapping, (args: DeleteMappingRequest) => rpcManger.deleteMapping(args));
-    messenger.onRequest(deleteSubMapping, (args: DeleteSubMappingRequest) => rpcManger.deleteSubMapping(args));
     messenger.onRequest(mapWithCustomFn, (args: MapWithFnRequest) => rpcManger.mapWithCustomFn(args));
     messenger.onRequest(mapWithTransformFn, (args: MapWithFnRequest) => rpcManger.mapWithTransformFn(args));
     messenger.onRequest(getDataMapperCodedata, (args: GetDataMapperCodedataRequest) => rpcManger.getDataMapperCodedata(args));

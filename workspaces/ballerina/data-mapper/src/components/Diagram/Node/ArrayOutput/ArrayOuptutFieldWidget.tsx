@@ -129,10 +129,6 @@ export function ArrayOutputFieldWidget(props: ArrayOutputFieldWidgetProps) {
             setExprBarFocusedPort(portIn);
     };
 
-    const onAddElementClick = async () => {
-        await handleAddArrayElement();
-    };
-
     const label = (
         <TruncatedLabelGroup style={{ marginRight: "auto", alignItems: "baseline" }}>
             <TruncatedLabel
@@ -246,10 +242,8 @@ export function ArrayOutputFieldWidget(props: ArrayOutputFieldWidgetProps) {
             <Button
                 id={`add-array-element-${portName}`}
                 key={`array-widget-${portIn?.getName()}-add-element`}
-                className={classes.addArrayElementButton}
                 appearance="icon"
                 aria-label="add"
-                onClick={onAddElementClick}
                 disabled={isAddingElement}
                 data-testid={`array-widget-${portIn?.getName()}-add-element`}
             >
@@ -301,19 +295,6 @@ export function ArrayOutputFieldWidget(props: ArrayOutputFieldWidgetProps) {
         }
     };
 
-    const handleAddArrayElement = async () => {
-        const varName = context.views[0].targetField;
-        const viewId = context.views[context.views.length - 1].targetField;
-
-        setIsAddingElement(true)
-        try {
-            await context.addArrayElement(mapping.output, viewId, varName);
-        } finally {
-            if (!expanded) handleExpand();
-            setIsAddingElement(false);
-        }
-    };
-
     const onMouseEnter = () => {
         setIsHovered(true);
     };
@@ -328,7 +309,6 @@ export function ArrayOutputFieldWidget(props: ArrayOutputFieldWidgetProps) {
         ]
         : hasElements || hasDefaultValue
             ? [
-                { title: ValueConfigOption.AddElement, onClick: handleAddArrayElement },
                 { title: ValueConfigOption.EditValue, onClick: handleEditValue },
                 { title: ValueConfigOption.DeleteArray, onClick: handleArrayDeletion },
             ]

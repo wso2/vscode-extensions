@@ -46,7 +46,6 @@ import {
     QueryExprConnectorNode,
     EmptyInputsNode
 } from "../Diagram/Node";
-import { SubMappingNodeInitVisitor } from "../../visitors/SubMappingNodeInitVisitor";
 import { SubMappingConfigForm } from "./SidePanel/SubMappingConfig/SubMappingConfigForm";
 
 const fadeIn = keyframes`
@@ -126,11 +125,8 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
         onClose,
         onRefresh,
         onEdit,
-        addArrayElement,
         handleView,
-        addSubMapping,
         deleteMapping,
-        deleteSubMapping,
         generateForm,
         getClausePosition,
         mapWithCustomFn,
@@ -236,9 +232,7 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
                 hasInputsOutputsChanged,
                 addView, 
                 applyModifications, 
-                addArrayElement,
                 deleteMapping,
-                deleteSubMapping,
                 mapWithCustomFn,
                 mapWithTransformFn,
                 goToFunction,
@@ -251,14 +245,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
             const inputNodes = ioNodeInitVisitor.getInputNodes();
             const outputNode = ioNodeInitVisitor.getOutputNode();
 
-            const hasInputNodes = !inputNodes.some(node => node instanceof EmptyInputsNode);
-            let subMappingNode: DataMapperNodeModel;
-            if (hasInputNodes) {
-                const subMappingNodeInitVisitor = new SubMappingNodeInitVisitor(context);
-                traverseNode(model, subMappingNodeInitVisitor);
-                subMappingNode = subMappingNodeInitVisitor.getNode();
-            }
-
             const intermediateNodeInitVisitor = new IntermediateNodeInitVisitor(
                 context,
                 nodes.filter(node => node instanceof LinkConnectorNode || node instanceof QueryExprConnectorNode)
@@ -267,7 +253,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
 
             setNodes([
                 ...inputNodes,
-                ...(subMappingNode ? [subMappingNode] : []),
                 outputNode,
                 ...intermediateNodeInitVisitor.getNodes()
             ]);
@@ -316,17 +301,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
         await rpcClient.getAiPanelRpcClient().openChatWindowWithCommand();
     };
 
-    const addNewSubMapping = async (
-        subMappingName: string,
-        type: string,
-        index: number,
-        targetField: string,
-        importsCodedata?: CodeData
-    ) => {
-        await addSubMapping(subMappingName, type, index, targetField, importsCodedata);
-        resetSubMappingConfig();
-    }
-
     return (
         <div className={classes.root}>
             {model && (
@@ -353,7 +327,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
                         <SubMappingConfigForm
                             views={views}
                             updateView={editView}
-                            addSubMapping={addNewSubMapping}
                             generateForm={generateForm}
                         />
                     )}

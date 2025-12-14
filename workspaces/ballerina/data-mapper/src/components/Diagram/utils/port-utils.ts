@@ -17,16 +17,14 @@
  */
 import { NodeModel } from "@projectstorm/react-diagrams";
 
-import { InputNode, ObjectOutputNode, QueryOutputNode, SubMappingNode } from "../Node";
+import { InputNode, ObjectOutputNode, QueryOutputNode } from "../Node";
 import { InputOutputPortModel } from "../Port";
 import { ARRAY_OUTPUT_TARGET_PORT_PREFIX, OBJECT_OUTPUT_TARGET_PORT_PREFIX, PRIMITIVE_OUTPUT_TARGET_PORT_PREFIX, QUERY_OUTPUT_TARGET_PORT_PREFIX, SUB_MAPPING_INPUT_SOURCE_PORT_PREFIX } from "./constants";
 import { ArrayOutputNode } from "../Node/ArrayOutput/ArrayOutputNode";
 import { PrimitiveOutputNode } from "../Node/PrimitiveOutput/PrimitiveOutputNode";
 
-export function getInputPort(node: InputNode | SubMappingNode, inputField: string): InputOutputPortModel {
-    const portId = node instanceof SubMappingNode
-        ? `${SUB_MAPPING_INPUT_SOURCE_PORT_PREFIX}.${inputField}.OUT`
-        : `${inputField}.OUT`;
+export function getInputPort(node: InputNode, inputField: string): InputOutputPortModel {
+    const portId = `${inputField}.OUT`;
     let port = node.getPort(portId) as InputOutputPortModel;
 
     while (port && port.attributes.hidden) {

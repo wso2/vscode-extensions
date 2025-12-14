@@ -21,7 +21,6 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import debounce from "lodash/debounce";
 
 import {
-    AddArrayElementRequest,
     ExpandedDMModel,
     DMFormProps,
     DMModel,
@@ -52,7 +51,6 @@ import FormGeneratorNew from "../BI/Forms/FormGeneratorNew";
 import { DataMapperProps } from ".";
 import { EXPRESSION_EXTRACTION_REGEX } from "../../constants";
 import { calculateExpressionOffsets, convertBalCompletion, updateLineRange } from "../../utils/bi";
-import { createAddSubMappingRequest } from "./utils";
 import { FunctionForm } from "../BI/FunctionForm";
 import { UndoRedoGroup } from "../../components/UndoRedoGroup";
 
@@ -222,27 +220,6 @@ export function DataMapperView(props: DataMapperViewProps) {
         setIsUpdatingSource(false);
     }
 
-    const addArrayElement = async (outputId: string, viewId: string, name: string) => {
-        try {
-            const addElementRequest: AddArrayElementRequest = {
-                filePath,
-                codedata: viewState.codedata,
-                varName: name,
-                outputId: outputId,
-                targetField: viewId,
-                propertyKey: "expression", // TODO: Remove this once the API is updated
-                subMappingName: viewState.subMappingName
-            };
-            const resp = await rpcClient
-                .getDataMapperRpcClient()
-                .addNewArrayElement(addElementRequest);
-            console.log(">>> [Data Mapper] addArrayElement response:", resp);
-        } catch (error) {
-            console.error(error);
-            setIsFileUpdateError(true);
-        }
-    };
-
     const handleView = async (viewId: string, isSubMapping?: boolean) => {
         if (isSubMapping) {
             const resp = await rpcClient
@@ -306,46 +283,6 @@ export function DataMapperView(props: DataMapperViewProps) {
         }
     }
 
-    const addSubMapping = async (
-        subMappingName: string,
-        type: string,
-        index: number,
-        targetField: string,
-        importsCodedata?: CodeData
-    ) => {
-        try {
-            const visualizableResponse = await rpcClient
-                .getDataMapperRpcClient()
-                .getVisualizableFields({
-                    filePath,
-                    codedata: importsCodedata || { symbol: type }
-                });
-            console.log(">>> [Data Mapper] getVisualizableFields response:", visualizableResponse);
-
-            const defaultValue = visualizableResponse.visualizableProperties.defaultValue;
-            const request = createAddSubMappingRequest(
-                filePath,
-                viewState.codedata,
-                index,
-                targetField,
-                subMappingName,
-                type,
-                name,
-                defaultValue
-            );
-
-            console.log(">>> [Data Mapper] addSubMapping request:", request);
-
-            const response = await rpcClient
-                .getDataMapperRpcClient()
-                .addSubMapping(request);
-            console.log(">>> [Data Mapper] addSubMapping response:", response);
-        } catch (error) {
-            console.error(error);
-            setIsFileUpdateError(true);
-        }
-    };
-
     const deleteMapping = async (mapping: Mapping, viewId: string) => {
         try {
             const resp = await rpcClient
@@ -359,25 +296,6 @@ export function DataMapperView(props: DataMapperViewProps) {
                     subMappingName: viewState.subMappingName
                 });
             console.log(">>> [Data Mapper] deleteMapping response:", resp);
-        } catch (error) {
-            console.error(error);
-            setIsFileUpdateError(true);
-        }
-    };
-
-    const deleteSubMapping = async (index: number, viewId: string) => {
-        try {
-            const resp = await rpcClient
-                .getDataMapperRpcClient()
-                .deleteSubMapping({
-                    filePath,
-                    codedata: viewState.codedata,
-                    index,
-                    varName: name,
-                    targetField: viewId,
-                    subMappingName: viewState.subMappingName
-                });
-            console.log(">>> [Data Mapper] deleteSubMapping response:", resp);
         } catch (error) {
             console.error(error);
             setIsFileUpdateError(true);
@@ -652,13 +570,10 @@ export function DataMapperView(props: DataMapperViewProps) {
                             onRefresh={onDMRefresh}
                             onEdit={reusable ? onEdit : undefined}
                             applyModifications={updateExpression}
-                            addArrayElement={addArrayElement}
                             handleView={handleView}
                             generateForm={generateForm}
                             getClausePosition={getClausePosition}
-                            addSubMapping={addSubMapping}
                             deleteMapping={deleteMapping}
-                            deleteSubMapping={deleteSubMapping}
                             mapWithCustomFn={mapWithCustomFn}
                             mapWithTransformFn={mapWithTransformFn}
                             goToFunction={goToFunction}

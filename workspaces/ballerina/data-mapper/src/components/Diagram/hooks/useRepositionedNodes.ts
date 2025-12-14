@@ -32,8 +32,7 @@ import {
     InputNode,
     ObjectOutputNode,
     PrimitiveOutputNode,
-    QueryOutputNode,
-    SubMappingNode
+    QueryOutputNode
 } from "../Node";
 import { InputDataImportNodeModel, OutputDataImportNodeModel } from "../Node/DataImport/DataImportNode";
 import { GAP_BETWEEN_INPUT_NODES, IO_NODE_DEFAULT_WIDTH, OFFSETS } from "../utils/constants";
@@ -82,7 +81,6 @@ export const useRepositionedNodes = (
         }
         if (node instanceof InputNode
             || node instanceof EmptyInputsNode
-            || node instanceof SubMappingNode
             || node instanceof InputDataImportNodeModel
         ) {
             const x = OFFSETS.SOURCE_NODE.X;
@@ -91,7 +89,6 @@ export const useRepositionedNodes = (
             const utilizeExistingY = existingNode &&
                 sameView &&
                 existingNode.getY() !== 0 &&
-                !(node instanceof SubMappingNode) &&
                 (fieldCountMismatchIndex === -1 || index <= fieldCountMismatchIndex);
 
             let y = utilizeExistingY ? existingNode.getY() : computedY;

@@ -18,7 +18,6 @@
 
 export * from "./DataImport";
 export * from "./Input";
-export * from "./SubMapping";
 export * from "./ObjectOutput";
 export * from "./ArrayOutput";
 export * from "./PrimitiveOutput";
