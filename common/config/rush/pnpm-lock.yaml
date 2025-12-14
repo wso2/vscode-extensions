@@ -1600,6 +1600,9 @@ importers:
       react-dom:
         specifier: ^18.2.0
         version: 18.2.0(react@18.2.0)
+      react-error-boundary:
+        specifier: ~6.0.0
+        version: 6.0.0(react@18.2.0)
       resize-observer-polyfill:
         specifier: ^1.5.1
         version: 1.5.1
@@ -48710,6 +48713,11 @@ snapshots:
       react-is: 18.1.0
 
   react-error-boundary@3.1.4(react@18.2.0):
+    dependencies:
+      '@babel/runtime': 7.28.4
+      react: 18.2.0
+
+  react-error-boundary@6.0.0(react@18.2.0):
     dependencies:
       '@babel/runtime': 7.28.4
       react: 18.2.0
