@@ -448,10 +448,6 @@ export const ExpressionEditor = (props: ExpressionEditorProps) => {
             setInputMode(InputMode.EXP);
             return;
         }
-        if (isModeSwitcherRestricted()) {
-            setInputMode(InputMode.EXP);
-            return;
-        }
         switch (newInputMode) {
             case (InputMode.BOOLEAN):
                 if (!isExpToBooleanSafe(field?.value as string)) {

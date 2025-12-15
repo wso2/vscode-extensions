@@ -62,7 +62,6 @@ export namespace S {
 
     export const AddButton = styled(Button)({
         alignSelf: 'flex-start',
-        padding: '4px 8px',
         fontSize: '12px',
     });
 
