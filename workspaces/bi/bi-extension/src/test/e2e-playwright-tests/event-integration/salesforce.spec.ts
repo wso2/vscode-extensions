@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { addArtifact, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
@@ -36,32 +36,18 @@ export default function createTests() {
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
-            // Create a new listener
-            listenerName = `listenerSalesforce${testAttempt}`;
+
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
             await form.fill({
                 values: {
-                    'Name*The name of the listener': {
-                        type: 'input',
-                        value: listenerName,
-                    },
                     'auth': {
-                        type: 'textarea',
+                        type: 'cmEditor',
                         value: `{ username: "test", password: "test" }`,
-                        additionalProps: { clickLabel: true }
+                        additionalProps: { clickLabel: true, switchMode: 'expression-mode', window: global.window }
                     }
                 }
             });
-            await form.submit('Next', true);
-
-            // Check for title
-            const configTitle = artifactWebView.locator('h3', { hasText: 'Salesforce Event Handler Configuration' });
-            await configTitle.waitFor({ timeout: 90000 });
-
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
-
             await form.submit('Create');
 
             const onCreate = artifactWebView.locator(`text="onCreate"`);
@@ -77,12 +63,11 @@ export default function createTests() {
             await onRestore.waitFor();
 
             const projectExplorer = new ProjectExplorer(page.page);
-            await projectExplorer.findItem(['sample', `Salesforce Event Handler`], true);
+            await projectExplorer.findItem(['sample', `Salesforce Event Integration`], true);
 
-            const updateArtifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
-            if (!updateArtifactWebView) {
-                throw new Error('WSO2 Integrator: BI webview not found');
-            }
+            listenerName = `salesforceListener`;
+            const context = artifactWebView.locator(`text=${listenerName}`);
+            await context.waitFor();
         });
 
         test('Editing Salesforce Integration', async ({ }, testInfo) => {
@@ -100,25 +85,31 @@ export default function createTests() {
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
 
-            const configTitle = artifactWebView.locator('h3', { hasText: 'Salesforce Event Handler Configuration' });
-            await configTitle.waitFor({ timeout: 90000 });
+            const updatedAuth = `{ username: "updated-username", password: "updated-password" }`;
+            await form.fill({
+                values: {
+                    'auth': {
+                        type: 'cmEditor',
+                        value: updatedAuth,
+                        additionalProps: { clickLabel: true, switchMode: 'expression-mode', window: global.window }
+                    }
+                }
+            });
+            await form.submit('Save Changes');
 
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
+            const saveChangesBtn = artifactWebView.locator('#save-changes-btn vscode-button[appearance="primary"]');
+            await saveChangesBtn.waitFor({ state: 'visible' });
+            await expect(saveChangesBtn).toHaveClass('disabled', { timeout: 5000 });
+            await expect(saveChangesBtn).toHaveText('Save Changes');
 
-            await form.submit('Save');
+            const backBtn = artifactWebView.locator('[data-testid="back-button"]');
+            await backBtn.waitFor();
+            await backBtn.click();
 
-            const onCreate = artifactWebView.locator(`text="onCreate"`);
-            await onCreate.waitFor();
+            await editBtn.waitFor();
 
-            const onUpdate = artifactWebView.locator(`text="onUpdate"`);
-            await onUpdate.waitFor();
-
-            const onDelete = artifactWebView.locator(`text="onDelete"`);
-            await onDelete.waitFor();
-
-            const onRestore = artifactWebView.locator(`text="onRestore"`);
-            await onRestore.waitFor();
+            const context = artifactWebView.locator(`text=${listenerName}`);
+            await context.waitFor();
         });
     });
 }
