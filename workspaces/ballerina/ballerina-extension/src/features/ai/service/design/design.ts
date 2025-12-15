@@ -37,6 +37,7 @@ import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { getProjectSource } from "../../utils/project-utils";
 import { StateMachine } from "../../../../stateMachine";
+import { integrateCodeToWorkspace } from "./utils";
 
 const LANGFUSE_SECRET = process.env.LANGFUSE_SECRET;
 const LANGFUSE_PUBLIC = process.env.LANGFUSE_PUBLIC;
@@ -287,7 +288,7 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
 
                 if (!process.env.AI_TEST_ENV && modifiedFiles.length > 0) {
                     const modifiedFilesSet = new Set(modifiedFiles);
-                    // await integrateCodeToWorkspace(tempProjectPath, modifiedFilesSet);
+                    await integrateCodeToWorkspace(tempProjectPath, modifiedFilesSet);
                 }
 
                 if (shouldCleanup) {
