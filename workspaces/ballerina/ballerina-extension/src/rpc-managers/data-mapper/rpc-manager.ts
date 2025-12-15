@@ -18,8 +18,6 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
-    ClausePositionRequest,
-    ClausePositionResponse,
     ClearTypeCacheResponse,
     DataMapperAPI,
     DataMapperModelRequest,
@@ -156,16 +154,6 @@ export class DataMapperRpcManager implements DataMapperAPI {
                 .getFieldProperty(params) as PropertyResponse;
 
             resolve(property);
-        });
-    }
-
-    async getClausePosition(params: ClausePositionRequest): Promise<ClausePositionResponse> {
-        return new Promise(async (resolve) => {
-            const position: any = await StateMachine
-                .langClient()
-                .getClausePosition(params);
-
-            resolve(position);
         });
     }
 

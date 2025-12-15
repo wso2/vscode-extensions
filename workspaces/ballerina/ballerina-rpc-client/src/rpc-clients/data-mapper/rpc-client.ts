@@ -18,8 +18,6 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
-    ClausePositionRequest,
-    ClausePositionResponse,
     ClearTypeCacheResponse,
     DMModelRequest,
     DataMapperAPI,
@@ -44,7 +42,6 @@ import {
     VisualizableFieldsResponse,
     clearTypeCache,
     deleteMapping,
-    getClausePosition,
     getDataMapperCodedata,
     getDataMapperModel,
     getDataMapperSource,
@@ -110,10 +107,6 @@ export class DataMapperRpcClient implements DataMapperAPI {
 
     getFieldProperty(params: FieldPropertyRequest): Promise<PropertyResponse> {
         return this._messenger.sendRequest(getFieldProperty, HOST_EXTENSION, params);
-    }
-
-    getClausePosition(params: ClausePositionRequest): Promise<ClausePositionResponse> {
-        return this._messenger.sendRequest(getClausePosition, HOST_EXTENSION, params);
     }
 
     getExpandedDMFromDMModel(params: DMModelRequest): Promise<ExpandedDMModelResponse> {

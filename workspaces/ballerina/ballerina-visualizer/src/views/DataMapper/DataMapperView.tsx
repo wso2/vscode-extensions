@@ -220,38 +220,6 @@ export function DataMapperView(props: DataMapperViewProps) {
         setIsUpdatingSource(false);
     }
 
-    const handleView = async (viewId: string, isSubMapping?: boolean) => {
-        if (isSubMapping) {
-            const resp = await rpcClient
-                .getDataMapperRpcClient()
-                .getSubMappingCodedata({
-                    filePath,
-                    codedata: viewState.codedata,
-                    view: viewId
-                });
-            console.log(">>> [Data Mapper] getSubMappingCodedata response:", resp);
-            setViewState({ viewId, codedata: resp.codedata, subMappingName: viewId });
-        } else {
-            if (viewState.subMappingName) {
-                // If the view is a sub mapping, we need to get the codedata of the parent mapping
-                const res = await rpcClient
-                    .getDataMapperRpcClient()
-                    .getDataMapperCodedata({
-                        filePath,
-                        codedata: viewState.codedata,
-                        name: viewId
-                    });
-                setViewState({ viewId, codedata: res.codedata, subMappingName: undefined });
-            } else {
-                setViewState(prev => ({
-                    ...prev,
-                    viewId
-                }));
-            }
-        }
-        rpcClient.getVisualizerRpcClient().resetUndoRedoStack();
-    };
-
     const generateForm = (formProps: DMFormProps) => {
         return (
             <FormGeneratorNew
@@ -262,25 +230,6 @@ export function DataMapperView(props: DataMapperViewProps) {
                 {...formProps}
             />
         )
-    }
-
-    const getClausePosition = async (targetField: string, index: number) => {
-        try {
-            const { position } = await rpcClient.getDataMapperRpcClient().getClausePosition({
-                filePath,
-                codedata: viewState.codedata,
-                targetField: targetField,
-                index: index
-            });
-            if (position) {
-                return position;
-            } else {
-                throw new Error("Clause position not found");
-            }
-        } catch (error) {
-            console.error(error);
-            return { line: 0, offset: 0  };
-        }
     }
 
     const deleteMapping = async (mapping: Mapping, viewId: string) => {
@@ -570,9 +519,7 @@ export function DataMapperView(props: DataMapperViewProps) {
                             onRefresh={onDMRefresh}
                             onEdit={reusable ? onEdit : undefined}
                             applyModifications={updateExpression}
-                            handleView={handleView}
                             generateForm={generateForm}
-                            getClausePosition={getClausePosition}
                             deleteMapping={deleteMapping}
                             mapWithCustomFn={mapWithCustomFn}
                             mapWithTransformFn={mapWithTransformFn}

@@ -125,10 +125,8 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
         onClose,
         onRefresh,
         onEdit,
-        handleView,
         deleteMapping,
         generateForm,
-        getClausePosition,
         mapWithCustomFn,
         mapWithTransformFn,
         goToFunction,
@@ -193,7 +191,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
 
     useEffect(() => {
         const lastView = views[views.length - 1];
-        handleView(lastView.targetField, !!lastView?.subMappingInfo);
         setupKeyboardShortcuts();
 
         return () => {

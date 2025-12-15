@@ -66,7 +66,6 @@ export interface DataMapperEditorProps {
     name: string;
     reusable?: boolean;
     applyModifications: (outputId: string, expression: string, viewId: string, name: string) => Promise<void>;
-    getClausePosition: (targetField: string, index: number) => Promise<LinePosition>;
     deleteMapping: (mapping: Mapping, viewId: string) => Promise<void>;
     mapWithCustomFn: (mapping: Mapping, metadata: FnMetadata, viewId: string) => Promise<void>;
     mapWithTransformFn: (mapping: Mapping, metadata: FnMetadata, viewId: string) => Promise<void>;
@@ -75,7 +74,6 @@ export interface DataMapperEditorProps {
     onRefresh: () => Promise<void>;
     onClose: () => void;
     onEdit?: () => void;
-    handleView: (viewId: string, isSubMapping?: boolean) => void;
     generateForm: (formProps: DMFormProps) => JSX.Element;
     genUniqueName: (name: string, viewId: string) => Promise<string>;
     undoRedoGroup: () => JSX.Element;

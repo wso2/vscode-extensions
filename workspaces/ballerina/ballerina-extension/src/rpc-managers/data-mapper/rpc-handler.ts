@@ -18,7 +18,6 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
-    ClausePositionRequest,
     clearTypeCache,
     DataMapperModelRequest,
     DataMapperSourceRequest,
@@ -26,7 +25,6 @@ import {
     DeleteMappingRequest,
     DMModelRequest,
     FieldPropertyRequest,
-    getClausePosition,
     getDataMapperCodedata,
     GetDataMapperCodedataRequest,
     getDataMapperModel,
@@ -63,7 +61,6 @@ export function registerDataMapperRpcHandlers(messenger: Messenger) {
     messenger.onRequest(getSubMappingCodedata, (args: GetSubMappingCodedataRequest) => rpcManger.getSubMappingCodedata(args));
     messenger.onRequest(getProperty, (args: PropertyRequest) => rpcManger.getProperty(args));
     messenger.onRequest(getFieldProperty, (args: FieldPropertyRequest) => rpcManger.getFieldProperty(args));
-    messenger.onRequest(getClausePosition, (args: ClausePositionRequest) => rpcManger.getClausePosition(args));
     messenger.onRequest(getExpandedDMFromDMModel, (args: DMModelRequest) => rpcManger.getExpandedDMFromDMModel(args));
     messenger.onRequest(getProcessTypeReference, (args: ProcessTypeReferenceRequest) => rpcManger.getProcessTypeReference(args));
     messenger.onRequest(clearTypeCache, () => rpcManger.clearTypeCache());
