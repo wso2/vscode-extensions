@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { addArtifact, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
@@ -42,23 +42,6 @@ export default function createTests() {
             await form.switchToFormView(false, artifactWebView);
             await form.fill({
                 values: {
-                    'Name*The name of the listener': {
-                        type: 'input',
-                        value: listenerName,
-                    }
-                }
-            });
-            await form.submit('Next');
-
-            // Check for title
-            const configTitle = artifactWebView.locator('h3', { hasText: 'GitHub Event Handler Configuration' });
-            await configTitle.waitFor();
-
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
-
-            await form.fill({
-                values: {
                     'Event Channel': {
                         type: 'dropdown',
                         value: 'IssuesService',
@@ -74,10 +57,9 @@ export default function createTests() {
             const projectExplorer = new ProjectExplorer(page.page);
             await projectExplorer.findItem(['sample', `github:IssuesService`], true);
 
-            const updateArtifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
-            if (!updateArtifactWebView) {
-                throw new Error('WSO2 Integrator: BI webview not found');
-            }
+            listenerName = `githubListener`;
+            const context = artifactWebView.locator(`text=${listenerName}`);
+            await context.waitFor();
         });
 
         test('Editing Github Service', async ({ }, testInfo) => {
@@ -94,17 +76,31 @@ export default function createTests() {
 
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
+            await form.fill({
+                values: {
+                    'listenOn': {
+                        type: 'cmEditor',
+                        value: `9090`,
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
+                    }
+                }
+            });
 
-            const configTitle = artifactWebView.locator('h3', { hasText: 'GitHub Event Handler Configuration' });
-            await configTitle.waitFor();
+            await form.submit('Save Changes');
 
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
+            const saveChangesBtn = artifactWebView.locator('#save-changes-btn vscode-button[appearance="primary"]');
+            await saveChangesBtn.waitFor({ state: 'visible' });
+            await expect(saveChangesBtn).toHaveClass('disabled', { timeout: 5000 });
+            await expect(saveChangesBtn).toHaveText('Save Changes');
 
-            const selectedEventChannel = artifactWebView.locator(`[current-value="IssuesService"]`);
-            await selectedEventChannel.waitFor();
+            const backBtn = artifactWebView.locator('[data-testid="back-button"]');
+            await backBtn.waitFor();
+            await backBtn.click();
 
-            await form.submit('Save');
+            await editBtn.waitFor();
+
+            const context = artifactWebView.locator(`text=${listenerName}`);
+            await context.waitFor();
 
             const onOpened = artifactWebView.locator(`text="onOpened"`);
             await onOpened.waitFor();
