@@ -182,7 +182,7 @@
     "lint:fix": "biome check --write . ",
     "test-nyc-cli": "nyc --reporter=html node ./dist/test/runTest.js",
     "test": "rm -rf .vscode-test/extensions && node ./dist/test/runTest.js && nyc report && nyc report --reporter=html",
-    "package": "node -e \"const { execSync } = require('child_process'); const pre = String(process.env.isPreRelease).toLowerCase() === 'true'; const base = 'vsce package --no-dependencies --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/'; execSync(pre ? base + ' --pre-release' : base, { stdio: 'inherit' });\"",
+    "package": "node ../../common-libs/scripts/package-vsix.js --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/",
     "copyVSIX": "copyfiles *.vsix ./vsix",
     "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../..",
     "postbuild": "pnpm run package && pnpm run copyVSIX"
