@@ -264,7 +264,12 @@ const switchContextAndOpenDir = async (selectedPath: string, org: Organization, 
 		return;
 	}
 	const projectCache = dataCacheStore.getState().getProjects(org?.handle);
-	const contextFilePath = updateContextFile(gitRoot, ext.authProvider?.getState().state.userInfo!, project, org, projectCache);
+	const userInfo = ext.authProvider?.getState().state.userInfo;
+	if (!userInfo) {
+		window.showErrorMessage("User information is not available. Please sign in and try again.");
+		return;
+	}
+	const contextFilePath = updateContextFile(gitRoot, userInfo, project, org, projectCache);
 
 	const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSamePath(item.uri?.fsPath, selectedPath));
 	if (isWithinWorkspace) {

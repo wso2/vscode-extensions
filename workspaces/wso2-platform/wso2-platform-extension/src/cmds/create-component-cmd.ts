@@ -217,7 +217,13 @@ export function createNewComponentCommand(context: ExtensionContext) {
 						);
 						if (resp !== "Proceed") {
 							const projectCache = dataCacheStore.getState().getProjects(selectedOrg?.handle);
-							updateContextFile(gitRoot, ext.authProvider?.getState().state.userInfo!, selectedProject, selectedOrg, projectCache);
+							const authProvider = ext.authProvider;
+							const userInfo = authProvider?.getState().state.userInfo;
+							if (!authProvider || !userInfo) {
+								window.showErrorMessage("User information is not available. Please sign in and try again.");
+								return;
+							}
+							updateContextFile(gitRoot, userInfo, selectedProject, selectedOrg, projectCache);
 							contextStore.getState().refreshState();
 							return;
 						}
@@ -358,8 +364,13 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 						}
 					}
 				} else {
-					updateContextFile(gitRoot, ext.authProvider?.getState().state.userInfo!, project, org, projectCache);
-					contextStore.getState().refreshState();
+					const userInfo = ext.authProvider?.getState().state.userInfo;
+					if (userInfo) {
+						updateContextFile(gitRoot, userInfo, project, org, projectCache);
+						contextStore.getState().refreshState();
+					} else {
+						getLogger().error("Cannot update context file: userInfo is undefined.");
+					}
 				}
 			}
 		} catch (err) {
