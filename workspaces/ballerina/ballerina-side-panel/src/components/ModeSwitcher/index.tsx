@@ -19,7 +19,7 @@
 import React, { useMemo } from 'react';
 import { Label, Slider, SwitchWrapper } from './styles';
 import { InputMode } from '../editors/MultiModeExpressionEditor/ChipExpressionEditor/types';
-import { getDefaultExpressionMode } from '../editors/MultiModeExpressionEditor/ChipExpressionEditor/utils';
+import { getDefaultExpressionMode, getSecondaryInputMode } from '../editors/MultiModeExpressionEditor/ChipExpressionEditor/utils';
 import { InputType } from '@wso2/ballerina-core';
 
 interface ModeSwitcherProps {
@@ -36,20 +36,24 @@ const ModeSwitcher: React.FC<ModeSwitcherProps> = ({ value, isRecordTypeField, o
         () => isRecordTypeField ? InputMode.RECORD : getDefaultExpressionMode(types),
         [types, isRecordTypeField]
     );
+    const secondaryMode = useMemo(
+        () => getSecondaryInputMode(types),
+        [types]
+    );
 
     const handlePrimaryModeClick = () => {
         onChange(defaultMode);
     };
 
     const handleExpressionClick = () => {
-        onChange(InputMode.EXP);
+        onChange(secondaryMode);
     };
 
     return (
         <SwitchWrapper>
             <Slider checked={isChecked}>
                 <Label active={!isChecked} onClick={handlePrimaryModeClick}>{defaultMode}</Label>
-                <Label active={isChecked} onClick={handleExpressionClick}>Expression</Label>
+                <Label active={isChecked} onClick={handleExpressionClick}>{secondaryMode}</Label>
             </Slider>
         </SwitchWrapper>
     );

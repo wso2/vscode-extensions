@@ -63,6 +63,11 @@ export const getDefaultExpressionMode = (inputTypes: InputType[]): InputMode => 
     return getInputModeFromTypes(primaryInputType);
 }
 
+export const getSecondaryInputMode = (inputTypes: InputType[]): InputMode => {
+    if (inputTypes.length < 2) throw new Error("At least two input types are required to determine the secondary input mode.");
+    return getInputModeFromTypes(inputTypes[inputTypes.length - 1]);
+}
+
 export const getAbsoluteColumnOffset = (value: string, line: number, column: number) => {
     const lines = value.split("\n");
     let cumulativeLength = 0;

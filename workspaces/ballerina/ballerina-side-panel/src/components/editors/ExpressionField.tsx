@@ -145,7 +145,7 @@ export const ExpressionField: React.FC<ExpressionFieldProps> = (props: Expressio
         isInExpandedMode
     } = props;
 
-    if ( inputMode === InputMode.ARRAY) {
+    if (Array.isArray(value) || inputMode === InputMode.ARRAY) {
         return (
             <DynamicArrayBuilder
                 value={value}
@@ -154,9 +154,6 @@ export const ExpressionField: React.FC<ExpressionFieldProps> = (props: Expressio
                 expressionFieldProps={props}
             />
         );
-    }
-    if (Array.isArray(value)) {
-        throw new Error(`Invalid value type: expected a string but received an array for input mode ${inputMode}`);
     }
 
     const primaryInputType = getPrimaryInputType(field.types || []);

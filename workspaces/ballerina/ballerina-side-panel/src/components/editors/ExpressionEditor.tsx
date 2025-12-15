@@ -601,7 +601,7 @@ export const ExpressionEditor = (props: ExpressionEditorProps) => {
         : '';
 
     const isModeSwitcherRestricted = () => {
-        if (nodeInfo?.kind === "FOREACH") return true;
+        if (field.types.length < 2) return true;
         return false;
     };
 
