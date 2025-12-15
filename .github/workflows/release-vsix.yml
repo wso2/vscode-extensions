@@ -143,11 +143,11 @@ jobs:
           token: ${{ secrets.CHOREO_BOT_TOKEN }}
           chatAPI: ${{ steps.chat.outputs.chatAPI }}
           
-      - name: Create a release in wso2/platform-vscode repo
+      - name: Create a release in wso2/vscode-extensions repo
         if: ${{ github.event.inputs.wso2-platform == 'true' }}
         uses: ./.github/actions/release
         with:
-          repo: wso2/platform-vscode
+          repo: wso2/vscode-extensions
           name: wso2-platform
           token: ${{ secrets.CHOREO_BOT_TOKEN }}
           chatAPI: ${{ steps.chat.outputs.chatAPI }}
