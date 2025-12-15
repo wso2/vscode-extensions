@@ -66,8 +66,6 @@ export interface DataMapperEditorProps {
     name: string;
     reusable?: boolean;
     applyModifications: (outputId: string, expression: string, viewId: string, name: string) => Promise<void>;
-    mapWithCustomFn: (mapping: Mapping, metadata: FnMetadata, viewId: string) => Promise<void>;
-    mapWithTransformFn: (mapping: Mapping, metadata: FnMetadata, viewId: string) => Promise<void>;
     goToFunction: (functionRange: LineRange) => Promise<void>;
     enrichChildFields: (parentField: IOType) => Promise<void>;
     onRefresh: () => Promise<void>;

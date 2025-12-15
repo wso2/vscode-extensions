@@ -24,8 +24,6 @@ export interface IDataMapperContext {
     hasInputsOutputsChanged: boolean;
     addView: (view: View) => void;
     applyModifications: (outputId: string, expression: string, viewId: string, name: string) => Promise<void>;
-    mapWithCustomFn: (mapping: Mapping, metadata: FnMetadata, viewId: string) => Promise<void>;
-    mapWithTransformFn: (mapping: Mapping, metadata: FnMetadata, viewId: string) => Promise<void>;
     goToFunction: (functionRange: LineRange) => Promise<void>;
     enrichChildFields: (parentField: IOType) => Promise<void>;
     genUniqueName: (name: string, viewId: string) => Promise<string>;
@@ -39,8 +37,6 @@ export class DataMapperContext implements IDataMapperContext {
         public hasInputsOutputsChanged: boolean = false,
         public addView: (view: View) => void,
         public applyModifications: (outputId: string, expression: string, viewId: string, name: string) => Promise<void>,
-        public mapWithCustomFn: (mapping: Mapping, metadata: FnMetadata, viewId: string) => Promise<void>,
-        public mapWithTransformFn: (mapping: Mapping, metadata: FnMetadata, viewId: string) => Promise<void>,
         public goToFunction: (functionRange: LineRange) => Promise<void>,
         public enrichChildFields: (parentField: IOType) => Promise<void>,
         public genUniqueName: (name: string, viewId: string) => Promise<string>

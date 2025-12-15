@@ -232,46 +232,6 @@ export function DataMapperView(props: DataMapperViewProps) {
         )
     }
 
-    const mapWithCustomFn = async (mapping: Mapping, metadata: FnMetadata, viewId: string) => {
-        try {
-            const resp = await rpcClient
-                .getDataMapperRpcClient()
-                .mapWithCustomFn({
-                    filePath,
-                    codedata: viewState.codedata,
-                    mapping,
-                    functionMetadata: metadata,
-                    varName: name,
-                    targetField: viewId,
-                    subMappingName: viewState.subMappingName
-                });
-            console.log(">>> [Data Mapper] mapWithCustomFn response:", resp);
-        } catch (error) {
-            console.error(error);
-            setIsFileUpdateError(true);
-        }
-    };
-
-    const mapWithTransformFn = async (mapping: Mapping, metadata: FnMetadata, viewId: string) => {
-        try {
-            const resp = await rpcClient
-                .getDataMapperRpcClient()
-                .mapWithTransformFn({
-                    filePath,
-                    codedata: viewState.codedata,
-                    mapping,
-                    functionMetadata: metadata,
-                    varName: name,
-                    targetField: viewId,
-                    subMappingName: viewState.subMappingName
-                });
-            console.log(">>> [Data Mapper] mapWithTransformFn response:", resp);
-        } catch (error) {
-            console.error(error);
-            setIsFileUpdateError(true);
-        }
-    };
-
     const goToFunction = async (functionRange: LineRange) => {
         const documentUri: string = (await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: [functionRange.fileName] })).filePath;
         const position: NodePosition = {
@@ -501,8 +461,6 @@ export function DataMapperView(props: DataMapperViewProps) {
                             onEdit={reusable ? onEdit : undefined}
                             applyModifications={updateExpression}
                             generateForm={generateForm}
-                            mapWithCustomFn={mapWithCustomFn}
-                            mapWithTransformFn={mapWithTransformFn}
                             goToFunction={goToFunction}
                             enrichChildFields={enrichChildFields}
                             genUniqueName={genUniqueName}

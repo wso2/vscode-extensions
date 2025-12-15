@@ -355,8 +355,6 @@ enum EXTENDED_APIS {
     DATA_MAPPER_GET_SOURCE = 'dataMapper/getSource',
     DATA_MAPPER_VISUALIZABLE = 'dataMapper/visualizable',
     DATA_MAPPER_DELETE_MAPPING = 'dataMapper/deleteMapping',
-    DATA_MAPPER_MAP_WITH_CUSTOM_FN = 'dataMapper/customFunction',
-    DATA_MAPPER_MAP_WITH_TRANSFORM_FN = 'dataMapper/transformationFunction',
     DATA_MAPPER_CODEDATA = 'dataMapper/nodePosition',
     DATA_MAPPER_SUB_MAPPING_CODEDATA = 'dataMapper/subMapping',
     DATA_MAPPER_PROPERTY = 'dataMapper/targetFieldPosition',
@@ -789,14 +787,6 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
 
     async deleteMapping(params: DeleteMappingRequest): Promise<DataMapperSourceResponse> {
         return this.sendRequest<DataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_DELETE_MAPPING, params);
-    }
-
-    async mapWithCustomFn(params: MapWithFnRequest): Promise<DataMapperSourceResponse> {
-        return this.sendRequest<DataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_MAP_WITH_CUSTOM_FN, params);
-    }
-
-    async mapWithTransformFn(params: MapWithFnRequest): Promise<DataMapperSourceResponse> {
-        return this.sendRequest<DataMapperSourceResponse>(EXTENDED_APIS.DATA_MAPPER_MAP_WITH_TRANSFORM_FN, params);
     }
 
     async getDataMapperCodedata(params: GetDataMapperCodedataRequest): Promise<GetDataMapperCodedataResponse> {

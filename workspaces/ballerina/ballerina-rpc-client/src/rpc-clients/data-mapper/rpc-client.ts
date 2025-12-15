@@ -52,8 +52,6 @@ import {
     getProperty,
     getSubMappingCodedata,
     getVisualizableFields,
-    mapWithCustomFn,
-    mapWithTransformFn
 } from "@wso2/ballerina-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -83,14 +81,6 @@ export class DataMapperRpcClient implements DataMapperAPI {
 
     deleteMapping(params: DeleteMappingRequest): Promise<DataMapperSourceResponse> {
         return this._messenger.sendRequest(deleteMapping, HOST_EXTENSION, params);
-    }
-
-    mapWithCustomFn(params: MapWithFnRequest): Promise<DataMapperSourceResponse> {
-        return this._messenger.sendRequest(mapWithCustomFn, HOST_EXTENSION, params);
-    }
-
-    mapWithTransformFn(params: MapWithFnRequest): Promise<DataMapperSourceResponse> {
-        return this._messenger.sendRequest(mapWithTransformFn, HOST_EXTENSION, params);
     }
 
     getDataMapperCodedata(params: GetDataMapperCodedataRequest): Promise<GetDataMapperCodedataResponse> {

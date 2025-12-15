@@ -25,7 +25,7 @@ import { css } from '@emotion/css';
 
 import { MappingType } from '../Link';
 import { ExpressionLabelModel } from './ExpressionLabelModel';
-import { createNewMapping, mapSeqToX, mapWithCustomFn, mapWithQuery, mapWithTransformFn } from '../utils/modification-utils';
+import { createNewMapping, mapSeqToX, mapWithQuery } from '../utils/modification-utils';
 import classNames from 'classnames';
 import { genArrayElementAccessSuffix } from '../utils/common-utils';
 import { InputOutputPortModel } from '../Port';
@@ -121,14 +121,6 @@ export function MappingOptionsWidget(props: MappingOptionsWidgetProps) {
         const onClickAggregateArray = async () => {
             await mapWithQuery(link, ResultClauseType.COLLECT, context);
         };
-    
-        const onClickMapWithCustomFn = async () => {
-            await mapWithCustomFn(link, context);
-        };
-    
-        const onClickMapWithTransformFn = async () => {
-            await mapWithTransformFn(link, context);
-        }
     
         const onClickMapWithAggregateFn = async (fn: string) => {
             await createNewMapping(link, (expr: string) => `${fn}(${expr})`);
@@ -239,13 +231,13 @@ export function MappingOptionsWidget(props: MappingOptionsWidgetProps) {
             menuItems.push({
                 id: "a2a-a2s-custom-func",
                 label: getItemElement("a2a-a2s-custom-func", "Map Using Custom Function"),
-                onClick: wrapWithProgress(onClickMapWithCustomFn)
+                onClick: () => {}
             });
             if (pendingMappingType !== MappingType.ContainsUnions) {
                 menuItems.push({
                     id: "a2a-a2s-transform-func",
                     label: getItemElement("a2a-a2s-transform-func", "Map Using Transform Function"),
-                    onClick: wrapWithProgress(onClickMapWithTransformFn)
+                    onClick: () => {}
                 });
             }
         }

@@ -126,8 +126,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
         onRefresh,
         onEdit,
         generateForm,
-        mapWithCustomFn,
-        mapWithTransformFn,
         goToFunction,
         enrichChildFields,
         genUniqueName,
@@ -224,8 +222,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
                 hasInputsOutputsChanged,
                 addView, 
                 applyModifications, 
-                mapWithCustomFn,
-                mapWithTransformFn,
                 goToFunction,
                 enrichChildFields,
                 genUniqueName

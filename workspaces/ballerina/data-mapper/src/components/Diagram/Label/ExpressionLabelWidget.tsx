@@ -28,7 +28,7 @@ import { ExpressionLabelModel } from './ExpressionLabelModel';
 import { MappingType } from '../Link';
 import { CodeActionWidget } from '../CodeAction/CodeAction';
 import { InputOutputPortModel } from '../Port';
-import { mapWithCustomFn, mapWithQuery, mapWithTransformFn } from '../utils/modification-utils';
+import { mapWithQuery } from '../utils/modification-utils';
 import { getMappingType } from '../utils/common-utils';
 import { useDMExpressionBarStore } from "../../../store/store";
 import { DiagramEngine } from '@projectstorm/react-diagrams';
@@ -221,14 +221,6 @@ export function ExpressionLabelWidget(props: ExpressionLabelWidgetProps) {
         await mapWithQuery(link, ResultClauseType.SELECT, context);
     };
 
-    const onClickMapWithCustomFn = async () => {
-        await mapWithCustomFn(link, context);
-    };
-
-    const onClickMapWithTransformFn = async () => {
-        await mapWithTransformFn(link, context);
-    }
-
     const codeActions = [];
 
     if (mappingType === MappingType.ArrayToArray) {
@@ -240,15 +232,10 @@ export function ExpressionLabelWidget(props: ExpressionLabelWidgetProps) {
         // TODO: Add impl
     }
 
-    codeActions.push({
-        title: "Map with custom function",
-        onClick: onClickMapWithCustomFn
-    });
-
     if (mappingType !== MappingType.Default && mappingType !== MappingType.ContainsUnions) {   
         codeActions.push({
             title: "Map with transform function",
-            onClick: onClickMapWithTransformFn
+            onClick: null
         });
     }
 

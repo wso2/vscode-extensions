@@ -179,28 +179,6 @@ export class DataMapperRpcManager implements DataMapperAPI {
         });
     }
 
-    async mapWithCustomFn(params: MapWithFnRequest): Promise<DataMapperSourceResponse> {
-        return new Promise(async (resolve) => {
-            await StateMachine
-                .langClient()
-                .mapWithCustomFn(params)
-                .then((resp) => {
-                    console.log(">>> Data mapper map with custom fn response", resp);
-                    updateAndRefreshDataMapper(
-                        resp.textEdits,
-                        params.filePath,
-                        params.codedata,
-                        params.varName,
-                        params.targetField,
-                        params.subMappingName
-                    )
-                    .then(() => {
-                        resolve({ textEdits: resp.textEdits });
-                    });
-                });
-        });
-    }
-
     async getExpandedDMFromDMModel(params: DMModelRequest): Promise<ExpandedDMModelResponse> {
         try {
             // Transform the model using the existing expansion logic
@@ -240,28 +218,6 @@ export class DataMapperRpcManager implements DataMapperAPI {
                 error: error instanceof Error ? error.message : "Unknown error occurred during type reference processing"
             };
         }
-    }
-
-    async mapWithTransformFn(params: MapWithFnRequest): Promise<DataMapperSourceResponse> {
-        return new Promise(async (resolve) => {
-            await StateMachine
-                .langClient()
-                .mapWithTransformFn(params)
-                .then((resp) => {
-                    console.log(">>> Data mapper map with transform fn response", resp);
-                    updateAndRefreshDataMapper(
-                        resp.textEdits,
-                        params.filePath,
-                        params.codedata,
-                        params.varName,
-                        params.targetField,
-                        params.subMappingName
-                    )
-                    .then(() => {
-                        resolve({ textEdits: resp.textEdits });
-                    });
-                });
-        });
     }
 
     async clearTypeCache(): Promise<ClearTypeCacheResponse> {

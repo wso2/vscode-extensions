@@ -33,7 +33,6 @@ import {
     GetSubMappingCodedataRequest,
     AllDataMapperSourceRequest,
     DeleteMappingRequest,
-    MapWithFnRequest,
     DMModelRequest,
     ProcessTypeReferenceResponse,
     ProcessTypeReferenceRequest,
@@ -49,8 +48,6 @@ export const getDataMapperModel: RequestType<DataMapperModelRequest, DataMapperM
 export const getDataMapperSource: RequestType<DataMapperSourceRequest, DataMapperSourceResponse> = { method: `${_preFix}/getDataMapperSource` };
 export const getVisualizableFields: RequestType<VisualizableFieldsRequest, VisualizableFieldsResponse> = { method: `${_preFix}/getVisualizableFields` };
 export const deleteMapping: RequestType<DeleteMappingRequest, DataMapperSourceResponse> = { method: `${_preFix}/deleteMapping` };
-export const mapWithCustomFn: RequestType<MapWithFnRequest, DataMapperSourceResponse> = { method: `${_preFix}/mapWithCustomFn` };
-export const mapWithTransformFn: RequestType<MapWithFnRequest, DataMapperSourceResponse> = { method: `${_preFix}/mapWithTransformFn` };
 export const getDataMapperCodedata: RequestType<GetDataMapperCodedataRequest, GetDataMapperCodedataResponse> = { method: `${_preFix}/getDataMapperCodedata` };
 export const getSubMappingCodedata: RequestType<GetSubMappingCodedataRequest, GetDataMapperCodedataResponse> = { method: `${_preFix}/getSubMappingCodedata` };
 export const getProperty: RequestType<PropertyRequest, PropertyResponse> = { method: `${_preFix}/getProperty` };
