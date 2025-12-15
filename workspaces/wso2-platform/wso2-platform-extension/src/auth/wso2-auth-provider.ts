@@ -174,23 +174,6 @@ export class WSO2AuthenticationProvider implements AuthenticationProvider, Dispo
 	 */
 	public async initAuth() {
 		try {
-			// Try to get session from VS Code secure storage first
-			const sessionData = await this.getSessionData();
-			if (sessionData?.userInfo) {
-				// We have a stored session, update the state
-				this._state = { userInfo: sessionData.userInfo, region: sessionData.region };
-				dataCacheStore.getState().setOrgs(sessionData.userInfo.organizations);
-				contextStore.getState().refreshState();
-				this._stateChangeEmitter.fire({ state: this._state });
-
-				const contextStoreState = contextStore.getState().state;
-				if (contextStoreState.selected?.org) {
-					ext?.clients?.rpcClient?.changeOrgContext(contextStoreState.selected?.org?.id?.toString());
-				}
-				return;
-			}
-
-			// Fallback: check RPC for existing session
 			const userInfo = await ext.clients.rpcClient.getUserInfo();
 			if (userInfo) {
 				const region = await ext.clients.rpcClient.getCurrentRegion();
