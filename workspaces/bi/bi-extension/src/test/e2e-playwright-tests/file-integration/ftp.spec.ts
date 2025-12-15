@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { addArtifact, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
@@ -37,38 +37,17 @@ export default function createTests() {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
             // Create a new listener
-            listenerName = `listenerFtp${testAttempt}`;
+            listenerName = `ftpListener`;
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
-            await form.fill({
-                values: {
-                    'Name*The name of the listener': {
-                        type: 'input',
-                        value: listenerName,
-                    }
-                }
-            });
-            await form.submit('Next');
-
-            // Check for title
-            const configTitle = artifactWebView.locator('h3', { hasText: 'FTP Service Configuration' });
-            await configTitle.waitFor();
-
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
-
             await form.submit('Create');
-
-            const onFileChange = artifactWebView.locator(`text="onFileChange"`);
-            await onFileChange.waitFor();
 
             const projectExplorer = new ProjectExplorer(page.page);
             await projectExplorer.findItem(['sample', `FTP Service`], true);
 
-            const updateArtifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
-            if (!updateArtifactWebView) {
-                throw new Error('WSO2 Integrator: BI webview not found');
-            }
+            const context = artifactWebView.locator(`text=${listenerName}`);
+            await context.waitFor();
+
         });
 
         test('Editing FTP Service', async ({ }, testInfo) => {
@@ -86,16 +65,31 @@ export default function createTests() {
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
 
-            const configTitle = artifactWebView.locator('h3', { hasText: 'FTP Service Configuration' });
-            await configTitle.waitFor();
+            await form.fill({
+                values: {
+                    'host': {
+                        type: 'cmEditor',
+                        value: `127.0.0.6`,
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
+                    }
+                }
+            });
 
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
+            await form.submit('Save Changes');
 
-            await form.submit('Save');
+            const saveChangesBtn = artifactWebView.locator('#save-changes-btn vscode-button[appearance="primary"]');
+            await saveChangesBtn.waitFor({ state: 'visible' });
+            await expect(saveChangesBtn).toHaveClass('disabled', { timeout: 5000 });
+            await expect(saveChangesBtn).toHaveText('Save Changes');
 
-            const onFileChange = artifactWebView.locator(`text="onFileChange"`);
-            await onFileChange.waitFor();
+            const backBtn = artifactWebView.locator('[data-testid="back-button"]');
+            await backBtn.waitFor();
+            await backBtn.click();
+
+            await editBtn.waitFor();
+
+            const context = artifactWebView.locator(`text=${listenerName}`);
+            await context.waitFor();
         });
     });
 }
