@@ -14,7 +14,6 @@ import {
     VisualizerLocation,
     webviewReady
 } from '@wso2/mi-core';
-import { ExtendedLanguageClient } from './lang-client/ExtendedLanguageClient';
 import { VisualizerWebview, webviews } from './visualizer/webview';
 import { RPCLayer } from './RPCLayer';
 import { history } from './history/activator';
@@ -34,7 +33,6 @@ import { containsMultiModuleNatureInProjectFile, containsMultiModuleNatureInPomF
 const fs = require('fs');
 
 interface MachineContext extends VisualizerLocation {
-    langClient: ExtendedLanguageClient | null;
     dependenciesResolved?: boolean;
     isInWI: boolean;
     isLegacyRuntime?: boolean;
@@ -46,7 +44,6 @@ const stateMachine = createMachine<MachineContext>({
     predictableActionArguments: true,
     context: {
         projectUri: "",
-        langClient: null,
         errors: [],
         view: MACHINE_VIEW.Welcome,
         dependenciesResolved: false,
@@ -174,14 +171,12 @@ const stateMachine = createMachine<MachineContext>({
                         target: 'ready',
                         cond: (context, event) => context.displayOverview === true,
                         actions: assign({
-                            langClient: (context, event) => event.data
                         })
                     },
                     {
                         target: 'ready.viewReady',
                         cond: (context, event) => context.displayOverview === false,
                         actions: assign({
-                            langClient: (context, event) => event.data,
                             isLoading: (context, event) => false
                         })
                     }
@@ -397,12 +392,7 @@ const stateMachine = createMachine<MachineContext>({
                 try {
                     const treeViewId = context.isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : MI_PROJECT_EXPLORER_VIEW_ID;
                     vscode.commands.executeCommand(`${treeViewId}.focus`);
-                    const instance = await MILanguageClient.getInstance(context.projectUri!);
-                    const errors = instance.getErrors();
-                    if (errors.length) {
-                        return reject(errors);
-                    }
-                    const ls = instance.languageClient;
+                    const ls = await MILanguageClient.getInstance(context.projectUri!);
                     vscode.commands.executeCommand('setContext', 'MI.status', 'projectLoaded');
 
                     resolve(ls);
@@ -466,7 +456,7 @@ const stateMachine = createMachine<MachineContext>({
         },
         findView: (context, event): Promise<VisualizerLocation> => {
             return new Promise(async (resolve, reject) => {
-                const langClient = context.langClient!;
+                const langClient = await MILanguageClient.getInstance(context.projectUri!);
                 const viewLocation = context;
 
                 if (context.view === MACHINE_VIEW.IdpConnectorSchemaGeneratorForm) {
@@ -606,7 +596,7 @@ const stateMachine = createMachine<MachineContext>({
                     }
                 }
                 if (viewLocation.view === MACHINE_VIEW.ResourceView) {
-                    const res = await langClient!.getDiagnostics({ documentUri: context.documentUri! });
+                    const res = await langClient.getDiagnostics({ documentUri: context.documentUri! });
                     if (res.diagnostics && res.diagnostics.length > 0) {
                         viewLocation.diagnostics = res.diagnostics;
                     }
@@ -658,9 +648,8 @@ const stateMachine = createMachine<MachineContext>({
         },
         activateOtherFeatures: (context, event) => {
             return new Promise(async (resolve, reject) => {
-                const ls = await MILanguageClient.getInstance(context.projectUri!);
                 const treeviewId = context.isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : MI_PROJECT_EXPLORER_VIEW_ID;
-                await activateProjectExplorer(treeviewId, extension.context, ls.languageClient!, context.isInWI);
+                await activateProjectExplorer(treeviewId, extension.context, context.projectUri!, context.isInWI);
                 await activateTestExplorer(extension.context);
                 resolve(true);
             });
@@ -699,10 +688,9 @@ export const getStateMachine = (projectUri: string, context?: VisualizerLocation
         if (!workspaces) {
             console.warn('No workspace folder is open.');
         }
-        log(vscode.extensions.all.map(ext => ext.id).join(', '));
+
         stateService = interpret(stateMachine.withContext({
             projectUri: projectUri,
-            langClient: null,
             errors: [],
             view: MACHINE_VIEW.Overview,
             isInWI: vscode.extensions.getExtension(WI_EXTENSION_ID) ? true : false,
@@ -836,7 +824,7 @@ function updateProjectExplorer(location: VisualizerLocation | undefined) {
 async function checkIfMiProject(projectUri: string, view: MACHINE_VIEW = MACHINE_VIEW.Overview) {
     console.log(`Detecting project in ${projectUri} - ${new Date().toLocaleTimeString()}`);
 
-    let isProject = false, isOldProject = false, isOldWorkspace = false, displayOverview = true, isEnvironmentSetUp = false;
+    let isProject = false, isOldProject = false, isOldWorkspace = false, displayOverview = true, isEnvironmentSetUp = false, isLegacyRuntime = true;
     const customProps: any = {};
     try {
         // Check for pom.xml files excluding node_modules directory
@@ -883,6 +871,9 @@ async function checkIfMiProject(projectUri: string, view: MACHINE_VIEW = MACHINE
             }
         }
 
+        const runtimeVersion = await getMIVersionFromPom(projectUri);
+        isLegacyRuntime = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0 : true;
+
         vscode.commands.executeCommand('setContext', 'MI.status', 'projectDetected');
         vscode.commands.executeCommand('setContext', 'MI.projectType', 'miProject'); // for command enablements
         await extension.context.workspaceState.update('projectType', 'miProject');
@@ -910,9 +901,6 @@ async function checkIfMiProject(projectUri: string, view: MACHINE_VIEW = MACHINE
         // console.log project path
         console.log(`Current workspace path: ${projectUri}`);
     }
-
-    const runtimeVersion = await getMIVersionFromPom(projectUri);
-    const isLegacyRuntime = runtimeVersion ? compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0 : true;
 
     console.log(`Project detection completed for path: ${projectUri} at ${new Date().toLocaleTimeString()}`);
     return {

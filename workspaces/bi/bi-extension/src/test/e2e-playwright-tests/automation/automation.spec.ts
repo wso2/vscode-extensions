@@ -16,7 +16,7 @@
  * under the License.
  */
 import { test } from '@playwright/test';
-import { addArtifact, initTest, page } from '../utils';
+import { addArtifact, initTest, page } from '../utils/helpers';
 import { switchToIFrame } from '@wso2/playwright-vscode-tester';
 
 export default function createTests() {

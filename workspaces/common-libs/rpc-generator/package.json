@@ -4,11 +4,11 @@
   "description": "Generate rpc-manager,rpc-handler and rpc-client ts files in relevant libraries",
   "main": "index.js",
   "config": {
-    "CORE_RPC_TYPE_FILE": "main/index.ts",
-    "CORE_RPC_TYPE_DIR": "../../wi/wi-core/",
-    "EXT_RPC_MANAGER_DIR": "../../wi/wi-extension/",
-    "RPC_CLIENT_DIR": "../../wi/wi-rpc-client/",
-    "CORE_MODULE_NAME": "@wso2/wi-core"
+    "CORE_RPC_TYPE_FILE": "ai-panel/index.ts",
+    "CORE_RPC_TYPE_DIR": "../../ballerina/ballerina-core/",
+    "EXT_RPC_MANAGER_DIR": "../../ballerina/ballerina-extension/",
+    "RPC_CLIENT_DIR": "../../ballerina/ballerina-rpc-client/",
+    "CORE_MODULE_NAME": "@wso2/ballerina-core"
   },
   "scripts": {
     "generate": "node index.js"
