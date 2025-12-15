@@ -28,18 +28,19 @@ interface Props {
 	required?: boolean;
 	loading?: boolean;
 	control?: Control;
-	items?: ({ value: string; label?: string } | string)[];
+	items?: ({ value: string; label?: string; type?: "separator" } | string)[];
 	disabled?: boolean;
 	wrapClassName?: HTMLProps<HTMLElement>["className"];
+	onChange?: ((e: Event) => unknown) & React.FormEventHandler<HTMLElement>;
 }
 
 export const Dropdown: FC<Props> = (props) => {
-	const { label, required, items, loading, control, name, disabled, wrapClassName } = props;
+	const { label, required, items, loading, control, name, disabled, wrapClassName, onChange: onChangeRoot } = props;
 	return (
 		<Controller
 			name={name}
 			control={control}
-			render={({ field, fieldState }) => (
+			render={({ field: { onChange, ...restFields }, fieldState }) => (
 				<FormElementWrap
 					errorMsg={fieldState.error?.message}
 					label={label}
@@ -51,12 +52,23 @@ export const Dropdown: FC<Props> = (props) => {
 					<VSCodeDropdown
 						className={classnames("w-full border-[0.5px]", fieldState.error ? "border-vsc-errorForeground" : "border-transparent")}
 						disabled={disabled || loading || undefined}
-						{...field}
+						onChange={onChangeRoot || onChange}
+						{...restFields}
 					>
-						{items?.map((item) => (
-							<VSCodeOption key={typeof item === "string" ? item : item?.value} value={typeof item === "string" ? item : item.value} className="p-1">
-								{typeof item === "string" ? item : item?.label || item.value}
-							</VSCodeOption>
+						{items?.map((item, index) => (
+							<>
+								{typeof item !== "string" && item.type === "separator" ? (
+									<VSCodeOption disabled className="h-[1px] bg-vsc-foreground" key={`separator-${index}`} value={`separator-${index}`} />
+								) : (
+									<VSCodeOption
+										key={typeof item === "string" ? item : item?.value}
+										value={typeof item === "string" ? item : item.value}
+										className="p-1"
+									>
+										{typeof item === "string" ? item : item?.label || item.value}
+									</VSCodeOption>
+								)}
+							</>
 						))}
 					</VSCodeDropdown>
 				</FormElementWrap>
