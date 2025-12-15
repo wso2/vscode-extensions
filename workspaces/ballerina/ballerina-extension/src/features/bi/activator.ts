@@ -188,7 +188,7 @@ export function activate(context: BallerinaExtension) {
         openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.ReviewMode, reviewData });
     });
 
-    // Test command with sample data
+    //HACK: Test command with sample data
     commands.registerCommand('BI.review.changes.test', async () => {
         const projectPath = StateMachine.context().projectPath;
         if (!projectPath) {
@@ -218,16 +218,6 @@ export function activate(context: BallerinaExtension) {
         }
     });
 
-    commands.registerCommand(BI_COMMANDS.REVIEW_CHANGES, (reviewData?: any) => {
-        if (!reviewData) {
-            window.showErrorMessage('Review data is required to start review mode.');
-            return;
-        }
-        openView(EVENT_TYPE.OPEN_VIEW, { 
-            view: MACHINE_VIEW.ReviewMode,
-            reviewData: reviewData 
-        });
-    });
 
     // Open the ballerina toml file as the first file for LS to trigger the project loading
     openBallerinaTomlFile(context);
