@@ -9,7 +9,7 @@ if (isPreRelease) {
 
 console.log(`Packaging VSIX with args: ${args.join(' ')}`);
 
-const result = spawnSync('npx', args, { stdio: 'inherit' });
+const result = spawnSync('npx', args, { stdio: 'inherit', shell: true });
 
 if (result.error) {
   console.error(`Failed to spawn vsce: ${result.error.message}`);

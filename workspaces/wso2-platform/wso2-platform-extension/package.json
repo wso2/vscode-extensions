@@ -193,7 +193,7 @@
     "watch-wso2-platform": "webpack --watch",
     "build": "pnpm run compile && pnpm run copy-webview-lib && pnpm run postbuild",
     "rebuild": "pnpm run clean && pnpm run compile && pnpm run copy-webview-lib && pnpm run postbuild",
-    "copy-webview-lib": "mkdir -p ./resources/jslibs && copyfiles -f ../wso2-platform-webviews/build/* ./resources/jslibs",
+    "copy-webview-lib": "node -e \"require('fs').mkdirSync('./resources/jslibs', { recursive: true })\" && copyfiles -f ../wso2-platform-webviews/build/* ./resources/jslibs",
     "compile-tests": "tsc -p . --outDir dist",
     "watch-tests": "tsc -p . -w --outDir dist",
     "e2e-test-setup": "npx extest get-vscode -c 1.83.1 && npx extest get-chromedriver -c 1.83.1 && npx extest install-vsix -f $(ls vsix/*.vsix)",
@@ -206,7 +206,7 @@
     "lint:fix": "biome check --write . ",
     "test-nyc-cli": "nyc --reporter=html node ./dist/test/runTest.js",
     "test": "rm -rf .vscode-test/extensions && node ./dist/test/runTest.js && nyc report && nyc report --reporter=html",
-    "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/; else vsce package --no-dependencies --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/; fi",
+    "package": "node -e \"const { execSync } = require('child_process'); const pre = String(process.env.isPreRelease).toLowerCase() === 'true'; const base = 'vsce package --no-dependencies --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/'; execSync(pre ? base + ' --pre-release' : base, { stdio: 'inherit' });\"",
     "copyVSIX": "copyfiles *.vsix ./vsix",
     "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../..",
     "postbuild": "pnpm run package && pnpm run copyVSIX"
