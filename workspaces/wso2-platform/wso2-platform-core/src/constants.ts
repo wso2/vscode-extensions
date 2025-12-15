@@ -22,6 +22,7 @@ export const CommandIds = {
 	SignIn: "wso2.wso2-platform.sign.in",
 	SignInWithAuthCode: "wso2.wso2-platform.sign.in.with.authCode",
 	SignOut: "wso2.wso2-platform.sign.out",
+	CancelSignIn: "wso2.wso2-platform.cancel.sign.in",
 	AddComponent: "wso2.wso2-platform.add.component",
 	CreateNewComponent: "wso2.wso2-platform.create.component",
 	DeleteComponent: "wso2.wso2-platform.delete.component",
