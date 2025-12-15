@@ -30,13 +30,13 @@ import { GenerationType, getAllLibraries, LIBRARY_PROVIDER_TOOL } from "../libs/
 import { Library } from "../libs/libs_types";
 import { AIChatStateMachine } from "../../../../views/ai-panel/aiChatMachine";
 import { getTempProject as createTempProjectOfWorkspace, cleanupTempProject } from "../../utils/project-utils";
-import { formatCodebaseStructure, integrateCodeToWorkspace } from "./utils";
 import { getSystemPrompt, getUserPrompt } from "./prompts";
 import { createConnectorGeneratorTool, CONNECTOR_GENERATOR_TOOL } from "../libs/connectorGeneratorTool";
 import { LangfuseExporter } from 'langfuse-vercel';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { getProjectSource } from "../../utils/project-utils";
+import { StateMachine } from "../../../../stateMachine";
 
 const LANGFUSE_SECRET = process.env.LANGFUSE_SECRET;
 const LANGFUSE_PUBLIC = process.env.LANGFUSE_PUBLIC;
@@ -61,13 +61,14 @@ export async function generateDesignCore(
     const isPlanModeEnabled = params.isPlanMode;
     const messageId = params.messageId;
 
+    const projectPath = StateMachine.context().projectPath; // TODO: Fix this to use the project path from the params
     const tempProjectPath = (await createTempProjectOfWorkspace()).path;
     const shouldCleanup = !process.env.AI_TEST_ENV;
 
     const projects: ProjectSource[] = await getProjectSource(params.operationType); // TODO: Fix multi project
 
     // Send didOpen for all initial project files
-    sendAgentDidOpenForProjects(tempProjectPath, projects);
+    sendAgentDidOpenForProjects(tempProjectPath, projectPath, projects);
 
     const historyMessages = populateHistoryForAgent(params.chatHistory);
 
@@ -99,9 +100,9 @@ export async function generateDesignCore(
         [TASK_WRITE_TOOL_NAME]: createTaskWriteTool(eventHandler, tempProjectPath, modifiedFiles),
         [LIBRARY_PROVIDER_TOOL]: getLibraryProviderTool(libraryDescriptions, GenerationType.CODE_GENERATION),
         [CONNECTOR_GENERATOR_TOOL]: createConnectorGeneratorTool(eventHandler, tempProjectPath, projects[0].projectName, modifiedFiles),
-        [FILE_WRITE_TOOL_NAME]: createWriteTool(createWriteExecute(tempProjectPath, modifiedFiles)),
-        [FILE_SINGLE_EDIT_TOOL_NAME]: createEditTool(createEditExecute(tempProjectPath, modifiedFiles)),
-        [FILE_BATCH_EDIT_TOOL_NAME]: createBatchEditTool(createMultiEditExecute(tempProjectPath, modifiedFiles)),
+        [FILE_WRITE_TOOL_NAME]: createWriteTool(createWriteExecute(tempProjectPath, projectPath, modifiedFiles)),
+        [FILE_SINGLE_EDIT_TOOL_NAME]: createEditTool(createEditExecute(tempProjectPath, projectPath, modifiedFiles)),
+        [FILE_BATCH_EDIT_TOOL_NAME]: createBatchEditTool(createMultiEditExecute(tempProjectPath, projectPath, modifiedFiles)),
         [FILE_READ_TOOL_NAME]: createReadTool(createReadExecute(tempProjectPath)),
         [DIAGNOSTICS_TOOL_NAME]: createDiagnosticsTool(tempProjectPath),
     };
@@ -286,7 +287,7 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
 
                 if (!process.env.AI_TEST_ENV && modifiedFiles.length > 0) {
                     const modifiedFilesSet = new Set(modifiedFiles);
-                    await integrateCodeToWorkspace(tempProjectPath, modifiedFilesSet);
+                    // await integrateCodeToWorkspace(tempProjectPath, modifiedFilesSet);
                 }
 
                 if (shouldCleanup) {
@@ -302,7 +303,7 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
                 return tempProjectPath;
             }
         }
-        }
+    }
 
     return tempProjectPath;
 }
