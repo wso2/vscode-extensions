@@ -26,7 +26,6 @@ import { getInputPort, getOutputPort } from "../../utils/port-utils";
 import { DMDiagnostic, Mapping } from "@wso2/ballerina-core";
 import { getTargetPortPrefix } from "../../utils/port-utils";
 import { ArrayOutputNode } from "../ArrayOutput";
-import { removeMapping } from "../../utils/modification-utils";
 import { QueryOutputNode } from "../QueryOutput";
 import { useDMSearchStore } from "../../../../store/store";
 import { PrimitiveOutputNode } from "../PrimitiveOutput";
@@ -226,9 +225,5 @@ export class LinkConnectorNode extends DataMapperNodeModel {
 
     public hasError(): boolean {
         return this.diagnostics.length > 0;
-    }
-
-    public async deleteLink(): Promise<void> {
-        await removeMapping(this.mapping, this.context);
     }
 }

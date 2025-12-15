@@ -26,7 +26,6 @@ import { ObjectOutputNode } from "../ObjectOutput";
 import { findInputNode } from "../../utils/node-utils";
 import { getInputPort, getOutputPort, getTargetPortPrefix } from "../../utils/port-utils";
 import { OFFSETS } from "../../utils/constants";
-import { removeMapping } from "../../utils/modification-utils";
 import { QueryOutputNode } from "../QueryOutput";
 import { useDMSearchStore } from "../../../../store/store";
 
@@ -216,10 +215,6 @@ export class QueryExprConnectorNode extends DataMapperNodeModel {
                 position.y - 2
             );
         }
-    }
-
-    public async deleteLink(): Promise<void> {
-        await removeMapping(this.mapping, this.context);
     }
 
     public hasError(): boolean {

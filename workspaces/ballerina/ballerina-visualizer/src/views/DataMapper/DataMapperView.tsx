@@ -232,25 +232,6 @@ export function DataMapperView(props: DataMapperViewProps) {
         )
     }
 
-    const deleteMapping = async (mapping: Mapping, viewId: string) => {
-        try {
-            const resp = await rpcClient
-                .getDataMapperRpcClient()
-                .deleteMapping({
-                    filePath,
-                    codedata: viewState.codedata,
-                    mapping,
-                    varName: name,
-                    targetField: viewId,
-                    subMappingName: viewState.subMappingName
-                });
-            console.log(">>> [Data Mapper] deleteMapping response:", resp);
-        } catch (error) {
-            console.error(error);
-            setIsFileUpdateError(true);
-        }
-    };
-
     const mapWithCustomFn = async (mapping: Mapping, metadata: FnMetadata, viewId: string) => {
         try {
             const resp = await rpcClient
@@ -520,7 +501,6 @@ export function DataMapperView(props: DataMapperViewProps) {
                             onEdit={reusable ? onEdit : undefined}
                             applyModifications={updateExpression}
                             generateForm={generateForm}
-                            deleteMapping={deleteMapping}
                             mapWithCustomFn={mapWithCustomFn}
                             mapWithTransformFn={mapWithTransformFn}
                             goToFunction={goToFunction}

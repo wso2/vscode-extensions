@@ -76,12 +76,6 @@ export async function addValue(fieldId: string, value: string, context: IDataMap
 	return await context.applyModifications(fieldId, value, viewId, name);
 }
 
-export async function removeMapping(mapping: Mapping, context: IDataMapperContext) {
-	const views=context.views;
-	const viewId = views[views.length-1].targetField;
-	return await context.deleteMapping( mapping, viewId)
-}
-
 function getMapWithFnData(link: DataMapperLinkModel, context: IDataMapperContext){
 	const sourcePort = link.getSourcePort();
 	const targetPort = link.getTargetPort();

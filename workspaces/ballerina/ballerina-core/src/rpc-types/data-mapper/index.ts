@@ -30,7 +30,6 @@ import {
     GetDataMapperCodedataResponse,
     GetSubMappingCodedataRequest,
     AllDataMapperSourceRequest,
-    DeleteMappingRequest,
     MapWithFnRequest,
     DMModelRequest,
     ProcessTypeReferenceResponse,
@@ -45,7 +44,6 @@ export interface DataMapperAPI {
     getDataMapperModel: (params: DataMapperModelRequest) => Promise<DataMapperModelResponse>;
     getDataMapperSource: (params: DataMapperSourceRequest) => Promise<DataMapperSourceResponse>;
     getVisualizableFields: (params: VisualizableFieldsRequest) => Promise<VisualizableFieldsResponse>;
-    deleteMapping: (params: DeleteMappingRequest) => Promise<DataMapperSourceResponse>;
     mapWithCustomFn: (params: MapWithFnRequest) => Promise<DataMapperSourceResponse>;
     mapWithTransformFn: (params: MapWithFnRequest) => Promise<DataMapperSourceResponse>;
     getDataMapperCodedata: (params: GetDataMapperCodedataRequest) => Promise<GetDataMapperCodedataResponse>;

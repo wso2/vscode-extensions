@@ -31,7 +31,7 @@ import { useDMCollapsedFieldsStore, useDMExpandedFieldsStore, useDMExpressionBar
 import { getTypeName } from "../../utils/type-utils";
 import { ArrayOutputFieldWidget } from "../ArrayOutput/ArrayOuptutFieldWidget";
 import { fieldFQNFromPortName, getDefaultValue } from "../../utils/common-utils";
-import { addValue, removeMapping } from "../../utils/modification-utils";
+import { addValue } from "../../utils/modification-utils";
 import FieldActionWrapper from "../commons/FieldActionWrapper";
 import { ValueConfigMenu, ValueConfigMenuItem, ValueConfigOption } from "../commons/ValueConfigButton";
 import { DiagnosticTooltip } from "../../Diagnostic/DiagnosticTooltip";
@@ -147,15 +147,6 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
         }
     };
 
-    const handleDeleteValue = async () => {
-        setLoading(true);
-        try {
-            await removeMapping(mapping || {output: portIn?.attributes.fieldFQN, expression: undefined}, context);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handleEditValue = () => {
         setExprBarFocusedPort(portIn);
     };
@@ -256,7 +247,7 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
 
     const deleteValueMenuItem: ValueConfigMenuItem = {
         title: isWithinArray ? ValueConfigOption.DeleteElement : ValueConfigOption.DeleteValue,
-        onClick: handleDeleteValue
+        onClick: null
     };
 
     const addEnumValueMenuItems: ValueConfigMenuItem[] = expression

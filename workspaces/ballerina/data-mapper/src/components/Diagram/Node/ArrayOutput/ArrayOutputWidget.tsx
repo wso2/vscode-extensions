@@ -34,7 +34,7 @@ import FieldActionWrapper from "../commons/FieldActionWrapper";
 import { ValueConfigMenu, ValueConfigMenuItem, ValueConfigOption } from "../commons/ValueConfigButton";
 import { useShallow } from "zustand/react/shallow";
 import { fieldFQNFromPortName, getDefaultValue, isWithinSubMappingRootView } from "../../utils/common-utils";
-import { addValue, removeMapping } from "../../utils/modification-utils";
+import { addValue } from "../../utils/modification-utils";
 
 export interface ArrayOutputWidgetProps {
 	id: string;
@@ -124,15 +124,6 @@ export function ArrayOutputWidget(props: ArrayOutputWidgetProps) {
 		}
 	};
 
-	const handleArrayDeletion = async () => {
-		setLoading(true);
-		try {
-			await removeMapping(mapping || {output: portIn?.attributes.fieldFQN, expression: undefined}, context);
-		} finally {
-			setLoading(false);
-		}
-	};
-
 	const handleArrayInitWithElement = async () => {
 		setLoading(true);
 		try {
@@ -174,8 +165,7 @@ export function ArrayOutputWidget(props: ArrayOutputWidgetProps) {
 				{ title: ValueConfigOption.InitializeArrayWithElement, onClick: handleArrayInitWithElement }
 			]
 			: [
-			]),
-		...(elements.length > 0 ? [{ title: ValueConfigOption.DeleteArray, onClick: handleArrayDeletion }] : [])
+			])
 	];
 
 	return (

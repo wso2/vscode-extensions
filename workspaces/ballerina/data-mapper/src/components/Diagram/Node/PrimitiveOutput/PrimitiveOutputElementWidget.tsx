@@ -32,7 +32,6 @@ import { useDMExpressionBarStore } from "../../../../store/store";
 import { DiagnosticTooltip } from "../../Diagnostic/DiagnosticTooltip";
 import FieldActionWrapper from "../commons/FieldActionWrapper";
 import { IOType } from "@wso2/ballerina-core";
-import { removeMapping } from "../../utils/modification-utils";
 import { useShallow } from "zustand/react/shallow";
 import { PrimitiveOutputNode } from ".";
 
@@ -93,15 +92,6 @@ export function PrimitiveOutputElementWidget(props: PrimitiveOutputElementWidget
             setExprBarFocusedPort(portIn);
     };
 
-    const handleDelete = async () => {
-        setLoading(true);
-        try {
-            await removeMapping(mapping || {output: portIn?.attributes.fieldFQN, expression: undefined}, context);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const valueConfigMenuItems = useMemo(() => {
         const items = [
             {
@@ -112,12 +102,12 @@ export function PrimitiveOutputElementWidget(props: PrimitiveOutputElementWidget
         if (isArrayElement) {
             items.push({
                 title: ValueConfigOption.DeleteElement,
-                onClick: handleDelete
+                onClick: () => {}
             });
         } else if (expression !== getDefaultValue(field?.kind)) {
             items.push({
                 title: ValueConfigOption.DeleteValue,
-                onClick: handleDelete
+                onClick: () => {}
         });
         }
         return items;

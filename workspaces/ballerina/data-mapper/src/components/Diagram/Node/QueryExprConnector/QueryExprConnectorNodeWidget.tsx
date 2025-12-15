@@ -53,9 +53,6 @@ export function QueryExprConnectorNodeWidget(props: QueryExprConnectorNodeWidget
 
     const onClickDelete = async () => {
         setDeleteInProgress(true);
-        if (node.deleteLink) {
-            await node.deleteLink();
-        }
         setDeleteInProgress(false);
     };
 

@@ -29,7 +29,6 @@ import { InputOutputPortModel } from "../../Port";
 import { ArrowLinkModel, DataMapperLinkModel } from "../../Link";
 import { ExpressionLabelModel } from "../../Label";
 import { getInputPort, getOutputPort } from "../../utils/port-utils";
-import { removeMapping } from "../../utils/modification-utils";
 
 export const QUERY_OUTPUT_NODE_TYPE = "data-mapper-node-query-output";
 const NODE_ID = "query-output-node";
@@ -143,7 +142,7 @@ export class QueryOutputNode extends DataMapperNodeModel {
                         value: expression,
                         link: lm,
                         context: this.context,
-                        deleteLink: () => this.deleteField(mapping),
+                        deleteLink: () => {},
                     }
                 ));
 
@@ -162,10 +161,6 @@ export class QueryOutputNode extends DataMapperNodeModel {
                 this.getModel().addAll(lm as any);
             }
         });
-    }
-
-    async deleteField(mapping: Mapping) {
-        await removeMapping(mapping, this.context);
     }
 
     public updatePosition() {

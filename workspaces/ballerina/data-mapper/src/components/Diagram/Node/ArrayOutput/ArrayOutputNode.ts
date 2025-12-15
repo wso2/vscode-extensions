@@ -30,7 +30,6 @@ import { findMappingByOutput } from "../../utils/common-utils";
 import { getTypeName } from "../../utils/type-utils";
 import { findInputNode } from "../../utils/node-utils";
 import { getInputPort, getOutputPort } from "../../utils/port-utils";
-import { removeMapping } from "../../utils/modification-utils";
 
 export const ARRAY_OUTPUT_NODE_TYPE = "data-mapper-node-array-output";
 const NODE_ID = "array-output-node";
@@ -164,7 +163,6 @@ export class ArrayOutputNode extends DataMapperNodeModel {
                     value: expression,
                     link: lm,
                     context: this.context,
-                    deleteLink: () => this.deleteField(mapping)
                 }));
 
                 lm.registerListener({
@@ -181,10 +179,6 @@ export class ArrayOutputNode extends DataMapperNodeModel {
                 this.getModel().addAll(lm as any);
             }
         });
-    }
-
-    async deleteField(mapping: Mapping) {
-        await removeMapping(mapping, this.context);
     }
 
     public updatePosition() {

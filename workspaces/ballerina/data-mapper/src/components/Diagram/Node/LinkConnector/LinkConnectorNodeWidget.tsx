@@ -51,14 +51,6 @@ export function LinkConnectorNodeWidget(props: LinkConnectorNodeWidgetProps) {
         setExprBarFocusedPort(targetPort);
     };
 
-    const onClickDelete = async () => {
-        setDeleteInProgress(true);
-        if (node.deleteLink) {
-            await node.deleteLink();
-        }
-        setDeleteInProgress(false);
-    };
-
     const loadingScreen = (
         <div className={classnames(classes.element, classes.loadingContainer)}>
             <ProgressRing sx={{ height: '16px', width: '16px' }} />
@@ -73,10 +65,6 @@ export function LinkConnectorNodeWidget(props: LinkConnectorNodeWidgetProps) {
                 {node.mapping.elementAccessIndex ?
                     renderIndexingButton(onClickEdit, node) :
                     renderEditButton(onClickEdit, node?.value)
-                }
-                {deleteInProgress ?
-                    loadingScreen :
-                    renderDeleteButton(onClickDelete, node?.value)
                 }
                 {diagnostic && (
                     <DiagnosticWidget

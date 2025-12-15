@@ -37,7 +37,7 @@ import { DiagnosticTooltip } from "../../Diagnostic/DiagnosticTooltip";
 import { TreeBody } from "../commons/Tree/Tree";
 import { getTypeName } from "../../utils/type-utils";
 import FieldActionWrapper from "../commons/FieldActionWrapper";
-import { addValue, removeMapping } from "../../utils/modification-utils";
+import { addValue } from "../../utils/modification-utils";
 import { PrimitiveOutputElementWidget } from "../PrimitiveOutput/PrimitiveOutputElementWidget";
 import { OutputFieldPreviewWidget } from "./OutputFieldPreviewWidget";
 
@@ -286,15 +286,6 @@ export function ArrayOutputFieldWidget(props: ArrayOutputFieldWidgetProps) {
         }
     };
 
-    const handleArrayDeletion = async () => {
-        setLoading(true);
-        try {
-            await removeMapping(mapping || {output: portIn?.attributes.fieldFQN, expression: undefined}, context);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const onMouseEnter = () => {
         setIsHovered(true);
     };
@@ -303,14 +294,9 @@ export function ArrayOutputFieldWidget(props: ArrayOutputFieldWidgetProps) {
         setIsHovered(false);
     };
 
-    const valConfigMenuItems: ValueConfigMenuItem[] = isDisabled
-        ? [
-            { title: ValueConfigOption.DeleteArray, onClick: handleArrayDeletion },
-        ]
-        : hasElements || hasDefaultValue
+    const valConfigMenuItems: ValueConfigMenuItem[] = hasElements || hasDefaultValue
             ? [
                 { title: ValueConfigOption.EditValue, onClick: handleEditValue },
-                { title: ValueConfigOption.DeleteArray, onClick: handleArrayDeletion },
             ]
             : [
                 { title: ValueConfigOption.InitializeArray, onClick: handleArrayInitialization },

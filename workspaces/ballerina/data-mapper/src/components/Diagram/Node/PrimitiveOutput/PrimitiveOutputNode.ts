@@ -29,7 +29,6 @@ import { InputOutputPortModel } from "../../Port";
 import { DataMapperLinkModel } from "../../Link";
 import { ExpressionLabelModel } from "../../Label";
 import { getInputPort, getOutputPort } from "../../utils/port-utils";
-import { removeMapping } from "../../utils/modification-utils";
 import { findMappingByOutput } from "../../utils/common-utils";
 
 export const PRIMITIVE_OUTPUT_NODE_TYPE = "data-mapper-node-primitive-output";
@@ -127,7 +126,7 @@ export class PrimitiveOutputNode extends DataMapperNodeModel {
                     new ExpressionLabelModel({
                         value: expression,
                         link: lm,
-                        deleteLink: () => this.deleteField(mapping),
+                        deleteLink: () => {},
                         ...(query?.output === output && {collectClauseFn: query?.resultClause?.properties?.func})
                     }
                 ));
@@ -148,10 +147,6 @@ export class PrimitiveOutputNode extends DataMapperNodeModel {
             }
         });
 
-    }
-
-    async deleteField(mapping: Mapping) {
-        await removeMapping(mapping, this.context);
     }
 
     public updatePosition() {

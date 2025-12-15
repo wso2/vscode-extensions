@@ -125,7 +125,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
         onClose,
         onRefresh,
         onEdit,
-        deleteMapping,
         generateForm,
         mapWithCustomFn,
         mapWithTransformFn,
@@ -183,11 +182,7 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
         let output: string;
         while ((output = outputIds.pop()) === '0');
         
-        await deleteMapping(
-            { output, expression: undefined },
-            targetField
-        );
-    }, [views, deleteMapping]);
+    }, [views]);
 
     useEffect(() => {
         const lastView = views[views.length - 1];
@@ -229,7 +224,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
                 hasInputsOutputsChanged,
                 addView, 
                 applyModifications, 
-                deleteMapping,
                 mapWithCustomFn,
                 mapWithTransformFn,
                 goToFunction,
