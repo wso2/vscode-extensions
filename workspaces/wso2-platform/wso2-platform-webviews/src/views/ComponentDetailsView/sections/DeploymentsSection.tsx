@@ -16,21 +16,18 @@
  * under the License.
  */
 
-import { type } from "node:os";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { UseQueryResult, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { VSCodeDropdown, VSCodeLink, VSCodeOption } from "@vscode/webview-ui-toolkit/react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { VSCodeLink } from "@vscode/webview-ui-toolkit/react";
 import {
 	type BuildKind,
 	type CheckWorkflowStatusResp,
 	ChoreoComponentType,
 	type ComponentDeployment,
-	ComponentDisplayType,
 	type ComponentEP,
 	type ComponentKind,
 	type CreateDeploymentReq,
-	DeploymentLogsData,
 	DeploymentStatus,
 	type DeploymentTrack,
 	EndpointDeploymentStatus,
@@ -38,8 +35,6 @@ import {
 	type Organization,
 	type Project,
 	type ProxyDeploymentInfo,
-	type StateReason,
-	type WebviewQuickPickItem,
 	WebviewQuickPickItemKind,
 	WorkflowInstanceStatus,
 	capitalizeFirstLetter,
@@ -50,7 +45,6 @@ import {
 	toTitleCase,
 } from "@wso2/wso2-platform-core";
 import classNames from "classnames";
-import classnames from "classnames";
 import clipboardy from "clipboardy";
 import React, { type FC, type ReactNode, useState, useEffect } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";

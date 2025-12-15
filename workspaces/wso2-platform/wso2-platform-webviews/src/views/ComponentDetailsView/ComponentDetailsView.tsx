@@ -17,7 +17,7 @@
  */
 
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	type BuildKind,
 	ChoreoComponentType,
@@ -51,9 +51,11 @@ export const ComponentDetailsView: FC<ComponentsDetailsWebviewProps> = (props) =
 	const deploymentTracks = component?.deploymentTracks ?? [];
 	const [rightPanelRef] = useAutoAnimate();
 	const type = getTypeForDisplayType(props.component.spec?.type);
+	const queryClient = useQueryClient();
 
 	const [deploymentTrack, setDeploymentTrack] = useState<DeploymentTrack | undefined>(deploymentTracks?.find((item) => item.latest));
 	const [hasOngoingBuilds, setHasOngoingBuilds] = useState(false);
+	const [prevBuildList, setPrevBuildList] = useState<BuildKind[]>([]);
 	const [buildDetailsPanel, setBuildDetailsPanel] = useState<{ open: boolean; build?: BuildKind }>({ open: false, build: null });
 
 	useEffect(() => {
@@ -125,12 +127,12 @@ export const ComponentDetailsView: FC<ComponentsDetailsWebviewProps> = (props) =
 		refetchOnWindowFocus: true,
 	});
 
-	const buildLogsQueryData = useGetBuildLogs(component, organization, project, buildDetailsPanel?.build, {
+	const buildLogsQueryData = useGetBuildLogs(component, deploymentTrack, organization, project, buildDetailsPanel?.build, {
 		enabled: !!buildDetailsPanel?.build,
 	});
 
 	const buildListQueryData = useGetBuildList(deploymentTrack, component, project, organization, {
-		onSuccess: (builds) => {
+		onSuccess: async (builds) => {
 			setHasOngoingBuilds(builds.some((item) => item.status?.conclusion === ""));
 			if (buildDetailsPanel?.open && buildDetailsPanel?.build) {
 				const matchingItem = builds.find((item) => item.status?.runId === buildDetailsPanel?.build?.status?.runId);
@@ -139,9 +141,27 @@ export const ComponentDetailsView: FC<ComponentsDetailsWebviewProps> = (props) =
 				}
 				buildLogsQueryData.refetch();
 			}
+			const hasPrevSucceedBuilds = prevBuildList.filter((item) => item.status.conclusion === "success").length > 0;
+			if (!hasPrevSucceedBuilds && builds.length > 0 && builds[0].status?.conclusion === "success" && envs.length > 0) {
+				// have a new succeeded build, which should be auto deployed
+				await new Promise((resolve) => setTimeout(resolve, 10000));
+				if (getTypeForDisplayType(component.spec?.type) === ChoreoComponentType.ApiProxy) {
+					queryClient.refetchQueries({
+						queryKey: queryKeys.getProxyDeploymentInfo(
+							component,
+							organization,
+							envs[0],
+							component?.apiVersions?.find((item) => item.latest),
+						),
+					});
+				} else {
+					queryClient.refetchQueries({ queryKey: queryKeys.getDeploymentStatus(deploymentTrack, component, organization, envs[0]) });
+				}
+			}
+			setPrevBuildList(builds);
 		},
 		enabled: !!deploymentTrack,
-		refetchInterval: hasOngoingBuilds ? 5000 : false,
+		refetchInterval: hasOngoingBuilds || (props.isNewComponent && prevBuildList.length === 0) ? 5000 : false,
 	});
 
 	const succeededBuilds = useMemo(
