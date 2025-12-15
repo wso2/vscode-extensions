@@ -43,6 +43,10 @@ const getTokenTypeFromIndex = (index: number): TokenType => {
 export const getInputModeFromTypes = (inputType: InputType): InputMode => {
     if (!inputType || !inputType) return;
 
+    if (inputType.fieldType === "EXPRESSION") {
+        return InputMode.EXP;
+    }
+
     if (inputType.fieldType === "SINGLE_SELECT") {
         return InputMode.ENUM;
     }

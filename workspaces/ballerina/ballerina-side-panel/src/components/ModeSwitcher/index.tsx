@@ -30,7 +30,6 @@ interface ModeSwitcherProps {
 }
 
 const ModeSwitcher: React.FC<ModeSwitcherProps> = ({ value, isRecordTypeField, onChange, types }) => {
-    const isChecked = value === InputMode.EXP;
 
     const defaultMode = useMemo(
         () => isRecordTypeField ? InputMode.RECORD : getDefaultExpressionMode(types),
@@ -40,6 +39,8 @@ const ModeSwitcher: React.FC<ModeSwitcherProps> = ({ value, isRecordTypeField, o
         () => getSecondaryInputMode(types),
         [types]
     );
+
+    const isChecked = value === secondaryMode;
 
     const handlePrimaryModeClick = () => {
         onChange(defaultMode);
