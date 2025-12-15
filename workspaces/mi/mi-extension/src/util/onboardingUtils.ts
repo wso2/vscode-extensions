@@ -1094,7 +1094,7 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
             console.debug('[Ballerina Build] Ballerina Command Path:', balCommand);
 
             // Check if Ballerina executable exists
-            if (!fs.existsSync(balCommand)) {
+            if (!(isBallerinaInstalled || fs.existsSync(balCommand))) {
                 console.debug('[Ballerina Build] Error: Ballerina executable not found at:', balCommand);
                 vscode.window.showErrorMessage(`Ballerina executable not found at: ${balCommand}`);
                 reject(new Error('Ballerina executable not found'));

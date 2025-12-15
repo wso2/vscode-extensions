@@ -33,8 +33,8 @@ export class ProjectExplorer {
         await this.explorer.waitFor();
     }
 
-    public async findItem(path: string[], click: boolean = false) {
-        let currentItem;
+    public async findItem(path: string[], click: boolean = false): Promise<Locator | undefined> {
+        let currentItem: Locator | undefined = undefined;
         for (let i = 0; i < path.length; i++) {
 
             currentItem = this.explorer.locator(`div[role="treeitem"][aria-label="${path[i]}"]`);
