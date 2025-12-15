@@ -134,14 +134,14 @@ export class WSO2AuthenticationProvider implements AuthenticationProvider, Dispo
 		const customOptions = options as any;
 		const platform = customOptions?.platform;
 
-		commands.executeCommand(CommandIds.SignIn, {
-			extName: platform,
-		}).then(undefined, (error) => {
-			console.error("Sign-in command failed:", error);
-		});
-
 		// Return a promise that will be resolved when login succeeds or timeout occurs
 		return new Promise<AuthenticationSession>((resolve, reject) => {
+			commands.executeCommand(CommandIds.SignIn, {
+				extName: platform,
+			}).then(undefined, (error) => {
+				console.error("Sign-in command failed:", error);
+			});
+
 			// Set up timeout
 			const timeout = setTimeout(() => {
 				console.log("Sign-in timeout reached");
