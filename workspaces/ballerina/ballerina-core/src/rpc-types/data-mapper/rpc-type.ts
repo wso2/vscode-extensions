@@ -37,7 +37,6 @@ import {
     ProcessTypeReferenceResponse,
     ProcessTypeReferenceRequest,
     ExpandedDMModelResponse,
-    ClearTypeCacheResponse,
     FieldPropertyRequest
 } from "../../interfaces/extended-lang-client";
 import { RequestType } from "vscode-messenger-common";
@@ -54,4 +53,3 @@ export const getProperty: RequestType<PropertyRequest, PropertyResponse> = { met
 export const getFieldProperty: RequestType<FieldPropertyRequest, PropertyResponse> = { method: `${_preFix}/getFieldProperty` };
 export const getExpandedDMFromDMModel: RequestType<DMModelRequest, ExpandedDMModelResponse> = { method: `${_preFix}/getExpandedDMFromDMModel` };
 export const getProcessTypeReference: RequestType<ProcessTypeReferenceRequest, ProcessTypeReferenceResponse> = { method: `${_preFix}/getProcessTypeReference` };
-export const clearTypeCache: RequestType<void, ClearTypeCacheResponse> = { method: `${_preFix}/clearTypeCache` };

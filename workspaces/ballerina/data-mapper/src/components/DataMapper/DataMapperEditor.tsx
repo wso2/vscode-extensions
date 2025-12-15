@@ -123,7 +123,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
         reusable,
         applyModifications,
         onClose,
-        onRefresh,
         onEdit,
         generateForm,
         goToFunction,
@@ -297,7 +296,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
                     switchView={switchView}
                     onClose={handleOnClose}
                     onBack={handleOnBack}
-                    onRefresh={onRefresh}
                     onReset={handleOnReset}
                     onEdit={onEdit}
                     autoMapWithAI={autoMapWithAI}

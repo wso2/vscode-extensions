@@ -18,7 +18,6 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
-    clearTypeCache,
     DataMapperModelRequest,
     DataMapperSourceRequest,
     deleteMapping,
@@ -58,5 +57,4 @@ export function registerDataMapperRpcHandlers(messenger: Messenger) {
     messenger.onRequest(getFieldProperty, (args: FieldPropertyRequest) => rpcManger.getFieldProperty(args));
     messenger.onRequest(getExpandedDMFromDMModel, (args: DMModelRequest) => rpcManger.getExpandedDMFromDMModel(args));
     messenger.onRequest(getProcessTypeReference, (args: ProcessTypeReferenceRequest) => rpcManger.getProcessTypeReference(args));
-    messenger.onRequest(clearTypeCache, () => rpcManger.clearTypeCache());
 }

@@ -68,7 +68,6 @@ export interface DataMapperEditorProps {
     applyModifications: (outputId: string, expression: string, viewId: string, name: string) => Promise<void>;
     goToFunction: (functionRange: LineRange) => Promise<void>;
     enrichChildFields: (parentField: IOType) => Promise<void>;
-    onRefresh: () => Promise<void>;
     onClose: () => void;
     onEdit?: () => void;
     generateForm: (formProps: DMFormProps) => JSX.Element;

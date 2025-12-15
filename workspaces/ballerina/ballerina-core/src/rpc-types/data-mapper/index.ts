@@ -34,7 +34,6 @@ import {
     ProcessTypeReferenceResponse,
     ProcessTypeReferenceRequest,
     ExpandedDMModelResponse,
-    ClearTypeCacheResponse,
     FieldPropertyRequest
 } from "../../interfaces/extended-lang-client";
 
@@ -49,5 +48,4 @@ export interface DataMapperAPI {
     getFieldProperty: (params: FieldPropertyRequest) => Promise<PropertyResponse>;
     getExpandedDMFromDMModel: (params: DMModelRequest) => Promise<ExpandedDMModelResponse>;
     getProcessTypeReference: (params: ProcessTypeReferenceRequest) => Promise<ProcessTypeReferenceResponse>;
-    clearTypeCache: () => Promise<ClearTypeCacheResponse>;
 }

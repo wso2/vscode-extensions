@@ -18,7 +18,6 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
-    ClearTypeCacheResponse,
     DMModelRequest,
     DataMapperAPI,
     DataMapperModelRequest,
@@ -33,14 +32,12 @@ import {
     GetSubMappingCodedataRequest,
     InitialIDMSourceRequest,
     InitialIDMSourceResponse,
-    MapWithFnRequest,
     ProcessTypeReferenceRequest,
     ProcessTypeReferenceResponse,
     PropertyRequest,
     PropertyResponse,
     VisualizableFieldsRequest,
     VisualizableFieldsResponse,
-    clearTypeCache,
     deleteMapping,
     getDataMapperCodedata,
     getDataMapperModel,
@@ -105,9 +102,5 @@ export class DataMapperRpcClient implements DataMapperAPI {
 
     getProcessTypeReference(params: ProcessTypeReferenceRequest): Promise<ProcessTypeReferenceResponse> {
         return this._messenger.sendRequest(getProcessTypeReference, HOST_EXTENSION, params);
-    }
-
-    clearTypeCache(): Promise<ClearTypeCacheResponse> {
-        return this._messenger.sendRequest(clearTypeCache, HOST_EXTENSION);
     }
 }

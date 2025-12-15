@@ -392,10 +392,6 @@ export interface MapWithFnRequest {
     subMappingName?: string;
 }
 
-export interface ClearTypeCacheResponse {
-    success: boolean;
-}
-
 export interface GetDataMapperCodedataRequest {
     filePath: string;
     codedata: CodeData;

@@ -36,14 +36,13 @@ export interface DataMapperHeaderProps {
     onClose: () => void;
     onBack: () => void;
     onEdit?: () => void;
-    onRefresh: () => Promise<void>;
     onReset: () => Promise<void>;
     autoMapWithAI: () => Promise<void>;
     undoRedoGroup: () => JSX.Element;
 }
 
 export function DataMapperHeader(props: DataMapperHeaderProps) {
-    const { views, reusable, switchView, hasEditDisabled, onClose, onBack, onRefresh, onReset, onEdit, autoMapWithAI, undoRedoGroup } = props;
+    const { views, reusable, switchView, hasEditDisabled, onClose, onBack, onReset, onEdit, autoMapWithAI, undoRedoGroup } = props;
 
     const handleAutoMap = async () => {
         await autoMapWithAI();
@@ -72,11 +71,6 @@ export function DataMapperHeader(props: DataMapperHeaderProps) {
                             onClick={onReset}
                             iconName="clear-all"
                             tooltip="Clear all mappings"
-                        />
-                        <ActionIconButton
-                            onClick={onRefresh}
-                            iconName="refresh"
-                            tooltip="Refresh all mappings"
                         />
                     </ActionGroupContainer>
                     <FilterBar>

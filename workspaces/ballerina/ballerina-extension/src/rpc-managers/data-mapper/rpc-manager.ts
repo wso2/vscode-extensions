@@ -18,7 +18,6 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
-    ClearTypeCacheResponse,
     DataMapperAPI,
     DataMapperModelRequest,
     DataMapperModelResponse,
@@ -219,16 +218,4 @@ export class DataMapperRpcManager implements DataMapperAPI {
             };
         }
     }
-
-    async clearTypeCache(): Promise<ClearTypeCacheResponse> {
-        return new Promise(async (resolve) => {
-            await StateMachine
-                .langClient()
-                .clearTypeCache()
-                .then((resp) => {
-                    resolve(resp);
-                });
-        });
-    }
-
 }
