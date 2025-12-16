@@ -13,8 +13,8 @@ class RunTailwindCSSPlugin {
 module.exports = {
 	entry: "./src/index.tsx",
 	target: "web",
-	devtool: !process.env.CI ? "source-map" : undefined,
-	mode: !process.env.CI ? "development" : "production",
+	devtool: "source-map",
+	mode: "development",
 	output: {
 		path: path.resolve(__dirname, "build"),
 		filename: "main.js",
