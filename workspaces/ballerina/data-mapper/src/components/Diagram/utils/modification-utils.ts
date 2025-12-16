@@ -187,7 +187,7 @@ export async function mapSeqToX(link: DataMapperLinkModel, context: IDataMapperC
 		const clause = {
 			type: IntermediateClauseType.LET,
 			properties: {
-				name: await context.genUniqueName(sourcePortModel.attributes.field.name, viewId),
+				name: "UNIQUE NAME",
 				type: "var",
 				expression: sourcePortModel.attributes.fieldFQN,
 			}

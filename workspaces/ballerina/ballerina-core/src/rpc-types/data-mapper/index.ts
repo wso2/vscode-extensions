@@ -22,8 +22,6 @@ import {
     DataMapperSourceResponse,
     VisualizableFieldsRequest,
     VisualizableFieldsResponse,
-    PropertyRequest,
-    PropertyResponse,
     InitialIDMSourceResponse,
     InitialIDMSourceRequest,
     GetDataMapperCodedataRequest,
@@ -34,7 +32,6 @@ import {
     ProcessTypeReferenceResponse,
     ProcessTypeReferenceRequest,
     ExpandedDMModelResponse,
-    FieldPropertyRequest
 } from "../../interfaces/extended-lang-client";
 
 export interface DataMapperAPI {
@@ -44,8 +41,6 @@ export interface DataMapperAPI {
     getVisualizableFields: (params: VisualizableFieldsRequest) => Promise<VisualizableFieldsResponse>;
     getDataMapperCodedata: (params: GetDataMapperCodedataRequest) => Promise<GetDataMapperCodedataResponse>;
     getSubMappingCodedata: (params: GetSubMappingCodedataRequest) => Promise<GetDataMapperCodedataResponse>;
-    getProperty: (params: PropertyRequest) => Promise<PropertyResponse>;
-    getFieldProperty: (params: FieldPropertyRequest) => Promise<PropertyResponse>;
     getExpandedDMFromDMModel: (params: DMModelRequest) => Promise<ExpandedDMModelResponse>;
     getProcessTypeReference: (params: ProcessTypeReferenceRequest) => Promise<ProcessTypeReferenceResponse>;
 }

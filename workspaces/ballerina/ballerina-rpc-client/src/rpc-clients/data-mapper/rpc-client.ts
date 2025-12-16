@@ -34,7 +34,6 @@ import {
     InitialIDMSourceResponse,
     ProcessTypeReferenceRequest,
     ProcessTypeReferenceResponse,
-    PropertyRequest,
     PropertyResponse,
     VisualizableFieldsRequest,
     VisualizableFieldsResponse,
@@ -43,10 +42,8 @@ import {
     getDataMapperModel,
     getDataMapperSource,
     getExpandedDMFromDMModel,
-    getFieldProperty,
     getInitialIDMSource,
     getProcessTypeReference,
-    getProperty,
     getSubMappingCodedata,
     getVisualizableFields,
 } from "@wso2/ballerina-core";
@@ -86,14 +83,6 @@ export class DataMapperRpcClient implements DataMapperAPI {
 
     getSubMappingCodedata(params: GetSubMappingCodedataRequest): Promise<GetDataMapperCodedataResponse> {
         return this._messenger.sendRequest(getSubMappingCodedata, HOST_EXTENSION, params);
-    }
-
-    getProperty(params: PropertyRequest): Promise<PropertyResponse> {
-        return this._messenger.sendRequest(getProperty, HOST_EXTENSION, params);
-    }
-
-    getFieldProperty(params: FieldPropertyRequest): Promise<PropertyResponse> {
-        return this._messenger.sendRequest(getFieldProperty, HOST_EXTENSION, params);
     }
 
     getExpandedDMFromDMModel(params: DMModelRequest): Promise<ExpandedDMModelResponse> {

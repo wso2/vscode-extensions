@@ -127,7 +127,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
         generateForm,
         goToFunction,
         enrichChildFields,
-        genUniqueName,
         undoRedoGroup
     } = props;
     const {
@@ -223,7 +222,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
                 applyModifications, 
                 goToFunction,
                 enrichChildFields,
-                genUniqueName
             );
 
             const ioNodeInitVisitor = new IONodeInitVisitor(context);

@@ -82,7 +82,6 @@ export default function ExpressionBarWrapper({ views }: ExpressionBarProps) {
         onCompletionSelect,
         onSave,
         onCancel,
-        goToSource
     } = useExpressionContext();
     const textFieldRef = useRef<HeaderExpressionEditorRef>();
     const savedTextFieldValue = useRef<string>('');
@@ -187,7 +186,6 @@ export default function ExpressionBarWrapper({ views }: ExpressionBarProps) {
         const outputId = focusedPort.attributes.optionalOmittedFieldFQN;
         const views = (focusedPort.getNode() as DataMapperNodeModel).context.views;
         const viewId = views[views.length - 1]?.targetField;
-        goToSource(outputId, viewId);
     };
 
     const saveSource = async (port: InputOutputPortModel, value: string) => {

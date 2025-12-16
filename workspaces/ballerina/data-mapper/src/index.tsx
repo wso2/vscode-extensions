@@ -58,7 +58,6 @@ export interface ExpressionBarProps {
     onCompletionSelect: (value: string) => void;
     onSave: (outputId: string, value: string, viewId: string, name: string) => Promise<void>;
     onCancel: () => void;
-    goToSource: (outputId: string, viewId: string) => Promise<void>;
 }
 
 export interface DataMapperEditorProps {
@@ -71,7 +70,6 @@ export interface DataMapperEditorProps {
     onClose: () => void;
     onEdit?: () => void;
     generateForm: (formProps: DMFormProps) => JSX.Element;
-    genUniqueName: (name: string, viewId: string) => Promise<string>;
     undoRedoGroup: () => JSX.Element;
 }
 

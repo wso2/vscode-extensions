@@ -26,7 +26,6 @@ import {
     DMModel,
     ModelState,
     DMViewState,
-    IntermediateClause,
     TriggerCharacter,
     TRIGGER_CHARACTERS,
     Mapping,
@@ -245,24 +244,6 @@ export function DataMapperView(props: DataMapperViewProps) {
             .openView({ type: EVENT_TYPE.OPEN_VIEW, location: { documentUri, position } });
     };
 
-    const goToFieldSource = async (outputId: string, viewId: string) => {
-        const { property } = await rpcClient.getDataMapperRpcClient().getFieldProperty({
-            filePath,
-            codedata: viewState.codedata,
-            targetField: viewId,
-            fieldId: outputId,
-        });
-        if (property.codedata) {
-            const position: NodePosition = {
-                startLine: property.codedata.lineRange?.startLine?.line,
-                startColumn: property.codedata.lineRange?.startLine?.offset,
-                endLine: property.codedata.lineRange?.endLine?.line,
-                endColumn: property.codedata.lineRange?.endLine?.offset,
-            };
-            rpcClient.getCommonRpcClient().goToSource({ position, fileName: property.codedata.lineRange?.fileName });
-        }
-    }
-
     const enrichChildFields = async (parentField: IOType) => {
         if (!parentField.ref) return;
 
@@ -279,42 +260,6 @@ export function DataMapperView(props: DataMapperViewProps) {
         parentField.fields = response.result.fields;
         parentField.isDeepNested = false;
     }
-
-    const genUniqueName = async (name: string, viewId: string): Promise<string> => {
-        const { property } = await rpcClient.getDataMapperRpcClient().getProperty({
-            filePath,
-            codedata: viewState.codedata,
-            targetField: viewId
-        })
-
-        if (!property?.codedata?.lineRange?.startLine) {
-            console.error("Failed to get start line for generating unique name");
-            return name;
-        }
-
-        const completions = await rpcClient.getBIDiagramRpcClient().getDataMapperCompletions({
-            filePath,
-            context: {
-                expression: "",
-                startLine: property.codedata.lineRange.startLine,
-                lineOffset: 0,
-                offset: 0,
-                codedata: viewState.codedata,
-                property: property
-            },
-            completionContext: {
-                triggerKind: TriggerKind.INVOKED
-            }
-        });
-
-        let i = 2;
-        let uniqueName = name;
-        while (completions.some(c => c.insertText === uniqueName)) {
-            uniqueName = name + (i++);
-        }
-
-        return uniqueName;
-    };
 
     const onDMClose = () => {
         onClose ? onClose() : rpcClient.getVisualizerRpcClient()?.goBack();
@@ -358,13 +303,9 @@ export function DataMapperView(props: DataMapperViewProps) {
                     })
                     .sort((a, b) => a.sortText.localeCompare(b.sortText));
             } else {
-                const { property } = await rpcClient.getDataMapperRpcClient().getProperty({
-                    filePath,
-                    codedata: viewState.codedata,
-                    targetField: viewId
-                })
                 const { lineOffset, charOffset } = calculateExpressionOffsets(value, cursorPosition);
-                const startLine = updateLineRange(property.codedata.lineRange, expressionOffsetRef.current).startLine;
+                // TODO: null is set for lineRange here. Update it properly if needed.
+                const startLine = updateLineRange(null, expressionOffsetRef.current).startLine;
                 let completions = await rpcClient.getBIDiagramRpcClient().getDataMapperCompletions({
                     filePath,
                     context: {
@@ -373,7 +314,7 @@ export function DataMapperView(props: DataMapperViewProps) {
                         lineOffset: lineOffset,
                         offset: charOffset,
                         codedata: viewState.codedata,
-                        property: property
+                        property: null
                     },
                     completionContext: {
                         triggerKind: triggerCharacter ? TriggerKind.TRIGGER_CHARACTER : TriggerKind.INVOKED,
@@ -450,7 +391,6 @@ export function DataMapperView(props: DataMapperViewProps) {
                             generateForm={generateForm}
                             goToFunction={goToFunction}
                             enrichChildFields={enrichChildFields}
-                            genUniqueName={genUniqueName}
                             undoRedoGroup={undoRedoGroup}
                             goToSource={goToSource}
                             expressionBar={{
@@ -460,7 +400,6 @@ export function DataMapperView(props: DataMapperViewProps) {
                                 onCompletionSelect: handleCompletionSelect,
                                 onSave: updateExprFromExprBar,
                                 onCancel: handleExpressionCancel,
-                                goToSource: goToFieldSource
                             }}
                         />
                     )}

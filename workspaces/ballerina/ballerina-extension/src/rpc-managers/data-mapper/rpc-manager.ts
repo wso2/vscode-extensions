@@ -136,26 +136,6 @@ export class DataMapperRpcManager implements DataMapperAPI {
         });
     }
 
-    async getProperty(params: PropertyRequest): Promise<PropertyResponse> {
-        return new Promise(async (resolve) => {
-            const property = await StateMachine
-                .langClient()
-                .getProperty(params) as PropertyResponse;
-
-            resolve(property);
-        });
-    }
-
-    async getFieldProperty(params: FieldPropertyRequest): Promise<PropertyResponse> {
-        return new Promise(async (resolve) => {
-            const property = await StateMachine
-                .langClient()
-                .getFieldProperty(params) as PropertyResponse;
-
-            resolve(property);
-        });
-    }
-
     async deleteMapping(params: DeleteMappingRequest): Promise<DataMapperSourceResponse> {
         return new Promise(async (resolve) => {
             await StateMachine

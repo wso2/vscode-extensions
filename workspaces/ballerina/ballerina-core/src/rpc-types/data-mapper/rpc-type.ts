@@ -49,7 +49,5 @@ export const getVisualizableFields: RequestType<VisualizableFieldsRequest, Visua
 export const deleteMapping: RequestType<DeleteMappingRequest, DataMapperSourceResponse> = { method: `${_preFix}/deleteMapping` };
 export const getDataMapperCodedata: RequestType<GetDataMapperCodedataRequest, GetDataMapperCodedataResponse> = { method: `${_preFix}/getDataMapperCodedata` };
 export const getSubMappingCodedata: RequestType<GetSubMappingCodedataRequest, GetDataMapperCodedataResponse> = { method: `${_preFix}/getSubMappingCodedata` };
-export const getProperty: RequestType<PropertyRequest, PropertyResponse> = { method: `${_preFix}/getProperty` };
-export const getFieldProperty: RequestType<FieldPropertyRequest, PropertyResponse> = { method: `${_preFix}/getFieldProperty` };
 export const getExpandedDMFromDMModel: RequestType<DMModelRequest, ExpandedDMModelResponse> = { method: `${_preFix}/getExpandedDMFromDMModel` };
 export const getProcessTypeReference: RequestType<ProcessTypeReferenceRequest, ProcessTypeReferenceResponse> = { method: `${_preFix}/getProcessTypeReference` };
