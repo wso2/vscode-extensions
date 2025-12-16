@@ -1346,6 +1346,9 @@ importers:
       react-hook-form:
         specifier: 7.56.4
         version: 7.56.4(react@18.2.0)
+      react-markdown:
+        specifier: ~10.1.0
+        version: 10.1.0(@types/react@18.2.0)(react@18.2.0)
     devDependencies:
       '@babel/core':
         specifier: ~7.27.1
@@ -44354,10 +44357,7 @@ snapshots:
       pretty-format: 25.5.0
       throat: 5.0.0
     transitivePeerDependencies:
-      - bufferutil
-      - canvas
       - supports-color
-      - utf-8-validate
 
   jest-leak-detector@25.5.0:
     dependencies:
