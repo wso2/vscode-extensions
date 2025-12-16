@@ -140,7 +140,8 @@ export type FormFieldInputType = "TEXT" |
     "EXPRESSION_SET" |
     "FLAG" |
     "CHOICE" |
-    "LV_EXPRESSION";
+    "LV_EXPRESSION" |
+    "MAPPING_EXPRESSION_SET";
 
 export interface BaseType {
     fieldType: FormFieldInputType;
