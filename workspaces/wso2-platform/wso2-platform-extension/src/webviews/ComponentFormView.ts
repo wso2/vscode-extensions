@@ -43,7 +43,7 @@ export class ComponentFormView {
 		const extName = webviewStateStore.getState().state?.extensionName;
 		const panel = vscode.window.createWebviewPanel(
 			"create-new-component",
-			extName === "Devant" ? "Create Integration" : "Create Component",
+			extName === "Devant" ? "Deploy Integration" : "Create Component",
 			vscode.ViewColumn.One,
 			{
 				enableScripts: true,

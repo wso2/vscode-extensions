@@ -19,6 +19,7 @@
 import type { CommitHistory, ComponentKind, DataCacheState, Environment, Organization, Project } from "@wso2/wso2-platform-core";
 import { createStore } from "zustand";
 import { persist } from "zustand/middleware";
+import { ext } from "../extensionVariables";
 import { getGlobalStateStore } from "./store-utils";
 
 interface DataCacheStore {
@@ -54,14 +55,14 @@ export const dataCacheStore = createStore(
 				} = {};
 				projects.forEach((item) => {
 					updatedProjects[item.handler] = {
-						components: get().state?.orgs?.[orgHandle]?.projects?.[item.handler]?.components || {},
+						components: get().state?.orgs?.[getRootKey(orgHandle)]?.projects?.[item.handler]?.components || {},
 						data: item,
 					};
 				});
 
 				const updatedOrgs = {
 					...(get().state?.orgs ?? {}),
-					[orgHandle]: { ...(get().state?.orgs?.[orgHandle] ?? {}), projects: updatedProjects },
+					[getRootKey(orgHandle)]: { ...(get().state?.orgs?.[getRootKey(orgHandle)] ?? {}), projects: updatedProjects },
 				};
 
 				set(({ state }) => ({ state: { ...state, orgs: updatedOrgs } }));
@@ -72,11 +73,11 @@ export const dataCacheStore = createStore(
 						...state,
 						orgs: {
 							...(get().state?.orgs ?? {}),
-							[orgHandle]: {
-								...(get().state?.orgs?.[orgHandle] ?? {}),
+							[getRootKey(orgHandle)]: {
+								...(get().state?.orgs?.[getRootKey(orgHandle)] ?? {}),
 								projects: {
-									...(get().state?.orgs?.[orgHandle]?.projects ?? {}),
-									[projectHandle]: { ...(get().state?.orgs?.[orgHandle]?.projects?.[projectHandle] ?? {}), envs },
+									...(get().state?.orgs?.[getRootKey(orgHandle)]?.projects ?? {}),
+									[projectHandle]: { ...(get().state?.orgs?.[getRootKey(orgHandle)]?.projects?.[projectHandle] ?? {}), envs },
 								},
 							},
 						},
@@ -84,17 +85,17 @@ export const dataCacheStore = createStore(
 				}));
 			},
 			getEnvs: (orgHandle, projectHandle) => {
-				return get().state.orgs?.[orgHandle]?.projects?.[projectHandle]?.envs || [];
+				return get().state.orgs?.[getRootKey(orgHandle)]?.projects?.[projectHandle]?.envs || [];
 			},
 			getProjects: (orgHandle) => {
-				const projectList = Object.values(get().state.orgs?.[orgHandle]?.projects ?? {})
+				const projectList = Object.values(get().state.orgs?.[getRootKey(orgHandle)]?.projects ?? {})
 					.filter((item) => item.data)
 					.map((item) => item.data);
 				return projectList as Project[];
 			},
 			setComponents: (orgHandle, projectHandle, components) => {
 				const newComponents: { [componentHandle: string]: { data?: ComponentKind; commits?: { [branch: string]: CommitHistory[] } } } = {};
-				const prevComponents = get().state.orgs?.[orgHandle]?.projects?.[projectHandle]?.components ?? {};
+				const prevComponents = get().state.orgs?.[getRootKey(orgHandle)]?.projects?.[projectHandle]?.components ?? {};
 				components.forEach((item) => {
 					const matchingItem = prevComponents[item.metadata.name];
 					newComponents[item.metadata.name] = { ...matchingItem, data: item };
@@ -102,12 +103,12 @@ export const dataCacheStore = createStore(
 
 				const updatedOrgs = {
 					...(get().state?.orgs ?? {}),
-					[orgHandle]: {
-						...(get().state?.orgs?.[orgHandle] ?? {}),
+					[getRootKey(orgHandle)]: {
+						...(get().state?.orgs?.[getRootKey(orgHandle)] ?? {}),
 						projects: {
-							...(get().state?.orgs?.[orgHandle]?.projects ?? {}),
+							...(get().state?.orgs?.[getRootKey(orgHandle)]?.projects ?? {}),
 							[projectHandle]: {
-								...(get().state?.orgs?.[orgHandle]?.projects?.[projectHandle] ?? {}),
+								...(get().state?.orgs?.[getRootKey(orgHandle)]?.projects?.[projectHandle] ?? {}),
 								components: newComponents,
 							},
 						},
@@ -117,7 +118,7 @@ export const dataCacheStore = createStore(
 				set(({ state }) => ({ state: { ...state, orgs: updatedOrgs } }));
 			},
 			getComponents: (orgHandle, projectHandle) => {
-				const componentList = Object.values(get().state.orgs?.[orgHandle]?.projects?.[projectHandle]?.components ?? {})
+				const componentList = Object.values(get().state.orgs?.[getRootKey(orgHandle)]?.projects?.[projectHandle]?.components ?? {})
 					.filter((item) => item.data)
 					.map((item) => item.data);
 				return componentList as ComponentKind[];
@@ -125,18 +126,18 @@ export const dataCacheStore = createStore(
 			setCommits: (orgHandle, projectHandle, componentHandle, branch, commits) => {
 				const updatedOrgs = {
 					...(get().state?.orgs ?? {}),
-					[orgHandle]: {
-						...(get().state?.orgs?.[orgHandle] ?? {}),
+					[getRootKey(orgHandle)]: {
+						...(get().state?.orgs?.[getRootKey(orgHandle)] ?? {}),
 						projects: {
-							...(get().state?.orgs?.[orgHandle]?.projects ?? {}),
+							...(get().state?.orgs?.[getRootKey(orgHandle)]?.projects ?? {}),
 							[projectHandle]: {
-								...(get().state?.orgs?.[orgHandle]?.projects?.[projectHandle] ?? {}),
+								...(get().state?.orgs?.[getRootKey(orgHandle)]?.projects?.[projectHandle] ?? {}),
 								components: {
-									...(get().state?.orgs?.[orgHandle]?.projects?.[projectHandle]?.components ?? {}),
+									...(get().state?.orgs?.[getRootKey(orgHandle)]?.projects?.[projectHandle]?.components ?? {}),
 									[componentHandle]: {
-										...(get().state?.orgs?.[orgHandle]?.projects?.[projectHandle]?.components?.[componentHandle] ?? {}),
+										...(get().state?.orgs?.[getRootKey(orgHandle)]?.projects?.[projectHandle]?.components?.[componentHandle] ?? {}),
 										commits: {
-											...(get().state?.orgs?.[orgHandle]?.projects?.[projectHandle]?.components?.[componentHandle]?.commits ?? {}),
+											...(get().state?.orgs?.[getRootKey(orgHandle)]?.projects?.[projectHandle]?.components?.[componentHandle]?.commits ?? {}),
 											[branch]: commits,
 										},
 									},
@@ -149,10 +150,21 @@ export const dataCacheStore = createStore(
 				set(({ state }) => ({ state: { ...state, orgs: updatedOrgs } }));
 			},
 			getCommits: (orgHandle, projectHandle, componentHandle, branch) => {
-				const commitList = get().state.orgs?.[orgHandle]?.projects?.[projectHandle]?.components?.[componentHandle]?.commits?.[branch] ?? [];
+				const commitList =
+					get().state.orgs?.[getRootKey(orgHandle)]?.projects?.[projectHandle]?.components?.[componentHandle]?.commits?.[branch] ?? [];
 				return commitList;
 			},
 		}),
-		getGlobalStateStore("data-cache-zustand-storage-v1"),
+		getGlobalStateStore("data-cache-zustand-storage"),
 	),
 );
+
+const getRootKey = (orgHandle: string) => {
+	const region = ext.authProvider?.getState().state.region;
+	const env = ext.choreoEnv;
+	let orgRegionHandle = `${region}-${orgHandle}`;
+	if (env !== "prod") {
+		orgRegionHandle = `${env}-${orgRegionHandle}`;
+	}
+	return orgRegionHandle;
+};
