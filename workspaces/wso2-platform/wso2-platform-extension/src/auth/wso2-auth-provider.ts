@@ -16,12 +16,13 @@
  * under the License.
  */
 
-import type { AuthState, UserInfo } from "@wso2/wso2-platform-core";
+import { CommandIds, type AuthState, type UserInfo } from "@wso2/wso2-platform-core";
 import {
 	type AuthenticationProvider,
 	type AuthenticationProviderAuthenticationSessionsChangeEvent,
 	type AuthenticationProviderSessionOptions,
 	type AuthenticationSession,
+	commands,
 	Disposable,
 	EventEmitter,
 	type SecretStorage,
@@ -52,9 +53,14 @@ export class WSO2AuthenticationProvider implements AuthenticationProvider, Dispo
 	private _stateChangeEmitter = new EventEmitter<{ state: AuthState }>();
 	private _disposable: Disposable;
 	private _state: AuthState = { userInfo: null, region: "US" };
+	private _pendingSessionCreation: { resolve: (session: AuthenticationSession) => void; reject: (error: Error) => void; timeout: NodeJS.Timeout } | undefined;
 
 	constructor(private readonly secretStorage: SecretStorage) {
-		this._disposable = Disposable.from(this._sessionChangeEmitter, this._stateChangeEmitter);
+		console.log("WSO2AuthenticationProvider initialized");
+		this._disposable = Disposable.from(
+			this._sessionChangeEmitter,
+			this._stateChangeEmitter
+		);
 	}
 
 	get onDidChangeSessions() {
@@ -106,11 +112,48 @@ export class WSO2AuthenticationProvider implements AuthenticationProvider, Dispo
 	}
 
 	/**
-	 * Create a new auth session - NOT USED (auth is handled by RPC)
-	 * This is required by the AuthenticationProvider interface but not called directly
+	 * Cancel any pending session creation
+	 * This is called when user initiates a new sign-in while one is already pending
 	 */
-	public async createSession(scopes: string[]): Promise<AuthenticationSession> {
-		throw new Error("Direct session creation not supported. Use RPC authentication flow.");
+	public cancelPendingSessionCreation() {
+		if (this._pendingSessionCreation) {
+			console.log("Cancelling pending session creation");
+			clearTimeout(this._pendingSessionCreation.timeout);
+			const oldPending = this._pendingSessionCreation;
+			this._pendingSessionCreation = undefined;
+			oldPending.reject(new Error("Sign-in cancelled"));
+		}
+	}
+
+	/**
+	 * Create a new auth session by triggering the sign-in flow
+	 * This is called when user clicks "Sign in" in VS Code's Accounts menu
+	 */
+	public async createSession(scopes: string[], options?: AuthenticationProviderSessionOptions): Promise<AuthenticationSession> {
+		console.log("Creating new auth session via VS Code Accounts menu");
+		const customOptions = options as any;
+		const platform = customOptions?.platform;
+
+		// Return a promise that will be resolved when login succeeds or timeout occurs
+		return new Promise<AuthenticationSession>((resolve, reject) => {
+			commands.executeCommand(CommandIds.SignIn, {
+				extName: platform,
+			}).then(undefined, (error) => {
+				console.error("Sign-in command failed:", error);
+			});
+
+			// Set up timeout
+			const timeout = setTimeout(() => {
+				console.log("Sign-in timeout reached");
+				if (this._pendingSessionCreation) {
+					this._pendingSessionCreation = undefined;
+					reject(new Error("Sign-in timeout: User did not complete authentication within 2 minutes"));
+				}
+			}, 2 * 60 * 1000); // 2 minutes
+
+			// Store the promise handlers so we can resolve/reject from loginSuccess
+			this._pendingSessionCreation = { resolve, reject, timeout };
+		});
 	}
 
 	/**
@@ -133,10 +176,17 @@ export class WSO2AuthenticationProvider implements AuthenticationProvider, Dispo
 		contextStore.getState().refreshState();
 
 		// Store session in secure storage
-		await this.storeSession(userInfo, region);
+		const session = await this.storeSession(userInfo, region);
 
 		// Notify subscribers
 		this._stateChangeEmitter.fire({ state: this._state });
+
+		// Resolve pending session creation if there is one
+		if (this._pendingSessionCreation) {
+			clearTimeout(this._pendingSessionCreation.timeout);
+			this._pendingSessionCreation.resolve(session);
+			this._pendingSessionCreation = undefined;
+		}
 	}
 
 	/**
@@ -144,7 +194,7 @@ export class WSO2AuthenticationProvider implements AuthenticationProvider, Dispo
 	 */
 	public async logout(silent = false, skipClearSessions = false) {
 		getLogger().debug("Signing out from WSO2 Platform");
-		
+
 		// Call RPC signOut first
 		try {
 			await ext.clients.rpcClient.signOut();
@@ -222,10 +272,10 @@ export class WSO2AuthenticationProvider implements AuthenticationProvider, Dispo
 
 		await this.storeSessions([session], sessionData);
 
-		this._sessionChangeEmitter.fire({ 
-			added: [session], 
-			removed: removedSessions, 
-			changed: [] 
+		this._sessionChangeEmitter.fire({
+			added: [session],
+			removed: removedSessions,
+			changed: []
 		});
 
 		return session;
@@ -246,7 +296,7 @@ export class WSO2AuthenticationProvider implements AuthenticationProvider, Dispo
 		allSessions.splice(sessionIdx, 1);
 		await this.storeSessions(allSessions);
 		this._sessionChangeEmitter.fire({ added: [], removed: [session], changed: [] });
-		
+
 		// Trigger full logout flow (skipClearSessions=true to avoid loop)
 		await this.logout(false, true);
 	}
