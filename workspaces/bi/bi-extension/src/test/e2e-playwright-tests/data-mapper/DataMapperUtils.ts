@@ -404,7 +404,7 @@ export namespace TestScenarios {
         await dm.waitForProgressEnd();
         const locArrInit = dmWebView.getByTestId('array-widget-field-objectOutput.output.oArr1D.IN');
         await locArrInit.waitFor();
-        expect(locArrInit).toHaveText('[]');
+        await expect(locArrInit).toHaveText('[]');
 
         await dm.selectConfigMenuItem('objectOutput.output.oArr1D', 'Add Element');
 

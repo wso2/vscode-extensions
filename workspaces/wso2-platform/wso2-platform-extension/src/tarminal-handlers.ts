@@ -20,16 +20,15 @@ import { CommandIds, type ComponentKind } from "@wso2/wso2-platform-core";
 import type vscode from "vscode";
 import { commands, window, workspace } from "vscode";
 import { getChoreoExecPath } from "./choreo-rpc/cli-install";
-import { authStore } from "./stores/auth-store";
 import { contextStore } from "./stores/context-store";
-import { dataCacheStore } from "./stores/data-cache-store";
 import { delay, getSubPath } from "./utils";
+import { ext } from "./extensionVariables";
 
 export class ChoreoConfigurationProvider implements vscode.DebugConfigurationProvider {
 	resolveDebugConfiguration(folder: vscode.WorkspaceFolder | undefined, config: vscode.DebugConfiguration): vscode.DebugConfiguration | undefined {
-		if (config.request === "launch" && (config.choreo === true || typeof config.choreo === "object")) {
+		if (config.request === "launch" && (config.choreo === true || typeof config.choreo === "object" || config.choreoConnect === true || typeof config.choreoConnect === "object")) {
 			config.console = "integratedTerminal";
-			const choreoConfig: { project?: string; component?: string; env?: string; skipConnection?: string[] } | true = config.choreo;
+			const choreoConfig: { project?: string; component?: string; env?: string; skipConnection?: string[] } | true = config.choreo || config.choreoConnect;
 			let connectCmd = "connect";
 			if (choreoConfig === true) {
 				if (contextStore.getState().state?.selected?.projectHandle) {
@@ -65,7 +64,7 @@ export function addTerminalHandlers() {
 			let cliCommand = e.name.split("[choreo-shell]").pop()?.replaceAll(")", "");
 			const terminalPath = (e.creationOptions as any)?.cwd;
 			const rpcPath = getChoreoExecPath();
-			const userInfo = authStore.getState().state?.userInfo;
+			const userInfo = ext.authProvider?.getState().state?.userInfo;
 			if (terminalPath) {
 				if (!e.name?.includes("--project")) {
 					window
