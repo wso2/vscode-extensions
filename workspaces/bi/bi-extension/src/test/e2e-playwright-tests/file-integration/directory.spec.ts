@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { addArtifact, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
@@ -37,43 +37,22 @@ export default function createTests() {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
             // Create a new listener
-            listenerName = `listenerDirectory${testAttempt}`;
+            listenerName = `fileListener`;
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
             await form.fill({
                 values: {
-                    'Name*The name of the listener': {
-                        type: 'input',
-                        value: listenerName,
-                    },
                     'path': {
-                        type: 'textarea',
-                        value: '"/tmp/wso2/bi/sample"',
-                        additionalProps: { clickLabel: true }
+                        type: 'cmEditor',
+                        value: '/tmp/wso2/bi/sample',
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
                     }
                 }
             });
-            await form.submit('Next', true);
-
-            // Check for title
-            const configTitle = artifactWebView.locator('h3', { hasText: 'Directory Service Configuration' });
-            await configTitle.waitFor({ timeout: 90000 });
-
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
-
             await form.submit('Create');
 
-            const onCreate = artifactWebView.locator(`text="onCreate"`);
-            await onCreate.waitFor();
-
-            const projectExplorer = new ProjectExplorer(page.page);
-            await projectExplorer.findItem(['sample', `Directory Service`], true);
-
-            const updateArtifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
-            if (!updateArtifactWebView) {
-                throw new Error('WSO2 Integrator: BI webview not found');
-            }
+            const context = artifactWebView.locator(`text=${listenerName}`);
+            await context.waitFor();
         });
 
         test('Editing Directory Service', async ({ }, testInfo) => {
@@ -91,16 +70,32 @@ export default function createTests() {
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
 
-            const configTitle = artifactWebView.locator('h3', { hasText: 'Directory Service Configuration' });
-            await configTitle.waitFor();
+            const updatedPath = 'updated-path';
+            await form.fill({
+                values: {
+                    'path': {
+                        type: 'cmEditor',
+                        value: updatedPath,
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
+                    }
+                }
+            });
 
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
+            await form.submit('Save Changes');
 
-            await form.submit('Save');
+            const saveChangesBtn = artifactWebView.locator('#save-changes-btn vscode-button[appearance="primary"]');
+            await saveChangesBtn.waitFor({ state: 'visible' });
+            await expect(saveChangesBtn).toHaveClass('disabled', { timeout: 5000 });
+            await expect(saveChangesBtn).toHaveText('Save Changes');
 
-            const onCreate = artifactWebView.locator(`text="onCreate"`);
-            await onCreate.waitFor();
+            const backBtn = artifactWebView.locator('[data-testid="back-button"]');
+            await backBtn.waitFor();
+            await backBtn.click();
+
+            await editBtn.waitFor();
+
+            const updatedPathElement = artifactWebView.locator(`text=${updatedPath}`);
+            await updatedPathElement.waitFor({ state: 'visible' });
         });
     });
 }
