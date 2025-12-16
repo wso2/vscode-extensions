@@ -424,14 +424,16 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
 
         // Extract fields with typeMembers where kind is RECORD_TYPE
         const recordTypeFields = Object.entries(formProperties)
-            .filter(([_, property]) =>
-                property.typeMembers &&
-                property.typeMembers.some(member => member.kind === "RECORD_TYPE")
-            )
+            .filter(([_, property]) => {
+                const primaryInputType = getPrimaryInputType(property?.types);
+            
+                return primaryInputType?.typeMembers &&
+                    primaryInputType?.typeMembers.some(member => member.kind === "RECORD_TYPE");
+            })
             .map(([key, property]) => ({
                 key,
                 property,
-                recordTypeMembers: property.typeMembers.filter(member => member.kind === "RECORD_TYPE")
+                recordTypeMembers: getPrimaryInputType(property?.types)?.typeMembers.filter(member => member.kind === "RECORD_TYPE")
             }));
 
         setRecordTypeFields(recordTypeFields);
@@ -855,6 +857,16 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
         const matchedReferenceType = newTypes.find(t => t.label === valueTypeConstraint);
         if (matchedReferenceType) {
             updateRecordTypeFields(matchedReferenceType)
+            //HACK: We should find a proper way to modify the fields types array 
+            // when a dynamic type field is present
+            if (node.codedata.node === "VARIABLE" || node.codedata.node === "CONFIG_VARIABLE") {
+                fields.forEach(field => {
+                    if (field.key === typeEditorState.fieldKey) {
+                        field.types[0].ballerinaType = matchedReferenceType.label;
+                    }
+                });
+            }
+            setFields([...fields]);
             setValueTypeConstraints(valueTypeConstraint);
         }
         else {
@@ -864,6 +876,15 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
                 return;
             };
 
+            if (node.codedata.node === "VARIABLE" || node.codedata.node === "CONFIG_VARIABLE") {
+                fields.forEach(field => {
+                    if (field.key === typeEditorState.fieldKey) {
+                        const moduleName = type.codedata.module?.split(".")[1] || type.codedata.module;
+                        field.types[0].ballerinaType = `${moduleName}:${type.insertText}`;
+                    }
+                });
+            }
+            setFields([...fields]);
             setValueTypeConstraints(type.insertText);
             // Create the record type field for expression
             const expressionEntry = Object.entries(getFormProperties(node))
@@ -1173,7 +1194,10 @@ export const FormGenerator = forwardRef<FormExpressionEditorRef, FormProps>(func
     };
 
     const findMatchedType = (items: TypeHelperItem[], typeName: string) => {
-        return items?.find(item => `${item.codedata.module}:${item.insertText}` === typeName);
+        return items?.find(item => {
+            const moduleName = item.codedata.module?.split(".")[1] || item.codedata.module;
+            return `${moduleName}:${item.insertText}` === typeName;
+        });
     }
 
     /**
