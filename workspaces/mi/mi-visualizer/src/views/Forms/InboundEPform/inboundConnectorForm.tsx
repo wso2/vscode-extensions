@@ -282,7 +282,7 @@ export function AddInboundConnector(props: AddInboundConnectorProps) {
 
         const inboundConnector: InboundEndpoint = {
             attributes: attrFields,
-            parameters: transformedParameters
+            parameters: finalParameters
         };
 
         handleCreateInboundEP(inboundConnector);

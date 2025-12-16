@@ -43,7 +43,7 @@ export class API {
         } catch (error) {
             console.error("Error retrieving iframe title:", error);
             iframeTitle = null;
-        }                         
+        }
         if (iframeTitle != MACHINE_VIEW.ADD_ARTIFACT) {
             const projectExplorer = new ProjectExplorer(this._page);
             await projectExplorer.goToOverview(projectName);
@@ -212,6 +212,9 @@ export class API {
         console.log("Navigating to project overview");
         const apiProjectName = `NewTestAPI${attemptId}:v1.0.2`;
         const item = await projectExplorer.findItem(['Project testProject', 'APIs', apiProjectName], true);
+        if (!item) {
+            throw new Error(`Tree item "${apiProjectName}" not found in Project Explorer`);
+        }
         console.log("Found project testProject");
         await item.getByRole('button', { name: 'Open Service Designer' }).click();
     }
@@ -244,7 +247,7 @@ export class API {
         // 2s wait (2000ms) to avoid the intermittent issue of the button not being clickable
         console.log("Waiting for 2s before clicking on delete API button");
         await page.page.waitForTimeout(2000);
-        await vscodeButton.click({force: true});
+        await vscodeButton.click({ force: true });
         const deleteBtn = webview.getByText('Delete');
         console.log("Clicked on delete API from overview");
         await deleteBtn.waitFor();
@@ -326,7 +329,7 @@ export class API {
         await apiFormFrame.getByRole('textbox', { name: 'WSDL URL' }).fill('https://www.w3schools.com/xml/tempconvert.asmx?WSDL');
         const submitBtn = await getVsCodeButton(apiFormFrame, 'Create', "primary");
         expect(await submitBtn.isEnabled()).toBeTruthy();
-        await submitBtn.click({force: true});
+        await submitBtn.click({ force: true });
         console.log("Clicked on create");
         const webView = await switchToIFrame('Service Designer', this._page, 90000);
         if (!webView) {
@@ -399,7 +402,7 @@ export class API {
         console.log("Switched to Service Designer iframe");
     }
 
-    public async openDiagramView(name: string, resourcePath : string) {
+    public async openDiagramView(name: string, resourcePath: string) {
         const projectExplorer = new ProjectExplorer(this._page);
         await projectExplorer.findItem(['Project testProject', 'APIs', name, resourcePath], true);
         const webView = await switchToIFrame('Resource View', this._page);

@@ -82,9 +82,18 @@ function registerCoreCommands(dataProvider: ProjectExplorerEntryProvider, isInWI
 			dataProvider.revealInTreeView(event.documentUri, event.projectPath, event.position, event.view);
 		}
 	);
-	
+
 	// Register the refresh command
-	commands.registerCommand(isInWI ? WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND : BI_COMMANDS.REFRESH_COMMAND, () => dataProvider.refresh());
+	commands.registerCommand(
+		BI_COMMANDS.REFRESH_COMMAND,
+		() => {
+			if (isInWI) {
+				commands.executeCommand(WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND);
+				return;
+			}
+			dataProvider.refresh();
+		}
+	);
 }
 
 function registerBallerinaCommands(

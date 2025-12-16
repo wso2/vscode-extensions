@@ -339,6 +339,7 @@ import { MiVisualizerRpcManager } from "../mi-visualizer/rpc-manager";
 import { DebuggerConfig } from "../../debugger/config";
 import { getKubernetesConfiguration, getKubernetesDataConfiguration } from "../../util/template-engine/mustach-templates/KubernetesConfiguration";
 import { parseStringPromise, Builder } from "xml2js";
+import { MILanguageClient } from "../../lang-client/activator";
 const AdmZip = require('adm-zip');
 
 const { XMLParser, XMLBuilder } = require("fast-xml-parser");
@@ -473,7 +474,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
 
     async tryOutMediator(params: MediatorTryOutRequest): Promise<MediatorTryOutResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.tryOutMediator(params);
             resolve(res);
         });
@@ -481,7 +482,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
 
     async shutDownTryoutServer(): Promise<boolean> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.shutdownTryoutServer();
             resolve(res);
         });
@@ -499,7 +500,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
             const payloadPath = path.join(this.projectUri, ".tryout", "input.json");
             const payload = fs.readFileSync(payloadPath, "utf8");
             params.inputPayload = payload
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.getMediatorInputOutputSchema(params);
             resolve(res);
         });
@@ -526,7 +527,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
         }
 
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.getSyntaxTree({
                 documentIdentifier: {
                     uri: documentUri
@@ -631,12 +632,12 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
 
             const getSwaggerName = (swaggerDefPath: string) => {
                 const ext = path.extname(swaggerDefPath);
-                return `${name}${apiVersion !== "" ? `_v${apiVersion}` : ''}${ext}`;
+                return `${name}${apiVersion !== "" ? `_v${apiVersion}` : ''}${ext === ".yml" ? ".yaml" : ext }`;
             };
             let fileName: string;
             let response: GenerateAPIResponse = { apiXml: "", endpointXml: "" };
             if (!xmlData) {
-                const langClient = getStateMachine(this.projectUri).context().langClient!;
+                const langClient = await MILanguageClient.getInstance(this.projectUri);
                 const projectDetailsRes = await langClient?.getProjectDetails();
                 const runtimeVersion = projectDetailsRes.primaryDetails.runtimeVersion.value;
                 const isRegistrySupported = compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0;
@@ -679,10 +680,11 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                 fileName = `${name}${apiVersion !== "" ? `_v${apiVersion}` : ''}`;
 
                 if (saveSwaggerDef && swaggerDefPath) {
+                    const ext = path.extname(swaggerDefPath);
                     const swaggerRegPath = path.join(
                         this.projectUri,
                         SWAGGER_REL_DIR,
-                        fileName + path.extname(swaggerDefPath)
+                        fileName + (ext === ".yml" ? ".yaml" : ext)
                     );
                     fs.mkdirSync(path.dirname(swaggerRegPath), { recursive: true });
                     fs.copyFileSync(swaggerDefPath, swaggerRegPath);
@@ -1507,7 +1509,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
 
     async getEndpointsAndSequences(): Promise<EndpointsAndSequencesResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const resp = await langClient.getProjectStructure(this.projectUri);
             const artifacts = (resp.directoryMap as any).src.main.wso2mi.artifacts;
 
@@ -1536,7 +1538,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
 
     async getAllAPIcontexts(): Promise<APIContextsResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const resp = await langClient.getProjectStructure(this.projectUri);
             const artifacts = (resp.directoryMap as any).src.main.wso2mi.artifacts;
 
@@ -1552,7 +1554,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
 
     async getTemplates(): Promise<TemplatesResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const resp = await langClient.getProjectStructure(this.projectUri);
             const artifacts = (resp.directoryMap as any).src.main.wso2mi.artifacts;
 
@@ -2648,6 +2650,10 @@ ${endpointAttributes}
             }
 
             await workspace.applyEdit(edit);
+            const file = Uri.file(params.documentUri);
+            let document = workspace.textDocuments.find(doc => doc.uri.fsPath === params.documentUri) 
+                            || await workspace.openTextDocument(file);
+            await document.save();
 
             if (!params.disableFormatting) {
                 const formatEdits = (editRequest: ExtendedTextEdit) => {
@@ -3123,7 +3129,7 @@ ${endpointAttributes}
 
     async getESBConfigs(): Promise<ESBConfigsResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const resp = await langClient.getProjectStructure(this.projectUri);
 
             const ESBConfigs: string[] = [];
@@ -3436,7 +3442,7 @@ ${endpointAttributes}
 
     async convertPdfToBase64Images(params: string): Promise<string[]> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const images = await langClient.pdfToImagesBase64(params)
             resolve(images);
         });
@@ -3874,7 +3880,7 @@ ${endpointAttributes}
 
     async getDefinition(params: GetDefinitionRequest): Promise<GetDefinitionResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const definition = await langClient.getDefinition(params);
 
             resolve(definition);
@@ -3896,11 +3902,11 @@ ${endpointAttributes}
     }
 
     async getDiagnostics(params: GetDiagnosticsReqeust): Promise<GetDiagnosticsResponse> {
-        return getStateMachine(this.projectUri).context().langClient!.getDiagnostics(params);
+        return (await MILanguageClient.getInstance(this.projectUri)).getDiagnostics(params);
     }
 
     async getAvailableResources(params: GetAvailableResourcesRequest): Promise<GetAvailableResourcesResponse> {
-        return getStateMachine(this.projectUri).context().langClient!.getAvailableResources(params);
+        return (await MILanguageClient.getInstance(this.projectUri)).getAvailableResources(params);
     }
 
     async browseFile(params: BrowseFileRequest): Promise<BrowseFileResponse> {
@@ -4201,7 +4207,7 @@ ${endpointAttributes}
 
     async getAvailableConnectors(params: GetAvailableConnectorRequest): Promise<GetAvailableConnectorResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.getAvailableConnectors({
                 documentUri: params.documentUri,
                 connectorName: params.connectorName
@@ -4213,7 +4219,7 @@ ${endpointAttributes}
 
     async updateConnectors(params: UpdateConnectorRequest): Promise<void> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.updateConnectors({
                 documentUri: params.documentUri
             });
@@ -4351,7 +4357,7 @@ ${endpointAttributes}
 
     async saveInboundEPUischema(params: SaveInboundEPUischemaRequest): Promise<boolean> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.saveInboundEPUischema({
                 connectorName: params.connectorName,
                 uiSchema: params.uiSchema
@@ -4363,7 +4369,7 @@ ${endpointAttributes}
 
     async getInboundEPUischema(params: GetInboundEPUischemaRequest): Promise<GetInboundEPUischemaResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.getInboundEPUischema({
                 connectorName: params.connectorName,
                 documentPath: params.documentPath
@@ -4576,7 +4582,7 @@ ${keyValuesXML}`;
 
     async getConnectorConnections(params: GetConnectorConnectionsRequest): Promise<GetConnectorConnectionsResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.getConnectorConnections({
                 documentUri: params.documentUri,
                 connectorName: params.connectorName
@@ -4616,7 +4622,7 @@ ${keyValuesXML}`;
 
     async getAllRegistryPaths(params: GetAllRegistryPathsRequest): Promise<GetAllRegistryPathsResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.getRegistryFiles(params.path);
             resolve({ registryPaths: res.map(element => element.split(path.sep).join("/")) });
         });
@@ -4624,7 +4630,7 @@ ${keyValuesXML}`;
 
     async getAllResourcePaths(): Promise<GetAllResourcePathsResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.getResourceFiles();
             resolve({ resourcePaths: res });
         });
@@ -4632,7 +4638,7 @@ ${keyValuesXML}`;
 
     async getConfigurableEntries(): Promise<GetConfigurableEntriesResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.getConfigurableEntries();
             resolve({ configurableEntries: res });
         });
@@ -4640,7 +4646,7 @@ ${keyValuesXML}`;
 
     async getAllArtifacts(params: GetAllArtifactsRequest): Promise<GetAllArtifactsResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.getArifactFiles(params.path);
             resolve({ artifacts: res });
         });
@@ -4648,7 +4654,7 @@ ${keyValuesXML}`;
 
     async getArtifactType(params: GetArtifactTypeRequest): Promise<GetArtifactTypeResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.getArtifactType(params.filePath);
             resolve({ artifactType: res.artifactType, artifactFolder: res.artifactFolder });
         });
@@ -4865,7 +4871,7 @@ ${keyValuesXML}`;
                 extName: "Devant",
             };
 
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
 
             let integrationType: string | undefined;
             if (params.componentDir) {
@@ -5041,7 +5047,7 @@ ${keyValuesXML}`;
                 fs.mkdirSync(path.dirname(openAPISpecPath), { recursive: true });
             };
 
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const { swagger } = await langClient.swaggerFromAPI({ apiPath });
             if (!fs.existsSync(openAPISpecPath)) {
                 // Create the file if not exists
@@ -5098,7 +5104,7 @@ ${keyValuesXML}`;
                 return resolve({ swaggerExists: false });
             }
 
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const { swagger: generatedSwagger } = await langClient.swaggerFromAPI({ apiPath: apiPath, swaggerPath: swaggerPath });
             const swaggerContent = fs.readFileSync(swaggerPath, 'utf-8');
             const isEqualSwagger = isEqualSwaggers({
@@ -5126,7 +5132,7 @@ ${keyValuesXML}`;
             let generatedSwagger = params.generatedSwagger;
             let existingSwagger = params.existingSwagger;
             if (!generatedSwagger || !existingSwagger) {
-                const langClient = getStateMachine(this.projectUri).context().langClient!;
+                const langClient = await MILanguageClient.getInstance(this.projectUri);
                 const response = await langClient.swaggerFromAPI({ apiPath: apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
                 generatedSwagger = response.swagger;
                 existingSwagger = fs.readFileSync(swaggerPath, 'utf-8');
@@ -5153,7 +5159,7 @@ ${keyValuesXML}`;
             let generatedSwagger = params.generatedSwagger;
             let existingSwagger = params.existingSwagger;
             if (!generatedSwagger || !existingSwagger) {
-                const langClient = getStateMachine(this.projectUri).context().langClient!;
+                const langClient = await MILanguageClient.getInstance(this.projectUri);
                 const response = await langClient.swaggerFromAPI({ apiPath });
                 generatedSwagger = response.swagger;
                 existingSwagger = fs.readFileSync(swaggerPath, 'utf-8');
@@ -5272,7 +5278,7 @@ ${keyValuesXML}`;
 
             let range;
             if (!params.range) {
-                const langClient = getStateMachine(this.projectUri).context().langClient!;
+                const langClient = await MILanguageClient.getInstance(this.projectUri);
                 const st = await langClient.getSyntaxTree({
                     documentIdentifier: {
                         uri: filePath
@@ -5417,10 +5423,10 @@ ${keyValuesXML}`;
     async getOpenAPISpec(params: SwaggerTypeRequest): Promise<SwaggerFromAPIResponse> {
         const swaggerPath = path.join(this.projectUri, SWAGGER_REL_DIR,
             `${path.basename(params.apiPath, ".xml")}.yaml`);
-        const langClient = getStateMachine(this.projectUri).context().langClient!;
+        const langClient = await MILanguageClient.getInstance(this.projectUri);
         let response;
         if (params.isRuntimeService) {
-            const versionedUrl = exposeVersionedServices(this.projectUri);
+            const versionedUrl = await exposeVersionedServices(this.projectUri);
             response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, port: DebuggerConfig.getServerPort(), projectPath: versionedUrl ? this.projectUri : "", ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         } else {
             response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
@@ -5542,7 +5548,7 @@ ${keyValuesXML}`;
     async testDbConnection(req: TestDbConnectionRequest): Promise<TestDbConnectionResponse> {
 
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const response = await langClient?.testDbConnection(req);
             resolve({ success: response ? response.success : false });
         });
@@ -5608,7 +5614,7 @@ ${keyValuesXML}`;
 
     async checkDBDriver(className: string): Promise<CheckDBDriverResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.checkDBDriver(className);
             resolve(res);
         });
@@ -5616,7 +5622,7 @@ ${keyValuesXML}`;
 
     async addDBDriver(params: AddDriverRequest): Promise<boolean> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.addDBDriver(params);
             resolve(res);
         });
@@ -5624,7 +5630,7 @@ ${keyValuesXML}`;
 
     async removeDBDriver(params: AddDriverRequest): Promise<boolean> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.removeDBDriver(params);
             resolve(res);
         });
@@ -5632,7 +5638,7 @@ ${keyValuesXML}`;
 
     async modifyDBDriver(params: AddDriverRequest): Promise<boolean> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.modifyDBDriver(params);
             resolve(res);
         });
@@ -5641,7 +5647,7 @@ ${keyValuesXML}`;
     async generateDSSQueries(params: ExtendedDSSQueryGenRequest): Promise<boolean> {
         const { documentUri, position, ...genQueryParams } = params;
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const xml = await langClient.generateQueries(genQueryParams);
 
             if (!xml) {
@@ -5667,7 +5673,7 @@ ${keyValuesXML}`;
 
     async fetchDSSTables(params: DSSFetchTablesRequest): Promise<DSSFetchTablesResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.fetchTables({
                 ...params, tableData: "", datasourceName: ""
             });
@@ -5677,7 +5683,7 @@ ${keyValuesXML}`;
 
     async getMediators(param: GetMediatorsRequest): Promise<GetMediatorsResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             let response = await langClient.getMediators(param);
             resolve(response);
         });
@@ -5685,7 +5691,7 @@ ${keyValuesXML}`;
 
     async getMediator(param: GetMediatorRequest): Promise<GetMediatorResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             let response = await langClient.getMediator(param);
             resolve(response);
         });
@@ -5693,7 +5699,7 @@ ${keyValuesXML}`;
 
     async updateMediator(param: UpdateMediatorRequest): Promise<UpdateMediatorResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             let response = await langClient.generateSynapseConfig(param);
             if (response && response.textEdits) {
                 let edits = response.textEdits;
@@ -5717,7 +5723,7 @@ ${keyValuesXML}`;
 
     async getLocalInboundConnectors(): Promise<LocalInboundConnectorsResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             let response = await langClient.getLocalInboundConnectors();
             resolve(response);
         });
@@ -5725,7 +5731,7 @@ ${keyValuesXML}`;
 
     async getConnectionSchema(param: GetConnectionSchemaRequest): Promise<GetConnectionSchemaResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             let response = await langClient.getConnectionSchema(param);
             resolve(response);
         });
@@ -5734,7 +5740,7 @@ ${keyValuesXML}`;
     async getExpressionCompletions(params: ExpressionCompletionsRequest): Promise<ExpressionCompletionsResponse> {
         return new Promise(async (resolve, reject) => {
             try {
-                const langClient = getStateMachine(this.projectUri).context().langClient!;
+                const langClient = await MILanguageClient.getInstance(this.projectUri);
                 const res = await langClient.getExpressionCompletions(params);
                 if (!res.isIncomplete) {
                     resolve(res);
@@ -5751,7 +5757,7 @@ ${keyValuesXML}`;
     async getHelperPaneInfo(params: GetHelperPaneInfoRequest): Promise<GetHelperPaneInfoResponse> {
         return new Promise(async (resolve, reject) => {
             try {
-                const langClient = getStateMachine(this.projectUri).context().langClient!;
+                const langClient = await MILanguageClient.getInstance(this.projectUri);
                 let response = await langClient.getHelperPaneInfo(params);
                 resolve(response);
             } catch (error) {
@@ -5763,7 +5769,7 @@ ${keyValuesXML}`;
 
     async testConnectorConnection(params: TestConnectorConnectionRequest): Promise<TestConnectorConnectionResponse> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.testConnectorConnection(params);
             resolve(res);
         });
@@ -5887,7 +5893,7 @@ ${keyValuesXML}`;
 
     async getValueOfEnvVariable(variableName: string): Promise<string> {
         return new Promise(async (resolve) => {
-            const langClient = getStateMachine(this.projectUri).context().langClient!;
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
             const response = await langClient.getConfigurableList();
             const envVariable = response.find(variable => variable.key === variableName);
             if (envVariable && envVariable.value != null && envVariable.value !== "") {
@@ -6121,7 +6127,13 @@ ${keyValuesXML}`;
     }
 }
 
-function exposeVersionedServices(projectUri: string): boolean {
+async function exposeVersionedServices(projectUri: string): Promise<boolean> {
+    const langClient = await MILanguageClient.getInstance(projectUri);
+    const projectDetailsRes = await langClient?.getProjectDetails();
+    const isVersionedDeploymentEnabled = projectDetailsRes?.buildDetails?.versionedDeployment?.value;
+    if (!isVersionedDeploymentEnabled) {
+        return false;
+    }
     const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
     const serverPath = config.get<string>('SERVER_PATH') || undefined;
     const configPath = serverPath ? path.join(serverPath, 'conf', 'deployment.toml') : '';

@@ -19,7 +19,6 @@
 import { CommandIds, type ICmdParamsBase } from "@wso2/wso2-platform-core";
 import { type ExtensionContext, ProgressLocation, commands, window } from "vscode";
 import * as vscode from "vscode";
-import { choreoEnvConfig } from "../config";
 import { ext } from "../extensionVariables";
 import { getLogger } from "../logger/logger";
 import { webviewStateStore } from "../stores/webview-state-store";
@@ -31,20 +30,17 @@ export function signInCommand(context: ExtensionContext) {
 			setExtensionName(params?.extName);
 			try {
 				isRpcActive(ext);
+				// Cancel any pending session creation from accounts menu
+				ext.authProvider?.cancelPendingSessionCreation();
 				getLogger().debug("Signing in to WSO2 Platform");
 				const callbackUrl = await vscode.env.asExternalUri(vscode.Uri.parse(`${vscode.env.uriScheme}://wso2.wso2-platform/signin`));
 
-				let baseUrl: string | undefined;
-				if (webviewStateStore.getState().state?.extensionName === "Devant") {
-					baseUrl = `${choreoEnvConfig.getDevantUrl()}/login`;
-				}
-				let clientId: string | undefined;
-				if (webviewStateStore.getState().state?.extensionName === "Devant") {
-					clientId = choreoEnvConfig.getDevantAsgardeoClientId();
-				}
 				console.log("Generating WSO2 Platform login URL for ", callbackUrl.toString());
 				const loginUrl = await window.withProgress({ title: "Generating Login URL...", location: ProgressLocation.Notification }, async () => {
-					return ext.clients.rpcClient.getSignInUrl({ callbackUrl: callbackUrl.toString(), baseUrl, clientId });
+					if (webviewStateStore.getState().state?.extensionName === "Devant") {
+						return ext.clients.rpcClient.getDevantSignInUrl({ callbackUrl: callbackUrl.toString() });
+					}
+					return ext.clients.rpcClient.getSignInUrl({ callbackUrl: callbackUrl.toString() });
 				});
 
 				if (loginUrl) {
@@ -54,11 +50,16 @@ export function signInCommand(context: ExtensionContext) {
 					window.showErrorMessage("Unable to open external link for authentication.");
 				}
 			} catch (error: any) {
-				getLogger().error(`Error while signing in to WSO2 Platofmr. ${error?.message}${error?.cause ? `\nCause: ${error.cause.message}` : ""}`);
+				getLogger().error(`Error while signing in to WSO2 Platform. ${error?.message}${error?.cause ? `\nCause: ${error.cause.message}` : ""}`);
 				if (error instanceof Error) {
 					window.showErrorMessage(error.message);
 				}
 			}
 		}),
+				// Register cancellation command
+		commands.registerCommand(CommandIds.CancelSignIn, () => {
+			console.log("Cancelling pending session creation via command");
+			ext.authProvider?.cancelPendingSessionCreation();
+		})
 	);
 }

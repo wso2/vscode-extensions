@@ -15,6 +15,10 @@ export interface ICloneProjectCmdParams extends ICmdParamsBase {
 	integrationDisplayType: string;
 }
 
+export interface ICommitAndPuhCmdParams extends ICmdParamsBase {
+	componentPath: string;
+}
+
 export interface ICreateDependencyParams extends ICmdParamsBase {
 	componentFsPath?: string;
 	isCodeLens?: boolean;
