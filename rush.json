@@ -615,6 +615,22 @@
     {
       "packageName": "mcp-server-inspector",
       "projectFolder": "workspaces/mcp-inspector/mcp-inspector-extension"
+    },
+    {
+      "packageName": "@wso2/api-tryit-core",
+      "projectFolder": "workspaces/api-tryit/api-tryit-core"
+    },
+    {
+      "packageName": "@wso2/api-tryit-rpc-client",
+      "projectFolder": "workspaces/api-tryit/api-tryit-rpc-client"
+    },
+    {
+      "packageName": "@wso2/api-tryit-visualizer",
+      "projectFolder": "workspaces/api-tryit/api-tryit-visualizer"
+    },
+    {
+      "packageName": "api-tryit",
+      "projectFolder": "workspaces/api-tryit/api-tryit-extension"
     }
   ]
 }

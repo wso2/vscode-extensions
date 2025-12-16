@@ -1,0 +1,6 @@
+.vscode-test/**
+out/**
+dist/**
+node_modules/**
+*.vsix
+resources/jslibs/**

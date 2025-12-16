@@ -1,0 +1,42 @@
+{
+  "name": "@wso2/api-tryit-visualizer",
+  "version": "1.0.0",
+  "description": "API TryIt Visualizer",
+  "main": "index.js",
+  "scripts": {
+    "start": "webpack-dev-server --mode=development --progress",
+    "build": "webpack && pnpm run postbuild",
+    "build:tsc": "tsc --pretty",
+    "postbuild": "copyfiles -u 1 \"build/**/*\" ../api-tryit-extension/resources/jslibs"
+  },
+  "author": "wso2",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@emotion/css": "^11.13.5",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@types/vscode-webview": "^1.57.5",
+    "@vscode/webview-ui-toolkit": "^1.4.0",
+    "@wso2/api-tryit-core": "workspace:*",
+    "@wso2/api-tryit-rpc-client": "workspace:*",
+    "@wso2/ui-toolkit": "workspace:*",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "process": "~0.11.10",
+    "path": "~0.12.7"
+  },
+  "devDependencies": {
+    "@types/react": "18.2.0",
+    "@types/react-dom": "18.2.0",
+    "copyfiles": "~2.4.1",
+    "typescript": "5.8.3",
+    "webpack": "~5.98.0",
+    "webpack-cli": "~6.0.1",
+    "webpack-dev-server": "~5.2.0",
+    "ts-loader": "~9.5.1",
+    "css-loader": "~7.1.2",
+    "style-loader": "~4.0.0",
+    "html-webpack-plugin": "~5.6.3",
+    "source-map-loader": "~5.0.0"
+  }
+}

@@ -259,6 +259,49 @@
 			}
 		},
         {
+            "label": "npm: watch-api-tryit",
+            "type": "npm",
+            "script": "watch",
+            "path": "workspaces/api-tryit/api-tryit-extension",
+            "problemMatcher": {
+                "owner": "typescript",
+                "source": "ts",
+                "applyTo": "closedDocuments",
+                "fileLocation": "absolute",
+                "severity": "error",
+                "pattern": [
+                    {
+                        "regexp": "\\[tsl\\] ERROR in (.*)?\\((\\d+),(\\d+)\\)",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3
+                    },
+                    {
+                        "regexp": "\\s*TS\\d+:\\s*(.*)",
+                        "message": 1
+                    }
+                ],
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": {
+                        "regexp": "webpack"
+                    },
+                    "endsPattern": {
+                        "regexp": "webpack .* compiled"
+                    }
+                }
+            },
+            "isBackground": true,
+            "presentation": {
+                "reveal": "never",
+                "group": "watchers"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
             "type": "npm",
             "script": "watch-fhir-tools",
             "path": "workspaces/fhir-tools/fhir-tools-extension",

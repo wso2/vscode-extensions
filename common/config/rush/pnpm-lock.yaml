@@ -330,6 +330,202 @@ importers:
         specifier: ^5.2.1
         version: 5.2.2(webpack-cli@5.1.4)(webpack@5.103.0)
 
+  ../../workspaces/api-tryit/api-tryit-core:
+    dependencies:
+      '@types/vscode-webview':
+        specifier: ^1.57.5
+        version: 1.57.5
+      vscode-languageserver-types:
+        specifier: ~3.17.5
+        version: 3.17.5
+      vscode-messenger-common:
+        specifier: ^0.5.1
+        version: 0.5.1
+    devDependencies:
+      '@eslint/eslintrc':
+        specifier: ~3.3.1
+        version: 3.3.3
+      '@eslint/js':
+        specifier: ~9.27.0
+        version: 9.27.0
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.32.1
+        version: 8.33.1(@typescript-eslint/parser@8.33.1(eslint@9.27.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.27.0(jiti@2.6.1))(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.32.1
+        version: 8.33.1(eslint@9.27.0(jiti@2.6.1))(typescript@5.8.3)
+      eslint:
+        specifier: ^9.27.0
+        version: 9.27.0(jiti@2.6.1)
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
+
+  ../../workspaces/api-tryit/api-tryit-extension:
+    dependencies:
+      '@wso2/api-tryit-core':
+        specifier: workspace:*
+        version: link:../api-tryit-core
+      '@wso2/api-tryit-rpc-client':
+        specifier: workspace:*
+        version: link:../api-tryit-rpc-client
+      vscode-messenger:
+        specifier: ^0.5.1
+        version: 0.5.1
+      vscode-messenger-common:
+        specifier: ^0.5.1
+        version: 0.5.1
+    devDependencies:
+      '@types/node':
+        specifier: 20.x
+        version: 20.19.25
+      '@types/vscode':
+        specifier: ^1.100.0
+        version: 1.106.1
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.32.1
+        version: 8.33.1(@typescript-eslint/parser@8.33.1(eslint@9.27.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.27.0(jiti@2.6.1))(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.32.1
+        version: 8.33.1(eslint@9.27.0(jiti@2.6.1))(typescript@5.8.3)
+      copyfiles:
+        specifier: ~2.4.1
+        version: 2.4.1
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.5.0
+      eslint:
+        specifier: ^9.27.0
+        version: 9.27.0(jiti@2.6.1)
+      ts-loader:
+        specifier: ~9.5.1
+        version: 9.5.4(typescript@5.8.3)(webpack@5.103.0)
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
+      webpack:
+        specifier: ^5.94.0
+        version: 5.103.0(webpack-cli@6.0.1)
+      webpack-cli:
+        specifier: ~6.0.1
+        version: 6.0.1(webpack@5.103.0)
+
+  ../../workspaces/api-tryit/api-tryit-rpc-client:
+    dependencies:
+      '@types/vscode-webview':
+        specifier: ^1.57.5
+        version: 1.57.5
+      '@wso2/api-tryit-core':
+        specifier: workspace:*
+        version: link:../api-tryit-core
+      react:
+        specifier: 19.1.0
+        version: 19.1.0
+      react-dom:
+        specifier: 19.1.0
+        version: 19.1.0(react@19.1.0)
+      vscode-messenger-common:
+        specifier: ^0.5.1
+        version: 0.5.1
+      vscode-messenger-webview:
+        specifier: ^0.5.1
+        version: 0.5.1
+    devDependencies:
+      '@types/react':
+        specifier: 18.2.0
+        version: 18.2.0
+      '@types/react-dom':
+        specifier: 18.2.0
+        version: 18.2.0
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.32.1
+        version: 8.33.1(@typescript-eslint/parser@8.33.1(eslint@9.27.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.27.0(jiti@2.6.1))(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.32.1
+        version: 8.33.1(eslint@9.27.0(jiti@2.6.1))(typescript@5.8.3)
+      eslint:
+        specifier: ^9.27.0
+        version: 9.27.0(jiti@2.6.1)
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
+
+  ../../workspaces/api-tryit/api-tryit-visualizer:
+    dependencies:
+      '@emotion/css':
+        specifier: ^11.13.5
+        version: 11.13.5
+      '@emotion/react':
+        specifier: ^11.14.0
+        version: 11.14.0(@types/react@18.2.0)(react@18.2.0)
+      '@emotion/styled':
+        specifier: ^11.14.0
+        version: 11.14.1(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0)
+      '@types/vscode-webview':
+        specifier: ^1.57.5
+        version: 1.57.5
+      '@vscode/webview-ui-toolkit':
+        specifier: ^1.4.0
+        version: 1.4.0(react@18.2.0)
+      '@wso2/api-tryit-core':
+        specifier: workspace:*
+        version: link:../api-tryit-core
+      '@wso2/api-tryit-rpc-client':
+        specifier: workspace:*
+        version: link:../api-tryit-rpc-client
+      '@wso2/ui-toolkit':
+        specifier: workspace:*
+        version: link:../../common-libs/ui-toolkit
+      path:
+        specifier: ~0.12.7
+        version: 0.12.7
+      process:
+        specifier: ~0.11.10
+        version: 0.11.10
+      react:
+        specifier: 18.2.0
+        version: 18.2.0
+      react-dom:
+        specifier: 18.2.0
+        version: 18.2.0(react@18.2.0)
+    devDependencies:
+      '@types/react':
+        specifier: 18.2.0
+        version: 18.2.0
+      '@types/react-dom':
+        specifier: 18.2.0
+        version: 18.2.0
+      copyfiles:
+        specifier: ~2.4.1
+        version: 2.4.1
+      css-loader:
+        specifier: ~7.1.2
+        version: 7.1.2(webpack@5.103.0)
+      html-webpack-plugin:
+        specifier: ~5.6.3
+        version: 5.6.5(webpack@5.103.0)
+      source-map-loader:
+        specifier: ~5.0.0
+        version: 5.0.0(webpack@5.103.0)
+      style-loader:
+        specifier: ~4.0.0
+        version: 4.0.0(webpack@5.103.0)
+      ts-loader:
+        specifier: ~9.5.1
+        version: 9.5.4(typescript@5.8.3)(webpack@5.103.0)
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
+      webpack:
+        specifier: ^5.94.0
+        version: 5.103.0(webpack-cli@6.0.1)
+      webpack-cli:
+        specifier: ~6.0.1
+        version: 6.0.1(webpack-dev-server@5.2.2)(webpack@5.103.0)
+      webpack-dev-server:
+        specifier: ^5.2.1
+        version: 5.2.2(webpack-cli@6.0.1)(webpack@5.103.0)
+
   ../../workspaces/apk/apk-extension:
     devDependencies:
       '@types/glob':
@@ -9941,9 +10137,6 @@ packages:
 
   '@types/mdast@4.0.4':
     resolution: {integrity: sha512-kGaNbPh1k7AFzgpud/gMdvIm5xuECykRR+JnWKQno9TAXVa6WIVCGTPvYGekIDL4uwCZQSYbUxNBSb1aUo79oA==}
-
-  '@types/mdurl@1.0.5':
-    resolution: {integrity: sha512-6L6VymKTzYSrEf4Nev4Xa1LCHKrlTlYCBMTlQKFuddo1CvQcE52I0mwfOJayueUC7MJuXOeHTcIU683lzd0cUA==}
 
   '@types/mdurl@2.0.0':
     resolution: {integrity: sha512-RGdgjQUZba5p6QEFAVx2OGb8rQDL/cPRG7GiedRzMcJ1tYnUANBncjbSB1NRGwbvjcPeikRABz2nshyPk1bhWg==}
@@ -33769,7 +33962,7 @@ snapshots:
       react-docgen-typescript: 2.4.0(typescript@5.8.3)
       tslib: 2.8.1
       typescript: 5.8.3
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -35664,8 +35857,6 @@ snapshots:
     dependencies:
       '@types/unist': 3.0.3
 
-  '@types/mdurl@1.0.5': {}
-
   '@types/mdurl@2.0.0': {}
 
   '@types/mdx@2.0.13': {}
@@ -37032,7 +37223,7 @@ snapshots:
 
   '@webpack-cli/serve@3.0.1(webpack-cli@6.0.1)(webpack-dev-server@5.2.2)(webpack@5.103.0)':
     dependencies:
-      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
+      webpack: 5.103.0(webpack-cli@6.0.1)
       webpack-cli: 6.0.1(webpack-dev-server@5.2.2)(webpack@5.103.0)
     optionalDependencies:
       webpack-dev-server: 5.2.2(webpack-cli@6.0.1)(webpack@5.103.0)
@@ -39683,7 +39874,7 @@ snapshots:
       postcss-value-parser: 4.2.0
       schema-utils: 2.7.1
       semver: 6.3.1
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
 
   css-loader@5.2.7(webpack@5.103.0):
     dependencies:
@@ -39749,7 +39940,7 @@ snapshots:
       postcss-value-parser: 4.2.0
       semver: 7.7.3
     optionalDependencies:
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(webpack-cli@6.0.1)
 
   css-select@4.3.0:
     dependencies:
@@ -42947,7 +43138,7 @@ snapshots:
       pretty-error: 2.1.2
       tapable: 1.1.3
       util.promisify: 1.0.0
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
 
   html-webpack-plugin@5.6.5(webpack@5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(esbuild@0.25.12)):
     dependencies:
@@ -42977,7 +43168,7 @@ snapshots:
       pretty-error: 4.0.0
       tapable: 2.3.0
     optionalDependencies:
-      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
+      webpack: 5.103.0(webpack-cli@6.0.1)
 
   htmlparser2@10.0.0:
     dependencies:
@@ -47843,7 +48034,7 @@ snapshots:
       postcss: 7.0.39
       schema-utils: 3.3.0
       semver: 7.7.3
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
 
   postcss-loader@8.2.0(postcss@8.5.6)(typescript@5.8.3)(webpack@5.103.0):
     dependencies:
@@ -48585,7 +48776,7 @@ snapshots:
     dependencies:
       loader-utils: 2.0.4
       schema-utils: 3.3.0
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
 
   rc-config-loader@4.1.3:
     dependencies:
@@ -50010,7 +50201,7 @@ snapshots:
       neo-async: 2.6.2
     optionalDependencies:
       sass: 1.94.2
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
 
   sass@1.94.2:
     dependencies:
@@ -50456,7 +50647,7 @@ snapshots:
     dependencies:
       iconv-lite: 0.6.3
       source-map-js: 1.2.1
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(webpack-cli@6.0.1)
 
   source-map-resolve@0.6.0:
     dependencies:
@@ -50907,7 +51098,7 @@ snapshots:
 
   style-loader@4.0.0(webpack@5.103.0):
     dependencies:
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(webpack-cli@6.0.1)
 
   style-mod@4.1.3: {}
 
@@ -51447,7 +51638,7 @@ snapshots:
       serialize-javascript: 5.0.1
       source-map: 0.6.1
       terser: 5.44.1
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
       webpack-sources: 1.4.3
 
   terser-webpack-plugin@5.3.14(@swc/core@1.15.3(@swc/helpers@0.5.17))(esbuild@0.25.12)(webpack@5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(esbuild@0.25.12)):
@@ -52563,7 +52754,7 @@ snapshots:
       loader-utils: 2.0.4
       mime-types: 2.1.35
       schema-utils: 3.3.0
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
     optionalDependencies:
       file-loader: 6.2.0(webpack@5.103.0)
 
@@ -53089,7 +53280,7 @@ snapshots:
       import-local: 3.2.0
       interpret: 3.1.1
       rechoir: 0.8.0
-      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
+      webpack: 5.103.0(webpack-cli@6.0.1)
       webpack-merge: 6.0.1
     optionalDependencies:
       webpack-dev-server: 5.2.2(webpack-cli@6.0.1)(webpack@5.103.0)
@@ -53126,7 +53317,7 @@ snapshots:
       mime: 2.6.0
       mkdirp: 0.5.6
       range-parser: 1.2.1
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
       webpack-log: 2.0.0
 
   webpack-dev-middleware@4.3.0(webpack@5.103.0):
@@ -53190,7 +53381,7 @@ snapshots:
       range-parser: 1.2.1
       schema-utils: 4.3.3
     optionalDependencies:
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(webpack-cli@6.0.1)
 
   webpack-dev-server@5.2.2(webpack-cli@4.10.0)(webpack@5.103.0):
     dependencies:
@@ -53302,7 +53493,7 @@ snapshots:
       webpack-dev-middleware: 7.4.5(webpack@5.103.0)
       ws: 8.18.3
     optionalDependencies:
-      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
+      webpack: 5.103.0(webpack-cli@6.0.1)
       webpack-cli: 6.0.1(webpack-dev-server@5.2.2)(webpack@5.103.0)
     transitivePeerDependencies:
       - bufferutil
@@ -53393,7 +53584,7 @@ snapshots:
 
   webpack-filter-warnings-plugin@1.2.1(webpack@5.103.0):
     dependencies:
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
 
   webpack-hot-middleware@2.26.1:
     dependencies:
