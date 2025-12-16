@@ -2766,6 +2766,9 @@ importers:
       del-cli:
         specifier: ^6.0.0
         version: 6.0.0
+      mkdirp:
+        specifier: ^3.0.1
+        version: 3.0.1
       mocha:
         specifier: ^11.5.0
         version: 11.7.5
@@ -4403,6 +4406,9 @@ importers:
       del-cli:
         specifier: ^6.0.0
         version: 6.0.0
+      mkdirp:
+        specifier: ^3.0.1
+        version: 3.0.1
       mocha:
         specifier: ^11.5.0
         version: 11.7.5
