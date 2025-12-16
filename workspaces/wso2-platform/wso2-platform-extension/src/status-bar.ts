@@ -1,6 +1,6 @@
 import { type AuthState, CommandIds, type ContextStoreState, type WebviewState } from "@wso2/wso2-platform-core";
 import { type ExtensionContext, StatusBarAlignment, type StatusBarItem, window } from "vscode";
-import { authStore } from "./stores/auth-store";
+import { ext } from "./extensionVariables";
 import { contextStore } from "./stores/context-store";
 import { webviewStateStore } from "./stores/webview-state-store";
 
@@ -12,14 +12,14 @@ export function activateStatusbar({ subscriptions }: ExtensionContext) {
 	subscriptions.push(statusBarItem);
 
 	let webviewState: WebviewState = webviewStateStore.getState()?.state;
-	let authState: AuthState | null = authStore.getState()?.state;
+	let authState: AuthState | undefined = ext.authProvider?.getState()?.state;
 	let contextStoreState: ContextStoreState | null = contextStore.getState()?.state;
 	webviewStateStore.subscribe((state) => {
 		webviewState = state.state;
 		updateStatusBarItem(webviewState, authState, contextStoreState);
 	});
 
-	authStore.subscribe((state) => {
+	ext.authProvider?.subscribe((state) => {
 		authState = state.state;
 		updateStatusBarItem(webviewState, authState, contextStoreState);
 	});
