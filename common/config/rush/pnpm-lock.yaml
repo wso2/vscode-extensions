@@ -388,6 +388,9 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^8.32.1
         version: 8.33.1(eslint@9.27.0(jiti@2.6.1))(typescript@5.8.3)
+      '@wso2/api-tryit-visualizer':
+        specifier: workspace:*
+        version: link:../api-tryit-visualizer
       copyfiles:
         specifier: ~2.4.1
         version: 2.4.1
@@ -53381,7 +53384,7 @@ snapshots:
       range-parser: 1.2.1
       schema-utils: 4.3.3
     optionalDependencies:
-      webpack: 5.103.0(webpack-cli@6.0.1)
+      webpack: 5.103.0(webpack-cli@5.1.4)
 
   webpack-dev-server@5.2.2(webpack-cli@4.10.0)(webpack@5.103.0):
     dependencies:

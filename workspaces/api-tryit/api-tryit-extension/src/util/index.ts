@@ -25,6 +25,16 @@ export function getComposerJSFiles(
 	composerName: string,
 	webview: vscode.Webview
 ): string[] {
+	// Check if we're in dev mode (hot reload)
+	const isDevMode = process.env.WEB_VIEW_WATCH_MODE === 'true';
+	const devHost = process.env.WEB_VIEW_DEV_HOST || 'http://localhost:8080';
+
+	if (isDevMode) {
+		// Load from webpack-dev-server for hot reload
+		return [`${devHost}/${composerName}.js`];
+	}
+
+	// Production mode: load from local files
 	const jsLibsPath = path.join(context.extensionPath, 'resources', 'jslibs');
 	const jsFiles: string[] = [];
 

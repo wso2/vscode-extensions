@@ -9,7 +9,10 @@ module.exports = {
     output: {
         path: path.resolve(__dirname, "build"),
         filename: "ApiTryItVisualizer.js",
-        library: "apiTryItVisualizerWebview",
+        library: {
+            name: "apiTryItVisualizerWebview",
+            type: "var",
+        },
         devtoolModuleFilenameTemplate: function (info) {
             return "file:///" + encodeURI(info.absoluteResourcePath);
         },
@@ -56,4 +59,13 @@ module.exports = {
             "process.env": JSON.stringify(process.env),
         }),
     ],
+    devServer: {
+        port: 8080,
+        hot: true,
+        liveReload: true,
+        allowedHosts: 'all',
+        headers: {
+            'Access-Control-Allow-Origin': '*',
+        },
+    },
 };

@@ -42,6 +42,9 @@ export class TryItPanel {
 			return;
 		}
 
+		const isDevMode = process.env.WEB_VIEW_WATCH_MODE === 'true';
+		const devHost = process.env.WEB_VIEW_DEV_HOST || 'http://localhost:8080';
+
 		const panel = vscode.window.createWebviewPanel(
 			'apiTryIt',
 			'API TryIt',
@@ -49,7 +52,9 @@ export class TryItPanel {
 			{
 				enableScripts: true,
 				retainContextWhenHidden: true,
-				localResourceRoots: [extensionContext.extensionUri]
+				localResourceRoots: isDevMode
+					? [extensionContext.extensionUri, vscode.Uri.parse(devHost)]
+					: [extensionContext.extensionUri]
 			}
 		);
 
@@ -70,9 +75,7 @@ export class TryItPanel {
 	}
 
 	private _getWebviewContent(webview: vscode.Webview, extensionContext: vscode.ExtensionContext) {
-		const scriptUri = getComposerJSFiles(extensionContext, 'ApiTryItVisualizer', webview)
-			.map(jsFile => '<script charset="UTF-8" src="' + jsFile + '"></script>')
-			.join('\n');
+		const scriptUris = getComposerJSFiles(extensionContext, 'ApiTryItVisualizer', webview);
 
 		return /*html*/ `
         <!DOCTYPE html>
@@ -94,21 +97,23 @@ export class TryItPanel {
               width: 100%;
             }
           </style>
-          ${scriptUri}
         </head>
         <body>
             <noscript>You need to enable JavaScript to run this app.</noscript>
             <div id="root">
                 Loading ....
             </div>
+            ${scriptUris.map(jsFile => `<script charset="UTF-8" src="${jsFile}"></script>`).join('\n')}
             <script>
-            function render() {
-                apiTryItVisualizerWebview.renderEditorPanel(
-                    document.getElementById("root")
-                );
-            }
-            render();
-        </script>
+                window.addEventListener('DOMContentLoaded', function() {
+                    if (typeof apiTryItVisualizerWebview !== 'undefined' && apiTryItVisualizerWebview.renderEditorPanel) {
+                        apiTryItVisualizerWebview.renderEditorPanel(document.getElementById("root"));
+                    } else {
+                        console.error('apiTryItVisualizerWebview not loaded');
+                        document.getElementById("root").innerHTML = 'Error: Failed to load API TryIt visualizer';
+                    }
+                });
+            </script>
         </body>
         </html>
       `;

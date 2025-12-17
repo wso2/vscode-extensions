@@ -41,7 +41,7 @@ export const EditorPanelUI: React.FC = () => {
                     margin: 0,
                     fontWeight: 600,
                 }}>
-                    API TryIt - Test Your APIs
+                    API TryIt
                 </h1>
             </div>
 

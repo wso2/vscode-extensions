@@ -30,7 +30,7 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 		return element;
 	}
 
-	getChildren(element?: ApiTreeItem): Thenable<ApiTreeItem[]> {
+	getChildren(element?: ApiTreeItem): Promise<ApiTreeItem[]> {
 		if (!element) {
 			// Root level - show collections directly
 			return Promise.resolve([
