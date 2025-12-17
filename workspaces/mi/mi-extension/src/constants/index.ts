@@ -23,6 +23,7 @@ export const COMMANDS = {
     SHOW_OVERVIEW: "MI.showOverview",
     DISABLE_OVERVIEW: "MI.disableOverview",
     OPEN_AI_PANEL: "MI.openAiPanel",
+    OPEN_AGENT_PANEL: "MI.openAgentPanel",
     CLEAR_AI_PROMPT: "MI.clearAIPrompt",
     OPEN_WELCOME: "MI.openWelcome",
     SHOW_GRAPHICAL_VIEW: "MI.show.graphical-view",

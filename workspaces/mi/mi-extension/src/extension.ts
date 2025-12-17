@@ -20,7 +20,7 @@ import * as vscode from 'vscode';
 import { extension } from './MIExtensionContext';
 import { activate as activateHistory } from './history';
 import { activateVisualizer } from './visualizer/activate';
-import { activateAiPanel } from './ai-panel/activate';
+import { activateAiPanel } from './ai-features/activate';
 
 import { activateDebugger } from './debugger/activate';
 import { activateMigrationSupport } from './migration';
@@ -28,7 +28,7 @@ import { activateRuntimeService } from './runtime-services-panel/activate';
 import { MILanguageClient } from './lang-client/activator';
 import { activateUriHandlers } from './uri-handler';
 import { extensions, workspace } from 'vscode';
-import { StateMachineAI } from './ai-panel/aiMachine';
+import { StateMachineAI } from './ai-features/aiMachine';
 import { isOldProjectOrWorkspace, getStateMachine } from './stateMachine';
 import { webviews } from './visualizer/webview';
 import { v4 as uuidv4 } from 'uuid';

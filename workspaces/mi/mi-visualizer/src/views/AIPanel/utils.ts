@@ -87,28 +87,62 @@ export function splitHalfGeneratedCode(content: string) {
         return segments;
     }
 
-export function splitContent(content: string) {
+interface ContentSegment {
+    isCode?: boolean;
+    isToolCall?: boolean;
+    loading: boolean;
+    text: string;
+    language?: string;
+    failed?: boolean;
+}
+
+export function splitContent(content: string): ContentSegment[] {
     if (!content) {
         return [];
     }
-    const segments = [];
+    const segments: ContentSegment[] = [];
     let match;
-    const regex = /```(xml|bash|json|javascript|java|python)([\s\S]*?)```/g;
+    // Updated regex to include <toolcall> tags with optional data attributes
+    const regex = /```(xml|bash|json|javascript|java|python)([\s\S]*?)```|<toolcall(?:\s+[^>]*)?>([^<]*?)<\/toolcall>/g;
     let start = 0;
+
+    // Helper function to mark the last toolcall segment as complete
+    function updateLastToolCallSegmentLoading(failed: boolean = false) {
+        const lastSegment = segments[segments.length - 1];
+        if (lastSegment && lastSegment.isToolCall) {
+            lastSegment.loading = false;
+            lastSegment.failed = failed;
+        }
+    }
 
     while ((match = regex.exec(content)) !== null) {
         if (match.index > start) {
-        const segment = content.slice(start, match.index);
-        segments.push(...splitHalfGeneratedCode(segment));
+            // Mark previous toolcall as complete before adding text
+            updateLastToolCallSegmentLoading();
+            const segment = content.slice(start, match.index);
+            segments.push(...splitHalfGeneratedCode(segment));
         }
-        segments.push({ isCode: true, loading: false, language: match[1], text: match[2] });
+
+        if (match[1]) {
+            // Code block matched
+            updateLastToolCallSegmentLoading();
+            segments.push({ isCode: true, loading: false, language: match[1], text: match[2] });
+        } else if (match[3]) {
+            // <toolcall> block matched
+            updateLastToolCallSegmentLoading();
+            const toolcallText = match[3];
+            // Determine loading state: if text ends with "...", it's still loading
+            const isLoading = toolcallText.trim().endsWith('...');
+            segments.push({ isToolCall: true, loading: isLoading, text: toolcallText, failed: false });
+        }
         start = regex.lastIndex;
     }
     if (start < content.length) {
+        updateLastToolCallSegmentLoading();
         segments.push(...splitHalfGeneratedCode(content.slice(start)));
     }
     return segments;
-    }
+}
 
 export function identifyLanguage(segmentText: string): string {
         if (segmentText.includes('<') && segmentText.includes('>') && /(?:name|key)="([^"]+)"/.test(segmentText)) {
