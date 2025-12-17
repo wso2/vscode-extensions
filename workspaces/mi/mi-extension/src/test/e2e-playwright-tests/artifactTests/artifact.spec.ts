@@ -255,10 +255,8 @@ export default function createTests() {
       console.log('Collapsing Class Mediators section');
       await projectExplorer.findItem(['Project testProject', 'Other Artifacts', 'Class Mediators'], true);
     });
-
-    // Remove test skip after fixing https://github.com/ballerina-platform/ballerina-lang/issues/44401
-
-    test.skip('Ballerina Module Tests', async () => {
+    
+    test('Ballerina Module Tests', async () => {
       await toggleNotifications(false);
       const testAttempt = test.info().retry + 1;
       const ballerinaModuleName = "TestBallerinaModule" + testAttempt;
