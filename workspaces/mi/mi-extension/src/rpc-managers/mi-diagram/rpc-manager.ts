@@ -309,7 +309,7 @@ import { parse, stringify } from "yaml";
 import { DiagramService, APIResource, NamedSequence, UnitTest, Proxy } from "../../../../syntax-tree/lib/src";
 import { extension } from '../../MIExtensionContext';
 import { RPCLayer } from "../../RPCLayer";
-import { StateMachineAI } from '../../ai-panel/aiMachine';
+import { StateMachineAI } from '../../ai-features/aiMachine';
 import { APIS, COMMANDS, DEFAULT_ICON, DEFAULT_PROJECT_VERSION, LAST_EXPORTED_CAR_PATH, RUNTIME_VERSION_440, SWAGGER_REL_DIR, ERROR_MESSAGES } from "../../constants";
 import { getStateMachine, navigate, openView } from "../../stateMachine";
 import { openPopupView } from "../../stateMachinePopup";

@@ -32,6 +32,7 @@ import { MarkdownRendererProps } from "../types";
 import { Role, MessageType, ChatMessage, CopilotChatEntry } from "@wso2/mi-core";
 import Attachments from "./Attachments";
 import FeedbackBar from "./FeedbackBar";
+import ToolCallSegment from "./ToolCallSegment";
 
 // Markdown renderer component
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ markdownContent }) => {
@@ -139,17 +140,21 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
                 <h3 style={{ margin: 0 }}>{message.role}</h3>
             </RoleContainer>
 
-            {splitContent(message.content).map((segment, i) =>
-                segment.isCode ? (
-                    <CodeSegment key={i} segmentText={segment.text} loading={segment.loading} index={index} />
-                ) : message.type === "Error" ? (
-                    <div style={{ color: "red", marginTop: "10px" }} key={i}>
-                        {segment.text}
-                    </div>
-                ) : (
-                    <MarkdownRenderer key={i} markdownContent={segment.text} />
-                )
-            )}
+            {splitContent(message.content).map((segment, i) => {
+                if (segment.isCode) {
+                    return <CodeSegment key={i} segmentText={segment.text} loading={segment.loading} index={index} />;
+                } else if (segment.isToolCall) {
+                    return <ToolCallSegment key={i} text={segment.text} loading={segment.loading} failed={segment.failed || false} />;
+                } else if (message.type === "Error") {
+                    return (
+                        <div style={{ color: "red", marginTop: "10px" }} key={i}>
+                            {segment.text}
+                        </div>
+                    );
+                } else {
+                    return <MarkdownRenderer key={i} markdownContent={segment.text} />;
+                }
+            })}
 
             {message.role === Role.MIUser && (
                 <>
