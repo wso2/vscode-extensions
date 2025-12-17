@@ -17,7 +17,7 @@
  */
 import { URLSearchParams } from "url";
 import { window, Uri, ProviderResult, commands } from "vscode";
-import { exchangeAuthCode } from "./ai-panel/auth";
+import { exchangeAuthCode } from "./ai-features/auth";
 import { COMMANDS } from "./constants";
 import { checkForDevantExt } from "./extension";
 import { IOpenCompSrcCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";

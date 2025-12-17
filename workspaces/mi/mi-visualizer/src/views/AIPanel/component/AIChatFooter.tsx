@@ -18,14 +18,13 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { FlexRow, Footer, StyledTransParentButton, RippleLoader, FlexColumn } from "../styles";
-import { Codicon, ToggleSwitch } from "@wso2/ui-toolkit";
-import SuggestionsList from "./SuggestionsList";
+import { Codicon } from "@wso2/ui-toolkit";
 import { useMICopilotContext } from "./MICopilotContext";
 import { handleFileAttach } from "../utils";
 import { USER_INPUT_PLACEHOLDER_MESSAGE, VALID_FILE_TYPES } from "../constants";
-import { generateSuggestions, generateId, getView, fetchCodeGenerationsWithRetry, replaceCodeBlock, setupCodeGenerationEventListener, updateTokenInfo } from "../utils";
+import { generateId, updateTokenInfo } from "../utils";
 import { BackendRequestType } from "../types";
-import { Role, MessageType, CopilotChatEntry } from "@wso2/mi-core";
+import { Role, MessageType, CopilotChatEntry, AgentEvent } from "@wso2/mi-core";
 import Attachments from "./Attachments";
 
 interface AIChatFooterProps {
@@ -40,7 +39,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         rpcClient,
         messages,
         setMessages,
-        setQuestions,
         copilotChat,
         setCopilotChat,
         currentUserPrompt,
@@ -49,7 +47,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setBackendRequestTriggered,
         isInitialPromptLoaded,
         setIsInitialPromptLoaded,
-        questions,
         files,
         setFiles,
         images,
@@ -73,31 +70,24 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     const [charIndex, setCharIndex] = useState(0);
     const [showDots, setShowDots] = useState(false);
 
-    const [thinkingChecked, setChecked] = useState(false);
-    // State to track when we're validating code (getting diagnostics and LLM corrections)
-    const [isValidating, setIsValidating] = useState(false);
-    // Reference to store code blocks for the current chat
-    const currentChatCodeBlocksRef = useRef<string[]>([]);
-    
-    // State for streaming code generation
+    // State for streaming agent response
     const [currentChatId, setCurrentChatId] = useState<number | null>(null);
     const [assistantResponse, setAssistantResponse] = useState<string>("");
+    // Tool status for agent tool calls
+    const [toolStatus, setToolStatus] = useState<string>("");
 
-    const toggleThinkingSelection = () => {
-        setChecked(!thinkingChecked);
-    };
-
-    // Handle code generation streaming events from extension
-    const handleCodeGenerationEvent = (event: any) => {
+    // Handle agent streaming events from extension
+    const handleAgentEvent = (event: AgentEvent) => {
         // Ignore all events if generation was aborted
         if (abortedRef.current) {
             return;
         }
 
         switch (event.type) {
-            case "code_generation_start":
-                // Start of code generation
+            case "start":
+                // Start of agent response
                 setAssistantResponse("");
+                setToolStatus("");
                 break;
 
             case "content_block":
@@ -118,14 +108,122 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     });
                 }
                 break;
-            
-            case "code_generation_end":
-                // Final content replacement
-                if (event.content) {
-                    setAssistantResponse(event.content);
-                    handleCodeGenerationComplete(event.content);
+
+            case "tool_call":
+                // Show tool status and insert toolcall tag into message content
+                if (event.toolName) {
+                    const toolInfo = event.toolInput as { file_path?: string, old_string?: string, new_string?: string };
+                    const filePath = toolInfo?.file_path || "";
+
+                    // Create user-friendly tool messages
+                    let toolMessage = "";
+                    let toolAction = ""; // Store action for completion message
+
+                    switch (event.toolName) {
+                        case "file_read":
+                            toolMessage = `Reading ${filePath || "file"}...`;
+                            toolAction = "Read";
+                            break;
+                        case "file_write":
+                            toolMessage = `Creating ${filePath || "file"}...`;
+                            toolAction = "Created";
+                            break;
+                        case "file_edit":
+                            toolMessage = `Editing ${filePath || "file"}...`;
+                            toolAction = "Edited";
+                            break;
+                        case "file_multi_edit":
+                            toolMessage = `Editing ${filePath || "file"}...`;
+                            toolAction = "Edited";
+                            break;
+                        default:
+                            toolMessage = `Using ${event.toolName}${filePath ? `: ${filePath}` : ""}...`;
+                            toolAction = `Used ${event.toolName}`;
+                    }
+
+                    setToolStatus(toolMessage);
+
+                    // Insert toolcall tag into message content (will be rendered with loading spinner)
+                    // Store the action in the tag for later completion update
+                    setMessages((prevMessages) => {
+                        const newMessages = [...prevMessages];
+                        if (newMessages.length > 0) {
+                            newMessages[newMessages.length - 1].content += `\n\n<toolcall data-action="${toolAction}" data-file="${filePath}">${toolMessage}</toolcall>`;
+                        }
+                        return newMessages;
+                    });
                 }
-                // Fetch and update usage after code generation
+                break;
+
+            case "tool_result":
+                // Clear tool status and mark toolcall as complete in message
+                setToolStatus("");
+
+                // Update the last toolcall tag to show completion
+                setMessages((prevMessages) => {
+                    const newMessages = [...prevMessages];
+                    if (newMessages.length > 0) {
+                        const lastMessageContent = newMessages[newMessages.length - 1].content;
+
+                        // Find the last <toolcall> tag with data attributes
+                        const toolPattern = /<toolcall data-action="([^"]*)" data-file="([^"]*)">([^<]*?)<\/toolcall>/g;
+                        const matches = [...lastMessageContent.matchAll(toolPattern)];
+
+                        if (matches.length > 0) {
+                            // Get the last match (most recent tool call)
+                            const lastMatch = matches[matches.length - 1];
+                            const action = lastMatch[1]; // e.g., "Read", "Created", "Edited"
+                            const fileName = lastMatch[2];
+                            const fullMatch = lastMatch[0];
+
+                            // Create completion message
+                            const completedMessage = `<toolcall>${action} ${fileName || "file"}</toolcall>`;
+
+                            // Replace the loading version with completed version
+                            const lastIndex = lastMessageContent.lastIndexOf(fullMatch);
+                            const beforeMatch = lastMessageContent.substring(0, lastIndex);
+                            const afterMatch = lastMessageContent.substring(lastIndex + fullMatch.length);
+
+                            newMessages[newMessages.length - 1].content = beforeMatch + completedMessage + afterMatch;
+                        }
+                    }
+                    return newMessages;
+                });
+                break;
+
+            case "error":
+                setMessages((prevMessages) => [...prevMessages, {
+                    id: generateId(),
+                    role: Role.MICopilot,
+                    content: `Error: ${event.error || "An error occurred"}`,
+                    type: MessageType.Error
+                }]);
+                setBackendRequestTriggered(false);
+                setToolStatus("");
+                break;
+
+            case "abort":
+                // Abort acknowledged - finalize with partial content
+                setBackendRequestTriggered(false);
+                if (assistantResponse) {
+                    setMessages((prevMessages) => {
+                        const newMessages = [...prevMessages];
+                        if (newMessages.length > 0) {
+                            newMessages[newMessages.length - 1].content = assistantResponse + "\n\n*[Aborted]*";
+                        }
+                        return newMessages;
+                    });
+                }
+                setAssistantResponse("");
+                setToolStatus("");
+                break;
+
+            case "stop":
+                // Agent response completed
+                if (assistantResponse) {
+                    handleAgentComplete(assistantResponse);
+                }
+                // Fetch and update usage after agent response
                 rpcClient?.getMiAiPanelRpcClient().fetchUsage().then((usage) => {
                     if (usage) {
                         rpcClient?.getAIVisualizerState().then((machineView) => {
@@ -134,98 +232,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         });
                     }
                 }).catch((error) => {
-                    console.error("Error fetching usage after code generation:", error);
+                    console.error("Error fetching usage after agent response:", error);
                 });
-
-                // If diagnostics won't run, generate suggestions immediately
-                // Otherwise, wait for code_diagnostic_end event
-                if (!event.willRunDiagnostics) {
-                    // Clear old suggestions immediately before generating new ones
-                    setQuestions([]);
-                    const suggestionController = new AbortController();
-                    generateSuggestions(copilotChat, rpcClient, suggestionController).then((response) => {
-                        if (response && response.length > 0) {
-                            setQuestions(response);
-                        }
-                    }).catch((error) => {
-                        console.error("Error generating suggestions after code generation:", error);
-                    });
-                }
-                break;
-
-            case "code_diagnostic_start":
-                setIsValidating(true);
-                break;
-
-            case "code_diagnostic_end":
-                setIsValidating(false);
-
-                // Handle corrected codes if available
-                if (event.correctedCodes && event.correctedCodes.length > 0) {
-                    const fileCorrections = new Map<string, string>();
-
-                    event.correctedCodes.forEach((item: any) => {
-                        if (item.name && (item.configuration || item.code)) {
-                            const correctedCode = item.configuration || item.code;
-                            const fileName = item.name;
-                            fileCorrections.set(fileName, correctedCode);
-                        }
-                    });
-
-                    // Update messages with corrected code
-                    if (fileCorrections.size > 0) {
-                        setMessages((prevMessages) => {
-                            const newMessages = [...prevMessages];
-                            const lastMessage = newMessages[newMessages.length - 1];
-
-                            if (lastMessage && lastMessage.role === Role.MICopilot) {
-                                let updatedContent = lastMessage.content;
-
-                                fileCorrections.forEach((correctedCode, fileName) => {
-                                    updatedContent = replaceCodeBlock(updatedContent, fileName, correctedCode);
-                                });
-
-                                newMessages[newMessages.length - 1] = {
-                                    ...lastMessage,
-                                    content: updatedContent
-                                };
-                            }
-
-                            return newMessages;
-                        });
-                    }
-                }
-
-                // Clear old suggestions immediately before generating new ones
-                setQuestions([]);
-                // Generate fresh suggestions after code generation completes
-                generateSuggestions(copilotChat, rpcClient, new AbortController()).then((response) => {
-                    if (response && response.length > 0) {
-                        setQuestions(response);
-                    }
-                }).catch((error) => {
-                    console.error("Error generating suggestions after code generation:", error);
-                });
-                break;
-            
-            case "error":
-                setMessages((prevMessages) => [...prevMessages, {
-                    id: generateId(),
-                    role: Role.MICopilot,
-                    content: `Error: ${event.error}`,
-                    type: MessageType.Error
-                }]);
-                setBackendRequestTriggered(false);
-                setIsValidating(false);
-                break;
-
-            case "stop":
-                // Code generation completed
-                break;
-
-            case "aborted":
-                // Abort acknowledged by extension - all streaming has stopped
-                setBackendRequestTriggered(false);
+                setToolStatus("");
                 break;
 
             default:
@@ -233,8 +242,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }
     };
 
-    // Handle completion of code generation
-    const handleCodeGenerationComplete = async (finalContent: string) => {
+    // Handle completion of agent response
+    const handleAgentComplete = async (finalContent: string) => {
         // Add backend response to copilot chat
         setCopilotChat((prevCopilotChat) => [
             ...prevCopilotChat,
@@ -261,8 +270,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         abortedRef.current = true;
 
         try {
-            // Request the extension to abort code generation
-            await rpcClient.getMiAiPanelRpcClient().abortCodeGeneration();
+            // Request the extension to abort agent generation
+            await rpcClient.getMiAgentPanelRpcClient().abortAgentGeneration();
 
             // Abort the local controller (for any local operations)
             controller.abort();
@@ -270,13 +279,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             // Create a new AbortController for future fetches
             resetController();
 
-            // If we're in the validation phase, reset the validation state
-            if (isValidating) {
-                setIsValidating(false);
-            }
-
             // Clear assistant response state
             setAssistantResponse("");
+            setToolStatus("");
 
             // Remove the last user and copilot messages from UI state
             setMessages((prevMessages) => {
@@ -312,7 +317,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 abortedRef.current = false;
             }, 200);
         } catch (error) {
-            console.error("Error stopping code generation:", error);
+            console.error("Error stopping agent generation:", error);
             // Reset abort flag on error as well
             abortedRef.current = false;
         } finally {
@@ -353,14 +358,11 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             isResponseReceived.current = false;
         }
 
-        // Reset the current chat code blocks array for this new chat
-        currentChatCodeBlocksRef.current = [];
-
         // Add the current user prompt to the chats based on the request type
         let currentCopilotChat: CopilotChatEntry[] = [...copilotChat];
         const chatId = generateId();
         setCurrentChatId(chatId);
-        
+
         const updateChats = (userPrompt: string, userMessageType?: MessageType) => {
             // Store the user prompt for potential abort restoration
             lastUserPromptRef.current = userPrompt;
@@ -386,39 +388,27 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             currentCopilotChat.push(currentUserChat);
         };
 
+        // Determine the message to send
+        let messageToSend = currentUserPrompt;
         switch (requestType) {
             case BackendRequestType.InitialPrompt:
                 updateChats(currentUserPrompt, MessageType.InitialPrompt);
-                break;
-            case BackendRequestType.QuestionClick:
-                prompt = prompt.replace(/^\d+\.\s/, "");
-                updateChats(prompt, MessageType.UserMessage);
-                setCurrentUserprompt(prompt);
                 break;
             default:
                 updateChats(currentUserPrompt, MessageType.UserMessage);
                 break;
         }
 
-        const view = await getView(rpcClient);
-
         try {
-            // Call the RPC method for streaming code generation
-            // The streaming will be handled via events in handleCodeGenerationEvent
-            await fetchCodeGenerationsWithRetry(
-                currentCopilotChat,
-                files,
-                images,
-                rpcClient,
-                controller,
-                view,
-                thinkingChecked
-            );
+            // Call the agent RPC method for streaming response
+            // The streaming will be handled via events in handleAgentEvent
+            await rpcClient.getMiAgentPanelRpcClient().sendAgentMessage({ message: messageToSend });
 
             // Remove the user uploaded files and images after sending them to the backend
+            // (File upload functionality preserved for future use)
             removeAllFiles();
             removeAllImages();
-            
+
             // The streaming response will be handled by events
             // No need to process response.body here anymore
 
@@ -495,12 +485,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }
     }, [fileUploadStatus]);
 
-    // Set up code generation event listener
+    // Set up agent event listener
     useEffect(() => {
         if (rpcClient) {
-            setupCodeGenerationEventListener(rpcClient, (event: any) => {
-                handleCodeGenerationEvent(event);
-            });
+            rpcClient.onAgentEvent(handleAgentEvent);
         }
     }, [rpcClient]);
 
@@ -517,10 +505,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 onBlur={() => setIsFocused(false)}
                 tabIndex={0}
             >
-                {backendRequestTriggered || isValidating ? (
+                {backendRequestTriggered ? (
                     <FlexRow style={{ alignItems: "center", justifyContent: "center", width: "100%", padding: "10px" }}>
                         <span style={{ marginLeft: "10px" }}>
-                            {isValidating ? "Validating " : isResponseReceived.current ? "Generating " : "Thinking "}
+                            {toolStatus || (isResponseReceived.current ? "Generating " : "Thinking ")}
                         </span>
                         <RippleLoader>
                             <div className="ldio">
@@ -531,16 +519,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     </FlexRow>
                 ) : (
                     <>
-                        {currentUserPrompt.trim() === "" && (
-                            <FlexRow style={{ flexWrap: "wrap", gap: "5px", marginBottom: "5px" }}>
-                            <SuggestionsList
-                                questionMessages={questions}
-                                handleQuestionClick={(content: string) =>
-                                    handleSend(BackendRequestType.QuestionClick, content)
-                                }
-                            />
-                        </FlexRow>
-                        ) }
                         <FlexRow style={{ alignItems: "center", width: "100%", position: "relative" }}>
                             <textarea
                                 ref={textAreaRef}
@@ -624,31 +602,13 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 color: isDarkMode
                                     ? "var(--vscode-input-foreground)"
                                     : "var(--vscode-editor-foreground)",
-                                opacity: (backendRequestTriggered || isValidating || isUsageExceeded) ? 0.5 : 1,
-                                cursor: (backendRequestTriggered || isValidating || isUsageExceeded) ? "not-allowed" : "pointer"
+                                opacity: (backendRequestTriggered || isUsageExceeded) ? 0.5 : 1,
+                                cursor: (backendRequestTriggered || isUsageExceeded) ? "not-allowed" : "pointer"
                             }}
                         >
                             <Codicon name="new-file" />
                         </StyledTransParentButton>
-                        
-                        <div 
-                            style={{ 
-                                display: "flex", 
-                                alignItems: "center", 
-                                gap: "5px", 
-                                backgroundColor: isDarkMode 
-                                    ? "var(--vscode-editor-background)" 
-                                    : "var(--vscode-list-hoverBackground)",
-                                padding: "4px 10px",
-                                borderRadius: "12px",
-                                border: "1px solid var(--vscode-editor-lineHighlightBorder)",
-                                fontSize: "8px"
-                            }}
-                        >
-                            <span>Thinking</span>
-                            <ToggleSwitch checked={thinkingChecked} onChange={toggleThinkingSelection} sx={{ fontSize: 5 }} />
-                        </div>
-                        
+
                         {fileUploadStatus.text && fileUploadStatus.type === "error" && (
                             <span
                                 style={{
@@ -660,7 +620,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             </span>
                         )}
                     </div>
-                    
+
                     <input
                         id="fileInput"
                         type="file"
@@ -670,21 +630,21 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                             handleFileAttach(e, files, setFiles, images, setImages, setFileUploadStatus)
                         }
-                        disabled={backendRequestTriggered || isValidating || isUsageExceeded}
+                        disabled={backendRequestTriggered || isUsageExceeded}
                     />
-                    
+
                     <StyledTransParentButton
-                        onClick={() => ((backendRequestTriggered || isValidating) ? handleStop() : handleSend())}
+                        onClick={() => (backendRequestTriggered ? handleStop() : handleSend())}
                         style={{
                             width: "30px",
                             color: isDarkMode ? "var(--vscode-input-foreground)" : "var(--vscode-editor-foreground)",
                             opacity: isUsageExceeded ? 0.5 : 1,
                             cursor: isUsageExceeded ? "not-allowed" : "pointer"
                         }}
-                        disabled={(currentUserPrompt.trim() === "" && !backendRequestTriggered && !isValidating) || isUsageExceeded}
+                        disabled={(currentUserPrompt.trim() === "" && !backendRequestTriggered) || isUsageExceeded}
                     >
                         <span
-                            className={`codicon ${(backendRequestTriggered || isValidating) ? "codicon-stop-circle" : "codicon-send"}`}
+                            className={`codicon ${backendRequestTriggered ? "codicon-stop-circle" : "codicon-send"}`}
                         />
                     </StyledTransParentButton>
                 </FlexRow>
