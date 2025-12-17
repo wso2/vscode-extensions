@@ -19,14 +19,50 @@
 import * as vscode from 'vscode';
 import { activateActivityPanel } from './activity-panel/activate';
 import { TryItPanel } from './webview-panel/TryItPanel';
+import { ApiExplorerProvider } from './tree-view/ApiExplorerProvider';
 
 export async function activate(context: vscode.ExtensionContext) {
 	// Register the activity panel
 	activateActivityPanel(context);
 
+	// Register the API Explorer tree view
+	const apiExplorerProvider = new ApiExplorerProvider();
+	vscode.window.registerTreeDataProvider('api-tryit.explorer', apiExplorerProvider);
+
+	// Register command to refresh tree view
+	const refreshCommand = vscode.commands.registerCommand('api-tryit.refreshExplorer', () => {
+		apiExplorerProvider.refresh();
+	});
+
 	// Register command to open TryIt webview panel
 	const openTryItCommand = vscode.commands.registerCommand('api-tryit.openTryIt', () => {
 		TryItPanel.show(context);
+	});
+
+	// Register command to open request
+	const openRequestCommand = vscode.commands.registerCommand('api-tryit.openRequest', (item) => {
+		TryItPanel.show(context);
+		vscode.window.showInformationMessage(`Opening: ${item.method} ${item.label}`);
+	});
+
+	// Register command for new request
+	const newRequestCommand = vscode.commands.registerCommand('api-tryit.newRequest', () => {
+		vscode.window.showInformationMessage('Creating new request...');
+	});
+
+	// Register command for new collection
+	const newCollectionCommand = vscode.commands.registerCommand('api-tryit.newCollection', () => {
+		vscode.window.showInputBox({ prompt: 'Enter collection name' }).then(name => {
+			if (name) {
+				vscode.window.showInformationMessage(`Creating collection: ${name}`);
+				apiExplorerProvider.refresh();
+			}
+		});
+	});
+
+	// Register command for settings
+	const settingsCommand = vscode.commands.registerCommand('api-tryit.settings', () => {
+		vscode.window.showInformationMessage('Opening settings...');
 	});
 
 	// Register a simple hello command
@@ -34,7 +70,15 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage('Hello from API TryIt!');
 	});
 
-	context.subscriptions.push(openTryItCommand, helloCommand);
+	context.subscriptions.push(
+		refreshCommand, 
+		openTryItCommand, 
+		openRequestCommand, 
+		newRequestCommand,
+		newCollectionCommand,
+		settingsCommand,
+		helloCommand
+	);
 }
 
 export function deactivate() {

@@ -28,9 +28,8 @@
     "views": {
       "api-tryit": [
         {
-          "id": "api-tryit.activity.panel",
-          "name": "API TryIt Panel",
-          "type": "webview"
+          "id": "api-tryit.explorer",
+          "name": "API Explorer"
         }
       ]
     },
@@ -41,14 +40,72 @@
         "icon": "$(globe)"
       },
       {
+        "command": "api-tryit.newRequest",
+        "title": "New Request",
+        "icon": "$(add)"
+      },
+      {
+        "command": "api-tryit.refreshExplorer",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "api-tryit.newCollection",
+        "title": "New Collection",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "api-tryit.settings",
+        "title": "Settings",
+        "icon": "$(settings-gear)"
+      },
+      {
         "command": "api-tryit.hello",
         "title": "API TryIt: Hello World"
       }
     ],
     "menus": {
+      "view/title": [
+        {
+          "command": "api-tryit.newRequest",
+          "when": "view == api-tryit.explorer",
+          "group": "navigation@1"
+        },
+        {
+          "command": "api-tryit.refreshExplorer",
+          "when": "view == api-tryit.explorer",
+          "group": "navigation@2"
+        },
+        {
+          "command": "api-tryit.newCollection",
+          "when": "view == api-tryit.explorer",
+          "group": "navigation@3"
+        },
+        {
+          "command": "api-tryit.settings",
+          "when": "view == api-tryit.explorer",
+          "group": "navigation@4"
+        }
+      ],
       "commandPalette": [
         {
           "command": "api-tryit.openTryIt"
+        },
+        {
+          "command": "api-tryit.newRequest",
+          "when": "false"
+        },
+        {
+          "command": "api-tryit.refreshExplorer",
+          "when": "false"
+        },
+        {
+          "command": "api-tryit.newCollection",
+          "when": "false"
+        },
+        {
+          "command": "api-tryit.settings",
+          "when": "false"
         }
       ]
     }
