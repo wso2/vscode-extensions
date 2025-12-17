@@ -18,7 +18,7 @@
 
 import React, { type HTMLProps, type FC } from "react";
 import SwaggerUIReact from "swagger-ui-react";
-import "@wso2/ui-toolkit/src/styles/swagger/main.scss";
+import "@wso2/ui-toolkit/src/styles/swagger/styles.css";
 import classNames from "classnames";
 import type SwaggerUIProps from "swagger-ui-react/swagger-ui-react";
 import { Codicon } from "../Codicon/Codicon";

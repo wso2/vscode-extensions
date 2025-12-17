@@ -19,9 +19,11 @@
 import { type PersistOptions, createJSONStorage } from "zustand/middleware";
 import { ext } from "../extensionVariables";
 
+const version = "v4";
+
 export const getGlobalStateStore = (storeName: string): PersistOptions<any, any> => {
 	return {
-		name: storeName,
+		name: `${storeName}-${version}`,
 		storage: createJSONStorage(() => ({
 			getItem: async (name) => {
 				const value = await ext.context.globalState.get(name);
@@ -36,7 +38,7 @@ export const getGlobalStateStore = (storeName: string): PersistOptions<any, any>
 
 export const getWorkspaceStateStore = (storeName: string): PersistOptions<any, any> => {
 	return {
-		name: storeName,
+		name: `${storeName}-${version}`,
 		storage: createJSONStorage(() => ({
 			getItem: async (name) => {
 				const value = await ext.context.workspaceState.get(name);

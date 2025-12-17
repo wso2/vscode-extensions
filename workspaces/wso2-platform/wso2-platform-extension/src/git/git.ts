@@ -414,6 +414,7 @@ const COMMIT_FORMAT = "%H%n%aN%n%aE%n%at%n%ct%n%P%n%D%n%B";
 
 export interface ICloneOptions {
 	readonly parentPath: string;
+	readonly skipCreateSubPath?: boolean;
 	readonly progress: Progress<{ increment: number }>;
 	readonly recursive?: boolean;
 	readonly ref?: string;
@@ -518,7 +519,13 @@ export class Git {
 		};
 
 		try {
-			const command = ["clone", url.includes(" ") ? encodeURI(url) : url, folderPath, "--progress"];
+			const command = ["clone", url.includes(" ") ? encodeURI(url) : url];
+			if(options.skipCreateSubPath){
+				command.push(".")
+			}else{
+				command.push(folderPath)
+			}
+			command.push("--progress")
 			if (options.recursive) {
 				command.push("--recursive");
 			}
