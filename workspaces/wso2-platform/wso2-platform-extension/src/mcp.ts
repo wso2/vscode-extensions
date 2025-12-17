@@ -21,7 +21,7 @@ import { getChoreoExecPath } from "./choreo-rpc/cli-install";
 import { getUserInfoForCmd } from "./cmds/cmd-utils";
 import { ext } from "./extensionVariables";
 
-export function activateMcp(context: vscode.ExtensionContext) {
+export function activateChoreoMcp(context: vscode.ExtensionContext) {
 	const didChangeEmitter = new vscode.EventEmitter<void>();
 	context.subscriptions.push(
 		vscode.lm.registerMcpServerDefinitionProvider("choreo", {
@@ -41,12 +41,14 @@ export function activateMcp(context: vscode.ExtensionContext) {
 			},
 			resolveMcpServerDefinition: async (def, _token) => {
 				return def;
-				// Please uncomment the following if need to use vscode auth flow when connecting to Choreo MCP server
-				// const userInfo = await getUserInfoForCmd("connect with Choreo MCP server");
-				// if (userInfo) {
-				// 	return def;
-				// }
-				// return undefined;
+				// Uncomment below, if we want to ask user to login when MCP server is started
+				/*
+				const userInfo = await getUserInfoForCmd("connect with Choreo MCP server");
+				if (userInfo) {
+					return def;
+				}
+				return undefined;
+				*/
 			},
 		}),
 	);

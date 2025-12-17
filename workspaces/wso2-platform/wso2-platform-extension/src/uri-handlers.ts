@@ -36,7 +36,6 @@ import { updateContextFile } from "./cmds/create-directory-context-cmd";
 import { ext } from "./extensionVariables";
 import { getGitRemotes, getGitRoot } from "./git/util";
 import { getLogger } from "./logger/logger";
-import { authStore } from "./stores/auth-store";
 import { contextStore, getContextKey, waitForContextStoreToLoad } from "./stores/context-store";
 import { dataCacheStore } from "./stores/data-cache-store";
 import { locationStore } from "./stores/location-store";
@@ -82,7 +81,7 @@ export function activateURIHandlers() {
 											}
 										}
 										const region = await ext.clients.rpcClient.getCurrentRegion();
-										authStore.getState().loginSuccess(userInfo, region);
+										await ext.authProvider?.getState().loginSuccess(userInfo, region);
 										window.showInformationMessage(`Successfully signed into ${extName}`);
 									}
 								} catch (error: any) {
@@ -265,7 +264,12 @@ const switchContextAndOpenDir = async (selectedPath: string, org: Organization, 
 		return;
 	}
 	const projectCache = dataCacheStore.getState().getProjects(org?.handle);
-	const contextFilePath = updateContextFile(gitRoot, authStore.getState().state.userInfo!, project, org, projectCache);
+	const userInfo = ext.authProvider?.getState().state.userInfo;
+	if (!userInfo) {
+		window.showErrorMessage("User information is not available. Please sign in and try again.");
+		return;
+	}
+	const contextFilePath = updateContextFile(gitRoot, userInfo, project, org, projectCache);
 
 	const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSamePath(item.uri?.fsPath, selectedPath));
 	if (isWithinWorkspace) {

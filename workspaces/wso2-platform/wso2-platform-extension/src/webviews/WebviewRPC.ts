@@ -123,7 +123,6 @@ import { ext } from "../extensionVariables";
 import { initGit } from "../git/main";
 import { getGitHead, getGitRemotes, getGitRoot, hasDirtyRepo, removeCredentialsFromGitURL } from "../git/util";
 import { getLogger } from "../logger/logger";
-import { authStore } from "../stores/auth-store";
 import { contextStore } from "../stores/context-store";
 import { dataCacheStore } from "../stores/data-cache-store";
 import { webviewStateStore } from "../stores/webview-state-store";
@@ -132,11 +131,11 @@ import { createConnectionConfig, deleteLocalConnectionConfig, getConfigFileDrift
 
 // Register handlers
 function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | WebviewView) {
-	authStore.subscribe((store) => messenger.sendNotification(AuthStoreChangedNotification, BROADCAST, store.state));
+	ext.authProvider?.subscribe((store) => messenger.sendNotification(AuthStoreChangedNotification, BROADCAST, store.state));
 	webviewStateStore.subscribe((store) => messenger.sendNotification(WebviewStateChangedNotification, BROADCAST, store.state));
 	contextStore.subscribe((store) => messenger.sendNotification(ContextStoreChangedNotification, BROADCAST, store.state));
 
-	messenger.onRequest(GetAuthState, () => authStore.getState().state);
+	messenger.onRequest(GetAuthState, () => ext.authProvider?.getState().state);
 	messenger.onRequest(GetWebviewStoreState, async () => webviewStateStore.getState().state);
 	messenger.onRequest(GetContextState, async () => contextStore.getState().state);
 

@@ -41,7 +41,6 @@ import { initGit } from "./git/main";
 import { getGitRemotes } from "./git/util";
 import { getLogger } from "./logger/logger";
 import { ext } from "./extensionVariables";
-import { authStore } from "./stores/auth-store";
 import { dataCacheStore } from "./stores/data-cache-store";
 import { webviewStateStore } from "./stores/webview-state-store";
 
@@ -476,7 +475,7 @@ export const createConnectionConfig = async (params: CreateLocalConnectionsConfi
 		rmSync(join(params.componentDir, ".choreo", "component-config.yaml"));
 	}
 
-	const org = authStore?.getState().state?.userInfo?.organizations?.find((item) => item.uuid === params.marketplaceItem?.organizationId);
+	const org = ext.authProvider?.getUserInfo()?.organizations?.find((item) => item.uuid === params.marketplaceItem?.organizationId);
 	if (!org) {
 		return "";
 	}

@@ -3,7 +3,7 @@
   "displayName": "WSO2 Platform",
   "description": "Manage WSO2 Choreo and Devant projects in VS Code.",
   "license": "Apache-2.0",
-  "version": "1.0.13",
+  "version": "1.0.18",
   "cliVersion": "v1.2.212512011930",
   "publisher": "wso2",
   "bugs": {
@@ -223,7 +223,8 @@
     "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/; else vsce package --no-dependencies --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/; fi",
     "copyVSIX": "copyfiles *.vsix ./vsix",
     "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../..",
-    "postbuild": "pnpm run package && pnpm run copyVSIX"
+    "postbuild": "pnpm run download-choreo-cli && pnpm run package && pnpm run copyVSIX",
+    "download-choreo-cli": "node scripts/download-choreo-cli.js"
   },
   "devDependencies": {
     "@playwright/test": "1.55.1",

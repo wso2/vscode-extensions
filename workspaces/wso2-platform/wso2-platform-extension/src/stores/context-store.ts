@@ -37,7 +37,6 @@ import { persist } from "zustand/middleware";
 import { ext } from "../extensionVariables";
 import { getGitRemotes, getGitRoot } from "../git/util";
 import { isSamePath, isSubpath } from "../utils";
-import { authStore } from "./auth-store";
 import { dataCacheStore } from "./data-cache-store";
 import { locationStore } from "./location-store";
 import { getWorkspaceStateStore } from "./store-utils";
@@ -60,7 +59,7 @@ export const contextStore = createStore(
 			resetState: () => set(() => ({ state: initialState })),
 			refreshState: async () => {
 				try {
-					if (authStore.getState().state?.userInfo) {
+					if (ext.authProvider?.getState().state?.userInfo) {
 						set(({ state }) => ({ state: { ...state, loading: true } }));
 						let items = await getAllContexts(get().state?.items);
 						let selected = await getSelected(items, get().state?.selected);
@@ -153,7 +152,7 @@ const getAllContexts = async (previousItems: { [key: string]: ContextItemEnriche
 			} else if (previousItems?.[key]?.org && previousItems?.[key].project) {
 				contextItems[key] = { ...previousItems?.[key], contextDirs: [contextDir] };
 			} else {
-				const userOrgs = authStore.getState().state.userInfo?.organizations;
+				const userOrgs = ext.authProvider?.getState().state.userInfo?.organizations;
 				const matchingOrg = userOrgs?.find((item) => item.handle === contextItem.org);
 
 				const projectsOfOrg = dataCacheStore.getState().getProjects(contextItem.org);
@@ -197,9 +196,9 @@ const getAllContexts = async (previousItems: { [key: string]: ContextItemEnriche
 };
 
 const getSelected = async (items: { [key: string]: ContextItemEnriched }, prevSelected?: ContextItemEnriched) => {
-	if (process.env.CLOUD_STS_TOKEN && process.env.CLOUD_INITIAL_ORG_ID && process.env.CLOUD_INITIAL_PROJECT_ID) {
+	if (ext.isDevantCloudEditor && process.env.CLOUD_INITIAL_ORG_ID && process.env.CLOUD_INITIAL_PROJECT_ID) {
 		// Give priority to project provided as env variable, when running in the cloud editor
-		const userOrgs = authStore.getState().state.userInfo?.organizations;
+		const userOrgs = ext.authProvider?.getState().state.userInfo?.organizations;
 		const matchingOrg = userOrgs?.find(
 			(item) => item.uuid === process.env.CLOUD_INITIAL_ORG_ID || item.id?.toString() === process.env.CLOUD_INITIAL_ORG_ID,
 		);
@@ -261,7 +260,7 @@ const getSelected = async (items: { [key: string]: ContextItemEnriched }, prevSe
 };
 
 const getEnrichedContexts = async (items: { [key: string]: ContextItemEnriched }) => {
-	const userOrgs = authStore.getState().state.userInfo?.organizations;
+	const userOrgs = ext.authProvider?.getState().state.userInfo?.organizations;
 
 	const orgsSet = new Set<string>();
 	Object.values(items).forEach((item) => {
@@ -340,7 +339,7 @@ const getComponentsInfo = async (selected?: ContextItemEnriched): Promise<Contex
 
 const getFilteredComponents = (components: ComponentKind[]) => {
 	const workspaceCompId: string | null | undefined = ext.context.workspaceState.get("code-server-component-id") || process.env.SOURCE_COMPONENT_ID; //
-	if (process.env.CLOUD_STS_TOKEN && process.env.CLOUD_INITIAL_ORG_ID && process.env.CLOUD_INITIAL_PROJECT_ID && workspaceCompId) {
+	if (ext.isDevantCloudEditor && process.env.CLOUD_INITIAL_ORG_ID && process.env.CLOUD_INITIAL_PROJECT_ID && workspaceCompId) {
 		const filteredComps = components.filter((item) => item.metadata?.id === workspaceCompId);
 		if (filteredComps.length === 1) {
 			return filteredComps;

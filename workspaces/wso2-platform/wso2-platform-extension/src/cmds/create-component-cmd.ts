@@ -20,15 +20,11 @@ import { existsSync, readFileSync } from "fs";
 import * as os from "os";
 import * as path from "path";
 import {
-	ChoreoBuildPackNames,
 	ChoreoComponentType,
 	CommandIds,
-	type ComponentKind,
 	DevantScopes,
 	type ExtensionName,
 	type ICreateComponentCmdParams,
-	type Organization,
-	type Project,
 	type SubmitComponentCreateReq,
 	type WorkspaceConfig,
 	getComponentKindRepoSource,
@@ -37,16 +33,15 @@ import {
 	getTypeOfIntegrationType,
 	parseGitURL,
 } from "@wso2/wso2-platform-core";
-import { type ExtensionContext, ProgressLocation, type QuickPickItem, Uri, commands, env, window, workspace } from "vscode";
+import { type ExtensionContext, ProgressLocation, type QuickPickItem, Uri, commands, window, workspace } from "vscode";
 import { ext } from "../extensionVariables";
 import { initGit } from "../git/main";
 import { getGitRemotes, getGitRoot } from "../git/util";
 import { getLogger } from "../logger/logger";
-import { authStore } from "../stores/auth-store";
 import { contextStore, waitForContextStoreToLoad } from "../stores/context-store";
 import { dataCacheStore } from "../stores/data-cache-store";
 import { webviewStateStore } from "../stores/webview-state-store";
-import { convertFsPathToUriPath, delay, isSamePath, isSubpath, openDirectory } from "../utils";
+import { convertFsPathToUriPath, isSamePath, isSubpath, openDirectory } from "../utils";
 import { showComponentDetailsView } from "../webviews/ComponentDetailsView";
 import { ComponentFormView, type IComponentCreateFormParams } from "../webviews/ComponentFormView";
 import { getUserInfoForCmd, isRpcActive, selectOrg, selectProjectWithCreateNew, setExtensionName } from "./cmd-utils";
@@ -221,7 +216,13 @@ export function createNewComponentCommand(context: ExtensionContext) {
 						);
 						if (resp !== "Proceed") {
 							const projectCache = dataCacheStore.getState().getProjects(selectedOrg?.handle);
-							updateContextFile(gitRoot, authStore.getState().state.userInfo!, selectedProject, selectedOrg, projectCache);
+							const authProvider = ext.authProvider;
+							const userInfo = authProvider?.getState().state.userInfo;
+							if (!authProvider || !userInfo) {
+								window.showErrorMessage("User information is not available. Please sign in and try again.");
+								return;
+							}
+							updateContextFile(gitRoot, userInfo, selectedProject, selectedOrg, projectCache);
 							contextStore.getState().refreshState();
 							return;
 						}
@@ -245,7 +246,7 @@ export function createNewComponentCommand(context: ExtensionContext) {
 						organization: selectedOrg!,
 						project: selectedProject!,
 						extensionName: webviewStateStore.getState().state.extensionName,
-						isNewCodeServerComp: isGitInitialized === false && !!process.env.CLOUD_STS_TOKEN,
+						isNewCodeServerComp: isGitInitialized === false && ext.isDevantCloudEditor,
 						initialValues: {
 							type: selectedType,
 							subType: selectedSubType,
@@ -331,7 +332,7 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 			const dotGit = await newGit?.getRepositoryDotGit(createParams.componentDir);
 			const projectCache = dataCacheStore.getState().getProjects(org.handle);
 			if (newGit && gitRoot && dotGit) {
-				if (process.env.CLOUD_STS_TOKEN) {
+				if (ext.isDevantCloudEditor) {
 					// update the code server, to attach itself to the created component
 					const repo = newGit.open(gitRoot, dotGit);
 					const head = await repo.getHEAD();
@@ -362,8 +363,13 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 						}
 					}
 				} else {
-					updateContextFile(gitRoot, authStore.getState().state.userInfo!, project, org, projectCache);
-					contextStore.getState().refreshState();
+					const userInfo = ext.authProvider?.getState().state.userInfo;
+					if (userInfo) {
+						updateContextFile(gitRoot, userInfo, project, org, projectCache);
+						contextStore.getState().refreshState();
+					} else {
+						getLogger().error("Cannot update context file: userInfo is undefined.");
+					}
 				}
 			}
 		} catch (err) {
@@ -378,7 +384,7 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 
 		const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSubpath(item.uri?.fsPath, createParams.componentDir));
 
-		if (process.env.CLOUD_STS_TOKEN) {
+		if (ext.isDevantCloudEditor) {
 			await ext.context.globalState.update("code-server-component-id", createdComponent.metadata?.id);
 		}
 

@@ -17,7 +17,8 @@
  */
 
 import type { GetCliRpcResp } from "@wso2/wso2-platform-core";
-import type { ExtensionContext, StatusBarItem } from "vscode";
+import { type ExtensionContext, type StatusBarItem, extensions } from "vscode";
+import type { WSO2AuthenticationProvider } from "./auth/wso2-auth-provider";
 import type { PlatformExtensionApi } from "./PlatformExtensionApi";
 import type { ChoreoRPCClient } from "./choreo-rpc";
 
@@ -28,9 +29,14 @@ export class ExtensionVariables {
 	public statusBarItem!: StatusBarItem;
 	public config?: GetCliRpcResp;
 	public choreoEnv: string;
+	public isChoreoExtInstalled: boolean;
+	public isDevantCloudEditor: boolean;
+	public authProvider?: WSO2AuthenticationProvider;
 
 	public constructor() {
 		this.choreoEnv = "prod";
+		this.isDevantCloudEditor = !!process.env.CLOUD_STS_TOKEN;
+		this.isChoreoExtInstalled = !!extensions.getExtension("wso2.choreo");
 	}
 
 	public clients!: {
