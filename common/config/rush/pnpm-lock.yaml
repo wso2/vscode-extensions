@@ -448,10 +448,10 @@ importers:
   ../../workspaces/ballerina/ballerina-extension:
     dependencies:
       '@ai-sdk/amazon-bedrock':
-        specifier: ^3.0.25
+        specifier: ^3.0.57
         version: 3.0.65(zod@4.1.11)
       '@ai-sdk/anthropic':
-        specifier: ^2.0.20
+        specifier: ^2.0.45
         version: 2.0.53(zod@4.1.11)
       '@iarna/toml':
         specifier: ^2.2.5
@@ -484,7 +484,7 @@ importers:
         specifier: workspace:*
         version: link:../../wso2-platform/wso2-platform-core
       ai:
-        specifier: ^5.0.56
+        specifier: ^5.0.101
         version: 5.0.106(zod@4.1.11)
       cors-anywhere:
         specifier: ^0.4.4
@@ -9944,9 +9944,6 @@ packages:
 
   '@types/mdast@4.0.4':
     resolution: {integrity: sha512-kGaNbPh1k7AFzgpud/gMdvIm5xuECykRR+JnWKQno9TAXVa6WIVCGTPvYGekIDL4uwCZQSYbUxNBSb1aUo79oA==}
-
-  '@types/mdurl@1.0.5':
-    resolution: {integrity: sha512-6L6VymKTzYSrEf4Nev4Xa1LCHKrlTlYCBMTlQKFuddo1CvQcE52I0mwfOJayueUC7MJuXOeHTcIU683lzd0cUA==}
 
   '@types/mdurl@2.0.0':
     resolution: {integrity: sha512-RGdgjQUZba5p6QEFAVx2OGb8rQDL/cPRG7GiedRzMcJ1tYnUANBncjbSB1NRGwbvjcPeikRABz2nshyPk1bhWg==}
@@ -35649,8 +35646,6 @@ snapshots:
     dependencies:
       '@types/unist': 3.0.3
 
-  '@types/mdurl@1.0.5': {}
-
   '@types/mdurl@2.0.0': {}
 
   '@types/mdx@2.0.13': {}
@@ -44357,7 +44352,10 @@ snapshots:
       pretty-format: 25.5.0
       throat: 5.0.0
     transitivePeerDependencies:
+      - bufferutil
+      - canvas
       - supports-color
+      - utf-8-validate
 
   jest-leak-detector@25.5.0:
     dependencies:
