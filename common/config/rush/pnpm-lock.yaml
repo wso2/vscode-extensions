@@ -448,10 +448,10 @@ importers:
   ../../workspaces/ballerina/ballerina-extension:
     dependencies:
       '@ai-sdk/amazon-bedrock':
-        specifier: ^3.0.25
+        specifier: ^3.0.57
         version: 3.0.65(zod@4.1.11)
       '@ai-sdk/anthropic':
-        specifier: ^2.0.20
+        specifier: ^2.0.45
         version: 2.0.53(zod@4.1.11)
       '@iarna/toml':
         specifier: ^2.2.5
@@ -484,7 +484,7 @@ importers:
         specifier: workspace:*
         version: link:../../wso2-platform/wso2-platform-core
       ai:
-        specifier: ^5.0.56
+        specifier: ^5.0.101
         version: 5.0.106(zod@4.1.11)
       cors-anywhere:
         specifier: ^0.4.4
