@@ -30,7 +30,7 @@
     "@projectstorm/react-canvas-core": "^6.7.4",
     "@projectstorm/react-diagrams": "^6.7.4",
     "@projectstorm/react-diagrams-core": "^7.0.3",
-    "@vscode/codicons": "0.0.36",
+    "@vscode/codicons": "0.0.44",
     "@vscode/webview-ui-toolkit": "~1.4.0",
     "@wso2/font-wso2-vscode": "workspace:*",
     "classnames": "^2.5.1",
