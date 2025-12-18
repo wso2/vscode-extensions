@@ -20,11 +20,12 @@ import { exec } from "child_process";
 import * as fs from "fs";
 import { downloadCLI, getChoreoExecPath, getCliVersion } from "./cli-install";
 import { RPCClient } from "./client";
+import { getLogger } from "../logger/logger";
 
 function isChoreoCliInstalled(): Promise<boolean> {
 	return new Promise((resolve) => {
 		const rpcPath = getChoreoExecPath();
-		console.log("RPC path: ", rpcPath);
+		getLogger().info(`RPC path: ${rpcPath}`);
 
 		if (!fs.existsSync(rpcPath)) {
 			return resolve(false);
@@ -42,9 +43,9 @@ function isChoreoCliInstalled(): Promise<boolean> {
 
 		const timeout = setTimeout(() => {
 			process.kill(); // Kill the process if it exceeds 5 seconds
-			console.error("Timeout: Process took too long");
+			getLogger().error("Timeout: Process took too long");
 			fs.rmSync(rpcPath);
-			console.error("Delete RPC path and try again", rpcPath);
+			getLogger().error(`Delete RPC path and try again ${rpcPath}`);
 			resolve(false);
 		}, 5000);
 
@@ -55,7 +56,7 @@ function isChoreoCliInstalled(): Promise<boolean> {
 export async function initRPCServer() {
 	const installed = await isChoreoCliInstalled();
 	if (!installed) {
-		console.log(`WSO2 Platform RPC version ${getCliVersion()} not installed`);
+		getLogger().trace(`WSO2 Platform RPC version ${getCliVersion()} not installed`);
 		await downloadCLI();
 	}
 
