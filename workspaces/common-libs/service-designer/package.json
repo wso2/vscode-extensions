@@ -25,7 +25,7 @@
     "@emotion/react": "^11.9.3",
     "@emotion/styled": "^11.10.5",
     "@vscode/webview-ui-toolkit": "^1.2.0",
-    "@vscode/codicons": "0.0.33",
+    "@vscode/codicons": "0.0.44",
     "@wso2/syntax-tree": "workspace:*",
     "@wso2/ui-toolkit": "workspace:*",
     "@wso2/font-wso2-vscode": "workspace:*"
