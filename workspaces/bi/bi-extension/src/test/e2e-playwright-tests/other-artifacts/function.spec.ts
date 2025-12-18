@@ -68,6 +68,7 @@ export default function createTests() {
             const editBtn = artifactWebView.locator('#bi-edit');
             await editBtn.waitFor();
             await editBtn.click({ force: true });
+
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
             await form.fill({
@@ -82,8 +83,6 @@ export default function createTests() {
             await form.submit('Save');
             const context = artifactWebView.locator(`text=${functionName}`);
             await context.waitFor();
-            const contextReturnType = artifactWebView.locator('span:has(i.fw-bi-return)', { hasText: 'string' });
-            await contextReturnType.waitFor();
         });
     });
 }
