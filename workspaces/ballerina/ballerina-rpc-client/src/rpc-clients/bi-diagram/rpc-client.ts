@@ -56,9 +56,6 @@ import {
     DeleteProjectRequest,
     DeleteTypeRequest,
     DeleteTypeResponse,
-    DeploymentRequest,
-    DeploymentResponse,
-    DevantMetadata,
     EndOfFileRequest,
     ExpressionCompletionsRequest,
     ExpressionCompletionsResponse,
@@ -133,7 +130,6 @@ import {
     deleteOpenApiGeneratedModules,
     deleteProject,
     deleteType,
-    deployProject,
     formDidClose,
     formDidOpen,
     generateOpenApiClient,
@@ -151,7 +147,6 @@ import {
     getConfigVariablesV2,
     getDataMapperCompletions,
     getDesignModel,
-    getDevantMetadata,
     getEnclosedFunction,
     getEndOfFile,
     getExpressionCompletions,
@@ -358,10 +353,6 @@ export class BiDiagramRpcClient implements BIDiagramAPI {
         return this._messenger.sendRequest(renameIdentifier, HOST_EXTENSION, params);
     }
 
-    deployProject(params: DeploymentRequest): Promise<DeploymentResponse> {
-        return this._messenger.sendRequest(deployProject, HOST_EXTENSION, params);
-    }
-
     openAIChat(params: AIChatRequest): void {
         return this._messenger.sendNotification(openAIChat, HOST_EXTENSION, params);
     }
@@ -504,10 +495,6 @@ export class BiDiagramRpcClient implements BIDiagramAPI {
 
     getFunctionNames(): Promise<RecordsInWorkspaceMentions> {
         return this._messenger.sendRequest(getFunctionNames, HOST_EXTENSION);
-    }
-
-    getDevantMetadata(): Promise<DevantMetadata | undefined> {
-        return this._messenger.sendRequest(getDevantMetadata, HOST_EXTENSION);
     }
 
     generateOpenApiClient(params: OpenAPIClientGenerationRequest): Promise<GeneratedClientSaveResponse> {

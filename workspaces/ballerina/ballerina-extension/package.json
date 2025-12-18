@@ -296,6 +296,9 @@
                                 ],
                                 "default": "integrated",
                                 "description": "Indicates the terminal kind to launch the debugging process in."
+                            },
+                            "choreoConnect": {
+                                "description": "Connect with Choreo/Devant when launching the app"
                             }
                         }
                     },
@@ -1211,6 +1214,7 @@
         "vscode-uri": "^3.0.8",
         "xml-js": "^1.6.11",
         "xstate": "^4.38.3",
+        "zustand": "^5.0.5",
         "zod": "^4.1.8"
     },
     "devDependencies": {
@@ -1247,7 +1251,8 @@
         "vscode-messenger": "^0.4.4",
         "webpack": "^5.89.0",
         "webpack-cli": "^6.0.1",
-        "yarn": "^1.22.19"
+        "webpack-merge-and-include-globally": "^2.3.4",
+        "@types/js-yaml": "~4.0.9"
     },
     "extensionPack": [
         "be5invis.toml"

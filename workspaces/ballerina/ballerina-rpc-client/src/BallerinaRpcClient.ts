@@ -68,6 +68,7 @@ import { TestManagerServiceRpcClient } from "./rpc-clients";
 import { AiAgentRpcClient } from "./rpc-clients/ai-agent/rpc-client";
 import { ICPServiceRpcClient } from "./rpc-clients/icp-service/rpc-client";
 import { AgentChatRpcClient } from "./rpc-clients/agent-chat/rpc-client";
+import { PlatformExtRpcClient } from "./rpc-clients/platform-ext/platform-ext-client";
 
 export class BallerinaRpcClient {
 
@@ -90,6 +91,7 @@ export class BallerinaRpcClient {
     private _aiAgent: AiAgentRpcClient;
     private _icpManager: ICPServiceRpcClient;
     private _agentChat: AgentChatRpcClient;
+    private _platformExt: PlatformExtRpcClient;
 
     constructor() {
         this.messenger = new Messenger(vscode);
@@ -112,6 +114,7 @@ export class BallerinaRpcClient {
         this._aiAgent = new AiAgentRpcClient(this.messenger);
         this._icpManager = new ICPServiceRpcClient(this.messenger);
         this._agentChat = new AgentChatRpcClient(this.messenger);
+        this._platformExt = new PlatformExtRpcClient(this.messenger);
     }
 
     getAIAgentRpcClient(): AiAgentRpcClient {
@@ -180,6 +183,10 @@ export class BallerinaRpcClient {
 
     getMigrateIntegrationRpcClient(): MigrateIntegrationRpcClient {
         return this._migrateIntegration;
+    }
+
+    getPlatformRpcClient(): PlatformExtRpcClient {
+        return this._platformExt;
     }
 
     getVisualizerLocation(): Promise<VisualizerLocation> {

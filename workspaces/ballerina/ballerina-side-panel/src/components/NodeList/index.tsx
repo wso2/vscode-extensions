@@ -36,6 +36,7 @@ import { GroupListSkeleton } from "../Skeletons";
 import GroupList from "../GroupList";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { getExpandedCategories, setExpandedCategories, getDefaultExpandedState } from "../../utils/localStorage";
+import { ConnectionListItem } from "@wso2/wso2-platform-core";
 import { shouldShowEmptyCategory, shouldUseConnectionContainer, getCategoryActions, isCategoryFixed } from "./categoryConfig";
 
 namespace S {
@@ -319,6 +320,9 @@ interface NodeListProps {
     onBack?: () => void;
     onClose?: () => void;
     searchPlaceholder?: string;
+    onImportDevantConn?: (devantConn: ConnectionListItem) => void;
+    onLinkDevantProject?: () => void;
+    onRefreshDevantConnections?: () => void;
 }
 
 export function NodeList(props: NodeListProps) {
@@ -335,6 +339,9 @@ export function NodeList(props: NodeListProps) {
         onBack,
         onClose,
         searchPlaceholder,
+        onImportDevantConn,
+        onLinkDevantProject,
+        onRefreshDevantConnections,
     } = props;
 
     const [searchText, setSearchText] = useState<string>("");
@@ -433,6 +440,18 @@ export function NodeList(props: NodeListProps) {
             onAdd();
         }
     };
+
+    const handleOnLinkDevantProject = () => {
+        if (onLinkDevantProject){
+            onLinkDevantProject();
+        }
+    }
+
+    const handleOnRefreshDevantConnections = () => {
+        if (onRefreshDevantConnections){
+            onRefreshDevantConnections();
+        }
+    }
 
     const getNodesContainer = (items: (Node | Category)[], parentCategoryTitle?: string) => {
         const safeItems = items.filter((item) => item != null);
@@ -535,6 +554,7 @@ export function NodeList(props: NodeListProps) {
                         category={category}
                         expand={searchText?.length > 0}
                         onSelect={handleAddNode}
+                        onImportDevantConn={onImportDevantConn}
                     />
                 ))
             }
@@ -619,7 +639,9 @@ export function NodeList(props: NodeListProps) {
                                                         const handlers = {
                                                             onAddConnection: handleAddConnection,
                                                             onAddFunction: handleAddFunction,
-                                                            onAdd: handleAdd
+                                                            onAdd: handleAdd,
+                                                            onLinkDevantProject: handleOnLinkDevantProject,
+                                                            onRefreshDevantConnections: handleOnRefreshDevantConnections
                                                         };
                                                         
                                                         const handler = handlers[action.handlerKey];
@@ -639,7 +661,7 @@ export function NodeList(props: NodeListProps) {
                                                                         handler();
                                                                     }}
                                                                 >
-                                                                    <Codicon name="add" />
+                                                                    <Codicon name={action?.codeIcon || "add"} />
                                                                 </Button>
                                                             </Tooltip>
                                                         );
@@ -672,14 +694,16 @@ export function NodeList(props: NodeListProps) {
                                                     const handlers = {
                                                         onAddConnection: handleAddConnection,
                                                         onAddFunction: handleAddFunction,
-                                                        onAdd: handleAdd
+                                                        onAdd: handleAdd,
+                                                        onLinkDevantProject: handleOnLinkDevantProject,
+                                                        onRefreshDevantConnections: handleOnRefreshDevantConnections
                                                     };
                                                     
                                                     const handler = handlers[action.handlerKey];
                                                     const propsHandler = props[action.handlerKey];
                                                     
                                                     // Only render if the handler exists in props
-                                                    if (!propsHandler || !handler) return null;
+                                                    if (!propsHandler || !handler || action.hideOnEmptyState) return null;
                                                     
                                                     const buttonLabel = action.emptyStateLabel || addButtonLabel || "Add";
                                                     
@@ -688,7 +712,7 @@ export function NodeList(props: NodeListProps) {
                                                             key={`empty-${group.title}-${actionIndex}`}
                                                             onClick={handler}
                                                         >
-                                                            <Codicon name="add" iconSx={{ fontSize: 12 }} />
+                                                            <Codicon name={action?.codeIcon || "add"} iconSx={{ fontSize: 12 }} />
                                                             {buttonLabel}
                                                         </S.HighlightedButton>
                                                     );
