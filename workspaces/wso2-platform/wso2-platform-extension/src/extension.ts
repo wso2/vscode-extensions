@@ -17,43 +17,48 @@
  */
 
 import * as vscode from "vscode";
-import { type ConfigurationChangeEvent, commands, window, workspace } from "vscode";
+import { type ConfigurationChangeEvent, authentication, commands, window, workspace } from "vscode";
+import { WSO2AuthenticationProvider, WSO2_AUTH_PROVIDER_ID } from "./auth/wso2-auth-provider";
 import { PlatformExtensionApi } from "./PlatformExtensionApi";
 import { ChoreoRPCClient } from "./choreo-rpc";
 import { initRPCServer } from "./choreo-rpc/activate";
+import { getCliVersion } from "./choreo-rpc/cli-install";
 import { activateCmds } from "./cmds";
 import { continueCreateComponent } from "./cmds/create-component-cmd";
 import { activateCodeLenses } from "./code-lens";
+import { activateDevantFeatures } from "./devant-utils";
 import { ext } from "./extensionVariables";
 import { getLogger, initLogger } from "./logger/logger";
+import { activateChoreoMcp } from "./mcp";
 import { activateStatusbar } from "./status-bar";
-import { authStore } from "./stores/auth-store";
 import { contextStore } from "./stores/context-store";
 import { dataCacheStore } from "./stores/data-cache-store";
 import { locationStore } from "./stores/location-store";
 import { ChoreoConfigurationProvider, addTerminalHandlers } from "./tarminal-handlers";
 import { activateTelemetry } from "./telemetry/telemetry";
 import { activateURIHandlers } from "./uri-handlers";
+import { getExtVersion } from "./utils";
 import { registerYamlLanguageServer } from "./yaml-ls";
 
 export async function activate(context: vscode.ExtensionContext) {
 	activateTelemetry(context);
 	await initLogger(context);
-	getLogger().debug("Activating WSO2 Platform Extension");
+
 	ext.context = context;
 	ext.api = new PlatformExtensionApi();
-	setInitialEnv();
+	ext.choreoEnv = getChoreoEnv();
+
+	getLogger().info("Activating WSO2 Platform Extension");
+	getLogger().info(`Extension version: ${getExtVersion(context)}`);
+	getLogger().info(`CLI version: ${getCliVersion()}`);
 
 	// Initialize stores
-	await authStore.persist.rehydrate();
 	await contextStore.persist.rehydrate();
 	await dataCacheStore.persist.rehydrate();
 	await locationStore.persist.rehydrate();
 
 	// Set context values
-	authStore.subscribe(({ state }) => {
-		vscode.commands.executeCommand("setContext", "isLoggedIn", !!state.userInfo);
-	});
+	// Note: authProvider will be set up below, so we'll subscribe to it in initAuth
 	contextStore.subscribe(({ state }) => {
 		vscode.commands.executeCommand("setContext", "isLoadingContextDirs", state.loading);
 		vscode.commands.executeCommand("setContext", "hasSelectedProject", !!state.selected);
@@ -66,53 +71,63 @@ export async function activate(context: vscode.ExtensionContext) {
 	const rpcClient = new ChoreoRPCClient();
 	ext.clients = { rpcClient: rpcClient };
 
-	initRPCServer()
-		.then(async () => {
-			await ext.clients.rpcClient.init();
-			authStore.getState().initAuth();
-			continueCreateComponent();
-			addTerminalHandlers();
-			context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("*", new ChoreoConfigurationProvider()));
-			getLogger().debug("WSO2 Platform Extension activated");
-		})
-		.catch((e) => {
-			getLogger().error("Failed to initialize rpc client", e);
-		});
+	// Initialize and register authentication provider
+	const authProvider = new WSO2AuthenticationProvider(context.secrets);
+	ext.authProvider = authProvider;
+	context.subscriptions.push(
+		authentication.registerAuthenticationProvider(WSO2_AUTH_PROVIDER_ID, "WSO2 Platform", authProvider, {
+			supportsMultipleAccounts: false,
+		}),
+	);
 
+	// Subscribe to auth state changes
+	authProvider.subscribe(({ state }) => {
+		vscode.commands.executeCommand("setContext", "isLoggedIn", !!state.userInfo);
+	});
+
+	await initRPCServer();
+	await ext.clients.rpcClient.init();
+	authProvider.getState().initAuth();
+	continueCreateComponent();
+	if (ext.isChoreoExtInstalled) {
+		addTerminalHandlers();
+		context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("*", new ChoreoConfigurationProvider()));
+		activateChoreoMcp(context);
+	}
+	if (ext.isDevantCloudEditor) {
+		activateDevantFeatures();
+	}
+	ext.config = await ext.clients.rpcClient.getConfigFromCli();
 	activateCmds(context);
 	activateURIHandlers();
 	activateCodeLenses(context);
 	registerPreInitHandlers();
 	registerYamlLanguageServer();
 	activateStatusbar(context);
+	getLogger().debug("WSO2 Platform Extension activated");
 	return ext.api;
 }
 
-function setInitialEnv() {
-	const choreoEnv = process.env.CHOREO_ENV || process.env.CLOUD_ENV;
-	if (
-		choreoEnv &&
-		["dev", "stage", "prod"].includes(choreoEnv) &&
-		workspace.getConfiguration().get("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") !== choreoEnv
-	) {
-		workspace.getConfiguration().update("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment", choreoEnv);
-	}
-}
+const getChoreoEnv = (): string => {
+	return (
+		process.env.CHOREO_ENV ||
+		process.env.CLOUD_ENV ||
+		workspace.getConfiguration().get<string>("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") ||
+		"prod"
+	);
+};
 
 function registerPreInitHandlers(): any {
 	workspace.onDidChangeConfiguration(async ({ affectsConfiguration }: ConfigurationChangeEvent) => {
-		if (
-			affectsConfiguration("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") ||
-			affectsConfiguration("WSO2.WSO2-Platform.Advanced.RpcPath") ||
-			affectsConfiguration("WSO2.WSO2-Platform.Advanced.StsToken")
-		) {
+		if (affectsConfiguration("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment") || affectsConfiguration("WSO2.WSO2-Platform.Advanced.RpcPath")) {
+			// skip showing this if cloud sts env is available
 			const selection = await window.showInformationMessage(
 				"WSO2 Platform extension configuration changed. Please restart vscode for changes to take effect.",
 				"Restart Now",
 			);
 			if (selection === "Restart Now") {
 				if (affectsConfiguration("WSO2.WSO2-Platform.Advanced.ChoreoEnvironment")) {
-					authStore.getState().logout();
+					ext.authProvider?.getState().logout();
 				}
 				commands.executeCommand("workbench.action.reloadWindow");
 			}

@@ -3,8 +3,8 @@
   "displayName": "WSO2 Platform",
   "description": "Manage WSO2 Choreo and Devant projects in VS Code.",
   "license": "Apache-2.0",
-  "version": "1.0.13-sts-12",
-  "cliVersion": "v1.2.182507031200",
+  "version": "1.0.18",
+  "cliVersion": "v1.2.212509091800",
   "publisher": "wso2",
   "bugs": {
     "url": "https://github.com/wso2/choreo-vscode/issues"
@@ -18,7 +18,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onLanguageModel:agent"
   ],
   "extensionDependencies": [
     "redhat.vscode-yaml"
@@ -123,7 +124,14 @@
         "shortTitle": "Open component source",
         "category": "WSO2",
         "icon": "$(repo-clone)"
+      },
+      {
+        "command": "wso2.wso2-platform.push-to-git",
+        "title": "Commit & push component to remote repo",
+        "category": "WSO2",
+        "icon": "$(repo-push)"
       }
+      
     ],
     "configuration": {
       "type": "object",
@@ -160,19 +168,13 @@
             "dev"
           ],
           "default": "prod",
-          "description": "The WSO2 Platform Enviornment to use",
-          "scope": "window"
+          "description": "The WSO2 Platform Environment to use",
+          "scope": "machine"
         },
         "WSO2.WSO2-Platform.Advanced.RpcPath": {
           "type": "string",
           "default": "",
           "description": "The path to Choreo RPC server",
-          "scope": "window"
-        },
-        "WSO2.WSO2-Platform.Advanced.StsToken": {
-          "type": "string",
-          "default": "",
-          "description": "User STS token",
           "scope": "window"
         }
       }
@@ -185,7 +187,13 @@
           "fontCharacter": "\\f147"
         }
       }
-    }
+    },
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "choreo",
+        "label": "Choreo MCP Server"
+      }
+    ]
   },
   "scripts": {
     "clean": "del-cli ./dist ./out ./resources/jslibs ./platform-*.vsix ./coverage ./.nyc_output",
@@ -209,7 +217,8 @@
     "package": "node ../../common-libs/scripts/package-vsix.js --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/",
     "copyVSIX": "copyfiles *.vsix ./vsix",
     "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../..",
-    "postbuild": "pnpm run package && pnpm run copyVSIX"
+    "postbuild": "pnpm run download-choreo-cli && pnpm run package && pnpm run copyVSIX",
+    "download-choreo-cli": "node scripts/download-choreo-cli.js"
   },
   "devDependencies": {
     "@playwright/test": "1.55.1",
@@ -221,7 +230,7 @@
     "@types/which": "^3.0.4",
     "@vscode/vsce": "^3.7.0",
     "@wso2/playwright-vscode-tester": "workspace:*",
-    "axios": "^1.12.0",
+    "axios": "^1.9.0",
     "copyfiles": "^2.4.1",
     "del-cli": "^6.0.0",
     "mkdirp": "^3.0.1",
@@ -250,6 +259,7 @@
     "file-type": "^18.2.1",
     "js-yaml": "^4.1.1",
     "yaml": "^2.8.0",
+    "@iarna/toml": "^2.2.5",
     "jschardet": "^3.1.4",
     "vscode-messenger": "^0.5.1",
     "vscode-messenger-common": "^0.5.1",

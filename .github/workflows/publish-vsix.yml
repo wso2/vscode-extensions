@@ -90,7 +90,7 @@ jobs:
           elif [ "${{ github.event.inputs.extension }}" == "choreo" ]; then
             echo "repo=wso2/choreo-vscode" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.extension }}" == "wso2-platform" ]; then
-            echo "repo=wso2/wso2-platform-vscode" >> $GITHUB_OUTPUT
+            echo "repo=wso2/vscode-extensions" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.extension }}" == "apk" ]; then
             echo "repo=wso2/apk-vscode" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.extension }}" == "micro-integrator" ]; then
@@ -102,7 +102,7 @@ jobs:
         run: vsce publish -p ${{ secrets.VSCE_TOKEN }} --packagePath ${{ steps.vsix.outputs.vsixName }} ${{ steps.vsix.outputs.releaseMode }}
 
       - name: Publish to OpenVSX marketplace
-        if: ${{ github.event.inputs.openVSX == 'true' && github.event.inputs.isPreRelease == 'false' }}
+        if: ${{ github.event.inputs.openVSX == 'true' }}
         run: ovsx publish -p ${{ secrets.OPENVSX_TOKEN }} --packagePath ${{ steps.vsix.outputs.vsixName }} ${{ steps.vsix.outputs.releaseMode }}
 
       - name: Create a release in ${{ steps.repo.outputs.repo }} repo
