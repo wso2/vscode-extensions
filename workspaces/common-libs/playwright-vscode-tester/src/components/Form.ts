@@ -105,6 +105,9 @@ export class Form {
                         if (data.additionalProps?.clickLabel) {
                             await this.container.locator(`label:text("${key}")`).click();
                         }
+                        if (data.additionalProps?.clickItem) {
+                            await this.container.locator(`[data-testid="type-helper-item-${data.value}"]`).click();
+                        }
                         break;
                     }
                     case 'dropdown': {

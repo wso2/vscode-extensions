@@ -219,9 +219,9 @@ type SlidingPaneNavContainerProps = {
     onMouseLeave?: () => void;
     sx?: React.CSSProperties;
     ref?: React.Ref<HTMLDivElement> | null;
-}
+} & React.HTMLAttributes<HTMLDivElement>;
 
-export const SlidingPaneNavContainer = ({ children, to, data, endIcon, onClick, sx, ref, onMouseEnter, onMouseLeave }: SlidingPaneNavContainerProps) => {
+export const SlidingPaneNavContainer = ({ children, to, data, endIcon, onClick, sx, ref, onMouseEnter, onMouseLeave, ...props }: SlidingPaneNavContainerProps) => {
     const { moveToNext } = useSlidingPane();
     const handleNavigation = () => {
         if (!to) return;
@@ -238,7 +238,7 @@ export const SlidingPaneNavContainer = ({ children, to, data, endIcon, onClick, 
             } else {
                 handleNavigation();
             }
-        }} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} ref={ref} style={sx}>
+        }} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} ref={ref} style={sx} {...props}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                 <div>
                     {children}
