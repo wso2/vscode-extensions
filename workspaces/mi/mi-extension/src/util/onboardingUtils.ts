@@ -1094,7 +1094,7 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
             console.debug('[Ballerina Build] Ballerina Command Path:', balCommand);
 
             // Check if Ballerina executable exists
-            if (!fs.existsSync(balCommand)) {
+            if (!(isBallerinaInstalled || fs.existsSync(balCommand))) {
                 console.debug('[Ballerina Build] Error: Ballerina executable not found at:', balCommand);
                 vscode.window.showErrorMessage(`Ballerina executable not found at: ${balCommand}`);
                 reject(new Error('Ballerina executable not found'));
@@ -1488,7 +1488,7 @@ export async function updateCarPluginVersion(projectUri: string): Promise<void> 
     if (!carPluginVersion || carPluginVersion === LATEST_CAR_PLUGIN_VERSION) {
         return;
     }
-    if(carPluginVersion < LATEST_CAR_PLUGIN_VERSION) {
+    if(compareVersions(carPluginVersion, LATEST_CAR_PLUGIN_VERSION) < 0) {
         await updateRuntimeVersionsInPom(result.project.properties['project.runtime.version']);
     }
 }

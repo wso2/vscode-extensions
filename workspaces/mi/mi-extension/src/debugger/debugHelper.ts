@@ -38,6 +38,7 @@ import { serverLog, showServerOutputChannel } from '../util/serverLogger';
 import { getJavaHomeFromConfig, getServerPathFromConfig } from '../util/onboardingUtils';
 import * as crypto from 'crypto';
 import { Uri, workspace } from "vscode";
+import { MILanguageClient } from '../lang-client/activator';
 
 const child_process = require('child_process');
 const findProcess = require('find-process');
@@ -92,9 +93,11 @@ function checkServerLiveness(): Promise<boolean> {
     });
 }
 
-export function checkServerReadiness(): Promise<void> {
+export function checkServerReadiness(projectUri: string): Promise<void> {
     const startTime = Date.now();
-    const maxTimeout = 120000;
+    const config = workspace.getConfiguration('MI', Uri.file(projectUri));
+    const configuredTimeout = config.get("serverTimeoutInSecs");
+    const maxTimeout = (Number.isFinite(Number(configuredTimeout)) && Number(configuredTimeout) > 0) ? Number(configuredTimeout) * 1000 : 120000;
     const retryInterval = 2000;
 
     return new Promise((resolve, reject) => {
@@ -154,26 +157,28 @@ export async function executeCopyTask(task: vscode.Task) {
 export async function executeBuildTask(projectUri: string, serverPath: string, shouldCopyTarget: boolean = true, postBuildTask?: Function) {
     return new Promise<void>(async (resolve, reject) => {
 
-        const isEqual = await compareFilesByMD5(path.join(serverPath, "conf", "deployment.toml"),
-            path.join(projectUri, "deployment", "deployment.toml"));
-        if (!isEqual) {
-            const copyConf = await vscode.window.showWarningMessage(
-                'Deployment configurations in the runtime is different from the project. How do you want to proceed?',
-                { modal: true },
-                "Use Project Configurations", "Use Server Configurations"
-            );
-            if (copyConf === 'Use Project Configurations') {
-                fs.copyFileSync(path.join(serverPath, "conf", "deployment.toml"), path.join(serverPath, "conf", "deployment-backup.toml"));
-                fs.copyFileSync(path.join(projectUri, "deployment", "deployment.toml"), path.join(serverPath, "conf", "deployment.toml"));
-                vscode.window.showInformationMessage("A backup of the server configuration is stored at conf/deployment-backup.toml.");
-            } else if (copyConf === 'Use Server Configurations') {
-                fs.copyFileSync(path.join(serverPath, "conf", "deployment.toml"), path.join(projectUri, "deployment", "deployment.toml"));
-                DebuggerConfig.setConfigPortOffset(projectUri);
-            } else {
-                reject('Deployment configurations in the project should be as the same as the runtime.');
-                return;
+        if (shouldCopyTarget) {
+            const isEqual = await compareFilesByMD5(path.join(serverPath, "conf", "deployment.toml"),
+                path.join(projectUri, "deployment", "deployment.toml"));
+            if (!isEqual) {
+                const copyConf = await vscode.window.showWarningMessage(
+                    'Deployment configurations in the runtime is different from the project. How do you want to proceed?',
+                    { modal: true },
+                    "Use Project Configurations", "Use Server Configurations"
+                );
+                if (copyConf === 'Use Project Configurations') {
+                    fs.copyFileSync(path.join(serverPath, "conf", "deployment.toml"), path.join(serverPath, "conf", "deployment-backup.toml"));
+                    fs.copyFileSync(path.join(projectUri, "deployment", "deployment.toml"), path.join(serverPath, "conf", "deployment.toml"));
+                    vscode.window.showInformationMessage("A backup of the server configuration is stored at conf/deployment-backup.toml.");
+                } else if (copyConf === 'Use Server Configurations') {
+                    fs.copyFileSync(path.join(serverPath, "conf", "deployment.toml"), path.join(projectUri, "deployment", "deployment.toml"));
+                    DebuggerConfig.setConfigPortOffset(projectUri);
+                } else {
+                    reject('Deployment configurations in the project should be as the same as the runtime.');
+                    return;
+                }
             }
-        }
+      }
 
         const buildCommand = getBuildCommand(projectUri);
         const envVariables = {
@@ -186,6 +191,16 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
         buildProcess.stdout.on('data', (data) => {
             serverLog(data.toString('utf8'));
         });
+
+        if (shouldCopyTarget) {
+            buildProcess.on('close', async (code) => {
+                if (code === 0) {
+                    vscode.window.showInformationMessage('Project build was successful');
+                } else {
+                    vscode.window.showErrorMessage('Failed to build integration project.');
+                }
+            });
+        }
 
         buildProcess.stderr.on('data', (data) => {
             serverLog(`Build error:\n${data.toString('utf8')}`);
@@ -408,9 +423,12 @@ export async function stopServer(projectUri: string, serverPath: string, isWindo
 }
 
 export async function executeTasks(projectUri: string, serverPath: string, isDebug: boolean): Promise<void> {
-    const maxTimeout = 120000;
+    const config = workspace.getConfiguration('MI', Uri.file(projectUri));
+    const configuredTimeout = config.get("serverTimeoutInSecs");
+    const maxTimeout = (Number.isFinite(Number(configuredTimeout)) && Number(configuredTimeout) > 0) ? Number(configuredTimeout) * 1000 : 120000;
     return new Promise<void>(async (resolve, reject) => {
-        const isTerminated = await getStateMachine(projectUri).context().langClient?.shutdownTryoutServer();
+        const langClient = await MILanguageClient.getInstance(projectUri);
+        const isTerminated = await langClient.shutdownTryoutServer();
         if (!isTerminated) {
             reject('Failed to terminate the tryout server. Kill the server manually and try again.');
         }

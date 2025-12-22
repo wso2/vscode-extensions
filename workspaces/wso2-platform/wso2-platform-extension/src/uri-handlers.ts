@@ -23,6 +23,7 @@ import {
 	type ICloneProjectCmdParams,
 	type Organization,
 	type Project,
+	type UserInfo,
 	getComponentKindRepoSource,
 	type openClonedDirReq,
 	parseGitURL,
@@ -32,16 +33,14 @@ import { ResponseError } from "vscode-jsonrpc";
 import { ErrorCode } from "./choreo-rpc/constants";
 import { getUserInfoForCmd, isRpcActive } from "./cmds/cmd-utils";
 import { updateContextFile } from "./cmds/create-directory-context-cmd";
-import { choreoEnvConfig } from "./config";
 import { ext } from "./extensionVariables";
 import { getGitRemotes, getGitRoot } from "./git/util";
 import { getLogger } from "./logger/logger";
-import { authStore } from "./stores/auth-store";
 import { contextStore, getContextKey, waitForContextStoreToLoad } from "./stores/context-store";
 import { dataCacheStore } from "./stores/data-cache-store";
 import { locationStore } from "./stores/location-store";
 import { webviewStateStore } from "./stores/webview-state-store";
-import { delay, isSamePath, openDirectory } from "./utils";
+import { isSamePath, openDirectory } from "./utils";
 
 export function activateURIHandlers() {
 	window.registerUriHandler({
@@ -68,9 +67,12 @@ export function activateURIHandlers() {
 							async () => {
 								try {
 									const orgId = contextStore?.getState().state?.selected?.org?.id?.toString();
-									const callbackUrl = extName === "Devant" ? `${choreoEnvConfig.getDevantUrl()}/vscode-auth` : undefined;
-									const clientId = extName === "Devant" ? choreoEnvConfig.getDevantAsgardeoClientId() : undefined;
-									const userInfo = await ext.clients.rpcClient.signInWithAuthCode(authCode, region, orgId, callbackUrl, clientId);
+									let userInfo: UserInfo | undefined;
+									if (extName === "Devant") {
+										userInfo = await ext.clients.rpcClient.signInDevantWithAuthCode(authCode, region, orgId);
+									} else {
+										userInfo = await ext.clients.rpcClient.signInWithAuthCode(authCode, region, orgId);
+									}
 									if (userInfo) {
 										if (contextStore?.getState().state?.selected) {
 											const includesOrg = userInfo.organizations?.some((item) => item.handle === contextStore?.getState().state?.selected?.orgHandle);
@@ -78,8 +80,9 @@ export function activateURIHandlers() {
 												contextStore.getState().resetState();
 											}
 										}
-										authStore.getState().loginSuccess(userInfo);
-										window.showInformationMessage(`Successfully signed into ${extName}`);
+								const region = await ext.clients.rpcClient.getCurrentRegion();
+								await ext.authProvider?.getState().loginSuccess(userInfo, region);
+								window.showInformationMessage(`Successfully signed into ${extName}`);
 									}
 								} catch (error: any) {
 									if (!(error instanceof ResponseError) || ![ErrorCode.NoOrgsAvailable, ErrorCode.NoAccountAvailable].includes(error.code)) {
@@ -100,7 +103,7 @@ export function activateURIHandlers() {
 			} else if (uri.path === "/ghapp") {
 				try {
 					isRpcActive(ext);
-					getLogger().info("WSO2 Platform Githup auth Callback hit");
+					getLogger().info("WSO2 Platform Github auth Callback hit");
 					const urlParams = new URLSearchParams(uri.query);
 					const authCode = urlParams.get("code");
 					// const installationId = urlParams.get("installationId");
@@ -261,7 +264,12 @@ const switchContextAndOpenDir = async (selectedPath: string, org: Organization, 
 		return;
 	}
 	const projectCache = dataCacheStore.getState().getProjects(org?.handle);
-	const contextFilePath = updateContextFile(gitRoot, authStore.getState().state.userInfo!, project, org, projectCache);
+	const userInfo = ext.authProvider?.getState().state.userInfo;
+	if (!userInfo) {
+		window.showErrorMessage("User information is not available. Please sign in and try again.");
+		return;
+	}
+	const contextFilePath = updateContextFile(gitRoot, userInfo, project, org, projectCache);
 
 	const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSamePath(item.uri?.fsPath, selectedPath));
 	if (isWithinWorkspace) {

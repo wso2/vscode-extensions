@@ -3,7 +3,7 @@
   "displayName": "WSO2 Integrator: MI",
   "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
   "icon": "resources/images/wso2-micro-integrator-image.png",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "publisher": "wso2",
   "engines": {
     "vscode": "^1.100.0"
@@ -163,6 +163,12 @@
           "default": true,
           "description": "Update car plugin version automatically"
         },
+        "MI.serverTimeoutInSecs": {
+          "type": "number",
+          "default": 120,
+          "minimum": 30,
+          "description": "Maximum wait time for server startup in seconds"
+        },
         "MI.logging.loggingLevel": {
           "type": "string",
           "enum": [
@@ -191,13 +197,15 @@
       "micro-integrator": [
         {
           "id": "MI.project-explorer",
-          "name": "Project Explorer"
+          "name": "Project Explorer",
+          "when": "!config.integrator.defaultIntegrator"
         }
       ],
       "test": [
         {
           "id": "MI.mock-services",
-          "name": "Mock Services"
+          "name": "Mock Services",
+          "when": "MI.status == 'projectLoaded'"
         }
       ]
     },
@@ -205,26 +213,42 @@
       {
         "view": "MI.project-explorer",
         "contents": "Loading...",
-        "when": "MI.status != 'unknownProject' && MI.status != 'projectLoaded' && MI.status != 'disabled' && MI.status != 'notSetUp'"
+        "when": "!config.integrator.defaultIntegrator && (MI.status != 'unknownProject' && MI.status != 'projectLoaded' && MI.status != 'disabled' && MI.status != 'notSetUp')"
       },
       {
         "view": "MI.project-explorer",
         "contents": "Welcome to WSO2 Integrator: MI. You can open a folder containing a MI project or create a new project.\n[Open MI Project](command:MI.openProject)\n[Create New Project](command:MI.project-explorer.create-project)\nTo learn more about how to use WSO2 Integrator: MI in VS Code, [read our docs](https://mi.docs.wso2.com/en/4.3.0/develop/mi-for-vscode/mi-for-vscode-overview/).",
-        "when": "MI.status == 'unknownProject'"
+        "when": "!config.integrator.defaultIntegrator && MI.status == 'unknownProject'"
       },
       {
         "view": "MI.project-explorer",
         "contents": "Some errors occurred while activating the extension. Please check the output channel for more information.",
-        "when": "MI.status == 'disabled'"
-      },
-      {
-        "view": "testing",
-        "contents": "[Add Unit Test](command:MI.test.add.suite)"
+        "when": "!config.integrator.defaultIntegrator && MI.status == 'disabled'"
       },
       {
         "view": "MI.project-explorer",
         "contents": "WSO2 Integrator: MI is not set up. Please set up the MI server and Java home to continue.",
-        "when": "MI.status == 'notSetUp'"
+        "when": "!config.integrator.defaultIntegrator && MI.status == 'notSetUp'"
+      },
+      {
+        "view": "wso2-integrator.explorer",
+        "contents": "Loading...",
+        "when": "config.integrator.defaultIntegrator != '' && (MI.status != 'unknownProject' && MI.status != 'projectLoaded' && MI.status != 'disabled' && MI.status != 'notSetUp')"
+      },
+      {
+        "view": "wso2-integrator.explorer",
+        "contents": "Some errors occurred while activating the extension. Please check the output channel for more information.",
+        "when": "config.integrator.defaultIntegrator != '' && MI.status == 'disabled'"
+      },
+      {
+        "view": "wso2-integrator.explorer",
+        "contents": "WSO2 Integrator: MI is not set up. Please set up the MI server and Java home to continue.",
+        "when": "config.integrator.defaultIntegrator != '' && MI.status == 'notSetUp'"
+      },
+      {
+        "view": "testing",
+        "contents": "[Add Unit Test](command:MI.test.add.suite)",
+        "when": "MI.status == 'projectLoaded'"
       }
     ],
     "commands": [
@@ -483,6 +507,11 @@
         "command": "MI.build-and-run",
         "title": "Build and Run",
         "icon": "$(play)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.terminate-server",
+        "title": "Stop MI Server Session",
         "category": "MI"
       },
       {
@@ -920,7 +949,7 @@
         {
           "command": "MI.test.add.case",
           "group": "inline",
-          "when": "testId in test.suites"
+          "when": "MI.status == 'projectLoaded' && testId in test.suites"
         },
         {
           "command": "MI.test.edit.case",
@@ -945,14 +974,14 @@
         "description": "design-view",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f16e"
+          "fontCharacter": "\\f175"
         }
       },
       "distro-build-package": {
         "description": "build-package",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f185"
+          "fontCharacter": "\\f18f"
         }
       }
     }
@@ -961,7 +990,7 @@
     "clean": "rimraf ./dist",
     "compile": "tsc -p .",
     "watch": "tsc -p . -w",
-    "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release; else vsce package --no-dependencies; fi",
+    "package": "node ../../common-libs/scripts/package-vsix.js",
     "download-ls": "node ./scripts/download-ls.js",
     "build": "pnpm clean && pnpm run download-ls && pnpm run copyJSLibs && pnpm run copyLSLibs && pnpm run copyFonts && pnpm run copyDMUtils && pnpm run renameDMUtils && webpack --mode production --devtool hidden-source-map && pnpm run package && pnpm run postbuild",
     "compile-tests": "pnpm run compile",

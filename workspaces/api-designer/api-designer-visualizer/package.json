@@ -26,7 +26,7 @@
     "@wso2/font-wso2-vscode": "workspace:*",
     "react-dom": "18.2.0",
     "react-markdown": "~9.0.1",
-    "js-yaml": "~4.1.0",
+    "js-yaml": "~4.1.1",
     "process": "~0.11.10",
     "path": "~0.12.7",
     "@hookform/resolvers": "~3.3.4",
@@ -60,7 +60,7 @@
     "@types/node": "^20.10.6",
     "@types/react": "18.2.0",
     "@types/react-dom": "18.2.0",
-    "@vscode/codicons": "0.0.33",
+    "@vscode/codicons": "0.0.44",
     "copyfiles": "^2.4.1"
   }
 }

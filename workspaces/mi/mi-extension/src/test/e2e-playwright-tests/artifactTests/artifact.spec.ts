@@ -255,7 +255,7 @@ export default function createTests() {
       console.log('Collapsing Class Mediators section');
       await projectExplorer.findItem(['Project testProject', 'Other Artifacts', 'Class Mediators'], true);
     });
-
+    
     test('Ballerina Module Tests', async () => {
       await toggleNotifications(false);
       const testAttempt = test.info().retry + 1;
