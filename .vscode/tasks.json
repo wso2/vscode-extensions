@@ -196,10 +196,34 @@
 			}
 		},
         {
+            "label": "clean:ballerina-test-output",
+            "type": "shell",
+            "command": "rm",
+            "args": ["-rf", "out"],
+            "options": {
+                "cwd": "${workspaceFolder}/workspaces/ballerina/ballerina-extension"
+            }
+        },
+        {
             "label": "compile:ballerina-tests",
             "type": "npm",
             "path": "workspaces/ballerina/ballerina-extension",
             "script": "test-compile",
+        },
+        {
+            "label": "build:ballerina-extension",
+            "type": "npm",
+            "path": "workspaces/ballerina/ballerina-extension",
+            "script": "compile"
+        },
+        {
+            "label": "clean-and-compile:ballerina-tests",
+            "dependsOn": [
+                "clean:ballerina-test-output",
+                "build:ballerina-extension",
+                "compile:ballerina-tests"
+            ],
+            "dependsOrder": "sequence"
         },
         {
             "label": "compile:wso2-platform-tests",
