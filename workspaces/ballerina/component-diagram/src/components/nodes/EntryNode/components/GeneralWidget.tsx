@@ -119,7 +119,9 @@ function getCustomEntryNodeIcon(type: string) {
         case "mcp":
             return <Icon name="bi-mcp" />;
         case "solace":
-            return <Icon name="bi-solace" sx={{ color: "#00C895" }}/>;
+            return <Icon name="bi-solace" sx={{ color: "#00C895" }} />;
+        case "pubsub":
+            return <Icon name="bi-pubsub" sx={{ color: "#68a1fdff" }} />;
         default:
             return null;
     }
