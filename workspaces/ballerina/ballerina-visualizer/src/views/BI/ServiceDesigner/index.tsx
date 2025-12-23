@@ -46,6 +46,8 @@ import { getCustomEntryNodeIcon } from "../ComponentListView/EventIntegrationPan
 import { McpToolForm } from "./Forms/McpToolForm";
 import { removeForwardSlashes, canDataBind, getReadableListenerName } from "./utils";
 import { DatabindForm } from "./Forms/DatabindForm";
+import { FTPForm } from "./Forms/FTPForm";
+import FTPConfigForm from "./Forms/FTPForm/FTPConfigForm";
 
 const LoadingContainer = styled.div`
     display: flex;
@@ -204,6 +206,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
     const [readonlyProperties, setReadonlyProperties] = useState<Set<ReadonlyProperty>>(new Set());
     const [isHttpService, setIsHttpService] = useState<boolean>(false);
     const [isMcpService, setIsMcpService] = useState<boolean>(false);
+    const [isFtpService, setIsFtpService] = useState<boolean>(false);
     const [objectMethods, setObjectMethods] = useState<FunctionModel[]>([]);
     const [dropdownOptions, setDropdownOptions] = useState<DropdownOptionProps[]>([]);
     const [initMethod, setInitMethod] = useState<FunctionModel>(undefined);
@@ -212,6 +215,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
     const [selectedHandler, setSelectedHandler] = useState<FunctionModel>(undefined);
 
     const [initFunction, setInitFunction] = useState<FunctionModel>(undefined);
+    const [selectedFTPHandler, setSelectedFTPHandler] = useState<string>(undefined);
 
     const handleCloseInitFunction = () => {
         setInitFunction(undefined);
@@ -235,6 +239,19 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
             return;
         }
     }
+
+    // Check if there are any available FTP handlers (onCreate or onDelete) that are not yet enabled
+    const hasAvailableFTPHandlers = () => {
+        if (!serviceModel?.functions) return false;
+
+        const onCreateFunctions = serviceModel.functions.filter(fn => fn.metadata?.label === 'onCreate');
+        const onDeleteFunctions = serviceModel.functions.filter(fn => fn.metadata?.label === 'onDelete');
+
+        const hasAvailableOnCreate = onCreateFunctions.length > 0 && onCreateFunctions.some(fn => !fn.enabled);
+        const hasAvailableOnDelete = onDeleteFunctions.length > 0 && onDeleteFunctions.some(fn => !fn.enabled);
+
+        return hasAvailableOnCreate || hasAvailableOnDelete;
+    };
 
     useEffect(() => {
         if (!serviceModel || isPositionChanged(prevPosition.current, position)) {
@@ -299,6 +316,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
             }
 
             setReadonlyProperties(readonlyProps);
+            setIsFtpService(service.moduleName === "ftp");
             setIsHttpService(service.moduleName === "http");
             setIsMcpService(service.moduleName === "mcp");
         }
@@ -430,6 +448,23 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                 setIsNew(true);
                 setShowForm(true);
             });
+    };
+
+    const handleNewFTPFunction = (selectedHandler: string) => {
+        // rpcClient
+        //     .getServiceDesignerRpcClient()
+        //     .getFunctionModel({ type: "ftp", functionName: "remote" })
+        //     .then((res) => {
+        //         console.log("New Function Model: ", res.function);
+        //         setFunctionModel(res.function);
+        //         setIsNew(true);
+        //         setShowForm(true);
+        //     });
+        setSelectedFTPHandler(selectedHandler);
+        setShowForm(true);
+        // handleNewFunctionClose();
+        handleFunctionConfigClose();
+        setIsSaving(false);
     };
 
     const handleNewMcpTool = () => {
@@ -790,7 +825,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                         /> Configure
                                     </Button>
                                     {
-                                        serviceModel && (isHttpService || isMcpService) && (
+                                        serviceModel && (isHttpService || isMcpService || isFtpService) && (
                                             <>
                                                 <Button appearance="secondary" tooltip="Try Service" onClick={handleServiceTryIt}>
                                                     <Icon name="play" isCodicon={true} sx={{ marginRight: 8, fontSize: 16 }} /> <ButtonText>Try It</ButtonText>
@@ -898,20 +933,20 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                     <>
                                         <SectionHeader
                                             title="Resources"
-                                            subtitle={`${resourcesCount === 0 ? `` : 'Define how the service responds to HTTP requests'}`}
+                                            subtitle={`${remoteFunctionsCount === 0 ? `` : 'Define how the service responds to HTTP requests'}`}
                                         >
                                             <ActionGroup>
                                                 {resources.length > 10 && (
                                                     <TextField placeholder="Search..." sx={{ width: 200 }} onChange={handleSearch} value={searchValue} />
                                                 )}
-                                                {!haveServiceTypeName && resourcesCount > 0 && (
+                                                {!haveServiceTypeName && remoteFunctionsCount > 0 && (
                                                     <Button appearance="primary" tooltip="Add Resource" onClick={handleNewResourceFunction}>
                                                         <Codicon name="add" sx={{ marginRight: 8 }} /> <ButtonText>Resource</ButtonText>
                                                     </Button>
                                                 )}
                                             </ActionGroup>
                                         </SectionHeader>
-                                        {resourcesCount > 0 && (
+                                        {remoteFunctionsCount > 0 && (
                                             <FunctionsContainer>
                                                 {resources
                                                     .filter((resource) => {
@@ -933,7 +968,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                                     ))}
                                             </FunctionsContainer>
                                         )}
-                                        {resourcesCount === 0 && (
+                                        {remoteFunctionsCount === 0 && (
                                             <EmptyReadmeContainer>
                                                 <Description variant="body2">
                                                     No resources found. Add a new resource.
@@ -948,6 +983,72 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                         )}
                                     </>
                                 </>
+                            )}
+
+                            {isFtpService && (
+                                <>
+                                        <SectionHeader
+                                            title="File Handlers"
+                                            subtitle={`${enabledHandlers.length === 0 ? `` : 'Implement how the integration responds to file actions'}`}
+                                        >
+                                            <ActionGroup>
+                                                {enabledHandlers.length > 10 && (
+                                                    <TextField placeholder="Search..." sx={{ width: 200 }} onChange={handleSearch} value={searchValue} />
+                                                )}
+                                                {!haveServiceTypeName && enabledHandlers.length > 0 && hasAvailableFTPHandlers() && (
+                                                    <Button appearance="primary" tooltip="Add Handler" onClick={onSelectAddHandler}>
+                                                        <Codicon name="add" sx={{ marginRight: 8 }} /> <ButtonText>Handler</ButtonText>
+                                                    </Button>
+                                                )}
+                                            </ActionGroup>
+                                        </SectionHeader>
+                                        {enabledHandlers.length > 0 && (
+                                            <FunctionsContainer>
+                                                {/* {enabledHandlers
+                                                    .filter((resource) => {
+                                                        const search = searchValue.toLowerCase();
+                                                        const nameMatch = resource.name && resource.name.toLowerCase().includes(search);
+                                                        const iconMatch = resource.icon && resource.icon.toLowerCase().includes(search);
+                                                        return nameMatch || iconMatch;
+                                                    })
+                                                    .filter((resource) => resource.type === DIRECTORY_MAP.RESOURCE)
+                                                    .map((resource, index) => (
+                                                        <ResourceAccordionV2
+                                                            key={`${index}-${resource.name}`}
+                                                            resource={resource}
+                                                            readOnly={serviceModel.properties.hasOwnProperty('serviceTypeName')}
+                                                            onEditResource={handleFunctionEdit}
+                                                            onDeleteResource={handleFunctionDelete}
+                                                            onResourceImplement={handleOpenDiagram}
+                                                        />
+                                                    ))} */}
+                                                    {enabledHandlers.map((functionModel, index) => (
+                                                        <ResourceAccordion
+                                                            key={`${index}-${functionModel.name.value}`}
+                                                            method={functionModel.metadata.label}
+                                                            functionModel={functionModel}
+                                                            goToSource={() => { }}
+                                                            onEditResource={handleFunctionEdit}
+                                                            onDeleteResource={handleFunctionDelete}
+                                                            onResourceImplement={handleOpenDiagram}
+                                                        />
+                                                    ))}
+                                                </FunctionsContainer>
+                                        )}
+                                        {enabledHandlers.length === 0 && (
+                                            <EmptyReadmeContainer>
+                                                <Description variant="body2">
+                                                    No file handlers found. Add a new file handler.
+                                                </Description>
+                                                <Button
+                                                    appearance="primary"
+                                                    onClick={onSelectAddHandler}>
+                                                    <Codicon name="add" sx={{ marginRight: 5 }} />
+                                                    Add File Handler
+                                                </Button>
+                                            </EmptyReadmeContainer>
+                                        )}
+                                    </>
                             )}
 
                             {/* Listing Tools in MCP */}
@@ -1006,7 +1107,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             )}
 
                             {/* Listing service type bound functions */}
-                            {!(isHttpService || isMcpService) && (
+                            {!(isHttpService || isMcpService || isFtpService) && (
                                 <>
                                     <SectionHeader
                                         title="Event Handlers"
@@ -1177,7 +1278,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             )}
 
                             {/* This is for adding or editing functions with data binding */}
-                            {functionModel && !isHttpService && !isMcpService && canDataBind(functionModel) && (
+                            {functionModel && !isHttpService && !isMcpService && !isFtpService && canDataBind(functionModel) && (
                                 <PanelContainer
                                     title={"Message Handler Configuration"}
                                     show={showForm}
@@ -1202,7 +1303,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             )}
 
                             {/* This is for adding or editing functions */}
-                            {functionModel && !isHttpService && !isMcpService && !canDataBind(functionModel) && (
+                            {functionModel && !isHttpService && !isMcpService && !isFtpService && !canDataBind(functionModel) && (
                                 <PanelContainer
                                     title={"Function Configuration"}
                                     show={showForm}
@@ -1218,7 +1319,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             )}
 
                             {/* This is for adding a new handler to the service */}
-                            {serviceModel && !isHttpService && (
+                            {serviceModel && !isHttpService && !isFtpService && (
                                 <PanelContainer
                                     title={"Select Handler to Add"}
                                     show={showFunctionConfigForm}
@@ -1229,6 +1330,20 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                         serviceModel={serviceModel}
                                         onSubmit={handleFunctionSubmit}
                                         onSelect={onHandlerSelected}
+                                        onBack={handleFunctionConfigClose}
+                                    />
+                                </PanelContainer>
+                            )}
+                            {serviceModel &&  isFtpService && (
+                                <PanelContainer
+                                    title={"Select Handler to Add"}
+                                    show={showFunctionConfigForm}
+                                    onClose={handleFunctionConfigClose}
+                                >
+                                    <FTPConfigForm
+                                        isSaving={isSaving}
+                                        serviceModel={serviceModel}
+                                        onSubmit={handleNewFTPFunction}
                                         onBack={handleFunctionConfigClose}
                                     />
                                 </PanelContainer>
@@ -1248,6 +1363,26 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                     onClose={handleCloseInitFunction}
                                 />
                             </PanelContainer>
+
+                            {isFtpService && serviceModel  && (
+                                <PanelContainer
+                                    title={"On Create Handler Configuration"}
+                                    show={showForm}
+                                    onClose={handleNewFunctionClose}
+                                    width={400}
+                                >
+                                    <FTPForm
+                                        functionModel={functionModel!}
+                                        isNew={isNew}
+                                        model={serviceModel}
+                                        filePath={filePath}
+                                        isSaving={isSaving}
+                                        onSave={handleFunctionSubmit}
+                                        onClose={handleNewFunctionClose}
+                                        selectedHandler={selectedFTPHandler}
+                                    />
+                                </PanelContainer>
+                            )}
 
                             {functionModel && isMcpService && (
                                 <PanelContainer
