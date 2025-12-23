@@ -137,6 +137,7 @@
     "@wso2/api-tryit-core": "workspace:*",
     "@wso2/api-tryit-rpc-client": "workspace:*",
     "vscode-messenger": "^0.5.1",
-    "vscode-messenger-common": "^0.5.1"
+    "vscode-messenger-common": "^0.5.1",
+    "xstate": "^4.38.3"
   }
 }

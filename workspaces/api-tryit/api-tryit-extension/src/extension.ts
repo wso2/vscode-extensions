@@ -20,6 +20,7 @@ import * as vscode from 'vscode';
 import { activateActivityPanel } from './activity-panel/activate';
 import { TryItPanel } from './webview-panel/TryItPanel';
 import { ApiExplorerProvider } from './tree-view/ApiExplorerProvider';
+import { ApiTryItStateMachine, EVENT_TYPE } from './stateMachine';
 
 export async function activate(context: vscode.ExtensionContext) {
 	// Register the activity panel
@@ -41,7 +42,17 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Register command to open request
 	const openRequestCommand = vscode.commands.registerCommand('api-tryit.openRequest', (item) => {
+		// Open the TryIt panel
 		TryItPanel.show(context);
+		
+		// Send the selected item through the state machine
+		ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, {
+			label: item.label,
+			method: item.method,
+			type: item.type,
+			url: `https://api.example.com/${item.label.toLowerCase().replace(/\s+/g, '-')}`
+		});
+		
 		vscode.window.showInformationMessage(`Opening: ${item.method} ${item.label}`);
 	});
 

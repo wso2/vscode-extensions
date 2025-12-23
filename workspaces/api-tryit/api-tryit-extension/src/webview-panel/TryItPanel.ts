@@ -18,6 +18,7 @@
 
 import * as vscode from 'vscode';
 import { getComposerJSFiles } from '../util';
+import { ApiTryItStateMachine, EVENT_TYPE } from '../stateMachine';
 
 export class TryItPanel {
 	public static currentPanel: TryItPanel | undefined;
@@ -30,6 +31,29 @@ export class TryItPanel {
 		this._panel.webview.html = this._getWebviewContent(this._panel.webview, extensionContext);
 
 		this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
+		
+		// Set up message handling from webview
+		this._panel.webview.onDidReceiveMessage(
+			message => {
+				switch (message.type) {
+					case 'webviewReady':
+						ApiTryItStateMachine.sendEvent(EVENT_TYPE.WEBVIEW_READY);
+						break;
+				}
+			},
+			null,
+			this._disposables
+		);
+		
+		// Listen for API selection events and post to webview
+		const subscription = ApiTryItStateMachine.onApiSelection((data) => {
+			this._panel.webview.postMessage({
+				type: 'apiItemSelected',
+				data: data
+			});
+		});
+		
+		this._disposables.push(subscription);
 	}
 
 	public static show(extensionContext: vscode.ExtensionContext) {

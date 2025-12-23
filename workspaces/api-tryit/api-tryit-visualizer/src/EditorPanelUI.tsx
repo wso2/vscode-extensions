@@ -16,11 +16,59 @@
  * under the License.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+// Get VS Code API instance
+declare const acquireVsCodeApi: any;
+const vscode = typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : null;
+
+interface SelectedApiItem {
+    label: string;
+    method?: string;
+    type: string;
+    url?: string;
+}
 
 export const EditorPanelUI: React.FC = () => {
     const [url, setUrl] = useState('https://api.example.com/endpoint');
     const [method, setMethod] = useState('GET');
+    const [selectedItem, setSelectedItem] = useState<SelectedApiItem | null>(null);
+
+    useEffect(() => {
+        // Notify extension that webview is ready
+        if (vscode) {
+            vscode.postMessage({ type: 'webviewReady' });
+        }
+
+        // Listen for messages from the extension
+        const messageHandler = (event: MessageEvent) => {
+            const message = event.data;
+            
+            switch (message.type) {
+                case 'apiItemSelected':
+                    const item = message.data as SelectedApiItem;
+                    setSelectedItem(item);
+                    
+                    // Update URL and method based on selected item
+                    if (item.url) {
+                        setUrl(item.url);
+                    }
+                    if (item.method) {
+                        setMethod(item.method);
+                    }
+                    
+                    console.log('API item selected:', item);
+                    break;
+            }
+        };
+
+        window.addEventListener('message', messageHandler);
+
+        // Cleanup listener on unmount
+        return () => {
+            window.removeEventListener('message', messageHandler);
+        };
+    }, []);
 
     return (
         <div style={{
@@ -42,6 +90,16 @@ export const EditorPanelUI: React.FC = () => {
                     fontWeight: 600,
                 }}>
                     API TryIt
+                    {selectedItem && (
+                        <span style={{ 
+                            fontSize: '14px', 
+                            fontWeight: 400, 
+                            marginLeft: '12px',
+                            opacity: 0.7
+                        }}>
+                            {selectedItem.label}
+                        </span>
+                    )}
                 </h1>
             </div>
 

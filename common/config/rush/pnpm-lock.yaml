@@ -375,6 +375,9 @@ importers:
       vscode-messenger-common:
         specifier: ^0.5.1
         version: 0.5.1
+      xstate:
+        specifier: ^4.38.3
+        version: 4.38.3
     devDependencies:
       '@types/node':
         specifier: 20.x
@@ -37180,7 +37183,7 @@ snapshots:
   '@webpack-cli/configtest@2.1.1(webpack-cli@5.1.4)(webpack@5.103.0)':
     dependencies:
       webpack: 5.103.0(webpack-cli@5.1.4)
-      webpack-cli: 5.1.4(webpack@5.103.0)
+      webpack-cli: 5.1.4(webpack-dev-server@5.2.2)(webpack@5.103.0)
 
   '@webpack-cli/configtest@3.0.1(webpack-cli@6.0.1)(webpack@5.103.0)':
     dependencies:
@@ -37195,7 +37198,7 @@ snapshots:
   '@webpack-cli/info@2.0.2(webpack-cli@5.1.4)(webpack@5.103.0)':
     dependencies:
       webpack: 5.103.0(webpack-cli@5.1.4)
-      webpack-cli: 5.1.4(webpack@5.103.0)
+      webpack-cli: 5.1.4(webpack-dev-server@5.2.2)(webpack@5.103.0)
 
   '@webpack-cli/info@3.0.1(webpack-cli@6.0.1)(webpack@5.103.0)':
     dependencies:
@@ -53833,7 +53836,7 @@ snapshots:
       watchpack: 2.4.4
       webpack-sources: 3.3.3
     optionalDependencies:
-      webpack-cli: 5.1.4(webpack@5.103.0)
+      webpack-cli: 5.1.4(webpack-dev-server@5.2.2)(webpack@5.103.0)
     transitivePeerDependencies:
       - '@swc/core'
       - esbuild
