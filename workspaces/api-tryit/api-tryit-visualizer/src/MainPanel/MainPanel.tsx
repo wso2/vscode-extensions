@@ -17,6 +17,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { Button, Dropdown, TextField, Typography } from '@wso2/ui-toolkit';
 
 // Get VS Code API instance
 declare const acquireVsCodeApi: any;
@@ -84,23 +85,17 @@ export const MainPanel: React.FC = () => {
                 borderBottom: '1px solid var(--vscode-panel-border)',
                 backgroundColor: 'var(--vscode-editor-background)',
             }}>
-                <h1 style={{ 
-                    fontSize: '20px', 
-                    margin: 0,
-                    fontWeight: 600,
-                }}>
+                <Typography variant="h3" sx={{ margin: 0, display: 'flex', alignItems: 'center' }}>
                     API TryIt
                     {selectedItem && (
-                        <span style={{ 
-                            fontSize: '14px', 
-                            fontWeight: 400, 
-                            marginLeft: '12px',
-                            opacity: 0.7
-                        }}>
+                        <Typography 
+                            variant="body2" 
+                            sx={{ marginLeft: '12px', opacity: 0.7 }}
+                        >
                             {selectedItem.label}
-                        </span>
+                        </Typography>
                     )}
-                </h1>
+                </Typography>
             </div>
 
             {/* Request Section */}
@@ -116,55 +111,34 @@ export const MainPanel: React.FC = () => {
                         gap: '12px',
                         marginBottom: '20px',
                     }}>
-                        <select
+                        <Dropdown
+                            id="method-dropdown"
                             value={method}
-                            onChange={(e) => setMethod(e.target.value)}
-                            style={{
-                                padding: '8px 12px',
-                                backgroundColor: 'var(--vscode-dropdown-background)',
-                                color: 'var(--vscode-dropdown-foreground)',
-                                border: '1px solid var(--vscode-dropdown-border)',
-                                borderRadius: '4px',
-                                fontSize: '13px',
-                                cursor: 'pointer',
-                                minWidth: '100px',
-                            }}
-                        >
-                            <option value="GET">GET</option>
-                            <option value="POST">POST</option>
-                            <option value="PUT">PUT</option>
-                            <option value="DELETE">DELETE</option>
-                            <option value="PATCH">PATCH</option>
-                        </select>
-
-                        <input
-                            type="text"
-                            value={url}
-                            onChange={(e) => setUrl(e.target.value)}
-                            placeholder="Enter API URL"
-                            style={{
-                                flex: 1,
-                                padding: '8px 12px',
-                                backgroundColor: 'var(--vscode-input-background)',
-                                color: 'var(--vscode-input-foreground)',
-                                border: '1px solid var(--vscode-input-border)',
-                                borderRadius: '4px',
-                                fontSize: '13px',
-                            }}
+                            onValueChange={(value) => setMethod(value)}
+                            items={[
+                                { value: 'GET', content: 'GET' },
+                                { value: 'POST', content: 'POST' },
+                                { value: 'PUT', content: 'PUT' },
+                                { value: 'DELETE', content: 'DELETE' },
+                                { value: 'PATCH', content: 'PATCH' },
+                            ]}
+                            sx={{ minWidth: '100px' }}
                         />
 
-                        <button style={{
-                            padding: '8px 24px',
-                            backgroundColor: 'var(--vscode-button-background)',
-                            color: 'var(--vscode-button-foreground)',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: 500,
-                        }}>
+                        <TextField
+                            id="url-input"
+                            value={url}
+                            onTextChange={(value) => setUrl(value)}
+                            placeholder="Enter API URL"
+                            sx={{ flex: 1 }}
+                        />
+
+                        <Button
+                            appearance="primary"
+                            onClick={() => console.log('Send request')}
+                        >
                             Send
-                        </button>
+                        </Button>
                     </div>
 
                     {/* Request Details */}
@@ -175,18 +149,12 @@ export const MainPanel: React.FC = () => {
                         padding: '16px',
                         marginBottom: '20px',
                     }}>
-                        <h3 style={{ 
-                            fontSize: '14px', 
-                            margin: '0 0 12px 0',
-                            fontWeight: 600,
-                        }}>
+                        <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
                             Request Details
-                        </h3>
-                        <div style={{ fontSize: '12px', opacity: 0.8 }}>
-                            <p style={{ margin: '8px 0' }}>
-                                Configure headers, query parameters, and request body here.
-                            </p>
-                        </div>
+                        </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8, margin: '8px 0' }}>
+                            Configure headers, query parameters, and request body here.
+                        </Typography>
                     </div>
 
                     {/* Response Section */}
@@ -197,23 +165,18 @@ export const MainPanel: React.FC = () => {
                         padding: '16px',
                         minHeight: '200px',
                     }}>
-                        <h3 style={{ 
-                            fontSize: '14px', 
-                            margin: '0 0 12px 0',
-                            fontWeight: 600,
-                        }}>
+                        <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
                             Response
-                        </h3>
+                        </Typography>
                         <div style={{
                             padding: '12px',
                             backgroundColor: 'var(--vscode-textCodeBlock-background)',
                             borderRadius: '4px',
-                            fontSize: '12px',
                             fontFamily: 'var(--vscode-editor-font-family)',
                         }}>
-                            <p style={{ margin: 0, opacity: 0.6 }}>
+                            <Typography variant="caption" sx={{ margin: 0, opacity: 0.6 }}>
                                 Response will appear here after sending a request...
-                            </p>
+                            </Typography>
                         </div>
                     </div>
                 </div>
