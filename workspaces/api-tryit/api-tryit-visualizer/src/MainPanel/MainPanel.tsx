@@ -29,7 +29,7 @@ interface SelectedApiItem {
     url?: string;
 }
 
-export const EditorPanelUI: React.FC = () => {
+export const MainPanel: React.FC = () => {
     const [url, setUrl] = useState('https://api.example.com/endpoint');
     const [method, setMethod] = useState('GET');
     const [selectedItem, setSelectedItem] = useState<SelectedApiItem | null>(null);

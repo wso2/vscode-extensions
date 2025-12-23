@@ -7,7 +7,9 @@
     "start": "webpack-dev-server --mode=development --progress",
     "build": "webpack && pnpm run postbuild",
     "build:tsc": "tsc --pretty",
-    "postbuild": "copyfiles -u 1 \"build/**/*\" ../api-tryit-extension/resources/jslibs"
+    "postbuild": "copyfiles -u 1 \"build/**/*\" ../api-tryit-extension/resources/jslibs",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "author": "wso2",
   "license": "Apache-2.0",
@@ -37,6 +39,14 @@
     "css-loader": "~7.1.2",
     "style-loader": "~4.0.0",
     "html-webpack-plugin": "~5.6.3",
-    "source-map-loader": "~5.0.0"
+    "source-map-loader": "~5.0.0",
+    "@storybook/addon-essentials": "^8.6.14",
+    "@storybook/addon-interactions": "^8.6.14",
+    "@storybook/addon-links": "^8.6.14",
+    "@storybook/blocks": "^8.6.14",
+    "@storybook/react": "^8.6.14",
+    "@storybook/react-webpack5": "^8.6.14",
+    "@storybook/test": "^8.6.14",
+    "storybook": "^8.6.14"
   }
 }

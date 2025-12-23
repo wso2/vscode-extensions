@@ -1,0 +1,57 @@
+:root {
+    --vscode-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --vscode-editor-font-family: Menlo, Monaco, "Courier New", monospace;
+    --vscode-foreground: #3b3b3b;
+    --vscode-editor-background: #ffffff;
+    --vscode-editor-foreground: #000000;
+    --vscode-sideBar-background: #f3f3f3;
+    --vscode-sideBar-foreground: #3b3b3b;
+    --vscode-activityBar-background: #2c2c2c;
+    --vscode-panel-background: #ffffff;
+    --vscode-panel-border: #e5e5e5;
+    --vscode-titleBar-background: #dddddd;
+    --vscode-statusBar-background: #007acc;
+    --vscode-button-background: #007acc;
+    --vscode-button-foreground: #ffffff;
+    --vscode-button-hoverBackground: #0062a3;
+    --vscode-button-secondaryBackground: #5f6a79;
+    --vscode-button-secondaryForeground: #ffffff;
+    --vscode-button-secondaryHoverBackground: #4c5561;
+    --vscode-input-background: #ffffff;
+    --vscode-input-foreground: #3b3b3b;
+    --vscode-input-border: #cecece;
+    --vscode-input-placeholderForeground: #767676;
+    --vscode-inputOption-activeBorder: #007acc;
+    --vscode-inputValidation-errorBackground: #f2dede;
+    --vscode-inputValidation-errorBorder: #be1100;
+    --vscode-inputValidation-warningBackground: #f6f5d2;
+    --vscode-inputValidation-warningBorder: #b89500;
+    --vscode-dropdown-background: #ffffff;
+    --vscode-dropdown-foreground: #3b3b3b;
+    --vscode-dropdown-border: #cecece;
+    --vscode-dropdown-listBackground: #ffffff;
+    --vscode-textCodeBlock-background: #f5f5f5;
+    --vscode-textLink-foreground: #006ab1;
+    --vscode-textLink-activeForeground: #005a9e;
+    --vscode-textPreformat-foreground: #a31515;
+    --vscode-textSeparator-foreground: #d4d4d4;
+    --vscode-focusBorder: #007acc;
+    --vscode-descriptionForeground: #717171;
+    --vscode-errorForeground: #e51400;
+    --vscode-badge-background: #c4c4c4;
+    --vscode-badge-foreground: #333333;
+    --vscode-scrollbar-shadow: #dddddd;
+    --vscode-scrollbarSlider-background: #79797966;
+    --vscode-scrollbarSlider-hoverBackground: #646464b3;
+    --vscode-scrollbarSlider-activeBackground: #00000099;
+    --vscode-list-hoverBackground: #e8e8e8;
+    --vscode-list-activeSelectionBackground: #0060c0;
+    --vscode-list-activeSelectionForeground: #ffffff;
+    --vscode-list-focusBackground: #d6ebff;
+    --vscode-list-inactiveSelectionBackground: #e4e6f1;
+}
+
+body {
+    background-color: var(--vscode-editor-background);
+    color: var(--vscode-foreground);
+}

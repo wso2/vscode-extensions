@@ -18,7 +18,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { ActivityPanelUI } from "./ActivityPanelUI";
-import { EditorPanelUI } from "./EditorPanelUI";
+import { MainPanel } from "./MainPanel/MainPanel";
 
 export function renderActivityPanel(target: HTMLElement) {
     const root = createRoot(target);
@@ -27,5 +27,5 @@ export function renderActivityPanel(target: HTMLElement) {
 
 export function renderEditorPanel(target: HTMLElement) {
     const root = createRoot(target);
-    root.render(<EditorPanelUI />);
+    root.render(<MainPanel />);
 }
