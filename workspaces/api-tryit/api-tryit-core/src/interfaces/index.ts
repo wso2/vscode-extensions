@@ -20,3 +20,30 @@
 export interface ApiTryItData {
     message: string;
 }
+
+// Request types
+export interface QueryParameter {
+    id: string;
+    key: string;
+    value: string;
+    enabled: boolean;
+}
+
+export interface HeaderParameter {
+    id: string;
+    key: string;
+    value: string;
+    enabled: boolean;
+}
+
+// Response types
+export interface ResponseHeader {
+    key: string;
+    value: string;
+}
+
+export interface ApiResponse {
+    statusCode: number;
+    headers: ResponseHeader[];
+    body: string;
+}

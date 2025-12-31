@@ -19,8 +19,9 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Dropdown, TextField, Typography } from '@wso2/ui-toolkit';
 import { VSCodePanels, VSCodePanelTab, VSCodePanelView } from '@vscode/webview-ui-toolkit/react';
-import { Input } from '../Input/Input';import { Output } from '../Output/Output';
-import { ApiResponse } from '../Output/types';
+import { Input } from '../Input/Input';
+import { Output } from '../Output/Output';
+import { ApiResponse } from '@wso2/api-tryit-core';
 // Get VS Code API instance
 declare const acquireVsCodeApi: any;
 const vscode = typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : null;

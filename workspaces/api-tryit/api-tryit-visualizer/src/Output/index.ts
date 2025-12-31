@@ -17,5 +17,4 @@
  */
 
 export * from './Output';
-export * from './types';
 export * from './ResponseHeaderItem';

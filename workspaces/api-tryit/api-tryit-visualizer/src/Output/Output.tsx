@@ -20,7 +20,7 @@ import React from 'react';
 import { Typography } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { ResponseHeaderItem } from './ResponseHeaderItem';
-import { ApiResponse } from './types';
+import { ApiResponse } from '@wso2/api-tryit-core';
 
 interface OutputProps {
     response?: ApiResponse;

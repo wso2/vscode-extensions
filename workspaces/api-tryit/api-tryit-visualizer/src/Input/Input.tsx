@@ -20,7 +20,7 @@ import React, { useState } from 'react';
 import { Typography, LinkButton, Codicon, TextArea } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { ParamItem } from './ParamItem';
-import { QueryParameter, HeaderParameter } from './Types';
+import { QueryParameter, HeaderParameter } from '@wso2/api-tryit-core';
 import { CodeTextArea } from '../Components/CodeTextArea/CodeTextArea';
 
 interface InputProps {

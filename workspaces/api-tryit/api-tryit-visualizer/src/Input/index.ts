@@ -17,5 +17,4 @@
  */
 
 export * from './Input';
-export * from './Types';
 export * from './ParamItem';
