@@ -48,7 +48,7 @@ export class TryItPanel {
 		// Listen for API selection events and post to webview
 		const subscription = ApiTryItStateMachine.onApiSelection((data) => {
 			this._panel.webview.postMessage({
-				type: 'apiItemSelected',
+				type: 'apiRequestItemSelected',
 				data: data
 			});
 		});

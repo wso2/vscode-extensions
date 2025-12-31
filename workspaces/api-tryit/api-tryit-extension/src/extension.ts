@@ -21,6 +21,7 @@ import { activateActivityPanel } from './activity-panel/activate';
 import { TryItPanel } from './webview-panel/TryItPanel';
 import { ApiExplorerProvider } from './tree-view/ApiExplorerProvider';
 import { ApiTryItStateMachine, EVENT_TYPE } from './stateMachine';
+import { ApiRequestItem } from '@wso2/api-tryit-core';
 
 export async function activate(context: vscode.ExtensionContext) {
 	// Register the activity panel
@@ -41,19 +42,19 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 
 	// Register command to open request
-	const openRequestCommand = vscode.commands.registerCommand('api-tryit.openRequest', (item) => {
+	const openRequestCommand = vscode.commands.registerCommand('api-tryit.openRequest', (requestItem: ApiRequestItem) => {
+		if (!requestItem || !requestItem.request) {
+			vscode.window.showErrorMessage('Invalid request item');
+			return;
+		}
+
 		// Open the TryIt panel
 		TryItPanel.show(context);
 		
 		// Send the selected item through the state machine
-		ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, {
-			label: item.label,
-			method: item.method,
-			type: item.type,
-			url: `https://api.example.com/${item.label.toLowerCase().replace(/\s+/g, '-')}`
-		});
+		ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, requestItem);
 		
-		vscode.window.showInformationMessage(`Opening: ${item.method} ${item.label}`);
+		vscode.window.showInformationMessage(`Opening: ${requestItem.request.method} ${requestItem.name}`);
 	});
 
 	// Register command for new request

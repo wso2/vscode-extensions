@@ -16,17 +16,16 @@
  * under the License.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Typography, LinkButton, Codicon, TextArea } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { ParamItem } from './ParamItem';
-import { QueryParameter, HeaderParameter } from '@wso2/api-tryit-core';
+import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
 import { CodeTextArea } from '../Components/CodeTextArea/CodeTextArea';
 
 interface InputProps {
-    onQueryParamsChange?: (params: QueryParameter[]) => void;
-    onHeadersChange?: (headers: HeaderParameter[]) => void;
-    onBodyChange?: (body: string) => void;
+    request: ApiRequest;
+    onRequestChange?: (request: ApiRequest) => void;
 }
 
 const Container = styled.div`
@@ -43,20 +42,13 @@ const AddButtonWrapper = styled.div`
 `;
 
 export const Input: React.FC<InputProps> = ({ 
-    onQueryParamsChange,
-    onHeadersChange,
-    onBodyChange 
+    request,
+    onRequestChange
 }) => {
-    const [queryParams, setQueryParams] = useState<QueryParameter[]>([]);
-    const [headers, setHeaders] = useState<HeaderParameter[]>([
-        {
-            id: '1',
-            key: 'Content-Type',
-            value: 'application/json',
-            enabled: true
-        }
-    ]);
-    const [body, setBody] = useState<string>('{\n  "currency": "usd",\n  "coin": "bitcoin"\n}');
+    // Safety check to ensure request object exists with required properties
+    if (!request) {
+        return <Container><Typography>Loading...</Typography></Container>;
+    }
 
     const addQueryParam = () => {
         const newParam: QueryParameter = {
@@ -65,23 +57,29 @@ export const Input: React.FC<InputProps> = ({
             value: '',
             enabled: true
         };
-        const updatedParams = [...queryParams, newParam];
-        setQueryParams(updatedParams);
-        onQueryParamsChange?.(updatedParams);
+        const updatedRequest = {
+            ...request,
+            queryParameters: [...(request.queryParameters || []), newParam]
+        };
+        onRequestChange?.(updatedRequest);
     };
 
     const updateQueryParam = (id: string, key: string, value: string) => {
-        const updatedParams = queryParams.map(param =>
-            param.id === id ? { ...param, key, value } : param
-        );
-        setQueryParams(updatedParams);
-        onQueryParamsChange?.(updatedParams);
+        const updatedRequest = {
+            ...request,
+            queryParameters: (request.queryParameters || []).map(param =>
+                param.id === id ? { ...param, key, value } : param
+            )
+        };
+        onRequestChange?.(updatedRequest);
     };
 
     const deleteQueryParam = (id: string) => {
-        const updatedParams = queryParams.filter(param => param.id !== id);
-        setQueryParams(updatedParams);
-        onQueryParamsChange?.(updatedParams);
+        const updatedRequest = {
+            ...request,
+            queryParameters: (request.queryParameters || []).filter(param => param.id !== id)
+        };
+        onRequestChange?.(updatedRequest);
     };
 
     const addHeader = () => {
@@ -91,28 +89,37 @@ export const Input: React.FC<InputProps> = ({
             value: '',
             enabled: true
         };
-        const updatedHeaders = [...headers, newHeader];
-        setHeaders(updatedHeaders);
-        onHeadersChange?.(updatedHeaders);
+        const updatedRequest = {
+            ...request,
+            headers: [...(request.headers || []), newHeader]
+        };
+        onRequestChange?.(updatedRequest);
     };
 
     const updateHeader = (id: string, key: string, value: string) => {
-        const updatedHeaders = headers.map(header =>
-            header.id === id ? { ...header, key, value } : header
-        );
-        setHeaders(updatedHeaders);
-        onHeadersChange?.(updatedHeaders);
+        const updatedRequest = {
+            ...request,
+            headers: (request.headers || []).map(header =>
+                header.id === id ? { ...header, key, value } : header
+            )
+        };
+        onRequestChange?.(updatedRequest);
     };
 
     const deleteHeader = (id: string) => {
-        const updatedHeaders = headers.filter(header => header.id !== id);
-        setHeaders(updatedHeaders);
-        onHeadersChange?.(updatedHeaders);
+        const updatedRequest = {
+            ...request,
+            headers: (request.headers || []).filter(header => header.id !== id)
+        };
+        onRequestChange?.(updatedRequest);
     };
 
-    const handleBodyChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        setBody(e.target.value);
-        onBodyChange?.(e.target.value);
+    const handleBodyChange = (value: string) => {
+        const updatedRequest = {
+            ...request,
+            body: value
+        };
+        onRequestChange?.(updatedRequest);
     };
 
     return (
@@ -122,7 +129,7 @@ export const Input: React.FC<InputProps> = ({
                 <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
                     Query Parameter
                 </Typography>
-                {queryParams.map(param => (
+                {(request.queryParameters || []).map(param => (
                     <ParamItem
                         key={param.id}
                         keyValue={param.key}
@@ -145,7 +152,7 @@ export const Input: React.FC<InputProps> = ({
                 <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
                     Header
                 </Typography>
-                {headers.map(header => (
+                {(request.headers || []).map(header => (
                     <ParamItem
                         key={header.id}
                         keyValue={header.key}
@@ -173,7 +180,7 @@ export const Input: React.FC<InputProps> = ({
                     resize="vertical"
                     growRange={{ start: 5, offset: 10 }}
                     sx={{ width: '100%' }}
-                    value={body}
+                    value={request.body || ''}
                     onChange={handleBodyChange}
                     placeholder="Enter request body..."
                 />

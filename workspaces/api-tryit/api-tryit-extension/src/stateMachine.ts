@@ -18,6 +18,7 @@
 
 import { createMachine, assign, interpret } from 'xstate';
 import * as vscode from 'vscode';
+import { ApiRequestItem } from '@wso2/api-tryit-core';
 
 // Event types for the state machine
 export const enum EVENT_TYPE {
@@ -27,24 +28,14 @@ export const enum EVENT_TYPE {
 
 // Context interface for the state machine
 export interface ApiTryItContext {
-    selectedItem?: {
-        label: string;
-        method?: string;
-        type: string;
-        url?: string;
-    };
+    selectedItem?: ApiRequestItem;
     webviewReady: boolean;
 }
 
 // Event interface
 interface ApiItemSelectedEvent {
     type: 'API_ITEM_SELECTED';
-    data: {
-        label: string;
-        method?: string;
-        type: string;
-        url?: string;
-    };
+    data: ApiRequestItem;
 }
 
 interface WebviewReadyEvent {

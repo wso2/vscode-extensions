@@ -21,30 +21,35 @@ import { Button, Dropdown, TextField, Typography } from '@wso2/ui-toolkit';
 import { VSCodePanels, VSCodePanelTab, VSCodePanelView } from '@vscode/webview-ui-toolkit/react';
 import { Input } from '../Input/Input';
 import { Output } from '../Output/Output';
-import { ApiResponse } from '@wso2/api-tryit-core';
+import { ApiRequestItem, ApiRequest } from '@wso2/api-tryit-core';
 // Get VS Code API instance
 declare const acquireVsCodeApi: any;
 const vscode = typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : null;
 
-interface SelectedApiItem {
-    label: string;
-    method?: string;
-    type: string;
-    url?: string;
-}
-
 export const MainPanel: React.FC = () => {
-    const [url, setUrl] = useState('https://api.example.com/endpoint');
-    const [method, setMethod] = useState('GET');
-    const [selectedItem, setSelectedItem] = useState<SelectedApiItem | null>(null);
-    const [activeTab, setActiveTab] = useState('input');
-    const [response, setResponse] = useState<ApiResponse | undefined>({
-        statusCode: 200,
-        headers: [
-            { key: 'Content-Type', value: 'application/json' }
-        ],
-        body: '{\n  "bitcoin": {\n    "usd": 91833\n  }\n "bitcoin": {\n    "usd": 91833\n  }\n "bitcoin": {\n    "usd": 91833\n  }\n}'
+    const [requestItem, setRequestItem] = useState<ApiRequestItem>({
+        id: '1',
+        name: 'Sample Request',
+        request: {
+            id: '1',
+            name: 'Sample Request',
+            method: 'POST',
+            url: 'http://localhost:9090/api/test',
+            queryParameters: [],
+            headers: [
+                { id: '1', key: 'Content-Type', value: 'application/json', enabled: true }
+            ],
+            body: '{\n  "currency": "usd",\n  "coin": "bitcoin"\n}'
+        },
+        response: {
+            statusCode: 200,
+            headers: [
+                { key: 'Content-Type', value: 'application/json' }
+            ],
+            body: '{\n  "bitcoin": {\n    "usd": 91833\n  }\n}'
+        }
     });
+    const [activeTab, setActiveTab] = useState('input');
 
     useEffect(() => {
         // Notify extension that webview is ready
@@ -57,19 +62,19 @@ export const MainPanel: React.FC = () => {
             const message = event.data;
             
             switch (message.type) {
-                case 'apiItemSelected':
-                    const item = message.data as SelectedApiItem;
-                    setSelectedItem(item);
-                    
-                    // Update URL and method based on selected item
-                    if (item.url) {
-                        setUrl(item.url);
-                    }
-                    if (item.method) {
-                        setMethod(item.method);
-                    }
-                    
-                    console.log('API item selected:', item);
+                case 'apiRequestItemSelected':
+                    const item = message.data as ApiRequestItem;
+                    // Ensure arrays are initialized
+                    const normalizedItem: ApiRequestItem = {
+                        ...item,
+                        request: {
+                            ...item.request,
+                            queryParameters: item.request.queryParameters || [],
+                            headers: item.request.headers || []
+                        }
+                    };
+                    setRequestItem(normalizedItem);
+                    console.log('API request item selected:', normalizedItem);
                     break;
             }
         };
@@ -81,6 +86,19 @@ export const MainPanel: React.FC = () => {
             window.removeEventListener('message', messageHandler);
         };
     }, []);
+
+    const handleRequestChange = (updatedRequest: ApiRequest) => {
+        setRequestItem({
+            ...requestItem,
+            request: updatedRequest
+        });
+    };
+
+    const handleSendRequest = () => {
+        console.log('Sending request:', requestItem.request);
+        // TODO: Implement actual API call here
+        // For now, just log the request
+    };
 
     return (
         <div style={{
@@ -97,15 +115,7 @@ export const MainPanel: React.FC = () => {
                 backgroundColor: 'var(--vscode-editor-background)',
             }}>
                 <Typography variant="h3" sx={{ margin: 0, display: 'flex', alignItems: 'center' }}>
-                    API TryIt
-                    {selectedItem && (
-                        <Typography 
-                            variant="body2" 
-                            sx={{ marginLeft: '12px', opacity: 0.7 }}
-                        >
-                            {selectedItem.label}
-                        </Typography>
-                    )}
+                    {requestItem.name}
                 </Typography>
             </div>
 
@@ -124,29 +134,35 @@ export const MainPanel: React.FC = () => {
                     }}>
                         <Dropdown
                             id="method-dropdown"
-                            value={method}
-                            onValueChange={(value) => setMethod(value)}
+                            value={requestItem.request.method || 'GET'}
+                            onValueChange={(value) => handleRequestChange({
+                                ...requestItem.request,
+                                method: value as any
+                            })}
                             items={[
-                                { value: 'GET', content: 'GET' },
-                                { value: 'POST', content: 'POST' },
-                                { value: 'PUT', content: 'PUT' },
-                                { value: 'DELETE', content: 'DELETE' },
-                                { value: 'PATCH', content: 'PATCH' },
+                                { id: 'GET', value: 'GET', content: 'GET' },
+                                { id: 'POST', value: 'POST', content: 'POST' },
+                                { id: 'PUT', value: 'PUT', content: 'PUT' },
+                                { id: 'DELETE', value: 'DELETE', content: 'DELETE' },
+                                { id: 'PATCH', value: 'PATCH', content: 'PATCH' },
                             ]}
                             sx={{ minWidth: '100px' }}
                         />
 
                         <TextField
                             id="url-input"
-                            value={url}
-                            onTextChange={(value) => setUrl(value)}
+                            value={requestItem.request.url || ''}
+                            onTextChange={(value) => handleRequestChange({
+                                ...requestItem.request,
+                                url: value
+                            })}
                             placeholder="Enter API URL"
                             sx={{ flex: 1 }}
                         />
 
                         <Button
                             appearance="primary"
-                            onClick={() => console.log('Send request')}
+                            onClick={handleSendRequest}
                         >
                             Send
                         </Button>
@@ -161,15 +177,14 @@ export const MainPanel: React.FC = () => {
                         {/* Input Tab Content */}
                         <VSCodePanelView id="view-input">
                             <Input 
-                                onQueryParamsChange={(params) => console.log('Query params:', params)}
-                                onHeadersChange={(headers) => console.log('Headers:', headers)}
-                                onBodyChange={(body) => console.log('Body:', body)}
+                                request={requestItem.request}
+                                onRequestChange={handleRequestChange}
                             />
                         </VSCodePanelView>
 
                         {/* Output Tab Content */}
                         <VSCodePanelView id="view-output">
-                            <Output response={response} />
+                            <Output response={requestItem.response} />
                         </VSCodePanelView>
 
                         {/* Assert Tab Content */}

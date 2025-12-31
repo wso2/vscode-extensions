@@ -21,7 +21,7 @@ export interface ApiTryItData {
     message: string;
 }
 
-// Request types
+// Request parameter types
 export interface QueryParameter {
     id: string;
     key: string;
@@ -36,6 +36,17 @@ export interface HeaderParameter {
     enabled: boolean;
 }
 
+// Request definition
+export interface ApiRequest {
+    id: string;
+    name: string;
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
+    url: string;
+    queryParameters: QueryParameter[];
+    headers: HeaderParameter[];
+    body?: string;
+}
+
 // Response types
 export interface ResponseHeader {
     key: string;
@@ -46,4 +57,27 @@ export interface ApiResponse {
     statusCode: number;
     headers: ResponseHeader[];
     body: string;
+}
+
+// Request Item - combines a request with its response
+export interface ApiRequestItem {
+    id: string;
+    name: string;
+    request: ApiRequest;
+    response?: ApiResponse; // Optional since response may not exist until request is executed
+}
+
+// Folder - contains multiple request items
+export interface ApiFolder {
+    id: string;
+    name: string;
+    items: ApiRequestItem[];
+}
+
+// Collection - contains folders with request items
+export interface ApiCollection {
+    id: string;
+    name: string;
+    description?: string;
+    folders: ApiFolder[];
 }
