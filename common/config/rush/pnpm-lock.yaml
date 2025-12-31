@@ -482,6 +482,9 @@ importers:
       '@wso2/ui-toolkit':
         specifier: workspace:*
         version: link:../../common-libs/ui-toolkit
+      axios:
+        specifier: ~1.13.2
+        version: 1.13.2
       path:
         specifier: ~0.12.7
         version: 0.12.7
@@ -11692,6 +11695,9 @@ packages:
 
   axios@1.12.2:
     resolution: {integrity: sha512-vMJzPewAlRyOgxV2dU0Cuz2O8zzzx9VYtbJOaBgXFeLc4IV/Eg50n4LowmehOOR61S8ZMpc2K5Sa7g6A4jfkUw==}
+
+  axios@1.13.2:
+    resolution: {integrity: sha512-VPk9ebNqPcy5lRGuSlKx752IlDatOjT9paPlm8A7yOuW2Fbvp4X3JznJtT4f0GzGLLiWE9W8onz51SqLYwzGaA==}
 
   axobject-query@4.1.0:
     resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
@@ -34054,7 +34060,7 @@ snapshots:
       react-docgen-typescript: 2.4.0(typescript@5.8.3)
       tslib: 2.8.1
       typescript: 5.8.3
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -37288,7 +37294,7 @@ snapshots:
   '@webpack-cli/configtest@2.1.1(webpack-cli@5.1.4)(webpack@5.103.0)':
     dependencies:
       webpack: 5.103.0(webpack-cli@5.1.4)
-      webpack-cli: 5.1.4(webpack-dev-server@5.2.2)(webpack@5.103.0)
+      webpack-cli: 5.1.4(webpack@5.103.0)
 
   '@webpack-cli/configtest@3.0.1(webpack-cli@6.0.1)(webpack@5.103.0)':
     dependencies:
@@ -37303,7 +37309,7 @@ snapshots:
   '@webpack-cli/info@2.0.2(webpack-cli@5.1.4)(webpack@5.103.0)':
     dependencies:
       webpack: 5.103.0(webpack-cli@5.1.4)
-      webpack-cli: 5.1.4(webpack-dev-server@5.2.2)(webpack@5.103.0)
+      webpack-cli: 5.1.4(webpack@5.103.0)
 
   '@webpack-cli/info@3.0.1(webpack-cli@6.0.1)(webpack@5.103.0)':
     dependencies:
@@ -37911,6 +37917,14 @@ snapshots:
   axe-core@4.11.0: {}
 
   axios@1.12.2:
+    dependencies:
+      follow-redirects: 1.15.11
+      form-data: 4.0.5
+      proxy-from-env: 1.1.0
+    transitivePeerDependencies:
+      - debug
+
+  axios@1.13.2:
     dependencies:
       follow-redirects: 1.15.11
       form-data: 4.0.5
@@ -39985,7 +39999,7 @@ snapshots:
       postcss-value-parser: 4.2.0
       schema-utils: 2.7.1
       semver: 6.3.1
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
 
   css-loader@5.2.7(webpack@5.103.0):
     dependencies:
@@ -43249,7 +43263,7 @@ snapshots:
       pretty-error: 2.1.2
       tapable: 1.1.3
       util.promisify: 1.0.0
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
 
   html-webpack-plugin@5.6.5(webpack@5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(esbuild@0.25.12)):
     dependencies:
@@ -48145,7 +48159,7 @@ snapshots:
       postcss: 7.0.39
       schema-utils: 3.3.0
       semver: 7.7.3
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
 
   postcss-loader@8.2.0(postcss@8.5.6)(typescript@5.8.3)(webpack@5.103.0):
     dependencies:
@@ -48887,7 +48901,7 @@ snapshots:
     dependencies:
       loader-utils: 2.0.4
       schema-utils: 3.3.0
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
 
   rc-config-loader@4.1.3:
     dependencies:
@@ -51749,7 +51763,7 @@ snapshots:
       serialize-javascript: 5.0.1
       source-map: 0.6.1
       terser: 5.44.1
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
       webpack-sources: 1.4.3
 
   terser-webpack-plugin@5.3.14(@swc/core@1.15.3(@swc/helpers@0.5.17))(esbuild@0.25.12)(webpack@5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(esbuild@0.25.12)):
@@ -52865,7 +52879,7 @@ snapshots:
       loader-utils: 2.0.4
       mime-types: 2.1.35
       schema-utils: 3.3.0
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
     optionalDependencies:
       file-loader: 6.2.0(webpack@5.103.0)
 
@@ -53428,7 +53442,7 @@ snapshots:
       mime: 2.6.0
       mkdirp: 0.5.6
       range-parser: 1.2.1
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
       webpack-log: 2.0.0
 
   webpack-dev-middleware@4.3.0(webpack@5.103.0):
@@ -53695,7 +53709,7 @@ snapshots:
 
   webpack-filter-warnings-plugin@1.2.1(webpack@5.103.0):
     dependencies:
-      webpack: 5.103.0(webpack-cli@5.1.4)
+      webpack: 5.103.0(@swc/core@1.15.3(@swc/helpers@0.5.17))(webpack-cli@6.0.1)
 
   webpack-hot-middleware@2.26.1:
     dependencies:
@@ -53941,7 +53955,7 @@ snapshots:
       watchpack: 2.4.4
       webpack-sources: 3.3.3
     optionalDependencies:
-      webpack-cli: 5.1.4(webpack-dev-server@5.2.2)(webpack@5.103.0)
+      webpack-cli: 5.1.4(webpack@5.103.0)
     transitivePeerDependencies:
       - '@swc/core'
       - esbuild

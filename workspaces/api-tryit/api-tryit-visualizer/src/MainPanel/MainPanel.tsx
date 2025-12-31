@@ -21,7 +21,8 @@ import { Button, Dropdown, TextField, Typography } from '@wso2/ui-toolkit';
 import { VSCodePanels, VSCodePanelTab, VSCodePanelView } from '@vscode/webview-ui-toolkit/react';
 import { Input } from '../Input/Input';
 import { Output } from '../Output/Output';
-import { ApiRequestItem, ApiRequest } from '@wso2/api-tryit-core';
+import { ApiRequestItem, ApiRequest, ApiResponse, ResponseHeader } from '@wso2/api-tryit-core';
+import axios, { AxiosError } from 'axios';
 // Get VS Code API instance
 declare const acquireVsCodeApi: any;
 const vscode = typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : null;
@@ -50,6 +51,7 @@ export const MainPanel: React.FC = () => {
         }
     });
     const [activeTab, setActiveTab] = useState('input');
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         // Notify extension that webview is ready
@@ -74,6 +76,7 @@ export const MainPanel: React.FC = () => {
                         }
                     };
                     setRequestItem(normalizedItem);
+                    setActiveTab('input');
                     console.log('API request item selected:', normalizedItem);
                     break;
             }
@@ -94,10 +97,128 @@ export const MainPanel: React.FC = () => {
         });
     };
 
-    const handleSendRequest = () => {
-        console.log('Sending request:', requestItem.request);
-        // TODO: Implement actual API call here
-        // For now, just log the request
+    const handleSendRequest = async () => {
+        setIsLoading(true);
+        
+        try {
+            const { request } = requestItem;
+            
+            // Build query parameters
+            const enabledQueryParams = (request.queryParameters || []).filter(p => p.enabled);
+            const params: Record<string, string> = {};
+            enabledQueryParams.forEach(p => {
+                if (p.key) {
+                    params[p.key] = p.value;
+                }
+            });
+            
+            // Build headers
+            const enabledHeaders = (request.headers || []).filter(h => h.enabled);
+            const headers: Record<string, string> = {};
+            enabledHeaders.forEach(h => {
+                if (h.key) {
+                    headers[h.key] = h.value;
+                }
+            });
+            
+            // Parse body if present
+            let data = undefined;
+            if (request.body && ['POST', 'PUT', 'PATCH'].includes(request.method)) {
+                try {
+                    data = JSON.parse(request.body);
+                } catch {
+                    data = request.body;
+                }
+            }
+            
+            // Make the request
+            const startTime = Date.now();
+            const response = await axios({
+                method: request.method,
+                url: request.url,
+                params,
+                headers,
+                data,
+                validateStatus: () => true // Accept any status code
+            });
+            const duration = Date.now() - startTime;
+            
+            // Convert response headers to ResponseHeader format
+            const responseHeaders: ResponseHeader[] = Object.entries(response.headers).map(([key, value]) => ({
+                key,
+                value: String(value)
+            }));
+            
+            // Format response body
+            let responseBody: string;
+            if (typeof response.data === 'object') {
+                responseBody = JSON.stringify(response.data, null, 2);
+            } else {
+                responseBody = String(response.data);
+            }
+            
+            // Update request item with response
+            const apiResponse: ApiResponse = {
+                statusCode: response.status,
+                headers: responseHeaders,
+                body: responseBody
+            };
+            
+            setRequestItem({
+                ...requestItem,
+                response: apiResponse
+            });
+            
+            // Switch to Output tab
+            setActiveTab('output');
+            
+            console.log(`Request completed in ${duration}ms`);
+            
+        } catch (error) {
+            console.error('Request failed:', error);
+            
+            // Handle error response
+            const axiosError = error as AxiosError;
+            let errorBody = '';
+            let statusCode = 0;
+            let headers: ResponseHeader[] = [];
+            
+            if (axiosError.response) {
+                statusCode = axiosError.response.status;
+                headers = Object.entries(axiosError.response.headers).map(([key, value]) => ({
+                    key,
+                    value: String(value)
+                }));
+                
+                if (typeof axiosError.response.data === 'object') {
+                    errorBody = JSON.stringify(axiosError.response.data, null, 2);
+                } else {
+                    errorBody = String(axiosError.response.data);
+                }
+            } else {
+                // Network error or request setup error
+                errorBody = JSON.stringify({
+                    error: axiosError.message || 'Request failed',
+                    code: axiosError.code
+                }, null, 2);
+            }
+            
+            const errorResponse: ApiResponse = {
+                statusCode,
+                headers,
+                body: errorBody
+            };
+            
+            setRequestItem({
+                ...requestItem,
+                response: errorResponse
+            });
+            
+            // Switch to Output tab to show error
+            setActiveTab('output');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -163,8 +284,9 @@ export const MainPanel: React.FC = () => {
                         <Button
                             appearance="primary"
                             onClick={handleSendRequest}
+                            disabled={isLoading}
                         >
-                            Send
+                            {isLoading ? 'Sending...' : 'Send'}
                         </Button>
                     </div>
 
