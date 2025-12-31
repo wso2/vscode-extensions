@@ -18,7 +18,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button, Dropdown, TextField, Typography } from '@wso2/ui-toolkit';
-
+import { VSCodePanels, VSCodePanelTab, VSCodePanelView } from '@vscode/webview-ui-toolkit/react';
+import { Input } from '../Input/Input';import { Output } from '../Output/Output';
+import { ApiResponse } from '../Output/types';
 // Get VS Code API instance
 declare const acquireVsCodeApi: any;
 const vscode = typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : null;
@@ -34,6 +36,14 @@ export const MainPanel: React.FC = () => {
     const [url, setUrl] = useState('https://api.example.com/endpoint');
     const [method, setMethod] = useState('GET');
     const [selectedItem, setSelectedItem] = useState<SelectedApiItem | null>(null);
+    const [activeTab, setActiveTab] = useState('input');
+    const [response, setResponse] = useState<ApiResponse | undefined>({
+        statusCode: 200,
+        headers: [
+            { key: 'Content-Type', value: 'application/json' }
+        ],
+        body: '{\n  "bitcoin": {\n    "usd": 91833\n  }\n "bitcoin": {\n    "usd": 91833\n  }\n "bitcoin": {\n    "usd": 91833\n  }\n}'
+    });
 
     useEffect(() => {
         // Notify extension that webview is ready
@@ -109,7 +119,7 @@ export const MainPanel: React.FC = () => {
                     <div style={{
                         display: 'flex',
                         gap: '12px',
-                        marginBottom: '20px',
+                        marginBottom: '10px',
                     }}>
                         <Dropdown
                             id="method-dropdown"
@@ -141,44 +151,44 @@ export const MainPanel: React.FC = () => {
                         </Button>
                     </div>
 
-                    {/* Request Details */}
-                    <div style={{
-                        backgroundColor: 'var(--vscode-editor-background)',
-                        border: '1px solid var(--vscode-panel-border)',
-                        borderRadius: '4px',
-                        padding: '16px',
-                        marginBottom: '20px',
-                    }}>
-                        <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
-                            Request Details
-                        </Typography>
-                        <Typography variant="caption" sx={{ opacity: 0.8, margin: '8px 0' }}>
-                            Configure headers, query parameters, and request body here.
-                        </Typography>
-                    </div>
+                    {/* VSCodePanels with Input, Output, and Assert tabs */}
+                    <VSCodePanels activeid={activeTab}>
+                        <VSCodePanelTab id="input">Input</VSCodePanelTab>
+                        <VSCodePanelTab id="output">Output</VSCodePanelTab>
+                        <VSCodePanelTab id="assert">Assert</VSCodePanelTab>
+                        
+                        {/* Input Tab Content */}
+                        <VSCodePanelView id="view-input">
+                            <Input 
+                                onQueryParamsChange={(params) => console.log('Query params:', params)}
+                                onHeadersChange={(headers) => console.log('Headers:', headers)}
+                                onBodyChange={(body) => console.log('Body:', body)}
+                            />
+                        </VSCodePanelView>
 
-                    {/* Response Section */}
-                    <div style={{
-                        backgroundColor: 'var(--vscode-editor-background)',
-                        border: '1px solid var(--vscode-panel-border)',
-                        borderRadius: '4px',
-                        padding: '16px',
-                        minHeight: '200px',
-                    }}>
-                        <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
-                            Response
-                        </Typography>
-                        <div style={{
-                            padding: '12px',
-                            backgroundColor: 'var(--vscode-textCodeBlock-background)',
-                            borderRadius: '4px',
-                            fontFamily: 'var(--vscode-editor-font-family)',
-                        }}>
-                            <Typography variant="caption" sx={{ margin: 0, opacity: 0.6 }}>
-                                Response will appear here after sending a request...
-                            </Typography>
-                        </div>
-                    </div>
+                        {/* Output Tab Content */}
+                        <VSCodePanelView id="view-output">
+                            <Output response={response} />
+                        </VSCodePanelView>
+
+                        {/* Assert Tab Content */}
+                        <VSCodePanelView id="view-assert">
+                            <div style={{ padding: '16px' }}>
+                                <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
+                                    Assertions
+                                </Typography>
+                                <Typography variant="caption" sx={{ opacity: 0.8, margin: '0 0 12px 0', display: 'block' }}>
+                                    Add assertions to validate the API response automatically.
+                                </Typography>
+                                <Button
+                                    appearance="secondary"
+                                    onClick={() => console.log('Add assertion')}
+                                >
+                                    + Add Assertion
+                                </Button>
+                            </div>
+                        </VSCodePanelView>
+                    </VSCodePanels>
                 </div>
             </div>
         </div>
