@@ -100,19 +100,43 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
 // Service to manage state machine instances
 const stateMachineService = interpret(apiTryItMachine).start();
 
-// Event emitter for webview communication
-export const apiSelectionEmitter = new vscode.EventEmitter<ApiTryItContext['selectedItem']>();
+// Store reference to webview panel for posting messages
+let webviewPanel: vscode.WebviewPanel | undefined;
 
 // Export the state machine service and utilities
 export const ApiTryItStateMachine = {
     service: stateMachineService,
     
+    registerWebview: (panel: vscode.WebviewPanel) => {
+        webviewPanel = panel;
+    },
+    
+    unregisterWebview: () => {
+        webviewPanel = undefined;
+    },
+    
     sendEvent: (eventType: EVENT_TYPE, data?: ApiTryItContext['selectedItem']) => {
         if (eventType === EVENT_TYPE.API_ITEM_SELECTED && data) {
             stateMachineService.send({ type: 'API_ITEM_SELECTED', data });
-            apiSelectionEmitter.fire(data);
+            
+            // Post message to webview if registered
+            if (webviewPanel) {
+                webviewPanel.webview.postMessage({
+                    type: 'apiRequestItemSelected',
+                    data: data
+                });
+            }
         } else if (eventType === EVENT_TYPE.WEBVIEW_READY) {
             stateMachineService.send({ type: 'WEBVIEW_READY' });
+            
+            // If there's a pending selection, send it to the now-ready webview
+            const context = stateMachineService.getSnapshot().context;
+            if (context.selectedItem && webviewPanel) {
+                webviewPanel.webview.postMessage({
+                    type: 'apiRequestItemSelected',
+                    data: context.selectedItem
+                });
+            }
         }
     },
     
@@ -122,9 +146,5 @@ export const ApiTryItStateMachine = {
     
     getState: () => {
         return stateMachineService.getSnapshot().value;
-    },
-    
-    onApiSelection: (callback: (data: ApiTryItContext['selectedItem']) => void) => {
-        return apiSelectionEmitter.event(callback);
     }
 };

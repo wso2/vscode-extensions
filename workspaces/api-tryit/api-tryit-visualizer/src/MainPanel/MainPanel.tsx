@@ -16,16 +16,14 @@
  * under the License.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button, Dropdown, TextField, Typography } from '@wso2/ui-toolkit';
 import { VSCodePanels, VSCodePanelTab, VSCodePanelView } from '@vscode/webview-ui-toolkit/react';
 import { Input } from '../Input/Input';
 import { Output } from '../Output/Output';
 import { ApiRequestItem, ApiRequest, ApiResponse, ResponseHeader } from '@wso2/api-tryit-core';
 import axios, { AxiosError } from 'axios';
-// Get VS Code API instance
-declare const acquireVsCodeApi: any;
-const vscode = typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : null;
+import { useExtensionMessages } from '../hooks/useExtensionMessages';
 
 export const MainPanel: React.FC = () => {
     const [requestItem, setRequestItem] = useState<ApiRequestItem>({
@@ -53,42 +51,14 @@ export const MainPanel: React.FC = () => {
     const [activeTab, setActiveTab] = useState('input');
     const [isLoading, setIsLoading] = useState(false);
 
-    useEffect(() => {
-        // Notify extension that webview is ready
-        if (vscode) {
-            vscode.postMessage({ type: 'webviewReady' });
+    // Handle messages from VS Code extension
+    useExtensionMessages({
+        onApiRequestSelected: (item) => {
+            setRequestItem(item);
+            setActiveTab('input');
+            console.log('API request item selected:', item);
         }
-
-        // Listen for messages from the extension
-        const messageHandler = (event: MessageEvent) => {
-            const message = event.data;
-            
-            switch (message.type) {
-                case 'apiRequestItemSelected':
-                    const item = message.data as ApiRequestItem;
-                    // Ensure arrays are initialized
-                    const normalizedItem: ApiRequestItem = {
-                        ...item,
-                        request: {
-                            ...item.request,
-                            queryParameters: item.request.queryParameters || [],
-                            headers: item.request.headers || []
-                        }
-                    };
-                    setRequestItem(normalizedItem);
-                    setActiveTab('input');
-                    console.log('API request item selected:', normalizedItem);
-                    break;
-            }
-        };
-
-        window.addEventListener('message', messageHandler);
-
-        // Cleanup listener on unmount
-        return () => {
-            window.removeEventListener('message', messageHandler);
-        };
-    }, []);
+    });
 
     const handleRequestChange = (updatedRequest: ApiRequest) => {
         setRequestItem({

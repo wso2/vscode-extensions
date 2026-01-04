@@ -30,6 +30,9 @@ export class TryItPanel {
 
 		this._panel.webview.html = this._getWebviewContent(this._panel.webview, extensionContext);
 
+		// Register webview with state machine
+		ApiTryItStateMachine.registerWebview(this._panel);
+
 		this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 		
 		// Set up message handling from webview
@@ -44,16 +47,6 @@ export class TryItPanel {
 			null,
 			this._disposables
 		);
-		
-		// Listen for API selection events and post to webview
-		const subscription = ApiTryItStateMachine.onApiSelection((data) => {
-			this._panel.webview.postMessage({
-				type: 'apiRequestItemSelected',
-				data: data
-			});
-		});
-		
-		this._disposables.push(subscription);
 	}
 
 	public static show(extensionContext: vscode.ExtensionContext) {
@@ -87,6 +80,9 @@ export class TryItPanel {
 
 	public dispose() {
 		TryItPanel.currentPanel = undefined;
+
+		// Unregister webview from state machine
+		ApiTryItStateMachine.unregisterWebview();
 
 		this._panel.dispose();
 
