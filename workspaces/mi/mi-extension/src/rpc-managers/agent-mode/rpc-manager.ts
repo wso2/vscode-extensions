@@ -24,8 +24,6 @@ import {
 import { AgentEventHandler } from './event-handler';
 import { executeAgent, createAgentAbortController, AgentEvent } from '../../ai-features/agent-mode';
 import { logInfo, logError, logDebug } from '../../ai-features/copilot/logger';
-import * as path from 'path';
-import * as fs from 'fs';
 
 export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private eventHandler: AgentEventHandler;
@@ -33,38 +31,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
     constructor(private projectUri: string) {
         this.eventHandler = new AgentEventHandler(projectUri);
-    }
-
-    /**
-     * Get list of existing files in the MI project
-     */
-    private getExistingFiles(): string[] {
-        const files: string[] = [];
-        const artifactsPath = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'artifacts');
-
-        if (!fs.existsSync(artifactsPath)) {
-            return files;
-        }
-
-        const scanDir = (dir: string, relativePath: string = '') => {
-            try {
-                const entries = fs.readdirSync(dir, { withFileTypes: true });
-                for (const entry of entries) {
-                    const fullPath = path.join(dir, entry.name);
-                    const relPath = path.join(relativePath, entry.name);
-                    if (entry.isDirectory()) {
-                        scanDir(fullPath, relPath);
-                    } else if (entry.isFile() && entry.name.endsWith('.xml')) {
-                        files.push(relPath);
-                    }
-                }
-            } catch (error) {
-                logError(`Error scanning directory: ${dir}`, error);
-            }
-        };
-
-        scanDir(artifactsPath);
-        return files;
     }
 
     /**
@@ -77,16 +43,10 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             // Create abort controller for this request
             this.currentAbortController = createAgentAbortController();
 
-            // Get existing files for context
-            const existingFiles = this.getExistingFiles();
-            logDebug(`[AgentPanel] Found ${existingFiles.length} existing files`);
-
-            // Execute the agent
             const result = await executeAgent(
                 {
                     query: request.message,
                     projectPath: this.projectUri,
-                    existingFiles,
                     abortSignal: this.currentAbortController.signal
                 },
                 (event: AgentEvent) => {

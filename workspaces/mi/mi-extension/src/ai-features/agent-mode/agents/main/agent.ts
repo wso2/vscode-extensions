@@ -79,9 +79,7 @@ export interface AgentRequest {
     query: string;
     /** Path to the MI project */
     projectPath: string;
-    /** List of existing files in the project */
-    existingFiles: string[];
-    /** Map of file path to content for relevant existing code */
+    /** Map of file path to content for relevant existing code (optional, for future use) */
     existingCode?: Map<string, string>;
     /** Chat history for context */
     chatHistory?: ModelMessage[];
@@ -124,10 +122,9 @@ export async function executeAgent(
         const userPromptParams: UserPromptParams = {
             query: request.query,
             projectPath: request.projectPath,
-            existingFiles: request.existingFiles,
-            // Note: existingCode is not included - agent can read files on-demand using file_read tool
+            // Note: existingFiles and currentlyOpenedFile are fetched internally by getUserPrompt
         };
-        const userMessageContent = getUserPrompt(userPromptParams);
+        const userMessageContent = await getUserPrompt(userPromptParams);
 
         logInfo(`[Agent] System prompt: ${getSystemPrompt()}`);
         logInfo(`[Agent] User prompt: ${JSON.stringify(userMessageContent, null, 2)}`);

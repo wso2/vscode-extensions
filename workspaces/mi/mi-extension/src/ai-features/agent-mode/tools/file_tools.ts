@@ -573,27 +573,27 @@ const multiEditInputSchema = z.object({
 export function createWriteTool(execute: WriteExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `Creates a new file with the specified content.
+        description: `
+            Creates a new file with the specified content.
+            Usage:
+            - Use this tool to create NEW files only. It will fail if the file already has content.
+            - To modify existing files, use ${FILE_EDIT_TOOL_NAME} or ${FILE_MULTI_EDIT_TOOL_NAME} instead.
+            - The file path should be relative to the project root.
+            - Parent directories will be created automatically if they don't exist.
+            - Valid file extensions: ${VALID_FILE_EXTENSIONS.join(', ')}
 
-Usage:
-- Use this tool to create NEW files only. It will fail if the file already has content.
-- To modify existing files, use ${FILE_EDIT_TOOL_NAME} or ${FILE_MULTI_EDIT_TOOL_NAME} instead.
-- The file path should be relative to the project root.
-- Parent directories will be created automatically if they don't exist.
-- Valid file extensions: ${VALID_FILE_EXTENSIONS.join(', ')}
+            For Synapse/MI projects, common paths include:
+            - src/main/wso2mi/artifacts/apis/ - API configurations
+            - src/main/wso2mi/artifacts/sequences/ - Sequence configurations
+            - src/main/wso2mi/artifacts/endpoints/ - Endpoint configurations
+            - src/main/wso2mi/artifacts/proxy-services/ - Proxy service configurations
+            - src/main/wso2mi/artifacts/inbound-endpoints/ - Inbound endpoint configurations
 
-For Synapse/MI projects, common paths include:
-- src/main/wso2mi/artifacts/apis/ - API configurations
-- src/main/wso2mi/artifacts/sequences/ - Sequence configurations
-- src/main/wso2mi/artifacts/endpoints/ - Endpoint configurations
-- src/main/wso2mi/artifacts/proxy-services/ - Proxy service configurations
-- src/main/wso2mi/artifacts/inbound-endpoints/ - Inbound endpoint configurations
-
-Parameters:
-- file_path: ${getFilePathDescription('write to')}
-- content: The content to write to the file. Cannot be empty.`,
-        inputSchema: writeInputSchema,
-        execute
+            Parameters:
+            - file_path: ${getFilePathDescription('write to')}
+            - content: The content to write to the file. Cannot be empty.`,
+                    inputSchema: writeInputSchema,
+                    execute
     });
 }
 
@@ -603,21 +603,21 @@ Parameters:
 export function createReadTool(execute: ReadExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `Reads a file from the project.
+        description: `
+            Reads a file from the project.
+            Usage:
+            - The file path should be relative to the project root.
+            - For large files, use offset and limit parameters to read in chunks.
+            - Lines longer than ${MAX_LINE_LENGTH} characters will be truncated.
+            - Content is returned with line numbers for easy reference.
+            - Valid file extensions: ${VALID_FILE_EXTENSIONS.join(', ')}
 
-Usage:
-- The file path should be relative to the project root.
-- For large files, use offset and limit parameters to read in chunks.
-- Lines longer than ${MAX_LINE_LENGTH} characters will be truncated.
-- Content is returned with line numbers for easy reference.
-- Valid file extensions: ${VALID_FILE_EXTENSIONS.join(', ')}
+            IMPORTANT: Before editing a file, always read it first to understand its current content and structure.
 
-IMPORTANT: Before editing a file, always read it first to understand its current content and structure.
-
-Parameters:
-- file_path: ${getFilePathDescription('read from')}
-- offset: Line number to start reading from (1-indexed). Use for large files. (optional)
-- limit: Number of lines to read. Use for large files. (optional)`,
+            Parameters:
+            - file_path: ${getFilePathDescription('read from')}
+            - offset: Line number to start reading from (1-indexed). Use for large files. (optional)
+            - limit: Number of lines to read. Use for large files. (optional)`,
         inputSchema: readInputSchema,
         execute
     });
@@ -629,28 +629,28 @@ Parameters:
 export function createEditTool(execute: EditExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `Performs a find-and-replace operation on an existing file.
+        description: `
+            Performs a find-and-replace operation on an existing file.
+            Usage:
+            - ALWAYS read the file first before editing to ensure you have the exact content.
+            - The old_string must match EXACTLY, including all whitespace, indentation, and line breaks.
+            - The edit will FAIL if old_string is not unique. Either:
+            - Provide more surrounding context to make it unique, OR
+            - Set replace_all to true to replace ALL occurrences
+            - Use replace_all=true when renaming variables, updating repeated patterns, etc.
+            - For multiple edits to the same file, prefer ${FILE_MULTI_EDIT_TOOL_NAME} instead.
+            - Cannot create new files. Use ${FILE_WRITE_TOOL_NAME} for that.
 
-Usage:
-- ALWAYS read the file first before editing to ensure you have the exact content.
-- The old_string must match EXACTLY, including all whitespace, indentation, and line breaks.
-- The edit will FAIL if old_string is not unique. Either:
-  - Provide more surrounding context to make it unique, OR
-  - Set replace_all to true to replace ALL occurrences
-- Use replace_all=true when renaming variables, updating repeated patterns, etc.
-- For multiple edits to the same file, prefer ${FILE_MULTI_EDIT_TOOL_NAME} instead.
-- Cannot create new files. Use ${FILE_WRITE_TOOL_NAME} for that.
+            Tips for Synapse XML editing:
+            - Include surrounding XML tags to ensure unique matches
+            - Preserve XML indentation exactly
+            - Be careful with XML namespaces and attributes
 
-Tips for Synapse XML editing:
-- Include surrounding XML tags to ensure unique matches
-- Preserve XML indentation exactly
-- Be careful with XML namespaces and attributes
-
-Parameters:
-- file_path: ${getFilePathDescription('edit')}
-- old_string: The exact text to replace (must match file contents exactly, including whitespace)
-- new_string: The replacement text (must be different from old_string)
-- replace_all: If true, replace ALL occurrences. If false (default), requires exactly one match. (optional)`,
+            Parameters:
+            - file_path: ${getFilePathDescription('edit')}
+            - old_string: The exact text to replace (must match file contents exactly, including whitespace)
+            - new_string: The replacement text (must be different from old_string)
+            - replace_all: If true, replace ALL occurrences. If false (default), requires exactly one match. (optional)`,
         inputSchema: editInputSchema,
         execute
     });
@@ -662,31 +662,31 @@ Parameters:
 export function createMultiEditTool(execute: MultiEditExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `Performs multiple find-and-replace operations on a single file atomically.
+        description: `
+        Performs multiple find-and-replace operations on a single file atomically.
+        Usage:
+        - Preferred over ${FILE_EDIT_TOOL_NAME} when making multiple changes to the same file.
+        - All edits are validated before any are applied - if any edit fails, NONE are applied.
+        - Edits are applied SEQUENTIALLY in the order provided.
+        - Each subsequent edit operates on the result of previous edits.
+        - ALWAYS read the file first before editing.
 
-Usage:
-- Preferred over ${FILE_EDIT_TOOL_NAME} when making multiple changes to the same file.
-- All edits are validated before any are applied - if any edit fails, NONE are applied.
-- Edits are applied SEQUENTIALLY in the order provided.
-- Each subsequent edit operates on the result of previous edits.
-- ALWAYS read the file first before editing.
+        IMPORTANT:
+        - Plan edits carefully to avoid conflicts (earlier edits change what later edits find)
+        - All old_string values must match exactly, including whitespace
+        - Cannot create new files. Use ${FILE_WRITE_TOOL_NAME} for that.
 
-IMPORTANT:
-- Plan edits carefully to avoid conflicts (earlier edits change what later edits find)
-- All old_string values must match exactly, including whitespace
-- Cannot create new files. Use ${FILE_WRITE_TOOL_NAME} for that.
+        Example use cases:
+        - Updating multiple mediator configurations
+        - Renaming endpoints across a file
+        - Modifying multiple property values
 
-Example use cases:
-- Updating multiple mediator configurations
-- Renaming endpoints across a file
-- Modifying multiple property values
-
-Parameters:
-- file_path: ${getFilePathDescription('edit')}
-- edits: Array of edit operations to perform sequentially. Each edit has:
-  - old_string: The exact text to replace
-  - new_string: The replacement text
-  - replace_all: If true, replace all occurrences of this old_string (optional)`,
+        Parameters:
+        - file_path: ${getFilePathDescription('edit')}
+        - edits: Array of edit operations to perform sequentially. Each edit has:
+        - old_string: The exact text to replace
+        - new_string: The replacement text
+        - replace_all: If true, replace all occurrences of this old_string (optional)`,
         inputSchema: multiEditInputSchema,
         execute
     });
