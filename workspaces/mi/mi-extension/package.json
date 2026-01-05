@@ -974,14 +974,14 @@
         "description": "design-view",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f16e"
+          "fontCharacter": "\\f175"
         }
       },
       "distro-build-package": {
         "description": "build-package",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f185"
+          "fontCharacter": "\\f18f"
         }
       }
     }
