@@ -30,9 +30,12 @@ export {
 // Prompts
 export {
     getSystemPrompt,
+} from './agents/main/system';
+
+export {
     getUserPrompt,
     type UserPromptParams,
-} from './agents/main/system';
+} from './agents/main/prompt';
 
 // Tools
 export * from './tools';

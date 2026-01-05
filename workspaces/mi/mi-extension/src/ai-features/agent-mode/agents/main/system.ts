@@ -22,7 +22,7 @@ import {
     FILE_EDIT_TOOL_NAME,
     FILE_MULTI_EDIT_TOOL_NAME,
 } from '../../tools/types';
-import { SYNAPSE_GUIDE } from '../../../copilot/context/synapse_guide';
+import { SYNAPSE_GUIDE } from '../common/synapse_guide';
 
 // ============================================================================
 // System Prompt
@@ -37,8 +37,8 @@ You are an expert assistant for developing WSO2 Micro Integrator (MI) integratio
 
 You will be provided with the following inputs:
 1. <USER_QUERY> : The user's query or request.
-2. <USER_PROJECT_STRUCTURE> : The user's current integration project structure if not a new empty project. Use read tools to read any files if needed.
-3. <CURRENTLY_EDITING_FILE> : The file that the user is currently editing if user is editing a file.
+2. <PROJECT_STRUCTURE> : The user's current integration project structure if not a new empty project. Use read tools to read any files if needed.
+3. <CURRENTLY_OPENED_FILE> : The file that the user is currently opened in IDE.
 4. <USER_PRECONFIGURED> : Pre-configured payloads/query params/path params in the IDE for testing purposes if any.
 5. <ADDITIONAL_FILES> : Additional files attached for your reference by the user if any.
 6. <IMAGES> : Images attached for your reference by the user if any.
@@ -85,9 +85,11 @@ You have access to following file tools to read, write, and edit Synapse XML con
 4. **Complete Solutions**: Never leave placeholders - implement the complete solution
 5. **Follow Synapse Best Practices**: Use the latest mediators and patterns
 
-# Synapse Development Guidelines
+# Latest Synapse Development Guidelines
 
+<SYNAPSE_DEVELOPMENT_GUIDELINES>
 ${SYNAPSE_GUIDE}
+</SYNAPSE_DEVELOPMENT_GUIDELINES>
 
 # File Paths
 
@@ -116,89 +118,4 @@ For MI projects, use these standard paths:
  */
 export function getSystemPrompt(): string {
     return SYSTEM_PROMPT;
-}
-
-// ============================================================================
-// User Prompt
-// ============================================================================
-
-/**
- * Formats the project structure for the user prompt
- */
-function formatProjectStructure(projectPath: string, files: string[]): string {
-    if (files.length === 0) {
-        return '<project_structure>\nEmpty project - no existing files.\n</project_structure>';
-    }
-
-    const tree = files
-        .map(f => `  ${f}`)
-        .join('\n');
-
-    return `<project_structure>
-Project: ${projectPath}
-Files:
-${tree}
-</project_structure>`;
-}
-
-/**
- * Formats existing code context if available
- */
-function formatExistingCode(existingCode: Map<string, string>): string {
-    if (existingCode.size === 0) {
-        return '';
-    }
-
-    const codeBlocks = Array.from(existingCode.entries())
-        .map(([path, content]) => `<file path="${path}">\n${content}\n</file>`)
-        .join('\n\n');
-
-    return `<existing_code>
-${codeBlocks}
-</existing_code>`;
-}
-
-/**
- * Parameters for generating user prompt
- */
-export interface UserPromptParams {
-    /** User's query/requirement */
-    query: string;
-    /** Path to the project */
-    projectPath: string;
-    /** List of existing files in the project */
-    existingFiles: string[];
-    /** Map of file path to content for relevant existing code */
-    existingCode?: Map<string, string>;
-}
-
-/**
- * Generates the user prompt content
- */
-export function getUserPrompt(params: UserPromptParams): Array<{ type: 'text'; text: string }> {
-    const content: Array<{ type: 'text'; text: string }> = [];
-
-    // Add project structure
-    content.push({
-        type: 'text' as const,
-        text: formatProjectStructure(params.projectPath, params.existingFiles)
-    });
-
-    // Add existing code if available
-    if (params.existingCode && params.existingCode.size > 0) {
-        content.push({
-            type: 'text' as const,
-            text: formatExistingCode(params.existingCode)
-        });
-    }
-
-    // Add user query
-    content.push({
-        type: 'text' as const,
-        text: `<user_query>
-${params.query}
-</user_query>`
-    });
-
-    return content;
 }

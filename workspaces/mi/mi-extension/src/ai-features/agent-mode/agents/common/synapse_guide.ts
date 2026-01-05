@@ -16,6 +16,9 @@
  * under the License.
  */
 
+import { SYNAPSE_EXPRESSION_EXAMPLES } from "./synapse_expression_examples";
+import { SYNAPSE_EXPRESSION_GUIDE } from "./synapse_expression_guide"
+
 export const SYNAPSE_GUIDE = `
 ### Latest Synapse integration development guidelines and best practices
 
@@ -84,11 +87,11 @@ export const SYNAPSE_GUIDE = `
 #### WSO2 has introduced Synapse Expressions, which should be used instead of JsonPath or XPath. Refer to the following documentation.
 
 <SYNAPSE_EXPRESSIONS_DOCS>
-    {{> synapse_expression_guide}}
+    ${SYNAPSE_EXPRESSION_GUIDE}
 </SYNAPSE_EXPRESSIONS_DOCS>
 
 <SYNAPSE_EXPRESSION_EXAMPLES>
-     {{> synapse_expression_examples}}
+    ${SYNAPSE_EXPRESSION_EXAMPLES}
 </SYNAPSE_EXPRESSION_EXAMPLES>
 
 #### Use the new variable mediator instead of the deprecated property mediator:
