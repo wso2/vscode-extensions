@@ -17,6 +17,9 @@
  */
 
 import * as Handlebars from 'handlebars';
+import * as fs from 'fs';
+import * as path from 'path';
+import { formatFileTree, getExistingFiles } from '../../../utils/file-utils';
 
 // ============================================================================
 // User Prompt Template
@@ -66,10 +69,6 @@ export interface UserPromptParams {
     query: string;
     /** Path to the MI project */
     projectPath: string;
-    /** List of existing files in the project */
-    existingFiles: string[];
-    /** Currently editing file content (optional) */
-    file?: string;
     /** Pre-configured payloads, query params, or path params (optional) */
     payloads?: string;
 }
@@ -87,15 +86,44 @@ function renderTemplate(templateContent: string, context: Record<string, any>): 
 }
 
 /**
- * Formats the project structure as a file list
+ * Formats the project structure as a tree (relative paths only)
  */
-function formatProjectStructure(projectPath: string, files: string[]): string {
+function formatProjectStructure(files: string[]): string {
     if (files.length === 0) {
-        return `Empty project - no existing files\nProject Path: ${projectPath}`;
+        return `Empty project - no existing files`;
     }
 
-    const fileList = files.map(f => `  ${f}`).join('\n');
-    return `Project: ${projectPath}\n\nExisting Files:\n${fileList}`;
+    // Use the tree formatter to display files in a hierarchical structure
+    return formatFileTree(files);
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Gets the currently opened file content from the state machine
+ * @param projectPath - Absolute path to the project root
+ * @returns File content if available, null otherwise
+ */
+async function getCurrentlyOpenedFile(projectPath: string): Promise<string | null> {
+    try {
+        const { getStateMachine } = await import('../../../../stateMachine');
+
+        const currentFile = getStateMachine(projectPath).context().documentUri;
+        if (currentFile && fs.existsSync(currentFile)) {
+            const content = fs.readFileSync(currentFile, 'utf-8');
+
+            // Make the path relative to project root
+            const relativePath = path.relative(projectPath, currentFile);
+
+            // Return with file path annotation
+            return `File: ${relativePath}\n---\n${content}\n---`;
+        }
+    } catch (error) {
+        // Silently fail if state machine is not available
+    }
+    return null;
 }
 
 // ============================================================================
@@ -104,22 +132,26 @@ function formatProjectStructure(projectPath: string, files: string[]): string {
 
 /**
  * Generates the user prompt content using Handlebars template
- * Only includes:
- * 1. Project structure (file list)
- * 2. Currently editing file (if available)
+ * Automatically fetches:
+ * 1. Project structure (all files in tree format)
+ * 2. Currently opened file (if available)
  * 3. User query
  *
  * The agent can read any file content on-demand using file_read tool.
  */
-export function getUserPrompt(params: UserPromptParams): string {
-    // Prepare context array with project structure
-    const fileList = [formatProjectStructure(params.projectPath, params.existingFiles)];
+export async function getUserPrompt(params: UserPromptParams): Promise<string> {
+    // Get all files in the project (relative paths from project root)
+    const existingFiles = getExistingFiles(params.projectPath);
+    const fileList = [formatProjectStructure(existingFiles)];
+
+    // Get currently opened file content
+    const currentlyOpenedFile = await getCurrentlyOpenedFile(params.projectPath);
 
     // Prepare template context
     const context: Record<string, any> = {
         question: params.query,
         fileList: fileList,
-        currentlyOpenedFile: params.file, // Currently editing file (optional)
+        currentlyOpenedFile: currentlyOpenedFile, // Currently editing file (optional)
         userPreconfigured: params.payloads, // Pre-configured payloads (optional)
         system_remainder: 'You are operating in AGENT_MODE.'
     };
