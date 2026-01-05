@@ -23,6 +23,7 @@ import { ApiRequestItem } from '@wso2/api-tryit-core';
 // Event types for the state machine
 export const enum EVENT_TYPE {
     API_ITEM_SELECTED = 'API_ITEM_SELECTED',
+    REQUEST_UPDATED = 'REQUEST_UPDATED',
     WEBVIEW_READY = 'WEBVIEW_READY'
 }
 
@@ -30,6 +31,7 @@ export const enum EVENT_TYPE {
 export interface ApiTryItContext {
     selectedItem?: ApiRequestItem;
     webviewReady: boolean;
+    savedItems: Map<string, ApiRequestItem>; // Cache of edited items by ID
 }
 
 // Event interface
@@ -38,11 +40,16 @@ interface ApiItemSelectedEvent {
     data: ApiRequestItem;
 }
 
+interface RequestUpdatedEvent {
+    type: 'REQUEST_UPDATED';
+    data: ApiRequestItem;
+}
+
 interface WebviewReadyEvent {
     type: 'WEBVIEW_READY';
 }
 
-type ApiTryItEvent = ApiItemSelectedEvent | WebviewReadyEvent;
+type ApiTryItEvent = ApiItemSelectedEvent | RequestUpdatedEvent | WebviewReadyEvent;
 
 // State machine definition
 const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
@@ -50,7 +57,8 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
     initial: 'idle',
     predictableActionArguments: true,
     context: {
-        webviewReady: false
+        webviewReady: false,
+        savedItems: new Map()
     },
     states: {
         idle: {
@@ -74,7 +82,11 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                 API_ITEM_SELECTED: {
                     target: 'itemSelected',
                     actions: assign({
-                        selectedItem: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.data
+                        selectedItem: (context: ApiTryItContext, event: ApiItemSelectedEvent) => {
+                            // Check if we have a saved version of this item
+                            const savedItem = context.savedItems.get(event.data.id);
+                            return savedItem || event.data;
+                        }
                     })
                 }
             }
@@ -84,7 +96,22 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                 API_ITEM_SELECTED: {
                     target: 'itemSelected',
                     actions: assign({
-                        selectedItem: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.data
+                        selectedItem: (context: ApiTryItContext, event: ApiItemSelectedEvent) => {
+                            // Check if we have a saved version of this item
+                            const savedItem = context.savedItems.get(event.data.id);
+                            return savedItem || event.data;
+                        }
+                    })
+                },
+                REQUEST_UPDATED: {
+                    actions: assign({
+                        selectedItem: (context: ApiTryItContext, event: RequestUpdatedEvent) => event.data,
+                        savedItems: (context: ApiTryItContext, event: RequestUpdatedEvent) => {
+                            // Save the updated item to cache
+                            const newMap = new Map(context.savedItems);
+                            newMap.set(event.data.id, event.data);
+                            return newMap;
+                        }
                     })
                 },
                 WEBVIEW_READY: {
@@ -120,12 +147,17 @@ export const ApiTryItStateMachine = {
             stateMachineService.send({ type: 'API_ITEM_SELECTED', data });
             
             // Post message to webview if registered
+            // Get the actual selected item from context (which may be the saved version)
             if (webviewPanel) {
+                const context = stateMachineService.getSnapshot().context;
                 webviewPanel.webview.postMessage({
                     type: 'apiRequestItemSelected',
-                    data: data
+                    data: context.selectedItem
                 });
             }
+        } else if (eventType === EVENT_TYPE.REQUEST_UPDATED && data) {
+            stateMachineService.send({ type: 'REQUEST_UPDATED', data });
+            // Request updated in state machine
         } else if (eventType === EVENT_TYPE.WEBVIEW_READY) {
             stateMachineService.send({ type: 'WEBVIEW_READY' });
             

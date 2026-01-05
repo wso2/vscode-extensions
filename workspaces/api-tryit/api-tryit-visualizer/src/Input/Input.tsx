@@ -16,8 +16,8 @@
  * under the License.
  */
 
-import React, { useState, useEffect } from 'react';
-import { Typography, LinkButton, Codicon, TextArea } from '@wso2/ui-toolkit';
+import React from 'react';
+import { Typography, LinkButton, Codicon } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { ParamItem } from './ParamItem';
 import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
@@ -181,7 +181,7 @@ export const Input: React.FC<InputProps> = ({
                     growRange={{ start: 5, offset: 10 }}
                     sx={{ width: '100%' }}
                     value={request.body || ''}
-                    onChange={handleBodyChange}
+                    onChange={(e: any) => handleBodyChange(e.target.value)}
                     placeholder="Enter request body..."
                 />
             </Section>

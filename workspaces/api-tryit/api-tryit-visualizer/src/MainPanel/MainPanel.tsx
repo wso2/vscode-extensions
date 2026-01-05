@@ -52,7 +52,7 @@ export const MainPanel: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
 
     // Handle messages from VS Code extension
-    useExtensionMessages({
+    const { updateRequest } = useExtensionMessages({
         onApiRequestSelected: (item) => {
             setRequestItem(item);
             setActiveTab('input');
@@ -61,10 +61,14 @@ export const MainPanel: React.FC = () => {
     });
 
     const handleRequestChange = (updatedRequest: ApiRequest) => {
-        setRequestItem({
+        const updatedItem = {
             ...requestItem,
             request: updatedRequest
-        });
+        };
+        setRequestItem(updatedItem);
+        
+        // Notify extension about the change
+        updateRequest(updatedItem);
     };
 
     const handleSendRequest = async () => {

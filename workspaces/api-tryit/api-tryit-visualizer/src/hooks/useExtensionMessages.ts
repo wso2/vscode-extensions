@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ApiRequestItem } from '@wso2/api-tryit-core';
 
 // Get VS Code API instance
@@ -36,6 +36,14 @@ interface MessageHandlers {
  * Custom hook to handle messages from VS Code extension
  */
 export const useExtensionMessages = (handlers: MessageHandlers) => {
+    // Use ref to store latest handlers without causing re-renders
+    const handlersRef = useRef(handlers);
+    
+    // Update ref when handlers change
+    useEffect(() => {
+        handlersRef.current = handlers;
+    }, [handlers]);
+    
     useEffect(() => {
         // Notify extension that webview is ready
         if (vscode) {
@@ -46,7 +54,7 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
         const messageHandler = (event: MessageEvent<ExtensionMessage>) => {
             const { type, data } = event.data;
             
-            if (type === 'apiRequestItemSelected' && handlers.onApiRequestSelected) {
+            if (type === 'apiRequestItemSelected' && handlersRef.current.onApiRequestSelected) {
                 const item = data as ApiRequestItem;
                 // Ensure arrays are initialized
                 const normalizedItem: ApiRequestItem = {
@@ -57,7 +65,7 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
                         headers: item.request.headers || []
                     }
                 };
-                handlers.onApiRequestSelected(normalizedItem);
+                handlersRef.current.onApiRequestSelected(normalizedItem);
             }
         };
 
@@ -67,5 +75,23 @@ export const useExtensionMessages = (handlers: MessageHandlers) => {
         return () => {
             window.removeEventListener('message', messageHandler);
         };
-    }, [handlers]);
+    }, []); // Empty dependency array - only run once
+    
+    // Return function to send request updates back to extension
+    return {
+        updateRequest: (item: ApiRequestItem) => {
+            if (vscode) {
+                try {
+                    // Serialize and deserialize to ensure clean JSON (removes functions, etc.)
+                    const cleanItem = JSON.parse(JSON.stringify(item));
+                    vscode.postMessage({ 
+                        type: 'requestUpdated', 
+                        data: cleanItem 
+                    });
+                } catch (error) {
+                    console.error('Failed to serialize request item:', error);
+                }
+            }
+        }
+    };
 };

@@ -42,6 +42,9 @@ export class TryItPanel {
 					case 'webviewReady':
 						ApiTryItStateMachine.sendEvent(EVENT_TYPE.WEBVIEW_READY);
 						break;
+					case 'requestUpdated':
+						ApiTryItStateMachine.sendEvent(EVENT_TYPE.REQUEST_UPDATED, message.data);
+						break;
 				}
 			},
 			null,
