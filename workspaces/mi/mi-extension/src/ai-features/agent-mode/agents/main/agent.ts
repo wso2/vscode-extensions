@@ -18,7 +18,8 @@
 
 import { ModelMessage, streamText, stepCountIs } from 'ai';
 import { getAnthropicClient, getProviderCacheControl, ANTHROPIC_SONNET_4_5 } from '../../../connection';
-import { getSystemPrompt, getUserPrompt, UserPromptParams } from './system';
+import { getSystemPrompt } from './system';
+import { getUserPrompt, UserPromptParams } from './prompt';
 import {
     createWriteTool,
     createReadTool,
@@ -124,12 +125,12 @@ export async function executeAgent(
             query: request.query,
             projectPath: request.projectPath,
             existingFiles: request.existingFiles,
-            existingCode: request.existingCode,
+            // Note: existingCode is not included - agent can read files on-demand using file_read tool
         };
         const userMessageContent = getUserPrompt(userPromptParams);
 
+        logInfo(`[Agent] System prompt: ${getSystemPrompt()}`);
         logInfo(`[Agent] User prompt: ${JSON.stringify(userMessageContent, null, 2)}`);
-        logInfo(`[Agent] hhhhhh`);
 
         // Build messages array
         const allMessages: ModelMessage[] = [
