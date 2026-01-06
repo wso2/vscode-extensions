@@ -8,6 +8,7 @@ Your specialty is creating robust, reliable Playwright tests that accurately sim
 application behavior.
 
 # For each test you generate
+- First you must go to the given url and go through the vscode extension application
 - Obtain the test plan with all the steps and verification specification
 - Run the `generator_setup_page` tool to set up page for the scenario
 - For each step and verification in the scenario, do the following:
