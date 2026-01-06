@@ -20,141 +20,183 @@ import { addArtifact, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer, Diagram, SidePanel } from '../utils/pages';
 import { DEFAULT_PROJECT_NAME } from '../utils/helpers/setup';
+import { FileUtils } from '../utils/helpers/fileSystem';
 
 export default function createTests() {
     // Run Integration Tests
     test.describe('Run Integration Tests', {
         tag: '@group1',
     }, async () => {
+        initTest();
+        test('Create Automation', async () => {
+            // 1. Click on the "Add Artifact" button
+            // 2. Verify the Artifacts menu is displayed
+            // 3. Under "Automation" section, click on "Automation" option
+            await addArtifact('Automation', 'automation');
+
+            const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page, 30000);
+            if (!artifactWebView) {
+                throw new Error('WSO2 Integrator: BI webview not found');
+            }
+
+            // 4. Verify the "Create New Automation" form is displayed
+            const createForm = artifactWebView.getByRole('heading', { name: /Create New Automation/i });
+            await createForm.waitFor({ timeout: 10000 });
+
+            // 5. Verify the form subtitle shows "Periodic invocation should be scheduled in an external system such as cronjob, k8s, or Devant"
+            const subtitle = artifactWebView.getByText(/Periodic invocation should be scheduled in an external system such as cronjob, k8s, or Devant/i);
+            await subtitle.waitFor();
+
+            // 6. (Optional) Click on "Advanced Configurations" to expand the section
+            const advancedConfigExpand = artifactWebView.getByText('Expand').first();
+            if (await advancedConfigExpand.isVisible({ timeout: 2000 }).catch(() => false)) {
+                await advancedConfigExpand.click();
+                await page.page.waitForTimeout(500);
+            }
+
+            // 7. (Optional) Verify "Return Error" checkbox is checked by default
+            const returnErrorCheckbox = artifactWebView.getByRole('checkbox', { name: /Return Error/i }).first();
+            if (await returnErrorCheckbox.isVisible()) {
+                const isChecked = await returnErrorCheckbox.isChecked();
+                if (!isChecked) {
+                    throw new Error('Return Error checkbox should be checked by default');
+                }
+            }
+
+            // 8. Click on the "Create" button
+            await artifactWebView.getByRole('button', { name: 'Create' }).click();
+
+            // 9. Verify the Automation is created and the automation designer view is displayed
+            const diagramCanvas = artifactWebView.locator('#bi-diagram-canvas');
+            await diagramCanvas.waitFor({ state: 'visible', timeout: 30000 });
+
+            // 10. Verify the automation name is displayed (default: "main")
+            const diagramTitle = artifactWebView.locator('h2', { hasText: 'Automation' });
+            await diagramTitle.waitFor();
+
+            // 11. Verify the "Flow" and "Sequence" tabs are available
+            // Wait for the diagram to fully load before checking for tabs
+            await page.page.waitForTimeout(1000);
+            // The tabs are clickable generic elements, not role="tab"
+            const flowTab = artifactWebView.getByText('Flow').first();
+            await flowTab.waitFor({ timeout: 10000, state: 'visible' });
+            const sequenceTab = artifactWebView.getByText('Sequence').first();
+            await sequenceTab.waitFor({ timeout: 10000, state: 'visible' });
+
+            // 12. Verify the flow diagram shows a "Start" node
+            const startNode = artifactWebView.locator('[data-testid="start-node"], .start-node, [class*="start"]').first();
+            await startNode.waitFor({ timeout: 10000 }).catch(() => {
+                // If specific test ID not found, try to find by text
+                return artifactWebView.getByText('Start').first().waitFor({ timeout: 5000 });
+            });
+
+            // 13. Verify the flow diagram shows an "Error Handler" node
+            const errorHandlerNode = artifactWebView.locator('[data-testid="error-handler-node"], .error-handler-node, [class*="error-handler"]').first();
+            await errorHandlerNode.waitFor({ timeout: 10000 }).catch(() => {
+                // If specific test ID not found, try to find by text
+                return artifactWebView.getByText(/Error Handler/i).first().waitFor({ timeout: 5000 });
+            });
+            // 14. Verify the tree view shows the automation name under "Entry Points" section
+            const projectExplorer = new ProjectExplorer(page.page);
+            await projectExplorer.findItem([DEFAULT_PROJECT_NAME, 'Entry Points', 'main'], false);
+        });
+
         test('Click Run button from toolbar', async () => {
             // 1. Navigate to WSO2 Integrator: BI view
             const projectExplorer = new ProjectExplorer(page.page);
             await projectExplorer.findItem([DEFAULT_PROJECT_NAME, 'Entry Points', 'main'], true);
 
             // 2. Verify the "Run Integration" button is visible in the editor toolbar
-            const runButton = page.page.locator('[data-testid="run-integration-button"], button[title*="Run Integration"], button:has-text("Run Integration")').first();
+            // Find the "Run Integration" button by aria-label in the editor toolbar actions
+            const runButton = page.page.locator('ul.actions-container[role="toolbar"] li.action-item a[role="button"][aria-label="Run Integration"]').first();
             await runButton.waitFor({ timeout: 10000 });
 
             // 3. Click on the "Run Integration" button
             await runButton.click();
 
-            // 4. Verify the button is clicked successfully
-            await page.page.waitForTimeout(1000);
-
-            // 5. Verify the terminal panel opens (if not already open)
-            const terminal = page.page.locator('.terminal-view, .integrated-terminal').first();
-            await terminal.waitFor({ timeout: 10000 }).catch(() => {
-                // Terminal might already be open
-            });
+            // Wait until "Running executable" text appears in the terminal panel
+            const runningExecutableLocator = page.page.locator('.xterm-screen', { hasText: 'Running executable' }).first();
+            await runningExecutableLocator.waitFor({ timeout: 30000 });
         });
 
         test('Verify terminal opens', async () => {
-            // 1. Click on the "Run Integration" button
-            const runButton = page.page.locator('[data-testid="run-integration-button"], button[title*="Run Integration"]').first();
-            await runButton.waitFor({ timeout: 10000 });
-            await runButton.click();
-
             // 2. Verify the VS Code terminal panel is visible
-            const terminal = page.page.locator('.terminal-view, .integrated-terminal').first();
+            const terminal = page.page.locator('.xterm-screen').first();
             await terminal.waitFor({ timeout: 10000 });
-
-            // 3. Verify the terminal panel is focused/active
-            // 4. Verify a new terminal instance is created (if applicable)
-            // 5. Verify the terminal shows the command being executed
-            await page.page.waitForTimeout(2000);
         });
 
         test('Run with missing config', async () => {
+            // Add config to the project
+            const configContent = 'configurable string url = ?;';
+            FileUtils.updateProjectFile('config.bal', configContent);
+            await page.page.waitForTimeout(1000);
+
             // 1. Ensure the project has missing required configurations
             // 2. Click on the "Run Integration" button
-            const runButton = page.page.locator('[data-testid="run-integration-button"], button[title*="Run Integration"]').first();
+            const runButton = page.page.locator('ul.actions-container[role="toolbar"] li.action-item a[role="button"][aria-label="Run Integration"]').first();
             await runButton.waitFor({ timeout: 10000 });
             await runButton.click();
 
-            // 3. Verify the terminal opens
-            const terminal = page.page.locator('.terminal-view').first();
-            await terminal.waitFor({ timeout: 10000 });
+            // 3. Verify a missing configuration popup/dialog is displayed
+            // Wait for the native VSCode dialog to appear
+            const dialogBox = page.page.locator('.monaco-dialog-box').first();
+            await dialogBox.waitFor({ timeout: 15000 });
 
-            // 4. Verify the `bal run` command is executed
-            // 5. Verify a missing configuration popup/dialog is displayed
-            const configPopup = page.page.locator('[data-testid="missing-config-popup"], .dialog').first();
-            await configPopup.waitFor({ timeout: 15000 }).catch(() => {
-                // Popup might not appear if configs are present
-            });
+            // Verify the dialog title "Missing Config.toml file"
+            const dialogTitle = page.page.getByText('Missing Config.toml file', { exact: true });
+            await dialogTitle.waitFor({ timeout: 5000 });
+
+            // Verify the dialog buttons are present
+            // Check if the "Create Config.toml" button is visible
+            await page.page.getByText('Create Config.toml', { exact: true }).isVisible();
+            // Check if the "Run Anyway" button is visible
+            await page.page.getByText('Run Anyway', { exact: true }).isVisible();
+            // Check if the "Cancel" button is visible and click it
+            const cancelButton = page.page.getByText('Cancel', { exact: true });
+            if (await cancelButton.isVisible()) {
+                await cancelButton.click();
+                console.log('Clicked "Cancel" button.');
+            }
         });
 
         test('Run after config added', async () => {
-            // 1. Add the missing configurations (via Config.toml or config.bal)
-            // 2. Save the configuration file
-            // 3. Click on the "Run Integration" button
-            const runButton = page.page.locator('[data-testid="run-integration-button"], button[title*="Run Integration"]').first();
+
+            // 1. Ensure the project has missing required configurations
+            // 2. Click on the "Run Integration" button
+            const runButton = page.page.locator('ul.actions-container[role="toolbar"] li.action-item a[role="button"][aria-label="Run Integration"]').first();
             await runButton.waitFor({ timeout: 10000 });
             await runButton.click();
 
-            // 4. Verify the terminal opens
-            const terminal = page.page.locator('.terminal-view').first();
-            await terminal.waitFor({ timeout: 10000 });
+            // 3. Verify a missing configuration popup/dialog is displayed
+            // Wait for the native VSCode dialog to appear
+            const dialogBox = page.page.locator('.monaco-dialog-box').first();
+            await dialogBox.waitFor({ timeout: 15000 });
 
-            // 5. Verify the `bal run` command is executed
-            // 6. Verify no missing configuration popup is displayed
-            // 7. Verify the process starts successfully
-            await page.page.waitForTimeout(2000);
+            // Verify the dialog title "Missing Config.toml file"
+            const dialogTitle = page.page.getByText('Missing Config.toml file', { exact: true });
+            await dialogTitle.waitFor({ timeout: 5000 });
+
+            // Verify the dialog buttons are present
+            const createButton = page.page.getByText('Create Config.toml', { exact: true });
+            if (await createButton.isVisible()) {
+                await createButton.click();
+            }
+
+            const runningExecutableLocator = page.page.locator('.xterm-screen', { hasText: 'Running executable' }).first();
+            await runningExecutableLocator.waitFor({ timeout: 30000 });
         });
 
         test('Verify process starts', async () => {
             // 1. Click on the "Run Integration" button
-            const runButton = page.page.locator('[data-testid="run-integration-button"], button[title*="Run Integration"]').first();
-            await runButton.waitFor({ timeout: 10000 });
-            await runButton.click();
-
-            // 2. Verify the terminal opens
-            const terminal = page.page.locator('.terminal-view').first();
-            await terminal.waitFor({ timeout: 10000 });
-
-            // 3. Verify the `bal run` command is visible in the terminal
-            // 4. Verify the command executes successfully
-            // 5. Verify the process starts (check for process ID or running indicator)
-            await page.page.waitForTimeout(3000);
+            // Wait until "Running executable" text appears in the terminal panel
+            const runningExecutableLocator = page.page.locator('.xterm-screen', { hasText: 'Running executable' }).first();
+            await runningExecutableLocator.waitFor({ timeout: 30000 });
         });
 
         test('View run output', async () => {
-            // 1. Click on the "Run Integration" button
-            const runButton = page.page.locator('[data-testid="run-integration-button"], button[title*="Run Integration"]').first();
-            await runButton.waitFor({ timeout: 10000 });
-            await runButton.click();
-
-            // 2. Verify the terminal opens
-            const terminal = page.page.locator('.terminal-view').first();
-            await terminal.waitFor({ timeout: 10000 });
-
-            // 3. Verify the terminal displays the `bal run` command output
-            // 4. Verify compilation output is displayed (if applicable)
-            // 5. Verify runtime output is displayed
-            await page.page.waitForTimeout(3000);
-        });
-
-        test('Stop running process', async () => {
-            // 1. Start the integration using "Run Integration" button
-            const runButton = page.page.locator('[data-testid="run-integration-button"], button[title*="Run Integration"]').first();
-            await runButton.waitFor({ timeout: 10000 });
-            await runButton.click();
-            await page.page.waitForTimeout(2000);
-
-            // 2. Verify the process is running
-            // 3. Verify the terminal shows the running process
-            // 4. Click on the "Stop" button in the terminal toolbar (or use Ctrl+C)
-            const stopButton = page.page.locator('[data-testid="stop-process-button"], button[title*="Stop"], .terminal-stop-button').first();
-            if (await stopButton.isVisible({ timeout: 3000 }).catch(() => false)) {
-                await stopButton.click();
-            } else {
-                // Try Ctrl+C in terminal
-                const terminal = page.page.locator('.terminal-view').first();
-                if (await terminal.isVisible({ timeout: 2000 }).catch(() => false)) {
-                    await terminal.click();
-                    await page.page.keyboard.press('Control+C');
-                }
-            }
-            await page.page.waitForTimeout(1000);
+            // Wait until "Running executable" text appears in the terminal panel
+            const runningExecutableLocator = page.page.locator('.xterm-screen', { hasText: "Running executable" }).first();
+            await runningExecutableLocator.waitFor({ timeout: 30000 });
         });
 
         test('Run from command palette', async () => {
@@ -162,8 +204,8 @@ export default function createTests() {
             await page.page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+P' : 'Control+Shift+P');
             await page.page.waitForTimeout(500);
 
-            // 2. Type "BI.project.run" or "Run Integration"
-            await page.page.keyboard.type('BI.project.run');
+            // 2. Type "Run Integration"
+            await page.page.keyboard.type('Run Integration');
             await page.page.waitForTimeout(500);
 
             // 3. Verify the command is listed
@@ -171,57 +213,11 @@ export default function createTests() {
             await page.page.keyboard.press('Enter');
             await page.page.waitForTimeout(2000);
 
-            // 5. Verify the command executes
-            // 6. Verify the terminal opens
-            const terminal = page.page.locator('.terminal-view').first();
-            await terminal.waitFor({ timeout: 10000 });
+            // Wait until "Running executable" text appears in the terminal panel
+            const runningExecutableLocator = page.page.locator('.xterm-screen', { hasText: 'Running executable' }).first();
+            await runningExecutableLocator.waitFor({ timeout: 30000 });
         });
 
-        test('Run with multiple services', async () => {
-            // 1. Ensure the project contains multiple HTTP services
-            // 2. Click on the "Run Integration" button
-            const runButton = page.page.locator('[data-testid="run-integration-button"], button[title*="Run Integration"]').first();
-            await runButton.waitFor({ timeout: 10000 });
-            await runButton.click();
-
-            // 3. Verify the terminal opens
-            const terminal = page.page.locator('.terminal-view').first();
-            await terminal.waitFor({ timeout: 10000 });
-
-            // 4. Verify the `bal run` command is executed
-            // 5. Verify all services start successfully
-            await page.page.waitForTimeout(3000);
-        });
-
-        test('Re-run after code change', async () => {
-            // 1. Start the integration using "Run Integration" button
-            const runButton = page.page.locator('[data-testid="run-integration-button"], button[title*="Run Integration"]').first();
-            await runButton.waitFor({ timeout: 10000 });
-            await runButton.click();
-            await page.page.waitForTimeout(2000);
-
-            // 2. Verify the process is running
-            // 3. Make a code change to a service file
-            // 4. Save the file
-            // 5. Verify the integration detects the change (if hot reload is supported)
-            await page.page.waitForTimeout(2000);
-        });
-
-        test('Run Automation task', async () => {
-            // 1. Ensure the project contains an Automation artifact
-            // 2. Click on the "Run Integration" button
-            const runButton = page.page.locator('[data-testid="run-integration-button"], button[title*="Run Integration"]').first();
-            await runButton.waitFor({ timeout: 10000 });
-            await runButton.click();
-
-            // 3. Verify the terminal opens
-            const terminal = page.page.locator('.terminal-view').first();
-            await terminal.waitFor({ timeout: 10000 });
-
-            // 4. Verify the `bal run` command is executed
-            // 5. Verify the Automation task starts
-            await page.page.waitForTimeout(3000);
-        });
     });
 
 

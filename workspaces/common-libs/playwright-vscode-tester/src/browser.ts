@@ -90,6 +90,7 @@ export class VSBrowser {
             "security.workspace.trust.enabled": false,
             "files.simpleDialog.enable": true,
             "terminal.integrated.copyOnSelection": true,
+            "terminal.integrated.gpuAcceleration": "off",
             "extensions.ignoreRecommendations": true,
             "extensions.autoUpdate": false,
             "chat.disableAIFeatures": true,
