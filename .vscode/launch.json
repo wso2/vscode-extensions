@@ -286,7 +286,7 @@
             "outFiles": [
                 "${workspaceFolder}/workspaces/ballerina/ballerina-extension/out/test/**/*.js"
             ],
-            "preLaunchTask": "compile:ballerina-tests",
+            "preLaunchTask": "clean-and-compile:ballerina-tests",
             "envFile": "${workspaceFolder}/workspaces/ballerina/ballerina-extension/.env"
         },
         {
@@ -308,7 +308,7 @@
             "outFiles": [
                 "${workspaceFolder}/workspaces/ballerina/ballerina-extension/out/test/**/*.js"
             ],
-            "preLaunchTask": "compile:ballerina-tests",
+            "preLaunchTask": "clean-and-compile:ballerina-tests",
             "envFile": "${workspaceFolder}/workspaces/ballerina/ballerina-extension/.env"
         },
         {
