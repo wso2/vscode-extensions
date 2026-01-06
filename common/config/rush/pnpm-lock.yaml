@@ -2763,9 +2763,6 @@ importers:
       del-cli:
         specifier: ^6.0.0
         version: 6.0.0
-      mkdirp:
-        specifier: ^3.0.1
-        version: 3.0.1
       mocha:
         specifier: ^11.5.0
         version: 11.7.5
@@ -4382,9 +4379,6 @@ importers:
       del-cli:
         specifier: ^6.0.0
         version: 6.0.0
-      mkdirp:
-        specifier: ^3.0.1
-        version: 3.0.1
       mocha:
         specifier: ^11.5.0
         version: 11.7.5
@@ -37133,8 +37127,8 @@ snapshots:
 
   '@webpack-cli/configtest@3.0.1(webpack-cli@6.0.1)(webpack@5.104.1)':
     dependencies:
-      webpack: 5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(webpack-cli@6.0.1)
-      webpack-cli: 6.0.1(webpack-dev-server@5.2.2)(webpack@5.104.1)
+      webpack: 5.104.1(webpack-cli@6.0.1)
+      webpack-cli: 6.0.1(webpack@5.104.1)
 
   '@webpack-cli/info@1.5.0(webpack-cli@4.10.0)':
     dependencies:
@@ -37148,8 +37142,8 @@ snapshots:
 
   '@webpack-cli/info@3.0.1(webpack-cli@6.0.1)(webpack@5.104.1)':
     dependencies:
-      webpack: 5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(webpack-cli@6.0.1)
-      webpack-cli: 6.0.1(webpack-dev-server@5.2.2)(webpack@5.104.1)
+      webpack: 5.104.1(webpack-cli@6.0.1)
+      webpack-cli: 6.0.1(webpack@5.104.1)
 
   '@webpack-cli/serve@1.7.0(webpack-cli@4.10.0)':
     dependencies:
