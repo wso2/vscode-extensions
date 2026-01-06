@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { ExpandedDMModel, IOType, Mapping, Query } from "@wso2/ballerina-core";
+import { ExpandedDMModel, IOType, Mapping, NewMapping, Query } from "@wso2/ballerina-core";
 
 export interface BaseVisitor {
     beginVisit?(node: ExpandedDMModel, parent?: ExpandedDMModel): void;
@@ -37,4 +37,6 @@ export interface BaseVisitor {
     beginVisitQuery?(query: Query, parent?: ExpandedDMModel): void;
     endVisitQuery?(query: Query, parent?: ExpandedDMModel): void;
 
+    beginVisitNewMapping?(node: NewMapping): void;
+    endVisitNewMapping?(node: NewMapping): void;
 }

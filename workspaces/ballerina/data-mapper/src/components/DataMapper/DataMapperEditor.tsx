@@ -44,9 +44,11 @@ import { IntermediateNodeInitVisitor } from "../../visitors/IntermediateNodeInit
 import {
     LinkConnectorNode,
     QueryExprConnectorNode,
-    EmptyInputsNode
+    EmptyInputsNode,
+    BinaryConnectorNode
 } from "../Diagram/Node";
 import { SubMappingConfigForm } from "./SidePanel/SubMappingConfig/SubMappingConfigForm";
+import { IntermediateNodeInitVisitorV2 } from "../../visitors/IntermediateNodeInitVisitorV2";
 
 const fadeIn = keyframes`
     from { opacity: 0.5; }
@@ -235,9 +237,16 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
             );
             traverseNode(model, intermediateNodeInitVisitor);
 
+            const intermediateNodeInitVisitorV2 = new IntermediateNodeInitVisitorV2(
+                context,
+                nodes.filter(node => node instanceof BinaryConnectorNode)
+            );
+            traverseNode(model, intermediateNodeInitVisitorV2);
+
             setNodes([
                 ...inputNodes,
                 outputNode,
+                ...intermediateNodeInitVisitorV2.getNodes(),
                 ...intermediateNodeInitVisitor.getNodes()
             ]);
         } catch (error) {

@@ -22,6 +22,8 @@ import debounce from "lodash/debounce";
 
 import {
     ExpandedDMModel,
+    NewMapping,
+    BinaryInput,
     DMFormProps,
     DMModel,
     ModelState,
@@ -155,8 +157,28 @@ export function DataMapperView(props: DataMapperViewProps) {
                         }
                     );
                     console.log(">>> [Data Mapper] processed expandedModel:", expandedModelResponse);
+                    const expandedModel = expandedModelResponse.expandedModel;
+                    const m: Mapping = {
+                        output: "",
+                        inputs: [],
+                        expression: ""
+                    };
+                    const newExpandedModel: ExpandedDMModel = {
+                            ...expandedModel,
+                            newMappings: [genBinaryMapping()],
+                            mappings: [{
+                                output: "var1.name2",
+                                inputs: [],
+                                expression: "\"\"\n"
+                            }, {
+                                output: "var1.name1",
+                                inputs: ["var2.name1"],
+                                expression: "\"\"\n"
+                            }]
+                    };
+
                     setModelState({
-                        model: expandedModelResponse.expandedModel,
+                        model: newExpandedModel,
                         hasInputsOutputsChanged: hasInputsChanged || hasOutputChanged || hasRefsChanged,
                         hasSubMappingsChanged: hasSubMappingsChanged || hasRefsChanged
                     });
@@ -168,10 +190,24 @@ export function DataMapperView(props: DataMapperViewProps) {
 
             processExpandedModel();
         } else {
+            const m: Mapping = {
+                        output: "",
+                        inputs: [],
+                        expression: ""
+                    };
             setModelState(prev => ({
                 model: {
                     ...prev.model!,
-                    mappings: model.mappings,
+                    newMappings: [genBinaryMapping()],
+                    mappings: [{
+                        output: "var1.name2",
+                        inputs: [],
+                        expression: "\"\"\n"
+                    }, {
+                        output: "var1.name1",
+                        inputs: ["var2.name1"],
+                        expression: "\"\"\n"
+                    }],
                     query: model.query
                 }
             }));
@@ -432,3 +468,26 @@ const hasSignatureChanged = (
     const previousObj = JSON.parse(previous);
     return JSON.stringify(currentObj[field]) !== JSON.stringify(previousObj[field]);
 };
+
+function genBinaryMapping() : NewMapping {
+    const binaryNode: BinaryInput = {
+        kind: "binary",
+        operator: "+",
+        expression: "",
+        left: {
+            id: "var2.name1",
+            kind: "basic",
+            expression: "var2.name1"
+        },
+        right: {
+            id: "var2.name2",
+            kind: "basic",
+            expression: "var2.name2"
+        }
+    };
+
+    return {
+        outputId: "var1.name1",
+        input: binaryNode
+    };
+}

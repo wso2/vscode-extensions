@@ -15,7 +15,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { FieldCount } from "../../Hooks";
 import { InputNode } from "../Node";
 import { DataMapperNodeModel } from "../Node/commons/DataMapperNode";
 import {
@@ -25,6 +24,11 @@ import {
     IO_NODE_HEADER_HEIGHT,
     defaultModelOptions
 } from "./constants";
+
+export interface FieldCount {
+    id: string;
+    numberOfFields: number;
+}
 
 export function calculateZoomLevel(screenWidth: number) {
     const minWidth = 200;

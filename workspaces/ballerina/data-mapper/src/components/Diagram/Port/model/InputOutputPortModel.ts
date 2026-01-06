@@ -60,7 +60,7 @@ export class InputOutputPortModel extends PortModel<PortModelGenerics & InputOut
 	constructor(public portAttributes: PortAttributes) {
 		super({
 			type: INPUT_OUTPUT_PORT,
-			name: `${portAttributes.portName}.${portAttributes.portType}`
+			name: `${portAttributes.portName}.${portAttributes.portType}` // this is the port name
 		});
 		this.attributes = portAttributes;
 		this.linkedPorts = [];

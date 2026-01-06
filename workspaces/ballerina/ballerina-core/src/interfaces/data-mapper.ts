@@ -103,6 +103,41 @@ export interface IOType {
     typeInfo?: TypeInfo;
 }
 
+export type Input = BasicInput | BinaryInput | QueryInput | UndefinedInput;
+
+export interface BaseInput {
+    expression: string;
+    kind: string;
+}
+
+export interface BasicInput extends BaseInput {
+    id: string;
+}
+
+export interface BinaryInput extends BaseInput {
+    kind: "binary";
+    operator: "+" | "-" | "*" | "/" | "%" | "&&" | "||" | "==" | "===" | "!=" | "!==" | "<" | "<=" | ">" | ">=";
+    left: Input;
+    right: Input;
+}
+
+export interface QueryInput extends BasicInput {
+    kind: "query";
+    id: string; // collection id
+    // clases: Clauses;
+    mappings: Mapping[]
+}
+
+export interface UndefinedInput extends BaseInput {
+    kind: "undefined";
+    inputs?: Input[];
+}
+
+export interface NewMapping {
+    outputId: string;
+    input?: Input;
+}
+
 export interface Mapping {
     output: string,
     inputs?: string[];
@@ -122,6 +157,7 @@ export interface ExpandedDMModel {
     output: IOType;
     subMappings?: IOType[] | Mapping[];
     mappings: Mapping[];
+    newMappings?: NewMapping[];
     source: string;
     rootViewId: string;
     query?: Query;
