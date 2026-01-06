@@ -17,6 +17,8 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs/promises';
 import { ApiCollection, ApiFolder, ApiRequestItem } from '@wso2/api-tryit-core';
 
 export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem> {
@@ -24,9 +26,125 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 	private _onDidChangeTreeData: vscode.EventEmitter<ApiTreeItem | undefined | null | void> = new vscode.EventEmitter<ApiTreeItem | undefined | null | void>();
 	readonly onDidChangeTreeData: vscode.Event<ApiTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
 
-	constructor() {
-		// Initialize with sample data matching the structure
-		this.collections = this.getSampleCollections();
+	constructor(private workspacePath?: string) {
+		this.loadCollections();
+	}
+
+	private async loadCollections(): Promise<void> {
+		try {
+			// Use provided workspace path or default to current workspace
+			const storagePath = this.workspacePath || 
+				(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '');
+
+			if (!storagePath) {
+				// Show error notification if no workspace is available
+				vscode.window.showErrorMessage('No workspace path available. Please open a workspace or specify a path.');
+				return;
+			}
+
+			// Discover collections by reading directories
+			const entries = await fs.readdir(storagePath, { withFileTypes: true });
+			this.collections = [];
+
+			for (const entry of entries) {
+				// Skip hidden directories and files
+				if (entry.isDirectory() && !entry.name.startsWith('.')) {
+					try {
+						const collectionPath = path.join(storagePath, entry.name);
+						const collection = await this.loadCollection(collectionPath, entry.name);
+						if (collection) {
+							this.collections.push(collection);
+						}
+					} catch (error) {
+						vscode.window.showErrorMessage(`Error loading collection ${entry.name}, ${error as string}`);
+					}
+				}
+			}
+
+			// Notify tree of changes
+			this.refresh();
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to load API collections, ${error as string}`);
+		}
+	}
+
+	private async loadCollection(collectionPath: string, collectionId: string): Promise<ApiCollection | null> {
+		try {
+			// Read collection metadata
+			const metadataPath = path.join(collectionPath, 'collection.json');
+			const metadataContent = await fs.readFile(metadataPath, 'utf-8');
+			const metadata = JSON.parse(metadataContent);
+
+			// Discover folders by reading directories
+			const entries = await fs.readdir(collectionPath, { withFileTypes: true });
+			const folders: ApiFolder[] = [];
+
+			for (const entry of entries) {
+				if (entry.isDirectory() && !entry.name.startsWith('.')) {
+					try {
+						const folderPath = path.join(collectionPath, entry.name);
+						const folder = await this.loadFolder(folderPath, entry.name, metadata.id);
+						if (folder) {
+							folders.push(folder);
+						}
+					} catch (error) {
+						vscode.window.showErrorMessage(`Error loading folder ${entry.name} in collection ${collectionId}, ${error as string}.`);
+					}
+				}
+			}
+
+			return {
+				id: metadata.id,
+				name: metadata.name,
+				description: metadata.description,
+				folders
+			};
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to load collection ${collectionId}, ${error as string}.`);
+			// If collection metadata is missing or invalid, skip this collection
+			return null;
+		}
+	}
+
+	private async loadFolder(folderPath: string, folderId: string, collectionId: string): Promise<ApiFolder | null> {
+		try {
+			// Read folder metadata
+			const folderMetadataPath = path.join(folderPath, 'folder.json');
+			const folderContent = await fs.readFile(folderMetadataPath, 'utf-8');
+			const folderMetadata = JSON.parse(folderContent);
+
+			// Read all requests in folder
+			const items: ApiRequestItem[] = [];
+			const files = await fs.readdir(folderPath);
+
+			for (const file of files) {
+				if (file !== 'folder.json' && file.endsWith('.json')) {
+					try {
+						const requestPath = path.join(folderPath, file);
+						const requestContent = await fs.readFile(requestPath, 'utf-8');
+						const persistedRequest = JSON.parse(requestContent);
+
+						items.push({
+							id: persistedRequest.id,
+							name: persistedRequest.name,
+							request: persistedRequest.request,
+							response: persistedRequest.response
+						});
+					} catch (error) {
+						vscode.window.showErrorMessage(`Error loading request ${file} in folder ${folderId}, ${error as string}.`);
+					}
+				}
+			}
+
+			return {
+				id: folderMetadata.id,
+				name: folderMetadata.name,
+				items
+			};
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to load folder ${folderId} in collection ${collectionId}, ${error as string}.`);
+			return null;
+		}
 	}
 
 	private getSampleCollections(): ApiCollection[] {
@@ -228,6 +346,16 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 				]
 			}
 		];
+	}
+
+
+	/**
+	 * Set workspace path for loading collections
+	 * Used when workspace needs to be changed dynamically
+	 */
+	setWorkspacePath(workspacePath: string): void {
+		this.workspacePath = workspacePath;
+		this.loadCollections();
 	}
 
 	refresh(): void {
