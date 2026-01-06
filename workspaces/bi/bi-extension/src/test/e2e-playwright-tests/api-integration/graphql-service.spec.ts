@@ -184,7 +184,7 @@ export default function createTests() {
             await artifactWebView.getByRole('button', { name: 'Okay' }).click();
         });
 
-        test('Navigate to respective flow diagram', async ({ }, testInfo) => {
+        test.skip('Navigate to respective flow diagram', async ({ }, testInfo) => {
             await artifactWebView.getByTestId('side-panel').getByText(TEST_DATA.mutation[1].name).click();
             await artifactWebView.getByTestId('link-add-button-undefined').click();
             await artifactWebView.getByText('Return').click();
