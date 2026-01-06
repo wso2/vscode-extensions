@@ -21,6 +21,7 @@ import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
 import { GraphQLServiceUtils } from './graphqlUtils';
 import { TypeEditorUtils } from '../type-editor/TypeEditorUtils';
+import { DEFAULT_PROJECT_NAME } from '../utils/helpers/setup';
 
 const TEST_DATA = {
     editedBasePath: (attempt: number) => `/editedSample${attempt}`,
@@ -190,6 +191,20 @@ export default function createTests() {
             await artifactWebView.getByText('Return').click();
             await artifactWebView.getByRole('textbox', { name: 'Expression' }).fill(TEST_DATA.mutation[1].expression);
             await artifactWebView.getByRole('button', { name: 'Save' }).click();
+        });
+
+        test('Delete GraphQL Service', async ({ }, testInfo) => {
+            const testAttempt = testInfo.retry + 1;
+            console.log('Deleting a service in test attempt: ', testAttempt);
+            const projectExplorer = new ProjectExplorer(page.page);
+            const sampleName = TEST_DATA.editedBasePath(testAttempt);
+            const serviceTreeItem = await projectExplorer.findItem([DEFAULT_PROJECT_NAME, `GraphQL Service - ${sampleName}`], true);
+            await serviceTreeItem.click({ button: 'right' });
+            const deleteButton = page.page.getByRole('button', { name: 'Delete' }).first();
+            await deleteButton.waitFor({ timeout: 5000 });
+            await deleteButton.click();
+            await page.page.waitForTimeout(500);
+            await expect(serviceTreeItem).not.toBeVisible({ timeout: 10000 });
         });
     });
 }

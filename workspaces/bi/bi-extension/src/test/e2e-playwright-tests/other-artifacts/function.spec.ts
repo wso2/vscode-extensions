@@ -16,10 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { addArtifact, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
+import { DEFAULT_PROJECT_NAME } from '../utils/helpers/setup';
 
 export default function createTests() {
     test.describe('Function Artifact Tests', {
@@ -83,6 +84,24 @@ export default function createTests() {
             await form.submit('Save');
             const context = artifactWebView.locator(`text=${functionName}`);
             await context.waitFor();
+        });
+
+        test('Delete Function Artifact', async ({ }, testInfo) => {
+            const testAttempt = testInfo.retry + 1;
+            console.log('Deleting a function in test attempt: ', testAttempt);
+            const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
+            if (!artifactWebView) {
+                throw new Error('WSO2 Integrator: BI webview not found');
+            }
+
+            const projectExplorer = new ProjectExplorer(page.page);
+            const functionTreeItem = await projectExplorer.findItem([DEFAULT_PROJECT_NAME, `Functions`, `${functionName}`], true);
+            await functionTreeItem.click({ button: 'right' });
+            const deleteButton = page.page.getByRole('button', { name: 'Delete' }).first();
+            await deleteButton.waitFor({ timeout: 5000 });
+            await deleteButton.click();
+            await page.page.waitForTimeout(500);
+            await expect(functionTreeItem).not.toBeVisible({ timeout: 10000 });
         });
     });
 }

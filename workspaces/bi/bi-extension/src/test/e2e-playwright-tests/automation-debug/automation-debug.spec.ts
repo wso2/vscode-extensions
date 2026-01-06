@@ -20,17 +20,30 @@ import { addArtifact, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer, Diagram, SidePanel } from '../utils/pages';
 import { DEFAULT_PROJECT_NAME } from '../utils/helpers/setup';
+import fs from "fs";
+import { FileUtils } from '../utils/helpers/fileSystem';
+import path from 'path';
 
 export default function createTests() {
     // Debug Integration Tests
     test.describe('Debug Integration Tests', {
         tag: '@group1',
     }, async () => {
+        initTest();
         test('Click Debug button from toolbar', async () => {
             const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page, 30000);
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
+
+            // Setup the project by applying the data.txt content into automation file
+            const sampleData = fs.readFileSync(path.join(__dirname, 'data.txt'), 'utf8');
+            FileUtils.updateProjectFile('automation.bal', sampleData);
+
+            // Refresh the project explorer
+            const projectExplorer = new ProjectExplorer(page.page);
+            await projectExplorer.refresh('sample');
+
             // 2. Verify the "Debug Integration" button is visible in the editor toolbar
             // Look for the button with aria-label="Debug Integration" and class "action-label icon"
             const debugButton = page.page.locator('a.action-label.icon[aria-label="Debug Integration"]').first();
@@ -59,16 +72,6 @@ export default function createTests() {
         });
 
         test('Verify debug session starts', async () => {
-            // 1. Click on the "Debug Integration" button
-            const projectExplorer = new ProjectExplorer(page.page);
-            await projectExplorer.findItem([DEFAULT_PROJECT_NAME, 'Entry Points', 'main'], true);
-            const debugButton = page.page.locator('[data-testid="debug-integration-button"], button[title*="Debug"]').first();
-            await debugButton.waitFor({ timeout: 10000 });
-            await debugButton.click();
-
-            // 2. Verify the debug session starts
-            await page.page.waitForTimeout(2000);
-
             // 3. Verify the debug toolbar appears at the top of the editor
             const debugToolbar = page.page.locator('[data-testid="debug-toolbar"], .monaco-toolbar').first();
             await debugToolbar.waitFor({ timeout: 10000 });

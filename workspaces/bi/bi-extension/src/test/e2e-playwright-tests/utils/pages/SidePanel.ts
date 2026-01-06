@@ -21,7 +21,7 @@ import { Frame, Locator, Page } from "@playwright/test";
 export class SidePanel {
     private sidePanel!: Locator;
 
-    constructor(private _container: Frame, private _page: Page) {}
+    constructor(private _container: Frame, private _page: Page) { }
 
     public async init() {
         this.sidePanel = this._container.getByTestId('side-panel');
@@ -39,5 +39,14 @@ export class SidePanel {
     public async clickNode(nodeTitle: string): Promise<void> {
         const nodeContainer = this.getLocator().getByText(nodeTitle, { exact: true });
         await nodeContainer.click();
+    }
+
+    /**
+     * Expand a section in the side panel by title
+     * @param sectionTitle - Title of the section to expand. This can be found via the title attribute of the section.
+     */
+    public async expandSection(sectionTitle: string): Promise<void> {
+        const sectionContainer = this.getLocator().getByText(sectionTitle, { exact: true });
+        await sectionContainer.click();
     }
 }

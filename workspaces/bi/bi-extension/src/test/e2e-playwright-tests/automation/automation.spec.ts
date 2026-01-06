@@ -98,7 +98,6 @@ export default function createTests() {
             const projectExplorer = new ProjectExplorer(page.page);
             await projectExplorer.findItem([DEFAULT_PROJECT_NAME, 'Entry Points', 'main'], false);
         });
-
         test('Edit Automation', async () => {
             // Navigate to an existing Automation in the automation designer view
             const projectExplorer = new ProjectExplorer(page.page);
@@ -139,7 +138,7 @@ export default function createTests() {
             await page.page.waitForTimeout(500);
 
             // 8. Click on the "Type" combobox to select a type
-            const typeCombobox = artifactWebView.getByRole('combobox', { name: /Type/i }).first();
+            const typeCombobox = artifactWebView.locator('[data-testid="ex-editor-type"] vscode-dropdown').first();
             await typeCombobox.waitFor({ timeout: 5000 });
             await typeCombobox.click();
 

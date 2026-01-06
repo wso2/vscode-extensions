@@ -126,10 +126,10 @@ export const DEFAULT_PROJECT_NAME = 'sample';
 
 export async function createProject(page: ExtendedPage, projectName?: string) {
     console.log('Creating new project');
-    
+
     // Execute bal pull command before project creation
     await executeBallPullCommand();
-    
+
     await setupBallerinaIntegrator();
     const webview = await getWebview('WSO2 Integrator: BI', page);
     if (!webview) {
@@ -158,7 +158,7 @@ export async function createProject(page: ExtendedPage, projectName?: string) {
     await integrationName.waitFor({ timeout: 200000 });
 }
 
-export function initTest(newProject: boolean = false, skipProjectCreation: boolean = false, cleanupAfter?: boolean, projectName?: string) {
+export function initTest(newProject: boolean = true, skipProjectCreation: boolean = false, cleanupAfter?: boolean, projectName?: string) {
     test.beforeAll(async ({ }, testInfo) => {
         console.log(`\n▶️  STARTING TEST: ${testInfo.title} (Attempt ${testInfo.retry + 1})`);
         if (!existsSync(path.join(newProjectPath, projectName ?? 'sample')) || newProject) {

@@ -20,7 +20,7 @@ import path from "path";
 import { newProjectPath } from "./setup";
 import fs from "fs";
 
-type FileType = 'agents.bal' | 'config.bal' | 'connections.bal' | 'data_mappings.bal' | 'functions.bal' | 'main.bal' | 'types.bal';
+type FileType = 'agents.bal' | 'config.bal' | 'connections.bal' | 'data_mappings.bal' | 'functions.bal' | 'main.bal' | 'types.bal' | 'automation.bal';
 
 export namespace FileUtils {
     export function updateProjectFile(fileName: FileType, content: string) {
