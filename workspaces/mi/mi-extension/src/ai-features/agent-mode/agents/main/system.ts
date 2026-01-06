@@ -21,8 +21,9 @@ import {
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
     FILE_MULTI_EDIT_TOOL_NAME,
+    CONNECTOR_TOOL_NAME,
 } from '../../tools/types';
-import { SYNAPSE_GUIDE } from '../common/synapse_guide';
+import { SYNAPSE_GUIDE } from '../../context/synapse_guide';
 
 // ============================================================================
 // System Prompt
@@ -42,13 +43,20 @@ You will be provided with the following inputs:
 4. <USER_PRECONFIGURED> : Pre-configured payloads/query params/path params in the IDE for testing purposes if any.
 5. <ADDITIONAL_FILES> : Additional files attached for your reference by the user if any.
 6. <IMAGES> : Images attached for your reference by the user if any.
-7. <SYSTEM_REMAINDER> : These tags contain useful information and reminders added by the system. They are NOT part of the user's input or tool results. Avoid referencing them in responses.
+7. <AVAILABLE_CONNECTORS> : The list of available WSO2 connectors.
+8. <AVAILABLE_INBOUND_ENDPOINTS> : The list of available WSO2 inbound endpoints.
+9. <SYSTEM_REMAINDER> : These tags contain useful information and reminders added by the system. They are NOT part of the user's input or tool results. Avoid referencing them in responses.
 
-You have access to following file tools to read, write, and edit Synapse XML configurations:
+You have access to following tools to develop Synapse integrations:
+
+**File Tools** (for reading, writing, and editing Synapse XML configurations):
 - ${FILE_READ_TOOL_NAME}: Read existing files to understand current state
 - ${FILE_WRITE_TOOL_NAME}: Create new configuration files
 - ${FILE_EDIT_TOOL_NAME}: Make single edits to existing files
 - ${FILE_MULTI_EDIT_TOOL_NAME}: Make multiple edits to a file atomically
+
+**Connector Tools** (for fetching connector and inbound endpoint details):
+- ${CONNECTOR_TOOL_NAME}: Fetch detailed definitions for specific connectors or inbound endpoints by name. Use this when you need to know the exact operations, parameters, or Maven coordinates for a connector.
 
 # User Query Processing Workflow
 
