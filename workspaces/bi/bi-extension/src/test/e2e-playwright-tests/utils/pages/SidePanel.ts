@@ -37,7 +37,7 @@ export class SidePanel {
      * @param nodeTitle - Title of the node to click. This can be found via the title attribute of the node.
      */
     public async clickNode(nodeTitle: string): Promise<void> {
-        const nodeContainer = this.getLocator().getByTitle(nodeTitle);
+        const nodeContainer = this.getLocator().getByText(nodeTitle, { exact: true });
         await nodeContainer.click();
     }
 }
