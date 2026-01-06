@@ -20,6 +20,7 @@ import * as Handlebars from 'handlebars';
 import * as fs from 'fs';
 import * as path from 'path';
 import { formatFileTree, getExistingFiles } from '../../../utils/file-utils';
+import { getAvailableConnectors, getAvailableInboundEndpoints } from '../../tools/connector_tools';
 
 // ============================================================================
 // User Prompt Template
@@ -47,6 +48,14 @@ This is the file that the user is currently opened in IDE. User may refer it as 
 </USER_PRECONFIGURED>
 These are preconfigured values that should be accessed using Synapse expressions in the integration flow. Always use Synapse expressions when referring to these values.
 {{/if}}
+
+<AVAILABLE_CONNECTORS>
+{{available_connectors}}
+</AVAILABLE_CONNECTORS>
+
+<AVAILABLE_INBOUND_ENDPOINTS>
+{{available_inbound_endpoints}}
+</AVAILABLE_INBOUND_ENDPOINTS>
 
 <SYSTEM_REMAINDER>
 {{system_remainder}}
@@ -147,12 +156,18 @@ export async function getUserPrompt(params: UserPromptParams): Promise<string> {
     // Get currently opened file content
     const currentlyOpenedFile = await getCurrentlyOpenedFile(params.projectPath);
 
+    // Get available connectors and inbound endpoints
+    const availableConnectors = getAvailableConnectors();
+    const availableInboundEndpoints = getAvailableInboundEndpoints();
+
     // Prepare template context
     const context: Record<string, any> = {
         question: params.query,
         fileList: fileList,
         currentlyOpenedFile: currentlyOpenedFile, // Currently editing file (optional)
         userPreconfigured: params.payloads, // Pre-configured payloads (optional)
+        available_connectors: availableConnectors.join(', '), // Available connectors list
+        available_inbound_endpoints: availableInboundEndpoints.join(', '), // Available inbound endpoints list
         system_remainder: 'You are operating in AGENT_MODE.'
     };
 

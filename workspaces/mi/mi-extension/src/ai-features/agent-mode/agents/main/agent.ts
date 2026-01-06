@@ -31,10 +31,15 @@ import {
     createMultiEditExecute,
 } from '../../tools/file_tools';
 import {
+    createConnectorTool,
+    createConnectorExecute,
+} from '../../tools/connector_tools';
+import {
     FILE_WRITE_TOOL_NAME,
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
     FILE_MULTI_EDIT_TOOL_NAME,
+    CONNECTOR_TOOL_NAME,
 } from '../../tools/types';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
 
@@ -157,6 +162,9 @@ export async function executeAgent(
             [FILE_MULTI_EDIT_TOOL_NAME]: createMultiEditTool(
                 createMultiEditExecute(request.projectPath, modifiedFiles)
             ),
+            [CONNECTOR_TOOL_NAME]: createConnectorTool(
+                createConnectorExecute()
+            ),
         };
 
         // Start streaming
@@ -187,10 +195,15 @@ export async function executeAgent(
                     const toolInput = part.input as any;
                     logDebug(`[Agent] Tool call: ${part.toolName}`);
 
-                    // Extract relevant info for display - send full file_path
+                    // Extract relevant info for display
                     let displayInput: any = undefined;
                     if ([FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_MULTI_EDIT_TOOL_NAME].includes(part.toolName)) {
                         displayInput = { file_path: toolInput?.file_path };
+                    } else if (part.toolName === CONNECTOR_TOOL_NAME) {
+                        displayInput = {
+                            connector_names: toolInput?.connector_names,
+                            inbound_endpoint_names: toolInput?.inbound_endpoint_names,
+                        };
                     }
 
                     eventHandler({
@@ -213,6 +226,8 @@ export async function executeAgent(
                         } else if (result.message.includes('updated')) {
                             displayOutput.action = 'updated';
                         }
+                    } else if (part.toolName === CONNECTOR_TOOL_NAME && result?.success) {
+                        displayOutput.action = 'fetched';
                     }
 
                     eventHandler({

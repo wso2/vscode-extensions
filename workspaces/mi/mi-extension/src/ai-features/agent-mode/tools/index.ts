@@ -33,12 +33,24 @@ export {
     createMultiEditTool,
 } from './file_tools';
 
+// Export connector tools
+export {
+    // Execute function creator
+    createConnectorExecute,
+    // Tool creator
+    createConnectorTool,
+    // Utility functions
+    getAvailableConnectors,
+    getAvailableInboundEndpoints,
+} from './connector_tools';
+
 // Re-export tool names for convenience
 export {
     FILE_WRITE_TOOL_NAME,
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
     FILE_MULTI_EDIT_TOOL_NAME,
+    CONNECTOR_TOOL_NAME,
 } from './types';
 
 /**

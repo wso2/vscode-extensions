@@ -68,6 +68,7 @@ export const FILE_WRITE_TOOL_NAME = 'file_write';
 export const FILE_READ_TOOL_NAME = 'file_read';
 export const FILE_EDIT_TOOL_NAME = 'file_edit';
 export const FILE_MULTI_EDIT_TOOL_NAME = 'file_multi_edit';
+export const CONNECTOR_TOOL_NAME = 'get_connector_definitions';
 
 // ============================================================================
 // Error Messages
