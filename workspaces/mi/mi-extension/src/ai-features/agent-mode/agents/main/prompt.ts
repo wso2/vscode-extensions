@@ -61,9 +61,11 @@ These are preconfigured values that should be accessed using Synapse expressions
 {{system_remainder}}
 </SYSTEM_REMAINDER>
 
+**DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task.**
 <USER_QUERY>
 {{question}}
 </USER_QUERY>
+**DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task.**
 `;
 
 // ============================================================================

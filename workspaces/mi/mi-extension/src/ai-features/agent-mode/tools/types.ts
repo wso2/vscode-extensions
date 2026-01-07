@@ -69,6 +69,11 @@ export const FILE_READ_TOOL_NAME = 'file_read';
 export const FILE_EDIT_TOOL_NAME = 'file_edit';
 export const FILE_MULTI_EDIT_TOOL_NAME = 'file_multi_edit';
 export const CONNECTOR_TOOL_NAME = 'get_connector_definitions';
+export const ADD_CONNECTOR_TOOL_NAME = 'add_connector_to_project_pom';
+export const REMOVE_CONNECTOR_TOOL_NAME = 'remove_connector_from_project_pom';
+export const VALIDATE_CODE_TOOL_NAME = 'validate_code';
+export const GET_CONNECTOR_GUIDE_TOOL_NAME = 'get_connector_guide';
+export const GET_AI_CONNECTOR_GUIDE_TOOL_NAME = 'get_ai_connector_guide';
 
 // ============================================================================
 // Error Messages

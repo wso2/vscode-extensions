@@ -20,7 +20,9 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { CONNECTOR_DB } from '../context/connector_db';
 import { INBOUND_DB } from '../context/inbound_db';
-import { ToolResult, CONNECTOR_TOOL_NAME } from './types';
+import { CONNECTOR_DOCUMENTATION, AI_CONNECTOR_DOCUMENTATION } from '../context/connectors_guide';
+import { ToolResult, CONNECTOR_TOOL_NAME, GET_CONNECTOR_GUIDE_TOOL_NAME, GET_AI_CONNECTOR_GUIDE_TOOL_NAME } from './types';
+import { logInfo, logDebug } from '../../copilot/logger';
 
 // ============================================================================
 // Utility Functions
@@ -94,8 +96,8 @@ export function createConnectorExecute(): ConnectorExecuteFn {
         inbound_endpoint_names?: string[];
     }): Promise<ToolResult> => {
         const { connector_names = [], inbound_endpoint_names = [] } = args;
-
-        console.log(`[ConnectorTool] Fetching ${connector_names.length} connectors and ${inbound_endpoint_names.length} inbound endpoints`);
+        
+        logInfo(`[ConnectorTool] Fetching ${connector_names.length} connectors and ${inbound_endpoint_names.length} inbound endpoints`);
 
         // Validate that at least one array has items
         if (connector_names.length === 0 && inbound_endpoint_names.length === 0) {
@@ -158,9 +160,18 @@ export function createConnectorExecute(): ConnectorExecuteFn {
             message += `\n Inbound endpoints not found: ${inboundsNotFound.join(', ')}`;
         }
 
+        // Append general connector documentation
+        message += `\n\n---\n\n${CONNECTOR_DOCUMENTATION}`;
+
+        // If AI connector is selected, append AI-specific documentation
+        const hasAIConnector = connector_names.some(name => name.toLowerCase() === 'ai');
+        if (hasAIConnector) {
+            message += `\n\n---\n\n${AI_CONNECTOR_DOCUMENTATION}`;
+        }
+
         const success = connectorsFound > 0 || inboundsFound > 0;
 
-        console.log(`[ConnectorTool] Retrieved ${connectorsFound} connectors and ${inboundsFound} inbound endpoints`);
+        logDebug(`[ConnectorTool] Retrieved ${connectorsFound} connectors and ${inboundsFound} inbound endpoints${hasAIConnector ? ' (with AI guide)' : ''}`);
 
         return {
             success,
@@ -198,6 +209,8 @@ export function createConnectorTool(execute: ConnectorExecuteFn) {
               * Maven coordinates (groupId, artifactId, version)
               * Available operations and their parameters
               * Configuration options
+              * General connector usage documentation
+              * AI connector documentation (if AI connector is requested)
             - Available connector names are listed in the <AVAILABLE_CONNECTORS> section of the user prompt.
             - Available inbound endpoint names are listed in the <AVAILABLE_INBOUND_ENDPOINTS> section.
 
@@ -206,6 +219,7 @@ export function createConnectorTool(execute: ConnectorExecuteFn) {
             - When you need to know the exact parameters for a connector operation
             - When you need Maven coordinates to add a connector to the project
             - When you need to understand what a connector or inbound endpoint does
+            - When you need connector usage guidelines and best practices
 
             Example:
             - To get definitions for AI and Salesforce connectors:
@@ -215,8 +229,108 @@ export function createConnectorTool(execute: ConnectorExecuteFn) {
 
             Parameters:
             - connector_names: Array of connector names to fetch (optional, but at least one of connector_names or inbound_endpoint_names must be provided)
-            - inbound_endpoint_names: Array of inbound endpoint names to fetch (optional, but at least one of connector_names or inbound_endpoint_names must be provided)`,
+            - inbound_endpoint_names: Array of inbound endpoint names to fetch (optional, but at least one of connector_names or inbound_endpoint_names must be provided)
+
+            Note: This tool automatically appends connector usage documentation to help you use connectors correctly.`,
         inputSchema: connectorInputSchema,
+        execute
+    });
+}
+
+// ============================================================================
+// Documentation Reading Tools
+// ============================================================================
+
+/**
+ * Execute function type for get_connector_guide tool
+ */
+export type GetConnectorGuideExecuteFn = () => Promise<ToolResult>;
+
+/**
+ * Execute function type for get_ai_connector_guide tool
+ */
+export type GetAIConnectorGuideExecuteFn = () => Promise<ToolResult>;
+
+/**
+ * Creates the execute function for get_connector_guide tool
+ */
+export function createGetConnectorGuideExecute(): GetConnectorGuideExecuteFn {
+    return async (): Promise<ToolResult> => {
+        logDebug(`[GetConnectorGuideTool] Fetching connector usage guide`);
+
+        return {
+            success: true,
+            message: CONNECTOR_DOCUMENTATION
+        };
+    };
+}
+
+/**
+ * Creates the execute function for get_ai_connector_guide tool
+ */
+export function createGetAIConnectorGuideExecute(): GetAIConnectorGuideExecuteFn {
+    return async (): Promise<ToolResult> => {
+        logDebug(`[GetAIConnectorGuideTool] Fetching AI connector guide`);
+
+        return {
+            success: true,
+            message: AI_CONNECTOR_DOCUMENTATION
+        };
+    };
+}
+
+/**
+ * Creates the get_connector_guide tool
+ */
+export function createGetConnectorGuideTool(execute: GetConnectorGuideExecuteFn) {
+    return (tool as any)({
+        description: `
+            Retrieves the general connector usage guide and best practices.
+
+            This tool returns comprehensive documentation on:
+            - How to use connectors with connection-based support
+            - Local entry configuration for connectors
+            - Init operation usage patterns
+            - Connector operation response handling (responseVariable and overwriteBody)
+            - Best practices and common patterns
+
+            When to use:
+            - When you need to understand general connector usage patterns
+            - When you're unsure about connection initialization
+            - When you need to know about responseVariable vs overwriteBody
+            - When you want to refresh your knowledge on connector best practices
+
+            This tool takes no parameters and returns the full connector guide.`,
+        inputSchema: z.object({}),
+        execute
+    });
+}
+
+/**
+ * Creates the get_ai_connector_guide tool
+ */
+export function createGetAIConnectorGuideTool(execute: GetAIConnectorGuideExecuteFn) {
+    return (tool as any)({
+        description: `
+            Retrieves the AI connector guide for building AI-powered integrations.
+
+            This tool returns comprehensive documentation on:
+            - Creating basic chat operations with LLM and memory connections
+            - Implementing RAG (Retrieval Augmented Generation) chat
+            - Working with vector stores and embeddings
+            - Creating AI agents with custom tools
+            - Using templates for agent tools
+            - Connecting various AI models (OpenAI, etc.)
+
+            When to use:
+            - When you need to implement AI features in Synapse
+            - When building chatbots or conversational interfaces
+            - When implementing RAG patterns
+            - When creating AI agents with tool calling capabilities
+            - When you need to understand AI connector patterns
+
+            This tool takes no parameters and returns the full AI connector guide.`,
+        inputSchema: z.object({}),
         execute
     });
 }
