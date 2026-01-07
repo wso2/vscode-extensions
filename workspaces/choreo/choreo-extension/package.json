@@ -157,7 +157,7 @@
         "description": "choreo-2",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f188"
+          "fontCharacter": "\\f189"
         }
       }
     }
@@ -168,7 +168,7 @@
     "watch-choreo": "webpack --watch",
     "build": "pnpm run compile && pnpm run copy-webview-lib && pnpm run postbuild",
     "rebuild": "pnpm run clean && pnpm run compile && pnpm run copy-webview-lib && pnpm run postbuild",
-    "copy-webview-lib": "mkdir -p ./resources/jslibs && copyfiles -f ../choreo-webviews/build/* ./resources/jslibs",
+    "copy-webview-lib": "copyfiles -f ../choreo-webviews/build/* ./resources/jslibs",
     "compile-tests": "tsc -p . --outDir dist",
     "watch-tests": "tsc -p . -w --outDir dist",
     "e2e-test-setup": "npx extest get-vscode -c 1.83.1 && npx extest get-chromedriver -c 1.83.1 && npx extest install-vsix -f $(ls vsix/*.vsix)",
@@ -181,7 +181,7 @@
     "lint:fix": "biome check --write . ",
     "test-nyc-cli": "nyc --reporter=html node ./dist/test/runTest.js",
     "test": "rm -rf .vscode-test/extensions && node ./dist/test/runTest.js && nyc report && nyc report --reporter=html",
-    "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/; else vsce package --no-dependencies --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/; fi",
+    "package": "node ../../common-libs/scripts/package-vsix.js --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/",
     "copyVSIX": "copyfiles *.vsix ./vsix",
     "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../..",
     "postbuild": "pnpm run package && pnpm run copyVSIX"
