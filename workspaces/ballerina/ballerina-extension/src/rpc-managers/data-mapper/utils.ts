@@ -537,6 +537,15 @@ function processTypeKind(
                 return processTypeReference(type.ref, parentId, model, visitedRefs);
             }
             break;
+
+        case TypeKind.Json:
+            if (type.fields) {
+                return {
+                    fields: processTypeFields(type as RecordType, parentId, model, visitedRefs),
+                    kind: TypeKind.Record
+                };
+            }
+            break;
     }
     return {};
 }
