@@ -33,6 +33,8 @@ import {
     WorkspaceRootResponse,
     ShowErrorMessageRequest,
     WorkspaceTypeResponse,
+    SetWebviewCacheRequestParam,
+    ShowInfoModalRequest,
     SampleDownloadRequest
 } from "./interfaces";
 
@@ -50,7 +52,11 @@ export interface CommonRPCAPI {
     isNPSupported: () => Promise<boolean>;
     getWorkspaceRoot: () => Promise<WorkspaceRootResponse>;
     showErrorMessage: (params: ShowErrorMessageRequest) => void;
+    showInformationModal: (params: ShowInfoModalRequest) => Promise<string>;
     getCurrentProjectTomlValues: () => Promise<Record<string, any>>;
     getWorkspaceType: () => Promise<WorkspaceTypeResponse>;
+    setWebviewCache: (params: SetWebviewCacheRequestParam) => void;
+    restoreWebviewCache: (params: IDBValidKey) => unknown;
+    clearWebviewCache: (params: IDBValidKey) => void;
     downloadSelectedSampleFromGithub: (params: SampleDownloadRequest) => Promise<boolean>;
 }

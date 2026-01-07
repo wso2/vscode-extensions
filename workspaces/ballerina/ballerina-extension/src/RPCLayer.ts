@@ -45,6 +45,7 @@ import { extension } from './BalExtensionContext';
 import { registerAgentChatRpcHandlers } from './rpc-managers/agent-chat/rpc-handler';
 import { ArtifactsUpdated, ArtifactNotificationHandler } from './utils/project-artifacts-handler';
 import { registerMigrateIntegrationRpcHandlers } from './rpc-managers/migrate-integration/rpc-handler';
+import { registerPlatformExtRpcHandlers } from './rpc-managers/platform-ext/rpc-handler';
 import { AIChatStateMachine } from './views/ai-panel/aiChatMachine';
 
 export class RPCLayer {
@@ -96,6 +97,7 @@ export class RPCLayer {
         registerAiAgentRpcHandlers(RPCLayer._messenger);
         registerIcpServiceRpcHandlers(RPCLayer._messenger);
         registerAgentChatRpcHandlers(RPCLayer._messenger);
+        registerPlatformExtRpcHandlers(RPCLayer._messenger);
 
         // ----- AI Webview RPC Methods
         registerAiPanelRpcHandlers(RPCLayer._messenger);
@@ -139,6 +141,7 @@ async function getContext(): Promise<VisualizerLocation> {
             isBI: context.isBI,
             isInDevant: context.isInDevant,
             projectPath: context.projectPath,
+            workspacePath: context.workspacePath,
             serviceType: context.serviceType,
             type: context.type,
             isGraphql: context.isGraphql,

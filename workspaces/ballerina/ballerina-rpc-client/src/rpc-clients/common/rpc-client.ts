@@ -52,7 +52,13 @@ import {
     runBackgroundTerminalCommand,
     selectFileOrDirPath,
     selectFileOrFolderPath,
-    showErrorMessage
+    showErrorMessage,
+    SetWebviewCacheRequestParam,
+    SetWebviewCache,
+    RestoreWebviewCache,
+    ClearWebviewCache,
+    ShowInfoModalRequest,
+    showInformationModal
 } from "@wso2/ballerina-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -115,6 +121,10 @@ export class CommonRpcClient implements CommonRPCAPI {
     showErrorMessage(params: ShowErrorMessageRequest): void {
         return this._messenger.sendNotification(showErrorMessage, HOST_EXTENSION, params);
     }
+    
+    showInformationModal(params: ShowInfoModalRequest): Promise<string> {
+        return this._messenger.sendRequest(showInformationModal, HOST_EXTENSION, params);
+    }
 
     getCurrentProjectTomlValues(): Promise<Partial<PackageTomlValues>> {
         return this._messenger.sendRequest(getCurrentProjectTomlValues, HOST_EXTENSION);
@@ -124,6 +134,18 @@ export class CommonRpcClient implements CommonRPCAPI {
         return this._messenger.sendRequest(getWorkspaceType, HOST_EXTENSION);
     }
 
+    setWebviewCache(params: SetWebviewCacheRequestParam): Promise<void> {
+        return this._messenger.sendRequest(SetWebviewCache, HOST_EXTENSION, params);
+    }
+
+    restoreWebviewCache(params: IDBValidKey): Promise<unknown> {
+        return this._messenger.sendRequest(RestoreWebviewCache, HOST_EXTENSION, params);
+    }
+
+    clearWebviewCache(params: IDBValidKey): Promise<void> {
+        return this._messenger.sendRequest(ClearWebviewCache, HOST_EXTENSION, params);
+    }
+    
     downloadSelectedSampleFromGithub(params: SampleDownloadRequest): Promise<boolean> {
         return this._messenger.sendRequest(downloadSelectedSampleFromGithub, HOST_EXTENSION, params);
     }

@@ -386,6 +386,9 @@ importers:
       '@wso2/syntax-tree':
         specifier: workspace:*
         version: link:../syntax-tree
+      '@wso2/wso2-platform-core':
+        specifier: workspace:*
+        version: link:../../wso2-platform/wso2-platform-core
       handlebars:
         specifier: ~4.7.8
         version: 4.7.8
@@ -573,6 +576,9 @@ importers:
       zod:
         specifier: ^4.1.8
         version: 4.1.11
+      zustand:
+        specifier: ^5.0.5
+        version: 5.0.9(@types/react@18.2.0)(react@19.1.0)(use-sync-external-store@1.6.0(react@19.1.0))
     devDependencies:
       '@sentry/webpack-plugin':
         specifier: ^1.20.1
@@ -580,6 +586,9 @@ importers:
       '@types/chai':
         specifier: ^4.3.9
         version: 4.3.20
+      '@types/js-yaml':
+        specifier: ~4.0.9
+        version: 4.0.9
       '@types/mocha':
         specifier: ~10.0.3
         version: 10.0.10
@@ -667,9 +676,9 @@ importers:
       webpack-cli:
         specifier: ^6.0.1
         version: 6.0.1(webpack@5.104.1)
-      yarn:
-        specifier: ^1.22.19
-        version: 1.22.22
+      webpack-merge-and-include-globally:
+        specifier: ^2.3.4
+        version: 2.3.4(webpack@5.104.1)
 
   ../../workspaces/ballerina/ballerina-low-code-diagram:
     dependencies:
@@ -926,6 +935,9 @@ importers:
       '@wso2/syntax-tree':
         specifier: workspace:*
         version: link:../syntax-tree
+      '@wso2/wso2-platform-core':
+        specifier: workspace:*
+        version: link:../../wso2-platform/wso2-platform-core
       monaco-editor:
         specifier: 0.44.0
         version: 0.44.0
@@ -1020,6 +1032,9 @@ importers:
       '@wso2/ui-toolkit':
         specifier: workspace:*
         version: link:../../common-libs/ui-toolkit
+      '@wso2/wso2-platform-core':
+        specifier: workspace:*
+        version: link:../../wso2-platform/wso2-platform-core
       lodash:
         specifier: ~4.17.21
         version: 4.17.21
@@ -1120,6 +1135,9 @@ importers:
       '@tanstack/react-query':
         specifier: 5.77.1
         version: 5.77.1(react@18.2.0)
+      '@tanstack/react-query-persist-client':
+        specifier: ^5.77.1
+        version: 5.90.10(@tanstack/react-query@5.77.1(react@18.2.0))(react@18.2.0)
       '@types/lodash':
         specifier: ~4.17.16
         version: 4.17.17
@@ -1183,6 +1201,9 @@ importers:
       highlight.js:
         specifier: ^11.11.1
         version: 11.11.1
+      js-yaml:
+        specifier: ^4.1.1
+        version: 4.1.1
       lodash:
         specifier: ~4.17.21
         version: 4.17.21
@@ -1216,6 +1237,9 @@ importers:
       remark-breaks:
         specifier: ~4.0.0
         version: 4.0.0
+      swagger-ui-react:
+        specifier: 5.22.0
+        version: 5.22.0(@types/react@18.2.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       vscode-uri:
         specifier: ^3.1.0
         version: 3.1.0
@@ -1223,6 +1247,9 @@ importers:
         specifier: ~1.6.1
         version: 1.6.1
     devDependencies:
+      '@types/js-yaml':
+        specifier: ^4.0.5
+        version: 4.0.9
       '@types/lodash.debounce':
         specifier: ^4.0.6
         version: 4.0.9
@@ -1241,6 +1268,9 @@ importers:
       '@types/react-syntax-highlighter':
         specifier: ~15.5.13
         version: 15.5.13
+      '@types/swagger-ui-react':
+        specifier: 5.18.0
+        version: 5.18.0
       '@types/vscode-webview':
         specifier: ~1.57.5
         version: 1.57.5
@@ -9639,13 +9669,25 @@ packages:
   '@tanstack/query-core@5.90.16':
     resolution: {integrity: sha512-MvtWckSVufs/ja463/K4PyJeqT+HMlJWtw6PrCpywznd2NSgO3m4KwO9RqbFqGg6iDE8vVMFWMeQI4Io3eEYww==}
 
+  '@tanstack/query-core@5.90.8':
+    resolution: {integrity: sha512-4E0RP/0GJCxSNiRF2kAqE/LQkTJVlL/QNU7gIJSptaseV9HP6kOuA+N11y4bZKZxa3QopK3ZuewwutHx6DqDXQ==}
+
   '@tanstack/query-persist-client-core@4.27.0':
     resolution: {integrity: sha512-A+dPA7zG0MJOMDeBc/2WcKXW4wV2JMkeBVydobPW9G02M4q0yAj7vI+7SmM2dFuXyIvxXp4KulCywN6abRKDSQ==}
+
+  '@tanstack/query-persist-client-core@5.91.7':
+    resolution: {integrity: sha512-MKJmuHl4LIl3Zs91fL9CQx1XJ8//1bnq8keY5V+cv3SLkPM6Wqx/HYFBcevfFFrzo9TDHob9ivuM4UOGTyQ7Mg==}
 
   '@tanstack/react-query-persist-client@4.28.0':
     resolution: {integrity: sha512-xNpi3YdPOQIyYkKhByYDqTlyCeqICWFhV5PWkoVxYfzlRK6HYX4s+9Int407jEvhBz9cGC4OaL7rd6bynCFrYg==}
     peerDependencies:
       '@tanstack/react-query': 4.28.0
+
+  '@tanstack/react-query-persist-client@5.90.10':
+    resolution: {integrity: sha512-xLAB3W01LGGWLPFD9dKNcl0dWyBU6mPJGyZt6SbkwyuCgHSaKz8sGQ83ryWfn1u/h3nkCOBSXnOTFCLYtMvWeg==}
+    peerDependencies:
+      '@tanstack/react-query': ^5.90.8
+      react: ^18 || ^19
 
   '@tanstack/react-query@4.0.10':
     resolution: {integrity: sha512-Wn5QhZUE5wvr6rGClV7KeQIUsdTmYR9mgmMZen7DSRWauHW2UTynFg3Kkf6pw+XlxxOLsyLWwz/Q6q1lSpM3TQ==}
@@ -13825,6 +13867,9 @@ packages:
 
   es6-promise@4.2.8:
     resolution: {integrity: sha512-HJDGx5daxeIvxdBxvG2cb9g4tEvwIk3i8+nhX0yGrYmZUzbkdg8QbDevheDB8gd0//uPj4c1EQua8Q+MViT0/w==}
+
+  es6-promisify@6.1.1:
+    resolution: {integrity: sha512-HBL8I3mIki5C1Cc9QjKUenHtnG0A5/xA8Q/AllRcfiwl2CZFXGK7ddBiCoRwAix4i2KxcQfjtIVcrVbB3vbmwg==}
 
   es6-shim@0.35.8:
     resolution: {integrity: sha512-Twf7I2v4/1tLoIXMT8HlqaBSS5H2wQTs2wx3MNYCI8K1R1/clXyCazrcVCPm/FuO9cyV8+leEaZOWD5C253NDg==}
@@ -20266,6 +20311,10 @@ packages:
     resolution: {integrity: sha512-g6QUff04oZpHs0eG5p83rFLhHeV00ug/Yf9nZM6fLeUrPguBTkTQOdpAWWspMh55TZfVQDPaN3NQJfbVRAxdIw==}
     engines: {iojs: '>=1.0.0', node: '>=0.10.0'}
 
+  rev-hash@3.0.0:
+    resolution: {integrity: sha512-s+87HfEKAu95TaTxnbCobn0/BkbzR23LHSwVdYvr8mn5+PPjzy+hTWyh92b5oaLgig9TKPe5d6ZcubsVBtUrZg==}
+    engines: {node: '>=8'}
+
   rfdc@1.4.1:
     resolution: {integrity: sha512-q1b3N5QkRUWUl7iyylaaj3kOpIT0N2i9MqIEQXP73GVsN9cw3fdx8X63cEmWhJGi2PPCF23Ijp7ktmd39rawIA==}
 
@@ -22829,6 +22878,11 @@ packages:
     peerDependencies:
       webpack: 1 || 2 || 3
 
+  webpack-merge-and-include-globally@2.3.4:
+    resolution: {integrity: sha512-s5dd7m3ycVBlC7C6GAx91JQzbjhxC/NJRuT2sCkg8WCcF8CE1x/7xwVXqgmt0Fr/H/0sX5C5HE2RdU6+vCY5yg==}
+    peerDependencies:
+      webpack: '>=1.0.0'
+
   webpack-merge@5.10.0:
     resolution: {integrity: sha512-+4zXKdx7UnO+1jaN4l2lHVD+mFvnlZQP/6ljaJVb4SZiwIKeUnrT5l0gkT8z+n4hKpC+jpOv6O9R+gLtag7pSA==}
     engines: {node: '>=10.0.0'}
@@ -23206,11 +23260,6 @@ packages:
 
   yargs@7.1.2:
     resolution: {integrity: sha512-ZEjj/dQYQy0Zx0lgLMLR8QuaqTihnxirir7EwUHp1Axq4e3+k8jXU5K0VLbNvedv1f4EWtBonDIZm0NUr+jCcA==}
-
-  yarn@1.22.22:
-    resolution: {integrity: sha512-prL3kGtyG7o9Z9Sv8IPfBNrWTDmXB4Qbes8A9rEzt6wkJV8mUvoirjU0Mp3GGAU06Y0XQyA3/2/RQFVuK7MTfg==}
-    engines: {node: '>=4.0.0'}
-    hasBin: true
 
   yauzl@2.10.0:
     resolution: {integrity: sha512-p4a9I6X6nu6IhoGmBqAcbJy1mlC4j27vEPZX9F4L4/vZT3Lyq1VkFHw/V/PUcB9Buo+DG3iHkT0x3Qya58zc3g==}
@@ -35345,14 +35394,26 @@ snapshots:
 
   '@tanstack/query-core@5.90.16': {}
 
+  '@tanstack/query-core@5.90.8': {}
+
   '@tanstack/query-persist-client-core@4.27.0':
     dependencies:
       '@tanstack/query-core': 4.27.0
+
+  '@tanstack/query-persist-client-core@5.91.7':
+    dependencies:
+      '@tanstack/query-core': 5.90.8
 
   '@tanstack/react-query-persist-client@4.28.0(@tanstack/react-query@4.28.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0))':
     dependencies:
       '@tanstack/query-persist-client-core': 4.27.0
       '@tanstack/react-query': 4.28.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+
+  '@tanstack/react-query-persist-client@5.90.10(@tanstack/react-query@5.77.1(react@18.2.0))(react@18.2.0)':
+    dependencies:
+      '@tanstack/query-persist-client-core': 5.91.7
+      '@tanstack/react-query': 5.77.1(react@18.2.0)
+      react: 18.2.0
 
   '@tanstack/react-query@4.0.10(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
@@ -40722,6 +40783,8 @@ snapshots:
 
   es6-promise@4.2.8: {}
 
+  es6-promisify@6.1.1: {}
+
   es6-shim@0.35.8: {}
 
   es6-symbol@3.1.4:
@@ -44468,10 +44531,7 @@ snapshots:
       pretty-format: 25.5.0
       throat: 5.0.0
     transitivePeerDependencies:
-      - bufferutil
-      - canvas
       - supports-color
-      - utf-8-validate
 
   jest-leak-detector@25.5.0:
     dependencies:
@@ -49808,6 +49868,8 @@ snapshots:
 
   reusify@1.1.0: {}
 
+  rev-hash@3.0.0: {}
+
   rfdc@1.4.1: {}
 
   rimraf@2.6.3:
@@ -53419,6 +53481,13 @@ snapshots:
       lodash: 4.17.21
       webpack: 5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(webpack-cli@6.0.1)
 
+  webpack-merge-and-include-globally@2.3.4(webpack@5.104.1):
+    dependencies:
+      es6-promisify: 6.1.1
+      glob: 7.2.3
+      rev-hash: 3.0.0
+      webpack: 5.104.1(webpack-cli@6.0.1)
+
   webpack-merge@5.10.0:
     dependencies:
       clone-deep: 4.0.1
@@ -54083,8 +54152,6 @@ snapshots:
       which-module: 1.0.0
       y18n: 3.2.2
       yargs-parser: 5.0.1
-
-  yarn@1.22.22: {}
 
   yauzl@2.10.0:
     dependencies:

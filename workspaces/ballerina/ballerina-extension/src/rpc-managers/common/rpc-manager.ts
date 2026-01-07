@@ -41,7 +41,9 @@ import {
     WorkspaceFileRequest,
     WorkspaceRootResponse,
     WorkspacesFileResponse,
-    WorkspaceTypeResponse
+    WorkspaceTypeResponse,
+    SetWebviewCacheRequestParam,
+    ShowInfoModalRequest,
 } from "@wso2/ballerina-core";
 import child_process from 'child_process';
 import path from "path";
@@ -258,6 +260,10 @@ export class CommonRpcManager implements CommonRPCAPI {
         window.showErrorMessage(messageWithLink.value);
     }
 
+    async showInformationModal(params: ShowInfoModalRequest): Promise<string> {
+        return window.showInformationMessage(params?.message, {modal: true}, ...(params?.items || []));
+    }
+
     async isNPSupported(): Promise<boolean> {
         return extension.ballerinaExtInstance.isNPSupported;
     }
@@ -414,5 +420,17 @@ export class CommonRpcManager implements CommonRPCAPI {
             );
         }
         return isSuccess;
+    }
+
+    async setWebviewCache(params: SetWebviewCacheRequestParam): Promise<void> {
+        await extension.context.workspaceState.update(params.cacheKey, params.data);
+    }
+
+    async restoreWebviewCache(cacheKey: string): Promise<unknown> {
+        return extension.context.workspaceState.get(cacheKey);
+    }
+
+    async clearWebviewCache(cacheKey: string): Promise<void> {
+        await extension.context.workspaceState.update(cacheKey, undefined);
     }
 }

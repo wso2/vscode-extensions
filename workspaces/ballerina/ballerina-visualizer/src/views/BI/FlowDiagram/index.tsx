@@ -59,6 +59,7 @@ import {
     convertEmbeddingProviderCategoriesToSidePanelCategories,
     convertDataLoaderCategoriesToSidePanelCategories,
     convertChunkerCategoriesToSidePanelCategories,
+    enrichCategoryWithDevant,
     convertKnowledgeBaseCategoriesToSidePanelCategories,
 } from "../../../utils/bi";
 import { useDraftNodeManager } from "./hooks/useDraftNodeManager";
@@ -80,6 +81,9 @@ import {
 } from "../AIChatAgent/utils";
 import { DiagramSkeleton } from "../../../components/Skeletons";
 import { AI_COMPONENT_PROGRESS_MESSAGE, AI_COMPONENT_PROGRESS_MESSAGE_TIMEOUT, GET_DEFAULT_MODEL_PROVIDER, LOADING_MESSAGE } from "../../../constants";
+import { useMutation } from "@tanstack/react-query";
+import { ConnectionListItem } from "@wso2/wso2-platform-core";
+import { usePlatformExtContext } from "../../../providers/platform-ext-ctx-provider";
 
 const Container = styled.div`
     width: 100%;
@@ -117,7 +121,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const [suggestedModel, setSuggestedModel] = useState<Flow>();
     const [showSidePanel, setShowSidePanel] = useState(false);
     const [sidePanelView, setSidePanelView] = useState<SidePanelView>(SidePanelView.NODE_LIST);
-    const [categories, setCategories] = useState<PanelCategory[]>([]);
+    const [categories, setCategories] = useState<PanelCategory[]>([]); //
     const [fetchingAiSuggestions, setFetchingAiSuggestions] = useState(false);
     const [showProgressIndicator, setShowProgressIndicator] = useState(false);
     const [showProgressSpinner, setShowProgressSpinner] = useState<boolean>(false);
@@ -128,6 +132,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const [selectedMcpToolkitName, setSelectedMcpToolkitName] = useState<string | undefined>(undefined);
     const [selectedConnectionKind, setSelectedConnectionKind] = useState<ConnectionKind>();
     const [selectedNodeId, setSelectedNodeId] = useState<string>();
+    const [importingConn, setImportingConn] = useState<ConnectionListItem>();
     const [projectOrg, setProjectOrg] = useState<string>("");
     const [isUserAuthenticated, setIsUserAuthenticated] = useState<boolean>(false);
 
@@ -166,6 +171,45 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const isCreatingNewDataLoader = useRef<boolean>(false);
     const isCreatingNewChunker = useRef<boolean>(false);
 
+    const { platformExtState, platformRpcClient, projectToml, onLinkDevantProject, initConnector } = usePlatformExtContext()
+
+    const enrichedCategories = useMemo(()=>{
+         return  enrichCategoryWithDevant(platformExtState?.isLoggedIn, platformExtState?.selectedContext, projectToml?.values, platformExtState?.devantConns?.list, categories, importingConn)
+    },[projectToml?.values, platformExtState, categories, importingConn])
+
+    const { mutate: importConnection } = useMutation({
+        mutationFn: async (data: ConnectionListItem) => {
+            const resp = await rpcClient.getCommonRpcClient().showInformationModal({
+                message: `By proceeding, a custom Ballerina connector will be generated from the openAPI specification of this API service running in Devant. ${data.resourceType ==="THIRD_PARTY_SERVICE" ? "Please initialize the connector with the necessary configurables" : ""}`,
+                items:["Proceed"]
+            })
+            if(resp === "Proceed"){
+                return platformRpcClient?.importDevantComponentConnection({ connectionListItem: data })
+            }
+        },
+        onMutate: (data)=>setImportingConn(data),
+        onSuccess: (data) => {
+            projectToml?.refresh();
+            platformRpcClient?.refreshConnectionList();
+            fetchNodesAndAISuggestions(topNodeRef.current, targetRef.current, false, false);
+            if(data.connectionNode){
+                rpcClient.getVisualizerRpcClient().openView({
+                    type: EVENT_TYPE.OPEN_VIEW,
+                    location: {
+                        view: MACHINE_VIEW.AddConnectionWizard,
+                        documentUri: model.fileName,
+                        metadata: { target: targetRef.current.startLine },
+                    },
+                    isPopup: true,
+                });
+
+                initConnector?.setConnector(data.connectionNode);
+            }
+            
+        },
+        onSettled:() => setImportingConn(undefined)
+    });
+
     useEffect(() => {
         debouncedGetFlowModel();
     }, [breakpointState]);
@@ -197,6 +241,8 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 setShowProgressIndicator(true);
                 if (parent.artifactType === DIRECTORY_MAP.CONNECTION) {
                     updateConnectionWithNewItem(parent.recentIdentifier);
+                    projectToml?.refresh();
+                    platformRpcClient?.refreshConnectionList();
                 }
                 fetchNodesAndAISuggestions(topNodeRef.current, targetRef.current, false, false);
             }
@@ -2371,7 +2417,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 showSidePanel={showSidePanel}
                 sidePanelView={sidePanelView}
                 subPanel={subPanel}
-                categories={categories}
+                categories={enrichedCategories}
                 selectedNode={selectedNodeRef.current}
                 parentNode={parentNodeRef.current}
                 nodeFormTemplate={nodeTemplateRef.current}
@@ -2427,6 +2473,14 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 onSelectNewConnection={handleOnSelectNewConnection}
                 selectedMcpToolkitName={selectedMcpToolkitName}
                 onNavigateToPanel={handleOnNavigateToPanel}
+                // Devant specific callbacks
+                onImportDevantConn={importConnection}
+                onLinkDevantProject={!platformExtState?.selectedContext?.project ? onLinkDevantProject : undefined}
+                onRefreshDevantConnections={
+                    platformExtState?.selectedContext?.project && !platformExtState?.devantConns?.loading
+                        ? () => platformRpcClient?.refreshConnectionList()
+                        : undefined
+                }
             />
 
             <PanelOverlayRenderer />
