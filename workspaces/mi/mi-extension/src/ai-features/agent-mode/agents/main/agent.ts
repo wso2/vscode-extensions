@@ -33,13 +33,30 @@ import {
 import {
     createConnectorTool,
     createConnectorExecute,
+    createGetConnectorGuideTool,
+    createGetConnectorGuideExecute,
+    createGetAIConnectorGuideTool,
+    createGetAIConnectorGuideExecute,
 } from '../../tools/connector_tools';
+import {
+    createAddConnectorTool,
+    createAddConnectorExecute,
+    createRemoveConnectorTool,
+    createRemoveConnectorExecute,
+    createValidateCodeTool,
+    createValidateCodeExecute,
+} from '../../tools/project_tools';
 import {
     FILE_WRITE_TOOL_NAME,
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
     FILE_MULTI_EDIT_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
+    ADD_CONNECTOR_TOOL_NAME,
+    REMOVE_CONNECTOR_TOOL_NAME,
+    VALIDATE_CODE_TOOL_NAME,
+    GET_CONNECTOR_GUIDE_TOOL_NAME,
+    GET_AI_CONNECTOR_GUIDE_TOOL_NAME,
 } from '../../tools/types';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
 
@@ -165,6 +182,21 @@ export async function executeAgent(
             [CONNECTOR_TOOL_NAME]: createConnectorTool(
                 createConnectorExecute()
             ),
+            [ADD_CONNECTOR_TOOL_NAME]: createAddConnectorTool(
+                createAddConnectorExecute(request.projectPath)
+            ),
+            [REMOVE_CONNECTOR_TOOL_NAME]: createRemoveConnectorTool(
+                createRemoveConnectorExecute(request.projectPath)
+            ),
+            [VALIDATE_CODE_TOOL_NAME]: createValidateCodeTool(
+                createValidateCodeExecute(request.projectPath)
+            ),
+            [GET_CONNECTOR_GUIDE_TOOL_NAME]: createGetConnectorGuideTool(
+                createGetConnectorGuideExecute()
+            ),
+            [GET_AI_CONNECTOR_GUIDE_TOOL_NAME]: createGetAIConnectorGuideTool(
+                createGetAIConnectorGuideExecute()
+            ),
         };
 
         // Start streaming
@@ -204,6 +236,16 @@ export async function executeAgent(
                             connector_names: toolInput?.connector_names,
                             inbound_endpoint_names: toolInput?.inbound_endpoint_names,
                         };
+                    } else if (part.toolName === ADD_CONNECTOR_TOOL_NAME || part.toolName === REMOVE_CONNECTOR_TOOL_NAME) {
+                        displayInput = {
+                            connector_names: toolInput?.connector_names,
+                        };
+                    } else if (part.toolName === VALIDATE_CODE_TOOL_NAME) {
+                        displayInput = {
+                            file_paths: toolInput?.file_paths,
+                        };
+                    } else if (part.toolName === GET_CONNECTOR_GUIDE_TOOL_NAME || part.toolName === GET_AI_CONNECTOR_GUIDE_TOOL_NAME) {
+                        displayInput = {}; // No input parameters
                     }
 
                     eventHandler({
@@ -228,6 +270,16 @@ export async function executeAgent(
                         }
                     } else if (part.toolName === CONNECTOR_TOOL_NAME && result?.success) {
                         displayOutput.action = 'fetched';
+                    } else if (part.toolName === ADD_CONNECTOR_TOOL_NAME && result?.success) {
+                        displayOutput.action = 'added';
+                    } else if (part.toolName === REMOVE_CONNECTOR_TOOL_NAME && result?.success) {
+                        displayOutput.action = 'removed';
+                    } else if (part.toolName === VALIDATE_CODE_TOOL_NAME && result?.success) {
+                        displayOutput.action = 'validated';
+                    } else if (part.toolName === GET_CONNECTOR_GUIDE_TOOL_NAME && result?.success) {
+                        displayOutput.action = 'retrieved';
+                    } else if (part.toolName === GET_AI_CONNECTOR_GUIDE_TOOL_NAME && result?.success) {
+                        displayOutput.action = 'retrieved';
                     }
 
                     eventHandler({

@@ -22,6 +22,11 @@ import {
     FILE_EDIT_TOOL_NAME,
     FILE_MULTI_EDIT_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
+    ADD_CONNECTOR_TOOL_NAME,
+    REMOVE_CONNECTOR_TOOL_NAME,
+    VALIDATE_CODE_TOOL_NAME,
+    GET_CONNECTOR_GUIDE_TOOL_NAME,
+    GET_AI_CONNECTOR_GUIDE_TOOL_NAME,
 } from '../../tools/types';
 import { SYNAPSE_GUIDE } from '../../context/synapse_guide';
 
@@ -55,8 +60,15 @@ You have access to following tools to develop Synapse integrations:
 - ${FILE_EDIT_TOOL_NAME}: Make single edits to existing files
 - ${FILE_MULTI_EDIT_TOOL_NAME}: Make multiple edits to a file atomically
 
-**Connector Tools** (for fetching connector and inbound endpoint details):
-- ${CONNECTOR_TOOL_NAME}: Fetch detailed definitions for specific connectors or inbound endpoints by name. Use this when you need to know the exact operations, parameters, or Maven coordinates for a connector.
+**Connector Tools** (for fetching and managing connectors):
+- ${CONNECTOR_TOOL_NAME}: Fetch detailed definitions for specific connectors or inbound endpoints by name. Returns connector details with usage documentation automatically appended. AI connector requests also include AI-specific guide.
+- ${ADD_CONNECTOR_TOOL_NAME}: Add connectors or inbound endpoints to the project. Use this after writing Synapse XML that uses connector operations.
+- ${REMOVE_CONNECTOR_TOOL_NAME}: Remove connectors or inbound endpoints from the project. Use this when cleaning up unused connectors.
+- ${GET_CONNECTOR_GUIDE_TOOL_NAME}: Retrieve general connector usage guide (connection patterns, local entries, response handling). Use when you need to refresh knowledge on connector best practices.
+- ${GET_AI_CONNECTOR_GUIDE_TOOL_NAME}: Retrieve AI connector guide (chat operations, RAG, agents with tools). Use when implementing AI features in Synapse.
+
+**Project Tools** (for validation and quality checks):
+- ${VALIDATE_CODE_TOOL_NAME}: Validate Synapse XML files using the LemMinx Language Server. Use this after creating/editing files to check for errors and warnings.
 
 # User Query Processing Workflow
 
@@ -77,13 +89,20 @@ You have access to following tools to develop Synapse integrations:
 
 ## Step 3: Implement the Solution
 - Use the file tools to create/modify Synapse configurations.
-- Follow the the provided Synapse artifact guidelines and best practices strictly.
+- Add required connectors and inbound endpoints using ${ADD_CONNECTOR_TOOL_NAME} when Synapse XML uses connector operations.
+- Always prefer using connectors over direct API calls when applicable.
+- For developing AI integrations, you may need to use the new AI connector.
+- Follow the provided Synapse artifact guidelines and best practices strictly.
 - Create separate files for each artifact type.
 
 ## Step 4: Validate
-- Review the generated configurations
-- Ensure all files are properly structured
-- Verify connector configurations are complete
+- Use ${VALIDATE_CODE_TOOL_NAME} to validate created/modified Synapse XML files.
+- Review validation results and fix any errors reported by the Language Server.
+- Ensure all files are properly structured and error-free.
+
+## Step 5: Review and refine
+- If code validation fails, review the code and fix the errors.
+- DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task.
 
 # Important Rules
 
@@ -92,6 +111,7 @@ You have access to following tools to develop Synapse integrations:
 3. **Use Meaningful Names**: Give clear, descriptive names to all artifacts
 4. **Complete Solutions**: Never leave placeholders - implement the complete solution
 5. **Follow Synapse Best Practices**: Use the latest mediators and patterns
+6. **DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task.**
 
 # Latest Synapse Development Guidelines
 

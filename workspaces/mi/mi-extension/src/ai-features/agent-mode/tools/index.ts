@@ -42,7 +42,24 @@ export {
     // Utility functions
     getAvailableConnectors,
     getAvailableInboundEndpoints,
+    // Documentation tools
+    createGetConnectorGuideExecute,
+    createGetConnectorGuideTool,
+    createGetAIConnectorGuideExecute,
+    createGetAIConnectorGuideTool,
 } from './connector_tools';
+
+// Export project tools
+export {
+    // Execute function creators
+    createAddConnectorExecute,
+    createRemoveConnectorExecute,
+    createValidateCodeExecute,
+    // Tool creators
+    createAddConnectorTool,
+    createRemoveConnectorTool,
+    createValidateCodeTool,
+} from './project_tools';
 
 // Re-export tool names for convenience
 export {
@@ -51,6 +68,11 @@ export {
     FILE_EDIT_TOOL_NAME,
     FILE_MULTI_EDIT_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
+    ADD_CONNECTOR_TOOL_NAME,
+    REMOVE_CONNECTOR_TOOL_NAME,
+    VALIDATE_CODE_TOOL_NAME,
+    GET_CONNECTOR_GUIDE_TOOL_NAME,
+    GET_AI_CONNECTOR_GUIDE_TOOL_NAME,
 } from './types';
 
 /**
