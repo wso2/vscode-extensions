@@ -26,7 +26,7 @@ export default function createTests() {
         tag: '@group1',
     }, async () => {
         initTest();
-        test('Create Automation', async () => {
+        test('Create Automation for Diagram', async () => {
             // 1. Click on the "Add Artifact" button
             // 2. Verify the Artifacts menu is displayed
             // 3. Under "Automation" section, click on "Automation" option
