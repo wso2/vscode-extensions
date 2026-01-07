@@ -24,6 +24,9 @@ import { ApiTryItStateMachine, EVENT_TYPE } from './stateMachine';
 import { ApiRequestItem } from '@wso2/api-tryit-core';
 
 export async function activate(context: vscode.ExtensionContext) {
+	// Initialize RPC handlers
+	TryItPanel.init();
+
 	// Register the activity panel
 	activateActivityPanel(context);
 

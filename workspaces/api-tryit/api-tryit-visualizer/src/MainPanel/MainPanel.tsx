@@ -24,6 +24,10 @@ import { Output } from '../Output/Output';
 import { ApiRequestItem, ApiRequest, ApiResponse, ResponseHeader } from '@wso2/api-tryit-core';
 import axios, { AxiosError } from 'axios';
 import { useExtensionMessages } from '../hooks/useExtensionMessages';
+import { getVSCodeAPI } from '../utils/vscode-api';
+
+// Get VS Code API instance (singleton)
+const vscode = getVSCodeAPI();
 
 export const MainPanel: React.FC = () => {
     const [requestItem, setRequestItem] = useState<ApiRequestItem>({
@@ -69,6 +73,37 @@ export const MainPanel: React.FC = () => {
         
         // Notify extension about the change
         updateRequest(updatedItem);
+    };
+
+    const handleSaveRequest = async () => {
+        if (!vscode) {
+            console.error('VS Code API not available');
+            alert('Cannot save request - VS Code API not available');
+            return;
+        }
+
+        try {
+            // For now, we'll save to a default location
+            // In a real implementation, you might want to show a file picker
+            const filePath = `/tmp/api-request-${requestItem.id}.json`;
+            
+            // Send save request message to extension using postMessage
+            vscode.postMessage({
+                type: 'saveRequest',
+                data: {
+                    filePath,
+                    request: requestItem.request
+                }
+            });
+            
+            console.log('Save request sent to extension');
+            // Note: You would need to listen for a response message to show success/error
+            // For now, we'll just show a notification that the request was sent
+            alert(`Request save initiated for: ${filePath}`);
+        } catch (error) {
+            console.error('Error saving request:', error);
+            alert('An error occurred while saving the request');
+        }
     };
 
     const handleSendRequest = async () => {
@@ -261,6 +296,13 @@ export const MainPanel: React.FC = () => {
                             disabled={isLoading}
                         >
                             {isLoading ? 'Sending...' : 'Send'}
+                        </Button>
+
+                        <Button
+                            appearance="secondary"
+                            onClick={handleSaveRequest}
+                        >
+                            Save
                         </Button>
                     </div>
 

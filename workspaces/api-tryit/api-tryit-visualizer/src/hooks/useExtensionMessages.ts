@@ -18,10 +18,10 @@
 
 import { useEffect, useRef } from 'react';
 import { ApiRequestItem } from '@wso2/api-tryit-core';
+import { getVSCodeAPI } from '../utils/vscode-api';
 
-// Get VS Code API instance
-declare const acquireVsCodeApi: any;
-const vscode = typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : null;
+// Get VS Code API instance (singleton)
+const vscode = getVSCodeAPI();
 
 interface ExtensionMessage {
     type: string;

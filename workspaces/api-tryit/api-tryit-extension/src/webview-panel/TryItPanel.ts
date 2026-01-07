@@ -19,14 +19,20 @@
 import * as vscode from 'vscode';
 import { getComposerJSFiles } from '../util';
 import { ApiTryItStateMachine, EVENT_TYPE } from '../stateMachine';
+import { Messenger } from 'vscode-messenger';
+import { registerApiTryItRpcHandlers } from '../rpc-managers';
 
 export class TryItPanel {
 	public static currentPanel: TryItPanel | undefined;
 	private readonly _panel: vscode.WebviewPanel;
 	private _disposables: vscode.Disposable[] = [];
+	private static _messenger: Messenger = new Messenger();
 
 	private constructor(panel: vscode.WebviewPanel, extensionContext: vscode.ExtensionContext) {
 		this._panel = panel;
+
+		// Register messenger with webview panel
+		TryItPanel._messenger.registerWebviewPanel(this._panel);
 
 		this._panel.webview.html = this._getWebviewContent(this._panel.webview, extensionContext);
 
@@ -37,7 +43,7 @@ export class TryItPanel {
 		
 		// Set up message handling from webview
 		this._panel.webview.onDidReceiveMessage(
-			message => {
+			async message => {
 				switch (message.type) {
 					case 'webviewReady':
 						ApiTryItStateMachine.sendEvent(EVENT_TYPE.WEBVIEW_READY);
@@ -45,11 +51,44 @@ export class TryItPanel {
 					case 'requestUpdated':
 						ApiTryItStateMachine.sendEvent(EVENT_TYPE.REQUEST_UPDATED, message.data);
 						break;
+					case 'saveRequest':
+						// Handle save request using the RPC manager
+						try {
+							const { filePath, request } = message.data;
+							// Import the RPC manager here to avoid circular dependencies
+							const { ApiTryItRpcManager } = await import('../rpc-managers/rpc-manager');
+							const rpcManager = new ApiTryItRpcManager();
+							const response = await rpcManager.saveRequest({ filePath, request });
+							
+							// Send response back to webview
+							this._panel.webview.postMessage({
+								type: 'saveRequestResponse',
+								data: response
+							});
+							
+							if (response.success) {
+								vscode.window.showInformationMessage(`Request saved successfully: ${response.message}`);
+							} else {
+								vscode.window.showErrorMessage(`Failed to save request: ${response.message}`);
+							}
+						} catch (error: unknown) {
+							this._panel.webview.postMessage({
+								type: 'saveRequestResponse',
+								data: { success: false, message: error instanceof Error ? error.message : 'Unknown error' }
+							});
+							vscode.window.showErrorMessage(`Error saving request: ${error instanceof Error ? error.message : 'Unknown error'}`);
+						}
+						break;
 				}
 			},
 			null,
 			this._disposables
 		);
+	}
+
+	public static init() {
+		// Register RPC handlers
+		registerApiTryItRpcHandlers(TryItPanel._messenger);
 	}
 
 	public static show(extensionContext: vscode.ExtensionContext) {
