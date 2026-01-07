@@ -23,13 +23,10 @@ import { BaseVisitor } from "./BaseVisitor";
 
 export class IntermediateNodeInitVisitorV2 implements BaseVisitor {
     private intermediateNodes: DataMapperNodeModel[] = [];
-    private existingNodes: DataMapperNodeModel[];
 
     constructor(
         private context: DataMapperContext,
-        existingNodes: DataMapperNodeModel[] = []
     ){
-        this.existingNodes = existingNodes;
     }
 
     beginVisitNewMapping(node: NewMapping): void {
@@ -43,17 +40,5 @@ export class IntermediateNodeInitVisitorV2 implements BaseVisitor {
 
     getNodes() {
         return this.intermediateNodes;
-    }
-
-    private findExistingNode(targetField: string): DataMapperNodeModel | undefined {
-        return this.existingNodes.find(node => {
-            if (node instanceof LinkConnectorNode) {
-                return node.mapping.output === targetField;
-            }
-            if (node instanceof QueryExprConnectorNode) {
-                return node.mapping.output === targetField;
-            }
-            return false;
-        });
     }
 }

@@ -40,13 +40,6 @@ import {
 import { KeyboardNavigationManager } from "../../utils/keyboard-navigation-manager";
 import { DataMapperEditorProps } from "../../index";
 import { ErrorNodeKind } from "./Error/RenderingError";
-import { IntermediateNodeInitVisitor } from "../../visitors/IntermediateNodeInitVisitor";
-import {
-    LinkConnectorNode,
-    QueryExprConnectorNode,
-    EmptyInputsNode,
-    BinaryConnectorNode
-} from "../Diagram/Node";
 import { SubMappingConfigForm } from "./SidePanel/SubMappingConfig/SubMappingConfigForm";
 import { IntermediateNodeInitVisitorV2 } from "../../visitors/IntermediateNodeInitVisitorV2";
 
@@ -231,15 +224,8 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
             const inputNodes = ioNodeInitVisitor.getInputNodes();
             const outputNode = ioNodeInitVisitor.getOutputNode();
 
-            const intermediateNodeInitVisitor = new IntermediateNodeInitVisitor(
-                context,
-                nodes.filter(node => node instanceof LinkConnectorNode || node instanceof QueryExprConnectorNode)
-            );
-            traverseNode(model, intermediateNodeInitVisitor);
-
             const intermediateNodeInitVisitorV2 = new IntermediateNodeInitVisitorV2(
-                context,
-                nodes.filter(node => node instanceof BinaryConnectorNode)
+                context
             );
             traverseNode(model, intermediateNodeInitVisitorV2);
 
@@ -247,7 +233,6 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
                 ...inputNodes,
                 outputNode,
                 ...intermediateNodeInitVisitorV2.getNodes(),
-                ...intermediateNodeInitVisitor.getNodes()
             ]);
         } catch (error) {
             console.error("Error generating nodes:", error);
