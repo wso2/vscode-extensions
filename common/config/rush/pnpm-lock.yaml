@@ -8,6 +8,7 @@ overrides:
   '@modelcontextprotocol/sdk': ^1.25.2
   tar-fs: 3.1.1
   jws: 3.2.3
+  js-yaml: ^4.1.1
 
 pnpmfileChecksum: sha256-XTeZQwJtKk4dimqf7175GhJCXrnq3Yh7+kwb86Bwcdo=
 
