@@ -63,6 +63,9 @@ module.exports = {
         if (pkg.dependencies['js-yaml']) {
           pkg.dependencies['js-yaml'] = '4.1.1';
         }
+        if (pkg.dependencies['@modelcontextprotocol/sdk']) {
+          pkg.dependencies['@modelcontextprotocol/sdk'] = '1.25.2';
+        }
       }
 
       if (pkg.devDependencies) {
