@@ -1776,6 +1776,7 @@ export interface SwaggerFromAPIRequest {
     swaggerPath?: string;
     isJsonIn?: boolean;
     isJsonOut?: boolean;
+    host?: string;
     port?: number;
     projectPath?: string;
 }

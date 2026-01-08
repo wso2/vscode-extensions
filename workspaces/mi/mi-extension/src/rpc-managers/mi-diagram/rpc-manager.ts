@@ -5427,7 +5427,7 @@ ${keyValuesXML}`;
         let response;
         if (params.isRuntimeService) {
             const versionedUrl = await exposeVersionedServices(this.projectUri);
-            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, port: DebuggerConfig.getServerPort(), projectPath: versionedUrl ? this.projectUri : "", ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
+            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, host: DebuggerConfig.getHost(), port: DebuggerConfig.getServerPort(), projectPath: versionedUrl ? this.projectUri : "", ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         } else {
             response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
         }
