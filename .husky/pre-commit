@@ -1,3 +1,5 @@
+#!/usr/bin/env sh
+
 # Validate strict versioning in package.json files
 echo "🔍 Validating package.json versions..."
 
