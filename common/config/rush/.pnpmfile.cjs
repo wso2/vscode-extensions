@@ -22,46 +22,46 @@ module.exports = {
         
         // Security vulnerability fixes
         if (pkg.dependencies['brace-expansion']) {
-          pkg.dependencies['brace-expansion'] = '^2.0.2';
+          pkg.dependencies['brace-expansion'] = '2.0.2';
         }
         if (pkg.dependencies['http-proxy']) {
-          pkg.dependencies['http-proxy'] = '^1.18.1';
+          pkg.dependencies['http-proxy'] = '1.18.1';
         }
         if (pkg.dependencies['prismjs']) {
-          pkg.dependencies['prismjs'] = '^1.30.0';
+          pkg.dependencies['prismjs'] = '1.30.0';
         }
         if (pkg.dependencies['webpack']) {
-          pkg.dependencies['webpack'] = '^5.94.0';
+          pkg.dependencies['webpack'] = '5.94.0';
         }
         if (pkg.dependencies['webpack-dev-server']) {
-          pkg.dependencies['webpack-dev-server'] = '^5.2.1';
+          pkg.dependencies['webpack-dev-server'] = '5.2.1';
         }
         if (pkg.dependencies['braces']) {
-          pkg.dependencies['braces'] = '^3.0.3';
+          pkg.dependencies['braces'] = '3.0.3';
         }
         if (pkg.dependencies['micromatch']) {
-          pkg.dependencies['micromatch'] = '^4.0.8';
+          pkg.dependencies['micromatch'] = '4.0.8';
         }
         if (pkg.dependencies['esbuild']) {
-          pkg.dependencies['esbuild'] = '^0.25.0';
+          pkg.dependencies['esbuild'] = '0.25.0';
         }
         if (pkg.dependencies['xmldom']) {
-          pkg.dependencies['xmldom'] = 'npm:@xmldom/xmldom@^0.8.10';
+          pkg.dependencies['xmldom'] = 'npm:@xmldom/xmldom@0.8.10';
         }
         if (pkg.dependencies['@eslint/plugin-kit']) {
-          pkg.dependencies['@eslint/plugin-kit'] = '^0.3.4';
+          pkg.dependencies['@eslint/plugin-kit'] = '0.3.4';
         }
         if (pkg.dependencies['on-headers']) {
-          pkg.dependencies['on-headers'] = '^1.1.0';
+          pkg.dependencies['on-headers'] = '1.1.0';
         }
         if (pkg.dependencies['form-data']) {
-          pkg.dependencies['form-data'] = '^4.0.4';
+          pkg.dependencies['form-data'] = '4.0.4';
         }
         if (pkg.dependencies['min-document']) {
-          pkg.dependencies['min-document'] = '^2.19.1';
+          pkg.dependencies['min-document'] = '2.19.1';
         }
         if (pkg.dependencies['js-yaml']) {
-          pkg.dependencies['js-yaml'] = '^4.1.1';
+          pkg.dependencies['js-yaml'] = '4.1.1';
         }
         if (pkg.dependencies['diff']) {
           pkg.dependencies['diff'] = '^8.0.3';
@@ -77,43 +77,43 @@ module.exports = {
       if (pkg.devDependencies) {
         // Security vulnerability fixes for dev dependencies
         if (pkg.devDependencies['brace-expansion']) {
-          pkg.devDependencies['brace-expansion'] = '^2.0.2';
+          pkg.devDependencies['brace-expansion'] = '2.0.2';
         }
         if (pkg.devDependencies['http-proxy']) {
-          pkg.devDependencies['http-proxy'] = '^1.18.1';
+          pkg.devDependencies['http-proxy'] = '1.18.1';
         }
         if (pkg.devDependencies['prismjs']) {
-          pkg.devDependencies['prismjs'] = '^1.30.0';
+          pkg.devDependencies['prismjs'] = '1.30.0';
         }
         if (pkg.devDependencies['webpack']) {
-          pkg.devDependencies['webpack'] = '^5.94.0';
+          pkg.devDependencies['webpack'] = '5.94.0';
         }
         if (pkg.devDependencies['webpack-dev-server']) {
-          pkg.devDependencies['webpack-dev-server'] = '^5.2.1';
+          pkg.devDependencies['webpack-dev-server'] = '5.2.1';
         }
         if (pkg.devDependencies['braces']) {
-          pkg.devDependencies['braces'] = '^3.0.3';
+          pkg.devDependencies['braces'] = '3.0.3';
         }
         if (pkg.devDependencies['micromatch']) {
-          pkg.devDependencies['micromatch'] = '^4.0.8';
+          pkg.devDependencies['micromatch'] = '4.0.8';
         }
         if (pkg.devDependencies['esbuild']) {
-          pkg.devDependencies['esbuild'] = '^0.25.0';
+          pkg.devDependencies['esbuild'] = '0.25.0';
         }
         if (pkg.devDependencies['xmldom']) {
-          pkg.devDependencies['xmldom'] = 'npm:@xmldom/xmldom@^0.8.10';
+          pkg.devDependencies['xmldom'] = 'npm:@xmldom/xmldom@0.8.10';
         }
         if (pkg.devDependencies['@eslint/plugin-kit']) {
-          pkg.devDependencies['@eslint/plugin-kit'] = '^0.3.4';
+          pkg.devDependencies['@eslint/plugin-kit'] = '0.3.4';
         }
         if (pkg.devDependencies['on-headers']) {
-          pkg.devDependencies['on-headers'] = '^1.1.0';
+          pkg.devDependencies['on-headers'] = '1.1.0';
         }
         if (pkg.devDependencies['form-data']) {
-          pkg.devDependencies['form-data'] = '^4.0.4';
+          pkg.devDependencies['form-data'] = '4.0.4';
         }
         if (pkg.devDependencies['min-document']) {
-          pkg.devDependencies['min-document'] = '^2.19.1';
+          pkg.devDependencies['min-document'] = '2.19.1';
         }
         if (pkg.devDependencies['diff']) {
           pkg.devDependencies['diff'] = '^8.0.3';
