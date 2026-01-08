@@ -63,14 +63,8 @@ module.exports = {
         if (pkg.dependencies['js-yaml']) {
           pkg.dependencies['js-yaml'] = '4.1.1';
         }
-        if (pkg.dependencies['diff']) {
-          pkg.dependencies['diff'] = '^8.0.3';
-        }
-        if (pkg.dependencies['eslint']) {
-          pkg.dependencies['eslint'] = '^9.27.0';
-        }
-        if (pkg.dependencies['fast-xml-parser']) {
-          pkg.dependencies['fast-xml-parser'] = '5.3.4';
+        if (pkg.dependencies['@modelcontextprotocol/sdk']) {
+          pkg.dependencies['@modelcontextprotocol/sdk'] = '1.25.2';
         }
       }
 
