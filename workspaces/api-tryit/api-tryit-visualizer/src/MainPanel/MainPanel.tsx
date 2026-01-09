@@ -17,7 +17,7 @@
  */
 
 import React, { useState } from 'react';
-import { Button, Dropdown, TextField, Typography } from '@wso2/ui-toolkit';
+import { Button, Codicon, Dropdown, TextField, Typography } from '@wso2/ui-toolkit';
 import { VSCodePanels, VSCodePanelTab, VSCodePanelView } from '@vscode/webview-ui-toolkit/react';
 import { Input } from '../Input/Input';
 import { Output } from '../Output/Output';
@@ -284,18 +284,18 @@ export const MainPanel: React.FC = () => {
                         />
 
                         <Button
+                            appearance="secondary"
+                            onClick={handleSaveRequest}
+                        >
+                            <Codicon name="save" />
+                        </Button>
+
+                        <Button
                             appearance="primary"
                             onClick={handleSendRequest}
                             disabled={isLoading}
                         >
                             {isLoading ? 'Sending...' : 'Send'}
-                        </Button>
-
-                        <Button
-                            appearance="secondary"
-                            onClick={handleSaveRequest}
-                        >
-                            Save
                         </Button>
                     </div>
 

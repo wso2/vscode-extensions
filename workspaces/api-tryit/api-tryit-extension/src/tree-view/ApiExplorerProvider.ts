@@ -99,8 +99,8 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 				description: metadata.description,
 				folders
 			};
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		} catch (error) {
-			vscode.window.showErrorMessage(`Failed to load collection ${collectionId}, ${error as string}.`);
 			// If collection metadata is missing or invalid, skip this collection
 			return null;
 		}

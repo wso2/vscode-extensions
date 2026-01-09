@@ -20,7 +20,7 @@ import {
     SaveRequestRequest,
     SaveRequestResponse,
 } from "@wso2/api-tryit-core";
-import { writeFile } from 'fs/promises';
+import { writeFile, readFile } from 'fs/promises';
 import * as vscode from 'vscode';
 
 export class ApiTryItRpcManager {
@@ -35,8 +35,19 @@ export class ApiTryItRpcManager {
         }
 
         try {
-            // Convert request to JSON with formatting
-            const requestData = JSON.stringify(request, null, 2);
+            // Read existing file to preserve metadata (collectionId, folderId, createdAt)
+            const existingContent = await readFile(filePath, 'utf8');
+            const existingData = JSON.parse(existingContent);
+            
+            // Merge the updated request with existing metadata
+            const updatedData = {
+                ...existingData,
+                request: request,
+                updatedAt: new Date().toISOString()
+            };
+            
+            // Convert to JSON with formatting
+            const requestData = JSON.stringify(updatedData, null, 2);
             
             // Write to file
             await writeFile(filePath, requestData, 'utf8');
