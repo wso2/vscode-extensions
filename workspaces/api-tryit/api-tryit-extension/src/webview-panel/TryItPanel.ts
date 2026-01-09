@@ -55,10 +55,25 @@ export class TryItPanel {
 						// Handle save request using the RPC manager
 						try {
 							const { filePath, request } = message.data;
+							
+							// Get the current state to check for persisted file path
+							const stateContext = ApiTryItStateMachine.getContext();
+							const targetFilePath = filePath || stateContext.selectedFilePath;
+							
+							if (!targetFilePath) {
+								const error = 'No file path specified and no file selected';
+								vscode.window.showErrorMessage(error);
+								this._panel.webview.postMessage({
+									type: 'saveRequestResponse',
+									data: { success: false, message: error }
+								});
+								break;
+							}
+							
 							// Import the RPC manager here to avoid circular dependencies
 							const { ApiTryItRpcManager } = await import('../rpc-managers/rpc-manager');
 							const rpcManager = new ApiTryItRpcManager();
-							const response = await rpcManager.saveRequest({ filePath, request });
+							const response = await rpcManager.saveRequest({ filePath: targetFilePath, request });
 							
 							// Send response back to webview
 							this._panel.webview.postMessage({
@@ -67,7 +82,7 @@ export class TryItPanel {
 							});
 							
 							if (response.success) {
-								vscode.window.showInformationMessage(`Request saved successfully: ${response.message}`);
+								vscode.window.showInformationMessage(`Request saved successfully to: ${targetFilePath}`);
 							} else {
 								vscode.window.showErrorMessage(`Failed to save request: ${response.message}`);
 							}

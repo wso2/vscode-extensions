@@ -30,6 +30,7 @@ export const enum EVENT_TYPE {
 // Context interface for the state machine
 export interface ApiTryItContext {
     selectedItem?: ApiRequestItem;
+    selectedFilePath?: string; // File path of the selected request
     webviewReady: boolean;
     savedItems: Map<string, ApiRequestItem>; // Cache of edited items by ID
 }
@@ -38,6 +39,7 @@ export interface ApiTryItContext {
 interface ApiItemSelectedEvent {
     type: 'API_ITEM_SELECTED';
     data: ApiRequestItem;
+    filePath?: string; // Optional file path where this request is stored
 }
 
 interface RequestUpdatedEvent {
@@ -72,7 +74,8 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                 API_ITEM_SELECTED: {
                     target: 'itemSelected',
                     actions: assign({
-                        selectedItem: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.data
+                        selectedItem: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.data,
+                        selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath
                     })
                 }
             }
@@ -100,7 +103,8 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                             // Check if we have a saved version of this item
                             const savedItem = context.savedItems.get(event.data.id);
                             return savedItem || event.data;
-                        }
+                        },
+                        selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath
                     })
                 },
                 REQUEST_UPDATED: {
@@ -142,9 +146,9 @@ export const ApiTryItStateMachine = {
         webviewPanel = undefined;
     },
     
-    sendEvent: (eventType: EVENT_TYPE, data?: ApiTryItContext['selectedItem']) => {
+    sendEvent: (eventType: EVENT_TYPE, data?: ApiTryItContext['selectedItem'], filePath?: string) => {
         if (eventType === EVENT_TYPE.API_ITEM_SELECTED && data) {
-            stateMachineService.send({ type: 'API_ITEM_SELECTED', data });
+            stateMachineService.send({ type: 'API_ITEM_SELECTED', data, filePath });
             
             // Post message to webview if registered
             // Get the actual selected item from context (which may be the saved version)

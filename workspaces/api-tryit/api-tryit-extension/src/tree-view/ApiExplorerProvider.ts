@@ -128,7 +128,8 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 							id: persistedRequest.id,
 							name: persistedRequest.name,
 							request: persistedRequest.request,
-							response: persistedRequest.response
+							response: persistedRequest.response,
+							filePath: requestPath
 						});
 					} catch (error) {
 						vscode.window.showErrorMessage(`Error loading request ${file} in folder ${folderId}, ${error as string}.`);

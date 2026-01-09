@@ -83,23 +83,16 @@ export const MainPanel: React.FC = () => {
         }
 
         try {
-            // For now, we'll save to a default location
-            // In a real implementation, you might want to show a file picker
-            const filePath = `/tmp/api-request-${requestItem.id}.json`;
-            
-            // Send save request message to extension using postMessage
+            // Send save request message to extension (filePath is optional, will use persisted path)
             vscode.postMessage({
                 type: 'saveRequest',
                 data: {
-                    filePath,
+                    filePath: undefined, // Let the extension use the persisted file path from state machine
                     request: requestItem.request
                 }
             });
             
             console.log('Save request sent to extension');
-            // Note: You would need to listen for a response message to show success/error
-            // For now, we'll just show a notification that the request was sent
-            alert(`Request save initiated for: ${filePath}`);
         } catch (error) {
             console.error('Error saving request:', error);
             alert('An error occurred while saving the request');

@@ -54,8 +54,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Open the TryIt panel
 		TryItPanel.show(context);
 		
-		// Send the selected item through the state machine
-		ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, requestItem);
+		// Send the selected item through the state machine with file path
+		ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, requestItem, requestItem.filePath);
 		
 		vscode.window.showInformationMessage(`Opening: ${requestItem.request.method} ${requestItem.name}`);
 	});

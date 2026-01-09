@@ -65,6 +65,7 @@ export interface ApiRequestItem {
     name: string;
     request: ApiRequest;
     response?: ApiResponse; // Optional since response may not exist until request is executed
+    filePath?: string; // Optional file path where this request is stored
 }
 
 // Folder - contains multiple request items
