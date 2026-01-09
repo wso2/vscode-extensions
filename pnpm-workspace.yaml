@@ -1,5 +1,6 @@
 packages:
   - 'workspaces/*'
+  - 'workspaces/api-tryit/*'
   - 'workspaces/ballerina/*'
   - 'workspaces/choreo/*'
   - 'workspaces/wso2-platform/*'

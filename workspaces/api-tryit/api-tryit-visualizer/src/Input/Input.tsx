@@ -16,12 +16,13 @@
  * under the License.
  */
 
-import React from 'react';
-import { Typography, LinkButton, Codicon } from '@wso2/ui-toolkit';
+import React, { useState } from 'react';
+import { Typography, LinkButton, Codicon, Button } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { ParamItem } from './ParamItem';
 import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
 import { CodeTextArea } from '../Components/CodeTextArea/CodeTextArea';
+import { CodeInput } from './CodeInput';
 
 interface InputProps {
     request: ApiRequest;
@@ -41,10 +42,52 @@ const AddButtonWrapper = styled.div`
     margin-top: 8px;
 `;
 
+const ModeToggleContainer = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin-bottom: 16px;
+    gap: 8px;
+`;
+
+const ModeButton = styled.button<{ isActive: boolean }>`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: 1px solid var(--vscode-panel-border);
+    background-color: ${({ isActive }) => 
+        isActive ? 'var(--vscode-button-background)' : 'var(--vscode-editor-background)'};
+    color: ${({ isActive }) => 
+        isActive ? 'var(--vscode-button-foreground)' : 'var(--vscode-foreground)'};
+    cursor: pointer;
+    font-size: 12px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+    
+    &:hover {
+        background-color: ${({ isActive }) => 
+            isActive ? 'var(--vscode-button-hoverBackground)' : 'var(--vscode-list-hoverBackground)'};
+    }
+    
+    &:first-of-type {
+        border-radius: 4px 0 0 4px;
+        border-right: none;
+    }
+    
+    &:last-of-type {
+        border-radius: 0 4px 4px 0;
+    }
+`;
+
+type InputMode = 'code' | 'form';
+
 export const Input: React.FC<InputProps> = ({ 
     request,
     onRequestChange
 }) => {
+    const [mode, setMode] = useState<InputMode>('code');
+
     // Safety check to ensure request object exists with required properties
     if (!request) {
         return <Container><Typography>Loading...</Typography></Container>;
@@ -124,67 +167,93 @@ export const Input: React.FC<InputProps> = ({
 
     return (
         <Container>
-            {/* Query Parameters Section */}
-            <Section>
-                <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
-                    Query Parameter
-                </Typography>
-                {(request.queryParameters || []).map(param => (
-                    <ParamItem
-                        key={param.id}
-                        keyValue={param.key}
-                        value={param.value}
-                        onKeyChange={(key) => updateQueryParam(param.id, key, param.value)}
-                        onValueChange={(value) => updateQueryParam(param.id, param.key, value)}
-                        onDelete={() => deleteQueryParam(param.id)}
-                    />
-                ))}
-                <AddButtonWrapper>
-                    <LinkButton onClick={addQueryParam}>
-                        <Codicon name="add" />
-                        Query Parameter
-                    </LinkButton>
-                </AddButtonWrapper>
-            </Section>
+            {/* Mode Toggle */}
+            <ModeToggleContainer>
+                <ModeButton 
+                    isActive={mode === 'code'} 
+                    onClick={() => setMode('code')}
+                    title="Code mode - edit as text"
+                >
+                    <Codicon name="code" />
+                    Code
+                </ModeButton>
+                <ModeButton 
+                    isActive={mode === 'form'} 
+                    onClick={() => setMode('form')}
+                    title="Form mode - structured editor"
+                >
+                    <Codicon name="list-unordered" />
+                    Form
+                </ModeButton>
+            </ModeToggleContainer>
 
-            {/* Headers Section */}
-            <Section>
-                <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
-                    Header
-                </Typography>
-                {(request.headers || []).map(header => (
-                    <ParamItem
-                        key={header.id}
-                        keyValue={header.key}
-                        value={header.value}
-                        onKeyChange={(key) => updateHeader(header.id, key, header.value)}
-                        onValueChange={(value) => updateHeader(header.id, header.key, value)}
-                        onDelete={() => deleteHeader(header.id)}
-                    />
-                ))}
-                <AddButtonWrapper>
-                    <LinkButton onClick={addHeader}>
-                        <Codicon name="add" />
-                        Header
-                    </LinkButton>
-                </AddButtonWrapper>
-            </Section>
+            {mode === 'code' ? (
+                <CodeInput request={request} onRequestChange={onRequestChange} />
+            ) : (
+                <>
+                    {/* Query Parameters Section */}
+                    <Section>
+                        <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
+                            Query Parameter
+                        </Typography>
+                        {(request.queryParameters || []).map(param => (
+                            <ParamItem
+                                key={param.id}
+                                keyValue={param.key}
+                                value={param.value}
+                                onKeyChange={(key) => updateQueryParam(param.id, key, param.value)}
+                                onValueChange={(value) => updateQueryParam(param.id, param.key, value)}
+                                onDelete={() => deleteQueryParam(param.id)}
+                            />
+                        ))}
+                        <AddButtonWrapper>
+                            <LinkButton onClick={addQueryParam}>
+                                <Codicon name="add" />
+                                Query Parameter
+                            </LinkButton>
+                        </AddButtonWrapper>
+                    </Section>
 
-            {/* Body Section */}
-            <Section>
-                <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
-                    Body
-                </Typography>
-                <CodeTextArea
-                    id="body-textarea"
-                    resize="vertical"
-                    growRange={{ start: 5, offset: 10 }}
-                    sx={{ width: '100%' }}
-                    value={request.body || ''}
-                    onChange={(e: any) => handleBodyChange(e.target.value)}
-                    placeholder="Enter request body..."
-                />
-            </Section>
+                    {/* Headers Section */}
+                    <Section>
+                        <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
+                            Header
+                        </Typography>
+                        {(request.headers || []).map(header => (
+                            <ParamItem
+                                key={header.id}
+                                keyValue={header.key}
+                                value={header.value}
+                                onKeyChange={(key) => updateHeader(header.id, key, header.value)}
+                                onValueChange={(value) => updateHeader(header.id, header.key, value)}
+                                onDelete={() => deleteHeader(header.id)}
+                            />
+                        ))}
+                        <AddButtonWrapper>
+                            <LinkButton onClick={addHeader}>
+                                <Codicon name="add" />
+                                Header
+                            </LinkButton>
+                        </AddButtonWrapper>
+                    </Section>
+
+                    {/* Body Section */}
+                    <Section>
+                        <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
+                            Body
+                        </Typography>
+                        <CodeTextArea
+                            id="body-textarea"
+                            resize="vertical"
+                            growRange={{ start: 5, offset: 10 }}
+                            sx={{ width: '100%' }}
+                            value={request.body || ''}
+                            onChange={(e: any) => handleBodyChange(e.target.value)}
+                            placeholder="Enter request body..."
+                        />
+                    </Section>
+                </>
+            )}
         </Container>
     );
 };

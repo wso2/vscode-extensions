@@ -18,3 +18,4 @@
 
 export * from './Input';
 export * from './ParamItem';
+export * from './CodeInput';
