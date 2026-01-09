@@ -60,7 +60,7 @@
     "@types/node": "^20.10.6",
     "@types/react": "18.2.0",
     "@types/react-dom": "18.2.0",
-    "@vscode/codicons": "0.0.33",
+    "@vscode/codicons": "0.0.44",
     "copyfiles": "^2.4.1"
   }
 }
