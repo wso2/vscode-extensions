@@ -9,7 +9,7 @@
         "url": "https://github.com/wso2/product-ballerina-integrator"
     },
     "engines": {
-        "vscode": "1.84.0"
+        "vscode": "^1.84.0"
     },
     "categories": [
         "Other"

@@ -11,7 +11,7 @@
   "repository": "https://github.com/wso2/choreo-vscode",
   "icon": "resources/icons/choreo.png",
   "engines": {
-    "vscode": "1.100.0"
+    "vscode": "^1.100.0"
   },
   "categories": [
     "Other"
