@@ -113,6 +113,9 @@ const requestToCode = (request: ApiRequest): string => {
                 lines.push(`${prefix}${param.key}=${param.value}`);
             }
         });
+    } else {
+        // Add empty line after header if no params
+        lines.push('');
     }
     lines.push('');
     
@@ -125,6 +128,9 @@ const requestToCode = (request: ApiRequest): string => {
                 lines.push(`${prefix}${header.key}: ${header.value}`);
             }
         });
+    } else {
+        // Add empty line after header if no headers
+        lines.push('');
     }
     lines.push('');
     
@@ -132,6 +138,9 @@ const requestToCode = (request: ApiRequest): string => {
     lines.push('# Body');
     if (request.body) {
         lines.push(request.body);
+    } else {
+        // Add empty line after header if no body
+        lines.push('');
     }
     
     return lines.join('\n');
@@ -223,13 +232,14 @@ const codeToRequest = (code: string, existingRequest: ApiRequest): ApiRequest =>
         }
     }
     
+    // Join body lines and trim, handle empty body
     body = bodyLines.join('\n').trim();
     
     return {
         ...existingRequest,
         queryParameters,
         headers,
-        body: body || undefined
+        body: body || undefined  // Use undefined for empty body instead of empty string
     };
 };
 
@@ -253,7 +263,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({
     const initialCode = useMemo(() => {
         if (!request) return '';
         return requestToCode(request);
-    }, []);
+    }, [request]);
 
     // Setup the custom language and theme
     const handleEditorWillMount = (monaco: Monaco) => {
@@ -353,13 +363,129 @@ export const CodeInput: React.FC<CodeInputProps> = ({
         
         updateDecorations();
         
+        // Automatically move cursor away from section header lines
+        editor.onDidChangeCursorPosition((e) => {
+            const position = e.position;
+            const headerLines = getSectionHeaderLines();
+            
+            if (headerLines.has(position.lineNumber)) {
+                const lineContent = model.getLineContent(position.lineNumber);
+                const lineLength = lineContent.length;
+                
+                // If cursor is at the end of the header line, move to next line
+                if (position.column > lineLength || position.column === lineLength + 1) {
+                    const nextLine = position.lineNumber + 1;
+                    if (nextLine <= model.getLineCount()) {
+                        // Move to the beginning of the next line
+                        editor.setPosition({ lineNumber: nextLine, column: 1 });
+                    } else {
+                        // If no next line exists, create one
+                        const newContent = model.getValue() + '\n';
+                        model.setValue(newContent);
+                        editor.setPosition({ lineNumber: nextLine, column: 1 });
+                    }
+                }
+            }
+        });
+        
         // Prevent keyboard input on section header lines
         editor.onKeyDown((e) => {
             const position = editor.getPosition();
             if (!position) return;
             
+            const selection = editor.getSelection();
             const headerLines = getSectionHeaderLines();
-            if (headerLines.has(position.lineNumber)) {
+            
+            // Check if the current line is a header
+            const isOnHeaderLine = headerLines.has(position.lineNumber);
+            
+            // Check if selection includes any header lines
+            const selectionIncludesHeader = selection && 
+                Array.from({ length: selection.endLineNumber - selection.startLineNumber + 1 }, (_, i) => 
+                    selection.startLineNumber + i
+                ).some(lineNum => headerLines.has(lineNum));
+            
+            // Check if backspace/delete would merge a line with a section header
+            const wouldMergeWithHeader = () => {
+                // If there's a selection (text is selected), don't block
+                if (selection && (selection.startLineNumber !== selection.endLineNumber || 
+                    selection.startColumn !== selection.endColumn)) {
+                    return false;
+                }
+                
+                const lineContent = model.getLineContent(position.lineNumber);
+                
+                // Backspace at the beginning of a line
+                if (e.keyCode === monaco.KeyCode.Backspace && position.column === 1) {
+                    const prevLine = position.lineNumber - 1;
+                    if (prevLine > 0 && headerLines.has(prevLine)) {
+                        return true; // Would merge with header above
+                    }
+                }
+                
+                // Delete at the end of a line
+                if (e.keyCode === monaco.KeyCode.Delete && position.column === lineContent.length + 1) {
+                    const nextLine = position.lineNumber + 1;
+                    if (nextLine <= model.getLineCount() && headerLines.has(nextLine)) {
+                        return true; // Would merge with header below
+                    }
+                }
+                
+                return false;
+            };
+            
+            // Check if this is the only editable line in a section and trying to delete it
+            const wouldDeleteOnlyLine = () => {
+                // Only check when doing backspace/delete without a selection
+                if (selection && selection.startLineNumber !== selection.endLineNumber) {
+                    // Multi-line selection, don't block
+                    return false;
+                }
+                
+                if (selection && selection.startColumn !== selection.endColumn) {
+                    // Has selection within a line, don't block
+                    return false;
+                }
+                
+                const lineContent = model.getLineContent(position.lineNumber).trim();
+                
+                // If line has content and we're not at the start, allow deletion
+                if (lineContent !== '' && position.column !== 1) {
+                    return false;
+                }
+                
+                const lines = model.getValue().split('\n');
+                const currentIdx = position.lineNumber - 1;
+                
+                // Find which section we're in
+                let sectionStart = -1;
+                let sectionEnd = lines.length;
+                
+                // Find the header above
+                for (let i = currentIdx - 1; i >= 0; i--) {
+                    if (headerLines.has(i + 1)) {
+                        sectionStart = i;
+                        break;
+                    }
+                }
+                
+                // Find the header below
+                for (let i = currentIdx + 1; i < lines.length; i++) {
+                    if (headerLines.has(i + 1)) {
+                        sectionEnd = i;
+                        break;
+                    }
+                }
+                
+                // If deleting this line (via backspace at column 1) would leave only the header and next header adjacent
+                if (sectionEnd - sectionStart === 2 && e.keyCode === monaco.KeyCode.Backspace && position.column === 1) {
+                    return true;
+                }
+                
+                return false;
+            };
+            
+            if (isOnHeaderLine) {
                 // Allow navigation keys
                 const navigationKeys = [
                     monaco.KeyCode.UpArrow,
@@ -379,74 +505,162 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                     return;
                 }
                 
+                // Allow select all (Ctrl+A / Cmd+A) 
+                if ((e.ctrlKey || e.metaKey) && e.keyCode === monaco.KeyCode.KeyA) {
+                    return;
+                }
+                
                 // Block all other keys on section header lines
                 if (!navigationKeys.includes(e.keyCode)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            } else if (selectionIncludesHeader) {
+                // If selection includes headers, prevent destructive operations
+                const destructiveKeys = [
+                    monaco.KeyCode.Backspace,
+                    monaco.KeyCode.Delete,
+                    monaco.KeyCode.Enter
+                ];
+                
+                if (destructiveKeys.includes(e.keyCode) || 
+                    (!e.ctrlKey && !e.metaKey && e.keyCode >= monaco.KeyCode.KeyA && e.keyCode <= monaco.KeyCode.KeyZ)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            } else if (wouldMergeWithHeader() || wouldDeleteOnlyLine()) {
+                // Prevent operations that would merge with a header or delete the only editable line
+                if (e.keyCode === monaco.KeyCode.Backspace || e.keyCode === monaco.KeyCode.Delete) {
                     e.preventDefault();
                     e.stopPropagation();
                 }
             }
         });
         
-        // Prevent mouse-based selections and edits on section header lines
-        editor.onMouseDown((e) => {
-            if (e.target.position) {
-                const headerLines = getSectionHeaderLines();
-                if (headerLines.has(e.target.position.lineNumber)) {
-                    // Allow selection but prevent editing
-                    e.event.preventDefault();
-                }
-            }
-        });
-        
         // Fallback: restore if somehow modified (paste, drag-drop, etc.)
+        let isRestoring = false;
         editor.onDidChangeModelContent((e) => {
-            const headerLines = getSectionHeaderLines();
-            let needsRestore = false;
+            // Skip if we're currently restoring to avoid infinite loops
+            if (isRestoring) return;
             
-            // Check if any changes affected section header lines
-            for (const change of e.changes) {
-                for (let lineNum = change.range.startLineNumber; lineNum <= change.range.endLineNumber; lineNum++) {
-                    if (headerLines.has(lineNum)) {
-                        needsRestore = true;
-                        break;
-                    }
+            const currentValue = model.getValue();
+            const lines = currentValue.split('\n');
+            
+            // Check if all three required section headers exist
+            const hasQueryParams = lines.some(line => line.trim() === '# Query Parameters');
+            const hasHeaders = lines.some(line => line.trim() === '# Headers');
+            const hasBody = lines.some(line => line.trim() === '# Body');
+            
+            // Find section header line numbers
+            const queryParamsLine = lines.findIndex(line => line.trim() === '# Query Parameters');
+            const headersLine = lines.findIndex(line => line.trim() === '# Headers');
+            const bodyLine = lines.findIndex(line => line.trim() === '# Body');
+            
+            // Check if each section has at least one line after the header
+            let needsEmptyLine = false;
+            
+            if (queryParamsLine >= 0 && headersLine >= 0) {
+                // Check if there's at least one line between Query Parameters and Headers
+                if (headersLine - queryParamsLine === 1) {
+                    needsEmptyLine = true;
                 }
-                if (needsRestore) break;
             }
             
-            // If section headers were modified, restore them immediately
-            if (needsRestore) {
-                const currentValue = model.getValue();
-                const lines = currentValue.split('\n');
-                let wasModified = false;
-                
-                // Ensure all three section headers exist in the correct format
-                for (let i = 0; i < lines.length; i++) {
-                    const trimmed = lines[i].trim();
-                    if (trimmed.startsWith('#')) {
-                        // Find which header this should be
-                        const expectedHeader = sectionHeaders.find(h => 
-                            trimmed.toLowerCase().includes(h.toLowerCase().replace('# ', ''))
-                        );
-                        if (expectedHeader && lines[i] !== expectedHeader) {
-                            lines[i] = expectedHeader;
-                            wasModified = true;
-                        }
-                    }
+            if (headersLine >= 0 && bodyLine >= 0) {
+                // Check if there's at least one line between Headers and Body
+                if (bodyLine - headersLine === 1) {
+                    needsEmptyLine = true;
                 }
+            }
+            
+            if (bodyLine >= 0) {
+                // Check if there's at least one line after Body
+                if (bodyLine === lines.length - 1) {
+                    needsEmptyLine = true;
+                }
+            }
+            
+            // If any section header is missing or sections need empty lines, restore
+            if (!hasQueryParams || !hasHeaders || !hasBody || needsEmptyLine) {
+                isRestoring = true;
                 
-                // Check if all headers are present
-                const hasAllHeaders = sectionHeaders.every(header => 
-                    lines.some(line => line.trim() === header)
-                );
+                // Parse current content to preserve user data
+                const currentRequest = codeToRequest(currentValue, request);
                 
-                if (wasModified || !hasAllHeaders) {
-                    // Restore to a safe state
-                    const restoredContent = requestToCode(request);
-                    model.setValue(restoredContent);
+                // Reconstruct with all headers preserved and empty lines
+                const restoredContent = requestToCode(currentRequest);
+                
+                // Save cursor position
+                const position = editor.getPosition();
+                
+                // Restore content
+                model.setValue(restoredContent);
+                
+                // Restore cursor position (adjust if needed)
+                if (position) {
+                    const newLineCount = model.getLineCount();
+                    const adjustedLine = Math.min(position.lineNumber, newLineCount);
+                    const lineLength = model.getLineLength(adjustedLine);
+                    const adjustedColumn = Math.min(position.column, lineLength + 1);
+                    
+                    // If cursor would be on a header line, move it to the next line
+                    const headerLines = getSectionHeaderLines();
+                    if (headerLines.has(adjustedLine)) {
+                        const nextLine = adjustedLine + 1;
+                        if (nextLine <= newLineCount) {
+                            editor.setPosition({ lineNumber: nextLine, column: 1 });
+                        } else {
+                            editor.setPosition({ lineNumber: adjustedLine, column: adjustedColumn });
+                        }
+                    } else {
+                        editor.setPosition({ lineNumber: adjustedLine, column: adjustedColumn });
+                    }
                 }
                 
                 updateDecorations();
+                isRestoring = false;
+            } else {
+                // Check if any section header was modified
+                const headerLines = getSectionHeaderLines();
+                let needsRestore = false;
+                
+                for (const change of e.changes) {
+                    for (let lineNum = change.range.startLineNumber; lineNum <= change.range.endLineNumber; lineNum++) {
+                        if (headerLines.has(lineNum)) {
+                            const lineContent = model.getLineContent(lineNum).trim();
+                            if (!sectionHeaders.includes(lineContent)) {
+                                needsRestore = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (needsRestore) break;
+                }
+                
+                // If a section header was modified (but not deleted), restore it
+                if (needsRestore) {
+                    isRestoring = true;
+                    
+                    const fixedLines = lines.map(line => {
+                        const trimmed = line.trim();
+                        if (trimmed.startsWith('#')) {
+                            // Check if this looks like it should be a section header
+                            const lowerTrimmed = trimmed.toLowerCase();
+                            if (lowerTrimmed.includes('query') || lowerTrimmed.includes('param')) {
+                                return '# Query Parameters';
+                            } else if (lowerTrimmed.includes('header')) {
+                                return '# Headers';
+                            } else if (lowerTrimmed.includes('body')) {
+                                return '# Body';
+                            }
+                        }
+                        return line;
+                    });
+                    
+                    model.setValue(fixedLines.join('\n'));
+                    updateDecorations();
+                    isRestoring = false;
+                }
             }
         });
         
@@ -632,7 +846,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                 <Editor
                     height="300px"
                     language={LANGUAGE_ID}
-                    defaultValue={initialCode}
+                    value={initialCode}
                     theme={getIsDarkTheme() ? 'vs-dark' : 'vs'}
                     beforeMount={handleEditorWillMount}
                     onMount={handleEditorDidMount}
