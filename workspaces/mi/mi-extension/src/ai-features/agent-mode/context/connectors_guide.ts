@@ -49,13 +49,15 @@ Example:
 8. Do not use the utility connector unless absolutely necessary.
 
 ##### Revamped Connector operation response handling:
-With the latest updates to certain connectors, operations now support two additional parameters:
+With the latest updates to **certain connectors**, operations now support two additional parameters:
 1. \`responseVariable\` – Use this to store the connector operation response into a named variable.
     - This variable can be referenced later using Synapse expressions. ( \${vars.variable_name_you_defined} )
     - For operations where the response is required later, prefer responseVariable.
 2. \`overwriteBody\` – Use this to directly replace the message body/payload with the connector's response.
     - This is useful when you want to pass the response from one connector operation as the request payload for the next. ( \${payload} )
     - For flows where the response must be forwarded, use overwriteBody.
+
+**This connector update is an ongoing effort. So if you get validation errors with some connectors just don't use \`responseVariable\` or \`overwriteBody\` parameters for those connectors. Instead use the old way of handling the response.**
 </CONNECTORS_DOCUMENTATION>
 `;
 

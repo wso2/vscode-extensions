@@ -21,7 +21,7 @@ import { z } from 'zod';
 import { CONNECTOR_DB } from '../context/connector_db';
 import { INBOUND_DB } from '../context/inbound_db';
 import { CONNECTOR_DOCUMENTATION, AI_CONNECTOR_DOCUMENTATION } from '../context/connectors_guide';
-import { ToolResult, CONNECTOR_TOOL_NAME, GET_CONNECTOR_GUIDE_TOOL_NAME, GET_AI_CONNECTOR_GUIDE_TOOL_NAME } from './types';
+import { ToolResult, CONNECTOR_TOOL_NAME } from './types';
 import { logInfo, logDebug } from '../../copilot/logger';
 
 // ============================================================================
@@ -200,7 +200,8 @@ export function createConnectorTool(execute: ConnectorExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
         description: `
-            Retrieves full definitions for MI connectors and inbound endpoints by name.
+            Retrieves full definitions for MI connectors and inbound endpoints by name from WSO2 MI Connector Store.
+            If connector store is not available, the tool will return a definition from locally cached connector definitions.
 
             Usage:
             - Use this tool to get detailed information about specific connectors or inbound endpoints.
@@ -244,19 +245,19 @@ export function createConnectorTool(execute: ConnectorExecuteFn) {
 /**
  * Execute function type for get_connector_guide tool
  */
-export type GetConnectorGuideExecuteFn = () => Promise<ToolResult>;
+export type GetConnectorDocumentationExecuteFn = () => Promise<ToolResult>;
 
 /**
- * Execute function type for get_ai_connector_guide tool
+ * Execute function type for get_ai_connector_documentation tool
  */
-export type GetAIConnectorGuideExecuteFn = () => Promise<ToolResult>;
+export type GetAIConnectorDocumentationExecuteFn = () => Promise<ToolResult>;
 
 /**
- * Creates the execute function for get_connector_guide tool
+ * * Creates the execute function for get_connector_documentation tool
  */
-export function createGetConnectorGuideExecute(): GetConnectorGuideExecuteFn {
+export function createGetConnectorDocumentationExecute(): GetConnectorDocumentationExecuteFn {
     return async (): Promise<ToolResult> => {
-        logDebug(`[GetConnectorGuideTool] Fetching connector usage guide`);
+        logDebug(`[GetConnectorDocumentationTool] Fetching connector usage documentation`);
 
         return {
             success: true,
@@ -266,11 +267,11 @@ export function createGetConnectorGuideExecute(): GetConnectorGuideExecuteFn {
 }
 
 /**
- * Creates the execute function for get_ai_connector_guide tool
+ * Creates the execute function for get_ai_connector_documentation tool
  */
-export function createGetAIConnectorGuideExecute(): GetAIConnectorGuideExecuteFn {
+export function createGetAIConnectorDocumentationExecute(): GetAIConnectorDocumentationExecuteFn {
     return async (): Promise<ToolResult> => {
-        logDebug(`[GetAIConnectorGuideTool] Fetching AI connector guide`);
+        logDebug(`[GetAIConnectorDocumentationTool] Fetching AI connector documentation`);
 
         return {
             success: true,
@@ -280,12 +281,12 @@ export function createGetAIConnectorGuideExecute(): GetAIConnectorGuideExecuteFn
 }
 
 /**
- * Creates the get_connector_guide tool
+ * Creates the get_connector_documentation tool
  */
-export function createGetConnectorGuideTool(execute: GetConnectorGuideExecuteFn) {
+export function createGetConnectorDocumentationTool(execute: GetConnectorDocumentationExecuteFn) {
     return (tool as any)({
         description: `
-            Retrieves the general connector usage guide and best practices.
+            Retrieves the general connector usage documentation and best practices.
 
             This tool returns comprehensive documentation on:
             - How to use connectors with connection-based support
@@ -300,19 +301,19 @@ export function createGetConnectorGuideTool(execute: GetConnectorGuideExecuteFn)
             - When you need to know about responseVariable vs overwriteBody
             - When you want to refresh your knowledge on connector best practices
 
-            This tool takes no parameters and returns the full connector guide.`,
+            This tool takes no parameters and returns the full connector documentation.`,
         inputSchema: z.object({}),
         execute
     });
 }
 
 /**
- * Creates the get_ai_connector_guide tool
+ * Creates the get_ai_connector_documentation tool
  */
-export function createGetAIConnectorGuideTool(execute: GetAIConnectorGuideExecuteFn) {
+export function createGetAIConnectorDocumentationTool(execute: GetAIConnectorDocumentationExecuteFn) {
     return (tool as any)({
         description: `
-            Retrieves the AI connector guide for building AI-powered integrations.
+            Retrieves the AI connector documentation for building AI-powered integrations.
 
             This tool returns comprehensive documentation on:
             - Creating basic chat operations with LLM and memory connections
@@ -329,7 +330,7 @@ export function createGetAIConnectorGuideTool(execute: GetAIConnectorGuideExecut
             - When creating AI agents with tool calling capabilities
             - When you need to understand AI connector patterns
 
-            This tool takes no parameters and returns the full AI connector guide.`,
+            This tool takes no parameters and returns the full AI connector documentation.`,
         inputSchema: z.object({}),
         execute
     });

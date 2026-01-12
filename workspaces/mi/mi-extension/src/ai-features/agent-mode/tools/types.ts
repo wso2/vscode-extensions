@@ -72,8 +72,8 @@ export const CONNECTOR_TOOL_NAME = 'get_connector_definitions';
 export const ADD_CONNECTOR_TOOL_NAME = 'add_connector_to_project_pom';
 export const REMOVE_CONNECTOR_TOOL_NAME = 'remove_connector_from_project_pom';
 export const VALIDATE_CODE_TOOL_NAME = 'validate_code';
-export const GET_CONNECTOR_GUIDE_TOOL_NAME = 'get_connector_guide';
-export const GET_AI_CONNECTOR_GUIDE_TOOL_NAME = 'get_ai_connector_guide';
+export const GET_CONNECTOR_DOCUMENTATION_TOOL_NAME = 'get_connector_documentation';
+export const GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME = 'get_ai_connector_documentation';
 
 // ============================================================================
 // Error Messages

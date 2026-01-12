@@ -33,10 +33,10 @@ import {
 import {
     createConnectorTool,
     createConnectorExecute,
-    createGetConnectorGuideTool,
-    createGetConnectorGuideExecute,
-    createGetAIConnectorGuideTool,
-    createGetAIConnectorGuideExecute,
+    createGetConnectorDocumentationTool,
+    createGetConnectorDocumentationExecute,
+    createGetAIConnectorDocumentationTool,
+    createGetAIConnectorDocumentationExecute,
 } from '../../tools/connector_tools';
 import {
     createAddConnectorTool,
@@ -55,8 +55,8 @@ import {
     ADD_CONNECTOR_TOOL_NAME,
     REMOVE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
-    GET_CONNECTOR_GUIDE_TOOL_NAME,
-    GET_AI_CONNECTOR_GUIDE_TOOL_NAME,
+    GET_CONNECTOR_DOCUMENTATION_TOOL_NAME,
+    GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
 } from '../../tools/types';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
 
@@ -148,9 +148,6 @@ export async function executeAgent(
         };
         const userMessageContent = await getUserPrompt(userPromptParams);
 
-        logInfo(`[Agent] System prompt: ${getSystemPrompt()}`);
-        logInfo(`[Agent] User prompt: ${JSON.stringify(userMessageContent, null, 2)}`);
-
         // Build messages array
         const allMessages: ModelMessage[] = [
             {
@@ -191,11 +188,11 @@ export async function executeAgent(
             [VALIDATE_CODE_TOOL_NAME]: createValidateCodeTool(
                 createValidateCodeExecute(request.projectPath)
             ),
-            [GET_CONNECTOR_GUIDE_TOOL_NAME]: createGetConnectorGuideTool(
-                createGetConnectorGuideExecute()
+            [GET_CONNECTOR_DOCUMENTATION_TOOL_NAME]: createGetConnectorDocumentationTool(
+                createGetConnectorDocumentationExecute()
             ),
-            [GET_AI_CONNECTOR_GUIDE_TOOL_NAME]: createGetAIConnectorGuideTool(
-                createGetAIConnectorGuideExecute()
+            [GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME]: createGetAIConnectorDocumentationTool(
+                createGetAIConnectorDocumentationExecute()
             ),
         };
 
@@ -244,7 +241,7 @@ export async function executeAgent(
                         displayInput = {
                             file_paths: toolInput?.file_paths,
                         };
-                    } else if (part.toolName === GET_CONNECTOR_GUIDE_TOOL_NAME || part.toolName === GET_AI_CONNECTOR_GUIDE_TOOL_NAME) {
+                    } else if (part.toolName === GET_CONNECTOR_DOCUMENTATION_TOOL_NAME || part.toolName === GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME) {
                         displayInput = {}; // No input parameters
                     }
 
@@ -276,9 +273,9 @@ export async function executeAgent(
                         displayOutput.action = 'removed';
                     } else if (part.toolName === VALIDATE_CODE_TOOL_NAME && result?.success) {
                         displayOutput.action = 'validated';
-                    } else if (part.toolName === GET_CONNECTOR_GUIDE_TOOL_NAME && result?.success) {
+                    } else if (part.toolName === GET_CONNECTOR_DOCUMENTATION_TOOL_NAME && result?.success) {
                         displayOutput.action = 'retrieved';
-                    } else if (part.toolName === GET_AI_CONNECTOR_GUIDE_TOOL_NAME && result?.success) {
+                    } else if (part.toolName === GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME && result?.success) {
                         displayOutput.action = 'retrieved';
                     }
 
