@@ -25,10 +25,12 @@ import {
     createReadTool,
     createEditTool,
     createMultiEditTool,
+    createGrepTool,
     createWriteExecute,
     createReadExecute,
     createEditExecute,
     createMultiEditExecute,
+    createGrepExecute,
 } from '../../tools/file_tools';
 import {
     createConnectorTool,
@@ -51,6 +53,7 @@ import {
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
     FILE_MULTI_EDIT_TOOL_NAME,
+    FILE_GREP_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
     ADD_CONNECTOR_TOOL_NAME,
     REMOVE_CONNECTOR_TOOL_NAME,
@@ -175,6 +178,9 @@ export async function executeAgent(
             ),
             [FILE_MULTI_EDIT_TOOL_NAME]: createMultiEditTool(
                 createMultiEditExecute(request.projectPath, modifiedFiles)
+            ),
+            [FILE_GREP_TOOL_NAME]: createGrepTool(
+                createGrepExecute(request.projectPath)
             ),
             [CONNECTOR_TOOL_NAME]: createConnectorTool(
                 createConnectorExecute()

@@ -35,6 +35,7 @@ import {
     ReadExecuteFn,
     EditExecuteFn,
     MultiEditExecuteFn,
+    GrepExecuteFn,
 } from './types';
 
 // ============================================================================
@@ -533,6 +534,197 @@ export function createMultiEditExecute(projectPath: string, modifiedFiles?: stri
     };
 }
 
+/**
+ * Creates the execute function for grep tool
+ */
+export function createGrepExecute(projectPath: string): GrepExecuteFn {
+    return async (args: {
+        pattern: string;
+        path?: string;
+        glob?: string;
+        output_mode?: 'content' | 'files_with_matches';
+        '-i'?: boolean;
+        head_limit?: number;
+    }): Promise<ToolResult> => {
+        const { pattern, path: searchPath = '.', glob, output_mode = 'content', '-i': caseInsensitive = false, head_limit = 100 } = args;
+
+        console.log(`[GrepTool] Searching for pattern '${pattern}' in ${searchPath}`);
+
+        try {
+            const results: Array<{file: string; line: number; content: string}> = [];
+            const filesWithMatches: Set<string> = new Set();
+            const regex = new RegExp(pattern, caseInsensitive ? 'gi' : 'g');
+
+            // Resolve the search path
+            const fullSearchPath = path.isAbsolute(searchPath)
+                ? searchPath
+                : path.join(projectPath, searchPath);
+
+            if (!fs.existsSync(fullSearchPath)) {
+                return {
+                    success: false,
+                    message: `Path '${searchPath}' does not exist.`,
+                    error: 'Error: Path not found'
+                };
+            }
+
+            // Recursive function to search through directories
+            const searchInDirectory = (dirPath: string) => {
+                if (output_mode === 'content' && results.length >= head_limit) return;
+                if (output_mode === 'files_with_matches' && filesWithMatches.size >= head_limit) return;
+
+                const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+
+                for (const entry of entries) {
+                    if (output_mode === 'content' && results.length >= head_limit) break;
+                    if (output_mode === 'files_with_matches' && filesWithMatches.size >= head_limit) break;
+
+                    const fullPath = path.join(dirPath, entry.name);
+
+                    if (entry.isDirectory()) {
+                        // Skip common directories
+                        if (entry.name === 'node_modules' || entry.name === '.git' ||
+                            entry.name === 'target' || entry.name === 'build') {
+                            continue;
+                        }
+                        searchInDirectory(fullPath);
+                    } else if (entry.isFile()) {
+                        // Check glob pattern if specified
+                        if (glob) {
+                            const globRegex = new RegExp(
+                                glob.replace(/\*/g, '.*').replace(/\?/g, '.')
+                            );
+                            if (!globRegex.test(entry.name)) {
+                                continue;
+                            }
+                        }
+
+                        // Check if file has valid extension
+                        const ext = path.extname(entry.name);
+                        if (!VALID_FILE_EXTENSIONS.includes(ext)) {
+                            continue;
+                        }
+
+                        // Search in file
+                        try {
+                            const content = fs.readFileSync(fullPath, 'utf-8');
+                            const lines = content.split('\n');
+
+                            for (let i = 0; i < lines.length; i++) {
+                                if (regex.test(lines[i])) {
+                                    const relativePath = path.relative(projectPath, fullPath);
+
+                                    if (output_mode === 'files_with_matches') {
+                                        filesWithMatches.add(relativePath);
+                                        break; // Only need one match per file
+                                    } else {
+                                        if (results.length >= head_limit) break;
+                                        results.push({
+                                            file: relativePath,
+                                            line: i + 1,
+                                            content: lines[i].trim()
+                                        });
+                                    }
+                                }
+                                // Reset regex lastIndex for global regex
+                                regex.lastIndex = 0;
+                            }
+                        } catch (error) {
+                            // Skip files that can't be read
+                            console.error(`[GrepTool] Error reading file ${fullPath}:`, error);
+                        }
+                    }
+                }
+            };
+
+            // Start search
+            const stats = fs.statSync(fullSearchPath);
+            if (stats.isDirectory()) {
+                searchInDirectory(fullSearchPath);
+            } else if (stats.isFile()) {
+                // Search in single file
+                const content = fs.readFileSync(fullSearchPath, 'utf-8');
+                const lines = content.split('\n');
+
+                for (let i = 0; i < lines.length; i++) {
+                    if (regex.test(lines[i])) {
+                        const relativePath = path.relative(projectPath, fullSearchPath);
+
+                        if (output_mode === 'files_with_matches') {
+                            filesWithMatches.add(relativePath);
+                            break; // Only need one match per file
+                        } else {
+                            if (results.length >= head_limit) break;
+                            results.push({
+                                file: relativePath,
+                                line: i + 1,
+                                content: lines[i].trim()
+                            });
+                        }
+                    }
+                    regex.lastIndex = 0;
+                }
+            }
+
+            // Build response message based on output mode
+            if (output_mode === 'files_with_matches') {
+                if (filesWithMatches.size === 0) {
+                    return {
+                        success: true,
+                        message: `No matches found for pattern '${pattern}' in ${searchPath}.`
+                    };
+                }
+
+                let message = `Found ${filesWithMatches.size} file(s) with matches for pattern '${pattern}':\n\n`;
+                for (const file of filesWithMatches) {
+                    message += `${file}\n`;
+                }
+
+                if (filesWithMatches.size >= head_limit) {
+                    message += `\n(Limited to ${head_limit} files. Use head_limit parameter to see more.)`;
+                }
+
+                console.log(`[GrepTool] Found ${filesWithMatches.size} files with matches`);
+                return {
+                    success: true,
+                    message: message.trim()
+                };
+            } else {
+                // output_mode === 'content'
+                if (results.length === 0) {
+                    return {
+                        success: true,
+                        message: `No matches found for pattern '${pattern}' in ${searchPath}.`
+                    };
+                }
+
+                let message = `Found ${results.length} match(es) for pattern '${pattern}':\n\n`;
+                for (const result of results) {
+                    message += `${result.file}:${result.line}: ${result.content}\n`;
+                }
+
+                if (results.length >= head_limit) {
+                    message += `\n(Limited to ${head_limit} results. Use head_limit parameter to see more.)`;
+                }
+
+                console.log(`[GrepTool] Found ${results.length} matches`);
+                return {
+                    success: true,
+                    message: message.trim()
+                };
+            }
+
+        } catch (error) {
+            console.error(`[GrepTool] Error during search:`, error);
+            return {
+                success: false,
+                message: `Error searching for pattern: ${error instanceof Error ? error.message : String(error)}`,
+                error: `Error: Search failed`
+            };
+        }
+    };
+}
+
 // ============================================================================
 // Tool Definitions (Vercel AI SDK format)
 // ============================================================================
@@ -565,6 +757,15 @@ const multiEditInputSchema = z.object({
             replace_all: z.boolean().optional()
         })
     )
+});
+
+const grepInputSchema = z.object({
+    pattern: z.string(),
+    path: z.string().optional(),
+    glob: z.string().optional(),
+    output_mode: z.enum(['content', 'files_with_matches']).optional(),
+    '-i': z.boolean().optional(),
+    head_limit: z.number().optional()
 });
 
 /**
@@ -695,6 +896,34 @@ export function createMultiEditTool(execute: MultiEditExecuteFn) {
         - Renaming endpoints across a file
         - Modifying multiple property values`,
         inputSchema: multiEditInputSchema,
+        execute
+    });
+}
+
+/**
+ * Creates the grep tool
+ */
+export function createGrepTool(execute: GrepExecuteFn) {
+    // Type assertion to avoid TypeScript deep instantiation issues with Zod
+    return (tool as any)({
+        description: `
+            A powerful search tool for finding patterns in Synapse project files.
+
+            - ALWAYS use this tool for search tasks across project files
+            - Supports full regex syntax (e.g., "log.*Error", "function\\\\s+\\\\w+")
+            - Filter files with glob parameter (e.g., "*.xml", "*.{yaml,yml}")
+            - Output modes: "content" shows matching lines with line numbers (default), "files_with_matches" shows only file paths
+            - Case insensitive search with -i parameter
+            - Pattern syntax uses JavaScript regex - literal braces need escaping (use \\\\{ \\\\} for { })
+            - Results limited to head_limit (default: 100)
+            - Automatically searches only in valid file types: ${VALID_FILE_EXTENSIONS.join(', ')}
+            - Skips common directories: node_modules, .git, target, build
+
+            Synapse/MI specific:
+            - Find XML elements: pattern: "<endpoint", glob: "*.xml"
+            - Locate property references: pattern: "\\\\$ctx:[a-zA-Z]+", glob: "*.xml"
+            - Search connector operations: pattern: "<[a-zA-Z]+\\\\.[a-zA-Z]+>", glob: "*.xml"`,
+        inputSchema: grepInputSchema,
         execute
     });
 }
