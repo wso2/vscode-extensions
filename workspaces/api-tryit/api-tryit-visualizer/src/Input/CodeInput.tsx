@@ -392,6 +392,13 @@ export const CodeInput: React.FC<CodeInputProps> = ({
             const position = editor.getPosition();
             if (!position) return;
             
+            // Trigger suggestions with Cmd+/ or Ctrl+/
+            if ((e.metaKey || e.ctrlKey) && e.keyCode === monaco.KeyCode.Slash) {
+                e.preventDefault();
+                editor.trigger('keyboard', 'editor.action.triggerSuggest', {});
+                return;
+            }
+            
             const selection = editor.getSelection();
             const headerLines = getSectionHeaderLines();
             
@@ -665,7 +672,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({
         
         // Register completion provider
         completionDisposableRef.current = monaco.languages.registerCompletionItemProvider(LANGUAGE_ID, {
-                    triggerCharacters: [':', '=', '\n', ' ', 'commnand + /'],
+                    // triggerCharacters: [':', '=', '\n', ' ', 'commnand + /'],
                     provideCompletionItems: (model: monaco.editor.ITextModel, position: monaco.Position, context: monaco.languages.CompletionContext) => {
                         const lineContent = model.getLineContent(position.lineNumber);
                         const textUntilPosition = lineContent.substring(0, position.column - 1);
