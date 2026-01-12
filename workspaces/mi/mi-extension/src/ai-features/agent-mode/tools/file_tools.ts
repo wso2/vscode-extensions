@@ -29,6 +29,7 @@ import {
     MAX_LINE_LENGTH,
     PREVIEW_LENGTH,
     ErrorMessages,
+    FILE_READ_TOOL_NAME,
     FILE_WRITE_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
     FILE_MULTI_EDIT_TOOL_NAME,
@@ -799,62 +800,21 @@ export function createGlobExecute(projectPath: string): GlobExecuteFn {
 // Tool Definitions (Vercel AI SDK format)
 // ============================================================================
 
-// Zod schemas defined separately to avoid deep type instantiation issues
-const writeInputSchema = z.object({
-    file_path: z.string(),
-    content: z.string()
-});
-
-const readInputSchema = z.object({
-    file_path: z.string(),
-    offset: z.number().optional(),
-    limit: z.number().optional()
-});
-
-const editInputSchema = z.object({
-    file_path: z.string(),
-    old_string: z.string(),
-    new_string: z.string(),
-    replace_all: z.boolean().optional()
-});
-
-const multiEditInputSchema = z.object({
-    file_path: z.string(),
-    edits: z.array(
-        z.object({
-            old_string: z.string(),
-            new_string: z.string(),
-            replace_all: z.boolean().optional()
-        })
-    )
-});
-
-const grepInputSchema = z.object({
-    pattern: z.string(),
-    path: z.string().optional(),
-    glob: z.string().optional(),
-    output_mode: z.enum(['content', 'files_with_matches']).optional(),
-    '-i': z.boolean().optional(),
-    head_limit: z.number().optional()
-});
-
-const globInputSchema = z.object({
-    pattern: z.string(),
-    path: z.string().optional()
-});
 
 /**
  * Creates the file_write tool
  */
+
+const writeInputSchema = z.object({
+    file_path: z.string().describe(`The relative path to the file to write. Use paths relative to the project root (e.g., "src/main/wso2mi/artifacts/apis/MyAPI.xml")`),
+    content: z.string().describe(`The content to write to the file. Cannot be empty.`)
+});
+
 export function createWriteTool(execute: WriteExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
         description: `
             Creates a new file with the specified content.
-
-            Parameters:
-            - file_path (string, required): The relative path to the file to write. Use paths relative to the project root (e.g., "src/main/wso2mi/artifacts/apis/MyAPI.xml")
-            - content (string, required): The content to write to the file. Cannot be empty.
 
             Usage:
             - Use this tool to create NEW files only. It will not overwrite existing files with content.
@@ -879,23 +839,26 @@ export function createWriteTool(execute: WriteExecuteFn) {
 /**
  * Creates the file_read tool
  */
+
+const readInputSchema = z.object({
+    file_path: z.string().describe(`The relative path to the file to read. Use paths relative to the project root (e.g., "src/main/wso2mi/artifacts/apis/MyAPI.xml")`),
+    offset: z.number().optional().describe(`The line number to start reading from`),
+    limit: z.number().optional().describe(`The number of lines to read`)
+});
+
 export function createReadTool(execute: ReadExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
         description: `
-            Reads a file from the project.
-
-            Parameters:
-            - file_path (string, required): The relative path to the file to read. Use paths relative to the project root (e.g., "src/main/wso2mi/artifacts/apis/MyAPI.xml")
-            - offset (number, optional): The line number to start reading from
-            - limit (number, optional): The number of lines to read
+            Reads a file from the project. You can access any file in the project directly by using this tool.
 
             Usage:
-            - Reads up to 2000 lines by default
+            - Reads up to ${MAX_LINE_LENGTH} lines by default
             - Lines longer than ${MAX_LINE_LENGTH} characters will be truncated.
             - Returns content with line numbers (cat -n format)
             - For large files, use offset and limit parameters to read in chunks.
             - Valid file extensions: ${VALID_FILE_EXTENSIONS.join(', ')}
+            - You can call multiple tools in a single response. It is always better to speculatively read multiple potentially useful files in parallel.
 
             IMPORTANT: Before editing a file, always read it first to understand its current content and structure.
             `,
@@ -907,17 +870,19 @@ export function createReadTool(execute: ReadExecuteFn) {
 /**
  * Creates the file_edit to
  */
+
+const editInputSchema = z.object({
+    file_path: z.string().describe(`The relative path to the file to edit. Use paths relative to the project root (e.g., "src/main/wso2mi/artifacts/apis/MyAPI.xml")`),
+    old_string: z.string().describe(`The exact text to replace (must match file contents exactly, including whitespace)`),
+    new_string: z.string().describe(`The replacement text (must be different from old_string)`),
+    replace_all: z.boolean().optional().describe(`Replace all occurrences (default false)`)
+});
+
 export function createEditTool(execute: EditExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
         description: `
             Performs a find-and-replace operation on an existing file.
-
-            Parameters:
-            - file_path (string, required): The relative path to the file to edit. Use paths relative to the project root (e.g., "src/main/wso2mi/artifacts/apis/MyAPI.xml")
-            - old_string (string, required): The exact text to replace (must match file contents exactly, including whitespace)
-            - new_string (string, required): The replacement text (must be different from old_string)
-            - replace_all (boolean, optional, default: false): Replace all occurrences
 
             Usage:
             - ALWAYS read the file first before editing to ensure you have the exact content.
@@ -941,18 +906,23 @@ export function createEditTool(execute: EditExecuteFn) {
 /**
  * Creates the file_multi_edit tool
  */
+
+const multiEditInputSchema = z.object({
+    file_path: z.string().describe(`The relative path to the file to edit. Use paths relative to the project root (e.g., "src/main/wso2mi/artifacts/apis/MyAPI.xml")`),
+    edits: z.array(
+        z.object({
+            old_string: z.string().describe(`The exact text to replace (must match file contents exactly, including whitespace)`),
+            new_string: z.string().describe(`The replacement text (must be different from old_string)`),
+            replace_all: z.boolean().default(false).optional().describe(`Replace all occurrences (default false)`)
+        })
+    ).min(1).describe(`Array of edit operations to perform sequentially on the file`)
+});
+
 export function createMultiEditTool(execute: MultiEditExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
         description: `
         Performs multiple find-and-replace operations on a single file atomically.
-
-        Parameters:
-        - file_path: ${getFilePathDescription('edit')}
-        - edits: Array of edit operations to perform sequentially. Each edit has:
-        - old_string: The exact text to replace
-        - new_string: The replacement text
-        - replace_all: If true, replace all occurrences of this old_string (optional)
 
         Usage:
         - Preferred over ${FILE_EDIT_TOOL_NAME} when making multiple changes to the same file.
@@ -978,6 +948,17 @@ export function createMultiEditTool(execute: MultiEditExecuteFn) {
 /**
  * Creates the grep tool
  */
+
+const grepInputSchema = z.object({
+    pattern: z.string().describe(`The regular expression pattern to search for in file contents`),
+    path: z.string().optional().describe(`File or directory to search in (rg PATH). Defaults to current working directory.`),
+    glob: z.string().optional().describe(`Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}") - maps to rg --glob`),
+    type: z.string().optional().describe(`File type to search (rg --type). Common types: js, py, rust, go, java, etc. More efficient than include for standard file types.`),
+    output_mode: z.enum(['content', 'files_with_matches']).optional().describe(`Output mode: "content" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), "files_with_matches" shows only file paths (supports head_limit). Defaults to "files_with_matches".`),
+    '-i': z.boolean().optional().describe(`Case insensitive search`),
+    head_limit: z.number().optional().describe(`Limit the number of results (default: 100)`)
+});
+
 export function createGrepTool(execute: GrepExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
@@ -1006,12 +987,19 @@ export function createGrepTool(execute: GrepExecuteFn) {
 /**
  * Creates the glob tool
  */
+
+const globInputSchema = z.object({
+    pattern: z.string().describe(`The glob pattern to match files against`),
+    path: z.string().optional().describe(`The relative path to the directory to search in. Use paths relative to the project root (e.g., "src/main/wso2mi/artifacts/apis")`),
+});
+
 export function createGlobTool(execute: GlobExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
         description: `
             Fast file pattern matching tool that works with any codebase size.
 
+            Usage:
             - Supports glob patterns like "**/*.xml" or "src/**/*.ts"
             - Returns matching file paths sorted by modification time (most recent first)
             - Use this tool when you need to find files by name patterns
