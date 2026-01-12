@@ -47,8 +47,6 @@ const Container = styled.div`
 
 const EditorContainer = styled.div`
     background-color: var(--vscode-editor-background);
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 4px;
     overflow: hidden;
 `;
 
@@ -258,6 +256,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
     const monacoRef = useRef<Monaco | null>(null);
     const completionDisposableRef = useRef<monaco.IDisposable | null>(null);
+    const isTypingRef = useRef(false);
     
     // Generate initial code from request
     const initialCode = useMemo(() => {
@@ -818,6 +817,26 @@ export const CodeInput: React.FC<CodeInputProps> = ({
         
         return () => observer.disconnect();
     }, []);
+    
+    // Update editor when request changes externally (e.g., mode switch), but not during typing
+    useEffect(() => {
+        if (editorRef.current && request && !isTypingRef.current) {
+            const currentValue = editorRef.current.getValue();
+            const newValue = requestToCode(request);
+            
+            // Only update if content is actually different
+            if (currentValue !== newValue) {
+                const position = editorRef.current.getPosition();
+                editorRef.current.setValue(newValue);
+                if (position) {
+                    const model = editorRef.current.getModel();
+                    if (model && position.lineNumber <= model.getLineCount()) {
+                        editorRef.current.setPosition(position);
+                    }
+                }
+            }
+        }
+    }, [request.queryParameters, request.headers, request.body]);
 
     if (!request) {
         return <Container><Typography>Loading...</Typography></Container>;
@@ -825,8 +844,13 @@ export const CodeInput: React.FC<CodeInputProps> = ({
 
     const handleEditorChange = (value: string | undefined) => {
         if (value !== undefined) {
+            isTypingRef.current = true;
             const updatedRequest = codeToRequest(value, request);
             onRequestChange?.(updatedRequest);
+            // Reset flag after a short delay
+            setTimeout(() => {
+                isTypingRef.current = false;
+            }, 100);
         }
     };
 
@@ -846,7 +870,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                 <Editor
                     height="300px"
                     language={LANGUAGE_ID}
-                    value={initialCode}
+                    defaultValue={initialCode}
                     theme={getIsDarkTheme() ? 'vs-dark' : 'vs'}
                     beforeMount={handleEditorWillMount}
                     onMount={handleEditorDidMount}
@@ -855,11 +879,14 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                         minimap: { enabled: false },
                         scrollBeyondLastLine: false,
                         fontSize: 13,
-                        lineNumbers: 'on',
+                        lineNumbers: 'off',
+                        lineDecorationsWidth: 0,
+                        lineNumbersMinChars: 0,
+                        glyphMargin: false,
+                        folding: false,
                         wordWrap: 'on',
                         automaticLayout: true,
                         tabSize: 2,
-                        folding: true,
                         renderLineHighlight: 'line',
                         scrollbar: {
                             vertical: 'auto',
