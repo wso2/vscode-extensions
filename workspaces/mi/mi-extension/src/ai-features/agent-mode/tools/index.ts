@@ -43,10 +43,10 @@ export {
     getAvailableConnectors,
     getAvailableInboundEndpoints,
     // Documentation tools
-    createGetConnectorGuideExecute,
-    createGetConnectorGuideTool,
-    createGetAIConnectorGuideExecute,
-    createGetAIConnectorGuideTool,
+    createGetConnectorDocumentationExecute,
+    createGetConnectorDocumentationTool,
+    createGetAIConnectorDocumentationExecute,
+    createGetAIConnectorDocumentationTool,
 } from './connector_tools';
 
 // Export project tools
@@ -71,8 +71,8 @@ export {
     ADD_CONNECTOR_TOOL_NAME,
     REMOVE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
-    GET_CONNECTOR_GUIDE_TOOL_NAME,
-    GET_AI_CONNECTOR_GUIDE_TOOL_NAME,
+    GET_CONNECTOR_DOCUMENTATION_TOOL_NAME,
+    GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
 } from './types';
 
 /**

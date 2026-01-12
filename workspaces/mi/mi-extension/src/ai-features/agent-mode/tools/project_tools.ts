@@ -102,7 +102,14 @@ export function createAddConnectorExecute(projectPath: string): AddConnectorExec
 
             logDebug(`[AddConnectorTool] Fetched ${connectorStoreData.length} connectors from store`);
 
-            const results: Array<{ name: string; success: boolean; error?: string }> = [];
+            // Get existing dependencies from pom.xml
+            const langClient = await MILanguageClient.getInstance(projectPath);
+            const projectDetails = await langClient.getProjectDetails();
+            const existingDependencies = projectDetails.dependencies || { connectorDependencies: [], otherDependencies: [] };
+
+            logDebug(`[AddConnectorTool] Existing connector dependencies: ${existingDependencies.connectorDependencies?.length || 0}`);
+
+            const results: Array<{ name: string; success: boolean; alreadyAdded?: boolean; error?: string }> = [];
 
             // Add each connector
             for (const connectorName of connector_names) {
@@ -117,6 +124,23 @@ export function createAddConnectorExecute(projectPath: string): AddConnectorExec
                             name: connectorName,
                             success: false,
                             error: 'Connector not found in connector store'
+                        });
+                        continue;
+                    }
+
+                    // Check if connector is already in pom.xml
+                    const alreadyExists = existingDependencies.connectorDependencies?.some(
+                        (existingDep: any) =>
+                            existingDep.groupId === connector.mavenGroupId &&
+                            existingDep.artifact === connector.mavenArtifactId
+                    );
+
+                    if (alreadyExists) {
+                        logDebug(`[AddConnectorTool] Connector ${connectorName} already exists in pom.xml`);
+                        results.push({
+                            name: connectorName,
+                            success: true,
+                            alreadyAdded: true
                         });
                         continue;
                     }
@@ -175,24 +199,35 @@ export function createAddConnectorExecute(projectPath: string): AddConnectorExec
 
             // Build response message
             const successful = results.filter(r => r.success);
+            const alreadyAdded = results.filter(r => r.success && r.alreadyAdded);
+            const newlyAdded = results.filter(r => r.success && !r.alreadyAdded);
             const failed = results.filter(r => !r.success);
 
             let message = '';
-            if (successful.length > 0) {
-                message += `Successfully added ${successful.length} connector(s):\n`;
-                successful.forEach(r => {
+            if (newlyAdded.length > 0) {
+                message += `Successfully added ${newlyAdded.length} connector(s):\n`;
+                newlyAdded.forEach(r => {
                     message += `  ✓ ${r.name}\n`;
                 });
             }
 
+            if (alreadyAdded.length > 0) {
+                if (message) message += '\n';
+                message += `${alreadyAdded.length} connector(s) already present in project:\n`;
+                alreadyAdded.forEach(r => {
+                    message += `  ✓ ${r.name} (already added)\n`;
+                });
+            }
+
             if (failed.length > 0) {
-                message += `\nFailed to add ${failed.length} connector(s):\n`;
+                if (message) message += '\n';
+                message += `Failed to add ${failed.length} connector(s):\n`;
                 failed.forEach(r => {
                     message += `  ✗ ${r.name}: ${r.error}\n`;
                 });
             }
 
-            logDebug(`[AddConnectorTool] Added ${successful.length}/${connector_names.length} connectors`);
+            logDebug(`[AddConnectorTool] Completed: ${newlyAdded.length} added, ${alreadyAdded.length} already present, ${failed.length} failed`);
 
             return {
                 success: successful.length > 0,
@@ -424,10 +459,15 @@ export function createValidateCodeExecute(projectPath: string): ValidateCodeExec
                         continue;
                     }
 
+                    logDebug(`[ValidateCodeTool] Validating file: ${absolutePath}`);
+
                     // Get diagnostics from language server
-                    const diagnosticsResponse = await langClient.getDiagnostics({
-                        documentUri: absolutePath
+                    const diagnosticsResponse = await langClient.getCodeDiagnostics({
+                        fileName: absolutePath,
+                        code: fs.readFileSync(absolutePath, 'utf8')
                     });
+
+                    logDebug(`[ValidateCodeTool] Diagnostics response: ${JSON.stringify(diagnosticsResponse)}`);
 
                     const diagnostics = diagnosticsResponse.diagnostics || [];
                     const hasErrors = diagnostics.some((d: any) => d.severity === 1);
@@ -499,6 +539,7 @@ export function createValidateCodeExecute(projectPath: string): ValidateCodeExec
             }
 
             logDebug(`[ValidateCodeTool] Validation complete: ${filesClean.length} clean, ${filesWithWarnings.length} warnings, ${filesWithErrors.length} errors`);
+            logDebug(`[ValidateCodeTool] Message: ${message}`);
 
             return {
                 success: true,
