@@ -102,10 +102,12 @@ export function createFileTools(projectPath: string, modifiedFiles?: string[]) {
         createReadExecute,
         createEditExecute,
         createMultiEditExecute,
+        createGrepExecute,
         createWriteTool,
         createReadTool,
         createEditTool,
         createMultiEditTool,
+        createGrepTool,
     } = require('./file_tools');
 
     const {
@@ -113,6 +115,7 @@ export function createFileTools(projectPath: string, modifiedFiles?: string[]) {
         FILE_READ_TOOL_NAME,
         FILE_EDIT_TOOL_NAME,
         FILE_MULTI_EDIT_TOOL_NAME,
+        FILE_GREP_TOOL_NAME,
     } = require('./types');
 
     return {
@@ -120,5 +123,6 @@ export function createFileTools(projectPath: string, modifiedFiles?: string[]) {
         [FILE_READ_TOOL_NAME]: createReadTool(createReadExecute(projectPath)),
         [FILE_EDIT_TOOL_NAME]: createEditTool(createEditExecute(projectPath, modifiedFiles)),
         [FILE_MULTI_EDIT_TOOL_NAME]: createMultiEditTool(createMultiEditExecute(projectPath, modifiedFiles)),
+        [FILE_GREP_TOOL_NAME]: createGrepTool(createGrepExecute(projectPath)),
     };
 }
