@@ -575,25 +575,28 @@ export function createWriteTool(execute: WriteExecuteFn) {
     return (tool as any)({
         description: `
             Creates a new file with the specified content.
+
+            Parameters:
+            - file_path (string, required): The relative path to the file to write. Use paths relative to the project root (e.g., "src/main/wso2mi/artifacts/apis/MyAPI.xml")
+            - content (string, required): The content to write to the file. Cannot be empty.
+
             Usage:
-            - Use this tool to create NEW files only. It will fail if the file already has content.
+            - Use this tool to create NEW files only. It will not overwrite existing files with content.
             - To modify existing files, use ${FILE_EDIT_TOOL_NAME} or ${FILE_MULTI_EDIT_TOOL_NAME} instead.
             - The file path should be relative to the project root.
             - Parent directories will be created automatically if they don't exist.
             - Valid file extensions: ${VALID_FILE_EXTENSIONS.join(', ')}
+            - Do NOT proactively create documentation files unless requested
 
-            For Synapse/MI projects, common paths include:
+            For Synapse/MI projects, common paths include but are not limited to:
             - src/main/wso2mi/artifacts/apis/ - API configurations
             - src/main/wso2mi/artifacts/sequences/ - Sequence configurations
             - src/main/wso2mi/artifacts/endpoints/ - Endpoint configurations
             - src/main/wso2mi/artifacts/proxy-services/ - Proxy service configurations
             - src/main/wso2mi/artifacts/inbound-endpoints/ - Inbound endpoint configurations
-
-            Parameters:
-            - file_path: ${getFilePathDescription('write to')}
-            - content: The content to write to the file. Cannot be empty.`,
-                    inputSchema: writeInputSchema,
-                    execute
+            `,
+        inputSchema: writeInputSchema,
+        execute
     });
 }
 
@@ -605,32 +608,41 @@ export function createReadTool(execute: ReadExecuteFn) {
     return (tool as any)({
         description: `
             Reads a file from the project.
+
+            Parameters:
+            - file_path (string, required): The relative path to the file to read. Use paths relative to the project root (e.g., "src/main/wso2mi/artifacts/apis/MyAPI.xml")
+            - offset (number, optional): The line number to start reading from
+            - limit (number, optional): The number of lines to read
+
             Usage:
-            - The file path should be relative to the project root.
-            - For large files, use offset and limit parameters to read in chunks.
+            - Reads up to 2000 lines by default
             - Lines longer than ${MAX_LINE_LENGTH} characters will be truncated.
-            - Content is returned with line numbers for easy reference.
+            - Returns content with line numbers (cat -n format)
+            - For large files, use offset and limit parameters to read in chunks.
             - Valid file extensions: ${VALID_FILE_EXTENSIONS.join(', ')}
 
             IMPORTANT: Before editing a file, always read it first to understand its current content and structure.
-
-            Parameters:
-            - file_path: ${getFilePathDescription('read from')}
-            - offset: Line number to start reading from (1-indexed). Use for large files. (optional)
-            - limit: Number of lines to read. Use for large files. (optional)`,
+            `,
         inputSchema: readInputSchema,
         execute
     });
 }
 
 /**
- * Creates the file_edit tool
+ * Creates the file_edit to
  */
 export function createEditTool(execute: EditExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
         description: `
             Performs a find-and-replace operation on an existing file.
+
+            Parameters:
+            - file_path (string, required): The relative path to the file to edit. Use paths relative to the project root (e.g., "src/main/wso2mi/artifacts/apis/MyAPI.xml")
+            - old_string (string, required): The exact text to replace (must match file contents exactly, including whitespace)
+            - new_string (string, required): The replacement text (must be different from old_string)
+            - replace_all (boolean, optional, default: false): Replace all occurrences
+
             Usage:
             - ALWAYS read the file first before editing to ensure you have the exact content.
             - The old_string must match EXACTLY, including all whitespace, indentation, and line breaks.
@@ -644,13 +656,7 @@ export function createEditTool(execute: EditExecuteFn) {
             Tips for Synapse XML editing:
             - Include surrounding XML tags to ensure unique matches
             - Preserve XML indentation exactly
-            - Be careful with XML namespaces and attributes
-
-            Parameters:
-            - file_path: ${getFilePathDescription('edit')}
-            - old_string: The exact text to replace (must match file contents exactly, including whitespace)
-            - new_string: The replacement text (must be different from old_string)
-            - replace_all: If true, replace ALL occurrences. If false (default), requires exactly one match. (optional)`,
+            - Be careful with XML namespaces and attributes`,
         inputSchema: editInputSchema,
         execute
     });
@@ -664,6 +670,14 @@ export function createMultiEditTool(execute: MultiEditExecuteFn) {
     return (tool as any)({
         description: `
         Performs multiple find-and-replace operations on a single file atomically.
+
+        Parameters:
+        - file_path: ${getFilePathDescription('edit')}
+        - edits: Array of edit operations to perform sequentially. Each edit has:
+        - old_string: The exact text to replace
+        - new_string: The replacement text
+        - replace_all: If true, replace all occurrences of this old_string (optional)
+
         Usage:
         - Preferred over ${FILE_EDIT_TOOL_NAME} when making multiple changes to the same file.
         - All edits are validated before any are applied - if any edit fails, NONE are applied.
@@ -679,14 +693,7 @@ export function createMultiEditTool(execute: MultiEditExecuteFn) {
         Example use cases:
         - Updating multiple mediator configurations
         - Renaming endpoints across a file
-        - Modifying multiple property values
-
-        Parameters:
-        - file_path: ${getFilePathDescription('edit')}
-        - edits: Array of edit operations to perform sequentially. Each edit has:
-        - old_string: The exact text to replace
-        - new_string: The replacement text
-        - replace_all: If true, replace all occurrences of this old_string (optional)`,
+        - Modifying multiple property values`,
         inputSchema: multiEditInputSchema,
         execute
     });

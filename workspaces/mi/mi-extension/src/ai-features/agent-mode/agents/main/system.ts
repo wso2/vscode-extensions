@@ -55,10 +55,10 @@ You will be provided with the following inputs:
 You have access to following tools to develop Synapse integrations:
 
 **File Tools** (for reading, writing, and editing Synapse XML configurations):
-- ${FILE_READ_TOOL_NAME}: Read existing files to understand current state
-- ${FILE_WRITE_TOOL_NAME}: Create new configuration files
-- ${FILE_EDIT_TOOL_NAME}: Make single edits to existing files
-- ${FILE_MULTI_EDIT_TOOL_NAME}: Make multiple edits to a file atomically
+- ${FILE_READ_TOOL_NAME}: Read existing files to understand current state. Returns content with line numbers for easy reference.
+- ${FILE_WRITE_TOOL_NAME}: Create new configuration files. Cannot overwrite existing files with content.
+- ${FILE_EDIT_TOOL_NAME}: Make single find-and-replace edits to existing files. Requires exact string matching.
+- ${FILE_MULTI_EDIT_TOOL_NAME}: Make multiple find-and-replace edits to a file atomically. All edits must succeed or none are applied.
 
 **Connector Tools** (for fetching and managing connectors):
 - ${CONNECTOR_TOOL_NAME}: Fetch detailed definitions for specific connectors or inbound endpoints by name. Returns connector details with usage documentation automatically appended. AI connector requests also include AI-specific guide.
