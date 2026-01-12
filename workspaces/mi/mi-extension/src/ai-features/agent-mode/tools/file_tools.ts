@@ -20,6 +20,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as glob from 'glob';
 
 import {
     ValidationResult,
@@ -36,6 +37,7 @@ import {
     EditExecuteFn,
     MultiEditExecuteFn,
     GrepExecuteFn,
+    GlobExecuteFn,
 } from './types';
 
 // ============================================================================
@@ -555,10 +557,8 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
             const filesWithMatches: Set<string> = new Set();
             const regex = new RegExp(pattern, caseInsensitive ? 'gi' : 'g');
 
-            // Resolve the search path
-            const fullSearchPath = path.isAbsolute(searchPath)
-                ? searchPath
-                : path.join(projectPath, searchPath);
+            // Resolve the search path (always relative to projectPath for security)
+            const fullSearchPath = path.join(projectPath, searchPath);
 
             if (!fs.existsSync(fullSearchPath)) {
                 return {
@@ -725,6 +725,76 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
     };
 }
 
+/**
+ * Creates the execute function for glob tool
+ */
+export function createGlobExecute(projectPath: string): GlobExecuteFn {
+    return async (args: {
+        pattern: string;
+        path?: string;
+    }): Promise<ToolResult> => {
+        const { pattern, path: searchPath = '.' } = args;
+
+        console.log(`[GlobTool] Searching for pattern '${pattern}' in ${searchPath}`);
+
+        try {
+            // Resolve the search path (always relative to projectPath for security)
+            const fullSearchPath = path.join(projectPath, searchPath);
+
+            if (!fs.existsSync(fullSearchPath)) {
+                return {
+                    success: false,
+                    message: `Path '${searchPath}' does not exist.`,
+                    error: 'Error: Path not found'
+                };
+            }
+
+            // Convert glob pattern to work from search path
+            const globPattern = path.join(fullSearchPath, pattern);
+
+            // Use glob.sync() to find matching files (like Ballerina extension)
+            const matches: string[] = glob.sync(globPattern, { nodir: true });
+
+            // Get file stats and sort by modification time (most recent first)
+            const filesWithStats = matches.map(file => ({
+                file,
+                mtime: fs.statSync(file).mtime.getTime()
+            }));
+
+            filesWithStats.sort((a, b) => b.mtime - a.mtime);
+
+            // Convert to relative paths
+            const relativePaths = filesWithStats.map(f => path.relative(projectPath, f.file));
+
+            if (relativePaths.length === 0) {
+                return {
+                    success: true,
+                    message: `No files found matching pattern '${pattern}' in ${searchPath}.`
+                };
+            }
+
+            let message = `Found ${relativePaths.length} file(s) matching pattern '${pattern}':\n\n`;
+            for (const filePath of relativePaths) {
+                message += `${filePath}\n`;
+            }
+
+            console.log(`[GlobTool] Found ${relativePaths.length} files`);
+            return {
+                success: true,
+                message: message.trim()
+            };
+
+        } catch (error) {
+            console.error(`[GlobTool] Error during search:`, error);
+            return {
+                success: false,
+                message: `Error searching for pattern: ${error instanceof Error ? error.message : String(error)}`,
+                error: `Error: Search failed`
+            };
+        }
+    };
+}
+
 // ============================================================================
 // Tool Definitions (Vercel AI SDK format)
 // ============================================================================
@@ -766,6 +836,11 @@ const grepInputSchema = z.object({
     output_mode: z.enum(['content', 'files_with_matches']).optional(),
     '-i': z.boolean().optional(),
     head_limit: z.number().optional()
+});
+
+const globInputSchema = z.object({
+    pattern: z.string(),
+    path: z.string().optional()
 });
 
 /**
@@ -924,6 +999,29 @@ export function createGrepTool(execute: GrepExecuteFn) {
             - Locate property references: pattern: "\\\\$ctx:[a-zA-Z]+", glob: "*.xml"
             - Search connector operations: pattern: "<[a-zA-Z]+\\\\.[a-zA-Z]+>", glob: "*.xml"`,
         inputSchema: grepInputSchema,
+        execute
+    });
+}
+
+/**
+ * Creates the glob tool
+ */
+export function createGlobTool(execute: GlobExecuteFn) {
+    // Type assertion to avoid TypeScript deep instantiation issues with Zod
+    return (tool as any)({
+        description: `
+            Fast file pattern matching tool that works with any codebase size.
+
+            - Supports glob patterns like "**/*.xml" or "src/**/*.ts"
+            - Returns matching file paths sorted by modification time (most recent first)
+            - Use this tool when you need to find files by name patterns
+            - Can call this tool speculatively to discover files in parallel
+
+            Synapse/MI examples:
+            - Find all APIs: pattern: "**/*API.xml"
+            - Find sequences: pattern: "**/sequences/*.xml"
+            - Find connectors in config: pattern: "**/lib/*.jar"`,
+        inputSchema: globInputSchema,
         execute
     });
 }

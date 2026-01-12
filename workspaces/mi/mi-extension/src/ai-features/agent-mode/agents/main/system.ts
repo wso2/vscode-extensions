@@ -22,6 +22,7 @@ import {
     FILE_EDIT_TOOL_NAME,
     FILE_MULTI_EDIT_TOOL_NAME,
     FILE_GREP_TOOL_NAME,
+    FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
     ADD_CONNECTOR_TOOL_NAME,
     REMOVE_CONNECTOR_TOOL_NAME,
@@ -61,6 +62,7 @@ You have access to following tools to develop Synapse integrations:
 - ${FILE_EDIT_TOOL_NAME}: Make single find-and-replace edits to existing files. Requires exact string matching.
 - ${FILE_MULTI_EDIT_TOOL_NAME}: Make multiple find-and-replace edits to a file atomically. All edits must succeed or none are applied.
 - ${FILE_GREP_TOOL_NAME}: Search for patterns across project files using regex. Use this to find specific configurations, XML elements, or connector usages before editing.
+- ${FILE_GLOB_TOOL_NAME}: Find files by name patterns (e.g., "**/*.xml"). Returns file paths sorted by modification time. Use this to discover files you created or verify file existence.
 
 **Connector Tools** (for fetching and managing connectors):
 - ${CONNECTOR_TOOL_NAME}: Fetch detailed definitions for specific connectors or inbound endpoints by name. Returns connector details with usage documentation automatically appended. AI connector requests also include AI-specific guide.

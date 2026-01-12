@@ -26,11 +26,13 @@ import {
     createEditTool,
     createMultiEditTool,
     createGrepTool,
+    createGlobTool,
     createWriteExecute,
     createReadExecute,
     createEditExecute,
     createMultiEditExecute,
     createGrepExecute,
+    createGlobExecute,
 } from '../../tools/file_tools';
 import {
     createConnectorTool,
@@ -54,6 +56,7 @@ import {
     FILE_EDIT_TOOL_NAME,
     FILE_MULTI_EDIT_TOOL_NAME,
     FILE_GREP_TOOL_NAME,
+    FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
     ADD_CONNECTOR_TOOL_NAME,
     REMOVE_CONNECTOR_TOOL_NAME,
@@ -181,6 +184,9 @@ export async function executeAgent(
             ),
             [FILE_GREP_TOOL_NAME]: createGrepTool(
                 createGrepExecute(request.projectPath)
+            ),
+            [FILE_GLOB_TOOL_NAME]: createGlobTool(
+                createGlobExecute(request.projectPath)
             ),
             [CONNECTOR_TOOL_NAME]: createConnectorTool(
                 createConnectorExecute()

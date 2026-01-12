@@ -26,11 +26,15 @@ export {
     createReadExecute,
     createEditExecute,
     createMultiEditExecute,
+    createGrepExecute,
+    createGlobExecute,
     // Tool creators
     createWriteTool,
     createReadTool,
     createEditTool,
     createMultiEditTool,
+    createGrepTool,
+    createGlobTool,
 } from './file_tools';
 
 // Export connector tools
@@ -67,6 +71,8 @@ export {
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
     FILE_MULTI_EDIT_TOOL_NAME,
+    FILE_GREP_TOOL_NAME,
+    FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
     ADD_CONNECTOR_TOOL_NAME,
     REMOVE_CONNECTOR_TOOL_NAME,
@@ -103,11 +109,13 @@ export function createFileTools(projectPath: string, modifiedFiles?: string[]) {
         createEditExecute,
         createMultiEditExecute,
         createGrepExecute,
+        createGlobExecute,
         createWriteTool,
         createReadTool,
         createEditTool,
         createMultiEditTool,
         createGrepTool,
+        createGlobTool,
     } = require('./file_tools');
 
     const {
@@ -116,6 +124,7 @@ export function createFileTools(projectPath: string, modifiedFiles?: string[]) {
         FILE_EDIT_TOOL_NAME,
         FILE_MULTI_EDIT_TOOL_NAME,
         FILE_GREP_TOOL_NAME,
+        FILE_GLOB_TOOL_NAME,
     } = require('./types');
 
     return {
@@ -124,5 +133,6 @@ export function createFileTools(projectPath: string, modifiedFiles?: string[]) {
         [FILE_EDIT_TOOL_NAME]: createEditTool(createEditExecute(projectPath, modifiedFiles)),
         [FILE_MULTI_EDIT_TOOL_NAME]: createMultiEditTool(createMultiEditExecute(projectPath, modifiedFiles)),
         [FILE_GREP_TOOL_NAME]: createGrepTool(createGrepExecute(projectPath)),
+        [FILE_GLOB_TOOL_NAME]: createGlobTool(createGlobExecute(projectPath)),
     };
 }
