@@ -69,6 +69,7 @@ export const FILE_READ_TOOL_NAME = 'file_read';
 export const FILE_EDIT_TOOL_NAME = 'file_edit';
 export const FILE_MULTI_EDIT_TOOL_NAME = 'file_multi_edit';
 export const FILE_GREP_TOOL_NAME = 'grep';
+export const FILE_GLOB_TOOL_NAME = 'glob';
 export const CONNECTOR_TOOL_NAME = 'get_connector_definitions';
 export const ADD_CONNECTOR_TOOL_NAME = 'add_connector_to_project_pom';
 export const REMOVE_CONNECTOR_TOOL_NAME = 'remove_connector_from_project_pom';
@@ -132,4 +133,9 @@ export type GrepExecuteFn = (args: {
     output_mode?: 'content' | 'files_with_matches';
     '-i'?: boolean;
     head_limit?: number;
+}) => Promise<ToolResult>;
+
+export type GlobExecuteFn = (args: {
+    pattern: string;
+    path?: string;
 }) => Promise<ToolResult>;
