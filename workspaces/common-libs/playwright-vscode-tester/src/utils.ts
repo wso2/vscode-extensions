@@ -1,6 +1,7 @@
 import path from "path";
 import { CodeUtil, ReleaseQuality } from "./codeUtil";
 import { BrowserLaunchOptions, Browser } from "./types";
+import { Download } from './download';
 import fs from "fs";
 
 export async function getBrowser(folder: string, version: string, quality: ReleaseQuality, extensionsFolder?: string, profileName?: string): Promise<Browser> {
@@ -32,4 +33,70 @@ export async function getBrowserLaunchOptions(folder: string, version: string, q
     const options = await codeUtil.getCypressBrowserOptions({ vscodeVersion: version, resources });
 
     return options;
+}
+
+export async function downloadExtensionFromMarketplace(
+    extensionId: string,
+    targetFolder: string
+): Promise<string> {
+    fs.mkdirSync(targetFolder);
+    const { vsixUrl, fileName } = await getVsixUrlFromMarketplace(extensionId);
+    const target = path.join(targetFolder, fileName);
+
+    console.log(`Downloading ${fileName}`);
+    await Download.getFile(vsixUrl, target);
+    console.log('Success!');
+    return target;
+}
+
+async function getVsixUrlFromMarketplace(extensionId: string) {
+    const [marketplaceId, channel] = extensionId.split('@');
+    const isPrerelease = channel === 'prerelease';
+
+    const res = await fetch(
+        "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json;api-version=7.2-preview.1"
+            },
+            body: JSON.stringify({
+                filters: [
+                    {
+                        criteria: [
+                            { filterType: 7, value: marketplaceId }
+                        ]
+                    }
+                ],
+                flags: 0x2 | 0x10000 // Include Files | IncludeLatestPrereleaseAndStableVersionOnly
+            })
+        }
+    );
+
+    if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Response body:", errorText);
+        throw new Error(`API request failed: ${res.status}`);
+    }
+
+    const json: any = await res.json();
+
+    const extension_data = json.results?.[0]?.extensions?.[0];
+    if (!extension_data) {
+        throw new Error("Extension not found");
+    }
+
+    const versionsData: any[] = extension_data.versions;
+    if (!versionsData || versionsData.length === 0) {
+        throw new Error("No versions found");
+    }
+
+    const versionData = versionsData.find((v: any) => (isPrerelease ? v.flags.includes("prerelease") : !v.flags.includes("prerelease")));
+    const version = versionData?.version;
+    const vsixUrl = versionData?.files?.find((f: any) => f.assetType === "Microsoft.VisualStudio.Services.VSIXPackage")?.source;
+
+    const fileName = `${marketplaceId.split('.').pop()}-${version}.vsix`;
+
+    return { vsixUrl, fileName };
 }
