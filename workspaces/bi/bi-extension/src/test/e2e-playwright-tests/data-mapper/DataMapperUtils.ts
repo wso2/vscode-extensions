@@ -212,7 +212,7 @@ export namespace TestScenarios {
 
         // direct mapping with error
         // objectOutput.output.oPrimDirectErr = input.iPrimDirectErr;
-        await dm.mapFields('input.iPrimDirectErr', 'objectOutput.output.oPrimDirectErr');
+        await dm.mapFields('input.iPrimDirectErr', 'objectOutput.output.oPrimDirectErr', 'direct');
         const loc1 = dmWebView.getByTestId('link-from-input.iPrimDirectErr.OUT-to-objectOutput.output.oPrimDirectErr.IN')
         await dm.expectErrorLink(loc1);
 
@@ -232,8 +232,8 @@ export namespace TestScenarios {
         // many-one mapping with error
         // objectOutput.output.oManyOneErr = input.iManyOneErr1 + input.iPrimDirectErr + input.iManyOneErr2
         await dm.mapFields('input.iManyOneErr1', 'objectOutput.output.oManyOneErr');
-        await dm.mapFields('input.iPrimDirectErr', 'objectOutput.output.oManyOneErr');
-        await dm.mapFields('input.iManyOneErr2', 'objectOutput.output.oManyOneErr');
+        await dm.mapFields('input.iPrimDirectErr', 'objectOutput.output.oManyOneErr', 'direct');
+        await dm.mapFields('input.iManyOneErr2', 'objectOutput.output.oManyOneErr', 'direct');
 
         await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iManyOneErr1.OUT-to-datamapper-intermediate-port'));
         await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iPrimDirectErr.OUT-to-datamapper-intermediate-port'));
@@ -259,7 +259,7 @@ export namespace TestScenarios {
         await loc4.waitFor({ state: 'attached' });
 
         // objectOutput.output.oObjProp.p2 = input.iObjProp.d2;
-        await dm.mapFields('input.iObjProp.op2', 'objectOutput.output.oObjProp.p2');
+        await dm.mapFields('input.iObjProp.op2', 'objectOutput.output.oObjProp.p2', 'direct');
         await dm.expectErrorLink(dmWebView.getByTestId('link-from-input.iObjProp.op2.OUT-to-objectOutput.output.oObjProp.p2.IN'));
 
         expect(await FileUtils.verifyFileContent(`basic/${compDir}/map1.bal.txt`, projectFile)).toBeTruthy();
@@ -344,7 +344,7 @@ export namespace TestScenarios {
         await dm.mapFields('input.iArr1D', 'objectOutput.output.oArr1D', 'a2a-inner');
 
         console.log(' - Map within focused view');
-        await dm.mapFields('iArr1DItem.p2', 'queryOutput.oArr1D.p2');
+        await dm.mapFields('iArr1DItem.p2', 'queryOutput.oArr1D.p2', 'direct');
         const loc1 = dmWebView.getByTestId('link-from-iArr1DItem.p2.OUT-to-queryOutput.oArr1D.p2.IN');
         await dm.expectErrorLink(loc1);
 
@@ -421,7 +421,7 @@ export namespace TestScenarios {
         await dmWebView.locator('div[id="recordfield-objectOutput.output.oArr1D.2"]').waitFor();
 
         console.log(' - Map to array elements');
-        await dm.mapFields('input.p1', 'objectOutput.output.oArr1D.0.p1');
+        await dm.mapFields('input.p1', 'objectOutput.output.oArr1D.0.p1', 'direct');
         const loc4 = dmWebView.getByTestId('link-from-input.p1.OUT-to-objectOutput.output.oArr1D.0.p1.IN');
         await dm.expectErrorLink(loc4);
 
@@ -484,7 +484,7 @@ export namespace TestScenarios {
         await dm.mapFields('inputItem.iArr1D', 'queryOutput.output.oArr1D', 'a2a-inner');
 
         console.log(' - Map within inner focused view');
-        await dm.mapFields('iArr1DItem.p2', 'queryOutput.oArr1D.p2');
+        await dm.mapFields('iArr1DItem.p2', 'queryOutput.oArr1D.p2', 'direct');
         const loc1 = dmWebView.getByTestId('link-from-iArr1DItem.p2.OUT-to-queryOutput.oArr1D.p2.IN');
         await dm.expectErrorLink(loc1);
 
