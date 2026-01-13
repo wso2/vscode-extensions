@@ -32,15 +32,9 @@ const ItemContainer = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px;
+    padding: 4px;
     background-color: var(--vscode-editor-background);
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 4px;
-    margin-bottom: 8px;
-    
-    &:hover {
-        background-color: var(--vscode-list-hoverBackground);
-    }
+    // margin-bottom: 8px;
 `;
 
 const DeleteIconWrapper = styled.div`

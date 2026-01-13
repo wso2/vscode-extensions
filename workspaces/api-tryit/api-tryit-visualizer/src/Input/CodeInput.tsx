@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Typography, Codicon } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
@@ -30,8 +30,6 @@ interface CodeInputProps {
 
 const Container = styled.div`
     width: 100%;
-    padding: 16px 0 16px 0;
-    
     /* Read-only line styling */
     .readonly-line {
         background-color: var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.1)) !important;
@@ -51,70 +49,6 @@ const EditorContainer = styled.div`
     // border-radius: 6px;
     overflow: visible;
     // box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-`;
-
-const EditorHeader = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    margin-bottom: 8px;
-    position: relative;
-`;
-
-const HelpButton = styled.button`
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
-    background: transparent;
-    border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
-    border-radius: 4px;
-    color: var(--vscode-foreground);
-    font-size: 11px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    
-    &:hover {
-        background: var(--vscode-button-secondaryBackground);
-        border-color: var(--vscode-button-secondaryForeground);
-    }
-    
-    .codicon {
-        font-size: 14px;
-    }
-`;
-
-const HelpTooltip = styled.div<{ show: boolean }>`
-    display: ${props => props.show ? 'block' : 'none'};
-    position: absolute;
-    top: 32px;
-    right: 0;
-    width: 350px;
-    padding: 12px 16px;
-    background: var(--vscode-editorHoverWidget-background);
-    border: 1px solid var(--vscode-editorHoverWidget-border);
-    border-radius: 6px;
-    color: var(--vscode-editorHoverWidget-foreground);
-    font-size: 12px;
-    line-height: 1.6;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    z-index: 1000;
-    
-    strong {
-        color: var(--vscode-textLink-activeForeground);
-        font-weight: 600;
-    }
-`;
-
-const CodeHint = styled.code`
-    background-color: var(--vscode-textCodeBlock-background);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-family: var(--vscode-editor-font-family, 'Consolas', 'Courier New', monospace);
-    font-size: 11px;
-    font-weight: 500;
-    border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
-    color: var(--vscode-textPreformat-foreground);
 `;
 
 // Common HTTP headers for completions
@@ -298,7 +232,6 @@ export const CodeInput: React.FC<CodeInputProps> = ({
     const monacoRef = useRef<Monaco | null>(null);
     const completionDisposableRef = useRef<monaco.IDisposable | null>(null);
     const isTypingRef = useRef(false);
-    const [showHelp, setShowHelp] = useState(false);
     
     // Generate initial code from request
     const initialCode = useMemo(() => {
@@ -345,7 +278,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                 { token: 'keyword.section', foreground: isDark ? '4EC9B0' : '0098FF', fontStyle: 'bold' },
                 { token: 'comment', foreground: isDark ? '6A9955' : '008000', fontStyle: 'italic' },
                 { token: 'variable.header-key', foreground: isDark ? '9CDCFE' : '0070C1', fontStyle: 'bold' },
-                { token: 'variable.param-key', foreground: isDark ? 'DCDCAA' : 'AF00DB', fontStyle: 'bold' },
+                { token: 'variable.param-key', foreground: isDark ? '9CDCFE' : '0070C1', fontStyle: 'bold' },
                 { token: 'string.header-value', foreground: isDark ? 'CE9178' : 'A31515' },
                 { token: 'string.param-value', foreground: isDark ? 'CE9178' : 'A31515' },
                 { token: 'string', foreground: isDark ? 'CE9178' : 'A31515' },
@@ -944,27 +877,9 @@ export const CodeInput: React.FC<CodeInputProps> = ({
 
     return (
         <Container>
-            <EditorHeader>
-                <HelpButton 
-                    onMouseEnter={() => setShowHelp(true)}
-                    onMouseLeave={() => setShowHelp(false)}
-                    onClick={() => setShowHelp(!showHelp)}
-                >
-                    <Codicon name="question" />
-                    Help
-                </HelpButton>
-                <HelpTooltip show={showHelp}>
-                    <strong>Write your request with auto-completions:</strong><br/>
-                    • <CodeHint>key=value</CodeHint> for query parameters<br/>
-                    • <CodeHint>Header-Name: value</CodeHint> for headers<br/>
-                    • Prefix with <CodeHint>//</CodeHint> to disable a line<br/>
-                    • Press <CodeHint>Cmd+Space</CodeHint> or <CodeHint>Cmd+/</CodeHint> for suggestions
-                </HelpTooltip>
-            </EditorHeader>
-            
             <EditorContainer>
                 <Editor
-                    height="300px"
+                    height="calc(100vh - 200px)"
                     language={LANGUAGE_ID}
                     defaultValue={initialCode}
                     theme={getIsDarkTheme() ? 'vs-dark' : 'vs'}
