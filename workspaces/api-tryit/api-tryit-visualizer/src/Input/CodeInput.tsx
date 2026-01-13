@@ -32,8 +32,7 @@ const Container = styled.div`
     width: 100%;
     /* Read-only line styling */
     .readonly-line {
-        background-color: var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.1)) !important;
-        opacity: 0.7;
+        opacity: 0.9;
     }
     
     .readonly-line-glyph::before {
@@ -301,6 +300,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({
         monaco.editor.setTheme('api-tryit-theme');
         
         const sectionHeaders = ['Query Parameters', 'Headers', 'Body'];
+        let currentDecorations: string[] = [];
         
         // Helper function to find section header line numbers
         const getSectionHeaderLines = (): Set<number> => {
@@ -352,10 +352,23 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                 }
             }
             
-            editor.deltaDecorations([], decorations);
+            currentDecorations = editor.deltaDecorations(currentDecorations, decorations);
         };
         
+        // Apply decorations immediately
         updateDecorations();
+        
+        // Move cursor away from header if initially positioned there
+        const initialPosition = editor.getPosition();
+        if (initialPosition) {
+            const headerLines = getSectionHeaderLines();
+            if (headerLines.has(initialPosition.lineNumber)) {
+                const nextLine = initialPosition.lineNumber + 1;
+                if (nextLine <= model.getLineCount()) {
+                    editor.setPosition({ lineNumber: nextLine, column: 1 });
+                }
+            }
+        }
         
         // Prevent selections from extending into section header lines (e.g., triple-click)
         editor.onDidChangeCursorSelection((e) => {
