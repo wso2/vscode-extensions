@@ -103,12 +103,12 @@ async function getVsixUrlFromMarketplace(marketplaceId: string, channel: string)
 
     const extensionData = json.results?.[0]?.extensions?.[0];
     if (!extensionData) {
-        throw new Error("Extension not found");
+        throw new Error(`Extension not found: ${marketplaceId}`);
     }
 
     const versionsData: any[] = extensionData.versions;
     if (!versionsData || versionsData.length === 0) {
-        throw new Error("No versions found");
+        throw new Error(`No versions found: ${marketplaceId}`);
     }
 
     const versionData = versionsData.find((v: any) => (isPrerelease ? v.flags.includes("prerelease") : !v.flags.includes("prerelease")));
@@ -116,7 +116,7 @@ async function getVsixUrlFromMarketplace(marketplaceId: string, channel: string)
     const vsixUrl = versionData.files?.find((f: any) => f.assetType === "Microsoft.VisualStudio.Services.VSIXPackage")?.source;
 
     if (!vsixUrl) {
-        throw new Error("VSIX URL not found");
+        throw new Error(`VSIX URL not found: ${marketplaceId}`);
     }
 
     return { vsixUrl, version };
