@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Typography, Codicon } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
@@ -47,33 +47,74 @@ const Container = styled.div`
 
 const EditorContainer = styled.div`
     background-color: var(--vscode-editor-background);
-    overflow: hidden;
+    // border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
+    // border-radius: 6px;
+    overflow: visible;
+    // box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 `;
 
-const HelpText = styled.div`
+const EditorHeader = styled.div`
     display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    margin-bottom: 12px;
-    padding: 8px 12px;
-    background-color: var(--vscode-textBlockQuote-background);
-    border-left: 3px solid var(--vscode-textLink-foreground);
+    align-items: center;
+    justify-content: flex-end;
+    margin-bottom: 8px;
+    position: relative;
+`;
+
+const HelpButton = styled.button`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: transparent;
+    border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
     border-radius: 4px;
     color: var(--vscode-foreground);
-    font-size: 12px;
-    line-height: 1.5;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &:hover {
+        background: var(--vscode-button-secondaryBackground);
+        border-color: var(--vscode-button-secondaryForeground);
+    }
+    
+    .codicon {
+        font-size: 14px;
+    }
 `;
 
-const HelpContent = styled.div`
-    flex: 1;
+const HelpTooltip = styled.div<{ show: boolean }>`
+    display: ${props => props.show ? 'block' : 'none'};
+    position: absolute;
+    top: 32px;
+    right: 0;
+    width: 350px;
+    padding: 12px 16px;
+    background: var(--vscode-editorHoverWidget-background);
+    border: 1px solid var(--vscode-editorHoverWidget-border);
+    border-radius: 6px;
+    color: var(--vscode-editorHoverWidget-foreground);
+    font-size: 12px;
+    line-height: 1.6;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    
+    strong {
+        color: var(--vscode-textLink-activeForeground);
+        font-weight: 600;
+    }
 `;
 
 const CodeHint = styled.code`
     background-color: var(--vscode-textCodeBlock-background);
-    padding: 1px 4px;
-    border-radius: 3px;
+    padding: 2px 6px;
+    border-radius: 4px;
     font-family: var(--vscode-editor-font-family, 'Consolas', 'Courier New', monospace);
     font-size: 11px;
+    font-weight: 500;
+    border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
+    color: var(--vscode-textPreformat-foreground);
 `;
 
 // Common HTTP headers for completions
@@ -257,6 +298,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({
     const monacoRef = useRef<Monaco | null>(null);
     const completionDisposableRef = useRef<monaco.IDisposable | null>(null);
     const isTypingRef = useRef(false);
+    const [showHelp, setShowHelp] = useState(false);
     
     // Generate initial code from request
     const initialCode = useMemo(() => {
@@ -300,10 +342,10 @@ export const CodeInput: React.FC<CodeInputProps> = ({
             base: isDark ? 'vs-dark' : 'vs',
             inherit: true,
             rules: [
-                { token: 'keyword.section', foreground: isDark ? '569CD6' : '0000FF', fontStyle: 'bold' },
-                { token: 'comment', foreground: isDark ? '6A9955' : '008000' },
-                { token: 'variable.header-key', foreground: isDark ? '9CDCFE' : '001080' },
-                { token: 'variable.param-key', foreground: isDark ? '4EC9B0' : '267F99' },
+                { token: 'keyword.section', foreground: isDark ? '4EC9B0' : '0098FF', fontStyle: 'bold' },
+                { token: 'comment', foreground: isDark ? '6A9955' : '008000', fontStyle: 'italic' },
+                { token: 'variable.header-key', foreground: isDark ? '9CDCFE' : '0070C1', fontStyle: 'bold' },
+                { token: 'variable.param-key', foreground: isDark ? 'DCDCAA' : 'AF00DB', fontStyle: 'bold' },
                 { token: 'string.header-value', foreground: isDark ? 'CE9178' : 'A31515' },
                 { token: 'string.param-value', foreground: isDark ? 'CE9178' : 'A31515' },
                 { token: 'string', foreground: isDark ? 'CE9178' : 'A31515' },
@@ -313,6 +355,9 @@ export const CodeInput: React.FC<CodeInputProps> = ({
             ],
             colors: {
                 'editor.background': isDark ? '#1E1E1E' : '#FFFFFF',
+                'editor.lineHighlightBackground': isDark ? '#2A2A2A' : '#F0F0F0',
+                'editorLineNumber.foreground': isDark ? '#858585' : '#237893',
+                'editorCursor.foreground': isDark ? '#AEAFAD' : '#000000',
             }
         });
     };
@@ -899,15 +944,23 @@ export const CodeInput: React.FC<CodeInputProps> = ({
 
     return (
         <Container>
-            <HelpText>
-                <Codicon name="info" />
-                <HelpContent>
-                    Write your request in a code-like format with <strong>auto-completions</strong>:<br/>
+            <EditorHeader>
+                <HelpButton 
+                    onMouseEnter={() => setShowHelp(true)}
+                    onMouseLeave={() => setShowHelp(false)}
+                    onClick={() => setShowHelp(!showHelp)}
+                >
+                    <Codicon name="question" />
+                    Help
+                </HelpButton>
+                <HelpTooltip show={showHelp}>
+                    <strong>Write your request with auto-completions:</strong><br/>
                     • <CodeHint>key=value</CodeHint> for query parameters<br/>
                     • <CodeHint>Header-Name: value</CodeHint> for headers<br/>
-                    • Prefix with <CodeHint>//</CodeHint> to disable a line
-                </HelpContent>
-            </HelpText>
+                    • Prefix with <CodeHint>//</CodeHint> to disable a line<br/>
+                    • Press <CodeHint>Cmd+Space</CodeHint> or <CodeHint>Cmd+/</CodeHint> for suggestions
+                </HelpTooltip>
+            </EditorHeader>
             
             <EditorContainer>
                 <Editor
@@ -921,7 +974,9 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                     options={{
                         minimap: { enabled: false },
                         scrollBeyondLastLine: false,
-                        fontSize: 13,
+                        fontSize: 14,
+                        lineHeight: 22,
+                        letterSpacing: 0.5,
                         lineNumbers: 'off',
                         lineDecorationsWidth: 0,
                         lineNumbersMinChars: 0,
@@ -931,11 +986,15 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                         automaticLayout: true,
                         tabSize: 2,
                         renderLineHighlight: 'line',
+                        cursorBlinking: 'smooth',
+                        // cursorSmoothCaretAnimation: 'on',
+                        // smoothScrolling: true,
                         scrollbar: {
                             vertical: 'auto',
                             horizontal: 'auto',
-                            verticalScrollbarSize: 10,
-                            horizontalScrollbarSize: 10
+                            verticalScrollbarSize: 12,
+                            horizontalScrollbarSize: 12,
+                            useShadows: true
                         },
                         suggestOnTriggerCharacters: true,
                         quickSuggestions: {
@@ -973,7 +1032,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                         },
                         formatOnPaste: true,
                         formatOnType: true,
-                        padding: { top: 8, bottom: 8 }
+                        padding: { top: 12, bottom: 12 }
                     }}
                 />
             </EditorContainer>
