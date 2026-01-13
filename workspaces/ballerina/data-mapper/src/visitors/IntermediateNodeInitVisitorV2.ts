@@ -33,8 +33,8 @@ export class IntermediateNodeInitVisitorV2 implements BaseVisitor {
         // Assign node.input to a variable
         const input = node.input;
         if (input.kind == "binary") {
-            const binaryExprNode = new BinaryConnectorNode(this.context, node);
-            this.intermediateNodes.push(binaryExprNode);
+            // const binaryExprNode = new BinaryConnectorNode(this.context, node);
+            // this.intermediateNodes.push(binaryExprNode);
         }
     }
 

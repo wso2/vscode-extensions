@@ -15,14 +15,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { DMDiagnostic, NewMapping, BinaryInput, BasicInput } from "@wso2/ballerina-core";
+import { DMDiagnostic, BinaryInput } from "@wso2/ballerina-core";
 
 import { IDataMapperContext } from "../../../../utils/DataMapperContext/DataMapperContext";
 import { DataMapperLinkModel } from "../../Link";
 import { InputOutputPortModel, IntermediatePortModel } from "../../Port";
 import { DataMapperNodeModel } from "../commons/DataMapperNode";
-import { findInputNode } from "../../utils/node-utils";
-import { getInputPort, getTargetPortPrefix } from "../../utils/port-utils";
+import { getInputPortV2, getTargetPortPrefix } from "../../utils/port-utils";
 import { OFFSETS } from "../../utils/constants";
 
 export const BINARY_EXPR_CONNECTOR_NODE_TYPE = "binary-expr-connector-node";
@@ -30,15 +29,13 @@ const NODE_ID = "binary-expr-connector-node";
 
 export class BinaryConnectorNode extends DataMapperNodeModel {
 
-    public sourcePorts: InputOutputPortModel[] = [];
     public leftSourcePort: InputOutputPortModel;
     public rightSourcePort: InputOutputPortModel;
     public targetPort: InputOutputPortModel;
     public targetMappedPort: InputOutputPortModel;
+    public targetMappedPortIntermediate: IntermediatePortModel;
 
-    // public inPort: IntermediatePortModel;
     public outPort: IntermediatePortModel;
-
     public lhsInPort: IntermediatePortModel;
     public rhsInPort: IntermediatePortModel;
 
@@ -50,7 +47,13 @@ export class BinaryConnectorNode extends DataMapperNodeModel {
 
     constructor(
         public context: IDataMapperContext,
-        public mapping: NewMapping
+        public outputId: string,
+        public binaryInput: BinaryInput,
+
+        public letfSourceNodeId: string,
+        public leftSourceNode: DataMapperNodeModel,
+        public rightSourceNodeId: string,
+        public rightSourceNode: DataMapperNodeModel,
     ) {
         super(
             NODE_ID,
@@ -60,105 +63,42 @@ export class BinaryConnectorNode extends DataMapperNodeModel {
     }
 
     initPorts(): void {
-        this.sourcePorts = [];
         this.leftSourcePort = undefined;
         this.rightSourcePort = undefined;
         this.targetMappedPort = undefined;
-        this.outPort = new IntermediatePortModel(`${this.mapping.outputId}_OUT`, "OUT");
-        const binaryInput = this.mapping.input as BinaryInput; // c = a + b
-        this.lhsInPort = new IntermediatePortModel(`${binaryInput.left}_BINARY_IN_LEFT`, "IN");
-        this.rhsInPort = new IntermediatePortModel(`${binaryInput.right}_BINARY_IN_RIGHT`, "IN");
+        this.outPort = new IntermediatePortModel(`${this.outputId}.OUT`, "OUT");
+        this.lhsInPort = new IntermediatePortModel(`${this.binaryInput.left}_BINARY_IN_LEFT`, "IN");
+        this.rhsInPort = new IntermediatePortModel(`${this.binaryInput.right}_BINARY_IN_RIGHT`, "IN");
         this.addPort(this.outPort);
         this.addPort(this.lhsInPort);
         this.addPort(this.rhsInPort);
 
-        const basicLeftInput = binaryInput.left as BasicInput;
-        const basicRightInput = binaryInput.right as BasicInput;
-
-        const leftInputNode = findInputNode(basicLeftInput.id, this, undefined, undefined);
-        if (leftInputNode) {
-            this.leftSourcePort = getInputPort(leftInputNode, basicLeftInput.id);
-        }
-
-        const rightInputNode = findInputNode(basicRightInput.id, this, undefined, undefined);
-        if (rightInputNode) {
-            this.rightSourcePort = getInputPort(rightInputNode, basicRightInput.id);
-        }
+        this.leftSourcePort = getInputPortV2(this.leftSourceNode, this.letfSourceNodeId);
+        this.rightSourcePort = getInputPortV2(this.rightSourceNode, this.rightSourceNodeId);
 
         this.getModel().getNodes().map((node) => {
             const targetPortPrefix = getTargetPortPrefix(node);
-            this.targetPort = node.getPort(`${targetPortPrefix}.${this.mapping.outputId}.IN`) as InputOutputPortModel;
+            this.targetPort = node.getPort(`${targetPortPrefix}.${this.outputId}.IN`) as InputOutputPortModel;
             if (this.targetPort) {
                 this.targetMappedPort = this.targetPort;
                 return;
             }
         });
+
+        // check targetMappedPort undefined case
+        if (!this.targetMappedPort) {
+            // this.targetMappedPort = new InputOutputPortModel({field: {id: this.outputId}, portName: `${this.outputId}`, portType:"IN"});
+            this.targetMappedPortIntermediate = new IntermediatePortModel(`${this.outputId}`, "IN");
+        }
     }
 
     initLinks(): void {
-        const leftSourcePort = this.leftSourcePort;
-        if (leftSourcePort) {
-            const inPort = this.lhsInPort;
-            const lm = new DataMapperLinkModel(undefined, this.diagnostics, true);
-
-            lm.setTargetPort(inPort);
-            lm.setSourcePort(leftSourcePort);
-            lm.registerListener({
-                selectionChanged(event) {
-                    if (event.isSelected) {
-                        inPort.fireEvent({}, "link-selected");
-                        leftSourcePort.fireEvent({}, "link-selected");
-                    } else {
-                        inPort.fireEvent({}, "link-unselected");
-                        leftSourcePort.fireEvent({}, "link-unselected");
-                    }
-                },
-            })
-            this.getModel().addAll(lm as any);
-        }
-
-        const rightSourcePort = this.rightSourcePort;
-        if (rightSourcePort) {
-            const inPort1 = this.rhsInPort;
-            const lm = new DataMapperLinkModel(undefined, this.diagnostics, true);
-
-            lm.setTargetPort(inPort1);
-            lm.setSourcePort(rightSourcePort);
-            lm.registerListener({
-                selectionChanged(event) {
-                    if (event.isSelected) {
-                        inPort1.fireEvent({}, "link-selected");
-                        rightSourcePort.fireEvent({}, "link-selected");
-                    } else {
-                        inPort1.fireEvent({}, "link-unselected");
-                        rightSourcePort.fireEvent({}, "link-unselected");
-                    }
-                },
-            })
-            this.getModel().addAll(lm as any);
-        }
-
-        if (this.targetMappedPort) {
-            const outPort = this.outPort;
-            const targetPort = this.targetMappedPort;
-
-            const lm = new DataMapperLinkModel(undefined, this.diagnostics, true);
-
-            lm.setTargetPort(this.targetMappedPort);
-            lm.setSourcePort(this.outPort);
-            lm.registerListener({
-                selectionChanged(event) {
-                    if (event.isSelected) {
-                        outPort.fireEvent({}, "link-selected");
-                        targetPort.fireEvent({}, "link-selected");
-                    } else {
-                        outPort.fireEvent({}, "link-unselected");
-                        targetPort.fireEvent({}, "link-unselected");
-                    }
-                },
-            })
-
-            this.getModel().addAll(lm as any);
+        this.createLink(this.leftSourcePort, this.lhsInPort);
+        this.createLink(this.rightSourcePort, this.rhsInPort);
+        if (this.targetMappedPortIntermediate) {
+            this.createLink(this.outPort, this.targetMappedPortIntermediate);
+        } else {
+            this.createLink(this.outPort, this.targetMappedPort);
         }
     }
 
@@ -176,5 +116,39 @@ export class BinaryConnectorNode extends DataMapperNodeModel {
 
     public hasError(): boolean {
         return this.diagnostics?.length > 0;
+    }
+
+    private createLink(sourcePort: InputOutputPortModel|IntermediatePortModel, targetPort: InputOutputPortModel|IntermediatePortModel) {
+        if (sourcePort) {
+            const lm = new DataMapperLinkModel(undefined, this.diagnostics, true);
+            lm.setTargetPort(targetPort);
+            lm.setSourcePort(sourcePort);
+            lm.registerListener({
+                selectionChanged(event) {
+                    if (event.isSelected) {
+                        targetPort.fireEvent({}, "link-selected");
+                        sourcePort.fireEvent({}, "link-selected");
+                    } else {
+                        targetPort.fireEvent({}, "link-unselected");
+                        sourcePort.fireEvent({}, "link-unselected");
+                    }
+                },
+            })
+            this.getModel().addAll(lm as any);
+        }
+    }
+
+    public getOutputId(): string {
+        if (this.outputId) {
+            return this.outputId;
+        }
+        const dataToHash = `${this.binaryInput.expression}`;
+        // const hash = crypto.createHash('sha256')
+        //     .update(dataToHash)
+        //     .digest('hex')
+        //     .substring(0, 12);
+        const hash = "crypto";
+        this.outputId = `binary_${hash}`;
+        return this.outputId;
     }
 }

@@ -120,7 +120,6 @@ function DataMapperDiagram(props: DataMapperDiagramProps): React.ReactElement {
 
 	const getScreenWidthRef = useRef(() => screenWidth);
 	const devicePixelRatioRef = useRef(window.devicePixelRatio);
-
 	const { inputSearch, outputSearch } = useDMSearchStore.getState();
 
 	const zoomLevel = calculateZoomLevel(screenWidth);

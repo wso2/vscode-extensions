@@ -43,3 +43,20 @@ export function findInputNode(field: string, outputNode: DataMapperNodeModel, vi
 
     return inputNode;
 }
+
+export function findNode(field: string, nodes: DataMapperNodeModel[]): InputNode | undefined {    
+    // Helper function to find input node by field path
+    const findNodeByField = (fieldStartsWith: string): InputNode | undefined => {
+        return nodes.find(node => {
+            if (node instanceof InputNode) {
+                return node.inputType.id === fieldStartsWith;
+            }
+        }) as InputNode | undefined;
+    };
+
+    // try finding input node using 'field' (map from other input ports)
+    const fieldStartsWith = field.split('.')[0];
+    let inputNode = findNodeByField(fieldStartsWith);
+
+    return inputNode;
+}

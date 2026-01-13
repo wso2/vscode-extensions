@@ -480,9 +480,19 @@ function genBinaryMapping() : NewMapping {
             expression: "var2.name1"
         },
         right: {
-            id: "var2.name2",
-            kind: "basic",
-            expression: "var2.name2"
+            kind: "binary",
+            operator: "+",
+            expression: "",
+            left: {
+                    id: "var2.name1",
+                    kind: "basic",
+                    expression: "var2.name1"
+            },
+            right: {
+                id: "var2.name2",
+                kind: "basic",
+                expression: "var2.name2"
+            }
         }
     };
 

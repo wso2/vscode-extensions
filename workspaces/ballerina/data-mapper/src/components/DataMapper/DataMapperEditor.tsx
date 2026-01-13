@@ -42,6 +42,7 @@ import { DataMapperEditorProps } from "../../index";
 import { ErrorNodeKind } from "./Error/RenderingError";
 import { SubMappingConfigForm } from "./SidePanel/SubMappingConfig/SubMappingConfigForm";
 import { IntermediateNodeInitVisitorV2 } from "../../visitors/IntermediateNodeInitVisitorV2";
+import { NodeCreationVisitor, traverseInput } from "../../visitors/InputVisitor";
 
 const fadeIn = keyframes`
     from { opacity: 0.5; }
@@ -224,15 +225,13 @@ export function DataMapperEditor(props: DataMapperEditorProps) {
             const inputNodes = ioNodeInitVisitor.getInputNodes();
             const outputNode = ioNodeInitVisitor.getOutputNode();
 
-            const intermediateNodeInitVisitorV2 = new IntermediateNodeInitVisitorV2(
-                context
-            );
-            traverseNode(model, intermediateNodeInitVisitorV2);
+            const nodeCreator = new NodeCreationVisitor(context, [...inputNodes, outputNode]);
+            for (const mapping of model.newMappings) {
+                traverseInput(mapping.input, nodeCreator, mapping.outputId);
+            }
 
             setNodes([
-                ...inputNodes,
-                outputNode,
-                ...intermediateNodeInitVisitorV2.getNodes(),
+                ...nodeCreator.getCreatedNodes(),
             ]);
         } catch (error) {
             console.error("Error generating nodes:", error);

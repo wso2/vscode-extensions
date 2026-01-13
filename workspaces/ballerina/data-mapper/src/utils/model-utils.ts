@@ -48,7 +48,7 @@ export function traverseNode(model: ExpandedDMModel, visitor: BaseVisitor) {
         traverseQuery(model.query, model, visitor);
     }
 
-    traverseNewMapping(model.newMappings, visitor);
+    // traverseNewMapping(model.newMappings, visitor);
 
     visitor.endVisit?.(model);
 }

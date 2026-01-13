@@ -19,15 +19,27 @@ import { NodeModel } from "@projectstorm/react-diagrams";
 
 import { InputNode, ObjectOutputNode, QueryOutputNode } from "../Node";
 import { InputOutputPortModel } from "../Port";
-import { ARRAY_OUTPUT_TARGET_PORT_PREFIX, OBJECT_OUTPUT_TARGET_PORT_PREFIX, PRIMITIVE_OUTPUT_TARGET_PORT_PREFIX, QUERY_OUTPUT_TARGET_PORT_PREFIX, SUB_MAPPING_INPUT_SOURCE_PORT_PREFIX } from "./constants";
+import { ARRAY_OUTPUT_TARGET_PORT_PREFIX, OBJECT_OUTPUT_TARGET_PORT_PREFIX, PRIMITIVE_OUTPUT_TARGET_PORT_PREFIX, QUERY_OUTPUT_TARGET_PORT_PREFIX } from "./constants";
 import { ArrayOutputNode } from "../Node/ArrayOutput/ArrayOutputNode";
 import { PrimitiveOutputNode } from "../Node/PrimitiveOutput/PrimitiveOutputNode";
+import { DataMapperNodeModel } from "../Node/commons/DataMapperNode";
 
 export function getInputPort(node: InputNode, inputField: string): InputOutputPortModel {
     const portId = `${inputField}.OUT`;
     let port = node.getPort(portId) as InputOutputPortModel;
 
     while (port && port.attributes.hidden) {
+        port = port.attributes.parentModel;
+    }
+
+    return port;
+}
+
+export function getInputPortV2(node: DataMapperNodeModel, inputField: string): InputOutputPortModel {
+    const portId = `${inputField}.OUT`;
+    let port = node.getPort(portId) as InputOutputPortModel;
+
+    while (port && port.attributes && port.attributes.hidden) {
         port = port.attributes.parentModel;
     }
 
