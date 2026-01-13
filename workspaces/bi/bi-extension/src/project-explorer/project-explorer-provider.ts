@@ -343,7 +343,7 @@ function generateTreeData(project: ProjectStructure, isSingleProject: boolean): 
 
     // Start collapsed - VSCode will maintain expansion state automatically
     const projectRootEntry = new ProjectExplorerEntry(
-        `${packageName} ${isLibrary ? '(Library)' : ''}`,
+        `${packageName}${isLibrary ? ' (Library)' : ''}`,
         isSingleProject ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed,
         packagePath,
         icon,
