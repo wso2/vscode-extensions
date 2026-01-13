@@ -717,6 +717,16 @@ export class AiPanelRpcManager implements AIPanelAPI {
         }
     }
 
+    async getAffectedPackages(): Promise<string[]> {
+        const reviewContext = getPendingReviewContext();
+        if (!reviewContext) {
+            console.log(">>> No pending review context, returning empty affected packages");
+            return [];
+        }
+        console.log(`>>> Returning ${reviewContext.affectedPackagePaths.length} affected packages:`, reviewContext.affectedPackagePaths);
+        return reviewContext.affectedPackagePaths;
+    }
+
     async acceptChanges(): Promise<void> {
         const reviewContext = getPendingReviewContext();
         

@@ -86,6 +86,7 @@ import {
     getRefreshedAccessToken,
     getRelevantLibrariesAndFunctions,
     getSemanticDiff,
+    getAffectedPackages,
     getServiceNames,
     getShadowDiagnostics,
     handleChatSummaryError,
@@ -329,6 +330,10 @@ export class AiPanelRpcClient implements AIPanelAPI {
 
     getSemanticDiff(params: SemanticDiffRequest): Promise<SemanticDiffResponse> {
         return this._messenger.sendRequest(getSemanticDiff, HOST_EXTENSION, params);
+    }
+
+    getAffectedPackages(): Promise<string[]> {
+        return this._messenger.sendRequest(getAffectedPackages, HOST_EXTENSION);
     }
 
     acceptChanges(): Promise<void> {

@@ -16,7 +16,7 @@
 
 import { StreamEventHandler, StreamFinishException } from "../stream-event-handler";
 import { StreamContext } from "../stream-context";
-import { Command, AIChatMachineEventType, ExecutionContext, EVENT_TYPE, MACHINE_VIEW, refreshReviewMode } from "@wso2/ballerina-core";
+import { Command, AIChatMachineEventType, ExecutionContext, EVENT_TYPE, MACHINE_VIEW, refreshReviewMode, ProjectSource } from "@wso2/ballerina-core";
 import { AIChatStateMachine } from "../../../../../views/ai-panel/aiChatMachine";
 import { checkCompilationErrors } from "../../../tools/diagnostics-utils";
 import { integrateCodeToWorkspace } from "../../utils";
@@ -26,6 +26,7 @@ import { updateAndSaveChat } from "../../../utils/events";
 import { openView } from "../../../../../stateMachine";
 import { RPCLayer } from "../../../../../RPCLayer";
 import { VisualizerWebview } from "../../../../../views/visualizer/webview";
+import * as path from "path";
 
 /**
  * Stored context data for code review actions
@@ -39,6 +40,7 @@ interface ReviewContext {
     shouldCleanup: boolean;
     timestamp: number;  // Track when this context was created
     messageId: string;  // Track which message this belongs to
+    affectedPackagePaths: string[];  // Packages that have changes
 }
 
 /**
@@ -164,6 +166,71 @@ async function closeAllDocumentsAndWait(tempProjectPath: string, projects: any[]
 }
 
 /**
+ * Determines which packages have been affected by analyzing modified files
+ * @param modifiedFiles Array of relative file paths that were modified
+ * @param projects Array of project sources with package information
+ * @param ctx Execution context with project and workspace paths
+ * @returns Array of absolute package paths that have changes
+ */
+function determineAffectedPackages(
+    modifiedFiles: string[],
+    projects: ProjectSource[],
+    ctx: ExecutionContext
+): string[] {
+    const affectedPackages = new Set<string>();
+
+    console.log(`[determineAffectedPackages] Analyzing ${modifiedFiles.length} modified files across ${projects.length} projects`);
+
+    // For non-workspace scenario (single package)
+    if (!ctx.workspacePath || projects.length === 1) {
+        console.log(`[determineAffectedPackages] Non-workspace scenario, using projectPath: ${ctx.projectPath}`);
+        affectedPackages.add(ctx.projectPath);
+        return Array.from(affectedPackages);
+    }
+
+    // For workspace scenario with multiple packages
+    for (const modifiedFile of modifiedFiles) {
+        let matched = false;
+
+        for (const project of projects) {
+            if (project.packagePath === "") {
+                // Root package in workspace (edge case)
+                if (!modifiedFile.includes('/') || 
+                    !projects.some(p => p.packagePath && modifiedFile.startsWith(p.packagePath + '/'))) {
+                    const packagePath = path.isAbsolute(ctx.projectPath) 
+                        ? ctx.projectPath 
+                        : path.join(ctx.workspacePath, ctx.projectPath);
+                    affectedPackages.add(packagePath);
+                    matched = true;
+                    console.log(`[determineAffectedPackages] File '${modifiedFile}' belongs to root package: ${packagePath}`);
+                    break;
+                }
+            } else {
+                // Package with a specific path in workspace
+                if (modifiedFile.startsWith(project.packagePath + '/') || 
+                    modifiedFile === project.packagePath) {
+                    const fullPackagePath = path.join(ctx.workspacePath, project.packagePath);
+                    affectedPackages.add(fullPackagePath);
+                    matched = true;
+                    console.log(`[determineAffectedPackages] File '${modifiedFile}' belongs to package: ${fullPackagePath}`);
+                    break;
+                }
+            }
+        }
+
+        if (!matched) {
+            // Fallback: if we can't determine the package, include the active project
+            console.warn(`[determineAffectedPackages] Could not determine package for file '${modifiedFile}', using active project`);
+            affectedPackages.add(ctx.projectPath);
+        }
+    }
+
+    const result = Array.from(affectedPackages);
+    console.log(`[determineAffectedPackages] Found ${result.length} affected packages:`, result);
+    return result;
+}
+
+/**
  * Handles finish events from the stream.
  * Runs diagnostics, integrates code to workspace, and performs cleanup.
  */
@@ -197,6 +264,13 @@ export class FinishHandler implements StreamEventHandler {
             console.log(`[Finish Handler] Accumulated modified files: ${accumulatedModifiedFiles.length} total (${existingContext.modifiedFiles.length} existing + ${context.modifiedFiles.length} new)`);
         }
 
+        // Determine which packages have been affected by the changes
+        const affectedPackagePaths = determineAffectedPackages(
+            accumulatedModifiedFiles,
+            context.projects,
+            context.ctx
+        );
+
         // Store context data for later use by accept/decline/review actions
         // This will be used by RPC methods to access temp project data
         setPendingReviewContext({
@@ -207,6 +281,7 @@ export class FinishHandler implements StreamEventHandler {
             shouldCleanup: context.shouldCleanup,
             timestamp: Date.now(),
             messageId: context.messageId,
+            affectedPackagePaths: affectedPackagePaths,
         });
 
         // Show review actions component in the chat UI via state machine
