@@ -115,5 +115,9 @@ async function getVsixUrlFromMarketplace(marketplaceId: string, channel: string)
     const version = versionData.version;
     const vsixUrl = versionData.files?.find((f: any) => f.assetType === "Microsoft.VisualStudio.Services.VSIXPackage")?.source;
 
+    if (!vsixUrl) {
+        throw new Error("VSIX URL not found");
+    }
+
     return { vsixUrl, version };
 }
