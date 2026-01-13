@@ -78,7 +78,7 @@ const requestToCode = (request: ApiRequest): string => {
     const lines: string[] = [];
     
     // Query Parameters section
-    lines.push('# Query Parameters');
+    lines.push('Query Parameters');
     if (request.queryParameters && request.queryParameters.length > 0) {
         request.queryParameters.forEach(param => {
             if (param.key || param.value) {
@@ -93,7 +93,7 @@ const requestToCode = (request: ApiRequest): string => {
     lines.push('');
     
     // Headers section
-    lines.push('# Headers');
+    lines.push('Headers');
     if (request.headers && request.headers.length > 0) {
         request.headers.forEach(header => {
             if (header.key || header.value) {
@@ -108,7 +108,7 @@ const requestToCode = (request: ApiRequest): string => {
     lines.push('');
     
     // Body section
-    lines.push('# Body');
+    lines.push('Body');
     if (request.body) {
         lines.push(request.body);
     } else {
@@ -135,18 +135,15 @@ const codeToRequest = (code: string, existingRequest: ApiRequest): ApiRequest =>
         const trimmedLine = line.trim();
         
         // Check for section headers
-        if (trimmedLine.toLowerCase() === '# query parameters' || 
-            trimmedLine.toLowerCase() === '#query parameters') {
+        if (trimmedLine.toLowerCase() === 'query parameters') {
             currentSection = 'query';
             continue;
         }
-        if (trimmedLine.toLowerCase() === '# headers' ||
-            trimmedLine.toLowerCase() === '#headers') {
+        if (trimmedLine.toLowerCase() === 'headers') {
             currentSection = 'headers';
             continue;
         }
-        if (trimmedLine.toLowerCase() === '# body' ||
-            trimmedLine.toLowerCase() === '#body') {
+        if (trimmedLine.toLowerCase() === 'body') {
             currentSection = 'body';
             continue;
         }
@@ -251,8 +248,8 @@ export const CodeInput: React.FC<CodeInputProps> = ({
             monaco.languages.setMonarchTokensProvider(LANGUAGE_ID, {
                 tokenizer: {
                     root: [
-                        // Section headers
-                        [/^#\s*(Query Parameters|Headers|Body)\s*$/i, 'keyword.section'],
+                        // Section headers (without # symbol)
+                        [/^(Query Parameters|Headers|Body)\s*$/i, 'keyword.section'],
                         // Comments (disabled lines)
                         [/^\/\/.*$/, 'comment'],
                         // Header key-value pairs - match the entire line pattern
@@ -303,7 +300,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({
         // Set the theme
         monaco.editor.setTheme('api-tryit-theme');
         
-        const sectionHeaders = ['# Query Parameters', '# Headers', '# Body'];
+        const sectionHeaders = ['Query Parameters', 'Headers', 'Body'];
         
         // Helper function to find section header line numbers
         const getSectionHeaderLines = (): Set<number> => {
@@ -318,11 +315,13 @@ export const CodeInput: React.FC<CodeInputProps> = ({
             return headerLines;
         };
         
-        // Add decorations to indicate read-only lines
+        // Add decorations to indicate read-only lines and editable sections
         const updateDecorations = () => {
             const headerLines = getSectionHeaderLines();
             const decorations: monaco.editor.IModelDeltaDecoration[] = [];
+            const lineCount = model.getLineCount();
             
+            // Mark header lines as read-only
             headerLines.forEach(lineNumber => {
                 decorations.push({
                     range: new monaco.Range(lineNumber, 1, lineNumber, 1),
@@ -334,6 +333,24 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                     }
                 });
             });
+            
+            // Mark editable sections with visual indicator
+            for (let i = 1; i <= lineCount; i++) {
+                if (!headerLines.has(i)) {
+                    const lineContent = model.getLineContent(i).trim();
+                    // Only style lines that are not empty or have content
+                    if (lineContent !== '') {
+                        decorations.push({
+                            range: new monaco.Range(i, 1, i, 1),
+                            options: {
+                                isWholeLine: true,
+                                className: 'editable-section',
+                                hoverMessage: { value: 'Click to edit' }
+                            }
+                        });
+                    }
+                }
+            }
             
             editor.deltaDecorations([], decorations);
         };
@@ -562,14 +579,14 @@ export const CodeInput: React.FC<CodeInputProps> = ({
             const lines = currentValue.split('\n');
             
             // Check if all three required section headers exist
-            const hasQueryParams = lines.some(line => line.trim() === '# Query Parameters');
-            const hasHeaders = lines.some(line => line.trim() === '# Headers');
-            const hasBody = lines.some(line => line.trim() === '# Body');
+            const hasQueryParams = lines.some(line => line.trim() === 'Query Parameters');
+            const hasHeaders = lines.some(line => line.trim() === 'Headers');
+            const hasBody = lines.some(line => line.trim() === 'Body');
             
             // Find section header line numbers
-            const queryParamsLine = lines.findIndex(line => line.trim() === '# Query Parameters');
-            const headersLine = lines.findIndex(line => line.trim() === '# Headers');
-            const bodyLine = lines.findIndex(line => line.trim() === '# Body');
+            const queryParamsLine = lines.findIndex(line => line.trim() === 'Query Parameters');
+            const headersLine = lines.findIndex(line => line.trim() === 'Headers');
+            const bodyLine = lines.findIndex(line => line.trim() === 'Body');
             
             // Check if each section has at least one line after the header
             let needsEmptyLine = false;
@@ -658,16 +675,14 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                     
                     const fixedLines = lines.map(line => {
                         const trimmed = line.trim();
-                        if (trimmed.startsWith('#')) {
-                            // Check if this looks like it should be a section header
-                            const lowerTrimmed = trimmed.toLowerCase();
-                            if (lowerTrimmed.includes('query') || lowerTrimmed.includes('param')) {
-                                return '# Query Parameters';
-                            } else if (lowerTrimmed.includes('header')) {
-                                return '# Headers';
-                            } else if (lowerTrimmed.includes('body')) {
-                                return '# Body';
-                            }
+                        const lowerTrimmed = trimmed.toLowerCase();
+                        // Check if this looks like it should be a section header
+                        if (lowerTrimmed.includes('query') && lowerTrimmed.includes('param')) {
+                            return 'Query Parameters';
+                        } else if (lowerTrimmed === 'headers' || (lowerTrimmed.includes('header') && !lowerTrimmed.includes(':'))) {
+                            return 'Headers';
+                        } else if (lowerTrimmed === 'body') {
+                            return 'Body';
                         }
                         return line;
                     });
@@ -691,15 +706,15 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                         let currentSection = 'none';
                         for (let i = position.lineNumber - 1; i >= 0; i--) {
                             const line = lines[i].trim().toLowerCase();
-                            if (line === '# query parameters') {
+                            if (line === 'query parameters') {
                                 currentSection = 'query';
                                 break;
                             }
-                            if (line === '# headers') {
+                            if (line === 'headers') {
                                 currentSection = 'headers';
                                 break;
                             }
-                            if (line === '# body') {
+                            if (line === 'body') {
                                 currentSection = 'body';
                                 break;
                             }
