@@ -382,21 +382,16 @@ export const CodeInput: React.FC<CodeInputProps> = ({
             const headerLines = getSectionHeaderLines();
             
             if (headerLines.has(position.lineNumber)) {
-                const lineContent = model.getLineContent(position.lineNumber);
-                const lineLength = lineContent.length;
-                
-                // If cursor is at the end of the header line, move to next line
-                if (position.column > lineLength || position.column === lineLength + 1) {
-                    const nextLine = position.lineNumber + 1;
-                    if (nextLine <= model.getLineCount()) {
-                        // Move to the beginning of the next line
-                        editor.setPosition({ lineNumber: nextLine, column: 1 });
-                    } else {
-                        // If no next line exists, create one
-                        const newContent = model.getValue() + '\n';
-                        model.setValue(newContent);
-                        editor.setPosition({ lineNumber: nextLine, column: 1 });
-                    }
+                // Cursor is on a header line - move it to the next editable line
+                const nextLine = position.lineNumber + 1;
+                if (nextLine <= model.getLineCount()) {
+                    // Move to the beginning of the next line
+                    editor.setPosition({ lineNumber: nextLine, column: 1 });
+                } else {
+                    // If no next line exists, create one
+                    const newContent = model.getValue() + '\n';
+                    model.setValue(newContent);
+                    editor.setPosition({ lineNumber: nextLine, column: 1 });
                 }
             }
         });
