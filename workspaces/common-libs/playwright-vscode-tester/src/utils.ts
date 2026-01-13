@@ -37,20 +37,39 @@ export async function getBrowserLaunchOptions(folder: string, version: string, q
 
 export async function downloadExtensionFromMarketplace(
     extensionId: string,
-    targetFolder: string
-): Promise<string> {
-    fs.mkdirSync(targetFolder);
-    const { vsixUrl, fileName } = await getVsixUrlFromMarketplace(extensionId);
+    targetFolder: string,
+    skipIfExists: boolean = true
+): Promise<void> {
+    fs.mkdirSync(targetFolder, { recursive: true });
+
+    const [marketplaceId, channel] = extensionId.split('@');
+    const extensionName = marketplaceId.split('.').pop();
+
+    if (skipIfExists) {
+        const existingFile = fs.readdirSync(targetFolder).find(file => {
+            if (!file.endsWith('.vsix')) {
+                return false;
+            }
+            const fileNamePrefix = file.slice(0, file.lastIndexOf('-'));
+            return fileNamePrefix === extensionName;
+        });
+        if (existingFile) {
+            console.log(`A VSIX for ${extensionName} extension already exists as ${existingFile}, skipping download.`);
+            return;
+        }
+    }
+
+    const { vsixUrl, version } = await getVsixUrlFromMarketplace(marketplaceId, channel);
+
+    const fileName = `${extensionName}-${version}.vsix`;
     const target = path.join(targetFolder, fileName);
 
     console.log(`Downloading ${fileName}`);
     await Download.getFile(vsixUrl, target);
     console.log('Success!');
-    return target;
 }
 
-async function getVsixUrlFromMarketplace(extensionId: string) {
-    const [marketplaceId, channel] = extensionId.split('@');
+async function getVsixUrlFromMarketplace(marketplaceId: string, channel: string) {
     const isPrerelease = channel === 'prerelease';
 
     const res = await fetch(
@@ -96,7 +115,5 @@ async function getVsixUrlFromMarketplace(extensionId: string) {
     const version = versionData?.version;
     const vsixUrl = versionData?.files?.find((f: any) => f.assetType === "Microsoft.VisualStudio.Services.VSIXPackage")?.source;
 
-    const fileName = `${marketplaceId.split('.').pop()}-${version}.vsix`;
-
-    return { vsixUrl, fileName };
+    return { vsixUrl, version };
 }
