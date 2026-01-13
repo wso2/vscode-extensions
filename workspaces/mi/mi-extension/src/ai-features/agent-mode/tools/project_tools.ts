@@ -24,8 +24,6 @@ import { MILanguageClient } from '../../../lang-client/activator';
 import { getMIVersionFromPom } from '../../../util/onboardingUtils';
 import { APIS } from '../../../constants';
 import { DependencyDetails } from '@wso2/mi-core';
-import * as path from 'path';
-import * as fs from 'fs';
 import { logDebug, logError } from '../../copilot/logger';
 
 // ============================================================================
@@ -38,10 +36,6 @@ export type AddConnectorExecuteFn = (args: {
 
 export type RemoveConnectorExecuteFn = (args: {
     connector_names: string[];
-}) => Promise<ToolResult>;
-
-export type ValidateCodeExecuteFn = (args: {
-    file_paths: string[];
 }) => Promise<ToolResult>;
 
 // ============================================================================
@@ -402,159 +396,6 @@ export function createRemoveConnectorExecute(projectPath: string): RemoveConnect
     };
 }
 
-/**
- * Creates the execute function for validate_code tool
- */
-export function createValidateCodeExecute(projectPath: string): ValidateCodeExecuteFn {
-    return async (args: { file_paths: string[] }): Promise<ToolResult> => {
-        const { file_paths } = args;
-
-        logDebug(`[ValidateCodeTool] Validating ${file_paths.length} file(s)`);
-
-        if (file_paths.length === 0) {
-            return {
-                success: false,
-                message: 'At least one file path must be provided.',
-                error: 'Error: No file paths provided'
-            };
-        }
-
-        try {
-            const langClient = await MILanguageClient.getInstance(projectPath);
-            if (!langClient) {
-                return {
-                    success: false,
-                    message: 'Language client not available',
-                    error: 'Error: Language client not initialized'
-                };
-            }
-
-            const results: Array<{
-                file: string;
-                diagnostics: any[];
-                hasErrors: boolean;
-                hasWarnings: boolean;
-            }> = [];
-
-            // Validate each file
-            for (const filePath of file_paths) {
-                try {
-                    // Resolve relative paths against project path
-                    const absolutePath = path.isAbsolute(filePath)
-                        ? filePath
-                        : path.join(projectPath, filePath);
-
-                    // Check if file exists
-                    if (!fs.existsSync(absolutePath)) {
-                        results.push({
-                            file: filePath,
-                            diagnostics: [{
-                                severity: 1, // Error
-                                message: 'File not found',
-                                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }
-                            }],
-                            hasErrors: true,
-                            hasWarnings: false
-                        });
-                        continue;
-                    }
-
-                    logDebug(`[ValidateCodeTool] Validating file: ${absolutePath}`);
-
-                    // Get diagnostics from language server
-                    const diagnosticsResponse = await langClient.getCodeDiagnostics({
-                        fileName: absolutePath,
-                        code: fs.readFileSync(absolutePath, 'utf8')
-                    });
-
-                    logDebug(`[ValidateCodeTool] Diagnostics response: ${JSON.stringify(diagnosticsResponse)}`);
-
-                    const diagnostics = diagnosticsResponse.diagnostics || [];
-                    const hasErrors = diagnostics.some((d: any) => d.severity === 1);
-                    const hasWarnings = diagnostics.some((d: any) => d.severity === 2);
-
-                    results.push({
-                        file: filePath,
-                        diagnostics: diagnostics,
-                        hasErrors,
-                        hasWarnings
-                    });
-                } catch (error) {
-                    results.push({
-                        file: filePath,
-                        diagnostics: [{
-                            severity: 1,
-                            message: error instanceof Error ? error.message : String(error),
-                            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }
-                        }],
-                        hasErrors: true,
-                        hasWarnings: false
-                    });
-                }
-            }
-
-            // Build response message
-            const filesWithErrors = results.filter(r => r.hasErrors);
-            const filesWithWarnings = results.filter(r => r.hasWarnings && !r.hasErrors);
-            const filesClean = results.filter(r => !r.hasErrors && !r.hasWarnings);
-
-            let message = '';
-
-            if (filesClean.length > 0) {
-                message += `✓ ${filesClean.length} file(s) validated successfully with no issues:\n`;
-                filesClean.forEach(r => {
-                    message += `  - ${r.file}\n`;
-                });
-            }
-
-            if (filesWithWarnings.length > 0) {
-                message += `\n⚠ ${filesWithWarnings.length} file(s) have warnings:\n`;
-                filesWithWarnings.forEach(r => {
-                    message += `  - ${r.file}: ${r.diagnostics.length} warning(s)\n`;
-                    r.diagnostics.forEach((d: any, idx: number) => {
-                        if (idx < 3) { // Show first 3 warnings
-                            message += `    • Line ${d.range?.start?.line || 0}: ${d.message}\n`;
-                        }
-                    });
-                    if (r.diagnostics.length > 3) {
-                        message += `    ... and ${r.diagnostics.length - 3} more\n`;
-                    }
-                });
-            }
-
-            if (filesWithErrors.length > 0) {
-                message += `\n✗ ${filesWithErrors.length} file(s) have errors:\n`;
-                filesWithErrors.forEach(r => {
-                    const errorDiagnostics = r.diagnostics.filter((d: any) => d.severity === 1);
-                    message += `  - ${r.file}: ${errorDiagnostics.length} error(s)\n`;
-                    errorDiagnostics.forEach((d: any, idx: number) => {
-                        if (idx < 3) { // Show first 3 errors
-                            message += `    • Line ${d.range?.start?.line || 0}: ${d.message}\n`;
-                        }
-                    });
-                    if (errorDiagnostics.length > 3) {
-                        message += `    ... and ${errorDiagnostics.length - 3} more\n`;
-                    }
-                });
-            }
-
-            logDebug(`[ValidateCodeTool] Validation complete: ${filesClean.length} clean, ${filesWithWarnings.length} warnings, ${filesWithErrors.length} errors`);
-            logDebug(`[ValidateCodeTool] Message: ${message}`);
-
-            return {
-                success: true,
-                message: message.trim()
-            };
-        } catch (error) {
-            logError(`[ValidateCodeTool] Error validating files: ${error instanceof Error ? error.message : String(error)}`);
-            return {
-                success: false,
-                message: 'Failed to validate files',
-                error: error instanceof Error ? error.message : String(error)
-            };
-        }
-    };
-}
 
 // ============================================================================
 // Tool Definitions (Vercel AI SDK format)
@@ -570,12 +411,6 @@ const removeConnectorInputSchema = z.object({
     connector_names: z.array(z.string())
         .min(1)
         .describe('Array of connector names to remove from the project (e.g., ["AI", "Salesforce"])'),
-});
-
-const validateCodeInputSchema = z.object({
-    file_paths: z.array(z.string())
-        .min(1)
-        .describe('Array of file paths to validate (relative to project root or absolute paths). Example: ["src/main/wso2mi/artifacts/apis/MyAPI.xml"]'),
 });
 
 /**
@@ -648,44 +483,3 @@ export function createRemoveConnectorTool(execute: RemoveConnectorExecuteFn) {
     });
 }
 
-/**
- * Creates the validate_code tool
- */
-export function createValidateCodeTool(execute: ValidateCodeExecuteFn) {
-    return (tool as any)({
-        description: `
-            Validates Synapse XML configuration files using the LemMinx XML Language Server.
-
-            This tool:
-            - Checks XML syntax and structure
-            - Validates against Synapse schema
-            - Reports errors and warnings with line numbers
-            - Works with any Synapse artifact type (API, Sequence, Endpoint, etc.)
-
-            Usage:
-            - Use this tool after creating or editing Synapse XML files
-            - Validates multiple files in a single call
-            - Returns detailed diagnostics for each file
-
-            When to use:
-            - After using file_write or file_edit tools
-            - Before completing a task to ensure code quality
-            - When the user requests validation
-            - To check for errors in existing files
-
-            Important:
-            - File paths can be relative to project root or absolute
-            - Standard Synapse artifact paths:
-              * APIs: src/main/wso2mi/artifacts/apis/
-              * Sequences: src/main/wso2mi/artifacts/sequences/
-              * Endpoints: src/main/wso2mi/artifacts/endpoints/
-              * Proxy Services: src/main/wso2mi/artifacts/proxy-services/
-            - Ensure required connectors are added before validating files that use them
-
-            Example:
-            - Validate an API: file_paths: ["src/main/wso2mi/artifacts/apis/UserAPI.xml"]
-            - Validate multiple files: file_paths: ["src/main/wso2mi/artifacts/apis/UserAPI.xml", "src/main/wso2mi/artifacts/sequences/ProcessUser.xml"]`,
-        inputSchema: validateCodeInputSchema,
-        execute
-    });
-}
