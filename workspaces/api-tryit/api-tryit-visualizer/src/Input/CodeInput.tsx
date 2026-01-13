@@ -17,7 +17,7 @@
  */
 
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Typography, Codicon } from '@wso2/ui-toolkit';
+import { Typography } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
 import Editor, { Monaco } from '@monaco-editor/react';
@@ -33,12 +33,21 @@ const Container = styled.div`
     /* Read-only line styling */
     .readonly-line {
         opacity: 0.9;
+        margin-top: 4px;
     }
     
     .readonly-line-glyph::before {
         content: '🔒';
         font-size: 10px;
         opacity: 0.5;
+    }
+    
+    /* Placeholder styling */
+    .placeholder-text {
+        opacity: 0.5 !important;
+        font-style: italic !important;
+        color: #858585 !important;
+        margin-left: 4px;
     }
 `;
 
@@ -321,7 +330,32 @@ export const CodeInput: React.FC<CodeInputProps> = ({
             const decorations: monaco.editor.IModelDeltaDecoration[] = [];
             const lineCount = model.getLineCount();
             
-            // Mark header lines as read-only
+            // Placeholder messages for each section
+            const placeholders: { [key: string]: string } = {
+                'Query Parameters': 'e.g., page=1 or limit=10',
+                'Headers': 'e.g., Content-Type: application/json',
+                'Body': 'Enter request body content here'
+            };
+            
+            // Helper to check if a section has content
+            const isSectionEmpty = (headerLineNum: number): boolean => {
+                const headerLinesArray = Array.from(headerLines).sort((a, b) => a - b);
+                const currentIndex = headerLinesArray.indexOf(headerLineNum);
+                const nextHeaderLine = currentIndex < headerLinesArray.length - 1 
+                    ? headerLinesArray[currentIndex + 1] 
+                    : lineCount + 1;
+                
+                // Check all lines between this header and the next header (or end)
+                for (let i = headerLineNum + 1; i < nextHeaderLine; i++) {
+                    const content = model.getLineContent(i).trim();
+                    if (content !== '') {
+                        return false; // Section has content
+                    }
+                }
+                return true; // Section is empty
+            };
+            
+            // Mark header lines as read-only and add placeholders for empty sections
             headerLines.forEach(lineNumber => {
                 decorations.push({
                     range: new monaco.Range(lineNumber, 1, lineNumber, 1),
@@ -332,6 +366,30 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                         glyphMarginHoverMessage: { value: 'This section header is read-only' }
                     }
                 });
+                
+                // Add placeholder if section is empty
+                const headerContent = model.getLineContent(lineNumber).trim();
+                const nextLine = lineNumber + 1;
+                
+                if (nextLine <= lineCount && placeholders[headerContent] && isSectionEmpty(lineNumber)) {
+                    const lineContent = model.getLineContent(nextLine);
+                    const cursorPos = editor.getPosition();
+                    const isCursorOnLine = cursorPos && cursorPos.lineNumber === nextLine;
+                    
+                    // Only add placeholder if line is empty AND cursor is NOT on this line
+                    if ((lineContent.length === 0 || lineContent.trim() === '') && !isCursorOnLine) {
+                        decorations.push({
+                            range: new monaco.Range(nextLine, 1, nextLine, 1),
+                            options: {
+                                after: {
+                                    content: placeholders[headerContent],
+                                    inlineClassName: 'placeholder-text'
+                                },
+                                showIfCollapsed: true
+                            }
+                        });
+                    }
+                }
             });
             
             // Mark editable sections with visual indicator
@@ -406,6 +464,31 @@ export const CodeInput: React.FC<CodeInputProps> = ({
             }
         });
         
+        // Handle mouse clicks on empty lines to force cursor to beginning
+        let isUpdatingDecorations = false;
+        
+        editor.onMouseDown((e) => {
+            if (e.target.position) {
+                const lineNum = e.target.position.lineNumber;
+                const lineContent = model.getLineContent(lineNum);
+                const headerLines = getSectionHeaderLines();
+                
+                // If clicking on an empty line (not a header), force cursor to column 1 and update decorations
+                if (!headerLines.has(lineNum) && lineContent.trim() === '') {
+                    setTimeout(() => {
+                        editor.setPosition({ lineNumber: lineNum, column: 1 });
+                        editor.focus();
+                        // Update decorations to hide placeholder
+                        if (!isUpdatingDecorations) {
+                            isUpdatingDecorations = true;
+                            updateDecorations();
+                            setTimeout(() => { isUpdatingDecorations = false; }, 100);
+                        }
+                    }, 0);
+                }
+            }
+        });
+        
         // Automatically move cursor away from section header lines
         editor.onDidChangeCursorPosition((e) => {
             const position = e.position;
@@ -423,6 +506,22 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                     model.setValue(newContent);
                     editor.setPosition({ lineNumber: nextLine, column: 1 });
                 }
+            } else {
+                // Check if cursor is on an empty line (potential placeholder line)
+                const lineContent = model.getLineContent(position.lineNumber);
+                if ((lineContent.length === 0 || lineContent.trim() === '') && position.column > 1) {
+                    // If cursor is not at column 1 on an empty line, move it there
+                    editor.setPosition({ lineNumber: position.lineNumber, column: 1 });
+                }
+            }
+            
+            // Update decorations when cursor moves to show/hide placeholder (with guard)
+            if (!isUpdatingDecorations) {
+                isUpdatingDecorations = true;
+                setTimeout(() => {
+                    updateDecorations();
+                    isUpdatingDecorations = false;
+                }, 50);
             }
         });
         
@@ -703,6 +802,9 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                     model.setValue(fixedLines.join('\n'));
                     updateDecorations();
                     isRestoring = false;
+                } else {
+                    // Update decorations for normal content changes (typing)
+                    updateDecorations();
                 }
             }
         });
@@ -925,6 +1027,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                         tabSize: 2,
                         renderLineHighlight: 'line',
                         cursorBlinking: 'smooth',
+                        
                         // cursorSmoothCaretAnimation: 'on',
                         // smoothScrolling: true,
                         scrollbar: {
