@@ -21,6 +21,7 @@ import { z } from 'zod';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as glob from 'glob';
+import * as vscode from 'vscode';
 
 import {
     ValidationResult,
@@ -161,12 +162,6 @@ function trackModifiedFile(modifiedFiles: string[] | undefined, filePath: string
     }
 }
 
-/**
- * Helper to get file path description for tool parameters
- */
-const getFilePathDescription = (op: string) =>
-    `The relative path to the file to ${op}. Use paths relative to the project root (e.g., "src/main/wso2mi/artifacts/apis/MyAPI.xml")`;
-
 // ============================================================================
 // Execute Functions (Business Logic)
 // ============================================================================
@@ -222,8 +217,39 @@ export function createWriteExecute(projectPath: string, modifiedFiles?: string[]
             fs.mkdirSync(dirPath, { recursive: true });
         }
 
-        // Write the file
-        fs.writeFileSync(fullPath, content, 'utf-8');
+        // Use WorkspaceEdit for LSP synchronization
+        const uri = vscode.Uri.file(fullPath);
+        const edit = new vscode.WorkspaceEdit();
+
+        if (fileExists) {
+            // Replace entire file content
+            const doc = await vscode.workspace.openTextDocument(uri);
+            const fullRange = new vscode.Range(
+                doc.lineAt(0).range.start,
+                doc.lineAt(doc.lineCount - 1).range.end
+            );
+            edit.replace(uri, fullRange, content);
+        } else {
+            // Create new file
+            edit.createFile(uri, { overwrite: false, ignoreIfExists: true });
+            edit.insert(uri, new vscode.Position(0, 0), content);
+        }
+
+        // Apply edit - automatically syncs with LSP
+        const success = await vscode.workspace.applyEdit(edit);
+
+        if (!success) {
+            console.error(`[FileWriteTool] Failed to apply workspace edit for: ${file_path}`);
+            return {
+                success: false,
+                message: `Failed to ${fileExists ? 'update' : 'create'} file '${file_path}'. WorkspaceEdit failed.`,
+                error: `Error: ${ErrorMessages.FILE_WRITE_FAILED}`
+            };
+        }
+
+        // Save the document
+        const document = await vscode.workspace.openTextDocument(uri);
+        await document.save();
 
         // Track modified file
         trackModifiedFile(modifiedFiles, file_path);
@@ -231,7 +257,7 @@ export function createWriteExecute(projectPath: string, modifiedFiles?: string[]
         const lineCount = content.split('\n').length;
         const action = fileExists ? 'updated' : 'created';
 
-        console.log(`[FileWriteTool] Successfully ${action} file: ${file_path} with ${lineCount} lines`);
+        console.log(`[FileWriteTool] Successfully ${action} and synced file: ${file_path} with ${lineCount} lines`);
         return {
             success: true,
             message: `Successfully ${action} file '${file_path}' with ${lineCount} line(s).`
@@ -411,14 +437,37 @@ export function createEditExecute(projectPath: string, modifiedFiles?: string[])
                 : content.replace(old_string, new_string);
         }
 
-        // Write back to file
-        fs.writeFileSync(fullPath, newContent, 'utf-8');
+        // Use WorkspaceEdit for LSP synchronization
+        const uri = vscode.Uri.file(fullPath);
+        const edit = new vscode.WorkspaceEdit();
+
+        const doc = await vscode.workspace.openTextDocument(uri);
+        const fullRange = new vscode.Range(
+            doc.lineAt(0).range.start,
+            doc.lineAt(doc.lineCount - 1).range.end
+        );
+        edit.replace(uri, fullRange, newContent);
+
+        // Apply edit - automatically syncs with LSP
+        const success = await vscode.workspace.applyEdit(edit);
+
+        if (!success) {
+            console.error(`[FileEditTool] Failed to apply workspace edit for: ${file_path}`);
+            return {
+                success: false,
+                message: `Failed to edit file '${file_path}'. WorkspaceEdit failed.`,
+                error: `Error: ${ErrorMessages.FILE_WRITE_FAILED}`
+            };
+        }
+
+        // Save the document
+        await doc.save();
 
         // Track modified file
         trackModifiedFile(modifiedFiles, file_path);
 
         const replacedCount = replace_all ? occurrenceCount : 1;
-        console.log(`[FileEditTool] Successfully replaced ${replacedCount} occurrence(s) in file: ${file_path}`);
+        console.log(`[FileEditTool] Successfully replaced ${replacedCount} occurrence(s) and synced file: ${file_path}`);
         return {
             success: true,
             message: `Successfully replaced ${replacedCount} occurrence(s) in '${file_path}'.`
@@ -523,13 +572,36 @@ export function createMultiEditExecute(projectPath: string, modifiedFiles?: stri
         }
 
         // All validations passed, content already has all edits applied
-        // Write back to file
-        fs.writeFileSync(fullPath, content, 'utf-8');
+        // Use WorkspaceEdit for LSP synchronization
+        const uri = vscode.Uri.file(fullPath);
+        const edit = new vscode.WorkspaceEdit();
+
+        const doc = await vscode.workspace.openTextDocument(uri);
+        const fullRange = new vscode.Range(
+            doc.lineAt(0).range.start,
+            doc.lineAt(doc.lineCount - 1).range.end
+        );
+        edit.replace(uri, fullRange, content);
+
+        // Apply edit - automatically syncs with LSP
+        const success = await vscode.workspace.applyEdit(edit);
+
+        if (!success) {
+            console.error(`[FileMultiEditTool] Failed to apply workspace edit for: ${file_path}`);
+            return {
+                success: false,
+                message: `Failed to apply multi-edit to file '${file_path}'. WorkspaceEdit failed.`,
+                error: `Error: ${ErrorMessages.FILE_WRITE_FAILED}`
+            };
+        }
+
+        // Save the document
+        await doc.save();
 
         // Track modified file
         trackModifiedFile(modifiedFiles, file_path);
 
-        console.log(`[FileMultiEditTool] Successfully applied ${edits.length} edits to file: ${file_path}`);
+        console.log(`[FileMultiEditTool] Successfully applied ${edits.length} edits and synced file: ${file_path}`);
         return {
             success: true,
             message: `Successfully applied ${edits.length} edit(s) to '${file_path}'.`

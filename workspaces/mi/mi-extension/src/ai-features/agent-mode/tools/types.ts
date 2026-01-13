@@ -84,6 +84,7 @@ export const GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME = 'get_ai_connector_docume
 export const ErrorMessages = {
     FILE_NOT_FOUND: 'File not found',
     FILE_ALREADY_EXISTS: 'File already exists with content',
+    FILE_WRITE_FAILED: 'Failed to write file',
     INVALID_FILE_PATH: 'Invalid file path',
     INVALID_EXTENSION: 'Invalid file extension',
     EMPTY_CONTENT: 'Content cannot be empty',
