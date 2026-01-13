@@ -47,9 +47,11 @@ import {
     createAddConnectorExecute,
     createRemoveConnectorTool,
     createRemoveConnectorExecute,
+} from '../../tools/project_tools';
+import {
     createValidateCodeTool,
     createValidateCodeExecute,
-} from '../../tools/project_tools';
+} from '../../tools/lsp_tools';
 import {
     FILE_WRITE_TOOL_NAME,
     FILE_READ_TOOL_NAME,
