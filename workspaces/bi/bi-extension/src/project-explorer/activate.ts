@@ -18,7 +18,7 @@
 import { SHARED_COMMANDS, BI_COMMANDS, MACHINE_VIEW, NodePosition } from '@wso2/ballerina-core';
 
 import { ProjectExplorerEntry, ProjectExplorerEntryProvider } from './project-explorer-provider';
-import { ExtensionContext, TreeView, commands, window, workspace } from 'vscode';
+import { ExtensionContext, TreeView, commands, window, workspace, extensions } from 'vscode';
 import { extension } from '../biExtentionContext';
 import { BI_PROJECT_EXPLORER_VIEW_ID, WI_PROJECT_EXPLORER_VIEW_ID, WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND } from '../constants';
 
@@ -91,7 +91,12 @@ function registerCoreCommands(dataProvider: ProjectExplorerEntryProvider, isInWI
 				commands.executeCommand(WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND);
 				return;
 			}
-			dataProvider.refresh();
+
+			// Skip refresh if debug session is active
+			const isDebugActive = isDebugSessionActive();
+			if (!isDebugActive) {
+				dataProvider.refresh();
+			}
 		}
 	);
 }
@@ -137,12 +142,22 @@ async function handleVisibilityChange(
 ) {
 	if (res.visible) {
 		if ((isBallerinaPackage || isBallerinaWorkspace) && extension.biSupported) {
-			if (isBallerinaPackage) {
-				commands.executeCommand(SHARED_COMMANDS.SHOW_VISUALIZER);
+			// Check if the Ballerina visualizer webview is already active
+			const isVisualizerActive = isBalVisualizerWebviewActive();
+
+			if (!isVisualizerActive) {
+				// Visualizer is already open, don't open it again
+				if (isBallerinaPackage) {
+					commands.executeCommand(SHARED_COMMANDS.SHOW_VISUALIZER);
+				}
 			}
+
 			if (!isEmptyWorkspace) {
-				await commands.executeCommand(SHARED_COMMANDS.FORCE_UPDATE_PROJECT_ARTIFACTS);
-				dataProvider.refresh();
+				const isDebugActive = isDebugSessionActive();
+				if (!isDebugActive) {
+					await commands.executeCommand(SHARED_COMMANDS.FORCE_UPDATE_PROJECT_ARTIFACTS);
+					dataProvider.refresh();
+				}
 				if (isBallerinaWorkspace) {
 					commands.executeCommand(BI_COMMANDS.SHOW_OVERVIEW);
 				}
@@ -151,6 +166,24 @@ async function handleVisibilityChange(
 			handleNonBallerinaVisibility();
 		}
 	}
+}
+
+function isBalVisualizerWebviewActive(): boolean {
+	// Get the Ballerina extension and check if visualizer is active
+	const ballerinaExt = extensions.getExtension('wso2.ballerina');
+	if (ballerinaExt?.isActive && ballerinaExt.exports?.VisualizerWebview) {
+		return ballerinaExt.exports.VisualizerWebview.isVisualizerActive();
+	}
+	return false;
+}
+
+function isDebugSessionActive(): boolean {
+	// Get the Ballerina extension and check if debug session is active
+	const ballerinaExt = extensions.getExtension('wso2.ballerina');
+	if (ballerinaExt?.isActive && ballerinaExt.exports?.BallerinaExtensionState) {
+		return ballerinaExt.exports.BallerinaExtensionState.isDebugSessionActive();
+	}
+	return false;
 }
 
 function handleNonBallerinaVisibility() {
