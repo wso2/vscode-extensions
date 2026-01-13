@@ -362,6 +362,42 @@ export const CodeInput: React.FC<CodeInputProps> = ({
         
         updateDecorations();
         
+        // Prevent selections from extending into section header lines (e.g., triple-click)
+        editor.onDidChangeCursorSelection((e) => {
+            const selection = e.selection;
+            const headerLines = getSectionHeaderLines();
+            
+            // Check if selection extends into a header line
+            if (!selection.isEmpty()) {
+                let needsAdjustment = false;
+                let newEndLine = selection.endLineNumber;
+                let newEndColumn = selection.endColumn;
+                
+                // If the selection end is on a header line or extends past a non-header into a header
+                for (let lineNum = selection.startLineNumber; lineNum <= selection.endLineNumber; lineNum++) {
+                    if (headerLines.has(lineNum) && lineNum !== selection.startLineNumber) {
+                        // Found a header line in the selection (but not if it's the start line)
+                        needsAdjustment = true;
+                        // Adjust to end at the line before the header
+                        newEndLine = lineNum - 1;
+                        newEndColumn = model.getLineMaxColumn(newEndLine);
+                        break;
+                    }
+                }
+                
+                if (needsAdjustment && newEndLine >= selection.startLineNumber) {
+                    // Set the adjusted selection
+                    editor.setSelection(new monaco.Selection(
+                        selection.startLineNumber,
+                        selection.startColumn,
+                        newEndLine,
+                        newEndColumn
+                    ));
+                    return;
+                }
+            }
+        });
+        
         // Automatically move cursor away from section header lines
         editor.onDidChangeCursorPosition((e) => {
             const position = e.position;
