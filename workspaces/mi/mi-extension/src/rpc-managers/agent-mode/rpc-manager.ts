@@ -19,7 +19,9 @@
 import {
     MIAgentPanelAPI,
     SendAgentMessageRequest,
-    SendAgentMessageResponse
+    SendAgentMessageResponse,
+    LoadChatHistoryRequest,
+    LoadChatHistoryResponse
 } from '@wso2/mi-core';
 import { AgentEventHandler } from './event-handler';
 import { executeAgent, createAgentAbortController, AgentEvent } from '../../ai-features/agent-mode';
@@ -41,11 +43,21 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
      */
     private async getChatHistoryManager(): Promise<ChatHistoryManager> {
         if (!this.chatHistoryManager) {
-            // Create new session
-            this.chatHistoryManager = new ChatHistoryManager(this.projectUri);
+            // Find existing sessions for this project
+            const existingSessions = await ChatHistoryManager.listSessions(this.projectUri);
+
+            // Use latest session if exists, otherwise create new
+            const sessionId = existingSessions.length > 0 ? existingSessions[0] : undefined;
+
+            this.chatHistoryManager = new ChatHistoryManager(this.projectUri, sessionId);
             await this.chatHistoryManager.initialize();
             this.currentSessionId = this.chatHistoryManager.getSessionId();
-            logInfo(`[AgentPanel] Created new chat session: ${this.currentSessionId}`);
+
+            if (sessionId) {
+                logInfo(`[AgentPanel] Continuing existing session: ${this.currentSessionId}`);
+            } else {
+                logInfo(`[AgentPanel] Created new chat session: ${this.currentSessionId}`);
+            }
         }
         return this.chatHistoryManager;
     }
@@ -128,6 +140,48 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             this.currentAbortController = null;
         } else {
             logDebug('[AgentPanel] No active agent generation to abort');
+        }
+    }
+
+    /**
+     * Load chat history from the current session
+     */
+    async loadChatHistory(_request: LoadChatHistoryRequest): Promise<LoadChatHistoryResponse> {
+        try {
+            // Initialize chat history manager (finds latest session or creates new)
+            await this.getChatHistoryManager();
+
+            // If still no session, return empty
+            if (!this.currentSessionId) {
+                logDebug('[AgentPanel] No active session, returning empty chat history');
+                return {
+                    success: true,
+                    messages: []
+                };
+            }
+
+            logInfo(`[AgentPanel] Loading chat history from session: ${this.currentSessionId}`);
+
+            // Load entries from JSONL file
+            const entries = await ChatHistoryManager.loadSession(this.projectUri, this.currentSessionId);
+
+            // Convert to UI format
+            const messages = ChatHistoryManager.convertToUIFormat(entries);
+
+            logInfo(`[AgentPanel] Loaded ${messages.length} messages from chat history`);
+
+            return {
+                success: true,
+                sessionId: this.currentSessionId,
+                messages
+            };
+        } catch (error) {
+            logError('[AgentPanel] Failed to load chat history', error);
+            return {
+                success: false,
+                messages: [],
+                error: error instanceof Error ? error.message : 'Failed to load chat history'
+            };
         }
     }
 }

@@ -407,8 +407,42 @@ export class ChatHistoryManager {
     }
 
     /**
+     * Convert chat history entries to AI SDK ModelMessage format
+     * Used to provide conversation context to the agent
+     */
+    static convertToModelMessages(entries: ConversationEntry[]): any[] {
+        const messages: any[] = [];
+
+        for (const entry of entries) {
+            switch (entry.type) {
+                case 'user':
+                    messages.push({
+                        role: 'user',
+                        content: entry.message.content
+                    });
+                    break;
+
+                case 'assistant':
+                    if (entry.message.isComplete) {
+                        // Only include complete assistant messages
+                        messages.push({
+                            role: 'assistant',
+                            content: entry.message.content
+                        });
+                    }
+                    break;
+
+                // Skip tool_call, tool_result, session_start, session_end
+                // The AI SDK doesn't need these for context
+            }
+        }
+
+        return messages;
+    }
+
+    /**
      * Convert chat history entries to UI format
-     * Reconstructs the conversation from JSONL entries
+     * Reconstructs the conversation from JSONL entries in chronological order
      */
     static convertToUIFormat(entries: ConversationEntry[]): Array<{
         role: 'user' | 'assistant';
@@ -423,12 +457,49 @@ export class ChatHistoryManager {
             toolCalls?: Array<{ name: string; input: unknown; output: unknown }>;
         }> = [];
 
-        let currentMessage: any = null;
-        let currentToolCalls: Array<{ name: string; input: unknown; output?: unknown }> = [];
+        let assistantContent = '';
+        let assistantTimestamp = '';
+        let pendingToolCall: { name: string; input: unknown; output?: unknown } | null = null;
+
+        // Helper to format tool call as <toolcall> tag
+        const formatToolCall = (toolCall: { name: string; input: unknown; output?: unknown }): string => {
+            const actionMap: Record<string, string> = {
+                'file_write': 'Created',
+                'file_edit': 'Updated',
+                'file_multi_edit': 'Updated',
+                'file_read': 'Read',
+                'grep': 'Searched',
+                'glob': 'Found',
+                'get_connector_definitions': 'Fetched connectors',
+                'get_connector_documentation': 'Retrieved documentation',
+                'get_ai_connector_documentation': 'Retrieved AI documentation',
+                'add_connector_to_project_pom': 'Added connector',
+                'remove_connector_from_project_pom': 'Removed connector',
+                'validate_code': 'Validated'
+            };
+
+            const action = actionMap[toolCall.name] || `Executed ${toolCall.name}`;
+            const input = toolCall.input as any;
+            const filePath = input?.file_path || input?.file_paths?.[0] || '';
+
+            const message = filePath ? `${action} ${filePath}` : action;
+            return `<toolcall data-action="completed" data-file="${filePath}">${message}</toolcall>`;
+        };
 
         for (const entry of entries) {
             switch (entry.type) {
                 case 'user':
+                    // Flush any pending assistant message
+                    if (assistantContent) {
+                        messages.push({
+                            role: 'assistant',
+                            content: assistantContent.trim(),
+                            timestamp: assistantTimestamp
+                        });
+                        assistantContent = '';
+                    }
+
+                    // Add user message
                     messages.push({
                         role: 'user',
                         content: entry.message.content,
@@ -437,54 +508,57 @@ export class ChatHistoryManager {
                     break;
 
                 case 'assistant':
+                    // Track first timestamp for this assistant turn
+                    if (!assistantTimestamp) {
+                        assistantTimestamp = entry.timestamp;
+                    }
+
+                    // Append assistant text to content
+                    if (entry.message.content) {
+                        assistantContent += entry.message.content;
+                    }
+
+                    // If complete, flush the message
                     if (entry.message.isComplete) {
-                        // Complete assistant message
-                        if (currentMessage) {
-                            // Flush previous message if any
-                            messages.push(currentMessage);
-                        }
-                        currentMessage = {
+                        messages.push({
                             role: 'assistant',
-                            content: entry.message.content,
-                            timestamp: entry.timestamp,
-                            toolCalls: currentToolCalls.length > 0 ? currentToolCalls : undefined
-                        };
-                        currentToolCalls = [];
-                    } else {
-                        // Streaming chunk - accumulate content
-                        if (!currentMessage) {
-                            currentMessage = {
-                                role: 'assistant',
-                                content: entry.message.content,
-                                timestamp: entry.timestamp,
-                                toolCalls: []
-                            };
-                        } else {
-                            currentMessage.content += entry.message.content;
-                        }
+                            content: assistantContent.trim(),
+                            timestamp: assistantTimestamp
+                        });
+                        assistantContent = '';
+                        assistantTimestamp = '';
                     }
                     break;
 
                 case 'tool_call':
-                    currentToolCalls.push({
+                    // Store tool call until we get the result
+                    pendingToolCall = {
                         name: entry.toolName,
                         input: entry.toolInput
-                    });
+                    };
                     break;
 
                 case 'tool_result':
-                    // Find matching tool call and add output
-                    const toolCall = currentToolCalls.find(tc => tc.name === entry.toolName && !tc.output);
-                    if (toolCall) {
-                        toolCall.output = entry.toolOutput;
+                    // Add tool result to pending call and append as <toolcall> tag
+                    if (pendingToolCall && pendingToolCall.name === entry.toolName) {
+                        pendingToolCall.output = entry.toolOutput;
+
+                        // Append tool call tag to assistant content
+                        assistantContent += '\n\n' + formatToolCall(pendingToolCall) + '\n\n';
+
+                        pendingToolCall = null;
                     }
                     break;
             }
         }
 
-        // Flush last message if any
-        if (currentMessage) {
-            messages.push(currentMessage);
+        // Flush any remaining assistant message
+        if (assistantContent) {
+            messages.push({
+                role: 'assistant',
+                content: assistantContent.trim(),
+                timestamp: assistantTimestamp
+            });
         }
 
         return messages;

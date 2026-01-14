@@ -20,7 +20,9 @@ import { RequestType, NotificationType } from "vscode-messenger-common";
 import {
     SendAgentMessageRequest,
     SendAgentMessageResponse,
-    AgentEvent
+    AgentEvent,
+    LoadChatHistoryRequest,
+    LoadChatHistoryResponse
 } from "./types";
 
 const _prefix = "mi-agent-service";
@@ -33,6 +35,11 @@ export const sendAgentMessage: RequestType<SendAgentMessageRequest, SendAgentMes
 // Abort agent generation
 export const abortAgentGeneration: RequestType<void, void> = {
     method: `${_prefix}/abortAgentGeneration`
+};
+
+// Load chat history
+export const loadChatHistory: RequestType<LoadChatHistoryRequest, LoadChatHistoryResponse> = {
+    method: `${_prefix}/loadChatHistory`
 };
 
 // Notification for agent streaming events

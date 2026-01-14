@@ -25,6 +25,9 @@
  */
 export interface SendAgentMessageRequest {
     message: string;
+    /** Chat history for context (AI SDK format with tool calls/results) */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    chatHistory?: any[];
 }
 
 /**
@@ -35,6 +38,9 @@ export interface SendAgentMessageResponse {
     message?: string;
     modifiedFiles?: string[];
     error?: string;
+    /** Full AI SDK messages from this turn (includes tool calls/results) */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    modelMessages?: any[];
 }
 
 /**
@@ -59,6 +65,41 @@ export interface AgentEvent {
     toolInput?: unknown;
     toolOutput?: unknown;
     error?: string;
+    /** Full AI SDK messages (only sent with "stop" event) */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    modelMessages?: any[];
+}
+
+/**
+ * Chat message for UI display (agent mode)
+ */
+export interface AgentChatMessage {
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: string;
+    toolCalls?: Array<{
+        name: string;
+        input: unknown;
+        output: unknown;
+    }>;
+}
+
+/**
+ * Request to load chat history
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface LoadChatHistoryRequest {
+    // No parameters needed - uses current session
+}
+
+/**
+ * Response with chat history
+ */
+export interface LoadChatHistoryResponse {
+    success: boolean;
+    sessionId?: string;
+    messages: AgentChatMessage[];
+    error?: string;
 }
 
 /**
@@ -67,4 +108,5 @@ export interface AgentEvent {
 export interface MIAgentPanelAPI {
     sendAgentMessage: (request: SendAgentMessageRequest) => Promise<SendAgentMessageResponse>;
     abortAgentGeneration: () => Promise<void>;
+    loadChatHistory: (request: LoadChatHistoryRequest) => Promise<LoadChatHistoryResponse>;
 }

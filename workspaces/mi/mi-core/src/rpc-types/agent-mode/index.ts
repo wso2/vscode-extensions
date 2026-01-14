@@ -22,12 +22,16 @@ export type {
     SendAgentMessageResponse,
     AgentEvent,
     AgentEventType,
-    MIAgentPanelAPI
+    MIAgentPanelAPI,
+    AgentChatMessage,
+    LoadChatHistoryRequest,
+    LoadChatHistoryResponse
 } from './types';
 
 // Export RPC type definitions
 export {
     sendAgentMessage,
     abortAgentGeneration,
+    loadChatHistory,
     agentEvent
 } from './rpc-type';

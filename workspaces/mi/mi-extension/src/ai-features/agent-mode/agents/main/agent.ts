@@ -271,6 +271,13 @@ export async function executeAgent(
                     const toolInput = part.input as any;
                     logDebug(`[Agent] Tool call: ${part.toolName}`);
 
+                    // Record accumulated text as incomplete assistant message before tool call
+                    if (request.chatHistoryManager && accumulatedContent) {
+                        await request.chatHistoryManager.recordAssistantChunk(accumulatedContent, false);
+                        logDebug('[Agent] Recorded assistant chunk before tool call');
+                        accumulatedContent = ''; // Reset accumulated content
+                    }
+
                     // Record tool call to history
                     if (request.chatHistoryManager) {
                         await request.chatHistoryManager.recordToolCall(part.toolName, toolInput);
