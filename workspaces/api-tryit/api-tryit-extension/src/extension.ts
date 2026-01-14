@@ -27,12 +27,12 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Initialize RPC handlers
 	TryItPanel.init();
 
-	// Register the activity panel
-	activateActivityPanel(context);
-
 	// Register the API Explorer tree view
 	const apiExplorerProvider = new ApiExplorerProvider();
 	vscode.window.registerTreeDataProvider('api-tryit.explorer', apiExplorerProvider);
+
+	// Register the activity panel with the API explorer provider
+	activateActivityPanel(context, apiExplorerProvider);
 
 	// Register command to refresh tree view
 	const refreshCommand = vscode.commands.registerCommand('api-tryit.refreshExplorer', () => {

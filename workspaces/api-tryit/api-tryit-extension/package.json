@@ -28,8 +28,14 @@
     "views": {
       "api-tryit": [
         {
+          "id": "api-tryit.activity.panel",
+          "name": "API Explorer",
+          "type": "webview",
+          "when": "true"
+        },
+        {
           "id": "api-tryit.explorer",
-          "name": "API Explorer"
+          "name": "API Explorer Tree"
         }
       ]
     },

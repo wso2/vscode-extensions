@@ -135,6 +135,15 @@ export class TryItPanel {
 		TryItPanel.currentPanel = new TryItPanel(panel, extensionContext);
 	}
 
+	public static sendRequestToWebview(requestItem: unknown) {
+		if (TryItPanel.currentPanel) {
+			TryItPanel.currentPanel._panel.webview.postMessage({
+				type: 'loadRequest',
+				data: requestItem
+			});
+		}
+	}
+
 	public dispose() {
 		TryItPanel.currentPanel = undefined;
 
@@ -183,11 +192,16 @@ export class TryItPanel {
             ${scriptUris.map(jsFile => `<script charset="UTF-8" src="${jsFile}"></script>`).join('\n')}
             <script>
                 window.addEventListener('DOMContentLoaded', function() {
+                    console.log('DOM loaded, checking for apiTryItVisualizerWebview...');
+                    console.log('window.apiTryItVisualizerWebview:', typeof window.apiTryItVisualizerWebview);
+                    
                     if (typeof apiTryItVisualizerWebview !== 'undefined' && apiTryItVisualizerWebview.renderEditorPanel) {
+                        console.log('Found apiTryItVisualizerWebview.renderEditorPanel, calling it...');
                         apiTryItVisualizerWebview.renderEditorPanel(document.getElementById("root"));
                     } else {
-                        console.error('apiTryItVisualizerWebview not loaded');
-                        document.getElementById("root").innerHTML = 'Error: Failed to load API TryIt visualizer';
+                        console.error('apiTryItVisualizerWebview not loaded or renderEditorPanel not available');
+                        console.error('apiTryItVisualizerWebview:', apiTryItVisualizerWebview);
+                        document.getElementById("root").innerHTML = 'Error: Failed to load API TryIt visualizer. Check console for details.';
                     }
                 });
             </script>

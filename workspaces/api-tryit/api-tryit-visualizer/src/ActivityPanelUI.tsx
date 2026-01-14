@@ -16,62 +16,56 @@
  * under the License.
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { ExplorerView } from './ExplorerView/ExplorerView';
+import { getVSCodeAPI } from './utils/vscode-api';
+import type { ApiRequest } from '@wso2/api-tryit-core';
+
+interface RequestItem {
+	id: string;
+	name: string;
+	type?: 'collection' | 'folder' | 'request';
+	method?: string;
+	request?: ApiRequest;
+	filePath?: string;
+	children?: RequestItem[];
+}
 
 export const ActivityPanelUI: React.FC = () => {
-    const handleOpenTryItPanel = () => {
-        // Logic to open the TryIt panel goes here
-        console.log("Open TryIt Panel button clicked");
-        // call VS Code API to open the TryIt panel
-        
-    }
-    return (
-        <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100%',
-            padding: '16px',
-            fontFamily: 'var(--vscode-font-family)',
-            color: 'var(--vscode-foreground)',
-            fontSize: '13px',
-        }}>
-            <h2 style={{ fontSize: '16px', marginBottom: '16px', marginTop: 0 }}>
-                API TryIt
-            </h2>
-            
-            <div style={{
-                padding: '12px',
-                backgroundColor: 'var(--vscode-editor-background)',
-                border: '1px solid var(--vscode-panel-border)',
-                borderRadius: '4px',
-                marginBottom: '12px',
-            }}>
-                <h3 style={{ fontSize: '14px', margin: '0 0 8px 0' }}>Quick Actions</h3>
-                <button style={{
-                    width: '100%',
-                    padding: '8px',
-                    backgroundColor: 'var(--vscode-button-background)',
-                    color: 'var(--vscode-button-foreground)',
-                    border: 'none',
-                    borderRadius: '2px',
-                    cursor: 'pointer',
-                    fontSize: '12px',
+	const [collections, setCollections] = useState<RequestItem[]>([]);
+	const [isLoading, setIsLoading] = useState(true);
+	const vscode = getVSCodeAPI();
 
-                }}>
-                    Open TryIt Panel
-                </button>
-            </div>
+	useEffect(() => {
+		// Listen for messages from the extension
+		const handleMessage = (event: MessageEvent) => {
+			const message = event.data;
+			if (message.command === 'updateCollections') {
+				setCollections(message.collections || []);
+				setIsLoading(false);
+			}
+		};
 
-            <div style={{
-                padding: '12px',
-                backgroundColor: 'var(--vscode-editor-background)',
-                border: '1px solid var(--vscode-panel-border)',
-                borderRadius: '4px',
-            }}>
-                <p style={{ margin: 0, fontSize: '12px', opacity: 0.8 }}>
-                    Welcome to API TryIt extension. Use the activity panel to quickly access API testing features.
-                </p>
-            </div>
-        </div>
-    );
+		window.addEventListener('message', handleMessage);
+		return () => window.removeEventListener('message', handleMessage);
+	}, []);
+
+	// Request initial data when component mounts
+	useEffect(() => {
+		if (vscode) {
+			// Send ready message first
+			vscode.postMessage({
+				command: 'webviewReady'
+			});
+			// Then request collections
+			vscode.postMessage({
+				command: 'getCollections'
+			});
+		}
+	}, [vscode]);
+
+	useEffect(() => {
+	}, [collections, isLoading]);
+
+	return <ExplorerView collections={collections} isLoading={isLoading} />;
 };

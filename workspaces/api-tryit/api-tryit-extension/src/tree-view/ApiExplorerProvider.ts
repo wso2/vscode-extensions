@@ -19,15 +19,17 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { ApiCollection, ApiFolder, ApiRequestItem } from '@wso2/api-tryit-core';
+import { ApiCollection, ApiFolder, ApiRequestItem, ApiRequest } from '@wso2/api-tryit-core';
 
 export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem> {
 	private collections: ApiCollection[] = [];
+	private searchFilter: string = '';
 	private _onDidChangeTreeData: vscode.EventEmitter<ApiTreeItem | undefined | null | void> = new vscode.EventEmitter<ApiTreeItem | undefined | null | void>();
 	readonly onDidChangeTreeData: vscode.Event<ApiTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
+	private loadingPromise: Promise<void> | null = null;
 
 	constructor(private workspacePath?: string) {
-		this.loadCollections();
+		this.loadingPromise = this.loadCollections();
 	}
 
 	private async loadCollections(): Promise<void> {
@@ -357,6 +359,83 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 	setWorkspacePath(workspacePath: string): void {
 		this.workspacePath = workspacePath;
 		this.loadCollections();
+	}
+
+	/**
+	 * Set search filter term
+	 */
+	setSearchFilter(searchTerm: string): void {
+		this.searchFilter = searchTerm;
+		this.refresh();
+	}
+
+	/**
+	 * Get search filter term
+	 */
+	getSearchFilter(): string {
+		return this.searchFilter;
+	}
+
+	/**
+	 * Get collections as JSON-serializable format for webview
+	 */
+	async getCollections(): Promise<Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest; children?: Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest; children?: Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest}>}>}>> {
+		// Wait for loading to complete if it's still in progress
+		if (this.loadingPromise) {
+			await this.loadingPromise;
+			this.loadingPromise = null; // Clear the promise once loaded
+		}
+
+		const filterCollections = (collections: ApiCollection[], searchTerm: string) => {
+			if (!searchTerm) {
+				return collections.map(col => ({
+					id: col.id,
+					name: col.name,
+					type: 'collection',
+					children: col.folders.map(folder => ({
+						id: `${col.id}-${folder.name}`,
+						name: folder.name,
+						type: 'folder',
+						children: folder.items.map(item => ({
+							id: `${col.id}-${folder.name}-${item.name}`,
+							name: item.name,
+							type: 'request',
+							method: item.request.method,
+							request: item.request
+						}))
+					}))
+				}));
+			}
+
+			return collections
+				.map(col => ({
+					id: col.id,
+					name: col.name,
+					type: 'collection',
+					children: col.folders
+						.map(folder => ({
+							id: `${col.id}-${folder.name}`,
+							name: folder.name,
+							type: 'folder',
+							children: folder.items
+								.filter(item => 
+									item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+									item.request.method.toLowerCase().includes(searchTerm.toLowerCase())
+								)
+								.map(item => ({
+									id: `${col.id}-${folder.name}-${item.name}`,
+									name: item.name,
+									type: 'request',
+									method: item.request.method,
+									request: item.request
+								}))
+						}))
+						.filter(folder => folder.children && folder.children.length > 0)
+				}))
+				.filter(col => col.children && col.children.length > 0);
+		};
+
+		return filterCollections(this.collections, this.searchFilter);
 	}
 
 	refresh(): void {
