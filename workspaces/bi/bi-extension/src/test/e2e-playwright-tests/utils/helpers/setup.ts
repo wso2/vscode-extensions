@@ -25,7 +25,7 @@ import { promisify } from 'util';
 import { getWebview } from './webview';
 
 const dataFolder = path.join(__dirname, '..', 'data');
-const extensionsFolder = path.join(__dirname, '..', '..', '..', '..', '..', 'vsix');
+export const extensionsFolder = path.join(__dirname, '..', '..', '..', '..', '..', 'vsix');
 const vscodeVersion = 'latest';
 export const resourcesFolder = path.join(__dirname, '..', '..', '..', 'test-resources');
 export const newProjectPath = path.join(dataFolder, 'new-project', 'testProject');

@@ -17,7 +17,8 @@
  */
 
 import { test } from '@playwright/test';
-import { page } from './utils/helpers';
+import { page, extensionsFolder } from './utils/helpers';
+import { downloadExtensionFromMarketplace } from '@wso2/playwright-vscode-tester';
 const fs = require('fs');
 const path = require('path');
 const videosFolder = path.join(__dirname, '..', 'test-resources', 'videos');
@@ -67,6 +68,19 @@ test.beforeAll(async () => {
     console.log('\n' + '='.repeat(80));
     console.log('🚀 STARTING BI EXTENSION E2E TEST SUITE');
     console.log('='.repeat(80) + '\n');
+
+    // Download VSIX if flag is set
+    if (process.env.DOWNLOAD_PRERELEASE === 'true') {
+        console.log('📦 Downloading BI prerelease VSIXs ...');
+        try {
+            await downloadExtensionFromMarketplace('wso2.ballerina@prerelease', extensionsFolder);
+            await downloadExtensionFromMarketplace('wso2.ballerina-integrator@prerelease', extensionsFolder);
+            console.log('✅ BI prerelease VSIXs are ready!');
+        } catch (error) {
+            console.error('❌ Failed to download BI prerelease VSIXs:', error);
+            throw error;
+        }
+    }
 });
 
 // <----Automation Test---->
