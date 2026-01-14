@@ -146,7 +146,6 @@ async function handleVisibilityChange(
 			const isVisualizerActive = isBalVisualizerWebviewActive();
 
 			if (!isVisualizerActive) {
-				// Visualizer is already open, don't open it again
 				if (isBallerinaPackage) {
 					commands.executeCommand(SHARED_COMMANDS.SHOW_VISUALIZER);
 				}
