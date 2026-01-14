@@ -565,26 +565,52 @@ export function replaceCodeBlock(content: string, fileName: string, correctedCod
     // Normalize the file name for consistent matching
     const normalizedFileName = fileName.endsWith('.xml') ? fileName : `${fileName}.xml`;
     const fileNameWithoutExt = normalizedFileName.replace('.xml', '');
-    
+
     // Try to find code blocks in the content
     const codeBlockRegex = /```xml\s*([\s\S]*?)```/g;
     let match;
     let modifiedContent = content;
-    
+
     while ((match = codeBlockRegex.exec(content)) !== null) {
         const xmlContent = match[1];
-        
+
         // Check if this XML block contains the target API/artifact name
         const nameMatch = xmlContent.match(/name="([^"]+)"/);
         if (nameMatch && nameMatch[1] === fileNameWithoutExt) {
             // Found the right code block, replace it
             const originalBlock = match[0]; // The complete ```xml ... ``` block
             const newBlock = `\`\`\`xml\n${correctedCode}\n\`\`\``;
-            
+
             return modifiedContent.replace(originalBlock, newBlock);
         }
     }
-    
+
     // If no matching code block was found, append the corrected code
     return modifiedContent + `\n\n**Updated ${normalizedFileName}**\n\`\`\`xml\n${correctedCode}\n\`\`\``;
+}
+
+/**
+ * Converts copilot chat history to AI SDK model messages format
+ * Extracts modelMessages from assistant entries to preserve tool calls/results
+ *
+ * @param chatHistory - The copilot chat history array
+ * @returns Array of AI SDK model messages with tool calls preserved
+ */
+export function convertChatHistoryToModelMessages(chatHistory: CopilotChatEntry[]): any[] {
+    const messages: any[] = [];
+
+    for (const entry of chatHistory) {
+        if (entry.role === Role.CopilotAssistant && entry.modelMessages && entry.modelMessages.length > 0) {
+            // Assistant message: use stored modelMessages (includes tool calls/results)
+            messages.push(...entry.modelMessages);
+        } else if (entry.role === Role.CopilotUser) {
+            // User message: create simple text message
+            messages.push({
+                role: 'user',
+                content: entry.content
+            });
+        }
+    }
+
+    return messages;
 }

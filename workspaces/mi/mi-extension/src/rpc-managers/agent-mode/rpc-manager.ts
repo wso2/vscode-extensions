@@ -24,13 +24,42 @@ import {
 import { AgentEventHandler } from './event-handler';
 import { executeAgent, createAgentAbortController, AgentEvent } from '../../ai-features/agent-mode';
 import { logInfo, logError, logDebug } from '../../ai-features/copilot/logger';
+import { ChatHistoryManager } from '../../ai-features/agent-mode/chat-history-manager';
 
 export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private eventHandler: AgentEventHandler;
     private currentAbortController: AbortController | null = null;
+    private chatHistoryManager: ChatHistoryManager | null = null;
+    private currentSessionId: string | null = null;
 
     constructor(private projectUri: string) {
         this.eventHandler = new AgentEventHandler(projectUri);
+    }
+
+    /**
+     * Initialize or get existing chat history manager
+     */
+    private async getChatHistoryManager(): Promise<ChatHistoryManager> {
+        if (!this.chatHistoryManager) {
+            // Create new session
+            this.chatHistoryManager = new ChatHistoryManager(this.projectUri);
+            await this.chatHistoryManager.initialize();
+            this.currentSessionId = this.chatHistoryManager.getSessionId();
+            logInfo(`[AgentPanel] Created new chat session: ${this.currentSessionId}`);
+        }
+        return this.chatHistoryManager;
+    }
+
+    /**
+     * Close current chat history session
+     */
+    private async closeChatHistory(): Promise<void> {
+        if (this.chatHistoryManager) {
+            await this.chatHistoryManager.close();
+            logInfo(`[AgentPanel] Closed chat session: ${this.currentSessionId}`);
+            this.chatHistoryManager = null;
+            this.currentSessionId = null;
+        }
     }
 
     /**
@@ -40,6 +69,9 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
         try {
             logInfo(`[AgentPanel] Received message: ${request.message.substring(0, 100)}...`);
 
+            // Get or create chat history manager
+            const historyManager = await this.getChatHistoryManager();
+
             // Create abort controller for this request
             this.currentAbortController = createAgentAbortController();
 
@@ -47,7 +79,9 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 {
                     query: request.message,
                     projectPath: this.projectUri,
-                    abortSignal: this.currentAbortController.signal
+                    sessionId: this.currentSessionId || undefined,
+                    abortSignal: this.currentAbortController.signal,
+                    chatHistoryManager: historyManager
                 },
                 (event: AgentEvent) => {
                     // Forward events to the visualizer
@@ -63,13 +97,15 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 return {
                     success: true,
                     message: 'Agent completed successfully',
-                    modifiedFiles: result.modifiedFiles
+                    modifiedFiles: result.modifiedFiles,
+                    modelMessages: result.modelMessages
                 };
             } else {
                 logError(`[AgentPanel] Agent failed: ${result.error}`);
                 return {
                     success: false,
-                    error: result.error
+                    error: result.error,
+                    modelMessages: result.modelMessages // Return partial messages even on error
                 };
             }
         } catch (error) {

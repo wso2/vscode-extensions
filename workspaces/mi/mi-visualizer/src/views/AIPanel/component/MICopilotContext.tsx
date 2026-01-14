@@ -198,6 +198,10 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                     if (storedChatArray) {
                         // Load Chats
                         const chatArray = JSON.parse(storedChatArray);
+                        console.log('[DEBUG] Loaded chat from localStorage:', chatArray.length, 'entries');
+                        const assistantEntries = chatArray.filter((e: CopilotChatEntry) => e.role === Role.CopilotAssistant);
+                        console.log('[DEBUG] Assistant entries with modelMessages:',
+                            assistantEntries.filter((e: CopilotChatEntry) => e.modelMessages && e.modelMessages.length > 0).length);
 
                         // Add the messages from the chat array to the view
                         setMessages((prevMessages) => [
@@ -245,6 +249,10 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         if (!isLoading && !backendRequestTriggered) {
             // Debounce localStorage writes to allow abort cleanup to complete
             const timeoutId = setTimeout(() => {
+                console.log('[DEBUG] Saving to localStorage, copilotChat entries:', copilotChat.length);
+                const assistantEntries = copilotChat.filter(e => e.role === Role.CopilotAssistant);
+                console.log('[DEBUG] Assistant entries with modelMessages:',
+                    assistantEntries.filter(e => e.modelMessages && e.modelMessages.length > 0).length);
                 localStorage.setItem(localStorageKeys.chatFile, JSON.stringify(copilotChat));
             }, 300); // 300ms delay ensures abort cleanup completes (200ms abort flag reset + buffer)
 

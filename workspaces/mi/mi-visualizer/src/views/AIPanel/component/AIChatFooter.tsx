@@ -20,7 +20,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { FlexRow, Footer, StyledTransParentButton, RippleLoader, FlexColumn } from "../styles";
 import { Codicon } from "@wso2/ui-toolkit";
 import { useMICopilotContext } from "./MICopilotContext";
-import { handleFileAttach } from "../utils";
+import { handleFileAttach, convertChatHistoryToModelMessages } from "../utils";
 import { USER_INPUT_PLACEHOLDER_MESSAGE, VALID_FILE_TYPES } from "../constants";
 import { generateId, updateTokenInfo } from "../utils";
 import { BackendRequestType } from "../types";
@@ -219,9 +219,9 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 break;
 
             case "stop":
-                // Agent response completed
+                // Agent response completed - extract modelMessages from the event
                 if (assistantResponse) {
-                    handleAgentComplete(assistantResponse);
+                    handleAgentComplete(assistantResponse, event.modelMessages || []);
                 }
                 // Fetch and update usage after agent response
                 rpcClient?.getMiAiPanelRpcClient().fetchUsage().then((usage) => {
@@ -243,13 +243,16 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
     };
 
     // Handle completion of agent response
-    const handleAgentComplete = async (finalContent: string) => {
-        // Add backend response to copilot chat
-        setCopilotChat((prevCopilotChat) => [
-            ...prevCopilotChat,
-            { id: currentChatId || generateId(), role: Role.CopilotAssistant, content: finalContent },
-        ]);
+    const handleAgentComplete = async (finalContent: string, modelMessages?: any[]) => {
+        // Add backend response to copilot chat with modelMessages
+        const newEntry: CopilotChatEntry = {
+            id: currentChatId || generateId(),
+            role: Role.CopilotAssistant,
+            content: finalContent,
+            modelMessages: modelMessages || []
+        };
 
+        setCopilotChat((prevCopilotChat) => [...prevCopilotChat, newEntry]);
         setBackendRequestTriggered(false);
     };
 
@@ -400,9 +403,16 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }
 
         try {
+            // Convert chat history to model messages format (with tool calls preserved)
+            const chatHistory = convertChatHistoryToModelMessages(currentCopilotChat);
+
             // Call the agent RPC method for streaming response
             // The streaming will be handled via events in handleAgentEvent
-            await rpcClient.getMiAgentPanelRpcClient().sendAgentMessage({ message: messageToSend });
+            // modelMessages will be sent with the "stop" event
+            await rpcClient.getMiAgentPanelRpcClient().sendAgentMessage({
+                message: messageToSend,
+                chatHistory: chatHistory
+            });
 
             // Remove the user uploaded files and images after sending them to the backend
             // (File upload functionality preserved for future use)
@@ -410,7 +420,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             removeAllImages();
 
             // The streaming response will be handled by events
-            // No need to process response.body here anymore
+            // modelMessages will arrive with the "stop" event
 
         } catch (error) {
             if (!isStopButtonClicked.current) {

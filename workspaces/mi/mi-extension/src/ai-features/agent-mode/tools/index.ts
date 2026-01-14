@@ -58,12 +58,18 @@ export {
     // Execute function creators
     createAddConnectorExecute,
     createRemoveConnectorExecute,
-    createValidateCodeExecute,
     // Tool creators
     createAddConnectorTool,
     createRemoveConnectorTool,
-    createValidateCodeTool,
 } from './project_tools';
+
+// Export LSP tools
+export {
+    // Execute function creators
+    createValidateCodeExecute,
+    // Tool creators
+    createValidateCodeTool,
+} from './lsp_tools';
 
 // Re-export tool names for convenience
 export {
