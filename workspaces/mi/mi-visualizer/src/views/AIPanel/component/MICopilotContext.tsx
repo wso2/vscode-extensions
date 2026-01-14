@@ -35,7 +35,8 @@ import {
     getProjectUUID,
     compareVersions,
     updateTokenInfo,
-    convertChat
+    convertChat,
+    generateId
 } from "../utils";
 import { useFeedback } from "./useFeedback";
 
@@ -99,9 +100,8 @@ interface MICopilotProviderProps {
   children: React.ReactNode;
 }
 
-// Define Local Storage Keys
+// Define Local Storage Keys (only for file history now, chat is managed by backend)
 const localStorageKeys = {
-    chatFile: "",
     fileHistory: "",
 };
 
@@ -153,8 +153,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                 const uuid = await getProjectUUID(rpcClient);
                 setProjectUUID(uuid);
 
-                // Update localStorageKeys with the UUID
-                localStorageKeys.chatFile = `chatArray-AIGenerationChat-${uuid}`;
+                // Update localStorageKeys with the UUID (only for file history)
                 localStorageKeys.fileHistory = `fileHistory-AIGenerationChat-${uuid}`;
 
                 const machineView = await rpcClient.getAIVisualizerState();
@@ -191,28 +190,32 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                     setCurrentUserprompt(initialPrompt);
                     setIsInitialPromptLoaded(true);
                 } else {
-                    // Load the stored data from local storage in session reload
-                    const storedChatArray = localStorage.getItem(localStorageKeys.chatFile);
-                    const storedFileHistory = localStorage.getItem(localStorageKeys.fileHistory);
+                    // Load chat history from backend via RPC
+                    try {
+                        const response = await rpcClient.getMiAgentPanelRpcClient().loadChatHistory({});
 
-                    if (storedChatArray) {
-                        // Load Chats
-                        const chatArray = JSON.parse(storedChatArray);
-                        console.log('[DEBUG] Loaded chat from localStorage:', chatArray.length, 'entries');
-                        const assistantEntries = chatArray.filter((e: CopilotChatEntry) => e.role === Role.CopilotAssistant);
-                        console.log('[DEBUG] Assistant entries with modelMessages:',
-                            assistantEntries.filter((e: CopilotChatEntry) => e.modelMessages && e.modelMessages.length > 0).length);
+                        if (response.success && response.messages.length > 0) {
+                            console.log(`[AI Panel] Loaded ${response.messages.length} messages from backend`);
 
-                        // Add the messages from the chat array to the view
-                        setMessages((prevMessages) => [
-                            ...prevMessages,
-                            ...chatArray.map((entry: CopilotChatEntry) => {
-                                return convertChat(entry);
-                            }),
-                        ]);
-                        setCopilotChat((prevMessages) => [...prevMessages, ...chatArray]);
+                            // Convert backend messages to UI format
+                            // Note: Backend already includes <toolcall> tags in chronological order
+                            const uiMessages: ChatMessage[] = response.messages.map((msg) => ({
+                                id: generateId(),
+                                role: msg.role === 'user' ? Role.MIUser : Role.MICopilot,
+                                content: msg.content,
+                                type: msg.role === 'user' ? MessageType.UserMessage : MessageType.AssistantMessage
+                            } as ChatMessage));
+
+                            setMessages(uiMessages);
+                        } else {
+                            console.log('[AI Panel] No previous chat history found');
+                        }
+                    } catch (error) {
+                        console.error('[AI Panel] Failed to load chat history from backend', error);
                     }
 
+                    // Load file history from localStorage
+                    const storedFileHistory = localStorage.getItem(localStorageKeys.fileHistory);
                     if (storedFileHistory) {
                         const fileHistoryFromStorage = JSON.parse(storedFileHistory);
                         setFileHistory(fileHistoryFromStorage);
@@ -236,29 +239,13 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
             setFiles([]);
             setImages([]);
             setCurrentUserprompt("");
-            // Clear the local storage
-            localStorage.removeItem(localStorageKeys.chatFile);
+            // Clear the file history from local storage (chat is managed by backend)
             localStorage.removeItem(localStorageKeys.fileHistory);
             setChatClearEventTriggered(false);
         }
     }, [chatClearEventTriggered]);
 
-    // Update local storage whenever backend call finishes
-    // Add debounce to prevent saving during abort cleanup
-    useEffect(() => {
-        if (!isLoading && !backendRequestTriggered) {
-            // Debounce localStorage writes to allow abort cleanup to complete
-            const timeoutId = setTimeout(() => {
-                console.log('[DEBUG] Saving to localStorage, copilotChat entries:', copilotChat.length);
-                const assistantEntries = copilotChat.filter(e => e.role === Role.CopilotAssistant);
-                console.log('[DEBUG] Assistant entries with modelMessages:',
-                    assistantEntries.filter(e => e.modelMessages && e.modelMessages.length > 0).length);
-                localStorage.setItem(localStorageKeys.chatFile, JSON.stringify(copilotChat));
-            }, 300); // 300ms delay ensures abort cleanup completes (200ms abort flag reset + buffer)
-
-            return () => clearTimeout(timeoutId);
-        }
-    }, [isLoading, backendRequestTriggered, copilotChat]);
+    // Chat history is now managed by the backend (no localStorage needed)
 
     useEffect(() => {
         if (!isLoading) {

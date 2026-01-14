@@ -20,8 +20,11 @@ import {
     MIAgentPanelAPI,
     SendAgentMessageRequest,
     SendAgentMessageResponse,
+    LoadChatHistoryRequest,
+    LoadChatHistoryResponse,
     sendAgentMessage,
-    abortAgentGeneration
+    abortAgentGeneration,
+    loadChatHistory
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -42,5 +45,9 @@ export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
 
     abortAgentGeneration(): Promise<void> {
         return this._messenger.sendRequest(abortAgentGeneration, HOST_EXTENSION);
+    }
+
+    loadChatHistory(request: LoadChatHistoryRequest): Promise<LoadChatHistoryResponse> {
+        return this._messenger.sendRequest(loadChatHistory, HOST_EXTENSION, request);
     }
 }

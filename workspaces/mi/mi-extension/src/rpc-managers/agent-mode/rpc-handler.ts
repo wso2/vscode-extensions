@@ -21,7 +21,9 @@ import { MIAgentPanelRpcManager } from "./rpc-manager";
 import {
     sendAgentMessage,
     abortAgentGeneration,
-    SendAgentMessageRequest
+    loadChatHistory,
+    SendAgentMessageRequest,
+    LoadChatHistoryRequest
 } from "@wso2/mi-core";
 
 export function registerMIAgentPanelRpcHandlers(messenger: MessengerAPI, projectUri: string) {
@@ -32,4 +34,5 @@ export function registerMIAgentPanelRpcHandlers(messenger: MessengerAPI, project
     // ==================================
     messenger.onRequest(sendAgentMessage, (request: SendAgentMessageRequest) => rpcManager.sendAgentMessage(request));
     messenger.onRequest(abortAgentGeneration, () => rpcManager.abortAgentGeneration());
+    messenger.onRequest(loadChatHistory, (request: LoadChatHistoryRequest) => rpcManager.loadChatHistory(request));
 }
