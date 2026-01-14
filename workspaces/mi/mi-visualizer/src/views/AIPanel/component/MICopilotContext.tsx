@@ -38,6 +38,7 @@ import {
     convertChat,
     generateId
 } from "../utils";
+import { convertEventsToMessages } from "../utils/eventToMessageConverter";
 import { useFeedback } from "./useFeedback";
 
 // MI Copilot context type
@@ -194,17 +195,11 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
                     try {
                         const response = await rpcClient.getMiAgentPanelRpcClient().loadChatHistory({});
 
-                        if (response.success && response.messages.length > 0) {
-                            console.log(`[AI Panel] Loaded ${response.messages.length} messages from backend`);
+                        if (response.success && response.events.length > 0) {
+                            console.log(`[AI Panel] Loaded ${response.events.length} events from backend`);
 
-                            // Convert backend messages to UI format
-                            // Note: Backend already includes <toolcall> tags in chronological order
-                            const uiMessages: ChatMessage[] = response.messages.map((msg) => ({
-                                id: generateId(),
-                                role: msg.role === 'user' ? Role.MIUser : Role.MICopilot,
-                                content: msg.content,
-                                type: msg.role === 'user' ? MessageType.UserMessage : MessageType.AssistantMessage
-                            } as ChatMessage));
+                            // Convert events to UI messages using shared utility
+                            const uiMessages = convertEventsToMessages(response.events);
 
                             setMessages(uiMessages);
                         } else {

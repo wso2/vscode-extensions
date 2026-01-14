@@ -21,6 +21,7 @@ import * as path from 'path';
 import { createWriteStream, WriteStream } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { logDebug, logError, logInfo } from '../copilot/logger';
+import { getToolAction, capitalizeAction } from './tool-action-mapper';
 
 // Cross-platform home directory
 const os = require('os');
@@ -441,110 +442,90 @@ export class ChatHistoryManager {
     }
 
     /**
-     * Convert chat history entries to UI format
-     * Reconstructs the conversation from JSONL entries in chronological order
+     * Convert chat history entries to event format (similar to AgentEvent)
+     * Frontend will format these events into UI messages with inline tool calls
      */
-    static convertToUIFormat(entries: ConversationEntry[]): Array<{
-        role: 'user' | 'assistant';
-        content: string;
+    static convertToEventFormat(entries: ConversationEntry[]): Array<{
+        type: 'user' | 'assistant' | 'tool_call' | 'tool_result';
+        content?: string;
+        toolName?: string;
+        toolInput?: unknown;
+        toolOutput?: unknown;
+        action?: string;
         timestamp: string;
-        toolCalls?: Array<{ name: string; input: unknown; output: unknown }>;
     }> {
-        const messages: Array<{
-            role: 'user' | 'assistant';
-            content: string;
+        const events: Array<{
+            type: 'user' | 'assistant' | 'tool_call' | 'tool_result';
+            content?: string;
+            toolName?: string;
+            toolInput?: unknown;
+            toolOutput?: unknown;
+            action?: string;
             timestamp: string;
-            toolCalls?: Array<{ name: string; input: unknown; output: unknown }>;
         }> = [];
 
-        let assistantContent = '';
-        let assistantTimestamp = '';
-        let pendingToolCall: { name: string; input: unknown; output?: unknown } | null = null;
-
-        // Helper to format tool call as <toolcall> tag
-        const formatToolCall = (toolCall: { name: string; input: unknown; output?: unknown }): string => {
-            const actionMap: Record<string, string> = {
-                'file_write': 'Created',
-                'file_edit': 'Updated',
-                'file_multi_edit': 'Updated',
-                'file_read': 'Read',
-                'grep': 'Searched',
-                'glob': 'Found',
-                'get_connector_definitions': 'Fetched connectors',
-                'get_connector_documentation': 'Retrieved documentation',
-                'get_ai_connector_documentation': 'Retrieved AI documentation',
-                'add_connector_to_project_pom': 'Added connector',
-                'remove_connector_from_project_pom': 'Removed connector',
-                'validate_code': 'Validated'
-            };
-
-            const action = actionMap[toolCall.name] || `Executed ${toolCall.name}`;
-            const input = toolCall.input as any;
-            const filePath = input?.file_path || input?.file_paths?.[0] || '';
-
-            const message = filePath ? `${action} ${filePath}` : action;
-            return `<toolcall data-action="completed" data-file="${filePath}">${message}</toolcall>`;
-        };
+        let pendingToolCall: { name: string; input: unknown; timestamp: string } | null = null;
 
         for (const entry of entries) {
             switch (entry.type) {
                 case 'user':
-                    // Flush any pending assistant message
-                    if (assistantContent) {
-                        messages.push({
-                            role: 'assistant',
-                            content: assistantContent.trim(),
-                            timestamp: assistantTimestamp
-                        });
-                        assistantContent = '';
-                    }
-
-                    // Add user message
-                    messages.push({
-                        role: 'user',
+                    events.push({
+                        type: 'user',
                         content: entry.message.content,
                         timestamp: entry.timestamp
                     });
                     break;
 
                 case 'assistant':
-                    // Track first timestamp for this assistant turn
-                    if (!assistantTimestamp) {
-                        assistantTimestamp = entry.timestamp;
-                    }
-
-                    // Append assistant text to content
+                    // Send assistant content chunks (frontend handles assembly)
                     if (entry.message.content) {
-                        assistantContent += entry.message.content;
-                    }
-
-                    // If complete, flush the message
-                    if (entry.message.isComplete) {
-                        messages.push({
-                            role: 'assistant',
-                            content: assistantContent.trim(),
-                            timestamp: assistantTimestamp
+                        events.push({
+                            type: 'assistant',
+                            content: entry.message.content,
+                            timestamp: entry.timestamp
                         });
-                        assistantContent = '';
-                        assistantTimestamp = '';
                     }
                     break;
 
                 case 'tool_call':
-                    // Store tool call until we get the result
+                    // Store tool call info and send event
                     pendingToolCall = {
                         name: entry.toolName,
-                        input: entry.toolInput
+                        input: entry.toolInput,
+                        timestamp: entry.timestamp
                     };
+
+                    events.push({
+                        type: 'tool_call',
+                        toolName: entry.toolName,
+                        toolInput: entry.toolInput,
+                        timestamp: entry.timestamp
+                    });
                     break;
 
                 case 'tool_result':
-                    // Add tool result to pending call and append as <toolcall> tag
                     if (pendingToolCall && pendingToolCall.name === entry.toolName) {
-                        pendingToolCall.output = entry.toolOutput;
+                        // Calculate user-friendly action from shared utility
+                        const output = entry.toolOutput as any;
+                        const toolActions = getToolAction(entry.toolName, output);
 
-                        // Append tool call tag to assistant content
-                        assistantContent += '\n\n' + formatToolCall(pendingToolCall) + '\n\n';
+                        let action: string;
+                        if (output?.success === false && toolActions?.failed) {
+                            action = capitalizeAction(toolActions.failed);
+                        } else if (toolActions?.completed) {
+                            action = capitalizeAction(toolActions.completed);
+                        } else {
+                            action = `Executed ${entry.toolName}`;
+                        }
+
+                        events.push({
+                            type: 'tool_result',
+                            toolName: entry.toolName,
+                            toolInput: pendingToolCall.input,
+                            toolOutput: entry.toolOutput,
+                            action,
+                            timestamp: entry.timestamp
+                        });
 
                         pendingToolCall = null;
                     }
@@ -552,16 +533,7 @@ export class ChatHistoryManager {
             }
         }
 
-        // Flush any remaining assistant message
-        if (assistantContent) {
-            messages.push({
-                role: 'assistant',
-                content: assistantContent.trim(),
-                timestamp: assistantTimestamp
-            });
-        }
-
-        return messages;
+        return events;
     }
 
     /**

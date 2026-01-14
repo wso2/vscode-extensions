@@ -68,6 +68,7 @@ import {
 } from '../../tools/types';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
 import { ChatHistoryManager } from '../../chat-history-manager';
+import { getToolAction } from '../../tool-action-mapper';
 
 // ============================================================================
 // Types
@@ -94,6 +95,10 @@ export interface AgentEvent {
     toolName?: string;
     toolInput?: any;
     toolOutput?: any;
+    /** User-friendly loading action text (e.g., "creating", "reading") - sent with tool_call */
+    loadingAction?: string;
+    /** User-friendly completed action text (e.g., "created", "read") - sent with tool_result */
+    completedAction?: string;
     error?: string;
     /** Full AI SDK messages (only sent with "stop" event) */
     modelMessages?: any[];
@@ -283,6 +288,10 @@ export async function executeAgent(
                         await request.chatHistoryManager.recordToolCall(part.toolName, toolInput);
                     }
 
+                    // Get loading action from shared utility (single source of truth)
+                    const toolActions = getToolAction(part.toolName);
+                    const loadingAction = toolActions?.loading;
+
                     // Extract relevant info for display
                     let displayInput: any = undefined;
                     if ([FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_MULTI_EDIT_TOOL_NAME].includes(part.toolName)) {
@@ -308,6 +317,7 @@ export async function executeAgent(
                         type: 'tool_call',
                         toolName: part.toolName,
                         toolInput: displayInput,
+                        loadingAction,
                     });
                     break;
                 }
@@ -321,32 +331,20 @@ export async function executeAgent(
                         await request.chatHistoryManager.recordToolResult(part.toolName, result);
                     }
 
-                    // Extract relevant info for display
-                    let displayOutput: any = { success: result?.success };
-                    if (part.toolName === FILE_WRITE_TOOL_NAME && result?.message) {
-                        if (result.message.includes('created')) {
-                            displayOutput.action = 'created';
-                        } else if (result.message.includes('updated')) {
-                            displayOutput.action = 'updated';
-                        }
-                    } else if (part.toolName === CONNECTOR_TOOL_NAME && result?.success) {
-                        displayOutput.action = 'fetched';
-                    } else if (part.toolName === ADD_CONNECTOR_TOOL_NAME && result?.success) {
-                        displayOutput.action = 'added';
-                    } else if (part.toolName === REMOVE_CONNECTOR_TOOL_NAME && result?.success) {
-                        displayOutput.action = 'removed';
-                    } else if (part.toolName === VALIDATE_CODE_TOOL_NAME && result?.success) {
-                        displayOutput.action = 'validated';
-                    } else if (part.toolName === GET_CONNECTOR_DOCUMENTATION_TOOL_NAME && result?.success) {
-                        displayOutput.action = 'retrieved';
-                    } else if (part.toolName === GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME && result?.success) {
-                        displayOutput.action = 'retrieved';
-                    }
+                    // Get action from shared utility (single source of truth)
+                    const toolActions = getToolAction(part.toolName, result);
 
+                    // Use completed or failed action based on tool result
+                    const resultAction = result?.success === false
+                        ? toolActions?.failed
+                        : toolActions?.completed;
+
+                    // Send to visualizer with result action for display
                     eventHandler({
                         type: 'tool_result',
                         toolName: part.toolName,
-                        toolOutput: displayOutput,
+                        toolOutput: { success: result?.success },
+                        completedAction: resultAction,
                     });
                     break;
                 }

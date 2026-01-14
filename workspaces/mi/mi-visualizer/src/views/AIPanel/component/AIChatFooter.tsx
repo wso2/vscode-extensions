@@ -111,44 +111,27 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
             case "tool_call":
                 // Show tool status and insert toolcall tag into message content
+                // Action text is provided by backend from shared utility
                 if (event.toolName) {
-                    const toolInfo = event.toolInput as { file_path?: string, old_string?: string, new_string?: string };
-                    const filePath = toolInfo?.file_path || "";
+                    const toolInfo = event.toolInput as { file_path?: string, file_paths?: string[] };
+                    const filePath = toolInfo?.file_path || toolInfo?.file_paths?.[0] || "";
 
-                    // Create user-friendly tool messages
-                    let toolMessage = "";
-                    let toolAction = ""; // Store action for completion message
+                    // Use loading action provided by backend (already in user-friendly format)
+                    const loadingAction = event.loadingAction || "executing";
+                    const capitalizedAction = loadingAction.charAt(0).toUpperCase() + loadingAction.slice(1);
 
-                    switch (event.toolName) {
-                        case "file_read":
-                            toolMessage = `Reading ${filePath || "file"}...`;
-                            toolAction = "Read";
-                            break;
-                        case "file_write":
-                            toolMessage = `Creating ${filePath || "file"}...`;
-                            toolAction = "Created";
-                            break;
-                        case "file_edit":
-                            toolMessage = `Editing ${filePath || "file"}...`;
-                            toolAction = "Edited";
-                            break;
-                        case "file_multi_edit":
-                            toolMessage = `Editing ${filePath || "file"}...`;
-                            toolAction = "Edited";
-                            break;
-                        default:
-                            toolMessage = `Using ${event.toolName}${filePath ? `: ${filePath}` : ""}...`;
-                            toolAction = `Used ${event.toolName}`;
-                    }
+                    const toolMessage = filePath
+                        ? `${capitalizedAction} ${filePath}...`
+                        : `${capitalizedAction}...`;
 
                     setToolStatus(toolMessage);
 
-                    // Insert toolcall tag into message content (will be rendered with loading spinner)
-                    // Store the action in the tag for later completion update
+                    // Insert toolcall tag with loading state
+                    // Store loading action for potential fallback (backend provides completed action in tool_result)
                     setMessages((prevMessages) => {
                         const newMessages = [...prevMessages];
                         if (newMessages.length > 0) {
-                            newMessages[newMessages.length - 1].content += `\n\n<toolcall data-action="${toolAction}" data-file="${filePath}">${toolMessage}</toolcall>`;
+                            newMessages[newMessages.length - 1].content += `\n\n<toolcall data-loading="true" data-file="${filePath}">${toolMessage}</toolcall>`;
                         }
                         return newMessages;
                     });
@@ -157,6 +140,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
             case "tool_result":
                 // Clear tool status and mark toolcall as complete in message
+                // Completed action is provided by backend from shared utility
                 setToolStatus("");
 
                 // Update the last toolcall tag to show completion
@@ -165,19 +149,24 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     if (newMessages.length > 0) {
                         const lastMessageContent = newMessages[newMessages.length - 1].content;
 
-                        // Find the last <toolcall> tag with data attributes
-                        const toolPattern = /<toolcall data-action="([^"]*)" data-file="([^"]*)">([^<]*?)<\/toolcall>/g;
+                        // Find the last <toolcall> tag with loading state
+                        const toolPattern = /<toolcall data-loading="true" data-file="([^"]*)">([^<]*?)<\/toolcall>/g;
                         const matches = [...lastMessageContent.matchAll(toolPattern)];
 
                         if (matches.length > 0) {
                             // Get the last match (most recent tool call)
                             const lastMatch = matches[matches.length - 1];
-                            const action = lastMatch[1]; // e.g., "Read", "Created", "Edited"
-                            const fileName = lastMatch[2];
+                            const fileName = lastMatch[1];
                             const fullMatch = lastMatch[0];
 
+                            // Use completed action from backend (already in user-friendly format)
+                            const completedAction = event.completedAction || "executed";
+                            const capitalizedAction = completedAction.charAt(0).toUpperCase() + completedAction.slice(1);
+
                             // Create completion message
-                            const completedMessage = `<toolcall>${action} ${fileName || "file"}</toolcall>`;
+                            const completedMessage = fileName
+                                ? `<toolcall>${capitalizedAction} ${fileName}</toolcall>`
+                                : `<toolcall>${capitalizedAction}</toolcall>`;
 
                             // Replace the loading version with completed version
                             const lastIndex = lastMessageContent.lastIndexOf(fullMatch);

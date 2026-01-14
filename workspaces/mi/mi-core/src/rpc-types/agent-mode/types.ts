@@ -64,6 +64,10 @@ export interface AgentEvent {
     toolName?: string;
     toolInput?: unknown;
     toolOutput?: unknown;
+    /** User-friendly loading action text (e.g., "creating", "reading") - sent with tool_call */
+    loadingAction?: string;
+    /** User-friendly completed action text (e.g., "created", "read") - sent with tool_result */
+    completedAction?: string;
     error?: string;
     /** Full AI SDK messages (only sent with "stop" event) */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -71,17 +75,18 @@ export interface AgentEvent {
 }
 
 /**
- * Chat message for UI display (agent mode)
+ * Chat history event (similar to AgentEvent but for loaded history)
+ * Frontend will convert these to UI messages with inline tool call formatting
  */
-export interface AgentChatMessage {
-    role: 'user' | 'assistant';
-    content: string;
+export interface ChatHistoryEvent {
+    type: 'user' | 'assistant' | 'tool_call' | 'tool_result';
+    content?: string;
+    toolName?: string;
+    toolInput?: unknown;
+    toolOutput?: unknown;
+    /** User-friendly action text for tool result (e.g., "Created", "Read", "Failed to create") */
+    action?: string;
     timestamp: string;
-    toolCalls?: Array<{
-        name: string;
-        input: unknown;
-        output: unknown;
-    }>;
 }
 
 /**
@@ -93,12 +98,12 @@ export interface LoadChatHistoryRequest {
 }
 
 /**
- * Response with chat history
+ * Response with chat history as events
  */
 export interface LoadChatHistoryResponse {
     success: boolean;
     sessionId?: string;
-    messages: AgentChatMessage[];
+    events: ChatHistoryEvent[];
     error?: string;
 }
 

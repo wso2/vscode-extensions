@@ -156,7 +156,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                 logDebug('[AgentPanel] No active session, returning empty chat history');
                 return {
                     success: true,
-                    messages: []
+                    events: []
                 };
             }
 
@@ -165,21 +165,21 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             // Load entries from JSONL file
             const entries = await ChatHistoryManager.loadSession(this.projectUri, this.currentSessionId);
 
-            // Convert to UI format
-            const messages = ChatHistoryManager.convertToUIFormat(entries);
+            // Convert to event format (frontend will format into UI messages)
+            const events = ChatHistoryManager.convertToEventFormat(entries);
 
-            logInfo(`[AgentPanel] Loaded ${messages.length} messages from chat history`);
+            logInfo(`[AgentPanel] Loaded ${events.length} events from chat history`);
 
             return {
                 success: true,
                 sessionId: this.currentSessionId,
-                messages
+                events
             };
         } catch (error) {
             logError('[AgentPanel] Failed to load chat history', error);
             return {
                 success: false,
-                messages: [],
+                events: [],
                 error: error instanceof Error ? error.message : 'Failed to load chat history'
             };
         }
