@@ -368,7 +368,7 @@ export default function createTests() {
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
-            const serviceBasePath = `/customListenerService${testAttempt}`;
+            serviceBasePath = `/customListenerService${testAttempt}`;
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
 
