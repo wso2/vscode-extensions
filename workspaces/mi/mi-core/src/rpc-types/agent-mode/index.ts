@@ -23,7 +23,7 @@ export type {
     AgentEvent,
     AgentEventType,
     MIAgentPanelAPI,
-    AgentChatMessage,
+    ChatHistoryEvent,
     LoadChatHistoryRequest,
     LoadChatHistoryResponse
 } from './types';
