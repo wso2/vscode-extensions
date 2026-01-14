@@ -67,6 +67,7 @@ import {
     GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
 } from '../../tools/types';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
+import { ChatHistoryManager } from '../../chat-history-manager';
 
 // ============================================================================
 // Types
@@ -94,6 +95,8 @@ export interface AgentEvent {
     toolInput?: any;
     toolOutput?: any;
     error?: string;
+    /** Full AI SDK messages (only sent with "stop" event) */
+    modelMessages?: any[];
 }
 
 /**
@@ -111,10 +114,12 @@ export interface AgentRequest {
     projectPath: string;
     /** Map of file path to content for relevant existing code (optional, for future use) */
     existingCode?: Map<string, string>;
-    /** Chat history for context */
-    chatHistory?: ModelMessage[];
+    /** Session ID for loading chat history */
+    sessionId?: string;
     /** Abort signal for cancellation */
     abortSignal?: AbortSignal;
+    /** Chat history manager for recording conversation (managed by RPC layer) */
+    chatHistoryManager?: ChatHistoryManager;
 }
 
 /**
@@ -127,6 +132,8 @@ export interface AgentResult {
     modifiedFiles: string[];
     /** Error message if failed */
     error?: string;
+    /** Full AI SDK messages from this turn (includes tool calls/results) */
+    modelMessages?: any[];
 }
 
 // ============================================================================
@@ -141,9 +148,30 @@ export async function executeAgent(
     eventHandler: AgentEventHandler
 ): Promise<AgentResult> {
     const modifiedFiles: string[] = [];
+    let finalModelMessages: any[] = [];
+    let response: any = null; // Store response promise for later access
+    let accumulatedContent: string = ''; // Accumulate assistant response content
 
     try {
         logInfo(`[Agent] Starting agent execution for project: ${request.projectPath}`);
+
+        // Load chat history from session file if sessionId provided
+        let chatHistory: ModelMessage[] = [];
+        if (request.sessionId) {
+            try {
+                const entries = await ChatHistoryManager.loadSession(request.projectPath, request.sessionId);
+                chatHistory = ChatHistoryManager.convertToModelMessages(entries);
+                logInfo(`[Agent] Loaded ${chatHistory.length} messages from session history`);
+            } catch (error) {
+                logError('[Agent] Failed to load chat history, starting fresh', error);
+            }
+        }
+
+        // Record user message to history
+        if (request.chatHistoryManager) {
+            await request.chatHistoryManager.recordUserMessage(request.query);
+            logDebug('[Agent] Recorded user message to chat history');
+        }
 
         // Get cache options for prompt caching
         const cacheOptions = await getProviderCacheControl();
@@ -163,7 +191,7 @@ export async function executeAgent(
                 content: getSystemPrompt(),
                 providerOptions: cacheOptions,
             },
-            ...(request.chatHistory || []),
+            ...chatHistory,
             {
                 role: 'user',
                 content: userMessageContent,
@@ -211,7 +239,7 @@ export async function executeAgent(
         };
 
         // Start streaming
-        const { fullStream, response } = streamText({
+        const streamResult = streamText({
             model: await getAnthropicClient(ANTHROPIC_SONNET_4_5),
             maxOutputTokens: 8192,
             temperature: 0,
@@ -220,6 +248,8 @@ export async function executeAgent(
             tools,
             abortSignal: request.abortSignal,
         });
+        const fullStream = streamResult.fullStream;
+        response = streamResult.response; // Assign to outer scope variable
 
         eventHandler({ type: 'start' });
 
@@ -227,6 +257,9 @@ export async function executeAgent(
         for await (const part of fullStream) {
             switch (part.type) {
                 case 'text-delta': {
+                    // Accumulate content for later recording as complete message
+                    accumulatedContent += part.text;
+
                     eventHandler({
                         type: 'content_block',
                         content: part.text,
@@ -237,6 +270,11 @@ export async function executeAgent(
                 case 'tool-call': {
                     const toolInput = part.input as any;
                     logDebug(`[Agent] Tool call: ${part.toolName}`);
+
+                    // Record tool call to history
+                    if (request.chatHistoryManager) {
+                        await request.chatHistoryManager.recordToolCall(part.toolName, toolInput);
+                    }
 
                     // Extract relevant info for display
                     let displayInput: any = undefined;
@@ -270,6 +308,11 @@ export async function executeAgent(
                 case 'tool-result': {
                     const result = part.output as any;
                     logDebug(`[Agent] Tool result: ${part.toolName}, success: ${result?.success}`);
+
+                    // Record tool result to history
+                    if (request.chatHistoryManager) {
+                        await request.chatHistoryManager.recordToolResult(part.toolName, result);
+                    }
 
                     // Extract relevant info for display
                     let displayOutput: any = { success: result?.success };
@@ -326,24 +369,67 @@ export async function executeAgent(
 
                 case 'finish': {
                     logInfo(`[Agent] Execution finished. Modified files: ${modifiedFiles.length}`);
-                    eventHandler({ type: 'stop' });
+
+                    // Record final complete assistant message to history
+                    if (request.chatHistoryManager && accumulatedContent) {
+                        await request.chatHistoryManager.recordAssistantChunk(accumulatedContent, true);
+                        logDebug('[Agent] Recorded complete assistant message to chat history');
+                    }
+
+                    // Capture final model messages (includes all tool calls/results)
+                    try {
+                        const finalResponse = await response;
+                        finalModelMessages = finalResponse.messages || [];
+                        logDebug(`[Agent] Captured ${finalModelMessages.length} model messages`);
+                    } catch (error) {
+                        logError('[Agent] Failed to capture model messages', error);
+                    }
+
+                    // Send stop event with modelMessages
+                    eventHandler({ type: 'stop', modelMessages: finalModelMessages });
                     return {
                         success: true,
                         modifiedFiles,
+                        modelMessages: finalModelMessages,
                     };
                 }
             }
         }
 
         // Stream completed without finish event
-        eventHandler({ type: 'stop' });
+        // Record final complete assistant message to history
+        if (request.chatHistoryManager && accumulatedContent) {
+            await request.chatHistoryManager.recordAssistantChunk(accumulatedContent, true);
+            logDebug('[Agent] Recorded complete assistant message to chat history (no finish event)');
+        }
+
+        // Capture final model messages even if no explicit finish
+        try {
+            const finalResponse = await response;
+            finalModelMessages = finalResponse.messages || [];
+            logDebug(`[Agent] Captured ${finalModelMessages.length} model messages (no finish event)`);
+        } catch (error) {
+            logError('[Agent] Failed to capture model messages', error);
+        }
+
+        // Send stop event with modelMessages
+        eventHandler({ type: 'stop', modelMessages: finalModelMessages });
         return {
             success: true,
             modifiedFiles,
+            modelMessages: finalModelMessages,
         };
 
     } catch (error: any) {
         const errorMsg = getErrorMessage(error);
+
+        // Try to capture partial model messages even on error
+        try {
+            const finalResponse = await response;
+            finalModelMessages = finalResponse.messages || [];
+        } catch {
+            // Ignore errors in capturing messages
+        }
 
         // Check if aborted
         if (error?.name === 'AbortError' || request.abortSignal?.aborted) {
@@ -353,6 +439,7 @@ export async function executeAgent(
                 success: false,
                 modifiedFiles,
                 error: 'Aborted by user',
+                modelMessages: finalModelMessages,
             };
         }
 
@@ -365,6 +452,7 @@ export async function executeAgent(
             success: false,
             modifiedFiles,
             error: errorMsg,
+            modelMessages: finalModelMessages,
         };
     }
 }

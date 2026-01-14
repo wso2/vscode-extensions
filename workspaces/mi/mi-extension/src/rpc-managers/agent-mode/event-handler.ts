@@ -19,7 +19,7 @@
 import { AgentEvent, agentEvent } from "@wso2/mi-core";
 import { RPCLayer } from "../../RPCLayer";
 import { AiPanelWebview } from '../../ai-features/webview';
-import { logWarn, logError } from "../../ai-features/copilot/logger";
+import { logWarn, logError, logDebug } from "../../ai-features/copilot/logger";
 
 export class AgentEventHandler {
 
@@ -28,6 +28,9 @@ export class AgentEventHandler {
     }
 
     handleEvent(event: AgentEvent): void {
+        if (event.type === 'stop' && event.modelMessages) {
+            logDebug(`[AgentEventHandler] Sending stop event with ${event.modelMessages.length} modelMessages`);
+        }
         this.sendEventToVisualizer(event);
     }
 
