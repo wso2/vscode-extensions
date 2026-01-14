@@ -165,6 +165,6 @@ export const getAnthropicClient = async (model: AnthropicModel): Promise<any> =>
  * Returns cache control options for prompt caching
  * @returns Cache control options for Anthropic
  */
-export const getProviderCacheControl = async () => {
+export const getProviderCacheControl = () => {
     return { anthropic: { cacheControl: { type: "ephemeral" } } };
 };

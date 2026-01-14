@@ -41,6 +41,7 @@ import {
     GrepExecuteFn,
     GlobExecuteFn,
 } from './types';
+import { getProviderCacheControl } from '../../connection';
 
 // ============================================================================
 // Validation Functions
@@ -904,6 +905,7 @@ export function createWriteTool(execute: WriteExecuteFn) {
             - src/main/wso2mi/artifacts/inbound-endpoints/ - Inbound endpoint configurations
             `,
         inputSchema: writeInputSchema,
+        providerOptions: getProviderCacheControl(),
         execute
     });
 }
@@ -935,6 +937,7 @@ export function createReadTool(execute: ReadExecuteFn) {
             IMPORTANT: Before editing a file, always read it first to understand its current content and structure.
             `,
         inputSchema: readInputSchema,
+        providerOptions: getProviderCacheControl(),
         execute
     });
 }
@@ -971,6 +974,7 @@ export function createEditTool(execute: EditExecuteFn) {
             - Preserve XML indentation exactly
             - Be careful with XML namespaces and attributes`,
         inputSchema: editInputSchema,
+        providerOptions: getProviderCacheControl(),
         execute
     });
 }
@@ -1013,6 +1017,7 @@ export function createMultiEditTool(execute: MultiEditExecuteFn) {
         - Renaming endpoints across a file
         - Modifying multiple property values`,
         inputSchema: multiEditInputSchema,
+        providerOptions: getProviderCacheControl(),
         execute
     });
 }
@@ -1052,6 +1057,7 @@ export function createGrepTool(execute: GrepExecuteFn) {
             - Locate property references: pattern: "\\\\$ctx:[a-zA-Z]+", glob: "*.xml"
             - Search connector operations: pattern: "<[a-zA-Z]+\\\\.[a-zA-Z]+>", glob: "*.xml"`,
         inputSchema: grepInputSchema,
+        providerOptions: getProviderCacheControl(),
         execute
     });
 }
@@ -1082,6 +1088,7 @@ export function createGlobTool(execute: GlobExecuteFn) {
             - Find sequences: pattern: "**/sequences/*.xml"
             - Find connectors in config: pattern: "**/lib/*.jar"`,
         inputSchema: globInputSchema,
+        providerOptions: getProviderCacheControl(),
         execute
     });
 }

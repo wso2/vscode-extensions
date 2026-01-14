@@ -23,6 +23,7 @@ import { INBOUND_DB } from '../context/inbound_db';
 import { CONNECTOR_DOCUMENTATION, AI_CONNECTOR_DOCUMENTATION } from '../context/connectors_guide';
 import { ToolResult, CONNECTOR_TOOL_NAME } from './types';
 import { logInfo, logDebug } from '../../copilot/logger';
+import { getProviderCacheControl } from '../../connection';
 
 // ============================================================================
 // Utility Functions
@@ -234,6 +235,7 @@ export function createConnectorTool(execute: ConnectorExecuteFn) {
 
             Note: This tool automatically appends connector usage documentation to help you use connectors correctly.`,
         inputSchema: connectorInputSchema,
+        providerOptions: getProviderCacheControl(),
         execute
     });
 }
@@ -303,6 +305,7 @@ export function createGetConnectorDocumentationTool(execute: GetConnectorDocumen
 
             This tool takes no parameters and returns the full connector documentation.`,
         inputSchema: z.object({}),
+        providerOptions: getProviderCacheControl(),
         execute
     });
 }
@@ -332,6 +335,7 @@ export function createGetAIConnectorDocumentationTool(execute: GetAIConnectorDoc
 
             This tool takes no parameters and returns the full AI connector documentation.`,
         inputSchema: z.object({}),
+        providerOptions: getProviderCacheControl(),
         execute
     });
 }
