@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import styled from '@emotion/styled';
 import { TreeView, TreeViewItem, Codicon } from '@wso2/ui-toolkit';
 import { getVSCodeAPI } from '../utils/vscode-api';
@@ -183,7 +183,7 @@ const MethodBadge = styled.span<{ method: string }>`
 const RequestItemContainer = styled.div`
 	display: flex;
 	align-items: center;
-    padding: 2px 0 2px 4px;
+    padding: 2px 0 2px 0;
 	gap: 8px;
 `;
 
@@ -192,46 +192,15 @@ interface ExplorerViewProps {
 	isLoading?: boolean;
 }
 
-// Custom collapsible component for collections
-interface CollectionTreeViewProps {
+// Custom collapsible component props
+interface TreeViewProps {
 	item: RequestItem;
 	selectedId?: string;
 	onSelect: (id: string) => void;
 	renderTreeItem: (item: RequestItem, depth?: number) => React.ReactNode;
+	isExpanded: boolean;
+	onToggle: (id: string) => void;
 }
-
-const CollectionTreeView: React.FC<CollectionTreeViewProps> = ({ item, selectedId, onSelect, renderTreeItem }) => {
-	const [isExpanded, setIsExpanded] = useState(true); // Collections start expanded
-
-	const handleToggle = useCallback(() => {
-		setIsExpanded(!isExpanded);
-		onSelect(item.id);
-	}, [isExpanded, onSelect, item.id]);
-
-	return (
-		<div>
-			<CollectionHeader
-				onClick={handleToggle}
-				isSelected={selectedId === item.id}
-			>
-				<IconContainer>
-					{isExpanded ? '▼' : '▶'}
-				</IconContainer>
-				<span>{item.name}</span>
-			</CollectionHeader>
-			{isExpanded && item.children && (
-				<CollectionChildren>
-					{item.children.map((child, idx) => (
-						<React.Fragment key={`${item.id}-${idx}`}>
-							{renderTreeItem(child, 1)}
-						</React.Fragment>
-					))}
-				</CollectionChildren>
-			)}
-		</div>
-	);
-};
-
 const CollectionHeader = styled.div<{ isSelected: boolean }>`
 	display: flex;
 	align-items: center;
@@ -255,9 +224,80 @@ const CollectionChildren = styled.div`
 	padding-left: 20px;
 `;
 
+const FolderHeader = styled(CollectionHeader)`
+	// Same styling as CollectionHeader but for folders
+`;
+const FolderTreeView: React.FC<TreeViewProps> = ({ item, selectedId, onSelect, renderTreeItem, isExpanded, onToggle }) => {
+
+	return (
+		<div>
+			<FolderHeader
+				onClick={() => onToggle(item.id)}
+				isSelected={selectedId === item.id}
+			>
+				<IconContainer>
+					<Codicon name={isExpanded ? "chevron-down" : "chevron-right"} />
+				</IconContainer>
+				<Codicon name="folder" sx={{ marginRight: 8 }} />
+				<span>{item.name}</span>
+			</FolderHeader>
+			{isExpanded && item.children && (
+				<CollectionChildren>
+					{item.children.map((child: RequestItem, idx: number) => (
+						<React.Fragment key={`${item.id}-${idx}`}>
+							{renderTreeItem(child, 2)}
+						</React.Fragment>
+					))}
+				</CollectionChildren>
+			)}
+		</div>
+	);
+};
+
+const CollectionTreeView: React.FC<TreeViewProps> = ({ item, selectedId, onSelect, renderTreeItem, isExpanded, onToggle }) => {
+
+	const handleSelect = useCallback(() => {
+		onSelect(item.id);
+	}, [onSelect, item.id]);
+
+	return (
+		<div>
+			<CollectionHeader
+				onClick={() => onToggle(item.id)}
+				isSelected={selectedId === item.id}
+			>
+				<IconContainer>
+					<Codicon name={isExpanded ? "chevron-down" : "chevron-right"} />
+				</IconContainer>
+				<Codicon name="library" sx={{ marginRight: 8 }} />
+				<span>{item.name}</span>
+			</CollectionHeader>
+			{isExpanded && item.children && (
+				<CollectionChildren>
+					{item.children.map((child: RequestItem, idx: number) => (
+						<React.Fragment key={`${item.id}-${idx}`}>
+							{renderTreeItem(child, 1)}
+						</React.Fragment>
+					))}
+				</CollectionChildren>
+			)}
+		</div>
+	);
+};
+
 export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], isLoading = false }) => {
 	const [searchTerm, setSearchTerm] = useState('');
 	const [selectedId, setSelectedId] = useState<string>();
+	const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+
+	// Initialize expanded state for folders (collections and folders start collapsed)
+	useEffect(() => {
+		setExpandedItems(prev => {
+			const newSet = new Set(prev); // Preserve existing expansion states
+			// Don't add any items by default - everything starts collapsed
+			return newSet;
+		});
+	}, [collections]);
 	const vscode = getVSCodeAPI();
 
 	// Helper function to check if an item or its descendants are selected
@@ -325,6 +365,18 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 		}
 	}, [vscode, collections]);
 
+	const handleToggleExpansion = useCallback((id: string) => {
+		setExpandedItems(prev => {
+			const newSet = new Set(prev);
+			if (newSet.has(id)) {
+				newSet.delete(id);
+			} else {
+				newSet.add(id);
+			}
+			return newSet;
+		});
+	}, []);
+
 	const renderTreeItem = (item: RequestItem, depth = 0) => {
 		// For requests (leaf items), render as TreeViewItem
 		if (item.type === 'request') {
@@ -335,6 +387,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 					id={item.id}
 					selectedId={selectedId}
 					onSelect={handleSelectItem}
+                    sx={{paddingLeft: 10}}
 				>
 					<RequestItemContainer style={{
 						color: isSelected ? '#007acc' : 'inherit'
@@ -351,42 +404,42 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 			);
 		}
 
-		// For collections and folders, render as TreeView with children
-		const isSelected = isItemSelected(item);
-		const iconName = item.type === 'collection' ? 'package' : 'folder';
-		return (
-			<TreeView
-				key={`${item.id}-${item.children?.length || 0}`}
-				id={item.id}
-				content={
-					<div style={{
-						fontWeight: isSelected ? 'bold' : 'normal',
-                        display: 'flex',
-                        flexDirection: 'row',
-					}}>
-						<Codicon name={iconName} sx={{ marginRight: 8 }} />
-						{item.name}
-					</div>
-				}
-				selectedId={selectedId}
-				onSelect={handleSelectItem}
-				expandByDefault={depth === 0}
-                rootTreeView={item.type === 'collection'}
-			>
-				{item.children && item.children.map((child, idx) => (
-					<React.Fragment key={`${item.id}-${idx}`}>
-						{renderTreeItem(child, depth + 1)}
-					</React.Fragment>
-				))}
-			</TreeView>
-		);
+		// For collections, use custom CollectionTreeView for better expansion control
+		if (item.type === 'collection') {
+			return (
+				<CollectionTreeView
+					key={item.id}
+					item={item}
+					selectedId={selectedId}
+					onSelect={handleSelectItem}
+					renderTreeItem={renderTreeItem}
+					isExpanded={expandedItems.has(item.id)}
+					onToggle={handleToggleExpansion}
+				/>
+			);
+		}
+
+		// For folders, use custom FolderTreeView for better expansion control
+		if (item.type === 'folder') {
+			return (
+				<FolderTreeView
+					key={item.id}
+					item={item}
+					selectedId={selectedId}
+					onSelect={handleSelectItem}
+					renderTreeItem={renderTreeItem}
+					isExpanded={expandedItems.has(item.id)}
+					onToggle={handleToggleExpansion}
+				/>
+			);
+		}
 	};
 
 	return (
 		<Container>
 			<ControlsContainer>
 				<NewRequestButton onClick={handleNewRequest}>
-					+ New Request
+					New Request
 				</NewRequestButton>
 				<SearchBoxContainer>
 					<span style={{ fontSize: '14px' }}>🔍</span>
@@ -413,7 +466,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 						Loading API collections...
 					</div>
 				) : collections.length > 0 ? (
-					collections.map((collection, idx) => (
+					collections.map((collection: RequestItem, idx: number) => (
 						<React.Fragment key={`collection-${idx}`}>
 							{renderTreeItem(collection)}
 						</React.Fragment>
