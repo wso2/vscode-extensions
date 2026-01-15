@@ -62,7 +62,27 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Register command for new request
 	const newRequestCommand = vscode.commands.registerCommand('api-tryit.newRequest', () => {
-		vscode.window.showInformationMessage('Creating new request...');
+		// Create an empty request item
+		const emptyRequestItem: ApiRequestItem = {
+			id: `new-${Date.now()}`,
+			name: 'New Request',
+			request: {
+				id: `new-${Date.now()}`,
+				name: 'New Request',
+				method: 'GET',
+				url: '',
+				queryParameters: [],
+				headers: []
+			}
+		};
+
+		// Open the TryIt panel
+		TryItPanel.show(context);
+		
+		// Send the empty item through the state machine
+		ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, emptyRequestItem);
+		
+		vscode.window.showInformationMessage('New request created');
 	});
 
 	// Register command for new collection

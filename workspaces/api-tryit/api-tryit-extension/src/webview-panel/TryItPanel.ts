@@ -58,16 +58,48 @@ export class TryItPanel {
 							
 							// Get the current state to check for persisted file path
 							const stateContext = ApiTryItStateMachine.getContext();
-							const targetFilePath = filePath || stateContext.selectedFilePath;
+							let targetFilePath = filePath || stateContext.selectedFilePath;
 							
 							if (!targetFilePath) {
-								const error = 'No file path specified and no file selected';
-								vscode.window.showErrorMessage(error);
-								this._panel.webview.postMessage({
-									type: 'saveRequestResponse',
-									data: { success: false, message: error }
+								// First, prompt user to select a folder
+								const folderUris = await vscode.window.showOpenDialog({
+									canSelectFolders: true,
+									canSelectFiles: false,
+									canSelectMany: false,
+									defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri,
+									openLabel: 'Select Folder for API Requests'
 								});
-								break;
+								
+								if (!folderUris || folderUris.length === 0) {
+									// User cancelled folder selection
+									this._panel.webview.postMessage({
+										type: 'saveRequestResponse',
+										data: { success: false, message: 'Folder selection cancelled by user' }
+									});
+									break;
+								}
+								
+								const selectedFolder = folderUris[0];
+								
+								// Now show save dialog in the selected folder
+								const fileUri = await vscode.window.showSaveDialog({
+									defaultUri: vscode.Uri.joinPath(selectedFolder, 'api-request.json'),
+									filters: {
+										'JSON files': ['json']
+									},
+									saveLabel: 'Save API Request'
+								});
+								
+								if (!fileUri) {
+									// User cancelled file save
+									this._panel.webview.postMessage({
+										type: 'saveRequestResponse',
+										data: { success: false, message: 'Save cancelled by user' }
+									});
+									break;
+								}
+								
+								targetFilePath = fileUri.fsPath;
 							}
 							
 							// Import the RPC manager here to avoid circular dependencies

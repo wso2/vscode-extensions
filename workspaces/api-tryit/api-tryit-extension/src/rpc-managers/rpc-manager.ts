@@ -19,6 +19,7 @@
 import {
     SaveRequestRequest,
     SaveRequestResponse,
+    ApiRequest,
 } from "@wso2/api-tryit-core";
 import { writeFile, readFile } from 'fs/promises';
 import * as vscode from 'vscode';
@@ -35,16 +36,35 @@ export class ApiTryItRpcManager {
         }
 
         try {
-            // Read existing file to preserve metadata (collectionId, folderId, createdAt)
-            const existingContent = await readFile(filePath, 'utf8');
-            const existingData = JSON.parse(existingContent);
+            let existingData: { id?: string; name?: string; request?: ApiRequest; createdAt?: string; updatedAt?: string } | null = null;
             
-            // Merge the updated request with existing metadata
-            const updatedData = {
-                ...existingData,
-                request: request,
-                updatedAt: new Date().toISOString()
-            };
+            // Try to read existing file
+            try {
+                const existingContent = await readFile(filePath, 'utf8');
+                existingData = JSON.parse(existingContent);
+            } catch {
+                // File doesn't exist, we'll create it from scratch
+            }
+            
+            let updatedData;
+            
+            if (existingData) {
+                // Update existing file - preserve metadata (collectionId, folderId, createdAt)
+                updatedData = {
+                    ...existingData,
+                    request: request,
+                    updatedAt: new Date().toISOString()
+                };
+            } else {
+                // Create new file structure
+                updatedData = {
+                    id: request.id,
+                    name: request.name,
+                    request: request,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+            }
             
             // Convert to JSON with formatting
             const requestData = JSON.stringify(updatedData, null, 2);
