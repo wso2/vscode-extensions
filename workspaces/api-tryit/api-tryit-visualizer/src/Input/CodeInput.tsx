@@ -1021,6 +1021,8 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                         lineDecorationsWidth: 0,
                         lineNumbersMinChars: 0,
                         glyphMargin: false,
+                        overviewRulerLanes: 0,
+                        overviewRulerBorder: false,
                         folding: false,
                         wordWrap: 'on',
                         automaticLayout: true,
