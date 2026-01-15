@@ -162,6 +162,46 @@ const ModeButton = styled.button<{ isActive: boolean }>`
     }
 `;
 
+const SlidingToggle = styled.div<{ isCodeMode: boolean }>`
+    position: relative;
+    display: flex;
+    width: 140px;
+    height: 32px;
+    background-color: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 16px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.2s ease;
+`;
+
+const ToggleBackground = styled.div<{ isCodeMode: boolean }>`
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    background-color: var(--vscode-button-background);
+    border-radius: 15px;
+    transition: transform 0.2s ease;
+    transform: translateX(${({ isCodeMode }) => isCodeMode ? '0%' : '100%'});
+`;
+
+const ToggleOption = styled.div<{ isActive: boolean }>`
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: ${({ isActive }) => 
+        isActive ? 'var(--vscode-button-foreground)' : 'var(--vscode-foreground)'};
+    z-index: 1;
+    transition: color 0.2s ease;
+    user-select: none;
+`;
+
 type InputMode = 'code' | 'form';
 
 export const Input: React.FC<InputProps> = ({ 
@@ -269,15 +309,21 @@ export const Input: React.FC<InputProps> = ({
                         </HelpTooltip>
                     </HelpButton>
                 )}
-                <ToggleButton 
+                <SlidingToggle 
                     isCodeMode={mode === 'code'}
                     onClick={() => setMode(mode === 'code' ? 'form' : 'code')}
                     title={mode === 'code' ? 'Switch to Form mode' : 'Switch to Code mode'}
                 >
-                    <Codicon name={mode === 'code' ? 'code' : 'list-unordered'} />
-                    <span className="toggle-text">{mode === 'code' ? 'Code' : 'Form'}</span>
-                    <Codicon name="chevron-right" />
-                </ToggleButton>
+                    <ToggleBackground isCodeMode={mode === 'code'} />
+                    <ToggleOption isActive={mode === 'code'}>
+                        <Codicon name="code" />
+                        Code
+                    </ToggleOption>
+                    <ToggleOption isActive={mode === 'form'}>
+                        <Codicon name="list-unordered" />
+                        Form
+                    </ToggleOption>
+                </SlidingToggle>
             </ModeToggleContainer>
 
             {mode === 'code' ? (
