@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Typography } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
@@ -28,35 +28,101 @@ interface CodeInputProps {
     onRequestChange?: (request: ApiRequest) => void;
 }
 
-const Container = styled.div`
-    width: 100%;
-    /* Read-only line styling */
-    .readonly-line {
-        opacity: 0.9;
-        margin-top: 4px;
+const TabContainer = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
+    padding: 0 16px;
+    background-color: var(--vscode-editor-background);
+`;
+
+const TabList = styled.div`
+    display: flex;
+    gap: 24px;
+`;
+
+const Tab = styled.button<{ active?: boolean }>`
+    background: none;
+    border: none;
+    color: ${props => props.active ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)'};
+    padding: 12px 0;
+    font-size: 14px;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s ease;
+    
+    &:hover {
+        color: var(--vscode-foreground);
     }
     
-    .readonly-line-glyph::before {
-        content: '🔒';
-        font-size: 10px;
-        opacity: 0.5;
+    ${props => props.active && `
+        &::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: var(--vscode-textLink-foreground, #0078d4);
+        }
+    `}
+`;
+
+const TabActions = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 12px;
+`;
+
+const IconButton = styled.button`
+    background: none;
+    border: none;
+    color: var(--vscode-foreground);
+    cursor: pointer;
+    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+    
+    &:hover {
+        background-color: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
     }
+    
+    svg {
+        width: 16px;
+        height: 16px;
+    }
+`;
+
+const SectionHeader = styled.div`
+    color: var(--vscode-foreground);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 16px 0 8px 0;
+    margin: 0;
+`;
+
+const Container = styled.div`
+    width: 100%;
+    display: flex;
+    flex-direction: column;
     
     /* Placeholder styling */
     .placeholder-text {
         opacity: 0.5 !important;
         font-style: italic !important;
-        color: #858585 !important;
-        margin-left: 4px;
+        color: var(--vscode-input-placeholderForeground, #8c8c8c) !important;
     }
 `;
 
 const EditorContainer = styled.div`
     background-color: var(--vscode-editor-background);
-    // border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
-    // border-radius: 6px;
-    overflow: visible;
-    // box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+    flex: 1;
 `;
 
 // Common HTTP headers for completions
@@ -280,22 +346,26 @@ export const CodeInput: React.FC<CodeInputProps> = ({
             base: isDark ? 'vs-dark' : 'vs',
             inherit: true,
             rules: [
-                { token: 'keyword.section', foreground: isDark ? '4EC9B0' : '0098FF', fontStyle: 'bold' },
+                { token: 'keyword.section', foreground: isDark ? 'CCCCCC' : '000000', fontStyle: 'bold' },
                 { token: 'comment', foreground: isDark ? '6A9955' : '008000', fontStyle: 'italic' },
-                { token: 'variable.header-key', foreground: isDark ? '9CDCFE' : '0070C1', fontStyle: 'bold' },
-                { token: 'variable.param-key', foreground: isDark ? '9CDCFE' : '0070C1', fontStyle: 'bold' },
+                { token: 'variable.header-key', foreground: isDark ? 'D19A66' : 'C18401', fontStyle: '' },
+                { token: 'variable.param-key', foreground: isDark ? 'D19A66' : 'C18401', fontStyle: '' },
                 { token: 'string.header-value', foreground: isDark ? 'CE9178' : 'A31515' },
                 { token: 'string.param-value', foreground: isDark ? 'CE9178' : 'A31515' },
-                { token: 'string', foreground: isDark ? 'CE9178' : 'A31515' },
-                { token: 'number', foreground: isDark ? 'B5CEA8' : '098658' },
+                { token: 'string', foreground: isDark ? '98C379' : '50A14F' },
+                { token: 'number', foreground: isDark ? 'D19A66' : 'C18401' },
                 { token: 'keyword', foreground: isDark ? '569CD6' : '0000FF' },
-                { token: 'delimiter', foreground: isDark ? 'D4D4D4' : '000000' },
+                { token: 'delimiter', foreground: isDark ? 'ABB2BF' : '383A42' },
             ],
             colors: {
-                'editor.background': isDark ? '#1E1E1E' : '#FFFFFF',
-                'editor.lineHighlightBackground': isDark ? '#2A2A2A' : '#F0F0F0',
-                'editorLineNumber.foreground': isDark ? '#858585' : '#237893',
-                'editorCursor.foreground': isDark ? '#AEAFAD' : '#000000',
+                'editor.background': isDark ? '#282C34' : '#FAFAFA',
+                'editor.foreground': isDark ? '#ABB2BF' : '#383A42',
+                'editor.lineHighlightBackground': isDark ? '#2C313A' : '#F0F0F0',
+                'editorLineNumber.foreground': isDark ? '#5C6370' : '#9D9D9F',
+                'editorLineNumber.activeForeground': isDark ? '#ABB2BF' : '#383A42',
+                'editorCursor.foreground': isDark ? '#528BFF' : '#528BFF',
+                'editor.selectionBackground': isDark ? '#3E4451' : '#ADD6FF',
+                'editor.inactiveSelectionBackground': isDark ? '#3A3F4B' : '#E5EBF1',
             }
         });
     };
@@ -1004,7 +1074,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({
         <Container>
             <EditorContainer>
                 <Editor
-                    height="calc(100vh - 200px)"
+                    height="calc(100vh - 230px)"
                     language={LANGUAGE_ID}
                     defaultValue={initialCode}
                     theme={getIsDarkTheme() ? 'vs-dark' : 'vs'}
@@ -1015,29 +1085,28 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                         minimap: { enabled: false },
                         scrollBeyondLastLine: false,
                         fontSize: 14,
-                        lineHeight: 22,
-                        letterSpacing: 0.5,
+                        lineHeight: 20,
+                        letterSpacing: 0,
                         lineNumbers: 'off',
-                        lineDecorationsWidth: 0,
-                        lineNumbersMinChars: 0,
+                        lineDecorationsWidth: 10,
+                        lineNumbersMinChars: 3,
                         glyphMargin: false,
                         overviewRulerLanes: 0,
                         overviewRulerBorder: false,
-                        folding: false,
+                        folding: true,
+                        foldingHighlight: true,
+                        showFoldingControls: 'always',
                         wordWrap: 'on',
                         automaticLayout: true,
                         tabSize: 2,
                         renderLineHighlight: 'line',
                         cursorBlinking: 'smooth',
-                        
-                        // cursorSmoothCaretAnimation: 'on',
-                        // smoothScrolling: true,
                         scrollbar: {
                             vertical: 'auto',
                             horizontal: 'auto',
-                            verticalScrollbarSize: 12,
-                            horizontalScrollbarSize: 12,
-                            useShadows: true
+                            verticalScrollbarSize: 10,
+                            horizontalScrollbarSize: 10,
+                            useShadows: false
                         },
                         suggestOnTriggerCharacters: true,
                         quickSuggestions: {
