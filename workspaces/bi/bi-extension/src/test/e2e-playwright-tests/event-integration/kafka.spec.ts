@@ -222,7 +222,7 @@ export default function createTests() {
                 await onErrorCard.click();
             }
 
-            await artifactWebView.locator('[data-testid="service-design-view-resource"]').waitFor({ timeout: 10000 });
+            await artifactWebView.locator('[data-testid="service-agent-view-resource"]').waitFor({ timeout: 10000 });
 
             // Step 8-10: Verify onError handler is added
             const onError = artifactWebView.locator(`text=onError`);

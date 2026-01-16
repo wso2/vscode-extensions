@@ -45,7 +45,7 @@ export default function createTests() {
                 values: {
                     'connectionString': {
                         type: 'cmEditor',
-                        value: '"Endpoint=sb://test.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=test"',
+                        value: 'Endpoint=sb://test.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=test',
                         additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
                     },
                     'entityConfig': {
@@ -84,7 +84,7 @@ export default function createTests() {
                 values: {
                     'connectionString': {
                         type: 'cmEditor',
-                        value: '"Endpoint=sb://test.updated.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=test"',
+                        value: 'Endpoint=sb://test.updated.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=test',
                         additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
                     },
                     'entityConfig': {
