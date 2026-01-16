@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Typography } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
@@ -28,96 +28,11 @@ interface CodeInputProps {
     onRequestChange?: (request: ApiRequest) => void;
 }
 
-const TabContainer = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
-    padding: 0 16px;
-    background-color: var(--vscode-editor-background);
-`;
-
-const TabList = styled.div`
-    display: flex;
-    gap: 24px;
-`;
-
-const Tab = styled.button<{ active?: boolean }>`
-    background: none;
-    border: none;
-    color: ${props => props.active ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)'};
-    padding: 12px 0;
-    font-size: 14px;
-    cursor: pointer;
-    position: relative;
-    transition: color 0.2s ease;
-    
-    &:hover {
-        color: var(--vscode-foreground);
-    }
-    
-    ${props => props.active && `
-        &::after {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background-color: var(--vscode-textLink-foreground, #0078d4);
-        }
-    `}
-`;
-
-const TabActions = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 12px;
-`;
-
-const IconButton = styled.button`
-    background: none;
-    border: none;
-    color: var(--vscode-foreground);
-    cursor: pointer;
-    padding: 4px 8px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    border-radius: 4px;
-    transition: background-color 0.2s ease;
-    
-    &:hover {
-        background-color: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
-    }
-    
-    svg {
-        width: 16px;
-        height: 16px;
-    }
-`;
-
-const SectionHeader = styled.div`
-    color: var(--vscode-foreground);
-    font-size: 14px;
-    font-weight: 600;
-    padding: 16px 0 8px 0;
-    margin: 0;
-`;
-
 const Container = styled.div`
     width: 100%;
     display: flex;
     flex-direction: column;
     padding-top: 16px;
-    
-    /* Placeholder styling */
-    .placeholder-text {
-        opacity: 0.5 !important;
-        font-style: italic !important;
-        color: var(--vscode-input-placeholderForeground, #8c8c8c) !important;
-    }
 `;
 
 const EditorContainer = styled.div`
@@ -395,38 +310,246 @@ export const CodeInput: React.FC<CodeInputProps> = ({
             return headerLines;
         };
         
+        // Helper to check if a section has content
+        const isSectionEmpty = (headerLineNum: number): boolean => {
+            const headerLines = getSectionHeaderLines();
+            const headerLinesArray = Array.from(headerLines).sort((a, b) => a - b);
+            const currentIndex = headerLinesArray.indexOf(headerLineNum);
+            const lineCount = model.getLineCount();
+            const nextHeaderLine = currentIndex < headerLinesArray.length - 1 
+                ? headerLinesArray[currentIndex + 1] 
+                : lineCount + 1;
+            
+            // Check all lines between this header and the next header (or end)
+            for (let i = headerLineNum + 1; i < nextHeaderLine; i++) {
+                const content = model.getLineContent(i).trim();
+                if (content !== '') {
+                    return false; // Section has content
+                }
+            }
+            return true; // Section is empty
+        };
+        
+        // Register code lens provider
+        const codeLensProvider = monaco.languages.registerCodeLensProvider(LANGUAGE_ID, {
+            provideCodeLenses: (model) => {
+                const lenses: monaco.languages.CodeLens[] = [];
+                const headerLines = getSectionHeaderLines();
+                const lineCount = model.getLineCount();
+
+                console.log('Code lens provider called, headerLines:', Array.from(headerLines));
+
+                headerLines.forEach(lineNumber => {
+                    const headerContent = model.getLineContent(lineNumber).trim();
+
+                    console.log(`Checking header at line ${lineNumber}: "${headerContent}"`);
+
+                    // Show code lens for Query Parameters and Headers always, for Body only when empty
+                    const shouldShowLens = headerContent === 'Query Parameters' || 
+                                          headerContent === 'Headers' || 
+                                          (headerContent === 'Body' && isSectionEmpty(lineNumber));
+
+                    if (shouldShowLens) {
+                        let lensText = '';
+                        let commandId = '';
+
+                        if (headerContent === 'Query Parameters') {
+                            lensText = '$(add) Query Parameter';
+                            commandId = 'addQueryParameter';
+                        } else if (headerContent === 'Headers') {
+                            lensText = '$(add) Header';
+                            commandId = 'addHeader';
+                        } else if (headerContent === 'Body') {
+                            lensText = '$(add) Body';
+                            commandId = 'addBody';
+                        }
+
+                        console.log(`Creating code lens for ${headerContent}: ${lensText}`);
+
+                        if (lensText) {
+                            lenses.push({
+                                range: new monaco.Range(lineNumber + 1, 1, lineNumber + 1, 1),
+                                command: {
+                                    id: commandId,
+                                    title: lensText,
+                                    arguments: [lineNumber + 1]
+                                }
+                            });
+                        }
+                    } else {
+                        console.log(`Section ${headerContent} is not empty and not Query Parameters or Headers, skipping code lens`);
+                    }
+                });
+
+                console.log('Returning lenses:', lenses);
+                return { lenses, dispose: () => {} };
+            },
+            resolveCodeLens: (model, codeLens) => {
+                console.log('Resolving code lens:', codeLens);
+                return codeLens;
+            }
+        });
+        
+        // Register commands for adding samples
+        // Register command functions
+        const executeAddQueryParameter = (targetLineNumber: number) => {
+            console.log('executeAddQueryParameter called with targetLineNumber:', targetLineNumber);
+            const lineCount = model.getLineCount();
+            const sampleContent = 'queryKey=queryValue';
+
+            console.log('Model line count:', lineCount, 'targetLineNumber:', targetLineNumber);
+
+            if (targetLineNumber <= lineCount) {
+                const currentContent = model.getLineContent(targetLineNumber);
+                console.log('Current content at line', targetLineNumber, ':', JSON.stringify(currentContent));
+                if (currentContent.trim() === '') {
+                    console.log('Replacing empty line with sample content');
+                    // Replace empty line with sample header and parameter
+                    model.pushEditOperations(
+                        [],
+                        [{
+                            range: new monaco.Range(targetLineNumber, 1, targetLineNumber, currentContent.length + 1),
+                            text: sampleContent
+                        }],
+                        () => null
+                    );
+                } else {
+                    console.log('Inserting new lines with sample content');
+                    // Insert new lines with sample header and parameter
+                    model.pushEditOperations(
+                        [],
+                        [{
+                            range: new monaco.Range(targetLineNumber, 1, targetLineNumber, 1),
+                            text: sampleContent + '\n'
+                        }],
+                        () => null
+                    );
+                }
+            } else {
+                console.log('targetLineNumber exceeds lineCount, cannot add content');
+            }
+            editor.setPosition({ lineNumber: targetLineNumber + 1, column: 1 });
+            editor.focus();
+        };
+
+        const executeAddHeader = (targetLineNumber: number) => {
+            console.log('executeAddHeader called with targetLineNumber:', targetLineNumber);
+            const lineCount = model.getLineCount();
+
+            if (targetLineNumber <= lineCount) {
+                const currentContent = model.getLineContent(targetLineNumber);
+                console.log('Current content at line', targetLineNumber, ':', JSON.stringify(currentContent));
+                if (currentContent.trim() === '') {
+                    console.log('Replacing empty line with header sample');
+                    // Replace empty line with sample
+                    model.pushEditOperations(
+                        [],
+                        [{
+                            range: new monaco.Range(targetLineNumber, 1, targetLineNumber, currentContent.length + 1),
+                            text: 'Content-Type: application/json'
+                        }],
+                        () => null
+                    );
+                } else {
+                    console.log('Inserting new line with header sample');
+                    // Insert new line with sample
+                    model.pushEditOperations(
+                        [],
+                        [{
+                            range: new monaco.Range(targetLineNumber, 1, targetLineNumber, 1),
+                            text: 'Content-Type: application/json\n'
+                        }],
+                        () => null
+                    );
+                }
+            } else {
+                console.log('targetLineNumber exceeds lineCount, cannot add header');
+            }
+            editor.setPosition({ lineNumber: targetLineNumber, column: 1 });
+            editor.focus();
+        };
+
+        const executeAddBody = (targetLineNumber: number) => {
+            console.log('executeAddBody called with targetLineNumber:', targetLineNumber);
+            const lineCount = model.getLineCount();
+            const sampleBody = '{\n  "key": "value"\n}';
+
+            console.log('Model line count:', lineCount, 'targetLineNumber:', targetLineNumber);
+
+            if (targetLineNumber <= lineCount) {
+                const currentContent = model.getLineContent(targetLineNumber);
+                console.log('Current content at line', targetLineNumber, ':', JSON.stringify(currentContent));
+                if (currentContent.trim() === '') {
+                    console.log('Replacing empty line with body sample');
+                    // Replace empty line with sample
+                    model.pushEditOperations(
+                        [],
+                        [{
+                            range: new monaco.Range(targetLineNumber, 1, targetLineNumber, currentContent.length + 1),
+                            text: sampleBody
+                        }],
+                        () => null
+                    );
+                } else {
+                    console.log('Inserting new lines with body sample');
+                    // Insert new line with sample
+                    model.pushEditOperations(
+                        [],
+                        [{
+                            range: new monaco.Range(targetLineNumber, 1, targetLineNumber, 1),
+                            text: sampleBody + '\n'
+                        }],
+                        () => null
+                    );
+                }
+            } else {
+                console.log('targetLineNumber exceeds lineCount, cannot add body');
+            }
+            editor.setPosition({ lineNumber: targetLineNumber + 1, column: 3 });
+            editor.focus();
+        };
+
+        // Register commands that can be called by code lenses
+        const addQueryParameterCommand = monaco.editor.registerCommand('addQueryParameter', (accessor, args) => {
+            console.log('addQueryParameter command triggered with args:', args);
+            const lineNumber = Array.isArray(args) ? args[0] : args;
+            if (typeof lineNumber === 'number') {
+                console.log('Executing addQueryParameter for line:', lineNumber);
+                executeAddQueryParameter(lineNumber);
+            } else {
+                console.log('Invalid line number for addQueryParameter:', lineNumber);
+            }
+        });
+
+        const addHeaderCommand = monaco.editor.registerCommand('addHeader', (accessor, args) => {
+            console.log('addHeader command triggered with args:', args);
+            const lineNumber = Array.isArray(args) ? args[0] : args;
+            if (typeof lineNumber === 'number') {
+                console.log('Executing addHeader for line:', lineNumber);
+                executeAddHeader(lineNumber);
+            } else {
+                console.log('Invalid line number for addHeader:', lineNumber);
+            }
+        });
+
+        const addBodyCommand = monaco.editor.registerCommand('addBody', (accessor, args) => {
+            console.log('addBody command triggered with args:', args);
+            const lineNumber = Array.isArray(args) ? args[0] : args;
+            if (typeof lineNumber === 'number') {
+                console.log('Executing addBody for line:', lineNumber);
+                executeAddBody(lineNumber);
+            } else {
+                console.log('Invalid line number for addBody:', lineNumber);
+            }
+        });
+        
         // Add decorations to indicate read-only lines and editable sections
         const updateDecorations = () => {
             const headerLines = getSectionHeaderLines();
             const decorations: monaco.editor.IModelDeltaDecoration[] = [];
             const lineCount = model.getLineCount();
             
-            // Placeholder messages for each section
-            const placeholders: { [key: string]: string } = {
-                'Query Parameters': 'e.g., page=1 or limit=10',
-                'Headers': 'e.g., Content-Type: application/json',
-                'Body': 'Enter request body content here'
-            };
-            
-            // Helper to check if a section has content
-            const isSectionEmpty = (headerLineNum: number): boolean => {
-                const headerLinesArray = Array.from(headerLines).sort((a, b) => a - b);
-                const currentIndex = headerLinesArray.indexOf(headerLineNum);
-                const nextHeaderLine = currentIndex < headerLinesArray.length - 1 
-                    ? headerLinesArray[currentIndex + 1] 
-                    : lineCount + 1;
-                
-                // Check all lines between this header and the next header (or end)
-                for (let i = headerLineNum + 1; i < nextHeaderLine; i++) {
-                    const content = model.getLineContent(i).trim();
-                    if (content !== '') {
-                        return false; // Section has content
-                    }
-                }
-                return true; // Section is empty
-            };
-            
-            // Mark header lines as read-only and add placeholders for empty sections
+            // Mark header lines as read-only
             headerLines.forEach(lineNumber => {
                 decorations.push({
                     range: new monaco.Range(lineNumber, 1, lineNumber, 1),
@@ -437,30 +560,6 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                         glyphMarginHoverMessage: { value: 'This section header is read-only' }
                     }
                 });
-                
-                // Add placeholder if section is empty
-                const headerContent = model.getLineContent(lineNumber).trim();
-                const nextLine = lineNumber + 1;
-                
-                if (nextLine <= lineCount && placeholders[headerContent] && isSectionEmpty(lineNumber)) {
-                    const lineContent = model.getLineContent(nextLine);
-                    const cursorPos = editor.getPosition();
-                    const isCursorOnLine = cursorPos && cursorPos.lineNumber === nextLine;
-                    
-                    // Only add placeholder if line is empty AND cursor is NOT on this line
-                    if ((lineContent.length === 0 || lineContent.trim() === '') && !isCursorOnLine) {
-                        decorations.push({
-                            range: new monaco.Range(nextLine, 1, nextLine, 1),
-                            options: {
-                                after: {
-                                    content: placeholders[headerContent],
-                                    inlineClassName: 'placeholder-text'
-                                },
-                                showIfCollapsed: true
-                            }
-                        });
-                    }
-                }
             });
             
             // Mark editable sections with visual indicator
@@ -536,25 +635,17 @@ export const CodeInput: React.FC<CodeInputProps> = ({
         });
         
         // Handle mouse clicks on empty lines to force cursor to beginning
-        let isUpdatingDecorations = false;
-        
         editor.onMouseDown((e) => {
             if (e.target.position) {
                 const lineNum = e.target.position.lineNumber;
                 const lineContent = model.getLineContent(lineNum);
                 const headerLines = getSectionHeaderLines();
                 
-                // If clicking on an empty line (not a header), force cursor to column 1 and update decorations
+                // If clicking on an empty line (not a header), force cursor to column 1
                 if (!headerLines.has(lineNum) && lineContent.trim() === '') {
                     setTimeout(() => {
                         editor.setPosition({ lineNumber: lineNum, column: 1 });
                         editor.focus();
-                        // Update decorations to hide placeholder
-                        if (!isUpdatingDecorations) {
-                            isUpdatingDecorations = true;
-                            updateDecorations();
-                            setTimeout(() => { isUpdatingDecorations = false; }, 100);
-                        }
                     }, 0);
                 }
             }
@@ -578,21 +669,12 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                     editor.setPosition({ lineNumber: nextLine, column: 1 });
                 }
             } else {
-                // Check if cursor is on an empty line (potential placeholder line)
+                // Check if cursor is on an empty line
                 const lineContent = model.getLineContent(position.lineNumber);
                 if ((lineContent.length === 0 || lineContent.trim() === '') && position.column > 1) {
                     // If cursor is not at column 1 on an empty line, move it there
                     editor.setPosition({ lineNumber: position.lineNumber, column: 1 });
                 }
-            }
-            
-            // Update decorations when cursor moves to show/hide placeholder (with guard)
-            if (!isUpdatingDecorations) {
-                isUpdatingDecorations = true;
-                setTimeout(() => {
-                    updateDecorations();
-                    isUpdatingDecorations = false;
-                }, 50);
             }
         });
         
@@ -1086,7 +1168,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                         minimap: { enabled: false },
                         scrollBeyondLastLine: false,
                         fontSize: 14,
-                        lineHeight: 20,
+                        lineHeight: 28,
                         letterSpacing: 0,
                         lineNumbers: 'off',
                         lineDecorationsWidth: 10,
@@ -1094,6 +1176,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                         glyphMargin: false,
                         overviewRulerLanes: 0,
                         overviewRulerBorder: false,
+                        codeLens: true,
                         folding: true,
                         foldingHighlight: true,
                         showFoldingControls: 'always',
