@@ -19,6 +19,7 @@
 import React, { useState } from 'react';
 import { Button, Codicon, Dropdown, TextField, Typography } from '@wso2/ui-toolkit';
 import { VSCodePanels, VSCodePanelTab, VSCodePanelView } from '@vscode/webview-ui-toolkit/react';
+import styled from '@emotion/styled';
 import { Input } from '../Input/Input';
 import { Output } from '../Output/Output';
 import { ApiRequestItem, ApiRequest, ApiResponse, ResponseHeader } from '@wso2/api-tryit-core';
@@ -28,6 +29,122 @@ import { getVSCodeAPI } from '../utils/vscode-api';
 
 // Get VS Code API instance (singleton)
 const vscode = getVSCodeAPI();
+
+const PanelsWrapper = styled.div`
+    position: relative;
+`;
+
+const ControlsWrapper = styled.div`
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    z-index: 10;
+`;
+
+const SlidingToggle = styled.div<{ isCodeMode: boolean }>`
+    position: relative;
+    display: flex;
+    width: 140px;
+    height: 32px;
+    background-color: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 16px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.2s ease;
+`;
+
+const ToggleBackground = styled.div<{ isCodeMode: boolean }>`
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    background-color: var(--vscode-button-background);
+    border-radius: 15px;
+    transition: transform 0.2s ease;
+    transform: translateX(${({ isCodeMode }) => isCodeMode ? '0%' : '100%'});
+`;
+
+const ToggleOption = styled.div<{ isActive: boolean }>`
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: ${({ isActive }) => 
+        isActive ? 'var(--vscode-button-foreground)' : 'var(--vscode-foreground)'};
+    z-index: 1;
+    transition: color 0.2s ease;
+    user-select: none;
+`;
+
+const HelpButton = styled.button`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--vscode-descriptionForeground);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    
+    &:hover {
+        background: var(--vscode-toolbar-hoverBackground);
+        color: var(--vscode-foreground);
+    }
+    
+    .codicon {
+        font-size: 16px;
+    }
+`;
+
+const HelpTooltip = styled.div<{ show: boolean }>`
+    display: ${props => props.show ? 'block' : 'none'};
+    position: absolute;
+    top: 32px;
+    right: 0;
+    width: 350px;
+    padding: 12px 16px;
+    background: var(--vscode-editorHoverWidget-background);
+    border: 1px solid var(--vscode-editorHoverWidget-border);
+    border-radius: 6px;
+    color: var(--vscode-editorHoverWidget-foreground);
+    font-size: 12px;
+    line-height: 1.6;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    text-align: left;
+    
+    strong {
+        color: var(--vscode-textLink-activeForeground);
+        font-weight: 600;
+    }
+`;
+
+const CodeHint = styled.code`
+    background-color: var(--vscode-textCodeBlock-background);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: var(--vscode-editor-font-family, 'Consolas', 'Courier New', monospace);
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
+    color: var(--vscode-textPreformat-foreground);
+`;
+
+type InputMode = 'code' | 'form';
 
 export const MainPanel: React.FC = () => {
     const [requestItem, setRequestItem] = useState<ApiRequestItem>({
@@ -54,6 +171,8 @@ export const MainPanel: React.FC = () => {
     });
     const [activeTab, setActiveTab] = useState('input');
     const [isLoading, setIsLoading] = useState(false);
+    const [inputMode, setInputMode] = useState<InputMode>('code');
+    const [showHelp, setShowHelp] = useState(false);
 
     // Handle messages from VS Code extension
     const { updateRequest } = useExtensionMessages({
@@ -295,18 +414,56 @@ export const MainPanel: React.FC = () => {
                     </div>
 
                     {/* VSCodePanels with Input, Output, and Assert tabs */}
-                    <VSCodePanels activeid={activeTab}>
-                        <VSCodePanelTab id="input">Input</VSCodePanelTab>
-                        <VSCodePanelTab id="output">Output</VSCodePanelTab>
-                        <VSCodePanelTab id="assert">Assert</VSCodePanelTab>
-                        
-                        {/* Input Tab Content */}
-                        <VSCodePanelView id="view-input">
-                            <Input 
-                                request={requestItem.request}
-                                onRequestChange={handleRequestChange}
-                            />
-                        </VSCodePanelView>
+                    <PanelsWrapper>
+                        <ControlsWrapper>
+                            {activeTab === 'input' && inputMode === 'code' && (
+                                <HelpButton
+                                    onMouseEnter={() => setShowHelp(true)}
+                                    onMouseLeave={() => setShowHelp(false)}
+                                    onClick={() => setShowHelp(!showHelp)}
+                                    title="Show help"
+                                >
+                                    <Codicon sx={{height: 'unset', width: 'unset'}} iconSx={{fontSize: 24, marginTop: 4}} name="question" />
+                                    <HelpTooltip show={showHelp}>
+                                        <strong>Write your request with auto-completions:</strong><br/>
+                                        • <CodeHint>key=value</CodeHint> for query parameters<br/>
+                                        • <CodeHint>Header-Name: value</CodeHint> for headers<br/>
+                                        • Prefix with <CodeHint>//</CodeHint> to disable a line<br/>
+                                        • Press <CodeHint>Cmd+Space</CodeHint> or <CodeHint>Cmd+/</CodeHint> for suggestions
+                                    </HelpTooltip>
+                                </HelpButton>
+                            )}
+                            {activeTab === 'input' && (
+                                <SlidingToggle 
+                                    isCodeMode={inputMode === 'code'}
+                                    onClick={() => setInputMode(inputMode === 'code' ? 'form' : 'code')}
+                                    title={inputMode === 'code' ? 'Switch to Form mode' : 'Switch to Code mode'}
+                                >
+                                    <ToggleBackground isCodeMode={inputMode === 'code'} />
+                                    <ToggleOption isActive={inputMode === 'code'}>
+                                        <Codicon name="code" />
+                                        Code
+                                    </ToggleOption>
+                                    <ToggleOption isActive={inputMode === 'form'}>
+                                        <Codicon name="list-unordered" />
+                                        Form
+                                    </ToggleOption>
+                                </SlidingToggle>
+                            )}
+                        </ControlsWrapper>
+                        <VSCodePanels activeid={activeTab} onChange={(e: any) => setActiveTab(e.target.activeid)}>
+                            <VSCodePanelTab id="input">Input</VSCodePanelTab>
+                            <VSCodePanelTab id="output">Output</VSCodePanelTab>
+                            <VSCodePanelTab id="assert">Assert</VSCodePanelTab>
+                            
+                            {/* Input Tab Content */}
+                            <VSCodePanelView id="view-input">
+                                <Input 
+                                    request={requestItem.request}
+                                    onRequestChange={handleRequestChange}
+                                    mode={inputMode}
+                                />
+                            </VSCodePanelView>
 
                         {/* Output Tab Content */}
                         <VSCodePanelView id="view-output">
@@ -331,6 +488,7 @@ export const MainPanel: React.FC = () => {
                             </div>
                         </VSCodePanelView>
                     </VSCodePanels>
+                    </PanelsWrapper>
                 </div>
             </div>
         </div>

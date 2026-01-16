@@ -110,6 +110,7 @@ const Container = styled.div`
     width: 100%;
     display: flex;
     flex-direction: column;
+    padding-top: 16px;
     
     /* Placeholder styling */
     .placeholder-text {
@@ -1074,7 +1075,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({
         <Container>
             <EditorContainer>
                 <Editor
-                    height="calc(100vh - 230px)"
+                    height="calc(100vh - 200px)"
                     language={LANGUAGE_ID}
                     defaultValue={initialCode}
                     theme={getIsDarkTheme() ? 'vs-dark' : 'vs'}
