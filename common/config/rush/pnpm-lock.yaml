@@ -40016,6 +40016,8 @@ snapshots:
 
   '@types/katex@0.16.8': {}
 
+  '@types/katex@0.16.8': {}
+
   '@types/linkify-it@5.0.0': {}
 
   '@types/lodash.camelcase@4.3.0':
@@ -49585,10 +49587,7 @@ snapshots:
       pretty-format: 25.5.0
       throat: 5.0.0
     transitivePeerDependencies:
-      - bufferutil
-      - canvas
       - supports-color
-      - utf-8-validate
 
   jest-leak-detector@25.5.0:
     dependencies:
@@ -55165,7 +55164,7 @@ snapshots:
       unist-util-visit-parents: 6.0.2
       vfile: 6.0.3
 
-  rehype-raw@6.1.0:
+  rehype-raw@6.1.1:
     dependencies:
       '@types/hast': 2.3.10
       hast-util-raw: 7.2.3
