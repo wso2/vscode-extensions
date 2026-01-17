@@ -74,7 +74,7 @@ import { integrateCodeToWorkspace } from "../../features/ai/agent/utils";
 import { ContextTypesExecutor } from '../../features/ai/executors/datamapper/ContextTypesExecutor';
 import { FunctionMappingExecutor } from '../../features/ai/executors/datamapper/FunctionMappingExecutor';
 import { InlineMappingExecutor } from '../../features/ai/executors/datamapper/InlineMappingExecutor';
-import { approvalManager } from '../../features/ai/state/ApprovalManager';
+import { approvalService } from '../../features/ai/services/ApprovalService';
 import { cleanupTempProject } from "../../features/ai/utils/project/temp-project";
 import { RPCLayer } from '../../RPCLayer';
 import { chatStateStorage } from '../../views/ai-panel/chatStateStorage';
@@ -260,6 +260,9 @@ export class AiPanelRpcManager implements AIPanelAPI {
         const threadId = params?.threadId || 'default';
 
         const aborted = chatStateStorage.abortActiveExecution(workspaceId, threadId);
+
+        // Cancel any pending approvals for this thread
+        chatStateStorage.cancelThreadApprovals(workspaceId, threadId);
 
         if (aborted) {
             console.log(`[RPC] Aborted execution for workspace=${workspaceId}, thread=${threadId}`);
@@ -545,27 +548,27 @@ export class AiPanelRpcManager implements AIPanelAPI {
     }
 
     async approvePlan(params: { requestId: string; comment?: string }): Promise<void> {
-        approvalManager.resolvePlanApproval(params.requestId, true, params.comment);
+        approvalService.resolvePlanApproval(params.requestId, true, params.comment);
     }
 
     async declinePlan(params: { requestId: string; comment?: string }): Promise<void> {
-        approvalManager.resolvePlanApproval(params.requestId, false, params.comment);
+        approvalService.resolvePlanApproval(params.requestId, false, params.comment);
     }
 
     async approveTask(params: { requestId: string; approvedTaskDescription?: string }): Promise<void> {
-        approvalManager.resolveTaskApproval(params.requestId, true, undefined, params.approvedTaskDescription);
+        approvalService.resolveTaskApproval(params.requestId, true, undefined, params.approvedTaskDescription);
     }
 
     async declineTask(params: { requestId: string; comment?: string }): Promise<void> {
-        approvalManager.resolveTaskApproval(params.requestId, false, params.comment);
+        approvalService.resolveTaskApproval(params.requestId, false, params.comment);
     }
 
     async provideConnectorSpec(params: { requestId: string; spec: any }): Promise<void> {
-        approvalManager.resolveConnectorSpec(params.requestId, true, params.spec);
+        approvalService.resolveConnectorSpec(params.requestId, true, params.spec);
     }
 
     async cancelConnectorSpec(params: { requestId: string; comment?: string }): Promise<void> {
-        approvalManager.resolveConnectorSpec(params.requestId, false, undefined, params.comment);
+        approvalService.resolveConnectorSpec(params.requestId, false, undefined, params.comment);
     }
 
     async restoreCheckpoint(params: RestoreCheckpointRequest): Promise<void> {

@@ -296,3 +296,14 @@ export function deactivate(): Thenable<void> | undefined {
     extension.ballerinaExtInstance.telemetryReporter.dispose();
     return langClient.stop();
 }
+
+// ============================================================================
+// Test Exports
+// ============================================================================
+// Export singletons and classes for integration tests.
+// Tests import from dist/extension.js to share the same instances as the
+// running extension, avoiding module duplication issues.
+// ============================================================================
+export { StateMachine } from './stateMachine';
+export { chatStateStorage } from './views/ai-panel/chatStateStorage';
+export { AgentExecutor } from './features/ai/agent/AgentExecutor';

@@ -14,11 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as path from "path";
-import * as fs from "fs";
 import * as vscode from "vscode";
 import { commands, Uri, workspace } from "vscode";
-import * as dotenv from "dotenv";
 
 const TIMING = {
     WORKSPACE_SETUP_DELAY: 10000,
@@ -26,11 +23,6 @@ const TIMING = {
     FILE_OPEN_DELAY: 5000,
     EXTENSION_ACTIVATION_RETRY_INTERVAL: 2000,
     MAX_ACTIVATION_ATTEMPTS: 30,
-};
-
-const PATHS = {
-    PROJECT_ROOT_RELATIVE: "../../../../../test/data/bi_empty_project",
-    ENV_FILE_RELATIVE: "../../../../.env",
 };
 
 const VSCODE_COMMANDS = {
@@ -42,13 +34,6 @@ const VSCODE_COMMANDS = {
  * Sets up the test environment for library integration tests
  */
 export async function setupTestEnvironment(): Promise<void> {
-    // Load environment variables from .env file if it exists
-    const envPath = path.resolve(__dirname, PATHS.ENV_FILE_RELATIVE);
-    if (fs.existsSync(envPath)) {
-        dotenv.config({ path: envPath });
-        console.log("Loaded .env file for library integration tests");
-    }
-
     // Wait for VSCode startup to complete
     await new Promise(resolve => setTimeout(resolve, TIMING.WORKSPACE_SETUP_DELAY));
 
@@ -63,12 +48,4 @@ export async function setupTestEnvironment(): Promise<void> {
     console.log("Waiting for extension activation and language server initialization...");
     await new Promise(resolve => setTimeout(resolve, 20000)); // 20 seconds for full activation including LS
     console.log("✓ Extension should be activated");
-
-    // Log API key availability for test visibility
-    const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
-    if (anthropicApiKey && anthropicApiKey.trim() !== "") {
-        console.log("ANTHROPIC_API_KEY found - tests will use BYOK authentication");
-    } else {
-        console.log("No ANTHROPIC_API_KEY found - tests may fail without authentication");
-    }
 }

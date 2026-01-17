@@ -37,7 +37,7 @@ import { AIMachineEventType, GenerateAgentCodeRequest, ExecutionContext } from '
 import { generateMappingCodeCore } from './data-mapper';
 import { resolveProjectPath } from '../../utils/project-utils';
 import { MESSAGES } from '../project';
-import { AICommandConfig } from './executors/base/AICommandExecutor';
+import { AICommandConfig, AIExecutionResult } from './executors/base/AICommandExecutor';
 import { AgentExecutor } from './agent/AgentExecutor';
 
 /**
@@ -116,12 +116,12 @@ export function activateAIFeatures(ballerinaExternalInstance: BallerinaExtension
             getSelectedLibraries,
             getRelevantLibrariesAndFunctions,
             GenerationType
-        } = require('./utils/libraries');
+        } = require('./utils/libs/libraries');
         const {
             selectRequiredFunctions,
             getMaximizedSelectedLibs,
             toMaximizedLibrariesFromLibJson
-        } = require('./utils/function-registry');
+        } = require('./utils/libs/function-registry');
 
         commands.registerCommand('ballerina.test.ai.getAllLibraries', async (generationType: typeof GenerationType) => {
             return await getAllLibraries(generationType);
@@ -146,6 +146,36 @@ export function activateAIFeatures(ballerinaExternalInstance: BallerinaExtension
         commands.registerCommand('ballerina.test.ai.toMaximizedLibrariesFromLibJson', async (functionResponses: any[], originalLibraries: any[]) => {
             return await toMaximizedLibrariesFromLibJson(functionResponses, originalLibraries);
         });
+
+        // Register command for AgentExecutor integration tests
+        // This command accepts full AICommandConfig to allow integration tests full control
+        if (process.env.AGENT_EXECUTOR_INTEGRATION_TEST) {
+            commands.registerCommand('ballerina.test.ai.runAgentExecutorIntegration', async (config: AICommandConfig<GenerateAgentCodeRequest>): Promise<AIExecutionResult> => {
+                try {
+                    console.log('[Integration Test] Running AgentExecutor with config:', {
+                        generationId: config.generationId,
+                        usecase: config.params.usecase,
+                        hasChatStorage: !!config.chatStorage,
+                        hasLLMClient: !!config.llmClient,
+                    });
+
+                    const executor = new AgentExecutor(config);
+                    const result = await executor.run();
+
+                    console.log('[Integration Test] AgentExecutor completed:', {
+                        generationId: config.generationId,
+                        tempProjectPath: result.tempProjectPath,
+                        modifiedFilesCount: result.modifiedFiles?.length || 0,
+                    });
+
+                    return result;
+                } catch (error) {
+                    console.error('[Integration Test] AgentExecutor failed:', error);
+                    throw error;
+                }
+            });
+            console.log('✓ Registered ballerina.test.ai.runAgentExecutorIntegration command');
+        }
     }
 
     commands.registerCommand(CONFIGURE_DEFAULT_MODEL_COMMAND, async () => {

@@ -23,7 +23,7 @@ import { integrateCodeToWorkspace } from '../utils';
 import { checkCompilationErrors } from './diagnostics-utils';
 import { DIAGNOSTICS_TOOL_NAME } from './diagnostics';
 import { createExecutionContextFromStateMachine } from '..';
-import { approvalManager } from '../../state/ApprovalManager';
+import { approvalService } from '../../services/ApprovalService';
 
 export const TASK_WRITE_TOOL_NAME = "TaskWrite";
 
@@ -143,6 +143,12 @@ Rules:
 
                 console.log(`[TaskWrite Tool] Received ${allTasks.length} task(s)`);
 
+                // Log task state for testing
+                console.log('[AGENT_TEST_LOG:TOOL_CALL:TASK_WRITE]', JSON.stringify({
+                    taskCount: allTasks.length,
+                    tasks: allTasks.map(t => ({ description: t.description, status: t.status, type: t.type }))
+                }));
+
                 const taskCategories = categorizeTasks(allTasks);
 
                 // TODO: Add tests for plan modification detection in the middle of execution
@@ -179,7 +185,10 @@ Rules:
                                 newlyCompletedTasks,
                                 eventHandler,
                                 tempProjectPath,
-                                modifiedFiles
+                                modifiedFiles,
+                                workspaceId,
+                                threadId,
+                                generationId
                             );
                         }
                     } else if (taskCategories.inProgress.length > 0) {
@@ -196,6 +205,17 @@ Rules:
                 );
 
                 console.log(`[TaskWrite Tool] Returning ${allTasks.length} tasks (${taskCategories.completed.length} completed, ${taskCategories.inProgress.length} in progress, ${taskCategories.pending.length} pending)`);
+
+                // Log tool result for testing
+                console.log('[AGENT_TEST_LOG:TOOL_RESULT:TASK_WRITE]', JSON.stringify({
+                    success: approvalResult ? approvalResult.approved : true,
+                    approvalType,
+                    approved: approvalResult?.approved,
+                    comment: approvalResult?.comment,
+                    completedCount: taskCategories.completed.length,
+                    inProgressCount: taskCategories.inProgress.length,
+                    pendingCount: taskCategories.pending.length
+                }));
 
                 return {
                     success: approvalResult ? approvalResult.approved : true,
@@ -289,11 +309,11 @@ async function handlePlanApproval(
     // Notify visualizer of plan update
     eventHandler({ type: 'plan_updated', plan });
 
-    // Use ApprovalManager for plan approval (replaces state machine subscription)
-    const requestId = `plan-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-
-    const approvalPromise = approvalManager.requestPlanApproval(
-        requestId,
+    // Use ApprovalService for plan approval
+    const approvalPromise = approvalService.requestPlanApproval(
+        workspaceId,
+        threadId,
+        generationId,
         allTasks,
         eventHandler
     );
@@ -306,7 +326,10 @@ async function handleTaskCompletion(
     newlyCompletedTasks: Task[],
     eventHandler: CopilotEventHandler,
     tempProjectPath: string,
-    modifiedFiles?: string[]
+    modifiedFiles: string[] | undefined,
+    workspaceId: string,
+    threadId: string,
+    generationId: string
 ): Promise<{ approved: boolean; comment?: string; approvedTaskDescription?: string }> {
     const lastCompletedTask = newlyCompletedTasks[newlyCompletedTasks.length - 1];
     console.log(`[TaskWrite Tool] Detected ${newlyCompletedTasks.length} newly completed task(s)`);
@@ -332,14 +355,17 @@ async function handleTaskCompletion(
     }
 
     // Always request manual approval - visualizer will auto-respond if auto-approve is enabled
-    return handleManualTaskApproval(allTasks, newlyCompletedTasks, lastCompletedTask, eventHandler);
+    return handleManualTaskApproval(allTasks, newlyCompletedTasks, lastCompletedTask, eventHandler, workspaceId, threadId, generationId);
 }
 
 async function handleManualTaskApproval(
     allTasks: Task[],
     newlyCompletedTasks: Task[],
     lastCompletedTask: Task,
-    eventHandler: CopilotEventHandler
+    eventHandler: CopilotEventHandler,
+    workspaceId: string,
+    threadId: string,
+    generationId: string
 ): Promise<{ approved: boolean; comment?: string; approvedTaskDescription?: string }> {
     console.log(`[TaskWrite Tool] Manual approval mode`);
 
@@ -348,12 +374,11 @@ async function handleManualTaskApproval(
         return isNewlyCompleted ? { ...task, status: TaskStatus.REVIEW } : { ...task };
     });
 
-    // Use ApprovalManager for task approval (replaces state machine subscription)
-    // requestTaskApproval will emit the task_approval_request event with requestId
-    const requestId = `task-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-
-    const approvalPromise = approvalManager.requestTaskApproval(
-        requestId,
+    // Use ApprovalService for task approval
+    const approvalPromise = approvalService.requestTaskApproval(
+        workspaceId,
+        threadId,
+        generationId,
         lastCompletedTask.description,
         tasksForUI,
         eventHandler

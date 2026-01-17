@@ -334,6 +334,15 @@ export function createWriteExecute(
     }
 
     console.log(`[FileWriteTool] Successfully ${action} file: ${file_path} with ${lineCount} lines to temp project.`);
+
+    // Log file modification for testing
+    console.log('[AGENT_TEST_LOG:FILE_MOD:WRITE]', JSON.stringify({
+      filePath: file_path,
+      action,
+      lineCount,
+      contentPreview: content.substring(0, 200)
+    }));
+
     const result = {
       success: true,
       message: `Successfully ${action} file '${file_path}' with ${lineCount} line(s).`,
@@ -462,6 +471,16 @@ export function createEditExecute(
 
     const replacedCount = replace_all ? occurrenceCount : 1;
     console.log(`[FileEditTool] Successfully replaced ${replacedCount} occurrence(s) in file: ${file_path}`);
+
+    // Log file modification for testing
+    console.log('[AGENT_TEST_LOG:FILE_MOD:EDIT]', JSON.stringify({
+      filePath: file_path,
+      action: 'edit',
+      replacedCount,
+      oldStringPreview: old_string.substring(0, 100),
+      newStringPreview: new_string.substring(0, 100)
+    }));
+
     const result = {
       success: true,
       message: `Successfully replaced ${replacedCount} occurrence(s) in '${file_path}'.`
