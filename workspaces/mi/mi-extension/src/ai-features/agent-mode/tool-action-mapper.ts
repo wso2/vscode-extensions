@@ -34,9 +34,10 @@ export interface ToolActions {
  *
  * @param toolName - Name of the tool
  * @param toolResult - Tool execution result (may contain messages that affect completed action)
+ * @param toolInput - Tool input arguments (used to extract dynamic info like connector names)
  * @returns ToolActions object with loading and completed states, or undefined if tool not recognized
  */
-export function getToolAction(toolName: string, toolResult?: any): ToolActions | undefined {
+export function getToolAction(toolName: string, toolResult?: any, toolInput?: any): ToolActions | undefined {
     switch (toolName) {
         case 'file_write':
             // Completed action depends on result (created vs updated)
@@ -61,23 +62,51 @@ export function getToolAction(toolName: string, toolResult?: any): ToolActions |
             return { loading: 'reading', completed: 'read', failed: 'failed to read' };
 
         case 'grep':
-            return { loading: 'searching', completed: 'searched', failed: 'search failed' };
+            return { loading: 'searching file contents', completed: 'searched file contents', failed: 'search failed' };
 
         case 'glob':
-            return { loading: 'finding', completed: 'found', failed: 'failed to find' };
+            return { loading: 'finding files', completed: 'found files', failed: 'failed to find files' };
 
         case 'get_connector_definitions':
-            return { loading: 'fetching connectors', completed: 'fetched', failed: 'failed to fetch' };
+            return { loading: 'fetching connectors', completed: 'fetched connectors', failed: 'failed to fetch connectors' };
 
         case 'get_connector_documentation':
         case 'get_ai_connector_documentation':
             return { loading: 'retrieving documentation', completed: 'retrieved', failed: 'failed to retrieve' };
 
         case 'add_connector_to_project_pom':
-            return { loading: 'adding connector', completed: 'added', failed: 'failed to add' };
+            // Extract connector names from tool input
+            if (toolInput?.connector_names && Array.isArray(toolInput.connector_names)) {
+                const names = toolInput.connector_names;
+                const connectorList = names.length === 1
+                    ? names[0]
+                    : names.length === 2
+                        ? `${names[0]} and ${names[1]}`
+                        : `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+                return {
+                    loading: `adding ${connectorList}`,
+                    completed: `added ${connectorList}`,
+                    failed: `failed to add ${connectorList}`
+                };
+            }
+            return { loading: 'adding connector', completed: 'added connector', failed: 'failed to add connector' };
 
         case 'remove_connector_from_project_pom':
-            return { loading: 'removing connector', completed: 'removed', failed: 'failed to remove' };
+            // Extract connector names from tool input
+            if (toolInput?.connector_names && Array.isArray(toolInput.connector_names)) {
+                const names = toolInput.connector_names;
+                const connectorList = names.length === 1
+                    ? names[0]
+                    : names.length === 2
+                        ? `${names[0]} and ${names[1]}`
+                        : `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+                return {
+                    loading: `removing ${connectorList}`,
+                    completed: `removed ${connectorList}`,
+                    failed: `failed to remove ${connectorList}`
+                };
+            }
+            return { loading: 'removing connector', completed: 'removed connector', failed: 'failed to remove connector' };
 
         case 'validate_code':
             return { loading: 'validating', completed: 'validated', failed: 'validation failed' };

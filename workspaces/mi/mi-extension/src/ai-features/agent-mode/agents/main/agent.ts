@@ -272,6 +272,9 @@ export async function executeAgent(
 
         eventHandler({ type: 'start' });
 
+        // Track tool inputs for use in tool results (by toolCallId)
+        const toolInputMap = new Map<string, any>();
+
         // Process stream
         for await (const part of fullStream) {
             switch (part.type) {
@@ -290,6 +293,9 @@ export async function executeAgent(
                     const toolInput = part.input as any;
                     logDebug(`[Agent] Tool call: ${part.toolName}`);
 
+                    // Store tool input for later use in tool result
+                    toolInputMap.set(part.toolCallId, toolInput);
+
                     // Record accumulated text as incomplete assistant message before tool call
                     if (request.chatHistoryManager && accumulatedContent) {
                         await request.chatHistoryManager.recordAssistantChunk(accumulatedContent, false);
@@ -303,7 +309,7 @@ export async function executeAgent(
                     }
 
                     // Get loading action from shared utility (single source of truth)
-                    const toolActions = getToolAction(part.toolName);
+                    const toolActions = getToolAction(part.toolName, undefined, toolInput);
                     const loadingAction = toolActions?.loading;
 
                     // Extract relevant info for display
@@ -355,8 +361,11 @@ export async function executeAgent(
                         await request.chatHistoryManager.recordToolResult(part.toolName, result);
                     }
 
+                    // Retrieve tool input from map (for dynamic action messages)
+                    const toolInput = toolInputMap.get(part.toolCallId);
+
                     // Get action from shared utility (single source of truth)
-                    const toolActions = getToolAction(part.toolName, result);
+                    const toolActions = getToolAction(part.toolName, result, toolInput);
 
                     // Use completed or failed action based on tool result
                     const resultAction = result?.success === false
@@ -370,6 +379,9 @@ export async function executeAgent(
                         toolOutput: { success: result?.success },
                         completedAction: resultAction,
                     });
+
+                    // Clean up stored tool input
+                    toolInputMap.delete(part.toolCallId);
                     break;
                 }
 

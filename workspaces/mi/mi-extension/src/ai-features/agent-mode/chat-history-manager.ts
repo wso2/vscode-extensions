@@ -507,7 +507,7 @@ export class ChatHistoryManager {
                     if (pendingToolCall && pendingToolCall.name === entry.toolName) {
                         // Calculate user-friendly action from shared utility
                         const output = entry.toolOutput as any;
-                        const toolActions = getToolAction(entry.toolName, output);
+                        const toolActions = getToolAction(entry.toolName, output, pendingToolCall.input);
 
                         let action: string;
                         if (output?.success === false && toolActions?.failed) {
