@@ -82,6 +82,12 @@ export function getToolAction(toolName: string, toolResult?: any): ToolActions |
         case 'validate_code':
             return { loading: 'validating', completed: 'validated', failed: 'validation failed' };
 
+        case 'create_data_mapper':
+            return { loading: 'creating data mapper', completed: 'created data mapper', failed: 'failed to create data mapper' };
+
+        case 'generate_data_mapping':
+            return { loading: 'generating mappings', completed: 'generated mappings', failed: 'failed to generate mappings' };
+
         default:
             return undefined;
     }

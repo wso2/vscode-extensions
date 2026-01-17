@@ -235,7 +235,6 @@ export function createConnectorTool(execute: ConnectorExecuteFn) {
 
             Note: This tool automatically appends connector usage documentation to help you use connectors correctly.`,
         inputSchema: connectorInputSchema,
-        providerOptions: getProviderCacheControl(),
         execute
     });
 }
@@ -305,7 +304,6 @@ export function createGetConnectorDocumentationTool(execute: GetConnectorDocumen
 
             This tool takes no parameters and returns the full connector documentation.`,
         inputSchema: z.object({}),
-        providerOptions: getProviderCacheControl(),
         execute
     });
 }
@@ -335,7 +333,6 @@ export function createGetAIConnectorDocumentationTool(execute: GetAIConnectorDoc
 
             This tool takes no parameters and returns the full AI connector documentation.`,
         inputSchema: z.object({}),
-        providerOptions: getProviderCacheControl(),
         execute
     });
 }

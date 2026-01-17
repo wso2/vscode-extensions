@@ -1,0 +1,380 @@
+/**
+ * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com/) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+/**
+ * Data Mapper Tools for Agent Mode
+ *
+ * Tools for creating and managing data mappers in MI projects.
+ * These tools enable the main agent to:
+ * 1. Create new data mapper configurations with input/output schemas
+ * 2. Generate AI-powered field mappings using a specialized sub-agent
+ */
+
+import { tool } from 'ai';
+import { z } from 'zod';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as vscode from 'vscode';
+import {
+    ToolResult,
+    CreateDataMapperExecuteFn,
+    GenerateDataMappingExecuteFn,
+} from './types';
+import { RUNTIME_VERSION_440 } from '../../../constants';
+import { generateSchemaFromContent } from '../../../util/schemaBuilder';
+import { updateTsFileIoTypes } from '../../../util/tsBuilder';
+import { IOType } from '@wso2/mi-core';
+import { executeDataMapperAgent } from '../agents/data-mapper/agent';
+import { MILanguageClient } from '../../../lang-client/activator';
+import { compareVersions } from '../../../util/onboardingUtils';
+import { logInfo, logError, logDebug } from '../../copilot/logger';
+import { MiDataMapperRpcManager } from '../../../rpc-managers/mi-data-mapper/rpc-manager';
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Detects if the input is a file path or inline schema content
+ * File paths:
+ * - Start with ./ or / or src/
+ * - End with .json, .xml, .xsd, .csv
+ */
+function isFilePath(input: string): boolean {
+    const trimmed = input.trim();
+    return trimmed.startsWith('./') ||
+           trimmed.startsWith('/') ||
+           trimmed.startsWith('src/') ||
+           /\.(json|xml|xsd|csv)$/i.test(trimmed);
+}
+
+/**
+ * Gets the data mapper config folder path based on MI version
+ * - MI >= 4.4.0: resources/datamapper/{name}/
+ * - MI < 4.4.0: resources/registry/gov/datamapper/{name}/
+ */
+async function getDataMapperFolder(projectPath: string, dmName: string): Promise<string> {
+    try {
+        const langClient = await MILanguageClient.getInstance(projectPath);
+        const projectDetails = await langClient?.getProjectDetails();
+        const runtimeVersion = projectDetails?.primaryDetails?.runtimeVersion?.value;
+        const isResourceContent = compareVersions(runtimeVersion || '4.4.0', RUNTIME_VERSION_440) >= 0;
+
+        return isResourceContent
+            ? path.join(projectPath, 'src', 'main', 'wso2mi', 'resources', 'datamapper', dmName)
+            : path.join(projectPath, 'src', 'main', 'wso2mi', 'resources', 'registry', 'gov', 'datamapper', dmName);
+    } catch (error) {
+        // Default to modern path if version detection fails
+        logDebug(`[DataMapperTools] Version detection failed, using default path: ${error}`);
+        return path.join(projectPath, 'src', 'main', 'wso2mi', 'resources', 'datamapper', dmName);
+    }
+}
+
+// ============================================================================
+// Create Data Mapper Tool
+// ============================================================================
+
+export function createCreateDataMapperExecute(
+    projectPath: string,
+    modifiedFiles?: string[]
+): CreateDataMapperExecuteFn {
+    return async (args): Promise<ToolResult> => {
+        const { name, input_schema, input_type, output_schema, output_type, auto_map, mapping_instructions } = args;
+
+        logInfo(`[CreateDataMapper] Creating data mapper: ${name}`);
+
+        try {
+            // 1. Validate name
+            if (!name || !/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name)) {
+                return {
+                    success: false,
+                    message: `Invalid data mapper name '${name}'. Name must start with a letter and contain only alphanumeric characters, underscores, or hyphens.`,
+                    error: 'Error: Invalid data mapper name',
+                };
+            }
+
+            // 2. Get data mapper folder path
+            const dmFolder = await getDataMapperFolder(projectPath, name);
+            const tsFilePath = path.join(dmFolder, `${name}.ts`);
+
+            // 3. Check if data mapper already exists
+            if (fs.existsSync(tsFilePath)) {
+                return {
+                    success: false,
+                    message: `Data mapper '${name}' already exists at ${path.relative(projectPath, tsFilePath)}. Use generate_data_mapping to update mappings.`,
+                    error: 'Error: Data mapper already exists',
+                };
+            }
+
+            // 4. Create data mapper files using existing RPC manager
+            // This creates: skeleton TS file, dm-utils.ts, and registry resources
+            // Note: filePath is used only to resolve workspace folder, can be any existing file in project
+            logDebug(`[CreateDataMapper] Creating data mapper files and registry resources...`);
+            const dmRpcManager = new MiDataMapperRpcManager(projectPath);
+            await dmRpcManager.createDMFiles({
+                filePath: projectPath, // Any existing path in project to resolve workspace folder
+                dmLocation: dmFolder,
+                dmName: name,
+            });
+            logDebug(`[CreateDataMapper] Created data mapper files at ${tsFilePath}`);
+
+            // 5. Process and update input schema
+            let inputContent: string;
+            if (isFilePath(input_schema)) {
+                const fullPath = path.join(projectPath, input_schema);
+                if (!fs.existsSync(fullPath)) {
+                    return {
+                        success: false,
+                        message: `Input schema file not found: ${input_schema}`,
+                        error: 'Error: File not found',
+                    };
+                }
+                inputContent = fs.readFileSync(fullPath, 'utf8');
+            } else {
+                // Assume it's sample data content, not JSON Schema
+                inputContent = input_schema;
+            }
+
+            // Generate schema from content and update the TypeScript file
+            logDebug(`[CreateDataMapper] Generating input schema from content...`);
+            const inputJsonSchema = await generateSchemaFromContent(projectPath, IOType.Input, inputContent, input_type);
+            await updateTsFileIoTypes(name, tsFilePath, inputJsonSchema, IOType.Input);
+            logDebug(`[CreateDataMapper] Updated input interface`);
+
+            // 6. Process and update output schema
+            let outputContent: string;
+            if (isFilePath(output_schema)) {
+                const fullPath = path.join(projectPath, output_schema);
+                if (!fs.existsSync(fullPath)) {
+                    return {
+                        success: false,
+                        message: `Output schema file not found: ${output_schema}`,
+                        error: 'Error: File not found',
+                    };
+                }
+                outputContent = fs.readFileSync(fullPath, 'utf8');
+            } else {
+                // Assume it's sample data content, not JSON Schema
+                outputContent = output_schema;
+            }
+
+            // Generate schema from content and update the TypeScript file
+            logDebug(`[CreateDataMapper] Generating output schema from content...`);
+            const outputJsonSchema = await generateSchemaFromContent(projectPath, IOType.Output, outputContent, output_type);
+            await updateTsFileIoTypes(name, tsFilePath, outputJsonSchema, IOType.Output);
+            logDebug(`[CreateDataMapper] Updated output interface`);
+
+            // 7. Track modified files
+            const relativeTsPath = path.relative(projectPath, tsFilePath);
+            if (modifiedFiles) {
+                modifiedFiles.push(relativeTsPath);
+            }
+
+            // 8. Auto-map if requested
+            if (auto_map) {
+                logInfo(`[CreateDataMapper] Auto-mapping enabled, calling sub-agent`);
+                const mappingResult = await executeDataMapperAgent({
+                    tsFilePath,
+                    projectPath,
+                    instructions: mapping_instructions,
+                });
+
+                if (!mappingResult.success) {
+                    return {
+                        success: true, // File created, but mapping failed
+                        message: `Data mapper '${name}' created at ${relativeTsPath}, but auto-mapping failed: ${mappingResult.error}. You can manually edit the mapFunction or use generate_data_mapping tool later.`,
+                    };
+                }
+
+                logInfo(`[CreateDataMapper] Auto-mapping completed successfully`);
+            }
+
+            const dmConfig = `resources:/datamapper/${name}/${name}.dmc`;
+            return {
+                success: true,
+                message: `Successfully created data mapper '${name}' at ${relativeTsPath}${auto_map ? ' with AI-generated mappings' : ''}.\n\nUse in Synapse XML:\n<datamapper config="${dmConfig}" inputType="${input_type}" outputType="${output_type}"/>`,
+            };
+
+        } catch (error) {
+            logError(`[CreateDataMapper] Error:`, error);
+            return {
+                success: false,
+                message: `Failed to create data mapper: ${error instanceof Error ? error.message : String(error)}`,
+                error: 'Error: Data mapper creation failed',
+            };
+        }
+    };
+}
+
+const createDataMapperInputSchema = z.object({
+    name: z.string().describe("Name for the data mapper config (e.g., 'OrderToCustomer', 'UserTransform'). Must start with a letter and contain only alphanumeric characters, underscores, or hyphens."),
+    input_schema: z.string().describe("Input schema - either sample data content or a relative file path to a sample data file (e.g., './sample-input.json', 'src/test/resources/input.xml'). For inline content, provide the actual sample JSON/XML/CSV data."),
+    input_type: z.enum(['JSON', 'XML', 'XSD', 'CSV']).describe("Type of input data format"),
+    output_schema: z.string().describe("Output schema - either sample data content or a relative file path to a sample data file. For inline content, provide the actual sample JSON/XML/CSV data."),
+    output_type: z.enum(['JSON', 'XML', 'XSD', 'CSV']).describe("Type of output data format"),
+    auto_map: z.boolean().optional().describe("If true, automatically generate field mappings using AI after creation. Defaults to false."),
+    mapping_instructions: z.string().optional().describe("Additional instructions for the AI mapping agent when auto_map is true (e.g., 'Map firstName and lastName to fullName by concatenating', 'Convert dates to ISO format')"),
+});
+
+export function createCreateDataMapperTool(execute: CreateDataMapperExecuteFn) {
+    return (tool as any)({
+        description: `
+        Create a new data mapper for transforming data between input and output schemas.
+
+        This tool:
+        1. Creates the data mapper folder structure at src/main/wso2mi/resources/datamapper/{name}/
+        2. Generates TypeScript file with input/output interfaces from schemas
+        3. Copies dm-utils.ts utility functions (arithmetic, string, type conversion)
+        4. Optionally generates AI-powered field mappings if auto_map is true
+
+        Use this when the user wants to transform data between different formats/schemas.
+
+        Example use cases:
+        - Transform API response to internal format
+        - Map database records to DTO objects
+        - Convert between different XML/JSON structures
+
+        The created data mapper can be used in Synapse XML with:
+        <datamapper config="resources:/datamapper/{name}/{name}.dmc" inputType="JSON" outputType="JSON"/>`,
+        inputSchema: createDataMapperInputSchema,
+        execute,
+    });
+}
+
+// ============================================================================
+// Generate Data Mapping Tool
+// ============================================================================
+
+export function createGenerateDataMappingExecute(
+    projectPath: string,
+    modifiedFiles?: string[]
+): GenerateDataMappingExecuteFn {
+    return async (args): Promise<ToolResult> => {
+        const { dm_config_path, instructions } = args;
+
+        logInfo(`[GenerateDataMapping] Generating mapping for: ${dm_config_path}`);
+
+        try {
+            // Resolve full path
+            const fullPath = path.isAbsolute(dm_config_path)
+                ? dm_config_path
+                : path.join(projectPath, dm_config_path);
+
+            // Find the .ts file
+            let tsFilePath = fullPath;
+
+            if (!fs.existsSync(fullPath)) {
+                return {
+                    success: false,
+                    message: `Path not found: ${dm_config_path}`,
+                    error: 'Error: Path not found',
+                };
+            }
+
+            const stats = fs.statSync(fullPath);
+            if (stats.isDirectory()) {
+                const dmName = path.basename(fullPath);
+                tsFilePath = path.join(fullPath, `${dmName}.ts`);
+            } else if (!fullPath.endsWith('.ts')) {
+                // Try adding .ts extension
+                tsFilePath = fullPath.replace(/\.[^/.]+$/, '.ts');
+                if (!fs.existsSync(tsFilePath)) {
+                    tsFilePath = fullPath + '.ts';
+                }
+            }
+
+            if (!fs.existsSync(tsFilePath)) {
+                return {
+                    success: false,
+                    message: `Data mapper TypeScript file not found at ${tsFilePath}. Ensure the data mapper exists and path is correct.`,
+                    error: 'Error: File not found',
+                };
+            }
+
+            // Verify it's a valid data mapper file
+            const content = fs.readFileSync(tsFilePath, 'utf8');
+            if (!content.includes('mapFunction')) {
+                return {
+                    success: false,
+                    message: `File at ${tsFilePath} does not appear to be a valid data mapper file (missing mapFunction).`,
+                    error: 'Error: Invalid data mapper file',
+                };
+            }
+
+            // Call sub-agent
+            logInfo(`[GenerateDataMapping] Calling data mapper sub-agent...`);
+            const result = await executeDataMapperAgent({
+                tsFilePath,
+                projectPath,
+                instructions,
+            });
+
+            if (result.success) {
+                const relativePath = path.relative(projectPath, tsFilePath);
+                if (modifiedFiles) {
+                    modifiedFiles.push(relativePath);
+                }
+                return {
+                    success: true,
+                    message: `Successfully generated AI-powered mappings for ${relativePath}. The mapFunction has been updated with field mappings.`,
+                };
+            } else {
+                return {
+                    success: false,
+                    message: `Failed to generate mappings: ${result.error}`,
+                    error: 'Error: Mapping generation failed',
+                };
+            }
+
+        } catch (error) {
+            logError(`[GenerateDataMapping] Error:`, error);
+            return {
+                success: false,
+                message: `Failed to generate data mapping: ${error instanceof Error ? error.message : String(error)}`,
+                error: 'Error: Mapping generation failed',
+            };
+        }
+    };
+}
+
+const generateDataMappingInputSchema = z.object({
+    dm_config_path: z.string().describe("Path to the data mapper config folder or .ts file. Can be: folder path (e.g., 'src/main/wso2mi/resources/datamapper/OrderTransform'), or direct file path (e.g., 'src/main/wso2mi/resources/datamapper/OrderTransform/OrderTransform.ts')"),
+    instructions: z.string().optional().describe("Additional instructions for the sub agent (e.g., 'Combine first and last name into fullName', 'Convert dates to ISO format', 'Map items array to products array')"),
+});
+
+export function createGenerateDataMappingTool(execute: GenerateDataMappingExecuteFn) {
+    return (tool as any)({
+        description: `
+        Generate AI-powered field mappings for an existing data mapper.
+
+        This tool reads the TypeScript mapping file with input/output interfaces and uses a specialized AI mapping agent to generate appropriate field mappings in the mapFunction.
+
+        Use this when:
+        - A data mapper exists but has empty or incomplete mappings
+        - You want to regenerate mappings with different instructions
+        - The user wants AI assistance with complex field transformations
+
+        The AI mapping agent will:
+        1. Analyze input and output interface structures
+        2. Match fields by name and type similarity
+        3. Handle nested objects and arrays
+        4. Apply any user-provided mapping instructions`,
+        inputSchema: generateDataMappingInputSchema,
+        execute,
+    });
+}

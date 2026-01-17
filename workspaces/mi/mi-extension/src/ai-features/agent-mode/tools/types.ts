@@ -76,6 +76,8 @@ export const REMOVE_CONNECTOR_TOOL_NAME = 'remove_connector_from_project_pom';
 export const VALIDATE_CODE_TOOL_NAME = 'validate_code';
 export const GET_CONNECTOR_DOCUMENTATION_TOOL_NAME = 'get_connector_documentation';
 export const GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME = 'get_ai_connector_documentation';
+export const CREATE_DATA_MAPPER_TOOL_NAME = 'create_data_mapper';
+export const GENERATE_DATA_MAPPING_TOOL_NAME = 'generate_data_mapping';
 
 // ============================================================================
 // Error Messages
@@ -139,4 +141,23 @@ export type GrepExecuteFn = (args: {
 export type GlobExecuteFn = (args: {
     pattern: string;
     path?: string;
+}) => Promise<ToolResult>;
+
+// ============================================================================
+// Data Mapper Execute Function Types
+// ============================================================================
+
+export type CreateDataMapperExecuteFn = (args: {
+    name: string;
+    input_schema: string;
+    input_type: 'JSON' | 'XML' | 'CSV';
+    output_schema: string;
+    output_type: 'JSON' | 'XML' | 'CSV';
+    auto_map?: boolean;
+    mapping_instructions?: string;
+}) => Promise<ToolResult>;
+
+export type GenerateDataMappingExecuteFn = (args: {
+    dm_config_path: string;
+    instructions?: string;
 }) => Promise<ToolResult>;

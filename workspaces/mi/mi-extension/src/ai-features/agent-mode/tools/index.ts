@@ -71,6 +71,16 @@ export {
     createValidateCodeTool,
 } from './lsp_tools';
 
+// Export data mapper tools
+export {
+    // Execute function creators
+    createCreateDataMapperExecute,
+    createGenerateDataMappingExecute,
+    // Tool creators
+    createCreateDataMapperTool,
+    createGenerateDataMappingTool,
+} from './data_mapper_tools';
+
 // Re-export tool names for convenience
 export {
     FILE_WRITE_TOOL_NAME,
@@ -85,6 +95,8 @@ export {
     VALIDATE_CODE_TOOL_NAME,
     GET_CONNECTOR_DOCUMENTATION_TOOL_NAME,
     GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
+    CREATE_DATA_MAPPER_TOOL_NAME,
+    GENERATE_DATA_MAPPING_TOOL_NAME,
 } from './types';
 
 /**

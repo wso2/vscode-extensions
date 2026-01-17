@@ -446,7 +446,6 @@ export function createAddConnectorTool(execute: AddConnectorExecuteFn) {
             Example:
             - To add AI and Salesforce connectors: connector_names: ["AI", "Salesforce"]`,
         inputSchema: addConnectorInputSchema,
-        providerOptions: getProviderCacheControl(),
         execute
     });
 }
@@ -481,7 +480,6 @@ export function createRemoveConnectorTool(execute: RemoveConnectorExecuteFn) {
             Example:
             - To remove AI connector: connector_names: ["AI"]`,
         inputSchema: removeConnectorInputSchema,
-        providerOptions: getProviderCacheControl(),
         execute
     });
 }

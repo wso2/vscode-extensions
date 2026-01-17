@@ -29,6 +29,8 @@ import {
     VALIDATE_CODE_TOOL_NAME,
     GET_CONNECTOR_DOCUMENTATION_TOOL_NAME,
     GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
+    CREATE_DATA_MAPPER_TOOL_NAME,
+    GENERATE_DATA_MAPPING_TOOL_NAME,
 } from '../../tools/types';
 import { SYNAPSE_GUIDE } from '../../context/synapse_guide';
 
@@ -73,6 +75,10 @@ You have access to following tools to develop Synapse integrations:
 
 **Project Tools** (for validation and quality checks):
 - ${VALIDATE_CODE_TOOL_NAME}: Validate Synapse XML files using the LemMinx Language Server. Use this after creating/editing files to check for errors and warnings.
+
+**Data Mapper Tools** (for creating and configuring data transformations):
+- ${CREATE_DATA_MAPPER_TOOL_NAME}: Create a new data mapper with input/output schemas. Automatically generates folder structure, TypeScript mapping file, and dm-utils.ts. Accepts schemas as inline JSON Schema strings or file paths to sample data files.
+- ${GENERATE_DATA_MAPPING_TOOL_NAME}: Generate AI-powered field mappings for an existing data mapper. Uses a specialized mapping agent to analyze input/output interfaces and create the mapFunction.
 
 # User Query Processing Workflow
 
@@ -136,6 +142,61 @@ For MI projects, use these standard paths:
 - Message Processors: \`src/main/wso2mi/artifacts/message-processors/\`
 - Templates: \`src/main/wso2mi/artifacts/templates/\`
 - Tasks: \`src/main/wso2mi/artifacts/tasks/\`
+- Data Mappers: \`src/main/wso2mi/resources/datamapper/{name}/\`
+
+# Data Mappers
+
+Data mappers transform data between input and output schemas using TypeScript. They are used with the \`<datamapper>\` mediator in Synapse integrations.
+
+**Folder Structure:**
+Each data mapper creates a folder at \`src/main/wso2mi/resources/datamapper/{name}/\` containing:
+- \`{name}.ts\` - TypeScript mapping file with input/output interfaces and mapFunction
+- \`dm-utils.ts\` - Utility operators (arithmetic, string, type conversion functions)
+
+**TypeScript Mapping File Format:**
+\`\`\`typescript
+import * as dmUtils from "./dm-utils";
+declare var DM_PROPERTIES: any;
+
+/**
+ * inputType:JSON
+ * title:"InputSchemaName"
+ */
+interface InputRoot {
+    // Input schema fields
+}
+
+/**
+ * outputType:JSON
+ * title:"OutputSchemaName"
+ */
+interface OutputRoot {
+    // Output schema fields
+}
+
+export function mapFunction(input: InputRoot): OutputRoot {
+    return {
+        // Field mappings: outputField: input.inputField
+        // Can use dmUtils functions for transformations
+    };
+}
+\`\`\`
+
+**Using Data Mapper in Synapse XML:**
+\`\`\`xml
+<datamapper
+    config="resources:/datamapper/{name}/{name}.dmc"
+    inputSchema="resources:/datamapper/{name}/{name}_inputSchema.json"
+    inputType="JSON"
+    outputSchema="resources:/datamapper/{name}/{name}_outputSchema.json"
+    outputType="JSON"/>
+\`\`\`
+
+**Available dm-utils Functions:**
+- Arithmetic: \`dmUtils.sum()\`, \`dmUtils.max()\`, \`dmUtils.min()\`, \`dmUtils.average()\`, \`dmUtils.ceiling()\`, \`dmUtils.floor()\`, \`dmUtils.round()\`
+- String: \`dmUtils.concat()\`, \`dmUtils.split()\`, \`dmUtils.toUppercase()\`, \`dmUtils.toLowercase()\`, \`dmUtils.trim()\`, \`dmUtils.substring()\`, \`dmUtils.stringLength()\`, \`dmUtils.startsWith()\`, \`dmUtils.endsWith()\`, \`dmUtils.replaceFirst()\`, \`dmUtils.match()\`
+- Type conversion: \`dmUtils.toNumber()\`, \`dmUtils.toBoolean()\`, \`dmUtils.numberToString()\`, \`dmUtils.booleanToString()\`
+- Property access: \`dmUtils.getPropertyValue(scope, name)\`
 
 # User Communication
 
