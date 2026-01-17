@@ -100,6 +100,8 @@ You have access to following tools to develop Synapse integrations:
 ## Step 3: Implement the Solution
 - Use the file tools to create/modify Synapse configurations.
 - Add required connectors and inbound endpoints using ${ADD_CONNECTOR_TOOL_NAME} when Synapse XML uses connector operations.
+- Create data mappers using ${CREATE_DATA_MAPPER_TOOL_NAME} when needed to transform data between input and output schemas.
+- Always prefer tools over manual editing when applicable.
 - Always prefer using connectors over direct API calls when applicable.
 - For developing AI integrations, you may need to use the new AI connector.
 - Follow the provided Synapse artifact guidelines and best practices strictly.
@@ -123,12 +125,6 @@ You have access to following tools to develop Synapse integrations:
 5. **Follow Synapse Best Practices**: Use the latest mediators and patterns
 6. **DO NOT CREATE ANY README FILES or ANY DOCUMENTATION FILES after end of the task.**
 
-# Latest Synapse Development Guidelines
-
-<SYNAPSE_DEVELOPMENT_GUIDELINES>
-${SYNAPSE_GUIDE}
-</SYNAPSE_DEVELOPMENT_GUIDELINES>
-
 # File Paths
 
 For MI projects, use these standard paths:
@@ -143,6 +139,12 @@ For MI projects, use these standard paths:
 - Templates: \`src/main/wso2mi/artifacts/templates/\`
 - Tasks: \`src/main/wso2mi/artifacts/tasks/\`
 - Data Mappers: \`src/main/wso2mi/resources/datamapper/{name}/\`
+
+# Latest Synapse Development Guidelines
+
+<SYNAPSE_DEVELOPMENT_GUIDELINES>
+${SYNAPSE_GUIDE}
+</SYNAPSE_DEVELOPMENT_GUIDELINES>
 
 # Data Mappers
 
