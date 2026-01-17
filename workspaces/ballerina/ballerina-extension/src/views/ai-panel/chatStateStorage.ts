@@ -96,14 +96,17 @@ export class ChatStateStorage {
 
     /**
      * Clear workspace state
-     * Cleans up any pending review temp projects before clearing.
+     * Cleans up any pending review temp projects and cancels pending approvals before clearing.
      * @param workspaceId Workspace identifier
      */
     async clearWorkspace(workspaceId: string): Promise<void> {
-        // Cleanup pending review temp projects before clearing
+        // Cleanup pending review temp projects and approvals before clearing
         const workspace = this.storage.get(workspaceId);
         if (workspace) {
             for (const [threadId, thread] of workspace.threads) {
+                // Cancel pending approvals
+                this.cancelThreadApprovals(workspaceId, threadId);
+
                 const pendingReview = this.getPendingReviewGeneration(workspaceId, threadId);
                 if (pendingReview?.reviewState.tempProjectPath) {
                     console.log(`[ChatStateStorage] Cleaning up pending review temp project: ${pendingReview.reviewState.tempProjectPath}`);
@@ -225,6 +228,16 @@ export class ChatStateStorage {
 
         console.log(`[ChatStateStorage] Added generation: ${generation.id} to thread: ${threadId}`);
 
+        // Log chat state addition for testing
+        console.log('[AGENT_TEST_LOG:CHAT_STATE:ADD]', JSON.stringify({
+            workspaceId,
+            threadId,
+            generationId: generation.id,
+            userPrompt: generation.userPrompt,
+            metadata: generation.metadata,
+            totalGenerations: thread.generations.length
+        }));
+
         // Capture checkpoint for this generation asynchronously
         this.captureCheckpointForGeneration(workspaceId, threadId, generation.id).catch(error => {
             console.error('[ChatStateStorage] Failed to capture checkpoint:', error);
@@ -253,6 +266,15 @@ export class ChatStateStorage {
 
             if (checkpoint) {
                 await this.addCheckpointToGeneration(workspaceId, threadId, generationId, checkpoint);
+
+                // Log checkpoint capture for testing
+                console.log('[AGENT_TEST_LOG:CHECKPOINT:CAPTURED]', JSON.stringify({
+                    workspaceId,
+                    threadId,
+                    generationId,
+                    checkpointId: checkpoint.id,
+                    fileCount: checkpoint.fileList?.length || 0
+                }));
 
                 notifyCheckpointCaptured({
                     messageId: generationId,
@@ -563,6 +585,7 @@ export class ChatStateStorage {
 
     /**
      * Restore thread to a checkpoint (truncate generations after checkpoint)
+     * Cancels pending approvals for all generations after the checkpoint.
      * @param workspaceId Workspace identifier
      * @param threadId Thread identifier
      * @param checkpointId Checkpoint identifier
@@ -587,6 +610,14 @@ export class ChatStateStorage {
         if (checkpointGenerationIndex === -1) {
             console.error(`[ChatStateStorage][RESTORE] Checkpoint ${checkpointId} not found in thread ${threadId}`);
             return false;
+        }
+
+        // Cancel pending approvals for generations that will be removed
+        for (let i = checkpointGenerationIndex; i < thread.generations.length; i++) {
+            const generation = thread.generations[i];
+            if (generation.pendingApproval) {
+                this.cancelApproval(workspaceId, threadId, generation.id, 'Checkpoint restored');
+            }
         }
 
         // Truncate generations at the checkpoint
@@ -643,6 +674,184 @@ export class ChatStateStorage {
             totalGenerations,
             estimatedSizeMB: estimatedSize / (1024 * 1024)
         };
+    }
+
+    // ============================================
+    // Approval Management
+    // ============================================
+
+    // Map requestId to location (workspace, thread, generation)
+    private approvalRequestIdMap: Map<string, { workspaceId: string; threadId: string; generationId: string }> = new Map();
+
+    // Default timeout for approvals (30 minutes)
+    private readonly APPROVAL_TIMEOUT_MS = 30 * 60 * 1000;
+
+    /**
+     * Request approval for a generation
+     * Creates promise that will be resolved by resolveApproval()
+     *
+     * @param workspaceId Workspace identifier
+     * @param threadId Thread identifier
+     * @param generationId Generation identifier
+     * @param type Approval type ('plan', 'task', or 'connector_spec')
+     * @param data Approval-specific data
+     * @returns Promise that resolves with approval response
+     */
+    requestApproval<T>(
+        workspaceId: string,
+        threadId: string,
+        generationId: string,
+        type: 'plan' | 'task' | 'connector_spec',
+        data: any
+    ): { promise: Promise<T>; requestId: string } {
+        const generation = this.getGeneration(workspaceId, threadId, generationId);
+        if (!generation) {
+            throw new Error(`[ChatStateStorage] Generation not found: ${generationId}`);
+        }
+
+        // Cancel existing approval if any
+        if (generation.pendingApproval) {
+            console.warn(`[ChatStateStorage] Replacing existing ${generation.pendingApproval.type} approval with ${type} approval for generation: ${generationId}`);
+            this.cancelApproval(workspaceId, threadId, generationId, 'Replaced by new approval');
+        }
+
+        const requestId = `${type}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+
+        const promise = new Promise<T>((resolve, reject) => {
+            const timeoutId = setTimeout(() => {
+                this.cancelApproval(workspaceId, threadId, generationId, `Approval timeout: ${type}`);
+                reject(new Error(`Approval timeout: ${type}`));
+            }, this.APPROVAL_TIMEOUT_MS);
+
+            generation.pendingApproval = {
+                type,
+                requestId,
+                createdAt: Date.now(),
+                timeoutId,
+                resolver: { resolve, reject },
+                data
+            };
+
+            // Map requestId to location
+            this.approvalRequestIdMap.set(requestId, { workspaceId, threadId, generationId });
+
+            console.log(`[ChatStateStorage] Created ${type} approval request: ${requestId} for generation: ${generationId}`);
+        });
+
+        return { promise, requestId };
+    }
+
+    /**
+     * Resolve approval by requestId (called from RPC)
+     *
+     * @param requestId Request identifier
+     * @param result Approval result
+     */
+    resolveApproval(requestId: string, result: any): void {
+        const location = this.approvalRequestIdMap.get(requestId);
+        if (!location) {
+            console.warn(`[ChatStateStorage] No approval found for requestId: ${requestId}`);
+            return;
+        }
+
+        const { workspaceId, threadId, generationId } = location;
+        const generation = this.getGeneration(workspaceId, threadId, generationId);
+
+        if (!generation?.pendingApproval) {
+            console.warn(`[ChatStateStorage] No pending approval for generation: ${generationId}`);
+            return;
+        }
+
+        if (generation.pendingApproval.requestId !== requestId) {
+            console.warn(`[ChatStateStorage] RequestId mismatch for generation: ${generationId}`);
+            return;
+        }
+
+        console.log(`[ChatStateStorage] Resolving ${generation.pendingApproval.type} approval: ${requestId}`);
+
+        // Clear timeout
+        clearTimeout(generation.pendingApproval.timeoutId);
+
+        // Resolve promise
+        generation.pendingApproval.resolver.resolve(result);
+
+        // Cleanup
+        generation.pendingApproval = undefined;
+        this.approvalRequestIdMap.delete(requestId);
+    }
+
+    /**
+     * Cancel approval for a generation
+     *
+     * @param workspaceId Workspace identifier
+     * @param threadId Thread identifier
+     * @param generationId Generation identifier
+     * @param reason Cancellation reason
+     */
+    private cancelApproval(workspaceId: string, threadId: string, generationId: string, reason: string): void {
+        const generation = this.getGeneration(workspaceId, threadId, generationId);
+        if (!generation?.pendingApproval) {
+            return;
+        }
+
+        console.log(`[ChatStateStorage] Cancelling ${generation.pendingApproval.type} approval for generation: ${generationId}, reason: ${reason}`);
+
+        clearTimeout(generation.pendingApproval.timeoutId);
+        generation.pendingApproval.resolver.reject(new Error(reason));
+
+        this.approvalRequestIdMap.delete(generation.pendingApproval.requestId);
+        generation.pendingApproval = undefined;
+    }
+
+    /**
+     * Cancel all pending approvals for a thread (e.g., on abort)
+     *
+     * @param workspaceId Workspace identifier
+     * @param threadId Thread identifier
+     */
+    cancelThreadApprovals(workspaceId: string, threadId: string): void {
+        const thread = this.getOrCreateThread(workspaceId, threadId);
+        let count = 0;
+
+        for (const generation of thread.generations) {
+            if (generation.pendingApproval) {
+                this.cancelApproval(workspaceId, threadId, generation.id, 'Thread aborted');
+                count++;
+            }
+        }
+
+        console.log(`[ChatStateStorage] Canceled ${count} pending approval(s) for thread: ${threadId}`);
+    }
+
+    /**
+     * Get pending approval count (for debugging)
+     */
+    getPendingApprovalCount(): { plans: number; tasks: number; connectorSpecs: number } {
+        let plans = 0;
+        let tasks = 0;
+        let connectorSpecs = 0;
+
+        for (const workspace of this.storage.values()) {
+            for (const thread of workspace.threads.values()) {
+                for (const generation of thread.generations) {
+                    if (generation.pendingApproval) {
+                        switch (generation.pendingApproval.type) {
+                            case 'plan':
+                                plans++;
+                                break;
+                            case 'task':
+                                tasks++;
+                                break;
+                            case 'connector_spec':
+                                connectorSpecs++;
+                                break;
+                        }
+                    }
+                }
+            }
+        }
+
+        return { plans, tasks, connectorSpecs };
     }
 
     // ============================================

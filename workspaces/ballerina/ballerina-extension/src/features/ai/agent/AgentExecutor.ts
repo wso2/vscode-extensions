@@ -112,7 +112,7 @@ function determineAffectedPackages(
  * - Review mode (temp project persists until user accepts/declines)
  * - Tool execution (TaskWrite, FileEdit, Diagnostics, etc.)
  * - Stream event processing
- * - Plan approval workflow (via ApprovalManager in TaskWrite tool)
+ * - Plan approval workflow (via ApprovalService in TaskWrite tool)
  */
 export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
     constructor(config: AICommandConfig<GenerateAgentCodeRequest>) {
@@ -136,6 +136,10 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
         const tempProjectPath = this.config.executionContext.tempProjectPath!;
         const params = this.config.params; // Access params from config
         const modifiedFiles: string[] = [];
+        console.log('[AGENT_TEST_LOG:MODIFIED_FILES:INIT]', JSON.stringify({
+            arrayLength: modifiedFiles.length,
+            arrayRef: `${modifiedFiles}`
+        }));
 
         try {
             // 1. Get project sources from temp directory
@@ -181,8 +185,18 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                 },
             ];
 
+            // Log LLM request for testing
+            console.log('[AGENT_TEST_LOG:LLM_REQUEST]', JSON.stringify({
+                messageCount: allMessages.length,
+                historyCount: historyMessages.length,
+                userPrompt: params.usecase,
+                systemPromptLength: getSystemPrompt(projects, params.operationType).length
+            }));
+            console.log(`[AgentExecutor] Before fetching libraries for LibraryProviderTool`);
+
             // Get libraries for library provider tool
             const allLibraries = await getAllLibraries(GenerationType.CODE_GENERATION);
+            console.log(`[AgentExecutor] Fetched ${allLibraries.length} libraries for LibraryProviderTool`);
             const libraryDescriptions = allLibraries.length > 0
                 ? allLibraries.map((lib) => `- ${lib.name}: ${lib.description}`).join("\n")
                 : "- No libraries available";
@@ -200,9 +214,12 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                 threadId: 'default',
             });
 
+            // Get LLM client (use injected mock for tests, or real client for production)
+            const llmClient = this.config.llmClient || await getAnthropicClient(ANTHROPIC_SONNET_4);
+
             // Stream LLM response
             const { fullStream, response } = streamText({
-                model: await getAnthropicClient(ANTHROPIC_SONNET_4),
+                model: llmClient,
                 maxOutputTokens: 8192,
                 temperature: 0,
                 messages: allMessages,
@@ -279,6 +296,8 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
                     // Note: Abort event is sent by base class handleExecutionError()
                 }
 
+                console.error("[AgentExecutor] Unhandled streaming error:", error);
+
                 // Re-throw for base class error handling
                 throw error;
             }
@@ -292,6 +311,7 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
             if ((error as any).name === 'AbortError' || this.config.abortController.signal.aborted) {
                 throw error;
             }
+            console.error("[AgentExecutor] Unknown Execution error:", error);
 
             this.config.eventHandler({
                 type: "error",
@@ -314,6 +334,7 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
         part: TextStreamPart<any>,
         context: StreamContext
     ): Promise<void> {
+
         switch (part.type) {
             case "text-delta":
                 context.eventHandler({
@@ -338,8 +359,14 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
                 await this.handleStreamFinish(context);
                 break;
 
+            case "tool-call":
+                break;
+
+            case "tool-result":
+                break;
+
             default:
-                // Tool calls/results handled automatically by SDK
+                // Other stream parts handled automatically by SDK
                 break;
         }
     }
@@ -423,6 +450,12 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
         }
 
         // Update chat state storage
+        console.log('[AGENT_TEST_LOG:CHAT_STATE:UPDATE]', JSON.stringify({
+            workspaceId,
+            threadId,
+            generationId: context.messageId,
+            messageCount: assistantMessages.length
+        }));
         chatStateStorage.updateGeneration(workspaceId, threadId, context.messageId, {
             modelMessages: assistantMessages,
         });

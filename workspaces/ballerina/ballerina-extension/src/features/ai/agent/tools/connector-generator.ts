@@ -33,7 +33,7 @@ import { CopilotEventHandler } from "../../utils/events";
 import { langClient } from "../../activator";
 import { applyTextEdits } from "../utils";
 import { LIBRARY_PROVIDER_TOOL } from "../../utils/libs/libraries";
-import { approvalManager } from '../../state/ApprovalManager';
+import { approvalService } from '../../services/ApprovalService';
 import { sendAiSchemaDidOpen } from "../../utils/project/ls-schema-notifications";
 
 export const CONNECTOR_GENERATOR_TOOL = "ConnectorGeneratorTool";
@@ -43,7 +43,15 @@ const SpecFetcherInputSchema = z.object({
     serviceDescription: z.string().optional().describe("Optional description of what the service is for"),
 });
 
-export function createConnectorGeneratorTool(eventHandler: CopilotEventHandler, tempProjectPath: string, projectName?: string, modifiedFiles?: string[]) {
+export function createConnectorGeneratorTool(
+    eventHandler: CopilotEventHandler,
+    tempProjectPath: string,
+    projectName: string | undefined,
+    modifiedFiles: string[] | undefined,
+    workspaceId: string,
+    threadId: string,
+    generationId: string
+) {
     return tool({
         description: `
 Generates a connector for an external service by deriving the service contract from user-provided specifications. Use this tool only when the service contract is unclear or missing, and the target service is not a well-established platform with an existing SDK or connector
@@ -71,7 +79,7 @@ Returns complete connector information (DO NOT read files, use the returned cont
 **Result**: Returns importStatement and generatedFiles with complete content → Use importStatement in your code`,
         inputSchema: SpecFetcherInputSchema,
         execute: async (input: SpecFetcherInput): Promise<SpecFetcherResult> => {
-            return await ConnectorGeneratorTool(input, eventHandler, tempProjectPath, projectName, modifiedFiles);
+            return await ConnectorGeneratorTool(input, eventHandler, tempProjectPath, projectName, modifiedFiles, workspaceId, threadId, generationId);
         },
     });
 }
@@ -80,8 +88,11 @@ export async function ConnectorGeneratorTool(
     input: SpecFetcherInput,
     eventHandler: CopilotEventHandler,
     tempProjectPath: string,
-    projectName?: string,
-    modifiedFiles?: string[]
+    projectName: string | undefined,
+    modifiedFiles: string[] | undefined,
+    workspaceId: string,
+    threadId: string,
+    generationId: string
 ): Promise<SpecFetcherResult> {
     if (!eventHandler) {
         return createErrorResult(
@@ -103,7 +114,7 @@ export async function ConnectorGeneratorTool(
     const requestId = crypto.randomUUID();
 
     try {
-        const userInput = await requestSpecFromUser(requestId, input, eventHandler);
+        const userInput = await requestSpecFromUser(requestId, input, eventHandler, workspaceId, threadId, generationId);
 
         if (!userInput.provided) {
             return handleUserSkip(requestId, input.serviceName, userInput.comment, eventHandler);
@@ -147,7 +158,10 @@ export async function ConnectorGeneratorTool(
 async function requestSpecFromUser(
     requestId: string,
     input: SpecFetcherInput,
-    eventHandler: CopilotEventHandler
+    eventHandler: CopilotEventHandler,
+    workspaceId: string,
+    threadId: string,
+    generationId: string
 ): Promise<{ provided: boolean; spec?: any; comment?: string }> {
     eventHandler({
         type: "connector_generation_notification",
@@ -160,7 +174,7 @@ async function requestSpecFromUser(
         }`,
     });
 
-    return waitForUserResponse(requestId, eventHandler);
+    return waitForUserResponse(workspaceId, threadId, generationId, eventHandler);
 }
 
 function handleUserSkip(
@@ -370,11 +384,13 @@ function handleError(
 }
 
 async function waitForUserResponse(
-    requestId: string,
+    workspaceId: string,
+    threadId: string,
+    generationId: string,
     eventHandler: CopilotEventHandler
 ): Promise<{ provided: boolean; spec?: any; comment?: string }> {
-    // Use ApprovalManager for connector spec approval (replaces state machine subscription)
-    return approvalManager.requestConnectorSpec(requestId, eventHandler);
+    // Use ApprovalService for connector spec approval
+    return approvalService.requestConnectorSpec(workspaceId, threadId, generationId, eventHandler);
 }
 
 function createErrorResult(

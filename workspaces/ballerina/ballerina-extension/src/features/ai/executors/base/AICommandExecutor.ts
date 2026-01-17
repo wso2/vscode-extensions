@@ -52,6 +52,9 @@ export interface AICommandConfig<TParams = any> {
         /** Cleanup strategy: 'immediate' (DataMapper) or 'review' (Agent) */
         cleanupStrategy: 'immediate' | 'review';
     };
+
+    /** Optional LLM client for testing (dependency injection) */
+    llmClient?: any;
 }
 
 /**

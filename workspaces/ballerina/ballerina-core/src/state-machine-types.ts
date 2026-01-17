@@ -468,6 +468,63 @@ export interface GenerationReviewState {
 }
 
 /**
+ * Approval response types
+ */
+export interface PlanApprovalResponse {
+    approved: boolean;
+    comment?: string;
+}
+
+export interface TaskApprovalResponse {
+    approved: boolean;
+    comment?: string;
+    approvedTaskDescription?: string;
+}
+
+export interface ConnectorSpecResponse {
+    provided: boolean;
+    spec?: any;
+    comment?: string;
+}
+
+/**
+ * Data associated with pending approvals
+ */
+export interface PlanApprovalData {
+    tasks: Task[];
+}
+
+export interface TaskApprovalData {
+    taskDescription: string;
+    tasks: Task[];
+}
+
+export interface ConnectorSpecData {
+    // No additional data needed for connector spec request
+}
+
+/**
+ * Generic promise resolver for approval requests
+ */
+export interface PromiseResolver<T> {
+    resolve: (value: T) => void;
+    reject: (error: Error) => void;
+}
+
+/**
+ * Pending approval state for a generation
+ * Only one approval can be pending per generation
+ */
+export interface PendingApproval {
+    type: 'plan' | 'task' | 'connector_spec';
+    requestId: string;
+    createdAt: number;
+    timeoutId: NodeJS.Timeout;
+    resolver: PromiseResolver<any>;
+    data: PlanApprovalData | TaskApprovalData | ConnectorSpecData;
+}
+
+/**
  * Metadata for a generation
  */
 export interface GenerationMetadata {
@@ -499,6 +556,9 @@ export interface Generation {
 
     /** Review state (embedded, not separate context) */
     reviewState: GenerationReviewState;
+
+    /** Pending approval for this generation (only one approval can be pending at a time) */
+    pendingApproval?: PendingApproval;
 
     /** Checkpoint linked to this generation (optional) */
     checkpoint?: Checkpoint;

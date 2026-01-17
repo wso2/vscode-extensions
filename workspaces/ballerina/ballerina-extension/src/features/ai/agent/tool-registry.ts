@@ -76,7 +76,10 @@ export function createToolRegistry(opts: ToolRegistryOptions) {
             eventHandler,
             tempProjectPath,
             projects[0].projectName,
-            modifiedFiles
+            modifiedFiles,
+            workspaceId,
+            threadId || 'default',
+            generationId
         ),
         [FILE_WRITE_TOOL_NAME]: createWriteTool(
             createWriteExecute(eventHandler, tempProjectPath, modifiedFiles)

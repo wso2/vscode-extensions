@@ -156,6 +156,7 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
  * Re-initializes the client if the login method has changed.
  */
 export const getAnthropicClient = async (model: AnthropicModel): Promise<any> => {
+
     const loginMethod = await getLoginMethod();
 
     // Recreate client if login method has changed or no cached instance

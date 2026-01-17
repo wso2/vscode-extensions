@@ -37,5 +37,6 @@ export async function getAllLibraries(generationType: GenerationType): Promise<M
     const result = (await langClient.getCopilotCompactLibraries({
         mode: getGenerationMode(generationType),
     })) as { libraries: MinifiedLibrary[] };
+    console.log(`[Library Fetch] Retrieved ${result.libraries.length} libraries for generation type: ${generationType}`);
     return result.libraries as MinifiedLibrary[];
 }
