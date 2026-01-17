@@ -276,7 +276,6 @@ export function createValidateCodeTool(execute: ValidateCodeExecuteFn) {
             - Ensure required connectors are added before validating files that use them using ${ADD_CONNECTOR_TOOL_NAME}
             - Available fixes are provided by the LemMinx LSP and show what can be auto-corrected`,
         inputSchema: validateCodeInputSchema,
-        providerOptions: getProviderCacheControl(),
         execute
     });
 }

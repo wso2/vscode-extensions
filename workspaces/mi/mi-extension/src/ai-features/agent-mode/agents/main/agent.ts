@@ -53,6 +53,12 @@ import {
     createValidateCodeExecute,
 } from '../../tools/lsp_tools';
 import {
+    createCreateDataMapperTool,
+    createCreateDataMapperExecute,
+    createGenerateDataMappingTool,
+    createGenerateDataMappingExecute,
+} from '../../tools/data_mapper_tools';
+import {
     FILE_WRITE_TOOL_NAME,
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
@@ -65,6 +71,8 @@ import {
     VALIDATE_CODE_TOOL_NAME,
     GET_CONNECTOR_DOCUMENTATION_TOOL_NAME,
     GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
+    CREATE_DATA_MAPPER_TOOL_NAME,
+    GENERATE_DATA_MAPPING_TOOL_NAME,
 } from '../../tools/types';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
 import { ChatHistoryManager } from '../../chat-history-manager';
@@ -241,6 +249,12 @@ export async function executeAgent(
             [GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME]: createGetAIConnectorDocumentationTool(
                 createGetAIConnectorDocumentationExecute()
             ),
+            [CREATE_DATA_MAPPER_TOOL_NAME]: createCreateDataMapperTool(
+                createCreateDataMapperExecute(request.projectPath, modifiedFiles)
+            ),
+            [GENERATE_DATA_MAPPING_TOOL_NAME]: createGenerateDataMappingTool(
+                createGenerateDataMappingExecute(request.projectPath, modifiedFiles)
+            ),
         };
 
         // Start streaming
@@ -311,6 +325,16 @@ export async function executeAgent(
                         };
                     } else if (part.toolName === GET_CONNECTOR_DOCUMENTATION_TOOL_NAME || part.toolName === GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME) {
                         displayInput = {}; // No input parameters
+                    } else if (part.toolName === CREATE_DATA_MAPPER_TOOL_NAME) {
+                        displayInput = {
+                            name: toolInput?.name,
+                            input_type: toolInput?.input_type,
+                            output_type: toolInput?.output_type,
+                        };
+                    } else if (part.toolName === GENERATE_DATA_MAPPING_TOOL_NAME) {
+                        displayInput = {
+                            dm_config_path: toolInput?.dm_config_path,
+                        };
                     }
 
                     eventHandler({
