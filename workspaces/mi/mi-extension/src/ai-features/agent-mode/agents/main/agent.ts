@@ -59,6 +59,12 @@ import {
     createGenerateDataMappingExecute,
 } from '../../tools/data_mapper_tools';
 import {
+    createBuildProjectTool,
+    createBuildProjectExecute,
+    createServerManagementTool,
+    createServerManagementExecute,
+} from '../../tools/runtime_tools';
+import {
     FILE_WRITE_TOOL_NAME,
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
@@ -73,6 +79,8 @@ import {
     GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
+    BUILD_PROJECT_TOOL_NAME,
+    SERVER_MANAGEMENT_TOOL_NAME,
 } from '../../tools/types';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
 import { ChatHistoryManager } from '../../chat-history-manager';
@@ -255,6 +263,12 @@ export async function executeAgent(
             [GENERATE_DATA_MAPPING_TOOL_NAME]: createGenerateDataMappingTool(
                 createGenerateDataMappingExecute(request.projectPath, modifiedFiles)
             ),
+            [BUILD_PROJECT_TOOL_NAME]: createBuildProjectTool(
+                createBuildProjectExecute(request.projectPath)
+            ),
+            [SERVER_MANAGEMENT_TOOL_NAME]: createServerManagementTool(
+                createServerManagementExecute(request.projectPath)
+            ),
         };
 
         // Start streaming
@@ -340,6 +354,14 @@ export async function executeAgent(
                     } else if (part.toolName === GENERATE_DATA_MAPPING_TOOL_NAME) {
                         displayInput = {
                             dm_config_path: toolInput?.dm_config_path,
+                        };
+                    } else if (part.toolName === BUILD_PROJECT_TOOL_NAME) {
+                        displayInput = {
+                            copy_to_runtime: toolInput?.copy_to_runtime,
+                        };
+                    } else if (part.toolName === SERVER_MANAGEMENT_TOOL_NAME) {
+                        displayInput = {
+                            action: toolInput?.action,
                         };
                     }
 

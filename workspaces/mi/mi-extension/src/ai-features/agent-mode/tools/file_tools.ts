@@ -42,6 +42,7 @@ import {
     GlobExecuteFn,
 } from './types';
 import { getProviderCacheControl } from '../../connection';
+import { logDebug, logError } from '../../copilot/logger';
 
 // ============================================================================
 // Validation Functions
@@ -272,12 +273,12 @@ export function createWriteExecute(projectPath: string, modifiedFiles?: string[]
 export function createReadExecute(projectPath: string): ReadExecuteFn {
     return async (args: { file_path: string; offset?: number; limit?: number }): Promise<ToolResult> => {
         const { file_path, offset, limit } = args;
-        console.log(`[FileReadTool] Reading ${file_path}, offset: ${offset}, limit: ${limit}`);
+        logDebug(`[FileReadTool] Reading ${file_path}, offset: ${offset}, limit: ${limit}`);
 
         // Validate file path
         const pathValidation = validateFilePath(file_path);
         if (!pathValidation.valid) {
-            console.error(`[FileReadTool] Invalid file path: ${file_path}`);
+            logError(`[FileReadTool] Invalid file path: ${file_path}`);
             return {
                 success: false,
                 message: pathValidation.error!,
@@ -289,7 +290,7 @@ export function createReadExecute(projectPath: string): ReadExecuteFn {
 
         // Check if file exists
         if (!fs.existsSync(fullPath)) {
-            console.error(`[FileReadTool] File not found: ${file_path}`);
+            logError(`[FileReadTool] File not found: ${file_path}`);
             return {
                 success: false,
                 message: `File '${file_path}' not found.`,
@@ -302,7 +303,7 @@ export function createReadExecute(projectPath: string): ReadExecuteFn {
 
         // Handle empty file
         if (content.trim().length === 0) {
-            console.log(`[FileReadTool] File is empty: ${file_path}`);
+            logDebug(`[FileReadTool] File is empty: ${file_path}`);
             return {
                 success: true,
                 message: `File '${file_path}' is empty.`,
@@ -317,7 +318,7 @@ export function createReadExecute(projectPath: string): ReadExecuteFn {
         if (offset !== undefined && limit !== undefined) {
             const validation = validateLineRange(offset, limit, totalLines);
             if (!validation.valid) {
-                console.error(`[FileReadTool] Invalid line range for file: ${file_path}`);
+                logError(`[FileReadTool] Invalid line range for file: ${file_path}`);
                 return {
                     success: false,
                     message: validation.error!,
@@ -335,7 +336,7 @@ export function createReadExecute(projectPath: string): ReadExecuteFn {
                 .join('\n');
             const truncatedContent = truncateLongLines(numberedContent);
 
-            console.log(`[FileReadTool] Read lines ${offset} to ${endIndex} from file: ${file_path}`);
+            logDebug(`[FileReadTool] Read lines ${offset} to ${endIndex} from file: ${file_path}`);
             return {
                 success: true,
                 message: `Read lines ${offset} to ${endIndex} from '${file_path}' (${endIndex - startIndex} of ${totalLines} lines).\n\nContent:\n${truncatedContent}`,
@@ -348,7 +349,7 @@ export function createReadExecute(projectPath: string): ReadExecuteFn {
             .join('\n');
         const truncatedContent = truncateLongLines(numberedContent);
 
-        console.log(`[FileReadTool] Read entire file: ${file_path}, total lines: ${totalLines}`);
+        logDebug(`[FileReadTool] Read entire file: ${file_path}, total lines: ${totalLines}`);
         return {
             success: true,
             message: `Read entire file '${file_path}' (${totalLines} lines).\n\nContent:\n${truncatedContent}`,
@@ -367,12 +368,12 @@ export function createEditExecute(projectPath: string, modifiedFiles?: string[])
         replace_all?: boolean;
     }): Promise<ToolResult> => {
         const { file_path, old_string, new_string, replace_all = false } = args;
-        console.log(`[FileEditTool] Editing ${file_path}, replace_all: ${replace_all}`);
+        logDebug(`[FileEditTool] Editing ${file_path}, replace_all: ${replace_all}`);
 
         // Validate file path
         const pathValidation = validateFilePath(file_path);
         if (!pathValidation.valid) {
-            console.error(`[FileEditTool] Invalid file path: ${file_path}`);
+            logError(`[FileEditTool] Invalid file path: ${file_path}`);
             return {
                 success: false,
                 message: pathValidation.error!,
@@ -382,7 +383,7 @@ export function createEditExecute(projectPath: string, modifiedFiles?: string[])
 
         // Check if old_string and new_string are identical
         if (old_string === new_string) {
-            console.error(`[FileEditTool] old_string and new_string are identical`);
+            logError(`[FileEditTool] old_string and new_string are identical`);
             return {
                 success: false,
                 message: 'old_string and new_string are identical. No changes to make.',
@@ -394,7 +395,7 @@ export function createEditExecute(projectPath: string, modifiedFiles?: string[])
 
         // Check if file exists
         if (!fs.existsSync(fullPath)) {
-            console.error(`[FileEditTool] File not found: ${file_path}`);
+            logError(`[FileEditTool] File not found: ${file_path}`);
             return {
                 success: false,
                 message: `File '${file_path}' not found. Use ${FILE_WRITE_TOOL_NAME} to create new files.`,
@@ -410,7 +411,7 @@ export function createEditExecute(projectPath: string, modifiedFiles?: string[])
 
         if (occurrenceCount === 0) {
             const preview = content.substring(0, PREVIEW_LENGTH);
-            console.error(`[FileEditTool] No occurrences of old_string found in file: ${file_path}`);
+            logError(`[FileEditTool] No occurrences of old_string found in file: ${file_path}`);
             return {
                 success: false,
                 message: `String to replace was not found in '${file_path}'. Please verify the exact text to replace, including whitespace and indentation.\n\nFile Preview:\n${preview}${content.length > PREVIEW_LENGTH ? '...' : ''}`,
@@ -420,7 +421,7 @@ export function createEditExecute(projectPath: string, modifiedFiles?: string[])
 
         // If not replace_all, ensure exactly one match
         if (!replace_all && occurrenceCount > 1) {
-            console.error(`[FileEditTool] Multiple occurrences (${occurrenceCount}) found`);
+            logError(`[FileEditTool] Multiple occurrences (${occurrenceCount}) found`);
             return {
                 success: false,
                 message: `Found ${occurrenceCount} occurrences of the text in '${file_path}'. Either make old_string more specific to match exactly one occurrence, or set replace_all to true to replace all occurrences.`,
@@ -453,7 +454,7 @@ export function createEditExecute(projectPath: string, modifiedFiles?: string[])
         const success = await vscode.workspace.applyEdit(edit);
 
         if (!success) {
-            console.error(`[FileEditTool] Failed to apply workspace edit for: ${file_path}`);
+            logError(`[FileEditTool] Failed to apply workspace edit for: ${file_path}`);
             return {
                 success: false,
                 message: `Failed to edit file '${file_path}'. WorkspaceEdit failed.`,
@@ -468,7 +469,7 @@ export function createEditExecute(projectPath: string, modifiedFiles?: string[])
         trackModifiedFile(modifiedFiles, file_path);
 
         const replacedCount = replace_all ? occurrenceCount : 1;
-        console.log(`[FileEditTool] Successfully replaced ${replacedCount} occurrence(s) and synced file: ${file_path}`);
+        logDebug(`[FileEditTool] Successfully replaced ${replacedCount} occurrence(s) and synced file: ${file_path}`);
         return {
             success: true,
             message: `Successfully replaced ${replacedCount} occurrence(s) in '${file_path}'.`
@@ -489,12 +490,12 @@ export function createMultiEditExecute(projectPath: string, modifiedFiles?: stri
         }>;
     }): Promise<ToolResult> => {
         const { file_path, edits } = args;
-        console.log(`[FileMultiEditTool] Editing ${file_path} with ${edits.length} edits`);
+        logDebug(`[FileMultiEditTool] Editing ${file_path} with ${edits.length} edits`);
 
         // Validate file path
         const pathValidation = validateFilePath(file_path);
         if (!pathValidation.valid) {
-            console.error(`[FileMultiEditTool] Invalid file path: ${file_path}`);
+            logError(`[FileMultiEditTool] Invalid file path: ${file_path}`);
             return {
                 success: false,
                 message: pathValidation.error!,
@@ -504,7 +505,7 @@ export function createMultiEditExecute(projectPath: string, modifiedFiles?: stri
 
         // Validate edits array
         if (!edits || edits.length === 0) {
-            console.error(`[FileMultiEditTool] No edits provided`);
+            logError(`[FileMultiEditTool] No edits provided`);
             return {
                 success: false,
                 message: 'No edits provided. At least one edit is required.',
@@ -516,7 +517,7 @@ export function createMultiEditExecute(projectPath: string, modifiedFiles?: stri
 
         // Check if file exists
         if (!fs.existsSync(fullPath)) {
-            console.error(`[FileMultiEditTool] File not found: ${file_path}`);
+            logError(`[FileMultiEditTool] File not found: ${file_path}`);
             return {
                 success: false,
                 message: `File '${file_path}' not found. Use ${FILE_WRITE_TOOL_NAME} to create new files.`,
@@ -564,7 +565,7 @@ export function createMultiEditExecute(projectPath: string, modifiedFiles?: stri
 
         // If there were validation errors, return them without applying any edits
         if (validationErrors.length > 0) {
-            console.error(`[FileMultiEditTool] Validation errors:\n${validationErrors.join('\n')}`);
+            logError(`[FileMultiEditTool] Validation errors:\n${validationErrors.join('\n')}`);
             return {
                 success: false,
                 message: `Multi-edit validation failed:\n${validationErrors.join('\n')}`,
@@ -588,7 +589,7 @@ export function createMultiEditExecute(projectPath: string, modifiedFiles?: stri
         const success = await vscode.workspace.applyEdit(edit);
 
         if (!success) {
-            console.error(`[FileMultiEditTool] Failed to apply workspace edit for: ${file_path}`);
+            logError(`[FileMultiEditTool] Failed to apply workspace edit for: ${file_path}`);
             return {
                 success: false,
                 message: `Failed to apply multi-edit to file '${file_path}'. WorkspaceEdit failed.`,
@@ -602,7 +603,7 @@ export function createMultiEditExecute(projectPath: string, modifiedFiles?: stri
         // Track modified file
         trackModifiedFile(modifiedFiles, file_path);
 
-        console.log(`[FileMultiEditTool] Successfully applied ${edits.length} edits and synced file: ${file_path}`);
+        logDebug(`[FileMultiEditTool] Successfully applied ${edits.length} edits and synced file: ${file_path}`);
         return {
             success: true,
             message: `Successfully applied ${edits.length} edit(s) to '${file_path}'.`
@@ -624,7 +625,7 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
     }): Promise<ToolResult> => {
         const { pattern, path: searchPath = '.', glob, output_mode = 'content', '-i': caseInsensitive = false, head_limit = 100 } = args;
 
-        console.log(`[GrepTool] Searching for pattern '${pattern}' in ${searchPath}`);
+        logDebug(`[GrepTool] Searching for pattern '${pattern}' in ${searchPath}`);
 
         try {
             const results: Array<{file: string; line: number; content: string}> = [];
@@ -705,7 +706,7 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
                             }
                         } catch (error) {
                             // Skip files that can't be read
-                            console.error(`[GrepTool] Error reading file ${fullPath}:`, error);
+                            logError(`[GrepTool] Error reading file ${fullPath}:`, error);
                         }
                     }
                 }
@@ -758,7 +759,7 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
                     message += `\n(Limited to ${head_limit} files. Use head_limit parameter to see more.)`;
                 }
 
-                console.log(`[GrepTool] Found ${filesWithMatches.size} files with matches`);
+                logDebug(`[GrepTool] Found ${filesWithMatches.size} files with matches`);
                 return {
                     success: true,
                     message: message.trim()

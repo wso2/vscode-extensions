@@ -78,6 +78,8 @@ export const GET_CONNECTOR_DOCUMENTATION_TOOL_NAME = 'get_connector_documentatio
 export const GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME = 'get_ai_connector_documentation';
 export const CREATE_DATA_MAPPER_TOOL_NAME = 'create_data_mapper';
 export const GENERATE_DATA_MAPPING_TOOL_NAME = 'generate_data_mapping';
+export const BUILD_PROJECT_TOOL_NAME = 'build_project';
+export const SERVER_MANAGEMENT_TOOL_NAME = 'server_management';
 
 // ============================================================================
 // Error Messages
@@ -160,4 +162,17 @@ export type CreateDataMapperExecuteFn = (args: {
 export type GenerateDataMappingExecuteFn = (args: {
     dm_config_path: string;
     instructions?: string;
+}) => Promise<ToolResult>;
+
+// ============================================================================
+// Runtime Tool Execute Function Types
+// ============================================================================
+
+export type BuildProjectExecuteFn = (args: {
+    copy_to_runtime?: boolean;
+    full_output?: boolean;
+}) => Promise<ToolResult>;
+
+export type ServerManagementExecuteFn = (args: {
+    action: 'run' | 'stop' | 'status';
 }) => Promise<ToolResult>;
