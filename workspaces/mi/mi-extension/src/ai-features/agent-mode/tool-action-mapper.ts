@@ -117,6 +117,23 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
         case 'generate_data_mapping':
             return { loading: 'generating mappings', completed: 'generated mappings', failed: 'failed to generate mappings' };
 
+        case 'build_project':
+            return { loading: 'building project', completed: 'built project', failed: 'build failed' };
+
+        case 'server_management':
+            // Extract action from tool input for dynamic messages
+            if (toolInput?.action) {
+                switch (toolInput.action) {
+                    case 'run':
+                        return { loading: 'starting server', completed: 'started server', failed: 'failed to start server' };
+                    case 'stop':
+                        return { loading: 'stopping server', completed: 'stopped server', failed: 'failed to stop server' };
+                    case 'status':
+                        return { loading: 'checking server status', completed: 'checked server status', failed: 'failed to check status' };
+                }
+            }
+            return { loading: 'managing server', completed: 'managed server', failed: 'server management failed' };
+
         default:
             return undefined;
     }
