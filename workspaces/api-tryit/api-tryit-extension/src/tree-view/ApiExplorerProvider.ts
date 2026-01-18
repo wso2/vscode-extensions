@@ -80,6 +80,7 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 			// Discover folders by reading directories
 			const entries = await fs.readdir(collectionPath, { withFileTypes: true });
 			const folders: ApiFolder[] = [];
+			const rootLevelRequests: ApiRequestItem[] = [];
 
 			for (const entry of entries) {
 				if (entry.isDirectory() && !entry.name.startsWith('.')) {
@@ -92,6 +93,23 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 					} catch (error) {
 						vscode.window.showErrorMessage(`Error loading folder ${entry.name} in collection ${collectionId}, ${error as string}.`);
 					}
+				} else if (entry.isFile() && entry.name.endsWith('.json') && entry.name !== 'collection.json') {
+					// Load root-level request files
+					try {
+						const requestPath = path.join(collectionPath, entry.name);
+						const requestContent = await fs.readFile(requestPath, 'utf-8');
+						const persistedRequest = JSON.parse(requestContent);
+
+						rootLevelRequests.push({
+							id: persistedRequest.id,
+							name: persistedRequest.name,
+							request: persistedRequest.request,
+							response: persistedRequest.response,
+							filePath: requestPath
+						});
+					} catch (error) {
+						vscode.window.showErrorMessage(`Error loading root-level request ${entry.name} in collection ${collectionId}, ${error as string}.`);
+					}
 				}
 			}
 
@@ -99,7 +117,8 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 				id: metadata.id,
 				name: metadata.name,
 				description: metadata.description,
-				folders
+				folders,
+				rootItems: rootLevelRequests
 			};
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		} catch (error) {
@@ -392,18 +411,29 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 					id: col.id,
 					name: col.name,
 					type: 'collection',
-					children: col.folders.map(folder => ({
-						id: `${col.id}-${folder.name}`,
-						name: folder.name,
-						type: 'folder',
-						children: folder.items.map(item => ({
-							id: `${col.id}-${folder.name}-${item.name}`,
+					children: [
+						// Add root-level requests first
+						...(col.rootItems || []).map(item => ({
+							id: `${col.id}-${item.name}`,
 							name: item.name,
 							type: 'request',
 							method: item.request.method,
 							request: item.request
+						})),
+						// Then add folders
+						...col.folders.map(folder => ({
+							id: `${col.id}-${folder.name}`,
+							name: folder.name,
+							type: 'folder',
+							children: folder.items.map(item => ({
+								id: `${col.id}-${folder.name}-${item.name}`,
+								name: item.name,
+								type: 'request',
+								method: item.request.method,
+								request: item.request
+							}))
 						}))
-					}))
+					]
 				}));
 			}
 
@@ -412,25 +442,41 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 					id: col.id,
 					name: col.name,
 					type: 'collection',
-					children: col.folders
-						.map(folder => ({
-							id: `${col.id}-${folder.name}`,
-							name: folder.name,
-							type: 'folder',
-							children: folder.items
-								.filter(item => 
-									item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-									item.request.method.toLowerCase().includes(searchTerm.toLowerCase())
-								)
-								.map(item => ({
-									id: `${col.id}-${folder.name}-${item.name}`,
-									name: item.name,
-									type: 'request',
-									method: item.request.method,
-									request: item.request
-								}))
-						}))
-						.filter(folder => folder.children && folder.children.length > 0)
+					children: [
+						// Add root-level requests first (filtered)
+						...(col.rootItems || [])
+							.filter(item => 
+								item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+								item.request.method.toLowerCase().includes(searchTerm.toLowerCase())
+							)
+							.map(item => ({
+								id: `${col.id}-${item.name}`,
+								name: item.name,
+								type: 'request',
+								method: item.request.method,
+								request: item.request
+							})),
+						// Then add folders with filtered items
+						...col.folders
+							.map(folder => ({
+								id: `${col.id}-${folder.name}`,
+								name: folder.name,
+								type: 'folder',
+								children: folder.items
+									.filter(item => 
+										item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+										item.request.method.toLowerCase().includes(searchTerm.toLowerCase())
+									)
+									.map(item => ({
+										id: `${col.id}-${folder.name}-${item.name}`,
+										name: item.name,
+										type: 'request',
+										method: item.request.method,
+										request: item.request
+									}))
+							}))
+							.filter(folder => folder.children && folder.children.length > 0)
+					]
 				}))
 				.filter(col => col.children && col.children.length > 0);
 		};

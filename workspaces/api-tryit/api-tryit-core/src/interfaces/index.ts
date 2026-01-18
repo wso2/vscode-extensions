@@ -81,4 +81,5 @@ export interface ApiCollection {
     name: string;
     description?: string;
     folders: ApiFolder[];
+    rootItems?: ApiRequestItem[];
 }
