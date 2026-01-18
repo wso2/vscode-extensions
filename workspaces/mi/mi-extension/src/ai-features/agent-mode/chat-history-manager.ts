@@ -77,6 +77,8 @@ export interface ToolCallEntry extends JSONLEntry {
     type: 'tool_call';
     toolName: string;
     toolInput: unknown;
+    /** AI SDK tool call ID - required for prompt caching */
+    toolCallId: string;
 }
 
 /**
@@ -86,6 +88,8 @@ export interface ToolResultEntry extends JSONLEntry {
     type: 'tool_result';
     toolName: string;
     toolOutput: unknown;
+    /** AI SDK tool call ID - required for prompt caching */
+    toolCallId: string;
 }
 
 /**
@@ -293,7 +297,7 @@ export class ChatHistoryManager {
     /**
      * Record a tool call
      */
-    async recordToolCall(toolName: string, toolInput: unknown): Promise<string> {
+    async recordToolCall(toolName: string, toolInput: unknown, toolCallId: string): Promise<string> {
         const toolUuid = uuidv4();
         const entry: ToolCallEntry = {
             type: 'tool_call',
@@ -303,19 +307,20 @@ export class ChatHistoryManager {
             sessionId: this.sessionId,
             projectPath: this.projectPath,
             toolName,
-            toolInput
+            toolInput,
+            toolCallId
         };
 
         await this.writeEntry(entry);
         this.lastMessageUuid = toolUuid;
-        logDebug(`[ChatHistory] Recorded tool call: ${toolName} (${toolUuid})`);
+        logDebug(`[ChatHistory] Recorded tool call: ${toolName} (${toolUuid}, toolCallId: ${toolCallId})`);
         return toolUuid;
     }
 
     /**
      * Record a tool result
      */
-    async recordToolResult(toolName: string, toolOutput: unknown): Promise<string> {
+    async recordToolResult(toolName: string, toolOutput: unknown, toolCallId: string): Promise<string> {
         const resultUuid = uuidv4();
         const entry: ToolResultEntry = {
             type: 'tool_result',
@@ -325,12 +330,13 @@ export class ChatHistoryManager {
             sessionId: this.sessionId,
             projectPath: this.projectPath,
             toolName,
-            toolOutput
+            toolOutput,
+            toolCallId
         };
 
         await this.writeEntry(entry);
         this.lastMessageUuid = resultUuid;
-        logDebug(`[ChatHistory] Recorded tool result: ${toolName} (${resultUuid})`);
+        logDebug(`[ChatHistory] Recorded tool result: ${toolName} (${resultUuid}, toolCallId: ${toolCallId})`);
         return resultUuid;
     }
 
@@ -410,13 +416,31 @@ export class ChatHistoryManager {
     /**
      * Convert chat history entries to AI SDK ModelMessage format
      * Used to provide conversation context to the agent
+     * 
+     * IMPORTANT: For prompt caching to work correctly, tool calls must be
+     * reconstructed with their exact toolCallIds. The AI SDK expects:
+     * - Assistant messages with tool_call content parts (including toolCallId)
+     * - Tool messages with matching toolCallId
      */
     static convertToModelMessages(entries: ConversationEntry[]): any[] {
         const messages: any[] = [];
+        
+        // Track pending tool calls to group with results
+        const pendingToolCalls: Map<string, { toolName: string; toolInput: unknown; toolCallId: string }> = new Map();
+        // Track assistant content that precedes tool calls
+        let pendingAssistantContent: string = '';
 
         for (const entry of entries) {
             switch (entry.type) {
                 case 'user':
+                    // Flush any pending assistant content before user message
+                    if (pendingAssistantContent) {
+                        messages.push({
+                            role: 'assistant',
+                            content: pendingAssistantContent
+                        });
+                        pendingAssistantContent = '';
+                    }
                     messages.push({
                         role: 'user',
                         content: entry.message.content
@@ -425,17 +449,75 @@ export class ChatHistoryManager {
 
                 case 'assistant':
                     if (entry.message.isComplete) {
-                        // Only include complete assistant messages
+                        // Complete assistant message - add directly
                         messages.push({
                             role: 'assistant',
                             content: entry.message.content
                         });
+                    } else {
+                        // Incomplete chunk - accumulate for context
+                        pendingAssistantContent += entry.message.content;
                     }
                     break;
 
-                // Skip tool_call, tool_result, session_start, session_end
-                // The AI SDK doesn't need these for context
+                case 'tool_call':
+                    // Store tool call for pairing with result
+                    pendingToolCalls.set(entry.toolCallId, {
+                        toolName: entry.toolName,
+                        toolInput: entry.toolInput,
+                        toolCallId: entry.toolCallId
+                    });
+                    
+                    // Create assistant message with tool call
+                    // Include any pending assistant content as text part
+                    const toolCallParts: any[] = [];
+                    if (pendingAssistantContent) {
+                        toolCallParts.push({
+                            type: 'text',
+                            text: pendingAssistantContent
+                        });
+                        pendingAssistantContent = '';
+                    }
+                    toolCallParts.push({
+                        type: 'tool-call',
+                        toolCallId: entry.toolCallId,
+                        toolName: entry.toolName,
+                        input: entry.toolInput
+                    });
+                    
+                    messages.push({
+                        role: 'assistant',
+                        content: toolCallParts
+                    });
+                    break;
+
+                case 'tool_result':
+                    // Create tool result message with matching toolCallId
+                    // The output must be a ToolResultOutput type: { type: 'json', value: ... }
+                    messages.push({
+                        role: 'tool',
+                        content: [{
+                            type: 'tool-result',
+                            toolCallId: entry.toolCallId,
+                            toolName: entry.toolName,
+                            output: {
+                                type: 'json',
+                                value: entry.toolOutput
+                            }
+                        }]
+                    });
+                    // Remove from pending
+                    pendingToolCalls.delete(entry.toolCallId);
+                    break;
             }
+        }
+
+        // Flush any remaining assistant content
+        if (pendingAssistantContent) {
+            messages.push({
+                role: 'assistant',
+                content: pendingAssistantContent
+            });
         }
 
         return messages;
@@ -451,6 +533,7 @@ export class ChatHistoryManager {
         toolName?: string;
         toolInput?: unknown;
         toolOutput?: unknown;
+        toolCallId?: string;
         action?: string;
         timestamp: string;
     }> {
@@ -460,11 +543,12 @@ export class ChatHistoryManager {
             toolName?: string;
             toolInput?: unknown;
             toolOutput?: unknown;
+            toolCallId?: string;
             action?: string;
             timestamp: string;
         }> = [];
 
-        let pendingToolCall: { name: string; input: unknown; timestamp: string } | null = null;
+        let pendingToolCall: { name: string; input: unknown; toolCallId: string; timestamp: string } | null = null;
 
         for (const entry of entries) {
             switch (entry.type) {
@@ -492,6 +576,7 @@ export class ChatHistoryManager {
                     pendingToolCall = {
                         name: entry.toolName,
                         input: entry.toolInput,
+                        toolCallId: entry.toolCallId,
                         timestamp: entry.timestamp
                     };
 
@@ -499,12 +584,13 @@ export class ChatHistoryManager {
                         type: 'tool_call',
                         toolName: entry.toolName,
                         toolInput: entry.toolInput,
+                        toolCallId: entry.toolCallId,
                         timestamp: entry.timestamp
                     });
                     break;
 
                 case 'tool_result':
-                    if (pendingToolCall && pendingToolCall.name === entry.toolName) {
+                    if (pendingToolCall && pendingToolCall.toolCallId === entry.toolCallId) {
                         // Calculate user-friendly action from shared utility
                         const output = entry.toolOutput as any;
                         const toolActions = getToolAction(entry.toolName, output, pendingToolCall.input);
@@ -523,6 +609,7 @@ export class ChatHistoryManager {
                             toolName: entry.toolName,
                             toolInput: pendingToolCall.input,
                             toolOutput: entry.toolOutput,
+                            toolCallId: entry.toolCallId,
                             action,
                             timestamp: entry.timestamp
                         });
