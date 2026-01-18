@@ -319,7 +319,7 @@ export async function executeAgent(
 
                     // Record tool call to history
                     if (request.chatHistoryManager) {
-                        await request.chatHistoryManager.recordToolCall(part.toolName, toolInput);
+                        await request.chatHistoryManager.recordToolCall(part.toolName, toolInput, part.toolCallId);
                     }
 
                     // Get loading action from shared utility (single source of truth)
@@ -380,7 +380,7 @@ export async function executeAgent(
 
                     // Record tool result to history
                     if (request.chatHistoryManager) {
-                        await request.chatHistoryManager.recordToolResult(part.toolName, result);
+                        await request.chatHistoryManager.recordToolResult(part.toolName, result, part.toolCallId);
                     }
 
                     // Retrieve tool input from map (for dynamic action messages)
