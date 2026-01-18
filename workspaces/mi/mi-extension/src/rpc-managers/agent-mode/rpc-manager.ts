@@ -162,13 +162,13 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             logInfo(`[AgentPanel] Loading chat history from session: ${this.currentSessionId}`);
 
-            // Load entries from JSONL file
-            const entries = await ChatHistoryManager.loadSession(this.projectUri, this.currentSessionId);
+            // Load ModelMessages from JSONL
+            const messages = await ChatHistoryManager.loadSession(this.projectUri, this.currentSessionId);
 
-            // Convert to event format (frontend will format into UI messages)
-            const events = ChatHistoryManager.convertToEventFormat(entries);
+            // Convert to UI events on-the-fly
+            const events = ChatHistoryManager.convertToEventFormat(messages);
 
-            logInfo(`[AgentPanel] Loaded ${events.length} events from chat history`);
+            logInfo(`[AgentPanel] Loaded ${messages.length} messages, generated ${events.length} events`);
 
             return {
                 success: true,

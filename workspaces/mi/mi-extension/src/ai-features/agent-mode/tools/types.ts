@@ -35,6 +35,7 @@ export interface ToolResult {
 // Constants
 // ============================================================================
 
+// TODO: This should be checked. Some files might be in the project that are not in this list.
 /**
  * Valid file extensions for MI/Synapse projects
  * - .xml: Synapse configurations (APIs, sequences, endpoints, etc.)
@@ -53,7 +54,8 @@ export const VALID_FILE_EXTENSIONS = [
     '.md',
     '.json',
     '.dmc',
-    '.ts'
+    '.ts',
+    '.toml'
 ];
 
 export const MAX_LINE_LENGTH = 2000;

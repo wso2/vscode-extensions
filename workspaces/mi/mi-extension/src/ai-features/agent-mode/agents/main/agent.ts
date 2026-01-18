@@ -16,10 +16,16 @@
  * under the License.
  */
 
-import { ModelMessage, streamText, stepCountIs } from 'ai';
+// ============================================================================
+// Dev Feature Flags
+// ============================================================================
+const ENABLE_LANGFUSE = true; // Set to false to disable Langfuse tracing
+
+import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMessage } from 'ai';
 import { getAnthropicClient, getProviderCacheControl, ANTHROPIC_SONNET_4_5 } from '../../../connection';
 import { getSystemPrompt } from './system';
 import { getUserPrompt, UserPromptParams } from './prompt';
+import { logCacheUsage, createPrepareStepWithCaching } from '../../../cache-utils';
 import {
     createWriteTool,
     createReadTool,
@@ -176,26 +182,35 @@ export async function executeAgent(
     try {
         logInfo(`[Agent] Starting agent execution for project: ${request.projectPath}`);
 
-        // Load chat history from session file if sessionId provided
+        // Load chat history
         let chatHistory: ModelMessage[] = [];
-        if (request.sessionId) {
-            try {
-                const entries = await ChatHistoryManager.loadSession(request.projectPath, request.sessionId);
-                chatHistory = ChatHistoryManager.convertToModelMessages(entries);
-                logInfo(`[Agent] Loaded ${chatHistory.length} messages from session history`);
-            } catch (error) {
-                logError('[Agent] Failed to load chat history, starting fresh', error);
+        if (request.sessionId && request.chatHistoryManager) {
+            // Try in-memory first (active session)
+            const inMemoryMessages = request.chatHistoryManager.getInMemoryMessages();
+            if (inMemoryMessages) {
+                chatHistory = inMemoryMessages;
+                logInfo(`[Agent] Loaded ${chatHistory.length} messages from memory`);
+            } else {
+                // Load from JSONL (messages already have providerOptions set)
+                try {
+                    chatHistory = await ChatHistoryManager.loadSession(request.projectPath, request.sessionId);
+                    request.chatHistoryManager.setInMemoryMessages(chatHistory);
+                    logInfo(`[Agent] Loaded ${chatHistory.length} messages from JSONL`);
+                } catch (error) {
+                    logError('[Agent] Failed to load chat history, starting fresh', error);
+                }
             }
         }
 
-        // Record user message to history
-        if (request.chatHistoryManager) {
-            await request.chatHistoryManager.recordUserMessage(request.query);
-            logDebug('[Agent] Recorded user message to chat history');
-        }
-
         // Get cache options for prompt caching
-        const cacheOptions = await getProviderCacheControl();
+        const cacheOptions = getProviderCacheControl();
+
+
+        const systemMessage: SystemModelMessage = {
+            role: 'system',
+            content: getSystemPrompt(),
+            providerOptions: cacheOptions,
+        } as SystemModelMessage;
 
         // Build user prompt
         const userPromptParams: UserPromptParams = {
@@ -205,18 +220,30 @@ export async function executeAgent(
         };
         const userMessageContent = await getUserPrompt(userPromptParams);
 
+        // Build user message
+        const userMessage: UserModelMessage = {
+            role: 'user',
+            content: [{
+                type: 'text',
+                text: userMessageContent,
+            }]
+        } as UserModelMessage;
+
+
+        // DON'T record user message here - it will be recorded by prepareStep
+        // Recording it here causes duplication because chatHistory is a reference to inMemoryMessages
+        // When recordMessage pushes to inMemoryMessages, chatHistory contains it, then we add it again
+
         // Build messages array
+        // System prompt has cache breakpoint, prepareStep handles dynamic caching for tool loops
+        // Track message count BEFORE adding user message (for prepareStep slicing)
+        // prepareStep will save messages AFTER this count, which includes the user message
+        const messagesBeforeUserMessage = 1 + chatHistory.length; // system + history
+
         const allMessages: ModelMessage[] = [
-            {
-                role: 'system',
-                content: getSystemPrompt(),
-                providerOptions: cacheOptions,
-            },
+            systemMessage,
             ...chatHistory,
-            {
-                role: 'user',
-                content: userMessageContent,
-            },
+            userMessage,
         ];
 
         // Create tools
@@ -271,8 +298,81 @@ export async function executeAgent(
             ),
         };
 
-        // Start streaming
-        const streamResult = streamText({
+        // Add cache control to the last tool (all tool definitions ~10-15K tokens)
+        // This caches all tool definitions together for subsequent requests
+        const lastToolKey = SERVER_MANAGEMENT_TOOL_NAME;
+        if (tools[lastToolKey]) {
+            (tools[lastToolKey] as any).providerOptions = {
+                anthropic: {
+                    cacheControl: { type: 'ephemeral' }
+                }
+            };
+            logDebug(`[Cache] Added cache control to last tool: ${lastToolKey}`);
+        }
+
+        // Create prepareStep function for dynamic caching within tool loops
+        // This adds cache breakpoints to the last message before each API call,
+        // ensuring multi-tool-call scenarios benefit from cached context
+        const basePrepareStepFn = createPrepareStepWithCaching();
+
+        // Track step number for logging (onStepFinish doesn't provide it)
+        let currentStepNumber = 0;
+
+        // Track how many messages from THIS TURN we've saved in prepareStep
+        let savedMessagesFromThisTurn = 0;
+
+        // Wrap prepareStep to save messages WITH cache breakpoints
+        const prepareStepWithSaving = (options: {
+            steps: any[];
+            stepNumber: number;
+            model: any;
+            messages: any[];
+            experimental_context?: unknown;
+        }) => {
+
+            // First, let the base prepareStep add cache breakpoints
+            const result = basePrepareStepFn({
+                ...options,
+                experimental_context: options.experimental_context ?? undefined
+            });
+
+            // Get the messages WITH cache breakpoints
+            // If result is undefined, use original messages; otherwise use result.messages
+            const messagesWithBreakpoints = result?.messages || options.messages;
+
+            // Save NEW messages from this turn (WITH cache breakpoints!)
+            // Messages before messagesBeforeUserMessage are from previous turns (already saved)
+            // Messages from messagesBeforeUserMessage onwards are from THIS turn (user message + responses)
+            if (request.chatHistoryManager && messagesWithBreakpoints.length > messagesBeforeUserMessage) {
+                const allMessagesThisTurn = messagesWithBreakpoints.slice(messagesBeforeUserMessage);
+                const currentCountThisTurn = allMessagesThisTurn.length;
+
+                // Only save messages we haven't saved yet
+                if (currentCountThisTurn > savedMessagesFromThisTurn) {
+                    const unsavedMessages = allMessagesThisTurn.slice(savedMessagesFromThisTurn);
+
+                    try {
+                        // Fire-and-forget async save (don't block prepareStep)
+                        request.chatHistoryManager.recordMessages(unsavedMessages).catch(error => {
+                            logError('[Agent] Failed to record messages in prepareStep', error);
+                        });
+
+                        // Update counter
+                        savedMessagesFromThisTurn += unsavedMessages.length;
+
+                        logDebug(`[Agent] Recording ${unsavedMessages.length} messages WITH cache breakpoints in prepareStep (${savedMessagesFromThisTurn} total this turn)`);
+                    } catch (error) {
+                        logError('[Agent] Error in prepareStep message recording', error);
+                    }
+                }
+            }
+
+            // Return the result from base prepareStep (may be undefined)
+            return result;
+        };
+
+        // Setup Langfuse tracing if enabled
+        const streamConfig: any = {
             model: await getAnthropicClient(ANTHROPIC_SONNET_4_5),
             maxOutputTokens: 8192,
             temperature: 0,
@@ -280,7 +380,52 @@ export async function executeAgent(
             stopWhen: stepCountIs(50),
             tools,
             abortSignal: request.abortSignal,
-        });
+            prepareStep: prepareStepWithSaving,
+            onStepFinish: async (step) => {
+                currentStepNumber++;
+
+                // Log cache metrics
+                const providerMetadata = step.providerMetadata?.anthropic as any;
+                if (providerMetadata) {
+                    const cacheCreation = step.usage?.inputTokenDetails.cacheWriteTokens || 0;
+                    const cacheRead = step.usage?.inputTokenDetails.cacheReadTokens || 0;
+                    const inputTokens = step.usage?.inputTokens || 0;
+                    const outputTokens = step.usage?.outputTokens || 0;
+                    const hitRate = cacheRead > 0 ? (cacheRead / inputTokens * 100).toFixed(1) : '0';
+
+                    logDebug(`[Cache] Step ${currentStepNumber} completed | ` +
+                        `Input: ${inputTokens} | Cache Write: ${cacheCreation} | Cache Read: ${cacheRead} | ` +
+                        `Output: ${outputTokens} | Hit Rate: ${hitRate}%`);
+                }
+
+                // If this is the finish event, save the final assistant message
+                // step.response.messages contains NEW messages from this final step (not in latestMessagesWithBreakpoints yet)
+                if (step.finishReason === 'stop' && request.chatHistoryManager && step.response?.messages) {
+                    try {
+                        const finalMessages = step.response.messages;
+
+                        if (finalMessages.length > 0) {
+                            // Save only the final assistant message (intermediate messages already saved by prepareStep)
+                            // Note: Cache breakpoints will be added when this message is loaded in the next session
+                            await request.chatHistoryManager.recordMessage(finalMessages[finalMessages.length - 1]);
+                            savedMessagesFromThisTurn += 1;
+                            logDebug(`[Agent] Recorded final assistant message on finish event`);
+                        }
+                    } catch (error) {
+                        logError('[Agent] Failed to record final messages on finish', error);
+                    }
+                }
+            },
+        };
+
+        // Enable Langfuse telemetry if flag is on
+        if (ENABLE_LANGFUSE) {
+            streamConfig.experimental_telemetry = { isEnabled: true };
+            logInfo('[Langfuse] Telemetry enabled - traces will be sent to Langfuse if OpenTelemetry is configured');
+        }
+
+        // Start streaming with aggressive caching enabled
+        const streamResult = streamText(streamConfig);
         const fullStream = streamResult.fullStream;
         response = streamResult.response; // Assign to outer scope variable
 
@@ -310,17 +455,8 @@ export async function executeAgent(
                     // Store tool input for later use in tool result
                     toolInputMap.set(part.toolCallId, toolInput);
 
-                    // Record accumulated text as incomplete assistant message before tool call
-                    if (request.chatHistoryManager && accumulatedContent) {
-                        await request.chatHistoryManager.recordAssistantChunk(accumulatedContent, false);
-                        logDebug('[Agent] Recorded assistant chunk before tool call');
-                        accumulatedContent = ''; // Reset accumulated content
-                    }
-
-                    // Record tool call to history
-                    if (request.chatHistoryManager) {
-                        await request.chatHistoryManager.recordToolCall(part.toolName, toolInput, part.toolCallId);
-                    }
+                    // Reset accumulated content (messages recorded via onStepFinish)
+                    accumulatedContent = '';
 
                     // Get loading action from shared utility (single source of truth)
                     const toolActions = getToolAction(part.toolName, undefined, toolInput);
@@ -378,11 +514,6 @@ export async function executeAgent(
                     const result = part.output as any;
                     logDebug(`[Agent] Tool result: ${part.toolName}, success: ${result?.success}`);
 
-                    // Record tool result to history
-                    if (request.chatHistoryManager) {
-                        await request.chatHistoryManager.recordToolResult(part.toolName, result, part.toolCallId);
-                    }
-
                     // Retrieve tool input from map (for dynamic action messages)
                     const toolInput = toolInputMap.get(part.toolCallId);
 
@@ -433,22 +564,16 @@ export async function executeAgent(
                 case 'finish': {
                     logInfo(`[Agent] Execution finished. Modified files: ${modifiedFiles.length}`);
 
-                    // Record final complete assistant message to history
-                    if (request.chatHistoryManager && accumulatedContent) {
-                        await request.chatHistoryManager.recordAssistantChunk(accumulatedContent, true);
-                        logDebug('[Agent] Recorded complete assistant message to chat history');
-                    }
-
-                    // Capture final model messages (includes all tool calls/results)
+                    // Capture final model messages for UI event only (recording handled in onStepFinish)
                     try {
                         const finalResponse = await response;
                         finalModelMessages = finalResponse.messages || [];
-                        logDebug(`[Agent] Captured ${finalModelMessages.length} model messages`);
+                        await logCacheUsage(response, chatHistory.length);
                     } catch (error) {
                         logError('[Agent] Failed to capture model messages', error);
                     }
 
-                    // Send stop event with modelMessages
+                    // Send stop event to UI
                     eventHandler({ type: 'stop', modelMessages: finalModelMessages });
                     return {
                         success: true,
@@ -459,18 +584,13 @@ export async function executeAgent(
             }
         }
 
-        // Stream completed without finish event
-        // Record final complete assistant message to history
-        if (request.chatHistoryManager && accumulatedContent) {
-            await request.chatHistoryManager.recordAssistantChunk(accumulatedContent, true);
-            logDebug('[Agent] Recorded complete assistant message to chat history (no finish event)');
-        }
-
-        // Capture final model messages even if no explicit finish
+        // Stream completed without finish event (shouldn't happen normally)
+        // Capture final model messages for UI only (recording should have happened in onStepFinish)
         try {
             const finalResponse = await response;
             finalModelMessages = finalResponse.messages || [];
             logDebug(`[Agent] Captured ${finalModelMessages.length} model messages (no finish event)`);
+            await logCacheUsage(response, chatHistory.length);
         } catch (error) {
             logError('[Agent] Failed to capture model messages', error);
         }
@@ -507,6 +627,7 @@ export async function executeAgent(
         }
 
         logError(`[Agent] Execution error: ${errorMsg}`);
+
         eventHandler({
             type: 'error',
             error: errorMsg,
