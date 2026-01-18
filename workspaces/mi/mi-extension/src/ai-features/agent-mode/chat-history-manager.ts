@@ -22,6 +22,7 @@ import { createWriteStream, WriteStream } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { logDebug, logError, logInfo } from '../copilot/logger';
 import { getToolAction, capitalizeAction } from './tool-action-mapper';
+import { canonicalizeMessage } from '../cache-utils';
 
 // Cross-platform home directory
 const os = require('os');
@@ -31,72 +32,13 @@ const homeDir = os.homedir();
 const BASE_STORAGE_DIR = path.join(homeDir, '.wso2-mi', 'copilot', 'projects');
 
 /**
- * Message types in JSONL
+ * Metadata entry for session start/end
  */
-export type MessageType = 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'session_start' | 'session_end';
-
-/**
- * Base structure for JSONL entries
- */
-export interface JSONLEntry {
-    type: MessageType;
-    uuid: string;
-    parentUuid: string | null;
+export interface SessionMetadata {
+    type: 'session_start' | 'session_end';
     timestamp: string;
     sessionId: string;
     projectPath: string;
-}
-
-/**
- * User message entry
- */
-export interface UserMessageEntry extends JSONLEntry {
-    type: 'user';
-    message: {
-        role: 'user';
-        content: string;
-    };
-}
-
-/**
- * Assistant message entry (streaming or complete)
- */
-export interface AssistantMessageEntry extends JSONLEntry {
-    type: 'assistant';
-    message: {
-        role: 'assistant';
-        content: string;
-        isComplete: boolean; // false for streaming chunks, true for final
-    };
-}
-
-/**
- * Tool call entry
- */
-export interface ToolCallEntry extends JSONLEntry {
-    type: 'tool_call';
-    toolName: string;
-    toolInput: unknown;
-    /** AI SDK tool call ID - required for prompt caching */
-    toolCallId: string;
-}
-
-/**
- * Tool result entry
- */
-export interface ToolResultEntry extends JSONLEntry {
-    type: 'tool_result';
-    toolName: string;
-    toolOutput: unknown;
-    /** AI SDK tool call ID - required for prompt caching */
-    toolCallId: string;
-}
-
-/**
- * Session metadata entry
- */
-export interface SessionEntry extends JSONLEntry {
-    type: 'session_start' | 'session_end';
     metadata?: {
         projectName?: string;
         gitBranch?: string;
@@ -104,19 +46,21 @@ export interface SessionEntry extends JSONLEntry {
 }
 
 /**
- * Union type for all entry types
+ * JSONL entry: either a ModelMessage or session metadata
+ * ModelMessages are stored directly as returned by AI SDK
  */
-export type ConversationEntry =
-    | UserMessageEntry
-    | AssistantMessageEntry
-    | ToolCallEntry
-    | ToolResultEntry
-    | SessionEntry;
+export type JSONLEntry = any | SessionMetadata;
 
 /**
  * Chat History Manager
  * Handles saving and loading conversation history in JSONL format
  * Similar to Claude Code's approach
+ * 
+ * Uses canonical JSON serialization for byte-for-byte consistency
+ * which is required for Anthropic prompt caching to work correctly.
+ * 
+ * IMPORTANT: For active sessions, we keep ModelMessages in memory to ensure
+ * cache key consistency. JSONL is used for persistence across extension restarts.
  */
 export class ChatHistoryManager {
     private projectPath: string;
@@ -124,7 +68,13 @@ export class ChatHistoryManager {
     private sessionId: string;
     private sessionFile: string = '';
     private writeStream: WriteStream | null = null;
-    private lastMessageUuid: string | null = null;
+
+    /**
+     * In-memory ModelMessages for the current session.
+     * These are the EXACT messages returned by the AI SDK, preserving cache keys.
+     * Updated incrementally as messages are recorded to JSONL.
+     */
+    private inMemoryMessages: any[] = [];
 
     constructor(projectPath: string, sessionId?: string) {
         this.projectPath = projectPath;
@@ -180,16 +130,18 @@ export class ChatHistoryManager {
     }
 
     /**
-     * Write a JSONL entry to the file
+     * Write a JSONL entry to the file using canonical JSON
+     * Canonical JSON ensures byte-for-byte consistency for cache key matching
      */
-    private async writeEntry(entry: ConversationEntry): Promise<void> {
+    private async writeEntry(message: any): Promise<void> {
         return new Promise((resolve, reject) => {
             if (!this.writeStream) {
                 reject(new Error('Write stream not initialized'));
                 return;
             }
 
-            const line = JSON.stringify(entry) + '\n';
+            // Use canonical JSON for cache key consistency
+            const line = canonicalizeMessage(message) + '\n';
             this.writeStream.write(line, (err: Error | null | undefined) => {
                 if (err) {
                     logError('[ChatHistory] Failed to write entry', err);
@@ -205,10 +157,8 @@ export class ChatHistoryManager {
      * Write session start entry
      */
     private async writeSessionStart(): Promise<void> {
-        const entry: SessionEntry = {
+        const entry: SessionMetadata = {
             type: 'session_start',
-            uuid: uuidv4(),
-            parentUuid: null,
             timestamp: new Date().toISOString(),
             sessionId: this.sessionId,
             projectPath: this.projectPath,
@@ -219,17 +169,14 @@ export class ChatHistoryManager {
         };
 
         await this.writeEntry(entry);
-        this.lastMessageUuid = entry.uuid;
     }
 
     /**
      * Write session end entry
      */
     private async writeSessionEnd(): Promise<void> {
-        const entry: SessionEntry = {
+        const entry: SessionMetadata = {
             type: 'session_end',
-            uuid: uuidv4(),
-            parentUuid: this.lastMessageUuid,
             timestamp: new Date().toISOString(),
             sessionId: this.sessionId,
             projectPath: this.projectPath
@@ -239,128 +186,64 @@ export class ChatHistoryManager {
     }
 
     /**
-     * Record a user message
+     * Record a ModelMessage to JSONL and in-memory store
+     * Called incrementally as new messages arrive from SDK
+     *
+     * @param message - Exact ModelMessage from AI SDK
      */
-    async recordUserMessage(content: string): Promise<string> {
-        const messageUuid = uuidv4();
-        const entry: UserMessageEntry = {
-            type: 'user',
-            uuid: messageUuid,
-            parentUuid: this.lastMessageUuid,
-            timestamp: new Date().toISOString(),
-            sessionId: this.sessionId,
-            projectPath: this.projectPath,
-            message: {
-                role: 'user',
-                content
-            }
-        };
+    async recordMessage(message: any): Promise<void> {
+        try {
+            // Write to JSONL
+            await this.writeEntry(message);
 
-        await this.writeEntry(entry);
-        this.lastMessageUuid = messageUuid;
-        logDebug(`[ChatHistory] Recorded user message: ${messageUuid}`);
-        return messageUuid;
-    }
+            // Append to in-memory store
+            this.inMemoryMessages.push(message);
 
-    /**
-     * Record an assistant message chunk (streaming)
-     */
-    async recordAssistantChunk(content: string, isComplete: boolean = false): Promise<string> {
-        const messageUuid = uuidv4();
-        const entry: AssistantMessageEntry = {
-            type: 'assistant',
-            uuid: messageUuid,
-            parentUuid: this.lastMessageUuid,
-            timestamp: new Date().toISOString(),
-            sessionId: this.sessionId,
-            projectPath: this.projectPath,
-            message: {
-                role: 'assistant',
-                content,
-                isComplete
-            }
-        };
-
-        await this.writeEntry(entry);
-
-        // Only update lastMessageUuid if this is the complete message
-        if (isComplete) {
-            this.lastMessageUuid = messageUuid;
-            logDebug(`[ChatHistory] Recorded complete assistant message: ${messageUuid}`);
-        } else {
-            logDebug(`[ChatHistory] Recorded assistant chunk: ${messageUuid}`);
+            logDebug(`[ChatHistory] Recorded ${message.role} message (${this.inMemoryMessages.length} total)`);
+        } catch (error) {
+            logError('[ChatHistory] Failed to record message', error);
+            throw error;
         }
-
-        return messageUuid;
     }
 
     /**
-     * Record a tool call
+     * Record multiple ModelMessages at once (batch)
+     * Used after each step to record all new messages
+     *
+     * @param messages - New ModelMessages from step
      */
-    async recordToolCall(toolName: string, toolInput: unknown, toolCallId: string): Promise<string> {
-        const toolUuid = uuidv4();
-        const entry: ToolCallEntry = {
-            type: 'tool_call',
-            uuid: toolUuid,
-            parentUuid: this.lastMessageUuid,
-            timestamp: new Date().toISOString(),
-            sessionId: this.sessionId,
-            projectPath: this.projectPath,
-            toolName,
-            toolInput,
-            toolCallId
-        };
-
-        await this.writeEntry(entry);
-        this.lastMessageUuid = toolUuid;
-        logDebug(`[ChatHistory] Recorded tool call: ${toolName} (${toolUuid}, toolCallId: ${toolCallId})`);
-        return toolUuid;
+    async recordMessages(messages: any[]): Promise<void> {
+        for (const message of messages) {
+            await this.recordMessage(message);
+        }
+        logDebug(`[ChatHistory] Recorded ${messages.length} messages`);
     }
 
     /**
-     * Record a tool result
+     * Load conversation messages from JSONL file
+     * Returns exact ModelMessages (no reconstruction needed)
      */
-    async recordToolResult(toolName: string, toolOutput: unknown, toolCallId: string): Promise<string> {
-        const resultUuid = uuidv4();
-        const entry: ToolResultEntry = {
-            type: 'tool_result',
-            uuid: resultUuid,
-            parentUuid: this.lastMessageUuid,
-            timestamp: new Date().toISOString(),
-            sessionId: this.sessionId,
-            projectPath: this.projectPath,
-            toolName,
-            toolOutput,
-            toolCallId
-        };
-
-        await this.writeEntry(entry);
-        this.lastMessageUuid = resultUuid;
-        logDebug(`[ChatHistory] Recorded tool result: ${toolName} (${resultUuid}, toolCallId: ${toolCallId})`);
-        return resultUuid;
-    }
-
-    /**
-     * Load conversation history from JSONL file
-     * Returns array of entries in chronological order
-     */
-    static async loadSession(projectPath: string, sessionId: string): Promise<ConversationEntry[]> {
+    static async loadSession(projectPath: string, sessionId: string): Promise<any[]> {
         try {
             const projectHash = this.hashProjectPath(projectPath);
             const sessionFile = path.join(BASE_STORAGE_DIR, projectHash, `${sessionId}.jsonl`);
 
             const content = await fs.readFile(sessionFile, 'utf8');
             const lines = content.trim().split('\n');
-            const entries: ConversationEntry[] = [];
+            const messages: any[] = [];
 
             for (const line of lines) {
                 if (line.trim()) {
-                    entries.push(JSON.parse(line));
+                    const entry = JSON.parse(line);
+                    // Skip session metadata entries
+                    if (entry.type !== 'session_start' && entry.type !== 'session_end') {
+                        messages.push(entry);  // Direct ModelMessage
+                    }
                 }
             }
 
-            logInfo(`[ChatHistory] Loaded ${entries.length} entries from session: ${sessionId}`);
-            return entries;
+            logInfo(`[ChatHistory] Loaded ${messages.length} messages from session: ${sessionId}`);
+            return messages;
         } catch (error) {
             logError('[ChatHistory] Failed to load session', error);
             return [];
@@ -413,121 +296,15 @@ export class ChatHistoryManager {
         }
     }
 
-    /**
-     * Convert chat history entries to AI SDK ModelMessage format
-     * Used to provide conversation context to the agent
-     * 
-     * IMPORTANT: For prompt caching to work correctly, tool calls must be
-     * reconstructed with their exact toolCallIds. The AI SDK expects:
-     * - Assistant messages with tool_call content parts (including toolCallId)
-     * - Tool messages with matching toolCallId
-     */
-    static convertToModelMessages(entries: ConversationEntry[]): any[] {
-        const messages: any[] = [];
-        
-        // Track pending tool calls to group with results
-        const pendingToolCalls: Map<string, { toolName: string; toolInput: unknown; toolCallId: string }> = new Map();
-        // Track assistant content that precedes tool calls
-        let pendingAssistantContent: string = '';
-
-        for (const entry of entries) {
-            switch (entry.type) {
-                case 'user':
-                    // Flush any pending assistant content before user message
-                    if (pendingAssistantContent) {
-                        messages.push({
-                            role: 'assistant',
-                            content: pendingAssistantContent
-                        });
-                        pendingAssistantContent = '';
-                    }
-                    messages.push({
-                        role: 'user',
-                        content: entry.message.content
-                    });
-                    break;
-
-                case 'assistant':
-                    if (entry.message.isComplete) {
-                        // Complete assistant message - add directly
-                        messages.push({
-                            role: 'assistant',
-                            content: entry.message.content
-                        });
-                    } else {
-                        // Incomplete chunk - accumulate for context
-                        pendingAssistantContent += entry.message.content;
-                    }
-                    break;
-
-                case 'tool_call':
-                    // Store tool call for pairing with result
-                    pendingToolCalls.set(entry.toolCallId, {
-                        toolName: entry.toolName,
-                        toolInput: entry.toolInput,
-                        toolCallId: entry.toolCallId
-                    });
-                    
-                    // Create assistant message with tool call
-                    // Include any pending assistant content as text part
-                    const toolCallParts: any[] = [];
-                    if (pendingAssistantContent) {
-                        toolCallParts.push({
-                            type: 'text',
-                            text: pendingAssistantContent
-                        });
-                        pendingAssistantContent = '';
-                    }
-                    toolCallParts.push({
-                        type: 'tool-call',
-                        toolCallId: entry.toolCallId,
-                        toolName: entry.toolName,
-                        input: entry.toolInput
-                    });
-                    
-                    messages.push({
-                        role: 'assistant',
-                        content: toolCallParts
-                    });
-                    break;
-
-                case 'tool_result':
-                    // Create tool result message with matching toolCallId
-                    // The output must be a ToolResultOutput type: { type: 'json', value: ... }
-                    messages.push({
-                        role: 'tool',
-                        content: [{
-                            type: 'tool-result',
-                            toolCallId: entry.toolCallId,
-                            toolName: entry.toolName,
-                            output: {
-                                type: 'json',
-                                value: entry.toolOutput
-                            }
-                        }]
-                    });
-                    // Remove from pending
-                    pendingToolCalls.delete(entry.toolCallId);
-                    break;
-            }
-        }
-
-        // Flush any remaining assistant content
-        if (pendingAssistantContent) {
-            messages.push({
-                role: 'assistant',
-                content: pendingAssistantContent
-            });
-        }
-
-        return messages;
-    }
 
     /**
-     * Convert chat history entries to event format (similar to AgentEvent)
-     * Frontend will format these events into UI messages with inline tool calls
+     * Convert ModelMessages to UI event format
+     * Generates events on-the-fly from in-memory messages
+     *
+     * @param messages - ModelMessages from JSONL or memory
+     * @returns UI events for display
      */
-    static convertToEventFormat(entries: ConversationEntry[]): Array<{
+    static convertToEventFormat(messages: any[]): Array<{
         type: 'user' | 'assistant' | 'tool_call' | 'tool_result';
         content?: string;
         toolName?: string;
@@ -537,84 +314,74 @@ export class ChatHistoryManager {
         action?: string;
         timestamp: string;
     }> {
-        const events: Array<{
-            type: 'user' | 'assistant' | 'tool_call' | 'tool_result';
-            content?: string;
-            toolName?: string;
-            toolInput?: unknown;
-            toolOutput?: unknown;
-            toolCallId?: string;
-            action?: string;
-            timestamp: string;
-        }> = [];
+        const events: any[] = [];
 
-        let pendingToolCall: { name: string; input: unknown; toolCallId: string; timestamp: string } | null = null;
+        for (const msg of messages) {
+            const timestamp = new Date().toISOString();  // Could store timestamps if needed
 
-        for (const entry of entries) {
-            switch (entry.type) {
+            switch (msg.role) {
                 case 'user':
                     events.push({
                         type: 'user',
-                        content: entry.message.content,
-                        timestamp: entry.timestamp
+                        content: msg.content,
+                        timestamp
                     });
                     break;
 
                 case 'assistant':
-                    // Send assistant content chunks (frontend handles assembly)
-                    if (entry.message.content) {
+                    // Handle text and tool-call content parts
+                    if (typeof msg.content === 'string') {
                         events.push({
                             type: 'assistant',
-                            content: entry.message.content,
-                            timestamp: entry.timestamp
+                            content: msg.content,
+                            timestamp
                         });
+                    } else if (Array.isArray(msg.content)) {
+                        for (const part of msg.content) {
+                            if (part.type === 'text') {
+                                events.push({
+                                    type: 'assistant',
+                                    content: part.text,
+                                    timestamp
+                                });
+                            } else if (part.type === 'tool-call') {
+                                events.push({
+                                    type: 'tool_call',
+                                    toolName: part.toolName,
+                                    toolInput: part.input,
+                                    toolCallId: part.toolCallId,
+                                    timestamp
+                                });
+                            }
+                        }
                     }
                     break;
 
-                case 'tool_call':
-                    // Store tool call info and send event
-                    pendingToolCall = {
-                        name: entry.toolName,
-                        input: entry.toolInput,
-                        toolCallId: entry.toolCallId,
-                        timestamp: entry.timestamp
-                    };
+                case 'tool':
+                    // Tool results
+                    if (Array.isArray(msg.content)) {
+                        for (const part of msg.content) {
+                            if (part.type === 'tool-result') {
+                                const output = part.output?.value || part.output;
+                                const toolActions = getToolAction(part.toolName, output, undefined);
 
-                    events.push({
-                        type: 'tool_call',
-                        toolName: entry.toolName,
-                        toolInput: entry.toolInput,
-                        toolCallId: entry.toolCallId,
-                        timestamp: entry.timestamp
-                    });
-                    break;
+                                let action = 'Executed ' + part.toolName;
+                                if (output?.success === false && toolActions?.failed) {
+                                    action = capitalizeAction(toolActions.failed);
+                                } else if (toolActions?.completed) {
+                                    action = capitalizeAction(toolActions.completed);
+                                }
 
-                case 'tool_result':
-                    if (pendingToolCall && pendingToolCall.toolCallId === entry.toolCallId) {
-                        // Calculate user-friendly action from shared utility
-                        const output = entry.toolOutput as any;
-                        const toolActions = getToolAction(entry.toolName, output, pendingToolCall.input);
-
-                        let action: string;
-                        if (output?.success === false && toolActions?.failed) {
-                            action = capitalizeAction(toolActions.failed);
-                        } else if (toolActions?.completed) {
-                            action = capitalizeAction(toolActions.completed);
-                        } else {
-                            action = `Executed ${entry.toolName}`;
+                                events.push({
+                                    type: 'tool_result',
+                                    toolName: part.toolName,
+                                    toolOutput: output,
+                                    toolCallId: part.toolCallId,
+                                    action,
+                                    timestamp
+                                });
+                            }
                         }
-
-                        events.push({
-                            type: 'tool_result',
-                            toolName: entry.toolName,
-                            toolInput: pendingToolCall.input,
-                            toolOutput: entry.toolOutput,
-                            toolCallId: entry.toolCallId,
-                            action,
-                            timestamp: entry.timestamp
-                        });
-
-                        pendingToolCall = null;
                     }
                     break;
             }
@@ -655,5 +422,42 @@ export class ChatHistoryManager {
      */
     getProjectPath(): string {
         return this.projectPath;
+    }
+
+    // ============================================================================
+    // In-Memory Message Methods (for prompt caching)
+    // ============================================================================
+
+    /**
+     * Set the in-memory messages from loaded session.
+     * Used when loading from JSONL on session resume.
+     *
+     * @param messages - The ModelMessage array from JSONL
+     */
+    setInMemoryMessages(messages: any[]): void {
+        this.inMemoryMessages = messages;
+        logDebug(`[ChatHistory] Set ${messages.length} in-memory messages`);
+    }
+
+    /**
+     * Get in-memory messages.
+     * Returns current in-memory messages (updated incrementally via recordMessage).
+     *
+     * @returns The in-memory ModelMessage array, or null if empty
+     */
+    getInMemoryMessages(): any[] | null {
+        if (this.inMemoryMessages.length > 0) {
+            logDebug(`[ChatHistory] Returning ${this.inMemoryMessages.length} in-memory messages`);
+            return this.inMemoryMessages;
+        }
+        return null;
+    }
+
+    /**
+     * Clear in-memory messages (e.g., when starting a new session).
+     */
+    clearInMemoryMessages(): void {
+        this.inMemoryMessages = [];
+        logDebug('[ChatHistory] Cleared in-memory messages');
     }
 }

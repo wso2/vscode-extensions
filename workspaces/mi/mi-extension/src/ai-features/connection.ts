@@ -53,12 +53,38 @@ export async function fetchWithAuth(input: string | URL | Request, options: Requ
         const accessToken = await getAccessToken();
 
         // Ensure headers object exists
+        // Note: anthropic-beta header for prompt caching is added by the AI SDK
         options.headers = {
             ...options.headers,
             'Authorization': `Bearer ${accessToken}`,
             'User-Agent': 'MI-VSCode-Plugin',
             'Connection': 'keep-alive',
         };
+        
+        // Debug: Log request details for cache debugging
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+        if (url.includes('/messages')) {
+            const headers = options.headers as Record<string, string>;
+            const betaHeader = headers['anthropic-beta'] || headers['Anthropic-Beta'] || 'none';
+            logDebug(`[Cache] Request headers - anthropic-beta: ${betaHeader}`);
+            
+            try {
+                const body = options.body ? JSON.parse(options.body as string) : null;
+                if (body?.messages) {
+                    const cacheBreakpoints = body.messages
+                        .map((m: any, i: number) => {
+                            // Check for cache_control in message or content parts
+                            const hasCache = m.cache_control || 
+                                (Array.isArray(m.content) && m.content.some((c: any) => c.cache_control));
+                            return hasCache ? `${i}:${m.role}` : null;
+                        })
+                        .filter(Boolean);
+                    logDebug(`[Cache] Request: ${body.messages.length} messages, cache_control at: [${cacheBreakpoints.join(', ')}]`);
+                }
+            } catch (e) {
+                // Ignore parse errors for non-JSON bodies
+            }
+        }
 
         let response = await fetch(input, options);
 
