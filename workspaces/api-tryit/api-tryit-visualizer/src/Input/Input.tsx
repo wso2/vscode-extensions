@@ -22,7 +22,7 @@ import styled from '@emotion/styled';
 import { ParamItem } from './ParamItem';
 import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
 import { CodeTextArea } from '../Components/CodeTextArea/CodeTextArea';
-import { CodeInput } from './CodeInput';
+import { CodeInput } from './CodeInput/CodeInput';
 
 type InputMode = 'code' | 'form';
 
