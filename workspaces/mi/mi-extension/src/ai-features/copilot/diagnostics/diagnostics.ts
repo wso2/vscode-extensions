@@ -150,7 +150,7 @@ export async function codeDiagnostics(
             model: model,
             messages: messages,
             schema: bugFixResponseSchema,
-            maxTokens: 8000,
+            maxOutputTokens: 8000,
             temperature: 0.2, // Lower temperature for more deterministic fixes
         });
         

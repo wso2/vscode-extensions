@@ -217,7 +217,7 @@ export async function autoFillForm(
             system: systemPrompt,
             prompt: userPrompt,
             schema: dynamicSchema,
-            maxTokens: 8000,
+            maxOutputTokens: 8000,
             temperature: 0.2, // Lower temperature for deterministic form filling
         });
 
