@@ -148,7 +148,7 @@ export async function fillIdpSchema(
                 content: contentParts
             }],
             schema: zodSchema,
-            maxTokens: 8000,
+            maxOutputTokens: 8000,
             temperature: 0.2, // Low temperature for deterministic extraction
         });
 
