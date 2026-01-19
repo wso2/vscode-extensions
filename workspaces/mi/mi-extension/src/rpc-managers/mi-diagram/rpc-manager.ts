@@ -6144,24 +6144,20 @@ ${keyValuesXML}`;
             return;
         }
 
-        await new Promise<void>(async (resolve) => {
-            let resolved = false;
+        const success = await workspace.applyEdit(edit);
+        if (!success) {
+            return;
+        }
 
+        await new Promise<void>(resolve => {
             const disposable = workspace.onDidChangeTextDocument(e => {
-                if (e.document.uri.fsPath === documentUri && !resolved) {
-                    resolved = true;
+                if (e.document.uri.fsPath === documentUri) {
                     disposable.dispose();
-                    resolve();
+
+                    // Wait till the document is fully updated and stabilized
+                    setTimeout(resolve, 0);
                 }
             });
-
-            const success = await workspace.applyEdit(edit);
-
-            if (!success && !resolved) {
-                resolved = true;
-                disposable.dispose();
-                resolve();
-            }
         });
     }
 }
