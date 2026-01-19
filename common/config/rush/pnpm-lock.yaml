@@ -3711,7 +3711,7 @@ importers:
     dependencies:
       '@ai-sdk/anthropic':
         specifier: 2.0.35
-        version: 2.0.35(zod@3.24.1)
+        version: 2.0.35(zod@4.1.11)
       '@apidevtools/json-schema-ref-parser':
         specifier: 12.0.2
         version: 12.0.2
@@ -3746,8 +3746,8 @@ importers:
         specifier: 0.4.12
         version: 0.4.12
       '@vscode/vsce':
-        specifier: 3.7.0
-        version: 3.7.0
+        specifier: 3.7.1
+        version: 3.7.1
       '@wso2/font-wso2-vscode':
         specifier: workspace:*
         version: link:../../common-libs/font-wso2-vscode
@@ -3771,7 +3771,7 @@ importers:
         version: 0.5.16
       ai:
         specifier: 5.0.76
-        version: 5.0.76(zod@3.24.1)
+        version: 5.0.76(zod@4.1.11)
       axios:
         specifier: 1.12.0
         version: 1.12.0
@@ -3872,8 +3872,8 @@ importers:
         specifier: 4.38.3
         version: 4.38.3
       zod:
-        specifier: 3.24.1
-        version: 3.24.1
+        specifier: 4.1.11
+        version: 4.1.11
     devDependencies:
       '@playwright/test':
         specifier: 1.55.1
@@ -11762,6 +11762,11 @@ packages:
 
   '@vscode/vsce@3.7.0':
     resolution: {integrity: sha512-LY9r2T4joszRjz4d92ZPl6LTBUPS4IWH9gG/3JUv+1QyBJrveZlcVISuiaq0EOpmcgFh0GgVgKD4rD/21Tu8sA==}
+    engines: {node: '>= 20'}
+    hasBin: true
+
+  '@vscode/vsce@3.7.1':
+    resolution: {integrity: sha512-OTm2XdMt2YkpSn2Nx7z2EJtSuhRHsTPYsSK59hr3v8jRArK+2UEoju4Jumn1CmpgoBLGI6ReHLJ/czYltNUW3g==}
     engines: {node: '>= 20'}
     hasBin: true
 
@@ -24642,9 +24647,6 @@ packages:
   zod@3.22.4:
     resolution: {integrity: sha512-iC+8Io04lddc+mVqQ9AZ7OQ2MrUKGN+oIQyq1vemgt46jwCwLfhq7/pwnBnNXXXZb8VTVLKwp9EDkx+ryxIWmg==}
 
-  zod@3.24.1:
-    resolution: {integrity: sha512-muH7gBL9sI1nciMZV67X5fTKKBLtwpZ5VBp1vsOQzj1MhrBZ4wlVCm3gedKZWLp0Oyel8sIGfeiz54Su+OVT+A==}
-
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
@@ -24710,11 +24712,11 @@ snapshots:
       aws4fetch: 1.0.20
       zod: 4.1.8
 
-  '@ai-sdk/anthropic@2.0.35(zod@3.24.1)':
+  '@ai-sdk/anthropic@2.0.35(zod@4.1.11)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.12(zod@3.24.1)
-      zod: 3.24.1
+      '@ai-sdk/provider-utils': 3.0.12(zod@4.1.11)
+      zod: 4.1.11
 
   '@ai-sdk/anthropic@3.0.2(zod@4.1.8)':
     dependencies:
@@ -24722,12 +24724,12 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.2(zod@4.1.8)
       zod: 4.1.8
 
-  '@ai-sdk/gateway@2.0.0(zod@3.24.1)':
+  '@ai-sdk/gateway@2.0.0(zod@4.1.11)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.12(zod@3.24.1)
+      '@ai-sdk/provider-utils': 3.0.12(zod@4.1.11)
       '@vercel/oidc': 3.0.3
-      zod: 3.24.1
+      zod: 4.1.11
 
   '@ai-sdk/gateway@3.0.6(zod@4.1.8)':
     dependencies:
@@ -24736,12 +24738,12 @@ snapshots:
       '@vercel/oidc': 3.0.5
       zod: 4.1.8
 
-  '@ai-sdk/provider-utils@3.0.12(zod@3.24.1)':
+  '@ai-sdk/provider-utils@3.0.12(zod@4.1.11)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
       '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.0.6
-      zod: 3.24.1
+      zod: 4.1.11
 
   '@ai-sdk/provider-utils@4.0.2(zod@4.1.8)':
     dependencies:
@@ -41196,6 +41198,45 @@ snapshots:
       - react-native-b4a
       - supports-color
 
+  '@vscode/vsce@3.7.1':
+    dependencies:
+      '@azure/identity': 4.13.0
+      '@secretlint/node': 10.2.2
+      '@secretlint/secretlint-formatter-sarif': 10.2.2
+      '@secretlint/secretlint-rule-no-dotenv': 10.2.2
+      '@secretlint/secretlint-rule-preset-recommend': 10.2.2
+      '@vscode/vsce-sign': 2.0.9
+      azure-devops-node-api: 12.5.0
+      chalk: 4.1.2
+      cheerio: 1.1.2
+      cockatiel: 3.2.1
+      commander: 12.1.0
+      form-data: 4.0.4
+      glob: 11.1.0
+      hosted-git-info: 4.1.0
+      jsonc-parser: 3.3.1
+      leven: 3.1.0
+      markdown-it: 14.1.0
+      mime: 1.6.0
+      minimatch: 3.1.2
+      parse-semver: 1.1.1
+      read: 1.0.7
+      secretlint: 10.2.2
+      semver: 7.7.3
+      tmp: 0.2.4
+      typed-rest-client: 1.8.11
+      url-join: 4.0.1
+      xml2js: 0.5.0
+      yauzl: 2.10.0
+      yazl: 2.5.1
+    optionalDependencies:
+      keytar: 7.9.0
+    transitivePeerDependencies:
+      - bare-abort-controller
+      - bare-buffer
+      - react-native-b4a
+      - supports-color
+
   '@vscode/webview-ui-toolkit@1.2.0(react@18.2.0)':
     dependencies:
       '@microsoft/fast-element': 1.14.0
@@ -41489,13 +41530,13 @@ snapshots:
       clean-stack: 4.2.0
       indent-string: 5.0.0
 
-  ai@5.0.76(zod@3.24.1):
+  ai@5.0.76(zod@4.1.11):
     dependencies:
-      '@ai-sdk/gateway': 2.0.0(zod@3.24.1)
+      '@ai-sdk/gateway': 2.0.0(zod@4.1.11)
       '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.12(zod@3.24.1)
+      '@ai-sdk/provider-utils': 3.0.12(zod@4.1.11)
       '@opentelemetry/api': 1.9.0
-      zod: 3.24.1
+      zod: 4.1.11
 
   ai@6.0.7(zod@4.1.8):
     dependencies:
@@ -59262,8 +59303,6 @@ snapshots:
       zod: 4.1.11
 
   zod@3.22.4: {}
-
-  zod@3.24.1: {}
 
   zod@3.25.76: {}
 
