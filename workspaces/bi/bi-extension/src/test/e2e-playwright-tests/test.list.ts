@@ -130,7 +130,7 @@ test.describe(reusableDataMapper);
 test.describe(inlineDataMapper);
 
 // <----Diagram Test---->
-test.describe.only(diagram);
+test.describe(diagram);
 
 test.afterAll(async () => {
     console.log('\n' + '='.repeat(80));
