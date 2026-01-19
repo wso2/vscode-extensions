@@ -206,8 +206,8 @@ export class Form {
                             await editorInput.waitFor();
                             await editorInput.click({ clickCount: 3 }); // Focus and select for replacement
                             await editorInput.fill(data.value);
-                            break;
                         }
+                        break;
                     }
                     case 'inlineExpression': {
                         const parentDiv = this.container.locator(`label:text("${key}")`).locator('../..');
