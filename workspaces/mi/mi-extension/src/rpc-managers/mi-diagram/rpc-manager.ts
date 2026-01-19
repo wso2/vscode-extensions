@@ -6149,16 +6149,19 @@ ${keyValuesXML}`;
             return;
         }
 
-        await new Promise<void>(resolve => {
-            const disposable = workspace.onDidChangeTextDocument(e => {
-                if (e.document.uri.fsPath === documentUri) {
-                    disposable.dispose();
-
-                    // Wait till the document is fully updated and stabilized
-                    setTimeout(resolve, 0);
-                }
-            });
-        });
+        await Promise.race([
+            new Promise<void>(resolve => {
+                const disposable = workspace.onDidChangeTextDocument(e => {
+                    if (e.document.uri.fsPath === documentUri) {
+                        disposable.dispose();
+                        setTimeout(resolve, 0);
+                    }
+                });
+            }),
+            new Promise<void>((_, reject) => 
+                setTimeout(() => reject(new Error('Wait timeout for document update')), 5000)
+            )
+        ]);
     }
 }
 
