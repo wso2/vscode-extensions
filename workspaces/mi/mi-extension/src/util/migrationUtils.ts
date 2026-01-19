@@ -910,7 +910,7 @@ function getFolderStructure(
     runtimeVersion: string | undefined
 ): FileStructure {
     return {
-        'pom.xml': rootPomXmlContent(projectName, groupId, artifactId.toLowerCase(), projectUuid, version, runtimeVersion ?? LATEST_MI_VERSION, ""),
+        'pom.xml': rootPomXmlContent(projectName, groupId, artifactId, projectUuid, version, runtimeVersion ?? LATEST_MI_VERSION, ""),
         '.env': '',
         'src': {
             'main': {
