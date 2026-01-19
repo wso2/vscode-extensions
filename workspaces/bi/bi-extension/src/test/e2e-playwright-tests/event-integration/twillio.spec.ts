@@ -154,7 +154,7 @@ export default function createTests() {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
             const projectExplorer = new ProjectExplorer(page.page);
-            const serviceTreeItem = await projectExplorer.findItem([DEFAULT_PROJECT_NAME, `Twillio Event Integration`], true);
+            const serviceTreeItem = await projectExplorer.findItem([DEFAULT_PROJECT_NAME, `twilio:CallStatusService`], true);
             await serviceTreeItem.click({ button: 'right' });
             const deleteButton = page.page.getByRole('button', { name: 'Delete' }).first();
             await deleteButton.waitFor({ timeout: 5000 });
