@@ -1081,7 +1081,7 @@
     "@types/mustache": "4.2.6",
     "@types/tmp": "0.2.6",
     "@types/xml2js": "0.4.12",
-    "@vscode/vsce": "3.7.0",
+    "@vscode/vsce": "3.7.1",
     "@wso2/font-wso2-vscode": "workspace:*",
     "@wso2/mi-core": "workspace:*",
     "@wso2/mi-diagram": "workspace:*",
@@ -1122,6 +1122,6 @@
     "vscode-messenger-common": "0.5.1",
     "xml2js": "0.6.2",
     "xstate": "4.38.3",
-    "zod": "3.24.1"
+    "zod": "4.1.11"
   }
 }
