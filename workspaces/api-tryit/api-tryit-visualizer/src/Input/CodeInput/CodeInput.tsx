@@ -25,7 +25,7 @@ import * as monaco from 'monaco-editor';
 
 import { CodeInputProps, SectionType } from './Types';
 import { LANGUAGE_ID, SECTION_HEADERS, COMMON_HEADERS, COMMON_QUERY_PARAMS, JSON_SNIPPETS } from './Constants';
-import { requestToCode, codeToRequest, getIsDarkTheme, generateId } from './Utils';
+import { requestToCode, codeToRequest, getIsDarkTheme, generateId, cleanCode } from './Utils';
 
 const Container = styled.div`
     width: 100%;
@@ -302,6 +302,39 @@ const useEditorInteractions = (
     };
 
     /**
+     * Gets the line where to add content at the end of existing content in a section
+     */
+    const getSectionEndLine = (headerLineNum: number, model: monaco.editor.ITextModel | null): number => {
+        if (!model) return headerLineNum + 1;
+        
+        try {
+            const headerLines = getSectionHeaderLines(model);
+            const headerLinesArray = Array.from(headerLines).sort((a, b) => a - b);
+            const currentIndex = headerLinesArray.indexOf(headerLineNum);
+            const lineCount = model.getLineCount();
+            const nextHeaderLine = currentIndex < headerLinesArray.length - 1
+                ? headerLinesArray[currentIndex + 1]
+                : lineCount + 1;
+
+            // Find the last non-empty line in the section
+            for (let i = nextHeaderLine - 2; i >= headerLineNum + 1; i--) {
+                try {
+                    const content = model.getLineContent(i).trim();
+                    if (content !== '') {
+                        return i + 1; // Insert after the last non-empty line
+                    }
+                } catch {
+                    continue;
+                }
+            }
+            // If no non-empty lines, return the first line after header
+            return headerLineNum + 1;
+        } catch {
+            return headerLineNum + 1;
+        }
+    };
+
+    /**
      * Updates decorations to mark read-only and editable sections
      */
     const updateDecorations = (model: monaco.editor.ITextModel | null, currentDecorations: string[]): string[] => {
@@ -454,7 +487,7 @@ const useEditorInteractions = (
                                         command: {
                                             id: commandId,
                                             title: lensText,
-                                            arguments: [lineNumber + 1]
+                                            arguments: [lineNumber]
                                         }
                                     });
                                 }
@@ -481,27 +514,30 @@ const useEditorInteractions = (
     const setupCommands = (monaco: Monaco, model: monaco.editor.ITextModel | null, editor: monaco.editor.IStandaloneCodeEditor | null) => {
         if (!editor || !model) return [];
 
-        const executeAddQueryParameter = (targetLineNumber: number) => {
-            addSampleContent(targetLineNumber, 'queryKey=queryValue', model);
+        const executeAddQueryParameter = (headerLineNumber: number) => {
+            const endLine = getSectionEndLine(headerLineNumber, model);
+            addSampleContent(endLine, 'queryKey=queryValue\n', model);
             if (editor) {
-                editor.setPosition({ lineNumber: targetLineNumber, column: 1 });
+                editor.setPosition({ lineNumber: endLine, column: 1 });
                 editor.focus();
             }
         };
 
-        const executeAddHeader = (targetLineNumber: number) => {
-            addSampleContent(targetLineNumber, 'Content-Type: application/json', model);
+        const executeAddHeader = (headerLineNumber: number) => {
+            const endLine = getSectionEndLine(headerLineNumber, model);
+            addSampleContent(endLine, 'Content-Type: application/json\n', model);
             if (editor) {
-                editor.setPosition({ lineNumber: targetLineNumber, column: 1 });
+                editor.setPosition({ lineNumber: endLine, column: 1 });
                 editor.focus();
             }
         };
 
-        const executeAddBody = (targetLineNumber: number) => {
+        const executeAddBody = (headerLineNumber: number) => {
+            const endLine = getSectionEndLine(headerLineNumber, model);
             const sampleBody = '{\n  "key": "value"\n}';
-            addSampleContent(targetLineNumber, sampleBody, model);
+            addSampleContent(endLine, sampleBody, model);
             if (editor) {
-                editor.setPosition({ lineNumber: targetLineNumber + 1, column: 3 });
+                editor.setPosition({ lineNumber: endLine + 1, column: 3 });
                 editor.focus();
             }
         };
@@ -604,8 +640,9 @@ const useEditorInteractions = (
                 const hasHeaders = lines.some(line => line.trim() === 'Headers');
                 const hasBody = lines.some(line => line.trim() === 'Body');
 
-                // Check if sections need empty lines
+                // Check if sections need empty lines or are out of order
                 let needsEmptyLine = false;
+                let sectionsOutOfOrder = false;
                 const queryParamsLine = lines.findIndex(line => line.trim() === 'Query Parameters');
                 const headersLine = lines.findIndex(line => line.trim() === 'Headers');
                 const bodyLine = lines.findIndex(line => line.trim() === 'Body');
@@ -620,11 +657,24 @@ const useEditorInteractions = (
                     needsEmptyLine = true;
                 }
 
+                // Check if sections are in correct order
+                if (queryParamsLine >= 0 && headersLine >= 0 && queryParamsLine >= headersLine) {
+                    sectionsOutOfOrder = true;
+                }
+                if (headersLine >= 0 && bodyLine >= 0 && headersLine >= bodyLine) {
+                    sectionsOutOfOrder = true;
+                }
+
+                // Check if code has duplicates that need cleaning
+                const cleanedValue = cleanCode(currentValue);
+                const hasDuplicates = cleanedValue !== currentValue;
+
                 // Restore structure if needed
-                if (!hasQueryParams || !hasHeaders || !hasBody || needsEmptyLine) {
+                if (!hasQueryParams || !hasHeaders || !hasBody || needsEmptyLine || sectionsOutOfOrder || hasDuplicates) {
                     isRestoringRef.current = true;
 
-                    const currentRequest = codeToRequest(currentValue, request);
+                    const cleanedValue = cleanCode(currentValue);
+                    const currentRequest = codeToRequest(cleanedValue, request);
                     const restoredContent = requestToCode(currentRequest);
 
                     const position = editor.getPosition();

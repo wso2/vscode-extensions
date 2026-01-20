@@ -20,6 +20,30 @@ import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-cor
 import { SectionType } from './Types';
 
 /**
+ * Cleans the code by removing duplicate section headers, keeping only the first occurrence of each
+ */
+export const cleanCode = (code: string): string => {
+    const lines = code.split('\n');
+    const seenHeaders = new Set<string>();
+    const cleanedLines: string[] = [];
+
+    for (const line of lines) {
+        const trimmed = line.trim().toLowerCase();
+        if (trimmed === 'query parameters' || trimmed === 'headers' || trimmed === 'body') {
+            if (!seenHeaders.has(trimmed)) {
+                seenHeaders.add(trimmed);
+                cleanedLines.push(line); // Keep the original casing
+            }
+            // Skip duplicate headers
+        } else {
+            cleanedLines.push(line);
+        }
+    }
+
+    return cleanedLines.join('\n');
+};
+
+/**
  * Converts an ApiRequest object to a formatted code string
  */
 export const requestToCode = (request: ApiRequest): string => {
