@@ -85,6 +85,20 @@ To add a new package:
 - `rush check`: Checks dependency consistency across packages.
 - `rush purge`: Cleans up temporary files and folders.
 
+## Git Pre-Commit Hooks
+
+This repository uses [Husky](https://typicode.github.io/husky/) to enforce code quality standards before commits.
+
+### Strict Version Validation
+
+All `package.json` files must use **strict versioning** for npm dependencies:
+- ❌ **Not allowed**: `^1.2.3`, `~1.2.3` (caret and tilde prefixes)
+- ✅ **Allowed**: `1.2.3` (exact version)
+
+The pre-commit hook will automatically validate all staged `package.json` files and block commits with non-strict versions.
+
+For more details, see the [Git Hooks Documentation](./docs/git-hooks.md).
+
 ## Contribution Guidelines
 
 If you are planning on contributing to the development efforts of WSO2 API Manager or related extensions, you can do so by checking out the latest development version. The `master` branch holds the latest unreleased source code.
