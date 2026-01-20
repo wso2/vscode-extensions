@@ -35,7 +35,14 @@ export function findInputNode(field: string, outputNode: DataMapperNodeModel, vi
     };
 
     // try finding input node using 'field' (map from other input ports)
-    const fieldStartsWith = field.split('.')[0];
+    // Extract the base variable name, handling bracket notation for tuple access
+    // e.g., "data[0]" -> "data", "person1.data[1]" -> "person1"
+    let fieldStartsWith = field.split('.')[0];
+    // Remove bracket notation if present (e.g., "data[0]" -> "data")
+    const bracketIndex = fieldStartsWith.indexOf('[');
+    if (bracketIndex >= 0) {
+        fieldStartsWith = fieldStartsWith.substring(0, bracketIndex);
+    }
     let inputNode = findNodeByField(fieldStartsWith);
     
     // if not found, try with parentSourceField
