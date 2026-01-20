@@ -17,28 +17,29 @@
  */
 
 import { test } from '@playwright/test';
-import { page } from './utils';
+import { page, extensionsFolder } from './utils/helpers';
+import { downloadExtensionFromMarketplace } from '@wso2/playwright-vscode-tester';
 const fs = require('fs');
 const path = require('path');
 const videosFolder = path.join(__dirname, '..', 'test-resources', 'videos');
 
 import automation from './automation/automation.spec';
 
-import httpService from './api-services/http-service.spec';
-import aiChatService from './api-services/ai-chat-service.spec';
-import graphqlService from './api-services/graphql-service.spec';
-import tcpService from './api-services/tcp-service.spec';
+import httpService from './api-integration/http-service.spec';
+import aiChatService from './api-integration/ai-chat-service.spec';
+import graphqlService from './api-integration/graphql-service.spec';
+import tcpService from './api-integration/tcp-service.spec';
 
-import kafkaIntegration from './event-integrations/kafka.spec';
-import rabbitmqIntegration from './event-integrations/rabbitmq.spec';
-import mqttIntegration from './event-integrations/mqtt.spec';
-import azureIntegration from './event-integrations/azure.spec';
-import salesforceIntegration from './event-integrations/salesforce.spec';
-import twillioIntegration from './event-integrations/twillio.spec';
-import githubIntegration from './event-integrations/github.spec';
+import kafkaIntegration from './event-integration/kafka.spec';
+import rabbitmqIntegration from './event-integration/rabbitmq.spec';
+import mqttIntegration from './event-integration/mqtt.spec';
+import azureIntegration from './event-integration/azure.spec';
+import salesforceIntegration from './event-integration/salesforce.spec';
+import twillioIntegration from './event-integration/twillio.spec';
+import githubIntegration from './event-integration/github.spec';
 
-import ftpIntegration from './file-integrations/ftp.spec';
-import directoryIntegration from './file-integrations/directory.spec';
+import ftpIntegration from './file-integration/ftp.spec';
+import directoryIntegration from './file-integration/directory.spec';
 
 import functionArtifact from './other-artifacts/function.spec';
 import naturalFunctionArtifact from './other-artifacts/np.spec';
@@ -46,10 +47,13 @@ import typeDiagramArtifact from './other-artifacts/type.spec';
 import connectionArtifact from './other-artifacts/connection.spec';
 
 import configuration from './configuration/configuration.spec';
-import typeTest from './type/type.spec';
-import serviceTest from './service-class-designer/service-class.spec';
+import typeTest from './type-editor/type.spec';
+import serviceTest from './service-designer/service-class.spec';
 
 import importIntegration from './import-integration/import-integration.spec';
+
+import reusableDataMapper from './data-mapper/reusable-data-mapper.spec';
+import inlineDataMapper from './data-mapper/inline-data-mapper.spec';
 
 test.describe.configure({ mode: 'default' });
 
@@ -60,6 +64,19 @@ test.beforeAll(async () => {
     console.log('\n' + '='.repeat(80));
     console.log('🚀 STARTING BI EXTENSION E2E TEST SUITE');
     console.log('='.repeat(80) + '\n');
+
+    // Download VSIX if flag is set
+    if (process.env.DOWNLOAD_PRERELEASE === 'true') {
+        console.log('📦 Downloading BI prerelease VSIXs ...');
+        try {
+            await downloadExtensionFromMarketplace('wso2.ballerina@prerelease', extensionsFolder);
+            await downloadExtensionFromMarketplace('wso2.ballerina-integrator@prerelease', extensionsFolder);
+            console.log('✅ BI prerelease VSIXs are ready!');
+        } catch (error) {
+            console.error('❌ Failed to download BI prerelease VSIXs:', error);
+            throw error;
+        }
+    }
 });
 
 // <----Automation Test---->
@@ -95,8 +112,13 @@ test.describe(connectionArtifact);
 test.describe(configuration); // TODO: This tests is failing due to https://github.com/wso2/product-ballerina-integrator/issues/1231. Enable after fixing the issue.
 test.describe(typeTest); // TODO: This tests is failing due to https://github.com/wso2/product-ballerina-integrator/issues/1222. Enable after fixing the issue.
 test.describe(serviceTest);
+
 // <----Import Integration Test---->
 test.describe(importIntegration);
+
+// <----Data Mapper Test---->
+test.describe(reusableDataMapper);
+test.describe(inlineDataMapper);
 
 test.afterAll(async () => {
     console.log('\n' + '='.repeat(80));

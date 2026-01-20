@@ -145,8 +145,8 @@ async function getProjectStructureData(): Promise<ProjectExplorerEntry[]> {
 					continue;
 				}
 				const langClient = await MILanguageClient.getInstance(rootPath);
-				const resp = await langClient?.languageClient?.getProjectExplorerModel(rootPath);
-				const projectDetailsRes = await langClient?.languageClient?.getProjectDetails();
+				const resp = await langClient.getProjectExplorerModel(rootPath);
+				const projectDetailsRes = await langClient.getProjectDetails();
 				const runtimeVersion = projectDetailsRes.primaryDetails.runtimeVersion.value;
 				const projectTree = await generateTreeData(workspace, resp, runtimeVersion);
 

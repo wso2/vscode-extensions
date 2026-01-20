@@ -16,11 +16,29 @@
  * under the License.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, unlinkSync, writeFileSync } from "fs";
+import {
+	copyFileSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	readdirSync,
+	renameSync,
+	rmSync,
+	rmdirSync,
+	statSync,
+	unlinkSync,
+	writeFileSync,
+} from "fs";
+import * as fs from "fs";
+import * as os from "os";
 import { join } from "path";
+import * as toml from "@iarna/toml";
 import {
 	AuthStoreChangedNotification,
 	ClearWebviewCache,
+	CloneRepositoryIntoCompDir,
+	type CloneRepositoryIntoCompDirReq,
 	CloseComponentViewDrawer,
 	CloseWebViewNotification,
 	type CommitHistory,
@@ -46,6 +64,7 @@ import {
 	GetLocalGitData,
 	GetSubPath,
 	GetWebviewStoreState,
+	GitProvider,
 	GoToSource,
 	HasDirtyLocalGitRepo,
 	JoinFsFilePaths,
@@ -84,24 +103,26 @@ import {
 	WebviewNotificationsMethodList,
 	type WebviewQuickPickItem,
 	WebviewStateChangedNotification,
+	buildGitURL,
 	deepEqual,
 	getShortenedHash,
 	makeURLSafe,
+	parseGitURL,
 } from "@wso2/wso2-platform-core";
 import * as yaml from "js-yaml";
-import { ProgressLocation, QuickPickItemKind, Uri, type WebviewPanel, type WebviewView, commands, env, window } from "vscode";
+import { ProgressLocation, QuickPickItemKind, Uri, type WebviewPanel, type WebviewView, commands, env, window, workspace } from "vscode";
 import * as vscode from "vscode";
 import { Messenger } from "vscode-messenger";
 import { BROADCAST } from "vscode-messenger-common";
 import { registerChoreoRpcResolver } from "../choreo-rpc";
-import { getChoreoEnv, getChoreoExecPath } from "../choreo-rpc/cli-install";
+import { getChoreoExecPath } from "../choreo-rpc/cli-install";
 import { quickPickWithLoader } from "../cmds/cmd-utils";
+import { enrichGitUsernamePassword } from "../cmds/commit-and-push-to-git-cmd";
 import { submitCreateComponentHandler } from "../cmds/create-component-cmd";
-import { choreoEnvConfig } from "../config";
 import { ext } from "../extensionVariables";
+import { initGit } from "../git/main";
 import { getGitHead, getGitRemotes, getGitRoot, hasDirtyRepo, removeCredentialsFromGitURL } from "../git/util";
 import { getLogger } from "../logger/logger";
-import { authStore } from "../stores/auth-store";
 import { contextStore } from "../stores/context-store";
 import { dataCacheStore } from "../stores/data-cache-store";
 import { webviewStateStore } from "../stores/webview-state-store";
@@ -110,11 +131,11 @@ import { getConfigFileDrifts, getNormalizedPath, getSubPath, goTosource, readLoc
 
 // Register handlers
 function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | WebviewView) {
-	authStore.subscribe((store) => messenger.sendNotification(AuthStoreChangedNotification, BROADCAST, store.state));
+	ext.authProvider?.subscribe((store) => messenger.sendNotification(AuthStoreChangedNotification, BROADCAST, store.state));
 	webviewStateStore.subscribe((store) => messenger.sendNotification(WebviewStateChangedNotification, BROADCAST, store.state));
 	contextStore.subscribe((store) => messenger.sendNotification(ContextStoreChangedNotification, BROADCAST, store.state));
 
-	messenger.onRequest(GetAuthState, () => authStore.getState().state);
+	messenger.onRequest(GetAuthState, () => ext.authProvider?.getState().state);
 	messenger.onRequest(GetWebviewStoreState, async () => webviewStateStore.getState().state);
 	messenger.onRequest(GetContextState, async () => contextStore.getState().state);
 
@@ -168,11 +189,14 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		vscode.env.openExternal(vscode.Uri.parse(url));
 	});
 	messenger.onRequest(OpenExternalChoreo, (choreoPath: string) => {
-		if (webviewStateStore.getState().state.extensionName === "Devant") {
-			vscode.env.openExternal(vscode.Uri.joinPath(vscode.Uri.parse(choreoEnvConfig.getDevantUrl()), choreoPath));
-		} else {
-			vscode.env.openExternal(vscode.Uri.joinPath(vscode.Uri.parse(choreoEnvConfig.getConsoleUrl()), choreoPath));
-		}
+		vscode.env.openExternal(
+			vscode.Uri.joinPath(
+				vscode.Uri.parse(
+					(webviewStateStore.getState().state.extensionName === "Devant" ? ext.config?.devantConsoleUrl : ext.config?.choreoConsoleUrl) || "",
+				),
+				choreoPath,
+			),
+		);
 	});
 	messenger.onRequest(SetWebviewCache, async (params: { cacheKey: string; data: any }) => {
 		await ext.context.workspaceState.update(params.cacheKey, params.data);
@@ -250,7 +274,7 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		async (params: { orgName: string; projectName: string; componentName: string; deploymentTrackName: string; envName: string; type: string }) => {
 			const { orgName, projectName, componentName, deploymentTrackName, envName, type } = params;
 			// todo: export the env from here
-			if (getChoreoEnv() !== "prod") {
+			if (ext.choreoEnv !== "prod") {
 				window.showErrorMessage(
 					"Choreo extension currently displays runtime logs is only if 'WSO2.Platform.Advanced.ChoreoEnvironment' is set to 'prod'",
 				);
@@ -271,16 +295,16 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 		return Buffer.from(JSON.stringify(state), "binary").toString("base64");
 	};
 	messenger.onRequest(TriggerGithubAuthFlow, async (orgId: string) => {
-		const { authUrl, clientId, redirectUrl, devantRedirectUrl } = choreoEnvConfig.getGHAppConfig();
 		const extName = webviewStateStore.getState().state.extensionName;
+		const baseUrl = extName === "Devant" ? ext.config?.devantConsoleUrl : ext.config?.choreoConsoleUrl;
+		const redirectUrl = `${baseUrl}/ghapp`;
 		const state = await _getGithubUrlState(orgId);
-		const ghURL = Uri.parse(`${authUrl}?redirect_uri=${extName === "Devant" ? devantRedirectUrl : redirectUrl}&client_id=${clientId}&state=${state}`);
+		const ghURL = Uri.parse(`${ext.config?.ghApp.authUrl}?redirect_uri=${redirectUrl}&client_id=${ext.config?.ghApp.clientId}&state=${state}`);
 		await env.openExternal(ghURL);
 	});
 	messenger.onRequest(TriggerGithubInstallFlow, async (orgId: string) => {
-		const { installUrl } = choreoEnvConfig.getGHAppConfig();
 		const state = await _getGithubUrlState(orgId);
-		const ghURL = Uri.parse(`${installUrl}?state=${state}`);
+		const ghURL = Uri.parse(`${ext.config?.ghApp.installUrl}?state=${state}`);
 		await env.openExternal(ghURL);
 	});
 	messenger.onRequest(SubmitComponentCreate, submitCreateComponentHandler);
@@ -374,7 +398,7 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 			rmSync(join(params.componentDir, ".choreo", "component-config.yaml"));
 		}
 
-		const org = authStore?.getState().state?.userInfo?.organizations?.find((item) => item.uuid === params.marketplaceItem?.organizationId);
+		const org = ext.authProvider?.getState().state?.userInfo?.organizations?.find((item) => item.uuid === params.marketplaceItem?.organizationId);
 		if (!org) {
 			return;
 		}
@@ -551,6 +575,102 @@ function registerWebviewRPCHandlers(messenger: Messenger, view: WebviewPanel | W
 	});
 	messenger.onRequest(GetConfigFileDrifts, async (params: GetConfigFileDriftsReq) => {
 		return getConfigFileDrifts(params.type, params.repoUrl, params.branch, params.repoDir, ext.context);
+	});
+	messenger.onRequest(CloneRepositoryIntoCompDir, async (params: CloneRepositoryIntoCompDirReq) => {
+		const extName = webviewStateStore.getState().state.extensionName;
+		const newGit = await initGit(ext.context);
+		if (!newGit) {
+			throw new Error("failed to retrieve Git details");
+		}
+		const _repoUrl = buildGitURL(params.repo.orgHandler, params.repo.repo, params.repo.provider, true, params.repo.serverUrl);
+		if (!_repoUrl || !_repoUrl.startsWith("https://")) {
+			throw new Error("failed to parse git details");
+		}
+		const urlObj = new URL(_repoUrl);
+
+		const parsed = parseGitURL(_repoUrl);
+		if (parsed) {
+			const [repoOrg, repoName, provider] = parsed;
+			await enrichGitUsernamePassword(params.org, repoOrg, repoName, provider, urlObj, _repoUrl, params.repo.secretRef || "");
+		}
+
+		const repoUrl = urlObj.href;
+
+		// if ballerina toml exists, need to update the org and name
+		const balTomlPath = join(params.cwd, "Ballerina.toml");
+		if (existsSync(balTomlPath)) {
+			const fileContent = await fs.promises.readFile(balTomlPath, "utf-8");
+			const parsedToml: any = toml.parse(fileContent);
+			if (parsedToml?.package) {
+				parsedToml.package.org = params.org.handle;
+				parsedToml.package.name = params.componentName?.replaceAll("-", "_");
+			}
+			const updatedTomlContent = toml.stringify(parsedToml);
+			await fs.promises.writeFile(balTomlPath, updatedTomlContent, "utf-8");
+		}
+
+		// TODO: Enable this after fixing component creation from root
+		/*
+		if (params.repo?.isBareRepo && ["", "/", "."].includes(params.subpath)) {
+			// if component is to be created in the root of a bare repo,
+			// then we can initialize the current directory as the repo root
+			await window.withProgress({ title: `Initializing currently opened directory as repository...`, location: ProgressLocation.Notification }, async () => {
+				await newGit.init(params.cwd);
+				const dotGit = await newGit?.getRepositoryDotGit(params.cwd);
+				const repo = newGit.open(params.cwd, dotGit);
+				await repo.addRemote("origin", repoUrl);
+				await repo.add(["."]);
+				await repo.commit(`Add source for new ${extName} ${extName === "Devant" ? "Integration" : "Component"} (${params.componentName})`);
+				const headRef = await repo.getHEADRef()
+				await repo.push("origin", headRef?.name);
+			});
+			return params.cwd;
+		}
+		*/
+
+		const clonedPath = await window.withProgress(
+			{
+				title: `Cloning repository ${params.repo?.orgHandler}/${params.repo.repo}`,
+				location: ProgressLocation.Notification,
+			},
+			async (progress, cancellationToken) =>
+				newGit.clone(
+					repoUrl,
+					{
+						recursive: true,
+						ref: params.repo.branch,
+						parentPath: join(params.cwd, ".."),
+						progress: {
+							report: ({ increment, ...rest }: { increment: number }) => progress.report({ increment: increment, ...rest }),
+						},
+					},
+					cancellationToken,
+				),
+		);
+
+		// Move everything into cloned dir
+		const cwdFiled = readdirSync(params.cwd);
+		const newPath = join(clonedPath, params.subpath);
+		fs.mkdirSync(newPath, { recursive: true });
+
+		for (const file of cwdFiled) {
+			const cwdFilePath = join(params.cwd, file);
+			const destFilePath = join(newPath, file);
+			fs.cpSync(cwdFilePath, destFilePath, { recursive: true });
+		}
+
+		const repoRoot = await newGit?.getRepositoryRoot(newPath);
+		const dotGit = await newGit?.getRepositoryDotGit(newPath);
+		const repo = newGit.open(repoRoot, dotGit);
+
+		await window.withProgress({ title: "Pushing the changes to your remote repository...", location: ProgressLocation.Notification }, async () => {
+			await repo.add(["."]);
+			await repo.commit(`Add source for new ${extName} ${extName === "Devant" ? "Integration" : "Component"} (${params.componentName})`);
+			const headRef = await repo.getHEADRef();
+			await repo.push(headRef?.upstream?.remote || "origin", headRef?.name || params.repo.branch);
+		});
+
+		return newPath;
 	});
 
 	// Register Choreo CLL RPC handler

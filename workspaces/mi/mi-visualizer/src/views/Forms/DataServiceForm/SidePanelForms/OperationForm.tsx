@@ -21,8 +21,11 @@ import { Button, TextField, SidePanel, SidePanelTitleContainer, SidePanelBody, C
 import * as yup from "yup";
 import styled from "@emotion/styled";
 import { SIDE_PANEL_WIDTH } from "../../../../constants";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
+import { Keylookup } from "@wso2/mi-diagram";
+import { openPopup } from "@wso2/mi-diagram/lib/components/Form/common";
+import { useVisualizerContext } from '@wso2/mi-rpc-client';
 
 const ActionContainer = styled.div`
     display: flex;
@@ -60,20 +63,31 @@ namespace Section {
 
 type OperationFields = {
     operationName: string;
+    queryId?: string;
     description: string;
     enableStreaming: boolean;
+    useExistingQuery?: boolean;
 };
 
 const newOperation: OperationFields = {
     operationName: "",
+    queryId: "",
     description: "",
-    enableStreaming: false
+    enableStreaming: false,
+    useExistingQuery: false
 };
 
 const schema = yup.object({
     operationName: yup.string().required("Operation name is required"),
+    queryId: yup.string().when("useExistingQuery", {
+        is: true,
+        then: (schema) =>
+        schema.required("Query ID is required"),
+        otherwise: (schema) => schema.notRequired(),
+    }),
     description: yup.string().notRequired(),
-    enableStreaming: yup.boolean().notRequired()
+    enableStreaming: yup.boolean().notRequired(),
+    useExistingQuery: yup.boolean().notRequired()
 });
 
 export type OperationType = yup.InferType<typeof schema>;
@@ -90,10 +104,11 @@ type OperationFormProps = {
     onSave: (data: OperationFormData) => void;
 };
 
-export const OperationForm = ({ isOpen, onCancel, onSave, formData }: OperationFormProps) => {
+export const OperationForm = ({ isOpen, onCancel, onSave, formData, documentUri }: OperationFormProps) => {
     const {
         control,
         handleSubmit,
+        watch,
         formState: { errors, isDirty },
         register,
         reset
@@ -102,6 +117,8 @@ export const OperationForm = ({ isOpen, onCancel, onSave, formData }: OperationF
         resolver: yupResolver(schema),
         mode: "onChange",
     });
+
+    const { rpcClient } = useVisualizerContext();
 
     useEffect(() => {
         if (isOpen && formData) {
@@ -152,6 +169,31 @@ export const OperationForm = ({ isOpen, onCancel, onSave, formData }: OperationF
                         size={150}
                         {...renderProps('operationName')}
                     />
+                    { !formData && (
+                        <FormCheckBox label="Use Existing Query" control={control as any}
+                            {...renderProps('useExistingQuery')}
+                        />
+                    )}
+
+                    { (formData || watch("useExistingQuery")) && (
+                        <Controller
+                            name="queryId"
+                            control={control}
+                            render={({ field }) => (
+                                <Keylookup
+                                    value={field.value}
+                                    filterType='dssQuery'
+                                    label="Query ID"
+                                    allowItemCreate={false}
+                                    onCreateButtonClick={(fetchItems: any, handleValueChange: any) => {
+                                        openPopup(rpcClient, "dssQuery", fetchItems, handleValueChange, documentUri, { datasource: undefined });
+                                    }}
+                                    onValueChange={field.onChange}
+                                    required={true}
+                                />
+                            )}
+                        />
+                    )}
                     <TextArea
                         label="Description"
                         {...renderProps('description')}

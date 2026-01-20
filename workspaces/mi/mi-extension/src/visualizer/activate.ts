@@ -36,6 +36,7 @@ import { MiDiagramRpcManager } from '../rpc-managers/mi-diagram/rpc-manager';
 import { log } from '../util/logger';
 import { CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR } from '../util/onboardingUtils';
 import { getHash } from '../util/fileOperations';
+import { MILanguageClient } from '../lang-client/activator';
 
 export function activateVisualizer(context: vscode.ExtensionContext, firstProject: string) {
     context.subscriptions.push(
@@ -233,7 +234,7 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
 
             if (e.document.uri.fsPath.endsWith('pom.xml')) {
                 const projectUri = vscode.workspace.getWorkspaceFolder(e.document.uri)?.uri.fsPath;
-                const langClient = getStateMachine(projectUri!).context().langClient;
+                const langClient = await MILanguageClient.getInstance(projectUri!);
                 
                 const confirmUpdate = await vscode.window.showInformationMessage(
                     'The pom.xml file has been modified. Do you want to update the dependencies?',
@@ -342,6 +343,62 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                 generateSwagger(document.uri.fsPath);
             }
 
+            const swaggerDir = path.join(projectUri!, "src", "main", "wso2mi", "resources", "api-definitions");
+            if (document?.uri.fsPath.includes(swaggerDir)) {
+                const rpcManager = new MiDiagramRpcManager(projectUri!);
+                const langClient = await MILanguageClient.getInstance(projectUri!);
+                const apiPath = path.join(apiDir, path.basename(document?.uri.fsPath, path.extname(document?.uri.fsPath)) + '.xml');
+                const apiName = path.basename(document?.uri.fsPath).split("_v")[0];
+                langClient?.getSyntaxTree({
+                    documentIdentifier: {
+                        uri: apiPath
+                    }
+                }).then(st => {
+                    rpcManager.compareSwaggerAndAPI({
+                        apiName: apiName,
+                        apiPath: apiPath
+                    }).then(async response => {
+                        if (response.swaggerExists && !response.isEqual) {
+                            const confirmUpdate = await vscode.window.showInformationMessage(
+                                'The OpenAPI definition is different from the Synapse API.',
+                                { modal: true },
+                                "Update API", "Update Swagger"
+                            );
+                            switch (confirmUpdate) {
+                                case "Update Swagger":
+                                    rpcManager.updateSwaggerFromAPI({
+                                        apiName: apiName,
+                                        apiPath: apiPath,
+                                        existingSwagger: response.existingSwagger,
+                                        generatedSwagger: response.generatedSwagger
+                                    });
+                                    break;
+                                case "Update API":
+                                    const resources = getResources(st);
+                                    rpcManager.updateAPIFromSwagger({
+                                        apiName: apiName,
+                                        apiPath: apiPath,
+                                        existingSwagger: response.existingSwagger,
+                                        generatedSwagger: response.generatedSwagger,
+                                        resources: resources.map(r => ({
+                                            path: r.path,
+                                            methods: r.methods,
+                                            position: r.position
+                                        })),
+                                        insertPosition: {
+                                            line: st.syntaxTree.api.range.endTagRange.start.line,
+                                            character: st.syntaxTree.api.range.endTagRange.start.character
+                                        }
+                                    });
+                                    break;
+                                default:
+                                    break;
+                            }
+                        }
+                    })
+                });
+            }
+
             if (currentView !== 'Connector Store Form' && document?.uri?.fsPath?.includes(artifactsDir) || currentView === MACHINE_VIEW.IdpConnectorSchemaGeneratorForm) {
                 refreshDiagram(projectUri!);
             }
@@ -414,3 +471,18 @@ export const refreshDiagram = debounce(async (projectUri: string, refreshDiagram
         refreshUI(projectUri);
     }
 }, 500);
+
+const getResources = (st: any): any[] => {
+    const resources: any[] = st?.syntaxTree?.api?.resource ?? [];
+    return resources.map((resource) => ({
+        methods: resource.methods,
+        path: resource.uriTemplate || resource.urlMapping,
+        position: {
+            startLine: resource.range.startTagRange.start.line,
+            startColumn: resource.range.startTagRange.start.character,
+            endLine: resource.range.endTagRange.end.line,
+            endColumn: resource.range.endTagRange.end.character,
+        },
+        expandable: false
+    }));
+};
