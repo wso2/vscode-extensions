@@ -299,8 +299,8 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 		}
 
 		// For tuple members, the field.id already contains the correct path with bracket notation
-		// e.g., "tupleVar[0]" instead of "tupleVar.0"
-		// Use field.id directly if it's available and already includes the parent path
+		// e.g., "updatedPerson.data[0]" - the full path from root to the tuple member
+		// Use field.id directly if it starts with the parent path
 		if (field?.id && field.id.startsWith(newParentId) && field.id !== newParentId) {
 			return field.id;
 		}
