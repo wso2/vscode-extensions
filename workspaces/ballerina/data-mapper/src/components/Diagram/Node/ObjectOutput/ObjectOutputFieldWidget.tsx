@@ -80,10 +80,11 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
 
     const isArray = typeKind === TypeKind.Array;
     const isRecord = typeKind === TypeKind.Record;
+    const isTuple = typeKind === TypeKind.Tuple;
     const isEnum = typeKind === TypeKind.Enum;
 
     let updatedParentId = parentId;
-    
+
     if (fieldIndex !== undefined) {
         updatedParentId = `${updatedParentId}.${fieldIndex}`
     }
@@ -91,13 +92,29 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
     let fieldName = field?.name || '';
     let displayName = field?.displayName || fieldName;
 
-    let portName = isPortParent
-        ? parentId
-        : updatedParentId !== ''
-            ? fieldName !== '' && fieldIndex === undefined
-                ? `${updatedParentId}.${fieldName}`
-                : updatedParentId
-            : fieldName;
+    // For tuple members, we need to construct the port name with the prefix
+    // Backend creates field.id as "tupleVar[0]", but ports are "objectOutput.tupleVar[0]"
+    let portName: string;
+    if (field?.id && field.id.includes('[') && field.id.includes(']')) {
+        // Extract the parent prefix from parentId (e.g., "objectOutput" from "objectOutput.tupleVar")
+        // Then append the field.id (e.g., "tupleVar[0]")
+        // But we need to replace the base name in field.id with the full parent path
+        const lastDotIndex = parentId.lastIndexOf('.');
+        if (lastDotIndex >= 0) {
+            const prefix = parentId.substring(0, lastDotIndex + 1);
+            portName = prefix + field.id;
+        } else {
+            portName = field.id;
+        }
+    } else if (isPortParent) {
+        portName = parentId;
+    } else if (updatedParentId !== '') {
+        portName = fieldName !== '' && fieldIndex === undefined
+            ? `${updatedParentId}.${fieldName}`
+            : updatedParentId;
+    } else {
+        portName = fieldName;
+    }
 
     const portIn = getPort(portName + ".IN");
     const isUnknownType = field?.kind === TypeKind.Unknown;
@@ -110,6 +127,7 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
         !isEnum;
 
     const fields = isRecord && field?.fields?.filter(f => f !== null);
+    const members = isTuple && field?.members?.filter(m => m !== null);
     const isWithinArray = fieldIndex !== undefined;
 
     const handleExpand = () => {
@@ -201,7 +219,7 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
                 className={classnames(classes.valueLabel,
                     isDisabled && !hasHoveredParent ? classes.labelDisabled : ""
                 )}
-                style={{ marginLeft: fields ? 0 : indentation + 24 }}
+                style={{ marginLeft: (fields || members) ? 0 : indentation + 24 }}
             >
                 <OutputSearchHighlight>{displayName}</OutputSearchHighlight>
                 {!field?.optional && <span className={classes.requiredMark}>*</span>}
@@ -301,9 +319,9 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
                         )}
                     </span>
                     <span className={classes.label}>
-                        {fields && (
+                        {(fields || members) && (
                             <Button
-                                id={"expand-or-collapse-" + portName} 
+                                id={"expand-or-collapse-" + portName}
                                 appearance="icon"
                                 tooltip="Expand/Collapse"
                                 sx={{ marginLeft: indentation }}
@@ -347,6 +365,22 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
                             key={index}
                             engine={engine}
                             field={subField}
+                            getPort={getPort}
+                            parentId={portName}
+                            context={context}
+                            treeDepth={treeDepth + 1}
+                            hasHoveredParent={isHovered || hasHoveredParent}
+                        />
+                    );
+                })
+            }
+            {members && expanded &&
+                members.map((member, index) => {
+                    return (
+                        <ObjectOutputFieldWidget
+                            key={index}
+                            engine={engine}
+                            field={member}
                             getPort={getPort}
                             parentId={portName}
                             context={context}

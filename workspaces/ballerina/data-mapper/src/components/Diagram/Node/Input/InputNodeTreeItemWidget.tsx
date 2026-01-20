@@ -51,7 +51,18 @@ export function InputNodeTreeItemWidget(props: InputNodeTreeItemWidgetProps) {
     const fieldName = dmType.name;
     const displayName = dmType.displayName || fieldName;
     const typeName = getTypeName(dmType);
-    const fieldId = dmType.isFocused ? fieldName : `${parentId}.${fieldName}`;
+
+    // For tuple members, use the dmType.id directly if it contains bracket notation
+    // This ensures we match the port names created by the backend (e.g., "tupleVar[0]" not "tupleVar.0")
+    let fieldId: string;
+    if (dmType.id && dmType.id.includes('[') && dmType.id.includes(']')) {
+        fieldId = dmType.id;
+    } else if (dmType.isFocused) {
+        fieldId = fieldName;
+    } else {
+        fieldId = `${parentId}.${fieldName}`;
+    }
+
     const portOut = getPort(`${fieldId}.OUT`);
     const isUnknownType = dmType.kind === TypeKind.Unknown;
 
@@ -61,6 +72,8 @@ export function InputNodeTreeItemWidget(props: InputNodeTreeItemWidgetProps) {
 
     if (dmType.kind === TypeKind.Record) {
         fields = dmType.fields;
+    } else if (dmType.kind === TypeKind.Tuple) {
+        fields = dmType.members;
     } else if (dmType.kind === TypeKind.Array) {
         fields = [ dmType.member ];
     }

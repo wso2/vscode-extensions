@@ -70,7 +70,11 @@ export function ObjectOutputWidget(props: ObjectOutputWidgetProps) {
 		}))
 	);
 
-	const fields = outputType.fields.filter(t => t !== null);
+	// Handle both records (fields) and tuples (members)
+	const isTuple = outputType.kind === TypeKind.Tuple;
+	const fields = isTuple
+		? (outputType.members?.filter(t => t !== null) || [])
+		: (outputType.fields?.filter(t => t !== null) || []);
 	const hasFields = fields.length > 0;
 
 	const portIn = getPort(`${id}.IN`);
