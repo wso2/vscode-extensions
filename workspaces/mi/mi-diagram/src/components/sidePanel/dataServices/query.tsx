@@ -120,44 +120,47 @@ const QueryForm = (props: AddMediatorProps) => {
 
         let xml = getDssQueryXml({ ...updatedQuery, queryType }).replace(/^\s*[\r\n]/gm, '');
         const range = sidePanelContext?.formValues?.queryObject.range;
-        await rpcClient.getMiDiagramRpcClient().applyEdit({
+        const edits = await rpcClient.getMiDiagramRpcClient().applyEdit({
             text: xml, documentUri: props.documentUri,
-            range: { start: range.startTagRange.start, end: range.endTagRange.end }
+            range: { start: range.startTagRange.start, end: range.endTagRange.end },
+            waitForEdits: true
         });
 
         let isInResource = false;
-        const st = await rpcClient.getMiDiagramRpcClient().getSyntaxTree({ documentUri: props.documentUri });
-        let resourceData: any = {};
-        if (st.syntaxTree.data.resources) {
-            st.syntaxTree.data.resources.forEach((resource: any) => {
-                if (resource.callQuery.href === initialQueryName) {
-                    resourceData.resourceRange = resource.callQuery.range;
-                    resourceData.selfClosed = resource.callQuery.selfClosed;
-                    isInResource = true;
-                }
-            });
-        }
-        if (!isInResource && st.syntaxTree.data.operations) {
-            st.syntaxTree.data.operations.forEach((operation: any) => {
-                if (operation.callQuery.href === initialQueryName) {
-                    resourceData.resourceRange = operation.callQuery.range;
-                    resourceData.selfClosed = operation.callQuery.selfClosed;
-                }
-            });
-        }
-
-        if (Object.keys(resourceData).length !== 0) {
-            if (resourceData.selfClosed) {
-                xml = getDssResourceSelfClosingXml({ query: values.queryId });
-            } else {
-                xml = getDssResourceXml({ query: values.queryId });
+        if (edits.status) {
+            const st = await rpcClient.getMiDiagramRpcClient().getSyntaxTree({ documentUri: props.documentUri });
+            let resourceData: any = {};
+            if (st.syntaxTree.data.resources) {
+                st.syntaxTree.data.resources.forEach((resource: any) => {
+                    if (resource.callQuery.href === initialQueryName) {
+                        resourceData.resourceRange = resource.callQuery.range;
+                        resourceData.selfClosed = resource.callQuery.selfClosed;
+                        isInResource = true;
+                    }
+                });
             }
-            await rpcClient.getMiDiagramRpcClient().applyEdit({
-                text: xml, documentUri: props.documentUri,
-                range: { start: resourceData.resourceRange.startTagRange.start, end: resourceData.resourceRange.startTagRange.end }
-            });
-        }
+            if (!isInResource && st.syntaxTree.data.operations) {
+                st.syntaxTree.data.operations.forEach((operation: any) => {
+                    if (operation.callQuery.href === initialQueryName) {
+                        resourceData.resourceRange = operation.callQuery.range;
+                        resourceData.selfClosed = operation.callQuery.selfClosed;
+                    }
+                });
+            }
 
+            if (Object.keys(resourceData).length !== 0) {
+                if (resourceData.selfClosed) {
+                    xml = getDssResourceSelfClosingXml({ query: values.queryId });
+                } else {
+                    xml = getDssResourceXml({ query: values.queryId });
+                }
+                await rpcClient.getMiDiagramRpcClient().applyEdit({
+                    text: xml, documentUri: props.documentUri,
+                    range: { start: resourceData.resourceRange.startTagRange.start, end: resourceData.resourceRange.startTagRange.end },
+                    waitForEdits: true
+                });
+            }
+        }
         sidePanelContext.setSidePanelState({
             ...sidePanelContext,
             isOpen: false,
