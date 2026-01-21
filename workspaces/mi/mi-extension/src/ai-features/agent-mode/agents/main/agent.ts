@@ -23,11 +23,10 @@ const ENABLE_LANGFUSE = false; // Set to false to disable Langfuse tracing
 const ENABLE_DEVTOOLS = false; // Set to true to enable AI SDK DevTools (local development only!)
 
 import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMessage, wrapLanguageModel } from 'ai';
-// Note: devToolsMiddleware is imported dynamically when needed to ensure correct working directory
 import { getAnthropicClient, ANTHROPIC_SONNET_4_5 } from '../../../connection';
 import { getSystemPrompt } from './system';
 import { getUserPrompt, UserPromptParams } from './prompt';
-import { addCacheControlToMessages } from '../../../cache-utils-simple';
+import { addCacheControlToMessages } from '../../../cache-utils';
 
 import {
     createWriteTool,
@@ -193,9 +192,15 @@ export async function executeAgent(
         }
 
         // System message (cache control will be added dynamically by prepareStep)
+        // Adding a cache block here because tools + system would be same for all users who use our proxy
         const systemMessage: SystemModelMessage = {
             role: 'system',
             content: getSystemPrompt(),
+            providerOptions: {
+                anthropic: {
+                    cacheControl: { type: 'ephemeral' }
+                }
+            }
         } as SystemModelMessage;
 
         // Build user prompt
@@ -283,17 +288,6 @@ export async function executeAgent(
             ),
         };
 
-        // Add cache control to the last tool (all tool definitions ~10-15K tokens)
-        // This ensures tools are cached for subsequent requests
-        const lastToolKey = SERVER_MANAGEMENT_TOOL_NAME;
-        if (tools[lastToolKey]) {
-            (tools[lastToolKey] as any).providerOptions = {
-                anthropic: {
-                    cacheControl: { type: 'ephemeral' }
-                }
-            };
-        }
-
         // Track step number for logging
         let currentStepNumber = 0;
 
@@ -329,11 +323,6 @@ export async function executeAgent(
         const streamConfig: any = {
             model,
             maxOutputTokens: 8192,
-            providerOptions: {
-                anthropic: {
-                    cacheControl: { type: 'ephemeral' }
-                }
-            },
             temperature: 0,
             messages: allMessages,
             stopWhen: stepCountIs(50),

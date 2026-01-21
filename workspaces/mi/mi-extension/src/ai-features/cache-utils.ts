@@ -17,7 +17,6 @@
  */
 
 import type { ModelMessage, JSONValue, LanguageModel } from 'ai';
-import canonicalize from 'canonicalize';
 
 /**
  * Simplified Dynamic Prompt Caching (based on AI SDK recipe)
@@ -83,16 +82,4 @@ export function addCacheControlToMessages({
         }
         return message;
     });
-}
-
-/**
- * Canonicalize a message for JSONL storage
- * Ensures byte-for-byte consistency for cache key matching
-**/
-export function canonicalizeMessage(message: any): string {
-   const result = canonicalize(message);
-   if (result === undefined) {
-       throw new Error('Failed to canonicalize message');
-   }
-   return result;
 }
