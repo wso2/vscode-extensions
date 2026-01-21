@@ -1042,6 +1042,7 @@
     "postbuild": "pnpm run copyVSIX"
   },
   "devDependencies": {
+    "@ai-sdk/devtools": "0.0.6",
     "@playwright/test": "1.55.1",
     "@types/mocha": "10.0.1",
     "@types/node": "22.15.21",
@@ -1068,13 +1069,15 @@
     "yaml": "2.8.0"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "3.0.15",
+    "@ai-sdk/anthropic": "3.0.17",
     "@anthropic-ai/tokenizer": "0.0.4",
     "@apidevtools/json-schema-ref-parser": "12.0.2",
     "@babel/core": "7.27.1",
     "@babel/plugin-transform-typescript": "7.27.1",
     "@iarna/toml": "2.2.5",
-    "ai": "6.0.39",
+    "@langfuse/otel": "4.5.1",
+    "@opentelemetry/sdk-node": "0.210.0",
+    "ai": "6.0.42",
     "@types/fs-extra": "11.0.4",
     "@types/handlebars": "4.1.0",
     "@types/json-schema": "7.0.15",
@@ -1104,6 +1107,7 @@
     "json-schema-to-ts": "3.1.1",
     "jsonix": "3.0.0",
     "jwt-decode": "4.0.0",
+    "langfuse": "3.38.6",
     "lodash": "4.17.23",
     "mustache": "4.2.0",
     "node-fetch": "3.3.2",
