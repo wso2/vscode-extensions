@@ -19,13 +19,16 @@
 // ============================================================================
 // Dev Feature Flags
 // ============================================================================
-const ENABLE_LANGFUSE = true; // Set to false to disable Langfuse tracing
+const ENABLE_LANGFUSE = false; // Set to false to disable Langfuse tracing
+const ENABLE_DEVTOOLS = false; // Set to true to enable AI SDK DevTools (local development only!)
 
-import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMessage } from 'ai';
-import { getAnthropicClient, getProviderCacheControl, ANTHROPIC_SONNET_4_5 } from '../../../connection';
+import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMessage, wrapLanguageModel } from 'ai';
+// Note: devToolsMiddleware is imported dynamically when needed to ensure correct working directory
+import { getAnthropicClient, ANTHROPIC_SONNET_4_5 } from '../../../connection';
 import { getSystemPrompt } from './system';
 import { getUserPrompt, UserPromptParams } from './prompt';
-import { logCacheUsage, createPrepareStepWithCaching } from '../../../cache-utils';
+import { addCacheControlToMessages, logCacheUsage } from '../../../cache-utils-simple';
+import path from 'path';
 import {
     createWriteTool,
     createReadTool,
@@ -202,14 +205,10 @@ export async function executeAgent(
             }
         }
 
-        // Get cache options for prompt caching
-        const cacheOptions = getProviderCacheControl();
-
-
+        // System message (cache control will be added dynamically by prepareStep)
         const systemMessage: SystemModelMessage = {
             role: 'system',
             content: getSystemPrompt(),
-            providerOptions: cacheOptions,
         } as SystemModelMessage;
 
         // Build user prompt
@@ -229,24 +228,19 @@ export async function executeAgent(
             }]
         } as UserModelMessage;
 
-
-        // DON'T record user message here - it will be recorded by prepareStep
-        // Recording it here causes duplication because chatHistory is a reference to inMemoryMessages
-        // When recordMessage pushes to inMemoryMessages, chatHistory contains it, then we add it again
-
         // Build messages array
-        // System prompt has cache breakpoint, prepareStep handles dynamic caching for tool loops
-        // Track message count BEFORE adding user message (for prepareStep slicing)
-        // prepareStep will save messages AFTER this count, which includes the user message
-        const messagesBeforeUserMessage = 1 + chatHistory.length; // system + history
-
         const allMessages: ModelMessage[] = [
             systemMessage,
             ...chatHistory,
-            userMessage,
+            userMessage
         ];
 
-        // Create tools
+        // Record user message to JSONL (after building allMessages to avoid duplicates)
+        if (request.chatHistoryManager) {
+            await request.chatHistoryManager.recordMessage(userMessage);
+        }
+
+        // Create tools (cache control will be added dynamically by prepareStep)
         const tools = {
             [FILE_WRITE_TOOL_NAME]: createWriteTool(
                 createWriteExecute(request.projectPath, modifiedFiles)
@@ -299,7 +293,7 @@ export async function executeAgent(
         };
 
         // Add cache control to the last tool (all tool definitions ~10-15K tokens)
-        // This caches all tool definitions together for subsequent requests
+        // This ensures tools are cached for subsequent requests
         const lastToolKey = SERVER_MANAGEMENT_TOOL_NAME;
         if (tools[lastToolKey]) {
             (tools[lastToolKey] as any).providerOptions = {
@@ -307,112 +301,75 @@ export async function executeAgent(
                     cacheControl: { type: 'ephemeral' }
                 }
             };
-            logDebug(`[Cache] Added cache control to last tool: ${lastToolKey}`);
         }
 
-        // Create prepareStep function for dynamic caching within tool loops
-        // This adds cache breakpoints to the last message before each API call,
-        // ensuring multi-tool-call scenarios benefit from cached context
-        const basePrepareStepFn = createPrepareStepWithCaching();
-
-        // Track step number for logging (onStepFinish doesn't provide it)
+        // Track step number for logging
         let currentStepNumber = 0;
 
-        // Track how many messages from THIS TURN we've saved in prepareStep
-        let savedMessagesFromThisTurn = 0;
+        // Get the model for prepareStep
+        let model = await getAnthropicClient(ANTHROPIC_SONNET_4_5);
 
-        // Wrap prepareStep to save messages WITH cache breakpoints
-        const prepareStepWithSaving = (options: {
-            steps: any[];
-            stepNumber: number;
-            model: any;
-            messages: any[];
-            experimental_context?: unknown;
-        }) => {
-
-            // First, let the base prepareStep add cache breakpoints
-            const result = basePrepareStepFn({
-                ...options,
-                experimental_context: options.experimental_context ?? undefined
+        // Wrap model with DevTools middleware if enabled (local development only!)
+        // IMPORTANT: DevTools must be imported AFTER process.chdir() because it captures
+        // process.cwd() at module load time. Dynamic import ensures it sees the correct path.
+        if (ENABLE_DEVTOOLS) {
+            const originalCwd = process.cwd();
+            process.chdir(request.projectPath);
+            const { devToolsMiddleware } = await import('@ai-sdk/devtools');
+            model = wrapLanguageModel({
+                model,
+                middleware: devToolsMiddleware(),
             });
+            process.chdir(originalCwd);  // Restore immediately after middleware creation
+            logInfo(`[DevTools] Enabled - data at ${request.projectPath}/.devtools`);
+            logInfo('[DevTools] Run "npx @ai-sdk/devtools" to view at http://localhost:4983');
+        }
 
-            // Get the messages WITH cache breakpoints
-            // If result is undefined, use original messages; otherwise use result.messages
-            const messagesWithBreakpoints = result?.messages || options.messages;
-
-            // Save NEW messages from this turn (WITH cache breakpoints!)
-            // Messages before messagesBeforeUserMessage are from previous turns (already saved)
-            // Messages from messagesBeforeUserMessage onwards are from THIS turn (user message + responses)
-            if (request.chatHistoryManager && messagesWithBreakpoints.length > messagesBeforeUserMessage) {
-                const allMessagesThisTurn = messagesWithBreakpoints.slice(messagesBeforeUserMessage);
-                const currentCountThisTurn = allMessagesThisTurn.length;
-
-                // Only save messages we haven't saved yet
-                if (currentCountThisTurn > savedMessagesFromThisTurn) {
-                    const unsavedMessages = allMessagesThisTurn.slice(savedMessagesFromThisTurn);
-
-                    try {
-                        // Fire-and-forget async save (don't block prepareStep)
-                        request.chatHistoryManager.recordMessages(unsavedMessages).catch(error => {
-                            logError('[Agent] Failed to record messages in prepareStep', error);
-                        });
-
-                        // Update counter
-                        savedMessagesFromThisTurn += unsavedMessages.length;
-
-                        logDebug(`[Agent] Recording ${unsavedMessages.length} messages WITH cache breakpoints in prepareStep (${savedMessagesFromThisTurn} total this turn)`);
-                    } catch (error) {
-                        logError('[Agent] Error in prepareStep message recording', error);
-                    }
-                }
-            }
-
-            // Return the result from base prepareStep (may be undefined)
-            return result;
+        // Simple prepareStep: just mark the last message for caching
+        // This tells Anthropic to cache everything up to the last message
+        const prepareStep = ({ messages }: { messages: any[] }) => {
+            // length of messages
+            return {
+                messages: addCacheControlToMessages({ messages, model })
+            };
         };
 
         // Setup Langfuse tracing if enabled
         const streamConfig: any = {
-            model: await getAnthropicClient(ANTHROPIC_SONNET_4_5),
+            model,
             maxOutputTokens: 8192,
+            providerOptions: {
+                anthropic: {
+                    cacheControl: { type: 'ephemeral' }
+                }
+            },
             temperature: 0,
             messages: allMessages,
             stopWhen: stepCountIs(50),
             tools,
             abortSignal: request.abortSignal,
-            prepareStep: prepareStepWithSaving,
+            prepareStep,
             onStepFinish: async (step) => {
                 currentStepNumber++;
 
-                // Log cache metrics
-                const providerMetadata = step.providerMetadata?.anthropic as any;
-                if (providerMetadata) {
-                    const cacheCreation = step.usage?.inputTokenDetails.cacheWriteTokens || 0;
-                    const cacheRead = step.usage?.inputTokenDetails.cacheReadTokens || 0;
-                    const inputTokens = step.usage?.inputTokens || 0;
-                    const outputTokens = step.usage?.outputTokens || 0;
-                    const hitRate = cacheRead > 0 ? (cacheRead / inputTokens * 100).toFixed(1) : '0';
+                // Simple cache metrics logging
+                if (step.usage) {
+                    const inputTokens = step.usage.inputTokens || 0;
+                    const cachedInputTokens = step.usage.cachedInputTokens || 0;
+                    const outputTokens = step.usage.outputTokens || 0;
 
-                    logDebug(`[Cache] Step ${currentStepNumber} completed | ` +
-                        `Input: ${inputTokens} | Cache Write: ${cacheCreation} | Cache Read: ${cacheRead} | ` +
-                        `Output: ${outputTokens} | Hit Rate: ${hitRate}%`);
+                    logDebug(`[Cache] Step ${currentStepNumber} | ` +
+                        `Input: ${inputTokens} | Cache Read: ${cachedInputTokens} | ` +
+                        `Output: ${outputTokens} | Cache ratio: ${inputTokens > 0 ? (cachedInputTokens / (inputTokens + cachedInputTokens) * 100).toFixed(1) : '0'}%`);
                 }
 
-                // If this is the finish event, save the final assistant message
-                // step.response.messages contains NEW messages from this final step (not in latestMessagesWithBreakpoints yet)
-                if (step.finishReason === 'stop' && request.chatHistoryManager && step.response?.messages) {
+                // Record messages directly from step (no complex tracking needed)
+                if (request.chatHistoryManager && step.response?.messages) {
                     try {
-                        const finalMessages = step.response.messages;
-
-                        if (finalMessages.length > 0) {
-                            // Save only the final assistant message (intermediate messages already saved by prepareStep)
-                            // Note: Cache breakpoints will be added when this message is loaded in the next session
-                            await request.chatHistoryManager.recordMessage(finalMessages[finalMessages.length - 1]);
-                            savedMessagesFromThisTurn += 1;
-                            logDebug(`[Agent] Recorded final assistant message on finish event`);
-                        }
+                        await request.chatHistoryManager.recordMessages(step.response.messages);
+                        logDebug(`[Agent] Recorded ${step.response.messages.length} message(s) from step ${currentStepNumber}`);
                     } catch (error) {
-                        logError('[Agent] Failed to record final messages on finish', error);
+                        logError('[Agent] Failed to record messages from step', error);
                     }
                 }
             },
@@ -564,11 +521,11 @@ export async function executeAgent(
                 case 'finish': {
                     logInfo(`[Agent] Execution finished. Modified files: ${modifiedFiles.length}`);
 
-                    // Capture final model messages for UI event only (recording handled in onStepFinish)
+                    // Capture final messages and log cache usage
                     try {
                         const finalResponse = await response;
                         finalModelMessages = finalResponse.messages || [];
-                        await logCacheUsage(response, chatHistory.length);
+                        await logCacheUsage(response, currentStepNumber);
                     } catch (error) {
                         logError('[Agent] Failed to capture model messages', error);
                     }
@@ -590,7 +547,7 @@ export async function executeAgent(
             const finalResponse = await response;
             finalModelMessages = finalResponse.messages || [];
             logDebug(`[Agent] Captured ${finalModelMessages.length} model messages (no finish event)`);
-            await logCacheUsage(response, chatHistory.length);
+            await logCacheUsage(response, currentStepNumber);
         } catch (error) {
             logError('[Agent] Failed to capture model messages', error);
         }
