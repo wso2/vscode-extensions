@@ -22,7 +22,6 @@ import { createWriteStream, WriteStream } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { logDebug, logError, logInfo } from '../copilot/logger';
 import { getToolAction, capitalizeAction } from './tool-action-mapper';
-import { canonicalizeMessage } from '../cache-utils-simple';
 
 // Cross-platform home directory
 const os = require('os');
@@ -147,7 +146,7 @@ export class ChatHistoryManager {
             }
 
             // Use canonical JSON for cache key consistency
-            const line = canonicalizeMessage(message) + '\n';
+            const line = JSON.stringify(message) + '\n';
             this.writeStream.write(line, (err: Error | null | undefined) => {
                 if (err) {
                     logError('[ChatHistory] Failed to write entry', err);
