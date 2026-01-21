@@ -57,13 +57,14 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 					id: persistedRequest.request.id || persistedRequest.id
 				};
 				
-				return {
+				const item: ApiRequestItem = {
 					id: persistedRequest.id,
 					name: persistedRequest.name,
 					request: requestWithId,
 					response: persistedRequest.response,
 					filePath: filePath
 				};
+				return item;
 			}
 		} catch {
 			// Skip files that can't be parsed or don't have required structure
@@ -203,206 +204,6 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 		}
 	}
 
-	private getSampleCollections(): ApiCollection[] {
-		return [
-			{
-				id: 'petstore',
-				name: 'Petstore API Tests',
-				description: 'Sample Petstore API collection',
-				folders: [
-					{
-						id: 'pet',
-						name: 'Pet',
-						items: [
-							{
-								id: 'add-pet',
-								name: 'Add Pet',
-								request: {
-									id: 'add-pet-req',
-									name: 'Add Pet',
-									method: 'POST',
-									url: 'https://petstore.swagger.io/v2/pet',
-									queryParameters: [],
-									headers: [{ id: '1', key: 'Content-Type', value: 'application/json', enabled: true }],
-									body: '{\n  "name": "doggie",\n  "status": "available"\n}'
-								}
-							},
-							{
-								id: 'get-pet',
-								name: 'Get Pet by ID',
-								request: {
-									id: 'get-pet-req',
-									name: 'Get Pet by ID',
-									method: 'GET',
-									url: 'https://petstore.swagger.io/v2/pet/1',
-									queryParameters: [],
-									headers: []
-								}
-							},
-							{
-								id: 'update-pet',
-								name: 'Update Pet',
-								request: {
-									id: 'update-pet-req',
-									name: 'Update Pet',
-									method: 'PUT',
-									url: 'https://petstore.swagger.io/v2/pet',
-									queryParameters: [],
-									headers: [{ id: '1', key: 'Content-Type', value: 'application/json', enabled: true }],
-									body: '{\n  "id": 1,\n  "name": "doggie",\n  "status": "sold"\n}'
-								}
-							},
-							{
-								id: 'delete-pet',
-								name: 'Delete Pet',
-								request: {
-									id: 'delete-pet-req',
-									name: 'Delete Pet',
-									method: 'DELETE',
-									url: 'https://petstore.swagger.io/v2/pet/1',
-									queryParameters: [],
-									headers: []
-								}
-							}
-						]
-					},
-					{
-						id: 'store',
-						name: 'Store',
-						items: [
-							{
-								id: 'get-inventory',
-								name: 'Get Inventory',
-								request: {
-									id: 'get-inventory-req',
-									name: 'Get Inventory',
-									method: 'GET',
-									url: 'https://petstore.swagger.io/v2/store/inventory',
-									queryParameters: [],
-									headers: []
-								}
-							},
-							{
-								id: 'place-order',
-								name: 'Place Order',
-								request: {
-									id: 'place-order-req',
-									name: 'Place Order',
-									method: 'POST',
-									url: 'https://petstore.swagger.io/v2/store/order',
-									queryParameters: [],
-									headers: [{ id: '1', key: 'Content-Type', value: 'application/json', enabled: true }],
-									body: '{\n  "petId": 1,\n  "quantity": 1\n}'
-								}
-							}
-						]
-					},
-					{
-						id: 'user',
-						name: 'User',
-						items: [
-							{
-								id: 'create-user',
-								name: 'Create User',
-								request: {
-									id: 'create-user-req',
-									name: 'Create User',
-									method: 'POST',
-									url: 'https://petstore.swagger.io/v2/user',
-									queryParameters: [],
-									headers: [{ id: '1', key: 'Content-Type', value: 'application/json', enabled: true }],
-									body: '{\n  "username": "john",\n  "email": "john@example.com"\n}'
-								}
-							},
-							{
-								id: 'login',
-								name: 'Login',
-								request: {
-									id: 'login-req',
-									name: 'Login',
-									method: 'POST',
-									url: 'https://petstore.swagger.io/v2/user/login',
-									queryParameters: [
-										{ id: '1', key: 'username', value: 'john', enabled: true },
-										{ id: '2', key: 'password', value: 'password', enabled: true }
-									],
-									headers: []
-								}
-							},
-							{
-								id: 'logout',
-								name: 'Logout',
-								request: {
-									id: 'logout-req',
-									name: 'Logout',
-									method: 'POST',
-									url: 'https://petstore.swagger.io/v2/user/logout',
-									queryParameters: [],
-									headers: []
-								}
-							}
-						]
-					}
-				]
-			},
-			{
-				id: 'user-service',
-				name: 'User Service APIs',
-				folders: [
-					{
-						id: 'users',
-						name: 'Users',
-						items: [
-							{
-								id: 'list-users',
-								name: 'List Users',
-								request: {
-									id: 'list-users-req',
-									name: 'List Users',
-									method: 'GET',
-									url: 'http://localhost:8080/api/users',
-									queryParameters: [],
-									headers: []
-								}
-							},
-							{
-								id: 'create-user-service',
-								name: 'Create User',
-								request: {
-									id: 'create-user-service-req',
-									name: 'Create User',
-									method: 'POST',
-									url: 'http://localhost:8080/api/users',
-									queryParameters: [],
-									headers: [{ id: '1', key: 'Content-Type', value: 'application/json', enabled: true }],
-									body: '{\n  "name": "Jane Doe",\n  "email": "jane@example.com"\n}'
-								}
-							}
-						]
-					},
-					{
-						id: 'auth',
-						name: 'Auth',
-						items: [
-							{
-								id: 'auth-login',
-								name: 'Login',
-								request: {
-									id: 'auth-login-req',
-									name: 'Login',
-									method: 'POST',
-									url: 'http://localhost:8080/api/auth/login',
-									queryParameters: [],
-									headers: [{ id: '1', key: 'Content-Type', value: 'application/json', enabled: true }],
-									body: '{\n  "username": "admin",\n  "password": "secret"\n}'
-								}
-							}
-						]
-					}
-				]
-			}
-		];
-	}
 
 
 	/**
@@ -452,7 +253,8 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 							name: item.name,
 							type: 'request',
 							method: item.request.method,
-							request: item.request
+							request: item.request,
+							filePath: item.filePath
 						})),
 						// Then add folders
 						...col.folders.map(folder => ({
@@ -464,7 +266,8 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 								name: item.name,
 								type: 'request',
 								method: item.request.method,
-								request: item.request
+								request: item.request,
+								filePath: item.filePath
 							}))
 						}))
 					]
@@ -488,7 +291,8 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 								name: item.name,
 								type: 'request',
 								method: item.request.method,
-								request: item.request
+								request: item.request,
+								filePath: item.filePath
 							})),
 						// Then add folders with filtered items
 						...col.folders
@@ -506,7 +310,8 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 										name: item.name,
 										type: 'request',
 										method: item.request.method,
-										request: item.request
+										request: item.request,
+										filePath: item.filePath
 									}))
 							}))
 							.filter(folder => folder.children && folder.children.length > 0)

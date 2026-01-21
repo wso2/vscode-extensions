@@ -75,7 +75,7 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                     target: 'itemSelected',
                     actions: assign({
                         selectedItem: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.data,
-                        selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath
+                        selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath || event.data.filePath
                     })
                 }
             }
@@ -89,7 +89,8 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                             // Check if we have a saved version of this item
                             const savedItem = context.savedItems.get(event.data.id);
                             return savedItem || event.data;
-                        }
+                        },
+                        selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath || event.data?.filePath
                     })
                 }
             }
@@ -104,12 +105,18 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                             const savedItem = context.savedItems.get(event.data.id);
                             return savedItem || event.data;
                         },
-                        selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath
+                        selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath || event.data?.filePath
                     })
                 },
                 REQUEST_UPDATED: {
                     actions: assign({
-                        selectedItem: (context: ApiTryItContext, event: RequestUpdatedEvent) => event.data,
+                        selectedItem: (context: ApiTryItContext, event: RequestUpdatedEvent) => {
+                            // Preserve the filePath from the previous selectedItem
+                            return {
+                                ...event.data,
+                                filePath: context.selectedItem?.filePath || event.data.filePath
+                            };
+                        },
                         savedItems: (context: ApiTryItContext, event: RequestUpdatedEvent) => {
                             // Save the updated item to cache
                             const newMap = new Map(context.savedItems);

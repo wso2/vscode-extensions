@@ -60,7 +60,8 @@ export class ApiTryItRpcManager {
                         queryParameters: request.queryParameters,
                         headers: request.headers,
                         body: request.body
-                    }
+                    },
+                    filePath: filePath  // Preserve the filePath for future reference
                 };
             } else {
                 // Create new file structure
@@ -74,7 +75,8 @@ export class ApiTryItRpcManager {
                         queryParameters: request.queryParameters,
                         headers: request.headers,
                         body: request.body
-                    }
+                    },
+                    filePath: filePath  // Store the filePath for future reference
                 };
             }
             
