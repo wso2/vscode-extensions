@@ -149,7 +149,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     async loadChatHistory(_request: LoadChatHistoryRequest): Promise<LoadChatHistoryResponse> {
         try {
             // Initialize chat history manager (finds latest session or creates new)
-            await this.getChatHistoryManager();
+            const historyManager = await this.getChatHistoryManager();
 
             // If still no session, return empty
             if (!this.currentSessionId) {
@@ -162,8 +162,8 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
 
             logInfo(`[AgentPanel] Loading chat history from session: ${this.currentSessionId}`);
 
-            // Load ModelMessages from JSONL
-            const messages = await ChatHistoryManager.loadSession(this.projectUri, this.currentSessionId);
+            // Get messages from history manager (reads from JSONL)
+            const messages = await historyManager.getMessages();
 
             // Convert to UI events on-the-fly
             const events = ChatHistoryManager.convertToEventFormat(messages);

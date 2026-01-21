@@ -27,8 +27,8 @@ import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMes
 import { getAnthropicClient, ANTHROPIC_SONNET_4_5 } from '../../../connection';
 import { getSystemPrompt } from './system';
 import { getUserPrompt, UserPromptParams } from './prompt';
-import { addCacheControlToMessages, logCacheUsage } from '../../../cache-utils-simple';
-import path from 'path';
+import { addCacheControlToMessages } from '../../../cache-utils-simple';
+
 import {
     createWriteTool,
     createReadTool,
@@ -185,24 +185,11 @@ export async function executeAgent(
     try {
         logInfo(`[Agent] Starting agent execution for project: ${request.projectPath}`);
 
-        // Load chat history
+        // Load chat history (reads from JSONL)
         let chatHistory: ModelMessage[] = [];
-        if (request.sessionId && request.chatHistoryManager) {
-            // Try in-memory first (active session)
-            const inMemoryMessages = request.chatHistoryManager.getInMemoryMessages();
-            if (inMemoryMessages) {
-                chatHistory = inMemoryMessages;
-                logInfo(`[Agent] Loaded ${chatHistory.length} messages from memory`);
-            } else {
-                // Load from JSONL (messages already have providerOptions set)
-                try {
-                    chatHistory = await ChatHistoryManager.loadSession(request.projectPath, request.sessionId);
-                    request.chatHistoryManager.setInMemoryMessages(chatHistory);
-                    logInfo(`[Agent] Loaded ${chatHistory.length} messages from JSONL`);
-                } catch (error) {
-                    logError('[Agent] Failed to load chat history, starting fresh', error);
-                }
-            }
+        if (request.chatHistoryManager) {
+            chatHistory = await request.chatHistoryManager.getMessages();
+            logInfo(`[Agent] Loaded ${chatHistory.length} messages from history`);
         }
 
         // System message (cache control will be added dynamically by prepareStep)
@@ -235,10 +222,14 @@ export async function executeAgent(
             userMessage
         ];
 
-        // Record user message to JSONL (after building allMessages to avoid duplicates)
+        // Save user message to history
         if (request.chatHistoryManager) {
-            await request.chatHistoryManager.recordMessage(userMessage);
+            await request.chatHistoryManager.saveMessage(userMessage);
         }
+
+        // Track how many messages have been saved from step.response.messages
+        // This counter tracks messages from the current turn only (not history)
+        let savedMessageCount = 0;
 
         // Create tools (cache control will be added dynamically by prepareStep)
         const tools = {
@@ -363,13 +354,18 @@ export async function executeAgent(
                         `Output: ${outputTokens} | Cache ratio: ${inputTokens > 0 ? (cachedInputTokens / (inputTokens + cachedInputTokens) * 100).toFixed(1) : '0'}%`);
                 }
 
-                // Record messages directly from step (no complex tracking needed)
+                // Save only unsaved messages from this step
                 if (request.chatHistoryManager && step.response?.messages) {
                     try {
-                        await request.chatHistoryManager.recordMessages(step.response.messages);
-                        logDebug(`[Agent] Recorded ${step.response.messages.length} message(s) from step ${currentStepNumber}`);
+                        // Extract only messages we haven't saved yet
+                        const unsavedMessages = step.response.messages.slice(savedMessageCount);
+
+                        if (unsavedMessages.length > 0) {
+                            await request.chatHistoryManager.saveMessages(unsavedMessages);
+                            savedMessageCount += unsavedMessages.length;
+                        }
                     } catch (error) {
-                        logError('[Agent] Failed to record messages from step', error);
+                        logError('[Agent] Failed to save messages from step', error);
                     }
                 }
             },
@@ -525,7 +521,6 @@ export async function executeAgent(
                     try {
                         const finalResponse = await response;
                         finalModelMessages = finalResponse.messages || [];
-                        await logCacheUsage(response, currentStepNumber);
                     } catch (error) {
                         logError('[Agent] Failed to capture model messages', error);
                     }
@@ -547,7 +542,6 @@ export async function executeAgent(
             const finalResponse = await response;
             finalModelMessages = finalResponse.messages || [];
             logDebug(`[Agent] Captured ${finalModelMessages.length} model messages (no finish event)`);
-            await logCacheUsage(response, currentStepNumber);
         } catch (error) {
             logError('[Agent] Failed to capture model messages', error);
         }
