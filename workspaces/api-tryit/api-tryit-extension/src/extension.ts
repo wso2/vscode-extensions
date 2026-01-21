@@ -97,7 +97,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Register command for settings
 	const settingsCommand = vscode.commands.registerCommand('api-tryit.settings', () => {
-		vscode.window.showInformationMessage('Opening settings...');
+		vscode.commands.executeCommand('workbench.action.openSettings', 'api-tryit');
 	});
 
 	// Register a simple hello command

@@ -32,10 +32,91 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 		this.loadingPromise = this.loadCollections();
 	}
 
+	/**
+	 * Derives a display name from a directory name by converting kebab-case/snake_case to Title Case
+	 */
+	private deriveDisplayName(directoryName: string): string {
+		return directoryName
+			.replace(/[-_]/g, ' ')
+			.replace(/\b\w/g, l => l.toUpperCase());
+	}
+
+	/**
+	 * Loads a single request file and validates it
+	 */
+	private async loadRequestFile(filePath: string): Promise<ApiRequestItem | null> {
+		try {
+			const requestContent = await fs.readFile(filePath, 'utf-8');
+			const persistedRequest = JSON.parse(requestContent);
+
+			// Validate that this is a request file (has required properties)
+			if (persistedRequest.id && persistedRequest.name && persistedRequest.request) {
+				// Ensure request object has an id (reuse top-level id if missing)
+				const requestWithId = {
+					...persistedRequest.request,
+					id: persistedRequest.request.id || persistedRequest.id
+				};
+				
+				return {
+					id: persistedRequest.id,
+					name: persistedRequest.name,
+					request: requestWithId,
+					response: persistedRequest.response,
+					filePath: filePath
+				};
+			}
+		} catch {
+			// Skip files that can't be parsed or don't have required structure
+		}
+		return null;
+	}
+
+	/**
+	 * Loads all request files from a directory
+	 */
+	private async loadRequestsFromDirectory(dirPath: string): Promise<ApiRequestItem[]> {
+		const items: ApiRequestItem[] = [];
+		try {
+			const entries = await fs.readdir(dirPath, { withFileTypes: true });
+			for (const entry of entries) {
+				if (entry.isFile() && entry.name.endsWith('.json')) {
+					const requestPath = path.join(dirPath, entry.name);
+					const requestItem = await this.loadRequestFile(requestPath);
+					if (requestItem) {
+						items.push(requestItem);
+					}
+				}
+			}
+		} catch {
+			// Silently skip directories that can't be read
+		}
+		return items;
+	}
+
+	private async loadFolder(folderPath: string, folderId: string, collectionId: string): Promise<ApiFolder | null> {
+		try {
+			const folderName = this.deriveDisplayName(folderId);
+			const items = await this.loadRequestsFromDirectory(folderPath);
+
+			return {
+				id: folderId,
+				name: folderName,
+				items
+			};
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to load folder ${folderId} in collection ${collectionId}, ${error as string}.`);
+			return null;
+		}
+	}
+
 	private async loadCollections(): Promise<void> {
 		try {
-			// Use provided workspace path or default to current workspace
-			const storagePath = this.workspacePath || 
+			// Check for configured collections path first
+			const config = vscode.workspace.getConfiguration('api-tryit');
+			const configuredPath = config.get<string>('collectionsPath');
+			
+			// Use configured path, provided workspace path, or default to current workspace
+			const storagePath = configuredPath || this.workspacePath || 
 				(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '');
 
 			if (!storagePath) {
@@ -77,6 +158,12 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 			const metadataContent = await fs.readFile(metadataPath, 'utf-8');
 			const metadata = JSON.parse(metadataContent);
 
+			// Extract only essential fields from collection metadata
+			const collectionMetadata = {
+				id: metadata.id,
+				name: metadata.name
+			};
+
 			// Discover folders by reading directories
 			const entries = await fs.readdir(collectionPath, { withFileTypes: true });
 			const folders: ApiFolder[] = [];
@@ -86,7 +173,7 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 				if (entry.isDirectory() && !entry.name.startsWith('.')) {
 					try {
 						const folderPath = path.join(collectionPath, entry.name);
-						const folder = await this.loadFolder(folderPath, entry.name, metadata.id);
+						const folder = await this.loadFolder(folderPath, entry.name, collectionMetadata.id);
 						if (folder) {
 							folders.push(folder);
 						}
@@ -94,77 +181,24 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 						vscode.window.showErrorMessage(`Error loading folder ${entry.name} in collection ${collectionId}, ${error as string}.`);
 					}
 				} else if (entry.isFile() && entry.name.endsWith('.json') && entry.name !== 'collection.json') {
-					// Load root-level request files
-					try {
-						const requestPath = path.join(collectionPath, entry.name);
-						const requestContent = await fs.readFile(requestPath, 'utf-8');
-						const persistedRequest = JSON.parse(requestContent);
-
-						rootLevelRequests.push({
-							id: persistedRequest.id,
-							name: persistedRequest.name,
-							request: persistedRequest.request,
-							response: persistedRequest.response,
-							filePath: requestPath
-						});
-					} catch (error) {
-						vscode.window.showErrorMessage(`Error loading root-level request ${entry.name} in collection ${collectionId}, ${error as string}.`);
+					// Load root-level request file
+					const requestPath = path.join(collectionPath, entry.name);
+					const requestItem = await this.loadRequestFile(requestPath);
+					if (requestItem) {
+						rootLevelRequests.push(requestItem);
 					}
 				}
 			}
 
 			return {
-				id: metadata.id,
-				name: metadata.name,
-				description: metadata.description,
+				id: collectionMetadata.id,
+				name: collectionMetadata.name,
 				folders,
 				rootItems: rootLevelRequests
 			};
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		} catch (error) {
 			// If collection metadata is missing or invalid, skip this collection
-			return null;
-		}
-	}
-
-	private async loadFolder(folderPath: string, folderId: string, collectionId: string): Promise<ApiFolder | null> {
-		try {
-			// Read folder metadata
-			const folderMetadataPath = path.join(folderPath, 'folder.json');
-			const folderContent = await fs.readFile(folderMetadataPath, 'utf-8');
-			const folderMetadata = JSON.parse(folderContent);
-
-			// Read all requests in folder
-			const items: ApiRequestItem[] = [];
-			const files = await fs.readdir(folderPath);
-
-			for (const file of files) {
-				if (file !== 'folder.json' && file.endsWith('.json')) {
-					try {
-						const requestPath = path.join(folderPath, file);
-						const requestContent = await fs.readFile(requestPath, 'utf-8');
-						const persistedRequest = JSON.parse(requestContent);
-
-						items.push({
-							id: persistedRequest.id,
-							name: persistedRequest.name,
-							request: persistedRequest.request,
-							response: persistedRequest.response,
-							filePath: requestPath
-						});
-					} catch (error) {
-						vscode.window.showErrorMessage(`Error loading request ${file} in folder ${folderId}, ${error as string}.`);
-					}
-				}
-			}
-
-			return {
-				id: folderMetadata.id,
-				name: folderMetadata.name,
-				items
-			};
-		} catch (error) {
-			vscode.window.showErrorMessage(`Failed to load folder ${folderId} in collection ${collectionId}, ${error as string}.`);
 			return null;
 		}
 	}

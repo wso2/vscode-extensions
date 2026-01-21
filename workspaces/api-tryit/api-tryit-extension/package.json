@@ -114,6 +114,16 @@
           "when": "false"
         }
       ]
+    },
+    "configuration": {
+      "title": "API TryIt",
+      "properties": {
+        "api-tryit.collectionsPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the directory containing API collections. If not set, uses the current workspace folder."
+        }
+      }
     }
   },
   "scripts": {

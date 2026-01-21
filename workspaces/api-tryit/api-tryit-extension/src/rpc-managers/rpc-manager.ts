@@ -36,7 +36,7 @@ export class ApiTryItRpcManager {
         }
 
         try {
-            let existingData: { id?: string; name?: string; request?: ApiRequest; createdAt?: string; updatedAt?: string } | null = null;
+            let existingData: { id?: string; name?: string; request?: ApiRequest } | null = null;
             
             // Try to read existing file
             try {
@@ -49,20 +49,32 @@ export class ApiTryItRpcManager {
             let updatedData;
             
             if (existingData) {
-                // Update existing file - preserve metadata (collectionId, folderId, createdAt)
+                // Update existing file - only preserve essential data
                 updatedData = {
-                    ...existingData,
-                    request: request,
-                    updatedAt: new Date().toISOString()
+                    id: request.id,
+                    name: request.name,
+                    request: {
+                        name: request.name,
+                        method: request.method,
+                        url: request.url,
+                        queryParameters: request.queryParameters,
+                        headers: request.headers,
+                        body: request.body
+                    }
                 };
             } else {
                 // Create new file structure
                 updatedData = {
                     id: request.id,
                     name: request.name,
-                    request: request,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
+                    request: {
+                        name: request.name,
+                        method: request.method,
+                        url: request.url,
+                        queryParameters: request.queryParameters,
+                        headers: request.headers,
+                        body: request.body
+                    }
                 };
             }
             
