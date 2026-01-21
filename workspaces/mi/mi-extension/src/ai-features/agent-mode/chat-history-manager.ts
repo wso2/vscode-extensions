@@ -22,7 +22,7 @@ import { createWriteStream, WriteStream } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { logDebug, logError, logInfo } from '../copilot/logger';
 import { getToolAction, capitalizeAction } from './tool-action-mapper';
-import { canonicalizeMessage } from '../cache-utils';
+import { canonicalizeMessage } from '../cache-utils-simple';
 
 // Cross-platform home directory
 const os = require('os');
@@ -54,13 +54,12 @@ export type JSONLEntry = any | SessionMetadata;
 /**
  * Chat History Manager
  * Handles saving and loading conversation history in JSONL format
- * Similar to Claude Code's approach
- * 
+ *
  * Uses canonical JSON serialization for byte-for-byte consistency
  * which is required for Anthropic prompt caching to work correctly.
- * 
- * IMPORTANT: For active sessions, we keep ModelMessages in memory to ensure
- * cache key consistency. JSONL is used for persistence across extension restarts.
+ *
+ * JSONL file is the single source of truth - no in-memory caching.
+ * Public API is simple: saveMessage() and getMessages()
  */
 export class ChatHistoryManager {
     private projectPath: string;
@@ -68,13 +67,6 @@ export class ChatHistoryManager {
     private sessionId: string;
     private sessionFile: string = '';
     private writeStream: WriteStream | null = null;
-
-    /**
-     * In-memory ModelMessages for the current session.
-     * These are the EXACT messages returned by the AI SDK, preserving cache keys.
-     * Updated incrementally as messages are recorded to JSONL.
-     */
-    private inMemoryMessages: any[] = [];
 
     constructor(projectPath: string, sessionId?: string) {
         this.projectPath = projectPath;
@@ -95,14 +87,28 @@ export class ChatHistoryManager {
             // Session file path
             this.sessionFile = path.join(projectDir, `${this.sessionId}.jsonl`);
 
+            // Check if session file exists
+            let isNewSession = true;
+            try {
+                await fs.access(this.sessionFile);
+                // File exists
+                isNewSession = false;
+                logInfo(`[ChatHistory] Resuming existing session`);
+            } catch {
+                // File doesn't exist, start fresh
+                logInfo('[ChatHistory] Starting new session');
+            }
+
             // Open write stream for appending
             this.writeStream = createWriteStream(this.sessionFile, { flags: 'a' });
 
             logInfo(`[ChatHistory] Initialized for project: ${this.projectPath}`);
             logDebug(`[ChatHistory] Session file: ${this.sessionFile}`);
 
-            // Write session start entry
-            await this.writeSessionStart();
+            // Write session start entry (only if new session)
+            if (isNewSession) {
+                await this.writeSessionStart();
+            }
         } catch (error) {
             logError('[ChatHistory] Failed to initialize', error);
             throw error;
@@ -185,68 +191,99 @@ export class ChatHistoryManager {
         await this.writeEntry(entry);
     }
 
+    // ============================================================================
+    // Public API - Simple Methods
+    // ============================================================================
+
     /**
-     * Record a ModelMessage to JSONL and in-memory store
-     * Called incrementally as new messages arrive from SDK
+     * Save a message to history (JSONL file only)
+     * System messages are never saved (they're recreated fresh each time)
      *
-     * @param message - Exact ModelMessage from AI SDK
+     * @param message - ModelMessage from AI SDK
      */
-    async recordMessage(message: any): Promise<void> {
+    async saveMessage(message: any): Promise<void> {
         try {
             // Write to JSONL
             await this.writeEntry(message);
-
-            // Append to in-memory store
-            this.inMemoryMessages.push(message);
-
-            logDebug(`[ChatHistory] Recorded ${message.role} message (${this.inMemoryMessages.length} total)`);
         } catch (error) {
-            logError('[ChatHistory] Failed to record message', error);
+            logError('[ChatHistory] Failed to save message', error);
             throw error;
         }
     }
 
     /**
-     * Record multiple ModelMessages at once (batch)
-     * Used after each step to record all new messages
+     * Save multiple messages at once (batch operation)
+     * Caller is responsible for filtering out already-saved messages
      *
-     * @param messages - New ModelMessages from step
+     * @param messages - ModelMessages from AI SDK (only new messages to save)
      */
-    async recordMessages(messages: any[]): Promise<void> {
-        for (const message of messages) {
-            await this.recordMessage(message);
+    async saveMessages(messages: any[]): Promise<void> {
+        if (messages.length === 0) {
+            return;
         }
-        logDebug(`[ChatHistory] Recorded ${messages.length} messages`);
+
+        for (const message of messages) {
+            await this.saveMessage(message);
+        }
     }
 
     /**
-     * Load conversation messages from JSONL file
-     * Returns exact ModelMessages (no reconstruction needed)
+     * Get all messages for the current session
+     * Reads directly from JSONL file (single source of truth)
+     *
+     * @returns Array of ModelMessages
      */
-    static async loadSession(projectPath: string, sessionId: string): Promise<any[]> {
+    async getMessages(): Promise<any[]> {
         try {
-            const projectHash = this.hashProjectPath(projectPath);
-            const sessionFile = path.join(BASE_STORAGE_DIR, projectHash, `${sessionId}.jsonl`);
-
-            const content = await fs.readFile(sessionFile, 'utf8');
+            const content = await fs.readFile(this.sessionFile, 'utf8');
             const lines = content.trim().split('\n');
             const messages: any[] = [];
 
             for (const line of lines) {
                 if (line.trim()) {
                     const entry = JSON.parse(line);
-                    // Skip session metadata entries
+                    // Skip session metadata, only return messages
                     if (entry.type !== 'session_start' && entry.type !== 'session_end') {
-                        messages.push(entry);  // Direct ModelMessage
+                        messages.push(entry);
                     }
                 }
             }
-
-            logInfo(`[ChatHistory] Loaded ${messages.length} messages from session: ${sessionId}`);
             return messages;
         } catch (error) {
-            logError('[ChatHistory] Failed to load session', error);
+            logError('[ChatHistory] Failed to read messages', error);
             return [];
+        }
+    }
+
+    /**
+     * Clear all messages from the current session
+     * Useful for starting fresh
+     * Truncates the file and resets message count
+     */
+    async clearMessages(): Promise<void> {
+        try {
+            // Close existing stream
+            if (this.writeStream) {
+                await new Promise<void>((resolve, reject) => {
+                    this.writeStream!.end((err: Error | null | undefined) => {
+                        if (err) reject(err);
+                        else resolve();
+                    });
+                });
+            }
+
+            // Truncate the file
+            await fs.writeFile(this.sessionFile, '');
+
+            // Reopen write stream
+            this.writeStream = createWriteStream(this.sessionFile, { flags: 'a' });
+
+            // Write new session start
+            await this.writeSessionStart();
+            logDebug('[ChatHistory] Cleared all messages');
+        } catch (error) {
+            logError('[ChatHistory] Failed to clear messages', error);
+            throw error;
         }
     }
 
@@ -321,9 +358,27 @@ export class ChatHistoryManager {
 
             switch (msg.role) {
                 case 'user':
+                    // User content can be string or array of content parts
+                    let userContent = '';
+                    if (typeof msg.content === 'string') {
+                        userContent = msg.content;
+                    } else if (Array.isArray(msg.content)) {
+                        // Extract text from content parts
+                        userContent = msg.content
+                            .filter((part: any) => part.type === 'text')
+                            .map((part: any) => part.text)
+                            .join('');
+                    }
+
+                    // Extract content between <USER_QUERY> tags (user's actual query)
+                    const queryMatch = userContent.match(/<USER_QUERY>\s*([\s\S]*?)\s*<\/USER_QUERY>/);
+                    if (queryMatch && queryMatch[1]) {
+                        userContent = queryMatch[1].trim();
+                    }
+
                     events.push({
                         type: 'user',
-                        content: msg.content,
+                        content: userContent,
                         timestamp
                     });
                     break;
@@ -331,19 +386,26 @@ export class ChatHistoryManager {
                 case 'assistant':
                     // Handle text and tool-call content parts
                     if (typeof msg.content === 'string') {
-                        events.push({
-                            type: 'assistant',
-                            content: msg.content,
-                            timestamp
-                        });
+                        // Simple string content (only add if not empty)
+                        if (msg.content.trim()) {
+                            events.push({
+                                type: 'assistant',
+                                content: msg.content,
+                                timestamp
+                            });
+                        }
                     } else if (Array.isArray(msg.content)) {
+                        // Array of content parts (text and tool-calls)
                         for (const part of msg.content) {
                             if (part.type === 'text') {
-                                events.push({
-                                    type: 'assistant',
-                                    content: part.text,
-                                    timestamp
-                                });
+                                // Only add non-empty text
+                                if (part.text && part.text.trim()) {
+                                    events.push({
+                                        type: 'assistant',
+                                        content: part.text,
+                                        timestamp
+                                    });
+                                }
                             } else if (part.type === 'tool-call') {
                                 events.push({
                                     type: 'tool_call',
@@ -390,18 +452,9 @@ export class ChatHistoryManager {
         return events;
     }
 
-    /**
-     * Hash project path for filesystem safety
-     * Uses simple encoding similar to Claude Code
-     */
-    private static hashProjectPath(projectPath: string): string {
-        // Encode path by replacing slashes and special chars
-        return projectPath
-            .replace(/\\/g, '-')  // Windows backslashes
-            .replace(/\//g, '-')  // Unix forward slashes
-            .replace(/:/g, '')    // Windows drive letters
-            .replace(/^-/, '');   // Remove leading dash
-    }
+    // ============================================================================
+    // Utility Methods
+    // ============================================================================
 
     /**
      * Get session ID
@@ -424,40 +477,16 @@ export class ChatHistoryManager {
         return this.projectPath;
     }
 
-    // ============================================================================
-    // In-Memory Message Methods (for prompt caching)
-    // ============================================================================
-
     /**
-     * Set the in-memory messages from loaded session.
-     * Used when loading from JSONL on session resume.
-     *
-     * @param messages - The ModelMessage array from JSONL
+     * Hash project path for filesystem safety
+     * Uses simple encoding similar to Claude Code
      */
-    setInMemoryMessages(messages: any[]): void {
-        this.inMemoryMessages = messages;
-        logDebug(`[ChatHistory] Set ${messages.length} in-memory messages`);
-    }
-
-    /**
-     * Get in-memory messages.
-     * Returns current in-memory messages (updated incrementally via recordMessage).
-     *
-     * @returns The in-memory ModelMessage array, or null if empty
-     */
-    getInMemoryMessages(): any[] | null {
-        if (this.inMemoryMessages.length > 0) {
-            logDebug(`[ChatHistory] Returning ${this.inMemoryMessages.length} in-memory messages`);
-            return this.inMemoryMessages;
-        }
-        return null;
-    }
-
-    /**
-     * Clear in-memory messages (e.g., when starting a new session).
-     */
-    clearInMemoryMessages(): void {
-        this.inMemoryMessages = [];
-        logDebug('[ChatHistory] Cleared in-memory messages');
+    private static hashProjectPath(projectPath: string): string {
+        // Encode path by replacing slashes and special chars
+        return projectPath
+            .replace(/\\/g, '-')  // Windows backslashes
+            .replace(/\//g, '-')  // Unix forward slashes
+            .replace(/:/g, '')    // Windows drive letters
+            .replace(/^-/, '');   // Remove leading dash
     }
 }

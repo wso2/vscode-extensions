@@ -17,7 +17,7 @@
  */
 
 import type { ModelMessage, JSONValue, LanguageModel } from 'ai';
-import { logDebug, logInfo } from './copilot/logger';
+import canonicalize from 'canonicalize';
 
 /**
  * Simplified Dynamic Prompt Caching (based on AI SDK recipe)
@@ -86,43 +86,13 @@ export function addCacheControlToMessages({
 }
 
 /**
- * Logs cache usage statistics from the API response
- */
-export async function logCacheUsage(response: any, stepNumber: number = 0): Promise<void> {
-    try {
-        const fullResponse = await response;
-        const providerMetadata = fullResponse?.providerMetadata?.anthropic;
-
-        if (providerMetadata) {
-            const cacheCreationTokens = providerMetadata.cacheCreationInputTokens || 0;
-            const cacheReadTokens = providerMetadata.cacheReadInputTokens || 0;
-            const inputTokens = fullResponse?.usage?.inputTokens || 0;
-            const outputTokens = fullResponse?.usage?.outputTokens || 0;
-
-            // Calculate cost savings (Sonnet: $3/MTok input, $15/MTok output)
-            const costWithoutCache = (inputTokens + cacheCreationTokens + cacheReadTokens) * 3 / 1_000_000;
-            const costWithCache = inputTokens * 3 / 1_000_000 +
-                                  cacheCreationTokens * 3 * 1.25 / 1_000_000 +
-                                  cacheReadTokens * 3 * 0.1 / 1_000_000;
-            const savings = costWithoutCache - costWithCache;
-            const savingsPercent = costWithoutCache > 0 ? (savings / costWithoutCache * 100).toFixed(1) : '0';
-
-            const totalCacheTokens = cacheCreationTokens + cacheReadTokens;
-            const cacheHitRate = totalCacheTokens > 0
-                ? (cacheReadTokens / totalCacheTokens * 100).toFixed(1)
-                : '0';
-
-            logInfo(`[Cache] Step ${stepNumber} | ` +
-                `Input: ${inputTokens} | ` +
-                `Cache Write: ${cacheCreationTokens} | ` +
-                `Cache Read: ${cacheReadTokens} | ` +
-                `Output: ${outputTokens} | ` +
-                `Hit Rate: ${cacheHitRate}% | ` +
-                `Savings: $${savings.toFixed(4)} (${savingsPercent}%)`);
-        } else {
-            logDebug(`[Cache] Step ${stepNumber} | No cache metadata in response`);
-        }
-    } catch (error) {
-        logDebug(`[Cache] Failed to log cache usage: ${error}`);
-    }
+ * Canonicalize a message for JSONL storage
+ * Ensures byte-for-byte consistency for cache key matching
+**/
+export function canonicalizeMessage(message: any): string {
+   const result = canonicalize(message);
+   if (result === undefined) {
+       throw new Error('Failed to canonicalize message');
+   }
+   return result;
 }
