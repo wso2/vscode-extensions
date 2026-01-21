@@ -431,12 +431,13 @@ const useEditorInteractions = (
                         () => null
                     );
                 } else {
-                    // Insert new lines with sample content
+                    // Append on a new line after the current line
+                    const lineLength = model.getLineLength(targetLineNumber);
                     model.pushEditOperations(
                         [],
                         [{
-                            range: new monaco.Range(targetLineNumber, 1, targetLineNumber, 1),
-                            text: sampleContent + '\n'
+                            range: new monaco.Range(targetLineNumber, lineLength + 1, targetLineNumber, lineLength + 1),
+                            text: '\n' + sampleContent
                         }],
                         () => null
                     );
@@ -615,15 +616,34 @@ const useEditorInteractions = (
                         model.setValue(newContent);
                         editor.setPosition({ lineNumber: nextLine, column: 1 });
                     }
-                } else {
-                    // Force cursor to column 1 on empty lines
-                    const lineContent = model.getLineContent(position.lineNumber);
-                    if ((lineContent.length === 0 || lineContent.trim() === '') && position.column > 1) {
-                        editor.setPosition({ lineNumber: position.lineNumber, column: 1 });
-                    }
                 }
             } catch (error) {
                 console.warn('Error in cursor position handler:', error);
+            }
+        });
+
+        // Register paste command to handle Cmd+V/Ctrl+V
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV, async () => {
+            try {
+                // Access clipboard directly and insert at cursor position
+                const clipboardText = await navigator.clipboard.readText();
+                
+                if (clipboardText && model) {
+                    const position = editor.getPosition();
+                    if (position) {
+                        // Insert the clipboard text at current position
+                        model.pushEditOperations(
+                            [],
+                            [{
+                                range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+                                text: clipboardText
+                            }],
+                            () => null
+                        );
+                    }
+                }
+            } catch (error) {
+                console.warn('Error pasting from clipboard:', error);
             }
         });
 
@@ -720,6 +740,34 @@ const useEditorInteractions = (
                 
                 const position = editor.getPosition();
                 if (!position) return;
+
+                // Handle Tab key to insert spaces
+                if (e.keyCode === monaco.KeyCode.Tab && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const headerLines = getSectionHeaderLines(model);
+                    const isOnHeaderLine = headerLines.has(position.lineNumber);
+                    
+                    // Insert spaces on non-header lines
+                    if (!isOnHeaderLine) {
+                        const lineContent = model.getLineContent(position.lineNumber);
+                        const insertColumn = lineContent.trim() === '' ? 1 : position.column;
+                        
+                        model.pushEditOperations(
+                            [],
+                            [{
+                                range: new monaco.Range(position.lineNumber, insertColumn, position.lineNumber, insertColumn),
+                                text: '  '
+                            }],
+                            () => null
+                        );
+                        setTimeout(() => {
+                            editor.setPosition({ lineNumber: position.lineNumber, column: insertColumn + 2 });
+                        }, 0);
+                    }
+                    return;
+                }
 
                 // Allow suggestions with Cmd+/ or Ctrl+/
                 if ((e.metaKey || e.ctrlKey) && e.keyCode === monaco.KeyCode.Slash) {
@@ -900,6 +948,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({
                         wordWrap: 'on',
                         automaticLayout: true,
                         tabSize: 2,
+                        insertSpaces: true,
                         renderLineHighlight: 'line',
                         cursorBlinking: 'smooth',
                         scrollbar: {
