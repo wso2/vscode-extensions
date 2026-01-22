@@ -3,8 +3,7 @@
   "displayName": "Choreo",
   "description": "An extension for managing your Choreo projects and components",
   "license": "Apache-2.0",
-  "version": "2.2.5-2",
-  "cliVersion": "v1.2.92505041530",
+  "version": "2.2.7",
   "publisher": "wso2",
   "bugs": {
     "url": "https://github.com/wso2/choreo-vscode/issues"
@@ -158,7 +157,7 @@
         "description": "choreo-2",
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-          "fontCharacter": "\\f180"
+          "fontCharacter": "\\f18a"
         }
       }
     }
@@ -169,7 +168,7 @@
     "watch-choreo": "webpack --watch",
     "build": "pnpm run compile && pnpm run copy-webview-lib && pnpm run postbuild",
     "rebuild": "pnpm run clean && pnpm run compile && pnpm run copy-webview-lib && pnpm run postbuild",
-    "copy-webview-lib": "mkdir -p ./resources/jslibs && copyfiles -f ../choreo-webviews/build/* ./resources/jslibs",
+    "copy-webview-lib": "copyfiles -f ../choreo-webviews/build/* ./resources/jslibs",
     "compile-tests": "tsc -p . --outDir dist",
     "watch-tests": "tsc -p . -w --outDir dist",
     "e2e-test-setup": "npx extest get-vscode -c 1.83.1 && npx extest get-chromedriver -c 1.83.1 && npx extest install-vsix -f $(ls vsix/*.vsix)",
@@ -182,7 +181,7 @@
     "lint:fix": "biome check --write . ",
     "test-nyc-cli": "nyc --reporter=html node ./dist/test/runTest.js",
     "test": "rm -rf .vscode-test/extensions && node ./dist/test/runTest.js && nyc report && nyc report --reporter=html",
-    "package": "if [ $isPreRelease = true ]; then vsce package --no-dependencies --pre-release --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/; else vsce package --no-dependencies --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/; fi",
+    "package": "node ../../common-libs/scripts/package-vsix.js --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/",
     "copyVSIX": "copyfiles *.vsix ./vsix",
     "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../..",
     "postbuild": "pnpm run package && pnpm run copyVSIX"
@@ -190,7 +189,6 @@
   "devDependencies": {
     "@playwright/test": "1.55.1",
     "@types/byline": "^4.2.36",
-    "@types/js-yaml": "^4.0.9",
     "@types/mocha": "~10.0.1",
     "@types/node": "^22.15.24",
     "@types/vscode": "^1.100.0",
@@ -230,7 +228,6 @@
     "vscode-messenger": "^0.5.1",
     "vscode-messenger-common": "^0.5.1",
     "which": "^5.0.0",
-    "vscode-jsonrpc": "^8.2.1",
-    "zustand": "^5.0.5"
+    "vscode-jsonrpc": "^8.2.1"
   }
 }

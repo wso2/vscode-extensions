@@ -2,7 +2,7 @@
     "name": "ballerina-integrator",
     "displayName": "WSO2 Integrator: BI",
     "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
-    "version": "1.5.3",
+    "version": "1.6.0",
     "publisher": "wso2",
     "icon": "resources/images/wso2-ballerina-integrator-logo.png",
     "repository": {
@@ -171,7 +171,8 @@
         "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../..",
         "compile-tests": "tsc -p .",
         "copy-ballerina-ext": "copyfiles -f ../../ballerina/ballerina-extension/vsix/* ./vsix",
-        "e2e-test": "pnpm run copy-ballerina-ext && pnpm run compile-tests && pnpm exec playwright test"
+        "e2e-test": "pnpm run copy-ballerina-ext && pnpm run compile-tests && pnpm exec playwright test",
+        "e2e-test:download-prerelease": "pnpm run compile-tests && DOWNLOAD_PRERELEASE=true pnpm exec playwright test"
     },
     "dependencies": {
         "@wso2/ballerina-core": "workspace:*",

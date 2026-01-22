@@ -33,7 +33,7 @@ export const CompletedStepCard: React.FC<StepCardProps> = (props: StepCardProps)
     <StepCard id={props.id} className={props.className}>
         {props.titleAlignment === "right" ? (
             <>
-                <StepCircle color={colors.textLinkForeground}>
+                <StepCircle color={colors.vscodeButtonBackground}>
                     <RightSign />
                 </StepCircle>
                 <StepTitle color={colors.editorForeground}>
@@ -44,7 +44,7 @@ export const CompletedStepCard: React.FC<StepCardProps> = (props: StepCardProps)
         ) :
             <>
                 <IconTitleWrapper>
-                    <StepCircle color={colors.textLinkForeground}>
+                    <StepCircle color={colors.vscodeButtonBackground}>
                         <RightSign />
                     </StepCircle>
                     {props.totalSteps === props.step.id + 1 ? null : <BottomTitleHorizontalBar />}

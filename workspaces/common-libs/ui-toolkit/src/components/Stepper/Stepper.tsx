@@ -113,6 +113,7 @@ export const StepCircle = styled.div`
     min-height: 24px;
     border-radius: 50%;
     flex-shrink: 0;
+    border: 1px solid var(--button-border);
 `;
 
 export const HorizontalBar = styled.div`
@@ -159,7 +160,7 @@ export const Stepper: React.FC<StepperProps> = (props: StepperProps) => {
                 };
                 if (id < currentStep) {
                     return <CompletedStepCard key={`step${id}`} {...stepCardProps} />;
-                } 
+                }
                 return <InCompletedStepCard key={`step${id}`} {...stepCardProps} />;
             })}
         </StepperContainer>
