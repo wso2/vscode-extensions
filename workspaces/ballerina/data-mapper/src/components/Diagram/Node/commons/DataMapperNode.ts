@@ -322,8 +322,6 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 		if (portType === "IN" || isFocused) {
 			return collapsedFields?.includes(portName);
 		} else {
-			// OUT ports (including tuples and records) are expanded by default
-			// They use expandedFields - collapsed if NOT in the list
 			return !expandedFields?.includes(portName);
 		}
 	}
