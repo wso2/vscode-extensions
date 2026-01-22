@@ -17,34 +17,37 @@
  */
 
 import { Dropdown, OptionProps } from "@wso2/ui-toolkit";
-import React, { ChangeEvent, useMemo } from "react"
+import React, { ChangeEvent, useEffect, useMemo } from "react"
 import { FormField } from "../../../Form/types";
 
 interface EnumEditorProps {
     value: string;
     field: FormField;
     onChange: (value: string, cursorPosition: number) => void;
-    items: string[];
+    items: OptionProps[];
 }
 
 export const EnumEditor = (props: EnumEditorProps) => {
-
-    const dropdownItems = useMemo(() => {
-        return props.items.map((item, index) => ({
-            key: index.toString(),
-            text: item,
-            value: item,
-        } as OptionProps));
-    }, [props.items]);
-
+    // Ensure value is in items, otherwise use first item's value
+    const itemsList = props.items.length > 0 ? props.items : props.field.itemOptions;
+    const selectedValue = props.value && props.value !== "" && itemsList.some(item => item.value === props.value) ? props.value : itemsList[0].value;
     const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
         props.onChange(e.target.value, e.target.value.length)
     }
+
+    // Set the selected value as field value by calling onChange only if the value is not already set
+    useEffect(() => {
+        if (props.value === undefined || props.value === null || props.value === "") {
+            props.onChange(selectedValue, selectedValue.length)
+        }
+    }, [selectedValue, props.value])
+
     return (
         <Dropdown
             id={props.field.key}
-            value={props.value.trim()}
-            items={dropdownItems}
+            aria-label={props.field.label}
+            value={selectedValue.trim()}
+            items={itemsList}
             onChange={handleChange}
             sx={{ width: "100%" }}
             containerSx={{ width: "100%" }}

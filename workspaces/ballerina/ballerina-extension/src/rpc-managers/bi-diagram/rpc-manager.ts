@@ -174,6 +174,7 @@ import { writeBallerinaFileDidOpen } from "../../utils/modification";
 import { updateSourceCode } from "../../utils/source-utils";
 import { getView } from "../../utils/state-machine-utils";
 import { openAIPanelWithPrompt } from "../../views/ai-panel/aiMachine";
+import { chatStateStorage } from "../../views/ai-panel/chatStateStorage";
 import { checkProjectDiagnostics, removeUnusedImports } from "../ai-panel/repair-utils";
 import { getCurrentBallerinaProject } from "../../utils/project-utils";
 
@@ -1376,7 +1377,6 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 new vscode.Location(vscode.Uri.file(params.filePath), new vscode.Position(params.breakpoint.line, params.breakpoint?.column)));
             vscode.debug.addBreakpoints([breakpoint]);
 
-            notifyBreakpointChange();
         });
     }
 
@@ -1405,7 +1405,6 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 vscode.debug.removeBreakpoints(breakpoints);
             }
 
-            notifyBreakpointChange();
         });
     }
 
@@ -1512,8 +1511,8 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         return new Promise((resolve) => {
             let projectPath: string;
             if (params?.projectPath) {
-                const fileUriStr = Uri.file(params.projectPath).toString();
-                projectPath = fileUriStr.replace(/^file:/, "ai:");
+                const uri = Uri.file(params.projectPath);
+                projectPath = uri.with({ scheme: 'ai' }).toString();
             } else {
                 projectPath = StateMachine.context().projectPath;
             }
@@ -1976,7 +1975,8 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                     await updateSourceCode({
                         textEdits: res.source.textEditsMap,
                         description: `OpenAPI Client Generation`,
-                        skipUpdateViewOnTomlUpdate: true
+                        skipUpdateViewOnTomlUpdate: true,
+                        skipPayloadCheck: true
                     });
                     console.log(">>> Applied text edits for openapi client");
                 }

@@ -2,12 +2,14 @@
     "name": "ballerina-vscode-extensions-mono-repo",
     "pnpm": {
         "overrides": {
+            "@modelcontextprotocol/sdk": "^1.25.2",
             "brace-expansion": "^2.0.2",
             "http-proxy": "^1.18.1",
             "prismjs": "^1.30.0",
             "webpack": "^5.94.0",
             "webpack-dev-server": "^5.2.1",
             "braces": "^3.0.3",
+            "js-yaml": "^4.1.1",
             "micromatch": "^4.0.8",
             "esbuild": "^0.25.0",
             "xmldom": "npm:@xmldom/xmldom@^0.8.10",
@@ -16,7 +18,9 @@
             "form-data": "^4.0.4",
             "tmp": "^0.2.4",
             "express": "^4.22.1",
-            "qs": "^6.14.1"
+            "qs": "^6.14.1",
+            "diff": "^8.0.3",
+            "undici": "^7.18.2"
         }
     },
     "scripts": {

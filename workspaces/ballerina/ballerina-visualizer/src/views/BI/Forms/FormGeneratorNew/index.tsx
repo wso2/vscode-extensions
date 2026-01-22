@@ -630,7 +630,7 @@ export function FormGeneratorNew(props: FormProps) {
                 shouldUpdateNode?: boolean,
                 variableType?: string
             ) => {
-                if (!showDiagnostics) {
+                if (!showDiagnostics || isDataMapperEditor) {
                     setDiagnosticsInfo({ key, diagnostics: [] });
                     return;
                 }
@@ -1022,6 +1022,7 @@ export function FormGeneratorNew(props: FormProps) {
                             newTypeValue={typeEditorState.newTypeValue}
                             isPopupTypeForm={true}
                             isGraphql={isGraphqlEditor}
+                            // payloadContext={{protocol: "GRAPHQL"}}
                             onTypeChange={handleTypeChange}
                             onSaveType={onSaveType}
                             onTypeCreate={() => { }}
