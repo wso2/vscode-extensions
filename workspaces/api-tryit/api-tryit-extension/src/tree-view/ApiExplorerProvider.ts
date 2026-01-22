@@ -396,6 +396,11 @@ export class ApiTreeItem extends vscode.TreeItem {
 		super(label, collapsibleState);
 		this.contextValue = type;
 		
+		// Set resourceUri for requests
+		if (requestItem?.filePath) {
+			this.resourceUri = vscode.Uri.file(requestItem.filePath);
+		}
+		
 		// Set icon
 		if (iconPathString) {
 			this.iconPath = new vscode.ThemeIcon(iconPathString.replace('$(', '').replace(')', ''));
