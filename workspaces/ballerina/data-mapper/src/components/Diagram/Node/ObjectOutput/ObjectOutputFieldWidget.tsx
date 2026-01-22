@@ -92,17 +92,12 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
     let fieldName = field?.name || '';
     let displayName = field?.displayName || fieldName;
 
-    // For tuple members, we need to construct the port name with the prefix
-    // Backend creates field.id with full path like "updatedPerson.data[0]"
-    // Ports are named with prefix: "objectOutput.updatedPerson.data[0]"
+    // Handle tuple members by combining port prefix with field.id (bracket notation)
     let portName: string;
     if (field?.id && field.id.includes('[') && field.id.includes(']')) {
-        // Extract the port prefix (e.g., "objectOutput" from "objectOutput.updatedPerson.data")
-        // The prefix is the part before the first dot
         const firstDotIndex = parentId.indexOf('.');
         if (firstDotIndex >= 0) {
             const prefix = parentId.substring(0, firstDotIndex);
-            // field.id already contains the full path (e.g., "updatedPerson.data[0]")
             portName = `${prefix}.${field.id}`;
         } else {
             portName = field.id;

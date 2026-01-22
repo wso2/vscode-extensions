@@ -269,7 +269,7 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 	}
 
 	private getInputFieldFQN(parentId: string, fieldName: string, isOptional: boolean, field?: IOType): string {
-		// For tuple members, use the field.id if it contains bracket notation
+		// Use field.id directly for tuple members (bracket notation)
 		if (field?.id && field.id.includes('[') && field.id.includes(']')) {
 			return field.id;
 		}
@@ -280,7 +280,7 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 	}
 
 	private getUnsafeFieldFQN(unsafeParentId: string, fieldName: string, field?: IOType): string {
-		// For tuple members, use the field.id if it contains bracket notation
+		// Use field.id directly for tuple members (bracket notation)
 		if (field?.id && field.id.includes('[') && field.id.includes(']')) {
 			return field.id;
 		}	
@@ -297,9 +297,7 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 			return newParentId;
 		}
 
-		// For tuple members, the field.id already contains the correct path with bracket notation
-		// e.g., "updatedPerson.data[0]" - the full path from root to the tuple member
-		// Use field.id directly if it starts with the parent path
+		// Use field.id directly for tuple members (contains full path with bracket notation)
 		if (field?.id && field.id.startsWith(newParentId) && field.id !== newParentId) {
 			return field.id;
 		}

@@ -52,8 +52,7 @@ export function InputNodeTreeItemWidget(props: InputNodeTreeItemWidgetProps) {
     const displayName = dmType.displayName || fieldName;
     const typeName = getTypeName(dmType);
 
-    // For tuple members, use the dmType.id directly if it contains bracket notation
-    // This ensures we match the port names created by the backend (e.g., "tupleVar[0]" not "tupleVar.0")
+    // Use dmType.id directly for tuple members (bracket notation)
     let fieldId: string;
     if (dmType.id && dmType.id.includes('[') && dmType.id.includes(']')) {
         fieldId = dmType.id;
