@@ -350,7 +350,7 @@ const useEditorInteractions = (
             try {
                 const lineCount = model.getLineCount();
 
-                // Mark header lines as read-only
+                // Mark header lines as read-only and add wand icon
                 headerLines.forEach(lineNumber => {
                     if (lineNumber >= 1 && lineNumber <= lineCount) {
                         decorations.push({
@@ -362,6 +362,23 @@ const useEditorInteractions = (
                                 glyphMarginHoverMessage: { value: 'This section header is read-only' }
                             }
                         });
+
+                        // Add wand icon at the end of the header line
+                        try {
+                            const lineContent = model.getLineContent(lineNumber);
+                            const lineLength = lineContent.length;
+                            
+                            decorations.push({
+                                range: new monaco.Range(lineNumber, lineLength + 1, lineNumber, lineLength + 1),
+                                options: {
+                                    after: {
+                                        content: '  ✨'
+                                    }
+                                }
+                            });
+                        } catch (error) {
+                            // Skip if unable to add wand decoration
+                        }
                     }
                 });
 
@@ -468,30 +485,41 @@ const useEditorInteractions = (
                                                   (headerContent === 'Body' && isSectionEmpty(lineNumber, model));
 
                             if (shouldShowLens) {
-                                let lensText = '';
-                                let commandId = '';
+                                let addLensText = '';
+                                let addCommandId = '';
 
                                 if (headerContent === 'Query Parameters') {
-                                    lensText = '$(add) Query Parameter';
-                                    commandId = 'addQueryParameter';
+                                    addLensText = '$(add) Query Parameter';
+                                    addCommandId = 'addQueryParameter';
                                 } else if (headerContent === 'Headers') {
-                                    lensText = '$(add) Header';
-                                    commandId = 'addHeader';
+                                    addLensText = '$(add) Header';
+                                    addCommandId = 'addHeader';
                                 } else if (headerContent === 'Body') {
-                                    lensText = '$(add) Body';
-                                    commandId = 'addBody';
+                                    addLensText = '$(add) Body';
+                                    addCommandId = 'addBody';
                                 }
 
-                                if (lensText) {
+                                // Add the main action lens
+                                if (addLensText) {
                                     lenses.push({
                                         range: new monaco.Range(lineNumber + 1, 1, lineNumber + 1, 1),
                                         command: {
-                                            id: commandId,
-                                            title: lensText,
+                                            id: addCommandId,
+                                            title: addLensText,
                                             arguments: [lineNumber]
                                         }
                                     });
                                 }
+
+                                // Add the generate lens
+                                lenses.push({
+                                    range: new monaco.Range(lineNumber + 1, 1, lineNumber + 1, 1),
+                                    command: {
+                                        id: 'generateContent',
+                                        title: '$(wand) Generate',
+                                        arguments: [lineNumber, headerContent]
+                                    }
+                                });
                             }
                         } catch (error) {
                             // Skip problematic lines
@@ -577,7 +605,19 @@ const useEditorInteractions = (
             }
         });
 
-        return [addQueryParameterCommand, addHeaderCommand, addBodyCommand];
+        const generateCommand = monaco.editor.registerCommand('generateContent', (_, args) => {
+            try {
+                const lineNumber = Array.isArray(args) ? args[0] : args[0];
+                const headerContent = Array.isArray(args) ? args[1] : args[1];
+                // Placeholder for generate functionality
+                console.log('Generate clicked for:', headerContent, 'at line:', lineNumber);
+                // Add your generate logic here
+            } catch (error) {
+                console.warn('Error executing generateContent:', error);
+            }
+        });
+
+        return [addQueryParameterCommand, addHeaderCommand, addBodyCommand, generateCommand];
     };
 
     /**
