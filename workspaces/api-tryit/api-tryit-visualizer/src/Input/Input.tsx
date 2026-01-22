@@ -62,8 +62,7 @@ export const Input: React.FC<InputProps> = ({
         const newParam: QueryParameter = {
             id: Date.now().toString(),
             key: '',
-            value: '',
-            enabled: true
+            value: ''
         };
         const updatedRequest = {
             ...request,
@@ -94,8 +93,7 @@ export const Input: React.FC<InputProps> = ({
         const newHeader: HeaderParameter = {
             id: Date.now().toString(),
             key: '',
-            value: '',
-            enabled: true
+            value: ''
         };
         const updatedRequest = {
             ...request,

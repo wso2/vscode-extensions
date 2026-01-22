@@ -157,7 +157,7 @@ export const MainPanel: React.FC = () => {
             url: 'http://localhost:9090/api/test',
             queryParameters: [],
             headers: [
-                { id: '1', key: 'Content-Type', value: 'application/json', enabled: true }
+                { id: '1', key: 'Content-Type', value: 'application/json' }
             ],
             body: '{\n  "currency": "usd",\n  "coin": "bitcoin"\n}'
         },
@@ -226,7 +226,7 @@ export const MainPanel: React.FC = () => {
             const { request } = requestItem;
             
             // Build query parameters
-            const enabledQueryParams = (request.queryParameters || []).filter(p => p.enabled);
+            const enabledQueryParams = request.queryParameters || [];
             const params: Record<string, string> = {};
             enabledQueryParams.forEach(p => {
                 if (p.key) {
@@ -235,7 +235,7 @@ export const MainPanel: React.FC = () => {
             });
             
             // Build headers
-            const enabledHeaders = (request.headers || []).filter(h => h.enabled);
+            const enabledHeaders = request.headers || [];
             const headers: Record<string, string> = {};
             enabledHeaders.forEach(h => {
                 if (h.key) {

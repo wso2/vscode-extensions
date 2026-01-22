@@ -26,14 +26,12 @@ export interface QueryParameter {
     id: string;
     key: string;
     value: string;
-    enabled: boolean;
 }
 
 export interface HeaderParameter {
     id: string;
     key: string;
     value: string;
-    enabled: boolean;
 }
 
 // Request definition

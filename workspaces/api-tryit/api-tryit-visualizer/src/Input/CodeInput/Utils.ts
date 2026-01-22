@@ -54,7 +54,7 @@ export const requestToCode = (request: ApiRequest): string => {
     if (request.queryParameters && request.queryParameters.length > 0) {
         request.queryParameters.forEach(param => {
             if (param.key || param.value) {
-                const prefix = param.enabled ? '' : '// ';
+                const prefix = '';
                 lines.push(`${prefix}${param.key}=${param.value}`);
             }
         });
@@ -68,7 +68,7 @@ export const requestToCode = (request: ApiRequest): string => {
     if (request.headers && request.headers.length > 0) {
         request.headers.forEach(header => {
             if (header.key || header.value) {
-                const prefix = header.enabled ? '' : '// ';
+                const prefix = '';
                 lines.push(`${prefix}${header.key}: ${header.value}`);
             }
         });
@@ -124,8 +124,7 @@ export const codeToRequest = (code: string, existingRequest: ApiRequest): ApiReq
         // Parse based on current section
         switch (currentSection) {
             case 'query': {
-                const isDisabled = trimmedLine.startsWith('//');
-                const paramLine = isDisabled ? trimmedLine.substring(2).trim() : trimmedLine;
+                const paramLine = trimmedLine;
 
                 const eqIndex = paramLine.indexOf('=');
                 if (eqIndex > 0) {
@@ -135,16 +134,14 @@ export const codeToRequest = (code: string, existingRequest: ApiRequest): ApiReq
                         queryParameters.push({
                             id: generateId(),
                             key,
-                            value,
-                            enabled: !isDisabled
+                            value
                         });
                     }
                 }
                 break;
             }
             case 'headers': {
-                const isDisabled = trimmedLine.startsWith('//');
-                const headerLine = isDisabled ? trimmedLine.substring(2).trim() : trimmedLine;
+                const headerLine = trimmedLine;
 
                 const colonIndex = headerLine.indexOf(':');
                 if (colonIndex > 0) {
@@ -154,8 +151,7 @@ export const codeToRequest = (code: string, existingRequest: ApiRequest): ApiReq
                         headers.push({
                             id: generateId(),
                             key,
-                            value,
-                            enabled: !isDisabled
+                            value
                         });
                     }
                 }
