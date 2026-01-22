@@ -246,7 +246,7 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 			value: mapping,
 			fieldFQN: name,
 			optionalOmittedFieldFQN: name,
-			collapsed: this.isHeaderPortCollapsed(portName, portType, collapsedFields, expandedFields, isFocused, dmType),
+			collapsed: this.isHeaderPortCollapsed(portName, portType, collapsedFields, expandedFields, isFocused),
 			hidden: false,
 			descendantHasValue: false,
 			ancestorHasValue: false,
@@ -283,8 +283,7 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 		// For tuple members, use the field.id if it contains bracket notation
 		if (field?.id && field.id.includes('[') && field.id.includes(']')) {
 			return field.id;
-		}
-		// }	
+		}	
 
 		return unsafeParentId ? `${unsafeParentId}.${fieldName}` : fieldName || '';
 	}
@@ -318,19 +317,15 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 		portType: "IN" | "OUT",
 		collapsedFields: string[],
 		expandedFields: string[],
-		isFocused: boolean,
-		dmType?: IOType
+		isFocused: boolean
 	): boolean {
-		// Tuples should be expanded by default (like records and enums)
-		if (dmType?.kind === TypeKind.Tuple && portType === "OUT") {
-			return collapsedFields?.includes(portName);
-		}
-
 		// In Inline Data Mapper, the inputs are always collapsed by default except focused view.
 		// Hence we explicitly check expandedFields for input header ports.
 		if (portType === "IN" || isFocused) {
 			return collapsedFields?.includes(portName);
 		} else {
+			// OUT ports (including tuples and records) are expanded by default
+			// They use expandedFields - collapsed if NOT in the list
 			return !expandedFields?.includes(portName);
 		}
 	}
@@ -453,7 +448,7 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 	private async processTupleField(attributes: OutputPortAttributes) {
 		const members = attributes.field?.members?.filter(m => !!m);
 		if (members && members.length) {
-			for(const member of members) {
+			for (const member of members) {
 				await this.addPortsForOutputField({
 					...attributes,
 					field: member,

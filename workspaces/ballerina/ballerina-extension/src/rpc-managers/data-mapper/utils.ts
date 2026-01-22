@@ -814,7 +814,7 @@ function processTuple(
             ...(tupleMember.typeInfo && { typeInfo: tupleMember.typeInfo })
         };
 
-        const typeSpecificProps = processTypeKind(tupleMember, memberFieldId, model, visitedRefs);
+        const typeSpecificProps = processTypeKind(tupleMember, memberFieldId, model, new Set(visitedRefs));
 
         return {
             ...tupleMemberType,

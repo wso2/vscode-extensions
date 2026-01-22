@@ -76,7 +76,7 @@ export const getSearchFilteredOutput = (outputType: IOType) => {
 			members: subMembers || []
 		}
 	}
-	return  null;
+	return null;
 }
 
 export const getFilteredSubFields = (field: IOType, searchValue: string) => {
