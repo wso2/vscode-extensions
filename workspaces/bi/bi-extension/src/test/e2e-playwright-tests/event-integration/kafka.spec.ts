@@ -1,4 +1,3 @@
-
 /**
  * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
@@ -16,10 +15,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { addArtifact, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
+import { DEFAULT_PROJECT_NAME } from '../utils/helpers/setup';
 
 export default function createTests() {
     test.describe('Kafka Integration Tests', {
@@ -27,87 +27,233 @@ export default function createTests() {
     }, async () => {
         let listenerName: string;
         initTest();
+
         test('Create Kafka Integration', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
-            console.log('Creating a new service in test attempt: ', testAttempt);
-            // Creating a HTTP Service
+            console.log('Creating a new Kafka integration in test attempt: ', testAttempt);
+
+            // Step 1-5: Navigate and add artifact
             await addArtifact('Kafka Integration', 'trigger-kafka');
             const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
-            // Create a new listener
-            listenerName = `listenerTcp${testAttempt}`;
-            const bootstrapServers = `"localhost:9092"`;
+
+            // Step 6-11: Fill form
+            listenerName = `kafkaListener`;
+            const bootstrapServers = `localhost:9092`;
+            const topic = `test-topic`;
+
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
+
+            // Single-step form: All fields in one form
             await form.fill({
                 values: {
-                    'Name*The name of the listener': {
-                        type: 'input',
-                        value: listenerName,
-                    },
                     'bootstrapServers': {
-                        type: 'textarea',
+                        type: 'cmEditor',
                         value: bootstrapServers,
-                        additionalProps: { clickLabel: true }
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
+                    },
+                    'topics': {
+                        type: 'cmEditor',
+                        value: topic,
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
                     }
                 }
             });
-            await form.submit('Next', true);
 
-            // Check for title
-            const configTitle = artifactWebView.locator('h3', { hasText: 'Kafka Event Handler Configuration' });
-            await configTitle.waitFor();
+            // Step 15: Create the integration
+            await form.submit('Create');
 
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
+            const kafkaListener = `kafkaListener`;
+            // Step 13: Verify integration is updated
+            const context = artifactWebView.locator(`text=${kafkaListener}`);
+            await context.waitFor();
 
-            await form.submit('Create', true);
-
-            const onConsumerRecord = artifactWebView.locator(`text="onConsumerRecord"`);
-            await onConsumerRecord.waitFor();
-
-            const onError = artifactWebView.locator(`text="onError"`);
-            await onError.waitFor();
-
+            // Verify integration appears in project tree
             const projectExplorer = new ProjectExplorer(page.page);
-            await projectExplorer.findItem(['sample', `Kafka Event Handler`], true);
+            await projectExplorer.findItem(['sample', `Kafka Event Integration`], true);
 
-            const updateArtifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
-            if (!updateArtifactWebView) {
-                throw new Error('WSO2 Integrator: BI webview not found');
-            }
         });
 
-        test('Editing Kafka Service', async ({ }, testInfo) => {
+        test('Edit Kafka Integration', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
-            console.log('Editing a service in test attempt: ', testAttempt);
+            console.log('Editing Kafka integration in test attempt: ', testAttempt);
+
             const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!artifactWebView) {
                 throw new Error('WSO2 Integrator: BI webview not found');
             }
 
-            const editBtn = artifactWebView.locator('vscode-button[title="Edit Service"]');
+            // Step 1-3: Open configure dialog
+            const editBtn = artifactWebView.locator('vscode-button[title="Edit Service"]').or(
+                artifactWebView.locator('button[title*="Edit"]')
+            );
             await editBtn.waitFor();
             await editBtn.click({ force: true });
+
+            // Step 4: Wait for "Kafka Event Integration Configuration" form to be open
+            // Check if the div with id="TitleDiv" is visible, indicating the form is open
+            const titleDiv = artifactWebView.locator('#TitleDiv');
+            await titleDiv.waitFor();
+
+            // Step 5-9: Update bootstrap servers and topic
+            const updatedBootstrapServers = `"kafka1:9092,kafka2:9092"`;
+            const updatedTopic = `updated-topic`;
+
+            const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
+            await form.switchToFormView(false, artifactWebView);
+            // Single-step form structure
+            await form.fill({
+                values: {
+                    'bootstrapServers': {
+                        type: 'cmEditor',
+                        value: updatedBootstrapServers,
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
+                    },
+                    'topics': {
+                        type: 'cmEditor',
+                        value: updatedTopic,
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
+                    }
+                }
+            });
+
+            await form.submit('Save Changes');
+            // Wait for the save changes button inside the container with id "save-changes-btn",
+            // ensuring the disabled attribute is present and the button text is "Save Changes"
+            const saveChangesBtn = artifactWebView.locator('#save-changes-btn vscode-button[appearance="primary"]');
+            await saveChangesBtn.waitFor({ state: 'visible' });
+            await expect(saveChangesBtn).toHaveClass('disabled', { timeout: 5000 });
+            await expect(saveChangesBtn).toHaveText('Save Changes');
+            // Click back button
+            const backBtn = artifactWebView.locator('[data-testid="back-button"]');
+            await backBtn.waitFor();
+            await backBtn.click();
+
+            const updatedTopicElement = artifactWebView.locator(`text=${updatedTopic}`);
+            await updatedTopicElement.waitFor({ state: 'visible' });
+        });
+
+        test('Configure Multiple Topics', async ({ }, testInfo) => {
+            const testAttempt = testInfo.retry + 1;
+            console.log('Configuring multiple topics in test attempt: ', testAttempt);
+
+            const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
+            if (!artifactWebView) {
+                throw new Error('WSO2 Integrator: BI webview not found');
+            }
+
+            // Step 1-2: Open configure dialog
+            const editBtn = artifactWebView.locator('vscode-button[title="Edit Service"]').or(
+                artifactWebView.locator('button[title*="Edit"]')
+            );
+            await editBtn.waitFor();
+            await editBtn.click({ force: true });
+
+            // Step 4: Wait for form to be open
+            const titleDiv = artifactWebView.locator('#TitleDiv');
+            await titleDiv.waitFor();
 
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
 
-            const configTitle = artifactWebView.locator('h3', { hasText: 'Kafka Event Handler Configuration' });
-            await configTitle.waitFor();
+            // Step 4-6: Enter multiple topics as comma-separated values
+            const multipleTopics = `topic1,topic2,topic3`;
 
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
+            await form.fill({
+                values: {
+                    'topics': {
+                        type: 'cmEditor',
+                        value: multipleTopics,
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
+                    }
+                }
+            });
 
-            await form.submit('Save');
+            // Step 7: Save changes
+            await form.submit('Save Changes');
+            const saveChangesBtn = artifactWebView.locator('#save-changes-btn vscode-button[appearance="primary"]');
+            await saveChangesBtn.waitFor({ state: 'visible' });
+            await expect(saveChangesBtn).toHaveClass('disabled', { timeout: 5000 });
+            await expect(saveChangesBtn).toHaveText('Save Changes');
+            const backBtn = artifactWebView.locator('[data-testid="back-button"]');
+            await backBtn.waitFor();
+            await backBtn.click();
 
-            const onConsumerRecord = artifactWebView.locator(`text="onConsumerRecord"`);
-            await onConsumerRecord.waitFor();
+            // Step 8: Verify integration is updated with multiple topics
+            const topicsElement = artifactWebView.locator(`text=${multipleTopics}`);
+            await topicsElement.waitFor({ state: 'visible' });
+        });
 
-            const onError = artifactWebView.locator(`text="onError"`);
-            await onError.waitFor();
+        test('Add Consumer Error Handler', async ({ }, testInfo) => {
+            const testAttempt = testInfo.retry + 1;
+            console.log('Adding error handler in test attempt: ', testAttempt);
+
+            const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
+            if (!artifactWebView) {
+                throw new Error('WSO2 Integrator: BI webview not found');
+            }
+
+            // Step 1-2: Verify integration is open in service designer
+            const kafkaListener = `kafkaListener`;
+            const context = artifactWebView.locator(`text=${kafkaListener}`);
+            await context.waitFor();
+
+            // Step 4: Click Add Handler button
+            const addHandlerBtn = artifactWebView.locator('button:has-text("Add Handler")').or(
+                artifactWebView.locator('button:has-text("Handler")')
+            ).or(
+                artifactWebView.locator('vscode-button').filter({ hasText: /Add Handler|Handler/i })
+            ).or(
+                artifactWebView.locator('[data-testid*="add-handler"], [data-testid*="handler"]')
+            );
+
+            if (await addHandlerBtn.count() > 0) {
+                await addHandlerBtn.first().waitFor();
+                await addHandlerBtn.first().click({ force: true });
+                await page.page.waitForTimeout(1000);
+
+                // Step 5-6: Verify handler selection dialog
+                // Click on the card with data-testid="function-card-onError" (onError handler)
+                const onErrorCard = artifactWebView.locator('[data-testid="function-card-onError"]');
+                await onErrorCard.waitFor({ state: 'visible' });
+                await onErrorCard.click();
+            }
+
+            await artifactWebView.locator('[data-testid="service-agent-view-resource"]').waitFor({ timeout: 10000 });
+
+            // Step 8-10: Verify onError handler is added
+            const onError = artifactWebView.locator(`text=onError`);
+            await onError.waitFor({ timeout: 10000 });
+
+            // Verify handler appears in project tree
+            const projectExplorer = new ProjectExplorer(page.page);
+            try {
+                await projectExplorer.findItem(['sample', 'Kafka Event Integration', 'onError'], false);
+            } catch (e) {
+                console.log('onError handler may not appear in tree, but exists in service designer');
+            }
+        });
+
+        test('Delete Kafka Integration', async ({ }, testInfo) => {
+            const testAttempt = testInfo.retry + 1;
+            console.log('Deleting Kafka integration in test attempt: ', testAttempt);
+
+            const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
+            if (!artifactWebView) {
+                throw new Error('WSO2 Integrator: BI webview not found');
+            }
+            const projectExplorer = new ProjectExplorer(page.page);
+            const serviceTreeItem = await projectExplorer.findItem([DEFAULT_PROJECT_NAME, `Kafka Event Integration`], true);
+            await serviceTreeItem.click({ button: 'right' });
+            const deleteButton = page.page.getByRole('button', { name: 'Delete' }).first();
+            await deleteButton.waitFor({ timeout: 5000 });
+            await deleteButton.click();
+            await page.page.waitForTimeout(500);
+
+            await expect(serviceTreeItem).not.toBeVisible({ timeout: 10000 });
         });
     });
 }

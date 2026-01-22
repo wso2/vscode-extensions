@@ -284,41 +284,45 @@ const InputMappingsForm = (props: AddMediatorProps) => {
 
         let xml = getDssQueryXml({ ...updatedQuery, queryType }).replace(/^\s*[\r\n]/gm, '');
         const range = sidePanelContext?.formValues?.queryObject.range;
-        await rpcClient.getMiDiagramRpcClient().applyEdit({
+        const edits = await rpcClient.getMiDiagramRpcClient().applyEdit({
             text: xml, documentUri: props.documentUri,
-            range: { start: range.startTagRange.start, end: range.endTagRange.end }
+            range: { start: range.startTagRange.start, end: range.endTagRange.end },
+            waitForEdits: true
         });
 
-        const st = await rpcClient.getMiDiagramRpcClient().getSyntaxTree({ documentUri: props.documentUri });
-        let isInResource = false;
-        let resourceData: any = {};
-        if (st.syntaxTree.data.resources !== undefined && st.syntaxTree.data.resources !== null && st.syntaxTree.data.resources.length > 0) {
-            st.syntaxTree.data.resources.forEach((resource: any) => {
-                if (resource.callQuery.href === sidePanelContext?.formValues?.queryObject.queryName) {
-                    resourceData.resourceRange = resource.callQuery.range;
-                    resourceData.selfClosed = resource.callQuery.selfClosed;
-                    isInResource = true;
-                }
-            });
-        }
-        if (!isInResource) {
-            if (st.syntaxTree.data.operations !== undefined && st.syntaxTree.data.operations !== null && st.syntaxTree.data.operations.length > 0) {
-                st.syntaxTree.data.operations.forEach((operation: any) => {
-                    if (operation.callQuery.href === sidePanelContext?.formValues?.queryObject.queryName) {
-                        resourceData.resourceRange = operation.callQuery.range;
-                        resourceData.selfClosed = operation.callQuery.selfClosed;
+        if (edits.status) {
+            const st = await rpcClient.getMiDiagramRpcClient().getSyntaxTree({ documentUri: props.documentUri });
+            let isInResource = false;
+            let resourceData: any = {};
+            if (st.syntaxTree.data.resources !== undefined && st.syntaxTree.data.resources !== null && st.syntaxTree.data.resources.length > 0) {
+                st.syntaxTree.data.resources.forEach((resource: any) => {
+                    if (resource.callQuery.href === sidePanelContext?.formValues?.queryObject.queryName) {
+                        resourceData.resourceRange = resource.callQuery.range;
+                        resourceData.selfClosed = resource.callQuery.selfClosed;
+                        isInResource = true;
                     }
                 });
             }
-        }
+            if (!isInResource) {
+                if (st.syntaxTree.data.operations !== undefined && st.syntaxTree.data.operations !== null && st.syntaxTree.data.operations.length > 0) {
+                    st.syntaxTree.data.operations.forEach((operation: any) => {
+                        if (operation.callQuery.href === sidePanelContext?.formValues?.queryObject.queryName) {
+                            resourceData.resourceRange = operation.callQuery.range;
+                            resourceData.selfClosed = operation.callQuery.selfClosed;
+                        }
+                    });
+                }
+            }
 
-        if (Object.keys(resourceData).length !== 0) {
-            xml = getDssResourceQueryParamsXml(resourceQuery);
-            const end = resourceData.selfClosed ? resourceData.resourceRange.startTagRange.end : resourceData.resourceRange.endTagRange.end;
-            await rpcClient.getMiDiagramRpcClient().applyEdit({
-                text: xml, documentUri: props.documentUri,
-                range: { start: resourceData.resourceRange.startTagRange.start, end: end }
-            });
+            if (Object.keys(resourceData).length !== 0) {
+                xml = getDssResourceQueryParamsXml(resourceQuery);
+                const end = resourceData.selfClosed ? resourceData.resourceRange.startTagRange.end : resourceData.resourceRange.endTagRange.end;
+                await rpcClient.getMiDiagramRpcClient().applyEdit({
+                    text: xml, documentUri: props.documentUri,
+                    range: { start: resourceData.resourceRange.startTagRange.start, end: end },
+                    waitForEdits: true
+                });
+            }
         }
 
         sidePanelContext.setSidePanelState({
