@@ -63,10 +63,30 @@ export const downloadCLI = async () => {
 	const CLI_VERSION = getCliVersion();
 	
 	// Path to the combined zip file in resources
-	const COMBINED_ZIP_PATH = path.join(ext.context.extensionPath, "resources", "choreo-cli", `choreo-cli-${CLI_VERSION}.zip`);
-	
+	let COMBINED_ZIP_PATH = path.join(ext.context.extensionPath, "resources", "choreo-cli", `choreo-cli-${CLI_VERSION}.zip`);
+
+	// If not found in extension path (e.g., in test environment), try source location
 	if (!fs.existsSync(COMBINED_ZIP_PATH)) {
-		throw new Error(`Combined CLI zip not found at: ${COMBINED_ZIP_PATH}\nPlease run 'pnpm run download-choreo-cli' to download the CLI.`);
+		// Try to find in the workspace source location (for development/test environments)
+		const sourceLocations = [
+			// Workspace root
+			path.join(ext.context.extensionPath, "..", "..", "..", "..", "external", "wso2-vscode-extensions", "workspaces", "wso2-platform", "wso2-platform-extension", "resources", "choreo-cli", `choreo-cli-${CLI_VERSION}.zip`),
+			// Common/temp cache location
+			path.join(ext.context.extensionPath, "..", "..", "..", "..", "external", "wso2-vscode-extensions", "common", "temp", "choreo-cli", `choreo-cli-${CLI_VERSION}.zip`),
+		];
+		
+		for (const location of sourceLocations) {
+			const normalized = path.normalize(location);
+			if (fs.existsSync(normalized)) {
+				COMBINED_ZIP_PATH = normalized;
+				getLogger().info(`Found CLI zip in alternative location: ${COMBINED_ZIP_PATH}`);
+				break;
+			}
+		}
+		
+		if (!fs.existsSync(COMBINED_ZIP_PATH)) {
+			throw new Error(`Combined CLI zip not found at: ${COMBINED_ZIP_PATH}\nAlso checked alternative locations.\nPlease run 'pnpm run download-choreo-cli' to download the CLI.`);
+		}
 	}
 
 	getLogger().trace(`Extracting Choreo CLI from: ${COMBINED_ZIP_PATH}`);
