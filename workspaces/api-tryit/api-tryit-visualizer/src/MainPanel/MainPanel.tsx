@@ -262,7 +262,6 @@ export const MainPanel: React.FC = () => {
     };
 
     const handleSaveRequest = async (evt: any) => {
-        evt.preventDefault();
         if (!vscode) {
             console.error('VS Code API not available');
             alert('Cannot save request - VS Code API not available');
@@ -484,7 +483,7 @@ export const MainPanel: React.FC = () => {
                             })}
                             placeholder="Enter API URL"
                             sx={{ flex: 1 }}
-                            icon={{ iconComponent: <Codicon name="save" onClick={handleSaveRequest} />, position: 'end' }}
+                            icon={{ iconComponent: <span onMouseDown={(e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); }} role="button" aria-label="Save request"><Codicon name="save" /></span>, position: 'end', onClick: handleSaveRequest }}
                         />
 
                         <Button
