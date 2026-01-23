@@ -83,9 +83,9 @@ export class TryItPanel {
 								
 								// Now show save dialog in the selected folder
 								const fileUri = await vscode.window.showSaveDialog({
-									defaultUri: vscode.Uri.joinPath(selectedFolder, 'api-request.json'),
+									defaultUri: vscode.Uri.joinPath(selectedFolder, 'api-request.yaml'),
 									filters: {
-										'JSON files': ['json']
+										'YAML files': ['yaml', 'yml']
 									},
 									saveLabel: 'Save API Request'
 								});

@@ -100,6 +100,27 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.commands.executeCommand('workbench.action.openSettings', 'api-tryit');
 	});
 
+	// Register command to set collections path (useful when requests live outside workspace)
+	const setCollectionsPathCommand = vscode.commands.registerCommand('api-tryit.setCollectionsPath', async () => {
+		const folderUris = await vscode.window.showOpenDialog({
+			canSelectFolders: true,
+			canSelectFiles: false,
+			canSelectMany: false,
+			openLabel: 'Select Collections Folder'
+		});
+		if (!folderUris || folderUris.length === 0) {
+			return;
+		}
+		const selected = folderUris[0];
+		const config = vscode.workspace.getConfiguration('api-tryit');
+		const target = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0 ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
+		await config.update('collectionsPath', selected.fsPath, target);
+		vscode.window.showInformationMessage(`API TryIt collections path set to: ${selected.fsPath}`);
+		apiExplorerProvider.refresh();
+	});
+
+	context.subscriptions.push(setCollectionsPathCommand);
+
 	// Register a simple hello command
 	const helloCommand = vscode.commands.registerCommand('api-tryit.hello', () => {
 		vscode.window.showInformationMessage('Hello from API TryIt!');

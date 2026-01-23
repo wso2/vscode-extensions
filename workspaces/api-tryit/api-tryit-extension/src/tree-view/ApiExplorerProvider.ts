@@ -19,6 +19,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import * as yaml from 'js-yaml';
 import { ApiCollection, ApiFolder, ApiRequestItem, ApiRequest } from '@wso2/api-tryit-core';
 
 export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem> {
@@ -47,7 +48,7 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 	private async loadRequestFile(filePath: string): Promise<ApiRequestItem | null> {
 		try {
 			const requestContent = await fs.readFile(filePath, 'utf-8');
-			const persistedRequest = JSON.parse(requestContent);
+			const persistedRequest = yaml.load(requestContent) as any;
 
 			// Validate that this is a request file (has required properties)
 			if (persistedRequest.id && persistedRequest.name && persistedRequest.request) {
@@ -80,7 +81,12 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 		try {
 			const entries = await fs.readdir(dirPath, { withFileTypes: true });
 			for (const entry of entries) {
-				if (entry.isFile() && entry.name.endsWith('.json')) {
+				if (
+					entry.isFile() &&
+					(
+						entry.name.endsWith('.yaml') || entry.name.endsWith('.yml') || entry.name.endsWith('.json')
+					)
+				) {
 					const requestPath = path.join(dirPath, entry.name);
 					const requestItem = await this.loadRequestFile(requestPath);
 					if (requestItem) {
@@ -154,10 +160,40 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 
 	private async loadCollection(collectionPath: string, collectionId: string): Promise<ApiCollection | null> {
 		try {
-			// Read collection metadata
-			const metadataPath = path.join(collectionPath, 'collection.json');
-			const metadataContent = await fs.readFile(metadataPath, 'utf-8');
-			const metadata = JSON.parse(metadataContent);
+			// Resolve collection metadata path (support .yaml, .yml and fallback to .json)
+			let metadataPath = path.join(collectionPath, 'collection.yaml');
+			let metadataContent: string | null = null;
+			try {
+				metadataContent = await fs.readFile(metadataPath, 'utf-8');
+			} catch (errYaml) {
+				// try .yml
+				try {
+					metadataPath = path.join(collectionPath, 'collection.yml');
+					metadataContent = await fs.readFile(metadataPath, 'utf-8');
+				} catch (errYml) {
+					// try legacy json
+					try {
+						metadataPath = path.join(collectionPath, 'collection.json');
+						metadataContent = await fs.readFile(metadataPath, 'utf-8');
+					} catch (errJson) {
+						// No metadata found - skip this collection
+						throw new Error('Missing collection metadata (collection.yaml|collection.yml|collection.json)');
+					}
+				}
+			}
+
+			// Parse metadata (prefer YAML parsing, fallback to JSON parse if needed)
+			let metadata: any;
+			try {
+				metadata = yaml.load(metadataContent as string) as any;
+				// If yaml.load returns a string (possible for simple documents), try JSON parse as a fallback
+				if (!metadata || typeof metadata === 'string') {
+					metadata = JSON.parse(metadataContent as string);
+				}
+			} catch (err) {
+				// Last resort: try JSON.parse
+				metadata = JSON.parse(metadataContent as string);
+			}
 
 			// Extract only essential fields from collection metadata
 			const collectionMetadata = {
@@ -181,8 +217,16 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 					} catch (error) {
 						vscode.window.showErrorMessage(`Error loading folder ${entry.name} in collection ${collectionId}, ${error as string}.`);
 					}
-				} else if (entry.isFile() && entry.name.endsWith('.json') && entry.name !== 'collection.json') {
-					// Load root-level request file
+				} else if (
+					entry.isFile() &&
+					(
+						entry.name.endsWith('.yaml') || entry.name.endsWith('.yml') || entry.name.endsWith('.json')
+					) &&
+					entry.name.toLowerCase() !== 'collection.yaml' &&
+					entry.name.toLowerCase() !== 'collection.yml' &&
+					entry.name.toLowerCase() !== 'collection.json'
+				) {
+					// Load root-level request file (support .yaml, .yml, and legacy .json)
 					const requestPath = path.join(collectionPath, entry.name);
 					const requestItem = await this.loadRequestFile(requestPath);
 					if (requestItem) {

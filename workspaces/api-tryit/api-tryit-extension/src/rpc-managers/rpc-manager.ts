@@ -23,6 +23,7 @@ import {
 } from "@wso2/api-tryit-core";
 import { writeFile, readFile } from 'fs/promises';
 import * as vscode from 'vscode';
+import * as yaml from 'js-yaml';
 
 export class ApiTryItRpcManager {
     async saveRequest(params: SaveRequestRequest): Promise<SaveRequestResponse> {
@@ -78,8 +79,8 @@ export class ApiTryItRpcManager {
                 };
             }
             
-            // Convert to JSON with formatting
-            const requestData = JSON.stringify(updatedData, null, 2);
+            // Convert to YAML
+            const requestData = yaml.dump(updatedData);
             
             // Write to file
             await writeFile(filePath, requestData, 'utf8');
