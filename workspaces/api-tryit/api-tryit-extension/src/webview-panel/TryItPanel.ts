@@ -19,6 +19,7 @@
 import * as vscode from 'vscode';
 import { getComposerJSFiles } from '../util';
 import { ApiTryItStateMachine, EVENT_TYPE } from '../stateMachine';
+import { ApiRequestItem } from '@wso2/api-tryit-core';
 import { Messenger } from 'vscode-messenger';
 import { registerApiTryItRpcHandlers } from '../rpc-managers';
 
@@ -40,7 +41,7 @@ export class TryItPanel {
 		ApiTryItStateMachine.registerWebview(this._panel);
 
 		this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
-		
+
 		// Set up message handling from webview
 		this._panel.webview.onDidReceiveMessage(
 			async message => {
@@ -55,11 +56,11 @@ export class TryItPanel {
 						// Handle save request using the RPC manager
 						try {
 							const { filePath, request } = message.data;
-							
+
 							// Get the current state to check for persisted file path
 							const stateContext = ApiTryItStateMachine.getContext();
 							let targetFilePath = filePath || stateContext.selectedFilePath;
-							
+
 							if (!targetFilePath) {
 								// First, prompt user to select a folder
 								const folderUris = await vscode.window.showOpenDialog({
@@ -69,7 +70,7 @@ export class TryItPanel {
 									defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri,
 									openLabel: 'Select Folder for API Requests'
 								});
-								
+
 								if (!folderUris || folderUris.length === 0) {
 									// User cancelled folder selection
 									this._panel.webview.postMessage({
@@ -78,9 +79,9 @@ export class TryItPanel {
 									});
 									break;
 								}
-								
+
 								const selectedFolder = folderUris[0];
-								
+
 								// Now show save dialog in the selected folder
 								const fileUri = await vscode.window.showSaveDialog({
 									defaultUri: vscode.Uri.joinPath(selectedFolder, 'api-request.yaml'),
@@ -89,7 +90,7 @@ export class TryItPanel {
 									},
 									saveLabel: 'Save API Request'
 								});
-								
+
 								if (!fileUri) {
 									// User cancelled file save
 									this._panel.webview.postMessage({
@@ -98,23 +99,37 @@ export class TryItPanel {
 									});
 									break;
 								}
-								
+
 								targetFilePath = fileUri.fsPath;
 							}
-							
+
 							// Import the RPC manager here to avoid circular dependencies
 							const { ApiTryItRpcManager } = await import('../rpc-managers/rpc-manager');
 							const rpcManager = new ApiTryItRpcManager();
 							const response = await rpcManager.saveRequest({ filePath: targetFilePath, request });
-							
+
 							// Send response back to webview
 							this._panel.webview.postMessage({
 								type: 'saveRequestResponse',
 								data: response
 							});
-							
+
 							if (response.success) {
 								vscode.window.showInformationMessage(`Request saved successfully to: ${targetFilePath}`);
+								// Refresh explorer so new/updated request files are reloaded
+								vscode.commands.executeCommand('api-tryit.refreshExplorer');
+								// Inform state machine about the saved request so it can update caches and notify webviews
+								try {
+									const savedItem: ApiRequestItem = {
+										id: request.id,
+										name: request.name,
+										request,
+										filePath: targetFilePath
+									};
+									ApiTryItStateMachine.sendEvent(EVENT_TYPE.REQUEST_UPDATED, savedItem);
+								} catch {
+									vscode.window.showErrorMessage('Failed to notify state machine about saved request');
+								}
 							} else {
 								vscode.window.showErrorMessage(`Failed to save request: ${response.message}`);
 							}

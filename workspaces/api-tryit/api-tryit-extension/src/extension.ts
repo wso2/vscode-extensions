@@ -30,6 +30,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Register the API Explorer tree view
 	const apiExplorerProvider = new ApiExplorerProvider();
 	vscode.window.registerTreeDataProvider('api-tryit.explorer', apiExplorerProvider);
+	// Register the explorer with the state machine so it can trigger direct reloads when needed
+	ApiTryItStateMachine.registerExplorer(apiExplorerProvider);
 
 	// Register the activity panel with the API explorer provider
 	activateActivityPanel(context, apiExplorerProvider);

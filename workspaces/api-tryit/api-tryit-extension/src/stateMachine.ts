@@ -140,6 +140,8 @@ const stateMachineService = interpret(apiTryItMachine).start();
 
 // Store reference to webview panel for posting messages
 let webviewPanel: vscode.WebviewPanel | undefined;
+// Optional reference to ApiExplorerProvider (registered by extension) to trigger direct reloads
+let explorerProvider: { reloadCollections?: () => Promise<void> } | undefined;
 
 // Export the state machine service and utilities
 export const ApiTryItStateMachine = {
@@ -152,8 +154,17 @@ export const ApiTryItStateMachine = {
     unregisterWebview: () => {
         webviewPanel = undefined;
     },
+
+    // Allow registering the ApiExplorerProvider to trigger direct reloads when files change
+    registerExplorer: (provider: { reloadCollections?: () => Promise<void> }) => {
+        explorerProvider = provider;
+    },
+
+    unregisterExplorer: () => {
+        explorerProvider = undefined;
+    },
     
-    sendEvent: (eventType: EVENT_TYPE, data?: ApiTryItContext['selectedItem'], filePath?: string) => {
+    sendEvent: async (eventType: EVENT_TYPE, data?: ApiTryItContext['selectedItem'], filePath?: string) => {
         if (eventType === EVENT_TYPE.API_ITEM_SELECTED && data) {
             stateMachineService.send({ type: 'API_ITEM_SELECTED', data, filePath });
             
@@ -168,7 +179,24 @@ export const ApiTryItStateMachine = {
             }
         } else if (eventType === EVENT_TYPE.REQUEST_UPDATED && data) {
             stateMachineService.send({ type: 'REQUEST_UPDATED', data });
-            // Request updated in state machine
+            // Refresh explorer so saved files are re-scanned from disk
+            vscode.commands.executeCommand('api-tryit.refreshExplorer');
+            // Also call reload directly on the registered explorer provider if available
+            try {
+                if (explorerProvider?.reloadCollections) {
+                    await explorerProvider.reloadCollections();
+                }
+            } catch {
+                vscode.window.showErrorMessage('Failed to directly reload explorer provider');
+            }
+            // Notify the registered webview (if any) that a request has been updated/saved
+            if (webviewPanel) {
+                const context = stateMachineService.getSnapshot().context;
+                webviewPanel.webview.postMessage({
+                    type: 'requestUpdated',
+                    data: context.selectedItem
+                });
+            }
         } else if (eventType === EVENT_TYPE.WEBVIEW_READY) {
             stateMachineService.send({ type: 'WEBVIEW_READY' });
             

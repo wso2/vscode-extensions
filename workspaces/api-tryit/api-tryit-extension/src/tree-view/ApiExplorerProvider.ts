@@ -193,6 +193,13 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 		}
 	}
 
+	/**
+	 * Public helper to reload collections from disk and update the tree.
+	 */
+	public async reloadCollections(): Promise<void> {
+		await this.loadCollections();
+	}
+
 	private async loadCollection(collectionPath: string, collectionId: string): Promise<ApiCollection | null> {
 		try {
 			// Resolve collection metadata path (support .yaml, .yml and fallback to .json)
