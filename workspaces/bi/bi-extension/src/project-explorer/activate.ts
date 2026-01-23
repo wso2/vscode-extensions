@@ -87,11 +87,6 @@ function registerCoreCommands(dataProvider: ProjectExplorerEntryProvider, isInWI
 	commands.registerCommand(
 		BI_COMMANDS.REFRESH_COMMAND,
 		() => {
-			if (isInWI) {
-				commands.executeCommand(WI_PROJECT_EXPLORER_VIEW_REFRESH_COMMAND);
-				return;
-			}
-
 			// Skip refresh if debug session is active
 			const isDebugActive = isDebugSessionActive();
 			if (!isDebugActive) {
