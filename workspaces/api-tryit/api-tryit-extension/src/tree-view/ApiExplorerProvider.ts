@@ -20,7 +20,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as yaml from 'js-yaml';
-import { ApiCollection, ApiFolder, ApiRequestItem, ApiRequest } from '@wso2/api-tryit-core';
+import { ApiCollection, ApiFolder, ApiRequestItem, ApiRequest, ApiResponse } from '@wso2/api-tryit-core';
 
 export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem> {
 	private collections: ApiCollection[] = [];
@@ -48,24 +48,59 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 	private async loadRequestFile(filePath: string): Promise<ApiRequestItem | null> {
 		try {
 			const requestContent = await fs.readFile(filePath, 'utf-8');
-			const persistedRequest = yaml.load(requestContent) as any;
+			const loaded = yaml.load(requestContent) as unknown;
 
-			// Validate that this is a request file (has required properties)
-			if (persistedRequest.id && persistedRequest.name && persistedRequest.request) {
-				// Ensure request object has an id (reuse top-level id if missing)
-				const requestWithId = {
-					...persistedRequest.request,
-					id: persistedRequest.request.id || persistedRequest.id
-				};
-				
-				const item: ApiRequestItem = {
-					id: persistedRequest.id,
-					name: persistedRequest.name,
-					request: requestWithId,
-					response: persistedRequest.response,
-					filePath: filePath
-				};
-				return item;
+			if (loaded && typeof loaded === 'object') {
+				const persisted = loaded as Record<string, unknown>;
+				const id = typeof persisted.id === 'string' ? persisted.id : undefined;
+				const name = typeof persisted.name === 'string' ? persisted.name : undefined;
+				const requestObj = persisted.request && typeof persisted.request === 'object'
+					? (persisted.request as Record<string, unknown>)
+					: undefined;
+
+				if (id && name && requestObj) {
+					const qp = Array.isArray(requestObj.queryParameters)
+						? (requestObj.queryParameters as unknown[]).map(q => {
+							const qq = q as Record<string, unknown>;
+							return {
+								id: typeof qq.id === 'string' ? qq.id : `${Date.now()}`,
+								key: typeof qq.key === 'string' ? qq.key : '',
+								value: typeof qq.value === 'string' ? qq.value : ''
+							};
+						})
+						: [];
+
+					const headers = Array.isArray(requestObj.headers)
+						? (requestObj.headers as unknown[]).map(h => {
+							const hh = h as Record<string, unknown>;
+							return {
+								id: typeof hh.id === 'string' ? hh.id : `${Date.now()}`,
+								key: typeof hh.key === 'string' ? hh.key : '',
+								value: typeof hh.value === 'string' ? hh.value : ''
+							};
+						})
+						: [];
+
+					const requestWithId: ApiRequest = {
+						id: typeof requestObj.id === 'string' ? requestObj.id : id,
+						name: typeof requestObj.name === 'string' ? requestObj.name : name,
+						method: (typeof requestObj.method === 'string' ? requestObj.method : 'GET') as ApiRequest['method'],
+						url: typeof requestObj.url === 'string' ? requestObj.url : '',
+						queryParameters: qp,
+						headers: headers,
+						body: typeof requestObj.body === 'string' ? requestObj.body : undefined
+					};
+
+					const item: ApiRequestItem = {
+						id,
+						name,
+						request: requestWithId,
+						response: typeof persisted.response === 'object' ? (persisted.response as unknown as ApiResponse) : undefined,
+						filePath
+					};
+
+					return item;
+				}
 			}
 		} catch {
 			// Skip files that can't be parsed or don't have required structure
@@ -165,17 +200,17 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 			let metadataContent: string | null = null;
 			try {
 				metadataContent = await fs.readFile(metadataPath, 'utf-8');
-			} catch (errYaml) {
+			} catch {
 				// try .yml
 				try {
 					metadataPath = path.join(collectionPath, 'collection.yml');
 					metadataContent = await fs.readFile(metadataPath, 'utf-8');
-				} catch (errYml) {
+				} catch {
 					// try legacy json
 					try {
 						metadataPath = path.join(collectionPath, 'collection.json');
 						metadataContent = await fs.readFile(metadataPath, 'utf-8');
-					} catch (errJson) {
+					} catch {
 						// No metadata found - skip this collection
 						throw new Error('Missing collection metadata (collection.yaml|collection.yml|collection.json)');
 					}
@@ -183,22 +218,24 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 			}
 
 			// Parse metadata (prefer YAML parsing, fallback to JSON parse if needed)
-			let metadata: any;
+			let metadata: unknown;
 			try {
-				metadata = yaml.load(metadataContent as string) as any;
-				// If yaml.load returns a string (possible for simple documents), try JSON parse as a fallback
-				if (!metadata || typeof metadata === 'string') {
+				const loaded = yaml.load(metadataContent as string);
+				if (!loaded || typeof loaded === 'string') {
 					metadata = JSON.parse(metadataContent as string);
+				} else {
+					metadata = loaded;
 				}
-			} catch (err) {
+			} catch {
 				// Last resort: try JSON.parse
 				metadata = JSON.parse(metadataContent as string);
 			}
 
-			// Extract only essential fields from collection metadata
+			// Extract only essential fields from collection metadata in a type-safe way
+			const metaObj = metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : {};
 			const collectionMetadata = {
-				id: metadata.id,
-				name: metadata.name
+				id: typeof metaObj.id === 'string' ? metaObj.id : collectionId,
+				name: typeof metaObj.name === 'string' ? metaObj.name : this.deriveDisplayName(collectionId)
 			};
 
 			// Discover folders by reading directories

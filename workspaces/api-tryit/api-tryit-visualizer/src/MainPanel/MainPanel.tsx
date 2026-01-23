@@ -144,6 +144,30 @@ const CodeHint = styled.code`
     color: var(--vscode-textPreformat-foreground);
 `;
 
+const EditableNameWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+const NameDisplay = styled.div`
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+    
+    &:hover {
+        background-color: var(--vscode-toolbar-hoverBackground);
+    }
+`;
+
+const NameTextField = styled(TextField)`
+    && {
+        width: 400px;
+        max-width: 100%;
+    }
+`;
+
 type InputMode = 'code' | 'form';
 
 export const MainPanel: React.FC = () => {
@@ -173,11 +197,15 @@ export const MainPanel: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [inputMode, setInputMode] = useState<InputMode>('code');
     const [showHelp, setShowHelp] = useState(false);
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [tempName, setTempName] = useState(requestItem.name);
 
     // Handle messages from VS Code extension
     const { updateRequest } = useExtensionMessages({
         onApiRequestSelected: (item) => {
             setRequestItem(item);
+            setTempName(item.name);
+            setIsEditingName(false);
             setActiveTab('input');
             console.log('API request item selected:', item);
         }
@@ -192,6 +220,45 @@ export const MainPanel: React.FC = () => {
         
         // Notify extension about the change
         updateRequest(updatedItem);
+    };
+
+    const handleNameClick = () => {
+        setIsEditingName(true);
+        setTempName(requestItem.name);
+    };
+
+    const handleNameChange = (value: string) => {
+        setTempName(value);
+    };
+
+    const handleNameSubmit = () => {
+        if (tempName.trim()) {
+            const updatedItem = {
+                ...requestItem,
+                name: tempName.trim(),
+                request: {
+                    ...requestItem.request,
+                    name: tempName.trim()
+                }
+            };
+            setRequestItem(updatedItem);
+            updateRequest(updatedItem);
+        }
+        setIsEditingName(false);
+    };
+
+    const handleNameKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleNameSubmit();
+        } else if (e.key === 'Escape') {
+            setIsEditingName(false);
+            setTempName(requestItem.name);
+        }
+    };
+
+    const handleNameBlur = () => {
+        handleNameSubmit();
     };
 
     const handleSaveRequest = async (evt: any) => {
@@ -357,9 +424,25 @@ export const MainPanel: React.FC = () => {
                 borderBottom: '1px solid var(--vscode-panel-border)',
                 backgroundColor: 'var(--vscode-editor-background)',
             }}>
-                <Typography variant="h3" sx={{ margin: 0, display: 'flex', alignItems: 'center' }}>
-                    {requestItem.name}
-                </Typography>
+                <EditableNameWrapper>
+                    {isEditingName ? (
+                        <NameTextField
+                            id="request-name-input"
+                            value={tempName}
+                            onTextChange={handleNameChange}
+                            onKeyDown={handleNameKeyDown}
+                            onBlur={handleNameBlur}
+                            autoFocus
+                            placeholder="Enter request name"
+                        />
+                    ) : (
+                        <NameDisplay onClick={handleNameClick}>
+                            <Typography variant="h3" sx={{ margin: 0 }}>
+                                {requestItem.name}
+                            </Typography>
+                        </NameDisplay>
+                    )}
+                </EditableNameWrapper>
             </div>
 
             {/* Request Section */}
