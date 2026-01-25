@@ -274,7 +274,8 @@ export const MainPanel: React.FC = () => {
                 type: 'saveRequest',
                 data: {
                     filePath: undefined, // Let the extension use the persisted file path from state machine
-                    request: requestItem.request
+                    request: requestItem.request,
+                    response: requestItem.response
                 }
             });
             

@@ -34,6 +34,18 @@ export interface HeaderParameter {
     value: string;
 }
 
+// RPC request/response types for saving
+export interface SaveRequestRequest {
+    filePath: string;
+    request: ApiRequest;
+    response?: ApiResponse;
+}
+
+export interface SaveRequestResponse {
+    success: boolean;
+    message: string;
+}
+
 // Request definition
 export interface ApiRequest {
     id: string;

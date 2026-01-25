@@ -55,7 +55,7 @@ export class TryItPanel {
 					case 'saveRequest':
 						// Handle save request using the RPC manager
 						try {
-							const { filePath, request } = message.data;
+							const { filePath, request, response } = message.data;
 
 							// Get the current state to check for persisted file path
 							const stateContext = ApiTryItStateMachine.getContext();
@@ -106,15 +106,19 @@ export class TryItPanel {
 							// Import the RPC manager here to avoid circular dependencies
 							const { ApiTryItRpcManager } = await import('../rpc-managers/rpc-manager');
 							const rpcManager = new ApiTryItRpcManager();
-							const response = await rpcManager.saveRequest({ filePath: targetFilePath, request });
+							const saveResponse = await rpcManager.saveRequest({ 
+								filePath: targetFilePath, 
+								request,
+								response
+							});
 
 							// Send response back to webview
 							this._panel.webview.postMessage({
 								type: 'saveRequestResponse',
-								data: response
+								data: saveResponse
 							});
 
-							if (response.success) {
+							if (saveResponse.success) {
 								vscode.window.showInformationMessage(`Request saved successfully to: ${targetFilePath}`);
 								// Refresh explorer so new/updated request files are reloaded
 								vscode.commands.executeCommand('api-tryit.refreshExplorer');
@@ -131,7 +135,7 @@ export class TryItPanel {
 									vscode.window.showErrorMessage('Failed to notify state machine about saved request');
 								}
 							} else {
-								vscode.window.showErrorMessage(`Failed to save request: ${response.message}`);
+								vscode.window.showErrorMessage(`Failed to save request: ${saveResponse.message}`);
 							}
 						} catch (error: unknown) {
 							this._panel.webview.postMessage({

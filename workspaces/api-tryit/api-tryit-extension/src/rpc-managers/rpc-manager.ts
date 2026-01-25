@@ -20,6 +20,7 @@ import {
     SaveRequestRequest,
     SaveRequestResponse,
     ApiRequest,
+    ApiResponse
 } from "@wso2/api-tryit-core";
 import { writeFile, readFile } from 'fs/promises';
 import * as vscode from 'vscode';
@@ -27,7 +28,7 @@ import * as yaml from 'js-yaml';
 
 export class ApiTryItRpcManager {
     async saveRequest(params: SaveRequestRequest): Promise<SaveRequestResponse> {
-        const { filePath, request } = params;
+        const { filePath, request, response } = params;
         
         if (!filePath) {
             return { 
@@ -37,7 +38,7 @@ export class ApiTryItRpcManager {
         }
 
         try {
-            let existingData: { id?: string; name?: string; request?: ApiRequest } | null = null;
+            let existingData: { id?: string; name?: string; request?: ApiRequest, response?: ApiResponse } | null = null;
             
             // Try to read existing file
             try {
@@ -61,7 +62,12 @@ export class ApiTryItRpcManager {
                         queryParameters: request.queryParameters,
                         headers: request.headers,
                         body: request.body
-                    }
+                    },
+                    response: response ? {
+                        statusCode: response.statusCode,
+                        headers: response.headers,
+                        body: response.body
+                    } : existingData.response
                 };
             } else {
                 // Create new file structure
@@ -75,7 +81,12 @@ export class ApiTryItRpcManager {
                         queryParameters: request.queryParameters,
                         headers: request.headers,
                         body: request.body
-                    }
+                    },
+                    response: response ? {
+                        statusCode: response.statusCode,
+                        headers: response.headers,
+                        body: response.body
+                    } : undefined
                 };
             }
             
