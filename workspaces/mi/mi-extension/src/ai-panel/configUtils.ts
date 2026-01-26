@@ -19,7 +19,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { getAuthCredentials, getRefreshedAccessToken } from './auth';
+import { getAuthCredentials, getAccessToken, getRefreshedAccessToken } from './auth';
 import { getAnthropicProxyUrl } from './copilot/connection';
 import { LoginMethod } from '@wso2/mi-core';
 
@@ -229,7 +229,10 @@ export async function getWSO2AIEnvVariables(): Promise<{ [key: string]: string }
             return {};
         }
 
-        const token = await getRefreshedAccessToken();
+        const token = await getAccessToken();
+        if (!token) {
+            return {};
+        }
         const backendUrl = getAnthropicProxyUrl();
 
         return {
