@@ -63,6 +63,12 @@ module.exports = {
         if (pkg.dependencies['js-yaml']) {
           pkg.dependencies['js-yaml'] = '^4.1.1';
         }
+        if (pkg.dependencies['undici']) {
+          pkg.dependencies['undici'] = '^7.18.2';
+        }
+        if (pkg.dependencies['diff']) {
+          pkg.dependencies['diff'] = '^8.0.3';
+        }
       }
 
       if (pkg.devDependencies) {
@@ -105,6 +111,12 @@ module.exports = {
         }
         if (pkg.devDependencies['min-document']) {
           pkg.devDependencies['min-document'] = '^2.19.1';
+        }
+        if (pkg.devDependencies['undici']) {
+          pkg.devDependencies['undici'] = '^7.18.2';
+        }
+        if (pkg.devDependencies['diff']) {
+          pkg.devDependencies['diff'] = '^8.0.3';
         }
       }
 
