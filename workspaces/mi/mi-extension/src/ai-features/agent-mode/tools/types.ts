@@ -83,6 +83,31 @@ export const GENERATE_DATA_MAPPING_TOOL_NAME = 'generate_data_mapping';
 export const BUILD_PROJECT_TOOL_NAME = 'build_project';
 export const SERVER_MANAGEMENT_TOOL_NAME = 'server_management';
 
+// Plan Mode Tool Names
+export const TASK_TOOL_NAME = 'task';
+export const ASK_USER_TOOL_NAME = 'ask_user';
+export const ENTER_PLAN_MODE_TOOL_NAME = 'enter_plan_mode';
+export const EXIT_PLAN_MODE_TOOL_NAME = 'exit_plan_mode';
+export const TODO_WRITE_TOOL_NAME = 'todo_write';
+
+// ============================================================================
+// Subagent Types
+// ============================================================================
+
+export type SubagentType = 'Plan' | 'Explore';
+
+// ============================================================================
+// Todo Types (Claude Code style - simplified, in-memory only)
+// ============================================================================
+
+export type TodoStatus = 'pending' | 'in_progress' | 'completed';
+
+export interface TodoItem {
+    content: string;
+    status: TodoStatus;
+    activeForm: string;
+}
+
 // ============================================================================
 // Error Messages
 // ============================================================================
@@ -177,4 +202,32 @@ export type BuildProjectExecuteFn = (args: {
 
 export type ServerManagementExecuteFn = (args: {
     action: 'run' | 'stop' | 'status';
+}) => Promise<ToolResult>;
+
+// ============================================================================
+// Plan Mode Tool Execute Function Types
+// ============================================================================
+
+export type TaskExecuteFn = (args: {
+    description: string;
+    prompt: string;
+    subagent_type: SubagentType;
+    model?: 'sonnet' | 'haiku';
+}) => Promise<ToolResult>;
+
+export type AskUserExecuteFn = (args: {
+    question: string;
+    options?: string[];
+    allow_free_text?: boolean;
+}) => Promise<ToolResult>;
+
+// No parameters - matches Claude Code's EnterPlanMode
+export type EnterPlanModeExecuteFn = () => Promise<ToolResult>;
+
+export type ExitPlanModeExecuteFn = (args: {
+    summary?: string;
+}) => Promise<ToolResult>;
+
+export type TodoWriteExecuteFn = (args: {
+    todos: TodoItem[];
 }) => Promise<ToolResult>;

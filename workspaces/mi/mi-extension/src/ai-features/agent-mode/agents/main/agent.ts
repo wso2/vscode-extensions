@@ -73,6 +73,22 @@ import {
     createServerManagementExecute,
 } from '../../tools/runtime_tools';
 import {
+    createTaskTool,
+    createTaskExecute,
+} from '../../tools/task_tool';
+import {
+    createAskUserTool,
+    createAskUserExecute,
+    createEnterPlanModeTool,
+    createEnterPlanModeExecute,
+    createExitPlanModeTool,
+    createExitPlanModeExecute,
+    createTodoWriteTool,
+    createTodoWriteExecute,
+    PendingQuestion,
+    PendingPlanApproval,
+} from '../../tools/plan_mode_tools';
+import {
     FILE_WRITE_TOOL_NAME,
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
@@ -89,44 +105,22 @@ import {
     GENERATE_DATA_MAPPING_TOOL_NAME,
     BUILD_PROJECT_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
+    TASK_TOOL_NAME,
+    ASK_USER_TOOL_NAME,
+    ENTER_PLAN_MODE_TOOL_NAME,
+    EXIT_PLAN_MODE_TOOL_NAME,
+    TODO_WRITE_TOOL_NAME,
 } from '../../tools/types';
+import { PlanManager } from '../../plan-manager';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
 import { ChatHistoryManager } from '../../chat-history-manager';
 import { getToolAction } from '../../tool-action-mapper';
 
-// ============================================================================
-// Types
-// ============================================================================
+// Import types from mi-core (shared with visualizer)
+import { AgentEvent, AgentEventType } from '@wso2/mi-core';
 
-/**
- * Event types emitted during agent execution
- */
-export type AgentEventType =
-    | 'start'
-    | 'content_block'
-    | 'tool_call'
-    | 'tool_result'
-    | 'error'
-    | 'abort'
-    | 'stop';
-
-/**
- * Event emitted during agent execution
- */
-export interface AgentEvent {
-    type: AgentEventType;
-    content?: string;
-    toolName?: string;
-    toolInput?: any;
-    toolOutput?: any;
-    /** User-friendly loading action text (e.g., "creating", "reading") - sent with tool_call */
-    loadingAction?: string;
-    /** User-friendly completed action text (e.g., "created", "read") - sent with tool_result */
-    completedAction?: string;
-    error?: string;
-    /** Full AI SDK messages (only sent with "stop" event) */
-    modelMessages?: any[];
-}
+// Re-export types for other modules that import from agent.ts
+export type { AgentEvent, AgentEventType };
 
 /**
  * Event handler function type
@@ -149,6 +143,10 @@ export interface AgentRequest {
     abortSignal?: AbortSignal;
     /** Chat history manager for recording conversation (managed by RPC layer) */
     chatHistoryManager?: ChatHistoryManager;
+    /** Pending questions map for ask_user tool (shared with RPC layer) */
+    pendingQuestions?: Map<string, PendingQuestion>;
+    /** Pending plan approvals map for exit_plan_mode tool (shared with RPC layer) */
+    pendingApprovals?: Map<string, PendingPlanApproval>;
 }
 
 /**
@@ -180,6 +178,16 @@ export async function executeAgent(
     let finalModelMessages: any[] = [];
     let response: any = null; // Store response promise for later access
     let accumulatedContent: string = ''; // Accumulate assistant response content
+
+    // Create and initialize PlanManager for plan mode tools
+    const planManager = new PlanManager(request.projectPath, request.sessionId || 'default');
+    await planManager.initialize();
+
+    // Use provided pendingQuestions map or create a new one
+    const pendingQuestions = request.pendingQuestions || new Map<string, PendingQuestion>();
+
+    // Use provided pendingApprovals map or create a new one (for exit_plan_mode approval)
+    const pendingApprovals = request.pendingApprovals || new Map<string, PendingPlanApproval>();
 
     try {
         logInfo(`[Agent] Starting agent execution for project: ${request.projectPath}`);
@@ -286,6 +294,22 @@ export async function executeAgent(
             [SERVER_MANAGEMENT_TOOL_NAME]: createServerManagementTool(
                 createServerManagementExecute(request.projectPath)
             ),
+            // Plan Mode Tools
+            [TASK_TOOL_NAME]: createTaskTool(
+                createTaskExecute(request.projectPath, (model) => getAnthropicClient(model))
+            ),
+            [ASK_USER_TOOL_NAME]: createAskUserTool(
+                createAskUserExecute(eventHandler, pendingQuestions)
+            ),
+            [ENTER_PLAN_MODE_TOOL_NAME]: createEnterPlanModeTool(
+                createEnterPlanModeExecute(planManager, eventHandler)
+            ),
+            [EXIT_PLAN_MODE_TOOL_NAME]: createExitPlanModeTool(
+                createExitPlanModeExecute(planManager, eventHandler, pendingApprovals)
+            ),
+            [TODO_WRITE_TOOL_NAME]: createTodoWriteTool(
+                createTodoWriteExecute(eventHandler)  // In-memory only, no planManager needed
+            ),
         };
 
         // Track step number for logging
@@ -303,7 +327,8 @@ export async function executeAgent(
             const { devToolsMiddleware } = await import('@ai-sdk/devtools');
             model = wrapLanguageModel({
                 model,
-                middleware: devToolsMiddleware(),
+                // Cast to any to handle potential version mismatch between AI SDK and DevTools
+                middleware: devToolsMiddleware() as any,
             });
             process.chdir(originalCwd);  // Restore immediately after middleware creation
             logInfo(`[DevTools] Enabled - data at ${request.projectPath}/.devtools`);

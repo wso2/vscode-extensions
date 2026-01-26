@@ -54,6 +54,15 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         controller,
         resetController,
         setRemainingTokenPercentage,
+        // Plan mode state
+        pendingQuestion,
+        setPendingQuestion,
+        pendingPlanApproval,
+        setPendingPlanApproval,
+        todos,
+        setTodos,
+        isPlanMode,
+        setIsPlanMode,
     } = useMICopilotContext();
 
     const [fileUploadStatus, setFileUploadStatus] = useState({ type: "", text: "" });
@@ -227,7 +236,81 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 break;
 
             default:
+                // Handle plan mode events (new types need mi-core rebuild)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const planEvent = event as any;
+                switch (planEvent.type) {
+                    case "ask_user":
+                        // Agent is asking user a question - show question dialog
+                        if (planEvent.questionId && planEvent.question) {
+                            setPendingQuestion({
+                                questionId: planEvent.questionId,
+                                question: planEvent.question,
+                                options: planEvent.options,
+                                allowFreeText: planEvent.allowFreeText
+                            });
+                        }
+                        break;
+
+                    case "plan_mode_entered":
+                        setIsPlanMode(true);
+                        break;
+
+                    case "plan_mode_exited":
+                        setIsPlanMode(false);
+                        break;
+
+                    case "todo_updated":
+                        // Update todo list
+                        if (planEvent.todos) {
+                            setTodos(planEvent.todos);
+                        }
+                        break;
+
+                    case "plan_approval_requested":
+                        // Agent is requesting plan approval - show approval dialog
+                        if (planEvent.approvalId) {
+                            setPendingPlanApproval({
+                                approvalId: planEvent.approvalId,
+                                planFilePath: planEvent.planFilePath,
+                                content: planEvent.content
+                            });
+                        }
+                        break;
+                }
                 break;
+        }
+    };
+
+    // Handle user response to ask_user question
+    const handleQuestionResponse = async (answer: string) => {
+        if (pendingQuestion) {
+            try {
+                await rpcClient.getMiAgentPanelRpcClient().respondToQuestion({
+                    questionId: pendingQuestion.questionId,
+                    answer
+                });
+                setPendingQuestion(null);
+            } catch (error) {
+                console.error("Error responding to question:", error);
+            }
+        }
+    };
+
+    // Handle user response to plan approval
+    const handlePlanApproval = async (approved: boolean, feedback?: string) => {
+        if (pendingPlanApproval) {
+            try {
+                await rpcClient.getMiAgentPanelRpcClient().respondToPlanApproval({
+                    approvalId: pendingPlanApproval.approvalId,
+                    approved,
+                    feedback
+                });
+                setPendingPlanApproval(null);
+                setPlanRejectionFeedback("");
+            } catch (error) {
+                console.error("Error responding to plan approval:", error);
+            }
         }
     };
 
@@ -491,8 +574,539 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }
     }, [rpcClient]);
 
+    // Local state for free text answer input
+    const [freeTextAnswer, setFreeTextAnswer] = useState("");
+    // Selected option for radio-style question dialog
+    const [selectedOption, setSelectedOption] = useState<string | null>(null);
+    const [isOtherSelected, setIsOtherSelected] = useState(false);
+    // State for plan rejection feedback
+    const [planRejectionFeedback, setPlanRejectionFeedback] = useState("");
+    const [showRejectionInput, setShowRejectionInput] = useState(false);
+
+    // Handle escape key to cancel question dialog or plan approval dialog
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                if (pendingQuestion) {
+                    setPendingQuestion(null);
+                    setSelectedOption(null);
+                    setIsOtherSelected(false);
+                    setFreeTextAnswer("");
+                }
+                if (pendingPlanApproval) {
+                    setPendingPlanApproval(null);
+                    setShowRejectionInput(false);
+                    setPlanRejectionFeedback("");
+                }
+            }
+        };
+        document.addEventListener("keydown", handleKeyDown);
+        return () => document.removeEventListener("keydown", handleKeyDown);
+    }, [pendingQuestion, setPendingQuestion, pendingPlanApproval, setPendingPlanApproval]);
+
+    // Reset selection when question changes
+    useEffect(() => {
+        setSelectedOption(null);
+        setIsOtherSelected(false);
+        setFreeTextAnswer("");
+    }, [pendingQuestion?.questionId]);
+
+    // Reset rejection feedback when plan approval changes
+    useEffect(() => {
+        setShowRejectionInput(false);
+        setPlanRejectionFeedback("");
+    }, [pendingPlanApproval?.approvalId]);
+
     return (
         <Footer>
+            {/* User Question Dialog - Claude Code style */}
+            {pendingQuestion && (
+                <div style={{
+                    marginBottom: "8px",
+                    backgroundColor: "var(--vscode-editor-background)",
+                    border: "1px solid var(--vscode-panel-border)",
+                    borderRadius: "6px",
+                    overflow: "hidden"
+                }}>
+                    {/* Header */}
+                    <div style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "8px 12px",
+                        borderBottom: "1px solid var(--vscode-panel-border)",
+                        backgroundColor: "var(--vscode-sideBarSectionHeader-background)"
+                    }}>
+                        <span style={{
+                            fontSize: "12px",
+                            fontWeight: 500,
+                            color: "var(--vscode-foreground)",
+                            borderBottom: "2px solid var(--vscode-focusBorder)",
+                            paddingBottom: "4px"
+                        }}>
+                            Question
+                        </span>
+                        <button
+                            onClick={() => {
+                                setPendingQuestion(null);
+                                setSelectedOption(null);
+                                setIsOtherSelected(false);
+                                setFreeTextAnswer("");
+                            }}
+                            style={{
+                                background: "none",
+                                border: "none",
+                                color: "var(--vscode-foreground)",
+                                cursor: "pointer",
+                                padding: "4px",
+                                fontSize: "16px",
+                                lineHeight: 1,
+                                opacity: 0.7
+                            }}
+                            title="Cancel (Esc)"
+                        >
+                            ×
+                        </button>
+                    </div>
+
+                    {/* Content */}
+                    <div style={{ padding: "12px" }}>
+                        {/* Question text */}
+                        <div style={{
+                            fontSize: "13px",
+                            marginBottom: "12px",
+                            color: "var(--vscode-foreground)"
+                        }}>
+                            {pendingQuestion.question}
+                        </div>
+
+                        {/* Options as radio list */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                            {pendingQuestion.options?.map((option, index) => (
+                                <label
+                                    key={index}
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "flex-start",
+                                        gap: "8px",
+                                        padding: "8px 10px",
+                                        borderRadius: "4px",
+                                        cursor: "pointer",
+                                        backgroundColor: selectedOption === option
+                                            ? "var(--vscode-list-activeSelectionBackground)"
+                                            : "transparent",
+                                        color: selectedOption === option
+                                            ? "var(--vscode-list-activeSelectionForeground)"
+                                            : "var(--vscode-foreground)"
+                                    }}
+                                    onClick={() => {
+                                        setSelectedOption(option);
+                                        setIsOtherSelected(false);
+                                    }}
+                                >
+                                    <span style={{
+                                        width: "16px",
+                                        height: "16px",
+                                        borderRadius: "50%",
+                                        border: selectedOption === option
+                                            ? "5px solid var(--vscode-focusBorder)"
+                                            : "1px solid var(--vscode-input-border)",
+                                        backgroundColor: selectedOption === option
+                                            ? "var(--vscode-editor-background)"
+                                            : "transparent",
+                                        flexShrink: 0,
+                                        marginTop: "2px"
+                                    }} />
+                                    <span style={{ fontSize: "13px" }}>{option}</span>
+                                </label>
+                            ))}
+
+                            {/* Other option for free text */}
+                            {pendingQuestion.allowFreeText !== false && (
+                                <label
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "flex-start",
+                                        gap: "8px",
+                                        padding: "8px 10px",
+                                        borderRadius: "4px",
+                                        cursor: "pointer",
+                                        backgroundColor: isOtherSelected
+                                            ? "var(--vscode-list-activeSelectionBackground)"
+                                            : "transparent",
+                                        color: isOtherSelected
+                                            ? "var(--vscode-list-activeSelectionForeground)"
+                                            : "var(--vscode-foreground)"
+                                    }}
+                                    onClick={() => {
+                                        setIsOtherSelected(true);
+                                        setSelectedOption(null);
+                                    }}
+                                >
+                                    <span style={{
+                                        width: "16px",
+                                        height: "16px",
+                                        borderRadius: "50%",
+                                        border: isOtherSelected
+                                            ? "5px solid var(--vscode-focusBorder)"
+                                            : "1px solid var(--vscode-input-border)",
+                                        backgroundColor: isOtherSelected
+                                            ? "var(--vscode-editor-background)"
+                                            : "transparent",
+                                        flexShrink: 0,
+                                        marginTop: "2px"
+                                    }} />
+                                    <span style={{ fontSize: "13px" }}>Other</span>
+                                </label>
+                            )}
+                        </div>
+
+                        {/* Free text input (shown when Other is selected) */}
+                        {isOtherSelected && (
+                            <input
+                                type="text"
+                                value={freeTextAnswer}
+                                onChange={(e) => setFreeTextAnswer(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter" && freeTextAnswer.trim()) {
+                                        handleQuestionResponse(freeTextAnswer);
+                                        setFreeTextAnswer("");
+                                        setIsOtherSelected(false);
+                                    }
+                                }}
+                                placeholder="Type your answer..."
+                                autoFocus
+                                style={{
+                                    width: "100%",
+                                    marginTop: "8px",
+                                    padding: "8px 10px",
+                                    backgroundColor: "var(--vscode-input-background)",
+                                    color: "var(--vscode-input-foreground)",
+                                    border: "1px solid var(--vscode-input-border)",
+                                    borderRadius: "4px",
+                                    fontSize: "13px",
+                                    boxSizing: "border-box"
+                                }}
+                            />
+                        )}
+                    </div>
+
+                    {/* Footer */}
+                    <div style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "8px 12px",
+                        borderTop: "1px solid var(--vscode-panel-border)",
+                        backgroundColor: "var(--vscode-sideBarSectionHeader-background)"
+                    }}>
+                        <span style={{
+                            fontSize: "11px",
+                            color: "var(--vscode-descriptionForeground)"
+                        }}>
+                            Esc to cancel
+                        </span>
+                        <button
+                            onClick={() => {
+                                const answer = isOtherSelected ? freeTextAnswer : selectedOption;
+                                if (answer && answer.trim()) {
+                                    handleQuestionResponse(answer);
+                                    setSelectedOption(null);
+                                    setIsOtherSelected(false);
+                                    setFreeTextAnswer("");
+                                }
+                            }}
+                            disabled={!selectedOption && (!isOtherSelected || !freeTextAnswer.trim())}
+                            style={{
+                                padding: "6px 16px",
+                                backgroundColor: (selectedOption || (isOtherSelected && freeTextAnswer.trim()))
+                                    ? "var(--vscode-button-background)"
+                                    : "var(--vscode-button-secondaryBackground)",
+                                color: (selectedOption || (isOtherSelected && freeTextAnswer.trim()))
+                                    ? "var(--vscode-button-foreground)"
+                                    : "var(--vscode-button-secondaryForeground)",
+                                border: "none",
+                                borderRadius: "4px",
+                                cursor: (selectedOption || (isOtherSelected && freeTextAnswer.trim()))
+                                    ? "pointer"
+                                    : "not-allowed",
+                                fontSize: "12px",
+                                opacity: (selectedOption || (isOtherSelected && freeTextAnswer.trim())) ? 1 : 0.6
+                            }}
+                        >
+                            Submit answer
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Plan Approval Dialog - Claude Code style */}
+            {pendingPlanApproval && (
+                <div style={{
+                    marginBottom: "8px",
+                    backgroundColor: "var(--vscode-editor-background)",
+                    border: "1px solid var(--vscode-panel-border)",
+                    borderRadius: "6px",
+                    overflow: "hidden"
+                }}>
+                    {/* Header */}
+                    <div style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "8px 12px",
+                        borderBottom: "1px solid var(--vscode-panel-border)",
+                        backgroundColor: "var(--vscode-sideBarSectionHeader-background)"
+                    }}>
+                        <span style={{
+                            fontSize: "12px",
+                            fontWeight: 500,
+                            color: "var(--vscode-foreground)",
+                            borderBottom: "2px solid var(--vscode-focusBorder)",
+                            paddingBottom: "4px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px"
+                        }}>
+                            <span>📋</span>
+                            MI Copilot's Plan
+                        </span>
+                        <button
+                            onClick={() => {
+                                setPendingPlanApproval(null);
+                                setShowRejectionInput(false);
+                                setPlanRejectionFeedback("");
+                            }}
+                            style={{
+                                background: "none",
+                                border: "none",
+                                color: "var(--vscode-foreground)",
+                                cursor: "pointer",
+                                padding: "4px",
+                                fontSize: "16px",
+                                lineHeight: 1,
+                                opacity: 0.7
+                            }}
+                            title="Cancel (Esc)"
+                        >
+                            ×
+                        </button>
+                    </div>
+
+                    {/* Content */}
+                    <div style={{ padding: "12px" }}>
+                        {/* Plan summary/content */}
+                        <div style={{
+                            fontSize: "13px",
+                            marginBottom: "12px",
+                            color: "var(--vscode-foreground)"
+                        }}>
+                            {pendingPlanApproval.content || "The plan is ready for your review."}
+                        </div>
+
+                        {/* Plan file link */}
+                        {pendingPlanApproval.planFilePath && (
+                            <div style={{
+                                fontSize: "12px",
+                                marginBottom: "12px",
+                                padding: "8px 10px",
+                                backgroundColor: "var(--vscode-textBlockQuote-background)",
+                                borderRadius: "4px",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px"
+                            }}>
+                                <span style={{ opacity: 0.7 }}>📄</span>
+                                <span style={{ wordBreak: "break-all" }}>
+                                    {pendingPlanApproval.planFilePath}
+                                </span>
+                            </div>
+                        )}
+
+                        {/* Rejection feedback input (shown when rejecting) */}
+                        {showRejectionInput && (
+                            <div style={{ marginTop: "12px" }}>
+                                <label style={{
+                                    fontSize: "12px",
+                                    color: "var(--vscode-descriptionForeground)",
+                                    marginBottom: "4px",
+                                    display: "block"
+                                }}>
+                                    What changes would you like? (optional)
+                                </label>
+                                <textarea
+                                    value={planRejectionFeedback}
+                                    onChange={(e) => setPlanRejectionFeedback(e.target.value)}
+                                    placeholder="Describe the changes you'd like to see..."
+                                    style={{
+                                        width: "100%",
+                                        minHeight: "60px",
+                                        padding: "8px 10px",
+                                        backgroundColor: "var(--vscode-input-background)",
+                                        color: "var(--vscode-input-foreground)",
+                                        border: "1px solid var(--vscode-input-border)",
+                                        borderRadius: "4px",
+                                        fontSize: "13px",
+                                        boxSizing: "border-box",
+                                        resize: "vertical"
+                                    }}
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Footer */}
+                    <div style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "8px 12px",
+                        borderTop: "1px solid var(--vscode-panel-border)",
+                        backgroundColor: "var(--vscode-sideBarSectionHeader-background)"
+                    }}>
+                        <span style={{
+                            fontSize: "11px",
+                            color: "var(--vscode-descriptionForeground)"
+                        }}>
+                            Esc to cancel
+                        </span>
+                        <div style={{ display: "flex", gap: "8px" }}>
+                            {!showRejectionInput ? (
+                                <>
+                                    <button
+                                        onClick={() => setShowRejectionInput(true)}
+                                        style={{
+                                            padding: "6px 16px",
+                                            backgroundColor: "var(--vscode-button-secondaryBackground)",
+                                            color: "var(--vscode-button-secondaryForeground)",
+                                            border: "none",
+                                            borderRadius: "4px",
+                                            cursor: "pointer",
+                                            fontSize: "12px"
+                                        }}
+                                    >
+                                        Request Changes
+                                    </button>
+                                    <button
+                                        onClick={() => handlePlanApproval(true)}
+                                        style={{
+                                            padding: "6px 16px",
+                                            backgroundColor: "var(--vscode-button-background)",
+                                            color: "var(--vscode-button-foreground)",
+                                            border: "none",
+                                            borderRadius: "4px",
+                                            cursor: "pointer",
+                                            fontSize: "12px"
+                                        }}
+                                    >
+                                        Approve Plan
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            setShowRejectionInput(false);
+                                            setPlanRejectionFeedback("");
+                                        }}
+                                        style={{
+                                            padding: "6px 16px",
+                                            backgroundColor: "transparent",
+                                            color: "var(--vscode-foreground)",
+                                            border: "1px solid var(--vscode-input-border)",
+                                            borderRadius: "4px",
+                                            cursor: "pointer",
+                                            fontSize: "12px"
+                                        }}
+                                    >
+                                        Back
+                                    </button>
+                                    <button
+                                        onClick={() => handlePlanApproval(false, planRejectionFeedback || undefined)}
+                                        style={{
+                                            padding: "6px 16px",
+                                            backgroundColor: "var(--vscode-button-background)",
+                                            color: "var(--vscode-button-foreground)",
+                                            border: "none",
+                                            borderRadius: "4px",
+                                            cursor: "pointer",
+                                            fontSize: "12px"
+                                        }}
+                                    >
+                                        Submit Feedback
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Todo Progress Panel - Claude Code style (in-memory only) */}
+            {todos.length > 0 && (
+                <div style={{
+                    padding: "8px 12px",
+                    marginBottom: "8px",
+                    backgroundColor: "var(--vscode-sideBar-background)",
+                    borderRadius: "6px",
+                    border: "1px solid var(--vscode-panel-border)",
+                    fontSize: "12px"
+                }}>
+                    <div style={{
+                        fontWeight: 500,
+                        marginBottom: "6px",
+                        color: "var(--vscode-foreground)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px"
+                    }}>
+                        <span style={{ fontSize: "14px" }}>📋</span>
+                        <span>Tasks: {todos.filter(t => t.status === 'completed').length}/{todos.length}</span>
+                    </div>
+                    <div style={{ maxHeight: "120px", overflowY: "auto" }}>
+                        {todos.map((todo, index) => (
+                            <div key={index} style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                padding: "4px 0",
+                                borderBottom: index < todos.length - 1 ? "1px solid var(--vscode-panel-border)" : "none"
+                            }}>
+                                <span style={{
+                                    width: "16px",
+                                    height: "16px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    borderRadius: "50%",
+                                    fontSize: "10px",
+                                    backgroundColor: todo.status === 'completed'
+                                        ? "var(--vscode-testing-iconPassed)"
+                                        : todo.status === 'in_progress'
+                                        ? "var(--vscode-progressBar-background)"
+                                        : "var(--vscode-input-background)",
+                                    color: todo.status === 'completed' || todo.status === 'in_progress'
+                                        ? "var(--vscode-editor-background)"
+                                        : "var(--vscode-foreground)"
+                                }}>
+                                    {todo.status === 'completed' ? '✓' :
+                                     todo.status === 'in_progress' ? '●' : '○'}
+                                </span>
+                                <span style={{
+                                    flex: 1,
+                                    color: todo.status === 'completed'
+                                        ? "var(--vscode-descriptionForeground)"
+                                        : "var(--vscode-foreground)",
+                                    textDecoration: todo.status === 'completed' ? 'line-through' : 'none'
+                                }}>
+                                    {todo.status === 'in_progress' ? todo.activeForm : todo.content}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             <FlexColumn
                 style={{
                     border: isFocused ? "1px solid var(--vscode-focusBorder)" : "none",

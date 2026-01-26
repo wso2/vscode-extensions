@@ -53,7 +53,29 @@ export type AgentEventType =
     | "tool_result"
     | "error"
     | "abort"
-    | "stop";
+    | "stop"
+    // Plan mode events
+    | "ask_user"                // Agent asking user a question
+    | "user_response"           // User responded to a question
+    | "plan_mode_entered"       // Agent entered plan mode
+    | "plan_mode_exited"        // Agent exited plan mode
+    | "todo_updated"            // Todo list was updated
+    | "plan_approval_requested";// Agent requesting approval for plan (exit_plan_mode)
+
+/**
+ * Todo item status (matches Claude Code)
+ */
+export type TodoStatus = 'pending' | 'in_progress' | 'completed';
+
+/**
+ * Todo item for tracking tasks (Claude Code style - in-memory only)
+ * The model maintains the todo list through chat context (tool calls in history)
+ */
+export interface TodoItem {
+    content: string;
+    status: TodoStatus;
+    activeForm: string;
+}
 
 /**
  * Agent event for streaming
@@ -72,6 +94,22 @@ export interface AgentEvent {
     /** Full AI SDK messages (only sent with "stop" event) */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     modelMessages?: any[];
+
+    // Plan mode fields
+    /** Question text for ask_user event */
+    question?: string;
+    /** Answer options for ask_user event */
+    options?: string[];
+    /** Whether to allow free text input for ask_user event */
+    allowFreeText?: boolean;
+    /** Unique question ID for matching response */
+    questionId?: string;
+    /** Todo items for todo_updated event */
+    todos?: TodoItem[];
+    /** Approval ID for plan_approval_requested event */
+    approvalId?: string;
+    /** Path to the plan file for plan_approval_requested event */
+    planFilePath?: string;
 }
 
 /**
@@ -108,10 +146,32 @@ export interface LoadChatHistoryResponse {
 }
 
 /**
+ * User response to an ask_user question (for interface reference)
+ * Full type exported from rpc-type.ts
+ */
+export interface UserQuestionResponseType {
+    questionId: string;
+    answer: string;
+}
+
+/**
+ * Response to plan approval request (approve or reject the plan)
+ */
+export interface PlanApprovalResponse {
+    approvalId: string;
+    approved: boolean;
+    /** Optional feedback if user rejects the plan */
+    feedback?: string;
+}
+
+/**
  * Agent Panel API interface
  */
 export interface MIAgentPanelAPI {
     sendAgentMessage: (request: SendAgentMessageRequest) => Promise<SendAgentMessageResponse>;
     abortAgentGeneration: () => Promise<void>;
     loadChatHistory: (request: LoadChatHistoryRequest) => Promise<LoadChatHistoryResponse>;
+    // Plan mode
+    respondToQuestion: (response: UserQuestionResponseType) => Promise<void>;
+    respondToPlanApproval: (response: PlanApprovalResponse) => Promise<void>;
 }

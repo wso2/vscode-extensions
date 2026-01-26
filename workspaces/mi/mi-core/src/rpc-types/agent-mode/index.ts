@@ -25,7 +25,11 @@ export type {
     MIAgentPanelAPI,
     ChatHistoryEvent,
     LoadChatHistoryRequest,
-    LoadChatHistoryResponse
+    LoadChatHistoryResponse,
+    // Plan mode types
+    TodoStatus,
+    TodoItem,
+    PlanApprovalResponse,
 } from './types';
 
 // Export RPC type definitions
@@ -33,5 +37,11 @@ export {
     sendAgentMessage,
     abortAgentGeneration,
     loadChatHistory,
-    agentEvent
+    agentEvent,
+    // Plan mode RPC
+    respondToQuestion,
+    respondToPlanApproval,
 } from './rpc-type';
+
+// Export RPC request/response types
+export type { UserQuestionResponse } from './rpc-type';

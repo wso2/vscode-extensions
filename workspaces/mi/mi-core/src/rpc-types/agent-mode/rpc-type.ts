@@ -22,7 +22,8 @@ import {
     SendAgentMessageResponse,
     AgentEvent,
     LoadChatHistoryRequest,
-    LoadChatHistoryResponse
+    LoadChatHistoryResponse,
+    PlanApprovalResponse
 } from "./types";
 
 const _prefix = "mi-agent-service";
@@ -45,4 +46,26 @@ export const loadChatHistory: RequestType<LoadChatHistoryRequest, LoadChatHistor
 // Notification for agent streaming events
 export const agentEvent: NotificationType<AgentEvent> = {
     method: `${_prefix}/agentEvent`
+};
+
+// ============================================================================
+// Plan Mode RPC Methods
+// ============================================================================
+
+/**
+ * User response to an ask_user question
+ */
+export interface UserQuestionResponse {
+    questionId: string;
+    answer: string;
+}
+
+// Respond to a user question
+export const respondToQuestion: RequestType<UserQuestionResponse, void> = {
+    method: `${_prefix}/respondToQuestion`
+};
+
+// Respond to plan approval request (approve or reject the plan)
+export const respondToPlanApproval: RequestType<PlanApprovalResponse, void> = {
+    method: `${_prefix}/respondToPlanApproval`
 };

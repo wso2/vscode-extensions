@@ -102,6 +102,47 @@ export function getExistingFiles(projectPath: string): string[] {
 }
 
 /**
+ * Checks if a file path matches any of the ignore patterns
+ * Supports simple glob patterns with * and **
+ * @param filePath - File path to check
+ * @param patterns - Array of patterns to match against (e.g., ["*.log", "**\/temp\/**"])
+ * @returns true if the file should be ignored
+ */
+function shouldIgnoreFile(filePath: string, patterns: string[]): boolean {
+    if (patterns.length === 0) {
+        return false;
+    }
+
+    const normalizedPath = filePath.replace(/\\/g, '/');
+
+    for (const pattern of patterns) {
+        const normalizedPattern = pattern.replace(/\\/g, '/');
+
+        // Convert glob pattern to regex
+        let regexPattern = normalizedPattern
+            .replace(/\./g, '\\.') // Escape dots
+            .replace(/\*\*/g, '§§') // Placeholder for **
+            .replace(/\*/g, '[^/]*') // * matches anything except /
+            .replace(/§§/g, '.*'); // ** matches anything including /
+
+        // Add anchors
+        if (!regexPattern.startsWith('.*')) {
+            regexPattern = '^' + regexPattern;
+        }
+        if (!regexPattern.endsWith('.*')) {
+            regexPattern = regexPattern + '$';
+        }
+
+        const regex = new RegExp(regexPattern);
+        if (regex.test(normalizedPath)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
  * Formats the file list as a tree-like structure string
  * Example output:
  * ```
@@ -115,17 +156,21 @@ export function getExistingFiles(projectPath: string): string[] {
  * ```
  *
  * @param files - Array of relative file paths
+ * @param ignorePatterns - Optional array of patterns to ignore (supports glob patterns like "*.log", "**\/temp\/**")
  * @returns Formatted tree structure as a string
  */
-export function formatFileTree(files: string[]): string {
-    if (files.length === 0) {
+export function formatFileTree(files: string[], ignorePatterns: string[] = []): string {
+    // Filter out ignored files
+    const filteredFiles = files.filter(file => !shouldIgnoreFile(file, ignorePatterns));
+
+    if (filteredFiles.length === 0) {
         return 'Empty project - no files';
     }
 
     // Build a tree structure
     const tree: { [key: string]: any } = {};
 
-    for (const file of files) {
+    for (const file of filteredFiles) {
         const parts = file.split(path.sep);
         let current = tree;
 
