@@ -174,6 +174,7 @@ export function InputNodeWidget(props: InputNodeWidgetProps) {
                                     treeDepth={0}
                                     hasHoveredParent={isHovered}
                                     focusedInputs={focusedInputs}
+                                    parentFieldKind={dmType.kind}
                                 />
                             );
                         })

@@ -47,6 +47,7 @@ export interface ObjectOutputFieldWidgetProps {
     treeDepth?: number;
     hasHoveredParent?: boolean;
     isPortParent?: boolean;
+    parentFieldKind?: TypeKind;
 }
 
 export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
@@ -59,7 +60,8 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
         fieldIndex,
         treeDepth = 0,
         hasHoveredParent,
-        isPortParent
+        isPortParent,
+        parentFieldKind
     } = props;
     const classes = useIONodesStyles();
     const [isLoading, setLoading] = useState(false);
@@ -94,14 +96,15 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
 
     // Handle tuple members by combining port prefix with field.id (bracket notation)
     let portName: string;
-    if (field?.id && field.id.includes('[') && field.id.includes(']')) {
-        const firstDotIndex = parentId.indexOf('.');
-        if (firstDotIndex >= 0) {
-            const prefix = parentId.substring(0, firstDotIndex);
-            portName = `${prefix}.${field.id}`;
-        } else {
-            portName = field.id;
-        }
+    if (parentFieldKind === TypeKind.Tuple) {
+        // const firstDotIndex = parentId.indexOf('.');
+        // if (firstDotIndex >= 0) {
+        //     const prefix = parentId.substring(0, firstDotIndex);
+        //     portName = `${prefix}.${field.id}`;
+        // } else {
+        //     portName = field.id;
+        // }
+        portName = `${parentId}${field.name}`;
     } else if (isPortParent) {
         portName = parentId;
     } else if (updatedParentId !== '') {
@@ -365,6 +368,7 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
                             context={context}
                             treeDepth={treeDepth + 1}
                             hasHoveredParent={isHovered || hasHoveredParent}
+                            parentFieldKind={field?.kind}
                         />
                     );
                 })

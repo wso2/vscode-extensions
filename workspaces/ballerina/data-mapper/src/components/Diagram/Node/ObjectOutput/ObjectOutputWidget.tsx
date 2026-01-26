@@ -175,6 +175,7 @@ export function ObjectOutputWidget(props: ObjectOutputWidgetProps) {
 									context={context}
 									treeDepth={0}
 									hasHoveredParent={isHovered}
+									parentFieldKind={outputType.kind}
 								/>
 							);
 						})}
