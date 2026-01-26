@@ -64,7 +64,7 @@ export const downloadCLI = async () => {
 	
 	// Path to the combined zip file in resources
 	const COMBINED_ZIP_PATH = path.join(ext.context.extensionPath, "resources", "choreo-cli", `choreo-cli-${CLI_VERSION}.zip`);
-
+	
 	if (!fs.existsSync(COMBINED_ZIP_PATH)) {
 		throw new Error(`Combined CLI zip not found at: ${COMBINED_ZIP_PATH}\nPlease run 'pnpm run download-choreo-cli' to download the CLI.`);
 	}
