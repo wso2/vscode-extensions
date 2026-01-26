@@ -113,8 +113,9 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 
 		const fieldName = field?.name;
 		const isArray = this.isArrayTypedField(field);
-		const fieldFQN = this.getInputFieldFQN(field?.isFocused ? "" : parentId, fieldName, isOptional, field);
-		const unsafeFieldFQN = this.getUnsafeFieldFQN(field?.isFocused ? "" : unsafeParentId, fieldName, field);
+		const parentFieldKind = parent?.attributes.field?.kind;
+		const fieldFQN = this.getInputFieldFQN(field?.isFocused ? "" : parentId, fieldName, isOptional, parentFieldKind);
+		const unsafeFieldFQN = this.getUnsafeFieldFQN(field?.isFocused ? "" : unsafeParentId, fieldName, parentFieldKind);
 		const portName = this.getPortName(portPrefix, unsafeFieldFQN);
 		const isFocused = this.isFocusedField(focusedFieldFQNs, portName);
 		const isPreview = parent.attributes.isPreview || this.isPreviewPort(focusedFieldFQNs, parent.attributes.field);
@@ -174,7 +175,8 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 
 		const isArray = this.isArrayTypedField(field);
 		const newParentId = this.getNewParentId(parentId, elementIndex);
-		let fieldFQN = this.getOutputFieldFQN(newParentId, field, elementIndex);
+		const parentFieldKind = parent?.attributes.field?.kind;
+		let fieldFQN = this.getOutputFieldFQN(newParentId, field, parentFieldKind, elementIndex);
 		const portName = this.getPortName(portPrefix, fieldFQN);
 		
 		const mapping = findMappingByOutput(mappings, fieldFQN);
@@ -268,10 +270,9 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 			focusedFieldFQNs.some(fqn => fqn.startsWith(fieldFQN + ".") || fqn === fieldFQN);
 	}
 
-	private getInputFieldFQN(parentId: string, fieldName: string, isOptional: boolean, field?: IOType): string {
-		// Use field.id directly for tuple members (bracket notation)
-		if (field?.id && field.id.includes('[') && field.id.includes(']')) {
-			return field.id;
+	private getInputFieldFQN(parentId: string, fieldName: string, isOptional: boolean, parentFieldKind: TypeKind | undefined): string {
+		if (parentFieldKind === TypeKind.Tuple) {
+			return `${parentId}${fieldName}`;
 		}
 
 		return parentId
@@ -279,10 +280,9 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 			: fieldName || '';
 	}
 
-	private getUnsafeFieldFQN(unsafeParentId: string, fieldName: string, field?: IOType): string {
-		// Use field.id directly for tuple members (bracket notation)
-		if (field?.id && field.id.includes('[') && field.id.includes(']')) {
-			return field.id;
+	private getUnsafeFieldFQN(unsafeParentId: string, fieldName: string, parentFieldKind: TypeKind | undefined): string {
+		if (parentFieldKind === TypeKind.Tuple) {
+			return `${unsafeParentId}${fieldName}`;
 		}	
 
 		return unsafeParentId ? `${unsafeParentId}.${fieldName}` : fieldName || '';
@@ -292,14 +292,13 @@ export abstract class DataMapperNodeModel extends NodeModel<NodeModelGenerics & 
 		return elementIndex !== undefined ? `${parentId}.${elementIndex}` : parentId;
 	}
 
-	private getOutputFieldFQN(newParentId: string, field: IOType, elementIndex?: number): string {
+	private getOutputFieldFQN(newParentId: string, field: IOType, parentFieldKind: TypeKind | undefined, elementIndex?: number): string {
 		if (elementIndex !== undefined) {
 			return newParentId;
 		}
 
-		// Use field.id directly for tuple members (contains full path with bracket notation)
-		if (field?.id && field.id.startsWith(newParentId) && field.id !== newParentId) {
-			return field.id;
+		if (parentFieldKind === TypeKind.Tuple) {
+			return `${newParentId}${field?.name}`;
 		}
 
 		const fieldName = field?.name || '';
