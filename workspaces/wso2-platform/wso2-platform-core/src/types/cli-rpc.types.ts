@@ -305,6 +305,26 @@ export interface CreateThirdPartyConnectionReq {
 	sensitiveKeys: string[];
 }
 
+export interface RegisterMarketplaceConnectionReq {
+	orgId: string;
+	orgUuid: string;
+	projectId: string;
+	name: string;
+	idlContent: string;
+	schemaEntries: {
+		name: string;
+		type: string;
+		description?: string;
+		isSensitive: boolean;
+		isOptional?: boolean;
+	}[];
+	configs: {
+		key: string;
+		value: string;
+		isOptional?: boolean;
+	}[];
+}
+
 export interface DeleteConnectionReq {
 	orgId: string;
 	connectionId: string;

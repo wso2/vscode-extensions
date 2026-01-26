@@ -17,7 +17,7 @@
  */
 
 import type { DeploymentStatus } from "../enums";
-import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq, GetConnectionsReq, DeleteConnectionReq, GetMarketplaceItemReq, GetConnectionItemReq, GetProjectEnvsReq, CreateThirdPartyConnectionReq } from "./cli-rpc.types";
+import { GetMarketplaceListReq, MarketplaceListResp, GetMarketplaceIdlReq, MarketplaceIdlResp, CreateComponentConnectionReq, GetConnectionsReq, DeleteConnectionReq, GetMarketplaceItemReq, GetConnectionItemReq, GetProjectEnvsReq, CreateThirdPartyConnectionReq, RegisterMarketplaceConnectionReq } from "./cli-rpc.types";
 import { CreateLocalConnectionsConfigReq, DeleteLocalConnectionsConfigReq } from "./messenger-rpc.types";
 import type { AuthState, ContextItemEnriched, ContextStoreState, WebviewState } from "./store.types";
 
@@ -39,6 +39,7 @@ export interface IWso2PlatformExtensionAPI {
 	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed>;
 	createThirdPartyConnection(params: CreateThirdPartyConnectionReq): Promise<ConnectionDetailed>;
 	createConnectionConfig: (params: CreateLocalConnectionsConfigReq) => Promise<string>;
+	registerMarketplaceConnection(params: RegisterMarketplaceConnectionReq): Promise<MarketplaceItem>;
 	getConnections: (params: GetConnectionsReq) => Promise<ConnectionListItem[]>;
 	getConnection: (params: GetConnectionItemReq) => Promise<ConnectionDetailed>;
 	deleteConnection: (params: DeleteConnectionReq) => Promise<void>;

@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import type { ComponentKind, GetMarketplaceListReq, IWso2PlatformExtensionAPI, openClonedDirReq, GetMarketplaceIdlReq, CreateComponentConnectionReq, CreateLocalConnectionsConfigReq, GetConnectionsReq, DeleteConnectionReq, DeleteLocalConnectionsConfigReq, GetMarketplaceItemReq, GetConnectionItemReq, StartProxyServerReq, StopProxyServerReq, AuthState, ContextStoreComponentState, ContextItemEnriched, GetProjectEnvsReq, CreateThirdPartyConnectionReq } from "@wso2/wso2-platform-core";
+import type { ComponentKind, GetMarketplaceListReq, IWso2PlatformExtensionAPI, openClonedDirReq, GetMarketplaceIdlReq, CreateComponentConnectionReq, CreateLocalConnectionsConfigReq, GetConnectionsReq, DeleteConnectionReq, DeleteLocalConnectionsConfigReq, GetMarketplaceItemReq, GetConnectionItemReq, StartProxyServerReq, StopProxyServerReq, AuthState, ContextStoreComponentState, ContextItemEnriched, GetProjectEnvsReq, CreateThirdPartyConnectionReq, RegisterMarketplaceConnectionReq } from "@wso2/wso2-platform-core";
 import { ext } from "./extensionVariables";
 import { hasDirtyRepo } from "./git/util";
 import { contextStore } from "./stores/context-store";
@@ -46,6 +46,7 @@ export class PlatformExtensionApi implements IWso2PlatformExtensionAPI {
 	public createComponentConnection = (params: CreateComponentConnectionReq) => ext.clients.rpcClient.createComponentConnection(params);
 	public createThirdPartyConnection = (params: CreateThirdPartyConnectionReq) => ext.clients.rpcClient.createThirdPartyConnection(params);
 	public createConnectionConfig = (params: CreateLocalConnectionsConfigReq) => createConnectionConfig(params);
+	public registerMarketplaceConnection = (params: RegisterMarketplaceConnectionReq) => ext.clients.rpcClient.registerMarketplaceConnection(params);
 	public getConnections = (params: GetConnectionsReq) => ext.clients.rpcClient.getConnections(params);
 	public getConnection = (params: GetConnectionItemReq) => ext.clients.rpcClient.getConnectionItem(params);
 	public deleteConnection = (params: DeleteConnectionReq) => ext.clients.rpcClient.deleteConnection(params);

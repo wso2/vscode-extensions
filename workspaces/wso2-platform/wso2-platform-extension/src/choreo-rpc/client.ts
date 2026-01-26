@@ -86,6 +86,7 @@ import type {
 	ProjectBuildLogsData,
 	PromoteProxyDeploymentReq,
 	ProxyDeploymentInfo,
+	RegisterMarketplaceConnectionReq,
 	RequestPromoteApprovalReq,
 	StartProxyServerReq,
 	StartProxyServerResp,
@@ -541,6 +542,14 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		}
 		const response: GetConnectionGuideResp = await this.client.sendRequest("connections/getGuide", params);
 		return response;
+	}
+
+	async registerMarketplaceConnection(params: RegisterMarketplaceConnectionReq): Promise<MarketplaceItem> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: { service: MarketplaceItem } = await this.client.sendRequest("connections/registerMarketplaceConnection", params);
+		return response.service;
 	}
 
 	async getAutoBuildStatus(params: GetAutoBuildStatusReq): Promise<GetAutoBuildStatusResp> {
