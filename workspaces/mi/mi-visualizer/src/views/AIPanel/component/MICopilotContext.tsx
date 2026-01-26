@@ -18,7 +18,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
-import { FileObject, ImageObject } from "@wso2/mi-core";
+import { FileObject, ImageObject, TodoItem } from "@wso2/mi-core";
 import { LoaderWrapper, ProgressRing } from "../styles";
 import {
     ChatMessage,
@@ -26,6 +26,21 @@ import {
     MessageType,
     Role,
 } from "@wso2/mi-core";
+
+// Pending user question type
+export interface PendingUserQuestion {
+    questionId: string;
+    question: string;
+    options?: string[];
+    allowFreeText?: boolean;
+}
+
+// Pending plan approval type (for UI)
+export interface PendingPlanApproval {
+    approvalId: string;
+    planFilePath?: string;
+    content?: string;  // Summary or plan content to display
+}
 import {
     RpcClientType,
     FileHistoryEntry,
@@ -91,6 +106,16 @@ interface MICopilotContextType {
     feedbackGiven: 'positive' | 'negative' | null;
     setFeedbackGiven: React.Dispatch<React.SetStateAction<'positive' | 'negative' | null>>;
     handleFeedback: (index: number, isPositive: boolean, detailedFeedback?: string) => Promise<boolean>;
+
+    // Plan mode state
+    pendingQuestion: PendingUserQuestion | null;
+    setPendingQuestion: React.Dispatch<React.SetStateAction<PendingUserQuestion | null>>;
+    pendingPlanApproval: PendingPlanApproval | null;
+    setPendingPlanApproval: React.Dispatch<React.SetStateAction<PendingPlanApproval | null>>;
+    todos: TodoItem[];
+    setTodos: React.Dispatch<React.SetStateAction<TodoItem[]>>;
+    isPlanMode: boolean;
+    setIsPlanMode: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 // Define the context for MI Copilot
@@ -136,6 +161,12 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
 
     // State to handle file history
     const [FileHistory, setFileHistory] = useState<FileHistoryEntry[]>([]);
+
+    // Plan mode state
+    const [pendingQuestion, setPendingQuestion] = useState<PendingUserQuestion | null>(null);
+    const [pendingPlanApproval, setPendingPlanApproval] = useState<PendingPlanApproval | null>(null);
+    const [todos, setTodos] = useState<TodoItem[]>([]);
+    const [isPlanMode, setIsPlanMode] = useState<boolean>(false);
 
     // Feedback functionality
     const { feedbackGiven, setFeedbackGiven, handleFeedback } = useFeedback({
@@ -281,6 +312,15 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         feedbackGiven,
         setFeedbackGiven,
         handleFeedback,
+        // Plan mode state
+        pendingQuestion,
+        setPendingQuestion,
+        pendingPlanApproval,
+        setPendingPlanApproval,
+        todos,
+        setTodos,
+        isPlanMode,
+        setIsPlanMode,
     };
 
     return (

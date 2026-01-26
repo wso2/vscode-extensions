@@ -36,10 +36,9 @@ export const PROMPT_TEMPLATE = `
 {{/if}}
 
 {{#if currentlyOpenedFile}}
-<CURRENTLY_OPENED_FILE>
-{{currentlyOpenedFile}}
-</CURRENTLY_OPENED_FILE>
-This is the file that the user is currently opened in IDE. User may refer it as "this". Give priority to this file when generating the solution.
+<IDE_OPENED_FILE>
+The user has opened the file {{currentlyOpenedFile}} in the IDE. This may or may not be related to the current task. User may refer it as "this".
+</IDE_OPENED_FILE>
 {{/if}}
 
 {{#if userPreconfigured}}
@@ -105,7 +104,7 @@ function formatProjectStructure(files: string[]): string {
     }
 
     // Use the tree formatter to display files in a hierarchical structure
-    return formatFileTree(files);
+    return formatFileTree(files, ['.devtools/**']);
 }
 
 // ============================================================================
@@ -123,13 +122,11 @@ async function getCurrentlyOpenedFile(projectPath: string): Promise<string | nul
 
         const currentFile = getStateMachine(projectPath).context().documentUri;
         if (currentFile && fs.existsSync(currentFile)) {
-            const content = fs.readFileSync(currentFile, 'utf-8');
-
             // Make the path relative to project root
             const relativePath = path.relative(projectPath, currentFile);
 
-            // Return with file path annotation
-            return `File: ${relativePath}\n---\n${content}\n---`;
+            // Return only the file path
+            return `The user opened the file ${relativePath} in the IDE. This may or may not be related to the current task.`;
         }
     } catch (error) {
         // Silently fail if state machine is not available

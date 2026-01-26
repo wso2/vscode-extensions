@@ -134,6 +134,34 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
             }
             return { loading: 'managing server', completed: 'managed server', failed: 'server management failed' };
 
+        // Plan Mode Tools
+        case 'task':
+            // Extract subagent type for dynamic messages
+            const subagentType = toolInput?.subagent_type || 'subagent';
+            return {
+                loading: `running ${subagentType} agent`,
+                completed: `${subagentType} agent completed`,
+                failed: `${subagentType} agent failed`
+            };
+
+        case 'ask_user':
+            return { loading: 'asking user', completed: 'received response', failed: 'question timed out' };
+
+        case 'enter_plan_mode':
+            return { loading: 'entering plan mode', completed: 'entered plan mode', failed: 'failed to enter plan mode' };
+
+        case 'exit_plan_mode':
+            return { loading: 'exiting plan mode', completed: 'exited plan mode', failed: 'failed to exit plan mode' };
+
+        case 'todo_write':
+            // Extract task count for dynamic messages
+            const taskCount = toolInput?.todos?.length || 0;
+            return {
+                loading: `updating ${taskCount} task(s)`,
+                completed: `updated ${taskCount} task(s)`,
+                failed: 'failed to update tasks'
+            };
+
         default:
             return undefined;
     }

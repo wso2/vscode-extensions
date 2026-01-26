@@ -22,12 +22,23 @@ import {
     sendAgentMessage,
     abortAgentGeneration,
     loadChatHistory,
+    respondToQuestion,
+    respondToPlanApproval,
     SendAgentMessageRequest,
-    LoadChatHistoryRequest
+    LoadChatHistoryRequest,
+    UserQuestionResponse,
+    PlanApprovalResponse,
 } from "@wso2/mi-core";
 
+// Singleton manager to maintain pending questions state across requests
+let rpcManagerInstance: MIAgentPanelRpcManager | null = null;
+
 export function registerMIAgentPanelRpcHandlers(messenger: MessengerAPI, projectUri: string) {
-    const rpcManager = new MIAgentPanelRpcManager(projectUri);
+    // Create or reuse manager instance
+    if (!rpcManagerInstance || rpcManagerInstance.getProjectUri() !== projectUri) {
+        rpcManagerInstance = new MIAgentPanelRpcManager(projectUri);
+    }
+    const rpcManager = rpcManagerInstance;
 
     // ==================================
     // Agent Functions
@@ -35,4 +46,10 @@ export function registerMIAgentPanelRpcHandlers(messenger: MessengerAPI, project
     messenger.onRequest(sendAgentMessage, (request: SendAgentMessageRequest) => rpcManager.sendAgentMessage(request));
     messenger.onRequest(abortAgentGeneration, () => rpcManager.abortAgentGeneration());
     messenger.onRequest(loadChatHistory, (request: LoadChatHistoryRequest) => rpcManager.loadChatHistory(request));
+
+    // ==================================
+    // Plan Mode Functions
+    // ==================================
+    messenger.onRequest(respondToQuestion, (request: UserQuestionResponse) => rpcManager.respondToQuestion(request));
+    messenger.onRequest(respondToPlanApproval, (request: PlanApprovalResponse) => rpcManager.respondToPlanApproval(request));
 }

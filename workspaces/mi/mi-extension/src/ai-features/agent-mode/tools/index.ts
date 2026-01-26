@@ -91,6 +91,29 @@ export {
     createServerManagementTool,
 } from './runtime_tools';
 
+// Export task tool (subagent spawning)
+export {
+    createTaskExecute,
+    createTaskTool,
+} from './task_tool';
+
+// Export plan mode tools
+export {
+    // Execute function creators
+    createAskUserExecute,
+    createEnterPlanModeExecute,
+    createExitPlanModeExecute,
+    createTodoWriteExecute,
+    // Tool creators
+    createAskUserTool,
+    createEnterPlanModeTool,
+    createExitPlanModeTool,
+    createTodoWriteTool,
+    // Types
+    type PendingQuestion,
+    type AgentEventHandler,
+} from './plan_mode_tools';
+
 // Re-export tool names for convenience
 export {
     FILE_WRITE_TOOL_NAME,
@@ -107,6 +130,12 @@ export {
     GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
+    // Plan mode tool names
+    TASK_TOOL_NAME,
+    ASK_USER_TOOL_NAME,
+    ENTER_PLAN_MODE_TOOL_NAME,
+    EXIT_PLAN_MODE_TOOL_NAME,
+    TODO_WRITE_TOOL_NAME,
 } from './types';
 
 /**

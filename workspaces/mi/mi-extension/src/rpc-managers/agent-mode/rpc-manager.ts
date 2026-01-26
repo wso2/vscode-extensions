@@ -21,12 +21,15 @@ import {
     SendAgentMessageRequest,
     SendAgentMessageResponse,
     LoadChatHistoryRequest,
-    LoadChatHistoryResponse
+    LoadChatHistoryResponse,
+    UserQuestionResponse,
+    PlanApprovalResponse,
 } from '@wso2/mi-core';
 import { AgentEventHandler } from './event-handler';
 import { executeAgent, createAgentAbortController, AgentEvent } from '../../ai-features/agent-mode';
 import { logInfo, logError, logDebug } from '../../ai-features/copilot/logger';
 import { ChatHistoryManager } from '../../ai-features/agent-mode/chat-history-manager';
+import { PendingQuestion, PendingPlanApproval } from '../../ai-features/agent-mode/tools/plan_mode_tools';
 
 export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private eventHandler: AgentEventHandler;
@@ -34,8 +37,28 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private chatHistoryManager: ChatHistoryManager | null = null;
     private currentSessionId: string | null = null;
 
+    // Map to track pending questions from ask_user tool
+    private pendingQuestions: Map<string, PendingQuestion> = new Map();
+
+    // Map to track pending plan approvals from exit_plan_mode tool
+    private pendingApprovals: Map<string, PendingPlanApproval> = new Map();
+
     constructor(private projectUri: string) {
         this.eventHandler = new AgentEventHandler(projectUri);
+    }
+
+    /**
+     * Get the project URI
+     */
+    getProjectUri(): string {
+        return this.projectUri;
+    }
+
+    /**
+     * Get the pending questions map (for use by agent tools)
+     */
+    getPendingQuestions(): Map<string, PendingQuestion> {
+        return this.pendingQuestions;
     }
 
     /**
@@ -93,7 +116,9 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                     projectPath: this.projectUri,
                     sessionId: this.currentSessionId || undefined,
                     abortSignal: this.currentAbortController.signal,
-                    chatHistoryManager: historyManager
+                    chatHistoryManager: historyManager,
+                    pendingQuestions: this.pendingQuestions,
+                    pendingApprovals: this.pendingApprovals
                 },
                 (event: AgentEvent) => {
                     // Forward events to the visualizer
@@ -140,6 +165,42 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             this.currentAbortController = null;
         } else {
             logDebug('[AgentPanel] No active agent generation to abort');
+        }
+    }
+
+    /**
+     * Respond to an ask_user question
+     * This resolves the pending promise in the ask_user tool
+     */
+    async respondToQuestion(response: UserQuestionResponse): Promise<void> {
+        const { questionId, answer } = response;
+        logInfo(`[AgentPanel] Received response for question: ${questionId}`);
+
+        const pending = this.pendingQuestions.get(questionId);
+        if (pending) {
+            logDebug(`[AgentPanel] Resolving pending question: ${questionId}`);
+            pending.resolve(answer);
+            // Note: The pendingQuestions.delete is handled in the resolve callback
+        } else {
+            logError(`[AgentPanel] No pending question found for ID: ${questionId}`);
+        }
+    }
+
+    /**
+     * Respond to a plan approval request (approve or reject the plan)
+     * This resolves the pending promise in the exit_plan_mode tool
+     */
+    async respondToPlanApproval(response: PlanApprovalResponse): Promise<void> {
+        const { approvalId, approved, feedback } = response;
+        logInfo(`[AgentPanel] Received plan approval response: ${approvalId}, approved: ${approved}`);
+
+        const pending = this.pendingApprovals.get(approvalId);
+        if (pending) {
+            logDebug(`[AgentPanel] Resolving pending plan approval: ${approvalId}`);
+            pending.resolve({ approved, feedback });
+            // Note: The pendingApprovals.delete is handled in the resolve callback
+        } else {
+            logError(`[AgentPanel] No pending plan approval found for ID: ${approvalId}`);
         }
     }
 
