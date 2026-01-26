@@ -279,7 +279,7 @@ install_extensions() {
     
     # Install Ballerina extension first (dependency)
     print_info "Installing Ballerina extension..."
-    if code-server --install-extension "$BALLERINA_VSIX_PATH"; then
+    if code-server --force --install-extension "$BALLERINA_VSIX_PATH"; then
         print_success "Ballerina extension installed successfully!"
     else
         print_error "Failed to install Ballerina extension!"
@@ -288,7 +288,7 @@ install_extensions() {
     
     # Install Ballerina Integrator extension
     print_info "Installing Ballerina Integrator extension..."
-    if code-server --install-extension "$BI_VSIX_PATH"; then
+    if code-server --force --install-extension "$BI_VSIX_PATH"; then
         print_success "Ballerina Integrator extension installed successfully!"
     else
         print_error "Failed to install Ballerina Integrator extension!"
