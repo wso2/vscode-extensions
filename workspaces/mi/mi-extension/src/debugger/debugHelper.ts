@@ -332,9 +332,9 @@ export async function startServer(projectUri: string, serverPath: string, isDebu
             const definedEnvVariables = DebuggerConfig.getEnvVariables();
             const vmArgs = DebuggerConfig.getVmArgs();
             const envVariables = {
+                ...definedEnvVariables,
                 ...process.env,
                 ...setJavaHomeInEnvironmentAndPath(projectUri),
-                ...definedEnvVariables
             };
 
             serverProcess = child_process.spawn(`${runCommand}`, vmArgs, { shell: true, env: envVariables });

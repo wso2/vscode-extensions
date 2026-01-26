@@ -1653,6 +1653,7 @@ export interface CreateConnectionRequest {
     keyValuesXML: string;
     directory: string;
     filePath?: string;
+    connectionType?: string;
 }
 
 export interface CreateConnectionResponse {

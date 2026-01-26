@@ -191,6 +191,58 @@ export async function addConfigFile(projectPath: string): Promise<boolean> {
     );
 }
 
+/**
+ * Add WSO2_AI configuration entries to config.properties only.
+ * This is called when a WSO2_AI connection is created.
+ * Does not modify .env file - values are injected at runtime.
+ */
+export function addWSO2AIConfigProperties(projectPath: string): void {
+    const configPropertiesPath = path.join(projectPath, ...CONFIG_PROPERTIES_RELATIVE_PATH);
+
+    // Check if entries already exist
+    let content = '';
+    if (fs.existsSync(configPropertiesPath)) {
+        content = fs.readFileSync(configPropertiesPath, 'utf-8');
+    }
+
+    const hasServiceUrl = content.includes(`${SERVICE_URL_KEY}:`);
+    const hasAccessToken = content.includes(`${ACCESS_TOKEN_KEY}:`);
+
+    // Only add entries that don't already exist
+    if (!hasServiceUrl) {
+        addOrUpdateConfigPropertyEntry(configPropertiesPath, SERVICE_URL_KEY, 'string');
+    }
+    if (!hasAccessToken) {
+        addOrUpdateConfigPropertyEntry(configPropertiesPath, ACCESS_TOKEN_KEY, 'string');
+    }
+}
+
+/**
+ * Get WSO2_AI environment variables for runtime injection.
+ * Returns empty object if user is not logged in or not using MI_INTEL login method.
+ * These values are injected at runtime before .env values, so .env can override them.
+ */
+export async function getWSO2AIEnvVariables(): Promise<{ [key: string]: string }> {
+    try {
+        const credentials = await getAuthCredentials();
+        if (!credentials || credentials.loginMethod !== LoginMethod.MI_INTEL) {
+            return {};
+        }
+
+        const token = await getRefreshedAccessToken();
+        const backendUrl = getAnthropicProxyUrl();
+
+        return {
+            [SERVICE_URL_KEY]: backendUrl,
+            [ACCESS_TOKEN_KEY]: token
+        };
+    } catch (error) {
+        // User not logged in or token refresh failed - return empty
+        // This allows the integration to run without WSO2_AI if not configured
+        return {};
+    }
+}
+
 // Export messages for use in activate.ts
 export {
     SUCCESS_MESSAGE,

@@ -340,6 +340,7 @@ import { DebuggerConfig } from "../../debugger/config";
 import { getKubernetesConfiguration, getKubernetesDataConfiguration } from "../../util/template-engine/mustach-templates/KubernetesConfiguration";
 import { parseStringPromise, Builder } from "xml2js";
 import { MILanguageClient } from "../../lang-client/activator";
+import { addWSO2AIConfigProperties } from "../../ai-panel/configUtils";
 const AdmZip = require('adm-zip');
 
 const { XMLParser, XMLBuilder } = require("fast-xml-parser");
@@ -4575,7 +4576,7 @@ ${endpointAttributes}
 
     async createConnection(params: CreateConnectionRequest): Promise<CreateConnectionResponse> {
         return new Promise(async (resolve) => {
-            const { connectionName, keyValuesXML, directory } = params;
+            const { connectionName, keyValuesXML, directory, connectionType } = params;
             const localEntryPath = directory;
 
             const xmlData = `<?xml version="1.0" encoding="UTF-8"?>
@@ -4587,6 +4588,16 @@ ${keyValuesXML}`;
             }
 
             await replaceFullContentToFile(filePath, xmlData);
+
+            // If this is a WSO2_AI connection, add config.properties entries
+            if (connectionType?.toUpperCase() === 'WSO2_AI') {
+                try {
+                    addWSO2AIConfigProperties(this.projectUri);
+                } catch (error) {
+                    console.error('Failed to add WSO2_AI config properties:', error);
+                }
+            }
+
             resolve({ name: connectionName });
         });
     }
