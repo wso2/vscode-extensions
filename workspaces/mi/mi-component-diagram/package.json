@@ -33,7 +33,7 @@
         "@emotion/styled": "^11.10.5",
         "@wso2/ui-toolkit": "workspace:*",
         "dagre": "~0.8.5",
-        "lodash": "~4.17.21"
+        "lodash": "4.17.23"
     },
     "devDependencies": {
         "@storybook/react": "^6.3.7",
