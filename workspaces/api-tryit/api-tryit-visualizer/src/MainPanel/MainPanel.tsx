@@ -171,34 +171,13 @@ const NameTextField = styled(TextField)`
 type InputMode = 'code' | 'form';
 
 export const MainPanel: React.FC = () => {
-    const [requestItem, setRequestItem] = useState<ApiRequestItem>({
-        id: '1',
-        name: 'Sample Request',
-        request: {
-            id: '1',
-            name: 'Sample Request',
-            method: 'POST',
-            url: 'http://localhost:9090/api/test',
-            queryParameters: [],
-            headers: [
-                { id: '1', key: 'Content-Type', value: 'application/json' }
-            ],
-            body: '{\n  "currency": "usd",\n  "coin": "bitcoin"\n}'
-        },
-        response: {
-            statusCode: 200,
-            headers: [
-                { key: 'Content-Type', value: 'application/json' }
-            ],
-            body: '{\n  "bitcoin": {\n    "usd": 91833\n  }\n}'
-        }
-    });
+    const [requestItem, setRequestItem] = useState<ApiRequestItem | undefined>();
     const [activeTab, setActiveTab] = useState('input');
     const [isLoading, setIsLoading] = useState(false);
     const [inputMode, setInputMode] = useState<InputMode>('code');
     const [showHelp, setShowHelp] = useState(false);
     const [isEditingName, setIsEditingName] = useState(false);
-    const [tempName, setTempName] = useState(requestItem.name);
+    const [tempName, setTempName] = useState(requestItem?.name);
 
     // Handle messages from VS Code extension
     const { updateRequest } = useExtensionMessages({
@@ -212,9 +191,11 @@ export const MainPanel: React.FC = () => {
     });
 
     const handleRequestChange = (updatedRequest: ApiRequest) => {
-        const updatedItem = {
+        if (!requestItem) return;
+        const updatedItem: ApiRequestItem = {
             ...requestItem,
-            request: updatedRequest
+            request: updatedRequest,
+            id: requestItem.id || ''
         };
         setRequestItem(updatedItem);
         
@@ -224,7 +205,7 @@ export const MainPanel: React.FC = () => {
 
     const handleNameClick = () => {
         setIsEditingName(true);
-        setTempName(requestItem.name);
+        setTempName(requestItem?.name);
     };
 
     const handleNameChange = (value: string) => {
@@ -232,14 +213,15 @@ export const MainPanel: React.FC = () => {
     };
 
     const handleNameSubmit = () => {
-        if (tempName.trim()) {
-            const updatedItem = {
+        if (tempName?.trim() && requestItem) {
+            const updatedItem: ApiRequestItem = {
                 ...requestItem,
                 name: tempName.trim(),
                 request: {
                     ...requestItem.request,
                     name: tempName.trim()
-                }
+                },
+                id: requestItem.id || ''
             };
             setRequestItem(updatedItem);
             updateRequest(updatedItem);
@@ -253,7 +235,7 @@ export const MainPanel: React.FC = () => {
             handleNameSubmit();
         } else if (e.key === 'Escape') {
             setIsEditingName(false);
-            setTempName(requestItem.name);
+            setTempName(requestItem?.name);
         }
     };
 
@@ -264,7 +246,10 @@ export const MainPanel: React.FC = () => {
     const handleSaveRequest = async (evt: any) => {
         if (!vscode) {
             console.error('VS Code API not available');
-            alert('Cannot save request - VS Code API not available');
+            return;
+        }
+
+        if (!requestItem) {
             return;
         }
 
@@ -290,6 +275,11 @@ export const MainPanel: React.FC = () => {
         setIsLoading(true);
         
         try {
+            if (!requestItem) {
+                setIsLoading(false);
+                return;
+            }
+            
             const { request } = requestItem;
             
             // Build query parameters
@@ -353,10 +343,13 @@ export const MainPanel: React.FC = () => {
                 body: responseBody
             };
             
-            setRequestItem({
-                ...requestItem,
-                response: apiResponse
-            });
+            if (requestItem) {
+                setRequestItem({
+                    ...requestItem,
+                    response: apiResponse,
+                    id: requestItem.id || ''
+                });
+            }
             
             // Switch to Output tab
             setActiveTab('output');
@@ -398,10 +391,13 @@ export const MainPanel: React.FC = () => {
                 body: errorBody
             };
             
-            setRequestItem({
-                ...requestItem,
-                response: errorResponse
-            });
+            if (requestItem) {
+                setRequestItem({
+                    ...requestItem,
+                    response: errorResponse,
+                    id: requestItem.id || ''
+                });
+            }
             
             // Switch to Output tab to show error
             setActiveTab('output');
@@ -438,7 +434,7 @@ export const MainPanel: React.FC = () => {
                     ) : (
                         <NameDisplay onClick={handleNameClick}>
                             <Typography variant="h3" sx={{ margin: 0 }}>
-                                {requestItem.name}
+                                {requestItem?.name || 'Untitled Request'}
                             </Typography>
                         </NameDisplay>
                     )}
@@ -451,6 +447,7 @@ export const MainPanel: React.FC = () => {
                 padding: '20px',
                 overflowY: 'auto',
             }}>
+                {requestItem ? (
                 <div style={{ margin: '0 auto' }}>
                     {/* Method and URL */}
                     <div style={{
@@ -460,7 +457,7 @@ export const MainPanel: React.FC = () => {
                     }}>
                         <Dropdown
                             id="method-dropdown"
-                            value={requestItem.request.method || 'GET'}
+                            value={requestItem?.request.method || 'GET'}
                             onValueChange={(value) => handleRequestChange({
                                 ...requestItem.request,
                                 method: value as any
@@ -573,6 +570,11 @@ export const MainPanel: React.FC = () => {
                     </VSCodePanels>
                     </PanelsWrapper>
                 </div>
+                ) : (
+                    <Typography variant="subtitle2" sx={{ opacity: 0.6 }}>
+                        No request selected
+                    </Typography>
+                )}
             </div>
         </div>
     );
