@@ -95,14 +95,6 @@ export class PlanManager {
     }
 
     /**
-     * Get the plans directory path (inside project)
-     * @deprecated Use getSessionPlanDir() instead
-     */
-    private getPlansDir(): string {
-        return path.join(this.projectPath, '.mi-copilot', 'plans');
-    }
-
-    /**
      * Ensure .gitignore exists in .mi-copilot folder to exclude session files from git
      */
     private async ensureGitignore(): Promise<void> {
@@ -167,15 +159,15 @@ export class PlanManager {
      */
     async initialize(): Promise<void> {
         try {
-            // Create plans directory inside project: <project>/.mi-copilot/plans/
-            const plansDir = this.getPlansDir();
-            await fs.mkdir(plansDir, { recursive: true });
+            // Create session plan directory: <project>/.mi-copilot/<session-id>/plan/
+            const planDir = this.getSessionPlanDir();
+            await fs.mkdir(planDir, { recursive: true });
 
             // Ensure .gitignore exists in .mi-copilot folder
             await this.ensureGitignore();
 
-            // Plan file path
-            this.planFile = path.join(plansDir, `${this.sessionId}.md`);
+            // Get or create plan path (with slug)
+            this.planFile = await this.getOrCreatePlanPath();
 
             // Check if plan file exists and load it
             try {

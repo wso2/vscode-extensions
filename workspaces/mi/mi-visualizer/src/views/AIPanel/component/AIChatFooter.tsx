@@ -241,13 +241,11 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 const planEvent = event as any;
                 switch (planEvent.type) {
                     case "ask_user":
-                        // Agent is asking user a question - show question dialog
-                        if (planEvent.questionId && planEvent.question) {
+                        // Agent is asking user questions - show question dialog
+                        if (planEvent.questionId && planEvent.questions) {
                             setPendingQuestion({
                                 questionId: planEvent.questionId,
-                                question: planEvent.question,
-                                options: planEvent.options,
-                                allowFreeText: planEvent.allowFreeText
+                                questions: planEvent.questions
                             });
                         }
                         break;
@@ -282,15 +280,59 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }
     };
 
-    // Handle user response to ask_user question
-    const handleQuestionResponse = async (answer: string) => {
+    // Handle user cancelling the question dialog
+    const handleQuestionCancel = async () => {
         if (pendingQuestion) {
             try {
+                // Send cancellation signal to backend
                 await rpcClient.getMiAgentPanelRpcClient().respondToQuestion({
                     questionId: pendingQuestion.questionId,
-                    answer
+                    answer: '__USER_CANCELLED__'
                 });
+            } catch (error) {
+                console.error("Error sending cancellation:", error);
+            }
+            // Clear state
+            setPendingQuestion(null);
+            setAnswers(new Map());
+            setOtherAnswers(new Map());
+        }
+    };
+
+    // Handle user response to ask_user questions
+    const handleQuestionResponse = async () => {
+        if (pendingQuestion) {
+            try {
+                // Build answers JSON object: { "question": "answer", ... }
+                const answersObj: Record<string, string> = {};
+
+                pendingQuestion.questions.forEach((question, index) => {
+                    const answer = answers.get(index);
+                    const otherAnswer = otherAnswers.get(index);
+
+                    if (otherAnswer) {
+                        // User typed a custom answer
+                        answersObj[question.question] = otherAnswer;
+                    } else if (answer) {
+                        if (question.multiSelect && answer instanceof Set) {
+                            // Multi-select: join selected labels with comma
+                            answersObj[question.question] = Array.from(answer).join(", ");
+                        } else if (typeof answer === 'string') {
+                            // Single-select: use the label
+                            answersObj[question.question] = answer;
+                        }
+                    }
+                });
+
+                await rpcClient.getMiAgentPanelRpcClient().respondToQuestion({
+                    questionId: pendingQuestion.questionId,
+                    answer: JSON.stringify(answersObj)
+                });
+
+                // Clear state
                 setPendingQuestion(null);
+                setAnswers(new Map());
+                setOtherAnswers(new Map());
             } catch (error) {
                 console.error("Error responding to question:", error);
             }
@@ -574,11 +616,12 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         }
     }, [rpcClient]);
 
-    // Local state for free text answer input
-    const [freeTextAnswer, setFreeTextAnswer] = useState("");
-    // Selected option for radio-style question dialog
-    const [selectedOption, setSelectedOption] = useState<string | null>(null);
-    const [isOtherSelected, setIsOtherSelected] = useState(false);
+    // Local state for answers to questions
+    // For single-select: questionIndex -> selected label
+    // For multi-select: questionIndex -> Set of selected labels
+    // For "Other": questionIndex -> free text
+    const [answers, setAnswers] = useState<Map<number, string | Set<string>>>(new Map());
+    const [otherAnswers, setOtherAnswers] = useState<Map<number, string>>(new Map());
     // State for plan rejection feedback
     const [planRejectionFeedback, setPlanRejectionFeedback] = useState("");
     const [showRejectionInput, setShowRejectionInput] = useState(false);
@@ -588,10 +631,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === "Escape") {
                 if (pendingQuestion) {
-                    setPendingQuestion(null);
-                    setSelectedOption(null);
-                    setIsOtherSelected(false);
-                    setFreeTextAnswer("");
+                    handleQuestionCancel();
                 }
                 if (pendingPlanApproval) {
                     setPendingPlanApproval(null);
@@ -604,11 +644,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         return () => document.removeEventListener("keydown", handleKeyDown);
     }, [pendingQuestion, setPendingQuestion, pendingPlanApproval, setPendingPlanApproval]);
 
-    // Reset selection when question changes
+    // Reset answers when question changes
     useEffect(() => {
-        setSelectedOption(null);
-        setIsOtherSelected(false);
-        setFreeTextAnswer("");
+        setAnswers(new Map());
+        setOtherAnswers(new Map());
     }, [pendingQuestion?.questionId]);
 
     // Reset rejection feedback when plan approval changes
@@ -617,15 +656,27 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         setPlanRejectionFeedback("");
     }, [pendingPlanApproval?.approvalId]);
 
+    // Check if all questions are answered
+    const allQuestionsAnswered = pendingQuestion?.questions.every((q, idx) => {
+        const answer = answers.get(idx);
+        const otherAnswer = otherAnswers.get(idx);
+
+        if (otherAnswer && otherAnswer.trim()) return true;
+        if (q.multiSelect && answer instanceof Set && answer.size > 0) return true;
+        if (!q.multiSelect && typeof answer === 'string' && answer.trim()) return true;
+
+        return false;
+    }) ?? false;
+
     return (
         <Footer>
-            {/* User Question Dialog - Claude Code style */}
+            {/* User Question Dialog - Claude Code style with structured questions */}
             {pendingQuestion && (
                 <div style={{
-                    marginBottom: "8px",
+                    marginBottom: "6px",
                     backgroundColor: "var(--vscode-editor-background)",
                     border: "1px solid var(--vscode-panel-border)",
-                    borderRadius: "6px",
+                    borderRadius: "4px",
                     overflow: "hidden"
                 }}>
                     {/* Header */}
@@ -633,33 +684,28 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        padding: "8px 12px",
+                        padding: "6px 10px",
                         borderBottom: "1px solid var(--vscode-panel-border)",
                         backgroundColor: "var(--vscode-sideBarSectionHeader-background)"
                     }}>
                         <span style={{
-                            fontSize: "12px",
-                            fontWeight: 500,
+                            fontSize: "11px",
+                            fontWeight: 600,
                             color: "var(--vscode-foreground)",
                             borderBottom: "2px solid var(--vscode-focusBorder)",
-                            paddingBottom: "4px"
+                            paddingBottom: "2px"
                         }}>
-                            Question
+                            {pendingQuestion.questions.length === 1 ? "Question" : `Questions (${pendingQuestion.questions.length})`}
                         </span>
                         <button
-                            onClick={() => {
-                                setPendingQuestion(null);
-                                setSelectedOption(null);
-                                setIsOtherSelected(false);
-                                setFreeTextAnswer("");
-                            }}
+                            onClick={handleQuestionCancel}
                             style={{
                                 background: "none",
                                 border: "none",
                                 color: "var(--vscode-foreground)",
                                 cursor: "pointer",
-                                padding: "4px",
-                                fontSize: "16px",
+                                padding: "2px",
+                                fontSize: "14px",
                                 lineHeight: 1,
                                 opacity: 0.7
                             }}
@@ -669,126 +715,212 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         </button>
                     </div>
 
-                    {/* Content */}
-                    <div style={{ padding: "12px" }}>
-                        {/* Question text */}
-                        <div style={{
-                            fontSize: "13px",
-                            marginBottom: "12px",
-                            color: "var(--vscode-foreground)"
-                        }}>
-                            {pendingQuestion.question}
-                        </div>
+                    {/* Content - Multiple Questions */}
+                    <div style={{ padding: "8px 10px", maxHeight: "350px", overflowY: "auto" }}>
+                        {pendingQuestion.questions.map((question, questionIndex) => (
+                            <div key={questionIndex} style={{
+                                marginBottom: questionIndex < pendingQuestion.questions.length - 1 ? "12px" : "0",
+                                paddingBottom: questionIndex < pendingQuestion.questions.length - 1 ? "10px" : "0",
+                                borderBottom: questionIndex < pendingQuestion.questions.length - 1 ? "1px solid var(--vscode-panel-border)" : "none"
+                            }}>
+                                {/* Question header chip */}
+                                <div style={{
+                                    display: "inline-block",
+                                    fontSize: "10px",
+                                    fontWeight: 600,
+                                    padding: "1px 6px",
+                                    marginBottom: "6px",
+                                    backgroundColor: "var(--vscode-badge-background)",
+                                    color: "var(--vscode-badge-foreground)",
+                                    borderRadius: "8px"
+                                }}>
+                                    {question.header}
+                                </div>
 
-                        {/* Options as radio list */}
-                        <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                            {pendingQuestion.options?.map((option, index) => (
-                                <label
-                                    key={index}
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "flex-start",
-                                        gap: "8px",
-                                        padding: "8px 10px",
-                                        borderRadius: "4px",
-                                        cursor: "pointer",
-                                        backgroundColor: selectedOption === option
-                                            ? "var(--vscode-list-activeSelectionBackground)"
-                                            : "transparent",
-                                        color: selectedOption === option
-                                            ? "var(--vscode-list-activeSelectionForeground)"
-                                            : "var(--vscode-foreground)"
-                                    }}
-                                    onClick={() => {
-                                        setSelectedOption(option);
-                                        setIsOtherSelected(false);
-                                    }}
-                                >
-                                    <span style={{
-                                        width: "16px",
-                                        height: "16px",
-                                        borderRadius: "50%",
-                                        border: selectedOption === option
-                                            ? "5px solid var(--vscode-focusBorder)"
-                                            : "1px solid var(--vscode-input-border)",
-                                        backgroundColor: selectedOption === option
-                                            ? "var(--vscode-editor-background)"
-                                            : "transparent",
-                                        flexShrink: 0,
-                                        marginTop: "2px"
-                                    }} />
-                                    <span style={{ fontSize: "13px" }}>{option}</span>
-                                </label>
-                            ))}
+                                {/* Question text */}
+                                <div style={{
+                                    fontSize: "12px",
+                                    marginBottom: "8px",
+                                    color: "var(--vscode-foreground)",
+                                    lineHeight: "1.4"
+                                }}>
+                                    {question.question}
+                                </div>
 
-                            {/* Other option for free text */}
-                            {pendingQuestion.allowFreeText !== false && (
-                                <label
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "flex-start",
-                                        gap: "8px",
-                                        padding: "8px 10px",
-                                        borderRadius: "4px",
-                                        cursor: "pointer",
-                                        backgroundColor: isOtherSelected
-                                            ? "var(--vscode-list-activeSelectionBackground)"
-                                            : "transparent",
-                                        color: isOtherSelected
-                                            ? "var(--vscode-list-activeSelectionForeground)"
-                                            : "var(--vscode-foreground)"
-                                    }}
-                                    onClick={() => {
-                                        setIsOtherSelected(true);
-                                        setSelectedOption(null);
-                                    }}
-                                >
-                                    <span style={{
-                                        width: "16px",
-                                        height: "16px",
-                                        borderRadius: "50%",
-                                        border: isOtherSelected
-                                            ? "5px solid var(--vscode-focusBorder)"
-                                            : "1px solid var(--vscode-input-border)",
-                                        backgroundColor: isOtherSelected
-                                            ? "var(--vscode-editor-background)"
-                                            : "transparent",
-                                        flexShrink: 0,
-                                        marginTop: "2px"
-                                    }} />
-                                    <span style={{ fontSize: "13px" }}>Other</span>
-                                </label>
-                            )}
-                        </div>
+                                {/* Options */}
+                                <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                                    {question.options.map((option, optionIndex) => {
+                                        const currentAnswer = answers.get(questionIndex);
+                                        const isSelected = question.multiSelect
+                                            ? (currentAnswer instanceof Set && currentAnswer.has(option.label))
+                                            : currentAnswer === option.label;
 
-                        {/* Free text input (shown when Other is selected) */}
-                        {isOtherSelected && (
-                            <input
-                                type="text"
-                                value={freeTextAnswer}
-                                onChange={(e) => setFreeTextAnswer(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter" && freeTextAnswer.trim()) {
-                                        handleQuestionResponse(freeTextAnswer);
-                                        setFreeTextAnswer("");
-                                        setIsOtherSelected(false);
-                                    }
-                                }}
-                                placeholder="Type your answer..."
-                                autoFocus
-                                style={{
-                                    width: "100%",
-                                    marginTop: "8px",
-                                    padding: "8px 10px",
-                                    backgroundColor: "var(--vscode-input-background)",
-                                    color: "var(--vscode-input-foreground)",
-                                    border: "1px solid var(--vscode-input-border)",
-                                    borderRadius: "4px",
-                                    fontSize: "13px",
-                                    boxSizing: "border-box"
-                                }}
-                            />
-                        )}
+                                        return (
+                                            <label
+                                                key={optionIndex}
+                                                style={{
+                                                    display: "flex",
+                                                    alignItems: "flex-start",
+                                                    gap: "8px",
+                                                    padding: "6px 8px",
+                                                    borderRadius: "3px",
+                                                    cursor: "pointer",
+                                                    backgroundColor: isSelected
+                                                        ? "var(--vscode-list-activeSelectionBackground)"
+                                                        : "var(--vscode-list-hoverBackground)",
+                                                    border: "1px solid " + (isSelected ? "var(--vscode-focusBorder)" : "transparent")
+                                                }}
+                                                onClick={() => {
+                                                    if (question.multiSelect) {
+                                                        // Multi-select: toggle in set
+                                                        const newAnswers = new Map(answers);
+                                                        let currentSet = newAnswers.get(questionIndex) as Set<string> | undefined;
+
+                                                        if (!currentSet || !(currentSet instanceof Set)) {
+                                                            currentSet = new Set();
+                                                        }
+
+                                                        if (currentSet.has(option.label)) {
+                                                            currentSet.delete(option.label);
+                                                        } else {
+                                                            currentSet.add(option.label);
+                                                        }
+
+                                                        newAnswers.set(questionIndex, currentSet);
+                                                        setAnswers(newAnswers);
+
+                                                        // Clear "Other" if selecting an option
+                                                        if (currentSet.size > 0) {
+                                                            const newOtherAnswers = new Map(otherAnswers);
+                                                            newOtherAnswers.delete(questionIndex);
+                                                            setOtherAnswers(newOtherAnswers);
+                                                        }
+                                                    } else {
+                                                        // Single-select: replace
+                                                        const newAnswers = new Map(answers);
+                                                        newAnswers.set(questionIndex, option.label);
+                                                        setAnswers(newAnswers);
+
+                                                        // Clear "Other" if selecting an option
+                                                        const newOtherAnswers = new Map(otherAnswers);
+                                                        newOtherAnswers.delete(questionIndex);
+                                                        setOtherAnswers(newOtherAnswers);
+                                                    }
+                                                }}
+                                            >
+                                                {/* Checkbox or Radio */}
+                                                <span style={{
+                                                    width: "14px",
+                                                    height: "14px",
+                                                    borderRadius: question.multiSelect ? "2px" : "50%",
+                                                    border: isSelected
+                                                        ? `2px solid var(--vscode-focusBorder)`
+                                                        : "1px solid var(--vscode-input-border)",
+                                                    backgroundColor: isSelected
+                                                        ? "var(--vscode-focusBorder)"
+                                                        : "transparent",
+                                                    flexShrink: 0,
+                                                    marginTop: "1px",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    fontSize: "9px",
+                                                    color: "var(--vscode-editor-background)"
+                                                }}>
+                                                    {isSelected && "✓"}
+                                                </span>
+
+                                                {/* Label and description */}
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontSize: "12px", fontWeight: 500, marginBottom: "1px", lineHeight: "1.3" }}>
+                                                        {option.label}
+                                                    </div>
+                                                    <div style={{ fontSize: "11px", opacity: 0.75, lineHeight: "1.3" }}>
+                                                        {option.description}
+                                                    </div>
+                                                </div>
+                                            </label>
+                                        );
+                                    })}
+
+                                    {/* Other option */}
+                                    <div style={{ marginTop: "3px" }}>
+                                        <label
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "8px",
+                                                padding: "6px 8px",
+                                                borderRadius: "3px",
+                                                cursor: "pointer",
+                                                backgroundColor: otherAnswers.has(questionIndex)
+                                                    ? "var(--vscode-list-activeSelectionBackground)"
+                                                    : "transparent"
+                                            }}
+                                            onClick={() => {
+                                                // Clear regular answers when selecting "Other"
+                                                const newAnswers = new Map(answers);
+                                                newAnswers.delete(questionIndex);
+                                                setAnswers(newAnswers);
+                                            }}
+                                        >
+                                            <span style={{
+                                                width: "14px",
+                                                height: "14px",
+                                                borderRadius: question.multiSelect ? "2px" : "50%",
+                                                border: otherAnswers.has(questionIndex)
+                                                    ? "2px solid var(--vscode-focusBorder)"
+                                                    : "1px solid var(--vscode-input-border)",
+                                                backgroundColor: otherAnswers.has(questionIndex)
+                                                    ? "var(--vscode-focusBorder)"
+                                                    : "transparent",
+                                                flexShrink: 0,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                fontSize: "9px",
+                                                color: "var(--vscode-editor-background)"
+                                            }}>
+                                                {otherAnswers.has(questionIndex) && "✓"}
+                                            </span>
+                                            <span style={{ fontSize: "12px" }}>Other</span>
+                                        </label>
+
+                                        {/* Free text input for "Other" */}
+                                        {(otherAnswers.has(questionIndex) || (!answers.has(questionIndex) && pendingQuestion.questions.length === 1)) && (
+                                            <input
+                                                type="text"
+                                                value={otherAnswers.get(questionIndex) || ""}
+                                                onChange={(e) => {
+                                                    const newOtherAnswers = new Map(otherAnswers);
+                                                    newOtherAnswers.set(questionIndex, e.target.value);
+                                                    setOtherAnswers(newOtherAnswers);
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter" && allQuestionsAnswered) {
+                                                        handleQuestionResponse();
+                                                    }
+                                                }}
+                                                placeholder="Type your answer..."
+                                                style={{
+                                                    width: "100%",
+                                                    marginTop: "4px",
+                                                    marginLeft: "22px",
+                                                    padding: "6px 8px",
+                                                    backgroundColor: "var(--vscode-input-background)",
+                                                    color: "var(--vscode-input-foreground)",
+                                                    border: "1px solid var(--vscode-input-border)",
+                                                    borderRadius: "3px",
+                                                    fontSize: "12px",
+                                                    boxSizing: "border-box",
+                                                    maxWidth: "calc(100% - 22px)"
+                                                }}
+                                            />
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
 
                     {/* Footer */}
@@ -796,45 +928,35 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        padding: "8px 12px",
+                        padding: "6px 10px",
                         borderTop: "1px solid var(--vscode-panel-border)",
                         backgroundColor: "var(--vscode-sideBarSectionHeader-background)"
                     }}>
                         <span style={{
-                            fontSize: "11px",
+                            fontSize: "10px",
                             color: "var(--vscode-descriptionForeground)"
                         }}>
                             Esc to cancel
                         </span>
                         <button
-                            onClick={() => {
-                                const answer = isOtherSelected ? freeTextAnswer : selectedOption;
-                                if (answer && answer.trim()) {
-                                    handleQuestionResponse(answer);
-                                    setSelectedOption(null);
-                                    setIsOtherSelected(false);
-                                    setFreeTextAnswer("");
-                                }
-                            }}
-                            disabled={!selectedOption && (!isOtherSelected || !freeTextAnswer.trim())}
+                            onClick={handleQuestionResponse}
+                            disabled={!allQuestionsAnswered}
                             style={{
-                                padding: "6px 16px",
-                                backgroundColor: (selectedOption || (isOtherSelected && freeTextAnswer.trim()))
+                                padding: "4px 12px",
+                                backgroundColor: allQuestionsAnswered
                                     ? "var(--vscode-button-background)"
                                     : "var(--vscode-button-secondaryBackground)",
-                                color: (selectedOption || (isOtherSelected && freeTextAnswer.trim()))
+                                color: allQuestionsAnswered
                                     ? "var(--vscode-button-foreground)"
                                     : "var(--vscode-button-secondaryForeground)",
                                 border: "none",
-                                borderRadius: "4px",
-                                cursor: (selectedOption || (isOtherSelected && freeTextAnswer.trim()))
-                                    ? "pointer"
-                                    : "not-allowed",
-                                fontSize: "12px",
-                                opacity: (selectedOption || (isOtherSelected && freeTextAnswer.trim())) ? 1 : 0.6
+                                borderRadius: "3px",
+                                cursor: allQuestionsAnswered ? "pointer" : "not-allowed",
+                                fontSize: "11px",
+                                opacity: allQuestionsAnswered ? 1 : 0.6
                             }}
                         >
-                            Submit answer
+                            Submit {pendingQuestion.questions.length === 1 ? "answer" : "answers"}
                         </button>
                     </div>
                 </div>

@@ -24,8 +24,7 @@ import {
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    ADD_CONNECTOR_TOOL_NAME,
-    REMOVE_CONNECTOR_TOOL_NAME,
+    MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     GET_CONNECTOR_DOCUMENTATION_TOOL_NAME,
     GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
@@ -73,8 +72,7 @@ You have access to following tools to develop Synapse integrations:
 
 **Connector Tools** (for fetching and managing connectors):
 - ${CONNECTOR_TOOL_NAME}: Fetch detailed definitions for specific connectors or inbound endpoints by name. Returns connector details with usage documentation automatically appended. AI connector requests also include AI-specific guide.
-- ${ADD_CONNECTOR_TOOL_NAME}: Add connectors or inbound endpoints to the project. Use this after writing Synapse XML that uses connector operations.
-- ${REMOVE_CONNECTOR_TOOL_NAME}: Remove connectors or inbound endpoints from the project. Use this when cleaning up unused connectors.
+- ${MANAGE_CONNECTOR_TOOL_NAME}: Add or remove connectors from the project. Use 'add' operation after writing Synapse XML that uses connector operations. Use 'remove' operation when cleaning up unused connectors.
 - ${GET_CONNECTOR_DOCUMENTATION_TOOL_NAME}: Retrieve general connector usage guide (connection patterns, local entries, response handling). Use when you need to refresh knowledge on connector best practices.
 - ${GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME}: Retrieve AI connector guide (chat operations, RAG, agents with tools). Use when implementing AI features in Synapse.
 
@@ -178,7 +176,7 @@ For complex integration requirements, use the **task** tool to spawn specialized
 
 ## Step 3: Implement the Solution
 - Use the file tools to create/modify Synapse configurations.
-- Add required connectors and inbound endpoints using ${ADD_CONNECTOR_TOOL_NAME} when Synapse XML uses connector operations.
+- Add required connectors and inbound endpoints using ${MANAGE_CONNECTOR_TOOL_NAME} (with operation: "add") when Synapse XML uses connector operations.
 - Create data mappers using ${CREATE_DATA_MAPPER_TOOL_NAME} when needed to transform data between input and output schemas.
 - Always prefer tools over manual editing when applicable.
 - Always prefer using connectors over direct API calls when applicable.

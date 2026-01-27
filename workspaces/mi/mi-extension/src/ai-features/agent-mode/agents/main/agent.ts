@@ -51,10 +51,8 @@ import {
     createGetAIConnectorDocumentationExecute,
 } from '../../tools/connector_tools';
 import {
-    createAddConnectorTool,
-    createAddConnectorExecute,
-    createRemoveConnectorTool,
-    createRemoveConnectorExecute,
+    createManageConnectorTool,
+    createManageConnectorExecute,
 } from '../../tools/project_tools';
 import {
     createValidateCodeTool,
@@ -96,8 +94,7 @@ import {
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    ADD_CONNECTOR_TOOL_NAME,
-    REMOVE_CONNECTOR_TOOL_NAME,
+    MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     GET_CONNECTOR_DOCUMENTATION_TOOL_NAME,
     GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,
@@ -267,11 +264,8 @@ export async function executeAgent(
             [CONNECTOR_TOOL_NAME]: createConnectorTool(
                 createConnectorExecute()
             ),
-            [ADD_CONNECTOR_TOOL_NAME]: createAddConnectorTool(
-                createAddConnectorExecute(request.projectPath)
-            ),
-            [REMOVE_CONNECTOR_TOOL_NAME]: createRemoveConnectorTool(
-                createRemoveConnectorExecute(request.projectPath)
+            [MANAGE_CONNECTOR_TOOL_NAME]: createManageConnectorTool(
+                createManageConnectorExecute(request.projectPath)
             ),
             [VALIDATE_CODE_TOOL_NAME]: createValidateCodeTool(
                 createValidateCodeExecute(request.projectPath)
@@ -438,8 +432,9 @@ export async function executeAgent(
                             connector_names: toolInput?.connector_names,
                             inbound_endpoint_names: toolInput?.inbound_endpoint_names,
                         };
-                    } else if (part.toolName === ADD_CONNECTOR_TOOL_NAME || part.toolName === REMOVE_CONNECTOR_TOOL_NAME) {
+                    } else if (part.toolName === MANAGE_CONNECTOR_TOOL_NAME) {
                         displayInput = {
+                            operation: toolInput?.operation,
                             connector_names: toolInput?.connector_names,
                         };
                     } else if (part.toolName === VALIDATE_CODE_TOOL_NAME) {
