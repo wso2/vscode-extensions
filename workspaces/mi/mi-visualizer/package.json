@@ -58,7 +58,7 @@
     "@pmmmwh/react-refresh-webpack-plugin": "~0.6.0",
     "upath": "~2.0.1",
     "@wso2/mi-component-diagram": "workspace:*",
-    "lodash": "~4.17.21",
+    "lodash": "4.17.23",
     "cron-expression-validator": "~1.0.20",
     "@playwright/test": "1.55.1",
     "react-pdf": "~9.2.1",
