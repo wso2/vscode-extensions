@@ -25,18 +25,15 @@ import { getMIVersionFromPom } from '../../../util/onboardingUtils';
 import { APIS } from '../../../constants';
 import { DependencyDetails } from '@wso2/mi-core';
 import { logDebug, logError } from '../../copilot/logger';
-import { getProviderCacheControl } from '../../connection';
 
 // ============================================================================
 // Execute Function Types
 // ============================================================================
 
-export type AddConnectorExecuteFn = (args: {
-    connector_names: string[];
-}) => Promise<ToolResult>;
-
-export type RemoveConnectorExecuteFn = (args: {
-    connector_names: string[];
+export type ManageConnectorExecuteFn = (args: {
+    operation: 'add' | 'remove';
+    connector_names?: string[];
+    inbound_endpoint_names?: string[];
 }) => Promise<ToolResult>;
 
 // ============================================================================
@@ -44,195 +41,209 @@ export type RemoveConnectorExecuteFn = (args: {
 // ============================================================================
 
 /**
- * Creates the execute function for add_connector tool
+ * Creates the execute function for manage_connector tool
+ * Handles both add and remove operations for connectors and inbound endpoints
  */
-export function createAddConnectorExecute(projectPath: string): AddConnectorExecuteFn {
-    return async (args: { connector_names: string[] }): Promise<ToolResult> => {
-        const { connector_names } = args;
+export function createManageConnectorExecute(projectPath: string): ManageConnectorExecuteFn {
+    return async (args: { operation: 'add' | 'remove'; connector_names?: string[]; inbound_endpoint_names?: string[] }): Promise<ToolResult> => {
+        const { operation, connector_names = [], inbound_endpoint_names = [] } = args;
+        const isAdd = operation === 'add';
+        const toolName = isAdd ? 'ManageConnector[add]' : 'ManageConnector[remove]';
 
-        logDebug(`[AddConnectorTool] Adding ${connector_names.length} connector(s): ${connector_names.join(', ')}`);
-
-        if (connector_names.length === 0) {
+        // Validate that at least one array has items
+        if (connector_names.length === 0 && inbound_endpoint_names.length === 0) {
             return {
                 success: false,
-                message: 'At least one connector name must be provided.',
-                error: 'Error: No connector names provided'
+                message: 'At least one connector or inbound endpoint name must be provided.',
+                error: 'Error: No connector or inbound endpoint names provided'
             };
         }
+
+        logDebug(`[${toolName}] ${isAdd ? 'Adding' : 'Removing'} connectors: [${connector_names.join(', ')}], inbound endpoints: [${inbound_endpoint_names.join(', ')}]`);
 
         try {
             const miVisualizerRpcManager = new MiVisualizerRpcManager(projectPath);
 
             // Get MI runtime version from pom.xml
             const runtimeVersion = await getMIVersionFromPom(projectPath);
-            logDebug(`[AddConnectorTool] Runtime version: ${runtimeVersion}`);
+            logDebug(`[${toolName}] Runtime version: ${runtimeVersion}`);
 
-            // Fetch connector store data
-            const connectorStoreResponse = await fetch(
-                APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? '')
-            );
-
-            logDebug(`[AddConnectorTool] Fetching connectors from: ${APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? '')}`);
-            logDebug(`[AddConnectorTool] Fetching connectors from: ${APIS.MI_CONNECTOR_STORE_BACKEND}`);
-
-            if (!connectorStoreResponse.ok) {
-                const errorMsg = `Failed to fetch connector store: ${connectorStoreResponse.status} ${connectorStoreResponse.statusText}`;
-                logError(`[AddConnectorTool] ${errorMsg}`);
-                return {
-                    success: false,
-                    message: errorMsg
-                };
+            // For add operation, get existing dependencies to check for duplicates
+            let existingDependencies: any = { connectorDependencies: [], otherDependencies: [] };
+            if (isAdd) {
+                const langClient = await MILanguageClient.getInstance(projectPath);
+                const projectDetails = await langClient.getProjectDetails();
+                existingDependencies = projectDetails.dependencies || { connectorDependencies: [], otherDependencies: [] };
+                logDebug(`[${toolName}] Existing connector dependencies: ${existingDependencies.connectorDependencies?.length || 0}`);
             }
 
-            const connectorStoreData = await connectorStoreResponse.json();
+            const results: Array<{ name: string; type: 'connector' | 'inbound'; success: boolean; alreadyAdded?: boolean; error?: string }> = [];
 
-            // Validate that response is an array
-            if (!Array.isArray(connectorStoreData)) {
-                logError('[AddConnectorTool] Connector store API did not return an array', connectorStoreData);
-                return {
-                    success: false,
-                    message: 'Invalid response from connector store API'
-                };
-            }
+            // Process connectors if any
+            if (connector_names.length > 0) {
+                // Fetch connector store data
+                const connectorStoreResponse = await fetch(
+                    APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? '')
+                );
 
-            logDebug(`[AddConnectorTool] Fetched ${connectorStoreData.length} connectors from store`);
-
-            // Get existing dependencies from pom.xml
-            const langClient = await MILanguageClient.getInstance(projectPath);
-            const projectDetails = await langClient.getProjectDetails();
-            const existingDependencies = projectDetails.dependencies || { connectorDependencies: [], otherDependencies: [] };
-
-            logDebug(`[AddConnectorTool] Existing connector dependencies: ${existingDependencies.connectorDependencies?.length || 0}`);
-
-            const results: Array<{ name: string; success: boolean; alreadyAdded?: boolean; error?: string }> = [];
-
-            // Add each connector
-            for (const connectorName of connector_names) {
-                try {
-                    // Match by connectorName field (case-insensitive)
-                    const connector = connectorStoreData.find(
-                        (c: any) => c.connectorName?.toLowerCase() === connectorName.toLowerCase()
-                    );
-
-                    if (!connector) {
-                        results.push({
-                            name: connectorName,
-                            success: false,
-                            error: 'Connector not found in connector store'
-                        });
-                        continue;
-                    }
-
-                    // Check if connector is already in pom.xml
-                    const alreadyExists = existingDependencies.connectorDependencies?.some(
-                        (existingDep: any) =>
-                            existingDep.groupId === connector.mavenGroupId &&
-                            existingDep.artifact === connector.mavenArtifactId
-                    );
-
-                    if (alreadyExists) {
-                        logDebug(`[AddConnectorTool] Connector ${connectorName} already exists in pom.xml`);
-                        results.push({
-                            name: connectorName,
-                            success: true,
-                            alreadyAdded: true
-                        });
-                        continue;
-                    }
-
-                    // Prepare dependency details
-                    const dependencies: DependencyDetails[] = [{
-                        groupId: connector.mavenGroupId,
-                        artifact: connector.mavenArtifactId,
-                        version: connector.version?.tagName,
-                        type: "zip"
-                    }];
-
-                    logDebug(`[AddConnectorTool] Adding connector: ${connectorName} (${connector.mavenArtifactId}:${connector.version?.tagName})`);
-
-                    // Add dependency to pom.xml
-                    const response = await miVisualizerRpcManager.updateAiDependencies({
-                        dependencies,
-                        operation: 'add'
+                if (!connectorStoreResponse.ok) {
+                    const errorMsg = `Failed to fetch connector store: ${connectorStoreResponse.status} ${connectorStoreResponse.statusText}`;
+                    logError(`[${toolName}] ${errorMsg}`);
+                    // Add failure for all connectors
+                    connector_names.forEach(name => {
+                        results.push({ name, type: 'connector', success: false, error: errorMsg });
                     });
+                } else {
+                    const connectorStoreData = await connectorStoreResponse.json();
 
-                    if (response) {
-                        results.push({ name: connectorName, success: true });
+                    if (!Array.isArray(connectorStoreData)) {
+                        logError(`[${toolName}] Connector store API did not return an array`, connectorStoreData);
+                        connector_names.forEach(name => {
+                            results.push({ name, type: 'connector', success: false, error: 'Invalid response from connector store API' });
+                        });
                     } else {
-                        results.push({
-                            name: connectorName,
-                            success: false,
-                            error: 'Failed to update pom.xml'
-                        });
+                        logDebug(`[${toolName}] Fetched ${connectorStoreData.length} connectors from store`);
+
+                        // Process each connector
+                        for (const connectorName of connector_names) {
+                            const result = await processItem(
+                                connectorName,
+                                'connector',
+                                connectorStoreData,
+                                existingDependencies,
+                                miVisualizerRpcManager,
+                                isAdd,
+                                operation,
+                                toolName
+                            );
+                            results.push(result);
+                        }
                     }
-                } catch (error) {
-                    results.push({
-                        name: connectorName,
-                        success: false,
-                        error: error instanceof Error ? error.message : String(error)
-                    });
                 }
             }
 
-            logDebug(`[AddConnectorTool] Results: ${JSON.stringify(results)}`);
+            // Process inbound endpoints if any
+            if (inbound_endpoint_names.length > 0) {
+                // Fetch inbound endpoint store data
+                const inboundStoreUrl = process.env.MI_CONNECTOR_STORE_BACKEND_INBOUND_ENDPOINTS;
+                if (!inboundStoreUrl) {
+                    logError(`[${toolName}] MI_CONNECTOR_STORE_BACKEND_INBOUND_ENDPOINTS environment variable not set`);
+                    inbound_endpoint_names.forEach(name => {
+                        results.push({ name, type: 'inbound', success: false, error: 'Inbound endpoint store URL not configured' });
+                    });
+                } else {
+                    const inboundStoreResponse = await fetch(
+                        inboundStoreUrl.replace('${version}', runtimeVersion ?? '')
+                    );
+
+                    if (!inboundStoreResponse.ok) {
+                        const errorMsg = `Failed to fetch inbound endpoint store: ${inboundStoreResponse.status} ${inboundStoreResponse.statusText}`;
+                        logError(`[${toolName}] ${errorMsg}`);
+                        inbound_endpoint_names.forEach(name => {
+                            results.push({ name, type: 'inbound', success: false, error: errorMsg });
+                        });
+                    } else {
+                        const inboundStoreData = await inboundStoreResponse.json();
+
+                        if (!Array.isArray(inboundStoreData)) {
+                            logError(`[${toolName}] Inbound endpoint store API did not return an array`, inboundStoreData);
+                            inbound_endpoint_names.forEach(name => {
+                                results.push({ name, type: 'inbound', success: false, error: 'Invalid response from inbound endpoint store API' });
+                            });
+                        } else {
+                            logDebug(`[${toolName}] Fetched ${inboundStoreData.length} inbound endpoints from store`);
+
+                            // Process each inbound endpoint
+                            for (const inboundName of inbound_endpoint_names) {
+                                const result = await processItem(
+                                    inboundName,
+                                    'inbound',
+                                    inboundStoreData,
+                                    existingDependencies,
+                                    miVisualizerRpcManager,
+                                    isAdd,
+                                    operation,
+                                    toolName
+                                );
+                                results.push(result);
+                            }
+                        }
+                    }
+                }
+            }
+
+            logDebug(`[${toolName}] Results: ${JSON.stringify(results)}`);
 
             // Update connector dependencies (refresh connector list)
             try {
                 await miVisualizerRpcManager.updateConnectorDependencies();
-                logDebug('[AddConnectorTool] Connector dependencies updated');
+                logDebug(`[${toolName}] Connector dependencies updated`);
             } catch (updateError) {
-                logError('[AddConnectorTool] Failed to update connector dependencies', updateError);
+                logError(`[${toolName}] Failed to update connector dependencies`, updateError);
             }
 
-            // Reload dependencies after adding connectors
+            // Reload dependencies after operation
             try {
                 await miVisualizerRpcManager.reloadDependencies();
-                logDebug('[AddConnectorTool] Dependencies reloaded successfully');
+                logDebug(`[${toolName}] Dependencies reloaded successfully`);
             } catch (error) {
-                logDebug(`[AddConnectorTool] Warning: Failed to reload dependencies: ${error instanceof Error ? error.message : String(error)}`);
+                logDebug(`[${toolName}] Warning: Failed to reload dependencies: ${error instanceof Error ? error.message : String(error)}`);
             }
 
             // Build response message
             const successful = results.filter(r => r.success);
-            const alreadyAdded = results.filter(r => r.success && r.alreadyAdded);
-            const newlyAdded = results.filter(r => r.success && !r.alreadyAdded);
             const failed = results.filter(r => !r.success);
 
             let message = '';
-            if (newlyAdded.length > 0) {
-                message += `Successfully added ${newlyAdded.length} connector(s):\n`;
-                newlyAdded.forEach(r => {
-                    message += `  ✓ ${r.name}\n`;
-                });
-            }
 
-            if (alreadyAdded.length > 0) {
-                if (message) message += '\n';
-                message += `${alreadyAdded.length} connector(s) already present in project:\n`;
-                alreadyAdded.forEach(r => {
-                    message += `  ✓ ${r.name} (already added)\n`;
-                });
+            if (isAdd) {
+                const alreadyAdded = results.filter(r => r.success && r.alreadyAdded);
+                const newlyAdded = results.filter(r => r.success && !r.alreadyAdded);
+
+                if (newlyAdded.length > 0) {
+                    message += `Successfully added ${newlyAdded.length} item(s):\n`;
+                    newlyAdded.forEach(r => {
+                        message += `  - ${r.name} (${r.type})\n`;
+                    });
+                }
+
+                if (alreadyAdded.length > 0) {
+                    if (message) message += '\n';
+                    message += `${alreadyAdded.length} item(s) already present in project:\n`;
+                    alreadyAdded.forEach(r => {
+                        message += `  - ${r.name} (${r.type}, already added)\n`;
+                    });
+                }
+
+                logDebug(`[${toolName}] Completed: ${newlyAdded.length} added, ${alreadyAdded.length} already present, ${failed.length} failed`);
+            } else {
+                if (successful.length > 0) {
+                    message += `Successfully removed ${successful.length} item(s):\n`;
+                    successful.forEach(r => {
+                        message += `  - ${r.name} (${r.type})\n`;
+                    });
+                }
+
+                logDebug(`[${toolName}] Removed ${successful.length}/${connector_names.length + inbound_endpoint_names.length} items`);
             }
 
             if (failed.length > 0) {
                 if (message) message += '\n';
-                message += `Failed to add ${failed.length} connector(s):\n`;
+                message += `Failed to ${operation} ${failed.length} item(s):\n`;
                 failed.forEach(r => {
-                    message += `  ✗ ${r.name}: ${r.error}\n`;
+                    message += `  - ${r.name} (${r.type}): ${r.error}\n`;
                 });
             }
-
-            logDebug(`[AddConnectorTool] Completed: ${newlyAdded.length} added, ${alreadyAdded.length} already present, ${failed.length} failed`);
 
             return {
                 success: successful.length > 0,
                 message: message.trim()
             };
         } catch (error) {
-            logError(`[AddConnectorTool] Error adding connectors: ${error instanceof Error ? error.message : String(error)}`);
+            logError(`[${toolName}] Error ${isAdd ? 'adding' : 'removing'} items: ${error instanceof Error ? error.message : String(error)}`);
             return {
                 success: false,
-                message: 'Failed to add connectors',
+                message: `Failed to ${operation} connectors/inbound endpoints`,
                 error: error instanceof Error ? error.message : String(error)
             };
         }
@@ -240,161 +251,86 @@ export function createAddConnectorExecute(projectPath: string): AddConnectorExec
 }
 
 /**
- * Creates the execute function for remove_connector tool
+ * Helper function to process a single connector or inbound endpoint
  */
-export function createRemoveConnectorExecute(projectPath: string): RemoveConnectorExecuteFn {
-    return async (args: { connector_names: string[] }): Promise<ToolResult> => {
-        const { connector_names } = args;
+async function processItem(
+    itemName: string,
+    itemType: 'connector' | 'inbound',
+    storeData: any[],
+    existingDependencies: any,
+    miVisualizerRpcManager: MiVisualizerRpcManager,
+    isAdd: boolean,
+    operation: 'add' | 'remove',
+    toolName: string
+): Promise<{ name: string; type: 'connector' | 'inbound'; success: boolean; alreadyAdded?: boolean; error?: string }> {
+    try {
+        // Match by connectorName field (case-insensitive)
+        const item = storeData.find(
+            (c: any) => c.connectorName?.toLowerCase() === itemName.toLowerCase()
+        );
 
-        logDebug(`[RemoveConnectorTool] Removing ${connector_names.length} connector(s): ${connector_names.join(', ')}`);
-
-        if (connector_names.length === 0) {
+        if (!item) {
             return {
+                name: itemName,
+                type: itemType,
                 success: false,
-                message: 'At least one connector name must be provided.',
-                error: 'Error: No connector names provided'
+                error: `${itemType === 'connector' ? 'Connector' : 'Inbound endpoint'} not found in store`
             };
         }
 
-        try {
-            const miVisualizerRpcManager = new MiVisualizerRpcManager(projectPath);
-
-            // Get MI runtime version from pom.xml
-            const runtimeVersion = await getMIVersionFromPom(projectPath);
-            logDebug(`[RemoveConnectorTool] Runtime version: ${runtimeVersion}`);
-
-            // Fetch connector store data
-            const connectorStoreResponse = await fetch(
-                APIS.MI_CONNECTOR_STORE_BACKEND.replace('${version}', runtimeVersion ?? '')
+        // For add operation, check if item is already in pom.xml
+        if (isAdd) {
+            const alreadyExists = existingDependencies.connectorDependencies?.some(
+                (existingDep: any) =>
+                    existingDep.groupId === item.mavenGroupId &&
+                    existingDep.artifact === item.mavenArtifactId
             );
 
-            if (!connectorStoreResponse.ok) {
-                const errorMsg = `Failed to fetch connector store: ${connectorStoreResponse.status} ${connectorStoreResponse.statusText}`;
-                logError(`[RemoveConnectorTool] ${errorMsg}`);
+            if (alreadyExists) {
+                logDebug(`[${toolName}] ${itemType} ${itemName} already exists in pom.xml`);
                 return {
-                    success: false,
-                    message: errorMsg
+                    name: itemName,
+                    type: itemType,
+                    success: true,
+                    alreadyAdded: true
                 };
             }
+        }
 
-            const connectorStoreData = await connectorStoreResponse.json();
+        // Prepare dependency details
+        const dependencies: DependencyDetails[] = [{
+            groupId: item.mavenGroupId,
+            artifact: item.mavenArtifactId,
+            version: item.version?.tagName,
+            type: "zip"
+        }];
 
-            // Validate that response is an array
-            if (!Array.isArray(connectorStoreData)) {
-                logError('[RemoveConnectorTool] Connector store API did not return an array', connectorStoreData);
-                return {
-                    success: false,
-                    message: 'Invalid response from connector store API'
-                };
-            }
+        logDebug(`[${toolName}] ${isAdd ? 'Adding' : 'Removing'} ${itemType}: ${itemName} (${item.mavenArtifactId}:${item.version?.tagName})`);
 
-            logDebug(`[RemoveConnectorTool] Fetched ${connectorStoreData.length} connectors from store`);
+        // Update pom.xml
+        const response = await miVisualizerRpcManager.updateAiDependencies({
+            dependencies,
+            operation: operation
+        });
 
-            const results: Array<{ name: string; success: boolean; error?: string }> = [];
-
-            // Remove each connector
-            for (const connectorName of connector_names) {
-                try {
-                    // Match by connectorName field (case-insensitive)
-                    const connector = connectorStoreData.find(
-                        (c: any) => c.connectorName?.toLowerCase() === connectorName.toLowerCase()
-                    );
-
-                    if (!connector) {
-                        results.push({
-                            name: connectorName,
-                            success: false,
-                            error: 'Connector not found in connector store'
-                        });
-                        continue;
-                    }
-
-                    // Prepare dependency details
-                    const dependencies: DependencyDetails[] = [{
-                        groupId: connector.mavenGroupId,
-                        artifact: connector.mavenArtifactId,
-                        version: connector.version?.tagName,
-                        type: "zip"
-                    }];
-
-                    logDebug(`[RemoveConnectorTool] Removing connector: ${connectorName} (${connector.mavenArtifactId}:${connector.version?.tagName})`);
-
-                    // Remove dependency from pom.xml
-                    const response = await miVisualizerRpcManager.updateAiDependencies({
-                        dependencies,
-                        operation: 'remove'
-                    });
-
-                    if (response) {
-                        results.push({ name: connectorName, success: true });
-                    } else {
-                        results.push({
-                            name: connectorName,
-                            success: false,
-                            error: 'Failed to update pom.xml'
-                        });
-                    }
-                } catch (error) {
-                    results.push({
-                        name: connectorName,
-                        success: false,
-                        error: error instanceof Error ? error.message : String(error)
-                    });
-                }
-            }
-
-            logDebug(`[RemoveConnectorTool] Results: ${JSON.stringify(results)}`);
-
-            // Update connector dependencies (refresh connector list)
-            try {
-                await miVisualizerRpcManager.updateConnectorDependencies();
-                logDebug('[RemoveConnectorTool] Connector dependencies updated');
-            } catch (updateError) {
-                logError('[RemoveConnectorTool] Failed to update connector dependencies', updateError);
-            }
-
-            // Reload dependencies after removing connectors
-            try {
-                await miVisualizerRpcManager.reloadDependencies();
-                logDebug('[RemoveConnectorTool] Dependencies reloaded successfully');
-            } catch (error) {
-                logDebug(`[RemoveConnectorTool] Warning: Failed to reload dependencies: ${error instanceof Error ? error.message : String(error)}`);
-            }
-
-            // Build response message
-            const successful = results.filter(r => r.success);
-            const failed = results.filter(r => !r.success);
-
-            let message = '';
-            if (successful.length > 0) {
-                message += `Successfully removed ${successful.length} connector(s):\n`;
-                successful.forEach(r => {
-                    message += `  ✓ ${r.name}\n`;
-                });
-            }
-
-            if (failed.length > 0) {
-                message += `\nFailed to remove ${failed.length} connector(s):\n`;
-                failed.forEach(r => {
-                    message += `  ✗ ${r.name}: ${r.error}\n`;
-                });
-            }
-
-            logDebug(`[RemoveConnectorTool] Removed ${successful.length}/${connector_names.length} connectors`);
-
+        if (response) {
+            return { name: itemName, type: itemType, success: true };
+        } else {
             return {
-                success: successful.length > 0,
-                message: message.trim()
-            };
-        } catch (error) {
-            logError(`[RemoveConnectorTool] Error removing connectors: ${error instanceof Error ? error.message : String(error)}`);
-            return {
+                name: itemName,
+                type: itemType,
                 success: false,
-                message: 'Failed to remove connectors',
-                error: error instanceof Error ? error.message : String(error)
+                error: 'Failed to update pom.xml'
             };
         }
-    };
+    } catch (error) {
+        return {
+            name: itemName,
+            type: itemType,
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+        };
+    }
 }
 
 
@@ -402,85 +338,46 @@ export function createRemoveConnectorExecute(projectPath: string): RemoveConnect
 // Tool Definitions (Vercel AI SDK format)
 // ============================================================================
 
-const addConnectorInputSchema = z.object({
+const manageConnectorInputSchema = z.object({
+    operation: z.enum(['add', 'remove'])
+        .describe('Operation to perform: "add" to add items, "remove" to remove them'),
     connector_names: z.array(z.string())
-        .min(1)
-        .describe('Array of connector names to add to the project (e.g., ["AI", "Salesforce", "Gmail"])'),
-});
-
-const removeConnectorInputSchema = z.object({
-    connector_names: z.array(z.string())
-        .min(1)
-        .describe('Array of connector names to remove from the project (e.g., ["AI", "Salesforce"])'),
+        .optional()
+        .describe('Array of connector names (e.g., ["AI", "Salesforce", "Gmail"])'),
+    inbound_endpoint_names: z.array(z.string())
+        .optional()
+        .describe('Array of inbound endpoint names (e.g., ["KAFKA", "RabbitMQ", "JMS"])'),
 });
 
 /**
- * Creates the add_connector tool
+ * Creates the manage_connector tool (unified add/remove for connectors and inbound endpoints)
  */
-export function createAddConnectorTool(execute: AddConnectorExecuteFn) {
+export function createManageConnectorTool(execute: ManageConnectorExecuteFn) {
     return (tool as any)({
         description: `
-            Adds MI connectors or inbound endpoints to the project.
+            Manages MI connector and inbound endpoint dependencies in the project (add or remove).
 
-            This tool:
-            - Fetches connector metadata from the MI Connector Store
-            - Adds connector dependencies to pom.xml
-            - Updates project configuration
-            - Reloads dependencies to ensure connectors are available
+            Operations:
+            - add: Adds connector/inbound endpoint dependencies to pom.xml
+            - remove: Removes connector/inbound endpoint dependencies from pom.xml
 
             Usage:
-            - Use this tool when you need to add connectors that are referenced in Synapse configurations
-            - The connector must exist in the available connectors list
-            - Common connectors: AI, Salesforce, Gmail, File, HTTP, SOAP, etc.
-
-            When to use:
-            - After writing Synapse XML that uses connector operations (e.g., <salesforce.query>)
-            - Before validating code that references connectors
-            - When the user explicitly requests to add a connector
+            - Use 'add' when Synapse configs reference connector operations (e.g., <salesforce.query>) or inbound endpoints
+            - Use 'remove' to clean up unused connectors and inbound endpoints
+            - You can add/remove both connectors and inbound endpoints in a single call
 
             Important:
-            - Connector names should match the available connectors list (see <AVAILABLE_CONNECTORS>)
-            - The tool automatically handles Maven dependency resolution
-            - Dependencies are reloaded after adding connectors
+            - Connector names should match available connectors (see <AVAILABLE_CONNECTORS>)
+            - Inbound endpoint names should match available inbound endpoints (see <AVAILABLE_INBOUND_ENDPOINTS>)
+            - At least one of connector_names or inbound_endpoint_names must be provided
+            - Dependencies are automatically reloaded after changes
 
-            Example:
-            - To add AI and Salesforce connectors: connector_names: ["AI", "Salesforce"]`,
-        inputSchema: addConnectorInputSchema,
+            Examples:
+            - Add connectors: { operation: "add", connector_names: ["AI", "Salesforce"] }
+            - Add inbound endpoint: { operation: "add", inbound_endpoint_names: ["KAFKA"] }
+            - Add both: { operation: "add", connector_names: ["AI"], inbound_endpoint_names: ["KAFKA"] }
+            - Remove: { operation: "remove", connector_names: ["AI"] }`,
+        inputSchema: manageConnectorInputSchema,
         execute
     });
 }
-
-/**
- * Creates the remove_connector tool
- */
-export function createRemoveConnectorTool(execute: RemoveConnectorExecuteFn) {
-    return (tool as any)({
-        description: `
-            Removes MI connectors or inbound endpoints from the project.
-
-            This tool:
-            - Removes connector dependencies from pom.xml
-            - Updates project configuration
-            - Reloads dependencies to reflect changes
-
-            Usage:
-            - Use this tool to clean up unused connectors
-            - Helps reduce project size and dependency conflicts
-
-            When to use:
-            - When removing Synapse configurations that use specific connectors
-            - When the user explicitly requests to remove a connector
-            - During project cleanup
-
-            Important:
-            - Only removes connectors that are currently in the project
-            - Dependencies are reloaded after removing connectors
-            - Removing a connector will cause validation errors if it's still used in Synapse configs
-
-            Example:
-            - To remove AI connector: connector_names: ["AI"]`,
-        inputSchema: removeConnectorInputSchema,
-        execute
-    });
-}
-

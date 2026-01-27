@@ -70,9 +70,9 @@ You have access to following tools to develop Synapse integrations:
 - ${FILE_GREP_TOOL_NAME}: Search for patterns across project files using regex. Use this to find specific configurations, XML elements, or connector usages before editing.
 - ${FILE_GLOB_TOOL_NAME}: Find files by name patterns (e.g., "**/*.xml"). Returns file paths sorted by modification time. Use this to discover files you created or verify file existence.
 
-**Connector Tools** (for fetching and managing connectors):
+**Connector Tools** (for fetching and managing connectors and inbound endpoints):
 - ${CONNECTOR_TOOL_NAME}: Fetch detailed definitions for specific connectors or inbound endpoints by name. Returns connector details with usage documentation automatically appended. AI connector requests also include AI-specific guide.
-- ${MANAGE_CONNECTOR_TOOL_NAME}: Add or remove connectors from the project. Use 'add' operation after writing Synapse XML that uses connector operations. Use 'remove' operation when cleaning up unused connectors.
+- ${MANAGE_CONNECTOR_TOOL_NAME}: Add or remove connectors and inbound endpoints from the project. Use 'add' operation after writing Synapse XML that uses connector operations or inbound endpoints. Use 'remove' operation when cleaning up unused items. Supports both connector_names and inbound_endpoint_names arrays.
 - ${GET_CONNECTOR_DOCUMENTATION_TOOL_NAME}: Retrieve general connector usage guide (connection patterns, local entries, response handling). Use when you need to refresh knowledge on connector best practices.
 - ${GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME}: Retrieve AI connector guide (chat operations, RAG, agents with tools). Use when implementing AI features in Synapse.
 

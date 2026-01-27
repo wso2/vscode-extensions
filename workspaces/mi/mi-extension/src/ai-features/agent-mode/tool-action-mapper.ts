@@ -76,23 +76,26 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
             return { loading: 'retrieving documentation', completed: 'retrieved', failed: 'failed to retrieve' };
 
         case MANAGE_CONNECTOR_TOOL_NAME:
-            // Extract operation and connector names from tool input
+            // Extract operation, connector names, and inbound endpoint names from tool input
             const operation = toolInput?.operation || 'managing';
             const isAdding = operation === 'add';
-            if (toolInput?.connector_names && Array.isArray(toolInput.connector_names)) {
-                const names = toolInput.connector_names;
-                const connectorList = names.length === 1
-                    ? names[0]
-                    : names.length === 2
-                        ? `${names[0]} and ${names[1]}`
-                        : `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+            const connectorNames = toolInput?.connector_names || [];
+            const inboundNames = toolInput?.inbound_endpoint_names || [];
+            const allNames = [...connectorNames, ...inboundNames];
+            
+            if (allNames.length > 0) {
+                const itemList = allNames.length === 1
+                    ? allNames[0]
+                    : allNames.length === 2
+                        ? `${allNames[0]} and ${allNames[1]}`
+                        : `${allNames.slice(0, -1).join(', ')}, and ${allNames[allNames.length - 1]}`;
                 return isAdding
-                    ? { loading: `adding ${connectorList}`, completed: `added ${connectorList}`, failed: `failed to add ${connectorList}` }
-                    : { loading: `removing ${connectorList}`, completed: `removed ${connectorList}`, failed: `failed to remove ${connectorList}` };
+                    ? { loading: `adding ${itemList}`, completed: `added ${itemList}`, failed: `failed to add ${itemList}` }
+                    : { loading: `removing ${itemList}`, completed: `removed ${itemList}`, failed: `failed to remove ${itemList}` };
             }
             return isAdding
-                ? { loading: 'adding connector', completed: 'added connector', failed: 'failed to add connector' }
-                : { loading: 'removing connector', completed: 'removed connector', failed: 'failed to remove connector' };
+                ? { loading: 'adding dependency', completed: 'added dependency', failed: 'failed to add dependency' }
+                : { loading: 'removing dependency', completed: 'removed dependency', failed: 'failed to remove dependency' };
 
         case VALIDATE_CODE_TOOL_NAME:
             return { loading: 'validating', completed: 'validated', failed: 'validation failed' };
