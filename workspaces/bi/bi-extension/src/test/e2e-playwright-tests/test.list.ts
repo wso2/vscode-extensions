@@ -17,7 +17,7 @@
  */
 
 import { test } from '@playwright/test';
-import { page, extensionsFolder } from './utils/helpers';
+import { page, extensionsFolder, newProjectPath } from './utils/helpers';
 import { downloadExtensionFromMarketplace } from '@wso2/playwright-vscode-tester';
 const fs = require('fs');
 const path = require('path');
@@ -129,5 +129,19 @@ test.afterAll(async () => {
     console.log('💾 Saving test video...');
     await page.page?.close();
     page.page.video()?.saveAs(path.join(videosFolder, `test_${dateTime}.webm`));
-    console.log('✅ Video saved successfully\n');
+    console.log('✅ Video saved successfully');
+
+    // Clean up the test project directory
+    console.log('🧹 Cleaning up test project...');
+    if (fs.existsSync(newProjectPath)) {
+        try {
+            fs.rmSync(newProjectPath, { recursive: true, force: true });
+            console.log('✅ Test project cleaned up successfully\n');
+        } catch (error) {
+            console.error('❌ Failed to clean up test project:', error);
+            console.log('⚠️  Test project cleanup failed, but continuing...\n');
+        }
+    } else {
+        console.log('ℹ️  Test project directory does not exist, skipping cleanup\n');
+    }
 });
