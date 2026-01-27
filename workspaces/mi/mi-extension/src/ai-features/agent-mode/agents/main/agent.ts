@@ -436,6 +436,7 @@ export async function executeAgent(
                         displayInput = {
                             operation: toolInput?.operation,
                             connector_names: toolInput?.connector_names,
+                            inbound_endpoint_names: toolInput?.inbound_endpoint_names,
                         };
                     } else if (part.toolName === VALIDATE_CODE_TOOL_NAME) {
                         displayInput = {
