@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/arazzo/lsp/codelens"
 	"github.com/arazzo/lsp/completion"
 	"github.com/arazzo/lsp/diagnostics"
+	"github.com/arazzo/lsp/navigation"
 	"github.com/arazzo/lsp/utils"
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
@@ -23,15 +25,22 @@ type Server struct {
 	completionProvider  *completion.CompletionProvider
 	documents           map[protocol.DocumentURI]string // Store document contents
 	shutdownRequested   bool                            // Track if shutdown was requested
+	operationIndex      *navigation.OperationIndex      // Index of OpenAPI operations
+	indexer             *navigation.Indexer             // Operation indexer
 }
 
 // NewServer creates a new LSP server
 func NewServer() *Server {
+	operationIndex := navigation.NewOperationIndex()
+	indexer := navigation.NewIndexer(operationIndex)
+
 	return &Server{
 		diagnosticsProvider: diagnostics.NewDiagnosticsProvider(),
 		codeLensProvider:    codelens.NewCodeLensProvider(),
 		completionProvider:  completion.NewCompletionProvider(),
 		documents:           make(map[protocol.DocumentURI]string),
+		operationIndex:      operationIndex,
+		indexer:             indexer,
 	}
 }
 
@@ -48,6 +57,8 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 					IncludeText: true,
 				},
 			},
+			DefinitionProvider: true, // Enable Go to Definition
+			HoverProvider:      true, // Enable Hover information
 			CodeLensProvider: &protocol.CodeLensOptions{
 				ResolveProvider: false,
 			},
@@ -115,10 +126,38 @@ func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocume
 	// Store document content
 	s.documents[uri] = content
 
+	// Build operation index for Arazzo files (async, don't block)
+	go func() {
+		if s.isArazzoFile(string(uri)) {
+			utils.LogInfo("Building operation index for Arazzo file...")
+			err := s.indexer.BuildIndex(string(uri))
+			if err != nil {
+				utils.LogError("Failed to build operation index: %v", err)
+			} else {
+				utils.LogInfo("Operation index built successfully with %d operations", s.operationIndex.Count())
+			}
+		}
+	}()
+
 	// Provide diagnostics
 	s.provideDiagnostics(ctx, uri, content)
 
 	return nil
+}
+
+// isArazzoFile checks if the file is an Arazzo specification
+func (s *Server) isArazzoFile(uri string) bool {
+	// Check file extension
+	if strings.Contains(uri, ".arazzo.") {
+		return true
+	}
+
+	// Check content (if document is loaded)
+	if content, ok := s.documents[protocol.DocumentURI(uri)]; ok {
+		return strings.Contains(content, "arazzo:")
+	}
+
+	return false
 }
 
 // DidChange handles the textDocument/didChange notification
@@ -166,7 +205,39 @@ func (s *Server) DidSave(ctx context.Context, params *protocol.DidSaveTextDocume
 		s.provideDiagnostics(ctx, uri, content)
 	}
 
+	// File watching: Re-index OpenAPI files when they are saved
+	go func() {
+		if s.isOpenAPIFile(string(uri)) {
+			utils.LogInfo("OpenAPI file saved, re-indexing: %s", uri)
+			err := s.indexer.ReindexFile(string(uri))
+			if err != nil {
+				utils.LogError("Failed to re-index OpenAPI file: %v", err)
+			} else {
+				utils.LogInfo("OpenAPI file re-indexed successfully: %s", uri)
+			}
+		}
+	}()
+
 	return nil
+}
+
+// isOpenAPIFile checks if the file is an OpenAPI specification
+func (s *Server) isOpenAPIFile(uri string) bool {
+	// Check if it's already indexed
+	if s.operationIndex != nil {
+		// Check if file is in the index
+		files := s.operationIndex.Files
+		if _, exists := files[uri]; exists {
+			return true
+		}
+	}
+
+	// Check content (if document is loaded)
+	if content, ok := s.documents[protocol.DocumentURI(uri)]; ok {
+		return strings.Contains(content, "openapi:") || strings.Contains(content, `"openapi"`)
+	}
+
+	return false
 }
 
 // DidClose handles the textDocument/didClose notification
@@ -359,6 +430,20 @@ func (s *Server) Handle(ctx context.Context, conn jsonrpc2.Conn, req jsonrpc2.Re
 			return nil, fmt.Errorf("failed to unmarshal completion params: %w", err)
 		}
 		return s.Completion(ctx, &params)
+
+	case protocol.MethodTextDocumentHover:
+		var params protocol.HoverParams
+		if err := json.Unmarshal(req.Params(), &params); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal hover params: %w", err)
+		}
+		return s.Hover(ctx, &params)
+
+	case protocol.MethodTextDocumentDefinition:
+		var params protocol.DefinitionParams
+		if err := json.Unmarshal(req.Params(), &params); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal definition params: %w", err)
+		}
+		return s.Definition(ctx, &params)
 
 	default:
 		utils.LogWarning(">>> Unhandled LSP method: %s", method)
