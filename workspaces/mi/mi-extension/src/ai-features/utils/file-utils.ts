@@ -116,30 +116,41 @@ function shouldIgnoreFile(filePath: string, patterns: string[]): boolean {
     const normalizedPath = filePath.replace(/\\/g, '/');
 
     for (const pattern of patterns) {
-        const normalizedPattern = pattern.replace(/\\/g, '/');
-
-        // Convert glob pattern to regex
-        let regexPattern = normalizedPattern
-            .replace(/\./g, '\\.') // Escape dots
-            .replace(/\*\*/g, '§§') // Placeholder for **
-            .replace(/\*/g, '[^/]*') // * matches anything except /
-            .replace(/§§/g, '.*'); // ** matches anything including /
-
-        // Add anchors
-        if (!regexPattern.startsWith('.*')) {
-            regexPattern = '^' + regexPattern;
-        }
-        if (!regexPattern.endsWith('.*')) {
-            regexPattern = regexPattern + '$';
-        }
-
-        const regex = new RegExp(regexPattern);
-        if (regex.test(normalizedPath)) {
+        if (matchesPattern(normalizedPath, pattern)) {
             return true;
         }
     }
 
     return false;
+}
+
+/**
+ * Checks if a file path matches a glob pattern
+ * Supports simple glob patterns with * and **
+ * @param filePath - File path to check (normalized with forward slashes)
+ * @param pattern - Pattern to match against (e.g., "*.log", "**\/temp\/**", "pom.xml")
+ * @returns true if the file matches the pattern
+ */
+function matchesPattern(filePath: string, pattern: string): boolean {
+    const normalizedPattern = pattern.replace(/\\/g, '/');
+
+    // Convert glob pattern to regex
+    let regexPattern = normalizedPattern
+        .replace(/\./g, '\\.') // Escape dots
+        .replace(/\*\*/g, '§§') // Placeholder for **
+        .replace(/\*/g, '[^/]*') // * matches anything except /
+        .replace(/§§/g, '.*'); // ** matches anything including /
+
+    // Add anchors
+    if (!regexPattern.startsWith('.*')) {
+        regexPattern = '^' + regexPattern;
+    }
+    if (!regexPattern.endsWith('.*')) {
+        regexPattern = regexPattern + '$';
+    }
+
+    const regex = new RegExp(regexPattern);
+    return regex.test(filePath);
 }
 
 /**
@@ -156,12 +167,41 @@ function shouldIgnoreFile(filePath: string, patterns: string[]): boolean {
  * ```
  *
  * @param files - Array of relative file paths
- * @param ignorePatterns - Optional array of patterns to ignore (supports glob patterns like "*.log", "**\/temp\/**")
+ * @param ignorePatterns - Optional array of patterns to ignore (supports glob patterns like "*.log", "**\/*.jar")
+ * @param allowedRootItems - Optional array of root-level items to allow (e.g., ["src", "deployment", "pom.xml"])
+ *                          - Folders should NOT have trailing slashes (e.g., "src" not "src/")
+ *                          - Files should include extension (e.g., "pom.xml")
+ *                          - If empty, all root-level items are allowed
  * @returns Formatted tree structure as a string
  */
-export function formatFileTree(files: string[], ignorePatterns: string[] = []): string {
-    // Filter out ignored files
-    const filteredFiles = files.filter(file => !shouldIgnoreFile(file, ignorePatterns));
+export function formatFileTree(
+    files: string[], 
+    ignorePatterns: string[] = [],
+    allowedRootItems: string[] = []
+): string {
+    let filteredFiles = files;
+    
+    // Step 1: Root-level filtering (if specified)
+    // Only allow files/folders that match allowed root items
+    if (allowedRootItems.length > 0) {
+        filteredFiles = files.filter(file => {
+            const normalizedPath = file.replace(/\\/g, '/');
+            
+            // Get the root-level component (first part of the path)
+            const rootComponent = normalizedPath.split('/')[0];
+            
+            // For root-level files (no slashes), check exact match
+            if (!normalizedPath.includes('/')) {
+                return allowedRootItems.includes(rootComponent);
+            }
+            
+            // For nested files, check if their root folder is allowed
+            return allowedRootItems.includes(rootComponent);
+        });
+    }
+    
+    // Step 2: Apply ignore patterns (works on nested files within allowed folders)
+    filteredFiles = filteredFiles.filter(file => !shouldIgnoreFile(file, ignorePatterns));
 
     if (filteredFiles.length === 0) {
         return 'Empty project - no files';
