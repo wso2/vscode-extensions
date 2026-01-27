@@ -16,9 +16,15 @@
  * under the License.
  */
 
-import { InputMode } from "@wso2/ballerina-side-panel";
+import path from "path";
+import { newProjectPath } from "./setup";
+import fs from "fs";
 
-// Wraps a value in template interpolation syntax ${} if in template mode
-export const wrapInTemplateInterpolation = (value: string, inputMode: InputMode): string => {
-    return (inputMode === InputMode.PROMPT || inputMode === InputMode.TEMPLATE) ? `\${${value}}` : value;
-};
+type FileType = 'agents.bal' | 'config.bal' | 'connections.bal' | 'data_mappings.bal' | 'functions.bal' | 'main.bal' | 'types.bal' | 'automation.bal';
+
+export namespace FileUtils {
+    export function updateProjectFile(fileName: FileType, content: string) {
+        const filePath = path.join(newProjectPath, 'sample', fileName);
+        fs.writeFileSync(filePath, content);
+    }
+}

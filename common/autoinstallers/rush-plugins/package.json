@@ -2,6 +2,11 @@
   "name": "rush-plugins",
   "version": "1.0.0",
   "private": true,
+  "pnpm": {
+    "overrides": {
+      "undici": "^7.18.2"
+    }
+  },
   "dependencies": {
     "@gigara/rush-github-action-build-cache-plugin": "^1.1.1"
   }
