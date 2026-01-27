@@ -33,6 +33,7 @@ import { Role, MessageType, ChatMessage, CopilotChatEntry } from "@wso2/mi-core"
 import Attachments from "./Attachments";
 import FeedbackBar from "./FeedbackBar";
 import ToolCallSegment from "./ToolCallSegment";
+import TodoListSegment from "./TodoListSegment";
 
 // Markdown renderer component
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ markdownContent }) => {
@@ -145,6 +146,14 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
                     return <CodeSegment key={i} segmentText={segment.text} loading={segment.loading} index={index} />;
                 } else if (segment.isToolCall) {
                     return <ToolCallSegment key={i} text={segment.text} loading={segment.loading} failed={segment.failed || false} />;
+                } else if (segment.isTodoList) {
+                    try {
+                        const todoData = JSON.parse(segment.text);
+                        return <TodoListSegment key={i} items={todoData.items} status={todoData.status} />;
+                    } catch (e) {
+                        console.error("Failed to parse todolist JSON:", e);
+                        return null;
+                    }
                 } else if (message.type === "Error") {
                     return (
                         <div style={{ color: "red", marginTop: "10px" }} key={i}>

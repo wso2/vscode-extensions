@@ -16,8 +16,24 @@
  * under the License.
  */
 
-import { ChatMessage, Role, MessageType, AgentEvent, ChatHistoryEvent } from "@wso2/mi-core";
+import { ChatMessage, Role, MessageType, AgentEvent, ChatHistoryEvent, TodoItem } from "@wso2/mi-core";
 import { generateId } from "../utils";
+
+// Tool name constant for todo_write tool
+const TODO_WRITE_TOOL_NAME = 'todo_write';
+
+/**
+ * Calculate overall status from todo items
+ */
+function calculateTodoStatus(todos: TodoItem[]): 'active' | 'completed' | 'pending' {
+    if (todos.some(t => t.status === 'in_progress')) {
+        return 'active';
+    }
+    if (todos.every(t => t.status === 'completed')) {
+        return 'completed';
+    }
+    return 'pending';
+}
 
 /**
  * Convert agent events (streaming or history) to UI messages
@@ -74,6 +90,40 @@ export function convertEventsToMessages(
                 break;
 
             case 'tool_call':
+                // Handle todo_write tool calls - generate inline todolist tag
+                if (event.toolName === TODO_WRITE_TOOL_NAME) {
+                    const todoInput = event.toolInput as { todos?: TodoItem[] };
+                    if (todoInput?.todos && todoInput.todos.length > 0) {
+                        // Calculate status and generate todolist tag
+                        const status = calculateTodoStatus(todoInput.todos);
+                        const todoData = {
+                            status,
+                            items: todoInput.todos
+                        };
+                        const todoTag = `\n\n<todolist>${JSON.stringify(todoData)}</todolist>`;
+
+                        // Ensure assistant message exists
+                        if (!currentAssistantMessage) {
+                            currentAssistantMessage = {
+                                id: generateId(),
+                                role: Role.MICopilot,
+                                content: '',
+                                type: MessageType.AssistantMessage
+                            };
+                        }
+
+                        // Check if message already has a todolist tag and replace it
+                        const todolistRegex = /<todolist>[\s\S]*?<\/todolist>/;
+                        if (todolistRegex.test(currentAssistantMessage.content)) {
+                            currentAssistantMessage.content = currentAssistantMessage.content.replace(todolistRegex, todoTag.trim());
+                        } else {
+                            currentAssistantMessage.content += todoTag;
+                        }
+                    }
+                    continue;
+                }
+
+
                 // Extract file path for display
                 const toolInput = event.toolInput as any;
                 const filePath = toolInput?.file_path || toolInput?.file_paths?.[0] || '';
@@ -106,6 +156,11 @@ export function convertEventsToMessages(
                 break;
 
             case 'tool_result':
+                // Skip todo_write tool results (handled by inline todo list in tool_call)
+                if ('toolName' in event && event.toolName === TODO_WRITE_TOOL_NAME) {
+                    continue;
+                }
+
                 if (pendingToolCall && currentAssistantMessage) {
                     // Get action from event (backend provides this)
                     const action = 'action' in event ? event.action : undefined;

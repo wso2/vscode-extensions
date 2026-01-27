@@ -25,10 +25,24 @@ import { USER_INPUT_PLACEHOLDER_MESSAGE, VALID_FILE_TYPES } from "../constants";
 import { generateId, updateTokenInfo } from "../utils";
 import { BackendRequestType } from "../types";
 import { Role, MessageType, CopilotChatEntry, AgentEvent } from "@wso2/mi-core";
+import { TodoItem } from "@wso2/mi-core/lib/rpc-types/agent-mode/types";
 import Attachments from "./Attachments";
 
 interface AIChatFooterProps {
     isUsageExceeded?: boolean;
+}
+
+/**
+ * Calculate overall status from todo items
+ */
+function calculateTodoStatus(todos: TodoItem[]): 'active' | 'completed' | 'pending' {
+    if (todos.some(t => t.status === 'in_progress')) {
+        return 'active';
+    }
+    if (todos.every(t => t.status === 'completed')) {
+        return 'completed';
+    }
+    return 'pending';
 }
 
 /**
@@ -262,6 +276,43 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         // Update todo list
                         if (planEvent.todos) {
                             setTodos(planEvent.todos);
+
+                            // Calculate overall status
+                            const status = calculateTodoStatus(planEvent.todos);
+
+                            // Create JSON payload for todolist tag
+                            const todoData = {
+                                status,
+                                items: planEvent.todos
+                            };
+                            const todoTag = `<todolist>${JSON.stringify(todoData)}</todolist>`;
+
+                            // Update or insert todolist in the last assistant message
+                            setMessages(prevMessages => {
+                                const newMessages = [...prevMessages];
+
+                                // Find the last assistant message
+                                for (let i = newMessages.length - 1; i >= 0; i--) {
+                                    if (newMessages[i].role === Role.MICopilot) {
+                                        const msg = newMessages[i];
+
+                                        // Check if message already has a todolist tag
+                                        const todolistRegex = /<todolist>[\s\S]*?<\/todolist>/;
+
+                                        if (todolistRegex.test(msg.content)) {
+                                            // Replace existing todolist
+                                            msg.content = msg.content.replace(todolistRegex, todoTag);
+                                        } else {
+                                            // Append todolist to message
+                                            msg.content = msg.content + '\n\n' + todoTag;
+                                        }
+
+                                        break;
+                                    }
+                                }
+
+                                return newMessages;
+                            });
                         }
                         break;
 
@@ -1164,70 +1215,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 </div>
             )}
 
-            {/* Todo Progress Panel - Claude Code style (in-memory only) */}
-            {todos.length > 0 && (
-                <div style={{
-                    padding: "8px 12px",
-                    marginBottom: "8px",
-                    backgroundColor: "var(--vscode-sideBar-background)",
-                    borderRadius: "6px",
-                    border: "1px solid var(--vscode-panel-border)",
-                    fontSize: "12px"
-                }}>
-                    <div style={{
-                        fontWeight: 500,
-                        marginBottom: "6px",
-                        color: "var(--vscode-foreground)",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px"
-                    }}>
-                        <span style={{ fontSize: "14px" }}>📋</span>
-                        <span>Tasks: {todos.filter(t => t.status === 'completed').length}/{todos.length}</span>
-                    </div>
-                    <div style={{ maxHeight: "120px", overflowY: "auto" }}>
-                        {todos.map((todo, index) => (
-                            <div key={index} style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                                padding: "4px 0",
-                                borderBottom: index < todos.length - 1 ? "1px solid var(--vscode-panel-border)" : "none"
-                            }}>
-                                <span style={{
-                                    width: "16px",
-                                    height: "16px",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    borderRadius: "50%",
-                                    fontSize: "10px",
-                                    backgroundColor: todo.status === 'completed'
-                                        ? "var(--vscode-testing-iconPassed)"
-                                        : todo.status === 'in_progress'
-                                        ? "var(--vscode-progressBar-background)"
-                                        : "var(--vscode-input-background)",
-                                    color: todo.status === 'completed' || todo.status === 'in_progress'
-                                        ? "var(--vscode-editor-background)"
-                                        : "var(--vscode-foreground)"
-                                }}>
-                                    {todo.status === 'completed' ? '✓' :
-                                     todo.status === 'in_progress' ? '●' : '○'}
-                                </span>
-                                <span style={{
-                                    flex: 1,
-                                    color: todo.status === 'completed'
-                                        ? "var(--vscode-descriptionForeground)"
-                                        : "var(--vscode-foreground)",
-                                    textDecoration: todo.status === 'completed' ? 'line-through' : 'none'
-                                }}>
-                                    {todo.status === 'in_progress' ? todo.activeForm : todo.content}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
 
             <FlexColumn
                 style={{

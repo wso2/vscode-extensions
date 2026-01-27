@@ -654,16 +654,17 @@ export function createTodoWriteExecute(
         const inProgress = todos.filter(t => t.status === 'in_progress').length;
         const pending = todos.filter(t => t.status === 'pending').length;
 
-        let summary = `Updated ${todos.length} task(s): `;
+        let summary = `Updated ${todos.length} todo(s): `;
         const parts: string[] = [];
         if (completed > 0) parts.push(`${completed} completed`);
         if (inProgress > 0) parts.push(`${inProgress} in progress`);
         if (pending > 0) parts.push(`${pending} pending`);
         summary += parts.join(', ');
+        const message = "Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable.\n" + summary;
 
         return {
             success: true,
-            message: summary
+            message: message
         };
     };
 }
