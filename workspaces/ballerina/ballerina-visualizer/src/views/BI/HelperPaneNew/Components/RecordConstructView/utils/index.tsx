@@ -47,7 +47,7 @@ export function getSelectedUnionMember(unionFields: FormField): FormField {
         );
     }
     if (!selectedMember && unionFields.members && unionFields.members.length > 0) {
-        selectedMember = unionFields.members[0];
+        selectedMember = unionFields.members.find((member) => member.defaultable === true) || unionFields.members[0];
     }
     return selectedMember;
 }
