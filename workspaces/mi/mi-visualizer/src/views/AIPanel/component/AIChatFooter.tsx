@@ -1077,23 +1077,54 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                             {pendingPlanApproval.content || "The plan is ready for your review."}
                         </div>
 
-                        {/* Plan file link */}
+                        {/* Plan file link - clickable to open in editor */}
                         {pendingPlanApproval.planFilePath && (
-                            <div style={{
-                                fontSize: "12px",
-                                marginBottom: "12px",
-                                padding: "8px 10px",
-                                backgroundColor: "var(--vscode-textBlockQuote-background)",
-                                borderRadius: "4px",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px"
-                            }}>
-                                <span style={{ opacity: 0.7 }}>📄</span>
-                                <span style={{ wordBreak: "break-all" }}>
-                                    {pendingPlanApproval.planFilePath}
+                            <button
+                                onClick={() => {
+                                    rpcClient.getMiDiagramRpcClient().openFile({
+                                        path: pendingPlanApproval.planFilePath!,
+                                        beside: true
+                                    });
+                                }}
+                                style={{
+                                    fontSize: "12px",
+                                    marginBottom: "12px",
+                                    padding: "8px 12px",
+                                    backgroundColor: "var(--vscode-textBlockQuote-background)",
+                                    border: "1px solid var(--vscode-widget-border, var(--vscode-panel-border))",
+                                    borderRadius: "4px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "8px",
+                                    cursor: "pointer",
+                                    width: "100%",
+                                    textAlign: "left",
+                                    transition: "background-color 0.15s ease"
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = "var(--vscode-list-hoverBackground)";
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = "var(--vscode-textBlockQuote-background)";
+                                }}
+                                title={`Click to open: ${pendingPlanApproval.planFilePath}`}
+                            >
+                                <span className="codicon codicon-file" style={{
+                                    fontSize: "14px",
+                                    color: "var(--vscode-symbolIcon-fileForeground, var(--vscode-foreground))"
+                                }} />
+                                <span style={{
+                                    color: "var(--vscode-textLink-foreground)",
+                                    textDecoration: "underline",
+                                    flex: 1
+                                }}>
+                                    {pendingPlanApproval.planFilePath.split('/').pop()}
                                 </span>
-                            </div>
+                                <span className="codicon codicon-link-external" style={{
+                                    fontSize: "12px",
+                                    opacity: 0.6
+                                }} />
+                            </button>
                         )}
 
                         {/* Rejection feedback input (shown when rejecting) */}
