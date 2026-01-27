@@ -462,12 +462,15 @@ export async function executeAgent(
                         };
                     }
 
-                    eventHandler({
-                        type: 'tool_call',
-                        toolName: part.toolName,
-                        toolInput: displayInput,
-                        loadingAction,
-                    });
+                    // Skip tool call UI for todo_write (handled by inline todo list)
+                    if (part.toolName !== TODO_WRITE_TOOL_NAME) {
+                        eventHandler({
+                            type: 'tool_call',
+                            toolName: part.toolName,
+                            toolInput: displayInput,
+                            loadingAction,
+                        });
+                    }
                     break;
                 }
 
@@ -486,13 +489,16 @@ export async function executeAgent(
                         ? toolActions?.failed
                         : toolActions?.completed;
 
-                    // Send to visualizer with result action for display
-                    eventHandler({
-                        type: 'tool_result',
-                        toolName: part.toolName,
-                        toolOutput: { success: result?.success },
-                        completedAction: resultAction,
-                    });
+                    // Skip tool result UI for todo_write (handled by inline todo list)
+                    if (part.toolName !== TODO_WRITE_TOOL_NAME) {
+                        // Send to visualizer with result action for display
+                        eventHandler({
+                            type: 'tool_result',
+                            toolName: part.toolName,
+                            toolOutput: { success: result?.success },
+                            completedAction: resultAction,
+                        });
+                    }
 
                     // Clean up stored tool input
                     toolInputMap.delete(part.toolCallId);
