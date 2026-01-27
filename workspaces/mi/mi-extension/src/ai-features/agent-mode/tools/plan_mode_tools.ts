@@ -16,9 +16,12 @@
  * under the License.
  */
 
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { tool } from 'ai';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
+import { uniqueNamesGenerator, adjectives, colors, animals } from 'unique-names-generator';
 import {
     ToolResult,
     TodoItem,
@@ -30,10 +33,93 @@ import {
     ENTER_PLAN_MODE_TOOL_NAME,
     EXIT_PLAN_MODE_TOOL_NAME,
     TODO_WRITE_TOOL_NAME,
+    FILE_WRITE_TOOL_NAME,
 } from './types';
-import { PlanManager } from '../plan-manager';
 import { logInfo, logDebug, logError } from '../../copilot/logger';
 import { AgentEvent } from '@wso2/mi-core';
+
+// ============================================================================
+// Plan File Utilities (Simple - no PlanManager class needed)
+// ============================================================================
+
+/**
+ * Generate a memorable slug for the plan file
+ * Format: adjective-color-animal (e.g., "harmonic-azure-falcon")
+ */
+function generatePlanSlug(): string {
+    return uniqueNamesGenerator({
+        dictionaries: [adjectives, colors, animals],
+        separator: '-',
+        length: 3,
+        style: 'lowerCase'
+    });
+}
+
+/**
+ * Get the plan directory path for a session
+ */
+function getPlanDir(projectPath: string, sessionId: string): string {
+    return path.join(projectPath, '.mi-copilot', sessionId, 'plan');
+}
+
+/**
+ * Check if a plan file exists for this session and return its path/slug
+ * Returns { exists: true, slug, path } if found, { exists: false, slug, path } with new slug if not
+ */
+async function getOrCreatePlanInfo(projectPath: string, sessionId: string): Promise<{
+    exists: boolean;
+    slug: string;
+    planPath: string;
+    relativePath: string;
+}> {
+    const planDir = getPlanDir(projectPath, sessionId);
+    
+    try {
+        // Ensure directory exists
+        await fs.mkdir(planDir, { recursive: true });
+        
+        // Check for existing plan files
+        const files = await fs.readdir(planDir);
+        const planFiles = files.filter(f => f.endsWith('.md'));
+        
+        if (planFiles.length > 0) {
+            // Use existing plan file
+            const slug = planFiles[0].replace('.md', '');
+            const planPath = path.join(planDir, planFiles[0]);
+            const relativePath = `.mi-copilot/${sessionId}/plan/${slug}.md`;
+            logInfo(`[PlanMode] Found existing plan: ${slug}`);
+            return { exists: true, slug, planPath, relativePath };
+        }
+    } catch {
+        // Directory doesn't exist, will create below
+        await fs.mkdir(planDir, { recursive: true });
+    }
+    
+    // Generate new slug
+    const slug = generatePlanSlug();
+    const planPath = path.join(planDir, `${slug}.md`);
+    const relativePath = `.mi-copilot/${sessionId}/plan/${slug}.md`;
+    logInfo(`[PlanMode] Generated new plan slug: ${slug}`);
+    return { exists: false, slug, planPath, relativePath };
+}
+
+/**
+ * Ensure .gitignore exists in .mi-copilot folder
+ */
+async function ensureGitignore(projectPath: string): Promise<void> {
+    const miCopilotDir = path.join(projectPath, '.mi-copilot');
+    const gitignorePath = path.join(miCopilotDir, '.gitignore');
+    
+    try {
+        await fs.access(gitignorePath);
+    } catch {
+        // Create .gitignore
+        await fs.mkdir(miCopilotDir, { recursive: true });
+        const content = `# MI Copilot session files - auto-generated\n# Each session folder contains chat history and plans\n*/\n`;
+        await fs.writeFile(gitignorePath, content, 'utf8');
+        logDebug('[PlanMode] Created .mi-copilot/.gitignore');
+    }
+}
 
 // ============================================================================
 // Types for Event Handler
@@ -245,34 +331,25 @@ export function createAskUserTool(execute: AskUserExecuteFn) {
 
 /**
  * Creates the execute function for enter_plan_mode tool
- * @param planManager - The plan manager instance
+ * Simplified: just checks if plan file exists and passes slug to agent
+ * @param projectPath - Path to the MI project
+ * @param sessionId - Current session ID
  * @param eventHandler - Function to send events to the UI
  */
 export function createEnterPlanModeExecute(
-    planManager: PlanManager,
+    projectPath: string,
+    sessionId: string,
     eventHandler: AgentEventHandler
 ): EnterPlanModeExecuteFn {
     return async (): Promise<ToolResult> => {
         logInfo(`[EnterPlanMode] Entering plan mode`);
 
         try {
-            await planManager.enterPlanMode();
-
-            // Get or create the plan file path
-            const planPath = await planManager.getOrCreatePlanPath();
-            const planSlug = planManager.getPlanSlug();
-            const sessionId = planManager.getSessionId();
-            const relativePath = `.mi-copilot/${sessionId}/plans/${planSlug}.md`;
-
-            // Check if plan file already exists
-            let planExists = false;
-            try {
-                const fs = await import('fs/promises');
-                await fs.access(planPath);
-                planExists = true;
-            } catch {
-                planExists = false;
-            }
+            // Ensure .gitignore exists
+            await ensureGitignore(projectPath);
+            
+            // Get or create plan info (checks if file exists, generates slug if not)
+            const planInfo = await getOrCreatePlanInfo(projectPath, sessionId);
 
             // Send event to UI
             eventHandler({
@@ -283,12 +360,14 @@ export function createEnterPlanModeExecute(
             const baseMessage = `Entered plan mode. You should now focus on exploring the codebase and designing an implementation approach.
 
             In plan mode, you should:
-            1. Thoroughly explore the codebase to understand existing patterns
-            2. Identify similar features and architectural approaches
-            3. Consider multiple approaches and their trade-offs
-            4. Use ask_user if you need to clarify the approach
-            5. Design a concrete implementation strategy
-            6. When ready, use exit_plan_mode to present your plan for approval
+            1. Thoroughly explore the codebase to understand existing patterns using glob, grep, and file_read or explore subagent using task tool if the codebase is large.
+            2. You can also use plan subagent using task tool to scaffold a plan then improve it if the codebase is large.
+            3. Identify similar features and architectural approaches
+            4. Consider multiple approaches and their trade-offs
+            5. Use ask_user_question tool if you need to clarify the approach
+            6. Design a concrete implementation strategy
+            6. Present your plan in simple summary format in chat window to the user with no code details because we are in a low code environment.
+            7. Only then use exit_plan_mode tool to present your plan for approval
 
             Remember: DO NOT write or edit any files yet. This is a read-only exploration and planning phase.`;
 
@@ -298,15 +377,16 @@ export function createEnterPlanModeExecute(
             Plan mode is active. You MUST NOT make any edits except to the plan file mentioned below.
 
             ## Plan File Info:
-            ${planExists
-                ? `A plan file already exists at ${relativePath}. You can read it and make incremental edits using the file_edit tool. If that is an old plan write a new plan to the file.`
-                : `Your plan file is: ${relativePath}. Create this file using file_write to write your plan.`
+            ${planInfo.exists
+                ? `A plan file already exists at ${planInfo.relativePath}. You can read it and make incremental edits using the file_edit tool. If that is an old plan write a new plan to the file.`
+                : `Your plan file is: ${planInfo.relativePath}. Create this file using file_write to write your plan.`
             }
 
             You should build your plan incrementally by writing to or editing this file.
             This is the ONLY file you are allowed to edit during plan mode.
 
-            When your plan is ready for user approval, call exit_plan_mode.
+            IMPORTANT: Always present your plan in simple summary format in chat window to the user with no code details because we are in a low code environment before using ${EXIT_PLAN_MODE_TOOL_NAME} tool.
+            Then when your plan is ready for user approval, call ${EXIT_PLAN_MODE_TOOL_NAME} tool.
             </system-reminder>`;
 
             return {
@@ -330,38 +410,93 @@ const enterPlanModeInputSchema = z.object({});
 export function createEnterPlanModeTool(execute: EnterPlanModeExecuteFn) {
     return (tool as any)({
         description: `
-            Enter plan mode to design an implementation before executing.
+            Use this tool proactively when you're about to start a non-trivial integration task. Getting user sign-off on your approach before writing code prevents wasted effort and ensures alignment. This tool transitions you into plan mode where you can explore the codebase and design an implementation approach for user approval.
 
-            ## When to Use
+            ## When to Use This Tool
 
-            Enter plan mode when:
-            1. Task requires 3+ distinct file operations
-            2. Multiple artifacts need to be created (APIs + sequences + endpoints)
-            3. Connectors need to be added and configured
-            4. The user's request is complex and would benefit from review
-            5. You're unsure about the implementation approach
+            **Prefer using enter_plan_mode** for implementation tasks unless they're simple. Use it when ANY of these conditions apply:
 
-            ## What Happens After Entering Plan Mode
+            1. **New Integration Implementation**: Adding meaningful new functionality
+               - Example: "Add a REST API to sync customer data" - which endpoint? What transformations?
+               - Example: "Create an order processing flow" - what mediators? What error handling?
 
-            1. **Explore**: Use file_read, grep, glob to understand the codebase
-            2. **Create plan file**: Use file_write to create .mi-copilot/plans/<descriptive-name>.md
-            3. **Write plan content**: Include Overview, Files to Create/Modify, Steps, Verification
-            4. **Exit for approval**: Call exit_plan_mode to request user approval
-            5. **Execute**: After approval, use todo_write to track progress
+            2. **Multiple Valid Approaches**: The task can be solved in several different ways
+               - Example: "Add data transformation" - Data Mapper vs XSLT vs scripting
+               - Example: "Integrate with payment gateway" - sync vs async, which operations
 
-            ## Plan File Format
+            3. **Integration Modifications**: Changes that affect existing APIs, sequences, or endpoints
+               - Example: "Update the customer sync flow" - what exactly should change?
+               - Example: "Refactor this sequence" - what's the target structure?
 
-            Write a markdown file at .mi-copilot/plans/<plan-name>.md with:
-            - Overview section
-            - Files to Create/Modify list
-            - Implementation Steps
-            - Verification section
+            4. **Architectural Decisions**: The task requires choosing between patterns or connectors
+               - Example: "Add real-time sync" - polling vs webhooks vs messaging
+               - Example: "Connect to database" - which connector? Pooling strategy?
 
-            ## Important
+            5. **Multi-Artifact Changes**: The task will create/modify multiple Synapse files
+               - Example: "Build order processing" - API + sequences + endpoints + connectors
+               - Example: "Add authentication" - affects multiple APIs and sequences
 
-            - Use file_write to create the visible plan file (user can open/edit it)
-            - Use ask_user if you need clarification during planning
-            - Exit plan mode with exit_plan_mode when plan is ready for approval
+            6. **Unclear Requirements**: You need to explore before understanding the full scope
+               - Example: "Fix the payment API error" - need to investigate root cause
+               - Example: "Optimize the integration" - need to identify bottlenecks
+
+            7. **User Preferences Matter**: The implementation could reasonably go multiple ways
+               - If you would use ask_user_question to clarify approach, use enter_plan_mode instead
+               - Plan mode lets you explore first, then present options with context
+
+            ## When NOT to Use This Tool
+
+            Only skip enter_plan_mode for simple tasks:
+            - Single-line or few-line fixes (typos, obvious bugs, small tweaks)
+            - Adding a single log mediator or property
+            - Tasks where the user gave very specific, detailed instructions
+            - Pure research/exploration tasks (use task tool with Explore subagent instead)
+
+            ## What Happens in Plan Mode
+
+            In plan mode, you'll:
+            1. Explore the codebase using glob, grep, and file_read or explore subagent using task tool.
+            2. Use plan subagent using task tool to scaffold a plan then improve it if the codebase is large.
+            3. Understand existing patterns and Synapse configurations
+            4. Design an implementation approach
+            5. Create a plan file at .mi-copilot/<session-id>/plan/<slug>.md using ${FILE_WRITE_TOOL_NAME} tool
+            6. Use ask_user_question if you need to clarify approaches
+            7. Present your plan in simple summary format to the user with no code details because we are in a low code environment.
+            7. Only then exit plan mode with ${EXIT_PLAN_MODE_TOOL_NAME} tool to present your plan for approval
+
+            ## Examples
+
+            ### GOOD - Use enter_plan_mode:
+            User: "Add user authentication to the app"
+            - Requires architectural decisions (session vs JWT, where to store tokens, middleware structure)
+
+            User: "Optimize the database queries"
+            - Multiple approaches possible, need to profile first, significant impact
+
+            User: "Implement dark mode"
+            - Architectural decision on theme system, affects many components
+
+            User: "Add a delete button to the user profile"
+            - Seems simple but involves: where to place it, confirmation dialog, API call, error handling, state updates
+
+            User: "Update the error handling in the API"
+            - Affects multiple files, user should approve the approach
+
+            ### BAD - Don't use enter_plan_mode:
+            User: "Fix the typo in the README"
+            - Straightforward, no planning needed
+
+            User: "Add a console.log to debug this function"
+            - Simple, obvious implementation
+
+            User: "What files handle routing?"
+            - Research task, not implementation planning
+
+            ## Important Notes
+
+            - This tool REQUIRES user approval - they must consent to entering plan mode
+            - If unsure whether to use it, err on the side of planning - it's better to get alignment upfront than to redo work
+            - Users appreciate being consulted before significant changes are made to their codebase
         `,
         inputSchema: enterPlanModeInputSchema,
         execute
@@ -374,12 +509,15 @@ export function createEnterPlanModeTool(execute: EnterPlanModeExecuteFn) {
 
 /**
  * Creates the execute function for exit_plan_mode tool
- * @param planManager - The plan manager instance
+ * Simplified: no PlanManager, just handles approval workflow
+ * @param projectPath - Path to the MI project
+ * @param sessionId - Current session ID
  * @param eventHandler - Function to send events to the UI
  * @param pendingApprovals - Map to track pending approvals awaiting user response
  */
 export function createExitPlanModeExecute(
-    planManager: PlanManager,
+    projectPath: string,
+    sessionId: string,
     eventHandler: AgentEventHandler,
     pendingApprovals: Map<string, PendingPlanApproval>
 ): ExitPlanModeExecuteFn {
@@ -389,14 +527,22 @@ export function createExitPlanModeExecute(
 
         logInfo(`[ExitPlanMode] Requesting plan approval: ${approvalId}`);
 
-        // Get the plan file path (agent should have set it when creating the plan)
-        const planFilePath = planManager.getCurrentPlanPath();
+        // Try to find the plan file path
+        let planFilePath: string | undefined;
+        try {
+            const planInfo = await getOrCreatePlanInfo(projectPath, sessionId);
+            if (planInfo.exists) {
+                planFilePath = planInfo.planPath;
+            }
+        } catch {
+            // Ignore errors, planFilePath will be undefined
+        }
 
         // Send plan_approval_requested event to UI
         eventHandler({
             type: 'plan_approval_requested',
             approvalId,
-            planFilePath: planFilePath || undefined,
+            planFilePath,
             content: summary || 'Plan ready for approval',
         } as any);
 
@@ -410,26 +556,17 @@ export function createExitPlanModeExecute(
 
                     if (result.approved) {
                         logInfo(`[ExitPlanMode] Plan approved`);
-                        try {
-                            await planManager.exitPlanMode(summary);
 
-                            // Send plan_mode_exited event
-                            eventHandler({
-                                type: 'plan_mode_exited',
-                                content: 'Plan approved',
-                            } as any);
+                        // Send plan_mode_exited event
+                        eventHandler({
+                            type: 'plan_mode_exited',
+                            content: 'Plan approved',
+                        } as any);
 
-                            resolve({
-                                success: true,
-                                message: 'Plan approved by user. Proceeding with implementation.'
-                            });
-                        } catch (error: any) {
-                            resolve({
-                                success: false,
-                                message: `Failed to exit plan mode: ${error.message}`,
-                                error: error.message
-                            });
-                        }
+                        resolve({
+                            success: true,
+                            message: `Plan approved by user. You can now proceed with implementation. Now create a Todo list to track the implementation steps using the ${TODO_WRITE_TOOL_NAME} tool.`
+                        });
                     } else {
                         logInfo(`[ExitPlanMode] Plan not approved. Feedback: ${result.feedback || 'none'}`);
                         resolve({
@@ -458,26 +595,29 @@ const exitPlanModeInputSchema = z.object({
 export function createExitPlanModeTool(execute: ExitPlanModeExecuteFn) {
     return (tool as any)({
         description: `
-            Exit plan mode and request user approval for the plan.
+            Use this tool when you are in plan mode and have finished writing your plan to the plan file and are ready for user approval.
 
-            ## When to Use
+            ## How This Tool Works
+            - You should have already written your plan to the plan file specified in the plan mode system message
+            - This tool does NOT take the plan content as a parameter - it will read the plan from the file you wrote
+            - This tool simply signals that you're done planning and ready for the user to review and approve
+            - The user will see the contents of your plan file when they review it
 
-            - After creating a plan file with file_write
-            - When you're ready for the user to review and approve the plan
-            - Before starting implementation
+            ## When to Use This Tool
+            IMPORTANT: Only use this tool when the task requires planning the implementation steps of a task that requires writing code. For research tasks where you're gathering information, searching files, reading files or in general trying to understand the codebase - do NOT use this tool.
 
-            ## What Happens
+            ## Before Using This Tool
+            Ensure your plan is complete and unambiguous:
+            - If you have unresolved questions about requirements or approach, use ask_user_question first (in earlier phases)
+            - Once your plan is finalized, use THIS tool to request approval
 
-            1. UI shows the plan content with Approve/Reject buttons
-            2. Agent WAITS for user approval (blocks execution)
-            3. If approved: Plan mode exits, proceed with implementation
-            4. If rejected: Agent receives user feedback to revise the plan
+            **Important:** Do NOT use ask_user_question to ask "Is this plan okay?" or "Should I proceed?" - that's exactly what THIS tool does. exit_plan_mode inherently requests user approval of your plan.
 
-            ## Important
+            ## Examples
 
-            - This tool BLOCKS until user approves or rejects
-            - Make sure you've created a plan file before calling this
-            - User can see the plan file and provide feedback
+            1. Initial task: "Search for and understand the implementation of vim mode in the codebase" - Do not use the exit plan mode tool because you are not planning the implementation steps of a task.
+            2. Initial task: "Help me implement yank mode for vim" - Use the exit plan mode tool after you have finished planning the implementation steps of the task.
+            3. Initial task: "Add a new feature to handle user authentication" - If unsure about auth method (OAuth, JWT, etc.), use ask_user_question first, then use exit plan mode tool after clarifying the approach.
         `,
         inputSchema: exitPlanModeInputSchema,
         execute

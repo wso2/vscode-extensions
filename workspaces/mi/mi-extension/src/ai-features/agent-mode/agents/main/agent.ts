@@ -108,7 +108,6 @@ import {
     EXIT_PLAN_MODE_TOOL_NAME,
     TODO_WRITE_TOOL_NAME,
 } from '../../tools/types';
-import { PlanManager } from '../../plan-manager';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
 import { ChatHistoryManager } from '../../chat-history-manager';
 import { getToolAction } from '../../tool-action-mapper';
@@ -176,15 +175,14 @@ export async function executeAgent(
     let response: any = null; // Store response promise for later access
     let accumulatedContent: string = ''; // Accumulate assistant response content
 
-    // Create and initialize PlanManager for plan mode tools
-    const planManager = new PlanManager(request.projectPath, request.sessionId || 'default');
-    await planManager.initialize();
-
     // Use provided pendingQuestions map or create a new one
     const pendingQuestions = request.pendingQuestions || new Map<string, PendingQuestion>();
 
     // Use provided pendingApprovals map or create a new one (for exit_plan_mode approval)
     const pendingApprovals = request.pendingApprovals || new Map<string, PendingPlanApproval>();
+    
+    // Session ID for plan mode (defaults to 'default')
+    const sessionId = request.sessionId || 'default';
 
     try {
         logInfo(`[Agent] Starting agent execution for project: ${request.projectPath}`);
@@ -296,13 +294,13 @@ export async function executeAgent(
                 createAskUserExecute(eventHandler, pendingQuestions)
             ),
             [ENTER_PLAN_MODE_TOOL_NAME]: createEnterPlanModeTool(
-                createEnterPlanModeExecute(planManager, eventHandler)
+                createEnterPlanModeExecute(request.projectPath, sessionId, eventHandler)
             ),
             [EXIT_PLAN_MODE_TOOL_NAME]: createExitPlanModeTool(
-                createExitPlanModeExecute(planManager, eventHandler, pendingApprovals)
+                createExitPlanModeExecute(request.projectPath, sessionId, eventHandler, pendingApprovals)
             ),
             [TODO_WRITE_TOOL_NAME]: createTodoWriteTool(
-                createTodoWriteExecute(eventHandler)  // In-memory only, no planManager needed
+                createTodoWriteExecute(eventHandler)  // In-memory only
             ),
         };
 
