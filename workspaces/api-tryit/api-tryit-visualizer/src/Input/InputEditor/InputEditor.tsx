@@ -20,6 +20,7 @@
 import React, { useEffect, useRef } from 'react';
 import Editor, { Monaco } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
+import styled from '@emotion/styled';
 
 // Configure Monaco Environment for web workers
 if (typeof window !== 'undefined') {
@@ -49,6 +50,25 @@ const getIsDarkTheme = (): boolean => {
     return document.body.classList.contains('vscode-dark') || 
            document.body.classList.contains('vscode-high-contrast');
 };
+
+/**
+ * Styled container for the editor with padding
+ */
+const EditorContainer = styled.div`
+    padding: 12px;
+    border-radius: 4px;
+    background-color: #262626ff;
+
+    /* Light theme */
+    body.vscode-light & {
+        background-color: #f5f5f5;
+    }
+
+    /* High contrast theme */
+    body.vscode-high-contrast & {
+        background-color: #000000;
+    }
+`;
 
 interface InputEditorProps {
     value: string;
@@ -111,39 +131,41 @@ export const InputEditor: React.FC<InputEditorProps> = ({
     }, [theme]);
 
     return (
-        <Editor
-            height={height}
-            language={language}
-            value={value}
-            theme={theme || 'input-editor-theme'}
-            beforeMount={(monaco) => {
-                setupTheme(monaco);
-            }}
-            onMount={(editor, monaco) => {
-                editorRef.current = editor;
-                monacoRef.current = monaco;
-                if (!theme) {
-                    monaco.editor.setTheme('input-editor-theme');
-                } else {
-                    console.log('[InputEditor] Using prop theme:', theme);
-                }
-                onMount?.(editor, monaco);
-            }}
-            onChange={onChange}
-            options={{
-                minimap: { enabled: false },
-                fontSize: 14,
-                lineNumbers: 'off',
-                roundedSelection: false,
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                glyphMargin: false,
-                folding: false,
-                lineDecorationsWidth: 0,
-                lineNumbersMinChars: 0,
-                overviewRulerLanes: 0,
-                ...options
-            }}
-        />
+        <EditorContainer>
+            <Editor
+                height={height}
+                language={undefined}
+                value={value}
+                theme={theme || 'input-editor-theme'}
+                beforeMount={(monaco) => {
+                    setupTheme(monaco);
+                }}
+                onMount={(editor, monaco) => {
+                    editorRef.current = editor;
+                    monacoRef.current = monaco;
+                    if (!theme) {
+                        monaco.editor.setTheme('input-editor-theme');
+                    } else {
+                        console.log('[InputEditor] Using prop theme:', theme);
+                    }
+                    onMount?.(editor, monaco);
+                }}
+                onChange={onChange}
+                options={{
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                    lineNumbers: 'off',
+                    roundedSelection: false,
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    glyphMargin: false,
+                    folding: false,
+                    lineDecorationsWidth: 0,
+                    lineNumbersMinChars: 0,
+                    overviewRulerLanes: 0,
+                    ...options
+                }}
+            />
+        </EditorContainer>
     );
 };
