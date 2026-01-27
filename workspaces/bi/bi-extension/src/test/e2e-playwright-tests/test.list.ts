@@ -55,6 +55,8 @@ import importIntegration from './import-integration/import-integration.spec';
 import reusableDataMapper from './data-mapper/reusable-data-mapper.spec';
 import inlineDataMapper from './data-mapper/inline-data-mapper.spec';
 
+import testFunction from './test-function/test-function.spec';
+
 test.describe.configure({ mode: 'default' });
 
 test.beforeAll(async () => {
@@ -119,6 +121,9 @@ test.describe(importIntegration);
 // <----Data Mapper Test---->
 test.describe(reusableDataMapper);
 test.describe(inlineDataMapper);
+
+// <----Test Function Test---->
+test.describe(testFunction);
 
 test.afterAll(async () => {
     console.log('\n' + '='.repeat(80));
