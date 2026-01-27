@@ -18,9 +18,10 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { uniqueNamesGenerator, adjectives, colors, animals } from 'unique-names-generator';
 import { logDebug, logError, logInfo } from '../copilot/logger';
 
-// Storage location: <project>/.mi-copilot/plans/<session_id>.md
+// Storage location: <project>/.mi-copilot/<session_id>/plan/<plan-slug>.md
 // Plans are stored in the project folder so they are visible to the user
 
 /**
@@ -53,12 +54,13 @@ export interface PlanContent {
  * NOTE: Todos are NOT persisted here - they are maintained in-memory through
  * chat context (tool calls in chat history), just like Claude Code.
  *
- * Plan files are stored at: <project>/.mi-copilot/plans/<session-id>.md
+ * Plan files are stored at: <project>/.mi-copilot/<session-id>/plan/<plan-slug>.md
  */
 export class PlanManager {
     private projectPath: string;
     private sessionId: string;
     private planFile: string = '';
+    private planSlug: string | null = null;  // Generated slug for plan file
     private isPlanModeActive: boolean = false;
     private userDecisions: UserDecision[] = [];
     private summary: string = '';
@@ -73,7 +75,28 @@ export class PlanManager {
     }
 
     /**
+     * Generate a memorable slug for the plan file
+     * Format: adjective-color-animal (e.g., "harmonic-azure-falcon")
+     */
+    private generateSlug(): string {
+        return uniqueNamesGenerator({
+            dictionaries: [adjectives, colors, animals],
+            separator: '-',
+            length: 3,
+            style: 'lowerCase'
+        });
+    }
+
+    /**
+     * Get the session plan directory: <project>/.mi-copilot/<session-id>/plan/
+     */
+    private getSessionPlanDir(): string {
+        return path.join(this.projectPath, '.mi-copilot', this.sessionId, 'plan');
+    }
+
+    /**
      * Get the plans directory path (inside project)
+     * @deprecated Use getSessionPlanDir() instead
      */
     private getPlansDir(): string {
         return path.join(this.projectPath, '.mi-copilot', 'plans');
@@ -92,11 +115,50 @@ export class PlanManager {
         } catch {
             // File doesn't exist, create it
             const content = `# MI Copilot session files - auto-generated
-plans/
+# Each session folder contains chat history and plans
+*/
 `;
             await fs.writeFile(gitignorePath, content, 'utf8');
             logDebug('[PlanManager] Created .mi-copilot/.gitignore');
         }
+    }
+
+    /**
+     * Get or create the plan file path
+     * If no plan exists, generates a new slug
+     */
+    async getOrCreatePlanPath(): Promise<string> {
+        const planDir = this.getSessionPlanDir();
+
+        // Check for existing plan files
+        try {
+            await fs.mkdir(planDir, { recursive: true });
+            const files = await fs.readdir(planDir);
+            const planFiles = files.filter(f => f.endsWith('.md'));
+
+            if (planFiles.length > 0) {
+                // Use existing plan file
+                this.planSlug = planFiles[0].replace('.md', '');
+                logInfo(`[PlanManager] Using existing plan: ${this.planSlug}`);
+            } else {
+                // Generate new slug
+                this.planSlug = this.generateSlug();
+                logInfo(`[PlanManager] Generated new plan slug: ${this.planSlug}`);
+            }
+        } catch (error) {
+            // Directory doesn't exist, generate new slug
+            this.planSlug = this.generateSlug();
+            await fs.mkdir(planDir, { recursive: true });
+        }
+
+        return path.join(planDir, `${this.planSlug}.md`);
+    }
+
+    /**
+     * Get the current plan slug
+     */
+    getPlanSlug(): string | null {
+        return this.planSlug;
     }
 
     /**
@@ -422,8 +484,15 @@ plans/
 
     /**
      * Get the current plan path
+     * Returns the agent-created plan path if set, or the slug-based path if available
      */
     getCurrentPlanPath(): string | null {
-        return this.currentPlanPath;
+        if (this.currentPlanPath) {
+            return this.currentPlanPath;
+        }
+        if (this.planSlug) {
+            return path.join(this.getSessionPlanDir(), `${this.planSlug}.md`);
+        }
+        return null;
     }
 }

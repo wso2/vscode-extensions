@@ -185,14 +185,60 @@ export function createEnterPlanModeExecute(
         try {
             await planManager.enterPlanMode();
 
+            // Get or create the plan file path
+            const planPath = await planManager.getOrCreatePlanPath();
+            const planSlug = planManager.getPlanSlug();
+            const sessionId = planManager.getSessionId();
+            const relativePath = `.mi-copilot/${sessionId}/plans/${planSlug}.md`;
+
+            // Check if plan file already exists
+            let planExists = false;
+            try {
+                const fs = await import('fs/promises');
+                await fs.access(planPath);
+                planExists = true;
+            } catch {
+                planExists = false;
+            }
+
             // Send event to UI
             eventHandler({
                 type: 'plan_mode_entered',
             } as any);
 
+            // Build the response with <system-reminder> containing plan file info
+            const baseMessage = `Entered plan mode. You should now focus on exploring the codebase and designing an implementation approach.
+
+            In plan mode, you should:
+            1. Thoroughly explore the codebase to understand existing patterns
+            2. Identify similar features and architectural approaches
+            3. Consider multiple approaches and their trade-offs
+            4. Use ask_user if you need to clarify the approach
+            5. Design a concrete implementation strategy
+            6. When ready, use exit_plan_mode to present your plan for approval
+
+            Remember: DO NOT write or edit any files yet. This is a read-only exploration and planning phase.`;
+
+            // Inject <system-reminder> with plan file path (like Claude Code does)
+            const systemReminder = `
+            <system-reminder>
+            Plan mode is active. You MUST NOT make any edits except to the plan file mentioned below.
+
+            ## Plan File Info:
+            ${planExists
+                ? `A plan file already exists at ${relativePath}. You can read it and make incremental edits using the file_edit tool. If that is an old plan write a new plan to the file.`
+                : `Your plan file is: ${relativePath}. Create this file using file_write to write your plan.`
+            }
+
+            You should build your plan incrementally by writing to or editing this file.
+            This is the ONLY file you are allowed to edit during plan mode.
+
+            When your plan is ready for user approval, call exit_plan_mode.
+            </system-reminder>`;
+
             return {
                 success: true,
-                message: `Entered plan mode. Create a plan file using file_write at .mi-copilot/plans/<plan-name>.md, then call exit_plan_mode when ready for user approval.`
+                message: baseMessage + systemReminder
             };
         } catch (error: any) {
             logError('[EnterPlanMode] Failed to enter plan mode', error);
@@ -345,8 +391,8 @@ export function createExitPlanModeExecute(
 }
 
 const exitPlanModeInputSchema = z.object({
-    summary: z.string().optional().describe(
-        'Optional summary of the plan or what will be implemented'
+    plan: z.string().optional().describe(
+        'The plan to be implemented which is written to the plan file'
     )
 });
 

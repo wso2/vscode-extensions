@@ -1084,6 +1084,7 @@
     "to-json-schema": "0.2.5",
     "tree-kill": "~1.2.2",
     "unzipper": "~0.12.3",
+    "unique-names-generator": "^4.7.1",
     "upath": "~2.0.1",
     "uuid": "~11.1.0",
     "vscode-debugadapter": "^1.51.0",

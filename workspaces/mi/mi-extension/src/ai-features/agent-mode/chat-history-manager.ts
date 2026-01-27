@@ -23,12 +23,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { logDebug, logError, logInfo } from '../copilot/logger';
 import { getToolAction, capitalizeAction } from './tool-action-mapper';
 
-// Cross-platform home directory
-const os = require('os');
-const homeDir = os.homedir();
-
-// Storage location: ~/.wso2-mi/copilot/projects/<projectpath>/<session_id>.jsonl
-const BASE_STORAGE_DIR = path.join(homeDir, '.wso2-mi', 'copilot', 'projects');
+// Storage location: <project>/.mi-copilot/<session_id>/history.jsonl
 
 /**
  * Metadata entry for session start/end
@@ -59,17 +54,17 @@ export type JSONLEntry = any | SessionMetadata;
  *
  * JSONL file is the single source of truth - no in-memory caching.
  * Public API is simple: saveMessage() and getMessages()
+ *
+ * Storage: <project>/.mi-copilot/<session-id>/history.jsonl
  */
 export class ChatHistoryManager {
     private projectPath: string;
-    private projectHash: string;
     private sessionId: string;
     private sessionFile: string = '';
     private writeStream: WriteStream | null = null;
 
     constructor(projectPath: string, sessionId?: string) {
         this.projectPath = projectPath;
-        this.projectHash = ChatHistoryManager.hashProjectPath(projectPath);
         this.sessionId = sessionId || uuidv4();
     }
 
@@ -79,12 +74,12 @@ export class ChatHistoryManager {
      */
     async initialize(): Promise<void> {
         try {
-            // Create project directory
-            const projectDir = path.join(BASE_STORAGE_DIR, this.projectHash);
-            await fs.mkdir(projectDir, { recursive: true });
+            // Create session directory: <project>/.mi-copilot/<session-id>/
+            const sessionDir = path.join(this.projectPath, '.mi-copilot', this.sessionId);
+            await fs.mkdir(sessionDir, { recursive: true });
 
-            // Session file path
-            this.sessionFile = path.join(projectDir, `${this.sessionId}.jsonl`);
+            // Session file path: <project>/.mi-copilot/<session-id>/history.jsonl
+            this.sessionFile = path.join(sessionDir, 'history.jsonl');
 
             // Check if session file exists
             let isNewSession = true;
@@ -292,19 +287,18 @@ export class ChatHistoryManager {
      */
     static async listSessions(projectPath: string): Promise<string[]> {
         try {
-            const projectHash = this.hashProjectPath(projectPath);
-            const projectDir = path.join(BASE_STORAGE_DIR, projectHash);
+            const copilotDir = path.join(projectPath, '.mi-copilot');
 
-            const files = await fs.readdir(projectDir);
-            const sessionFiles = files
-                .filter(file => file.endsWith('.jsonl'))
-                .map(file => file.replace('.jsonl', ''));
+            const entries = await fs.readdir(copilotDir, { withFileTypes: true });
+            const sessionDirs = entries
+                .filter(entry => entry.isDirectory())
+                .map(entry => entry.name);
 
-            // Sort by file modification time (newest first)
+            // Sort by directory modification time (newest first)
             const sorted = await Promise.all(
-                sessionFiles.map(async sessionId => {
-                    const filePath = path.join(projectDir, `${sessionId}.jsonl`);
-                    const stats = await fs.stat(filePath);
+                sessionDirs.map(async sessionId => {
+                    const dirPath = path.join(copilotDir, sessionId);
+                    const stats = await fs.stat(dirPath);
                     return { sessionId, mtime: stats.mtime.getTime() };
                 })
             );
@@ -322,9 +316,9 @@ export class ChatHistoryManager {
      */
     static async deleteSession(projectPath: string, sessionId: string): Promise<void> {
         try {
-            const projectHash = this.hashProjectPath(projectPath);
-            const sessionFile = path.join(BASE_STORAGE_DIR, projectHash, `${sessionId}.jsonl`);
-            await fs.unlink(sessionFile);
+            const sessionDir = path.join(projectPath, '.mi-copilot', sessionId);
+            // Delete the entire session directory recursively
+            await fs.rm(sessionDir, { recursive: true, force: true });
             logInfo(`[ChatHistory] Deleted session: ${sessionId}`);
         } catch (error) {
             logError('[ChatHistory] Failed to delete session', error);
@@ -474,18 +468,5 @@ export class ChatHistoryManager {
      */
     getProjectPath(): string {
         return this.projectPath;
-    }
-
-    /**
-     * Hash project path for filesystem safety
-     * Uses simple encoding similar to Claude Code
-     */
-    private static hashProjectPath(projectPath: string): string {
-        // Encode path by replacing slashes and special chars
-        return projectPath
-            .replace(/\\/g, '-')  // Windows backslashes
-            .replace(/\//g, '-')  // Unix forward slashes
-            .replace(/:/g, '')    // Windows drive letters
-            .replace(/^-/, '');   // Remove leading dash
     }
 }
