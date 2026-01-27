@@ -23,6 +23,7 @@ import { ParamItem } from './ParamItem';
 import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
 import { CodeTextArea } from '../Components/CodeTextArea/CodeTextArea';
 import { CodeInput } from './CodeInput/CodeInput';
+import { InputEditor } from './InputEditor/InputEditor';
 
 type InputMode = 'code' | 'form';
 
@@ -44,8 +45,6 @@ const AddButtonWrapper = styled.div`
     margin-top: 4px;
     margin-left: 4px;
 `;
-
-
 
 export const Input: React.FC<InputProps> = ({ 
     request,
@@ -128,75 +127,37 @@ export const Input: React.FC<InputProps> = ({
         onRequestChange?.(updatedRequest);
     };
 
+    const onChange = (value: string | undefined) => {
+    }
     return (
         <Container>
-            {mode === 'code' ? (
-                <CodeInput request={request} onRequestChange={onRequestChange} />
-            ) : (
-                <>
-                    {/* Query Parameters Section */}
-                    <Section>
-                        <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
-                            Query Parameter
-                        </Typography>
-                        {(request.queryParameters || []).map(param => (
-                            <ParamItem
-                                key={param.id}
-                                keyValue={param.key}
-                                value={param.value}
-                                onKeyChange={(key) => updateQueryParam(param.id, key, param.value)}
-                                onValueChange={(value) => updateQueryParam(param.id, param.key, value)}
-                                onDelete={() => deleteQueryParam(param.id)}
-                            />
-                        ))}
-                        <AddButtonWrapper>
-                            <LinkButton onClick={addQueryParam}>
-                                <Codicon name="add" />
-                                Query Parameter
-                            </LinkButton>
-                        </AddButtonWrapper>
-                    </Section>
-
-                    {/* Headers Section */}
-                    <Section>
-                        <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
-                            Header
-                        </Typography>
-                        {(request.headers || []).map(header => (
-                            <ParamItem
-                                key={header.id}
-                                keyValue={header.key}
-                                value={header.value}
-                                onKeyChange={(key) => updateHeader(header.id, key, header.value)}
-                                onValueChange={(value) => updateHeader(header.id, header.key, value)}
-                                onDelete={() => deleteHeader(header.id)}
-                            />
-                        ))}
-                        <AddButtonWrapper>
-                            <LinkButton onClick={addHeader}>
-                                <Codicon name="add" />
-                                Header
-                            </LinkButton>
-                        </AddButtonWrapper>
-                    </Section>
-
-                    {/* Body Section */}
-                    <Section>
-                        <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
-                            Body
-                        </Typography>
-                        <CodeTextArea
-                            id="body-textarea"
-                            resize="vertical"
-                            growRange={{ start: 5, offset: 10 }}
-                            sx={{ width: '100%', padding: '0 4px' }}
-                            value={request.body || ''}
-                            onChange={(e: any) => handleBodyChange(e.target.value)}
-                            placeholder="Enter request body..."
-                        />
-                    </Section>
-                </>
-            )}
+            <Typography variant="h3" sx={{ marginBottom: '16px' }}>
+                Query Parameters
+            </Typography>
+            <InputEditor
+                height='calc((100vh - 340px) / 3)'
+                onChange={onChange}
+                language='json'
+                value={request.body || ''}
+            />
+            <Typography variant="h3" sx={{ margin: '16px 0' }}>
+                Headers
+            </Typography>
+            <InputEditor
+                height='calc((100vh - 340px) / 3)'
+                onChange={onChange}
+                language='json'
+                value={request.body || ''}
+            />
+            <Typography variant="h3" sx={{ margin: '16px 0' }}>
+                Body
+            </Typography>
+            <InputEditor
+                height='calc((100vh - 340px) / 3)'
+                onChange={onChange}
+                language='json'
+                value={request.body || ''}
+            />  
         </Container>
     );
 };
