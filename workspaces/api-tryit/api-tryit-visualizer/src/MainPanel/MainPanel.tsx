@@ -513,7 +513,7 @@ export const MainPanel: React.FC = () => {
                                     </HelpTooltip>
                                 </HelpButton>
                             )}
-                            {/* {activeTab === 'input' && (
+                            {activeTab === 'input' && (
                                 <SlidingToggle 
                                     isCodeMode={inputMode === 'code'}
                                     onClick={() => setInputMode(inputMode === 'code' ? 'form' : 'code')}
@@ -529,7 +529,7 @@ export const MainPanel: React.FC = () => {
                                         Form
                                     </ToggleOption>
                                 </SlidingToggle>
-                            )} */}
+                            )}
                         </ControlsWrapper>
                         <VSCodePanels activeid={activeTab} onChange={(e: any) => setActiveTab(e.target.activeid)}>
                             <VSCodePanelTab id="input">Input</VSCodePanelTab>
