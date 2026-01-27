@@ -16,6 +16,7 @@
  * under the License.
  */
 
+import { MANAGE_CONNECTOR_TOOL_NAME, ASK_USER_TOOL_NAME, BUILD_PROJECT_TOOL_NAME, CONNECTOR_TOOL_NAME, CREATE_DATA_MAPPER_TOOL_NAME, ENTER_PLAN_MODE_TOOL_NAME, EXIT_PLAN_MODE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_GLOB_TOOL_NAME, FILE_GREP_TOOL_NAME, FILE_MULTI_EDIT_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME, GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME, GET_CONNECTOR_DOCUMENTATION_TOOL_NAME, SERVER_MANAGEMENT_TOOL_NAME, TASK_TOOL_NAME, TODO_WRITE_TOOL_NAME, VALIDATE_CODE_TOOL_NAME } from './tools/types';
 /**
  * Tool action states for UI display
  */
@@ -39,7 +40,7 @@ export interface ToolActions {
  */
 export function getToolAction(toolName: string, toolResult?: any, toolInput?: any): ToolActions | undefined {
     switch (toolName) {
-        case 'file_write':
+        case FILE_WRITE_TOOL_NAME:
             // Completed action depends on result (created vs updated)
             let completedAction = 'created';
             let failedAction = 'failed to create';
@@ -54,28 +55,30 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
             }
             return { loading: 'creating', completed: completedAction, failed: failedAction };
 
-        case 'file_edit':
-        case 'file_multi_edit':
+        case FILE_EDIT_TOOL_NAME:
+        case FILE_MULTI_EDIT_TOOL_NAME:
             return { loading: 'updating', completed: 'updated', failed: 'failed to update' };
 
-        case 'file_read':
+        case FILE_READ_TOOL_NAME:
             return { loading: 'reading', completed: 'read', failed: 'failed to read' };
 
-        case 'grep':
+        case FILE_GREP_TOOL_NAME:
             return { loading: 'searching file contents', completed: 'searched file contents', failed: 'search failed' };
 
-        case 'glob':
+        case FILE_GLOB_TOOL_NAME:
             return { loading: 'finding files', completed: 'found files', failed: 'failed to find files' };
 
-        case 'get_connector_definitions':
+        case CONNECTOR_TOOL_NAME:
             return { loading: 'fetching connectors', completed: 'fetched connectors', failed: 'failed to fetch connectors' };
 
-        case 'get_connector_documentation':
-        case 'get_ai_connector_documentation':
+        case GET_CONNECTOR_DOCUMENTATION_TOOL_NAME:
+        case GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME:
             return { loading: 'retrieving documentation', completed: 'retrieved', failed: 'failed to retrieve' };
 
-        case 'add_connector_to_project_pom':
-            // Extract connector names from tool input
+        case MANAGE_CONNECTOR_TOOL_NAME:
+            // Extract operation and connector names from tool input
+            const operation = toolInput?.operation || 'managing';
+            const isAdding = operation === 'add';
             if (toolInput?.connector_names && Array.isArray(toolInput.connector_names)) {
                 const names = toolInput.connector_names;
                 const connectorList = names.length === 1
@@ -83,44 +86,27 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
                     : names.length === 2
                         ? `${names[0]} and ${names[1]}`
                         : `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
-                return {
-                    loading: `adding ${connectorList}`,
-                    completed: `added ${connectorList}`,
-                    failed: `failed to add ${connectorList}`
-                };
+                return isAdding
+                    ? { loading: `adding ${connectorList}`, completed: `added ${connectorList}`, failed: `failed to add ${connectorList}` }
+                    : { loading: `removing ${connectorList}`, completed: `removed ${connectorList}`, failed: `failed to remove ${connectorList}` };
             }
-            return { loading: 'adding connector', completed: 'added connector', failed: 'failed to add connector' };
+            return isAdding
+                ? { loading: 'adding connector', completed: 'added connector', failed: 'failed to add connector' }
+                : { loading: 'removing connector', completed: 'removed connector', failed: 'failed to remove connector' };
 
-        case 'remove_connector_from_project_pom':
-            // Extract connector names from tool input
-            if (toolInput?.connector_names && Array.isArray(toolInput.connector_names)) {
-                const names = toolInput.connector_names;
-                const connectorList = names.length === 1
-                    ? names[0]
-                    : names.length === 2
-                        ? `${names[0]} and ${names[1]}`
-                        : `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
-                return {
-                    loading: `removing ${connectorList}`,
-                    completed: `removed ${connectorList}`,
-                    failed: `failed to remove ${connectorList}`
-                };
-            }
-            return { loading: 'removing connector', completed: 'removed connector', failed: 'failed to remove connector' };
-
-        case 'validate_code':
+        case VALIDATE_CODE_TOOL_NAME:
             return { loading: 'validating', completed: 'validated', failed: 'validation failed' };
 
-        case 'create_data_mapper':
+        case CREATE_DATA_MAPPER_TOOL_NAME:
             return { loading: 'creating data mapper', completed: 'created data mapper', failed: 'failed to create data mapper' };
 
-        case 'generate_data_mapping':
+        case GENERATE_DATA_MAPPING_TOOL_NAME:
             return { loading: 'generating mappings', completed: 'generated mappings', failed: 'failed to generate mappings' };
 
-        case 'build_project':
+        case BUILD_PROJECT_TOOL_NAME:
             return { loading: 'building project', completed: 'built project', failed: 'build failed' };
 
-        case 'server_management':
+        case SERVER_MANAGEMENT_TOOL_NAME:
             // Extract action from tool input for dynamic messages
             if (toolInput?.action) {
                 switch (toolInput.action) {
@@ -135,7 +121,7 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
             return { loading: 'managing server', completed: 'managed server', failed: 'server management failed' };
 
         // Plan Mode Tools
-        case 'task':
+        case TASK_TOOL_NAME:
             // Extract subagent type for dynamic messages
             const subagentType = toolInput?.subagent_type || 'subagent';
             return {
@@ -144,16 +130,16 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
                 failed: `${subagentType} agent failed`
             };
 
-        case 'ask_user':
+        case ASK_USER_TOOL_NAME:
             return { loading: 'asking user', completed: 'received response', failed: 'question timed out' };
 
-        case 'enter_plan_mode':
+        case ENTER_PLAN_MODE_TOOL_NAME:
             return { loading: 'entering plan mode', completed: 'entered plan mode', failed: 'failed to enter plan mode' };
 
-        case 'exit_plan_mode':
+        case EXIT_PLAN_MODE_TOOL_NAME:
             return { loading: 'exiting plan mode', completed: 'exited plan mode', failed: 'failed to exit plan mode' };
 
-        case 'todo_write':
+        case TODO_WRITE_TOOL_NAME:
             // Extract task count for dynamic messages
             const taskCount = toolInput?.todos?.length || 0;
             return {

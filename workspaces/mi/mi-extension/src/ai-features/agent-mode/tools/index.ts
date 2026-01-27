@@ -56,11 +56,9 @@ export {
 // Export project tools
 export {
     // Execute function creators
-    createAddConnectorExecute,
-    createRemoveConnectorExecute,
+    createManageConnectorExecute,
     // Tool creators
-    createAddConnectorTool,
-    createRemoveConnectorTool,
+    createManageConnectorTool,
 } from './project_tools';
 
 // Export LSP tools
@@ -123,8 +121,7 @@ export {
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
-    ADD_CONNECTOR_TOOL_NAME,
-    REMOVE_CONNECTOR_TOOL_NAME,
+    MANAGE_CONNECTOR_TOOL_NAME,
     VALIDATE_CODE_TOOL_NAME,
     GET_CONNECTOR_DOCUMENTATION_TOOL_NAME,
     GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME,

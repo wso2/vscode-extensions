@@ -78,6 +78,24 @@ export interface TodoItem {
 }
 
 /**
+ * Question option for ask_user tool
+ */
+export interface QuestionOption {
+    label: string;
+    description: string;
+}
+
+/**
+ * Structured question for ask_user tool
+ */
+export interface Question {
+    question: string;
+    header: string;
+    options: QuestionOption[];
+    multiSelect: boolean;
+}
+
+/**
  * Agent event for streaming
  */
 export interface AgentEvent {
@@ -96,12 +114,8 @@ export interface AgentEvent {
     modelMessages?: any[];
 
     // Plan mode fields
-    /** Question text for ask_user event */
-    question?: string;
-    /** Answer options for ask_user event */
-    options?: string[];
-    /** Whether to allow free text input for ask_user event */
-    allowFreeText?: boolean;
+    /** Structured questions for ask_user event */
+    questions?: Question[];
     /** Unique question ID for matching response */
     questionId?: string;
     /** Todo items for todo_updated event */
@@ -148,10 +162,11 @@ export interface LoadChatHistoryResponse {
 /**
  * User response to an ask_user question (for interface reference)
  * Full type exported from rpc-type.ts
+ * Answer is a JSON string containing question-answer pairs: { "question": "answer", ... }
  */
 export interface UserQuestionResponseType {
     questionId: string;
-    answer: string;
+    answer: string; // JSON string of answers
 }
 
 /**

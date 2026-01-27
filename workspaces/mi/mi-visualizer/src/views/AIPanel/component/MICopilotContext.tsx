@@ -18,7 +18,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
-import { FileObject, ImageObject, TodoItem } from "@wso2/mi-core";
+import { FileObject, ImageObject, TodoItem, Question } from "@wso2/mi-core";
 import { LoaderWrapper, ProgressRing } from "../styles";
 import {
     ChatMessage,
@@ -27,12 +27,10 @@ import {
     Role,
 } from "@wso2/mi-core";
 
-// Pending user question type
+// Pending user question type (using structured Question format from mi-core)
 export interface PendingUserQuestion {
     questionId: string;
-    question: string;
-    options?: string[];
-    allowFreeText?: boolean;
+    questions: Question[];
 }
 
 // Pending plan approval type (for UI)

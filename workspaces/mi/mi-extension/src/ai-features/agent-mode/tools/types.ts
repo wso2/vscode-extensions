@@ -85,7 +85,7 @@ export const SERVER_MANAGEMENT_TOOL_NAME = 'server_management';
 
 // Plan Mode Tool Names
 export const TASK_TOOL_NAME = 'task';
-export const ASK_USER_TOOL_NAME = 'ask_user';
+export const ASK_USER_TOOL_NAME = 'ask_user_question';
 export const ENTER_PLAN_MODE_TOOL_NAME = 'enter_plan_mode';
 export const EXIT_PLAN_MODE_TOOL_NAME = 'exit_plan_mode';
 export const TODO_WRITE_TOOL_NAME = 'todo_write';
@@ -215,10 +215,20 @@ export type TaskExecuteFn = (args: {
     model?: 'sonnet' | 'haiku';
 }) => Promise<ToolResult>;
 
-export type AskUserExecuteFn = (args: {
+export interface QuestionOption {
+    label: string;
+    description: string;
+}
+
+export interface Question {
     question: string;
-    options?: string[];
-    allow_free_text?: boolean;
+    header: string;
+    options: QuestionOption[];
+    multiSelect: boolean;
+}
+
+export type AskUserExecuteFn = (args: {
+    questions: Question[];
 }) => Promise<ToolResult>;
 
 // No parameters - matches Claude Code's EnterPlanMode

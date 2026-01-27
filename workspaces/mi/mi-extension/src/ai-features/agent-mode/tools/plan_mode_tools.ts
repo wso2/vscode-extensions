@@ -68,72 +68,135 @@ export function createAskUserExecute(
     pendingQuestions: Map<string, PendingQuestion>
 ): AskUserExecuteFn {
     return async (args): Promise<ToolResult> => {
-        const { question, options, allow_free_text = true } = args;
+        const { questions } = args;
         const questionId = uuidv4();
 
-        logInfo(`[AskUserTool] Asking user: ${question}`);
-        logDebug(`[AskUserTool] Options: ${options?.join(', ') || 'none'}, Free text: ${allow_free_text}`);
+        // Validate questions
+        if (!questions || questions.length === 0) {
+            logError('[AskUserTool] No questions provided');
+            return {
+                success: false,
+                message: 'No questions provided. Please provide at least one question with options.',
+                error: 'INVALID_INPUT'
+            };
+        }
 
-        // Send ask_user event to UI
-        eventHandler({
+        // Validate each question
+        for (let i = 0; i < questions.length; i++) {
+            const q = questions[i];
+            if (!q.question || !q.header || !q.options || q.options.length < 2) {
+                logError(`[AskUserTool] Invalid question at index ${i}: missing required fields or insufficient options`);
+                logError(`[AskUserTool] Question data: ${JSON.stringify(q)}`);
+                return {
+                    success: false,
+                    message: `Question ${i + 1} is invalid. Each question must have: question text, header, and at least 2 options with labels and descriptions.`,
+                    error: 'INVALID_QUESTION_FORMAT'
+                };
+            }
+        }
+
+        logInfo(`[AskUserTool] Asking user ${questions.length} question(s)`);
+        // Log full question structure for debugging
+        questions.forEach((q, idx) => {
+            logDebug(`[AskUserTool] Question ${idx + 1}:`);
+            logDebug(`  - Question: ${q.question}`);
+            logDebug(`  - Header: ${q.header}`);
+            logDebug(`  - MultiSelect: ${q.multiSelect}`);
+            logDebug(`  - Options (${q.options.length}):`);
+            q.options.forEach((opt, optIdx) => {
+                logDebug(`    ${optIdx + 1}. "${opt.label}" - ${opt.description}`);
+            });
+        });
+
+        // Send ask_user event to UI with structured questions
+        const event = {
             type: 'ask_user',
             questionId,
-            question,
-            options,
-            allowFreeText: allow_free_text,
-        } as any);
+            questions,
+        };
+        logDebug(`[AskUserTool] Sending event to UI: ${JSON.stringify(event, null, 2)}`);
+        eventHandler(event as any);
 
         // Wait for user response (Promise resolves when respondToQuestion is called)
+        // No timeout - we wait indefinitely for user response
         return new Promise((resolve, reject) => {
-            const timeoutMs = 5 * 60 * 1000; // 5 minutes timeout
-
             pendingQuestions.set(questionId, {
                 questionId,
-                question,
-                resolve: (answer: string) => {
+                question: questions.map(q => q.question).join('; '),
+                resolve: (answersJson: string) => {
                     pendingQuestions.delete(questionId);
-                    logInfo(`[AskUserTool] Received user response: ${answer.substring(0, 100)}...`);
-                    resolve({
-                        success: true,
-                        message: `User responded: ${answer}`
-                    });
+
+                    // Check if user cancelled (special string indicating cancellation)
+                    if (answersJson === '__USER_CANCELLED__') {
+                        logInfo(`[AskUserTool] User refused to answer questions`);
+                        resolve({
+                            success: false,
+                            message: 'User refused to answer the questions. You should proceed without this information or adjust your approach.',
+                            error: 'USER_CANCELLED'
+                        });
+                        return;
+                    }
+
+                    try {
+                        // Parse answers object
+                        const answers = JSON.parse(answersJson);
+
+                        // Format result message like Claude Code: "question"="answer"
+                        const formattedAnswers = Object.entries(answers)
+                            .map(([question, answer]) => `"${question}"="${answer}"`)
+                            .join(', ');
+
+                        logInfo(`[AskUserTool] Received user responses: ${formattedAnswers}`);
+                        resolve({
+                            success: true,
+                            message: `User has answered your questions: ${formattedAnswers}. You can now continue with the user's answers in mind.`
+                        });
+                    } catch (error) {
+                        // Fallback for simple string response
+                        logInfo(`[AskUserTool] Received user response: ${answersJson.substring(0, 100)}...`);
+                        resolve({
+                            success: true,
+                            message: `User responded: ${answersJson}`
+                        });
+                    }
                 },
                 reject: (error: Error) => {
                     pendingQuestions.delete(questionId);
                     reject(error);
                 }
             });
-
-            // Timeout after 5 minutes
-            setTimeout(() => {
-                if (pendingQuestions.has(questionId)) {
-                    pendingQuestions.delete(questionId);
-                    logInfo(`[AskUserTool] Question timed out: ${questionId}`);
-                    resolve({
-                        success: false,
-                        message: 'User did not respond within the timeout period (5 minutes)',
-                        error: 'TIMEOUT'
-                    });
-                }
-            }, timeoutMs);
         });
     };
 }
 
-const askUserInputSchema = z.object({
-    question: z.string().describe('The question to ask the user'),
-    options: z.array(z.string()).min(2).max(4).optional().describe(
-        'Optional predefined answer choices (2-4 options). User can always provide custom input.'
+const questionOptionSchema = z.object({
+    label: z.string().describe('The display text for this option (1-5 words)'),
+    description: z.string().describe('Explanation of what this option means or what will happen if chosen')
+});
+
+const questionSchema = z.object({
+    question: z.string().describe('The complete question to ask the user. Should be clear, specific, and end with a question mark.'),
+    header: z.string().max(12).describe('Very short label displayed as a chip/tag (max 12 chars). Examples: "Auth method", "Library", "Approach"'),
+    options: z.array(questionOptionSchema).min(2).max(4).describe(
+        'The available choices for this question. Must have 2-4 options. Each option should be a distinct choice.'
     ),
-    allow_free_text: z.boolean().optional().default(true).describe(
-        'Whether to allow free-form text input in addition to options. Defaults to true.'
+    multiSelect: z.boolean().default(false).describe(
+        'Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive.'
     )
+});
+
+const askUserInputSchema = z.object({
+    questions: z.array(questionSchema).min(1).max(4).describe('Questions to ask the user (1-4 questions)')
 });
 
 export function createAskUserTool(execute: AskUserExecuteFn) {
     return (tool as any)({
         description: `
-            Ask the user a question and wait for their response.
+            Ask the user questions and wait for their responses. This allows you to:
+            1. Gather user preferences or requirements
+            2. Clarify ambiguous instructions
+            3. Get decisions on implementation choices as you work
+            4. Offer choices to the user about what direction to take
 
             ## When to Use
 
@@ -146,20 +209,30 @@ export function createAskUserTool(execute: AskUserExecuteFn) {
 
             ## Guidelines
 
-            - Provide 2-4 predefined options when possible for common choices
-            - Always allow free text unless choices are strictly limited
-            - Keep questions clear and concise
-            - Don't use this for yes/no confirmations during execution - proceed with best judgment
+            - You can ask 1-4 questions at once
+            - Each question should have 2-4 options with labels and descriptions
+            - Use multiSelect: true when choices are not mutually exclusive
+            - If you recommend a specific option, make it the first option and add "(Recommended)" to the label
+            - Users will always be able to select "Other" to provide custom text input
 
             ## Example
 
-            Question: "Which format should the API response use?"
-            Options: ["JSON", "XML", "Both JSON and XML"]
+            questions: [{
+                question: "Which format should the API response use?",
+                header: "API Format",
+                options: [
+                    { label: "JSON (Recommended)", description: "Modern standard, best for web APIs" },
+                    { label: "XML", description: "Traditional format, better for SOAP services" }
+                ],
+                multiSelect: false
+            }]
 
             ## Important
 
-            - This tool BLOCKS execution until user responds or times out (5 minutes)
-            - The user's response will be returned as the tool result
+            - This tool BLOCKS execution until user responds
+            - The user's responses will be returned formatted as: "question"="answer"
+            - If the user cancels/refuses to answer, you'll receive an error message and should proceed without the information
+            - In plan mode, use this to clarify requirements BEFORE finalizing your plan
         `,
         inputSchema: askUserInputSchema,
         execute
@@ -328,9 +401,8 @@ export function createExitPlanModeExecute(
         } as any);
 
         // Wait for user approval (Promise resolves when respondToPlanApproval is called)
+        // No timeout - we wait indefinitely for user approval
         return new Promise((resolve, reject) => {
-            const timeoutMs = 5 * 60 * 1000; // 5 minutes timeout
-
             pendingApprovals.set(approvalId, {
                 approvalId,
                 resolve: async (result: { approved: boolean; feedback?: string }) => {
@@ -373,19 +445,6 @@ export function createExitPlanModeExecute(
                     reject(error);
                 }
             });
-
-            // Timeout after 5 minutes
-            setTimeout(() => {
-                if (pendingApprovals.has(approvalId)) {
-                    pendingApprovals.delete(approvalId);
-                    logInfo(`[ExitPlanMode] Approval timed out: ${approvalId}`);
-                    resolve({
-                        success: false,
-                        message: 'User did not respond to plan approval within the timeout period (5 minutes). Please try again.',
-                        error: 'TIMEOUT'
-                    });
-                }
-            }, timeoutMs);
         });
     };
 }
@@ -416,7 +475,7 @@ export function createExitPlanModeTool(execute: ExitPlanModeExecuteFn) {
 
             ## Important
 
-            - This tool BLOCKS until user approves or rejects (5 min timeout)
+            - This tool BLOCKS until user approves or rejects
             - Make sure you've created a plan file before calling this
             - User can see the plan file and provide feedback
         `,

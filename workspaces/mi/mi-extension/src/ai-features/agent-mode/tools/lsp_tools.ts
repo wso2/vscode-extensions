@@ -18,7 +18,7 @@
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { ADD_CONNECTOR_TOOL_NAME, ToolResult } from './types';
+import { MANAGE_CONNECTOR_TOOL_NAME, ToolResult } from './types';
 import { MILanguageClient } from '../../../lang-client/activator';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -273,7 +273,7 @@ export function createValidateCodeTool(execute: ValidateCodeExecuteFn) {
             - To see what automatic fixes are available for errors
 
             Important:
-            - Ensure required connectors are added before validating files that use them using ${ADD_CONNECTOR_TOOL_NAME}
+            - Ensure required connectors are added before validating files that use them using ${MANAGE_CONNECTOR_TOOL_NAME}
             - Available fixes are provided by the LemMinx LSP and show what can be auto-corrected`,
         inputSchema: validateCodeInputSchema,
         execute
