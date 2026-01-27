@@ -21,6 +21,22 @@
             "preLaunchTask": "npm: watch-api-designer"
         },
         {
+            "name": "Arazzo Designer Extension",
+            "type": "extensionHost",
+            "request": "launch",
+            "env": {
+                "WEB_VIEW_WATCH_MODE": "true",
+                "WEB_VIEW_DEV_HOST": "http://localhost:9000"
+            },
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/arazzo/arazzo-designer-extension"
+            ],
+            "outFiles": [
+                "${workspaceFolder}/workspaces/arazzo/arazzo-designer-extension/dist/**/*.js"
+            ],
+            "preLaunchTask": "npm: watch-arazzo-designer"
+        },
+        {
             "name": "Ballerina & BI Extensions",
             "type": "extensionHost",
             "request": "launch",

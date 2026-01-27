@@ -283,6 +283,22 @@
 			}
 		},
         {
+            "label": "npm: watch-arazzo-designer",
+            "type": "npm",
+            "script": "watch",
+            "path": "workspaces/arazzo/arazzo-designer-extension",
+            "problemMatcher": "$tsc-watch",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "never",
+                "group": "watchers"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
             "type": "npm",
             "script": "watch-fhir-tools",
             "path": "workspaces/fhir-tools/fhir-tools-extension",

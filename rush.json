@@ -615,6 +615,22 @@
     {
       "packageName": "mcp-server-inspector",
       "projectFolder": "workspaces/mcp-inspector/mcp-inspector-extension"
+    },
+    {
+      "packageName": "arazzo-designer",
+      "projectFolder": "workspaces/arazzo/arazzo-designer-extension"
+    },
+    {
+      "packageName": "@wso2/arazzo-designer-core",
+      "projectFolder": "workspaces/arazzo/arazzo-designer-core"
+    },
+    {
+      "packageName": "@wso2/arazzo-designer-rpc-client",
+      "projectFolder": "workspaces/arazzo/arazzo-designer-rpc-client"
+    },
+    {
+      "packageName": "@wso2/arazzo-designer-visualizer",
+      "projectFolder": "workspaces/arazzo/arazzo-designer-visualizer"
     }
   ]
 }

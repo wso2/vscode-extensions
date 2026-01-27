@@ -1,0 +1,73 @@
+/**
+ * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import { useEffect, useState } from "react";
+
+import { Codicon } from "@wso2/ui-toolkit";
+import { VSCodeButton } from "@vscode/webview-ui-toolkit/react";
+import { useVisualizerContext } from "@wso2/arazzo-designer-rpc-client";
+import { MACHINE_VIEW, VisualizerLocation } from "@wso2/arazzo-designer-core";
+import { HierachicalPath } from "./HierachicalPath";
+
+interface NavButtonGroupProps {
+    currentProjectPath?: string;
+}
+
+export function NavButtonGroup(props: NavButtonGroupProps) {
+
+    const { rpcClient } = useVisualizerContext();
+
+    const [machineView, setMachineView] = useState<VisualizerLocation>(null);
+
+    useEffect(() => {
+        try {
+            rpcClient.getVisualizerState().then((mState) => {
+                setMachineView(mState);
+            });
+        } catch (error) {
+
+        }
+    }, []);
+
+    const handleBackButtonClick = () => {
+        rpcClient.getApiDesignerVisualizerRpcClient().goBack();
+    }
+
+    const handleHomeButtonClick = () => {
+        rpcClient.getApiDesignerVisualizerRpcClient().goHome();
+    }
+
+    return (
+        <>
+            <>
+                {machineView?.view !== MACHINE_VIEW.Overview && (
+                    <>
+                        <VSCodeButton appearance="icon" title="Go Back" onClick={handleBackButtonClick}>
+                            <Codicon name="arrow-left" />
+                        </VSCodeButton>
+                        <VSCodeButton appearance="icon" title="Home" onClick={handleHomeButtonClick}>
+                            <Codicon name="home" />
+                        </VSCodeButton>
+                    </>
+                )}
+                <HierachicalPath />
+            </>
+
+        </>
+    );
+}

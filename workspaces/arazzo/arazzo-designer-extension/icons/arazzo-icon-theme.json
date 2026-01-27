@@ -1,0 +1,48 @@
+{
+  "iconDefinitions": {
+    "arazzo-file": {
+      "iconPath": "../assets/arazzo-language.png"
+    },
+    "_folder": {
+      "iconPath": ""
+    },
+    "_file": {
+      "iconPath": ""
+    }
+  },
+  "fileExtensions": {
+    "arazzo.yaml": "arazzo-file",
+    "arazzo.yml": "arazzo-file",
+    "arazzo.json": "arazzo-file"
+  },
+  "fileNames": {},
+  "file": "_file",
+  "folder": "_folder",
+  "folderExpanded": "_folder",
+  "languageIds": {
+    "arazzo-yaml": "arazzo-file",
+    "arazzo-json": "arazzo-file"
+  },
+  "light": {
+    "fileExtensions": {
+      "arazzo.yaml": "arazzo-file",
+      "arazzo.yml": "arazzo-file",
+      "arazzo.json": "arazzo-file"
+    },
+    "languageIds": {
+      "arazzo-yaml": "arazzo-file",
+      "arazzo-json": "arazzo-file"
+    }
+  },
+  "highContrast": {
+    "fileExtensions": {
+      "arazzo.yaml": "arazzo-file",
+      "arazzo.yml": "arazzo-file",
+      "arazzo.json": "arazzo-file"
+    },
+    "languageIds": {
+      "arazzo-yaml": "arazzo-file",
+      "arazzo-json": "arazzo-file"
+    }
+  }
+}

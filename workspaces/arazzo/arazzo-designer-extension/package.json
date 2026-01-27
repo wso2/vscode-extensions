@@ -1,0 +1,207 @@
+{
+  "name": "arazzo-designer",
+  "displayName": "Arazzo Designer",
+  "description": "An extension which gives a development environment for designing, developing, debugging, and testing Arazzo Specification.",
+  "version": "0.0.1",
+  "publisher": "wso2",
+  "engines": {
+    "vscode": "^1.81.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:yaml",
+    "onLanguage:json",
+    "workspaceContains:**/*.arazzo.{yaml,yml,json}"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "arazzo-yaml",
+        "aliases": [
+          "Arazzo",
+          "arazzo"
+        ],
+        "extensions": [
+          ".arazzo.yaml",
+          ".arazzo.yml"
+        ],
+        "configuration": "./language-configuration.json",
+        "filenames": []
+      },
+      {
+        "id": "arazzo-json",
+        "aliases": [
+          "Arazzo JSON"
+        ],
+        "extensions": [
+          ".arazzo.json"
+        ],
+        "filenames": []
+      }
+    ],
+    "grammars": [
+      {
+        "language": "arazzo-yaml",
+        "scopeName": "source.arazzo",
+        "path": "./syntaxes/arazzo.tmLanguage.json"
+      },
+      {
+        "language": "arazzo-json",
+        "scopeName": "source.json",
+        "path": "./syntaxes/arazzo.tmLanguage.json"
+      }
+    ],
+    "viewsWelcome": [
+      {
+        "view": "APIDesigner.project-explorer",
+        "contents": "Loading...",
+        "when": "APIDesigner.status != 'unknownProject' && APIDesigner.status != 'projectLoaded' && APIDesigner.status != 'disabled'"
+      },
+      {
+        "view": "APIDesigner.project-explorer",
+        "contents": "API Designer",
+        "when": "true"
+      }
+    ],
+    "commands": [
+      {
+        "command": "APIDesigner.openAPIDesigner",
+        "title": "Open API/Arazzo Designer",
+        "category": "APIDesigner",
+        "when": "isFileOpenAPI || isFileArazzo",
+        "icon": "$(preview)"
+      },
+      {
+        "command": "APIDesigner.createOpenAPIFile",
+        "title": "Create OpenAPI/Arazzo File",
+        "category": "APIDesigner"
+      },
+      {
+        "command": "APIDesigner.showCode",
+        "title": "Show Code",
+        "category": "APIDesigner",
+        "when": "isViewOpenAPI || isViewArazzo",
+        "icon": "$(code)"
+      },
+      {
+        "command": "APIDesigner.createArazzoFile",
+        "title": "Create Arazzo Workflow File",
+        "category": "APIDesigner"
+      },
+      {
+        "command": "arazzo.visualize",
+        "title": "Visualize Arazzo Workflow",
+        "category": "Arazzo"
+      },
+      {
+        "command": "arazzo.openDesigner",
+        "title": "Open Arazzo Designer",
+        "category": "Arazzo"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "when": "isFileOpenAPI || isFileArazzo",
+          "command": "APIDesigner.openAPIDesigner",
+          "alt": "APIDesigner.openAPIDesigner",
+          "group": "navigation"
+        },
+        {
+          "command": "APIDesigner.showCode",
+          "group": "navigation",
+          "when": "isViewOpenAPI || isViewArazzo"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "APIDesigner.createOpenAPIFile",
+          "group": "APIDesigner@1"
+        },
+        {
+          "command": "APIDesigner.createArazzoFile",
+          "group": "APIDesigner@2"
+        }
+      ]
+    },
+    "icons": {
+      "distro-design-view": {
+        "description": "design-view",
+        "default": {
+          "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
+          "fontCharacter": "\\f133"
+        }
+      }
+    },
+    "iconThemes": [
+      {
+        "id": "arazzo-icon-theme",
+        "label": "Arazzo File Icons",
+        "path": "./icons/arazzo-icon-theme.json"
+      }
+    ]
+  },
+  "scripts": {
+    "clean": "rimraf ./dist",
+    "compile": "tsc -p .",
+    "watch": "tsc -p . -w",
+    "package": "node ../../common-libs/scripts/package-vsix.js",
+    "build": "pnpm clean && pnpm run copyFonts && webpack --mode production --devtool hidden-source-map && pnpm run package && pnpm run postbuild",
+    "compile-tests": "pnpm run compile",
+    "watch-tests": "pnpm run watch",
+    "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "pnpm run pretest && node ./out/test/runTest.js",
+    "e2e-test-setup": "npx extest get-vscode -c 1.81.1 && npx extest get-chromedriver -c 1.81.1 && npx extest install-vsix -f $(ls vsix/*.vsix)",
+    "e2e-test": "pnpm run compile-tests && pnpm exec playwright test",
+    "copyFonts": "copyfiles -f ./node_modules/@wso2/font-wso2-vscode/dist/* ./resources/font-wso2-vscode/dist/",
+    "copyVSIX": "copyfiles *.vsix ./vsix",
+    "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../..",
+    "postbuild": "pnpm run copyVSIX"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.81.0",
+    "@types/node": "16.x",
+    "@typescript-eslint/eslint-plugin": "^6.4.1",
+    "@typescript-eslint/parser": "^6.4.1",
+    "eslint": "^8.47.0",
+    "typescript": "5.8.3",
+    "ts-loader": "^9.4.4",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4",
+    "@vscode/test-electron": "^2.3.4",
+    "rimraf": "~5.0.5",
+    "@types/js-yaml": "~4.0.9"
+  },
+  "dependencies": {
+    "copyfiles": "^2.4.1",
+    "@vscode/vsce": "^3.7.0",
+    "vscode-languageclient": "^9.0.1",
+    "vscode-messenger": "^0.4.5",
+    "vscode-messenger-common": "^0.4.5",
+    "@wso2/arazzo-designer-core": "workspace:*",
+    "@wso2/arazzo-designer-rpc-client": "workspace:*",
+    "@wso2/arazzo-designer-visualizer": "workspace:*",
+    "@wso2/font-wso2-vscode": "workspace:*",
+    "@types/xml2js": "~0.4.12",
+    "jsonix": "~3.0.0",
+    "lodash": "4.17.23",
+    "axios": "~1.12.0",
+    "@types/lodash": "~4.14.199",
+    "xstate": "^4.38.3",
+    "node-fetch": "~2.6.2",
+    "node-loader": "~2.0.0",
+    "to-json-schema": "0.2.5",
+    "@babel/core": "^7.24.4",
+    "@types/json-schema": "7.0.15",
+    "json-schema": "0.4.0",
+    "portfinder": "^1.0.32",
+    "cors-anywhere": "^0.4.4",
+    "@apidevtools/json-schema-ref-parser": "11.6.1",
+    "adm-zip": "~0.5.14",
+    "js-yaml": "~4.1.1"
+  }
+}

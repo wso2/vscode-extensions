@@ -377,6 +377,325 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
 
+  ../../workspaces/arazzo/arazzo-designer-core:
+    dependencies:
+      '@types/vscode-webview':
+        specifier: ^1.57.3
+        version: 1.57.5
+      vscode-messenger-common:
+        specifier: ^0.4.5
+        version: 0.4.5
+    devDependencies:
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^6.9.1
+        version: 6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.8.3))(eslint@8.57.1)(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: ^6.9.1
+        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
+      eslint:
+        specifier: ^8.52.0
+        version: 8.57.1
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
+
+  ../../workspaces/arazzo/arazzo-designer-extension:
+    dependencies:
+      '@apidevtools/json-schema-ref-parser':
+        specifier: 11.6.1
+        version: 11.6.1
+      '@babel/core':
+        specifier: ^7.24.4
+        version: 7.27.7
+      '@types/json-schema':
+        specifier: 7.0.15
+        version: 7.0.15
+      '@types/lodash':
+        specifier: ~4.14.199
+        version: 4.14.202
+      '@types/xml2js':
+        specifier: ~0.4.12
+        version: 0.4.14
+      '@vscode/vsce':
+        specifier: ^3.7.0
+        version: 3.7.1
+      '@wso2/arazzo-designer-core':
+        specifier: workspace:*
+        version: link:../arazzo-designer-core
+      '@wso2/arazzo-designer-rpc-client':
+        specifier: workspace:*
+        version: link:../arazzo-designer-rpc-client
+      '@wso2/arazzo-designer-visualizer':
+        specifier: workspace:*
+        version: link:../arazzo-designer-visualizer
+      '@wso2/font-wso2-vscode':
+        specifier: workspace:*
+        version: link:../../common-libs/font-wso2-vscode
+      adm-zip:
+        specifier: ~0.5.14
+        version: 0.5.16
+      axios:
+        specifier: ~1.12.0
+        version: 1.12.2
+      copyfiles:
+        specifier: ^2.4.1
+        version: 2.4.1
+      cors-anywhere:
+        specifier: ^0.4.4
+        version: 0.4.4
+      js-yaml:
+        specifier: ^4.1.1
+        version: 4.1.1
+      json-schema:
+        specifier: 0.4.0
+        version: 0.4.0
+      jsonix:
+        specifier: ~3.0.0
+        version: 3.0.0
+      lodash:
+        specifier: 4.17.23
+        version: 4.17.23
+      node-fetch:
+        specifier: ~2.6.2
+        version: 2.6.13(encoding@0.1.13)
+      node-loader:
+        specifier: ~2.0.0
+        version: 2.0.0(webpack@5.104.1)
+      portfinder:
+        specifier: ^1.0.32
+        version: 1.0.38
+      to-json-schema:
+        specifier: 0.2.5
+        version: 0.2.5
+      vscode-languageclient:
+        specifier: ^9.0.1
+        version: 9.0.1
+      vscode-messenger:
+        specifier: ^0.4.5
+        version: 0.4.5
+      vscode-messenger-common:
+        specifier: ^0.4.5
+        version: 0.4.5
+      xstate:
+        specifier: ^4.38.3
+        version: 4.38.3
+    devDependencies:
+      '@types/js-yaml':
+        specifier: ~4.0.9
+        version: 4.0.9
+      '@types/node':
+        specifier: 16.x
+        version: 16.18.126
+      '@types/vscode':
+        specifier: ^1.81.0
+        version: 1.108.1
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^6.4.1
+        version: 6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.8.3))(eslint@8.57.1)(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: ^6.4.1
+        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
+      '@vscode/test-electron':
+        specifier: ^2.3.4
+        version: 2.5.2
+      eslint:
+        specifier: ^8.47.0
+        version: 8.57.1
+      rimraf:
+        specifier: ~5.0.5
+        version: 5.0.10
+      ts-loader:
+        specifier: ^9.4.4
+        version: 9.5.4(typescript@5.8.3)(webpack@5.104.1)
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
+      webpack:
+        specifier: ^5.94.0
+        version: 5.104.1(webpack-cli@5.1.4)
+      webpack-cli:
+        specifier: ^5.1.4
+        version: 5.1.4(webpack@5.104.1)
+
+  ../../workspaces/arazzo/arazzo-designer-rpc-client:
+    dependencies:
+      '@types/vscode-webview':
+        specifier: ^1.57.3
+        version: 1.57.5
+      '@wso2/arazzo-designer-core':
+        specifier: workspace:*
+        version: link:../arazzo-designer-core
+      react:
+        specifier: 18.2.0
+        version: 18.2.0
+      react-dom:
+        specifier: 18.2.0
+        version: 18.2.0(react@18.2.0)
+      vscode-messenger-common:
+        specifier: ^0.4.5
+        version: 0.4.5
+      vscode-messenger-webview:
+        specifier: ^0.4.5
+        version: 0.4.5
+    devDependencies:
+      '@types/react':
+        specifier: 18.2.0
+        version: 18.2.0
+      '@types/react-dom':
+        specifier: 18.2.0
+        version: 18.2.0
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^6.9.1
+        version: 6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.8.3))(eslint@8.57.1)(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: ^6.9.1
+        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
+      eslint:
+        specifier: ^8.52.0
+        version: 8.57.1
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
+
+  ../../workspaces/arazzo/arazzo-designer-visualizer:
+    dependencies:
+      '@emotion/css':
+        specifier: ^11.10.5
+        version: 11.13.5
+      '@emotion/react':
+        specifier: ^11.9.3
+        version: 11.14.0(@types/react@18.2.0)(react@18.2.0)
+      '@emotion/styled':
+        specifier: ^11.11.0
+        version: 11.14.1(@emotion/react@11.14.0(@types/react@18.2.0)(react@18.2.0))(@types/react@18.2.0)(react@18.2.0)
+      '@hookform/resolvers':
+        specifier: ~3.3.4
+        version: 3.3.4(react-hook-form@7.56.4(react@18.2.0))
+      '@mdxeditor/editor':
+        specifier: ~3.14.0
+        version: 3.14.0(@codemirror/language@6.11.3)(@lezer/highlight@1.2.3)(@types/react-dom@18.2.0)(@types/react@18.2.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      '@tanstack/query-core':
+        specifier: ^4.0.0-beta.1
+        version: 4.41.0
+      '@tanstack/react-query':
+        specifier: 4.0.10
+        version: 4.0.10(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      '@vscode/webview-ui-toolkit':
+        specifier: ^1.2.0
+        version: 1.4.0(react@18.2.0)
+      '@wso2/arazzo-designer-core':
+        specifier: workspace:*
+        version: link:../arazzo-designer-core
+      '@wso2/arazzo-designer-rpc-client':
+        specifier: workspace:*
+        version: link:../arazzo-designer-rpc-client
+      '@wso2/font-wso2-vscode':
+        specifier: workspace:*
+        version: link:../../common-libs/font-wso2-vscode
+      '@wso2/ui-toolkit':
+        specifier: workspace:*
+        version: link:../../common-libs/ui-toolkit
+      js-yaml:
+        specifier: ^4.1.1
+        version: 4.1.1
+      lodash:
+        specifier: 4.17.23
+        version: 4.17.23
+      path:
+        specifier: ~0.12.7
+        version: 0.12.7
+      process:
+        specifier: ~0.11.10
+        version: 0.11.10
+      react:
+        specifier: 18.2.0
+        version: 18.2.0
+      react-dom:
+        specifier: 18.2.0
+        version: 18.2.0(react@18.2.0)
+      react-hook-form:
+        specifier: 7.56.4
+        version: 7.56.4(react@18.2.0)
+      react-markdown:
+        specifier: ~9.0.1
+        version: 9.0.3(@types/react@18.2.0)(react@18.2.0)
+      yup:
+        specifier: ~1.4.0
+        version: 1.4.0
+    devDependencies:
+      '@babel/plugin-syntax-flow':
+        specifier: ~7.22.5
+        version: 7.22.5(@babel/core@7.27.7)
+      '@babel/preset-typescript':
+        specifier: ~7.22.11
+        version: 7.22.15(@babel/core@7.27.7)
+      '@storybook/addon-actions':
+        specifier: ~7.4.0
+        version: 7.4.6(@types/react-dom@18.2.0)(@types/react@18.2.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      '@storybook/addon-essentials':
+        specifier: ~7.4.0
+        version: 7.4.6(@types/react-dom@18.2.0)(@types/react@18.2.0)(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      '@storybook/cli':
+        specifier: ^7.6.10
+        version: 7.6.21(encoding@0.1.13)
+      '@storybook/react':
+        specifier: ~7.4.0
+        version: 7.4.6(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(typescript@5.8.3)
+      '@storybook/react-webpack5':
+        specifier: ~7.4.0
+        version: 7.4.6(@babel/core@7.27.7)(@swc/helpers@0.5.18)(@types/react-dom@18.2.0)(@types/react@18.2.0)(@types/webpack@5.28.5(webpack-cli@5.1.4))(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(type-fest@4.41.0)(typescript@5.8.3)(webpack-cli@5.1.4)(webpack-dev-server@5.2.3)(webpack-hot-middleware@2.26.1)
+      '@types/js-yaml':
+        specifier: ~4.0.9
+        version: 4.0.9
+      '@types/lodash':
+        specifier: ~4.14.198
+        version: 4.14.202
+      '@types/node':
+        specifier: ^20.10.6
+        version: 20.19.29
+      '@types/react':
+        specifier: 18.2.0
+        version: 18.2.0
+      '@types/react-dom':
+        specifier: 18.2.0
+        version: 18.2.0
+      '@types/vscode-webview':
+        specifier: ~1.57.2
+        version: 1.57.5
+      '@vscode/codicons':
+        specifier: 0.0.44
+        version: 0.0.44
+      copyfiles:
+        specifier: ^2.4.1
+        version: 2.4.1
+      css-loader:
+        specifier: ^5.2.7
+        version: 5.2.7(webpack@5.104.1)
+      sass-loader:
+        specifier: ^13.2.0
+        version: 13.3.3(sass@1.97.2)(webpack@5.104.1)
+      source-map-loader:
+        specifier: ^4.0.1
+        version: 4.0.2(webpack@5.104.1)
+      style-loader:
+        specifier: ^1.3.0
+        version: 1.3.0(webpack@5.104.1)
+      ts-loader:
+        specifier: ^9.5.0
+        version: 9.5.4(typescript@5.8.3)(webpack@5.104.1)
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
+      webpack:
+        specifier: ^5.94.0
+        version: 5.104.1(webpack-cli@5.1.4)
+      webpack-cli:
+        specifier: ~5.1.4
+        version: 5.1.4(webpack-dev-server@5.2.3)(webpack@5.104.1)
+      webpack-dev-server:
+        specifier: ^5.2.1
+        version: 5.2.3(webpack-cli@5.1.4)(webpack@5.104.1)
+
   ../../workspaces/ballerina/ballerina-core:
     dependencies:
       '@types/mousetrap':
@@ -26390,7 +26709,10 @@ snapshots:
       jest-runner: 25.5.4
       jest-runtime: 25.5.4
     transitivePeerDependencies:
+      - bufferutil
+      - canvas
       - supports-color
+      - utf-8-validate
 
   '@jest/test-sequencer@29.7.0':
     dependencies:
