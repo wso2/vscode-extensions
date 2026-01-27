@@ -102,6 +102,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
 }) => {
     const monacoRef = useRef<Monaco | null>(null);
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+    const isTypingRef = useRef(false);
 
     // Use propTheme if provided, otherwise let Monaco inherit VS Code theme
     const theme = propTheme;
@@ -186,12 +187,44 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         };
     }, [theme]);
 
+    // Update editor when value changes externally, but not during typing
+    useEffect(() => {
+        if (editorRef.current && !isTypingRef.current) {
+            const currentValue = editorRef.current.getValue();
+            // Only update if content is actually different
+            if (currentValue !== value) {
+                const position = editorRef.current.getPosition();
+                editorRef.current.setValue(value);
+                if (position) {
+                    const model = editorRef.current.getModel();
+                    if (model && position.lineNumber <= model.getLineCount()) {
+                        editorRef.current.setPosition(position);
+                    }
+                }
+            }
+        }
+    }, [value]);
+
+    /**
+     * Handles changes to the editor content
+     */
+    const handleEditorChange = (newValue: string | undefined) => {
+        if (newValue !== undefined) {
+            isTypingRef.current = true;
+            onChange(newValue);
+            // Reset typing flag after a short delay
+            setTimeout(() => {
+                isTypingRef.current = false;
+            }, 100);
+        }
+    };
+
     return (
         <EditorContainer>
             <Editor
                 height={height}
                 language={LANGUAGE_ID}
-                value={value}
+                defaultValue={value}
                 theme={theme || 'input-editor-theme'}
                 beforeMount={(monaco) => {
                     setupTheme(monaco);
@@ -280,7 +313,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                     
                     onMount?.(editor, monaco);
                 }}
-                onChange={onChange}
+                onChange={handleEditorChange}
                 options={{
                     minimap: { enabled: false },
                     fontSize: 14,
