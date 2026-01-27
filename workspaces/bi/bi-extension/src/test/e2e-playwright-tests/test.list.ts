@@ -134,6 +134,9 @@ test.describe(inlineDataMapper);
 // <----Diagram Test---->
 test.describe(diagram);
 
+// <----Test Function Test---->
+test.describe(testFunction);
+
 test.afterAll(async () => {
     console.log('\n' + '='.repeat(80));
     console.log('✅ BI EXTENSION E2E TEST SUITE COMPLETED');
