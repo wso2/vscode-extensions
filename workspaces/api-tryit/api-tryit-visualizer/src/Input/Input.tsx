@@ -135,7 +135,7 @@ export const Input: React.FC<InputProps> = ({
                 Query Parameters
             </Typography>
             <InputEditor
-                height='calc((100vh - 340px) / 3)'
+                height='calc((100vh - 420px) / 3)'
                 onChange={onChange}
                 language='json'
                 value={request.body || ''}
@@ -144,7 +144,7 @@ export const Input: React.FC<InputProps> = ({
                 Headers
             </Typography>
             <InputEditor
-                height='calc((100vh - 340px) / 3)'
+                height='calc((100vh - 420px) / 3)'
                 onChange={onChange}
                 language='json'
                 value={request.body || ''}
@@ -153,7 +153,7 @@ export const Input: React.FC<InputProps> = ({
                 Body
             </Typography>
             <InputEditor
-                height='calc((100vh - 340px) / 3)'
+                height='calc((100vh - 420px) / 3)'
                 onChange={onChange}
                 language='json'
                 value={request.body || ''}

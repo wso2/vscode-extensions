@@ -51,6 +51,8 @@ const getIsDarkTheme = (): boolean => {
            document.body.classList.contains('vscode-high-contrast');
 };
 
+const LANGUAGE_ID = 'input-editor-lang';
+
 /**
  * Styled container for the editor with padding
  */
@@ -100,12 +102,57 @@ export const InputEditor: React.FC<InputEditorProps> = ({
      */
     const setupTheme = (monaco: Monaco) => {
         const isDark = getIsDarkTheme();
+        
+        // Register custom language if not already registered
+        if (!monaco.languages.getLanguages().some((lang: { id: string }) => lang.id === LANGUAGE_ID)) {
+            monaco.languages.register({ id: LANGUAGE_ID });
+
+            // Define syntax highlighting rules
+            monaco.languages.setMonarchTokensProvider(LANGUAGE_ID, {
+                tokenizer: {
+                    root: [
+                        // Key-value pairs with colon (hello: world) - for headers
+                        [/^[\s]*([a-zA-Z_][a-zA-Z0-9_-]*)\s*:/, 'variable.key'],
+                        // Key-value pairs with equals (key=value) - for query parameters
+                        [/^[\s]*([a-zA-Z_][a-zA-Z0-9_-]*)\s*=/, 'variable.key'],
+                        // JSON strings with quotes
+                        [/"[^"\\]*(?:\\.[^"\\]*)*"/, 'string'],
+                        // Numbers
+                        [/\b\d+(?:\.\d+)?\b/, 'number'],
+                        // Boolean and null values
+                        [/\b(?:true|false|null)\b/, 'keyword'],
+                        // JSON/Object delimiters - curly braces, brackets, comma, colon
+                        [/[{}\[\],:]/, 'delimiter'],
+                        // Comments
+                        [/\/\/.*$/, 'comment'],
+                        // Whitespace
+                        [/\s+/, 'whitespace'],
+                    ]
+                }
+            });
+        }
+
+        // Define custom theme with syntax colors
         monaco.editor.defineTheme('input-editor-theme', {
             base: isDark ? 'vs-dark' : 'vs',
             inherit: true,
-            rules: [],
+            rules: [
+                { token: 'variable.key', foreground: isDark ? 'D19A66' : 'C18401', fontStyle: 'bold' },
+                { token: 'string', foreground: isDark ? '98C379' : '50A14F' },
+                { token: 'number', foreground: isDark ? 'D19A66' : 'C18401' },
+                { token: 'keyword', foreground: isDark ? '569CD6' : '0000FF' },
+                { token: 'delimiter', foreground: isDark ? '56B6C2' : '0184BC', fontStyle: 'bold' },
+                { token: 'comment', foreground: isDark ? '6A9955' : '008000', fontStyle: 'italic' },
+            ],
             colors: {
-                'editor.background': isDark ? '#262626ff' : '#f5f5f5'
+                'editor.background': isDark ? '#262626ff' : '#f5f5f5',
+                'editor.foreground': isDark ? '#ABB2BF' : '#383A42',
+                'editor.lineHighlightBackground': isDark ? '#2C313A' : '#F0F0F0',
+                'editorLineNumber.foreground': isDark ? '#5C6370' : '#9D9D9F',
+                'editorLineNumber.activeForeground': isDark ? '#ABB2BF' : '#383A42',
+                'editorCursor.foreground': isDark ? '#528BFF' : '#528BFF',
+                'editor.selectionBackground': isDark ? '#3E4451' : '#ADD6FF',
+                'editor.inactiveSelectionBackground': isDark ? '#3A3F4B' : '#E5EBF1',
             }
         });
     };
@@ -134,7 +181,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         <EditorContainer>
             <Editor
                 height={height}
-                language={undefined}
+                language={LANGUAGE_ID}
                 value={value}
                 theme={theme || 'input-editor-theme'}
                 beforeMount={(monaco) => {
