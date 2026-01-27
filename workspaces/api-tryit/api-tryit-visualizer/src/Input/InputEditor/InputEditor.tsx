@@ -70,6 +70,15 @@ const EditorContainer = styled.div`
     body.vscode-high-contrast & {
         background-color: #000000;
     }
+    
+    /* Prevent paste events from bubbling up */
+    .monaco-editor {
+        .monaco-editor-background,
+        .monaco-editor .margin,
+        .monaco-editor .monaco-editor-background {
+            pointer-events: auto;
+        }
+    }
 `;
 
 interface InputEditorProps {
@@ -195,6 +204,80 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                     } else {
                         console.log('[InputEditor] Using prop theme:', theme);
                     }
+                    
+                    // Override Monaco's default copy-paste actions
+                    console.log('[InputEditor] Overriding default Monaco copy-paste actions');
+                    
+                    // Add custom copy action
+                    editor.addAction({
+                        id: 'editor.action.clipboardCopyAction',
+                        label: 'Copy',
+                        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyC],
+                        run: () => {
+                            console.log('[InputEditor] Custom copy action triggered');
+                            const selection = editor.getSelection();
+                            if (selection && !selection.isEmpty()) {
+                                const text = editor.getModel()?.getValueInRange(selection);
+                                console.log('[InputEditor] Copying text:', text);
+                                if (text && navigator.clipboard) {
+                                    navigator.clipboard.writeText(text).then(() => {
+                                        console.log('[InputEditor] Copy successful');
+                                    }).catch(err => {
+                                        console.error('[InputEditor] Copy failed:', err);
+                                    });
+                                }
+                            } else {
+                                console.log('[InputEditor] No selection to copy');
+                            }
+                        }
+                    });
+                    
+                    // Add custom paste action
+                    editor.addAction({
+                        id: 'editor.action.clipboardPasteAction',
+                        label: 'Paste',
+                        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV],
+                        run: async () => {
+                            console.log('[InputEditor] Custom paste action triggered');
+                            try {
+                                const clipboardText = await navigator.clipboard.readText();
+                                console.log('[InputEditor] Pasting text:', clipboardText);
+                                if (clipboardText) {
+                                    const model = editor.getModel();
+                                    if (model) {
+                                        const selection = editor.getSelection();
+                                        console.log('[InputEditor] Current selection:', selection);
+                                        if (selection) {
+                                            // Handle both cursor position and selection
+                                            const range = selection.isEmpty() 
+                                                ? new monaco.Range(selection.startLineNumber, selection.startColumn, selection.startLineNumber, selection.startColumn)
+                                                : selection;
+                                            
+                                            model.pushEditOperations(
+                                                [],
+                                                [{
+                                                    range: range,
+                                                    text: clipboardText
+                                                }],
+                                                () => null
+                                            );
+                                            const endPosition = {
+                                                lineNumber: selection.endLineNumber,
+                                                column: selection.startColumn + clipboardText.length
+                                            };
+                                            editor.setPosition(endPosition);
+                                            console.log('[InputEditor] Paste completed');
+                                        }
+                                    }
+                                }
+                            } catch (error) {
+                                console.error('[InputEditor] Paste failed:', error);
+                            }
+                        }
+                    });
+                    
+                    console.log('[InputEditor] Custom actions registered successfully');
+                    
                     onMount?.(editor, monaco);
                 }}
                 onChange={onChange}
@@ -210,6 +293,10 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                     lineDecorationsWidth: 0,
                     lineNumbersMinChars: 0,
                     overviewRulerLanes: 0,
+                    readOnly: false,
+                    contextmenu: true,
+                    selectOnLineNumbers: false,
+                    wordWrap: 'off',
                     ...options
                 }}
             />
