@@ -16,12 +16,7 @@
  * under the License.
  */
 
-import { NotificationType, RequestType } from 'vscode-messenger-common';
-import { SaveRequestRequest, SaveRequestResponse } from '../interfaces';
-
-const _prefix = "api-tryit";
-
-// Request/Notification type definitions
-export const sendMessage: RequestType<string, string> = { method: `${_prefix}/sendMessage` };
-export const showNotification: NotificationType<string> = { method: `${_prefix}/showNotification` };
-export const saveRequest: RequestType<SaveRequestRequest, SaveRequestResponse> = { method: `${_prefix}/saveRequest` };
+export { CodeInput } from './CodeInput';
+export * from './Types';
+export * from './Constants';
+export * from './Utils';

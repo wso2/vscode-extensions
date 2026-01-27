@@ -25,7 +25,7 @@ import { Typography } from "../Typography/Typography";
 interface IconProps {
     iconComponent: ReactNode;
     position?: "start" | "end";
-    onClick?: () => void;
+    onClick?: (evt?: React.MouseEvent) => void;
 }
 
 export interface InputProps {

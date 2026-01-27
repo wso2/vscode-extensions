@@ -27,12 +27,14 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Initialize RPC handlers
 	TryItPanel.init();
 
-	// Register the activity panel
-	activateActivityPanel(context);
-
 	// Register the API Explorer tree view
 	const apiExplorerProvider = new ApiExplorerProvider();
 	vscode.window.registerTreeDataProvider('api-tryit.explorer', apiExplorerProvider);
+	// Register the explorer with the state machine so it can trigger direct reloads when needed
+	ApiTryItStateMachine.registerExplorer(apiExplorerProvider);
+
+	// Register the activity panel with the API explorer provider
+	activateActivityPanel(context, apiExplorerProvider);
 
 	// Register command to refresh tree view
 	const refreshCommand = vscode.commands.registerCommand('api-tryit.refreshExplorer', () => {
@@ -62,7 +64,27 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Register command for new request
 	const newRequestCommand = vscode.commands.registerCommand('api-tryit.newRequest', () => {
-		vscode.window.showInformationMessage('Creating new request...');
+		// Create an empty request item
+		const emptyRequestItem: ApiRequestItem = {
+			id: `new-${Date.now()}`,
+			name: 'New Request',
+			request: {
+				id: `new-${Date.now()}`,
+				name: 'New Request',
+				method: 'GET',
+				url: '',
+				queryParameters: [],
+				headers: []
+			}
+		};
+
+		// Open the TryIt panel
+		TryItPanel.show(context);
+		
+		// Send the empty item through the state machine
+		ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, emptyRequestItem);
+		
+		vscode.window.showInformationMessage('New request created');
 	});
 
 	// Register command for new collection
@@ -77,8 +99,29 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Register command for settings
 	const settingsCommand = vscode.commands.registerCommand('api-tryit.settings', () => {
-		vscode.window.showInformationMessage('Opening settings...');
+		vscode.commands.executeCommand('workbench.action.openSettings', 'api-tryit');
 	});
+
+	// Register command to set collections path (useful when requests live outside workspace)
+	const setCollectionsPathCommand = vscode.commands.registerCommand('api-tryit.setCollectionsPath', async () => {
+		const folderUris = await vscode.window.showOpenDialog({
+			canSelectFolders: true,
+			canSelectFiles: false,
+			canSelectMany: false,
+			openLabel: 'Select Collections Folder'
+		});
+		if (!folderUris || folderUris.length === 0) {
+			return;
+		}
+		const selected = folderUris[0];
+		const config = vscode.workspace.getConfiguration('api-tryit');
+		const target = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0 ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
+		await config.update('collectionsPath', selected.fsPath, target);
+		vscode.window.showInformationMessage(`API TryIt collections path set to: ${selected.fsPath}`);
+		apiExplorerProvider.refresh();
+	});
+
+	context.subscriptions.push(setCollectionsPathCommand);
 
 	// Register a simple hello command
 	const helloCommand = vscode.commands.registerCommand('api-tryit.hello', () => {

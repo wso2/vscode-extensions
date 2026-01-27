@@ -17,13 +17,20 @@
  */
 
 import * as vscode from 'vscode';
+import type { ApiRequestItem, ApiRequest } from '@wso2/api-tryit-core';
 import { getComposerJSFiles } from '../util';
+import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
+import { ApiTryItStateMachine, EVENT_TYPE } from '../stateMachine';
+import { TryItPanel } from '../webview-panel/TryItPanel';
 
 export class ActivityPanel implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'api-tryit.activity.panel';
 	private _view?: vscode.WebviewView;
 
-	constructor(private readonly _extensionContext: vscode.ExtensionContext) { }
+	constructor(
+		private readonly _extensionContext: vscode.ExtensionContext,
+		private readonly _apiExplorerProvider?: ApiExplorerProvider
+	) { }
 
 	resolveWebviewView(
 		webviewView: vscode.WebviewView,
@@ -47,6 +54,157 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 		};
 
 		webviewView.webview.html = this._getWebviewContent(webviewView.webview);
+
+		// Handle messages from webview
+		webviewView.webview.onDidReceiveMessage((message: Record<string, unknown>) => {
+			switch (message.command) {
+				case 'newRequest':
+					vscode.commands.executeCommand('api-tryit.newRequest');
+					break;
+				case 'search':
+					if (this._apiExplorerProvider) {
+						this._apiExplorerProvider.setSearchFilter(message.value as string);
+					}
+					break;
+				case 'clearSearch':
+					if (this._apiExplorerProvider) {
+						this._apiExplorerProvider.setSearchFilter('');
+					}
+					break;
+				case 'openRequest':
+					// Handle opening a request with state machine
+					this._handleOpenRequest(message.request as Record<string, unknown>);
+					break;
+				case 'selectItem':
+					// Handle item selection
+					break;
+				case 'getCollections':
+					// Send collections to webview
+					this._sendCollections();
+					break;
+				case 'webviewReady':
+					// Webview is ready, send initial data
+					this._sendCollections();
+					break;
+			}
+		});
+
+		// Refresh webview when provider data changes
+		if (this._apiExplorerProvider) {
+			this._apiExplorerProvider.onDidChangeTreeData(() => {
+				this._sendCollections();
+			});
+		}
+
+		// Handle webview visibility changes
+		webviewView.onDidChangeVisibility(() => {
+			if (webviewView.visible) {
+				// Refresh collections when webview becomes visible
+				this._sendCollections();
+			}
+		});
+
+		// Send initial collections data
+		this._sendCollections();
+	}
+
+	private async _sendCollections() {
+		if (this._view && this._apiExplorerProvider) {
+			const collections = await this._apiExplorerProvider.getCollections();
+			this._view.webview.postMessage({
+				command: 'updateCollections',
+				collections
+			});
+		}
+	}
+
+	private async _handleOpenRequest(requestData: Record<string, unknown>) {
+		try {
+			const requestId = requestData.id as string;
+
+			if (!requestId) {
+				vscode.window.showErrorMessage('Invalid request ID');
+				return;
+			}
+
+			if (this._apiExplorerProvider) {
+				const allCollections = await this._apiExplorerProvider.getCollections();
+				const requestItem = this._findRequestItem(allCollections, requestId);
+
+				if (!requestItem) {
+					vscode.window.showErrorMessage('Request not found');
+					return;
+				}
+
+				// Show the TryIt panel
+				TryItPanel.show(this._extensionContext);
+
+				// Safely extract properties from the requestItem
+				const itemId = (requestItem.id as string) || '';
+				const itemName = (requestItem.name as string) || '';
+				const itemRequest = (requestItem.request as unknown) || null;
+
+				// Build a proper ApiRequest object
+				const apiRequest: ApiRequest = itemRequest && typeof itemRequest === 'object'
+					? (itemRequest as ApiRequest)
+					: {
+						id: itemId,
+						name: itemName,
+						method: 'GET',
+						url: '',
+						queryParameters: [],
+						headers: []
+					};
+
+				// Create a properly typed ApiRequestItem object
+				const apiRequestItem: ApiRequestItem = {
+					id: itemId,
+					name: itemName,
+					request: apiRequest,
+					filePath: (requestItem.filePath as string) || ''
+				};
+
+				// Send event to state machine to load the request
+				ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, apiRequestItem, '');
+				
+				// Also send the request directly to the TryIt webview
+				TryItPanel.sendRequestToWebview(apiRequestItem);
+				
+				vscode.window.showInformationMessage(`Opening: ${apiRequestItem.request.method} ${apiRequestItem.name}`);
+			}
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to open request: ${error}`);
+		}
+	}
+
+	private _findRequestItem(collections: unknown[], requestId: string): Record<string, unknown> | undefined {
+		for (const collectionUnknown of collections) {
+			const collection = collectionUnknown as Record<string, unknown>;
+			if (collection.id === requestId) {
+				return collection;
+			}
+
+			const children = collection.children as unknown[];
+			if (children && Array.isArray(children)) {
+				for (const folderUnknown of children) {
+					const folder = folderUnknown as Record<string, unknown>;
+					if (folder.id === requestId) {
+						return folder;
+					}
+
+					const folderChildren = folder.children as unknown[];
+					if (folderChildren && Array.isArray(folderChildren)) {
+						for (const requestUnknown of folderChildren) {
+							const request = requestUnknown as Record<string, unknown>;
+							if (request.id === requestId) {
+								return request;
+							}
+						}
+					}
+				}
+			}
+		}
+		return undefined;
 	}
 
     private _getWebviewContent(webview: vscode.Webview) {
@@ -60,6 +218,20 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
           <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
           <meta name="theme-color" content="#000000">
           <title>WSO2 API TryIt</title>
+          <style>
+            body {
+              margin: 0;
+              padding: 0;
+              font-family: var(--vscode-font-family);
+              color: var(--vscode-foreground);
+              background-color: var(--vscode-sideBar-background);
+            }
+            #root {
+              display: flex;
+              height: 100vh;
+              width: 100%;
+            }
+          </style>
         </head>
         <body>
             <noscript>You need to enable JavaScript to run this app.</noscript>
@@ -68,12 +240,43 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
             </div>
             ${scriptUris.map(jsFile => `<script charset="UTF-8" src="${jsFile}"></script>`).join('\n')}
             <script>
-                window.addEventListener('DOMContentLoaded', function() {
+                // Function to initialize the React app
+                function initializeApp() {
+                    console.log('API TryIt: Initializing app...');
                     if (typeof apiTryItVisualizerWebview !== 'undefined' && apiTryItVisualizerWebview.renderActivityPanel) {
-                        apiTryItVisualizerWebview.renderActivityPanel(document.getElementById("root"));
+                        console.log('API TryIt: renderActivityPanel function found, rendering...');
+                        const rootElement = document.getElementById("root");
+                        if (rootElement) {
+                            apiTryItVisualizerWebview.renderActivityPanel(rootElement);
+                        }
                     } else {
-                        console.error('apiTryItVisualizerWebview not loaded');
-                        document.getElementById("root").innerHTML = 'Error: Failed to load API TryIt visualizer';
+                        console.error('API TryIt: renderActivityPanel function not found, retrying...');
+                        setTimeout(initializeApp, 100);
+                    }
+                }
+
+                window.addEventListener('DOMContentLoaded', function() {
+                    console.log('API TryIt: DOMContentLoaded');
+                    initializeApp();
+                });
+
+                // Also try to initialize on load in case DOMContentLoaded doesn't fire
+                window.addEventListener('load', function() {
+                    console.log('API TryIt: window load event');
+                    setTimeout(() => {
+                        const rootElement = document.getElementById("root");
+                        if (rootElement && (rootElement.innerHTML === 'Loading ....' || rootElement.innerHTML === '')) {
+                            console.log('API TryIt: Retrying initialization on load');
+                            initializeApp();
+                        }
+                    }, 200);
+                });
+
+                // Listen for VS Code webview ready event
+                window.addEventListener('message', function(event) {
+                    if (event.data && event.data.type === 'vscode-webview-ready') {
+                        console.log('API TryIt: VS Code webview ready');
+                        initializeApp();
                     }
                 });
             </script>

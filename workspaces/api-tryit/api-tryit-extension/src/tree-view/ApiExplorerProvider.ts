@@ -19,21 +19,146 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { ApiCollection, ApiFolder, ApiRequestItem } from '@wso2/api-tryit-core';
+import * as yaml from 'js-yaml';
+import { ApiCollection, ApiFolder, ApiRequestItem, ApiRequest, ApiResponse } from '@wso2/api-tryit-core';
 
 export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem> {
 	private collections: ApiCollection[] = [];
+	private searchFilter: string = '';
 	private _onDidChangeTreeData: vscode.EventEmitter<ApiTreeItem | undefined | null | void> = new vscode.EventEmitter<ApiTreeItem | undefined | null | void>();
 	readonly onDidChangeTreeData: vscode.Event<ApiTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
+	private loadingPromise: Promise<void> | null = null;
 
 	constructor(private workspacePath?: string) {
-		this.loadCollections();
+		this.loadingPromise = this.loadCollections();
+	}
+
+	/**
+	 * Derives a display name from a directory name by converting kebab-case/snake_case to Title Case
+	 */
+	private deriveDisplayName(directoryName: string): string {
+		return directoryName
+			.replace(/[-_]/g, ' ')
+			.replace(/\b\w/g, l => l.toUpperCase());
+	}
+
+	/**
+	 * Loads a single request file and validates it
+	 */
+	private async loadRequestFile(filePath: string): Promise<ApiRequestItem | null> {
+		try {
+			const requestContent = await fs.readFile(filePath, 'utf-8');
+			const loaded = yaml.load(requestContent) as unknown;
+
+			if (loaded && typeof loaded === 'object') {
+				const persisted = loaded as Record<string, unknown>;
+				const id = typeof persisted.id === 'string' ? persisted.id : undefined;
+				const name = typeof persisted.name === 'string' ? persisted.name : undefined;
+				const requestObj = persisted.request && typeof persisted.request === 'object'
+					? (persisted.request as Record<string, unknown>)
+					: undefined;
+
+				if (id && name && requestObj) {
+					const qp = Array.isArray(requestObj.queryParameters)
+						? (requestObj.queryParameters as unknown[]).map(q => {
+							const qq = q as Record<string, unknown>;
+							return {
+								id: typeof qq.id === 'string' ? qq.id : `${Date.now()}`,
+								key: typeof qq.key === 'string' ? qq.key : '',
+								value: typeof qq.value === 'string' ? qq.value : ''
+							};
+						})
+						: [];
+
+					const headers = Array.isArray(requestObj.headers)
+						? (requestObj.headers as unknown[]).map(h => {
+							const hh = h as Record<string, unknown>;
+							return {
+								id: typeof hh.id === 'string' ? hh.id : `${Date.now()}`,
+								key: typeof hh.key === 'string' ? hh.key : '',
+								value: typeof hh.value === 'string' ? hh.value : ''
+							};
+						})
+						: [];
+
+					const requestWithId: ApiRequest = {
+						id: typeof requestObj.id === 'string' ? requestObj.id : id,
+						name: typeof requestObj.name === 'string' ? requestObj.name : name,
+						method: (typeof requestObj.method === 'string' ? requestObj.method : 'GET') as ApiRequest['method'],
+						url: typeof requestObj.url === 'string' ? requestObj.url : '',
+						queryParameters: qp,
+						headers: headers,
+						body: typeof requestObj.body === 'string' ? requestObj.body : undefined
+					};
+
+					const item: ApiRequestItem = {
+						id,
+						name,
+						request: requestWithId,
+						response: typeof persisted.response === 'object' ? (persisted.response as unknown as ApiResponse) : undefined,
+						filePath
+					};
+
+					return item;
+				}
+			}
+		} catch {
+			// Skip files that can't be parsed or don't have required structure
+		}
+		return null;
+	}
+
+	/**
+	 * Loads all request files from a directory
+	 */
+	private async loadRequestsFromDirectory(dirPath: string): Promise<ApiRequestItem[]> {
+		const items: ApiRequestItem[] = [];
+		try {
+			const entries = await fs.readdir(dirPath, { withFileTypes: true });
+			for (const entry of entries) {
+				if (
+					entry.isFile() &&
+					(
+						entry.name.endsWith('.yaml') || entry.name.endsWith('.yml') || entry.name.endsWith('.json')
+					)
+				) {
+					const requestPath = path.join(dirPath, entry.name);
+					const requestItem = await this.loadRequestFile(requestPath);
+					if (requestItem) {
+						items.push(requestItem);
+					}
+				}
+			}
+		} catch {
+			// Silently skip directories that can't be read
+		}
+		return items;
+	}
+
+	private async loadFolder(folderPath: string, folderId: string, collectionId: string): Promise<ApiFolder | null> {
+		try {
+			const folderName = this.deriveDisplayName(folderId);
+			const items = await this.loadRequestsFromDirectory(folderPath);
+
+			return {
+				id: folderId,
+				name: folderName,
+				items
+			};
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to load folder ${folderId} in collection ${collectionId}, ${error as string}.`);
+			return null;
+		}
 	}
 
 	private async loadCollections(): Promise<void> {
 		try {
-			// Use provided workspace path or default to current workspace
-			const storagePath = this.workspacePath || 
+			// Check for configured collections path first
+			const config = vscode.workspace.getConfiguration('api-tryit');
+			const configuredPath = config.get<string>('collectionsPath');
+			
+			// Use configured path, provided workspace path, or default to current workspace
+			const storagePath = configuredPath || this.workspacePath || 
 				(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '');
 
 			if (!storagePath) {
@@ -68,36 +193,97 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 		}
 	}
 
+	/**
+	 * Public helper to reload collections from disk and update the tree.
+	 */
+	public async reloadCollections(): Promise<void> {
+		await this.loadCollections();
+	}
+
 	private async loadCollection(collectionPath: string, collectionId: string): Promise<ApiCollection | null> {
 		try {
-			// Read collection metadata
-			const metadataPath = path.join(collectionPath, 'collection.json');
-			const metadataContent = await fs.readFile(metadataPath, 'utf-8');
-			const metadata = JSON.parse(metadataContent);
+			// Resolve collection metadata path (support .yaml, .yml and fallback to .json)
+			let metadataPath = path.join(collectionPath, 'collection.yaml');
+			let metadataContent: string | null = null;
+			try {
+				metadataContent = await fs.readFile(metadataPath, 'utf-8');
+			} catch {
+				// try .yml
+				try {
+					metadataPath = path.join(collectionPath, 'collection.yml');
+					metadataContent = await fs.readFile(metadataPath, 'utf-8');
+				} catch {
+					// try legacy json
+					try {
+						metadataPath = path.join(collectionPath, 'collection.json');
+						metadataContent = await fs.readFile(metadataPath, 'utf-8');
+					} catch {
+						// No metadata found - skip this collection
+						throw new Error('Missing collection metadata (collection.yaml|collection.yml|collection.json)');
+					}
+				}
+			}
+
+			// Parse metadata (prefer YAML parsing, fallback to JSON parse if needed)
+			let metadata: unknown;
+			try {
+				const loaded = yaml.load(metadataContent as string);
+				if (!loaded || typeof loaded === 'string') {
+					metadata = JSON.parse(metadataContent as string);
+				} else {
+					metadata = loaded;
+				}
+			} catch {
+				// Last resort: try JSON.parse
+				metadata = JSON.parse(metadataContent as string);
+			}
+
+			// Extract only essential fields from collection metadata in a type-safe way
+			const metaObj = metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : {};
+			const collectionMetadata = {
+				id: typeof metaObj.id === 'string' ? metaObj.id : collectionId,
+				name: typeof metaObj.name === 'string' ? metaObj.name : this.deriveDisplayName(collectionId)
+			};
 
 			// Discover folders by reading directories
 			const entries = await fs.readdir(collectionPath, { withFileTypes: true });
 			const folders: ApiFolder[] = [];
+			const rootLevelRequests: ApiRequestItem[] = [];
 
 			for (const entry of entries) {
 				if (entry.isDirectory() && !entry.name.startsWith('.')) {
 					try {
 						const folderPath = path.join(collectionPath, entry.name);
-						const folder = await this.loadFolder(folderPath, entry.name, metadata.id);
+						const folder = await this.loadFolder(folderPath, entry.name, collectionMetadata.id);
 						if (folder) {
 							folders.push(folder);
 						}
 					} catch (error) {
 						vscode.window.showErrorMessage(`Error loading folder ${entry.name} in collection ${collectionId}, ${error as string}.`);
 					}
+				} else if (
+					entry.isFile() &&
+					(
+						entry.name.endsWith('.yaml') || entry.name.endsWith('.yml') || entry.name.endsWith('.json')
+					) &&
+					entry.name.toLowerCase() !== 'collection.yaml' &&
+					entry.name.toLowerCase() !== 'collection.yml' &&
+					entry.name.toLowerCase() !== 'collection.json'
+				) {
+					// Load root-level request file (support .yaml, .yml, and legacy .json)
+					const requestPath = path.join(collectionPath, entry.name);
+					const requestItem = await this.loadRequestFile(requestPath);
+					if (requestItem) {
+						rootLevelRequests.push(requestItem);
+					}
 				}
 			}
 
 			return {
-				id: metadata.id,
-				name: metadata.name,
-				description: metadata.description,
-				folders
+				id: collectionMetadata.id,
+				name: collectionMetadata.name,
+				folders,
+				rootItems: rootLevelRequests
 			};
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		} catch (error) {
@@ -106,248 +292,6 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 		}
 	}
 
-	private async loadFolder(folderPath: string, folderId: string, collectionId: string): Promise<ApiFolder | null> {
-		try {
-			// Read folder metadata
-			const folderMetadataPath = path.join(folderPath, 'folder.json');
-			const folderContent = await fs.readFile(folderMetadataPath, 'utf-8');
-			const folderMetadata = JSON.parse(folderContent);
-
-			// Read all requests in folder
-			const items: ApiRequestItem[] = [];
-			const files = await fs.readdir(folderPath);
-
-			for (const file of files) {
-				if (file !== 'folder.json' && file.endsWith('.json')) {
-					try {
-						const requestPath = path.join(folderPath, file);
-						const requestContent = await fs.readFile(requestPath, 'utf-8');
-						const persistedRequest = JSON.parse(requestContent);
-
-						items.push({
-							id: persistedRequest.id,
-							name: persistedRequest.name,
-							request: persistedRequest.request,
-							response: persistedRequest.response,
-							filePath: requestPath
-						});
-					} catch (error) {
-						vscode.window.showErrorMessage(`Error loading request ${file} in folder ${folderId}, ${error as string}.`);
-					}
-				}
-			}
-
-			return {
-				id: folderMetadata.id,
-				name: folderMetadata.name,
-				items
-			};
-		} catch (error) {
-			vscode.window.showErrorMessage(`Failed to load folder ${folderId} in collection ${collectionId}, ${error as string}.`);
-			return null;
-		}
-	}
-
-	private getSampleCollections(): ApiCollection[] {
-		return [
-			{
-				id: 'petstore',
-				name: 'Petstore API Tests',
-				description: 'Sample Petstore API collection',
-				folders: [
-					{
-						id: 'pet',
-						name: 'Pet',
-						items: [
-							{
-								id: 'add-pet',
-								name: 'Add Pet',
-								request: {
-									id: 'add-pet-req',
-									name: 'Add Pet',
-									method: 'POST',
-									url: 'https://petstore.swagger.io/v2/pet',
-									queryParameters: [],
-									headers: [{ id: '1', key: 'Content-Type', value: 'application/json', enabled: true }],
-									body: '{\n  "name": "doggie",\n  "status": "available"\n}'
-								}
-							},
-							{
-								id: 'get-pet',
-								name: 'Get Pet by ID',
-								request: {
-									id: 'get-pet-req',
-									name: 'Get Pet by ID',
-									method: 'GET',
-									url: 'https://petstore.swagger.io/v2/pet/1',
-									queryParameters: [],
-									headers: []
-								}
-							},
-							{
-								id: 'update-pet',
-								name: 'Update Pet',
-								request: {
-									id: 'update-pet-req',
-									name: 'Update Pet',
-									method: 'PUT',
-									url: 'https://petstore.swagger.io/v2/pet',
-									queryParameters: [],
-									headers: [{ id: '1', key: 'Content-Type', value: 'application/json', enabled: true }],
-									body: '{\n  "id": 1,\n  "name": "doggie",\n  "status": "sold"\n}'
-								}
-							},
-							{
-								id: 'delete-pet',
-								name: 'Delete Pet',
-								request: {
-									id: 'delete-pet-req',
-									name: 'Delete Pet',
-									method: 'DELETE',
-									url: 'https://petstore.swagger.io/v2/pet/1',
-									queryParameters: [],
-									headers: []
-								}
-							}
-						]
-					},
-					{
-						id: 'store',
-						name: 'Store',
-						items: [
-							{
-								id: 'get-inventory',
-								name: 'Get Inventory',
-								request: {
-									id: 'get-inventory-req',
-									name: 'Get Inventory',
-									method: 'GET',
-									url: 'https://petstore.swagger.io/v2/store/inventory',
-									queryParameters: [],
-									headers: []
-								}
-							},
-							{
-								id: 'place-order',
-								name: 'Place Order',
-								request: {
-									id: 'place-order-req',
-									name: 'Place Order',
-									method: 'POST',
-									url: 'https://petstore.swagger.io/v2/store/order',
-									queryParameters: [],
-									headers: [{ id: '1', key: 'Content-Type', value: 'application/json', enabled: true }],
-									body: '{\n  "petId": 1,\n  "quantity": 1\n}'
-								}
-							}
-						]
-					},
-					{
-						id: 'user',
-						name: 'User',
-						items: [
-							{
-								id: 'create-user',
-								name: 'Create User',
-								request: {
-									id: 'create-user-req',
-									name: 'Create User',
-									method: 'POST',
-									url: 'https://petstore.swagger.io/v2/user',
-									queryParameters: [],
-									headers: [{ id: '1', key: 'Content-Type', value: 'application/json', enabled: true }],
-									body: '{\n  "username": "john",\n  "email": "john@example.com"\n}'
-								}
-							},
-							{
-								id: 'login',
-								name: 'Login',
-								request: {
-									id: 'login-req',
-									name: 'Login',
-									method: 'POST',
-									url: 'https://petstore.swagger.io/v2/user/login',
-									queryParameters: [
-										{ id: '1', key: 'username', value: 'john', enabled: true },
-										{ id: '2', key: 'password', value: 'password', enabled: true }
-									],
-									headers: []
-								}
-							},
-							{
-								id: 'logout',
-								name: 'Logout',
-								request: {
-									id: 'logout-req',
-									name: 'Logout',
-									method: 'POST',
-									url: 'https://petstore.swagger.io/v2/user/logout',
-									queryParameters: [],
-									headers: []
-								}
-							}
-						]
-					}
-				]
-			},
-			{
-				id: 'user-service',
-				name: 'User Service APIs',
-				folders: [
-					{
-						id: 'users',
-						name: 'Users',
-						items: [
-							{
-								id: 'list-users',
-								name: 'List Users',
-								request: {
-									id: 'list-users-req',
-									name: 'List Users',
-									method: 'GET',
-									url: 'http://localhost:8080/api/users',
-									queryParameters: [],
-									headers: []
-								}
-							},
-							{
-								id: 'create-user-service',
-								name: 'Create User',
-								request: {
-									id: 'create-user-service-req',
-									name: 'Create User',
-									method: 'POST',
-									url: 'http://localhost:8080/api/users',
-									queryParameters: [],
-									headers: [{ id: '1', key: 'Content-Type', value: 'application/json', enabled: true }],
-									body: '{\n  "name": "Jane Doe",\n  "email": "jane@example.com"\n}'
-								}
-							}
-						]
-					},
-					{
-						id: 'auth',
-						name: 'Auth',
-						items: [
-							{
-								id: 'auth-login',
-								name: 'Login',
-								request: {
-									id: 'auth-login-req',
-									name: 'Login',
-									method: 'POST',
-									url: 'http://localhost:8080/api/auth/login',
-									queryParameters: [],
-									headers: [{ id: '1', key: 'Content-Type', value: 'application/json', enabled: true }],
-									body: '{\n  "username": "admin",\n  "password": "secret"\n}'
-								}
-							}
-						]
-					}
-				]
-			}
-		];
-	}
 
 
 	/**
@@ -357,6 +301,114 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 	setWorkspacePath(workspacePath: string): void {
 		this.workspacePath = workspacePath;
 		this.loadCollections();
+	}
+
+	/**
+	 * Set search filter term
+	 */
+	setSearchFilter(searchTerm: string): void {
+		this.searchFilter = searchTerm;
+		this.refresh();
+	}
+
+	/**
+	 * Get search filter term
+	 */
+	getSearchFilter(): string {
+		return this.searchFilter;
+	}
+
+	/**
+	 * Get collections as JSON-serializable format for webview
+	 */
+	async getCollections(): Promise<Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest; children?: Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest; children?: Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest}>}>}>> {
+		// Wait for loading to complete if it's still in progress
+		if (this.loadingPromise) {
+			await this.loadingPromise;
+			this.loadingPromise = null; // Clear the promise once loaded
+		}
+
+		const filterCollections = (collections: ApiCollection[], searchTerm: string) => {
+			if (!searchTerm) {
+				return collections.map(col => ({
+					id: col.id,
+					name: col.name,
+					type: 'collection',
+					children: [
+						// Add root-level requests first
+						...(col.rootItems || []).map(item => ({
+							id: `${col.id}-${item.name}`,
+							name: item.name,
+							type: 'request',
+							method: item.request.method,
+							request: item.request,
+							filePath: item.filePath
+						})),
+						// Then add folders
+						...col.folders.map(folder => ({
+							id: `${col.id}-${folder.name}`,
+							name: folder.name,
+							type: 'folder',
+							children: folder.items.map(item => ({
+								id: `${col.id}-${folder.name}-${item.name}`,
+								name: item.name,
+								type: 'request',
+								method: item.request.method,
+								request: item.request,
+								filePath: item.filePath
+							}))
+						}))
+					]
+				}));
+			}
+
+			return collections
+				.map(col => ({
+					id: col.id,
+					name: col.name,
+					type: 'collection',
+					children: [
+						// Add root-level requests first (filtered)
+						...(col.rootItems || [])
+							.filter(item => 
+								item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+								item.request.method.toLowerCase().includes(searchTerm.toLowerCase())
+							)
+							.map(item => ({
+								id: `${col.id}-${item.name}`,
+								name: item.name,
+								type: 'request',
+								method: item.request.method,
+								request: item.request,
+								filePath: item.filePath
+							})),
+						// Then add folders with filtered items
+						...col.folders
+							.map(folder => ({
+								id: `${col.id}-${folder.name}`,
+								name: folder.name,
+								type: 'folder',
+								children: folder.items
+									.filter(item => 
+										item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+										item.request.method.toLowerCase().includes(searchTerm.toLowerCase())
+									)
+									.map(item => ({
+										id: `${col.id}-${folder.name}-${item.name}`,
+										name: item.name,
+										type: 'request',
+										method: item.request.method,
+										request: item.request,
+										filePath: item.filePath
+									}))
+							}))
+							.filter(folder => folder.children && folder.children.length > 0)
+					]
+				}))
+				.filter(col => col.children && col.children.length > 0);
+		};
+
+		return filterCollections(this.collections, this.searchFilter);
 	}
 
 	refresh(): void {
@@ -431,6 +483,11 @@ export class ApiTreeItem extends vscode.TreeItem {
 	) {
 		super(label, collapsibleState);
 		this.contextValue = type;
+		
+		// Set resourceUri for requests
+		if (requestItem?.filePath) {
+			this.resourceUri = vscode.Uri.file(requestItem.filePath);
+		}
 		
 		// Set icon
 		if (iconPathString) {

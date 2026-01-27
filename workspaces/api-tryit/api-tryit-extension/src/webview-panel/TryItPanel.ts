@@ -19,6 +19,7 @@
 import * as vscode from 'vscode';
 import { getComposerJSFiles } from '../util';
 import { ApiTryItStateMachine, EVENT_TYPE } from '../stateMachine';
+import { ApiRequestItem } from '@wso2/api-tryit-core';
 import { Messenger } from 'vscode-messenger';
 import { registerApiTryItRpcHandlers } from '../rpc-managers';
 
@@ -40,7 +41,7 @@ export class TryItPanel {
 		ApiTryItStateMachine.registerWebview(this._panel);
 
 		this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
-		
+
 		// Set up message handling from webview
 		this._panel.webview.onDidReceiveMessage(
 			async message => {
@@ -54,37 +55,87 @@ export class TryItPanel {
 					case 'saveRequest':
 						// Handle save request using the RPC manager
 						try {
-							const { filePath, request } = message.data;
-							
+							const { filePath, request, response } = message.data;
+
 							// Get the current state to check for persisted file path
 							const stateContext = ApiTryItStateMachine.getContext();
-							const targetFilePath = filePath || stateContext.selectedFilePath;
-							
+							let targetFilePath = filePath || stateContext.selectedFilePath;
+
 							if (!targetFilePath) {
-								const error = 'No file path specified and no file selected';
-								vscode.window.showErrorMessage(error);
-								this._panel.webview.postMessage({
-									type: 'saveRequestResponse',
-									data: { success: false, message: error }
+								// First, prompt user to select a folder
+								const folderUris = await vscode.window.showOpenDialog({
+									canSelectFolders: true,
+									canSelectFiles: false,
+									canSelectMany: false,
+									defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri,
+									openLabel: 'Select Folder for API Requests'
 								});
-								break;
+
+								if (!folderUris || folderUris.length === 0) {
+									// User cancelled folder selection
+									this._panel.webview.postMessage({
+										type: 'saveRequestResponse',
+										data: { success: false, message: 'Folder selection cancelled by user' }
+									});
+									break;
+								}
+
+								const selectedFolder = folderUris[0];
+
+								// Now show save dialog in the selected folder
+								const fileUri = await vscode.window.showSaveDialog({
+									defaultUri: vscode.Uri.joinPath(selectedFolder, 'api-request.yaml'),
+									filters: {
+										'YAML files': ['yaml', 'yml']
+									},
+									saveLabel: 'Save API Request'
+								});
+
+								if (!fileUri) {
+									// User cancelled file save
+									this._panel.webview.postMessage({
+										type: 'saveRequestResponse',
+										data: { success: false, message: 'Save cancelled by user' }
+									});
+									break;
+								}
+
+								targetFilePath = fileUri.fsPath;
 							}
-							
+
 							// Import the RPC manager here to avoid circular dependencies
 							const { ApiTryItRpcManager } = await import('../rpc-managers/rpc-manager');
 							const rpcManager = new ApiTryItRpcManager();
-							const response = await rpcManager.saveRequest({ filePath: targetFilePath, request });
-							
+							const saveResponse = await rpcManager.saveRequest({ 
+								filePath: targetFilePath, 
+								request,
+								response
+							});
+
 							// Send response back to webview
 							this._panel.webview.postMessage({
 								type: 'saveRequestResponse',
-								data: response
+								data: saveResponse
 							});
-							
-							if (response.success) {
+
+							if (saveResponse.success) {
 								vscode.window.showInformationMessage(`Request saved successfully to: ${targetFilePath}`);
+								// Refresh explorer so new/updated request files are reloaded
+								vscode.commands.executeCommand('api-tryit.refreshExplorer');
+								// Inform state machine about the saved request so it can update caches and notify webviews
+								try {
+									const savedItem: ApiRequestItem = {
+										id: request.id,
+										name: request.name,
+										request,
+										filePath: targetFilePath
+									};
+									ApiTryItStateMachine.sendEvent(EVENT_TYPE.REQUEST_UPDATED, savedItem);
+								} catch {
+									vscode.window.showErrorMessage('Failed to notify state machine about saved request');
+								}
 							} else {
-								vscode.window.showErrorMessage(`Failed to save request: ${response.message}`);
+								vscode.window.showErrorMessage(`Failed to save request: ${saveResponse.message}`);
 							}
 						} catch (error: unknown) {
 							this._panel.webview.postMessage({
@@ -135,6 +186,15 @@ export class TryItPanel {
 		TryItPanel.currentPanel = new TryItPanel(panel, extensionContext);
 	}
 
+	public static sendRequestToWebview(requestItem: unknown) {
+		if (TryItPanel.currentPanel) {
+			TryItPanel.currentPanel._panel.webview.postMessage({
+				type: 'loadRequest',
+				data: requestItem
+			});
+		}
+	}
+
 	public dispose() {
 		TryItPanel.currentPanel = undefined;
 
@@ -183,11 +243,16 @@ export class TryItPanel {
             ${scriptUris.map(jsFile => `<script charset="UTF-8" src="${jsFile}"></script>`).join('\n')}
             <script>
                 window.addEventListener('DOMContentLoaded', function() {
+                    console.log('DOM loaded, checking for apiTryItVisualizerWebview...');
+                    console.log('window.apiTryItVisualizerWebview:', typeof window.apiTryItVisualizerWebview);
+                    
                     if (typeof apiTryItVisualizerWebview !== 'undefined' && apiTryItVisualizerWebview.renderEditorPanel) {
+                        console.log('Found apiTryItVisualizerWebview.renderEditorPanel, calling it...');
                         apiTryItVisualizerWebview.renderEditorPanel(document.getElementById("root"));
                     } else {
-                        console.error('apiTryItVisualizerWebview not loaded');
-                        document.getElementById("root").innerHTML = 'Error: Failed to load API TryIt visualizer';
+                        console.error('apiTryItVisualizerWebview not loaded or renderEditorPanel not available');
+                        console.error('apiTryItVisualizerWebview:', apiTryItVisualizerWebview);
+                        document.getElementById("root").innerHTML = 'Error: Failed to load API TryIt visualizer. Check console for details.';
                     }
                 });
             </script>

@@ -19,13 +19,16 @@
 import {
     SaveRequestRequest,
     SaveRequestResponse,
+    ApiRequest,
+    ApiResponse
 } from "@wso2/api-tryit-core";
 import { writeFile, readFile } from 'fs/promises';
 import * as vscode from 'vscode';
+import * as yaml from 'js-yaml';
 
 export class ApiTryItRpcManager {
     async saveRequest(params: SaveRequestRequest): Promise<SaveRequestResponse> {
-        const { filePath, request } = params;
+        const { filePath, request, response } = params;
         
         if (!filePath) {
             return { 
@@ -35,19 +38,60 @@ export class ApiTryItRpcManager {
         }
 
         try {
-            // Read existing file to preserve metadata (collectionId, folderId, createdAt)
-            const existingContent = await readFile(filePath, 'utf8');
-            const existingData = JSON.parse(existingContent);
+            let existingData: { id?: string; name?: string; request?: ApiRequest, response?: ApiResponse } | null = null;
             
-            // Merge the updated request with existing metadata
-            const updatedData = {
-                ...existingData,
-                request: request,
-                updatedAt: new Date().toISOString()
-            };
+            // Try to read existing file
+            try {
+                const existingContent = await readFile(filePath, 'utf8');
+                existingData = JSON.parse(existingContent);
+            } catch {
+                // File doesn't exist, we'll create it from scratch
+            }
             
-            // Convert to JSON with formatting
-            const requestData = JSON.stringify(updatedData, null, 2);
+            let updatedData;
+            
+            if (existingData) {
+                // Update existing file - only preserve essential data
+                updatedData = {
+                    id: request.id,
+                    name: request.name,
+                    request: {
+                        name: request.name,
+                        method: request.method,
+                        url: request.url,
+                        queryParameters: request.queryParameters,
+                        headers: request.headers,
+                        body: request.body
+                    },
+                    response: response ? {
+                        statusCode: response.statusCode,
+                        headers: response.headers,
+                        body: response.body
+                    } : existingData.response
+                };
+            } else {
+                // Create new file structure
+                updatedData = {
+                    id: request.id,
+                    name: request.name,
+                    request: {
+                        name: request.name,
+                        method: request.method,
+                        url: request.url,
+                        queryParameters: request.queryParameters,
+                        headers: request.headers,
+                        body: request.body
+                    },
+                    response: response ? {
+                        statusCode: response.statusCode,
+                        headers: response.headers,
+                        body: response.body
+                    } : undefined
+                };
+            }
+            
+            // Convert to YAML
+            const requestData = yaml.dump(updatedData);
             
             // Write to file
             await writeFile(filePath, requestData, 'utf8');

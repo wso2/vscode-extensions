@@ -26,14 +26,24 @@ export interface QueryParameter {
     id: string;
     key: string;
     value: string;
-    enabled: boolean;
 }
 
 export interface HeaderParameter {
     id: string;
     key: string;
     value: string;
-    enabled: boolean;
+}
+
+// RPC request/response types for saving
+export interface SaveRequestRequest {
+    filePath: string;
+    request: ApiRequest;
+    response?: ApiResponse;
+}
+
+export interface SaveRequestResponse {
+    success: boolean;
+    message: string;
 }
 
 // Request definition
@@ -81,4 +91,5 @@ export interface ApiCollection {
     name: string;
     description?: string;
     folders: ApiFolder[];
+    rootItems?: ApiRequestItem[];
 }

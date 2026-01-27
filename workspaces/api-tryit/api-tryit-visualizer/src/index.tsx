@@ -19,6 +19,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { ActivityPanelUI } from "./ActivityPanelUI";
 import { MainPanel } from "./MainPanel/MainPanel";
+import "./styles.css";
 
 export function renderActivityPanel(target: HTMLElement) {
     const root = createRoot(target);

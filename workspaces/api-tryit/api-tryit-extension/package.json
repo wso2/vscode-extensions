@@ -28,8 +28,14 @@
     "views": {
       "api-tryit": [
         {
+          "id": "api-tryit.activity.panel",
+          "name": "API Explorer",
+          "type": "webview",
+          "when": "true"
+        },
+        {
           "id": "api-tryit.explorer",
-          "name": "API Explorer"
+          "name": "API Explorer Tree"
         }
       ]
     },
@@ -62,6 +68,11 @@
       {
         "command": "api-tryit.hello",
         "title": "API TryIt: Hello World"
+      },
+      {
+        "command": "api-tryit.setCollectionsPath",
+        "title": "API TryIt: Set Collections Path",
+        "icon": "$(folder)"
       }
     ],
     "menus": {
@@ -108,6 +119,16 @@
           "when": "false"
         }
       ]
+    },
+    "configuration": {
+      "title": "API TryIt",
+      "properties": {
+        "api-tryit.collectionsPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the directory containing API collections. If not set, uses the current workspace folder."
+        }
+      }
     }
   },
   "scripts": {
@@ -120,6 +141,7 @@
     "copyVSIXToRoot": "copyfiles -u 0 \"vsix/*.vsix\" ../../../"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/vscode": "^1.100.0",
     "@types/node": "20.x",
     "@typescript-eslint/eslint-plugin": "^8.32.1",
@@ -136,6 +158,7 @@
   "dependencies": {
     "@wso2/api-tryit-core": "workspace:*",
     "@wso2/api-tryit-rpc-client": "workspace:*",
+    "js-yaml": "^4.1.0",
     "vscode-messenger": "^0.5.1",
     "vscode-messenger-common": "^0.5.1",
     "xstate": "^4.38.3"
