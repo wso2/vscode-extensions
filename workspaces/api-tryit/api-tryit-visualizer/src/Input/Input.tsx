@@ -119,38 +119,103 @@ export const Input: React.FC<InputProps> = ({
         onRequestChange?.(updatedRequest);
     };
 
-    const handleBodyChange = (value: string) => {
+    const handleBodyChange = (value: string | undefined) => {
         const updatedRequest = {
             ...request,
-            body: value
+            body: value || ''
         };
         onRequestChange?.(updatedRequest);
     };
 
-    const onChange = (value: string | undefined) => {
-    }
+    const formatQueryParameters = (params: QueryParameter[] | undefined): string => {
+        if (!Array.isArray(params)) return '';
+        return params
+            .filter(p => p.key || p.value)
+            .map(p => p.value ? `${p.key}: ${p.value}` : p.key)
+            .join('\n');
+    };
+
+    const formatHeaders = (headers: HeaderParameter[] | undefined): string => {
+        if (!Array.isArray(headers)) return '';
+        return headers
+            .filter(h => h.key || h.value)
+            .map(h => h.value ? `${h.key}: ${h.value}` : h.key)
+            .join('\n');
+    };
+
+    const parseQueryParameters = (text: string): QueryParameter[] => {
+        if (!text.trim()) return [];
+        return text.split('\n')
+            .filter(line => line.trim())
+            .map((line, index) => {
+                const [key, value] = line.split(':').map(s => s.trim());
+                return {
+                    id: Date.now().toString() + index,
+                    key: key || '',
+                    value: value || ''
+                };
+            });
+    };
+
+    const parseHeaders = (text: string): HeaderParameter[] => {
+        if (!text.trim()) return [];
+        return text.split('\n')
+            .filter(line => line.trim())
+            .map((line, index) => {
+                const [key, value] = line.split(':').map(s => s.trim());
+                return {
+                    id: Date.now().toString() + index,
+                    key: key || '',
+                    value: value || ''
+                };
+            });
+    };
+
+    const handleQueryParametersChange = (value: string | undefined) => {
+        const updatedRequest = {
+            ...request,
+            queryParameters: parseQueryParameters(value || '')
+        };
+        onRequestChange?.(updatedRequest);
+    };
+
+    const handleHeadersChange = (value: string | undefined) => {
+        const updatedRequest = {
+            ...request,
+            headers: parseHeaders(value || '')
+        };
+        onRequestChange?.(updatedRequest);
+    };
+
     return (
         <Container>
             {mode === 'code' ? (
-                <><Typography variant="h3" sx={{ marginBottom: '16px' }}>
-                    Query Parameters
-                </Typography><InputEditor
+                <>
+                    <Typography variant="h3" sx={{ marginBottom: '16px' }}>
+                        Query Parameters
+                    </Typography>
+                    <InputEditor
                         height='calc((100vh - 420px) / 3)'
-                        onChange={onChange}
-                        language='json'
-                        value={request.body || ''} /><Typography variant="h3" sx={{ margin: '16px 0' }}>
+                        onChange={handleQueryParametersChange}
+                        value={formatQueryParameters(request.queryParameters)}
+                    />
+                    <Typography variant="h3" sx={{ margin: '16px 0' }}>
                         Headers
-                    </Typography><InputEditor
+                    </Typography>
+                    <InputEditor
                         height='calc((100vh - 420px) / 3)'
-                        onChange={onChange}
-                        language='json'
-                        value={request.body || ''} /><Typography variant="h3" sx={{ margin: '16px 0' }}>
+                        onChange={handleHeadersChange}
+                        value={formatHeaders(request.headers)}
+                    />
+                    <Typography variant="h3" sx={{ margin: '16px 0' }}>
                         Body
-                    </Typography><InputEditor
+                    </Typography>
+                    <InputEditor
                         height='calc((100vh - 420px) / 3)'
-                        onChange={onChange}
-                        language='json'
-                        value={request.body || ''} /></>  
+                        onChange={handleBodyChange}
+                        value={request.body || ''}
+                    />
+                </>
             ) : (
                 <>
                     {/* Query Parameters Section */}
@@ -216,37 +281,6 @@ export const Input: React.FC<InputProps> = ({
                     </Section>
                 </>
             )}
-        </Container>
-    );
-    return (
-        <Container>
-            <Typography variant="h3" sx={{ marginBottom: '16px' }}>
-                Query Parameters
-            </Typography>
-            <InputEditor
-                height='calc((100vh - 420px) / 3)'
-                onChange={onChange}
-                language='json'
-                value={request.body || ''}
-            />
-            <Typography variant="h3" sx={{ margin: '16px 0' }}>
-                Headers
-            </Typography>
-            <InputEditor
-                height='calc((100vh - 420px) / 3)'
-                onChange={onChange}
-                language='json'
-                value={request.body || ''}
-            />
-            <Typography variant="h3" sx={{ margin: '16px 0' }}>
-                Body
-            </Typography>
-            <InputEditor
-                height='calc((100vh - 420px) / 3)'
-                onChange={onChange}
-                language='json'
-                value={request.body || ''}
-            />  
         </Container>
     );
 };
