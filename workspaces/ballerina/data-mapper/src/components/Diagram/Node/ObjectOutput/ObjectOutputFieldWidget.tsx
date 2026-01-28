@@ -211,7 +211,7 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
                 className={classnames(classes.valueLabel,
                     isDisabled && !hasHoveredParent ? classes.labelDisabled : ""
                 )}
-                style={{ marginLeft: (fields) ? 0 : indentation + 24 }}
+                style={{ marginLeft: fields ? 0 : indentation + 24 }}
             >
                 <OutputSearchHighlight>{displayName}</OutputSearchHighlight>
                 {!field?.optional && <span className={classes.requiredMark}>*</span>}
