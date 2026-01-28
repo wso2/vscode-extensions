@@ -350,7 +350,8 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         const currentLanguageId = languageIdRef.current;
 
         completionDisposableRef.current = monaco.languages.registerCompletionItemProvider(currentLanguageId, {
-            provideCompletionItems: (model: monaco.editor.ITextModel, position: monaco.Position) => {
+            triggerCharacters: [':'],
+            provideCompletionItems: (model: monaco.editor.ITextModel, position: monaco.Position, context: monaco.languages.CompletionContext) => {
                 const lineContent = model.getLineContent(position.lineNumber);
                 const textUntilPosition = lineContent.substring(0, position.column - 1);
                 const suggestionsList: monaco.languages.CompletionItem[] = [];
