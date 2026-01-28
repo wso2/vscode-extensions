@@ -17,7 +17,7 @@
  */
 
 import { test } from '@playwright/test';
-import { page, extensionsFolder } from './utils/helpers';
+import { page, extensionsFolder, newProjectPath } from './utils/helpers';
 import { downloadExtensionFromMarketplace } from '@wso2/playwright-vscode-tester';
 const fs = require('fs');
 const path = require('path');
@@ -58,6 +58,8 @@ import reusableDataMapper from './data-mapper/reusable-data-mapper.spec';
 import inlineDataMapper from './data-mapper/inline-data-mapper.spec';
 
 import diagram from './diagram/diagram.spec';
+
+import testFunction from './test-function/test-function.spec';
 
 test.describe.configure({ mode: 'default' });
 
@@ -132,6 +134,9 @@ test.describe(inlineDataMapper);
 // <----Diagram Test---->
 test.describe(diagram);
 
+// <----Test Function Test---->
+test.describe(testFunction);
+
 test.afterAll(async () => {
     console.log('\n' + '='.repeat(80));
     console.log('✅ BI EXTENSION E2E TEST SUITE COMPLETED');
@@ -141,5 +146,19 @@ test.afterAll(async () => {
     console.log('💾 Saving test video...');
     await page.page?.close();
     page.page.video()?.saveAs(path.join(videosFolder, `test_${dateTime}.webm`));
-    console.log('✅ Video saved successfully\n');
+    console.log('✅ Video saved successfully');
+
+    // Clean up the test project directory
+    console.log('🧹 Cleaning up test project...');
+    if (fs.existsSync(newProjectPath)) {
+        try {
+            fs.rmSync(newProjectPath, { recursive: true, force: true });
+            console.log('✅ Test project cleaned up successfully\n');
+        } catch (error) {
+            console.error('❌ Failed to clean up test project:', error);
+            console.log('⚠️  Test project cleanup failed, but continuing...\n');
+        }
+    } else {
+        console.log('ℹ️  Test project directory does not exist, skipping cleanup\n');
+    }
 });

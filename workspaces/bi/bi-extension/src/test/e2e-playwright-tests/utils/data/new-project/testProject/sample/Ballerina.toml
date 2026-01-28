@@ -1,7 +1,0 @@
-[package]
-org = "nino"
-name = "sample"
-version = "0.1.0"
-
-[build-options]
-sticky = true
