@@ -311,7 +311,7 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
                         )}
                     </span>
                     <span className={classes.label}>
-                        {(fields) && (
+                        {fields && (
                             <Button
                                 id={"expand-or-collapse-" + portName}
                                 appearance="icon"
