@@ -36,7 +36,6 @@ interface InputProps {
 
 const Container = styled.div`
     width: 100%;
-    padding: 0 5px;
     height: calc(100vh - 215px);
     overflow: auto;
 `;

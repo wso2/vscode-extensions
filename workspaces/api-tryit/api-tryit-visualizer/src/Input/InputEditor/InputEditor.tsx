@@ -56,7 +56,8 @@ const LANGUAGE_ID = 'input-editor-lang';
  * Styled container for the editor with padding
  */
 const EditorContainer = styled.div<{ minHeight?: string }>`
-    padding: 12px;
+    padding: 0 12px;
+    margin: 0 5px;
     border-radius: 4px;
     background-color: #262626ff;
     min-height: ${props => props.minHeight || '100px'};
@@ -236,7 +237,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
 
         const lineCount = model.getLineCount();
         const lineHeight = 21; // Approximate line height in pixels
-        const padding = 24; // Top and bottom padding
+        const padding = 50; // Top and bottom padding
         const minHeightPx = 100; // Minimum height in pixels
 
         // Calculate height based on line count
