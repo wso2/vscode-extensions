@@ -94,7 +94,7 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
     let fieldName = field?.name || '';
     let displayName = field?.displayName || fieldName;
 
-    // Handle tuple members by combining port prefix with field.id (bracket notation)
+    // Handle tuple members by combining port prefix with field.name (bracket notation)
     let portName: string;
     if (parentFieldKind === TypeKind.Tuple) {
         portName = `${parentId}${field.name}`;
