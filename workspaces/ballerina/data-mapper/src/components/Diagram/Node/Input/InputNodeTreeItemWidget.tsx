@@ -53,7 +53,6 @@ export function InputNodeTreeItemWidget(props: InputNodeTreeItemWidgetProps) {
     const displayName = dmType.displayName || fieldName;
     const typeName = getTypeName(dmType);
 
-    // Use dmType.id directly for tuple members (bracket notation)
     let fieldId: string;
     if (parentFieldKind === TypeKind.Tuple) {
         fieldId = parentId + fieldName;
