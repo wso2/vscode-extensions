@@ -24,6 +24,7 @@ import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-cor
 import { CodeTextArea } from '../Components/CodeTextArea/CodeTextArea';
 import { CodeInput } from './CodeInput/CodeInput';
 import { InputEditor } from './InputEditor/InputEditor';
+import { COMMON_HEADERS, COMMON_QUERY_KEYS, COMMON_BODY_SNIPPETS } from './InputEditor/SuggestionsConstants';
 
 type InputMode = 'code' | 'form';
 
@@ -345,6 +346,7 @@ export const Input: React.FC<InputProps> = ({
                         onChange={handleQueryParametersChange}
                         value={formatQueryParameters(request.queryParameters)}
                         codeLenses={queryParamsCodeLenses}
+                        suggestions={{ queryKeys: COMMON_QUERY_KEYS }}
                     />
                     <Typography variant="h3" sx={{ margin: '8px 0' }}>
                         Headers
@@ -354,6 +356,7 @@ export const Input: React.FC<InputProps> = ({
                         onChange={handleHeadersChange}
                         value={formatHeaders(request.headers)}
                         codeLenses={headersCodeLenses}
+                        suggestions={{ headers: COMMON_HEADERS }}
                     />
                     <Typography variant="h3" sx={{ margin: '8px 0' }}>
                         Body
@@ -363,6 +366,7 @@ export const Input: React.FC<InputProps> = ({
                         onChange={handleBodyChange}
                         value={request.body || ''}
                         codeLenses={bodyCodeLenses}
+                        suggestions={{ bodySnippets: COMMON_BODY_SNIPPETS }}
                     />
                 </>
             ) : (

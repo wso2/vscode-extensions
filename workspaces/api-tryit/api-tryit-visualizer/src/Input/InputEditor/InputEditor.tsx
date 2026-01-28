@@ -108,6 +108,15 @@ export interface CodeLensConfig {
     onExecute: (editor: monaco.editor.IStandaloneCodeEditor, model: monaco.editor.ITextModel) => void;
 }
 
+/**
+ * Suggestions configuration for auto-completion
+ */
+export interface SuggestionsConfig {
+    headers?: { name: string; values: string[] }[];
+    queryKeys?: string[];
+    bodySnippets?: { label: string; insertText: string; description?: string }[];
+}
+
 interface InputEditorProps {
     value: string;
     minHeight?: string;
@@ -120,6 +129,10 @@ interface InputEditorProps {
      * Optional code lens configurations to show in the editor
      */
     codeLenses?: CodeLensConfig[];
+    /**
+     * Suggestions for auto-completion
+     */
+    suggestions?: SuggestionsConfig;
 }
 
 export const InputEditor: React.FC<InputEditorProps> = ({
@@ -130,13 +143,15 @@ export const InputEditor: React.FC<InputEditorProps> = ({
     onChange,
     onMount,
     options = {},
-    codeLenses = []
+    codeLenses = [],
+    suggestions
 }) => {
     const monacoRef = useRef<Monaco | null>(null);
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
     const isTypingRef = useRef(false);
     const codeLensDisposableRef = useRef<monaco.IDisposable | null>(null);
     const commandsDisposableRef = useRef<monaco.IDisposable[]>([]);
+    const completionDisposableRef = useRef<monaco.IDisposable | null>(null);
     // Generate a unique language ID for this editor instance to avoid conflicts
     const languageIdRef = useRef(`${LANGUAGE_ID}-${Math.random().toString(36).substring(7)}`);
     // Content change listener disposable
@@ -309,6 +324,109 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         commandsDisposableRef.current = commands;
     };
 
+    /**
+     * Sets up completion provider for suggestions
+     */
+    const setupCompletionProvider = (monaco: Monaco, model: monaco.editor.ITextModel) => {
+        if (!suggestions) {
+            return;
+        }
+
+        // Infer section type from provided suggestions
+        let currentSectionType: 'query' | 'headers' | 'body' | null = null;
+        if (suggestions.queryKeys && suggestions.queryKeys.length > 0) {
+            currentSectionType = 'query';
+        } else if (suggestions.headers && suggestions.headers.length > 0) {
+            currentSectionType = 'headers';
+        } else if (suggestions.bodySnippets && suggestions.bodySnippets.length > 0) {
+            currentSectionType = 'body';
+        }
+
+        if (!currentSectionType) {
+            return;
+        }
+
+        const currentLanguageId = languageIdRef.current;
+
+        completionDisposableRef.current = monaco.languages.registerCompletionItemProvider(currentLanguageId, {
+            provideCompletionItems: (model: monaco.editor.ITextModel, position: monaco.Position) => {
+                const lineContent = model.getLineContent(position.lineNumber);
+                const textUntilPosition = lineContent.substring(0, position.column - 1);
+                const suggestionsList: monaco.languages.CompletionItem[] = [];
+
+                const wordInfo = model.getWordUntilPosition(position);
+                const range: monaco.IRange = {
+                    startLineNumber: position.lineNumber,
+                    endLineNumber: position.lineNumber,
+                    startColumn: wordInfo.startColumn,
+                    endColumn: wordInfo.endColumn
+                };
+
+                if (currentSectionType === 'headers') {
+                    // Suggest header names if at beginning of line or no colon yet
+                    if (!textUntilPosition.includes(':')) {
+                        suggestions?.headers?.forEach(header => {
+                            suggestionsList.push({
+                                label: header.name,
+                                kind: monaco.languages.CompletionItemKind.Property,
+                                insertText: header.name,
+                                range: range,
+                                documentation: `HTTP header: ${header.name}`
+                            });
+                        });
+                    }
+
+                    // Suggest header values if colon is present
+                    if (textUntilPosition.includes(':')) {
+                        const headerMatch = textUntilPosition.match(/^([A-Za-z][\w-]*)\s*:\s*/);
+                        if (headerMatch) {
+                            const headerName = headerMatch[1];
+                            const header = suggestions?.headers?.find(h => h.name === headerName);
+                            if (header) {
+                                header.values.forEach(value => {
+                                    suggestionsList.push({
+                                        label: value,
+                                        kind: monaco.languages.CompletionItemKind.Value,
+                                        insertText: value,
+                                        range: range,
+                                        documentation: `Value for ${headerName}`
+                                    });
+                                });
+                            }
+                        }
+                    }
+                } else if (currentSectionType === 'query') {
+                    // Suggest common query parameter names
+                    if (!textUntilPosition.includes('=')) {
+                        suggestions?.queryKeys?.forEach(key => {
+                            suggestionsList.push({
+                                label: key,
+                                kind: monaco.languages.CompletionItemKind.Property,
+                                insertText: key,
+                                range: range,
+                                documentation: `Query parameter: ${key}`
+                            });
+                        });
+                    }
+                } else if (currentSectionType === 'body') {
+                    // Suggest JSON snippets
+                    suggestions?.bodySnippets?.forEach(snippet => {
+                        suggestionsList.push({
+                            label: snippet.label,
+                            kind: monaco.languages.CompletionItemKind.Snippet,
+                            insertText: snippet.insertText,
+                            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                            range: range,
+                            documentation: snippet.description
+                        });
+                    });
+                }
+
+                return { suggestions: suggestionsList };
+            }
+        });
+    };
+
     // Detect theme changes and update Monaco theme when no explicit theme is set
     useEffect(() => {
         if (theme) return; // Don't interfere if explicit theme is set
@@ -368,6 +486,9 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                 codeLensDisposableRef.current.dispose();
             }
             commandsDisposableRef.current.forEach(cmd => cmd.dispose());
+            if (completionDisposableRef.current) {
+                completionDisposableRef.current.dispose();
+            }
             if (contentChangeDisposableRef.current) {
                 contentChangeDisposableRef.current.dispose();
             }
@@ -400,6 +521,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                         console.log('[InputEditor] Setting up code lenses and commands');
                         setupCodeLensProvider(monaco, model);
                         setupCommands(monaco, model, editor);
+                        setupCompletionProvider(monaco, model);
                     }
                     
                     // Override Monaco's default copy-paste actions
@@ -506,6 +628,43 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                     contextmenu: true,
                     selectOnLineNumbers: false,
                     wordWrap: 'off',
+                    suggestOnTriggerCharacters: true,
+                    quickSuggestions: {
+                        other: true,
+                        comments: false,
+                        strings: true
+                    },
+                    quickSuggestionsDelay: 100,
+                    acceptSuggestionOnEnter: 'on',
+                    wordBasedSuggestions: 'off',
+                    suggest: {
+                        showWords: false,
+                        showMethods: false,
+                        showFunctions: false,
+                        showConstructors: false,
+                        showFields: true,
+                        showVariables: true,
+                        showClasses: false,
+                        showStructs: false,
+                        showInterfaces: false,
+                        showModules: false,
+                        showProperties: true,
+                        showEvents: false,
+                        showOperators: false,
+                        showUnits: false,
+                        showValues: true,
+                        showConstants: false,
+                        showEnums: false,
+                        showEnumMembers: false,
+                        showKeywords: true,
+                        showSnippets: true,
+                        filterGraceful: true,
+                        snippetsPreventQuickSuggestions: false,
+                        localityBonus: true
+                    },
+                    formatOnPaste: true,
+                    formatOnType: true,
+                    padding: { top: 12, bottom: 12 },
                     ...options
                 }}
             />
