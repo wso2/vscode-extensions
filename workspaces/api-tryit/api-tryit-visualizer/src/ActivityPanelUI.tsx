@@ -41,7 +41,12 @@ export const ActivityPanelUI: React.FC = () => {
 		const handleMessage = (event: MessageEvent) => {
 			const message = event.data;
 			if (message.command === 'updateCollections') {
-				setCollections(message.collections || []);
+				// Deduplicate collections by ID to prevent rendering duplicates
+				const newCollections: RequestItem[] = message.collections || [];
+				const uniqueCollections = Array.from(
+					new Map(newCollections.map((col: RequestItem) => [col.id, col])).values()
+				) as RequestItem[];
+				setCollections(uniqueCollections);
 				setIsLoading(false);
 			}
 		};

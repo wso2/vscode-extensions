@@ -26,6 +26,9 @@ import { TryItPanel } from '../webview-panel/TryItPanel';
 export class ActivityPanel implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'api-tryit.activity.panel';
 	private _view?: vscode.WebviewView;
+	private _sendCollectionsTimeoutId: ReturnType<typeof setTimeout> | undefined;
+	private _lastSentCollectionsHash: string | undefined;
+	private _listenersInitialized = false;
 
 	constructor(
 		private readonly _extensionContext: vscode.ExtensionContext,
@@ -80,41 +83,66 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 					break;
 				case 'getCollections':
 					// Send collections to webview
-					this._sendCollections();
+					this._sendCollections(true);
 					break;
 				case 'webviewReady':
 					// Webview is ready, send initial data
-					this._sendCollections();
+					this._sendCollections(true);
 					break;
 			}
 		});
 
-		// Refresh webview when provider data changes
-		if (this._apiExplorerProvider) {
-			this._apiExplorerProvider.onDidChangeTreeData(() => {
-				this._sendCollections();
+		// Only register listeners once to prevent duplicates
+		if (!this._listenersInitialized) {
+			this._listenersInitialized = true;
+
+			// Refresh webview when provider data changes
+			if (this._apiExplorerProvider) {
+				this._apiExplorerProvider.onDidChangeTreeData(() => {
+					this._debouncedSendCollections();
+				});
+			}
+
+			// Handle webview visibility changes
+			webviewView.onDidChangeVisibility(() => {
+				if (webviewView.visible) {
+					// Refresh collections when webview becomes visible
+					this._debouncedSendCollections();
+				}
 			});
 		}
 
-		// Handle webview visibility changes
-		webviewView.onDidChangeVisibility(() => {
-			if (webviewView.visible) {
-				// Refresh collections when webview becomes visible
-				this._sendCollections();
-			}
-		});
-
-		// Send initial collections data
-		this._sendCollections();
+		// Send initial collections data immediately (no debounce)
+		this._sendCollections(true);
 	}
 
-	private async _sendCollections() {
+	private _debouncedSendCollections() {
+		// Clear any pending timeout
+		if (this._sendCollectionsTimeoutId) {
+			clearTimeout(this._sendCollectionsTimeoutId);
+		}
+
+		// Set a new timeout to debounce rapid calls (300ms)
+		this._sendCollectionsTimeoutId = setTimeout(() => {
+			this._sendCollections(false);
+		}, 300);
+	}
+
+	private async _sendCollections(skipHashCheck: boolean = false) {
 		if (this._view && this._apiExplorerProvider) {
 			const collections = await this._apiExplorerProvider.getCollections();
-			this._view.webview.postMessage({
-				command: 'updateCollections',
-				collections
-			});
+			
+			// Create a hash of the collections to avoid sending identical data
+			const collectionsHash = JSON.stringify(collections);
+			
+			// Only send if collections have changed (skip hash check for initial sends)
+			if (skipHashCheck || collectionsHash !== this._lastSentCollectionsHash) {
+				this._lastSentCollectionsHash = collectionsHash;
+				this._view.webview.postMessage({
+					command: 'updateCollections',
+					collections
+				});
+			}
 		}
 	}
 
