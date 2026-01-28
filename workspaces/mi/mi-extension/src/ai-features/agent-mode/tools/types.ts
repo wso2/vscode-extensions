@@ -89,6 +89,10 @@ export const ENTER_PLAN_MODE_TOOL_NAME = 'enter_plan_mode';
 export const EXIT_PLAN_MODE_TOOL_NAME = 'exit_plan_mode';
 export const TODO_WRITE_TOOL_NAME = 'todo_write';
 
+// Bash Tool Names
+export const BASH_TOOL_NAME = 'bash';
+export const KILL_SHELL_TOOL_NAME = 'kill_shell';
+
 // ============================================================================
 // Subagent Types
 // ============================================================================
@@ -239,4 +243,26 @@ export type ExitPlanModeExecuteFn = (args: {
 
 export type TodoWriteExecuteFn = (args: {
     todos: TodoItem[];
+}) => Promise<ToolResult>;
+
+// ============================================================================
+// Bash Tool Execute Function Types
+// ============================================================================
+
+export interface BashResult extends ToolResult {
+    stdout?: string;
+    stderr?: string;
+    exitCode?: number;
+    shellId?: string;
+}
+
+export type BashExecuteFn = (args: {
+    command: string;
+    description?: string;
+    timeout?: number;
+    run_in_background?: boolean;
+}) => Promise<BashResult>;
+
+export type KillShellExecuteFn = (args: {
+    shell_id: string;
 }) => Promise<ToolResult>;
