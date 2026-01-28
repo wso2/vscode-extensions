@@ -91,6 +91,7 @@ interface ContentSegment {
     isCode?: boolean;
     isToolCall?: boolean;
     isTodoList?: boolean;
+    isBashOutput?: boolean;
     loading: boolean;
     text: string;
     language?: string;
@@ -103,8 +104,8 @@ export function splitContent(content: string): ContentSegment[] {
     }
     const segments: ContentSegment[] = [];
     let match;
-    // Updated regex to include <toolcall> and <todolist> tags with optional data attributes
-    const regex = /```(xml|bash|json|javascript|java|python)([\s\S]*?)```|<toolcall(?:\s+[^>]*)?>([^<]*?)<\/toolcall>|<todolist>([\s\S]*?)<\/todolist>/g;
+    // Updated regex to include <toolcall>, <todolist>, and <bashoutput> tags with optional data attributes
+    const regex = /```(xml|bash|json|javascript|java|python)([\s\S]*?)```|<toolcall(?:\s+[^>]*)?>([^<]*?)<\/toolcall>|<todolist>([\s\S]*?)<\/todolist>|<bashoutput(?:\s+[^>]*)?>([\s\S]*?)<\/bashoutput>/g;
     let start = 0;
 
     // Helper function to mark the last toolcall segment as complete
@@ -139,6 +140,10 @@ export function splitContent(content: string): ContentSegment[] {
             // <todolist> block matched
             updateLastToolCallSegmentLoading();
             segments.push({ isTodoList: true, loading: false, text: match[4] });
+        } else if (match[5]) {
+            // <bashoutput> block matched
+            updateLastToolCallSegmentLoading();
+            segments.push({ isBashOutput: true, loading: false, text: match[5] });
         }
         start = regex.lastIndex;
     }

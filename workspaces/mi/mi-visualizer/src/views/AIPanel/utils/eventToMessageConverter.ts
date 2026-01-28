@@ -19,8 +19,9 @@
 import { ChatMessage, Role, MessageType, AgentEvent, ChatHistoryEvent, TodoItem } from "@wso2/mi-core";
 import { generateId } from "../utils";
 
-// Tool name constant for todo_write tool
+// Tool name constants
 const TODO_WRITE_TOOL_NAME = 'todo_write';
+const BASH_TOOL_NAME = 'bash';
 
 /**
  * Calculate overall status from todo items
@@ -123,23 +124,16 @@ export function convertEventsToMessages(
                     continue;
                 }
 
-
                 // Extract file path for display
                 const toolInput = event.toolInput as any;
                 const filePath = toolInput?.file_path || toolInput?.file_paths?.[0] || '';
 
-                // Store pending tool call info
+                // Store pending tool call info (needed for bash output)
                 pendingToolCall = {
                     toolName: event.toolName || '',
                     toolInput: event.toolInput,
                     filePath
                 };
-
-                // Get loading action from event (for live streaming) or create generic message
-                const loadingAction = 'loadingAction' in event ? event.loadingAction : undefined;
-                const loadingMessage = loadingAction
-                    ? `${loadingAction.charAt(0).toUpperCase() + loadingAction.slice(1)} ${filePath}...`
-                    : `Using ${event.toolName}${filePath ? `: ${filePath}` : ''}...`;
 
                 // Ensure assistant message exists
                 if (!currentAssistantMessage) {
@@ -151,6 +145,25 @@ export function convertEventsToMessages(
                     };
                 }
 
+                // Handle bash tool specially - show loading bash component with command
+                if (event.toolName === BASH_TOOL_NAME) {
+                    const bashData = {
+                        command: toolInput?.command || '',
+                        description: toolInput?.description || '',
+                        output: '',
+                        exitCode: 0,
+                        loading: true
+                    };
+                    currentAssistantMessage.content += `\n\n<bashoutput data-loading="true">${JSON.stringify(bashData)}</bashoutput>`;
+                    continue;
+                }
+
+                // Get loading action from event (for live streaming) or create generic message
+                const loadingAction = 'loadingAction' in event ? event.loadingAction : undefined;
+                const loadingMessage = loadingAction
+                    ? `${loadingAction.charAt(0).toUpperCase() + loadingAction.slice(1)} ${filePath}...`
+                    : `Using ${event.toolName}${filePath ? `: ${filePath}` : ''}...`;
+
                 // Insert loading tool call tag (with data-loading attribute for replacement)
                 currentAssistantMessage.content += `\n\n<toolcall data-loading="true" data-file="${filePath}">${loadingMessage}</toolcall>`;
                 break;
@@ -161,7 +174,60 @@ export function convertEventsToMessages(
                     continue;
                 }
 
-                if (pendingToolCall && currentAssistantMessage) {
+                if (pendingToolCall) {
+                    // Ensure assistant message exists
+                    if (!currentAssistantMessage) {
+                        currentAssistantMessage = {
+                            id: generateId(),
+                            role: Role.MICopilot,
+                            content: '',
+                            type: MessageType.AssistantMessage
+                        };
+                    }
+
+                    // Handle bash tool specially - replace loading bashoutput tag with completed one
+                    if (pendingToolCall.toolName === BASH_TOOL_NAME) {
+                        const bashCommand = 'bashCommand' in event ? event.bashCommand : undefined;
+                        const bashDescription = 'bashDescription' in event ? event.bashDescription : undefined;
+                        const bashStdout = 'bashStdout' in event ? event.bashStdout : undefined;
+                        const bashExitCode = 'bashExitCode' in event ? event.bashExitCode : undefined;
+                        const bashRunning = 'bashRunning' in event ? event.bashRunning : false;
+
+                        // Create completed bash output data structure
+                        const bashData = {
+                            command: bashCommand || '',
+                            description: bashDescription || '',
+                            output: bashStdout || '',
+                            exitCode: bashExitCode ?? 0,
+                            running: bashRunning,
+                            loading: false
+                        };
+
+                        const completedBashTag = `<bashoutput>${JSON.stringify(bashData)}</bashoutput>`;
+
+                        // Find and replace the loading bashoutput tag
+                        const bashPattern = /<bashoutput data-loading="true">[\s\S]*?<\/bashoutput>/g;
+                        const bashMatches = [...currentAssistantMessage.content.matchAll(bashPattern)];
+
+                        if (bashMatches.length > 0) {
+                            // Replace the last matching bash output (most recent)
+                            const lastMatch = bashMatches[bashMatches.length - 1];
+                            const fullMatch = lastMatch[0];
+                            const lastIndex = currentAssistantMessage.content.lastIndexOf(fullMatch);
+
+                            currentAssistantMessage.content =
+                                currentAssistantMessage.content.substring(0, lastIndex) +
+                                completedBashTag +
+                                currentAssistantMessage.content.substring(lastIndex + fullMatch.length);
+                        } else {
+                            // No loading tag found, append directly
+                            currentAssistantMessage.content += `\n\n${completedBashTag}`;
+                        }
+
+                        pendingToolCall = null;
+                        continue;
+                    }
+
                     // Get action from event (backend provides this)
                     const action = 'action' in event ? event.action : undefined;
                     const completedAction = 'completedAction' in event ? event.completedAction : undefined;
@@ -169,7 +235,7 @@ export function convertEventsToMessages(
 
                     const capitalizedAction = finalAction.charAt(0).toUpperCase() + finalAction.slice(1);
 
-                    // Create completed message
+                    // Create standard completed message for other tools
                     const completedMessage = pendingToolCall.filePath
                         ? `<toolcall>${capitalizedAction} ${pendingToolCall.filePath}</toolcall>`
                         : `<toolcall>${capitalizedAction}</toolcall>`;

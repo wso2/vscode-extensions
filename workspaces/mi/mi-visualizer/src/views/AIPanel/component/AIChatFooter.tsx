@@ -28,6 +28,9 @@ import { Role, MessageType, CopilotChatEntry, AgentEvent } from "@wso2/mi-core";
 import { TodoItem } from "@wso2/mi-core/lib/rpc-types/agent-mode/types";
 import Attachments from "./Attachments";
 
+// Tool name constant
+const BASH_TOOL_NAME = 'bash';
+
 interface AIChatFooterProps {
     isUsageExceeded?: boolean;
 }
@@ -136,8 +139,30 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 // Show tool status and insert toolcall tag into message content
                 // Action text is provided by backend from shared utility
                 if (event.toolName) {
-                    const toolInfo = event.toolInput as { file_path?: string, file_paths?: string[] };
+                    const toolInfo = event.toolInput as { file_path?: string, file_paths?: string[], command?: string, description?: string };
                     const filePath = toolInfo?.file_path || toolInfo?.file_paths?.[0] || "";
+
+                    // Handle bash tool specially - show loading bash component
+                    if (event.toolName === BASH_TOOL_NAME) {
+                        const bashData = {
+                            command: toolInfo?.command || '',
+                            description: toolInfo?.description || '',
+                            output: '',
+                            exitCode: 0,
+                            loading: true
+                        };
+
+                        setToolStatus(toolInfo?.description || "Running command...");
+
+                        setMessages((prevMessages) => {
+                            const newMessages = [...prevMessages];
+                            if (newMessages.length > 0) {
+                                newMessages[newMessages.length - 1].content += `\n\n<bashoutput data-loading="true">${JSON.stringify(bashData)}</bashoutput>`;
+                            }
+                            return newMessages;
+                        });
+                        break;
+                    }
 
                     // Use loading action provided by backend (already in user-friendly format)
                     const loadingAction = event.loadingAction || "executing";
@@ -172,7 +197,37 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     if (newMessages.length > 0) {
                         const lastMessageContent = newMessages[newMessages.length - 1].content;
 
-                        // Find the last <toolcall> tag with loading state
+                        // Check if this is a bash tool result - look for loading bashoutput tag
+                        const bashPattern = /<bashoutput data-loading="true">[\s\S]*?<\/bashoutput>/g;
+                        const bashMatches = [...lastMessageContent.matchAll(bashPattern)];
+
+                        if (bashMatches.length > 0) {
+                            // Handle bash tool result - replace loading bashoutput with completed one
+                            const lastMatch = bashMatches[bashMatches.length - 1];
+                            const fullMatch = lastMatch[0];
+
+                            // Create completed bash output data structure
+                            const bashData = {
+                                command: event.bashCommand || '',
+                                description: event.bashDescription || '',
+                                output: event.bashStdout || '',
+                                exitCode: event.bashExitCode ?? 0,
+                                running: event.bashRunning || false,
+                                loading: false
+                            };
+
+                            const completedBashTag = `<bashoutput>${JSON.stringify(bashData)}</bashoutput>`;
+
+                            // Replace the loading version with completed version
+                            const lastIndex = lastMessageContent.lastIndexOf(fullMatch);
+                            const beforeMatch = lastMessageContent.substring(0, lastIndex);
+                            const afterMatch = lastMessageContent.substring(lastIndex + fullMatch.length);
+
+                            newMessages[newMessages.length - 1].content = beforeMatch + completedBashTag + afterMatch;
+                            return newMessages;
+                        }
+
+                        // Find the last <toolcall> tag with loading state (non-bash tools)
                         const toolPattern = /<toolcall data-loading="true" data-file="([^"]*)">([^<]*?)<\/toolcall>/g;
                         const matches = [...lastMessageContent.matchAll(toolPattern)];
 

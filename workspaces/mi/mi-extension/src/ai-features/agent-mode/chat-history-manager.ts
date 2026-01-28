@@ -22,6 +22,7 @@ import { createWriteStream, WriteStream } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { logDebug, logError, logInfo } from '../copilot/logger';
 import { getToolAction, capitalizeAction } from './tool-action-mapper';
+import { BASH_TOOL_NAME } from './tools/types';
 
 // Storage location: <project>/.mi-copilot/<session_id>/history.jsonl
 
@@ -373,6 +374,8 @@ export class ChatHistoryManager {
         timestamp: string;
     }> {
         const events: any[] = [];
+        // Track tool inputs by toolCallId for bash output display
+        const toolInputMap = new Map<string, any>();
 
         for (const msg of messages) {
             const timestamp = new Date().toISOString();  // Could store timestamps if needed
@@ -434,6 +437,10 @@ export class ChatHistoryManager {
                                     });
                                 }
                             } else if (part.type === 'tool-call') {
+                                // Store tool input for later use in tool_result
+                                if (part.toolCallId) {
+                                    toolInputMap.set(part.toolCallId, part.input);
+                                }
                                 events.push({
                                     type: 'tool_call',
                                     toolName: part.toolName,
@@ -452,7 +459,8 @@ export class ChatHistoryManager {
                         for (const part of msg.content) {
                             if (part.type === 'tool-result') {
                                 const output = part.output?.value || part.output;
-                                const toolActions = getToolAction(part.toolName, output, undefined);
+                                const toolInput = toolInputMap.get(part.toolCallId);
+                                const toolActions = getToolAction(part.toolName, output, toolInput);
 
                                 let action = 'Executed ' + part.toolName;
                                 if (output?.success === false && toolActions?.failed) {
@@ -461,14 +469,24 @@ export class ChatHistoryManager {
                                     action = capitalizeAction(toolActions.completed);
                                 }
 
-                                events.push({
+                                const event: any = {
                                     type: 'tool_result',
                                     toolName: part.toolName,
                                     toolOutput: output,
                                     toolCallId: part.toolCallId,
                                     action,
                                     timestamp
-                                });
+                                };
+
+                                // Add bash-specific fields for bash tool
+                                if (part.toolName === BASH_TOOL_NAME && toolInput) {
+                                    event.bashCommand = toolInput.command;
+                                    event.bashDescription = toolInput.description;
+                                    event.bashStdout = output?.stdout || output?.message;
+                                    event.bashExitCode = output?.exitCode ?? 0;
+                                }
+
+                                events.push(event);
                             }
                         }
                     }

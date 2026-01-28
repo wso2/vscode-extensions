@@ -528,13 +528,26 @@ export async function executeAgent(
 
                     // Skip tool result UI for todo_write (handled by inline todo list)
                     if (part.toolName !== TODO_WRITE_TOOL_NAME) {
-                        // Send to visualizer with result action for display
-                        eventHandler({
+                        // Build event with bash-specific fields if applicable
+                        const toolResultEvent: any = {
                             type: 'tool_result',
                             toolName: part.toolName,
                             toolOutput: { success: result?.success },
                             completedAction: resultAction,
-                        });
+                        };
+
+                        // Add bash output fields for bash tool
+                        if (part.toolName === BASH_TOOL_NAME) {
+                            toolResultEvent.bashCommand = toolInput?.command;
+                            toolResultEvent.bashDescription = toolInput?.description;
+                            toolResultEvent.bashStdout = result?.stdout || result?.message;
+                            toolResultEvent.bashStderr = result?.stderr;
+                            toolResultEvent.bashExitCode = result?.exitCode;
+                            toolResultEvent.bashRunning = !!result?.shellId;
+                        }
+
+                        // Send to visualizer with result action for display
+                        eventHandler(toolResultEvent);
                     }
 
                     // Clean up stored tool input
