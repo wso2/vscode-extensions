@@ -20,18 +20,30 @@ import type { ComponentKind, Environment, Organization, Project } from "./common
 
 export type WebviewTypes = "NewComponentForm" | "ComponentsListActivityView" | "ComponentDetailsView" | "ChoreoCellView";
 
-export interface NewComponentWebviewProps {
-	type: "NewComponentForm";
+/** Configuration for a single component to be created */
+export interface ComponentConfig {
 	directoryUriPath: string;
 	directoryFsPath: string;
 	directoryName: string;
+	initialValues?: { type?: string; subType?: string; buildPackLang?: string; name?: string };
+	isNewCodeServerComp?: boolean;
+}
+
+export interface NewComponentWebviewProps {
+	type: "NewComponentForm";
 	organization: Organization;
 	project: Project;
 	existingComponents: ComponentKind[];
-	initialValues?: { type?: string; subType?: string; buildPackLang?: string; name?: string };
 	extensionName?: string;
-	isNewCodeServerComp?: boolean;
+	/** Array of components to be created. For single component creation, this will contain one item. */
+	components: ComponentConfig[];
 }
+
+/**
+ * Flattened props type for form section components.
+ * This combines the common webview props with the current component's config.
+ */
+export type ComponentFormSectionProps = Omit<NewComponentWebviewProps, "components"> & ComponentConfig;
 
 export interface ComponentsDetailsWebviewProps {
 	type: "ComponentDetailsView";

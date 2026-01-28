@@ -75,12 +75,32 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 	const {
 		project,
 		organization,
-		directoryFsPath,
-		directoryUriPath,
-		initialValues,
-		directoryName,
+		components,
 		existingComponents: existingComponentsCache,
 	} = props;
+
+	// Support multiple components - currently working with the first component (can be extended for multi-component wizard)
+	const [currentComponentIndex, setCurrentComponentIndex] = useState(0);
+	const currentComponent = components[currentComponentIndex];
+	const isMultiComponentMode = components.length > 1;
+
+	// Destructure current component properties
+	const { directoryFsPath, directoryUriPath, directoryName, initialValues, isNewCodeServerComp } = currentComponent;
+
+	// Create flattened props for section components (combines common props with current component config)
+	const sectionProps = {
+		type: props.type,
+		organization,
+		project,
+		existingComponents: existingComponentsCache,
+		extensionName: props.extensionName,
+		directoryFsPath,
+		directoryUriPath,
+		directoryName,
+		initialValues,
+		isNewCodeServerComp,
+	};
+
 	const type = initialValues?.type;
 	const queryClient = useQueryClient();
 	const [formSections] = useAutoAnimate();
@@ -179,12 +199,12 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 
 	const { mutateAsync: initializeRepoAsync, isLoading: initializingRepo } = useMutation({
 		mutationFn: async () => {
-			if (props.isNewCodeServerComp) {
+			if (isNewCodeServerComp) {
 				const repoInitDetails = repoInitForm.getValues();
 				const repoUrl = buildGitURL(repoInitDetails?.orgHandler, repoInitDetails.repo, repoInitDetails.gitProvider, false, repoInitDetails.serverUrl);
 				const branchesCache: string[] = queryClient.getQueryData(queryKeys.getGitBranches(repoUrl, organization, "", true));
 				const newWorkspacePath = await ChoreoWebViewAPI.getInstance().cloneRepositoryIntoCompDir({
-					cwd: props.directoryFsPath,
+					cwd: directoryFsPath,
 					subpath: repoInitDetails.subPath,
 					org: props.organization,
 					componentName: makeURLSafe(repoInitDetails.name),
@@ -212,13 +232,13 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 			const buildDetails = buildDetailsForm.getValues();
 			const gitProxyDetails = gitProxyForm.getValues();
 
-			const name = props.isNewCodeServerComp ? repoInitDetails.name : genDetails.name;
-			const componentName = makeURLSafe(props.isNewCodeServerComp ? repoInitDetails.name : genDetails.name);
-			const branch = props.isNewCodeServerComp ? repoInitDetails.branch : genDetails.branch;
+			const name = isNewCodeServerComp ? repoInitDetails.name : genDetails.name;
+			const componentName = makeURLSafe(isNewCodeServerComp ? repoInitDetails.name : genDetails.name);
+			const branch = isNewCodeServerComp ? repoInitDetails.branch : genDetails.branch;
 			const parsedRepo = parseGitURL(genDetails.repoUrl);
-			const provider = props.isNewCodeServerComp ? repoInitDetails.gitProvider : parsedRepo[2];
+			const provider = isNewCodeServerComp ? repoInitDetails.gitProvider : parsedRepo[2];
 
-			const repoUrl = props.isNewCodeServerComp
+			const repoUrl = isNewCodeServerComp
 				? buildGitURL(repoInitDetails.orgHandler, repoInitDetails.repo, repoInitDetails.gitProvider, false, repoInitDetails.serverUrl)
 				: genDetails.repoUrl;
 
@@ -242,7 +262,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 			};
 
 			if (provider !== GitProvider.GITHUB) {
-				createParams.gitCredRef = props.isNewCodeServerComp ? repoInitDetails.credential : genDetails?.credential;
+				createParams.gitCredRef = isNewCodeServerComp ? repoInitDetails.credential : genDetails?.credential;
 			}
 
 			if (buildDetails.buildPackLang === ChoreoImplementationType.Docker) {
@@ -305,12 +325,12 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 
 	const steps: StepItem[] = [];
 
-	if (props.isNewCodeServerComp) {
+	if (isNewCodeServerComp) {
 		steps.push({
 			label: "Repository Details",
 			content: (
 				<ComponentFormRepoInitSection
-					{...props}
+					{...sectionProps}
 					key="repo-init-section"
 					form={repoInitForm}
 					componentType={type}
@@ -332,7 +352,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 			label: "General Details",
 			content: (
 				<ComponentFormGenDetailsSection
-					{...props}
+					{...sectionProps}
 					key="gen-details-step"
 					form={genDetailsForm}
 					componentType={type}
@@ -360,7 +380,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 				label: "Build Details",
 				content: (
 					<ComponentFormBuildSection
-						{...props}
+						{...sectionProps}
 						key="build-details-step"
 						onNextClick={() => setStepIndex(stepIndex + 1)}
 						onBackClick={() => setStepIndex(stepIndex - 1)}
@@ -384,7 +404,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 					label: "Endpoint Details",
 					content: (
 						<ComponentFormEndpointsSection
-							{...props}
+							{...sectionProps}
 							key="endpoints-step"
 							componentName={name || "component"}
 							onNextClick={(data) => submitEndpoints(data.endpoints as Endpoint[])}
@@ -401,7 +421,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 				label: "Proxy Details",
 				content: (
 					<ComponentFormGitProxySection
-						{...props}
+						{...sectionProps}
 						key="git-proxy-step"
 						onNextClick={(data) => submitProxyConfig(data)}
 						onBackClick={() => setStepIndex(stepIndex - 1)}
@@ -416,7 +436,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 			label: "Summary",
 			content: (
 				<ComponentFormSummarySection
-					{...props}
+					{...sectionProps}
 					key="summary-step"
 					genDetailsForm={genDetailsForm}
 					buildDetailsForm={buildDetailsForm}
@@ -434,7 +454,7 @@ export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
 
 	const headerTags: HeaderTag[] = [];
 
-	if (!props.isNewCodeServerComp) {
+	if (!isNewCodeServerComp) {
 		headerTags.push({ label: "Source Directory", value: subPath && subPath !== "." ? subPath : directoryName });
 	}
 	headerTags.push({ label: "Project", value: project.name }, { label: "Organization", value: organization.name });

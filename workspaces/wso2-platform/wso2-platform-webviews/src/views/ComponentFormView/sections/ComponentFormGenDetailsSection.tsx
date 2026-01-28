@@ -18,7 +18,7 @@
 
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { GitProvider, type NewComponentWebviewProps, parseGitURL, toSentenceCase } from "@wso2/wso2-platform-core";
+import { type ComponentFormSectionProps, GitProvider, parseGitURL, toSentenceCase } from "@wso2/wso2-platform-core";
 import React, { type FC, type ReactNode, useEffect } from "react";
 import type { SubmitHandler, UseFormReturn } from "react-hook-form";
 import type { z } from "zod/v3";
@@ -33,7 +33,7 @@ import type { componentGeneralDetailsSchema } from "../componentFormSchema";
 
 type ComponentFormGenDetailsType = z.infer<typeof componentGeneralDetailsSchema>;
 
-interface Props extends NewComponentWebviewProps {
+interface Props extends ComponentFormSectionProps {
 	onNextClick: () => void;
 	initialFormValues?: ComponentFormGenDetailsType;
 	form: UseFormReturn<ComponentFormGenDetailsType>;

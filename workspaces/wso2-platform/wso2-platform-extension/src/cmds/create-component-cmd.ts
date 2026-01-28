@@ -26,7 +26,10 @@ import {
 	DevantScopes,
 	type ExtensionName,
 	type ICreateComponentCmdParams,
+	type Organization,
+	type Project,
 	type SubmitComponentCreateReq,
+	type UserInfo,
 	type WorkspaceConfig,
 	getComponentKindRepoSource,
 	getComponentTypeText,
@@ -44,231 +47,546 @@ import { dataCacheStore } from "../stores/data-cache-store";
 import { webviewStateStore } from "../stores/webview-state-store";
 import { convertFsPathToUriPath, isSamePath, isSubpath, openDirectory } from "../utils";
 import { showComponentDetailsView } from "../webviews/ComponentDetailsView";
-import { ComponentFormView, type IComponentCreateFormParams } from "../webviews/ComponentFormView";
+import { ComponentFormView, type IComponentCreateFormParams, type ISingleComponentCreateFormParams } from "../webviews/ComponentFormView";
 import { getUserInfoForCmd, isRpcActive, selectOrg, selectProjectWithCreateNew, setExtensionName } from "./cmd-utils";
 import { updateContextFile } from "./create-directory-context-cmd";
 
 let componentWizard: ComponentFormView;
 
+// ============================================================================
+// Terminology Helpers - Centralize Devant vs Choreo naming differences
+// ============================================================================
+
+interface TerminologyContext {
+	readonly isDevant: boolean;
+	readonly componentTerm: string;
+	readonly componentTermCapitalized: string;
+	readonly articleComponentTerm: string;
+}
+
+function getTerminology(extName: ExtensionName | undefined): TerminologyContext {
+	const isDevant = extName === "Devant";
+	return {
+		isDevant,
+		componentTerm: isDevant ? "integration" : "component",
+		componentTermCapitalized: isDevant ? "Integration" : "Component",
+		articleComponentTerm: isDevant ? "an integration" : "a component",
+	};
+}
+
+// ============================================================================
+// Organization & Project Selection
+// ============================================================================
+
+interface OrgProjectSelection {
+	org: Organization;
+	project: Project;
+}
+
+async function selectOrgAndProject(userInfo: UserInfo, terminology: TerminologyContext): Promise<OrgProjectSelection> {
+	await waitForContextStoreToLoad();
+	const selected = contextStore.getState().state.selected;
+
+	if (selected?.project && selected?.org) {
+		return { org: selected.org, project: selected.project };
+	}
+
+	const selectedOrg = await selectOrg(userInfo, "Select organization");
+	const createdProjectRes = await selectProjectWithCreateNew(
+		selectedOrg,
+		`Loading projects from '${selectedOrg.name}'`,
+		`Select the project from '${selectedOrg.name}', to create the ${terminology.componentTerm} in`,
+	);
+
+	return { org: selectedOrg, project: createdProjectRes.selectedProject };
+}
+
+// ============================================================================
+// Component Type Selection
+// ============================================================================
+
+interface ComponentTypeSelection {
+	type: string;
+	subType?: string;
+}
+
+function getAvailableComponentTypes(isDevant: boolean): string[] {
+	if (isDevant) {
+		return [
+			DevantScopes.AUTOMATION,
+			DevantScopes.AI_AGENT,
+			DevantScopes.INTEGRATION_AS_API,
+			DevantScopes.EVENT_INTEGRATION,
+			DevantScopes.FILE_INTEGRATION,
+		];
+	}
+	return [
+		ChoreoComponentType.Service,
+		ChoreoComponentType.WebApplication,
+		ChoreoComponentType.ScheduledTask,
+		ChoreoComponentType.ManualTrigger,
+		ChoreoComponentType.ApiProxy,
+	];
+}
+
+function extractTypeFromParams(
+	params: ICreateComponentCmdParams,
+	componentTypes: string[],
+	isDevant: boolean,
+): ComponentTypeSelection | undefined {
+	if (isDevant && params?.integrationType && componentTypes.includes(params.integrationType)) {
+		const intType = getTypeOfIntegrationType(params.integrationType);
+		if (intType.type) {
+			return { type: intType.type, subType: intType.subType };
+		}
+	}
+
+	if (!isDevant && params?.type && componentTypes.includes(params.type)) {
+		return { type: params.type };
+	}
+
+	return undefined;
+}
+
+async function promptForComponentType(
+	componentTypes: string[],
+	terminology: TerminologyContext,
+): Promise<ComponentTypeSelection | undefined> {
+	const typeQuickPicks: (QuickPickItem & { value: string })[] = componentTypes.map((item) => ({
+		label: terminology.isDevant ? getIntegrationScopeText(item) : getComponentTypeText(item),
+		value: item,
+	}));
+
+	const selectedTypePick = await window.showQuickPick(typeQuickPicks, {
+		title: `Select ${terminology.componentTermCapitalized} Type`,
+	});
+
+	if (!selectedTypePick?.value) {
+		return undefined;
+	}
+
+	if (terminology.isDevant) {
+		const intType = getTypeOfIntegrationType(selectedTypePick.value);
+		if (intType.type) {
+			return { type: intType.type, subType: intType.subType };
+		}
+		return undefined;
+	}
+
+	return { type: selectedTypePick.value };
+}
+
+async function resolveComponentType(
+	params: ICreateComponentCmdParams,
+	terminology: TerminologyContext,
+): Promise<ComponentTypeSelection> {
+	const componentTypes = getAvailableComponentTypes(terminology.isDevant);
+
+	const typeFromParams = extractTypeFromParams(params, componentTypes, terminology.isDevant);
+	if (typeFromParams) {
+		return typeFromParams;
+	}
+
+	const selectedType = await promptForComponentType(componentTypes, terminology);
+	if (!selectedType) {
+		throw new Error(`${terminology.componentTermCapitalized} type is required`);
+	}
+
+	return selectedType;
+}
+
+// ============================================================================
+// Directory Selection
+// ============================================================================
+
+function getDefaultUri(): Uri {
+	if (workspace.workspaceFile && workspace.workspaceFile.scheme !== "untitled") {
+		return workspace.workspaceFile;
+	}
+	if (workspace.workspaceFolders && workspace.workspaceFolders.length > 0) {
+		return workspace.workspaceFolders[0].uri;
+	}
+	return Uri.file(os.homedir());
+}
+
+async function selectComponentDirectory(
+	params: ICreateComponentCmdParams,
+	terminology: TerminologyContext,
+): Promise<Uri> {
+	if (params?.componentDir && existsSync(params.componentDir)) {
+		return Uri.parse(convertFsPathToUriPath(params.componentDir));
+	}
+
+	const selectedPaths = await window.showOpenDialog({
+		canSelectFolders: true,
+		canSelectFiles: false,
+		canSelectMany: false,
+		title: `Select ${terminology.componentTerm} directory`,
+		defaultUri: getDefaultUri(),
+	});
+
+	if (!selectedPaths || selectedPaths.length === 0) {
+		throw new Error(`${terminology.componentTermCapitalized} directory selection is required`);
+	}
+
+	return selectedPaths[0];
+}
+
+// ============================================================================
+// Git & Component Existence Checking
+// ============================================================================
+
+interface GitInfo {
+	root: string | undefined;
+	isInitialized: boolean;
+}
+
+async function getGitInfo(context: ExtensionContext, directoryPath: string): Promise<GitInfo> {
+	try {
+		const root = await getGitRoot(context, directoryPath);
+		return { root, isInitialized: true };
+	} catch {
+		return { root: undefined, isInitialized: false };
+	}
+}
+
+async function checkIfComponentExistsAtPath(
+	components: ComponentKind[],
+	gitRoot: string,
+	selectedPath: string,
+): Promise<boolean> {
+	const remotes = await getGitRemotes(ext.context, gitRoot);
+
+	for (const component of components) {
+		const repoUrl = getComponentKindRepoSource(component.spec.source).repo;
+		const parsedRepoUrl = parseGitURL(repoUrl);
+
+		if (!parsedRepoUrl) {
+			continue;
+		}
+
+		const [repoOrg, repoName, repoProvider] = parsedRepoUrl;
+
+		const hasMatchingRemote = remotes.some((remote) => {
+			const parsedRemoteUrl = parseGitURL(remote.fetchUrl);
+			if (!parsedRemoteUrl) {
+				return false;
+			}
+			const [remoteOrg, remoteName, remoteProvider] = parsedRemoteUrl;
+			return repoOrg === remoteOrg && repoName === remoteName && repoProvider === remoteProvider;
+		});
+
+		if (hasMatchingRemote) {
+			const componentPath = path.join(gitRoot, getComponentKindRepoSource(component.spec.source)?.path);
+			if (isSamePath(componentPath, selectedPath)) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+async function handleExistingComponent(
+	project: Project,
+	org: Organization,
+	gitRoot: string,
+	terminology: TerminologyContext,
+): Promise<boolean> {
+	const message =
+		`${terminology.isDevant ? "An integration" : "A component"} for the selected directory already exists ` +
+		`within your project(${project.name}). Do you want to proceed and create another ${terminology.componentTerm}?`;
+
+	const response = await window.showInformationMessage(message, { modal: true }, "Proceed");
+
+	if (response === "Proceed") {
+		return true;
+	}
+
+	const projectCache = dataCacheStore.getState().getProjects(org.handle);
+	const userInfo = ext.authProvider?.getState().state.userInfo;
+
+	if (!userInfo) {
+		window.showErrorMessage("User information is not available. Please sign in and try again.");
+		return false;
+	}
+
+	updateContextFile(gitRoot, userInfo, project, org, projectCache);
+	contextStore.getState().refreshState();
+	return false;
+}
+
+// ============================================================================
+// Component Name Generation
+// ============================================================================
+
+function generateUniqueComponentName(
+	baseName: string,
+	existingComponents: ComponentKind[],
+): string {
+	const existingNames = new Set(
+		existingComponents.map((c) => c.metadata?.name?.toLowerCase?.()),
+	);
+
+	if (!existingNames.has(baseName.toLowerCase())) {
+		return baseName;
+	}
+
+	let counter = 1;
+	let candidateName = `${baseName}-${counter}`;
+
+	while (existingNames.has(candidateName.toLowerCase())) {
+		counter++;
+		candidateName = `${baseName}-${counter}`;
+	}
+
+	return candidateName;
+}
+
+// ============================================================================
+// Component Fetching
+// ============================================================================
+
+async function fetchProjectComponents(
+	org: Organization,
+	project: Project,
+	terminology: TerminologyContext,
+): Promise<ComponentKind[]> {
+	const components = await window.withProgress(
+		{
+			title: `Fetching ${terminology.isDevant ? "integrations" : "components"} of project ${project.name}...`,
+			location: ProgressLocation.Notification,
+		},
+		() =>
+			ext.clients.rpcClient.getComponentList({
+				orgId: org.id.toString(),
+				orgHandle: org.handle,
+				projectId: project.id,
+				projectHandle: project.handler,
+			}),
+	);
+
+	dataCacheStore.getState().setComponents(org.handle, project.handler, components);
+	return components;
+}
+
+// ============================================================================
+// Form Display
+// ============================================================================
+
+function buildCreateFormParams(
+	selectedUri: Uri,
+	org: Organization,
+	project: Project,
+	typeSelection: ComponentTypeSelection,
+	componentName: string,
+	gitInfo: GitInfo,
+	buildPackLang?: string,
+): ISingleComponentCreateFormParams {
+	return {
+		directoryUriPath: selectedUri.path,
+		directoryFsPath: selectedUri.fsPath,
+		directoryName: path.basename(selectedUri.fsPath),
+		organization: org,
+		project: project,
+		extensionName: webviewStateStore.getState().state.extensionName,
+		isNewCodeServerComp: !gitInfo.isInitialized && ext.isDevantCloudEditor,
+		initialValues: {
+			type: typeSelection.type,
+			subType: typeSelection.subType,
+			buildPackLang: buildPackLang,
+			name: componentName,
+		},
+	};
+}
+
+function showComponentFormInWorkspace(createParams: ISingleComponentCreateFormParams | IComponentCreateFormParams): void {
+	componentWizard = new ComponentFormView(ext.context.extensionUri, createParams);
+	componentWizard.getWebview()?.reveal();
+}
+
+function showComponentFormOutsideWorkspace(
+	createParams: ISingleComponentCreateFormParams | IComponentCreateFormParams,
+	gitRoot: string | undefined,
+	directoryPath: string,
+): void {
+	openDirectory(
+		gitRoot || directoryPath,
+		"Where do you want to open the selected directory?",
+		() => {
+			ext.context.globalState.update("create-comp-params", JSON.stringify(createParams));
+		},
+	);
+}
+
+// ============================================================================
+// Component Preparation Helper
+// ============================================================================
+
+interface PreparedComponentResult {
+	formParams: ISingleComponentCreateFormParams;
+	gitRoot: string | undefined;
+	directoryPath: string;
+	isWithinWorkspace: boolean;
+	createAsBatch: boolean;
+}
+
+async function prepareComponentFormParams(
+	context: ExtensionContext,
+	params: ICreateComponentCmdParams,
+	org: Organization,
+	project: Project,
+	components: ComponentKind[],
+	terminology: TerminologyContext,
+	createAsBatch: boolean = false,
+): Promise<PreparedComponentResult | null> {
+	const typeSelection = await resolveComponentType(params, terminology);
+	const selectedUri = await selectComponentDirectory(params, terminology);
+	const gitInfo = await getGitInfo(context, selectedUri.fsPath);
+
+	if (gitInfo.root) {
+		const componentExists = await checkIfComponentExistsAtPath(components, gitInfo.root, selectedUri.fsPath);
+		if (componentExists) {
+			const shouldProceed = await handleExistingComponent(project, org, gitInfo.root, terminology);
+			if (!shouldProceed) {
+				return null;
+			}
+		}
+	}
+
+	const baseName = params?.name || path.basename(selectedUri.fsPath) || typeSelection.type;
+	const componentName = generateUniqueComponentName(baseName, components);
+
+	const formParams = buildCreateFormParams(
+		selectedUri,
+		org,
+		project,
+		typeSelection,
+		componentName,
+		gitInfo,
+		params?.buildPackLang,
+	);
+
+	const isWithinWorkspace = workspace.workspaceFolders?.some((folder) =>
+		isSubpath(folder.uri?.fsPath, selectedUri.fsPath),
+	) ?? false;
+
+	return {
+		formParams,
+		gitRoot: gitInfo.root,
+		directoryPath: selectedUri.path,
+		isWithinWorkspace,
+		createAsBatch,
+	};
+}
+
+function showComponentForm(prepared: PreparedComponentResult): void {
+	if (prepared.createAsBatch) {
+		return;
+	} else if (prepared.isWithinWorkspace || workspace.workspaceFile) {
+		showComponentFormInWorkspace(prepared.formParams);
+	} else {
+		showComponentFormOutsideWorkspace(prepared.formParams, prepared.gitRoot, prepared.directoryPath);
+	}
+}
+
+// ============================================================================
+// Main Command Handler
+// ============================================================================
+
+async function executeCreateComponentCommand(
+	context: ExtensionContext,
+	params: ICreateComponentCmdParams,
+): Promise<void> {
+	setExtensionName(params?.extName);
+	const extName = webviewStateStore.getState().state.extensionName;
+	const terminology = getTerminology(extName);
+
+	isRpcActive(ext);
+
+	const userInfo = await getUserInfoForCmd(`create ${terminology.articleComponentTerm}`);
+	if (!userInfo) {
+		return;
+	}
+
+	const { org, project } = await selectOrgAndProject(userInfo, terminology);
+	const components = await fetchProjectComponents(org, project, terminology);
+
+	const prepared = await prepareComponentFormParams(context, params, org, project, components, terminology);
+	if (!prepared) {
+		return;
+	}
+
+	showComponentForm(prepared);
+}
+
+async function executeCreateMultipleNewComponentsCommand(
+	context: ExtensionContext,
+	params: ICreateComponentCmdParams[]
+): Promise<void> {
+	if (!params || params.length === 0) {
+		return;
+	}
+
+	// Use the first param's extName for setup
+	setExtensionName(params[0]?.extName);
+	const extName = webviewStateStore.getState().state.extensionName;
+	const terminology = getTerminology(extName);
+
+	isRpcActive(ext);
+
+	const userInfo = await getUserInfoForCmd(`create multiple ${terminology.componentTerm}s`);
+	if (!userInfo) {
+		return;
+	}
+
+	// Select org and project once for all components
+	const { org, project } = await selectOrgAndProject(userInfo, terminology);
+	const components = await fetchProjectComponents(org, project, terminology);
+
+	// Prepare all components first, collecting form params
+	const preparedComponents: PreparedComponentResult[] = [];
+
+	for (const param of params) {
+		const prepared = await prepareComponentFormParams(context, param, org, project, components, terminology, true);
+		if (prepared) {
+			preparedComponents.push(prepared);
+		}
+	}
+
+	// Show all forms at the end
+	for (const prepared of preparedComponents) {
+		showComponentForm(prepared);
+	}
+}
+
 export function createNewComponentCommand(context: ExtensionContext) {
 	context.subscriptions.push(
 		commands.registerCommand(CommandIds.CreateNewComponent, async (params: ICreateComponentCmdParams) => {
-			setExtensionName(params?.extName);
 			const extName = webviewStateStore.getState().state.extensionName;
+			const terminology = getTerminology(extName);
+
 			try {
-				isRpcActive(ext);
-				const userInfo = await getUserInfoForCmd(`create ${extName === "Devant" ? "an integration" : "a component"}`);
-				if (userInfo) {
-					await waitForContextStoreToLoad();
-					const selected = contextStore.getState().state.selected;
-					let selectedProject = selected?.project;
-					let selectedOrg = selected?.org;
-
-					if (!selectedProject || !selectedOrg) {
-						selectedOrg = await selectOrg(userInfo, "Select organization");
-
-						const createdProjectRes = await selectProjectWithCreateNew(
-							selectedOrg,
-							`Loading projects from '${selectedOrg.name}'`,
-							`Select the project from '${selectedOrg.name}', to create the ${extName === "Devant" ? "integration" : "component"} in`,
-						);
-						selectedProject = createdProjectRes.selectedProject;
-					}
-
-					const componentTypes: string[] = [];
-
-					let selectedType: string | undefined = undefined;
-					let selectedSubType: string | undefined = undefined;
-
-					if (extName === "Devant") {
-						componentTypes.push(
-							DevantScopes.AUTOMATION,
-							DevantScopes.AI_AGENT,
-							DevantScopes.INTEGRATION_AS_API,
-							DevantScopes.EVENT_INTEGRATION,
-							DevantScopes.FILE_INTEGRATION,
-						);
-						if (params?.integrationType && componentTypes.includes(params.integrationType)) {
-							// map integrationType to type and subtype
-							const intType = getTypeOfIntegrationType(params?.integrationType);
-							selectedType = intType.type;
-							selectedSubType = intType.subType;
-						}
-					} else {
-						componentTypes.push(
-							ChoreoComponentType.Service,
-							ChoreoComponentType.WebApplication,
-							ChoreoComponentType.ScheduledTask,
-							ChoreoComponentType.ManualTrigger,
-							ChoreoComponentType.ApiProxy,
-						);
-						if (params?.type && componentTypes.includes(params.type)) {
-							selectedType = params?.type;
-						}
-					}
-
-					if (!selectedType) {
-						const typeQuickPicks: (QuickPickItem & { value: string })[] = componentTypes.map((item) => ({
-							label: extName === "Devant" ? getIntegrationScopeText(item) : getComponentTypeText(item),
-							value: item,
-						}));
-
-						const selectedTypePick = await window.showQuickPick(typeQuickPicks, {
-							title: `Select ${extName === "Devant" ? "Integration" : "Component"} Type`,
-						});
-						if (selectedTypePick?.value) {
-							if (extName === "Devant") {
-								const intType = getTypeOfIntegrationType(selectedTypePick?.value);
-								selectedType = intType.type;
-								selectedSubType = intType.subType;
-							} else {
-								selectedType = selectedTypePick?.value;
-							}
-						}
-					}
-
-					if (!selectedType) {
-						throw new Error(`${extName === "Devant" ? "Integration" : "Component"} type is required`);
-					}
-
-					let selectedUri: Uri;
-					if (params?.componentDir && existsSync(params?.componentDir)) {
-						selectedUri = Uri.parse(convertFsPathToUriPath(params?.componentDir));
-					} else {
-						let defaultUri: Uri;
-						if (workspace.workspaceFile && workspace.workspaceFile.scheme !== "untitled") {
-							defaultUri = workspace.workspaceFile;
-						} else if (workspace.workspaceFolders && workspace.workspaceFolders?.length > 0) {
-							defaultUri = workspace.workspaceFolders[0].uri;
-						} else {
-							defaultUri = Uri.file(os.homedir());
-						}
-						const supPathUri = await window.showOpenDialog({
-							canSelectFolders: true,
-							canSelectFiles: false,
-							canSelectMany: false,
-							title: `Select ${extName === "Devant" ? "integration" : "component"} directory`,
-							defaultUri: defaultUri,
-						});
-						if (!supPathUri || supPathUri.length === 0) {
-							throw new Error(`${extName === "Devant" ? "Integration" : "Component"} directory selection is required`);
-						}
-						selectedUri = supPathUri[0];
-					}
-					const dirName = path.basename(selectedUri.fsPath);
-
-					const components = await window.withProgress(
-						{
-							title: `Fetching ${extName === "Devant" ? "integrations" : "components"} of project ${selectedProject.name}...`,
-							location: ProgressLocation.Notification,
-						},
-						() =>
-							ext.clients.rpcClient.getComponentList({
-								orgId: selectedOrg?.id?.toString()!,
-								orgHandle: selectedOrg?.handle!,
-								projectId: selectedProject?.id!,
-								projectHandle: selectedProject?.handler!,
-							}),
-					);
-					dataCacheStore.getState().setComponents(selectedOrg.handle, selectedProject.handler, components);
-
-					let gitRoot: string | undefined;
-					let isGitInitialized = false;
-					try {
-						gitRoot = await getGitRoot(context, selectedUri.fsPath);
-						isGitInitialized = true;
-					} catch (err) {
-						// ignore error
-					}
-
-					// check if user already has a component in the same path
-					let componentAlreadyExists = false;
-					for (const componentItem of components) {
-						if (gitRoot) {
-							const remotes = await getGitRemotes(ext.context, gitRoot);
-							const repoUrl = getComponentKindRepoSource(componentItem.spec.source).repo;
-							const parsedRepoUrl = parseGitURL(repoUrl);
-							if (parsedRepoUrl) {
-								const [repoOrg, repoName, repoProvider] = parsedRepoUrl;
-								const hasMatchingRemote = remotes.some((remoteItem) => {
-									const parsedRemoteUrl = parseGitURL(remoteItem.fetchUrl);
-									if (parsedRemoteUrl) {
-										const [repoRemoteOrg, repoRemoteName, repoRemoteProvider] = parsedRemoteUrl;
-										return repoOrg === repoRemoteOrg && repoName === repoRemoteName && repoRemoteProvider === repoProvider;
-									}
-								});
-
-								if (hasMatchingRemote) {
-									const subPathDir = path.join(gitRoot, getComponentKindRepoSource(componentItem.spec.source)?.path);
-									if (isSamePath(subPathDir, selectedUri.fsPath)) {
-										componentAlreadyExists = true;
-										break;
-									}
-								}
-							}
-						}
-					}
-
-					if (componentAlreadyExists && gitRoot && selectedProject && selectedOrg) {
-						const resp = await window.showInformationMessage(
-							`${extName === "Devant" ? "An integration" : "A component"} for the selected directory already exists within you project(${selectedProject?.name}). Do you want to proceed and create another ${extName === "Devant" ? "integration" : "component"}?`,
-							{ modal: true },
-							"Proceed",
-						);
-						if (resp !== "Proceed") {
-							const projectCache = dataCacheStore.getState().getProjects(selectedOrg?.handle);
-							const authProvider = ext.authProvider;
-							const userInfo = authProvider?.getState().state.userInfo;
-							if (!authProvider || !userInfo) {
-								window.showErrorMessage("User information is not available. Please sign in and try again.");
-								return;
-							}
-							updateContextFile(gitRoot, userInfo, selectedProject, selectedOrg, projectCache);
-							contextStore.getState().refreshState();
-							return;
-						}
-					}
-
-					const isWithinWorkspace = workspace.workspaceFolders?.some((item) => isSubpath(item.uri?.fsPath, selectedUri?.fsPath));
-
-					let compInitialName = params?.name || dirName || selectedType;
-					const existingNames = components.map((c) => c.metadata?.name?.toLowerCase?.());
-					const baseName = compInitialName;
-					let counter = 1;
-					while (existingNames.includes(compInitialName.toLowerCase())) {
-						compInitialName = `${baseName}-${counter}`;
-						counter++;
-					}
-
-					const createCompParams: IComponentCreateFormParams = {
-						directoryUriPath: selectedUri.path,
-						directoryFsPath: selectedUri.fsPath,
-						directoryName: dirName,
-						organization: selectedOrg!,
-						project: selectedProject!,
-						extensionName: webviewStateStore.getState().state.extensionName,
-						isNewCodeServerComp: isGitInitialized === false && ext.isDevantCloudEditor,
-						initialValues: {
-							type: selectedType,
-							subType: selectedSubType,
-							buildPackLang: params?.buildPackLang,
-							name: compInitialName,
-						},
-					};
-
-					if (isWithinWorkspace || workspace.workspaceFile) {
-						componentWizard = new ComponentFormView(ext.context.extensionUri, createCompParams);
-						componentWizard.getWebview()?.reveal();
-					} else {
-						// TODO: check this on windows
-						openDirectory(gitRoot || selectedUri.path, "Where do you want to open the selected directory?", () => {
-							ext.context.globalState.update("create-comp-params", JSON.stringify(createCompParams));
-						});
-					}
-				}
+				await executeCreateComponentCommand(context, params);
 			} catch (err: any) {
-				console.error(`Failed to create ${extName === "Devant" ? "integration" : "component"}`, err);
-				window.showErrorMessage(err?.message || "Failed to create component");
+				console.error(`Failed to create ${terminology.componentTerm}`, err);
+				window.showErrorMessage(err?.message || `Failed to create ${terminology.componentTerm}`);
+			}
+		}),
+	);
+}
+
+export function createMultipleNewComponentsCommand(context: ExtensionContext) {
+	context.subscriptions.push(
+		commands.registerCommand(CommandIds.CreateMultipleNewComponents, async (params: ICreateComponentCmdParams[]) => {
+			const extName = webviewStateStore.getState().state.extensionName;
+			const terminology = getTerminology(extName);
+
+			try {
+				await executeCreateMultipleNewComponentsCommand(context, params);
+			} catch (err: any) {
+				console.error(`Failed to create multiple ${terminology.componentTerm}s`, err);
+				window.showErrorMessage(err?.message || `Failed to create multiple ${terminology.componentTerm}s`);
 			}
 		}),
 	);
@@ -279,7 +597,7 @@ export const continueCreateComponent = () => {
 	const compParams: string | null | undefined = ext.context.globalState.get("create-comp-params");
 	if (compParams) {
 		ext.context.globalState.update("create-comp-params", null);
-		const createCompParams: IComponentCreateFormParams = JSON.parse(compParams);
+		const createCompParams: ISingleComponentCreateFormParams | IComponentCreateFormParams = JSON.parse(compParams);
 		if (createCompParams?.extensionName) {
 			webviewStateStore.getState().setExtensionName(createCompParams?.extensionName as ExtensionName);
 		}

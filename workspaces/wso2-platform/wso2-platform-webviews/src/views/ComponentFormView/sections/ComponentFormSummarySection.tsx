@@ -22,7 +22,7 @@ import {
 	type Buildpack,
 	ChoreoBuildPackNames,
 	ChoreoComponentType,
-	type NewComponentWebviewProps,
+	type ComponentFormSectionProps,
 	WebAppSPATypes,
 	getComponentTypeText,
 	getIntegrationComponentTypeText,
@@ -48,7 +48,7 @@ type ComponentFormBuildDetailsType = z.infer<typeof componentBuildDetailsSchema>
 type ComponentFormEndpointsType = z.infer<typeof componentEndpointsFormSchema>;
 type ComponentFormGitProxyType = z.infer<typeof componentGitProxyFormSchema>;
 
-interface Props extends NewComponentWebviewProps {
+interface Props extends ComponentFormSectionProps {
 	isCreating: boolean;
 	onNextClick: () => void;
 	onBackClick: () => void;
