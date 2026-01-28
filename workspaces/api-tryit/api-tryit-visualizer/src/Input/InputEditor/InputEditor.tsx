@@ -1,4 +1,3 @@
-
 /**
  * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
@@ -81,6 +80,32 @@ const EditorContainer = styled.div`
     }
 `;
 
+/**
+ * Code lens configuration for the editor
+ */
+export interface CodeLensConfig {
+    /**
+     * Unique identifier for the command
+     */
+    id: string;
+    /**
+     * Display title for the code lens
+     */
+    title: string;
+    /**
+     * Function to determine if this code lens should be shown
+     */
+    shouldShow: (model: monaco.editor.ITextModel) => boolean;
+    /**
+     * Function to determine the line number where the code lens should appear
+     */
+    getLineNumber: (model: monaco.editor.ITextModel) => number;
+    /**
+     * Handler function when the code lens is clicked
+     */
+    onExecute: (editor: monaco.editor.IStandaloneCodeEditor, model: monaco.editor.ITextModel) => void;
+}
+
 interface InputEditorProps {
     value: string;
     height: string;
@@ -89,6 +114,10 @@ interface InputEditorProps {
     onChange: (value: string | undefined) => void;
     onMount?: (editor: monaco.editor.IStandaloneCodeEditor, monaco: Monaco) => void;
     options?: monaco.editor.IStandaloneEditorConstructionOptions;
+    /**
+     * Optional code lens configurations to show in the editor
+     */
+    codeLenses?: CodeLensConfig[];
 }
 
 export const InputEditor: React.FC<InputEditorProps> = ({
@@ -98,11 +127,16 @@ export const InputEditor: React.FC<InputEditorProps> = ({
     theme: propTheme,
     onChange,
     onMount,
-    options = {}
+    options = {},
+    codeLenses = []
 }) => {
     const monacoRef = useRef<Monaco | null>(null);
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
     const isTypingRef = useRef(false);
+    const codeLensDisposableRef = useRef<monaco.IDisposable | null>(null);
+    const commandsDisposableRef = useRef<monaco.IDisposable[]>([]);
+    // Generate a unique language ID for this editor instance to avoid conflicts
+    const languageIdRef = useRef(`${LANGUAGE_ID}-${Math.random().toString(36).substring(7)}`);
 
     // Use propTheme if provided, otherwise let Monaco inherit VS Code theme
     const theme = propTheme;
@@ -113,12 +147,14 @@ export const InputEditor: React.FC<InputEditorProps> = ({
     const setupTheme = (monaco: Monaco) => {
         const isDark = getIsDarkTheme();
         
+        const currentLanguageId = languageIdRef.current;
+        
         // Register custom language if not already registered
-        if (!monaco.languages.getLanguages().some((lang: { id: string }) => lang.id === LANGUAGE_ID)) {
-            monaco.languages.register({ id: LANGUAGE_ID });
+        if (!monaco.languages.getLanguages().some((lang: { id: string }) => lang.id === currentLanguageId)) {
+            monaco.languages.register({ id: currentLanguageId });
 
             // Define syntax highlighting rules
-            monaco.languages.setMonarchTokensProvider(LANGUAGE_ID, {
+            monaco.languages.setMonarchTokensProvider(currentLanguageId, {
                 tokenizer: {
                     root: [
                         // Key-value pairs with colon (hello: world) - for headers
@@ -165,6 +201,75 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                 'editor.inactiveSelectionBackground': isDark ? '#3A3F4B' : '#E5EBF1',
             }
         });
+    };
+
+    /**
+     * Sets up code lens provider using configurations from props
+     */
+    const setupCodeLensProvider = (monaco: Monaco, model: monaco.editor.ITextModel) => {
+        if (!codeLenses || codeLenses.length === 0) {
+            return;
+        }
+        const currentLanguageId = languageIdRef.current;
+        
+        codeLensDisposableRef.current = monaco.languages.registerCodeLensProvider(currentLanguageId, {
+            provideCodeLenses: () => {
+                const lenses: monaco.languages.CodeLens[] = [];
+                
+                if (!model) {
+                    return { lenses, dispose: () => {} };
+                }
+
+                try {
+                    codeLenses.forEach((config) => {
+                        if (config.shouldShow(model)) {
+                            const lineNumber = config.getLineNumber(model);
+                            lenses.push({
+                                range: {
+                                    startLineNumber: lineNumber,
+                                    startColumn: 1,
+                                    endLineNumber: lineNumber,
+                                    endColumn: 1
+                                },
+                                command: {
+                                    id: config.id,
+                                    title: config.title,
+                                    arguments: []
+                                }
+                            });
+                        }
+                    });
+                } catch (error) {
+                    console.error('[InputEditor] Error in code lens provider:', error);
+                }
+
+                return { lenses, dispose: () => {} };
+            },
+            resolveCodeLens: (model, codeLens) => codeLens
+        });
+    };
+
+    /**
+     * Registers commands for code lenses
+     */
+    const setupCommands = (monaco: Monaco, model: monaco.editor.ITextModel, editor: monaco.editor.IStandaloneCodeEditor) => {
+        if (!codeLenses || codeLenses.length === 0) {
+            return;
+        }
+
+        const commands: monaco.IDisposable[] = [];
+
+        codeLenses.forEach((config) => {
+            commands.push(monaco.editor.registerCommand(config.id, () => {
+                try {
+                    config.onExecute(editor, model);
+                } catch (error) {
+                    console.error(`[InputEditor] Error executing command ${config.id}:`, error);
+                }
+            }));
+        });
+
+        commandsDisposableRef.current = commands;
     };
 
     // Detect theme changes and update Monaco theme when no explicit theme is set
@@ -219,11 +324,21 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         }
     };
 
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (codeLensDisposableRef.current) {
+                codeLensDisposableRef.current.dispose();
+            }
+            commandsDisposableRef.current.forEach(cmd => cmd.dispose());
+        };
+    }, []);
+
     return (
         <EditorContainer>
             <Editor
                 height={height}
-                language={LANGUAGE_ID}
+                language={languageIdRef.current}
                 defaultValue={value}
                 theme={theme || 'input-editor-theme'}
                 beforeMount={(monaco) => {
@@ -232,10 +347,19 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                 onMount={(editor, monaco) => {
                     editorRef.current = editor;
                     monacoRef.current = monaco;
+                    const model = editor.getModel();
+                    
                     if (!theme) {
                         monaco.editor.setTheme('input-editor-theme');
                     } else {
                         console.log('[InputEditor] Using prop theme:', theme);
+                    }
+                    
+                    // Setup code lenses and commands if model exists
+                    if (model) {
+                        console.log('[InputEditor] Setting up code lenses and commands');
+                        setupCodeLensProvider(monaco, model);
+                        setupCommands(monaco, model, editor);
                     }
                     
                     // Override Monaco's default copy-paste actions

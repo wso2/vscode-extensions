@@ -57,6 +57,107 @@ export const Input: React.FC<InputProps> = ({
         return <Container><Typography>Loading...</Typography></Container>;
     }
 
+    // Code lenses for Query Parameters editor
+    const queryParamsCodeLenses = React.useMemo(() => [
+        {
+            id: 'add-query-param',
+            title: '$(add) Add Query Parameter',
+            shouldShow: (model: any) => true,
+            getLineNumber: (model: any) => 1,
+            onExecute: (editor: any, model: any) => {
+                const currentValue = model.getValue();
+                const newValue = currentValue ? `${currentValue}\nkey=value` : 'key=value';
+                model.setValue(newValue);
+                editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
+            }
+        },
+        {
+            id: 'generate-query-params',
+            title: '$(wand) Generate',
+            shouldShow: (model: any) => true,
+            getLineNumber: (model: any) => 1,
+            onExecute: (editor: any, model: any) => {
+                console.log('Generate query parameters');
+                // Placeholder for AI generation
+            }
+        }
+    ], []);
+
+    // Code lenses for Headers editor
+    const headersCodeLenses = React.useMemo(() => [
+        {
+            id: 'add-header',
+            title: '$(add) Add Header',
+            shouldShow: (model: any) => true,
+            getLineNumber: (model: any) => 1,
+            onExecute: (editor: any, model: any) => {
+                const currentValue = model.getValue();
+                const newValue = currentValue ? `${currentValue}\nContent-Type: application/json` : 'Content-Type: application/json';
+                model.setValue(newValue);
+                editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
+            }
+        },
+        {
+            id: 'generate-headers',
+            title: '$(wand) Generate',
+            shouldShow: (model: any) => true,
+            getLineNumber: (model: any) => 1,
+            onExecute: (editor: any, model: any) => {
+                console.log('Generate headers');
+                // Placeholder for AI generation
+            }
+        }
+    ], []);
+
+    // Code lenses for Body editor
+    const bodyCodeLenses = React.useMemo(() => [
+        {
+            id: 'add-body',
+            title: '$(add) Add Body',
+            shouldShow: (model: any) => !model.getValue().trim(),
+            getLineNumber: (model: any) => 1,
+            onExecute: (editor: any, model: any) => {
+                const sampleBody = '{\n  "key": "value"\n}';
+                model.setValue(sampleBody);
+                editor.setPosition({ lineNumber: 2, column: 3 });
+            }
+        },
+        {
+            id: 'format-body',
+            title: '$(symbol-keyword) Format',
+            shouldShow: (model: any) => {
+                const value = model.getValue().trim();
+                if (!value) return false;
+                try {
+                    JSON.parse(value);
+                    return true;
+                } catch {
+                    return false;
+                }
+            },
+            getLineNumber: (model: any) => 1,
+            onExecute: (editor: any, model: any) => {
+                try {
+                    const value = model.getValue();
+                    const formatted = JSON.stringify(JSON.parse(value), null, 2);
+                    model.setValue(formatted);
+                } catch (error) {
+                    console.error('Failed to format JSON:', error);
+                }
+            }
+        },
+        {
+            id: 'generate-body',
+            title: '$(wand) Generate',
+            shouldShow: (model: any) => true,
+            getLineNumber: (model: any) => 1,
+            onExecute: (editor: any, model: any) => {
+                console.log('Generate body');
+                // Placeholder for AI generation
+            }
+        }
+    ], []);
+
     const addQueryParam = () => {
         const newParam: QueryParameter = {
             id: Date.now().toString(),
@@ -131,7 +232,7 @@ export const Input: React.FC<InputProps> = ({
         if (!Array.isArray(params)) return '';
         return params
             .filter(p => p.key || p.value)
-            .map(p => p.value ? `${p.key}: ${p.value}` : p.key)
+            .map(p => p.value ? `${p.key}=${p.value}` : p.key)
             .join('\n');
     };
 
@@ -148,7 +249,7 @@ export const Input: React.FC<InputProps> = ({
         return text.split('\n')
             .filter(line => line.trim())
             .map((line, index) => {
-                const [key, value] = line.split(':').map(s => s.trim());
+                const [key, value] = line.split('=').map(s => s.trim());
                 return {
                     id: Date.now().toString() + index,
                     key: key || '',
@@ -198,6 +299,7 @@ export const Input: React.FC<InputProps> = ({
                         height='calc((100vh - 420px) / 3)'
                         onChange={handleQueryParametersChange}
                         value={formatQueryParameters(request.queryParameters)}
+                        codeLenses={queryParamsCodeLenses}
                     />
                     <Typography variant="h3" sx={{ margin: '16px 0' }}>
                         Headers
@@ -206,6 +308,7 @@ export const Input: React.FC<InputProps> = ({
                         height='calc((100vh - 420px) / 3)'
                         onChange={handleHeadersChange}
                         value={formatHeaders(request.headers)}
+                        codeLenses={headersCodeLenses}
                     />
                     <Typography variant="h3" sx={{ margin: '16px 0' }}>
                         Body
@@ -214,6 +317,7 @@ export const Input: React.FC<InputProps> = ({
                         height='calc((100vh - 420px) / 3)'
                         onChange={handleBodyChange}
                         value={request.body || ''}
+                        codeLenses={bodyCodeLenses}
                     />
                 </>
             ) : (
