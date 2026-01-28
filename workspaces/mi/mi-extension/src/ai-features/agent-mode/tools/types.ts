@@ -92,6 +92,7 @@ export const TODO_WRITE_TOOL_NAME = 'todo_write';
 // Bash Tool Names
 export const BASH_TOOL_NAME = 'bash';
 export const KILL_SHELL_TOOL_NAME = 'kill_shell';
+export const TASK_OUTPUT_TOOL_NAME = 'task_output';
 
 // ============================================================================
 // Subagent Types
@@ -266,3 +267,16 @@ export type BashExecuteFn = (args: {
 export type KillShellExecuteFn = (args: {
     shell_id: string;
 }) => Promise<ToolResult>;
+
+export interface TaskOutputResult extends ToolResult {
+    output?: string;
+    completed?: boolean;
+    exitCode?: number | null;
+    running?: boolean;
+}
+
+export type TaskOutputExecuteFn = (args: {
+    task_id: string;
+    block?: boolean;
+    timeout?: number;
+}) => Promise<TaskOutputResult>;

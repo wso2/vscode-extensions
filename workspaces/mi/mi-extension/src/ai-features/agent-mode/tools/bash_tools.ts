@@ -21,7 +21,7 @@ import { z } from 'zod';
 import * as childProcess from 'child_process';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { BashResult, ToolResult, BashExecuteFn, KillShellExecuteFn, BASH_TOOL_NAME, KILL_SHELL_TOOL_NAME } from './types';
+import { BashResult, ToolResult, BashExecuteFn, KillShellExecuteFn, TaskOutputExecuteFn, TaskOutputResult, BASH_TOOL_NAME, KILL_SHELL_TOOL_NAME, TASK_OUTPUT_TOOL_NAME } from './types';
 import { logDebug, logError, logInfo } from '../../copilot/logger';
 import { setJavaHomeInEnvironmentAndPath } from '../../../debugger/debugHelper';
 import treeKill = require('tree-kill');
@@ -30,7 +30,7 @@ import treeKill = require('tree-kill');
 // Tool Name Constants (re-exported for convenience)
 // ============================================================================
 
-export { BASH_TOOL_NAME, KILL_SHELL_TOOL_NAME };
+export { BASH_TOOL_NAME, KILL_SHELL_TOOL_NAME, TASK_OUTPUT_TOOL_NAME };
 
 // ============================================================================
 // Constants
@@ -175,7 +175,7 @@ export function createBashExecute(projectPath: string): BashExecuteFn {
 
             return {
                 success: true,
-                message: `Command started in background with shell ID: ${shellId}. Use kill_shell tool to terminate if needed.`,
+                message: `Command started in background with shell ID: ${shellId}. Use ${KILL_SHELL_TOOL_NAME} tool to terminate if needed. and use ${TASK_OUTPUT_TOOL_NAME} tool to get the output of the command.`,
                 shellId
             };
         } else {
@@ -404,6 +404,149 @@ Terminate a long-running background command that was started with the bash tool'
 - Success status
 - Any output the command produced before being killed`,
         inputSchema: killShellInputSchema,
+        execute
+    });
+}
+
+// ============================================================================
+// Task Output Tool
+// ============================================================================
+
+const DEFAULT_BLOCK_TIMEOUT = 30000; // 30 seconds
+const MAX_BLOCK_TIMEOUT = 600000; // 10 minutes
+
+/**
+ * Creates the execute function for the task_output tool
+ */
+export function createTaskOutputExecute(): TaskOutputExecuteFn {
+    return async (args: {
+        task_id: string;
+        block?: boolean;
+        timeout?: number;
+    }): Promise<TaskOutputResult> => {
+        const { task_id, block = true, timeout = DEFAULT_BLOCK_TIMEOUT } = args;
+
+        logInfo(`[TaskOutputTool] Getting output for task: ${task_id}, block: ${block}`);
+
+        const shell = backgroundShells.get(task_id);
+
+        if (!shell) {
+            return {
+                success: false,
+                message: `Task not found: ${task_id}`,
+                error: 'No background task with that ID exists. It may have already been cleaned up.',
+                completed: true
+            };
+        }
+
+        // If not blocking, return current state immediately
+        if (!block) {
+            const output = truncateOutput(shell.output);
+            return {
+                success: true,
+                message: shell.completed
+                    ? `Task ${task_id} completed with exit code ${shell.exitCode}.\n\n**Output:**\n\`\`\`\n${output}\n\`\`\``
+                    : `Task ${task_id} is still running.\n\n**Output so far:**\n\`\`\`\n${output}\n\`\`\``,
+                output: output,
+                completed: shell.completed,
+                exitCode: shell.exitCode,
+                running: !shell.completed
+            };
+        }
+
+        // If already completed, return immediately
+        if (shell.completed) {
+            const output = truncateOutput(shell.output);
+            return {
+                success: shell.exitCode === 0,
+                message: `Task ${task_id} completed with exit code ${shell.exitCode}.\n\n**Output:**\n\`\`\`\n${output}\n\`\`\``,
+                output: output,
+                completed: true,
+                exitCode: shell.exitCode,
+                running: false
+            };
+        }
+
+        // Block and wait for completion with timeout
+        const effectiveTimeout = Math.min(Math.max(timeout, 1000), MAX_BLOCK_TIMEOUT);
+
+        return new Promise<TaskOutputResult>((resolve) => {
+            const startTime = Date.now();
+
+            const checkInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+
+                if (shell.completed) {
+                    clearInterval(checkInterval);
+                    const output = truncateOutput(shell.output);
+                    resolve({
+                        success: shell.exitCode === 0,
+                        message: `Task ${task_id} completed with exit code ${shell.exitCode}.\n\n**Output:**\n\`\`\`\n${output}\n\`\`\``,
+                        output: output,
+                        completed: true,
+                        exitCode: shell.exitCode,
+                        running: false
+                    });
+                } else if (elapsed >= effectiveTimeout) {
+                    clearInterval(checkInterval);
+                    const output = truncateOutput(shell.output);
+                    resolve({
+                        success: true,
+                        message: `Task ${task_id} is still running after ${effectiveTimeout / 1000}s wait.\n\n**Output so far:**\n\`\`\`\n${output}\n\`\`\`\n\nUse task_output again to check later, or kill_shell to terminate.`,
+                        output: output,
+                        completed: false,
+                        exitCode: null,
+                        running: true
+                    });
+                }
+            }, 500); // Check every 500ms
+        });
+    };
+}
+
+/**
+ * Input schema for task_output tool
+ */
+const taskOutputInputSchema = z.object({
+    task_id: z.string().describe('The ID of the background task (shell_id returned from bash with run_in_background=true)'),
+    block: z.boolean().optional().default(true).describe(
+        'Whether to wait for task completion. Default is true. Set to false to check current status immediately.'
+    ),
+    timeout: z.number().optional().default(DEFAULT_BLOCK_TIMEOUT).describe(
+        `Max wait time in milliseconds when block=true (default: ${DEFAULT_BLOCK_TIMEOUT}ms, max: ${MAX_BLOCK_TIMEOUT}ms)`
+    ),
+});
+
+/**
+ * Creates the task_output tool
+ */
+export function createTaskOutputTool(execute: TaskOutputExecuteFn) {
+    return (tool as any)({
+        description: `Get output from a running or completed background task.
+
+**Purpose:**
+Check on the status and retrieve output from a background bash command that was started with run_in_background=true.
+
+**Parameters:**
+- task_id: The shell_id returned when the background command was started
+- block: If true (default), waits for completion up to the timeout
+- timeout: Max wait time in milliseconds (default 30s, max 10min)
+
+**When to use:**
+- Check if a long-running build has completed
+- Retrieve the output of a completed background task
+- Monitor progress of a background operation
+
+**Returns:**
+- Current output (truncated if very long)
+- Completion status
+- Exit code (if completed)
+
+**Example usage:**
+1. Start background task: bash(command="mvn test", run_in_background=true) → returns shell_id
+2. Check status: task_output(task_id=shell_id, block=false) → current status
+3. Wait for completion: task_output(task_id=shell_id, block=true) → blocks until done`,
+        inputSchema: taskOutputInputSchema,
         execute
     });
 }
