@@ -20,7 +20,6 @@ import {
     FILE_WRITE_TOOL_NAME,
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
-    FILE_MULTI_EDIT_TOOL_NAME,
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
@@ -65,8 +64,7 @@ You have access to following tools to develop Synapse integrations:
 **File Tools** (for reading, writing, and editing Synapse XML configurations):
 - ${FILE_READ_TOOL_NAME}: Read existing files to understand current state. Returns content with line numbers for easy reference.
 - ${FILE_WRITE_TOOL_NAME}: Create new configuration files. Cannot overwrite existing files with content.
-- ${FILE_EDIT_TOOL_NAME}: Make single find-and-replace edits to existing files. Requires exact string matching.
-- ${FILE_MULTI_EDIT_TOOL_NAME}: Make multiple find-and-replace edits to a file atomically. All edits must succeed or none are applied.
+- ${FILE_EDIT_TOOL_NAME}: Make find-and-replace edits to existing files. Requires exact string matching. Use replace_all=true for multiple occurrences.
 - ${FILE_GREP_TOOL_NAME}: Search for patterns across project files using regex. Use this to find specific configurations, XML elements, or connector usages before editing.
 - ${FILE_GLOB_TOOL_NAME}: Find files by name patterns (e.g., "**/*.xml"). Returns file paths sorted by modification time. Use this to discover files you created or verify file existence.
 

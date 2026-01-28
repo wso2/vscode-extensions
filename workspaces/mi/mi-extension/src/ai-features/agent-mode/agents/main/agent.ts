@@ -32,13 +32,11 @@ import {
     createWriteTool,
     createReadTool,
     createEditTool,
-    createMultiEditTool,
     createGrepTool,
     createGlobTool,
     createWriteExecute,
     createReadExecute,
     createEditExecute,
-    createMultiEditExecute,
     createGrepExecute,
     createGlobExecute,
 } from '../../tools/file_tools';
@@ -98,7 +96,6 @@ import {
     FILE_WRITE_TOOL_NAME,
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
-    FILE_MULTI_EDIT_TOOL_NAME,
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
@@ -261,9 +258,6 @@ export async function executeAgent(
             ),
             [FILE_EDIT_TOOL_NAME]: createEditTool(
                 createEditExecute(request.projectPath, modifiedFiles)
-            ),
-            [FILE_MULTI_EDIT_TOOL_NAME]: createMultiEditTool(
-                createMultiEditExecute(request.projectPath, modifiedFiles)
             ),
             [FILE_GREP_TOOL_NAME]: createGrepTool(
                 createGrepExecute(request.projectPath)
@@ -454,7 +448,7 @@ export async function executeAgent(
 
                     // Extract relevant info for display
                     let displayInput: any = undefined;
-                    if ([FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_MULTI_EDIT_TOOL_NAME].includes(part.toolName)) {
+                    if ([FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME].includes(part.toolName)) {
                         displayInput = { file_path: toolInput?.file_path };
                     } else if (part.toolName === CONNECTOR_TOOL_NAME) {
                         displayInput = {
