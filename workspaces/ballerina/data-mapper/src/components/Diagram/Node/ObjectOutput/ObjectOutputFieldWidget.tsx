@@ -118,7 +118,8 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
         getDefaultValue(field?.kind) === expression.trim() &&
         !isEnum;
 
-    const fields = (isRecord && field?.fields?.filter(f => f !== null)) || isTuple && field?.members?.filter(m => m !== null);
+    const fields = (isRecord && field?.fields?.filter(f => f !== null))
+        || (isTuple && field?.members?.filter(m => m !== null));
     const isWithinArray = fieldIndex !== undefined;
 
     const handleExpand = () => {
