@@ -87,6 +87,12 @@ import {
     PendingPlanApproval,
 } from '../../tools/plan_mode_tools';
 import {
+    createBashTool,
+    createBashExecute,
+    createKillShellTool,
+    createKillShellExecute,
+} from '../../tools/bash_tools';
+import {
     FILE_WRITE_TOOL_NAME,
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
@@ -107,6 +113,8 @@ import {
     ENTER_PLAN_MODE_TOOL_NAME,
     EXIT_PLAN_MODE_TOOL_NAME,
     TODO_WRITE_TOOL_NAME,
+    BASH_TOOL_NAME,
+    KILL_SHELL_TOOL_NAME,
 } from '../../tools/types';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
 import { ChatHistoryManager } from '../../chat-history-manager';
@@ -303,6 +311,13 @@ export async function executeAgent(
             [TODO_WRITE_TOOL_NAME]: createTodoWriteTool(
                 createTodoWriteExecute(eventHandler)  // In-memory only
             ),
+            // Bash Tools
+            [BASH_TOOL_NAME]: createBashTool(
+                createBashExecute(request.projectPath)
+            ),
+            [KILL_SHELL_TOOL_NAME]: createKillShellTool(
+                createKillShellExecute()
+            ),
         };
 
         // Track step number for logging
@@ -469,6 +484,15 @@ export async function executeAgent(
                     } else if (part.toolName === SERVER_MANAGEMENT_TOOL_NAME) {
                         displayInput = {
                             action: toolInput?.action,
+                        };
+                    } else if (part.toolName === BASH_TOOL_NAME) {
+                        displayInput = {
+                            command: toolInput?.command,
+                            description: toolInput?.description,
+                        };
+                    } else if (part.toolName === KILL_SHELL_TOOL_NAME) {
+                        displayInput = {
+                            shell_id: toolInput?.shell_id,
                         };
                     }
 

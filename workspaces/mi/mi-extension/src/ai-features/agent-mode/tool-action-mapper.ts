@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { MANAGE_CONNECTOR_TOOL_NAME, ASK_USER_TOOL_NAME, BUILD_PROJECT_TOOL_NAME, CONNECTOR_TOOL_NAME, CREATE_DATA_MAPPER_TOOL_NAME, ENTER_PLAN_MODE_TOOL_NAME, EXIT_PLAN_MODE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_GLOB_TOOL_NAME, FILE_GREP_TOOL_NAME, FILE_MULTI_EDIT_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME, GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME, GET_CONNECTOR_DOCUMENTATION_TOOL_NAME, SERVER_MANAGEMENT_TOOL_NAME, TASK_TOOL_NAME, TODO_WRITE_TOOL_NAME, VALIDATE_CODE_TOOL_NAME } from './tools/types';
+import { MANAGE_CONNECTOR_TOOL_NAME, ASK_USER_TOOL_NAME, BUILD_PROJECT_TOOL_NAME, CONNECTOR_TOOL_NAME, CREATE_DATA_MAPPER_TOOL_NAME, ENTER_PLAN_MODE_TOOL_NAME, EXIT_PLAN_MODE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_GLOB_TOOL_NAME, FILE_GREP_TOOL_NAME, FILE_MULTI_EDIT_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME, GET_AI_CONNECTOR_DOCUMENTATION_TOOL_NAME, GET_CONNECTOR_DOCUMENTATION_TOOL_NAME, SERVER_MANAGEMENT_TOOL_NAME, TASK_TOOL_NAME, TODO_WRITE_TOOL_NAME, VALIDATE_CODE_TOOL_NAME, BASH_TOOL_NAME, KILL_SHELL_TOOL_NAME } from './tools/types';
 /**
  * Tool action states for UI display
  */
@@ -149,6 +149,26 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
                 loading: `updating ${taskCount} task(s)`,
                 completed: `updated ${taskCount} task(s)`,
                 failed: 'failed to update tasks'
+            };
+
+        // Bash Tools
+        case BASH_TOOL_NAME:
+            // Use description if provided, otherwise show command preview
+            const bashDesc = toolInput?.description;
+            const cmdPreview = toolInput?.command?.substring(0, 50) + (toolInput?.command?.length > 50 ? '...' : '');
+            const displayText = bashDesc || cmdPreview || 'command';
+            return {
+                loading: `running: ${displayText}`,
+                completed: `ran: ${displayText}`,
+                failed: `failed: ${displayText}`
+            };
+
+        case KILL_SHELL_TOOL_NAME:
+            const shellId = toolInput?.shell_id?.substring(0, 8) || 'shell';
+            return {
+                loading: `killing shell ${shellId}`,
+                completed: `killed shell ${shellId}`,
+                failed: `failed to kill shell ${shellId}`
             };
 
         default:

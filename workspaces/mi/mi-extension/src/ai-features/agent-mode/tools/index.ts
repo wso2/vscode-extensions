@@ -112,6 +112,18 @@ export {
     type AgentEventHandler,
 } from './plan_mode_tools';
 
+// Export bash tools
+export {
+    // Execute function creators
+    createBashExecute,
+    createKillShellExecute,
+    // Tool creators
+    createBashTool,
+    createKillShellTool,
+    // Utility functions
+    getBackgroundShells,
+} from './bash_tools';
+
 // Re-export tool names for convenience
 export {
     FILE_WRITE_TOOL_NAME,
@@ -133,6 +145,9 @@ export {
     ENTER_PLAN_MODE_TOOL_NAME,
     EXIT_PLAN_MODE_TOOL_NAME,
     TODO_WRITE_TOOL_NAME,
+    // Bash tool names
+    BASH_TOOL_NAME,
+    KILL_SHELL_TOOL_NAME,
 } from './types';
 
 /**
