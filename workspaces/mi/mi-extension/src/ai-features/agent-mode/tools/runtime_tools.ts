@@ -31,6 +31,7 @@ import { setJavaHomeInEnvironmentAndPath } from '../../../debugger/debugHelper';
 import { DebuggerConfig } from '../../../debugger/config';
 import { getServerPathFromConfig } from '../../../util/onboardingUtils';
 import { serverLog, showServerOutputChannel, getOutputChannel } from '../../../util/serverLogger';
+import { MILanguageClient } from '../../../lang-client/activator';
 import treeKill = require('tree-kill');
 
 // ============================================================================
@@ -346,6 +347,76 @@ export function createServerManagementExecute(projectPath: string): ServerManage
                         };
                     }
 
+                    // Show output channel
+                    showServerOutputChannel();
+                    serverLog('\n========================================\n');
+                    serverLog('  Preparing to Start MI Server...\n');
+                    serverLog('========================================\n\n');
+
+                    // Shutdown tryout server if running (same as IDE's run button)
+                    try {
+                        serverLog('> Shutting down tryout server if running...\n');
+                        const langClient = await MILanguageClient.getInstance(projectPath);
+                        const isTerminated = await langClient.shutdownTryoutServer();
+                        if (!isTerminated) {
+                            logInfo('[ServerManagementTool] Tryout server was not running or already terminated');
+                            serverLog('  Tryout server was not running\n');
+                        } else {
+                            logInfo('[ServerManagementTool] Tryout server shutdown successfully');
+                            serverLog('  Tryout server shutdown successfully\n');
+                        }
+                    } catch (error) {
+                        // Non-fatal: tryout server might not be running
+                        logDebug(`[ServerManagementTool] Could not shutdown tryout server: ${error}`);
+                    }
+
+                    // Sync deployment.toml from project to server (use project configurations)
+                    const projectDeploymentToml = path.join(projectPath, 'deployment', 'deployment.toml');
+                    const serverDeploymentToml = path.join(serverPath, 'conf', 'deployment.toml');
+                    if (fs.existsSync(projectDeploymentToml) && fs.existsSync(serverDeploymentToml)) {
+                        try {
+                            serverLog('\n> Syncing deployment.toml from project to server...\n');
+                            // Backup server config before overwriting
+                            const backupPath = path.join(serverPath, 'conf', 'deployment-backup.toml');
+                            fs.copyFileSync(serverDeploymentToml, backupPath);
+                            // Copy project config to server
+                            fs.copyFileSync(projectDeploymentToml, serverDeploymentToml);
+                            logInfo('[ServerManagementTool] Synced deployment.toml from project to server');
+                            serverLog('  Backed up server config to deployment-backup.toml\n');
+                            serverLog('  Copied project deployment.toml to server\n');
+                            // Update port offset config
+                            DebuggerConfig.setConfigPortOffset(projectPath);
+                        } catch (error) {
+                            logDebug(`[ServerManagementTool] Could not sync deployment.toml: ${error}`);
+                        }
+                    }
+
+                    // Copy deployment/libs/*.jar to server/lib (same as IDE's executeBuildTask)
+                    const projectLibsDir = path.join(projectPath, 'deployment', 'libs');
+                    const serverLibDir = path.join(serverPath, 'lib');
+                    if (fs.existsSync(projectLibsDir) && fs.existsSync(serverLibDir)) {
+                        try {
+                            const files = fs.readdirSync(projectLibsDir);
+                            const jarFiles = files.filter(f => f.endsWith('.jar'));
+                            if (jarFiles.length > 0) {
+                                serverLog('\n> Copying library JARs to server...\n');
+                            }
+                            for (const jarFile of jarFiles) {
+                                const src = path.join(projectLibsDir, jarFile);
+                                const dest = path.join(serverLibDir, jarFile);
+                                fs.copyFileSync(src, dest);
+                                DebuggerConfig.setCopiedLibs(dest);
+                                logDebug(`[ServerManagementTool] Copied lib: ${jarFile}`);
+                                serverLog(`  Copied: ${jarFile}\n`);
+                            }
+                            if (jarFiles.length > 0) {
+                                logInfo(`[ServerManagementTool] Copied ${jarFiles.length} library JAR(s) to server`);
+                            }
+                        } catch (error) {
+                            logDebug(`[ServerManagementTool] Could not copy libs: ${error}`);
+                        }
+                    }
+
                     // Load .env if exists
                     const envFilePath = path.resolve(projectPath, '.env');
                     if (fs.existsSync(envFilePath)) {
@@ -371,8 +442,7 @@ export function createServerManagementExecute(projectPath: string): ServerManage
                         ...definedEnvVariables
                     };
 
-                    // Show output channel and log server start
-                    showServerOutputChannel();
+                    // Log server start command
                     serverLog('\n========================================\n');
                     serverLog('  Starting MI Server...\n');
                     serverLog('========================================\n\n');
@@ -561,6 +631,9 @@ This tool allows you to start, stop, and check the status of the MI runtime.
 **Actions:**
 
 1. **run** - Start the MI runtime server
+   - Shuts down any running tryout server first
+   - Syncs deployment.toml from project to server (backs up server config)
+   - Copies deployment/libs/*.jar files to server lib directory
    - Loads environment variables from .env file if present
    - Starts the server in non-debug mode
    - Returns immediately; use 'status' to check when ready
