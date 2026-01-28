@@ -205,22 +205,8 @@ export async function addConfigFile(projectPath: string): Promise<boolean> {
 export function addWSO2AIConfigProperties(projectPath: string): void {
     const configPropertiesPath = path.join(projectPath, ...CONFIG_PROPERTIES_RELATIVE_PATH);
 
-    // Check if entries already exist
-    let content = '';
-    if (fs.existsSync(configPropertiesPath)) {
-        content = fs.readFileSync(configPropertiesPath, 'utf-8');
-    }
-
-    const hasServiceUrl = content.includes(`${SERVICE_URL_KEY}:`);
-    const hasAccessToken = content.includes(`${ACCESS_TOKEN_KEY}:`);
-
-    // Only add entries that don't already exist
-    if (!hasServiceUrl) {
-        addOrUpdateConfigPropertyEntry(configPropertiesPath, SERVICE_URL_KEY, 'string');
-    }
-    if (!hasAccessToken) {
-        addOrUpdateConfigPropertyEntry(configPropertiesPath, ACCESS_TOKEN_KEY, 'string');
-    }
+    addOrUpdateConfigPropertyEntry(configPropertiesPath, SERVICE_URL_KEY, 'string');
+    addOrUpdateConfigPropertyEntry(configPropertiesPath, ACCESS_TOKEN_KEY, 'string');
 }
 
 /**
