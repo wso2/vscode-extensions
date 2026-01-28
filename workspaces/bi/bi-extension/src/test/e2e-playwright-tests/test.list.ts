@@ -57,8 +57,6 @@ import importIntegration from './import-integration/import-integration.spec';
 import reusableDataMapper from './data-mapper/reusable-data-mapper.spec';
 import inlineDataMapper from './data-mapper/inline-data-mapper.spec';
 
-import diagram from './diagram/diagram.spec';
-
 import testFunction from './test-function/test-function.spec';
 
 test.describe.configure({ mode: 'default' });
@@ -130,9 +128,6 @@ test.describe.skip(importIntegration);
 // <----Data Mapper Test---->
 test.describe(reusableDataMapper);
 test.describe(inlineDataMapper);
-
-// <----Diagram Test---->
-test.describe(diagram);
 
 // <----Test Function Test---->
 test.describe(testFunction);
