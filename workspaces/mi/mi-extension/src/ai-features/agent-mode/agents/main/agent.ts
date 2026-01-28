@@ -174,6 +174,7 @@ export async function executeAgent(
     let finalModelMessages: any[] = [];
     let response: any = null; // Store response promise for later access
     let accumulatedContent: string = ''; // Accumulate assistant response content
+    let isExecutingTool = false; // Track if we're currently executing a tool (for interruption message)
 
     // Use provided pendingQuestions map or create a new one
     const pendingQuestions = request.pendingQuestions || new Map<string, PendingQuestion>();
@@ -395,6 +396,12 @@ export async function executeAgent(
 
         // Process stream
         for await (const part of fullStream) {
+            // Check for abort signal at each iteration
+            if (request.abortSignal?.aborted) {
+                logInfo('[Agent] Abort signal detected during stream processing');
+                throw new Error('AbortError: Operation aborted by user');
+            }
+
             switch (part.type) {
                 case 'text-delta': {
                     // Accumulate content for later recording as complete message
@@ -410,6 +417,9 @@ export async function executeAgent(
                 case 'tool-call': {
                     const toolInput = part.input as any;
                     logDebug(`[Agent] Tool call: ${part.toolName}`);
+
+                    // Mark that we're executing a tool (for interruption tracking)
+                    isExecutingTool = true;
 
                     // Store tool input for later use in tool result
                     toolInputMap.set(part.toolCallId, toolInput);
@@ -477,6 +487,9 @@ export async function executeAgent(
                 case 'tool-result': {
                     const result = part.output as any;
                     logDebug(`[Agent] Tool result: ${part.toolName}, success: ${result?.success}`);
+
+                    // Tool execution complete
+                    isExecutingTool = false;
 
                     // Retrieve tool input from map (for dynamic action messages)
                     const toolInput = toolInputMap.get(part.toolCallId);
@@ -579,9 +592,29 @@ export async function executeAgent(
             // Ignore errors in capturing messages
         }
 
-        // Check if aborted
-        if (error?.name === 'AbortError' || request.abortSignal?.aborted) {
-            logInfo('[Agent] Execution aborted by user');
+        // Check if aborted - be thorough about detecting abort scenarios
+        // The abort could come from various sources with different error types
+        const isAborted = 
+            error?.name === 'AbortError' || 
+            request.abortSignal?.aborted ||
+            errorMsg.toLowerCase().includes('abort') ||
+            errorMsg.toLowerCase().includes('cancel') ||
+            error?.code === 'ABORT_ERR';
+
+        if (isAborted) {
+            logInfo(`[Agent] Execution aborted by user (isExecutingTool: ${isExecutingTool})`);
+
+            // Save interruption message to chat history (Claude Code pattern)
+            // This helps LLM understand in next session that previous request was interrupted
+            if (request.chatHistoryManager) {
+                try {
+                    await request.chatHistoryManager.saveInterruptionMessage(isExecutingTool);
+                    logInfo('[Agent] Saved interruption message to chat history');
+                } catch (saveError) {
+                    logError('[Agent] Failed to save interruption message', saveError);
+                }
+            }
+
             eventHandler({ type: 'abort' });
             return {
                 success: false,
