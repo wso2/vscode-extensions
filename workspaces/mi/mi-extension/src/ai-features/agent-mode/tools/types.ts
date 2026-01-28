@@ -69,7 +69,6 @@ export const PREVIEW_LENGTH = 200;
 export const FILE_WRITE_TOOL_NAME = 'file_write';
 export const FILE_READ_TOOL_NAME = 'file_read';
 export const FILE_EDIT_TOOL_NAME = 'file_edit';
-export const FILE_MULTI_EDIT_TOOL_NAME = 'file_multi_edit';
 export const FILE_GREP_TOOL_NAME = 'grep';
 export const FILE_GLOB_TOOL_NAME = 'glob';
 export const CONNECTOR_TOOL_NAME = 'get_connector_definitions';
@@ -151,15 +150,6 @@ export type EditExecuteFn = (args: {
     old_string: string;
     new_string: string;
     replace_all?: boolean;
-}) => Promise<ToolResult>;
-
-export type MultiEditExecuteFn = (args: {
-    file_path: string;
-    edits: Array<{
-        old_string: string;
-        new_string: string;
-        replace_all?: boolean;
-    }>;
 }) => Promise<ToolResult>;
 
 export type GrepExecuteFn = (args: {

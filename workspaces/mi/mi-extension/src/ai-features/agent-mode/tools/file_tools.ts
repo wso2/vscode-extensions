@@ -33,11 +33,9 @@ import {
     FILE_READ_TOOL_NAME,
     FILE_WRITE_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
-    FILE_MULTI_EDIT_TOOL_NAME,
     WriteExecuteFn,
     ReadExecuteFn,
     EditExecuteFn,
-    MultiEditExecuteFn,
     GrepExecuteFn,
     GlobExecuteFn,
 } from './types';
@@ -207,7 +205,7 @@ export function createWriteExecute(projectPath: string, modifiedFiles?: string[]
                 console.error(`[FileWriteTool] File already exists with content: ${file_path}`);
                 return {
                     success: false,
-                    message: `File '${file_path}' already exists with content. Use ${FILE_EDIT_TOOL_NAME} or ${FILE_MULTI_EDIT_TOOL_NAME} to modify it instead.`,
+                    message: `File '${file_path}' already exists with content. Use ${FILE_EDIT_TOOL_NAME} to modify it instead.`,
                     error: `Error: ${ErrorMessages.FILE_ALREADY_EXISTS}`
                 };
             }
@@ -473,140 +471,6 @@ export function createEditExecute(projectPath: string, modifiedFiles?: string[])
         return {
             success: true,
             message: `Successfully replaced ${replacedCount} occurrence(s) in '${file_path}'.`
-        };
-    };
-}
-
-/**
- * Creates the execute function for file_multi_edit tool
- */
-export function createMultiEditExecute(projectPath: string, modifiedFiles?: string[]): MultiEditExecuteFn {
-    return async (args: {
-        file_path: string;
-        edits: Array<{
-            old_string: string;
-            new_string: string;
-            replace_all?: boolean;
-        }>;
-    }): Promise<ToolResult> => {
-        const { file_path, edits } = args;
-        logDebug(`[FileMultiEditTool] Editing ${file_path} with ${edits.length} edits`);
-
-        // Validate file path
-        const pathValidation = validateFilePath(file_path);
-        if (!pathValidation.valid) {
-            logError(`[FileMultiEditTool] Invalid file path: ${file_path}`);
-            return {
-                success: false,
-                message: pathValidation.error!,
-                error: `Error: ${ErrorMessages.INVALID_FILE_PATH}`
-            };
-        }
-
-        // Validate edits array
-        if (!edits || edits.length === 0) {
-            logError(`[FileMultiEditTool] No edits provided`);
-            return {
-                success: false,
-                message: 'No edits provided. At least one edit is required.',
-                error: `Error: ${ErrorMessages.NO_EDITS}`
-            };
-        }
-
-        const fullPath = path.join(projectPath, file_path);
-
-        // Check if file exists
-        if (!fs.existsSync(fullPath)) {
-            logError(`[FileMultiEditTool] File not found: ${file_path}`);
-            return {
-                success: false,
-                message: `File '${file_path}' not found. Use ${FILE_WRITE_TOOL_NAME} to create new files.`,
-                error: `Error: ${ErrorMessages.FILE_NOT_FOUND}`
-            };
-        }
-
-        // Read file content
-        let content = fs.readFileSync(fullPath, 'utf-8');
-
-        // Validate all edits before applying any
-        const validationErrors: string[] = [];
-
-        for (let i = 0; i < edits.length; i++) {
-            const edit = edits[i];
-
-            // Check if old_string and new_string are identical
-            if (edit.old_string === edit.new_string) {
-                validationErrors.push(`Edit ${i + 1}: old_string and new_string are identical`);
-                continue;
-            }
-
-            // Count occurrences in current content state
-            const occurrenceCount = countOccurrences(content, edit.old_string);
-
-            if (occurrenceCount === 0) {
-                validationErrors.push(`Edit ${i + 1}: old_string not found in file`);
-                continue;
-            }
-
-            if (!edit.replace_all && occurrenceCount > 1) {
-                validationErrors.push(`Edit ${i + 1}: Found ${occurrenceCount} occurrences. Set replace_all to true or make old_string more specific`);
-                continue;
-            }
-
-            // Apply the edit to simulate the sequence (for validation of subsequent edits)
-            if (content.trim() === '' && edit.old_string.trim() === '') {
-                content = edit.new_string;
-            } else {
-                content = edit.replace_all
-                    ? replaceAll(content, edit.old_string, edit.new_string)
-                    : content.replace(edit.old_string, edit.new_string);
-            }
-        }
-
-        // If there were validation errors, return them without applying any edits
-        if (validationErrors.length > 0) {
-            logError(`[FileMultiEditTool] Validation errors:\n${validationErrors.join('\n')}`);
-            return {
-                success: false,
-                message: `Multi-edit validation failed:\n${validationErrors.join('\n')}`,
-                error: `Error: ${ErrorMessages.EDIT_FAILED}`,
-            };
-        }
-
-        // All validations passed, content already has all edits applied
-        // Use WorkspaceEdit for LSP synchronization
-        const uri = vscode.Uri.file(fullPath);
-        const edit = new vscode.WorkspaceEdit();
-
-        const doc = await vscode.workspace.openTextDocument(uri);
-        const fullRange = new vscode.Range(
-            doc.lineAt(0).range.start,
-            doc.lineAt(doc.lineCount - 1).range.end
-        );
-        edit.replace(uri, fullRange, content);
-
-        // Apply edit - automatically syncs with LSP
-        const success = await vscode.workspace.applyEdit(edit);
-
-        if (!success) {
-            logError(`[FileMultiEditTool] Failed to apply workspace edit for: ${file_path}`);
-            return {
-                success: false,
-                message: `Failed to apply multi-edit to file '${file_path}'. WorkspaceEdit failed.`,
-                error: `Error: ${ErrorMessages.FILE_WRITE_FAILED}`
-            };
-        }
-
-        // Save the document
-        await doc.save();
-
-        // Track modified file
-        trackModifiedFile(modifiedFiles, file_path);
-
-        logDebug(`[FileMultiEditTool] Successfully applied ${edits.length} edits and synced file: ${file_path}`);
-        return {
-            success: true,
-            message: `Successfully applied ${edits.length} edit(s) to '${file_path}'.`
         };
     };
 }
@@ -892,7 +756,7 @@ export function createWriteTool(execute: WriteExecuteFn) {
 
             Usage:
             - Use this tool to create NEW files only. It will not overwrite existing files with content.
-            - To modify existing files, use ${FILE_EDIT_TOOL_NAME} or ${FILE_MULTI_EDIT_TOOL_NAME} instead.
+            - To modify existing files, use ${FILE_EDIT_TOOL_NAME} instead.
             - The file path should be relative to the project root.
             - Parent directories will be created automatically if they don't exist.
             - Valid file extensions: ${VALID_FILE_EXTENSIONS.join(', ')}
@@ -965,7 +829,6 @@ export function createEditTool(execute: EditExecuteFn) {
             - Provide more surrounding context to make it unique, OR
             - Set replace_all to true to replace ALL occurrences
             - Use replace_all=true when renaming variables, updating repeated patterns, etc.
-            - For multiple edits to the same file, prefer ${FILE_MULTI_EDIT_TOOL_NAME} instead.
             - Cannot create new files. Use ${FILE_WRITE_TOOL_NAME} for that.
 
             Tips for Synapse XML editing:
@@ -973,48 +836,6 @@ export function createEditTool(execute: EditExecuteFn) {
             - Preserve XML indentation exactly
             - Be careful with XML namespaces and attributes`,
         inputSchema: editInputSchema,
-        execute
-    });
-}
-
-/**
- * Creates the file_multi_edit tool
- */
-
-const multiEditInputSchema = z.object({
-    file_path: z.string().describe(`The relative path to the file to edit. Use paths relative to the project root (e.g., "src/main/wso2mi/artifacts/apis/MyAPI.xml")`),
-    edits: z.array(
-        z.object({
-            old_string: z.string().describe(`The exact text to replace (must match file contents exactly, including whitespace)`),
-            new_string: z.string().describe(`The replacement text (must be different from old_string)`),
-            replace_all: z.boolean().default(false).optional().describe(`Replace all occurrences (default false)`)
-        })
-    ).min(1).describe(`Array of edit operations to perform sequentially on the file`)
-});
-
-export function createMultiEditTool(execute: MultiEditExecuteFn) {
-    // Type assertion to avoid TypeScript deep instantiation issues with Zod
-    return (tool as any)({
-        description: `
-        Performs multiple find-and-replace operations on a single file atomically.
-
-        Usage:
-        - Preferred over ${FILE_EDIT_TOOL_NAME} when making multiple changes to the same file.
-        - All edits are validated before any are applied - if any edit fails, NONE are applied.
-        - Edits are applied SEQUENTIALLY in the order provided.
-        - Each subsequent edit operates on the result of previous edits.
-        - ALWAYS read the file first before editing.
-
-        IMPORTANT:
-        - Plan edits carefully to avoid conflicts (earlier edits change what later edits find)
-        - All old_string values must match exactly, including whitespace
-        - Cannot create new files. Use ${FILE_WRITE_TOOL_NAME} for that.
-
-        Example use cases:
-        - Updating multiple mediator configurations
-        - Renaming endpoints across a file
-        - Modifying multiple property values`,
-        inputSchema: multiEditInputSchema,
         execute
     });
 }
