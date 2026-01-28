@@ -19,8 +19,9 @@
 import { ChatMessage, Role, MessageType, AgentEvent, ChatHistoryEvent, TodoItem } from "@wso2/mi-core";
 import { generateId } from "../utils";
 
-// Tool name constant for todo_write tool
+// Tool name constants
 const TODO_WRITE_TOOL_NAME = 'todo_write';
+const BASH_TOOL_NAME = 'bash';
 
 /**
  * Calculate overall status from todo items
@@ -48,11 +49,12 @@ export function convertEventsToMessages(
     const messages: ChatMessage[] = [];
     let currentUserMessage: ChatMessage | null = null;
     let currentAssistantMessage: ChatMessage | null = null;
-    let pendingToolCall: {
+    // Track pending tool calls by toolCallId for proper matching
+    const pendingToolCalls = new Map<string, {
         toolName: string;
         toolInput: unknown;
         filePath: string;
-    } | null = null;
+    }>();
 
     for (const event of events) {
         switch (event.type) {
@@ -123,23 +125,19 @@ export function convertEventsToMessages(
                     continue;
                 }
 
-
-                // Extract file path for display
+                // Extract file path and toolCallId for display
                 const toolInput = event.toolInput as any;
                 const filePath = toolInput?.file_path || toolInput?.file_paths?.[0] || '';
+                const toolCallId = 'toolCallId' in event ? (event.toolCallId as string) : '';
 
-                // Store pending tool call info
-                pendingToolCall = {
-                    toolName: event.toolName || '',
-                    toolInput: event.toolInput,
-                    filePath
-                };
-
-                // Get loading action from event (for live streaming) or create generic message
-                const loadingAction = 'loadingAction' in event ? event.loadingAction : undefined;
-                const loadingMessage = loadingAction
-                    ? `${loadingAction.charAt(0).toUpperCase() + loadingAction.slice(1)} ${filePath}...`
-                    : `Using ${event.toolName}${filePath ? `: ${filePath}` : ''}...`;
+                // Store pending tool call info keyed by toolCallId (needed for proper matching)
+                if (toolCallId) {
+                    pendingToolCalls.set(toolCallId, {
+                        toolName: event.toolName || '',
+                        toolInput: event.toolInput,
+                        filePath
+                    });
+                }
 
                 // Ensure assistant message exists
                 if (!currentAssistantMessage) {
@@ -151,6 +149,26 @@ export function convertEventsToMessages(
                     };
                 }
 
+                // Handle bash tool specially - show loading bash component with command
+                // Include toolCallId in the tag for proper matching with tool_result
+                if (event.toolName === BASH_TOOL_NAME) {
+                    const bashData = {
+                        command: toolInput?.command || '',
+                        description: toolInput?.description || '',
+                        output: '',
+                        exitCode: 0,
+                        loading: true
+                    };
+                    currentAssistantMessage.content += `\n\n<bashoutput data-loading="true" data-tool-call-id="${toolCallId}">${JSON.stringify(bashData)}</bashoutput>`;
+                    continue;
+                }
+
+                // Get loading action from event (for live streaming) or create generic message
+                const loadingAction = 'loadingAction' in event ? event.loadingAction : undefined;
+                const loadingMessage = loadingAction
+                    ? `${loadingAction.charAt(0).toUpperCase() + loadingAction.slice(1)} ${filePath}...`
+                    : `Using ${event.toolName}${filePath ? `: ${filePath}` : ''}...`;
+
                 // Insert loading tool call tag (with data-loading attribute for replacement)
                 currentAssistantMessage.content += `\n\n<toolcall data-loading="true" data-file="${filePath}">${loadingMessage}</toolcall>`;
                 break;
@@ -161,7 +179,70 @@ export function convertEventsToMessages(
                     continue;
                 }
 
-                if (pendingToolCall && currentAssistantMessage) {
+                // Get toolCallId to find the matching pending tool call
+                const resultToolCallId = 'toolCallId' in event ? (event.toolCallId as string) : '';
+                const pendingToolCall = resultToolCallId ? pendingToolCalls.get(resultToolCallId) : null;
+
+                if (pendingToolCall) {
+                    // Ensure assistant message exists
+                    if (!currentAssistantMessage) {
+                        currentAssistantMessage = {
+                            id: generateId(),
+                            role: Role.MICopilot,
+                            content: '',
+                            type: MessageType.AssistantMessage
+                        };
+                    }
+
+                    // Handle bash tool specially - replace loading bashoutput tag with completed one
+                    if (pendingToolCall.toolName === BASH_TOOL_NAME) {
+                        const bashCommand = 'bashCommand' in event ? event.bashCommand : undefined;
+                        const bashDescription = 'bashDescription' in event ? event.bashDescription : undefined;
+                        const bashStdout = 'bashStdout' in event ? event.bashStdout : undefined;
+                        const bashExitCode = 'bashExitCode' in event ? event.bashExitCode : undefined;
+                        const bashRunning = 'bashRunning' in event ? event.bashRunning : false;
+
+                        // Create completed bash output data structure
+                        const bashData = {
+                            command: bashCommand || '',
+                            description: bashDescription || '',
+                            output: bashStdout || '',
+                            exitCode: bashExitCode ?? 0,
+                            running: bashRunning,
+                            loading: false
+                        };
+
+                        const completedBashTag = `<bashoutput>${JSON.stringify(bashData)}</bashoutput>`;
+
+                        // Find and replace the loading bashoutput tag by toolCallId
+                        const bashPatternWithId = new RegExp(`<bashoutput data-loading="true" data-tool-call-id="${resultToolCallId}">[\\s\\S]*?<\\/bashoutput>`, 'g');
+                        const bashMatchesWithId = [...currentAssistantMessage.content.matchAll(bashPatternWithId)];
+
+                        if (bashMatchesWithId.length > 0) {
+                            // Replace the matching bash output by toolCallId
+                            const match = bashMatchesWithId[0];
+                            const fullMatch = match[0];
+                            currentAssistantMessage.content = currentAssistantMessage.content.replace(fullMatch, completedBashTag);
+                        } else {
+                            // Fallback: try to find any loading bashoutput tag (for backwards compatibility)
+                            const bashPattern = /<bashoutput data-loading="true"[^>]*>[\s\S]*?<\/bashoutput>/g;
+                            const bashMatches = [...currentAssistantMessage.content.matchAll(bashPattern)];
+
+                            if (bashMatches.length > 0) {
+                                // Replace the first matching bash output
+                                const firstMatch = bashMatches[0];
+                                const fullMatch = firstMatch[0];
+                                currentAssistantMessage.content = currentAssistantMessage.content.replace(fullMatch, completedBashTag);
+                            } else {
+                                // No loading tag found, append directly
+                                currentAssistantMessage.content += `\n\n${completedBashTag}`;
+                            }
+                        }
+
+                        pendingToolCalls.delete(resultToolCallId);
+                        continue;
+                    }
+
                     // Get action from event (backend provides this)
                     const action = 'action' in event ? event.action : undefined;
                     const completedAction = 'completedAction' in event ? event.completedAction : undefined;
@@ -169,7 +250,7 @@ export function convertEventsToMessages(
 
                     const capitalizedAction = finalAction.charAt(0).toUpperCase() + finalAction.slice(1);
 
-                    // Create completed message
+                    // Create standard completed message for other tools
                     const completedMessage = pendingToolCall.filePath
                         ? `<toolcall>${capitalizedAction} ${pendingToolCall.filePath}</toolcall>`
                         : `<toolcall>${capitalizedAction}</toolcall>`;
@@ -190,7 +271,7 @@ export function convertEventsToMessages(
                             currentAssistantMessage.content.substring(lastIndex + fullMatch.length);
                     }
 
-                    pendingToolCall = null;
+                    pendingToolCalls.delete(resultToolCallId);
                 }
                 break;
 

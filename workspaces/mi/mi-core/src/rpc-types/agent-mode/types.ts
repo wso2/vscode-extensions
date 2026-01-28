@@ -124,6 +124,20 @@ export interface AgentEvent {
     approvalId?: string;
     /** Path to the plan file for plan_approval_requested event */
     planFilePath?: string;
+
+    // Bash tool fields (for tool_result display)
+    /** Bash command that was executed */
+    bashCommand?: string;
+    /** Bash command description */
+    bashDescription?: string;
+    /** Bash stdout output */
+    bashStdout?: string;
+    /** Bash stderr output */
+    bashStderr?: string;
+    /** Bash exit code */
+    bashExitCode?: number;
+    /** Whether command is still running in background */
+    bashRunning?: boolean;
 }
 
 /**
@@ -139,6 +153,16 @@ export interface ChatHistoryEvent {
     /** User-friendly action text for tool result (e.g., "Created", "Read", "Failed to create") */
     action?: string;
     timestamp: string;
+
+    // Bash tool fields (for history display)
+    /** Bash command that was executed */
+    bashCommand?: string;
+    /** Bash command description */
+    bashDescription?: string;
+    /** Bash stdout output */
+    bashStdout?: string;
+    /** Bash exit code */
+    bashExitCode?: number;
 }
 
 /**
