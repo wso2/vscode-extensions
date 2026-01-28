@@ -157,6 +157,8 @@ export const InputEditor: React.FC<InputEditorProps> = ({
     const languageIdRef = useRef(`${LANGUAGE_ID}-${Math.random().toString(36).substring(7)}`);
     // Content change listener disposable
     const contentChangeDisposableRef = useRef<monaco.IDisposable | null>(null);
+    // Content widgets for delete icons
+    const contentWidgetsRef = useRef<monaco.IDisposable[]>([]);
 
     // Dynamic height state
     const [dynamicHeight, setDynamicHeight] = useState(minHeight);
@@ -323,6 +325,114 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         });
 
         commandsDisposableRef.current = commands;
+    };
+
+    /**
+     * Updates content widgets to add delete icons at the end of lines with content
+     */
+    const updateContentWidgets = (model: monaco.editor.ITextModel | null) => {
+        if (!editorRef.current || !model) {
+            return;
+        }
+
+        // Infer section type from provided suggestions
+        let currentSectionType: 'query' | 'headers' | 'body' | null = null;
+        if (suggestions?.queryKeys && suggestions.queryKeys.length > 0) {
+            currentSectionType = 'query';
+        } else if (suggestions?.headers && suggestions.headers.length > 0) {
+            currentSectionType = 'headers';
+        } else if (suggestions?.bodySnippets && suggestions.bodySnippets.length > 0) {
+            currentSectionType = 'body';
+        }
+
+        // Don't add delete icons for body section
+        if (currentSectionType === 'body') {
+            return;
+        }
+
+        // Dispose existing widgets
+        contentWidgetsRef.current.forEach(widget => widget.dispose());
+        contentWidgetsRef.current = [];
+
+        try {
+            const lineCount = model.getLineCount();
+
+            // Add delete icon at the end of each line with content
+            for (let lineNumber = 1; lineNumber <= lineCount; lineNumber++) {
+                const lineContent = model.getLineContent(lineNumber);
+                const trimmedContent = lineContent.trim();
+
+                if (trimmedContent && trimmedContent !== '') {
+                    const lineLength = lineContent.length;
+
+                    // Create a content widget for the delete icon
+                    const widget: monaco.editor.IContentWidget = {
+                        getId: () => `delete-icon-${lineNumber}`,
+                        getDomNode: () => {
+                            const domNode = document.createElement('div');
+                            domNode.style.cssText = `
+                                position: absolute;
+                                margin-top: 4px;
+                                margin-left: 22px;
+                                width: 14px;
+                                height: 14px;
+                                cursor: pointer;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                font-size: 12px;
+                                color: var(--vscode-errorForeground);
+                                opacity: 0.6;
+                                border-radius: 2px;
+                                transition: opacity 0.2s;
+                            `;
+                            domNode.className = 'codicon codicon-trash';
+                            domNode.title = 'Delete line (Ctrl+Shift+K)';
+                            domNode.addEventListener('mouseenter', () => {
+                                domNode.style.opacity = '1';
+                                domNode.style.backgroundColor = 'var(--vscode-toolbar-hoverBackground)';
+                            });
+                            domNode.addEventListener('mouseleave', () => {
+                                domNode.style.opacity = '0.6';
+                                domNode.style.backgroundColor = 'transparent';
+                            });
+                            domNode.addEventListener('click', () => {
+                                if (editorRef.current) {
+                                    // Delete the line
+                                    const lineContent = model.getLineContent(lineNumber);
+                                    const range = new monaco.Range(lineNumber, 1, lineNumber, lineContent.length + 1);
+                                    editorRef.current.executeEdits('delete-line', [{
+                                        range: range,
+                                        text: ''
+                                    }]);
+                                    // Focus back to editor
+                                    editorRef.current.focus();
+                                }
+                            });
+                            return domNode;
+                        },
+                        getPosition: () => {
+                            return {
+                                position: {
+                                    lineNumber: lineNumber,
+                                    column: lineLength + 1
+                                },
+                                preference: [monaco.editor.ContentWidgetPositionPreference.EXACT]
+                            };
+                        }
+                    };
+
+                    editorRef.current.addContentWidget(widget);
+                    contentWidgetsRef.current.push({
+                        dispose: () => {
+                            editorRef.current?.removeContentWidget(widget);
+                        }
+                    });
+                }
+            }
+        } catch (error) {
+            console.warn('[InputEditor] Error updating content widgets:', error);
+        }
     };
 
     /**
@@ -597,7 +707,27 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                         }
                     });
                     
-                    console.log('[InputEditor] Custom actions registered successfully');
+                    // Add custom actions
+                    console.log('[InputEditor] Adding delete line action');
+                    
+                    editor.addAction({
+                        id: 'deleteLine',
+                        label: 'Delete Line',
+                        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyK],
+                        run: () => {
+                            const position = editor.getPosition();
+                            if (position) {
+                                const lineContent = editor.getModel()?.getLineContent(position.lineNumber);
+                                if (lineContent && lineContent.trim()) {
+                                    const range = new monaco.Range(position.lineNumber, 1, position.lineNumber, lineContent.length + 1);
+                                    editor.executeEdits('delete-line', [{
+                                        range: range,
+                                        text: ''
+                                    }]);
+                                }
+                            }
+                        }
+                    });
                     
                     // Add content change listener to update height dynamically
                     const editorModel = editor.getModel();
@@ -606,9 +736,13 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                             updateHeight();
                             // Trigger code lens refresh on content change
                             editor.trigger('', 'codelens', {});
+                            // Update content widgets for delete icons
+                            updateContentWidgets(editorModel);
                         });
                         // Initial height update
                         updateHeight();
+                        // Initial content widgets update
+                        updateContentWidgets(editorModel);
                     }
                     
                     onMount?.(editor, monaco);

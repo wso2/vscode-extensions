@@ -506,7 +506,7 @@ export const MainPanel: React.FC = () => {
                                     <Codicon sx={{height: 'unset', width: 'unset'}} iconSx={{fontSize: 24, marginTop: 4}} name="question" />
                                     <HelpTooltip show={showHelp}>
                                         <strong>Write your request with auto-completions:</strong><br/>
-                                        • <CodeHint>key=value</CodeHint> for query parameters<br/>
+                                        • <CodeHint>key: value</CodeHint> for query parameters<br/>
                                         • <CodeHint>Header-Name: value</CodeHint> for headers<br/>
                                         • Prefix with <CodeHint>//</CodeHint> to disable a line<br/>
                                         • Press <CodeHint>Cmd+Space</CodeHint> or <CodeHint>Cmd+/</CodeHint> for suggestions
