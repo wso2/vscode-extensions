@@ -34,6 +34,7 @@ import Attachments from "./Attachments";
 import FeedbackBar from "./FeedbackBar";
 import ToolCallSegment from "./ToolCallSegment";
 import TodoListSegment from "./TodoListSegment";
+import BashOutputSegment from "./BashOutputSegment";
 
 // Markdown renderer component
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ markdownContent }) => {
@@ -152,6 +153,14 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
                         return <TodoListSegment key={i} items={todoData.items} status={todoData.status} />;
                     } catch (e) {
                         console.error("Failed to parse todolist JSON:", e);
+                        return null;
+                    }
+                } else if (segment.isBashOutput) {
+                    try {
+                        const bashData = JSON.parse(segment.text);
+                        return <BashOutputSegment key={i} data={bashData} />;
+                    } catch (e) {
+                        console.error("Failed to parse bashoutput JSON:", e);
                         return null;
                     }
                 } else if (message.type === "Error") {
