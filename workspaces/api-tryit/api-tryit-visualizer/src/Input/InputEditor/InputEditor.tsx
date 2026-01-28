@@ -398,7 +398,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                     }
                 } else if (currentSectionType === 'query') {
                     // Suggest common query parameter names
-                    if (!textUntilPosition.includes('=')) {
+                    if (!textUntilPosition.includes(':')) {
                         suggestions?.queryKeys?.forEach(key => {
                             suggestionsList.push({
                                 label: key,

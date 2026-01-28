@@ -70,7 +70,7 @@ export const Input: React.FC<InputProps> = ({
             onExecute: (editor: any, model: any) => {
                 const lineCount = model.getLineCount();
                 const lastLineLength = model.getLineLength(lineCount);
-                const textToInsert = model.getValue() ? '\nkey=value' : 'key=value';
+                const textToInsert = model.getValue() ? '\nkey: value' : 'key: value';
                 
                 editor.executeEdits('add-query-param', [{
                     range: {
@@ -277,7 +277,7 @@ export const Input: React.FC<InputProps> = ({
         if (!Array.isArray(params)) return '';
         return params
             .filter(p => p.key || p.value)
-            .map(p => p.value ? `${p.key}=${p.value}` : p.key)
+            .map(p => p.value ? `${p.key}: ${p.value}` : p.key)
             .join('\n');
     };
 
@@ -294,7 +294,7 @@ export const Input: React.FC<InputProps> = ({
         return text.split('\n')
             .filter(line => line.trim())
             .map((line, index) => {
-                const [key, value] = line.split('=').map(s => s.trim());
+                const [key, value] = line.split(':').map(s => s.trim());
                 return {
                     id: Date.now().toString() + index,
                     key: key || '',
