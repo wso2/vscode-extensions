@@ -65,10 +65,25 @@ export const Input: React.FC<InputProps> = ({
             shouldShow: (model: any) => true,
             getLineNumber: (model: any) => 1,
             onExecute: (editor: any, model: any) => {
-                const currentValue = model.getValue();
-                const newValue = currentValue ? `${currentValue}\nkey=value` : 'key=value';
-                model.setValue(newValue);
-                editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
+                const lineCount = model.getLineCount();
+                const lastLineLength = model.getLineLength(lineCount);
+                const textToInsert = model.getValue() ? '\nkey=value' : 'key=value';
+                
+                editor.executeEdits('add-query-param', [{
+                    range: {
+                        startLineNumber: lineCount,
+                        startColumn: lastLineLength + 1,
+                        endLineNumber: lineCount,
+                        endColumn: lastLineLength + 1
+                    },
+                    text: textToInsert
+                }]);
+                
+                // Move cursor to the new line
+                setTimeout(() => {
+                    editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
+                    editor.focus();
+                }, 0);
             }
         },
         {
@@ -91,10 +106,25 @@ export const Input: React.FC<InputProps> = ({
             shouldShow: (model: any) => true,
             getLineNumber: (model: any) => 1,
             onExecute: (editor: any, model: any) => {
-                const currentValue = model.getValue();
-                const newValue = currentValue ? `${currentValue}\nContent-Type: application/json` : 'Content-Type: application/json';
-                model.setValue(newValue);
-                editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
+                const lineCount = model.getLineCount();
+                const lastLineLength = model.getLineLength(lineCount);
+                const textToInsert = model.getValue() ? '\nContent-Type: application/json' : 'Content-Type: application/json';
+                
+                editor.executeEdits('add-header', [{
+                    range: {
+                        startLineNumber: lineCount,
+                        startColumn: lastLineLength + 1,
+                        endLineNumber: lineCount,
+                        endColumn: lastLineLength + 1
+                    },
+                    text: textToInsert
+                }]);
+                
+                // Move cursor to the new line
+                setTimeout(() => {
+                    editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
+                    editor.focus();
+                }, 0);
             }
         },
         {
@@ -118,8 +148,16 @@ export const Input: React.FC<InputProps> = ({
             getLineNumber: (model: any) => 1,
             onExecute: (editor: any, model: any) => {
                 const sampleBody = '{\n  "key": "value"\n}';
-                model.setValue(sampleBody);
-                editor.setPosition({ lineNumber: 2, column: 3 });
+                
+                editor.executeEdits('add-body', [{
+                    range: model.getFullModelRange(),
+                    text: sampleBody
+                }]);
+                
+                setTimeout(() => {
+                    editor.setPosition({ lineNumber: 2, column: 3 });
+                    editor.focus();
+                }, 0);
             }
         },
         {
@@ -140,7 +178,11 @@ export const Input: React.FC<InputProps> = ({
                 try {
                     const value = model.getValue();
                     const formatted = JSON.stringify(JSON.parse(value), null, 2);
-                    model.setValue(formatted);
+                    
+                    editor.executeEdits('format-body', [{
+                        range: model.getFullModelRange(),
+                        text: formatted
+                    }]);
                 } catch (error) {
                     console.error('Failed to format JSON:', error);
                 }
