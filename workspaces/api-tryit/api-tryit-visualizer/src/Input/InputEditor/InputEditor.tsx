@@ -764,6 +764,11 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                     contextmenu: true,
                     selectOnLineNumbers: false,
                     wordWrap: 'off',
+                    scrollbar: {
+                        alwaysConsumeMouseWheel: false,
+                        vertical: 'visible',
+                        horizontal: 'visible'
+                    },
                     suggestOnTriggerCharacters: true,
                     quickSuggestions: {
                         other: true,
