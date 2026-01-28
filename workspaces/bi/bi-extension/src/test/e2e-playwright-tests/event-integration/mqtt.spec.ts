@@ -16,10 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { addArtifact, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
+import { DEFAULT_PROJECT_NAME } from '../utils/helpers/setup';
 
 export default function createTests() {
     test.describe('MQTT Integration Tests', {
@@ -42,43 +43,31 @@ export default function createTests() {
             await form.switchToFormView(false, artifactWebView);
             await form.fill({
                 values: {
-                    'Name*The name of the listener': {
-                        type: 'input',
-                        value: listenerName,
-                    },
-                    'serverUri': {
-                        type: 'textarea',
-                        value: `"tcp://localhost:1883"`,
-                        additionalProps: { clickLabel: true }
+                    'serviceUri': {
+                        type: 'cmEditor',
+                        value: `tcp://localhost:1883`,
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
                     },
                     'clientId': {
-                        type: 'textarea',
-                        value: `"clientId${testAttempt}"`,
-                        additionalProps: { clickLabel: true }
+                        type: 'cmEditor',
+                        value: `clientId${testAttempt}`,
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
                     },
                     'subscriptions': {
-                        type: 'textarea',
-                        value: `"testTopic"`,
-                        additionalProps: { clickLabel: true }
+                        type: 'cmEditor',
+                        value: `testTopic`,
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
                     }
                 }
             });
-            await form.submit('Next', true);
-
-            // Check for title
-            const configTitle = artifactWebView.locator('h3', { hasText: 'MQTT Event Handler Configuration' });
-            await configTitle.waitFor();
-
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
-
             await form.submit('Create');
 
-            const onMessage = artifactWebView.locator(`text="onMessage"`);
-            await onMessage.waitFor();
-
             const projectExplorer = new ProjectExplorer(page.page);
-            await projectExplorer.findItem(['sample', `MQTT Event Handler`], true);
+            await projectExplorer.findItem(['sample', `MQTT Event Integration`], true);
+
+            const mqttListener = `mqttListener`;
+            const context = artifactWebView.locator(`text=${mqttListener}`);
+            await context.waitFor();
 
             const updateArtifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
             if (!updateArtifactWebView) {
@@ -98,19 +87,65 @@ export default function createTests() {
             await editBtn.waitFor();
             await editBtn.click({ force: true });
 
+            // Step 4: Wait for "Kafka Event Integration Configuration" form to be open
+            // Check if the div with id="TitleDiv" is visible, indicating the form is open
+            const titleDiv = artifactWebView.locator('#TitleDiv');
+            await titleDiv.waitFor();
+
+            // Step 5-9: Update bootstrap servers and topic
+            const updatedServiceUri = `tcp://localhost:1010`;
+            const updatedTopic = `"updated-topic"`;
+
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
+            // Single-step form structure
+            await form.fill({
+                values: {
+                    'serverUri': {
+                        type: 'cmEditor',
+                        value: updatedServiceUri,
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
+                    },
+                    'subscriptions': {
+                        type: 'cmEditor',
+                        value: updatedTopic,
+                        additionalProps: { clickLabel: true, switchMode: 'expression-mode', window: global.window }
+                    }
+                }
+            });
 
-            const configTitle = artifactWebView.locator('h3', { hasText: 'MQTT Event Handler Configuration' });
-            await configTitle.waitFor();
+            await form.submit('Save Changes');
 
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
+            const saveChangesBtn = artifactWebView.locator('#save-changes-btn vscode-button[appearance="primary"]');
+            await saveChangesBtn.waitFor({ state: 'visible' });
+            await expect(saveChangesBtn).toHaveClass('disabled', { timeout: 5000 });
+            await expect(saveChangesBtn).toHaveText('Save Changes');
 
-            await form.submit('Save');
+            const backBtn = artifactWebView.locator('[data-testid="back-button"]');
+            await backBtn.waitFor();
+            await backBtn.click();
 
-            const onMessage = artifactWebView.locator(`text="onMessage"`);
-            await onMessage.waitFor();
+            const updatedTopicElement = artifactWebView.locator(`text=${updatedTopic}`);
+            await updatedTopicElement.waitFor({ state: 'visible' });
+        });
+
+        test('Delete MQTT Integration', async ({ }, testInfo) => {
+            const testAttempt = testInfo.retry + 1;
+            console.log('Deleting MQTT integration in test attempt: ', testAttempt);
+
+            const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
+            if (!artifactWebView) {
+                throw new Error('WSO2 Integrator: BI webview not found');
+            }
+
+            const projectExplorer = new ProjectExplorer(page.page);
+            const serviceTreeItem = await projectExplorer.findItem([DEFAULT_PROJECT_NAME, `MQTT Event Integration`], true);
+            await serviceTreeItem.click({ button: 'right' });
+            const deleteButton = page.page.getByRole('button', { name: 'Delete' }).first();
+            await deleteButton.waitFor({ timeout: 5000 });
+            await deleteButton.click();
+            await page.page.waitForTimeout(500);
+            await expect(serviceTreeItem).not.toBeVisible({ timeout: 10000 });
         });
     });
 }

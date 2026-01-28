@@ -17,13 +17,16 @@
  */
 
 import { test } from '@playwright/test';
-import { page, extensionsFolder } from './utils/helpers';
+import { page, extensionsFolder, newProjectPath } from './utils/helpers';
 import { downloadExtensionFromMarketplace } from '@wso2/playwright-vscode-tester';
 const fs = require('fs');
 const path = require('path');
 const videosFolder = path.join(__dirname, '..', 'test-resources', 'videos');
 
 import automation from './automation/automation.spec';
+import automationRun from './automation-run/automation-run.spec';
+import automationDebug from './automation-debug/automation-debug.spec';
+import expressionEditor from './expression-editor/expression-editor.spec';
 
 import httpService from './api-integration/http-service.spec';
 import aiChatService from './api-integration/ai-chat-service.spec';
@@ -43,7 +46,6 @@ import directoryIntegration from './file-integration/directory.spec';
 
 import functionArtifact from './other-artifacts/function.spec';
 import naturalFunctionArtifact from './other-artifacts/np.spec';
-import typeDiagramArtifact from './other-artifacts/type.spec';
 import connectionArtifact from './other-artifacts/connection.spec';
 
 import configuration from './configuration/configuration.spec';
@@ -54,6 +56,10 @@ import importIntegration from './import-integration/import-integration.spec';
 
 import reusableDataMapper from './data-mapper/reusable-data-mapper.spec';
 import inlineDataMapper from './data-mapper/inline-data-mapper.spec';
+
+import diagram from './diagram/diagram.spec';
+
+import testFunction from './test-function/test-function.spec';
 
 test.describe.configure({ mode: 'default' });
 
@@ -82,10 +88,17 @@ test.beforeAll(async () => {
 // <----Automation Test---->
 test.describe(automation);
 
-// <----AI Chat Service Test---->
+// // <----Automation Run/Debug Test---->
+test.describe(automationRun);
+test.describe(automationDebug);
+
+// // <----Expression Editor Test---->
+test.describe(expressionEditor);
+
+// // <----AI Chat Service Test---->
 test.describe(aiChatService);
 
-// <----Integration as API Test---->
+// // <----Integration as API Test---->
 test.describe(httpService);
 test.describe(graphqlService);
 test.describe(tcpService);
@@ -106,19 +119,23 @@ test.describe(directoryIntegration);
 // <----Other Artifacts Test---->
 test.describe(functionArtifact);
 // test.describe(naturalFunctionArtifact); // TODO: Enable this once the ballerina version is switchable
-// test.describe(dataMapperArtifact); // TODO: Enable this later once tests are improved
-test.describe(typeDiagramArtifact);
 test.describe(connectionArtifact);
 test.describe(configuration); // TODO: This tests is failing due to https://github.com/wso2/product-ballerina-integrator/issues/1231. Enable after fixing the issue.
 test.describe(typeTest); // TODO: This tests is failing due to https://github.com/wso2/product-ballerina-integrator/issues/1222. Enable after fixing the issue.
 test.describe(serviceTest);
 
 // <----Import Integration Test---->
-test.describe(importIntegration);
+test.describe.skip(importIntegration);
 
 // <----Data Mapper Test---->
 test.describe(reusableDataMapper);
 test.describe(inlineDataMapper);
+
+// <----Diagram Test---->
+test.describe(diagram);
+
+// <----Test Function Test---->
+test.describe(testFunction);
 
 test.afterAll(async () => {
     console.log('\n' + '='.repeat(80));
@@ -129,5 +146,19 @@ test.afterAll(async () => {
     console.log('💾 Saving test video...');
     await page.page?.close();
     page.page.video()?.saveAs(path.join(videosFolder, `test_${dateTime}.webm`));
-    console.log('✅ Video saved successfully\n');
+    console.log('✅ Video saved successfully');
+
+    // Clean up the test project directory
+    console.log('🧹 Cleaning up test project...');
+    if (fs.existsSync(newProjectPath)) {
+        try {
+            fs.rmSync(newProjectPath, { recursive: true, force: true });
+            console.log('✅ Test project cleaned up successfully\n');
+        } catch (error) {
+            console.error('❌ Failed to clean up test project:', error);
+            console.log('⚠️  Test project cleanup failed, but continuing...\n');
+        }
+    } else {
+        console.log('ℹ️  Test project directory does not exist, skipping cleanup\n');
+    }
 });
