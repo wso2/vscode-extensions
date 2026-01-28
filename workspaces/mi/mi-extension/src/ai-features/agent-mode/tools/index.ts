@@ -117,9 +117,11 @@ export {
     // Execute function creators
     createBashExecute,
     createKillShellExecute,
+    createTaskOutputExecute,
     // Tool creators
     createBashTool,
     createKillShellTool,
+    createTaskOutputTool,
     // Utility functions
     getBackgroundShells,
 } from './bash_tools';
@@ -148,6 +150,7 @@ export {
     // Bash tool names
     BASH_TOOL_NAME,
     KILL_SHELL_TOOL_NAME,
+    TASK_OUTPUT_TOOL_NAME,
 } from './types';
 
 /**

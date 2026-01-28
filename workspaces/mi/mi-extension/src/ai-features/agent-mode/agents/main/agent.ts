@@ -91,6 +91,8 @@ import {
     createBashExecute,
     createKillShellTool,
     createKillShellExecute,
+    createTaskOutputTool,
+    createTaskOutputExecute,
 } from '../../tools/bash_tools';
 import {
     FILE_WRITE_TOOL_NAME,
@@ -115,6 +117,7 @@ import {
     TODO_WRITE_TOOL_NAME,
     BASH_TOOL_NAME,
     KILL_SHELL_TOOL_NAME,
+    TASK_OUTPUT_TOOL_NAME,
 } from '../../tools/types';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
 import { ChatHistoryManager } from '../../chat-history-manager';
@@ -317,6 +320,9 @@ export async function executeAgent(
             ),
             [KILL_SHELL_TOOL_NAME]: createKillShellTool(
                 createKillShellExecute()
+            ),
+            [TASK_OUTPUT_TOOL_NAME]: createTaskOutputTool(
+                createTaskOutputExecute()
             ),
         };
 
