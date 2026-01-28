@@ -338,7 +338,7 @@ export const Input: React.FC<InputProps> = ({
                         Query Parameters
                     </Typography>
                     <InputEditor
-                        height='calc((100vh - 420px) / 3)'
+                        minHeight='calc((100vh - 420px) / 3)'
                         onChange={handleQueryParametersChange}
                         value={formatQueryParameters(request.queryParameters)}
                         codeLenses={queryParamsCodeLenses}
@@ -347,7 +347,7 @@ export const Input: React.FC<InputProps> = ({
                         Headers
                     </Typography>
                     <InputEditor
-                        height='calc((100vh - 420px) / 3)'
+                        minHeight='calc((100vh - 420px) / 3)'
                         onChange={handleHeadersChange}
                         value={formatHeaders(request.headers)}
                         codeLenses={headersCodeLenses}
@@ -356,7 +356,7 @@ export const Input: React.FC<InputProps> = ({
                         Body
                     </Typography>
                     <InputEditor
-                        height='calc((100vh - 420px) / 3)'
+                        minHeight='calc((100vh - 420px) / 3)'
                         onChange={handleBodyChange}
                         value={request.body || ''}
                         codeLenses={bodyCodeLenses}

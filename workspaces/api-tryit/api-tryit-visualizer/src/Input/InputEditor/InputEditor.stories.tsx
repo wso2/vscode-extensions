@@ -32,9 +32,9 @@ const meta: Meta<typeof InputEditor> = {
             control: 'text',
             description: 'The text value to display in the editor',
         },
-        height: {
+        minHeight: {
             control: 'text',
-            description: 'The height of the editor',
+            description: 'The minimum height of the editor',
         },
         language: {
             control: 'select',
@@ -63,7 +63,7 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
     args: {
         value: '{\n  "key": "value",\n  "array": [1, 2, 3]\n}',
-        height: '400px',
+        minHeight: '400px',
         language: 'json',
         onChange: (value: string | undefined) => console.log('Editor value changed:', value),
     },
@@ -72,7 +72,7 @@ export const Default: Story = {
 export const JavaScript: Story = {
     args: {
         value: 'function hello() {\n  console.log("Hello, World!");\n}',
-        height: '300px',
+        minHeight: '300px',
         language: 'javascript',
         onChange: (value: string | undefined) => console.log('Editor value changed:', value),
     },
@@ -81,7 +81,7 @@ export const JavaScript: Story = {
 export const LightTheme: Story = {
     args: {
         value: '{\n  "example": "Light theme editor",\n  "data": [1, 2, 3]\n}',
-        height: '400px',
+        minHeight: '400px',
         language: 'json',
         theme: 'vs-light', // Explicitly set for story
         onChange: (value: string | undefined) => console.log('Editor value changed:', value),
@@ -91,7 +91,7 @@ export const LightTheme: Story = {
 export const Empty: Story = {
     args: {
         value: '',
-        height: '300px',
+        minHeight: '300px',
         language: 'json',
         onChange: (value: string | undefined) => console.log('Editor value changed:', value),
     },
@@ -100,7 +100,7 @@ export const Empty: Story = {
 export const LargeHeight: Story = {
     args: {
         value: '{\n  "example": "This is a larger editor",\n  "data": {\n    "nested": true\n  }\n}',
-        height: '600px',
+        minHeight: '600px',
         language: 'json',
         onChange: (value: string | undefined) => console.log('Editor value changed:', value),
     },

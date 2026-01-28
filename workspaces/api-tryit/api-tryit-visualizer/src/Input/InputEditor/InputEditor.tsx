@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Editor, { Monaco } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 import styled from '@emotion/styled';
@@ -55,10 +55,12 @@ const LANGUAGE_ID = 'input-editor-lang';
 /**
  * Styled container for the editor with padding
  */
-const EditorContainer = styled.div`
+const EditorContainer = styled.div<{ minHeight?: string }>`
     padding: 12px;
     border-radius: 4px;
     background-color: #262626ff;
+    min-height: ${props => props.minHeight || '100px'};
+    height: auto;
 
     /* Light theme */
     body.vscode-light & {
@@ -108,7 +110,7 @@ export interface CodeLensConfig {
 
 interface InputEditorProps {
     value: string;
-    height: string;
+    minHeight?: string;
     language?: string;
     theme?: string;
     onChange: (value: string | undefined) => void;
@@ -122,7 +124,7 @@ interface InputEditorProps {
 
 export const InputEditor: React.FC<InputEditorProps> = ({
     value,
-    height,
+    minHeight = '100px',
     language = 'json',
     theme: propTheme,
     onChange,
@@ -137,6 +139,11 @@ export const InputEditor: React.FC<InputEditorProps> = ({
     const commandsDisposableRef = useRef<monaco.IDisposable[]>([]);
     // Generate a unique language ID for this editor instance to avoid conflicts
     const languageIdRef = useRef(`${LANGUAGE_ID}-${Math.random().toString(36).substring(7)}`);
+    // Content change listener disposable
+    const contentChangeDisposableRef = useRef<monaco.IDisposable | null>(null);
+
+    // Dynamic height state
+    const [dynamicHeight, setDynamicHeight] = useState(minHeight);
 
     // Use propTheme if provided, otherwise let Monaco inherit VS Code theme
     const theme = propTheme;
@@ -146,9 +153,9 @@ export const InputEditor: React.FC<InputEditorProps> = ({
      */
     const setupTheme = (monaco: Monaco) => {
         const isDark = getIsDarkTheme();
-        
+
         const currentLanguageId = languageIdRef.current;
-        
+
         // Register custom language if not already registered
         if (!monaco.languages.getLanguages().some((lang: { id: string }) => lang.id === currentLanguageId)) {
             monaco.languages.register({ id: currentLanguageId });
@@ -202,6 +209,32 @@ export const InputEditor: React.FC<InputEditorProps> = ({
             }
         });
     };
+
+    /**
+     * Updates the editor height based on content
+     */
+    const updateHeight = useCallback(() => {
+        if (!editorRef.current) return;
+
+        const model = editorRef.current.getModel();
+        if (!model) return;
+
+        const lineCount = model.getLineCount();
+        const lineHeight = 19; // Approximate line height in pixels
+        const padding = 24; // Top and bottom padding
+        const minHeightPx = 100; // Minimum height in pixels
+
+        // Calculate height based on line count
+        const calculatedHeight = Math.max(minHeightPx, lineCount * lineHeight + padding);
+
+        // Convert to string with px unit
+        const newHeight = `${calculatedHeight}px`;
+
+        // Update state if height changed
+        if (newHeight !== dynamicHeight) {
+            setDynamicHeight(newHeight);
+        }
+    }, [dynamicHeight]);
 
     /**
      * Sets up code lens provider using configurations from props
@@ -331,13 +364,16 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                 codeLensDisposableRef.current.dispose();
             }
             commandsDisposableRef.current.forEach(cmd => cmd.dispose());
+            if (contentChangeDisposableRef.current) {
+                contentChangeDisposableRef.current.dispose();
+            }
         };
     }, []);
 
     return (
-        <EditorContainer>
+        <EditorContainer minHeight={minHeight}>
             <Editor
-                height={height}
+                height={dynamicHeight}
                 language={languageIdRef.current}
                 defaultValue={value}
                 theme={theme || 'input-editor-theme'}
@@ -434,6 +470,16 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                     });
                     
                     console.log('[InputEditor] Custom actions registered successfully');
+                    
+                    // Add content change listener to update height dynamically
+                    const editorModel = editor.getModel();
+                    if (editorModel) {
+                        contentChangeDisposableRef.current = editorModel.onDidChangeContent(() => {
+                            updateHeight();
+                        });
+                        // Initial height update
+                        updateHeight();
+                    }
                     
                     onMount?.(editor, monaco);
                 }}
