@@ -34,7 +34,7 @@
     "@vscode/webview-ui-toolkit": "~1.4.0",
     "@wso2/font-wso2-vscode": "workspace:*",
     "classnames": "^2.5.1",
-    "lodash": "~4.17.21",
+    "lodash": "4.17.23",
     "monaco-editor": "~0.52.2",
     "prismjs": "^1.30.0",
     "react-hook-form": "7.56.3"
