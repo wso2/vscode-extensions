@@ -215,17 +215,29 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 break;
 
             case "abort":
-                // Abort acknowledged - finalize with partial content
+                // Abort acknowledged - finalize with partial content and "[Interrupted]" marker
+                // Keep the UI as-is, just add the interruption marker (Claude Code pattern)
                 setBackendRequestTriggered(false);
-                if (assistantResponse) {
-                    setMessages((prevMessages) => {
-                        const newMessages = [...prevMessages];
-                        if (newMessages.length > 0) {
-                            newMessages[newMessages.length - 1].content = assistantResponse + "\n\n*[Aborted]*";
+                setMessages((prevMessages) => {
+                    const newMessages = [...prevMessages];
+                    if (newMessages.length > 0) {
+                        const lastMessage = newMessages[newMessages.length - 1];
+                        // Only add marker if this is the assistant's message
+                        if (lastMessage.role === Role.MICopilot) {
+                            // Remove any pending toolcall tags with loading state
+                            let content = lastMessage.content.replace(/<toolcall data-loading="true"[^>]*>[^<]*<\/toolcall>/g, '');
+                            // Add interrupted marker
+                            content = content.trim();
+                            if (content) {
+                                content += "\n\n*[Interrupted by user]*";
+                            } else {
+                                content = "*[Interrupted by user]*";
+                            }
+                            newMessages[newMessages.length - 1].content = content;
                         }
-                        return newMessages;
-                    });
-                }
+                    }
+                    return newMessages;
+                });
                 setAssistantResponse("");
                 setToolStatus("");
                 break;
@@ -439,6 +451,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
         try {
             // Request the extension to abort agent generation
+            // This will save an interruption message to chat history (Claude Code pattern)
             await rpcClient.getMiAgentPanelRpcClient().abortAgentGeneration();
 
             // Abort the local controller (for any local operations)
@@ -447,38 +460,12 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             // Create a new AbortController for future fetches
             resetController();
 
-            // Clear assistant response state
-            setAssistantResponse("");
+            // Clear tool status but keep assistant response for display
             setToolStatus("");
 
-            // Remove the last user and copilot messages from UI state
-            setMessages((prevMessages) => {
-                const newMessages = [...prevMessages];
-                newMessages.pop(); // Remove the last copilot message
-                newMessages.pop(); // Remove the last user message
-                return newMessages;
-            });
-
-            // IMPORTANT: Also remove the last user message from copilotChat
-            // to prevent partial conversations from persisting in localStorage
-            setCopilotChat((prevChat) => {
-                const newChat = [...prevChat];
-                if (newChat.length > 0) {
-                    newChat.pop(); // Remove the last user message
-                }
-                return newChat;
-            });
-
-            // Restore the original user prompt to the input box
-            setCurrentUserprompt(lastUserPromptRef.current);
-
-            // Explicitly adjust the textarea height
-            if (textAreaRef.current) {
-                setTimeout(() => {
-                    textAreaRef.current.style.height = "auto";
-                    textAreaRef.current.style.height = `${textAreaRef.current.scrollHeight}px`;
-                }, 0);
-            }
+            // Keep the UI as-is with partial response, just mark as interrupted
+            // The abort event handler will add "[Aborted]" marker to the message
+            // Don't remove messages or restore prompt - user explicitly stopped the generation
 
             // Reset abort flag after a delay to ensure all buffered events are ignored
             setTimeout(() => {
@@ -489,11 +476,10 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             // Reset abort flag on error as well
             abortedRef.current = false;
         } finally {
-            // Don't reset isStopButtonClicked here - keep it true so handleSend's finally
-            // block won't clear the restored prompt. It will be reset on next send.
-
             // Reset backend request triggered state
             setBackendRequestTriggered(false);
+            // Clear the input prompt since the message was already sent
+            setCurrentUserprompt("");
         }
     };
 

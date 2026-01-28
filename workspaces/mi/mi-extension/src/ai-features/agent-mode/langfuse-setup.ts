@@ -31,8 +31,8 @@ export function initializeLangfuse(): void {
         sdk = new NodeSDK({
             spanProcessors: [
                 new LangfuseSpanProcessor({
-                    publicKey: 'pk-lf-00000000-0000-0000-0000-000000000000',
-                    secretKey: 'sk-lf-00000000-0000-0000-0000-000000000000',
+                    publicKey: 'sk-lf-b2584e72-396e-4924-a2ce-88f8dc0026bb',
+                    secretKey: 'sk-lf-b2584e72-396e-4924-a2ce-88f8dc0026bb',
                     baseUrl: 'https://cloud.langfuse.com',
                 }),
             ],

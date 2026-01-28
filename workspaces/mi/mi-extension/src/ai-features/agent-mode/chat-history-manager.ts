@@ -222,6 +222,34 @@ export class ChatHistoryManager {
     }
 
     /**
+     * Save an interruption message when user aborts the request
+     * This helps the LLM understand in the next session that the previous request was interrupted
+     * Following Claude Code's pattern for handling user interruptions
+     *
+     * @param wasToolUse - Whether the interruption happened during tool use
+     */
+    async saveInterruptionMessage(wasToolUse: boolean = false): Promise<void> {
+        const interruptionText = wasToolUse
+            ? '[Request interrupted by user during tool use]'
+            : '[Request interrupted by user]';
+
+        const interruptionMessage = {
+            role: 'user',
+            content: [{
+                type: 'text',
+                text: interruptionText,
+            }]
+        };
+
+        try {
+            await this.writeEntry(interruptionMessage);
+            logDebug(`[ChatHistory] Saved interruption message: ${interruptionText}`);
+        } catch (error) {
+            logError('[ChatHistory] Failed to save interruption message', error);
+        }
+    }
+
+    /**
      * Get all messages for the current session
      * Reads directly from JSONL file (single source of truth)
      *
@@ -361,6 +389,12 @@ export class ChatHistoryManager {
                             .filter((part: any) => part.type === 'text')
                             .map((part: any) => part.text)
                             .join('');
+                    }
+
+                    // Skip interruption messages from UI display (they're only for LLM context)
+                    // These are saved when user aborts a request
+                    if (userContent.includes('[Request interrupted by user')) {
+                        continue;
                     }
 
                     // Extract content between <USER_QUERY> tags (user's actual query)
