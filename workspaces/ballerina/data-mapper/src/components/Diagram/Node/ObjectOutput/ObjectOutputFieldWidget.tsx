@@ -97,13 +97,6 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
     // Handle tuple members by combining port prefix with field.id (bracket notation)
     let portName: string;
     if (parentFieldKind === TypeKind.Tuple) {
-        // const firstDotIndex = parentId.indexOf('.');
-        // if (firstDotIndex >= 0) {
-        //     const prefix = parentId.substring(0, firstDotIndex);
-        //     portName = `${prefix}.${field.id}`;
-        // } else {
-        //     portName = field.id;
-        // }
         portName = `${parentId}${field.name}`;
     } else if (isPortParent) {
         portName = parentId;
