@@ -16,8 +16,8 @@
  * under the License.
  */
 
-import React, { useState } from 'react';
-import { Typography, LinkButton, Codicon, Button } from '@wso2/ui-toolkit';
+import React from 'react';
+import { Typography, LinkButton, Codicon } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { ParamItem } from './ParamItem';
 import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
@@ -35,6 +35,9 @@ interface InputProps {
 
 const Container = styled.div`
     width: 100%;
+    padding: 0 5px;
+    height: calc(100vh - 215px);
+    overflow: auto;
 `;
 
 const Section = styled.div`
@@ -334,7 +337,7 @@ export const Input: React.FC<InputProps> = ({
         <Container>
             {mode === 'code' ? (
                 <>
-                    <Typography variant="h3" sx={{ marginBottom: '16px' }}>
+                    <Typography variant="h3" sx={{ marginBottom: '8px' }}>
                         Query Parameters
                     </Typography>
                     <InputEditor
@@ -343,7 +346,7 @@ export const Input: React.FC<InputProps> = ({
                         value={formatQueryParameters(request.queryParameters)}
                         codeLenses={queryParamsCodeLenses}
                     />
-                    <Typography variant="h3" sx={{ margin: '16px 0' }}>
+                    <Typography variant="h3" sx={{ margin: '8px 0' }}>
                         Headers
                     </Typography>
                     <InputEditor
@@ -352,7 +355,7 @@ export const Input: React.FC<InputProps> = ({
                         value={formatHeaders(request.headers)}
                         codeLenses={headersCodeLenses}
                     />
-                    <Typography variant="h3" sx={{ margin: '16px 0' }}>
+                    <Typography variant="h3" sx={{ margin: '8px 0' }}>
                         Body
                     </Typography>
                     <InputEditor

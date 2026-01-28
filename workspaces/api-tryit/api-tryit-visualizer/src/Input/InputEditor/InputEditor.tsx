@@ -220,7 +220,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         if (!model) return;
 
         const lineCount = model.getLineCount();
-        const lineHeight = 19; // Approximate line height in pixels
+        const lineHeight = 21; // Approximate line height in pixels
         const padding = 24; // Top and bottom padding
         const minHeightPx = 100; // Minimum height in pixels
 
@@ -233,6 +233,10 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         // Update state if height changed
         if (newHeight !== dynamicHeight) {
             setDynamicHeight(newHeight);
+            // Trigger code lens refresh when height changes
+            if (editorRef.current) {
+                editorRef.current.trigger('', 'codelens', {});
+            }
         }
     }, [dynamicHeight]);
 
@@ -371,7 +375,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
     }, []);
 
     return (
-        <EditorContainer minHeight={minHeight}>
+        <EditorContainer>
             <Editor
                 height={dynamicHeight}
                 language={languageIdRef.current}
@@ -476,6 +480,8 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                     if (editorModel) {
                         contentChangeDisposableRef.current = editorModel.onDidChangeContent(() => {
                             updateHeight();
+                            // Trigger code lens refresh on content change
+                            editor.trigger('', 'codelens', {});
                         });
                         // Initial height update
                         updateHeight();
