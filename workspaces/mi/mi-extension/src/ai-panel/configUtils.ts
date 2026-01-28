@@ -89,7 +89,10 @@ function addOrUpdateEnvEntry(filePath: string, key: string, value: string): void
     }
 
     const lines = content.split('\n');
-    const keyIndex = lines.findIndex(line => line.startsWith(`${key}=`));
+    const keyIndex = lines.findIndex(line => {
+        const [lineKey] = line.split('=', 1);
+        return lineKey === key;
+    });
 
     if (keyIndex !== -1) {
         lines[keyIndex] = `${key}=${value}`;
@@ -130,7 +133,10 @@ function addOrUpdateConfigPropertyEntry(filePath: string, key: string, type: str
     }
 
     const lines = content.split('\n');
-    const keyIndex = lines.findIndex(line => line.startsWith(`${key}:`));
+    const keyIndex = lines.findIndex(line => {
+        const [lineKey] = line.split(':', 1);
+        return lineKey === key;
+    });
 
     if (keyIndex !== -1) {
         lines[keyIndex] = `${key}:${type}`;

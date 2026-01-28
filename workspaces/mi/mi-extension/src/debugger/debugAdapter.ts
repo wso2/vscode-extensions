@@ -293,8 +293,6 @@ export class MiDebugAdapter extends LoggingDebugSession {
                         DebuggerConfig.setEnvVariables(envVars);
                         DebuggerConfig.setVmArgs(args?.vmArgs ? args?.vmArgs : []);
 
-                        DebuggerConfig.setVmArgs(args?.vmArgs ? args?.vmArgs : []);
-
                         await setManagementCredentials(serverPath);
 
                         vscode.commands.executeCommand('setContext', 'MI.isRunning', 'true');
