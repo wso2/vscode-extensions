@@ -55,6 +55,7 @@ export interface ApiRequest {
     queryParameters: QueryParameter[];
     headers: HeaderParameter[];
     body?: string;
+    assertions?: string[];
 }
 
 // Response types

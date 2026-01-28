@@ -22,6 +22,7 @@ import { VSCodePanels, VSCodePanelTab, VSCodePanelView } from '@vscode/webview-u
 import styled from '@emotion/styled';
 import { Input } from '../Input/Input';
 import { Output } from '../Output/Output';
+import { Assert } from '../Input/Assert/Assert';
 import { ApiRequestItem, ApiRequest, ApiResponse, ResponseHeader } from '@wso2/api-tryit-core';
 import axios, { AxiosError } from 'axios';
 import { useExtensionMessages } from '../hooks/useExtensionMessages';
@@ -169,12 +170,14 @@ const NameTextField = styled(TextField)`
 `;
 
 type InputMode = 'code' | 'form';
+type AssertMode = 'code' | 'form';
 
 export const MainPanel: React.FC = () => {
     const [requestItem, setRequestItem] = useState<ApiRequestItem | undefined>();
     const [activeTab, setActiveTab] = useState('input');
     const [isLoading, setIsLoading] = useState(false);
     const [inputMode, setInputMode] = useState<InputMode>('code');
+    const [assertMode, setAssertMode] = useState<AssertMode>('form');
     const [showHelp, setShowHelp] = useState(false);
     const [isEditingName, setIsEditingName] = useState(false);
     const [tempName, setTempName] = useState(requestItem?.name);
@@ -530,6 +533,23 @@ export const MainPanel: React.FC = () => {
                                     </ToggleOption>
                                 </SlidingToggle>
                             )}
+                            {activeTab === 'assert' && (
+                                <SlidingToggle 
+                                    isCodeMode={assertMode === 'code'}
+                                    onClick={() => setAssertMode(assertMode === 'code' ? 'form' : 'code')}
+                                    title={assertMode === 'code' ? 'Switch to Form mode' : 'Switch to Code mode'}
+                                >
+                                    <ToggleBackground isCodeMode={assertMode === 'code'} />
+                                    <ToggleOption isActive={assertMode === 'code'}>
+                                        <Codicon name="code" />
+                                        Code
+                                    </ToggleOption>
+                                    <ToggleOption isActive={assertMode === 'form'}>
+                                        <Codicon name="list-unordered" />
+                                        Form
+                                    </ToggleOption>
+                                </SlidingToggle>
+                            )}
                         </ControlsWrapper>
                         <VSCodePanels activeid={activeTab} onChange={(e: any) => setActiveTab(e.target.activeid)}>
                             <VSCodePanelTab id="input">Input</VSCodePanelTab>
@@ -552,20 +572,11 @@ export const MainPanel: React.FC = () => {
 
                         {/* Assert Tab Content */}
                         <VSCodePanelView id="view-assert">
-                            <div style={{ padding: '16px' }}>
-                                <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
-                                    Assertions
-                                </Typography>
-                                <Typography variant="caption" sx={{ opacity: 0.8, margin: '0 0 12px 0', display: 'block' }}>
-                                    Add assertions to validate the API response automatically.
-                                </Typography>
-                                <Button
-                                    appearance="secondary"
-                                    onClick={() => console.log('Add assertion')}
-                                >
-                                    + Add Assertion
-                                </Button>
-                            </div>
+                            <Assert 
+                                request={requestItem.request}
+                                onRequestChange={handleRequestChange}
+                                mode={assertMode}
+                            />
                         </VSCodePanelView>
                     </VSCodePanels>
                     </PanelsWrapper>
