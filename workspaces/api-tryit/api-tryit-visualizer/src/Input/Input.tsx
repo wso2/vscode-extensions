@@ -27,6 +27,7 @@ import { InputEditor } from './InputEditor/InputEditor';
 import { COMMON_HEADERS, COMMON_QUERY_KEYS, COMMON_BODY_SNIPPETS } from './InputEditor/SuggestionsConstants';
 
 type InputMode = 'code' | 'form';
+type BodyFormat = 'json' | 'xml' | 'text' | 'html' | 'javascript' | 'form-data' | 'form-urlencoded' | 'binary' | 'no-body';
 
 interface InputProps {
     request: ApiRequest;
@@ -49,11 +50,171 @@ const AddButtonWrapper = styled.div`
     margin-left: 4px;
 `;
 
+const BodyHeaderContainer = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 8px 0;
+    gap: 12px;
+`;
+
+const BodyTitleWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+`;
+
+const FormatSelectorWrapper = styled.div`
+    position: relative;
+    display: inline-block;
+`;
+
+const FormatButton = styled.button`
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: inherit;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: inherit;
+    transition: all 0.2s ease;
+    
+    &:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.3);
+    }
+    
+    &:active {
+        background-color: rgba(255, 255, 255, 0.15);
+    }
+`;
+
+const FormatDropdown = styled.div<{ isOpen: boolean }>`
+    position: absolute;
+    max-height: 160px;
+    overflow: auto;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: #3e3e42;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    min-width: 180px;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    display: ${props => props.isOpen ? 'block' : 'none'};
+`;
+
+const FormatOption = styled.div<{ isSelected: boolean }>`
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    background-color: ${props => props.isSelected ? 'rgba(255, 255, 255, 0.1)' : 'transparent'};
+    color: ${props => props.isSelected ? '#fff' : 'rgba(255, 255, 255, 0.8)'};
+    
+    &:hover {
+        background-color: rgba(255, 255, 255, 0.15);
+        color: #fff;
+    }
+    
+    &:not(:last-child) {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+`;
+
+const FormatGroupTitle = styled.div`
+    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin: 0;
+`;
+
+const ArrowIcon = styled.span<{ isOpen: boolean }>`
+    display: inline-flex;
+    align-items: center;
+    transform: ${props => props.isOpen ? 'rotate(180deg)' : 'rotate(0deg)'};
+    transition: transform 0.2s ease;
+    font-size: 12px;
+`;
+
+const FormatOptions = styled.div`
+    margin-left: 8px;
+`;
+
 export const Input: React.FC<InputProps> = ({ 
     request,
     onRequestChange,
     mode = 'code'
 }) => {
+    const [bodyFormatOpen, setBodyFormatOpen] = React.useState(false);
+    const [bodyFormat, setBodyFormat] = React.useState<BodyFormat>('json');
+    const formatMenuRef = React.useRef<HTMLDivElement>(null);
+
+    // Format to Content-Type mapping
+    const formatContentTypeMap: Record<BodyFormat, string> = {
+        'json': 'application/json',
+        'xml': 'application/xml',
+        'text': 'text/plain',
+        'html': 'text/html',
+        'javascript': 'application/javascript',
+        'form-data': 'multipart/form-data',
+        'form-urlencoded': 'application/x-www-form-urlencoded',
+        'binary': 'application/octet-stream',
+        'no-body': ''
+    };
+
+    const formatOptions = [
+        {
+            group: 'Form',
+            options: [
+                { label: 'Multipart Form', value: 'form-data' as BodyFormat },
+                { label: 'Form URL Encoded', value: 'form-urlencoded' as BodyFormat }
+            ]
+        },
+        {
+            group: 'Raw',
+            options: [
+                { label: 'JSON', value: 'json' as BodyFormat },
+                { label: 'XML', value: 'xml' as BodyFormat },
+                { label: 'TEXT', value: 'text' as BodyFormat },
+                { label: 'JavaScript', value: 'javascript' as BodyFormat },
+                { label: 'HTML', value: 'html' as BodyFormat }
+            ]
+        },
+        {
+            group: 'Other',
+            options: [
+                { label: 'File / Binary', value: 'binary' as BodyFormat },
+                { label: 'No Body', value: 'no-body' as BodyFormat }
+            ]
+        }
+    ];
+
+    // Close dropdown when clicking outside
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (formatMenuRef.current && !formatMenuRef.current.contains(event.target as Node)) {
+                setBodyFormatOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleFormatChange = (format: BodyFormat) => {
+        setBodyFormat(format);
+    };
 
     // Safety check to ensure request object exists with required properties
     if (!request) {
@@ -357,9 +518,35 @@ export const Input: React.FC<InputProps> = ({
                         codeLenses={headersCodeLenses}
                         suggestions={{ headers: COMMON_HEADERS }}
                     />
-                    <Typography variant="h3" sx={{ margin: '8px 0' }}>
-                        Body
-                    </Typography>
+                    <BodyHeaderContainer>
+                        <BodyTitleWrapper>
+                            <Typography variant="h3">Body</Typography>
+                        </BodyTitleWrapper>
+                        <FormatSelectorWrapper ref={formatMenuRef}>
+                            <FormatButton onClick={() => setBodyFormatOpen(!bodyFormatOpen)}>
+                                {bodyFormat.toUpperCase()}
+                                <ArrowIcon isOpen={bodyFormatOpen}>▼</ArrowIcon>
+                            </FormatButton>
+                            <FormatDropdown isOpen={bodyFormatOpen}>
+                                {formatOptions.map((group) => (
+                                    <div key={group.group}>
+                                        <FormatGroupTitle>{group.group}</FormatGroupTitle>
+                                        <FormatOptions>
+                                            {group.options.map((option) => (
+                                                <FormatOption
+                                                    key={option.value}
+                                                    isSelected={bodyFormat === option.value}
+                                                    onClick={() => handleFormatChange(option.value)}
+                                                >
+                                                    {option.label}
+                                                </FormatOption>
+                                            ))}
+                                        </FormatOptions>
+                                    </div>
+                                ))}
+                            </FormatDropdown>
+                        </FormatSelectorWrapper>
+                    </BodyHeaderContainer>
                     <InputEditor
                         minHeight='calc((100vh - 420px) / 3)'
                         onChange={handleBodyChange}
