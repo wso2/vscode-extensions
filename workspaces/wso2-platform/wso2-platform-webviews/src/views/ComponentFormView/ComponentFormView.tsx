@@ -26,7 +26,7 @@ import {
 	type CreateComponentReq,
 	type Endpoint,
 	GitProvider,
-	type NewComponentWebviewProps,
+	type ComponentFormWebviewProps,
 	type SubmitComponentCreateReq,
 	WebAppSPATypes,
 	buildGitURL,
@@ -71,7 +71,7 @@ type ComponentFormBuildDetailsType = z.infer<typeof componentBuildDetailsSchema>
 type ComponentFormEndpointsType = z.infer<typeof componentEndpointsFormSchema>;
 type ComponentFormGitProxyType = z.infer<typeof componentGitProxyFormSchema>;
 
-export const ComponentFormView: FC<NewComponentWebviewProps> = (props) => {
+export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 	const {
 		project,
 		organization,

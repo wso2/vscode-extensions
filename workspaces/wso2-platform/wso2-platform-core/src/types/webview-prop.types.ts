@@ -29,7 +29,7 @@ export interface ComponentConfig {
 	isNewCodeServerComp?: boolean;
 }
 
-export interface NewComponentWebviewProps {
+export interface ComponentFormWebviewProps {
 	type: "NewComponentForm";
 	organization: Organization;
 	project: Project;
@@ -43,7 +43,7 @@ export interface NewComponentWebviewProps {
  * Flattened props type for form section components.
  * This combines the common webview props with the current component's config.
  */
-export type ComponentFormSectionProps = Omit<NewComponentWebviewProps, "components"> & ComponentConfig;
+export type ComponentFormSectionProps = Omit<ComponentFormWebviewProps, "components"> & ComponentConfig;
 
 export interface ComponentsDetailsWebviewProps {
 	type: "ComponentDetailsView";
@@ -60,4 +60,4 @@ export interface ComponentsListActivityViewProps {
 	directoryFsPath?: string;
 }
 
-export type WebviewProps = ComponentsDetailsWebviewProps | NewComponentWebviewProps | ComponentsListActivityViewProps;
+export type WebviewProps = ComponentsDetailsWebviewProps | ComponentFormWebviewProps | ComponentsListActivityViewProps;

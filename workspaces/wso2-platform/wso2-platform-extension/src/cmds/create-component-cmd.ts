@@ -22,6 +22,7 @@ import * as path from "path";
 import {
 	ChoreoComponentType,
 	CommandIds,
+	ComponentConfig,
 	type ComponentKind,
 	DevantScopes,
 	type ExtensionName,
@@ -376,28 +377,57 @@ async function fetchProjectComponents(
 
 function buildCreateFormParams(
 	selectedUri: Uri,
-	org: Organization,
-	project: Project,
 	typeSelection: ComponentTypeSelection,
 	componentName: string,
 	gitInfo: GitInfo,
 	buildPackLang?: string,
-): ISingleComponentCreateFormParams {
+): ComponentConfig {
 	return {
 		directoryUriPath: selectedUri.path,
 		directoryFsPath: selectedUri.fsPath,
 		directoryName: path.basename(selectedUri.fsPath),
-		organization: org,
-		project: project,
-		extensionName: webviewStateStore.getState().state.extensionName,
-		isNewCodeServerComp: !gitInfo.isInitialized && ext.isDevantCloudEditor,
 		initialValues: {
 			type: typeSelection.type,
 			subType: typeSelection.subType,
 			buildPackLang: buildPackLang,
 			name: componentName,
 		},
+		isNewCodeServerComp: !gitInfo.isInitialized && ext.isDevantCloudEditor,
 	};
+}
+
+async function buildComponentConfig(
+	context: ExtensionContext,
+	param: ICreateComponentCmdParams,
+	org: Organization,
+	project: Project,
+	components: ComponentKind[],
+	terminology: TerminologyContext,
+): Promise<ComponentConfig | null> {
+	const typeSelection = await resolveComponentType(param, terminology);
+	const selectedUri = await selectComponentDirectory(param, terminology);
+	const gitInfo = await getGitInfo(context, selectedUri.fsPath);
+
+	if (gitInfo.root) {
+		const componentExists = await checkIfComponentExistsAtPath(components, gitInfo.root, selectedUri.fsPath);
+		if (componentExists) {
+			const shouldProceed = await handleExistingComponent(project, org, gitInfo.root, terminology);
+			if (!shouldProceed) {
+				return null;
+			}
+		}
+	}
+
+	const baseName = param?.name || path.basename(selectedUri.fsPath) || typeSelection.type;
+	const componentName = generateUniqueComponentName(baseName, components);
+
+	return buildCreateFormParams(
+		selectedUri,
+		typeSelection,
+		componentName,
+		gitInfo,
+		param?.buildPackLang,
+	);
 }
 
 function showComponentFormInWorkspace(createParams: ISingleComponentCreateFormParams | IComponentCreateFormParams): void {
@@ -424,11 +454,10 @@ function showComponentFormOutsideWorkspace(
 // ============================================================================
 
 interface PreparedComponentResult {
-	formParams: ISingleComponentCreateFormParams;
+	formParams: IComponentCreateFormParams;
 	gitRoot: string | undefined;
 	directoryPath: string;
 	isWithinWorkspace: boolean;
-	createAsBatch: boolean;
 }
 
 async function prepareComponentFormParams(
@@ -437,53 +466,88 @@ async function prepareComponentFormParams(
 	org: Organization,
 	project: Project,
 	components: ComponentKind[],
-	terminology: TerminologyContext,
-	createAsBatch: boolean = false,
+	terminology: TerminologyContext
 ): Promise<PreparedComponentResult | null> {
-	const typeSelection = await resolveComponentType(params, terminology);
-	const selectedUri = await selectComponentDirectory(params, terminology);
-	const gitInfo = await getGitInfo(context, selectedUri.fsPath);
 
-	if (gitInfo.root) {
-		const componentExists = await checkIfComponentExistsAtPath(components, gitInfo.root, selectedUri.fsPath);
-		if (componentExists) {
-			const shouldProceed = await handleExistingComponent(project, org, gitInfo.root, terminology);
-			if (!shouldProceed) {
-				return null;
-			}
-		}
+	const componentConfig = await buildComponentConfig(context, params, org, project, components, terminology);
+	if (!componentConfig) {
+		return null;
 	}
 
-	const baseName = params?.name || path.basename(selectedUri.fsPath) || typeSelection.type;
-	const componentName = generateUniqueComponentName(baseName, components);
-
-	const formParams = buildCreateFormParams(
-		selectedUri,
-		org,
-		project,
-		typeSelection,
-		componentName,
-		gitInfo,
-		params?.buildPackLang,
-	);
+	const formParams: IComponentCreateFormParams = {
+		organization: org,
+		project: project,
+		extensionName: webviewStateStore.getState().state.extensionName,
+		components: [componentConfig],
+	}
 
 	const isWithinWorkspace = workspace.workspaceFolders?.some((folder) =>
-		isSubpath(folder.uri?.fsPath, selectedUri.fsPath),
+		isSubpath(folder.uri?.fsPath, componentConfig.directoryFsPath),
 	) ?? false;
 
+	const gitInfo = await getGitInfo(context, componentConfig.directoryFsPath);
+
 	return {
-		formParams,
+		formParams: formParams,
 		gitRoot: gitInfo.root,
-		directoryPath: selectedUri.path,
-		isWithinWorkspace,
-		createAsBatch,
-	};
+		directoryPath: componentConfig.directoryUriPath,
+		isWithinWorkspace: isWithinWorkspace
+	}
+}
+
+async function prepareComponentFormParamsBatch(
+	context: ExtensionContext,
+	params: ICreateComponentCmdParams[],
+	org: Organization,
+	project: Project,
+	components: ComponentKind[],
+	terminology: TerminologyContext,
+	rootDirectory: string,
+): Promise<PreparedComponentResult | null> {
+	if (components.length > 1 && rootDirectory === "") {
+		return null;
+	}
+
+	let directoryUri: Uri;
+	if (rootDirectory !== "" && existsSync(rootDirectory)) {
+		directoryUri = Uri.parse(convertFsPathToUriPath(rootDirectory));
+	} else {
+		return null;
+	}
+
+	const componentConfigs: ComponentConfig[] = [];
+
+	for (const param of params) {
+		const componentConfig = await buildComponentConfig(context, param, org, project, components, terminology);
+		if (!componentConfig) {
+			continue;
+		}
+		componentConfigs.push(componentConfig);
+	}
+
+	const formParams: IComponentCreateFormParams = {
+		organization: org,
+		project: project,
+		extensionName: webviewStateStore.getState().state.extensionName,
+		components: componentConfigs,
+	}
+
+	const isWithinWorkspace = workspace.workspaceFolders?.some((folder) =>
+		isSubpath(folder.uri?.fsPath, directoryUri.fsPath),
+	) ?? false;
+
+	const gitInfo = await getGitInfo(context, directoryUri.fsPath);
+
+	return {
+		formParams: formParams,
+		gitRoot: gitInfo.root,
+		directoryPath: directoryUri.path,
+		isWithinWorkspace: isWithinWorkspace
+	}
 }
 
 function showComponentForm(prepared: PreparedComponentResult): void {
-	if (prepared.createAsBatch) {
-		return;
-	} else if (prepared.isWithinWorkspace || workspace.workspaceFile) {
+	if (prepared.isWithinWorkspace || workspace.workspaceFile) {
 		showComponentFormInWorkspace(prepared.formParams);
 	} else {
 		showComponentFormOutsideWorkspace(prepared.formParams, prepared.gitRoot, prepared.directoryPath);
@@ -522,7 +586,8 @@ async function executeCreateComponentCommand(
 
 async function executeCreateMultipleNewComponentsCommand(
 	context: ExtensionContext,
-	params: ICreateComponentCmdParams[]
+	params: ICreateComponentCmdParams[],
+	rootDirectory: string,
 ): Promise<void> {
 	if (!params || params.length === 0) {
 		return;
@@ -545,19 +610,20 @@ async function executeCreateMultipleNewComponentsCommand(
 	const components = await fetchProjectComponents(org, project, terminology);
 
 	// Prepare all components first, collecting form params
-	const preparedComponents: PreparedComponentResult[] = [];
-
-	for (const param of params) {
-		const prepared = await prepareComponentFormParams(context, param, org, project, components, terminology, true);
-		if (prepared) {
-			preparedComponents.push(prepared);
-		}
+	const preparedComponents = await prepareComponentFormParamsBatch(
+		context,
+		params,
+		org,
+		project,
+		components,
+		terminology,
+		rootDirectory
+	);
+	if (!preparedComponents) {
+		return;
 	}
 
-	// Show all forms at the end
-	for (const prepared of preparedComponents) {
-		showComponentForm(prepared);
-	}
+	showComponentForm(preparedComponents);
 }
 
 export function createNewComponentCommand(context: ExtensionContext) {
@@ -578,17 +644,20 @@ export function createNewComponentCommand(context: ExtensionContext) {
 
 export function createMultipleNewComponentsCommand(context: ExtensionContext) {
 	context.subscriptions.push(
-		commands.registerCommand(CommandIds.CreateMultipleNewComponents, async (params: ICreateComponentCmdParams[]) => {
-			const extName = webviewStateStore.getState().state.extensionName;
-			const terminology = getTerminology(extName);
+		commands.registerCommand(
+			CommandIds.CreateMultipleNewComponents,
+			async (params: ICreateComponentCmdParams[], rootDirectory: string) => {
+				const extName = webviewStateStore.getState().state.extensionName;
+				const terminology = getTerminology(extName);
 
-			try {
-				await executeCreateMultipleNewComponentsCommand(context, params);
-			} catch (err: any) {
-				console.error(`Failed to create multiple ${terminology.componentTerm}s`, err);
-				window.showErrorMessage(err?.message || `Failed to create multiple ${terminology.componentTerm}s`);
+				try {
+					await executeCreateMultipleNewComponentsCommand(context, params, rootDirectory);
+				} catch (err: any) {
+					console.error(`Failed to create multiple ${terminology.componentTerm}s`, err);
+					window.showErrorMessage(err?.message || `Failed to create multiple ${terminology.componentTerm}s`);
+				}
 			}
-		}),
+		),
 	);
 }
 

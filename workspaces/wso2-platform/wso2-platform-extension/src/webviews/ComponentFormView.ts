@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import type { ComponentConfig, NewComponentWebviewProps } from "@wso2/wso2-platform-core";
+import type { ComponentConfig, ComponentFormWebviewProps } from "@wso2/wso2-platform-core";
 import * as vscode from "vscode";
 import { ext } from "../extensionVariables";
 import { dataCacheStore } from "../stores/data-cache-store";
@@ -24,7 +24,7 @@ import { webviewStateStore } from "../stores/webview-state-store";
 import { WebViewPanelRpc } from "./WebviewRPC";
 import { getUri } from "./utils";
 
-export type IComponentCreateFormParams = Omit<NewComponentWebviewProps, "type" | "existingComponents">;
+export type IComponentCreateFormParams = Omit<ComponentFormWebviewProps, "type" | "existingComponents">;
 
 /** Single component creation params - kept for backward compatibility */
 export type ISingleComponentCreateFormParams = Omit<IComponentCreateFormParams, "components"> & ComponentConfig;
@@ -102,7 +102,7 @@ export class ComponentFormView {
 
 		const codiconUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "resources", "codicons", "codicon.css"));
 
-		const webviewProps: NewComponentWebviewProps = {
+		const webviewProps: ComponentFormWebviewProps = {
 			type: "NewComponentForm",
 			existingComponents: dataCacheStore.getState().getComponents(params.organization.handle, params.project.handler),
 			organization: params.organization,
