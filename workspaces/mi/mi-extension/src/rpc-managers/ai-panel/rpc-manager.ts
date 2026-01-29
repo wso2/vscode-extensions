@@ -486,6 +486,14 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
     }
 
     /**
+     * Check if user is logged in to MI Copilot (via MI_INTEL SSO)
+     */
+    async isMiCopilotLoggedIn(): Promise<boolean> {
+        const loginMethod = await getLoginMethod();
+        return loginMethod === LoginMethod.MI_INTEL;
+    }
+
+    /**
      * Fetches usage information from backend and updates state machine
      * Only works for MI_INTEL users
      * Also checks if usage has reset and transitions back to Authenticated if in UsageExceeded state

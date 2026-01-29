@@ -66,6 +66,11 @@ export interface MIAIPanelAPI {
     hasAnthropicApiKey: () => Promise<boolean | undefined>
 
     // ==================================
+    // MI Copilot Login Status
+    // ==================================
+    isMiCopilotLoggedIn: () => Promise<boolean>
+
+    // ==================================
     // Usage Management
     // ==================================
     fetchUsage: () => Promise<{ max_usage: number; remaining_tokens: number; time_to_reset: number } | undefined>
@@ -100,6 +105,7 @@ export {
     abortCodeGeneration,
     codeGenerationEvent,
     hasAnthropicApiKey,
+    isMiCopilotLoggedIn,
     fetchUsage,
     generateUnitTest,
     generateUnitTestCase,

@@ -16,11 +16,21 @@
  * under the License.
  */
 
+import { AI_EVENT_TYPE, LoginMethod, PromptObject } from '@wso2/mi-core';
 import * as vscode from 'vscode';
 import { COMMANDS } from '../constants';
-import { openAIWebview } from './aiMachine';
 import { extension } from '../MIExtensionContext';
-import { PromptObject } from '@wso2/mi-core';
+import { openAIWebview, StateMachineAI } from './aiMachine';
+import { getLoginMethod } from './auth';
+import {
+    addConfigFile,
+    getMIProjectPath,
+    LOGIN_REQUIRED_MESSAGE,
+    MI_INTEL_ONLY_MESSAGE,
+    NO_PROJECT_MESSAGE,
+    SIGN_IN_BUTTON,
+    SUCCESS_MESSAGE
+} from './configUtils';
 
 export function activateAiPanel(context: vscode.ExtensionContext) {
     context.subscriptions.push(
@@ -31,6 +41,58 @@ export function activateAiPanel(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand(COMMANDS.CLEAR_AI_PROMPT, () => {
             extension.initialPrompt = undefined;
+        })
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand(COMMANDS.CONFIGURE_DEFAULT_MODEL, async () => {
+            // Check login method
+            const loginMethod = await getLoginMethod();
+
+            if (!loginMethod) {
+                const selection = await vscode.window.showWarningMessage(
+                    LOGIN_REQUIRED_MESSAGE,
+                    SIGN_IN_BUTTON
+                );
+                if (selection === SIGN_IN_BUTTON) {
+                    StateMachineAI.sendEvent(AI_EVENT_TYPE.LOGIN);
+                }
+                return;
+            }
+
+            if (loginMethod !== LoginMethod.MI_INTEL) {
+                vscode.window.showWarningMessage(MI_INTEL_ONLY_MESSAGE);
+                return;
+            }
+
+            // Get project path
+            const projectPath = getMIProjectPath();
+            if (!projectPath) {
+                vscode.window.showErrorMessage(NO_PROJECT_MESSAGE);
+                return;
+            }
+
+            // Add config
+            try {
+                const result = await addConfigFile(projectPath);
+                if (result) {
+                    vscode.window.showInformationMessage(SUCCESS_MESSAGE);
+                }
+            } catch (error) {
+                const errorMessage = (error as Error).message;
+
+                // Handle token refresh errors - prompt re-login
+                if (errorMessage.includes('Refresh token') || errorMessage.includes('TOKEN_EXPIRED')) {
+                    const selection = await vscode.window.showWarningMessage(
+                        LOGIN_REQUIRED_MESSAGE,
+                        SIGN_IN_BUTTON
+                    );
+                    if (selection === SIGN_IN_BUTTON) {
+                        StateMachineAI.sendEvent(AI_EVENT_TYPE.LOGIN);
+                    }
+                } else {
+                    vscode.window.showErrorMessage(errorMessage);
+                }
+            }
         })
     );
 }

@@ -112,6 +112,7 @@ export const COMMANDS = {
     REVEAL_TEST_PANE: 'MI.mock-services.focus',
     EDIT_K8_CONFIGURATION_COMMAND: 'MI.edit-k8-configuration',
     MANAGE_REGISTRY_PROPERTIES_COMMAND: 'MI.manage-registry-property',
+    CONFIGURE_DEFAULT_MODEL: 'MI.configureDefaultModelProvider',
 
     BI_EXTENSION: 'WSO2.ballerina-integrator',
     BI_OPEN_COMMAND: 'ballerina.open.bi.welcome',

@@ -279,6 +279,11 @@
         "icon": "$(wand)"
       },
       {
+        "command": "MI.configureDefaultModelProvider",
+        "title": "Configure Default WSO2 Model Provider",
+        "category": "MI"
+      },
+      {
         "command": "MI.Open-runtime-service-view",
         "title": "Open Runtime Services Panel",
         "category": "MI",
