@@ -21,6 +21,7 @@ import { Typography, LinkButton, Codicon } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { ApiRequest } from '@wso2/api-tryit-core';
 import { InputEditor } from '../InputEditor/InputEditor';
+import { COMMON_HEADERS } from '../InputEditor/SuggestionsConstants';
 
 type AssertMode = 'code' | 'form';
 
@@ -135,7 +136,18 @@ export const Assert: React.FC<AssertProps> = ({
                         onChange={handleAssertionsChange}
                         value={(request.assertions || []).join('\n')}
                         codeLenses={assertionsCodeLenses}
-                        suggestions={{}}
+                        suggestions={{
+                            assertions: {
+                                initial: ['res'],
+                                properties: {
+                                    'res': ['status', 'headers', 'body'],
+                                    'headers': {
+                                        names: COMMON_HEADERS.map(h => h.name),
+                                        values: Object.fromEntries(COMMON_HEADERS.map(h => [h.name, h.values]))
+                                    }
+                                }
+                            }
+                        }}
                     />
                 </>
         </Container>

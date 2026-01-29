@@ -116,6 +116,10 @@ export interface SuggestionsConfig {
     headers?: { name: string; values: string[] }[];
     queryKeys?: string[];
     bodySnippets?: { label: string; insertText: string; description?: string }[];
+    assertions?: {
+        initial: string[];
+        properties: { [key: string]: string[] | { names: string[]; values: { [name: string]: string[] } } };
+    };
 }
 
 interface InputEditorProps {
@@ -373,7 +377,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                             domNode.style.cssText = `
                                 position: absolute;
                                 margin-top: 4px;
-                                margin-left: 22px;
+                                margin-left: 30px;
                                 width: 14px;
                                 height: 14px;
                                 cursor: pointer;
@@ -382,7 +386,6 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                                 justify-content: center;
                                 font-size: 12px;
                                 color: var(--vscode-errorForeground);
-                                opacity: 0.6;
                                 border-radius: 2px;
                                 transition: opacity 0.2s;
                             `;
@@ -444,13 +447,15 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         }
 
         // Infer section type from provided suggestions
-        let currentSectionType: 'query' | 'headers' | 'body' | null = null;
+        let currentSectionType: 'query' | 'headers' | 'body' | 'assertions' | null = null;
         if (suggestions.queryKeys && suggestions.queryKeys.length > 0) {
             currentSectionType = 'query';
         } else if (suggestions.headers && suggestions.headers.length > 0) {
             currentSectionType = 'headers';
         } else if (suggestions.bodySnippets && suggestions.bodySnippets.length > 0) {
             currentSectionType = 'body';
+        } else if (suggestions.assertions) {
+            currentSectionType = 'assertions';
         }
 
         if (!currentSectionType) {
@@ -460,7 +465,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         const currentLanguageId = languageIdRef.current;
 
         completionDisposableRef.current = monaco.languages.registerCompletionItemProvider(currentLanguageId, {
-            triggerCharacters: [':'],
+            triggerCharacters: [':', '.', '='],
             provideCompletionItems: (model: monaco.editor.ITextModel, position: monaco.Position, context: monaco.languages.CompletionContext) => {
                 const lineContent = model.getLineContent(position.lineNumber);
                 const textUntilPosition = lineContent.substring(0, position.column - 1);
@@ -532,6 +537,68 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                             documentation: snippet.description
                         });
                     });
+                } else if (currentSectionType === 'assertions') {
+                    const lineContent = model.getLineContent(position.lineNumber);
+                    const textUntilPosition = lineContent.substring(0, position.column - 1);
+                    const dotIndex = textUntilPosition.lastIndexOf('.');
+                    const eqIndex = textUntilPosition.lastIndexOf('=');
+                    
+                    if (eqIndex !== -1 && eqIndex > dotIndex) {
+                        // After '=', suggest values for the header
+                        const beforeEq = textUntilPosition.substring(0, eqIndex).trim();
+                        const headerValues = suggestions.assertions?.properties['headers'];
+                        if (typeof headerValues === 'object' && 'values' in headerValues) {
+                            for (const [name, vals] of Object.entries(headerValues.values)) {
+                                if (beforeEq.endsWith(name)) {
+                                    vals.forEach((val: string) => {
+                                        suggestionsList.push({
+                                            label: val,
+                                            kind: monaco.languages.CompletionItemKind.Value,
+                                            insertText: val,
+                                            range: range
+                                        });
+                                    });
+                                    break;
+                                }
+                            }
+                        }
+                    } else if (dotIndex !== -1) {
+                        // After dot, suggest properties based on the last part before the dot
+                        const parts = textUntilPosition.split('.');
+                        const lastPart = parts[parts.length - 2]?.trim();
+                        if (lastPart) {
+                            const props = suggestions.assertions?.properties[lastPart];
+                            if (Array.isArray(props)) {
+                                props.forEach(prop => {
+                                    suggestionsList.push({
+                                        label: prop,
+                                        kind: monaco.languages.CompletionItemKind.Property,
+                                        insertText: prop,
+                                        range: range
+                                    });
+                                });
+                            } else if (typeof props === 'object' && 'names' in props) {
+                                props.names.forEach(prop => {
+                                    suggestionsList.push({
+                                        label: prop,
+                                        kind: monaco.languages.CompletionItemKind.Property,
+                                        insertText: prop,
+                                        range: range
+                                    });
+                                });
+                            }
+                        }
+                    } else {
+                        // Initial suggestions
+                        suggestions.assertions?.initial.forEach(init => {
+                            suggestionsList.push({
+                                label: init,
+                                kind: monaco.languages.CompletionItemKind.Variable,
+                                insertText: init,
+                                range: range
+                            });
+                        });
+                    }
                 }
 
                 return { suggestions: suggestionsList };
