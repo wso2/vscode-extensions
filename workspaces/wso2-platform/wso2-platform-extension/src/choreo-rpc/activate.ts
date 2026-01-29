@@ -54,11 +54,18 @@ function isChoreoCliInstalled(): Promise<boolean> {
 }
 
 export async function initRPCServer() {
-	const installed = await isChoreoCliInstalled();
-	if (!installed) {
-		getLogger().trace(`WSO2 Platform RPC version ${getCliVersion()} not installed`);
-		await downloadCLI();
-	}
+	try {
+		const installed = await isChoreoCliInstalled();
+		if (!installed) {
+			getLogger().trace(`WSO2 Platform RPC version ${getCliVersion()} not installed`);
+			await downloadCLI();
+		}
 
-	await RPCClient.getInstance();
+		await RPCClient.getInstance();
+		getLogger().info("RPC server initialized successfully");
+	} catch (error) {
+		getLogger().error(`Failed to initialize RPC server: ${error instanceof Error ? error.message : String(error)}`);
+		// Allow extension to continue without RPC functionality
+		// Important for test environments where CLI resources may not be available
+	}
 }
