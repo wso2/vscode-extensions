@@ -95,6 +95,25 @@ export class ObjectOutputNode extends DataMapperNodeModel {
                     }
                 }
             }
+
+            if (this.filteredOutputType.kind === TypeKind.Tuple) {
+                if (this.filteredOutputType.members && this.filteredOutputType.members.length > 0) {
+                    for (const member of this.filteredOutputType.members) {
+                        if (!member) continue;
+                        await this.addPortsForOutputField({
+                            field: member,
+                            type: "IN",
+                            parentId: this.rootName,
+                            mappings: this.context.model.mappings,
+                            portPrefix: OBJECT_OUTPUT_TARGET_PORT_PREFIX,
+                            parent: parentPort,
+                            collapsedFields,
+                            expandedFields,
+                            hidden: parentPort.attributes.collapsed
+                        });
+                    }
+                }
+            }
         }
     }
 

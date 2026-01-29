@@ -47,6 +47,7 @@ export interface ObjectOutputFieldWidgetProps {
     treeDepth?: number;
     hasHoveredParent?: boolean;
     isPortParent?: boolean;
+    parentFieldKind?: TypeKind;
 }
 
 export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
@@ -59,7 +60,8 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
         fieldIndex,
         treeDepth = 0,
         hasHoveredParent,
-        isPortParent
+        isPortParent,
+        parentFieldKind
     } = props;
     const classes = useIONodesStyles();
     const [isLoading, setLoading] = useState(false);
@@ -80,10 +82,11 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
 
     const isArray = typeKind === TypeKind.Array;
     const isRecord = typeKind === TypeKind.Record;
+    const isTuple = typeKind === TypeKind.Tuple;
     const isEnum = typeKind === TypeKind.Enum;
 
     let updatedParentId = parentId;
-    
+
     if (fieldIndex !== undefined) {
         updatedParentId = `${updatedParentId}.${fieldIndex}`
     }
@@ -91,13 +94,19 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
     let fieldName = field?.name || '';
     let displayName = field?.displayName || fieldName;
 
-    let portName = isPortParent
-        ? parentId
-        : updatedParentId !== ''
-            ? fieldName !== '' && fieldIndex === undefined
-                ? `${updatedParentId}.${fieldName}`
-                : updatedParentId
-            : fieldName;
+    // Handle tuple members by combining port prefix with field.name (bracket notation)
+    let portName: string;
+    if (parentFieldKind === TypeKind.Tuple) {
+        portName = `${parentId}${field.name}`;
+    } else if (isPortParent) {
+        portName = parentId;
+    } else if (updatedParentId !== '') {
+        portName = fieldName !== '' && fieldIndex === undefined
+            ? `${updatedParentId}.${fieldName}`
+            : updatedParentId;
+    } else {
+        portName = fieldName;
+    }
 
     const portIn = getPort(portName + ".IN");
     const isUnknownType = field?.kind === TypeKind.Unknown;
@@ -109,7 +118,8 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
         getDefaultValue(field?.kind) === expression.trim() &&
         !isEnum;
 
-    const fields = isRecord && field?.fields?.filter(f => f !== null);
+    const fields = (isRecord && field?.fields?.filter(f => f !== null))
+        || (isTuple && field?.members?.filter(m => m !== null));
     const isWithinArray = fieldIndex !== undefined;
 
     const handleExpand = () => {
@@ -303,7 +313,7 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
                     <span className={classes.label}>
                         {fields && (
                             <Button
-                                id={"expand-or-collapse-" + portName} 
+                                id={"expand-or-collapse-" + portName}
                                 appearance="icon"
                                 tooltip="Expand/Collapse"
                                 sx={{ marginLeft: indentation }}
@@ -352,6 +362,7 @@ export function ObjectOutputFieldWidget(props: ObjectOutputFieldWidgetProps) {
                             context={context}
                             treeDepth={treeDepth + 1}
                             hasHoveredParent={isHovered || hasHoveredParent}
+                            parentFieldKind={field?.kind}
                         />
                     );
                 })

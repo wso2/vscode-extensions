@@ -146,6 +146,7 @@ export function QueryOutputWidget(props: QueryOutputWidgetProps) {
 								treeDepth={0}
 								hasHoveredParent={isHovered}
 								isPortParent={true}
+								parentFieldKind={outputType.kind}
 							/>
 						) : (
 							<PrimitiveOutputElementWidget

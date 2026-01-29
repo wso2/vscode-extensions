@@ -38,10 +38,11 @@ export interface InputNodeTreeItemWidgetProps {
     treeDepth?: number;
     hasHoveredParent?: boolean;
     focusedInputs?: string[];
+    parentFieldKind?: TypeKind;
 }
 
 export function InputNodeTreeItemWidget(props: InputNodeTreeItemWidgetProps) {
-    const { parentId, dmType, getPort, engine, treeDepth = 0, hasHoveredParent, focusedInputs } = props;
+    const { parentId, dmType, getPort, engine, treeDepth = 0, hasHoveredParent, focusedInputs, parentFieldKind } = props;
 
     const [ portState, setPortState ] = useState<PortState>(PortState.Unselected);
     const [isHovered, setIsHovered] = useState(false);
@@ -51,7 +52,16 @@ export function InputNodeTreeItemWidget(props: InputNodeTreeItemWidgetProps) {
     const fieldName = dmType.name;
     const displayName = dmType.displayName || fieldName;
     const typeName = getTypeName(dmType);
-    const fieldId = dmType.isFocused ? fieldName : `${parentId}.${fieldName}`;
+
+    let fieldId: string;
+    if (parentFieldKind === TypeKind.Tuple) {
+        fieldId = parentId + fieldName;
+    } else if (dmType.isFocused) {
+        fieldId = fieldName;
+    } else {
+        fieldId = `${parentId}.${fieldName}`;
+    }
+
     const portOut = getPort(`${fieldId}.OUT`);
     const isUnknownType = dmType.kind === TypeKind.Unknown;
 
@@ -61,6 +71,8 @@ export function InputNodeTreeItemWidget(props: InputNodeTreeItemWidgetProps) {
 
     if (dmType.kind === TypeKind.Record) {
         fields = dmType.fields;
+    } else if (dmType.kind === TypeKind.Tuple) {
+        fields = dmType.members;
     } else if (dmType.kind === TypeKind.Array) {
         fields = [ dmType.member ];
     }
@@ -168,6 +180,7 @@ export function InputNodeTreeItemWidget(props: InputNodeTreeItemWidgetProps) {
                             treeDepth={treeDepth + 1}
                             hasHoveredParent={isHovered || hasHoveredParent}
                             focusedInputs={focusedInputs}
+                            parentFieldKind={dmType.kind}
                         />
                     );
                 })
