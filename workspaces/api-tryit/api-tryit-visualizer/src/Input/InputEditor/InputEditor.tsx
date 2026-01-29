@@ -385,7 +385,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                                 align-items: center;
                                 justify-content: center;
                                 font-size: 12px;
-                                color: var(--vscode-errorForeground);
+                                color: var(--vscode-editorGutter-deletedBackground);
                                 border-radius: 2px;
                                 transition: opacity 0.2s;
                             `;
@@ -504,7 +504,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                                     suggestionsList.push({
                                         label: value,
                                         kind: monaco.languages.CompletionItemKind.Value,
-                                        insertText: value,
+                                        insertText: ' ' + value,
                                         range: range,
                                         documentation: `Value for ${headerName}`
                                     });
@@ -554,7 +554,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                                         suggestionsList.push({
                                             label: val,
                                             kind: monaco.languages.CompletionItemKind.Value,
-                                            insertText: val,
+                                            insertText: ' ' + val,
                                             range: range
                                         });
                                     });

@@ -17,7 +17,7 @@
  */
 
 import React from 'react';
-import { Typography, LinkButton, Codicon } from '@wso2/ui-toolkit';
+import { Typography, LinkButton, Codicon, TextField, Button } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { ApiRequest } from '@wso2/api-tryit-core';
 import { InputEditor } from '../InputEditor/InputEditor';
@@ -39,11 +39,61 @@ const Container = styled.div`
 
 const Section = styled.div`
     margin-bottom: 12px;
+    width: 100%;
+    padding: 0 12px;
 `;
 
 const AddButtonWrapper = styled.div`
     margin-top: 4px;
     margin-left: 4px;
+`;
+
+const AssertionItem = styled.div`
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    margin-left: 4px;
+    gap: 8px;
+    width: 100%;
+`;
+
+const AssertionInputWrapper = styled.div`
+    flex: 1;
+    min-width: 0;
+    height: 44px;
+    border-radius: 4px;
+    background-color: #262626ff;
+    border: 1px solid #3a3a3a;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    
+    /* Light theme */
+    body.vscode-light & {
+        background-color: #f5f5f5;
+        border-color: #d0d0d0;
+    }
+    
+    /* High contrast theme */
+    body.vscode-high-contrast & {
+        background-color: #000000;
+        border-color: #ffffff;
+    }
+    
+    &:focus-within {
+        border-color: #528BFF;
+        box-shadow: 0 0 0 2px rgba(82, 139, 255, 0.1);
+    }
+    
+    .monaco-editor {
+        flex: 1;
+        height: 100% !important;
+        min-width: 0;
+    }
+`;
+
+const AssertionInput = styled(TextField)`
+    flex-grow: 1;
 `;
 
 export const Assert: React.FC<AssertProps> = ({ 
@@ -127,7 +177,8 @@ export const Assert: React.FC<AssertProps> = ({
 
     return (
         <Container>
-            <>
+            {mode === 'code' ? (
+                <>
                     <Typography variant="h3" sx={{ marginBottom: '8px' }}>
                         Assertions
                     </Typography>
@@ -150,6 +201,33 @@ export const Assert: React.FC<AssertProps> = ({
                         }}
                     />
                 </>
+            ) : (
+                <>
+                    <Typography variant="h3" sx={{ marginBottom: '8px' }}>
+                        Assertions
+                    </Typography>
+                    {(request.assertions || []).map((assertion, index) => (
+                        <AssertionItem key={index}>
+                            <TextField  
+                                id={`assertion-${index}`}
+                                value={assertion}
+                                onTextChange={(value) => updateAssertion(index, value)}
+                                placeholder="e.g., res.status = 200"
+                                sx={{ flex: 1 }}
+                            />
+                            <Button appearance='icon' onClick={() => deleteAssertion(index)}>
+                                <Codicon sx={{color: 'var(--vscode-editorGutter-deletedBackground)'}} name="trash" />
+                            </Button>
+                        </AssertionItem>
+                    ))}
+                    <AddButtonWrapper>
+                        <LinkButton onClick={addAssertion}>
+                            <Codicon name="add" />
+                            Add Assertion
+                        </LinkButton>
+                    </AddButtonWrapper>
+                </>
+            )}
         </Container>
     );
 };
