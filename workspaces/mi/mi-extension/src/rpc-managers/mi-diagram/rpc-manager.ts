@@ -288,7 +288,8 @@ import {
     GetMockServicesResponse,
     ConfigureKubernetesRequest,
     ConfigureKubernetesResponse,
-    UpdateRegistryPropertyRequest
+    UpdateRegistryPropertyRequest,
+    GenerateMappingsParamsRequest
 } from "@wso2/mi-core";
 import axios from 'axios';
 import { error } from "console";
@@ -6124,6 +6125,14 @@ ${keyValuesXML}`;
             { modal: true }
         );
         return undefined;
+    }
+
+    async getInputOutputMappings(params: GenerateMappingsParamsRequest): Promise<string[]> {
+        return new Promise(async (resolve) => {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const res = await langClient.getInputOutputMappings(params);
+            resolve(res);
+        });
     }
 }
 
