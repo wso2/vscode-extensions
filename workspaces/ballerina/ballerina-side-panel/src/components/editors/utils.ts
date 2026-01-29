@@ -36,10 +36,19 @@ export function getValueForDropdown(field: FormField, multiSelectIndex: number =
         // Return first item as default if available
         return field.items && field.items.length > 0 ? field.items[0] : undefined;
     }
-    // For single select, return the value if it exists and is not empty, otherwise return first item
+
+    // For single select, return the value if it exists and is not empty
     if (field.value && field.value !== "") {
         return field.value;
     }
+
+    // For FLAG fields with boolean type, use defaultValue when no value is set
+    if (field.type === "FLAG" && field.defaultValue &&
+        field.items && field.items.includes(field.defaultValue)) {
+        return field.defaultValue;
+    }
+
+    // Fallback to first item
     return field.items && field.items.length > 0 ? field.items[0] : undefined;
 }
 
