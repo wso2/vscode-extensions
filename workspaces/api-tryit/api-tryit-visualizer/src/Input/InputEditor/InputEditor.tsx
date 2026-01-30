@@ -578,6 +578,9 @@ export const InputEditor: React.FC<InputEditorProps> = ({
             currentSectionType = 'headers';
         } else if (suggestions.bodySnippets && suggestions.bodySnippets.length > 0) {
             currentSectionType = 'body';
+        } else if (bodyFormatRef.current === 'form-data' || bodyFormatRef.current === 'form-urlencoded') {
+            // For form-data, we're in body section even if there are no bodySnippets
+            currentSectionType = 'body';
         } else if (suggestions.assertions) {
             currentSectionType = 'assertions';
         }
@@ -650,17 +653,60 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                         });
                     }
                 } else if (currentSectionType === 'body') {
-                    // Suggest JSON snippets
-                    suggestions?.bodySnippets?.forEach(snippet => {
-                        suggestionsList.push({
-                            label: snippet.label,
-                            kind: monaco.languages.CompletionItemKind.Snippet,
-                            insertText: snippet.insertText,
-                            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                            range: range,
-                            documentation: snippet.description
+                    // Check if this is form-data format
+                    if (bodyFormatRef.current === 'form-data' || bodyFormatRef.current === 'form-urlencoded') {
+                        // Format: key: filename: content-type
+                        const colonCount = (textUntilPosition.match(/:/g) || []).length;
+                        
+                        if (colonCount >= 2) {
+                            // After second colon - suggest content types from headers or common MIME types
+                            let mimeTypes: string[] = [];
+                            
+                            // Try to get from Content-Type header
+                            const contentTypeHeader = suggestions?.headers?.find(h => h.name.toLowerCase() === 'content-type');
+                            if (contentTypeHeader && contentTypeHeader.values?.length > 0) {
+                                mimeTypes = contentTypeHeader.values;
+                            } else {
+                                // Fallback to common MIME types for form-data
+                                mimeTypes = [
+                                    'application/json',
+                                    'application/xml',
+                                    'application/octet-stream',
+                                    'text/plain',
+                                    'text/html',
+                                    'text/csv',
+                                    'image/jpeg',
+                                    'image/png',
+                                    'application/pdf',
+                                    'application/yaml'
+                                ];
+                            }
+                            
+                            mimeTypes.forEach(value => {
+                                suggestionsList.push({
+                                    label: value,
+                                    kind: monaco.languages.CompletionItemKind.Value,
+                                    insertText: ' ' + value,
+                                    range: range,
+                                    documentation: `MIME type: ${value}`
+                                });
+                            });
+                        } else if (colonCount === 1) {
+                            // After first colon - user should provide filename, no suggestions
+                        }
+                    } else {
+                        // Suggest JSON snippets for regular body
+                        suggestions?.bodySnippets?.forEach(snippet => {
+                            suggestionsList.push({
+                                label: snippet.label,
+                                kind: monaco.languages.CompletionItemKind.Snippet,
+                                insertText: snippet.insertText,
+                                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                                range: range,
+                                documentation: snippet.description
+                            });
                         });
-                    });
+                    }
                 } else if (currentSectionType === 'assertions') {
                     const lineContent = model.getLineContent(position.lineNumber);
                     const textUntilPosition = lineContent.substring(0, position.column - 1);

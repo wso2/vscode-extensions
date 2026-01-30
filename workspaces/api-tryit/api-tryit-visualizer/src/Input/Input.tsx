@@ -315,9 +315,23 @@ export const Input: React.FC<InputProps> = ({
                 shouldShow: (model: any) => (bodyFormat === 'form-data' || bodyFormat === 'form-urlencoded') ? true : !model.getValue().trim(),
                 getLineNumber: (model: any) => 1,
                 onExecute: (editor: any, model: any) => {
-                    if (bodyFormat === 'form-data' || bodyFormat === 'form-urlencoded') {
+                    if (bodyFormat === 'form-urlencoded') {
                         const currentValue = model.getValue();
-                        const newValue = currentValue ? currentValue + '\nkey: value' : 'key: value';
+                        const newValue = currentValue ? currentValue + '\nkey: value: application/json' : 'key: value: application/json';
+                        
+                        editor.executeEdits('add-parameter', [{
+                            range: model.getFullModelRange(),
+                            text: newValue
+                        }]);
+                        
+                        // Move cursor to the new line
+                        setTimeout(() => {
+                            editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
+                            editor.focus();
+                        }, 0);
+                    } else if (bodyFormat === 'form-data') {
+                        const currentValue = model.getValue();
+                        const newValue = currentValue ? currentValue + '\nkey: value: application/octet-stream' : 'key: value: application/octet-stream';
                         
                         editor.executeEdits('add-parameter', [{
                             range: model.getFullModelRange(),
