@@ -312,7 +312,15 @@ export const Input: React.FC<InputProps> = ({
             {
                 id: (bodyFormat === 'form-data' || bodyFormat === 'form-urlencoded') ? 'add-parameter' : 'add-body',
                 title: (bodyFormat === 'form-data' || bodyFormat === 'form-urlencoded') ? '$(add) Add Parameter' : '$(add) Add Body',
-                shouldShow: (model: any) => (bodyFormat === 'form-data' || bodyFormat === 'form-urlencoded') ? true : !model.getValue().trim(),
+                shouldShow: (model: any) => {
+                    if (bodyFormat === 'form-data' || bodyFormat === 'form-urlencoded') {
+                        return true;
+                    }
+                    if (bodyFormat === 'binary' || bodyFormat === 'no-body') {
+                        return false;
+                    }
+                    return !model.getValue().trim();
+                },
                 getLineNumber: (model: any) => 1,
                 onExecute: (editor: any, model: any) => {
                     if (bodyFormat === 'form-urlencoded') {
@@ -360,21 +368,32 @@ export const Input: React.FC<InputProps> = ({
             }
         ];
 
-        // Add "Add File" lens for form-data only
-        if (bodyFormat === 'form-data') {
+        // Add "Add File" lens for form-data and binary
+        if (bodyFormat === 'form-data' || bodyFormat === 'binary') {
             lenses.push({
                 id: 'add-file',
                 title: '$(add) Add File',
                 shouldShow: (model: any) => true,
                 getLineNumber: (model: any) => 1,
                 onExecute: (editor: any, model: any) => {
-                    const currentValue = model.getValue();
-                    const newValue = currentValue ? currentValue + '\nkey: @file: application/octet-stream' : 'key: @file: application/octet-stream';
-                    
-                    editor.executeEdits('add-file', [{
-                        range: model.getFullModelRange(),
-                        text: newValue
-                    }]);
+                    if (bodyFormat === 'binary') {
+                        // For binary format, add as a new line (allows multiple files)
+                        const currentValue = model.getValue();
+                        const newValue = currentValue ? currentValue + '\n@file: application/octet-stream' : '@file: application/octet-stream';
+                        editor.executeEdits('add-file', [{
+                            range: model.getFullModelRange(),
+                            text: newValue
+                        }]);
+                    } else {
+                        // For form-data, add as a new parameter line
+                        const currentValue = model.getValue();
+                        const newValue = currentValue ? currentValue + '\nkey: @file: application/octet-stream' : 'key: @file: application/octet-stream';
+                        
+                        editor.executeEdits('add-file', [{
+                            range: model.getFullModelRange(),
+                            text: newValue
+                        }]);
+                    }
                     
                     // Move cursor to the new line
                     setTimeout(() => {
@@ -416,49 +435,6 @@ export const Input: React.FC<InputProps> = ({
                 }
             });
         }
-
-        // Add delete lens for form formats
-        // if (bodyFormat === 'form-data' || bodyFormat === 'form-urlencoded') {
-        //     lenses.push({
-        //         id: 'delete-parameter',
-        //         title: '$(trash) Delete',
-        //         shouldShow: (model: any) => {
-        //             const lines = model.getLinesContent();
-        //             return lines.some((line: string) => line.trim() && line.includes(':'));
-        //         },
-        //         getLineNumber: (model: any) => {
-        //             const lines = model.getLinesContent();
-        //             for (let i = 0; i < lines.length; i++) {
-        //                 if (lines[i].trim() && lines[i].includes(':')) {
-        //                     return i + 1;
-        //                 }
-        //             }
-        //             return 1;
-        //         },
-        //         onExecute: (editor: any, model: any, ...args: any[]) => {
-        //             const lineNumber = args[0] || editor.getPosition().lineNumber;
-        //             const lineContent = model.getLineContent(lineNumber);
-                    
-        //             if (lineContent.trim() && lineContent.includes(':')) {
-        //                 // Delete the line
-        //                 editor.executeEdits('delete-parameter', [{
-        //                     range: {
-        //                         startLineNumber: lineNumber,
-        //                         startColumn: 1,
-        //                         endLineNumber: lineNumber,
-        //                         endColumn: model.getLineLength(lineNumber) + 1
-        //                     },
-        //                     text: ''
-        //                 }]);
-                        
-        //                 // Adjust cursor if necessary
-        //                 if (lineNumber > model.getLineCount()) {
-        //                     editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
-        //                 }
-        //             }
-        //         }
-        //     });
-        // }
 
         // Always add generate lens
         lenses.push({
@@ -629,44 +605,79 @@ export const Input: React.FC<InputProps> = ({
                         codeLenses={headersCodeLenses}
                         suggestions={{ headers: COMMON_HEADERS }}
                     />
-                    <BodyHeaderContainer>
-                        <BodyTitleWrapper>
-                            <Typography variant="h3">Body</Typography>
-                        </BodyTitleWrapper>
-                        <FormatSelectorWrapper ref={formatMenuRef}>
-                            <FormatButton onClick={() => setBodyFormatOpen(!bodyFormatOpen)}>
-                                {bodyFormat.toUpperCase()}
-                                <ArrowIcon isOpen={bodyFormatOpen}>▼</ArrowIcon>
-                            </FormatButton>
-                            <FormatDropdown isOpen={bodyFormatOpen}>
-                                {formatOptions.map((group) => (
-                                    <div key={group.group}>
-                                        <FormatGroupTitle>{group.group}</FormatGroupTitle>
-                                        <FormatOptions>
-                                            {group.options.map((option) => (
-                                                <FormatOption
-                                                    key={option.value}
-                                                    isSelected={bodyFormat === option.value}
-                                                    onClick={() => handleFormatChange(option.value)}
-                                                >
-                                                    {option.label}
-                                                </FormatOption>
-                                            ))}
-                                        </FormatOptions>
-                                    </div>
-                                ))}
-                            </FormatDropdown>
-                        </FormatSelectorWrapper>
-                    </BodyHeaderContainer>
-                    <InputEditor
-                        key={`body-editor-${bodyFormat}`}
-                        minHeight='calc((100vh - 420px) / 3)'
-                        onChange={handleBodyChange}
-                        value={request.body || ''}
-                        codeLenses={bodyCodeLenses}
-                        suggestions={{ bodySnippets: COMMON_BODY_SNIPPETS }}
-                        bodyFormat={bodyFormat}
-                    />
+                    {bodyFormat !== 'no-body' && (
+                        <>
+                            <BodyHeaderContainer>
+                                <BodyTitleWrapper>
+                                    <Typography variant="h3">Body</Typography>
+                                </BodyTitleWrapper>
+                                <FormatSelectorWrapper ref={formatMenuRef}>
+                                    <FormatButton onClick={() => setBodyFormatOpen(!bodyFormatOpen)}>
+                                        {bodyFormat.toUpperCase()}
+                                        <ArrowIcon isOpen={bodyFormatOpen}>▼</ArrowIcon>
+                                    </FormatButton>
+                                    <FormatDropdown isOpen={bodyFormatOpen}>
+                                        {formatOptions.map((group) => (
+                                            <div key={group.group}>
+                                                <FormatGroupTitle>{group.group}</FormatGroupTitle>
+                                                <FormatOptions>
+                                                    {group.options.map((option) => (
+                                                        <FormatOption
+                                                            key={option.value}
+                                                            isSelected={bodyFormat === option.value}
+                                                            onClick={() => handleFormatChange(option.value)}
+                                                        >
+                                                            {option.label}
+                                                        </FormatOption>
+                                                    ))}
+                                                </FormatOptions>
+                                            </div>
+                                        ))}
+                                    </FormatDropdown>
+                                </FormatSelectorWrapper>
+                            </BodyHeaderContainer>
+                            <InputEditor
+                                key={`body-editor-${bodyFormat}`}
+                                minHeight='calc((100vh - 420px) / 3)'
+                                onChange={handleBodyChange}
+                                value={request.body || ''}
+                                codeLenses={bodyCodeLenses}
+                                suggestions={{ bodySnippets: COMMON_BODY_SNIPPETS }}
+                                bodyFormat={bodyFormat}
+                            />
+                        </>
+                    )}
+                    {bodyFormat === 'no-body' && (
+                        <BodyHeaderContainer>
+                            <BodyTitleWrapper>
+                                <Typography variant="h3">Body</Typography>
+                            </BodyTitleWrapper>
+                            <FormatSelectorWrapper ref={formatMenuRef}>
+                                <FormatButton onClick={() => setBodyFormatOpen(!bodyFormatOpen)}>
+                                    {bodyFormat.toUpperCase()}
+                                    <ArrowIcon isOpen={bodyFormatOpen}>▼</ArrowIcon>
+                                </FormatButton>
+                                <FormatDropdown isOpen={bodyFormatOpen}>
+                                    {formatOptions.map((group) => (
+                                        <div key={group.group}>
+                                            <FormatGroupTitle>{group.group}</FormatGroupTitle>
+                                            <FormatOptions>
+                                                {group.options.map((option) => (
+                                                    <FormatOption
+                                                        key={option.value}
+                                                        isSelected={bodyFormat === option.value}
+                                                        onClick={() => handleFormatChange(option.value)}
+                                                    >
+                                                        {option.label}
+                                                    </FormatOption>
+                                                ))}
+                                            </FormatOptions>
+                                        </div>
+                                    ))}
+                                </FormatDropdown>
+                            </FormatSelectorWrapper>
+                        </BodyHeaderContainer>
+                    )}
                 </>
             ) : (
                 <>

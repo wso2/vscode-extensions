@@ -389,10 +389,11 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         // For body section, only add widgets if it's a form format and content has parameter-like lines
         if (currentSectionType === 'body') {
             const isFormFormat = bodyFormatRef.current === 'form-data' || bodyFormatRef.current === 'form-urlencoded';
+            const isBinaryFormat = bodyFormatRef.current === 'binary';
             const lines = model.getLinesContent();
             const hasParameterLines = lines.some(line => line.trim() && line.includes(':'));
             
-            if (!isFormFormat || !hasParameterLines) {
+            if ((!isFormFormat || !hasParameterLines) && !isBinaryFormat) {
                 return;
             }
         }
@@ -693,6 +694,44 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                             });
                         } else if (colonCount === 1) {
                             // After first colon - user should provide filename, no suggestions
+                        }
+                    } else if (bodyFormatRef.current === 'binary') {
+                        // Binary format: @file: content-type
+                        const hasAtFileColon = textUntilPosition.includes('@file:');
+                        
+                        if (hasAtFileColon) {
+                            // After @file: - suggest MIME types from headers or common MIME types
+                            let mimeTypes: string[] = [];
+                            
+                            // Try to get from Content-Type header
+                            const contentTypeHeader = suggestions?.headers?.find(h => h.name.toLowerCase() === 'content-type');
+                            if (contentTypeHeader && contentTypeHeader.values?.length > 0) {
+                                mimeTypes = contentTypeHeader.values;
+                            } else {
+                                // Fallback to common MIME types for binary
+                                mimeTypes = [
+                                    'application/json',
+                                    'application/xml',
+                                    'application/octet-stream',
+                                    'text/plain',
+                                    'text/html',
+                                    'text/csv',
+                                    'image/jpeg',
+                                    'image/png',
+                                    'application/pdf',
+                                    'application/yaml'
+                                ];
+                            }
+                            
+                            mimeTypes.forEach(value => {
+                                suggestionsList.push({
+                                    label: value,
+                                    kind: monaco.languages.CompletionItemKind.Value,
+                                    insertText: ' ' + value,
+                                    range: range,
+                                    documentation: `MIME type: ${value}`
+                                });
+                            });
                         }
                     } else {
                         // Suggest JSON snippets for regular body
