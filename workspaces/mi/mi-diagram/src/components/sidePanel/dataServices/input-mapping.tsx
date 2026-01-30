@@ -253,15 +253,14 @@ const InputMappingsForm = (props: AddMediatorProps) => {
         setIsLoading(true);
         const query = sidePanelContext?.formValues?.queryObject.sqlQuery;
         if (query?.trim()) {
-            const generateMappingsParams = {
+            const response = await rpcClient.getMiDiagramRpcClient().getInputOutputMappings({
                 query: query,
                 className: "",
                 url: "",
                 username: "",
                 password: "",
-                type: 'input' as const
-            };
-            const response = await rpcClient.getMiDiagramRpcClient().getInputOutputMappings(generateMappingsParams);
+                type: 'input'
+            });
             if (response && response.length > 0) {
                 reset({
                 inputMappings: {
