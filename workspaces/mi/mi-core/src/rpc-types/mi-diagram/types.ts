@@ -33,6 +33,7 @@ export interface ApplyEditRequest {
     disableFormatting?: boolean;
     disableUndoRedo?: boolean;
     addNewLine?: boolean;
+    waitForEdits?: boolean;
 }
 
 export interface ApplyEditsRequest {
@@ -41,6 +42,7 @@ export interface ApplyEditsRequest {
     disableFormatting?: boolean;
     disableUndoRedo?: boolean;
     addNewLine?: boolean;
+    waitForEdits?: boolean;
 }
 
 export interface ApplyEditResponse {
@@ -1502,7 +1504,8 @@ export interface RegistryArtifact {
 }
 export interface RangeFormatRequest {
     uri: string;
-    range?: Range
+    range?: Range;
+    waitForEdits?: boolean;
 }
 
 export interface DownloadConnectorRequest {

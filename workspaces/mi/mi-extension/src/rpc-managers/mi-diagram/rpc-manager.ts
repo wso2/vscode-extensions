@@ -2650,7 +2650,12 @@ ${endpointAttributes}
                 });
             }
 
-            await workspace.applyEdit(edit);
+            if (params.waitForEdits) {
+                await this.applyEditAndWait(edit, params.documentUri);
+            } else {
+                await workspace.applyEdit(edit);
+            }
+
             const file = Uri.file(params.documentUri);
             let document = workspace.textDocuments.find(doc => doc.uri.fsPath === params.documentUri) 
                             || await workspace.openTextDocument(file);
@@ -2660,7 +2665,7 @@ ${endpointAttributes}
                 const formatEdits = (editRequest: ExtendedTextEdit) => {
                     const textToInsert = editRequest.newText.endsWith('\n') ? editRequest.newText : `${editRequest.newText}\n`;
                     const formatRange = this.getFormatRange(getRange(editRequest.range), textToInsert);
-                    return this.rangeFormat({ uri: editRequest.documentUri!, range: formatRange });
+                    return this.rangeFormat({ uri: editRequest.documentUri!, range: formatRange, waitForEdits: params.waitForEdits ?? false });
                 };
                 if ('text' in params) {
                     await formatEdits({ range: getRange(params.range), newText: params.text, documentUri: params.documentUri });
@@ -2714,9 +2719,15 @@ ${endpointAttributes}
             } else {
                 edits = await commands.executeCommand("vscode.executeFormatDocumentProvider", uri, formattingOptions);
             }
+
             const workspaceEdit = new WorkspaceEdit();
             workspaceEdit.set(uri, edits);
-            await workspace.applyEdit(workspaceEdit);
+            if (req.waitForEdits) {
+                await this.applyEditAndWait(workspaceEdit, req.uri);
+            } else {
+                await workspace.applyEdit(workspaceEdit);
+            }
+            
             resolve({ status: true });
         });
     }
@@ -3034,7 +3045,7 @@ ${endpointAttributes}
             const tempName = name.replace(/\./g, '');
             const folderStructure: FileStructure = {
                 [tempName]: { // Project folder
-                    'pom.xml': rootPomXmlContent(name, groupID ?? "com.example", (artifactID ?? name).toLowerCase(), projectUuid, version ?? DEFAULT_PROJECT_VERSION, miVersion, initialDependencies),
+                    'pom.xml': rootPomXmlContent(name, groupID ?? "com.example", artifactID ?? name, projectUuid, version ?? DEFAULT_PROJECT_VERSION, miVersion, initialDependencies),
                     '.env': '',
                     'src': {
                         'main': {
@@ -6127,6 +6138,33 @@ ${keyValuesXML}`;
         return undefined;
     }
 
+    async applyEditAndWait(edit: WorkspaceEdit, documentUri: string): Promise<void> {
+
+        if (edit.size === 0) {
+            await workspace.applyEdit(edit);
+            return;
+        }
+
+        const success = await workspace.applyEdit(edit);
+        if (!success) {
+            return;
+        }
+
+        await Promise.race([
+            new Promise<void>(resolve => {
+                const disposable = workspace.onDidChangeTextDocument(e => {
+                    if (e.document.uri.fsPath === documentUri) {
+                        disposable.dispose();
+                        setTimeout(resolve, 0);
+                    }
+                });
+            }),
+            new Promise<void>((_, reject) => 
+                setTimeout(() => reject(new Error('Wait timeout for document update')), 5000)
+            )
+        ]);
+    }
+  
     async getInputOutputMappings(params: GenerateMappingsParamsRequest): Promise<string[]> {
         return new Promise(async (resolve) => {
             const langClient = await MILanguageClient.getInstance(this.projectUri);
