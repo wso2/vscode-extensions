@@ -312,6 +312,9 @@ function getFormFieldItems(expression: Property, connections: FlowNode[]): strin
         return connections.map((connection) => connection.properties?.variable?.value as string);
     } else if (expression.types?.length > 1 && (getPrimaryInputType(expression.types)?.fieldType === "MULTIPLE_SELECT" || getPrimaryInputType(expression.types)?.fieldType === "SINGLE_SELECT")) {
         return expression.types?.map(inputType => inputType.ballerinaType) as string[];
+    } else if (expression.types?.length > 1 && expression.types.some(type => type.fieldType === "FLAG" && type.ballerinaType === "boolean")) {
+        // Handle FLAG fields with boolean type - return proper boolean options
+        return ["true", "false"];
     } else if (expression.types?.length === 1 && isDropDownType(expression.types[0])) {
         return (expression.types[0] as DropdownType).options.map((option) => option.value);
     }
