@@ -84,11 +84,8 @@ export function Overview(props: OverviewProps) {
         fetchData();
     }, [fileUri]);
     return (
-        <ApiDesigner
-            openApi={apiDefinition}
-            isEditMode={isNewFile}
-            openAPIVersion={apiDefinition?.openapi || "3.0.1"}
-            onOpenApiChange={handleOpenApiDefinitionChange}
-        />
+        <div> 
+            <h1>Overview</h1>
+        </div>
     )
 }

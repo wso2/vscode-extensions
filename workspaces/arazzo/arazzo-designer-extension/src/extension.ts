@@ -66,8 +66,9 @@ function initializeLanguageServer(context: vscode.ExtensionContext) {
 	console.log('Initializing Arazzo Language Server...');
 	console.log('To view LSP logs: View > Output > Select "Arazzo Language Server" from dropdown');
 
-	// Path to the language server binary
-	const serverPath = path.join(context.extensionPath, 'ls', 'arazzo-language-server');
+	// Path to the language server binary (add .exe on Windows)
+	const serverExecutable = process.platform === 'win32' ? 'arazzo-language-server.exe' : 'arazzo-language-server';
+	const serverPath = path.join(context.extensionPath, 'ls', serverExecutable);
 
 	// Check if the server binary exists
 	if (!fs.existsSync(serverPath)) {
