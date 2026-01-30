@@ -214,6 +214,9 @@ export const Input: React.FC<InputProps> = ({
 
     const handleFormatChange = (format: BodyFormat) => {
         setBodyFormat(format);
+        setBodyFormatOpen(false);
+        // Clear body immediately when format changes
+        handleBodyChange('');
     };
 
     // Safety check to ensure request object exists with required properties
@@ -401,47 +404,47 @@ export const Input: React.FC<InputProps> = ({
         }
 
         // Add delete lens for form formats
-        if (bodyFormat === 'form-data' || bodyFormat === 'form-urlencoded') {
-            lenses.push({
-                id: 'delete-parameter',
-                title: '$(trash) Delete',
-                shouldShow: (model: any) => {
-                    const lines = model.getLinesContent();
-                    return lines.some((line: string) => line.trim() && line.includes(':'));
-                },
-                getLineNumber: (model: any) => {
-                    const lines = model.getLinesContent();
-                    for (let i = 0; i < lines.length; i++) {
-                        if (lines[i].trim() && lines[i].includes(':')) {
-                            return i + 1;
-                        }
-                    }
-                    return 1;
-                },
-                onExecute: (editor: any, model: any, ...args: any[]) => {
-                    const lineNumber = args[0] || editor.getPosition().lineNumber;
-                    const lineContent = model.getLineContent(lineNumber);
+        // if (bodyFormat === 'form-data' || bodyFormat === 'form-urlencoded') {
+        //     lenses.push({
+        //         id: 'delete-parameter',
+        //         title: '$(trash) Delete',
+        //         shouldShow: (model: any) => {
+        //             const lines = model.getLinesContent();
+        //             return lines.some((line: string) => line.trim() && line.includes(':'));
+        //         },
+        //         getLineNumber: (model: any) => {
+        //             const lines = model.getLinesContent();
+        //             for (let i = 0; i < lines.length; i++) {
+        //                 if (lines[i].trim() && lines[i].includes(':')) {
+        //                     return i + 1;
+        //                 }
+        //             }
+        //             return 1;
+        //         },
+        //         onExecute: (editor: any, model: any, ...args: any[]) => {
+        //             const lineNumber = args[0] || editor.getPosition().lineNumber;
+        //             const lineContent = model.getLineContent(lineNumber);
                     
-                    if (lineContent.trim() && lineContent.includes(':')) {
-                        // Delete the line
-                        editor.executeEdits('delete-parameter', [{
-                            range: {
-                                startLineNumber: lineNumber,
-                                startColumn: 1,
-                                endLineNumber: lineNumber,
-                                endColumn: model.getLineLength(lineNumber) + 1
-                            },
-                            text: ''
-                        }]);
+        //             if (lineContent.trim() && lineContent.includes(':')) {
+        //                 // Delete the line
+        //                 editor.executeEdits('delete-parameter', [{
+        //                     range: {
+        //                         startLineNumber: lineNumber,
+        //                         startColumn: 1,
+        //                         endLineNumber: lineNumber,
+        //                         endColumn: model.getLineLength(lineNumber) + 1
+        //                     },
+        //                     text: ''
+        //                 }]);
                         
-                        // Adjust cursor if necessary
-                        if (lineNumber > model.getLineCount()) {
-                            editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
-                        }
-                    }
-                }
-            });
-        }
+        //                 // Adjust cursor if necessary
+        //                 if (lineNumber > model.getLineCount()) {
+        //                     editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
+        //                 }
+        //             }
+        //         }
+        //     });
+        // }
 
         // Always add generate lens
         lenses.push({
@@ -642,6 +645,7 @@ export const Input: React.FC<InputProps> = ({
                         </FormatSelectorWrapper>
                     </BodyHeaderContainer>
                     <InputEditor
+                        key={`body-editor-${bodyFormat}`}
                         minHeight='calc((100vh - 420px) / 3)'
                         onChange={handleBodyChange}
                         value={request.body || ''}

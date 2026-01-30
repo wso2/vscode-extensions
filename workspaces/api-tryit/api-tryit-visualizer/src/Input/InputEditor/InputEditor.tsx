@@ -372,6 +372,10 @@ export const InputEditor: React.FC<InputEditorProps> = ({
             return;
         }
 
+        // Always dispose existing widgets first
+        contentWidgetsRef.current.forEach(widget => widget.dispose());
+        contentWidgetsRef.current = [];
+
         // Infer section type from provided suggestions
         let currentSectionType: 'query' | 'headers' | 'body' | null = null;
         if (suggestions?.queryKeys && suggestions.queryKeys.length > 0) {
@@ -382,36 +386,19 @@ export const InputEditor: React.FC<InputEditorProps> = ({
             currentSectionType = 'body';
         }
 
-        console.log('[InputEditor] updateContentWidgets - currentSectionType:', currentSectionType);
-        console.log('[InputEditor] updateContentWidgets - bodyFormat:', bodyFormatRef.current);
-        console.log('[InputEditor] updateContentWidgets - suggestions:', suggestions);
-
-        // Add delete icons for all sections that have key-value content
-        // For body section, only show if it's a form format and content has parameter-like lines (containing ':')
+        // For body section, only add widgets if it's a form format and content has parameter-like lines
         if (currentSectionType === 'body') {
             const isFormFormat = bodyFormatRef.current === 'form-data' || bodyFormatRef.current === 'form-urlencoded';
             const lines = model.getLinesContent();
             const hasParameterLines = lines.some(line => line.trim() && line.includes(':'));
             
-            console.log('[InputEditor] updateContentWidgets - isFormFormat:', isFormFormat);
-            console.log('[InputEditor] updateContentWidgets - hasParameterLines:', hasParameterLines);
-            console.log('[InputEditor] updateContentWidgets - lines:', lines);
-            
             if (!isFormFormat || !hasParameterLines) {
-                console.log('[InputEditor] updateContentWidgets - returning early, not showing delete icons');
                 return;
             }
         }
 
-        // Dispose existing widgets
-        contentWidgetsRef.current.forEach(widget => widget.dispose());
-        contentWidgetsRef.current = [];
-
-        console.log('[InputEditor] updateContentWidgets - proceeding to add delete icons');
-
         try {
             const lineCount = model.getLineCount();
-            console.log('[InputEditor] updateContentWidgets - lineCount:', lineCount);
 
             // Add delete icon at the end of each line with content
             for (let lineNumber = 1; lineNumber <= lineCount; lineNumber++) {
@@ -421,8 +408,6 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                 if (trimmedContent && trimmedContent !== '') {
                     const lineLength = lineContent.length;
 
-                    console.log(`[InputEditor] updateContentWidgets - adding delete icon for line ${lineNumber}: "${lineContent}"`);
-
                     // Create a content widget for the delete icon
                     const widget: monaco.editor.IContentWidget = {
                         getId: () => `delete-icon-${lineNumber}`,
@@ -431,7 +416,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                             domNode.style.cssText = `
                                 position: absolute;
                                 margin-top: 4px;
-                                margin-left: 5px;
+                                margin-left: 20px;
                                 width: 14px;
                                 height: 14px;
                                 cursor: pointer;
