@@ -106,7 +106,7 @@ export interface CodeLensConfig {
     /**
      * Handler function when the code lens is clicked
      */
-    onExecute: (editor: monaco.editor.IStandaloneCodeEditor, model: monaco.editor.ITextModel) => void;
+    onExecute: (editor: monaco.editor.IStandaloneCodeEditor, model: monaco.editor.ITextModel, ...args: any[]) => void;
 }
 
 /**
@@ -282,20 +282,42 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                 try {
                     codeLenses.forEach((config) => {
                         if (config.shouldShow(model)) {
-                            const lineNumber = config.getLineNumber(model);
-                            lenses.push({
-                                range: {
-                                    startLineNumber: lineNumber,
-                                    startColumn: 1,
-                                    endLineNumber: lineNumber,
-                                    endColumn: 1
-                                },
-                                command: {
-                                    id: config.id,
-                                    title: config.title,
-                                    arguments: []
-                                }
-                            });
+                            if (config.id === 'delete-parameter') {
+                                // Special handling for delete-parameter: add lens on each parameter line
+                                const lines = model.getLinesContent();
+                                lines.forEach((line, index) => {
+                                    if (line.trim() && line.includes(':')) {
+                                        lenses.push({
+                                            range: {
+                                                startLineNumber: index + 1,
+                                                startColumn: 1,
+                                                endLineNumber: index + 1,
+                                                endColumn: 1
+                                            },
+                                            command: {
+                                                id: config.id,
+                                                title: config.title,
+                                                arguments: [index + 1] // Pass the line number
+                                            }
+                                        });
+                                    }
+                                });
+                            } else {
+                                const lineNumber = config.getLineNumber(model);
+                                lenses.push({
+                                    range: {
+                                        startLineNumber: lineNumber,
+                                        startColumn: 1,
+                                        endLineNumber: lineNumber,
+                                        endColumn: 1
+                                    },
+                                    command: {
+                                        id: config.id,
+                                        title: config.title,
+                                        arguments: []
+                                    }
+                                });
+                            }
                         }
                     });
                 } catch (error) {
@@ -319,9 +341,9 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         const commands: monaco.IDisposable[] = [];
 
         codeLenses.forEach((config) => {
-            commands.push(monaco.editor.registerCommand(config.id, () => {
+            commands.push(monaco.editor.registerCommand(config.id, (...args) => {
                 try {
-                    config.onExecute(editor, model);
+                    config.onExecute(editor, model, ...args);
                 } catch (error) {
                     console.error(`[InputEditor] Error executing command ${config.id}:`, error);
                 }
@@ -673,6 +695,23 @@ export const InputEditor: React.FC<InputEditorProps> = ({
             }
         };
     }, []);
+
+    // Re-register code lens provider when codeLenses changes
+    useEffect(() => {
+        if (monacoRef.current && editorRef.current) {
+            const model = editorRef.current.getModel();
+            if (model) {
+                // Dispose existing provider and commands
+                if (codeLensDisposableRef.current) {
+                    codeLensDisposableRef.current.dispose();
+                }
+                commandsDisposableRef.current.forEach(cmd => cmd.dispose());
+                // Set up new provider and commands
+                setupCodeLensProvider(monacoRef.current, model);
+                setupCommands(monacoRef.current, model, editorRef.current);
+            }
+        }
+    }, [codeLenses]);
 
     return (
         <EditorContainer>

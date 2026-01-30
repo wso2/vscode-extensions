@@ -304,55 +304,147 @@ export const Input: React.FC<InputProps> = ({
     ], []);
 
     // Code lenses for Body editor
-    const bodyCodeLenses = React.useMemo(() => [
-        {
-            id: 'add-body',
-            title: '$(add) Add Body',
-            shouldShow: (model: any) => !model.getValue().trim(),
-            getLineNumber: (model: any) => 1,
-            onExecute: (editor: any, model: any) => {
-                const sampleBody = '{\n  "key": "value"\n}';
-                
-                editor.executeEdits('add-body', [{
-                    range: model.getFullModelRange(),
-                    text: sampleBody
-                }]);
-                
-                setTimeout(() => {
-                    editor.setPosition({ lineNumber: 2, column: 3 });
-                    editor.focus();
-                }, 0);
-            }
-        },
-        {
-            id: 'format-body',
-            title: '$(symbol-keyword) Format',
-            shouldShow: (model: any) => {
-                const value = model.getValue().trim();
-                if (!value) return false;
-                try {
-                    JSON.parse(value);
-                    return true;
-                } catch {
-                    return false;
+    const bodyCodeLenses = React.useMemo(() => {
+        const lenses = [
+            {
+                id: (bodyFormat === 'form-data' || bodyFormat === 'form-urlencoded') ? 'add-parameter' : 'add-body',
+                title: (bodyFormat === 'form-data' || bodyFormat === 'form-urlencoded') ? '$(add) Add Parameter' : '$(add) Add Body',
+                shouldShow: (model: any) => (bodyFormat === 'form-data' || bodyFormat === 'form-urlencoded') ? true : !model.getValue().trim(),
+                getLineNumber: (model: any) => 1,
+                onExecute: (editor: any, model: any) => {
+                    if (bodyFormat === 'form-data' || bodyFormat === 'form-urlencoded') {
+                        const currentValue = model.getValue();
+                        const newValue = currentValue ? currentValue + '\nkey: value' : 'key: value';
+                        
+                        editor.executeEdits('add-parameter', [{
+                            range: model.getFullModelRange(),
+                            text: newValue
+                        }]);
+                        
+                        // Move cursor to the new line
+                        setTimeout(() => {
+                            editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
+                            editor.focus();
+                        }, 0);
+                    } else {
+                        const sampleBody = '{\n  "key": "value"\n}';
+                        
+                        editor.executeEdits('add-body', [{
+                            range: model.getFullModelRange(),
+                            text: sampleBody
+                        }]);
+                        
+                        setTimeout(() => {
+                            editor.setPosition({ lineNumber: 2, column: 3 });
+                            editor.focus();
+                        }, 0);
+                    }
                 }
-            },
-            getLineNumber: (model: any) => 1,
-            onExecute: (editor: any, model: any) => {
-                try {
-                    const value = model.getValue();
-                    const formatted = JSON.stringify(JSON.parse(value), null, 2);
+            }
+        ];
+
+        // Add "Add File" lens for form-data only
+        if (bodyFormat === 'form-data') {
+            lenses.push({
+                id: 'add-file',
+                title: '$(add) Add File',
+                shouldShow: (model: any) => true,
+                getLineNumber: (model: any) => 1,
+                onExecute: (editor: any, model: any) => {
+                    const currentValue = model.getValue();
+                    const newValue = currentValue ? currentValue + '\nkey=@filename' : 'key=@filename';
                     
-                    editor.executeEdits('format-body', [{
+                    editor.executeEdits('add-file', [{
                         range: model.getFullModelRange(),
-                        text: formatted
+                        text: newValue
                     }]);
-                } catch (error) {
-                    console.error('Failed to format JSON:', error);
+                    
+                    // Move cursor to the new line
+                    setTimeout(() => {
+                        editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
+                        editor.focus();
+                    }, 0);
                 }
-            }
-        },
-        {
+            });
+        }
+
+        // Add format lens for non-form formats
+        if (bodyFormat !== 'form-data' && bodyFormat !== 'form-urlencoded') {
+            lenses.push({
+                id: 'format-body',
+                title: '$(symbol-keyword) Format',
+                shouldShow: (model: any) => {
+                    const value = model.getValue().trim();
+                    if (!value) return false;
+                    try {
+                        JSON.parse(value);
+                        return true;
+                    } catch {
+                        return false;
+                    }
+                },
+                getLineNumber: (model: any) => 1,
+                onExecute: (editor: any, model: any) => {
+                    try {
+                        const value = model.getValue();
+                        const formatted = JSON.stringify(JSON.parse(value), null, 2);
+                        
+                        editor.executeEdits('format-body', [{
+                            range: model.getFullModelRange(),
+                            text: formatted
+                        }]);
+                    } catch (error) {
+                        console.error('Failed to format JSON:', error);
+                    }
+                }
+            });
+        }
+
+        // Add delete lens for form formats
+        if (bodyFormat === 'form-data' || bodyFormat === 'form-urlencoded') {
+            lenses.push({
+                id: 'delete-parameter',
+                title: '$(trash) Delete',
+                shouldShow: (model: any) => {
+                    const lines = model.getLinesContent();
+                    return lines.some((line: string) => line.trim() && line.includes(':'));
+                },
+                getLineNumber: (model: any) => {
+                    const lines = model.getLinesContent();
+                    for (let i = 0; i < lines.length; i++) {
+                        if (lines[i].trim() && lines[i].includes(':')) {
+                            return i + 1;
+                        }
+                    }
+                    return 1;
+                },
+                onExecute: (editor: any, model: any, ...args: any[]) => {
+                    const lineNumber = args[0] || editor.getPosition().lineNumber;
+                    const lineContent = model.getLineContent(lineNumber);
+                    
+                    if (lineContent.trim() && lineContent.includes(':')) {
+                        // Delete the line
+                        editor.executeEdits('delete-parameter', [{
+                            range: {
+                                startLineNumber: lineNumber,
+                                startColumn: 1,
+                                endLineNumber: lineNumber,
+                                endColumn: model.getLineLength(lineNumber) + 1
+                            },
+                            text: ''
+                        }]);
+                        
+                        // Adjust cursor if necessary
+                        if (lineNumber > model.getLineCount()) {
+                            editor.setPosition({ lineNumber: model.getLineCount(), column: 1 });
+                        }
+                    }
+                }
+            });
+        }
+
+        // Always add generate lens
+        lenses.push({
             id: 'generate-body',
             title: '$(wand) Generate',
             shouldShow: (model: any) => true,
@@ -361,8 +453,10 @@ export const Input: React.FC<InputProps> = ({
                 console.log('Generate body');
                 // Placeholder for AI generation
             }
-        }
-    ], []);
+        });
+
+        return lenses;
+    }, [bodyFormat]);
 
     const addQueryParam = () => {
         const newParam: QueryParameter = {
