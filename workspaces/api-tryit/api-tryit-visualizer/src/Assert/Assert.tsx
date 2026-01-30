@@ -20,8 +20,8 @@ import React from 'react';
 import { Typography, LinkButton, Codicon, TextField, Button } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { ApiRequest } from '@wso2/api-tryit-core';
-import { InputEditor } from '../InputEditor/InputEditor';
-import { COMMON_HEADERS } from '../InputEditor/SuggestionsConstants';
+import { InputEditor } from '../Input/InputEditor/InputEditor';
+import { COMMON_HEADERS } from '../Input/InputEditor/SuggestionsConstants';
 
 type AssertMode = 'code' | 'form';
 

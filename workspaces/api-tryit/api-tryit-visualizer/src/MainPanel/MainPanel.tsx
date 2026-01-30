@@ -22,7 +22,7 @@ import { VSCodePanels, VSCodePanelTab, VSCodePanelView } from '@vscode/webview-u
 import styled from '@emotion/styled';
 import { Input } from '../Input/Input';
 import { Output } from '../Output/Output';
-import { Assert } from '../Input/Assert/Assert';
+import { Assert } from '../Assert/Assert';
 import { ApiRequestItem, ApiRequest, ApiResponse, ResponseHeader } from '@wso2/api-tryit-core';
 import axios, { AxiosError } from 'axios';
 import { useExtensionMessages } from '../hooks/useExtensionMessages';
