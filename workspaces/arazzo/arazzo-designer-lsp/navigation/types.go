@@ -2,9 +2,10 @@ package navigation
 
 import (
 	"os"
-	"strings"
 	"sync"
 	"time"
+
+	"github.com/arazzo/lsp/utils"
 )
 
 // OperationIndex stores the mapping of operationIds to their definitions
@@ -164,7 +165,10 @@ func (fc *FileCache) Get(fileURI string) (*OpenAPIFile, bool) {
 	}
 
 	// Check if file has been modified since caching
-	filePath := strings.TrimPrefix(fileURI, "file://")
+	filePath, err := utils.URIToPath(fileURI)
+	if err != nil {
+		return nil, false
+	}
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		// File might have been deleted
@@ -187,7 +191,10 @@ func (fc *FileCache) Put(fileURI string, file *OpenAPIFile) error {
 	defer fc.mutex.Unlock()
 
 	// Get file modification time
-	filePath := strings.TrimPrefix(fileURI, "file://")
+	filePath, err := utils.URIToPath(fileURI)
+	if err != nil {
+		return err
+	}
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		return err

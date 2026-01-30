@@ -16,7 +16,10 @@ func ParseOpenAPIFile(fileURI string) (*OpenAPIFile, error) {
 	utils.LogDebug("Parsing OpenAPI file: %s", fileURI)
 
 	// Read file content
-	filePath := strings.TrimPrefix(fileURI, "file://")
+	filePath, err := utils.URIToPath(fileURI)
+	if err != nil {
+		return nil, fmt.Errorf("invalid URI %s: %w", fileURI, err)
+	}
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
@@ -27,13 +30,15 @@ func ParseOpenAPIFile(fileURI string) (*OpenAPIFile, error) {
 	ext := strings.ToLower(filepath.Ext(filePath))
 
 	if ext == ".json" {
-		err = json.Unmarshal(content, &spec)
+		err := json.Unmarshal(content, &spec)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse file: %w", err)
+		}
 	} else {
-		err = yaml.Unmarshal(content, &spec)
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse file: %w", err)
+		err := yaml.Unmarshal(content, &spec)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse file: %w", err)
+		}
 	}
 
 	// Extract OpenAPI file metadata
@@ -113,6 +118,12 @@ func extractOperations(spec map[string]interface{}, fileURI, content string) ([]
 			lineNumber := findLineNumber(content, operationID)
 
 			// Create operation info
+			// Extract filename from URI (handle both platforms)
+			fileName := filepath.Base(fileURI)
+			if filePath, err := utils.URIToPath(fileURI); err == nil {
+				fileName = filepath.Base(filePath)
+			}
+			
 			opInfo := &OperationInfo{
 				OperationID: operationID,
 				Method:      methodUpper,
@@ -120,7 +131,7 @@ func extractOperations(spec map[string]interface{}, fileURI, content string) ([]
 				Summary:     getString(operationMap, "summary"),
 				Description: getString(operationMap, "description"),
 				FileURI:     fileURI,
-				FileName:    filepath.Base(strings.TrimPrefix(fileURI, "file://")),
+				FileName:    fileName,
 				LineNumber:  lineNumber,
 				Column:      0,
 				Tags:        getStringArray(operationMap, "tags"),

@@ -1,6 +1,7 @@
 package navigation
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,7 +15,10 @@ func DiscoverOpenAPIFiles(arazzoFileURI string) ([]string, error) {
 	utils.LogInfo("Discovering OpenAPI files for: %s", arazzoFileURI)
 
 	// Convert URI to file path
-	filePath := strings.TrimPrefix(arazzoFileURI, "file://")
+	filePath, err := utils.URIToPath(arazzoFileURI)
+	if err != nil {
+		return nil, fmt.Errorf("invalid URI %s: %w", arazzoFileURI, err)
+	}
 
 	// Get directory of Arazzo file
 	dir := filepath.Dir(filePath)
@@ -73,7 +77,7 @@ func DiscoverOpenAPIFiles(arazzoFileURI string) ([]string, error) {
 
 		if isOpenAPI {
 			utils.LogDebug("Found OpenAPI file: %s", file)
-			openAPIFiles = append(openAPIFiles, "file://"+file)
+			openAPIFiles = append(openAPIFiles, utils.PathToURI(file))
 		}
 	}
 

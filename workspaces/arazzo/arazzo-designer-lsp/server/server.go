@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"net/url"
-
 	"github.com/arazzo/lsp/codelens"
 	"github.com/arazzo/lsp/completion"
 	"github.com/arazzo/lsp/diagnostics"
@@ -373,12 +371,11 @@ func (s *Server) GetModel(ctx context.Context, params *GetModelParams) (interfac
 	if !ok {
 		// Fallback: read from disk for files that are not open in the editor
 		utils.LogInfo("Document not in cache, reading from disk: %s", uri)
-		u, err := url.Parse(string(uri))
+		filePath, err := utils.URIToPath(string(uri))
 		if err != nil {
 			utils.LogError("Invalid URI: %v", err)
 			return nil, fmt.Errorf("invalid URI %s: %w", uri, err)
 		}
-		filePath := u.Path
 		data, err := os.ReadFile(filePath)
 		if err != nil {
 			utils.LogError("Failed to read file: %v", err)
