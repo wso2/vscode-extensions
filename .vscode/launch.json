@@ -41,7 +41,7 @@
                 "${workspaceFolder}/workspaces/ballerina/ballerina-extension/dist/**/*.js",
                 "${workspaceFolder}/workspaces/bi/bi-extension/out/**/*.js"
             ],
-            "preLaunchTask": "watch-all",
+            "preLaunchTask": "watch-ballerina-and-bi",
             "envFile": "${workspaceFolder}/workspaces/ballerina/ballerina-extension/.env"
         },
         {
