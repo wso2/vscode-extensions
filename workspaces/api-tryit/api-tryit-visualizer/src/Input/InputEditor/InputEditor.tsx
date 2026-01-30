@@ -470,6 +470,91 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                             editorRef.current?.removeContentWidget(widget);
                         }
                     });
+
+                    // Add select-file widget for @filename lines
+                    if (lineContent.includes('@file')) {
+                        const filenameIndex = lineContent.indexOf('@file');
+                        const selectFileWidget: monaco.editor.IContentWidget = {
+                            getId: () => `select-file-${lineNumber}`,
+                            getDomNode: () => {
+                                const domNode = document.createElement('div');
+                                domNode.style.cssText = `
+                                    position: absolute;
+                                    margin-top: 0px;
+                                    margin-left: 4px;
+                                    cursor: pointer;
+                                    display: flex;
+                                    align-items: center;
+                                    font-size: 11px;
+                                    color: transparent;
+                                    line-height: 18px;
+                                    font-weight: 500;
+                                    gap: 4px;
+                                    padding: 0 4px;
+                                    border-radius: 3px;
+                                    width: 40px;
+                                    top: 34px;
+                                    left: 30px;
+                                    background-color: transparent;
+                                    transition: background-color 0.2s;
+                                `;
+                                domNode.innerHTML = 'Select';
+                                domNode.title = 'Click to select a file';
+                                domNode.addEventListener('mouseenter', () => {
+                                    domNode.style.backgroundColor = 'var(--vscode-toolbar-hoverBackground)';
+                                });
+                                domNode.addEventListener('mouseleave', () => {
+                                    domNode.style.backgroundColor = 'transparent';
+                                });
+                                domNode.addEventListener('click', () => {
+                                    if (editorRef.current) {
+                                        // Open file picker
+                                        const input = document.createElement('input');
+                                        input.type = 'file';
+                                        input.onchange = (e: any) => {
+                                            const file = e.target.files[0];
+                                            if (file) {
+                                                // Get the file path or name
+                                                const filePath = (file as any).path || file.name;
+                                                // Replace @filename on this specific line with the file path
+                                                const lineContent = model.getLineContent(lineNumber);
+                                                const newLineContent = lineContent.replace(/@file/g, filePath);
+                                                
+                                                editorRef.current?.executeEdits('select-file', [{
+                                                    range: {
+                                                        startLineNumber: lineNumber,
+                                                        startColumn: 1,
+                                                        endLineNumber: lineNumber,
+                                                        endColumn: lineContent.length + 1
+                                                    },
+                                                    text: newLineContent
+                                                }]);
+                                                editorRef.current?.focus();
+                                            }
+                                        };
+                                        input.click();
+                                    }
+                                });
+                                return domNode;
+                            },
+                            getPosition: () => {
+                                return {
+                                    position: {
+                                        lineNumber: lineNumber,
+                                        column: filenameIndex + 1
+                                    },
+                                    preference: [monaco.editor.ContentWidgetPositionPreference.EXACT]
+                                };
+                            }
+                        };
+
+                        editorRef.current.addContentWidget(selectFileWidget);
+                        contentWidgetsRef.current.push({
+                            dispose: () => {
+                                editorRef.current?.removeContentWidget(selectFileWidget);
+                            }
+                        });
+                    }
                 }
             }
         } catch (error) {

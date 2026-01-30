@@ -355,7 +355,7 @@ export const Input: React.FC<InputProps> = ({
                 getLineNumber: (model: any) => 1,
                 onExecute: (editor: any, model: any) => {
                     const currentValue = model.getValue();
-                    const newValue = currentValue ? currentValue + '\nkey=@filename' : 'key=@filename';
+                    const newValue = currentValue ? currentValue + '\nkey: @file: application/octet-stream' : 'key: @file: application/octet-stream';
                     
                     editor.executeEdits('add-file', [{
                         range: model.getFullModelRange(),
