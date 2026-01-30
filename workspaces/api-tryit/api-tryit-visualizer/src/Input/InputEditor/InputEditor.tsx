@@ -138,6 +138,10 @@ interface InputEditorProps {
      * Suggestions for auto-completion
      */
     suggestions?: SuggestionsConfig;
+    /**
+     * Body format for conditional behavior (e.g., form-data, form-urlencoded)
+     */
+    bodyFormat?: string;
 }
 
 export const InputEditor: React.FC<InputEditorProps> = ({
@@ -149,7 +153,8 @@ export const InputEditor: React.FC<InputEditorProps> = ({
     onMount,
     options = {},
     codeLenses = [],
-    suggestions
+    suggestions,
+    bodyFormat
 }) => {
     const monacoRef = useRef<Monaco | null>(null);
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -163,12 +168,18 @@ export const InputEditor: React.FC<InputEditorProps> = ({
     const contentChangeDisposableRef = useRef<monaco.IDisposable | null>(null);
     // Content widgets for delete icons
     const contentWidgetsRef = useRef<monaco.IDisposable[]>([]);
+    const bodyFormatRef = useRef(bodyFormat);
 
     // Dynamic height state
     const [dynamicHeight, setDynamicHeight] = useState(minHeight);
 
     // Use propTheme if provided, otherwise let Monaco inherit VS Code theme
     const theme = propTheme;
+
+    // Update bodyFormat ref when prop changes
+    useEffect(() => {
+        bodyFormatRef.current = bodyFormat;
+    }, [bodyFormat]);
 
     /**
      * Defines the theme for Monaco Editor based on VS Code theme
@@ -371,17 +382,36 @@ export const InputEditor: React.FC<InputEditorProps> = ({
             currentSectionType = 'body';
         }
 
-        // Don't add delete icons for body section
+        console.log('[InputEditor] updateContentWidgets - currentSectionType:', currentSectionType);
+        console.log('[InputEditor] updateContentWidgets - bodyFormat:', bodyFormatRef.current);
+        console.log('[InputEditor] updateContentWidgets - suggestions:', suggestions);
+
+        // Add delete icons for all sections that have key-value content
+        // For body section, only show if it's a form format and content has parameter-like lines (containing ':')
         if (currentSectionType === 'body') {
-            return;
+            const isFormFormat = bodyFormatRef.current === 'form-data' || bodyFormatRef.current === 'form-urlencoded';
+            const lines = model.getLinesContent();
+            const hasParameterLines = lines.some(line => line.trim() && line.includes(':'));
+            
+            console.log('[InputEditor] updateContentWidgets - isFormFormat:', isFormFormat);
+            console.log('[InputEditor] updateContentWidgets - hasParameterLines:', hasParameterLines);
+            console.log('[InputEditor] updateContentWidgets - lines:', lines);
+            
+            if (!isFormFormat || !hasParameterLines) {
+                console.log('[InputEditor] updateContentWidgets - returning early, not showing delete icons');
+                return;
+            }
         }
 
         // Dispose existing widgets
         contentWidgetsRef.current.forEach(widget => widget.dispose());
         contentWidgetsRef.current = [];
 
+        console.log('[InputEditor] updateContentWidgets - proceeding to add delete icons');
+
         try {
             const lineCount = model.getLineCount();
+            console.log('[InputEditor] updateContentWidgets - lineCount:', lineCount);
 
             // Add delete icon at the end of each line with content
             for (let lineNumber = 1; lineNumber <= lineCount; lineNumber++) {
@@ -391,6 +421,8 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                 if (trimmedContent && trimmedContent !== '') {
                     const lineLength = lineContent.length;
 
+                    console.log(`[InputEditor] updateContentWidgets - adding delete icon for line ${lineNumber}: "${lineContent}"`);
+
                     // Create a content widget for the delete icon
                     const widget: monaco.editor.IContentWidget = {
                         getId: () => `delete-icon-${lineNumber}`,
@@ -399,7 +431,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                             domNode.style.cssText = `
                                 position: absolute;
                                 margin-top: 4px;
-                                margin-left: 30px;
+                                margin-left: 5px;
                                 width: 14px;
                                 height: 14px;
                                 cursor: pointer;
@@ -713,6 +745,16 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         }
     }, [codeLenses]);
 
+    // Update content widgets when bodyFormat changes
+    useEffect(() => {
+        if (editorRef.current) {
+            const model = editorRef.current.getModel();
+            if (model) {
+                updateContentWidgets(model);
+            }
+        }
+    }, [bodyFormat]);
+
     return (
         <EditorContainer>
             <Editor
@@ -840,8 +882,6 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                     if (editorModel) {
                         contentChangeDisposableRef.current = editorModel.onDidChangeContent(() => {
                             updateHeight();
-                            // Trigger code lens refresh on content change
-                            editor.trigger('', 'codelens', {});
                             // Update content widgets for delete icons
                             updateContentWidgets(editorModel);
                         });

@@ -647,6 +647,7 @@ export const Input: React.FC<InputProps> = ({
                         value={request.body || ''}
                         codeLenses={bodyCodeLenses}
                         suggestions={{ bodySnippets: COMMON_BODY_SNIPPETS }}
+                        bodyFormat={bodyFormat}
                     />
                 </>
             ) : (
