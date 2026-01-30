@@ -430,8 +430,11 @@ async function buildComponentConfig(
 	);
 }
 
-function showComponentFormInWorkspace(createParams: ISingleComponentCreateFormParams | IComponentCreateFormParams): void {
-	componentWizard = new ComponentFormView(ext.context.extensionUri, createParams);
+function showComponentFormInWorkspace(
+	createParams: ISingleComponentCreateFormParams | IComponentCreateFormParams,
+	rootDirectory: string
+): void {
+	componentWizard = new ComponentFormView(ext.context.extensionUri, createParams, rootDirectory);
 	componentWizard.getWebview()?.reveal();
 }
 
@@ -479,6 +482,7 @@ async function prepareComponentFormParams(
 		project: project,
 		extensionName: webviewStateStore.getState().state.extensionName,
 		components: [componentConfig],
+		rootDirectory: params.componentDir || "",
 	}
 
 	const isWithinWorkspace = workspace.workspaceFolders?.some((folder) =>
@@ -530,6 +534,7 @@ async function prepareComponentFormParamsBatch(
 		project: project,
 		extensionName: webviewStateStore.getState().state.extensionName,
 		components: componentConfigs,
+		rootDirectory: rootDirectory,
 	}
 
 	const isWithinWorkspace = workspace.workspaceFolders?.some((folder) =>
@@ -548,7 +553,7 @@ async function prepareComponentFormParamsBatch(
 
 function showComponentForm(prepared: PreparedComponentResult): void {
 	if (prepared.isWithinWorkspace || workspace.workspaceFile) {
-		showComponentFormInWorkspace(prepared.formParams);
+		showComponentFormInWorkspace(prepared.formParams, prepared.directoryPath);
 	} else {
 		showComponentFormOutsideWorkspace(prepared.formParams, prepared.gitRoot, prepared.directoryPath);
 	}
@@ -670,7 +675,7 @@ export const continueCreateComponent = () => {
 		if (createCompParams?.extensionName) {
 			webviewStateStore.getState().setExtensionName(createCompParams?.extensionName as ExtensionName);
 		}
-		componentWizard = new ComponentFormView(ext.context.extensionUri, createCompParams);
+		componentWizard = new ComponentFormView(ext.context.extensionUri, createCompParams, createCompParams.rootDirectory);
 		componentWizard.getWebview()?.reveal();
 	}
 };

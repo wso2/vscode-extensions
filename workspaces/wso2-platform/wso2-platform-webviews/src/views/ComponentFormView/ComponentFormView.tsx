@@ -23,6 +23,7 @@ import {
 	ChoreoBuildPackNames,
 	ChoreoComponentType,
 	ChoreoImplementationType,
+	type ComponentSelectionItem,
 	type CreateComponentReq,
 	type Endpoint,
 	GitProvider,
@@ -77,12 +78,24 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 		organization,
 		components,
 		existingComponents: existingComponentsCache,
+		rootDirectory,
 	} = props;
 
 	// Support multiple components - currently working with the first component (can be extended for multi-component wizard)
 	const [currentComponentIndex, setCurrentComponentIndex] = useState(0);
 	const currentComponent = components[currentComponentIndex];
 	const isMultiComponentMode = components.length > 1;
+
+	// State for component selection in multi-component mode
+	const [selectedComponents, setSelectedComponents] = useState<ComponentSelectionItem[]>(() =>
+		components.map((comp, index) => ({
+			index,
+			selected: true, // Select all by default
+			componentType: comp.initialValues?.type || ChoreoComponentType.Service,
+			name: comp.initialValues?.name || comp.directoryName,
+			directoryName: comp.directoryName,
+		})),
+	);
 
 	// Destructure current component properties
 	const { directoryFsPath, directoryUriPath, directoryName, initialValues, isNewCodeServerComp } = currentComponent;
@@ -344,6 +357,7 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 							createComponent(newDirPath);
 						}
 					}}
+					rootDirectory={rootDirectory}
 				/>
 			),
 		});
@@ -360,6 +374,11 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 						gitProxyForm.setValue("proxyContext", `/${makeURLSafe(genDetailsForm.getValues()?.name)}`);
 						setStepIndex(stepIndex + 1);
 					}}
+					rootDirectory={rootDirectory}
+					isMultiComponentMode={isMultiComponentMode}
+					allComponents={components}
+					selectedComponents={selectedComponents}
+					onComponentSelectionChange={setSelectedComponents}
 				/>
 			),
 		});
@@ -389,6 +408,7 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 						subPath={subPath}
 						gitRoot={gitRoot}
 						baseUriPath={directoryUriPath}
+						rootDirectory={rootDirectory}
 					/>
 				),
 			});
@@ -411,6 +431,7 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 							onBackClick={() => setStepIndex(stepIndex - 1)}
 							isSaving={isSubmittingEndpoints}
 							form={endpointDetailsForm}
+							rootDirectory={rootDirectory}
 						/>
 					),
 				});
@@ -427,6 +448,7 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 						onBackClick={() => setStepIndex(stepIndex - 1)}
 						isSaving={isSubmittingProxyConfig}
 						form={gitProxyForm}
+						rootDirectory={rootDirectory}
 					/>
 				),
 			});
@@ -445,6 +467,7 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 					onNextClick={() => createComponent(undefined)}
 					onBackClick={() => setStepIndex(stepIndex - 1)}
 					isCreating={isCreatingComponent}
+					rootDirectory={rootDirectory}
 				/>
 			),
 		});
@@ -455,7 +478,12 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 	const headerTags: HeaderTag[] = [];
 
 	if (!isNewCodeServerComp) {
-		headerTags.push({ label: "Source Directory", value: subPath && subPath !== "." ? subPath : directoryName });
+		if (isMultiComponentMode) {
+			const directoryName = rootDirectory.split(/[/\\]/).pop();
+			headerTags.push({ label: "Source Directory", value: directoryName });
+		} else {
+			headerTags.push({ label: "Source Directory", value: subPath && subPath !== "." ? subPath : directoryName });
+		}
 	}
 	headerTags.push({ label: "Project", value: project.name }, { label: "Organization", value: organization.name });
 
@@ -464,7 +492,11 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 			<div className="container">
 				<form className="mx-auto flex max-w-4xl flex-col gap-2 p-4">
 					<HeaderSection
-						title={`${extensionName === "Devant" ? "Deploy" : "Create"} ${["a", "e", "i", "o", "u"].includes(componentTypeText[0].toLowerCase()) ? "an" : "a"} ${componentTypeText}`}
+						title={
+							isMultiComponentMode
+								? `${extensionName === "Devant" ? "Deploy" : "Create"} Multiple Components as a Batch`
+								: `${extensionName === "Devant" ? "Deploy" : "Create"} ${["a", "e", "i", "o", "u"].includes(componentTypeText[0].toLowerCase()) ? "an" : "a"} ${componentTypeText}`
+						}
 						tags={headerTags}
 					/>
 

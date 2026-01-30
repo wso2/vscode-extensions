@@ -18,7 +18,12 @@
 
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { type ComponentFormSectionProps, GitProvider, parseGitURL, toSentenceCase } from "@wso2/wso2-platform-core";
+import {
+	GitProvider,
+	type MultiComponentSectionProps,
+	parseGitURL,
+	toSentenceCase,
+} from "@wso2/wso2-platform-core";
 import React, { type FC, type ReactNode, useEffect } from "react";
 import type { SubmitHandler, UseFormReturn } from "react-hook-form";
 import type { z } from "zod/v3";
@@ -30,19 +35,40 @@ import { useGetGitBranches } from "../../../hooks/use-queries";
 import { useExtWebviewContext } from "../../../providers/ext-vewview-ctx-provider";
 import { ChoreoWebViewAPI } from "../../../utilities/vscode-webview-rpc";
 import type { componentGeneralDetailsSchema } from "../componentFormSchema";
+import { MultiComponentSelector } from "./MultiComponentSelector";
 
 type ComponentFormGenDetailsType = z.infer<typeof componentGeneralDetailsSchema>;
 
-interface Props extends ComponentFormSectionProps {
+interface Props extends MultiComponentSectionProps {
 	onNextClick: () => void;
 	initialFormValues?: ComponentFormGenDetailsType;
 	form: UseFormReturn<ComponentFormGenDetailsType>;
 	componentType: string;
 }
 
-export const ComponentFormGenDetailsSection: FC<Props> = ({ onNextClick, organization, directoryFsPath, form }) => {
+export const ComponentFormGenDetailsSection: FC<Props> = ({
+	onNextClick,
+	organization,
+	directoryFsPath,
+	form,
+	rootDirectory,
+	isMultiComponentMode,
+	allComponents,
+	selectedComponents,
+	onComponentSelectionChange,
+}) => {
 	const [compDetailsSections] = useAutoAnimate();
 	const { extensionName } = useExtWebviewContext();
+
+	// Extract workspace name from rootDirectory path
+	const workspaceName = rootDirectory ? rootDirectory.split(/[/\\]/).filter(Boolean).pop() || "" : "";
+
+	// Set workspace name as the default name in multi-component mode
+	useEffect(() => {
+		if (isMultiComponentMode && workspaceName && !form.getValues("name")) {
+			form.setValue("name", workspaceName, { shouldValidate: true });
+		}
+	}, [isMultiComponentMode, workspaceName, form]);
 
 	const repoUrl = form.watch("repoUrl");
 	const credential = form.watch("credential");
@@ -228,18 +254,32 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({ onNextClick, organiz
 		onInvalidRepoRefreshing = isFetchingRepoAccess;
 	}
 
+	const hasSelectedComponents = selectedComponents?.some((comp) => comp.selected) ?? false;
+
 	return (
 		<>
-			<div className="grid gap-4 md:grid-cols-2" ref={compDetailsSections}>
-				<TextField
-					label="Name"
-					key="gen-details-name"
-					required
-					name="name"
-					placeholder={extensionName === "Devant" ? "integration-name" : "component-name"}
-					control={form.control}
-					wrapClassName="col-span-full"
+			{/* Multi-component selection list */}
+			{isMultiComponentMode && allComponents && selectedComponents && onComponentSelectionChange && (
+				<MultiComponentSelector
+					extensionName={extensionName}
+					allComponents={allComponents}
+					selectedComponents={selectedComponents}
+					onComponentSelectionChange={onComponentSelectionChange}
 				/>
+			)}
+
+			<div className="grid gap-4 md:grid-cols-2" ref={compDetailsSections}>
+				{!isMultiComponentMode && (
+					<TextField
+						label="Name"
+						key="gen-details-name"
+						required
+						name="name"
+						placeholder={extensionName === "Devant" ? "integration-name" : "component-name"}
+						control={form.control}
+						wrapClassName="col-span-full"
+					/>
+				)}
 				{gitData?.remotes?.length > 0 && (
 					<Dropdown
 						label="Repository"
@@ -308,7 +348,10 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({ onNextClick, organiz
 			</div>
 
 			<div className="flex justify-end gap-3 pt-6 pb-2">
-				<Button onClick={form.handleSubmit(onSubmitForm)} disabled={!!invalidRepoMsg || branches?.length === 0}>
+				<Button
+					onClick={form.handleSubmit(onSubmitForm)}
+					disabled={!!invalidRepoMsg || branches?.length === 0 || (isMultiComponentMode && !hasSelectedComponents)}
+				>
 					Next
 				</Button>
 			</div>

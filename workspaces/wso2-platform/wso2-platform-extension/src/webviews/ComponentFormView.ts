@@ -35,12 +35,16 @@ export class ComponentFormView {
 	private _disposables: vscode.Disposable[] = [];
 	private _rpcHandler: WebViewPanelRpc;
 
-	constructor(extensionUri: vscode.Uri, params: IComponentCreateFormParams | ISingleComponentCreateFormParams) {
+	constructor(
+		extensionUri: vscode.Uri,
+		params: IComponentCreateFormParams | ISingleComponentCreateFormParams,
+		rootDirectory: string
+	) {
 		this._panel = ComponentFormView.createWebview();
 		this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 		// Convert legacy single component params to new format if needed
 		const normalizedParams = this.normalizeParams(params);
-		this._panel.webview.html = this._getWebviewContent(this._panel.webview, extensionUri, normalizedParams);
+		this._panel.webview.html = this._getWebviewContent(this._panel.webview, extensionUri, normalizedParams, rootDirectory);
 		this._rpcHandler = new WebViewPanelRpc(this._panel);
 	}
 
@@ -69,6 +73,7 @@ export class ComponentFormView {
 					isNewCodeServerComp: legacyParams.isNewCodeServerComp,
 				},
 			],
+			rootDirectory: legacyParams.rootDirectory,
 		};
 	}
 
@@ -96,7 +101,12 @@ export class ComponentFormView {
 		return this._panel;
 	}
 
-	private _getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, params: IComponentCreateFormParams) {
+	private _getWebviewContent(
+		webview: vscode.Webview,
+		extensionUri: vscode.Uri,
+		params: IComponentCreateFormParams,
+		rootDirectory: string
+	) {
 		// The JS file from the React build output
 		const scriptUri = getUri(webview, extensionUri, ["resources", "jslibs", "main.js"]);
 
@@ -109,6 +119,7 @@ export class ComponentFormView {
 			project: params.project,
 			extensionName: params.extensionName,
 			components: params.components,
+			rootDirectory: rootDirectory,
 		};
 
 		return /*html*/ `

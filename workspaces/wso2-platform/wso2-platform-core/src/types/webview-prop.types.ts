@@ -37,6 +37,7 @@ export interface ComponentFormWebviewProps {
 	extensionName?: string;
 	/** Array of components to be created. For single component creation, this will contain one item. */
 	components: ComponentConfig[];
+	rootDirectory: string;
 }
 
 /**
@@ -44,6 +45,36 @@ export interface ComponentFormWebviewProps {
  * This combines the common webview props with the current component's config.
  */
 export type ComponentFormSectionProps = Omit<ComponentFormWebviewProps, "components"> & ComponentConfig;
+
+/**
+ * Extended props for sections that need to handle multi-component mode.
+ */
+export interface MultiComponentSectionProps extends ComponentFormSectionProps {
+	/** All components to be created (for multi-component mode) */
+	allComponents?: ComponentConfig[];
+	/** Whether the form is in multi-component mode */
+	isMultiComponentMode?: boolean;
+	/** Callback to update selected components and their types */
+	onComponentSelectionChange?: (selectedComponents: ComponentSelectionItem[]) => void;
+	/** Currently selected components with their configurations */
+	selectedComponents?: ComponentSelectionItem[];
+}
+
+/**
+ * Represents a component selection item in multi-component mode.
+ */
+export interface ComponentSelectionItem {
+	/** Index of the component in the components array */
+	index: number;
+	/** Whether this component is selected for deployment */
+	selected: boolean;
+	/** The component type to deploy as */
+	componentType: string;
+	/** The component name */
+	name: string;
+	/** The directory name */
+	directoryName: string;
+}
 
 export interface ComponentsDetailsWebviewProps {
 	type: "ComponentDetailsView";
