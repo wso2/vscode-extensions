@@ -57,6 +57,7 @@ module.exports = {
         noParse: [require.resolve("@ts-morph/common/dist/typescript.js")],
     },
     devServer: {
+        host: 'localhost',
         allowedHosts: 'all',
         port: 9000,
         headers: {
@@ -64,6 +65,9 @@ module.exports = {
         },
         devMiddleware: {
             mimeTypes: { 'text/css': ['css'] },
+        },
+        client: {
+            webSocketURL: 'ws://localhost:9000/ws',
         },
     },
     plugins: [
