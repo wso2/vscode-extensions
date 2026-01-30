@@ -29,6 +29,8 @@ import ConnectionConfigurationPopup from "../ConnectionConfigurationPopup";
 import DatabaseConnectionPopup from "../DatabaseConnectionPopup";
 import { BodyTinyInfo } from "../../../styles";
 import { PopupOverlay, PopupContainer, PopupHeader, PopupTitle, CloseButton } from "../styles";
+import { DevantConnectorListPopup } from "../DevantConnections/DevantConnectorListPopup";
+import { usePlatformExtContext } from "../../../../providers/platform-ext-ctx-provider";
 
 const PopupContent = styled.div`
     flex: 1;
@@ -219,13 +221,14 @@ interface AddConnectionPopupProps {
 export function AddConnectionPopup(props: AddConnectionPopupProps) {
     const { projectPath, fileName, target, onClose, onNavigateToOverview, isPopup } = props;
     const { rpcClient } = useRpcContext();
+    const { initConnector: initDevantConnector } = usePlatformExtContext();
 
     const [searchText, setSearchText] = useState<string>("");
     const [connectors, setConnectors] = useState<Category[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [fetchingInfo, setFetchingInfo] = useState(false);
     const [filterType, setFilterType] = useState<"All" | "Standard" | "Organization">("All");
-    const [wizardStep, setWizardStep] = useState<"database" | "api" | "connector" | null>(null);
+    const [wizardStep, setWizardStep] = useState<"database" | "api" | "connector" | "devant-list" | null>(null);
     const [selectedConnector, setSelectedConnector] = useState<AvailableNode | null>(null);
     const [experimentalEnabled, setExperimentalEnabled] = useState<boolean>(false);
     const [hasPersistConnection, setHasPersistConnection] = useState<boolean>(false);
@@ -391,6 +394,11 @@ export function AddConnectionPopup(props: AddConnectionPopupProps) {
         setWizardStep("api");
     };
 
+    const handleOpenListDevantConnections = () => {
+        // Navigate to Devant connections list
+        setWizardStep("devant-list");
+    };
+
     const handleSelectConnector = (connector: AvailableNode) => {
         if (!connector.codedata) {
             console.error(">>> Error selecting connector. No codedata found");
@@ -487,6 +495,15 @@ export function AddConnectionPopup(props: AddConnectionPopupProps) {
 
     const isLoading = isSearching || fetchingInfo;
 
+    useEffect(() => {
+        if(initDevantConnector?.connector) {
+            // todo: have a separate wizard for importing devant 3rd party connectors
+            setWizardStep("connector");
+            handleSelectConnector(initDevantConnector.connector);
+            initDevantConnector?.setConnector(null);
+        }
+    },[initDevantConnector])
+
     // Show configuration form when connector is selected
     if (wizardStep === "connector" && selectedConnector) {
         return (
@@ -525,6 +542,20 @@ export function AddConnectionPopup(props: AddConnectionPopupProps) {
                 onBack={handleBackToConnectorList}
                 onBrowseConnectors={handleBackToConnectorList}
             />
+        );
+    }
+
+     if (wizardStep === "devant-list") {
+        return (
+            <>
+                <DevantConnectorListPopup 
+                    projectPath={projectPath}
+                    fileName={fileName}
+                    target={target}
+                    onClose={handleCloseWizard}
+                    onBack={handleBackToConnectorList}
+                />
+            </>
         );
     }
 
@@ -621,7 +652,6 @@ export function AddConnectionPopup(props: AddConnectionPopupProps) {
                         />
                     </SearchContainer>
 
-                    {(connectorOptions.showApiSpec || connectorOptions.showDatabase) && (
                         <Section>
                             <SectionTitle variant="h4">Create New Connector</SectionTitle>
                             <CreateConnectorOptions>
@@ -709,9 +739,32 @@ export function AddConnectionPopup(props: AddConnectionPopupProps) {
                                         databaseCard
                                     );
                                 })()}
+
+                                <ConnectorOptionCard onClick={handleOpenListDevantConnections}>
+                                    <ConnectorOptionIcon>
+                                        <Icon name="Devant" sx={{ fontSize: 24, width: 24, height: 24 }} />
+                                    </ConnectorOptionIcon>
+                                    <ConnectorOptionContent>
+                                        <ConnectorOptionTitle>Connect via Devant</ConnectorOptionTitle>
+                                        <ConnectorOptionDescription>
+                                            Select APIs deployed in Devant or third party dependencies with managed configurations
+                                        </ConnectorOptionDescription>
+                                        <ConnectorOptionButtons>
+                                            <ConnectorTypeLabel>
+                                                Internal APIs
+                                            </ConnectorTypeLabel>
+                                            <ConnectorTypeLabel>
+                                                Third Party APIs
+                                            </ConnectorTypeLabel>
+                                        </ConnectorOptionButtons>
+                                    </ConnectorOptionContent>
+                                    <ArrowIcon>
+                                        <Codicon name="chevron-right" />
+                                    </ArrowIcon>
+                                </ConnectorOptionCard>
                             </CreateConnectorOptions>
                         </Section>
-                    )}
+                    
 
                     <Section>
                         <SectionHeader>

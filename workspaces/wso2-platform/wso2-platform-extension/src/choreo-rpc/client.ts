@@ -35,6 +35,7 @@ import type {
 	CreateConfigYamlReq,
 	CreateDeploymentReq,
 	CreateProjectReq,
+	CreateThirdPartyConnectionReq,
 	CredentialItem,
 	DeleteCompReq,
 	DeleteConnectionReq,
@@ -66,6 +67,7 @@ import type {
 	GetGitTokenForRepositoryReq,
 	GetGitTokenForRepositoryResp,
 	GetMarketplaceIdlReq,
+	GetMarketplaceItemReq,
 	GetMarketplaceListReq,
 	GetProjectEnvsReq,
 	GetProxyDeploymentInfoReq,
@@ -78,12 +80,17 @@ import type {
 	IsRepoAuthorizedReq,
 	IsRepoAuthorizedResp,
 	MarketplaceIdlResp,
+	MarketplaceItem,
 	MarketplaceListResp,
 	Project,
 	ProjectBuildLogsData,
 	PromoteProxyDeploymentReq,
 	ProxyDeploymentInfo,
+	RegisterMarketplaceConnectionReq,
 	RequestPromoteApprovalReq,
+	StartProxyServerReq,
+	StartProxyServerResp,
+	StopProxyServerReq,
 	SubscriptionsResp,
 	ToggleAutoBuildReq,
 	ToggleAutoBuildResp,
@@ -475,6 +482,14 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		return response;
 	}
 
+	async getMarketplaceItem(params: GetMarketplaceItemReq): Promise<MarketplaceItem> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: MarketplaceItem = await this.client.sendRequest("connections/getMarketplaceItem", params);
+		return response;
+	}
+
 	async getMarketplaceIdl(params: GetMarketplaceIdlReq): Promise<MarketplaceIdlResp> {
 		if (!this.client) {
 			throw new Error("RPC client is not initialized");
@@ -491,11 +506,11 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		return response;
 	}
 
-	async getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionListItem> {
+	async getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionDetailed> {
 		if (!this.client) {
 			throw new Error("RPC client is not initialized");
 		}
-		const response: ConnectionListItem = await this.client.sendRequest("connections/getConnectionItem", params);
+		const response: ConnectionDetailed = await this.client.sendRequest("connections/getConnectionItem", params);
 		return response;
 	}
 
@@ -504,6 +519,14 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 			throw new Error("RPC client is not initialized");
 		}
 		const response: ConnectionDetailed = await this.client.sendRequest("connections/createComponentConnection", params);
+		return response;
+	}
+
+	async createThirdPartyConnection(params: CreateThirdPartyConnectionReq): Promise<ConnectionDetailed> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: ConnectionDetailed = await this.client.sendRequest("connections/createThirdPartyConnection", params);
 		return response;
 	}
 
@@ -520,6 +543,14 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		}
 		const response: GetConnectionGuideResp = await this.client.sendRequest("connections/getGuide", params);
 		return response;
+	}
+
+	async registerMarketplaceConnection(params: RegisterMarketplaceConnectionReq): Promise<MarketplaceItem> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: { service: MarketplaceItem } = await this.client.sendRequest("connections/registerMarketplaceConnection", params);
+		return response.service;
 	}
 
 	async getAutoBuildStatus(params: GetAutoBuildStatusReq): Promise<GetAutoBuildStatusResp> {
@@ -620,6 +651,21 @@ export class ChoreoRPCClient implements IChoreoRPCClient {
 		}
 		const response: GetCliRpcResp = await this.client.sendRequest("auth/getConfigs", {});
 		return response;
+	}
+
+	async startProxyServer(params: StartProxyServerReq): Promise<StartProxyServerResp> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		const response: StartProxyServerResp = await this.client.sendRequest("connect/startProxyServer", params);
+		return response;
+	}
+
+	async stopProxyServer(params: StopProxyServerReq): Promise<void> {
+		if (!this.client) {
+			throw new Error("RPC client is not initialized");
+		}
+		await this.client.sendRequest("connect/stopProxyServer", params);
 	}
 }
 

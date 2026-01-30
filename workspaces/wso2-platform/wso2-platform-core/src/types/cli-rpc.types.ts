@@ -258,6 +258,11 @@ export interface GetMarketplaceListReq {
 	request: GetMarketplaceItemsParams;
 }
 
+export interface GetMarketplaceItemReq {
+	orgId: string;
+	serviceId: string;
+}
+
 export interface GetMarketplaceIdlReq {
 	orgId: string;
 	serviceId: string;
@@ -286,6 +291,38 @@ export interface CreateComponentConnectionReq {
 	serviceSchemaId: string;
 	name: string;
 	generateCreds: boolean;
+}
+
+export interface CreateThirdPartyConnectionReq {
+	orgId: string;
+	orgUuid: string;
+	projectId: string;
+	componentId: string;
+	name: string;
+	serviceId: string;
+	serviceSchemaId: string;
+	endpointName: string;
+	sensitiveKeys: string[];
+}
+
+export interface RegisterMarketplaceConnectionReq {
+	orgId: string;
+	orgUuid: string;
+	projectId: string;
+	name: string;
+	idlContent: string;
+	schemaEntries: {
+		name: string;
+		type: string;
+		description?: string;
+		isSensitive: boolean;
+		isOptional?: boolean;
+	}[];
+	configs: {
+		key: string;
+		value: string;
+		isOptional?: boolean;
+	}[];
 }
 
 export interface DeleteConnectionReq {
@@ -503,7 +540,7 @@ export interface IChoreoRPCClient {
 	getMarketplaceItems(params: GetMarketplaceListReq): Promise<MarketplaceListResp>;
 	getMarketplaceIdl(params: GetMarketplaceIdlReq): Promise<MarketplaceIdlResp>;
 	getConnections(params: GetConnectionsReq): Promise<ConnectionListItem[]>;
-	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionListItem>;
+	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionDetailed>;
 	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed>;
 	deleteConnection(params: DeleteConnectionReq): Promise<void>;
 	getConnectionGuide(params: GetConnectionGuideReq): Promise<GetConnectionGuideResp>;
@@ -600,7 +637,7 @@ export class ChoreoRpcWebview implements IChoreoRPCClient {
 	getConnections(params: GetConnectionsReq): Promise<ConnectionListItem[]> {
 		return this._messenger.sendRequest(ChoreoRpcGetConnections, HOST_EXTENSION, params);
 	}
-	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionListItem> {
+	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionDetailed> {
 		return this._messenger.sendRequest(ChoreoRpcGetConnectionItem, HOST_EXTENSION, params);
 	}
 	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed> {
@@ -690,7 +727,7 @@ export const ChoreoRpcGetMarketplaceItemIdl: RequestType<GetMarketplaceIdlReq, M
 export const ChoreoRpcGetConnections: RequestType<GetConnectionsReq, ConnectionListItem[]> = {
 	method: "rpc/connections/getConnections",
 };
-export const ChoreoRpcGetConnectionItem: RequestType<GetConnectionItemReq, ConnectionListItem> = {
+export const ChoreoRpcGetConnectionItem: RequestType<GetConnectionItemReq, ConnectionDetailed> = {
 	method: "rpc/connections/getConnectionItem",
 };
 export const ChoreoRpcCreateComponentConnection: RequestType<CreateComponentConnectionReq, ConnectionDetailed> = {

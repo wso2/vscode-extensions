@@ -16,19 +16,18 @@
  * under the License.
  */
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { ReactNode, useEffect, useMemo, useState } from "react";
 import {
     ProjectStructure,
     EVENT_TYPE,
     MACHINE_VIEW,
     BuildMode,
     BI_COMMANDS,
-    DevantMetadata,
     SHARED_COMMANDS,
-    DIRECTORY_MAP
+    DIRECTORY_MAP,
 } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
-import { Typography, Codicon, ProgressRing, Button, Icon, Divider, CheckBox } from "@wso2/ui-toolkit";
+import { Typography, Codicon, ProgressRing, Button, Icon, Divider, CheckBox, ProgressIndicator, Overlay, Dropdown } from "@wso2/ui-toolkit";
 import styled from "@emotion/styled";
 import { ThemeColors } from "@wso2/ui-toolkit";
 import ComponentDiagram from "../ComponentDiagram";
@@ -37,10 +36,11 @@ import ReactMarkdown from "react-markdown";
 import { useQuery } from '@tanstack/react-query'
 import { IOpenInConsoleCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
 import { AlertBoxWithClose } from "../../AIPanel/AlertBoxWithClose";
-import { getIntegrationTypes } from "./utils";
 import { UndoRedoGroup } from "../../../components/UndoRedoGroup";
+import { usePlatformExtContext } from "../../../providers/platform-ext-ctx-provider";
 import { TopNavigationBar } from "../../../components/TopNavigationBar";
 import { TitleBar } from "../../../components/TitleBar";
+import { RunDebugButton } from "./RunDebugButton";
 
 const SpinnerContainer = styled.div`
     display: flex;
@@ -99,6 +99,7 @@ const HeaderControls = styled.div`
     display: flex;
     gap: 8px;
     margin-right: 16px;
+    align-items: center;
 `;
 
 const MainContent = styled.div<{ fullWidth?: boolean }>`
@@ -296,7 +297,14 @@ const DeploymentHeader = styled.div`
         font-size: 13px;
         font-weight: 600;
         margin: 0;
+        width: 100%;
     }
+`;
+
+const DevantHeaderWrap = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 `;
 
 interface DeploymentBodyProps {
@@ -311,14 +319,13 @@ const DeploymentBody = styled.div<DeploymentBodyProps>`
 `;
 
 interface DeploymentOptionProps {
-    title: string;
+    title: ReactNode;
     description: string;
     buttonText: string;
     isExpanded: boolean;
     onToggle: () => void;
     onDeploy: () => void;
     learnMoreLink?: string;
-    hasDeployableIntegration?: boolean;
     secondaryAction?: {
         description: string;
         buttonText: string;
@@ -335,9 +342,9 @@ function DeploymentOption({
     onDeploy,
     learnMoreLink,
     secondaryAction,
-    hasDeployableIntegration
 }: DeploymentOptionProps) {
     const { rpcClient } = useRpcContext();
+    const { deployableArtifacts } = usePlatformExtContext();
 
     const openLearnMoreURL = () => {
         rpcClient.getCommonRpcClient().openExternalUrl({
@@ -377,8 +384,8 @@ function DeploymentOption({
                         e.stopPropagation();
                         onDeploy();
                     }}
-                    disabled={!hasDeployableIntegration}
-                    tooltip={hasDeployableIntegration ? "" : "No deployable integration found"}
+                    disabled={!deployableArtifacts?.exists}
+                    tooltip={deployableArtifacts?.exists ? "" : "No deployable integration found"}
                 >
                     {buttonText}
                 </Button>
@@ -403,8 +410,6 @@ interface DeploymentOptionsProps {
     handleJarBuild: () => void;
     handleDeploy: () => Promise<void>;
     goToDevant: () => void;
-    devantMetadata: DevantMetadata | undefined;
-    hasDeployableIntegration: boolean;
 }
 
 function DeploymentOptions({
@@ -412,11 +417,10 @@ function DeploymentOptions({
     handleJarBuild,
     handleDeploy,
     goToDevant,
-    devantMetadata,
-    hasDeployableIntegration
 }: DeploymentOptionsProps) {
     const [expandedOptions, setExpandedOptions] = useState<Set<string>>(new Set(['cloud', 'devant']));
     const { rpcClient } = useRpcContext();
+    const { platformExtState } = usePlatformExtContext();
 
     const toggleOption = (option: string) => {
         setExpandedOptions(prev => {
@@ -430,6 +434,7 @@ function DeploymentOptions({
         });
     };
 
+    const isDeployed = platformExtState?.isLoggedIn ? !!platformExtState?.selectedComponent : platformExtState?.hasPossibleComponent;
 
     return (
         <>
@@ -437,20 +442,38 @@ function DeploymentOptions({
                 <Title variant="h3">Deployment Options</Title>
 
                 <DeploymentOption
-                    title={devantMetadata?.hasComponent ? "Deployed in Devant" : "Deploy to Devant"}
+                    title={
+                        isDeployed ? (
+                            <DevantHeaderWrap>
+                                <span>Deployed in Devant</span>
+                                <Button
+                                    appearance="icon"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        rpcClient.getCommonRpcClient().executeCommand({
+                                            commands: [PlatformExtCommandIds.RefreshDirectoryContext],
+                                        });
+                                    }}
+                                >
+                                    <Codicon name="refresh" />
+                                </Button>
+                            </DevantHeaderWrap>
+                        ) : (
+                            "Deploy to Devant"
+                        )
+                    }                  
                     description={
-                        devantMetadata?.hasComponent
+                        isDeployed
                             ? "This integration is already deployed in Devant."
                             : "Deploy your integration to the cloud using Devant by WSO2."
                     }
-                    buttonText={devantMetadata?.hasComponent ? "View in Devant" : "Deploy"}
+                    buttonText={isDeployed ? "View in Devant" : "Deploy"}
                     isExpanded={expandedOptions.has("devant")}
                     onToggle={() => toggleOption("devant")}
-                    onDeploy={devantMetadata?.hasComponent ? () => goToDevant() : handleDeploy}
+                    onDeploy={isDeployed? () => goToDevant() : handleDeploy}
                     learnMoreLink={"https://wso2.com/devant/docs"}
-                    hasDeployableIntegration={hasDeployableIntegration}
                     secondaryAction={
-                        devantMetadata?.hasComponent && devantMetadata?.hasLocalChanges
+                        isDeployed && platformExtState?.hasLocalChanges
                             ? {
                                 description: "To redeploy in Devant, please commit and push your changes.",
                                 buttonText: "Open Source Control",
@@ -471,7 +494,6 @@ function DeploymentOptions({
                     isExpanded={expandedOptions.has('docker')}
                     onToggle={() => toggleOption('docker')}
                     onDeploy={handleDockerBuild}
-                    hasDeployableIntegration={hasDeployableIntegration}
                 />
 
                 <DeploymentOption
@@ -481,7 +503,6 @@ function DeploymentOptions({
                     isExpanded={expandedOptions.has('vm')}
                     onToggle={() => toggleOption('vm')}
                     onDeploy={handleJarBuild}
-                    hasDeployableIntegration={hasDeployableIntegration}
                 />
             </div>
         </>
@@ -518,8 +539,9 @@ function IntegrationControlPlane({ enabled, handleICP }: IntegrationControlPlane
     );
 }
 
-function DevantDashboard({ projectStructure, handleDeploy, goToDevant, devantMetadata }: { projectStructure: ProjectStructure, handleDeploy: () => void, goToDevant: () => void, devantMetadata: DevantMetadata }) {
+function DevantDashboard({ projectStructure, handleDeploy, goToDevant }: { projectStructure: ProjectStructure, handleDeploy: () => void, goToDevant: () => void }) {
     const { rpcClient } = useRpcContext();
+    const { platformExtState } = usePlatformExtContext();
 
     const handleSaveAndDeployToDevant = () => {
         handleDeploy();
@@ -535,25 +557,23 @@ function DevantDashboard({ projectStructure, handleDeploy, goToDevant, devantMet
         (projectStructure.directoryMap.SERVICE && projectStructure.directoryMap.SERVICE.length > 0)
     );
 
-    console.log(">>> devantMetadata", devantMetadata);
-
     return (
         <React.Fragment>
-            {devantMetadata?.hasComponent ? <Title variant="h3">Deployed in Devant</Title> : <Title variant="h3">Deploy to Devant</Title>}
+            {platformExtState?.selectedComponent ? <Title variant="h3">Deployed in Devant</Title> : <Title variant="h3">Deploy to Devant</Title>}
             {!hasAutomationOrService ? (
                 <Typography sx={{ color: "var(--vscode-descriptionForeground)" }}>
                     Before you can deploy your integration to Devant, please add an artifact (such as a Service or Automation) to your project.
                 </Typography>
             ) : (
                 <>
-                    {devantMetadata?.hasComponent ? (
+                    {platformExtState?.selectedComponent ? (
                         <>
                             <Typography sx={{ color: "var(--vscode-descriptionForeground)" }}>
                                 This integration is deployed in Devant.
                             </Typography>
                             <Button
                                 appearance="secondary"
-                                disabled={!devantMetadata?.hasLocalChanges}
+                                disabled={!platformExtState?.hasLocalChanges}
                                 onClick={handlePushChanges}
                                 sx={{
                                     display: "flex",
@@ -614,18 +634,14 @@ interface PackageOverviewProps {
 export function PackageOverview(props: PackageOverviewProps) {
     const { projectPath, isInDevant } = props;
     const { rpcClient } = useRpcContext();
-    const [readmeContent, setReadmeContent] = useState<string>("");
+    const [workspaceName, setWorkspaceName] = React.useState<string>("");
+    const [readmeContent, setReadmeContent] = React.useState<string>("");
+    const { platformRpcClient, platformExtState, deployableArtifacts, refetchProjectInfo } = usePlatformExtContext();
+    const [enabled, setEnableICP] = useState(false);
+    const [showAlert, setShowAlert] = React.useState(false);
     const [projectStructure, setProjectStructure] = useState<ProjectStructure>();
     const [isWorkspace, setIsWorkspace] = useState(false);
     const [isLibrary, setIsLibrary] = useState<boolean>(false);
-
-    const [enabled, setEnableICP] = useState(false);
-    const { data: devantMetadata } = useQuery({
-        queryKey: ["devant-metadata", projectPath],
-        queryFn: () => rpcClient.getBIDiagramRpcClient().getDevantMetadata(),
-        refetchInterval: 5000
-    });
-    const [showAlert, setShowAlert] = useState(false);
 
     const fetchContext = () => {
         rpcClient
@@ -665,6 +681,7 @@ export function PackageOverview(props: PackageOverviewProps) {
     rpcClient?.onProjectContentUpdated((state: boolean) => {
         if (state) {
             fetchContext();
+            deployableArtifacts?.refetch();
         }
     });
 
@@ -673,11 +690,8 @@ export function PackageOverview(props: PackageOverviewProps) {
         showLoginAlert().then((status) => {
             setShowAlert(status);
         });
+        refetchProjectInfo();
     }, [projectPath]);
-
-    const deployableIntegrationTypes = useMemo(() => {
-        return getIntegrationTypes(projectStructure);
-    }, [projectStructure]);
 
     const projectName = useMemo(() => {
         return projectStructure?.projectTitle || projectStructure?.projectName;
@@ -716,9 +730,7 @@ export function PackageOverview(props: PackageOverviewProps) {
     };
 
     const handleDeploy = async () => {
-        await rpcClient.getBIDiagramRpcClient().deployProject({
-            integrationTypes: deployableIntegrationTypes
-        });
+        platformRpcClient.deployIntegrationInDevant();
     };
 
     const handleICP = (icpEnabled: boolean) => {
@@ -787,6 +799,7 @@ export function PackageOverview(props: PackageOverviewProps) {
                 {
                     extName: "Devant",
                     componentFsPath: projectPath,
+                    component: platformExtState?.selectedComponent,
                     newComponentParams: { buildPackLang: "ballerina" }
                 } as IOpenInConsoleCmdParams]
         })
@@ -828,14 +841,33 @@ export function PackageOverview(props: PackageOverviewProps) {
                 />
                 Configure
             </Button>
+
             {!isLibrary && (
                 <>
-                    <Button appearance="icon" onClick={handleLocalRun} buttonSx={{ padding: "4px 8px" }}>
-                        <Codicon name="play" sx={{ marginRight: 5 }} /> Run
-                    </Button>
-                    <Button appearance="icon" onClick={handleLocalDebug} buttonSx={{ padding: "4px 8px" }}>
-                        <Codicon name="debug" sx={{ marginRight: 5 }} /> Debug
-                    </Button>
+                    <RunDebugButton 
+                        icon="play"
+                        onClick={handleLocalRun}
+                        text="Run"
+                        devantMode="runInDevant"
+                    />
+                    <RunDebugButton 
+                        icon="debug"
+                        onClick={handleLocalDebug}
+                        text="Debug"
+                        devantMode="debugInDevant"
+                    />
+                    {platformExtState.components?.length > 1 && (
+                        <Dropdown
+                            id="selected component"
+                            value={platformExtState?.selectedComponent?.metadata?.id}
+                            onValueChange={(id) => platformRpcClient.setSelectedComponent(id)}
+                            items={platformExtState.components?.map((item) => ({
+                                content: item.metadata?.displayName,
+                                value: item.metadata?.id,
+                            }))}
+                            style={{ background: "transparent" }}
+                        />
+                    )}
                 </>
             )}
         </>
@@ -951,7 +983,15 @@ export function PackageOverview(props: PackageOverviewProps) {
                         </FooterPanel>
                     </LeftContent>
                     {!isLibrary && (
-                        <SidePanel>
+                         <SidePanel>
+                            {/* <DeploymentOptions
+                                handleDockerBuild={handleDockerBuild}
+                                handleJarBuild={handleJarBuild}
+                                handleDeploy={handleDeploy}
+                                goToDevant={goToDevant}
+                            />
+                            <Divider sx={{ margin: "16px 0" }} />
+                            <IntegrationControlPlane enabled={enabled} handleICP={handleICP} /> */}
                             {!isInDevant &&
                                 <>
                                     <DeploymentOptions
@@ -959,8 +999,6 @@ export function PackageOverview(props: PackageOverviewProps) {
                                         handleJarBuild={handleJarBuild}
                                         handleDeploy={handleDeploy}
                                         goToDevant={goToDevant}
-                                        devantMetadata={devantMetadata}
-                                        hasDeployableIntegration={deployableIntegrationTypes.length > 0}
                                     />
                                     <Divider sx={{ margin: "16px 0" }} />
                                     <IntegrationControlPlane enabled={enabled} handleICP={handleICP} />
@@ -971,7 +1009,6 @@ export function PackageOverview(props: PackageOverviewProps) {
                                     projectStructure={projectStructure}
                                     handleDeploy={handleDeploy}
                                     goToDevant={goToDevant}
-                                    devantMetadata={devantMetadata}
                                 />
                             }
                         </SidePanel>

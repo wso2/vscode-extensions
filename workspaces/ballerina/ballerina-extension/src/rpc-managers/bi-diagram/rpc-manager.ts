@@ -67,9 +67,6 @@ import {
     DeleteProjectRequest,
     DeleteTypeRequest,
     DeleteTypeResponse,
-    DeploymentRequest,
-    DeploymentResponse,
-    DevantMetadata,
     Diagnostics,
     EndOfFileRequest,
     ExpressionCompletionsRequest,
@@ -149,7 +146,6 @@ import * as fs from "fs";
 import * as path from 'path';
 import * as vscode from "vscode";
 
-import { ICreateComponentCmdParams, IWso2PlatformExtensionAPI, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
 import {
     ShellExecution,
     Task,
@@ -173,6 +169,7 @@ import { README_FILE, addProjectToExistingWorkspace, convertProjectToWorkspace, 
 import { writeBallerinaFileDidOpen } from "../../utils/modification";
 import { updateSourceCode } from "../../utils/source-utils";
 import { getView } from "../../utils/state-machine-utils";
+import { PlatformExtRpcManager } from "../platform-ext/rpc-manager";
 import { openAIPanelWithPrompt } from "../../views/ai-panel/aiMachine";
 import { chatStateStorage } from "../../views/ai-panel/chatStateStorage";
 import { checkProjectDiagnostics, removeUnusedImports } from "../ai-panel/repair-utils";
@@ -1095,36 +1092,6 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         });
     }
 
-    async deployProject(params: DeploymentRequest): Promise<DeploymentResponse> {
-        const scopes = params.integrationTypes;
-
-        let integrationType: SCOPE;
-
-        if (scopes.length === 1) {
-            integrationType = scopes[0];
-        } else {
-            // Show a quick pick to select deployment option
-            const selectedScope = await window.showQuickPick(scopes, {
-                placeHolder: 'You have different types of artifacts within this integration. Select the artifact type to be deployed'
-            });
-            integrationType = selectedScope as SCOPE;
-        }
-
-        if (!integrationType) {
-            return { isCompleted: true };
-        }
-
-        const deployementParams: ICreateComponentCmdParams = {
-            integrationType: integrationType as any,
-            buildPackLang: "ballerina", // Example language
-            name: path.basename(StateMachine.context().projectPath),
-            componentDir: StateMachine.context().projectPath,
-            extName: "Devant"
-        };
-        commands.executeCommand(PlatformExtCommandIds.CreateNewComponent, deployementParams);
-
-        return { isCompleted: true };
-    }
 
     openAIChat(params: AIChatRequest): void {
         if (params.readme) {
@@ -1318,6 +1285,15 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                     });
             });
         };
+
+        if(params.nodeType === "connection-node"){
+            // If its a Devant connection, need to delete it from Devant backend as well
+            await new PlatformExtRpcManager().deleteBiDevantConnection({
+                filePath: params.filePath,
+                ...params.component
+            });
+        }
+
 
         // If there are diagnostics, remove unused imports first, then delete component
         if (projectDiags.length > 0) {
@@ -1826,40 +1802,6 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         return { mentions: recordNames };
     }
 
-    async getDevantMetadata(): Promise<DevantMetadata | undefined> {
-        let hasContextYaml = false;
-        let isLoggedIn = false;
-        let hasComponent = false;
-        let hasLocalChanges = false;
-        try {
-            const projectPath = StateMachine.context().projectPath;
-            const repoRoot = getRepoRoot(projectPath);
-            if (repoRoot) {
-                const contextYamlPath = path.join(repoRoot, ".choreo", "context.yaml");
-                if (fs.existsSync(contextYamlPath)) {
-                    hasContextYaml = true;
-                }
-            }
-
-            const platformExt = extensions.getExtension("wso2.wso2-platform");
-            if (!platformExt) {
-                return { hasComponent: hasContextYaml, isLoggedIn: false };
-            }
-            const platformExtAPI: IWso2PlatformExtensionAPI = await platformExt.activate();
-            hasLocalChanges = await platformExtAPI.localRepoHasChanges(projectPath);
-            isLoggedIn = platformExtAPI.isLoggedIn();
-            if (isLoggedIn) {
-                const components = platformExtAPI.getDirectoryComponents(projectPath);
-                hasComponent = components.length > 0;
-                return { isLoggedIn, hasComponent, hasLocalChanges };
-            }
-            return { isLoggedIn, hasComponent: hasContextYaml, hasLocalChanges };
-        } catch (err) {
-            console.error("failed to call getDevantMetadata: ", err);
-            return { hasComponent: hasComponent || hasContextYaml, isLoggedIn, hasLocalChanges };
-        }
-    }
-
     async getRecordConfig(params: GetRecordConfigRequest): Promise<GetRecordConfigResponse> {
         return new Promise((resolve, reject) => {
             StateMachine.langClient().getRecordConfig(params).then((res) => {
@@ -1950,14 +1892,10 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     }
 
     async generateOpenApiClient(params: OpenAPIClientGenerationRequest): Promise<GeneratedClientSaveResponse> {
-        return new Promise((resolve, reject) => {
-            const projectPath = StateMachine.context().projectPath;
-            const request: OpenAPIClientGenerationRequest = {
-                openApiContractPath: params.openApiContractPath,
-                projectPath: projectPath,
-                module: params.module
-            };
-            StateMachine.langClient().openApiGenerateClient(request).then(async (res) => {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const res = await StateMachine.langClient().openApiGenerateClient(params);
+
                 if (!res.source || !res.source.textEditsMap) {
                     console.error("textEditsMap is undefined or null");
                     reject(new Error("textEditsMap is undefined or null"));
@@ -1982,10 +1920,10 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 }
 
                 resolve({});
-            }).catch((error) => {
+            } catch(error){
                 console.log(">>> error generating openapi client", error);
                 reject(error);
-            });
+            }
         });
     }
 
@@ -2103,19 +2041,6 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         });
     }
 
-}
-
-export function getRepoRoot(projectRoot: string): string | undefined {
-    // traverse up the directory tree until .git directory is found
-    const gitDir = path.join(projectRoot, ".git");
-    if (fs.existsSync(gitDir)) {
-        return projectRoot;
-    }
-    // path is root return undefined
-    if (projectRoot === path.parse(projectRoot).root) {
-        return undefined;
-    }
-    return getRepoRoot(path.join(projectRoot, ".."));
 }
 
 export async function getBallerinaFiles(dir: string): Promise<string[]> {
