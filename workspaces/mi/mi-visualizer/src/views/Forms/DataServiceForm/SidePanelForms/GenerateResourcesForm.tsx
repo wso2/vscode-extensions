@@ -409,7 +409,7 @@ export const GenerateResourceForm = ({ isOpen, documentUri, syntaxTree, onCancel
                     </Alert>
                     <ActionContainer>
                         <Button appearance="primary" onClick={handleCancel}>
-                            Okay
+                            Cancel
                         </Button>
                     </ActionContainer>
                 </SidePanelBody>
