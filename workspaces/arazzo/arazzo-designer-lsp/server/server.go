@@ -373,13 +373,16 @@ func (s *Server) GetModel(ctx context.Context, params *GetModelParams) (interfac
 		utils.LogInfo("Document not in cache, reading from disk: %s", uri)
 		filePath, err := utils.URIToPath(string(uri))
 		if err != nil {
-			utils.LogError("Invalid URI: %v", err)
+			utils.LogError("Failed to convert URI to path - URI: '%s', Error: %v", uri, err)
 			return nil, fmt.Errorf("invalid URI %s: %w", uri, err)
 		}
+		
+		utils.LogDebug("Converted URI to path: '%s' -> '%s'", uri, filePath)
+		
 		data, err := os.ReadFile(filePath)
 		if err != nil {
-			utils.LogError("Failed to read file: %v", err)
-			return nil, fmt.Errorf("failed to read file %s: %w", filePath, err)
+			utils.LogError("Failed to read file - URI: '%s', Path: '%s', Error: %v", uri, filePath, err)
+			return nil, fmt.Errorf("failed to read file '%s' (from URI '%s'): %w", filePath, uri, err)
 		}
 		content = string(data)
 	}

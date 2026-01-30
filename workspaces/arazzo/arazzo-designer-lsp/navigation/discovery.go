@@ -17,8 +17,11 @@ func DiscoverOpenAPIFiles(arazzoFileURI string) ([]string, error) {
 	// Convert URI to file path
 	filePath, err := utils.URIToPath(arazzoFileURI)
 	if err != nil {
+		utils.LogError("Failed to convert URI to path - URI: '%s', Error: %v", arazzoFileURI, err)
 		return nil, fmt.Errorf("invalid URI %s: %w", arazzoFileURI, err)
 	}
+	
+	utils.LogDebug("Converted Arazzo URI to path: '%s' -> '%s'", arazzoFileURI, filePath)
 
 	// Get directory of Arazzo file
 	dir := filepath.Dir(filePath)

@@ -18,11 +18,16 @@ func ParseOpenAPIFile(fileURI string) (*OpenAPIFile, error) {
 	// Read file content
 	filePath, err := utils.URIToPath(fileURI)
 	if err != nil {
+		utils.LogError("Failed to convert URI to path - URI: '%s', Error: %v", fileURI, err)
 		return nil, fmt.Errorf("invalid URI %s: %w", fileURI, err)
 	}
+	
+	utils.LogDebug("Converted URI to path: '%s' -> '%s'", fileURI, filePath)
+	
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
+		utils.LogError("Failed to read file - URI: '%s', Path: '%s', Error: %v", fileURI, filePath, err)
+		return nil, fmt.Errorf("failed to read file '%s' (from URI '%s'): %w", filePath, fileURI, err)
 	}
 
 	// Parse based on file extension
