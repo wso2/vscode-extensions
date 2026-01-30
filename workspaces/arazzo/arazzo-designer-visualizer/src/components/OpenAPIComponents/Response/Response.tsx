@@ -72,7 +72,7 @@ export function Response(props: ResponseProps) {
     };
 
     const handleImportJSON = () => {
-        rpcClient.getApiDesignerVisualizerRpcClient().importJSON().then(resp => {
+        rpcClient.getVisualizerRpcClient().importJSON().then(resp => {
             if (resp) {
                 const schema: Schema = resp;
                 const newResponse: R = {

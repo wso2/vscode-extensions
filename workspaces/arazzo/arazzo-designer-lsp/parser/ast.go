@@ -28,16 +28,17 @@ type SourceDescription struct {
 
 // Workflow represents a sequence of steps
 type Workflow struct {
-	WorkflowID  string                 `yaml:"workflowId" json:"workflowId"`
-	Summary     string                 `yaml:"summary,omitempty" json:"summary,omitempty"`
-	Description string                 `yaml:"description,omitempty" json:"description,omitempty"`
-	Inputs      interface{}            `yaml:"inputs,omitempty" json:"inputs,omitempty"` // JSON Schema
-	DependsOn   []string               `yaml:"dependsOn,omitempty" json:"dependsOn,omitempty"`
-	Steps       []Step                 `yaml:"steps" json:"steps"`
-	SuccessCriteria []Criterion        `yaml:"successCriteria,omitempty" json:"successCriteria,omitempty"`
-	Outputs     map[string]interface{} `yaml:"outputs,omitempty" json:"outputs,omitempty"`
-	Parameters  []Parameter            `yaml:"parameters,omitempty" json:"parameters,omitempty"`
-	LineNumber  int                    `yaml:"-" json:"-"` // Line number where workflow starts
+	WorkflowID     string                 `yaml:"workflowId" json:"workflowId"`
+	Summary        string                 `yaml:"summary,omitempty" json:"summary,omitempty"`
+	Description    string                 `yaml:"description,omitempty" json:"description,omitempty"`
+	Inputs         interface{}            `yaml:"inputs,omitempty" json:"inputs,omitempty"` // JSON Schema
+	DependsOn      []string               `yaml:"dependsOn,omitempty" json:"dependsOn,omitempty"`
+	Steps          []Step                 `yaml:"steps" json:"steps"`
+	Parameters     []Parameter            `yaml:"parameters,omitempty" json:"parameters,omitempty"`
+	SuccessActions []SuccessAction        `yaml:"successActions,omitempty" json:"successActions,omitempty"`
+	FailureActions []FailureAction        `yaml:"failureActions,omitempty" json:"failureActions,omitempty"`
+	Outputs        map[string]interface{} `yaml:"outputs,omitempty" json:"outputs,omitempty"`
+	LineNumber     int                    `yaml:"-" json:"-"` // Line number where workflow starts
 }
 
 // Step represents a single action in a workflow

@@ -18,9 +18,11 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
-    APIDesignerVisualizerAPI,
+    VisualizerAPI,
     GetOpenAPIContentRequest,
     GetOpenAPIContentResponse,
+    GetArazzoModelRequest,
+    GetArazzoModelResponse,
     GoToSourceRequest,
     HistoryEntry,
     HistoryEntryResponse,
@@ -30,6 +32,7 @@ import {
     addToHistory,
     getHistory,
     getOpenApiContent,
+    getArazzoModel,
     goBack,
     goHome,
     goToSource,
@@ -41,7 +44,7 @@ import {
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
 
-export class ApiDesignerVisualizerRpcClient implements APIDesignerVisualizerAPI {
+export class VisualizerRpcClient implements VisualizerAPI {
     private _messenger: Messenger;
 
     constructor(messenger: Messenger) {
@@ -82,5 +85,9 @@ export class ApiDesignerVisualizerRpcClient implements APIDesignerVisualizerAPI 
 
     importJSON(): Promise<Schema | undefined> {
         return this._messenger.sendRequest(importJSON, HOST_EXTENSION);
+    }
+
+    getArazzoModel(params: GetArazzoModelRequest): Promise<GetArazzoModelResponse> {
+        return this._messenger.sendRequest(getArazzoModel, HOST_EXTENSION, params);
     }
 }

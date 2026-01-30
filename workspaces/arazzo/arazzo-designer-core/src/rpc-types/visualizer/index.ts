@@ -25,10 +25,12 @@ import {
     GetOpenAPIContentResponse,
     WriteOpenAPIContentResponse,
     WriteOpenAPIContentRequest,
+    GetArazzoModelRequest,
+    GetArazzoModelResponse,
     Schema
 } from "./types";
 
-export interface APIDesignerVisualizerAPI {
+export interface VisualizerAPI {
     openView: (params: OpenViewRequest) => void;
     goBack: () => void;
     getHistory: () => Promise<HistoryEntryResponse>;
@@ -38,4 +40,5 @@ export interface APIDesignerVisualizerAPI {
     getOpenApiContent: (params: GetOpenAPIContentRequest) => Promise<GetOpenAPIContentResponse>;
     writeOpenApiContent: (params: WriteOpenAPIContentRequest) => Promise<WriteOpenAPIContentResponse>;
     importJSON: () => Promise<Schema | undefined>;
+    getArazzoModel: (params: GetArazzoModelRequest) => Promise<GetArazzoModelResponse>;
 }

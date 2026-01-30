@@ -16,6 +16,7 @@
  * under the License.
  */
 import { HistoryEntry } from "../../history";
+import { ArazzoDefinition } from "../../interfaces/arazzoInterface";
 import { EVENT_TYPE, PopupVisualizerLocation, VisualizerLocation } from "../../state-machine-types";
 
 export interface OpenViewRequest {
@@ -98,4 +99,12 @@ export interface Schema {
     contentEncoding?: string;
     definitions?: { [key: string]: Schema };
     $ref?: string;
+}
+
+export interface GetArazzoModelRequest {
+    uri: string;
+}
+
+export interface GetArazzoModelResponse {
+    model: ArazzoDefinition;
 }

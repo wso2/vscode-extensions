@@ -26,6 +26,8 @@ import {
     GetOpenAPIContentResponse,
     WriteOpenAPIContentResponse,
     WriteOpenAPIContentRequest,
+    GetArazzoModelRequest,
+    GetArazzoModelResponse,
 } from "./types";
 import { NotificationType, RequestType } from "vscode-messenger-common";
 
@@ -39,3 +41,4 @@ export const goToSource: NotificationType<GoToSourceRequest> = { method: `${_pre
 export const getOpenApiContent: RequestType<GetOpenAPIContentRequest, GetOpenAPIContentResponse> = { method: `${_preFix}/getOpenApiContent` };
 export const writeOpenApiContent: RequestType<WriteOpenAPIContentRequest, WriteOpenAPIContentResponse> = { method: `${_preFix}/writeOpenApiContent` };
 export const importJSON: NotificationType<void> = { method: `${_preFix}/importJSON` };
+export const getArazzoModel: RequestType<GetArazzoModelRequest, GetArazzoModelResponse> = { method: `${_preFix}/getArazzoModel` };

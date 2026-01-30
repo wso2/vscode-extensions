@@ -23,7 +23,7 @@ import { stateChanged, getVisualizerState, VisualizerLocation, getPopupVisualize
 import { VisualizerWebview } from './visualizer/webview';
 import { StateMachinePopup } from './stateMachinePopup';
 import path = require('path');
-import { registerApiDesignerVisualizerRpcHandlers } from './rpc-managers/visualizer/rpc-handler';
+import { registerVisualizerRpcHandlers } from './rpc-managers/visualizer/rpc-handler';
 
 export class RPCLayer {
     static _messenger: Messenger = new Messenger();
@@ -50,7 +50,7 @@ export class RPCLayer {
     static init() {
         // ----- Main Webview RPC Methods
         RPCLayer._messenger.onRequest(getVisualizerState, () => getContext());
-        registerApiDesignerVisualizerRpcHandlers(RPCLayer._messenger);
+        registerVisualizerRpcHandlers(RPCLayer._messenger);
 
         // ----- Popup Views RPC Methods
         RPCLayer._messenger.onRequest(getPopupVisualizerState, () => getPopupContext());

@@ -45,11 +45,11 @@ export function NavButtonGroup(props: NavButtonGroupProps) {
     }, []);
 
     const handleBackButtonClick = () => {
-        rpcClient.getApiDesignerVisualizerRpcClient().goBack();
+        rpcClient.getVisualizerRpcClient().goBack();
     }
 
     const handleHomeButtonClick = () => {
-        rpcClient.getApiDesignerVisualizerRpcClient().goHome();
+        rpcClient.getVisualizerRpcClient().goHome();
     }
 
     return (

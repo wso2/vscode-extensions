@@ -29,6 +29,10 @@ import { EVENT_TYPE } from '@wso2/arazzo-designer-core';
 
 let languageClient: LanguageClient | undefined;
 
+export function getLanguageClient(): LanguageClient | undefined {
+	return languageClient;
+}
+
 export async function activate(context: vscode.ExtensionContext) {
 	extension.context = context;
 
@@ -89,10 +93,14 @@ function initializeLanguageServer(context: vscode.ExtensionContext) {
 		documentSelector: [
 			{ scheme: 'file', language: 'arazzo-yaml' },
 			{ scheme: 'file', language: 'arazzo-json' },
-			{ scheme: 'file', pattern: '**/*.arazzo.{yaml,yml,json}' }
+			{ scheme: 'file', pattern: '**/*.arazzo.{yaml,yml,json}' },
+			{ scheme: 'file', pattern: '**/*-arazzo.{yaml,yml,json}' }
 		],
 		synchronize: {
-			fileEvents: vscode.workspace.createFileSystemWatcher('**/*.arazzo.{yaml,yml,json}')
+			fileEvents: [
+				vscode.workspace.createFileSystemWatcher('**/*.arazzo.{yaml,yml,json}'),
+				vscode.workspace.createFileSystemWatcher('**/*-arazzo.{yaml,yml,json}')
+			]
 		},
 		outputChannelName: 'Arazzo Language Server'
 	};
@@ -190,7 +198,10 @@ function checkDocumentForOpenAPI(document?: vscode.TextDocument) {
 	// Check for Arazzo file by extension first
 	const isArazzoFile = document.fileName.endsWith('.arazzo.yaml') ||
 		document.fileName.endsWith('.arazzo.yml') ||
-		document.fileName.endsWith('.arazzo.json');
+		document.fileName.endsWith('.arazzo.json') ||
+		document.fileName.endsWith('-arazzo.yaml') ||
+		document.fileName.endsWith('-arazzo.yml') ||
+		document.fileName.endsWith('-arazzo.json');
 
 	// Read the first few lines to check content
 	const firstFewLines = document.getText(new vscode.Range(0, 0, 10, 0));

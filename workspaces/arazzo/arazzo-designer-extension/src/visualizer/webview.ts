@@ -72,7 +72,7 @@ export class VisualizerWebview {
                 refreshDiagram();
                 const documentUri = StateMachine.context().documentUri;
                 if (documentUri) {
-                    const isArazzo = documentUri.includes('.arazzo.');
+                    const isArazzo = documentUri.includes('.arazzo.') || documentUri.includes('-arazzo.');
                     vscode.commands.executeCommand('setContext', 'isViewOpenAPI', !isArazzo);
                     vscode.commands.executeCommand('setContext', 'isViewArazzo', isArazzo);
                 } else {

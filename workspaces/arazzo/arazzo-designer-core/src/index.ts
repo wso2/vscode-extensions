@@ -25,3 +25,4 @@ export * from "./history";
 export * from "./rpc-types/visualizer/index";
 export * from "./rpc-types/visualizer/rpc-type";
 export * from "./rpc-types/visualizer/types";
+export * from "./interfaces/arazzoInterface";

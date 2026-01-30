@@ -17,22 +17,22 @@
  */
 
 import { Messenger } from "vscode-messenger-webview";
-import { MachineStateValue, stateChanged, vscode, getVisualizerState, VisualizerLocation, webviewReady, onFileContentUpdate, PopupMachineStateValue, popupStateChanged, PopupVisualizerLocation, getPopupVisualizerState, onParentPopupSubmitted, ParentPopupData, APIDesignerVisualizerAPI, SelectQuickPickItemReq, WebviewQuickPickItem, selectQuickPickItem, selectQuickPickItems, showConfirmMessage, ShowConfirmBoxReq, showInputBox, ShowWebviewInputBoxReq, showInfoNotification, showErrorNotification } from "@wso2/arazzo-designer-core";
+import { MachineStateValue, stateChanged, vscode, getVisualizerState, VisualizerLocation, webviewReady, onFileContentUpdate, PopupMachineStateValue, popupStateChanged, PopupVisualizerLocation, getPopupVisualizerState, onParentPopupSubmitted, ParentPopupData, VisualizerAPI, SelectQuickPickItemReq, WebviewQuickPickItem, selectQuickPickItem, selectQuickPickItems, showConfirmMessage, ShowConfirmBoxReq, showInputBox, ShowWebviewInputBoxReq, showInfoNotification, showErrorNotification } from "@wso2/arazzo-designer-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
-import { ApiDesignerVisualizerRpcClient } from "./rpc-clients/visualizer/rpc-client";
+import { VisualizerRpcClient } from "./rpc-clients/visualizer/rpc-client";
 
 export class RpcClient {
 
     private messenger: Messenger;
-    private _visualizer: APIDesignerVisualizerAPI;
+    private _visualizer: VisualizerAPI;
 
     constructor() {
         this.messenger = new Messenger(vscode);
         this.messenger.start();
-        this._visualizer = new ApiDesignerVisualizerRpcClient(this.messenger);
+        this._visualizer = new VisualizerRpcClient(this.messenger);
     }
 
-    getApiDesignerVisualizerRpcClient(): APIDesignerVisualizerAPI {
+    getVisualizerRpcClient(): VisualizerAPI {
         return this._visualizer;
     }
 

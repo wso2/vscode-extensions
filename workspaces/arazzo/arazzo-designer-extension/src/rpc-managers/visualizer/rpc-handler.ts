@@ -19,6 +19,7 @@
  */
 import {
     GetOpenAPIContentRequest,
+    GetArazzoModelRequest,
     GoToSourceRequest,
     HistoryEntry,
     OpenViewRequest,
@@ -26,6 +27,7 @@ import {
     addToHistory,
     getHistory,
     getOpenApiContent,
+    getArazzoModel,
     goBack,
     goHome,
     goToSource,
@@ -34,10 +36,10 @@ import {
     writeOpenApiContent,
 } from "@wso2/arazzo-designer-core";
 import { Messenger } from "vscode-messenger";
-import { ApiDesignerVisualizerRpcManager } from "./rpc-manager";
+import { VisualizerRpcManager } from "./rpc-manager";
 
-export function registerApiDesignerVisualizerRpcHandlers(messenger: Messenger) {
-    const rpcManger = new ApiDesignerVisualizerRpcManager();
+export function registerVisualizerRpcHandlers(messenger: Messenger) {
+    const rpcManger = new VisualizerRpcManager();
     messenger.onNotification(openView, (args: OpenViewRequest) => rpcManger.openView(args));
     messenger.onNotification(goBack, () => rpcManger.goBack());
     messenger.onRequest(getHistory, () => rpcManger.getHistory());
@@ -47,4 +49,5 @@ export function registerApiDesignerVisualizerRpcHandlers(messenger: Messenger) {
     messenger.onRequest(getOpenApiContent, (args: GetOpenAPIContentRequest) => rpcManger.getOpenApiContent(args));
     messenger.onRequest(writeOpenApiContent, (args: WriteOpenAPIContentRequest) => rpcManger.writeOpenApiContent(args));
     messenger.onRequest(importJSON, () => rpcManger.importJSON());
+    messenger.onRequest(getArazzoModel, (args: GetArazzoModelRequest) => rpcManger.getArazzoModel(args));
 }

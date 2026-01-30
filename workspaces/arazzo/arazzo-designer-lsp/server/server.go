@@ -8,10 +8,13 @@ import (
 	"strings"
 	"time"
 
+	"net/url"
+
 	"github.com/arazzo/lsp/codelens"
 	"github.com/arazzo/lsp/completion"
 	"github.com/arazzo/lsp/diagnostics"
 	"github.com/arazzo/lsp/navigation"
+	"github.com/arazzo/lsp/parser"
 	"github.com/arazzo/lsp/utils"
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
@@ -148,7 +151,7 @@ func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocume
 // isArazzoFile checks if the file is an Arazzo specification
 func (s *Server) isArazzoFile(uri string) bool {
 	// Check file extension
-	if strings.Contains(uri, ".arazzo.") {
+	if strings.Contains(uri, ".arazzo.") || strings.Contains(uri, "-arazzo.") {
 		return true
 	}
 
@@ -352,6 +355,50 @@ func (s *Server) provideDiagnostics(ctx context.Context, uri protocol.DocumentUR
 	}
 }
 
+// Custom LSP method for getting the parsed Arazzo model
+const MethodArazzoGetModel = "arazzo/getModel"
+
+// GetModelParams defines the parameters for the arazzo/getModel request
+type GetModelParams struct {
+	URI string `json:"uri"`
+}
+
+// GetModel handles the arazzo/getModel custom request
+func (s *Server) GetModel(ctx context.Context, params *GetModelParams) (interface{}, error) {
+	uri := protocol.DocumentURI(params.URI)
+	utils.LogInfo("GetModel request for: %s", uri)
+
+	// Try to get content from open documents cache first
+	content, ok := s.documents[uri]
+	if !ok {
+		// Fallback: read from disk for files that are not open in the editor
+		utils.LogInfo("Document not in cache, reading from disk: %s", uri)
+		u, err := url.Parse(string(uri))
+		if err != nil {
+			utils.LogError("Invalid URI: %v", err)
+			return nil, fmt.Errorf("invalid URI %s: %w", uri, err)
+		}
+		filePath := u.Path
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			utils.LogError("Failed to read file: %v", err)
+			return nil, fmt.Errorf("failed to read file %s: %w", filePath, err)
+		}
+		content = string(data)
+	}
+
+	// Parse the document using the existing parser
+	p := parser.NewParser()
+	doc, err := p.Parse(content)
+	if err != nil {
+		utils.LogError("Failed to parse Arazzo document: %v", err)
+		return nil, fmt.Errorf("failed to parse Arazzo document: %w", err)
+	}
+
+	utils.LogInfo("GetModel returning parsed document with %d workflows", len(doc.Workflows))
+	return doc, nil
+}
+
 // SetClient sets the LSP client
 func (s *Server) SetClient(client protocol.Client) {
 	s.client = client
@@ -444,6 +491,13 @@ func (s *Server) Handle(ctx context.Context, conn jsonrpc2.Conn, req jsonrpc2.Re
 			return nil, fmt.Errorf("failed to unmarshal definition params: %w", err)
 		}
 		return s.Definition(ctx, &params)
+
+	case MethodArazzoGetModel:
+		var params GetModelParams
+		if err := json.Unmarshal(req.Params(), &params); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal getModel params: %w", err)
+		}
+		return s.GetModel(ctx, &params)
 
 	default:
 		utils.LogWarning(">>> Unhandled LSP method: %s", method)

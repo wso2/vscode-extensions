@@ -15,19 +15,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { Button, Codicon, Typography } from '@wso2/ui-toolkit';
+import { Typography } from '@wso2/ui-toolkit';
 import styled from "@emotion/styled";
-import { useVisualizerContext } from '@wso2/arazzo-designer-rpc-client';
-import { OpenAPI } from '../../../Definitions/ServiceDefinitions';
-import { getSelectedOverviewComponent, getChangedOverviewOperationOpenAPI } from '../Utils/OpenAPIUtils';
-import { useState } from 'react';
-import { Info } from '../Info/Info';
-
-const HorizontalFieldWrapper = styled.div`
-    display: flex;
-    flex-direction: row;
-    gap: 10px;
-`;
+import { ArazzoDefinition } from '@wso2/arazzo-designer-core';
 
 export const PanelBody = styled.div`
     height: calc(100% - 87px);
@@ -37,6 +27,7 @@ export const PanelBody = styled.div`
     display: flex;
     flex-direction: column;
 `;
+
 export const ContentWrapper = styled.div`
     display: flex;
     flex-direction: column;
@@ -51,54 +42,44 @@ export const SubSectionWrapper = styled.div`
 `;
 
 interface OverviewProps {
-    openAPIDefinition: OpenAPI;
-    isNewFile?: boolean;
-    onOpenApiDefinitionChange: (openAPIDefinition: OpenAPI) => void;
+    arazzoDefinition: ArazzoDefinition;
 }
 
-const moreOptions = ["Summary", "Description", "Contact", "License"];
-
-// Title, Version are mandatory fields
 export function Overview(props: OverviewProps) {
-    const { openAPIDefinition, isNewFile, onOpenApiDefinitionChange } = props;
-    const { rpcClient } = useVisualizerContext();
-
-    const selectedOptions: string[] = getSelectedOverviewComponent(openAPIDefinition);
-    const handleOptionChange = (options: string[]) => {
-        const newOpenAPI = getChangedOverviewOperationOpenAPI(openAPIDefinition, options);
-        props.onOpenApiDefinitionChange(newOpenAPI);
-    };
-    const onConfigureClick = () => {
-        rpcClient.selectQuickPickItems({
-            title: "Select sections",
-            items: moreOptions.map(item => ({ label: item, picked: selectedOptions.includes(item) }))
-        }).then(resp => {
-            if (resp) {
-                handleOptionChange(resp.map(item => item.label))
-            }
-        })
-    };
+    const { arazzoDefinition } = props;
 
     return (
-        <>
-            <PanelBody>
-                <HorizontalFieldWrapper>
-                    <Typography sx={{ margin: 0, marginTop: 0, flex: 1 }} variant="h2">Overview</Typography>
-                    <Button tooltip='Select sections' onClick={onConfigureClick} appearance='icon'>
-                        <Codicon name='gear' sx={{ marginRight: "4px" }} />
-                        Configure
-                    </Button>
-                </HorizontalFieldWrapper>
-                <Info
-                    info={openAPIDefinition.info}
-                    isNewFile={isNewFile}
-                    selectedOptions={selectedOptions}
-                    onInfoChange={(info) => {
-                        openAPIDefinition.info = info;
-                        props.onOpenApiDefinitionChange(openAPIDefinition);
-                    }}
-                />
-            </PanelBody>
-        </>
-    )
+        <PanelBody>
+            <Typography sx={{ margin: 0 }} variant="h2">Overview</Typography>
+            <ContentWrapper>
+                <Typography variant="body1">Title: {arazzoDefinition.info.title}</Typography>
+                <Typography variant="body1">Version: {arazzoDefinition.info.version}</Typography>
+                {arazzoDefinition.info.summary && (
+                    <Typography variant="body1">Summary: {arazzoDefinition.info.summary}</Typography>
+                )}
+                {arazzoDefinition.info.description && (
+                    <Typography variant="body1">Description: {arazzoDefinition.info.description}</Typography>
+                )}
+            </ContentWrapper>
+            <SubSectionWrapper>
+                <Typography variant="h3">Source Descriptions</Typography>
+                {arazzoDefinition.sourceDescriptions.map((source) => (
+                    <Typography key={source.name} variant="body1">
+                        {source.name} ({source.type}) — {source.url}
+                    </Typography>
+                ))}
+            </SubSectionWrapper>
+            <SubSectionWrapper>
+                <Typography variant="h3">Workflows ({arazzoDefinition.workflows.length})</Typography>
+                {arazzoDefinition.workflows.map((workflow) => (
+                    <ContentWrapper key={workflow.workflowId}>
+                        <Typography variant="body1">
+                            {workflow.workflowId}
+                            {workflow.summary && ` — ${workflow.summary}`}
+                        </Typography>
+                    </ContentWrapper>
+                ))}
+            </SubSectionWrapper>
+        </PanelBody>
+    );
 }

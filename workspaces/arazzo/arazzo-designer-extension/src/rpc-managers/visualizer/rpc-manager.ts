@@ -18,7 +18,7 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
-    APIDesignerVisualizerAPI,
+    VisualizerAPI,
     GetOpenAPIContentRequest,
     GetOpenAPIContentResponse,
     GoToSourceRequest,
@@ -27,13 +27,17 @@ import {
     OpenViewRequest,
     WriteOpenAPIContentRequest,
     WriteOpenAPIContentResponse,
+    GetArazzoModelRequest,
+    GetArazzoModelResponse,
+    ArazzoDefinition,
     Schema
 } from "@wso2/arazzo-designer-core";
+import { getLanguageClient } from '../../extension';
 import { readFile, writeFile } from 'fs/promises';
 import yaml from 'js-yaml';
 import toJsonSchema from 'to-json-schema';
 import * as vscode from 'vscode';
-export class ApiDesignerVisualizerRpcManager implements APIDesignerVisualizerAPI {
+export class VisualizerRpcManager implements VisualizerAPI {
     async openView(params: OpenViewRequest): Promise<void> {
         // ADD YOUR IMPLEMENTATION HERE
         throw new Error('Not implemented');
@@ -168,5 +172,18 @@ export class ApiDesignerVisualizerRpcManager implements APIDesignerVisualizerAPI
             vscode.window.showErrorMessage('Failed to parse JSON. Please ensure the content is valid JSON.');
             return undefined;
         }
+    }
+
+    async getArazzoModel(params: GetArazzoModelRequest): Promise<GetArazzoModelResponse> {
+        const languageClient = getLanguageClient();
+        if (!languageClient) {
+            throw new Error('Language server is not available');
+        }
+
+        const result = await languageClient.sendRequest<ArazzoDefinition>(
+            'arazzo/getModel',
+            { uri: params.uri }
+        );
+        return { model: result };
     }
 }

@@ -13,7 +13,8 @@
   "activationEvents": [
     "onLanguage:yaml",
     "onLanguage:json",
-    "workspaceContains:**/*.arazzo.{yaml,yml,json}"
+    "workspaceContains:**/*.arazzo.{yaml,yml,json}",
+    "workspaceContains:**/*-arazzo.{yaml,yml,json}"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -26,7 +27,9 @@
         ],
         "extensions": [
           ".arazzo.yaml",
-          ".arazzo.yml"
+          ".arazzo.yml",
+          "-arazzo.yaml",
+          "-arazzo.yml"
         ],
         "configuration": "./language-configuration.json",
         "filenames": []
@@ -37,7 +40,8 @@
           "Arazzo JSON"
         ],
         "extensions": [
-          ".arazzo.json"
+          ".arazzo.json",
+          "-arazzo.json"
         ],
         "filenames": []
       }

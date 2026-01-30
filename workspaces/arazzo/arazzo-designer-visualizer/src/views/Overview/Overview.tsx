@@ -18,11 +18,7 @@
 
 import { useEffect, useState } from "react";
 import { useVisualizerContext } from "@wso2/arazzo-designer-rpc-client";
-import { convertOpenAPIStringToOpenAPI } from "../../components/Utils/OpenAPIUtils";
-import { OpenAPI } from "../../Definitions/ServiceDefinitions";
-import { debounce } from "lodash";
-import { MachineStateValue } from "@wso2/arazzo-designer-core";
-import { ApiDesigner } from "../../components/OpenAPIComponents/ApiDesigner/ApiDesigner";
+import { ArazzoDefinition, MachineStateValue } from "@wso2/arazzo-designer-core";
 
 interface OverviewProps {
     fileUri: string;
@@ -31,9 +27,7 @@ interface OverviewProps {
 export function Overview(props: OverviewProps) {
     const { fileUri } = props;
     const { rpcClient } = useVisualizerContext();
-    const [apiDefinition, setApiDefinition] = useState<OpenAPI | undefined>(undefined);
-    const [documentType, setDocumentType] = useState<string | undefined>(undefined);
-    const [isNewFile, setIsNewFile] = useState<boolean>(false);
+    const [arazzoDefinition, setArazzoDefinition] = useState<ArazzoDefinition | undefined>(undefined);
 
     rpcClient?.onStateChanged((newState: MachineStateValue) => {
         if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
@@ -41,51 +35,21 @@ export function Overview(props: OverviewProps) {
         }
     });
 
-    const writeToFile = async (openApiDefinition: OpenAPI) => {
-        rpcClient.getApiDesignerVisualizerRpcClient().writeOpenApiContent({
-            filePath: fileUri,
-            content: JSON.stringify(openApiDefinition),
-        });
-    };
-    const debouncedFileWrite = debounce(writeToFile, 300);
-    const handleOpenApiDefinitionChange = async (openApiDefinition: OpenAPI) => {
-        setApiDefinition(openApiDefinition);
-        debouncedFileWrite(openApiDefinition);
-    };
-
     const fetchData = async () => {
-        const resp = await rpcClient.getApiDesignerVisualizerRpcClient().getOpenApiContent({
-            filePath: fileUri,
+        const resp = await rpcClient.getVisualizerRpcClient().getArazzoModel({
+            uri: fileUri,
         });
-        let convertedApiDefinition = convertOpenAPIStringToOpenAPI(resp.content, resp.type);
-        if (!convertedApiDefinition) {
-            convertedApiDefinition = {
-                openapi: "3.0.1",
-                info: {
-                    title: "",
-                    version: "",
-                },
-                paths: {},
-            };
-            setIsNewFile(true);
-        }
-        // If no Info field is present in the response, then set the Info field
-        if (!convertedApiDefinition.info) {
-            convertedApiDefinition.info = {
-                title: "",
-                version: "",
-            };
-        }
-        setApiDefinition(convertedApiDefinition);
-        setDocumentType(resp.type);
+        console.log('getArazzoModel response:', resp);
+        setArazzoDefinition(resp.model);
     };
 
     useEffect(() => {
         fetchData();
     }, [fileUri]);
+
     return (
-        <div> 
+        <div>
             <h1>Overview</h1>
         </div>
-    )
+    );
 }

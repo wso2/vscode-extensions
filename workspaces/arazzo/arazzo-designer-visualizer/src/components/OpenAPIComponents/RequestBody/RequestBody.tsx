@@ -92,7 +92,7 @@ export function RequestBody(props: RequestBodyProps) {
     };
 
     const handleImportJSON = () => {
-        rpcClient.getApiDesignerVisualizerRpcClient().importJSON().then(resp => {
+        rpcClient.getVisualizerRpcClient().importJSON().then(resp => {
             if (resp) {
                 onSchemaChange(resp);
             }
