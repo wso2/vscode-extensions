@@ -620,6 +620,11 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
 
     async getAvailableRuntimeServices(): Promise<RuntimeServicesResponse> {
         return new Promise(async (resolve) => {
+            const runtimeServicesResponse: RuntimeServicesResponse = {
+                api: undefined,
+                proxy: undefined,
+                dataServices: undefined
+            };
             try {
                 const username = DebuggerConfig.getManagementUserName();
                 const password = DebuggerConfig.getManagementPassword();
@@ -631,12 +636,6 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                 // Create an HTTPS agent that ignores SSL certificate verification
                 // MI has ignored the verification for management api, check on this
                 const agent = new https.Agent({ rejectUnauthorized: false });
-
-                const runtimeServicesResponse: RuntimeServicesResponse = {
-                    api: undefined,
-                    proxy: undefined,
-                    dataServices: undefined
-                };
 
                 const managementPort = DebuggerConfig.getManagementPort();
                 const host = DebuggerConfig.getHost();
@@ -704,8 +703,6 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                         const dataServicesResponseData = await dataServicesResponse.json() as RuntimeServiceDetails | undefined;
                         runtimeServicesResponse.dataServices = dataServicesResponseData;
                     }
-
-                    resolve(runtimeServicesResponse);
                 } else {
                     log(`Error while login to MI management api: ${response.statusText}`);
                     vscode.window.showErrorMessage(`Error while login into the MI Management API: ${response.statusText}`);
@@ -715,6 +712,7 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                 vscode.window.showErrorMessage(`Error while fetching runtime services: ${error}`);
             } finally {
                 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '1';
+                resolve(runtimeServicesResponse);
             }
         });
     }
