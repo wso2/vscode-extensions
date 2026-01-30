@@ -59,6 +59,8 @@ import {
     Type,
     getPrimaryInputType,
     isTemplateType,
+    DropdownType,
+    isDropDownType,
 } from "@wso2/ballerina-core";
 import {
     HelperPaneVariableInfo,
@@ -308,8 +310,10 @@ function getFormFieldValue(expression: Property, clientName?: string) {
 function getFormFieldItems(expression: Property, connections: FlowNode[]): string[] {
     if (getPrimaryInputType(expression.types)?.fieldType === "IDENTIFIER" && expression.metadata.label === "Connection") {
         return connections.map((connection) => connection.properties?.variable?.value as string);
-    } else if (getPrimaryInputType(expression.types)?.fieldType === "MULTIPLE_SELECT" || getPrimaryInputType(expression.types)?.fieldType === "SINGLE_SELECT") {
+    } else if (expression.types?.length > 1 && (getPrimaryInputType(expression.types)?.fieldType === "MULTIPLE_SELECT" || getPrimaryInputType(expression.types)?.fieldType === "SINGLE_SELECT")) {
         return expression.types?.map(inputType => inputType.ballerinaType) as string[];
+    } else if (expression.types?.length === 1 && isDropDownType(expression.types[0])) {
+        return (expression.types[0] as DropdownType).options.map((option) => option.value);
     }
     return undefined;
 }
@@ -399,6 +403,9 @@ export function getContainerTitle(view: SidePanelView, activeNode: FlowNode, cli
             if (!activeNode) {
                 return "";
             }
+            if (activeNode.codedata?.node === "AGENT_CALL") {
+                return `AI Agent`;
+            }
             if (activeNode.codedata?.node === "KNOWLEDGE_BASE" && activeNode.codedata?.object === "VectorKnowledgeBase") {
                 return `ai: Vector Knowledge Base`;
             }
@@ -479,6 +486,10 @@ export function enrichFormTemplatePropertiesWithValues(
 
                 if (formProperty.diagnostics) {
                     enrichedFormTemplateProperties[key as NodePropertyKey].diagnostics = formProperty.diagnostics;
+                }
+
+                if (formProperty.types) {
+                    enrichedFormTemplateProperties[key as NodePropertyKey].types = formProperty.types;
                 }
             }
         }
@@ -916,12 +927,6 @@ function handleRepeatableProperty(property: Property, formField: FormField): voi
             paramFields.push(paramField);
         }
     }
-
-    // Set up parameter manager properties
-    if (formField.types && formField.types.length > 0) {
-        formField.types[0].fieldType = "PARAM_MANAGER";
-    }
-    formField.type = "PARAM_MANAGER";
 
     // Create existing parameter values
     const paramValues = Object.entries(property.value as NodeProperties).map(([paramValueKey, paramValue], index) =>

@@ -2,7 +2,7 @@
     "name": "ballerina",
     "displayName": "Ballerina",
     "description": "Ballerina Language support, debugging, graphical visualization, AI-based data-mapping and many more.",
-    "version": "5.6.4",
+    "version": "5.7.4",
     "publisher": "wso2",
     "icon": "resources/images/ballerina.png",
     "homepage": "https://wso2.com/ballerina/vscode/docs",
@@ -423,7 +423,7 @@
             {
                 "command": "ballerina.showVisualizer",
                 "title": "Show Visualizer",
-                "icon": "$(distro-agent-view)",
+                "icon": "$(distro-design-view)",
                 "category": "Ballerina"
             },
             {
@@ -589,7 +589,7 @@
             {
                 "command": "BI.test.edit.function",
                 "title": "View test flow",
-                "icon": "$(distro-agent-view)",
+                "icon": "$(distro-design-view)",
                 "category": "BI"
             },
             {
@@ -647,7 +647,7 @@
             {
                 "command": "BI.project-explorer.view-type-diagram",
                 "title": "View Type Diagram",
-                "icon": "$(distro-agent-view)",
+                "icon": "$(distro-design-view)",
                 "group": "navigation",
                 "category": "BI"
             },
@@ -668,7 +668,7 @@
             {
                 "command": "BI.project-explorer.view-configuration",
                 "title": "View Configurations",
-                "icon": "$(distro-agent-view)",
+                "icon": "$(distro-design-view)",
                 "group": "navigation",
                 "category": "BI"
             },
@@ -683,7 +683,7 @@
             {
                 "command": "BI.project-explorer.overview",
                 "title": "Show Overview",
-                "icon": "$(distro-agent-view)",
+                "icon": "$(distro-design-view)",
                 "group": "navigation",
                 "category": "BI"
             },
@@ -1054,7 +1054,7 @@
                 "description": "debug",
                 "default": {
                     "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-                    "fontCharacter": "\\f19f"
+                    "fontCharacter": "\\f17a"
                 }
             },
             "distro-source-view": {
@@ -1166,7 +1166,7 @@
                 "description": "design-view",
                 "default": {
                     "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
-                    "fontCharacter": "\\f1a4"
+                    "fontCharacter": "\\f177"
                 }
             }
         },
@@ -1219,8 +1219,8 @@
         "copyJSLibs": "copyfiles -f ../ballerina-visualizer/build/*.js resources/jslibs && copyfiles -f ../trace-visualizer/build/*.js resources/jslibs"
     },
     "dependencies": {
-        "@ai-sdk/amazon-bedrock": "^3.0.57",
-        "@ai-sdk/anthropic": "^2.0.45",
+        "@ai-sdk/amazon-bedrock": "^4.0.4",
+        "@ai-sdk/anthropic": "^3.0.2",
         "@iarna/toml": "^2.2.5",
         "@types/lodash": "^4.14.200",
         "@vscode/test-electron": "^2.5.2",
@@ -1231,7 +1231,7 @@
         "@wso2/syntax-tree": "workspace:*",
         "@wso2/trace-visualizer": "workspace:*",
         "@wso2/wso2-platform-core": "workspace:*",
-        "ai": "^5.0.101",
+        "ai": "^6.0.7",
         "cors-anywhere": "^0.4.4",
         "del-cli": "^5.1.0",
         "dotenv": "~16.5.0",
@@ -1239,7 +1239,7 @@
         "glob": "^11.1.0",
         "handlebars": "~4.7.8",
         "jwt-decode": "^4.0.0",
-        "lodash": "^4.17.21",
+        "lodash": "4.17.23",
         "monaco-languageclient": "0.13.1-next.9",
         "node-fetch": "^3.3.2",
         "node-schedule": "^2.1.1",
