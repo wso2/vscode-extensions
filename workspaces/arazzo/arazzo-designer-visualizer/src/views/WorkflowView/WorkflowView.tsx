@@ -49,6 +49,7 @@ export function WorkflowView(props: WorkflowViewProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [graphKey, setGraphKey] = useState(0);
+    const [isVertical, setIsVertical] = useState(false);
 
     rpcClient?.onStateChanged((newState: MachineStateValue) => {
         if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
@@ -84,7 +85,7 @@ export function WorkflowView(props: WorkflowViewProps) {
 
                     // Build new graph
                     console.log('Building graph...');
-                    buildGraphFromWorkflow(workflow).then(({ nodes: builtNodes, edges: builtEdges }) => {
+                    buildGraphFromWorkflow(workflow, isVertical).then(({ nodes: builtNodes, edges: builtEdges }) => {
                         console.log('Graph built successfully:', { nodes: builtNodes, edges: builtEdges });
                         setNodes(builtNodes);
                         setEdges(builtEdges);
@@ -98,7 +99,7 @@ export function WorkflowView(props: WorkflowViewProps) {
                 }
             }
         }
-    }, [arazzoDefinition, workflowId]);
+    }, [arazzoDefinition, workflowId, isVertical]);
 
     const onConnect = useCallback((params: Connection) => {
         setEdges((eds) => addEdge(params, eds));
@@ -115,6 +116,10 @@ export function WorkflowView(props: WorkflowViewProps) {
 
     const proOptions = { hideAttribution: true };
 
+    const toggleOrientation = useCallback(() => {
+        setIsVertical(prev => !prev);
+    }, []);
+
     if (!arazzoDefinition) {
         return <div style={{ padding: '20px' }}>Loading...</div>;
     }
@@ -122,10 +127,30 @@ export function WorkflowView(props: WorkflowViewProps) {
     return (
         <div
             ref={reactFlowWrapper}
-            style={{ width: '100%', height: '100vh', outline: 'none' }}
+            style={{ width: '100%', height: '100vh', outline: 'none', position: 'relative' }}
             tabIndex={0}
             onClick={onPaneClick}
         >
+            <button
+                onClick={toggleOrientation}
+                style={{
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    zIndex: 1000,
+                    padding: '8px 16px',
+                    backgroundColor: 'var(--vscode-button-background)',
+                    color: 'var(--vscode-button-foreground)',
+                    border: '1px solid var(--vscode-button-border)',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontFamily: 'var(--vscode-font-family)'
+                }}
+                title={isVertical ? 'Switch to Horizontal Layout' : 'Switch to Vertical Layout'}
+            >
+                {isVertical ? '↔ Horizontal' : '↕ Vertical'}
+            </button>
             <ReactFlow
                 key={graphKey}
                 nodes={nodes}
