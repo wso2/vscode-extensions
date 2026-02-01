@@ -36,12 +36,14 @@ const MainPanel = ({ handleResetError }: { handleResetError: () => void }) => {
 
     rpcClient?.onStateChanged((newState: MachineStateValue) => {
         if (typeof newState === 'object' && 'newProject' in newState && newState.newProject === 'viewReady') {
-            setStateUpdated(!stateUpdated);
+            setStateUpdated((prev) => !prev);
         }
-        if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
+        if (typeof newState === 'object' && 'ready' in newState && (newState.ready === 'viewReady' || newState.ready === 'viewEditing')) {
             handleResetError();
-            setStateUpdated(!stateUpdated);
+            setStateUpdated((prev) => !prev);
         }
+        // Always refresh the view on state changes to pick up navigation updates
+        fetchContext();
     });
 
     rpcClient?.onPopupStateChanged((newState: PopupMachineStateValue) => {
@@ -83,7 +85,7 @@ const MainPanel = ({ handleResetError }: { handleResetError: () => void }) => {
                     setViewComponent(<Overview fileUri={machineView.documentUri} />);
                     break;
                 case MACHINE_VIEW.Workflow:
-                    setViewComponent(<WorkflowView fileUri={machineView.documentUri} />);
+                    setViewComponent(<WorkflowView fileUri={machineView.documentUri} workflowId={machineView.identifier} />);
                     break;
                 default:
                     setViewComponent(null);

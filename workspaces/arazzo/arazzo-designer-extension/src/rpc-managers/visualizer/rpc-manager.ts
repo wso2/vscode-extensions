@@ -37,10 +37,11 @@ import { readFile, writeFile } from 'fs/promises';
 import yaml from 'js-yaml';
 import toJsonSchema from 'to-json-schema';
 import * as vscode from 'vscode';
+import { openView as stateMachineOpenView } from '../../stateMachine';
+
 export class VisualizerRpcManager implements VisualizerAPI {
     async openView(params: OpenViewRequest): Promise<void> {
-        // ADD YOUR IMPLEMENTATION HERE
-        throw new Error('Not implemented');
+        stateMachineOpenView(params.type, params.location);
     }
 
     async goBack(): Promise<void> {

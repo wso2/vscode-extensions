@@ -153,12 +153,27 @@ const stateMachine = createMachine<MachineContext>({
         openWebPanel: (context, event) => {
             // Get context values from the project storage so that we can restore the earlier state when user reopens vscode
             return new Promise((resolve, reject) => {
-                if (!VisualizerWebview.currentPanel) {
-                    VisualizerWebview.currentPanel = new VisualizerWebview(extension.webviewReveal);
+                // For Workflow view, use singleton pattern - reuse existing workflow panel
+                if (context.view === MACHINE_VIEW.Workflow) {
+                    if (!VisualizerWebview.workflowPanel) {
+                        // Create new workflow panel as a tab (not beside)
+                        VisualizerWebview.workflowPanel = new VisualizerWebview(false, true); // false = new tab, true = isWorkflowPanel
+                        RPCLayer._messenger.onNotification(webviewReady, () => {
+                            resolve(true);
+                        });
+                    } else {
+                        // Reuse existing workflow panel
+                        VisualizerWebview.workflowPanel.getWebview()?.reveal(ViewColumn.Active);
+                        resolve(true);
+                    }
+                } else if (!VisualizerWebview.currentPanel) {
+                    // For Overview, create panel if it doesn't exist
+                    VisualizerWebview.currentPanel = new VisualizerWebview(extension.webviewReveal, false);
                     RPCLayer._messenger.onNotification(webviewReady, () => {
                         resolve(true);
                     });
                 } else {
+                    // For Overview, reuse existing panel
                     VisualizerWebview.currentPanel!.getWebview()?.reveal(ViewColumn.Active);
                     vscode.commands.executeCommand('setContext', 'isViewOpenAPI', true);
                     resolve(true);
@@ -229,7 +244,7 @@ export function openView(type: EVENT_TYPE, viewLocation?: VisualizerLocation) {
     if (!viewLocation?.projectUri && vscode.workspace.workspaceFolders) {
         viewLocation!.projectUri = vscode.workspace.workspaceFolders![0].uri.fsPath;
     }
-    updateProjectExplorer(viewLocation);
+    //updateProjectExplorer(viewLocation);
     stateService.send({ type: type, viewLocation: viewLocation });
 }
 

@@ -31,11 +31,14 @@ import { COMMANDS } from '../constants';
 
 export class VisualizerWebview {
     public static currentPanel: VisualizerWebview | undefined;
+    public static workflowPanel: VisualizerWebview | undefined;
     public static readonly viewType = 'arazzo-designer.visualizer';
     private _panel: vscode.WebviewPanel | undefined;
     private _disposables: vscode.Disposable[] = [];
+    private _isWorkflowPanel: boolean = false;
 
-    constructor(beside: boolean = false) {
+    constructor(beside: boolean = false, isWorkflowPanel: boolean = false) {
+        this._isWorkflowPanel = isWorkflowPanel;
         this._panel = VisualizerWebview.createWebview(beside);
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
         this._panel.webview.html = this.getWebviewContent(this._panel.webview);
@@ -181,7 +184,11 @@ export class VisualizerWebview {
     }
 
     public dispose() {
-        VisualizerWebview.currentPanel = undefined;
+        if (this._isWorkflowPanel) {
+            VisualizerWebview.workflowPanel = undefined;
+        } else {
+            VisualizerWebview.currentPanel = undefined;
+        }
         this._panel?.dispose();
 
         while (this._disposables.length) {
