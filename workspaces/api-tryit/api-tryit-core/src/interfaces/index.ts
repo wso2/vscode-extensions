@@ -34,6 +34,19 @@ export interface HeaderParameter {
     value: string;
 }
 
+export interface FormDataParameter {
+    id: string;
+    key: string;
+    contentType: string;
+    filePath: string;
+}
+
+export interface FormUrlEncodedParameter {
+    id: string;
+    key: string;
+    value: string;
+}
+
 // RPC request/response types for saving
 export interface SaveRequestRequest {
     filePath: string;
@@ -55,6 +68,9 @@ export interface ApiRequest {
     queryParameters: QueryParameter[];
     headers: HeaderParameter[];
     body?: string;
+    bodyFormData?: FormDataParameter[];
+    bodyFormUrlEncoded?: FormUrlEncodedParameter[];
+    bodyBinaryFilePath?: string;
     assertions?: string[];
 }
 

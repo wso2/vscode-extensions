@@ -145,6 +145,27 @@ export class TryItPanel {
 							vscode.window.showErrorMessage(`Error saving request: ${error instanceof Error ? error.message : 'Unknown error'}`);
 						}
 						break;
+					case 'selectFile':
+						try {
+							const { paramId } = message.data;
+							const fileUris = await vscode.window.showOpenDialog({
+								canSelectFiles: true,
+								canSelectFolders: false,
+								canSelectMany: false,
+								openLabel: 'Select File'
+							});
+							if (fileUris && fileUris.length > 0) {
+								const filePath = fileUris[0].fsPath;
+								this._panel.webview.postMessage({
+									type: 'fileSelected',
+									data: { paramId, filePath }
+								});
+							}
+						} catch (error: unknown) {
+							console.error('Error selecting file:', error);
+							vscode.window.showErrorMessage(`Error selecting file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+						}
+						break;
 				}
 			},
 			null,

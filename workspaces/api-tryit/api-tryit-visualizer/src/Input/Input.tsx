@@ -20,11 +20,12 @@ import React from 'react';
 import { Typography, LinkButton, Codicon } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { ParamItem } from './ParamItem';
+import { MultipartFormItem } from './MultipartForm';
 import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
 import { CodeTextArea } from '../Components/CodeTextArea/CodeTextArea';
-import { CodeInput } from './CodeInput/CodeInput';
 import { InputEditor } from './InputEditor/InputEditor';
 import { COMMON_HEADERS, COMMON_QUERY_KEYS, COMMON_BODY_SNIPPETS } from './InputEditor/SuggestionsConstants';
+import { getVSCodeAPI } from '../utils/vscode-api';
 
 type InputMode = 'code' | 'form';
 type BodyFormat = 'json' | 'xml' | 'text' | 'html' | 'javascript' | 'form-data' | 'form-urlencoded' | 'binary' | 'no-body';
@@ -67,7 +68,8 @@ const BodyTitleWrapper = styled.div`
 
 const FormatSelectorWrapper = styled.div`
     position: relative;
-    display: inline-block;
+    display: flex;
+    justify-content: flex-end;
 `;
 
 const FormatButton = styled.button`
@@ -151,6 +153,29 @@ const FormatOptions = styled.div`
     margin-left: 8px;
 `;
 
+const BinaryFileContainer = styled.div`
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    background-color: var(--vscode-editor-background);
+    border: 1px dashed var(--vscode-editorGroup-border);
+    border-radius: 4px;
+`;
+
+const BinaryFileInput = styled.input`
+    cursor: pointer;
+`;
+
+const NoBodyMessage = styled.div`
+    padding: 12px;
+    background-color: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-editorGroup-border);
+    border-radius: 4px;
+    color: var(--vscode-descriptionForeground);
+    font-size: 13px;
+    text-align: center;
+`;
+
 export const Input: React.FC<InputProps> = ({ 
     request,
     onRequestChange,
@@ -211,6 +236,11 @@ export const Input: React.FC<InputProps> = ({
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    // Get VS Code API
+    const vscode = getVSCodeAPI();
+
+    // Note: File selection is now handled directly via HTML5 File Input API in handleFileSelect
 
     const handleFormatChange = (format: BodyFormat) => {
         setBodyFormat(format);
@@ -521,6 +551,114 @@ export const Input: React.FC<InputProps> = ({
         onRequestChange?.(updatedRequest);
     };
 
+    const addFormDataParam = () => {
+        const newParam = {
+            id: Date.now().toString(),
+            key: '',
+            filePath: '',
+            contentType: 'text/plain'
+        };
+        const updatedRequest = {
+            ...request,
+            bodyFormData: [...(request.bodyFormData || []), newParam]
+        };
+        onRequestChange?.(updatedRequest);
+    };
+
+    const updateFormDataParam = (id: string, key: string, filePath: string, contentType: string) => {
+        const updatedRequest = {
+            ...request,
+            bodyFormData: (request.bodyFormData || []).map(param =>
+                param.id === id ? { ...param, key, filePath, contentType } : param
+            )
+        };
+        onRequestChange?.(updatedRequest);
+    };
+
+    const deleteFormDataParam = (id: string) => {
+        const updatedRequest = {
+            ...request,
+            bodyFormData: (request.bodyFormData || []).filter(param => param.id !== id)
+        };
+        onRequestChange?.(updatedRequest);
+    };
+
+    const updateFormDataParamContentType = (id: string, contentType: string) => {
+        const updatedRequest = {
+            ...request,
+            bodyFormData: (request.bodyFormData || []).map(param =>
+                param.id === id ? { ...param, contentType } : param
+            )
+        };
+        onRequestChange?.(updatedRequest);
+    };
+
+    const addFormDataFile = () => {
+        const newFile = {
+            id: Date.now().toString(),
+            key: '',
+            filePath: '',
+            contentType: 'application/octet-stream'
+        };
+        const updatedRequest = {
+            ...request,
+            bodyFormData: [...(request.bodyFormData || []), newFile]
+        };
+        onRequestChange?.(updatedRequest);
+    };
+
+    const handleFileSelect = (paramId: string) => {
+        console.log('handleFileSelect called with paramId:', paramId);
+        // Use native file input to select file
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.onchange = (e: any) => {
+            const file = e.target.files[0];
+            if (file) {
+                // Get file path or name (in browser, only name is available, not full path)
+                const filePath = (file as any).path || file.name;
+                console.log('File selected:', filePath);
+                // Update the form data param with the selected file
+                const param = (request.bodyFormData || []).find(p => p.id === paramId);
+                if (param) {
+                    updateFormDataParam(paramId, param.key, filePath, param.contentType || 'application/octet-stream');
+                }
+            }
+        };
+        fileInput.click();
+    };
+
+    const addFormUrlEncodedParam = () => {
+        const newParam = {
+            id: Date.now().toString(),
+            key: '',
+            value: ''
+        };
+        const updatedRequest = {
+            ...request,
+            bodyFormUrlEncoded: [...(request.bodyFormUrlEncoded || []), newParam]
+        };
+        onRequestChange?.(updatedRequest);
+    };
+
+    const updateFormUrlEncodedParam = (id: string, key: string, value: string) => {
+        const updatedRequest = {
+            ...request,
+            bodyFormUrlEncoded: (request.bodyFormUrlEncoded || []).map(param =>
+                param.id === id ? { ...param, key, value } : param
+            )
+        };
+        onRequestChange?.(updatedRequest);
+    };
+
+    const deleteFormUrlEncodedParam = (id: string) => {
+        const updatedRequest = {
+            ...request,
+            bodyFormUrlEncoded: (request.bodyFormUrlEncoded || []).filter(param => param.id !== id)
+        };
+        onRequestChange?.(updatedRequest);
+    };
+
     const formatQueryParameters = (params: QueryParameter[] | undefined): string => {
         if (!Array.isArray(params)) return '';
         return params
@@ -732,15 +870,121 @@ export const Input: React.FC<InputProps> = ({
                         <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
                             Body
                         </Typography>
-                        <CodeTextArea
-                            id="body-textarea"
-                            resize="vertical"
-                            growRange={{ start: 5, offset: 10 }}
-                            sx={{ width: '100%', padding: '0 4px' }}
-                            value={request.body || ''}
-                            onChange={(e: any) => handleBodyChange(e.target.value)}
-                            placeholder="Enter request body..."
-                        />
+
+                        {/* Format Selector */}
+                        <FormatSelectorWrapper ref={formatMenuRef}>
+                            <FormatButton onClick={() => setBodyFormatOpen(!bodyFormatOpen)}>
+                                {bodyFormat.toUpperCase()}
+                                <ArrowIcon isOpen={bodyFormatOpen}>▼</ArrowIcon>
+                            </FormatButton>
+                            <FormatDropdown isOpen={bodyFormatOpen}>
+                                {formatOptions.map((group) => (
+                                    <div key={group.group}>
+                                        <FormatGroupTitle>{group.group}</FormatGroupTitle>
+                                        <FormatOptions>
+                                            {group.options.map((option) => (
+                                                <FormatOption
+                                                    key={option.value}
+                                                    isSelected={bodyFormat === option.value}
+                                                    onClick={() => handleFormatChange(option.value)}
+                                                >
+                                                    {option.label}
+                                                </FormatOption>
+                                            ))}
+                                        </FormatOptions>
+                                    </div>
+                                ))}
+                            </FormatDropdown>
+                        </FormatSelectorWrapper>
+
+                        {/* Body Format Specific UI */}
+                        {bodyFormat === 'form-data' && (
+                            <>
+                                {(request.bodyFormData || []).map(param => (
+                                    <MultipartFormItem
+                                        key={param.id}
+                                        keyValue={param.key}
+                                        contentType={param.contentType || 'application/octet-stream'}
+                                        filePath={param.filePath || ''}
+                                        onKeyChange={(key) => updateFormDataParam(param.id, key, param.filePath, param.contentType || 'application/octet-stream')}
+                                        onContentTypeChange={(contentType) => updateFormDataParamContentType(param.id, contentType)}
+                                        onSelectFile={() => handleFileSelect(param.id)}
+                                        onClearFile={() => updateFormDataParam(param.id, param.key, '', param.contentType || 'application/octet-stream')}
+                                        onDelete={() => deleteFormDataParam(param.id)}
+                                    />
+                                ))}
+                                <AddButtonWrapper>
+                                    <LinkButton onClick={addFormDataParam}>
+                                        <Codicon name="add" />
+                                        Add Param
+                                    </LinkButton>
+                                </AddButtonWrapper>
+                                <AddButtonWrapper>
+                                    <LinkButton onClick={addFormDataFile}>
+                                        <Codicon name="add" />
+                                        Add File
+                                    </LinkButton>
+                                </AddButtonWrapper>
+                            </>
+                        )}
+
+                        {bodyFormat === 'form-urlencoded' && (
+                            <>
+                                {(request.bodyFormUrlEncoded || []).map(param => (
+                                    <ParamItem
+                                        key={param.id}
+                                        keyValue={param.key}
+                                        value={param.value}
+                                        onKeyChange={(key) => updateFormUrlEncodedParam(param.id, key, param.value)}
+                                        onValueChange={(value) => updateFormUrlEncodedParam(param.id, param.key, value)}
+                                        onDelete={() => deleteFormUrlEncodedParam(param.id)}
+                                    />
+                                ))}
+                                <AddButtonWrapper>
+                                    <LinkButton onClick={addFormUrlEncodedParam}>
+                                        <Codicon name="add" />
+                                        Add Param
+                                    </LinkButton>
+                                </AddButtonWrapper>
+                            </>
+                        )}
+
+                        {bodyFormat === 'binary' && (
+                            <>
+                                <BinaryFileContainer>
+                                    <BinaryFileInput
+                                        type="file"
+                                        id="binary-file"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                const updatedRequest = {
+                                                    ...request,
+                                                    bodyBinaryFilePath: file.name
+                                                };
+                                                onRequestChange?.(updatedRequest);
+                                            }
+                                        }}
+                                    />
+                                </BinaryFileContainer>
+                            </>
+                        )}
+
+                        {['json', 'xml', 'text', 'html', 'javascript'].includes(bodyFormat) && (
+                            <CodeTextArea
+                                id="body-textarea"
+                                resize="vertical"
+                                growRange={{ start: 5, offset: 10 }}
+                                sx={{ width: '100%', padding: '0 4px' }}
+                                value={request.body || ''}
+                                onChange={(e: any) => handleBodyChange(e.target.value)}
+                                placeholder="Enter request body..."
+                            />
+                        )}
+
+                        {bodyFormat === 'no-body' && (
+                            <NoBodyMessage>No body will be sent with this request</NoBodyMessage>
+                        )}
                     </Section>
                 </>
             )}
