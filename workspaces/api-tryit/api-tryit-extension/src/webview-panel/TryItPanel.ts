@@ -162,8 +162,7 @@ export class TryItPanel {
 								});
 							}
 						} catch (error: unknown) {
-							console.error('Error selecting file:', error);
-							vscode.window.showErrorMessage(`Error selecting file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+									vscode.window.showErrorMessage(`Error selecting file: ${error instanceof Error ? error.message : 'Unknown error'}`);
 						}
 						break;
 				}

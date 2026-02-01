@@ -15,8 +15,4 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
-export { CodeInput } from './CodeInput';
-export * from './Types';
-export * from './Constants';
-export * from './Utils';
+export * from './InputCode';

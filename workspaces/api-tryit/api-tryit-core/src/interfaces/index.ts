@@ -39,7 +39,9 @@ export interface FormDataParameter {
     key: string;
     contentType: string;
     filePath: string;
-}
+    // For simple text form fields (non-file), the value is stored here.
+    value?: string;
+} 
 
 export interface FormUrlEncodedParameter {
     id: string;

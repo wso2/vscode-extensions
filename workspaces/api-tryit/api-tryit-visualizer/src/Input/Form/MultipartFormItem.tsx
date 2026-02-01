@@ -23,8 +23,10 @@ import { Codicon, TextField, Button } from '@wso2/ui-toolkit';
 export interface MultipartFormItemProps {
     keyValue: string;
     contentType: string;
-    filePath: string;
+    // `value` holds either the field value or a selected file path
+    value?: string;
     onKeyChange: (key: string) => void;
+    onValueChange?: (value: string) => void;
     onContentTypeChange: (contentType: string) => void;
     onSelectFile: () => void;
     onClearFile: () => void;
@@ -33,7 +35,7 @@ export interface MultipartFormItemProps {
 
 const RowContainer = styled.div`
     display: grid;
-    grid-template-columns: 1fr auto 1fr auto;
+    grid-template-columns: 1fr 1fr 1fr auto;
     gap: 8px;
     align-items: center;
     padding: 4px;
@@ -50,10 +52,8 @@ const FilePathDisplay = styled.div`
     border-radius: 4px;
     color: var(--vscode-foreground);
     font-size: 12px;
-    word-break: break-all;
     overflow-y: auto;
-    max-height: 40px;
-    width: 140px;
+    height: 15px;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -89,8 +89,9 @@ const DeleteIconWrapper = styled.div`
 export const MultipartFormItem: React.FC<MultipartFormItemProps> = ({
     keyValue,
     contentType,
-    filePath,
+    value,
     onKeyChange,
+    onValueChange,
     onContentTypeChange,
     onSelectFile,
     onClearFile,
@@ -105,19 +106,32 @@ export const MultipartFormItem: React.FC<MultipartFormItemProps> = ({
                 placeholder="Key"
                 sx={{ width: '100%' }}
             />
-            {filePath ? (
+            {/* If this parameter represents a file (explicit content type for binary OR a selected filePath), show file UI. Otherwise show a value text field. */}
+            {(contentType === 'application/octet-stream' || value) ? (
                 <FilePathDisplay>
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {filePath}
-                    </span>
-                    <CloseIconWrapper onClick={onClearFile}>
-                        <Codicon name="close" />
-                    </CloseIconWrapper>
+                    {value ? (
+                        <>
+                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {value}
+                            </span>
+                            <CloseIconWrapper onClick={onClearFile}>
+                                <Codicon name="close" />
+                            </CloseIconWrapper>
+                        </>
+                    ) : (
+                        <Button appearance="secondary" onClick={onSelectFile}>
+                            Select File
+                        </Button>
+                    )}
                 </FilePathDisplay>
             ) : (
-                <Button buttonSx={{width: 155}} appearance="secondary" onClick={onSelectFile}>
-                    Select File
-                </Button>
+                <TextField
+                    id={`multipart-value-${keyValue}`}
+                    value={value || ''}
+                    onTextChange={onValueChange}
+                    placeholder="Value"
+                    sx={{ width: '100%' }}
+                />
             )}
             <TextField
                 id={`multipart-content-type-${contentType}`}

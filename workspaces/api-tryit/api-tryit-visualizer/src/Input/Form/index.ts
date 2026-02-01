@@ -15,8 +15,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
-export * from './Input';
-export * from './ParamItem';
-export * from './Form';
-export * from './Code';
+export * from './MultipartFormItem';
+export * from './MultipartForm';
+export * from './InputForm';
+export * from './MultipartForm';
