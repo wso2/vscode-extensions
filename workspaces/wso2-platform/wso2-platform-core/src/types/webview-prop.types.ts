@@ -27,6 +27,7 @@ export interface ComponentConfig {
 	directoryName: string;
 	initialValues?: { type?: string; subType?: string; buildPackLang?: string; name?: string };
 	isNewCodeServerComp?: boolean;
+	supportedIntegrationTypes?: string[];
 }
 
 export interface ComponentFormWebviewProps {

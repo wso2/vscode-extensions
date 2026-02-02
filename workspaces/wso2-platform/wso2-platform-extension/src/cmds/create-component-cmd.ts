@@ -381,6 +381,7 @@ function buildCreateFormParams(
 	componentName: string,
 	gitInfo: GitInfo,
 	buildPackLang?: string,
+	supportedIntegrationTypes?: string[],
 ): ComponentConfig {
 	return {
 		directoryUriPath: selectedUri.path,
@@ -393,6 +394,7 @@ function buildCreateFormParams(
 			name: componentName,
 		},
 		isNewCodeServerComp: !gitInfo.isInitialized && ext.isDevantCloudEditor,
+		supportedIntegrationTypes,
 	};
 }
 
@@ -427,6 +429,7 @@ async function buildComponentConfig(
 		componentName,
 		gitInfo,
 		param?.buildPackLang,
+		param?.supportedIntegrationTypes,
 	);
 }
 
