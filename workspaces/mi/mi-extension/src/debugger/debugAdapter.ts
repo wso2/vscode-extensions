@@ -311,8 +311,6 @@ export class MiDebugAdapter extends LoggingDebugSession {
 
                         DebuggerConfig.setVmArgs(args?.vmArgs ? args?.vmArgs : []);
 
-                        await setManagementCredentials(serverPath);
-
                         vscode.commands.executeCommand('setContext', 'MI.isRunning', 'true');
                         if (DebuggerConfig.isRemoteDebuggingEnabled()) {
                             this.debuggerHandler?.initializeDebugger().then(() => {
@@ -328,6 +326,7 @@ export class MiDebugAdapter extends LoggingDebugSession {
                                 vscode.commands.executeCommand('setContext', 'MI.isRunning', 'false');
                             });
                         } else {
+                            await setManagementCredentials(serverPath);
                             executeTasks(this.projectUri, serverPath, isDebugAllowed)
                             .then(async () => {
                                 if (args?.noDebug) {
