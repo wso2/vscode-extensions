@@ -33,6 +33,7 @@ import {
     Schema
 } from "@wso2/arazzo-designer-core";
 import { getLanguageClient } from '../../extension';
+import { openView as openStateMachineView } from '../../stateMachine';
 import { readFile, writeFile } from 'fs/promises';
 import yaml from 'js-yaml';
 import toJsonSchema from 'to-json-schema';
@@ -73,17 +74,33 @@ export class VisualizerRpcManager implements VisualizerAPI {
         // Read the file content from the file system
         let fileType: 'json' | 'yaml' | undefined;
         let fileContent;
-        if (!params.filePath) {
+        let filePath = params.filePath;
+        
+        if (!filePath) {
             console.error('File path is not provided');
-        } else if (params.filePath.endsWith('.json')) {
+            return { content: undefined, type: undefined };
+        }
+        
+        // Convert URI to file path if needed
+        if (filePath.startsWith('file://')) {
+            try {
+                filePath = vscode.Uri.parse(filePath).fsPath;
+            } catch (err) {
+                console.error('Invalid URI:', filePath, err);
+                return { content: undefined, type: undefined };
+            }
+        }
+        
+        if (filePath.endsWith('.json')) {
             fileType = 'json';
-        } else if (params.filePath.endsWith('.yaml') || params.filePath.endsWith('.yml')) {
+        } else if (filePath.endsWith('.yaml') || filePath.endsWith('.yml')) {
             fileType = 'yaml';
         } else {
             console.error('Unsupported file type');
         }
+        
         try {
-            fileContent = await readFile(params.filePath, 'utf8');
+            fileContent = await readFile(filePath, 'utf8');
         } catch (err: any) {
             if (err.code === 'ENOENT') {
                 console.error('File does not exist.');
@@ -95,10 +112,21 @@ export class VisualizerRpcManager implements VisualizerAPI {
     }
 
     async writeOpenApiContent(params: WriteOpenAPIContentRequest): Promise<WriteOpenAPIContentResponse> {
-        const { filePath, content } = params;
+        let { filePath, content } = params;
         if (!filePath) {
             throw new Error('File path is not provided');
         }
+        
+        // Convert URI to file path if needed
+        if (filePath.startsWith('file://')) {
+            try {
+                filePath = vscode.Uri.parse(filePath).fsPath;
+            } catch (err) {
+                console.error('Invalid URI:', filePath, err);
+                throw new Error(`Invalid URI: ${filePath}`);
+            }
+        }
+        
         try {
             let formattedContent: string;
 
