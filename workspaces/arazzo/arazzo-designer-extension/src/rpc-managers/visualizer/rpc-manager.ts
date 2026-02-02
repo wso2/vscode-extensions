@@ -33,6 +33,7 @@ import {
     Schema
 } from "@wso2/arazzo-designer-core";
 import { getLanguageClient } from '../../extension';
+import { openView as openStateMachineView } from '../../stateMachine';
 import { readFile, writeFile } from 'fs/promises';
 import yaml from 'js-yaml';
 import toJsonSchema from 'to-json-schema';
@@ -72,33 +73,61 @@ export class VisualizerRpcManager implements VisualizerAPI {
     async getOpenApiContent(params: GetOpenAPIContentRequest): Promise<GetOpenAPIContentResponse> {
         // Read the file content from the file system
         let fileType: 'json' | 'yaml' | undefined;
-        let fileContent;
-        if (!params.filePath) {
+        let fileContent = '';
+        let filePath = params.filePath;
+        
+        if (!filePath) {
             console.error('File path is not provided');
-        } else if (params.filePath.endsWith('.json')) {
+            return { content: '', type: undefined };
+        }
+        
+        // Convert URI to file path if needed
+        if (filePath.startsWith('file://')) {
+            try {
+                filePath = vscode.Uri.parse(filePath).fsPath;
+            } catch (err) {
+                console.error('Invalid URI:', filePath, err);
+                return { content: '', type: undefined };
+            }
+        }
+        
+        if (filePath.endsWith('.json')) {
             fileType = 'json';
-        } else if (params.filePath.endsWith('.yaml') || params.filePath.endsWith('.yml')) {
+        } else if (filePath.endsWith('.yaml') || filePath.endsWith('.yml')) {
             fileType = 'yaml';
         } else {
             console.error('Unsupported file type');
         }
+        
         try {
-            fileContent = await readFile(params.filePath, 'utf8');
+            fileContent = await readFile(filePath, 'utf8');
         } catch (err: any) {
             if (err.code === 'ENOENT') {
                 console.error('File does not exist.');
             } else {
                 console.error('Error reading file:', err);
             }
+            fileType = undefined;
         }
         return { content: fileContent, type: fileType };
     }
 
     async writeOpenApiContent(params: WriteOpenAPIContentRequest): Promise<WriteOpenAPIContentResponse> {
-        const { filePath, content } = params;
+        let { filePath, content } = params;
         if (!filePath) {
             throw new Error('File path is not provided');
         }
+        
+        // Convert URI to file path if needed
+        if (filePath.startsWith('file://')) {
+            try {
+                filePath = vscode.Uri.parse(filePath).fsPath;
+            } catch (err) {
+                console.error('Invalid URI:', filePath, err);
+                throw new Error(`Invalid URI: ${filePath}`);
+            }
+        }
+        
         try {
             let formattedContent: string;
 
