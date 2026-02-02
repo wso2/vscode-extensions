@@ -26,6 +26,7 @@ import { getStateMachine, openView, refreshUI } from '../stateMachine';
 import { webviews } from '../visualizer/webview';
 import { ViewColumn } from 'vscode';
 import { COMMANDS } from '../constants';
+import { LOCALHOST, ADMIN, REMOTE } from './constants';
 import { INCORRECT_SERVER_PATH_MSG } from './constants';
 import { extension } from '../MIExtensionContext';
 import { EVENT_TYPE, miServerRunStateChanged } from '@wso2/mi-core';
@@ -55,29 +56,29 @@ export class MiDebugAdapter extends LoggingDebugSession {
 
         const debuggerProperties = session?.configuration?.properties;
         if (debuggerProperties) {
-            DebuggerConfig.setRemoteDebuggingEnabled(debuggerProperties.type === "remote");
+            DebuggerConfig.setRemoteDebuggingEnabled(debuggerProperties.type === REMOTE);
         } else {
             DebuggerConfig.setRemoteDebuggingEnabled(false);
         }
         if (DebuggerConfig.isRemoteDebuggingEnabled()) {
             const commandPort = debuggerProperties.commandPort || 9005;
             const eventPort = debuggerProperties.eventPort || 9006;
-            const serverHost = debuggerProperties.serverHost || 'localhost';
+            const serverHost = debuggerProperties.serverHost || LOCALHOST;
             DebuggerConfig.setHost(serverHost);
             DebuggerConfig.setServerPort(debuggerProperties.serverPort || 8290);
             DebuggerConfig.setServerReadinessPort(debuggerProperties.serverReadinessPort || 9201);
             DebuggerConfig.setManagementPort(debuggerProperties.managementPort || 9164);
-            DebuggerConfig.setManagementUserName(debuggerProperties.managementUsername || "admin");
-            DebuggerConfig.setManagementPassword(debuggerProperties.managementPassword || "admin");
+            DebuggerConfig.setManagementUserName(debuggerProperties.managementUsername || ADMIN);
+            DebuggerConfig.setManagementPassword(debuggerProperties.managementPassword || ADMIN);
             DebuggerConfig.setConnectionTimeout(debuggerProperties.connectionTimeoutInSecs || 10);
             this.debuggerHandler = new Debugger(commandPort, eventPort, serverHost, projectUri);
         } else {
-            DebuggerConfig.setHost('localhost');
+            DebuggerConfig.setHost(LOCALHOST);
             DebuggerConfig.setServerPort(DebuggerConfig.getDefaultServerPort());
             DebuggerConfig.setServerReadinessPort(9201);
             DebuggerConfig.setManagementPort(9164);
-            DebuggerConfig.setManagementUserName("admin");
-            DebuggerConfig.setManagementPassword("admin");
+            DebuggerConfig.setManagementUserName(ADMIN);
+            DebuggerConfig.setManagementPassword(ADMIN);
             this.debuggerHandler = new Debugger(DebuggerConfig.getCommandPort(), DebuggerConfig.getEventPort(), DebuggerConfig.getHost(), projectUri);
         }
         // setup event handlers

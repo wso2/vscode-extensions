@@ -19,6 +19,7 @@
 
 import * as vscode from 'vscode';
 import * as path from "path";
+import { LOCALHOST, ADMIN } from './constants';
 
 const toml = require('@iarna/toml');
 const fs = require('fs');
@@ -29,7 +30,7 @@ export class DebuggerConfig {
     private static baseServerPort: number = vscode.workspace.getConfiguration().get<number>('MI.serverPort', 8290);
     private static serverReadinessPort: number = 9201;
     private static managementPort: number = 9164;
-    private static host: string = 'localhost';
+    private static host: string = LOCALHOST;
     private static internalOffset = 10;
     private static envVariables: { [key: string]: string } = {};
     private static vmArgs: string[] = [];
@@ -43,8 +44,8 @@ export class DebuggerConfig {
     private static copiedLibs: string[] = [];
 
     // Management API username and password
-    private static managementUserName: string = "admin";
-    private static managementPassword: string = "admin";
+    private static managementUserName: string = ADMIN;
+    private static managementPassword: string = ADMIN;
 
     private static portOffset: number | undefined;
 
