@@ -85,3 +85,8 @@ pnpm-lock.yaml
 
 # AI evaluation results
 **/results
+
+workspaces/arazzo/arazzo-designer-extension/ls/arazzo-language-server
+workspaces/arazzo/arazzo-designer-lsp/arazzo-language-server.exe
+workspaces/arazzo/arazzo-designer-extension/ls/arazzo-language-server.exe
+workspaces/arazzo/arazzo-designer-lsp/arazzo-language-server
