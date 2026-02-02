@@ -122,6 +122,39 @@ export interface SuggestionsConfig {
     };
 }
 
+type SectionType = 'query' | 'headers' | 'body' | 'assertions';
+
+const serializeSuggestions = (config?: SuggestionsConfig): string => {
+    try {
+        return JSON.stringify(config ?? null);
+    } catch (error) {
+        console.warn('[InputEditor] Failed to serialize suggestions:', error);
+        return 'null';
+    }
+};
+
+const inferSectionType = (
+    currentSuggestions: SuggestionsConfig | undefined,
+    currentBodyFormat?: string
+): SectionType | null => {
+    if (currentSuggestions?.queryKeys && currentSuggestions.queryKeys.length > 0) {
+        return 'query';
+    }
+    if (currentSuggestions?.headers && currentSuggestions.headers.length > 0) {
+        return 'headers';
+    }
+    if (currentSuggestions?.bodySnippets && currentSuggestions.bodySnippets.length > 0) {
+        return 'body';
+    }
+    if (currentBodyFormat === 'form-data' || currentBodyFormat === 'form-urlencoded' || currentBodyFormat === 'binary') {
+        return 'body';
+    }
+    if (currentSuggestions?.assertions) {
+        return 'assertions';
+    }
+    return null;
+};
+
 interface InputEditorProps {
     value: string;
     minHeight?: string;
@@ -162,6 +195,10 @@ export const InputEditor: React.FC<InputEditorProps> = ({
     const codeLensDisposableRef = useRef<monaco.IDisposable | null>(null);
     const commandsDisposableRef = useRef<monaco.IDisposable[]>([]);
     const completionDisposableRef = useRef<monaco.IDisposable | null>(null);
+    const suggestionsRef = useRef<SuggestionsConfig | undefined>(suggestions);
+    const cursorListenerDisposableRef = useRef<monaco.IDisposable | null>(null);
+    const focusListenerDisposableRef = useRef<monaco.IDisposable | null>(null);
+    const lastSuggestionContextRef = useRef<{ line: number; section: SectionType | null } | null>(null);
     // Generate a unique language ID for this editor instance to avoid conflicts
     const languageIdRef = useRef(`${LANGUAGE_ID}-${Math.random().toString(36).substring(7)}`);
     // Content change listener disposable
@@ -169,6 +206,9 @@ export const InputEditor: React.FC<InputEditorProps> = ({
     // Content widgets for delete icons
     const contentWidgetsRef = useRef<monaco.IDisposable[]>([]);
     const bodyFormatRef = useRef(bodyFormat);
+    const lastPropValueRef = useRef(value);
+    const previousBodyFormatRef = useRef(bodyFormat);
+    const suggestionsKeyRef = useRef<string>(serializeSuggestions(suggestions));
 
     // Dynamic height state
     const [dynamicHeight, setDynamicHeight] = useState(minHeight);
@@ -571,20 +611,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
             return;
         }
 
-        // Infer section type from provided suggestions
-        let currentSectionType: 'query' | 'headers' | 'body' | 'assertions' | null = null;
-        if (suggestions.queryKeys && suggestions.queryKeys.length > 0) {
-            currentSectionType = 'query';
-        } else if (suggestions.headers && suggestions.headers.length > 0) {
-            currentSectionType = 'headers';
-        } else if (suggestions.bodySnippets && suggestions.bodySnippets.length > 0) {
-            currentSectionType = 'body';
-        } else if (bodyFormatRef.current === 'form-data' || bodyFormatRef.current === 'form-urlencoded') {
-            // For form-data, we're in body section even if there are no bodySnippets
-            currentSectionType = 'body';
-        } else if (suggestions.assertions) {
-            currentSectionType = 'assertions';
-        }
+        const currentSectionType = inferSectionType(suggestions, bodyFormatRef.current);
 
         if (!currentSectionType) {
             return;
@@ -815,6 +842,130 @@ export const InputEditor: React.FC<InputEditorProps> = ({
         });
     };
 
+    const triggerInitialSuggestionsIfNeeded = useCallback(() => {
+        const editor = editorRef.current;
+        const model = editor?.getModel();
+        const suggestionsData = suggestionsRef.current;
+
+        if (!editor || !model) {
+            return;
+        }
+
+        if (!editor.hasTextFocus()) {
+            lastSuggestionContextRef.current = null;
+            return;
+        }
+
+        const selection = editor.getSelection();
+        if (!selection) {
+            lastSuggestionContextRef.current = null;
+            return;
+        }
+
+        if (!selection.isEmpty()) {
+            lastSuggestionContextRef.current = null;
+            return;
+        }
+
+        const lineNumber = selection.startLineNumber;
+        const lineCount = model.getLineCount();
+        if (lineNumber < 1 || lineNumber > lineCount) {
+            lastSuggestionContextRef.current = null;
+            return;
+        }
+
+        const lineContent = model.getLineContent(lineNumber);
+        if (lineContent.trim().length > 0) {
+            if (lastSuggestionContextRef.current && lastSuggestionContextRef.current.line === lineNumber) {
+                lastSuggestionContextRef.current = null;
+            }
+            return;
+        }
+
+        const sectionType = inferSectionType(suggestionsData, bodyFormatRef.current);
+
+        if (!sectionType) {
+            lastSuggestionContextRef.current = null;
+            return;
+        }
+
+        const previous = lastSuggestionContextRef.current;
+        if (previous && previous.line !== lineNumber) {
+            lastSuggestionContextRef.current = null;
+        }
+
+        if (previous && previous.line === lineNumber && previous.section === sectionType) {
+            return;
+        }
+
+        let hasInitial = false;
+
+        if (sectionType === 'headers') {
+            hasInitial = Boolean(suggestionsData?.headers && suggestionsData.headers.length > 0);
+        } else if (sectionType === 'query') {
+            hasInitial = Boolean(suggestionsData?.queryKeys && suggestionsData.queryKeys.length > 0);
+        } else if (sectionType === 'body') {
+            if (bodyFormatRef.current === 'json' || bodyFormatRef.current === 'xml' || bodyFormatRef.current === 'text' || bodyFormatRef.current === 'html' || bodyFormatRef.current === 'javascript') {
+                hasInitial = Boolean(suggestionsData?.bodySnippets && suggestionsData.bodySnippets.length > 0);
+            }
+        } else if (sectionType === 'assertions') {
+            hasInitial = Boolean(suggestionsData?.assertions?.initial && suggestionsData.assertions.initial.length > 0);
+        }
+
+        if (!hasInitial) {
+            return;
+        }
+
+        editor.trigger('initial-suggest', 'editor.action.triggerSuggest', {});
+        lastSuggestionContextRef.current = { line: lineNumber, section: sectionType };
+    }, []);
+
+    useEffect(() => {
+        const nextSuggestionsKey = serializeSuggestions(suggestions);
+        const suggestionsChanged = nextSuggestionsKey !== suggestionsKeyRef.current;
+        const bodyFormatChanged = previousBodyFormatRef.current !== bodyFormat;
+
+        suggestionsRef.current = suggestions;
+        previousBodyFormatRef.current = bodyFormat;
+
+        if (bodyFormatChanged) {
+            bodyFormatRef.current = bodyFormat;
+        }
+
+        if (!suggestionsChanged && !bodyFormatChanged) {
+            if (editorRef.current?.hasTextFocus()) {
+                triggerInitialSuggestionsIfNeeded();
+            }
+            return;
+        }
+
+        suggestionsKeyRef.current = nextSuggestionsKey;
+
+        if (!monacoRef.current || !editorRef.current) {
+            return;
+        }
+
+        const model = editorRef.current.getModel();
+        if (!model) {
+            return;
+        }
+
+        if (suggestionsChanged) {
+            if (completionDisposableRef.current) {
+                completionDisposableRef.current.dispose();
+                completionDisposableRef.current = null;
+            }
+
+            setupCompletionProvider(monacoRef.current, model);
+        }
+
+        lastSuggestionContextRef.current = null;
+
+        if (editorRef.current.hasTextFocus()) {
+            triggerInitialSuggestionsIfNeeded();
+        }
+    }, [suggestions, bodyFormat, triggerInitialSuggestionsIfNeeded]);
+
     // Detect theme changes and update Monaco theme when no explicit theme is set
     useEffect(() => {
         if (theme) return; // Don't interfere if explicit theme is set
@@ -837,6 +988,12 @@ export const InputEditor: React.FC<InputEditorProps> = ({
 
     // Update editor when value changes externally, but not during typing
     useEffect(() => {
+        if (value === lastPropValueRef.current) {
+            return;
+        }
+
+        lastPropValueRef.current = value;
+
         if (editorRef.current && !isTypingRef.current) {
             const currentValue = editorRef.current.getValue();
             // Only update if content is actually different
@@ -879,6 +1036,12 @@ export const InputEditor: React.FC<InputEditorProps> = ({
             }
             if (contentChangeDisposableRef.current) {
                 contentChangeDisposableRef.current.dispose();
+            }
+            if (cursorListenerDisposableRef.current) {
+                cursorListenerDisposableRef.current.dispose();
+            }
+            if (focusListenerDisposableRef.current) {
+                focusListenerDisposableRef.current.dispose();
             }
         };
     }, []);
@@ -938,6 +1101,21 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                         setupCommands(monaco, model, editor);
                         setupCompletionProvider(monaco, model);
                     }
+
+                    if (cursorListenerDisposableRef.current) {
+                        cursorListenerDisposableRef.current.dispose();
+                    }
+                    cursorListenerDisposableRef.current = editor.onDidChangeCursorSelection(() => {
+                        triggerInitialSuggestionsIfNeeded();
+                    });
+
+                    if (focusListenerDisposableRef.current) {
+                        focusListenerDisposableRef.current.dispose();
+                    }
+                    focusListenerDisposableRef.current = editor.onDidFocusEditorText(() => {
+                        lastSuggestionContextRef.current = null;
+                        triggerInitialSuggestionsIfNeeded();
+                    });
                     
                     // Override Monaco's default copy-paste actions
                     console.log('[InputEditor] Overriding default Monaco copy-paste actions');
@@ -1039,6 +1217,7 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                             updateHeight();
                             // Update content widgets for delete icons
                             updateContentWidgets(editorModel);
+                            triggerInitialSuggestionsIfNeeded();
                         });
                         // Initial height update
                         updateHeight();
