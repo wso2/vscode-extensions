@@ -341,6 +341,7 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
                 <>
                     <BinaryForm
                         items={request.bodyFormData}
+                        contentTypeItems={COMMON_HEADERS.map(h => h.name)}
                         onAddFile={() => onRequestChange?.({ ...request, bodyFormData: [...(request.bodyFormData || []), ({ id: Date.now().toString(), key: '', filePath: '', contentType: 'application/octet-stream', value: '' } as any)] })}
                         onUpdate={updateFormDataParam}
                         onDelete={deleteFormDataParam}

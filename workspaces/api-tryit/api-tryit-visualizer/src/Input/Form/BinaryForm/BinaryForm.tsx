@@ -29,6 +29,7 @@ const AddButtonWrapper = styled.div`
 interface BinaryFormProps {
     items?: FormDataParameter[];
     onAddFile: () => void;
+    contentTypeItems?: string[];
     // onUpdate now also accepts the text value for non-file params
     onUpdate: (id: string, key: string, filePath: string, contentType: string, value?: string) => void;
     onDelete: (id: string) => void;
@@ -40,6 +41,7 @@ interface BinaryFormProps {
 export const BinaryForm: React.FC<BinaryFormProps> = ({
     items = [],
     onAddFile,
+    contentTypeItems,
     onUpdate,
     onDelete,
     onSelectFile,
@@ -48,14 +50,16 @@ export const BinaryForm: React.FC<BinaryFormProps> = ({
 }) => {
     return (
         <>
-            {items.map(param => {
+            {items.map((param, id) => {
                 const val = (param as any).value;
                 return (
                     <BinaryFormItem
+                        id={`${id}`}
                         key={param.id}
                         keyValue={param.key}
                         value={val || param.filePath || ''}
                         contentType={param.contentType}
+                        contentTypeItems={contentTypeItems || []}
                         onKeyChange={(key) => onUpdate(param.id, key, '', param.contentType, val || param.filePath || '')}
                         onValueChange={(value) => onUpdate(param.id, param.key, '', param.contentType, value)}
                         onContentTypeChange={(contentType) => onContentTypeChange(param.id, contentType)}

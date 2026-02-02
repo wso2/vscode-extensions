@@ -18,12 +18,14 @@
 
 import React from 'react';
 import styled from '@emotion/styled';
-import { Codicon, Button } from '@wso2/ui-toolkit';
+import { Codicon, Button, AutoComplete } from '@wso2/ui-toolkit';
 import { TextField } from '../../../Components/TextField/TextField';
 
 export interface BinaryFormItemProps {
+    id: string;
     keyValue: string;
     contentType: string;
+    contentTypeItems: string[];
     // `value` holds either the field value or a selected file path
     value?: string;
     onKeyChange: (key: string) => void;
@@ -51,7 +53,7 @@ const FilePathDisplay = styled.div<FileSelectProps>`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    ${(props: FileSelectProps) => props.isFileSelected ? 'padding: 6px 8px;': 'padding: 6px 0px;' };
+    ${(props: FileSelectProps) => props.isFileSelected ? 'padding: 6px 8px;' : 'padding: 6px 0px;'};
     background-color: var(--vscode-input-background);
     border: 1px solid var(--vscode-input-border);
     border-radius: 4px;
@@ -91,51 +93,49 @@ const DeleteIconWrapper = styled.div`
     }
 `;
 
+const FieldWrapper = styled.div`
+    flex: 1;
+    min-width: 0;
+    display: flex;
+`;
+
 export const BinaryFormItem: React.FC<BinaryFormItemProps> = ({
+    id,
     contentType,
     value,
     onValueChange,
     onContentTypeChange,
     onSelectFile,
-    onClearFile,
+    contentTypeItems,
     onDelete
 }) => {
+    const buttonLabel = value ? value : 'Select File';
+
     return (
         <RowContainer>
-            {/* If this parameter represents a file (explicit content type for binary OR a selected filePath), show file UI. Otherwise show a value text field. */}
-            {(contentType === 'application/octet-stream' || value) ? (
-                <FilePathDisplay isFileSelected={!!value}>
-                    {value ? (
-                        <>
-                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {value}
-                            </span>
-                            <CloseIconWrapper onClick={onClearFile}>
-                                <Codicon name="close" />
-                            </CloseIconWrapper>
-                        </>
-                    ) : (
-                        <Button appearance="primary" onClick={onSelectFile}>
-                            Select File
-                        </Button>
-                    )}
-                </FilePathDisplay>
-            ) : (
-                <TextField
-                    id={`binary-value-${value}`}
-                    value={value || ''}
-                    onTextChange={onValueChange}
-                    placeholder="Value"
+            <FieldWrapper>
+                <Button
+                    appearance="secondary"
+                    onClick={onSelectFile}
+                    sx={{ width: '100%' }}
+                    buttonSx={{ width: '100%', height: 30, display: 'flex', justifyContent: 'center', alignItems: 'center', textAlign: 'center', overflow: 'hidden' }}
+                    tooltip={buttonLabel}
+                >
+                    <span style={{ display: 'block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                        {buttonLabel}
+                    </span>
+                </Button>
+            </FieldWrapper>
+            <FieldWrapper>
+                <AutoComplete
+                    identifier={`content-type-${id}`}
+                    value={contentType}
+                    onValueChange={onContentTypeChange}
+                    items={contentTypeItems || []}
+                    borderBox={true}
                     sx={{ width: '100%' }}
                 />
-            )}
-            <TextField
-                id={`binary-content-type-${contentType}`}
-                value={contentType}
-                onTextChange={onContentTypeChange}
-                placeholder="Content Type"
-                sx={{ width: '100%' }}
-            />
+            </FieldWrapper>
             <DeleteIconWrapper onClick={onDelete}>
                 <Codicon name="trash" />
             </DeleteIconWrapper>

@@ -18,7 +18,8 @@
 
 import React from 'react';
 import styled from '@emotion/styled';
-import { Codicon, TextField, Button, AutoComplete } from '@wso2/ui-toolkit';
+import { Codicon, Button, AutoComplete } from '@wso2/ui-toolkit';
+import { TextField } from '../../../Components/TextField/TextField';
 
 export interface MultipartFormItemProps {
     id: string;
@@ -35,48 +36,14 @@ export interface MultipartFormItemProps {
     onDelete: () => void;
 }
 
-interface FileSelectProps {
-    isFileSelected: boolean;
-}
-
 const RowContainer = styled.div`
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr auto;
+    display: flex;
     gap: 8px;
     align-items: center;
     padding: 4px;
     background-color: var(--vscode-editor-background);
-`;
-
-const FilePathDisplay = styled.div<FileSelectProps>`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    ${(props: FileSelectProps) => props.isFileSelected ? 'padding: 6px 8px;': 'padding: 6px 0px;' };
-    background-color: var(--vscode-input-background);
-    border: 1px solid var(--vscode-input-border);
-    border-radius: 4px;
-    color: var(--vscode-foreground);
-    font-size: 12px;
-    overflow-y: auto;
-    height: 15px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-`;
-
-const CloseIconWrapper = styled.div`
-    cursor: pointer;
-    color: var(--vscode-foreground);
-    opacity: 0.7;
-    display: flex;
-    align-items: center;
-    margin-left: 8px;
-    
-    &:hover {
-        opacity: 1;
-        color: var(--vscode-errorForeground);
-    }
+    width: auto !important;
+    width: 100%;
 `;
 
 const DeleteIconWrapper = styled.div`
@@ -92,6 +59,12 @@ const DeleteIconWrapper = styled.div`
     }
 `;
 
+const FieldWrapper = styled.div`
+    flex: 1;
+    min-width: 0;
+    display: flex;
+`;
+
 export const MultipartFormItem: React.FC<MultipartFormItemProps> = ({
     id,
     keyValue,
@@ -102,52 +75,55 @@ export const MultipartFormItem: React.FC<MultipartFormItemProps> = ({
     onValueChange,
     onContentTypeChange,
     onSelectFile,
-    onClearFile,
     onDelete
 }) => {
+    const isFileInput = contentType === 'application/octet-stream';
+    const buttonLabel = value ? value : 'Select File';
+
     return (
         <RowContainer>
-            <TextField
-                id={`multipart-key-${keyValue}`}
-                value={keyValue}
-                onTextChange={onKeyChange}
-                placeholder="Key"
-                sx={{ width: '100%' }}
-            />
-            {/* If this parameter represents a file (explicit content type for binary OR a selected filePath), show file UI. Otherwise show a value text field. */}
-            {(contentType === 'application/octet-stream' || value) ? (
-                <FilePathDisplay isFileSelected={!!value}>
-                    {value ? (
-                        <>
-                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {value}
-                            </span>
-                            <CloseIconWrapper onClick={onClearFile}>
-                                <Codicon name="close" />
-                            </CloseIconWrapper>
-                        </>
-                    ) : (
-                        <Button appearance="primary" onClick={onSelectFile}>
-                            Select File
-                        </Button>
-                    )}
-                </FilePathDisplay>
-            ) : (
+            <FieldWrapper>
                 <TextField
-                    id={`multipart-value-${keyValue}`}
-                    value={value || ''}
-                    onTextChange={onValueChange}
-                    placeholder="Value"
+                    id={`multipart-key-${id}`}
+                    value={keyValue}
+                    onTextChange={onKeyChange}
+                    placeholder="Key"
                     sx={{ width: '100%' }}
                 />
-            )}
-            <AutoComplete
-                identifier={`value-${value}-${id}`}
-                value={value}
-                onValueChange={onContentTypeChange}
-                items={contentTypeItems || []}
-                borderBox={true}
-            />
+            </FieldWrapper>
+            <FieldWrapper>
+                {isFileInput ? (
+                    <Button
+                        appearance="secondary"
+                        onClick={onSelectFile}
+                        sx={{ width: '100%' }}
+                        buttonSx={{ width: '100%', height: 30, display: 'flex', justifyContent: 'center', alignItems: 'center', textAlign: 'center', overflow: 'hidden' }}
+                        tooltip={buttonLabel}
+                    >
+                        <span style={{ display: 'block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                            {buttonLabel}
+                        </span>
+                    </Button>
+                ) : (
+                    <TextField
+                        id={`multipart-value-${id}`}
+                        value={value || ''}
+                        onTextChange={onValueChange}
+                        placeholder="Value"
+                        sx={{ width: '100%' }}
+                    />
+                )}
+            </FieldWrapper>
+            <FieldWrapper>
+                <AutoComplete
+                    identifier={`content-type-${id}`}
+                    value={contentType}
+                    onValueChange={onContentTypeChange}
+                    items={contentTypeItems || []}
+                    borderBox={true}
+                    sx={{ width: '100%' }}
+                />
+            </FieldWrapper>
             <DeleteIconWrapper onClick={onDelete}>
                 <Codicon name="trash" />
             </DeleteIconWrapper>
