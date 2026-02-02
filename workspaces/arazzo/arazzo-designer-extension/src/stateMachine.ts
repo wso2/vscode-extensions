@@ -20,7 +20,7 @@ import { StateMachinePopup } from './stateMachinePopup';
 import { fileURLToPath } from 'url';
 import path = require('path');
 
-interface MachineContext extends VisualizerLocation {
+interface MachineContext extends VisualizerLocation {       //teh variables or memory of the state machine
     error?: any | null;
 }
 
@@ -166,17 +166,19 @@ const stateMachine = createMachine<MachineContext>({
                         VisualizerWebview.workflowPanel.getWebview()?.reveal(ViewColumn.Active);
                         resolve(true);
                     }
-                } else if (!VisualizerWebview.currentPanel) {
-                    // For Overview, create panel if it doesn't exist
-                    VisualizerWebview.currentPanel = new VisualizerWebview(extension.webviewReveal, false);
-                    RPCLayer._messenger.onNotification(webviewReady, () => {
-                        resolve(true);
-                    });
-                } else {
+                } else if(context.view === MACHINE_VIEW.Overview) {
+                    if (!VisualizerWebview.currentPanel) {
+                        // For Overview, create panel if it doesn't exist
+                        VisualizerWebview.currentPanel = new VisualizerWebview(extension.webviewReveal, false);
+                        RPCLayer._messenger.onNotification(webviewReady, () => {
+                            resolve(true);
+                        });
+                    } else {
                     // For Overview, reuse existing panel
                     VisualizerWebview.currentPanel!.getWebview()?.reveal(ViewColumn.Active);
                     vscode.commands.executeCommand('setContext', 'isViewOpenAPI', true);
                     resolve(true);
+                    }
                 }
             });
         },
