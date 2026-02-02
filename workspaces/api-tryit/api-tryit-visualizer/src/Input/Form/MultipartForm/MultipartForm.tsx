@@ -18,8 +18,8 @@
 import React from 'react';
 import styled from '@emotion/styled';
 import { LinkButton, Codicon } from '@wso2/ui-toolkit';
-import { MultipartFormItem } from './MultipartFormItem';
 import { FormDataParameter } from '@wso2/api-tryit-core';
+import { MultipartFormItem } from './MultipartFormItem';
 
 const AddButtonWrapper = styled.div`
     margin-top: 4px;

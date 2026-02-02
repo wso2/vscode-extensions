@@ -19,7 +19,7 @@ import React from 'react';
 import styled from '@emotion/styled';
 import { Typography, LinkButton, Codicon } from '@wso2/ui-toolkit';
 import { ParamItem } from '../ParamItem';
-import { MultipartForm } from './MultipartForm';
+import { MultipartForm } from './MultipartForm/MultipartForm';
 import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
 import { CodeTextArea } from '../../Components/CodeTextArea/CodeTextArea';
 
@@ -310,7 +310,7 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
                         onSelectFile={handleFileSelect}
                         onClearFile={(id) => {
                             const param = (request.bodyFormData || []).find(p => p.id === id);
-                            if (param) updateFormDataParam(id, param.key, '', '', '');
+                            if (param) updateFormDataParam(id, param.key, '', 'application/octet-stream', '');
                         }}
                         onContentTypeChange={updateFormDataParamContentType}
                     />

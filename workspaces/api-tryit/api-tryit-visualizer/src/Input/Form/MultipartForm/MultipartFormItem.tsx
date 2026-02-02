@@ -33,6 +33,10 @@ export interface MultipartFormItemProps {
     onDelete: () => void;
 }
 
+interface FileSelectProps {
+    isFileSelected: boolean;
+}
+
 const RowContainer = styled.div`
     display: grid;
     grid-template-columns: 1fr 1fr 1fr auto;
@@ -42,11 +46,11 @@ const RowContainer = styled.div`
     background-color: var(--vscode-editor-background);
 `;
 
-const FilePathDisplay = styled.div`
+const FilePathDisplay = styled.div<FileSelectProps>`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 6px 8px;
+    ${(props: FileSelectProps) => props.isFileSelected ? 'padding: 6px 8px;': 'padding: 6px 0px;' };
     background-color: var(--vscode-input-background);
     border: 1px solid var(--vscode-input-border);
     border-radius: 4px;
@@ -108,7 +112,7 @@ export const MultipartFormItem: React.FC<MultipartFormItemProps> = ({
             />
             {/* If this parameter represents a file (explicit content type for binary OR a selected filePath), show file UI. Otherwise show a value text field. */}
             {(contentType === 'application/octet-stream' || value) ? (
-                <FilePathDisplay>
+                <FilePathDisplay isFileSelected={!!value}>
                     {value ? (
                         <>
                             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -119,7 +123,7 @@ export const MultipartFormItem: React.FC<MultipartFormItemProps> = ({
                             </CloseIconWrapper>
                         </>
                     ) : (
-                        <Button appearance="secondary" onClick={onSelectFile}>
+                        <Button appearance="primary" onClick={onSelectFile}>
                             Select File
                         </Button>
                     )}

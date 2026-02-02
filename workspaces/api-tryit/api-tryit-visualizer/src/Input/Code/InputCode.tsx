@@ -91,6 +91,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
 
     const handleFormatChange = (format: BodyFormat) => {
         onFormatChange(format);
+        setBodyFormatOpen(false);
     };
 
     // Code lenses (ported from `Input.tsx`)
