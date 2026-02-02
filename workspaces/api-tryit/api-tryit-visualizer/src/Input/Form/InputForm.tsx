@@ -116,13 +116,10 @@ const ParamList = styled.div`
 `;
 
 const NoBodyMessage = styled.div`
-    padding: 12px;
+    padding-left: 4px;
     background-color: var(--vscode-editor-background);
-    border: 1px solid var(--vscode-editorGroup-border);
-    border-radius: 4px;
     color: var(--vscode-descriptionForeground);
     font-size: 13px;
-    text-align: center;
 `;
 
 interface InputFormProps {

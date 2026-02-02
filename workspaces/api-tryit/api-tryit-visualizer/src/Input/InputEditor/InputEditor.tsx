@@ -641,7 +641,11 @@ export const InputEditor: React.FC<InputEditorProps> = ({
                             suggestionsList.push({
                                 label: header.name,
                                 kind: monaco.languages.CompletionItemKind.Property,
-                                insertText: header.name,
+                                insertText: `${header.name}:`,
+                                command: {
+                                    id: 'editor.action.triggerSuggest',
+                                    title: 'Trigger Suggest'
+                                },
                                 range: range,
                                 documentation: `HTTP header: ${header.name}`
                             });

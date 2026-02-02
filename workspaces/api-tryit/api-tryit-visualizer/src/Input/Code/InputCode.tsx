@@ -39,6 +39,13 @@ interface InputCodeProps {
     onRequestChange?: (request: ApiRequest) => void;
 }
 
+const NoBodyMessage = styled.div`
+    padding-left: 4px;
+    background-color: var(--vscode-editor-background);
+    color: var(--vscode-descriptionForeground);
+    font-size: 13px;
+`;
+
 export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFormatChange: (format: BodyFormat) => void }> = ({ request, onRequestChange, bodyFormat, onFormatChange }) => {
     const [bodyFormatOpen, setBodyFormatOpen] = React.useState(false);
     const formatMenuRef = React.useRef<HTMLDivElement>(null);
@@ -405,6 +412,10 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                         </FormatDropdown>
                     </FormatSelectorWrapper>
                 </BodyHeaderContainer>
+            )}
+
+            {bodyFormat === 'no-body' && (
+                <NoBodyMessage>No body will be sent with this request</NoBodyMessage>
             )}
         </>
     );
