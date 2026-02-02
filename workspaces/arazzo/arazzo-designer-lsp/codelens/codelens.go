@@ -42,10 +42,10 @@ func (c *CodeLensProvider) ProvideCodeLens(uri protocol.DocumentURI, content str
 		visualizeLens := protocol.CodeLens{
 			Range: utils.LineToRange(lineNum),
 			Command: &protocol.Command{
-				Title:   "Visualize",
-				Command: "arazzo.openDesigner",
+				Title:     "Visualize",
+				Command:   "arazzo.openDesigner",
+				Arguments: []interface{}{args},
 			},
-			Data: args,
 		}
 		lenses = append(lenses, visualizeLens)
 

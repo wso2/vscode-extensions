@@ -29,13 +29,23 @@ export function activateVisualizer(context: vscode.ExtensionContext) {
             let file: string | undefined;
             const activeDocument = vscode.window.activeTextEditor?.document;
             if (typeof fileUri === 'string') {
-                file = fileUri;
-            } else if (fileUri?.fsPath) {
-                file = fileUri.fsPath;
+                // If it's already a string, check if it's a file path or URI
+                // If it's a file path, convert it to URI
+                if (!fileUri.startsWith('file://') && (fileUri.includes('\\') || fileUri.includes('/'))) {
+                    // It's a file path, convert to URI
+                    file = vscode.Uri.file(fileUri).toString();
+                } else {
+                    file = fileUri;
+                }
+            } else if (fileUri) {
+                // It's a vscode.Uri, use toString() to get the proper URI
+                file = fileUri.toString();
             } else if (activeDocument) {
-                file = activeDocument.fileName;
+                // Use the URI from the document, not fileName
+                file = activeDocument.uri.toString();
                 // If the active document is not a yaml or json file, show an error message
-                if (!file.endsWith('.yaml') && !file.endsWith('.yml') && !file.endsWith('.json')) {
+                const fileName = activeDocument.fileName;
+                if (!fileName.endsWith('.yaml') && !fileName.endsWith('.yml') && !fileName.endsWith('.json')) {
                     vscode.window.showErrorMessage("No API definition found to visualize");
                     return;
                 }
