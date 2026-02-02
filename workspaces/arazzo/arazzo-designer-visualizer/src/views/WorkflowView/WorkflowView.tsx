@@ -18,16 +18,18 @@
 
 import { useEffect, useState } from "react";
 import { useVisualizerContext } from "@wso2/arazzo-designer-rpc-client";
-import { ArazzoDefinition, MachineStateValue } from "@wso2/arazzo-designer-core";
+import { ArazzoDefinition, ArazzoWorkflow, MachineStateValue, EVENT_TYPE, MACHINE_VIEW } from "@wso2/arazzo-designer-core";
 
 interface WorkflowViewProps {
     fileUri: string;
+    workflowId?: string;
 }
 
 export function WorkflowView(props: WorkflowViewProps) {
-    const { fileUri } = props;
+    const { fileUri, workflowId } = props;
     const { rpcClient } = useVisualizerContext();
     const [arazzoDefinition, setArazzoDefinition] = useState<ArazzoDefinition | undefined>(undefined);
+    const [workflow, setWorkflow] = useState<ArazzoWorkflow | undefined>(undefined);
 
     rpcClient?.onStateChanged((newState: MachineStateValue) => {
         if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
@@ -41,26 +43,58 @@ export function WorkflowView(props: WorkflowViewProps) {
         });
         console.log('getArazzoModel response:', resp);
         setArazzoDefinition(resp.model);
+        if (workflowId && resp.model) {
+            const found = resp.model.workflows.find((w) => w.workflowId === workflowId);
+            setWorkflow(found);
+        }
     };
 
     useEffect(() => {
         fetchData();
-    }, [fileUri]);
+    }, [fileUri, workflowId]);
+
+    const navigateToOverview = () => {
+        rpcClient.getVisualizerRpcClient().openView({
+            type: EVENT_TYPE.OPEN_VIEW,
+            location: {
+                view: MACHINE_VIEW.Overview,
+                documentUri: fileUri,
+            },
+        });
+    };
 
     if (!arazzoDefinition) {
         return <div>Loading...</div>;
     }
 
+    const targetWorkflow = workflow || (workflowId
+        ? arazzoDefinition.workflows.find((w) => w.workflowId === workflowId)
+        : undefined);
+
     return (
-        <div>
-            <h1>{arazzoDefinition.info.title}</h1>
-            <p>Version: {arazzoDefinition.info.version}</p>
-            {arazzoDefinition.workflows.map((workflow) => (
-                <div key={workflow.workflowId}>
-                    <h2>{workflow.workflowId}</h2>
-                    {workflow.summary && <p>{workflow.summary}</p>}
+        <div style={{ padding: '16px' }}>
+            <button onClick={navigateToOverview} style={{ marginBottom: '16px', cursor: 'pointer' }}>
+                &larr; Back to Overview
+            </button>
+            {targetWorkflow ? (
+                <div>
+                    <h1>{targetWorkflow.workflowId}</h1>
+                    {targetWorkflow.summary && <p>{targetWorkflow.summary}</p>}
+                    {targetWorkflow.description && <p>{targetWorkflow.description}</p>}
+                    <h3>Steps ({targetWorkflow.steps.length})</h3>
+                    {targetWorkflow.steps.map((step) => (
+                        <div key={step.stepId} style={{ marginLeft: '16px', marginBottom: '8px' }}>
+                            <strong>{step.stepId}</strong>
+                            {step.description && <p>{step.description}</p>}
+                        </div>
+                    ))}
                 </div>
-            ))}
+            ) : (
+                <div>
+                    <h1>{arazzoDefinition.info.title}</h1>
+                    <p>Workflow not found: {workflowId}</p>
+                </div>
+            )}
         </div>
     );
 }

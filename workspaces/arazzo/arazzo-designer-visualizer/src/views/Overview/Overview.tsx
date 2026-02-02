@@ -18,7 +18,7 @@
 
 import { useEffect, useState } from "react";
 import { useVisualizerContext } from "@wso2/arazzo-designer-rpc-client";
-import { ArazzoDefinition, MachineStateValue } from "@wso2/arazzo-designer-core";
+import { ArazzoDefinition, MachineStateValue, EVENT_TYPE, MACHINE_VIEW } from "@wso2/arazzo-designer-core";
 
 interface OverviewProps {
     fileUri: string;
@@ -47,9 +47,41 @@ export function Overview(props: OverviewProps) {
         fetchData();
     }, [fileUri]);
 
+    const navigateToWorkflow = (workflowId: string) => {
+        rpcClient.getVisualizerRpcClient().openView({
+            type: EVENT_TYPE.OPEN_VIEW,
+            location: {
+                view: MACHINE_VIEW.Workflow,
+                documentUri: fileUri,
+                identifier: workflowId,
+            },
+        });
+    };
+
+    if (!arazzoDefinition) {
+        return <div>Loading...</div>;
+    }
+
     return (
-        <div>
-            <h1>Overview</h1>
+        <div style={{ padding: '16px' }}>
+            <h1>{arazzoDefinition.info.title}</h1>
+            <p>Version: {arazzoDefinition.info.version}</p>
+            {arazzoDefinition.info.summary && <p>{arazzoDefinition.info.summary}</p>}
+            <h2>Source Descriptions</h2>
+            {arazzoDefinition.sourceDescriptions.map((source) => (
+                <p key={source.name}>{source.name} ({source.type}) — {source.url}</p>
+            ))}
+            <h2>Workflows ({arazzoDefinition.workflows.length})</h2>
+            {arazzoDefinition.workflows.map((workflow) => (
+                <div
+                    key={workflow.workflowId}
+                    onClick={() => navigateToWorkflow(workflow.workflowId)}
+                    style={{ cursor: 'pointer', padding: '8px', marginBottom: '4px' }}
+                >
+                    <strong>{workflow.workflowId}</strong>
+                    {workflow.summary && <span> — {workflow.summary}</span>}
+                </div>
+            ))}
         </div>
     );
 }

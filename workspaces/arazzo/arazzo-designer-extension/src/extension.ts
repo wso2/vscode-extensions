@@ -20,12 +20,12 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node';
-import { StateMachine } from './stateMachine';
+import { StateMachine, openView } from './stateMachine';
 import { extension } from './Context';
 import { activate as activateHistory } from './history';
 import { activateVisualizer } from './visualizer/activate';
 import { RPCLayer } from './RPCLayer';
-import { EVENT_TYPE } from '@wso2/arazzo-designer-core';
+import { EVENT_TYPE, MACHINE_VIEW } from '@wso2/arazzo-designer-core';
 
 let languageClient: LanguageClient | undefined;
 
@@ -149,7 +149,7 @@ function initializeLanguageServer(context: vscode.ExtensionContext) {
 		let workflowId: string | undefined;
 
 		if (args && args.uri) {
-			// Called from Code Lens - args contain uri and possibly workflowId
+			// Called from Code Lens - args contain uri and workflowId
 			uri = vscode.Uri.parse(args.uri);
 			workflowId = args.workflowId;
 		} else {
@@ -162,9 +162,12 @@ function initializeLanguageServer(context: vscode.ExtensionContext) {
 			uri = editor.document.uri;
 		}
 
-		// Use the existing visualizer/designer system
-		// The APIDesigner.openAPIDesigner command opens the designer
-		vscode.commands.executeCommand('APIDesigner.openAPIDesigner', uri);
+		// Open the WorkflowView with the specific workflowId
+		openView(EVENT_TYPE.OPEN_VIEW, {
+			view: MACHINE_VIEW.Workflow,
+			documentUri: uri.toString(),
+			identifier: workflowId,
+		});
 	});
 
 	context.subscriptions.push(designerCommand);
@@ -348,7 +351,16 @@ workflows:
 async function showCode() {
 	const documentUri = StateMachine.context().documentUri;
 	if (documentUri) {
-		await vscode.workspace.openTextDocument(documentUri).then(doc => vscode.window.showTextDocument(doc));
+		try {
+			// documentUri should be a URI string, parse it to vscode.Uri
+			const uri = documentUri.startsWith('file://') 
+				? vscode.Uri.parse(documentUri) 
+				: vscode.Uri.file(documentUri);
+			await vscode.workspace.openTextDocument(uri).then(doc => vscode.window.showTextDocument(doc));
+		} catch (err) {
+			console.error('Error opening document:', err);
+			vscode.window.showErrorMessage(`Failed to open document: ${documentUri}`);
+		}
 	}
 }
 
