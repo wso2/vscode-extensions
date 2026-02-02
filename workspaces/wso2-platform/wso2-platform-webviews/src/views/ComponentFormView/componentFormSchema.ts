@@ -67,6 +67,17 @@ export const componentGeneralDetailsSchema = z.object({
 	branch: z.string().min(1, "Required"),
 });
 
+/** Schema for multi-component mode where name field is not required */
+export const componentGeneralDetailsSchemaMultiComponent = z.object({
+	name: z.string(), // No validation - name is derived from workspace in multi-component mode
+	subPath: z.string(),
+	gitRoot: z.string(),
+	repoUrl: z.string().min(1, "Required"),
+	gitProvider: z.string().min(1, "Required"),
+	credential: z.string(),
+	branch: z.string().min(1, "Required"),
+});
+
 export const componentBuildDetailsSchema = z.object({
 	buildPackLang: z.string().min(1, "Required"),
 	langVersion: z.string(),
@@ -207,16 +218,23 @@ export const getComponentGitProxyFormSchema = (directoryFsPath: string) =>
 		}
 	});
 
-export const getComponentFormSchemaGenDetails = (existingComponents: ComponentKind[]) =>
-	componentGeneralDetailsSchema.partial().superRefine(async (data, ctx) => {
-		if (existingComponents.some((item) => item.metadata.name === makeURLSafe(data.name))) {
-			ctx.addIssue({ path: ["name"], code: z.ZodIssueCode.custom, message: "Name already exists" });
+export const getComponentFormSchemaGenDetails = (existingComponents: ComponentKind[], isMultiComponentMode = false) => {
+	// Use different base schema depending on multi-component mode
+	const baseSchema = isMultiComponentMode ? componentGeneralDetailsSchemaMultiComponent : componentGeneralDetailsSchema;
+
+	return baseSchema.partial().superRefine(async (data, ctx) => {
+		// Only validate name in single component mode (name field is hidden in multi-component mode)
+		if (!isMultiComponentMode && data.name) {
+			if (existingComponents.some((item) => item.metadata.name === makeURLSafe(data.name))) {
+				ctx.addIssue({ path: ["name"], code: z.ZodIssueCode.custom, message: "Name already exists" });
+			}
 		}
 		const parsed = parseGitURL(data.repoUrl);
 		if (parsed?.[2] && parsed[2] !== GitProvider.GITHUB && !data.credential) {
 			ctx.addIssue({ path: ["credential"], code: z.ZodIssueCode.custom, message: "Required" });
 		}
 	});
+};
 
 export const getRepoInitSchemaGenDetails = (existingComponents: ComponentKind[]) =>
 	componentRepoInitSchema.partial().superRefine(async (data, ctx) => {

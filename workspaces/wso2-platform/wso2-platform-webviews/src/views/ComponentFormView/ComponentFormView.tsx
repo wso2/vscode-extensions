@@ -124,7 +124,7 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 	const { data: existingComponents = [] } = useComponentList(project, organization, { initialData: existingComponentsCache });
 
 	const genDetailsForm = useForm<ComponentFormGenDetailsType>({
-		resolver: zodResolver(getComponentFormSchemaGenDetails(existingComponents)),
+		resolver: zodResolver(getComponentFormSchemaGenDetails(existingComponents, isMultiComponentMode)),
 		mode: "all",
 		defaultValues: { name: initialValues?.name || "", subPath: "", gitRoot: "", repoUrl: "", branch: "", credential: "", gitProvider: "" },
 	});
@@ -336,6 +336,11 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 		onSuccess: () => setStepIndex(stepIndex + 1),
 	});
 
+	const handleNextClick = () => {
+		gitProxyForm.setValue("proxyContext", `/${makeURLSafe(genDetailsForm.getValues()?.name)}`);
+		setStepIndex(stepIndex + 1);
+	};
+
 	const steps: StepItem[] = [];
 
 	if (isNewCodeServerComp) {
@@ -370,10 +375,7 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 					key="gen-details-step"
 					form={genDetailsForm}
 					componentType={type}
-					onNextClick={() => {
-						gitProxyForm.setValue("proxyContext", `/${makeURLSafe(genDetailsForm.getValues()?.name)}`);
-						setStepIndex(stepIndex + 1);
-					}}
+					onNextClick={handleNextClick}
 					rootDirectory={rootDirectory}
 					isMultiComponentMode={isMultiComponentMode}
 					allComponents={components}
