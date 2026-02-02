@@ -18,7 +18,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useVisualizerContext } from "@wso2/arazzo-designer-rpc-client";
-import { ArazzoDefinition, MachineStateValue } from "@wso2/arazzo-designer-core";
+import { ArazzoDefinition, ArazzoWorkflow, EVENT_TYPE, MACHINE_VIEW, MachineStateValue } from "@wso2/arazzo-designer-core";
 import {
     ReactFlow,
     Background,
@@ -50,6 +50,7 @@ export function WorkflowView(props: WorkflowViewProps) {
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [graphKey, setGraphKey] = useState(0);
     const [isVertical, setIsVertical] = useState(false);
+    const [workflow, setWorkflow] = useState<ArazzoWorkflow | undefined>(undefined);
 
     // rpcClient?.onStateChanged((newState: MachineStateValue) => {
     //     if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
