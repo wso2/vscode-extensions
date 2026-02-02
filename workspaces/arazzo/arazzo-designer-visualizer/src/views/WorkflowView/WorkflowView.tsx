@@ -16,9 +16,24 @@
  * under the License.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useVisualizerContext } from "@wso2/arazzo-designer-rpc-client";
-import { ArazzoDefinition, ArazzoWorkflow, MachineStateValue, EVENT_TYPE, MACHINE_VIEW } from "@wso2/arazzo-designer-core";
+import { ArazzoDefinition, MachineStateValue } from "@wso2/arazzo-designer-core";
+import {
+    ReactFlow,
+    Background,
+    BackgroundVariant,
+    Controls,
+    useNodesState,
+    useEdgesState,
+    Node,
+    Edge,
+    addEdge,
+    Connection,
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+import { buildGraphFromWorkflow } from './graphBuilder';
+import { nodeTypes } from '../../components/NodeStyles';
 
 interface WorkflowViewProps {
     fileUri: string;
@@ -27,15 +42,20 @@ interface WorkflowViewProps {
 
 export function WorkflowView(props: WorkflowViewProps) {
     const { fileUri, workflowId } = props;
+    console.log('WorkflowView rendered with props:', { fileUri, workflowId });
     const { rpcClient } = useVisualizerContext();
     const [arazzoDefinition, setArazzoDefinition] = useState<ArazzoDefinition | undefined>(undefined);
-    const [workflow, setWorkflow] = useState<ArazzoWorkflow | undefined>(undefined);
+    const reactFlowWrapper = useRef<HTMLDivElement>(null);
+    const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+    const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+    const [graphKey, setGraphKey] = useState(0);
+    const [isVertical, setIsVertical] = useState(false);
 
-    rpcClient?.onStateChanged((newState: MachineStateValue) => {
-        if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
-            fetchData();
-        }
-    });
+    // rpcClient?.onStateChanged((newState: MachineStateValue) => {
+    //     if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
+    //         fetchData();
+    //     }
+    // });
 
     const fetchData = async () => {
         const resp = await rpcClient.getVisualizerRpcClient().getArazzoModel({
@@ -63,8 +83,59 @@ export function WorkflowView(props: WorkflowViewProps) {
         });
     };
 
+    // Build graph when workflow data is available
+    useEffect(() => {
+        console.log('WorkflowView useEffect triggered', { arazzoDefinition, workflowId });
+        if (arazzoDefinition) {
+            const targetWorkflowId = workflowId || arazzoDefinition.workflows?.[0]?.workflowId;
+            console.log('Target workflow ID:', targetWorkflowId);
+            if (targetWorkflowId) {
+                const workflow = arazzoDefinition.workflows?.find(wf => wf.workflowId === targetWorkflowId);
+                console.log('Found workflow:', workflow);
+                if (workflow) {
+                    // Clear existing graph
+                    setNodes([]);
+                    setEdges([]);
+
+                    // Build new graph
+                    console.log('Building graph...');
+                    buildGraphFromWorkflow(workflow, isVertical).then(({ nodes: builtNodes, edges: builtEdges }) => {
+                        console.log('Graph built successfully:', { nodes: builtNodes, edges: builtEdges });
+                        setNodes(builtNodes);
+                        setEdges(builtEdges);
+                        setGraphKey(prev => prev + 1); // Force complete re-mount to clear artifacts
+
+                        // Center view after render
+                        setTimeout(() => reactFlowWrapper.current?.focus(), 50);
+                    }).catch(err => {
+                        console.error("Error building graph layout:", err);
+                    });
+                }
+            }
+        }
+    }, [arazzoDefinition, workflowId, isVertical]);
+
+    const onConnect = useCallback((params: Connection) => {
+        setEdges((eds) => addEdge(params, eds));
+    }, [setEdges]);
+
+    const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+        console.log('Node clicked:', node);
+        // TODO: Show properties panel or handle node interaction
+    }, []);
+
+    const onPaneClick = useCallback(() => {
+        reactFlowWrapper.current?.focus();
+    }, []);
+
+    const proOptions = { hideAttribution: true };
+
+    const toggleOrientation = useCallback(() => {
+        setIsVertical(prev => !prev);
+    }, []);
+
     if (!arazzoDefinition) {
-        return <div>Loading...</div>;
+        return <div style={{ padding: '20px' }}>Loading...</div>;
     }
 
     const targetWorkflow = workflow || (workflowId
@@ -72,29 +143,52 @@ export function WorkflowView(props: WorkflowViewProps) {
         : undefined);
 
     return (
-        <div style={{ padding: '16px' }}>
-            <button onClick={navigateToOverview} style={{ marginBottom: '16px', cursor: 'pointer' }}>
-                &larr; Back to Overview
+        <div
+            ref={reactFlowWrapper}
+            style={{ width: '100%', height: '100vh', outline: 'none', position: 'relative' }}
+            tabIndex={0}
+            onClick={onPaneClick}
+        >
+            <button
+                onClick={toggleOrientation}
+                style={{
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    zIndex: 1000,
+                    padding: '8px 16px',
+                    backgroundColor: 'var(--vscode-button-background)',
+                    color: 'var(--vscode-button-foreground)',
+                    border: '1px solid var(--vscode-button-border)',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontFamily: 'var(--vscode-font-family)'
+                }}
+                title={isVertical ? 'Switch to Horizontal Layout' : 'Switch to Vertical Layout'}
+            >
+                {isVertical ? '↔ Horizontal' : '↕ Vertical'}
             </button>
-            {targetWorkflow ? (
-                <div>
-                    <h1>{targetWorkflow.workflowId}</h1>
-                    {targetWorkflow.summary && <p>{targetWorkflow.summary}</p>}
-                    {targetWorkflow.description && <p>{targetWorkflow.description}</p>}
-                    <h3>Steps ({targetWorkflow.steps.length})</h3>
-                    {targetWorkflow.steps.map((step) => (
-                        <div key={step.stepId} style={{ marginLeft: '16px', marginBottom: '8px' }}>
-                            <strong>{step.stepId}</strong>
-                            {step.description && <p>{step.description}</p>}
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                <div>
-                    <h1>{arazzoDefinition.info.title}</h1>
-                    <p>Workflow not found: {workflowId}</p>
-                </div>
-            )}
+            <ReactFlow
+                key={graphKey}
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onNodeClick={onNodeClick}
+                nodeTypes={nodeTypes}
+                fitView
+                proOptions={proOptions}
+            >
+                <Background
+                    variant={BackgroundVariant.Dots}
+                    gap={20}
+                    size={1}
+                    color="#b9b7b7"
+                />
+                <Controls />
+            </ReactFlow>
         </div>
     );
 }

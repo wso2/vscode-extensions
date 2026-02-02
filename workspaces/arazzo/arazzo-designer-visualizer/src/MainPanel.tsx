@@ -33,15 +33,18 @@ const MainPanel = ({ handleResetError }: { handleResetError: () => void }) => {
     const [showNavigator, setShowNavigator] = useState<boolean>(true);
     const [formState, setFormState] = useState<PopupMachineStateValue>('initialize');
     const [stateUpdated, setStateUpdated] = React.useState<boolean>(false);
+    const isWorkflowPanel = (window as any).__isWorkflowPanel || false;
 
     rpcClient?.onStateChanged((newState: MachineStateValue) => {
         if (typeof newState === 'object' && 'newProject' in newState && newState.newProject === 'viewReady') {
-            setStateUpdated(!stateUpdated);
+            setStateUpdated((prev) => !prev);
         }
-        if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
+        if (typeof newState === 'object' && 'ready' in newState && (newState.ready === 'viewReady' || newState.ready === 'viewEditing')) {
             handleResetError();
-            setStateUpdated(!stateUpdated);
+            setStateUpdated((prev) => !prev);
         }
+        // Always refresh the view on state changes to pick up navigation updates
+        fetchContext();
     });
 
     rpcClient?.onPopupStateChanged((newState: PopupMachineStateValue) => {
@@ -78,12 +81,17 @@ const MainPanel = ({ handleResetError }: { handleResetError: () => void }) => {
     const fetchContext = () => {
         rpcClient.getVisualizerState().then(async (machineView) => {
             let shouldShowNavigator = true;
-            switch (machineView?.view) {
+            
+            // Determine which view to render based on panel identity
+            // Overview panel always renders Overview, Workflow panel renders the global state view
+            const viewToRender = isWorkflowPanel ? machineView?.view : MACHINE_VIEW.Overview;
+            
+            switch (viewToRender) {
                 case MACHINE_VIEW.Overview:
                     setViewComponent(<Overview fileUri={machineView.documentUri} />);
                     break;
                 case MACHINE_VIEW.Workflow:
-                    setViewComponent(<WorkflowView fileUri={machineView.documentUri} workflowId={machineView.identifier} />);
+                    setViewComponent(<WorkflowView key={machineView.identifier} fileUri={machineView.documentUri} workflowId={machineView.identifier} />);
                     break;
                 default:
                     setViewComponent(null);

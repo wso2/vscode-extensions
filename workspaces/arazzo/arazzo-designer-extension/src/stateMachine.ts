@@ -8,6 +8,7 @@ import {
     HistoryEntry,
     MACHINE_VIEW,
     MachineStateValue,
+    stateChanged,
     VisualizerLocation,
     webviewReady
 } from '@wso2/arazzo-designer-core';
@@ -20,7 +21,7 @@ import { StateMachinePopup } from './stateMachinePopup';
 import { fileURLToPath } from 'url';
 import path = require('path');
 
-interface MachineContext extends VisualizerLocation {
+interface MachineContext extends VisualizerLocation {       //teh variables or memory of the state machine
     error?: any | null;
 }
 
@@ -153,15 +154,32 @@ const stateMachine = createMachine<MachineContext>({
         openWebPanel: (context, event) => {
             // Get context values from the project storage so that we can restore the earlier state when user reopens vscode
             return new Promise((resolve, reject) => {
-                if (!VisualizerWebview.currentPanel) {
-                    VisualizerWebview.currentPanel = new VisualizerWebview(extension.webviewReveal);
-                    RPCLayer._messenger.onNotification(webviewReady, () => {
+                // For Workflow view, use singleton pattern - reuse existing workflow panel
+                if (context.view === MACHINE_VIEW.Workflow) {
+                    if (!VisualizerWebview.workflowPanel) {
+                        // Create new workflow panel as a tab (not beside)
+                        VisualizerWebview.workflowPanel = new VisualizerWebview(false, true); // false = new tab, true = isWorkflowPanel
+                        RPCLayer._messenger.onNotification(webviewReady, () => {
+                            resolve(true);
+                        });
+                    } else {
+                        // Reuse existing workflow panel
+                        VisualizerWebview.workflowPanel.getWebview()?.reveal(ViewColumn.Active);
                         resolve(true);
-                    });
-                } else {
+                    }
+                } else if(context.view === MACHINE_VIEW.Overview) {
+                    if (!VisualizerWebview.currentPanel) {
+                        // For Overview, create panel if it doesn't exist
+                        VisualizerWebview.currentPanel = new VisualizerWebview(extension.webviewReveal, false);
+                        RPCLayer._messenger.onNotification(webviewReady, () => {
+                            resolve(true);
+                        });
+                    } else {
+                    // For Overview, reuse existing panel
                     VisualizerWebview.currentPanel!.getWebview()?.reveal(ViewColumn.Active);
                     vscode.commands.executeCommand('setContext', 'isViewOpenAPI', true);
                     resolve(true);
+                    }
                 }
             });
         },
@@ -216,6 +234,26 @@ const stateMachine = createMachine<MachineContext>({
 // Create a service to interpret the machine
 export const stateService = interpret(stateMachine);
 
+// Listen to all state transitions and broadcast to open webviews
+stateService.onTransition((state) => {
+    // 1. Only act if the state actually changed
+    if (state.changed) {
+        
+        // 2. Check if ANY panel is currently open
+        const isAnyPanelOpen = VisualizerWebview.currentPanel || VisualizerWebview.workflowPanel;
+
+        if (isAnyPanelOpen) {
+            // 3. Send the Broadcast ONCE
+            // The target recipient filter reaches ALL open instances of this webviewType.
+            RPCLayer._messenger.sendNotification(
+                stateChanged, 
+                { type: 'webview', webviewType: VisualizerWebview.viewType }, 
+                state.value
+            );
+        }
+    }
+});
+
 // Define your API as functions
 export const StateMachine = {
     initialize: () => stateService.start(),
@@ -229,7 +267,7 @@ export function openView(type: EVENT_TYPE, viewLocation?: VisualizerLocation) {
     if (!viewLocation?.projectUri && vscode.workspace.workspaceFolders) {
         viewLocation!.projectUri = vscode.workspace.workspaceFolders![0].uri.fsPath;
     }
-    updateProjectExplorer(viewLocation);
+    //updateProjectExplorer(viewLocation);
     stateService.send({ type: type, viewLocation: viewLocation });
 }
 

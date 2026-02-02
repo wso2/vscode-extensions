@@ -35,7 +35,8 @@
     "lodash": "4.17.23",
     "@tanstack/react-query": "4.0.10",
     "@tanstack/query-core": "^4.0.0-beta.1",
-    "@mdxeditor/editor": "~3.14.0"
+    "@mdxeditor/editor": "~3.14.0",
+    "@xyflow/react": "^12.3.4"
   },
   "devDependencies": {
     "@storybook/addon-actions": "~7.4.0",
