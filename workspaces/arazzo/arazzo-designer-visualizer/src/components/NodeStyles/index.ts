@@ -16,4 +16,26 @@
  * under the License.
  */
 
-export * from './NodeStyles';
+import { ConditionNode } from './ConditionNode';
+import { StartNode } from './StartNode';
+import { EndNode } from './EndNode';
+import { RetryNode } from './RetryNode';
+import { StepNode } from './StepNode';
+import { PortalNode } from './PortalNode';
+
+export { ConditionNode } from './ConditionNode';
+export { StartNode } from './StartNode';
+export { EndNode } from './EndNode';
+export { RetryNode } from './RetryNode';
+export { StepNode } from './StepNode';
+export { PortalNode } from './PortalNode';
+
+// Export node types registry for React Flow
+export const nodeTypes = {
+    condition: ConditionNode,
+    start: StartNode,
+    end: EndNode,
+    retry: RetryNode,
+    stepNode: StepNode,
+    portal: PortalNode
+};
