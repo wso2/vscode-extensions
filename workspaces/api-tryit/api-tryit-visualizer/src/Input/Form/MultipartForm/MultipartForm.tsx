@@ -27,6 +27,7 @@ const AddButtonWrapper = styled.div`
 `;
 
 interface MultipartFormProps {
+    headerKeyItems?: string[];
     items?: FormDataParameter[];
     onAddParam: () => void;
     onAddFile: () => void;
@@ -39,6 +40,7 @@ interface MultipartFormProps {
 } 
 
 export const MultipartForm: React.FC<MultipartFormProps> = ({
+    headerKeyItems,
     items = [],
     onAddParam,
     onAddFile,
@@ -50,10 +52,12 @@ export const MultipartForm: React.FC<MultipartFormProps> = ({
 }) => {
     return (
         <>
-            {items.map(param => {
+            {items.map((param, id) => {
                 const val = (param as any).value;
                 return (
                     <MultipartFormItem
+                        id={`${id}`}
+                        contentTypeItems={headerKeyItems}
                         key={param.id}
                         keyValue={param.key}
                         value={val || param.filePath || ''}

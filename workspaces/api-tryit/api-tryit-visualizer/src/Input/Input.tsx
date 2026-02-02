@@ -19,7 +19,7 @@
 import React from 'react';
 import { Typography, LinkButton, Codicon } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
-import { ParamItem } from './ParamItem';
+import { ParamItem } from './Form/ParamItem/ParamItem';
 import { MultipartForm } from './Form';
 import { InputForm } from './Form/InputForm';
 import { InputCode } from './Code/InputCode';
@@ -735,13 +735,6 @@ export const Input: React.FC<InputProps> = ({
                     onFormatChange={handleFormatChange}
                 />
             )}
-
-
-
-
-
-
-
         </Container>
     );
 };

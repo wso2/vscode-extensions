@@ -18,7 +18,8 @@
 import React from 'react';
 import styled from '@emotion/styled';
 import { Typography, LinkButton, Codicon } from '@wso2/ui-toolkit';
-import { ParamItem } from '../ParamItem';
+import { ParamItem } from './ParamItem/ParamItem';
+import { COMMON_HEADERS } from '../InputEditor/SuggestionsConstants';
 import { MultipartForm } from './MultipartForm/MultipartForm';
 import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
 import { CodeTextArea } from '../../Components/CodeTextArea/CodeTextArea';
@@ -113,6 +114,7 @@ const ParamList = styled.div`
     display: flex;
     flex-direction: column;
     margin-bottom: 8px;
+    width: 600px;
 `;
 
 const NoBodyMessage = styled.div`
@@ -238,8 +240,8 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
             <Section>
                 <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>Query Parameter</Typography>
                 <ParamList>
-                    {(request.queryParameters || []).map(param => (
-                        <ParamItem key={param.id} keyValue={param.key} value={param.value} onKeyChange={(key) => updateQueryParam(param.id, key, param.value)} onValueChange={(value) => updateQueryParam(param.id, param.key, value)} onDelete={() => deleteQueryParam(param.id)} />
+                    {(request.queryParameters || []).map((param, id) => (
+                        <ParamItem id={`${id}`} key={param.id} keyValue={param.key} value={param.value} onKeyChange={(key) => updateQueryParam(param.id, key, param.value)} onValueChange={(value) => updateQueryParam(param.id, param.key, value)} onDelete={() => deleteQueryParam(param.id)} />
                     ))}
                 </ParamList>
                 <AddButtonWrapper>
@@ -251,8 +253,18 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
             <Section>
                 <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>Header</Typography>
                 <ParamList>
-                    {(request.headers || []).map(header => (
-                        <ParamItem key={header.id} keyValue={header.key} value={header.value} onKeyChange={(key) => updateHeader(header.id, key, header.value)} onValueChange={(value) => updateHeader(header.id, header.key, value)} onDelete={() => deleteHeader(header.id)} />
+                    {(request.headers || []).map((header, id) => (
+                        <ParamItem
+                            id={`${id}`}
+                            key={header.id}
+                            keyValue={header.key}
+                            value={header.value}
+                            onKeyChange={(key) => updateHeader(header.id, key, header.value)}
+                            onValueChange={(value) => updateHeader(header.id, header.key, value)}
+                            onDelete={() => deleteHeader(header.id)}
+                            keyItems={COMMON_HEADERS.map(h => h.name)}
+                            valueItems={header.key ? (COMMON_HEADERS.find(h => h.name === header.key)?.values || []) : []}
+                        />
                     ))}
                 </ParamList>
                 <AddButtonWrapper>
@@ -290,6 +302,7 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
             {bodyFormat === 'form-data' && (
                 <>
                     <MultipartForm
+                        headerKeyItems={COMMON_HEADERS.map(h => h.name)}
                         items={request.bodyFormData}
                         onAddParam={addFormDataParam}
                         onAddFile={() => onRequestChange?.({ ...request, bodyFormData: [...(request.bodyFormData || []), ({ id: Date.now().toString(), key: '', filePath: '', contentType: 'application/octet-stream', value: '' } as any)] })}
@@ -307,8 +320,16 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
 
             {bodyFormat === 'form-urlencoded' && (
                 <>
-                    {(request.bodyFormUrlEncoded || []).map(param => (
-                        <ParamItem key={param.id} keyValue={param.key} value={param.value} onKeyChange={(key) => updateFormUrlEncodedParam(param.id, key, param.value)} onValueChange={(value) => updateFormUrlEncodedParam(param.id, param.key, value)} onDelete={() => deleteFormUrlEncodedParam(param.id)} />
+                    {(request.bodyFormUrlEncoded || []).map((param, id) => (
+                        <ParamItem
+                            id={`${id}`}
+                            key={param.id}
+                            keyValue={param.key}
+                            value={param.value}
+                            onKeyChange={(key) => updateFormUrlEncodedParam(param.id, key, param.value)}
+                            onValueChange={(value) => updateFormUrlEncodedParam(param.id, param.key, value)}
+                            onDelete={() => deleteFormUrlEncodedParam(param.id)}
+                        />
                     ))}
                     <AddButtonWrapper>
                         <LinkButton onClick={addFormUrlEncodedParam}><Codicon name="add" />Add Param</LinkButton>
@@ -333,18 +354,16 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
                 </>
             )}
 
-            {['json','xml','text','html','javascript'].includes(bodyFormat) && (
-                <>
-                    <CodeTextArea
-                        id="body-textarea"
-                        resize="vertical"
-                        growRange={{ start: 5, offset: 10 }}
-                        sx={{ width: '100%', padding: '0 4px' }}
-                        value={request.body || ''}
-                        onChange={(e: any) => onRequestChange?.({ ...request, body: e.target.value })}
-                        placeholder="Enter request body..."
-                    />
-                </>
+            {['json','xml','text','html','javascript'].includes(bodyFormat) && (    
+                <CodeTextArea
+                    id="body-textarea"
+                    resize="vertical"
+                    growRange={{ start: 5, offset: 10 }}
+                    sx={{ padding: '0 4px' }}
+                    value={request.body || ''}
+                    onChange={(e: any) => onRequestChange?.({ ...request, body: e.target.value })}
+                    placeholder="Enter request body..."
+                />
             )}
 
             {bodyFormat === 'no-body' && (

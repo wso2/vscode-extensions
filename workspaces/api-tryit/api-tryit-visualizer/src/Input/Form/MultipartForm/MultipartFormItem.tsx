@@ -18,11 +18,13 @@
 
 import React from 'react';
 import styled from '@emotion/styled';
-import { Codicon, TextField, Button } from '@wso2/ui-toolkit';
+import { Codicon, TextField, Button, AutoComplete } from '@wso2/ui-toolkit';
 
 export interface MultipartFormItemProps {
+    id: string;
     keyValue: string;
     contentType: string;
+    contentTypeItems?: string[];
     // `value` holds either the field value or a selected file path
     value?: string;
     onKeyChange: (key: string) => void;
@@ -91,8 +93,10 @@ const DeleteIconWrapper = styled.div`
 `;
 
 export const MultipartFormItem: React.FC<MultipartFormItemProps> = ({
+    id,
     keyValue,
     contentType,
+    contentTypeItems,
     value,
     onKeyChange,
     onValueChange,
@@ -137,12 +141,12 @@ export const MultipartFormItem: React.FC<MultipartFormItemProps> = ({
                     sx={{ width: '100%' }}
                 />
             )}
-            <TextField
-                id={`multipart-content-type-${contentType}`}
-                value={contentType}
-                onTextChange={onContentTypeChange}
-                placeholder="Content Type"
-                sx={{ width: '100%' }}
+            <AutoComplete
+                identifier={`value-${value}-${id}`}
+                value={value}
+                onValueChange={onContentTypeChange}
+                items={contentTypeItems || []}
+                borderBox={true}
             />
             <DeleteIconWrapper onClick={onDelete}>
                 <Codicon name="trash" />

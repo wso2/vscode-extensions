@@ -18,7 +18,8 @@
 
 import React from 'react';
 import styled from '@emotion/styled';
-import { Codicon, TextField, Button } from '@wso2/ui-toolkit';
+import { Codicon, Button } from '@wso2/ui-toolkit';
+import { TextField } from '../../../Components/TextField/TextField';
 
 export interface BinaryFormItemProps {
     keyValue: string;
