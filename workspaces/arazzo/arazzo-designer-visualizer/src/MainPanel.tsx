@@ -33,6 +33,7 @@ const MainPanel = ({ handleResetError }: { handleResetError: () => void }) => {
     const [showNavigator, setShowNavigator] = useState<boolean>(true);
     const [formState, setFormState] = useState<PopupMachineStateValue>('initialize');
     const [stateUpdated, setStateUpdated] = React.useState<boolean>(false);
+    const isWorkflowPanel = (window as any).__isWorkflowPanel || false;
 
     rpcClient?.onStateChanged((newState: MachineStateValue) => {
         if (typeof newState === 'object' && 'newProject' in newState && newState.newProject === 'viewReady') {
@@ -80,7 +81,12 @@ const MainPanel = ({ handleResetError }: { handleResetError: () => void }) => {
     const fetchContext = () => {
         rpcClient.getVisualizerState().then(async (machineView) => {
             let shouldShowNavigator = true;
-            switch (machineView?.view) {
+            
+            // Determine which view to render based on panel identity
+            // Overview panel always renders Overview, Workflow panel renders the global state view
+            const viewToRender = isWorkflowPanel ? machineView?.view : MACHINE_VIEW.Overview;
+            
+            switch (viewToRender) {
                 case MACHINE_VIEW.Overview:
                     setViewComponent(<Overview fileUri={machineView.documentUri} />);
                     break;

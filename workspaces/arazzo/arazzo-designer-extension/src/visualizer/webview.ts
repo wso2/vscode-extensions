@@ -173,7 +173,7 @@ export class VisualizerWebview {
             <script>
             function render() {
                 visualizerWebview.renderWebview(
-                    document.getElementById("root"), "visualizer"
+                    document.getElementById("root"), "visualizer", ${this._isWorkflowPanel}
                 );
             }
             render();

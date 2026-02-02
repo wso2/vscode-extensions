@@ -32,7 +32,9 @@ const queryClient = new QueryClient({
     },
   });
 
-export function renderWebview(target: HTMLElement, mode: string) {
+export function renderWebview(target: HTMLElement, mode: string, isWorkflowPanel?: boolean) {
+    // Store panel type in window for global access
+    (window as any).__isWorkflowPanel = isWorkflowPanel || false;
     const root = createRoot(target);
     root.render(
         <VisualizerContextProvider>
