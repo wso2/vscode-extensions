@@ -26,8 +26,8 @@ export interface MultipartFormItemProps {
     keyValue: string;
     contentType: string;
     contentTypeItems?: string[];
-    // `value` holds either the field value or a selected file path
     value?: string;
+    filePath?: string;
     onKeyChange: (key: string) => void;
     onValueChange?: (value: string) => void;
     onContentTypeChange: (contentType: string) => void;
@@ -71,14 +71,15 @@ export const MultipartFormItem: React.FC<MultipartFormItemProps> = ({
     contentType,
     contentTypeItems,
     value,
+    filePath,
     onKeyChange,
     onValueChange,
     onContentTypeChange,
     onSelectFile,
     onDelete
 }) => {
-    const isFileInput = contentType === 'application/octet-stream';
-    const buttonLabel = value ? value : 'Select File';
+    const isFileInput = filePath !== undefined;
+    const buttonLabel = filePath ? filePath : 'Select File';
 
     return (
         <RowContainer>
@@ -107,7 +108,7 @@ export const MultipartFormItem: React.FC<MultipartFormItemProps> = ({
                 ) : (
                     <TextField
                         id={`multipart-value-${id}`}
-                        value={value || ''}
+                        value={value ?? ''}
                         onTextChange={onValueChange}
                         placeholder="Value"
                         sx={{ width: '100%' }}

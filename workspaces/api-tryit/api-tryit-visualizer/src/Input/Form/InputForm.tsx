@@ -208,12 +208,41 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
     };
 
     const addFormDataParam = () => {
-        const newParam: any = { id: Date.now().toString(), key: '', filePath: '', contentType: '', value: '' };
+        const newParam: any = { id: Date.now().toString(), key: '', contentType: '', value: '' };
         onRequestChange?.({ ...request, bodyFormData: [...(request.bodyFormData || []), newParam] });
     };
 
-    const updateFormDataParam = (id: string, key: string, filePath: string, contentType: string, value?: string) => {
-        onRequestChange?.({ ...request, bodyFormData: (request.bodyFormData || []).map(param => param.id === id ? { ...param, key, filePath, contentType, value } : param) });
+    const updateFormDataParam = (
+        id: string,
+        key: string,
+        filePath: string | undefined,
+        contentType: string,
+        value?: string
+    ) => {
+        onRequestChange?.({
+            ...request,
+            bodyFormData: (request.bodyFormData || []).map(param => {
+                if (param.id !== id) {
+                    return param;
+                }
+
+                const updatedParam: any = { ...param, key, contentType };
+
+                if (filePath !== undefined) {
+                    updatedParam.filePath = filePath;
+                } else {
+                    delete updatedParam.filePath;
+                }
+
+                if (value !== undefined) {
+                    updatedParam.value = value;
+                } else {
+                    delete updatedParam.value;
+                }
+
+                return updatedParam;
+            })
+        });
     };
 
     const deleteFormDataParam = (id: string) => {
@@ -305,13 +334,13 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
                         headerKeyItems={COMMON_HEADERS.map(h => h.name)}
                         items={request.bodyFormData}
                         onAddParam={addFormDataParam}
-                        onAddFile={() => onRequestChange?.({ ...request, bodyFormData: [...(request.bodyFormData || []), ({ id: Date.now().toString(), key: '', filePath: '', contentType: 'application/octet-stream', value: '' } as any)] })}
+                        onAddFile={() => onRequestChange?.({ ...request, bodyFormData: [...(request.bodyFormData || []), ({ id: Date.now().toString(), key: '', filePath: '', contentType: 'application/octet-stream' } as any)] })}
                         onUpdate={updateFormDataParam}
                         onDelete={deleteFormDataParam}
                         onSelectFile={handleFileSelect}
                         onClearFile={(id) => {
                             const param = (request.bodyFormData || []).find(p => p.id === id);
-                            if (param) updateFormDataParam(id, param.key, '', 'application/octet-stream', '');
+                            if (param) updateFormDataParam(id, param.key, '', 'application/octet-stream', undefined);
                         }}
                         onContentTypeChange={updateFormDataParamContentType}
                     />
@@ -342,13 +371,13 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
                     <BinaryForm
                         items={request.bodyFormData}
                         contentTypeItems={COMMON_HEADERS.map(h => h.name)}
-                        onAddFile={() => onRequestChange?.({ ...request, bodyFormData: [...(request.bodyFormData || []), ({ id: Date.now().toString(), key: '', filePath: '', contentType: 'application/octet-stream', value: '' } as any)] })}
+                        onAddFile={() => onRequestChange?.({ ...request, bodyFormData: [...(request.bodyFormData || []), ({ id: Date.now().toString(), key: '', filePath: '', contentType: 'application/octet-stream' } as any)] })}
                         onUpdate={updateFormDataParam}
                         onDelete={deleteFormDataParam}
                         onSelectFile={handleFileSelect}
                         onClearFile={(id) => {
                             const param = (request.bodyFormData || []).find(p => p.id === id);
-                            if (param) updateFormDataParam(id, param.key, '', 'application/octet-stream', '');
+                            if (param) updateFormDataParam(id, param.key, '', 'application/octet-stream', undefined);
                         }}
                         onContentTypeChange={updateFormDataParamContentType}
                     />

@@ -32,7 +32,7 @@ interface MultipartFormProps {
     onAddParam: () => void;
     onAddFile: () => void;
     // onUpdate now also accepts the text value for non-file params
-    onUpdate: (id: string, key: string, filePath: string, contentType: string, value?: string) => void;
+    onUpdate: (id: string, key: string, filePath: string | undefined, contentType: string, value?: string) => void;
     onDelete: (id: string) => void;
     onSelectFile: (id: string) => void;
     onClearFile: (id: string) => void;
@@ -53,17 +53,24 @@ export const MultipartForm: React.FC<MultipartFormProps> = ({
     return (
         <>
             {items.map((param, id) => {
-                const val = (param as any).value;
+                const rawValue = param.value;
+                const filePath = param.filePath;
+                const hasFileProp = filePath !== undefined;
+                const isFileParam = hasFileProp && (filePath !== '' || rawValue === undefined);
+                const textValue = isFileParam ? undefined : (rawValue ?? '');
+                const resolvedFilePath = isFileParam ? (filePath || '') : undefined;
+
                 return (
                     <MultipartFormItem
                         id={`${id}`}
                         contentTypeItems={headerKeyItems}
                         key={param.id}
                         keyValue={param.key}
-                        value={val || param.filePath || ''}
+                        value={textValue}
+                        filePath={resolvedFilePath}
                         contentType={param.contentType}
-                        onKeyChange={(key) => onUpdate(param.id, key, '', param.contentType, val || param.filePath || '')}
-                        onValueChange={(value) => onUpdate(param.id, param.key, '', param.contentType, value)}
+                        onKeyChange={(key) => onUpdate(param.id, key, param.filePath, param.contentType, rawValue)}
+                        onValueChange={(value) => onUpdate(param.id, param.key, param.filePath, param.contentType, value)}
                         onContentTypeChange={(contentType) => onContentTypeChange(param.id, contentType)}
                         onSelectFile={() => onSelectFile(param.id)}
                         onClearFile={() => onClearFile(param.id)}

@@ -31,7 +31,7 @@ interface BinaryFormProps {
     onAddFile: () => void;
     contentTypeItems?: string[];
     // onUpdate now also accepts the text value for non-file params
-    onUpdate: (id: string, key: string, filePath: string, contentType: string, value?: string) => void;
+    onUpdate: (id: string, key: string, filePath: string | undefined, contentType: string, value?: string) => void;
     onDelete: (id: string) => void;
     onSelectFile: (id: string) => void;
     onClearFile: (id: string) => void;
@@ -51,17 +51,17 @@ export const BinaryForm: React.FC<BinaryFormProps> = ({
     return (
         <>
             {items.map((param, id) => {
-                const val = (param as any).value;
+                const filePath = param.filePath;
                 return (
                     <BinaryFormItem
                         id={`${id}`}
                         key={param.id}
                         keyValue={param.key}
-                        value={val || param.filePath || ''}
+                        filePath={filePath}
                         contentType={param.contentType}
                         contentTypeItems={contentTypeItems || []}
-                        onKeyChange={(key) => onUpdate(param.id, key, '', param.contentType, val || param.filePath || '')}
-                        onValueChange={(value) => onUpdate(param.id, param.key, '', param.contentType, value)}
+                        onKeyChange={(key) => onUpdate(param.id, key, param.filePath, param.contentType)}
+                        onValueChange={(value) => onUpdate(param.id, param.key, param.filePath, param.contentType, value)}
                         onContentTypeChange={(contentType) => onContentTypeChange(param.id, contentType)}
                         onSelectFile={() => onSelectFile(param.id)}
                         onClearFile={() => onClearFile(param.id)}

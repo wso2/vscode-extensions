@@ -19,15 +19,13 @@
 import React from 'react';
 import styled from '@emotion/styled';
 import { Codicon, Button, AutoComplete } from '@wso2/ui-toolkit';
-import { TextField } from '../../../Components/TextField/TextField';
 
 export interface BinaryFormItemProps {
     id: string;
     keyValue: string;
     contentType: string;
     contentTypeItems: string[];
-    // `value` holds either the field value or a selected file path
-    value?: string;
+    filePath?: string;
     onKeyChange: (key: string) => void;
     onValueChange?: (value: string) => void;
     onContentTypeChange: (contentType: string) => void;
@@ -102,14 +100,13 @@ const FieldWrapper = styled.div`
 export const BinaryFormItem: React.FC<BinaryFormItemProps> = ({
     id,
     contentType,
-    value,
-    onValueChange,
+    filePath,
     onContentTypeChange,
     onSelectFile,
     contentTypeItems,
     onDelete
 }) => {
-    const buttonLabel = value ? value : 'Select File';
+    const buttonLabel = filePath ? filePath : 'Select File';
 
     return (
         <RowContainer>

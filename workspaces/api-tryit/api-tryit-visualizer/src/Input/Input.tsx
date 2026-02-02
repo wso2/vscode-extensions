@@ -557,7 +557,6 @@ export const Input: React.FC<InputProps> = ({
         const newParam = {
             id: Date.now().toString(),
             key: '',
-            filePath: '',
             contentType: '',
             value: ''
         };
@@ -568,12 +567,36 @@ export const Input: React.FC<InputProps> = ({
         onRequestChange?.(updatedRequest);
     };
 
-    const updateFormDataParam = (id: string, key: string, filePath: string, contentType: string, value?: string) => {
+    const updateFormDataParam = (
+        id: string,
+        key: string,
+        filePath: string | undefined,
+        contentType: string,
+        value?: string
+    ) => {
         const updatedRequest = {
             ...request,
-            bodyFormData: (request.bodyFormData || []).map(param =>
-                param.id === id ? { ...param, key, filePath, contentType, value } : param
-            )
+            bodyFormData: (request.bodyFormData || []).map(param => {
+                if (param.id !== id) {
+                    return param;
+                }
+
+                const updatedParam: any = { ...param, key, contentType };
+
+                if (filePath !== undefined) {
+                    updatedParam.filePath = filePath;
+                } else {
+                    delete updatedParam.filePath;
+                }
+
+                if (value !== undefined) {
+                    updatedParam.value = value;
+                } else {
+                    delete updatedParam.value;
+                }
+
+                return updatedParam;
+            })
         };
         onRequestChange?.(updatedRequest);
     };
@@ -601,8 +624,7 @@ export const Input: React.FC<InputProps> = ({
             id: Date.now().toString(),
             key: '',
             filePath: '',
-            contentType: 'application/octet-stream',
-            value: ''
+            contentType: 'application/octet-stream'
         };
         const updatedRequest = {
             ...request,
@@ -618,12 +640,15 @@ export const Input: React.FC<InputProps> = ({
         fileInput.onchange = (e: any) => {
             const file = e.target.files[0];
             if (file) {
-                // Get file path or name (in browser, only name is available, not full path)
                 const filePath = (file as any).path || file.name;
-                // Update the form data param with the selected file — store in `value`
                 const param = (request.bodyFormData || []).find(p => p.id === paramId);
                 if (param) {
-                    updateFormDataParam(paramId, param.key, '', param.contentType || 'application/octet-stream', filePath);
+                    updateFormDataParam(
+                        paramId,
+                        param.key,
+                        filePath,
+                        param.contentType || 'application/octet-stream'
+                    );
                 }
             }
         };
