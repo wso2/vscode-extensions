@@ -63,25 +63,11 @@ export function WorkflowView(props: WorkflowViewProps) {
         });
         console.log('getArazzoModel response:', resp);
         setArazzoDefinition(resp.model);
-        if (workflowId && resp.model) {
-            const found = resp.model.workflows.find((w) => w.workflowId === workflowId);
-            setWorkflow(found);
-        }
     };
 
     useEffect(() => {
         fetchData();
     }, [fileUri, workflowId]);
-
-    const navigateToOverview = () => {
-        rpcClient.getVisualizerRpcClient().openView({
-            type: EVENT_TYPE.OPEN_VIEW,
-            location: {
-                view: MACHINE_VIEW.Overview,
-                documentUri: fileUri,
-            },
-        });
-    };
 
     // Build graph when workflow data is available
     useEffect(() => {
@@ -137,10 +123,6 @@ export function WorkflowView(props: WorkflowViewProps) {
     if (!arazzoDefinition) {
         return <div style={{ padding: '20px' }}>Loading...</div>;
     }
-
-    const targetWorkflow = workflow || (workflowId
-        ? arazzoDefinition.workflows.find((w) => w.workflowId === workflowId)
-        : undefined);
 
     return (
         <div
