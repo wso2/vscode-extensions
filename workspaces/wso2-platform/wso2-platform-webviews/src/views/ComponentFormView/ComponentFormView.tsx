@@ -34,6 +34,7 @@ import {
 	getComponentTypeText,
 	getIntegrationComponentTypeText,
 	getRandomNumber,
+	getTypeOfIntegrationType,
 	makeURLSafe,
 	parseGitURL,
 } from "@wso2/wso2-platform-core";
@@ -59,6 +60,7 @@ import {
 	getRepoInitSchemaGenDetails,
 	sampleEndpointItem,
 } from "./componentFormSchema";
+import { useMultiComponentFormData } from "./hooks";
 import { ComponentFormBuildSection } from "./sections/ComponentFormBuildSection";
 import { ComponentFormEndpointsSection } from "./sections/ComponentFormEndpointsSection";
 import { ComponentFormGenDetailsSection } from "./sections/ComponentFormGenDetailsSection";
@@ -96,6 +98,12 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 			directoryName: comp.directoryName,
 		})),
 	);
+
+	// Hook to manage per-component form data (build details, endpoints, proxy config) for multi-component mode
+	const {
+		componentDataMap,
+		isDataLoaded: isMultiComponentDataLoaded,
+	} = useMultiComponentFormData(components, selectedComponents, isMultiComponentMode);
 
 	// Destructure current component properties
 	const { directoryFsPath, directoryUriPath, directoryName, initialValues, isNewCodeServerComp } = currentComponent;
@@ -242,6 +250,99 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 		mutationFn: async (newWorkspaceDir?: string) => {
 			const genDetails = genDetailsForm.getValues();
 			const repoInitDetails = repoInitForm.getValues();
+
+			// Multi-component mode: use batch creation for optimized flow
+			if (isMultiComponentMode) {
+				const selectedToCreate = selectedComponents.filter((comp) => comp.selected);
+				const parsedRepo = parseGitURL(genDetails.repoUrl);
+				const provider = parsedRepo[2];
+
+				// Build array of component creation requests
+				const componentRequests = selectedToCreate
+					.map((selectedComp) => {
+						const componentConfig = components[selectedComp.index];
+						const componentFormData = componentDataMap.get(selectedComp.index);
+
+						if (!componentConfig || !componentFormData) {
+							console.error(`Missing data for component at index ${selectedComp.index}`);
+							return null;
+						}
+
+						// Map DevantScopes (e.g., "AUTOMATION") to ChoreoComponentType (e.g., "ScheduledTask")
+						const mappedType = getTypeOfIntegrationType(selectedComp.componentType);
+						const compType = mappedType.type || selectedComp.componentType;
+						const compSubType = mappedType.subType || componentConfig.initialValues?.subType || "";
+
+						const compName = selectedComp.name;
+						const compBuildDetails = componentFormData.buildDetails;
+						const compGitProxyDetails = componentFormData.gitProxyDetails;
+
+						const createParams: Partial<CreateComponentReq> = {
+							orgId: organization.id.toString(),
+							orgUUID: organization.uuid,
+							projectId: project.id,
+							projectHandle: project.handler,
+							name: makeURLSafe(compName),
+							displayName: compName,
+							type: compType,
+							componentSubType: compSubType,
+							buildPackLang: componentConfig.initialValues?.buildPackLang || compBuildDetails.buildPackLang,
+							componentDir: componentConfig.directoryFsPath,
+							repoUrl: genDetails.repoUrl,
+							gitProvider: provider,
+							branch: genDetails.branch,
+							langVersion: compBuildDetails.langVersion,
+							port: compBuildDetails.webAppPort,
+							originCloud: extensionName === "Devant" ? "devant" : "choreo",
+						};
+
+						if (provider !== GitProvider.GITHUB) {
+							createParams.gitCredRef = genDetails?.credential;
+						}
+
+						if (compBuildDetails.buildPackLang === ChoreoImplementationType.Docker) {
+							createParams.dockerFile = compBuildDetails.dockerFile.replace(/\\/g, "/");
+						}
+
+						if (WebAppSPATypes.includes(compBuildDetails.buildPackLang as ChoreoBuildPackNames)) {
+							createParams.spaBuildCommand = compBuildDetails.spaBuildCommand;
+							createParams.spaNodeVersion = compBuildDetails.spaNodeVersion;
+							createParams.spaOutputDir = compBuildDetails.spaOutputDir;
+						}
+
+						if (compType === ChoreoComponentType.ApiProxy) {
+							createParams.proxyAccessibility = "external";
+							createParams.proxyApiContext =
+								compGitProxyDetails.proxyContext?.charAt(0) === "/"
+									? compGitProxyDetails.proxyContext.substring(1)
+									: compGitProxyDetails.proxyContext;
+							createParams.proxyApiVersion = compGitProxyDetails.proxyVersion;
+							createParams.proxyEndpointUrl = compGitProxyDetails.proxyTargetUrl;
+						}
+
+						return {
+							createParams: createParams as CreateComponentReq,
+							autoBuildOnCommit: compType === ChoreoComponentType.ApiProxy ? false : compBuildDetails?.autoBuildOnCommit,
+							type: compType,
+						};
+					})
+					.filter((req): req is NonNullable<typeof req> => req !== null);
+
+				// Use batch API for optimized creation with single progress notification
+				const result = await ChoreoWebViewAPI.getInstance().submitBatchComponentCreate({
+					org: organization,
+					project: project,
+					components: componentRequests,
+				});
+
+				// Close webview after batch processing completes (extension handles success/error messages)
+				if (result.created.length > 0) {
+					ChoreoWebViewAPI.getInstance().closeWebView();
+				}
+				return;
+			}
+
+			// Single component mode: existing logic
 			const buildDetails = buildDetailsForm.getValues();
 			const gitProxyDetails = gitProxyForm.getValues();
 
@@ -385,75 +486,79 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 			),
 		});
 
-		let showBuildDetails = false;
-		if (type !== ChoreoComponentType.ApiProxy) {
-			if (!initialValues?.buildPackLang) {
-				showBuildDetails = true;
-			} else if (
-				![ChoreoBuildPackNames.Ballerina, ChoreoBuildPackNames.MicroIntegrator].includes(initialValues?.buildPackLang as ChoreoBuildPackNames)
-			) {
-				showBuildDetails = true;
+		// In multi-component mode, skip build/endpoint/proxy configuration steps
+		// Each component uses its auto-detected/default configuration
+		if (!isMultiComponentMode) {
+			let showBuildDetails = false;
+			if (type !== ChoreoComponentType.ApiProxy) {
+				if (!initialValues?.buildPackLang) {
+					showBuildDetails = true;
+				} else if (
+					![ChoreoBuildPackNames.Ballerina, ChoreoBuildPackNames.MicroIntegrator].includes(initialValues?.buildPackLang as ChoreoBuildPackNames)
+				) {
+					showBuildDetails = true;
+				}
 			}
-		}
 
-		if (showBuildDetails) {
-			steps.push({
-				label: "Build Details",
-				content: (
-					<ComponentFormBuildSection
-						{...sectionProps}
-						key="build-details-step"
-						onNextClick={() => setStepIndex(stepIndex + 1)}
-						onBackClick={() => setStepIndex(stepIndex - 1)}
-						form={buildDetailsForm}
-						selectedType={type}
-						subPath={subPath}
-						gitRoot={gitRoot}
-						baseUriPath={directoryUriPath}
-						rootDirectory={rootDirectory}
-					/>
-				),
-			});
-		}
-
-		if (type === ChoreoComponentType.Service && extensionName !== "Devant") {
-			if (
-				![ChoreoBuildPackNames.MicroIntegrator, ChoreoBuildPackNames.Ballerina].includes(buildPackLang as ChoreoBuildPackNames) ||
-				([ChoreoBuildPackNames.MicroIntegrator, ChoreoBuildPackNames.Ballerina].includes(buildPackLang as ChoreoBuildPackNames) &&
-					!useDefaultEndpoints)
-			) {
+			if (showBuildDetails) {
 				steps.push({
-					label: "Endpoint Details",
+					label: "Build Details",
 					content: (
-						<ComponentFormEndpointsSection
+						<ComponentFormBuildSection
 							{...sectionProps}
-							key="endpoints-step"
-							componentName={name || "component"}
-							onNextClick={(data) => submitEndpoints(data.endpoints as Endpoint[])}
+							key="build-details-step"
+							onNextClick={() => setStepIndex(stepIndex + 1)}
 							onBackClick={() => setStepIndex(stepIndex - 1)}
-							isSaving={isSubmittingEndpoints}
-							form={endpointDetailsForm}
+							form={buildDetailsForm}
+							selectedType={type}
+							subPath={subPath}
+							gitRoot={gitRoot}
+							baseUriPath={directoryUriPath}
 							rootDirectory={rootDirectory}
 						/>
 					),
 				});
 			}
-		}
-		if (type === ChoreoComponentType.ApiProxy) {
-			steps.push({
-				label: "Proxy Details",
-				content: (
-					<ComponentFormGitProxySection
-						{...sectionProps}
-						key="git-proxy-step"
-						onNextClick={(data) => submitProxyConfig(data)}
-						onBackClick={() => setStepIndex(stepIndex - 1)}
-						isSaving={isSubmittingProxyConfig}
-						form={gitProxyForm}
-						rootDirectory={rootDirectory}
-					/>
-				),
-			});
+
+			if (type === ChoreoComponentType.Service && extensionName !== "Devant") {
+				if (
+					![ChoreoBuildPackNames.MicroIntegrator, ChoreoBuildPackNames.Ballerina].includes(buildPackLang as ChoreoBuildPackNames) ||
+					([ChoreoBuildPackNames.MicroIntegrator, ChoreoBuildPackNames.Ballerina].includes(buildPackLang as ChoreoBuildPackNames) &&
+						!useDefaultEndpoints)
+				) {
+					steps.push({
+						label: "Endpoint Details",
+						content: (
+							<ComponentFormEndpointsSection
+								{...sectionProps}
+								key="endpoints-step"
+								componentName={name || "component"}
+								onNextClick={(data) => submitEndpoints(data.endpoints as Endpoint[])}
+								onBackClick={() => setStepIndex(stepIndex - 1)}
+								isSaving={isSubmittingEndpoints}
+								form={endpointDetailsForm}
+								rootDirectory={rootDirectory}
+							/>
+						),
+					});
+				}
+			}
+			if (type === ChoreoComponentType.ApiProxy) {
+				steps.push({
+					label: "Proxy Details",
+					content: (
+						<ComponentFormGitProxySection
+							{...sectionProps}
+							key="git-proxy-step"
+							onNextClick={(data) => submitProxyConfig(data)}
+							onBackClick={() => setStepIndex(stepIndex - 1)}
+							isSaving={isSubmittingProxyConfig}
+							form={gitProxyForm}
+							rootDirectory={rootDirectory}
+						/>
+					),
+				});
+			}
 		}
 
 		steps.push({
@@ -470,6 +575,11 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 					onBackClick={() => setStepIndex(stepIndex - 1)}
 					isCreating={isCreatingComponent}
 					rootDirectory={rootDirectory}
+					isMultiComponentMode={isMultiComponentMode}
+					allComponents={components}
+					selectedComponents={selectedComponents}
+					componentDataMap={componentDataMap}
+					isMultiComponentDataLoaded={isMultiComponentDataLoaded}
 				/>
 			),
 		});

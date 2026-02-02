@@ -29,6 +29,8 @@ import {
 	type ICreateComponentCmdParams,
 	type Organization,
 	type Project,
+	type SubmitBatchComponentCreateReq,
+	type SubmitBatchComponentCreateResp,
 	type SubmitComponentCreateReq,
 	type UserInfo,
 	type WorkspaceConfig,
@@ -814,4 +816,130 @@ export const submitCreateComponentHandler = async ({ createParams, org, project 
 	}
 
 	return createdComponent;
+};
+
+/**
+ * Handler for batch component creation - optimized for creating multiple components at once.
+ */
+export const submitBatchCreateComponentsHandler = async ({
+	org,
+	project,
+	components,
+}: SubmitBatchComponentCreateReq): Promise<SubmitBatchComponentCreateResp> => {
+	const extensionName = webviewStateStore.getState().state?.extensionName;
+	const terminology = getTerminology(extensionName);
+	const totalCount = components.length;
+	const componentTermPlural = terminology.isDevant ? "integrations" : "components";
+
+	const result: SubmitBatchComponentCreateResp = {
+		created: [],
+		failed: [],
+		total: totalCount,
+	};
+
+	// Show a single progress notification for the entire batch
+	await window.withProgress(
+		{
+			title: `Creating ${totalCount} ${componentTermPlural}...`,
+			location: ProgressLocation.Notification,
+			cancellable: false,
+		},
+		async (progress) => {
+			for (let i = 0; i < components.length; i++) {
+				const componentReq = components[i];
+				const componentName = componentReq.createParams.displayName || componentReq.createParams.name;
+
+				// Update progress
+				progress.report({
+					message: `(${i + 1}/${totalCount}) ${componentName}`,
+					increment: (100 / totalCount),
+				});
+
+				try {
+					const createdComponent = await ext.clients.rpcClient.createComponent(componentReq.createParams);
+
+					if (createdComponent) {
+						result.created.push(createdComponent);
+
+						// Update component cache
+						const compCache = dataCacheStore.getState().getComponents(org.handle, project.handler);
+						dataCacheStore.getState().setComponents(org.handle, project.handler, [createdComponent, ...compCache]);
+					} else {
+						result.failed.push({ name: componentName, error: "Creation returned null" });
+					}
+				} catch (error) {
+					const errorMessage = error instanceof Error ? error.message : String(error);
+					result.failed.push({ name: componentName, error: errorMessage });
+					getLogger().error(`Failed to create ${terminology.componentTerm} ${componentName}:`, error);
+				}
+			}
+		},
+	);
+
+	// Update context file once for the batch (using the first successfully created component's directory)
+	if (result.created.length > 0) {
+		try {
+			const firstCreated = result.created[0];
+			const firstComponentDir = components.find(
+				(c) => c.createParams.name === firstCreated.metadata.name,
+			)?.createParams.componentDir;
+
+			if (firstComponentDir) {
+				const newGit = await initGit(ext.context);
+				const gitRoot = await newGit?.getRepositoryRoot(firstComponentDir);
+				const dotGit = await newGit?.getRepositoryDotGit(firstComponentDir);
+				const projectCache = dataCacheStore.getState().getProjects(org.handle);
+
+				if (newGit && gitRoot && dotGit && !ext.isDevantCloudEditor) {
+					const userInfo = ext.authProvider?.getState().state.userInfo;
+					if (userInfo) {
+						updateContextFile(gitRoot, userInfo, project, org, projectCache);
+					}
+				}
+			}
+		} catch (err) {
+			getLogger().error("Failed to update context file after batch creation:", err);
+		}
+
+		contextStore.getState().refreshState();
+	}
+
+	// Show summary message
+	const successCount = result.created.length;
+	const failCount = result.failed.length;
+
+	if (failCount === 0) {
+		// All succeeded
+		window.showInformationMessage(
+			`Successfully created ${successCount} ${successCount === 1 ? terminology.componentTerm : componentTermPlural}.`,
+			`Open in ${extensionName}`,
+		).then((resp) => {
+			if (resp === `Open in ${extensionName}`) {
+				const consoleUrl = extensionName === "Devant" ? ext.config?.devantConsoleUrl : ext.config?.choreoConsoleUrl;
+				const projectPath = extensionName === "Devant" ? project.id : project.handler;
+				commands.executeCommand(
+					"vscode.open",
+					`${consoleUrl}/organizations/${org.handle}/projects/${projectPath}/components`,
+				);
+			}
+		});
+	} else if (successCount === 0) {
+		// All failed
+		window.showErrorMessage(
+			`Failed to create all ${totalCount} ${componentTermPlural}. Check the output for details.`,
+		);
+	} else {
+		// Partial success
+		window.showWarningMessage(
+			`Created ${successCount} of ${totalCount} ${componentTermPlural}. ${failCount} failed.`,
+			"View Details",
+		).then((resp) => {
+			if (resp === "View Details") {
+				const failedNames = result.failed.map((f) => `• ${f.name}: ${f.error}`).join("\n");
+				window.showErrorMessage(`Failed ${componentTermPlural}:\n${failedNames}`, { modal: true });
+			}
+		});
+	}
+
+	return result;
 };
