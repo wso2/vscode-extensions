@@ -8,6 +8,7 @@ import {
     HistoryEntry,
     MACHINE_VIEW,
     MachineStateValue,
+    stateChanged,
     VisualizerLocation,
     webviewReady
 } from '@wso2/arazzo-designer-core';
@@ -232,6 +233,26 @@ const stateMachine = createMachine<MachineContext>({
 
 // Create a service to interpret the machine
 export const stateService = interpret(stateMachine);
+
+// Listen to all state transitions and broadcast to open webviews
+stateService.onTransition((state) => {
+    // 1. Only act if the state actually changed
+    if (state.changed) {
+        
+        // 2. Check if ANY panel is currently open
+        const isAnyPanelOpen = VisualizerWebview.currentPanel || VisualizerWebview.workflowPanel;
+
+        if (isAnyPanelOpen) {
+            // 3. Send the Broadcast ONCE
+            // The target recipient filter reaches ALL open instances of this webviewType.
+            RPCLayer._messenger.sendNotification(
+                stateChanged, 
+                { type: 'webview', webviewType: VisualizerWebview.viewType }, 
+                state.value
+            );
+        }
+    }
+});
 
 // Define your API as functions
 export const StateMachine = {

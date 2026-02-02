@@ -85,7 +85,7 @@ const MainPanel = ({ handleResetError }: { handleResetError: () => void }) => {
                     setViewComponent(<Overview fileUri={machineView.documentUri} />);
                     break;
                 case MACHINE_VIEW.Workflow:
-                    setViewComponent(<WorkflowView fileUri={machineView.documentUri} workflowId={machineView.identifier} />);
+                    setViewComponent(<WorkflowView key={machineView.identifier} fileUri={machineView.documentUri} workflowId={machineView.identifier} />);
                     break;
                 default:
                     setViewComponent(null);

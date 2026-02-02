@@ -101,11 +101,11 @@ export function Overview(props: OverviewProps) {
     const { rpcClient } = useVisualizerContext();
     const [arazzoDefinition, setArazzoDefinition] = useState<ArazzoDefinition | undefined>(undefined);
 
-    rpcClient?.onStateChanged((newState: MachineStateValue) => {
-        if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
-            fetchData();
-        }
-    });
+    // rpcClient?.onStateChanged((newState: MachineStateValue) => {
+    //     if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
+    //         fetchData();
+    //     }
+    // });
 
     const fetchData = async () => {
         const resp = await rpcClient.getVisualizerRpcClient().getArazzoModel({

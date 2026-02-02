@@ -51,11 +51,11 @@ export function WorkflowView(props: WorkflowViewProps) {
     const [graphKey, setGraphKey] = useState(0);
     const [isVertical, setIsVertical] = useState(false);
 
-    rpcClient?.onStateChanged((newState: MachineStateValue) => {
-        if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
-            fetchData();
-        }
-    });
+    // rpcClient?.onStateChanged((newState: MachineStateValue) => {
+    //     if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
+    //         fetchData();
+    //     }
+    // });
 
     const fetchData = async () => {
         const resp = await rpcClient.getVisualizerRpcClient().getArazzoModel({
