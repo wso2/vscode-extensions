@@ -22,6 +22,7 @@ import { ParamItem } from '../ParamItem';
 import { MultipartForm } from './MultipartForm/MultipartForm';
 import { QueryParameter, HeaderParameter, ApiRequest } from '@wso2/api-tryit-core';
 import { CodeTextArea } from '../../Components/CodeTextArea/CodeTextArea';
+import BinaryForm from './BinaryForm/BinaryForm';
 
 const BodyHeaderContainer = styled.div`
     display: flex;
@@ -113,17 +114,7 @@ const ParamList = styled.div`
     flex-direction: column;
     margin-bottom: 8px;
 `;
-const BinaryFileContainer = styled.div`
-    display: flex;
-    align-items: center;
-    padding: 8px;
-    background-color: var(--vscode-editor-background);
-    border: 1px dashed var(--vscode-editorGroup-border);
-    border-radius: 4px;
-`;
-const BinaryFileInput = styled.input`
-    cursor: pointer;
-`;
+
 const NoBodyMessage = styled.div`
     padding: 12px;
     background-color: var(--vscode-editor-background);
@@ -330,12 +321,18 @@ export const InputForm: React.FC<InputFormProps> = ({ request, onRequestChange, 
 
             {bodyFormat === 'binary' && (
                 <>
-                    <BinaryFileContainer>
-                        <BinaryFileInput type="file" id="binary-file" onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) onRequestChange?.({ ...request, bodyBinaryFilePath: file.name });
-                        }} />
-                    </BinaryFileContainer>
+                    <BinaryForm
+                        items={request.bodyFormData}
+                        onAddFile={() => onRequestChange?.({ ...request, bodyFormData: [...(request.bodyFormData || []), ({ id: Date.now().toString(), key: '', filePath: '', contentType: 'application/octet-stream', value: '' } as any)] })}
+                        onUpdate={updateFormDataParam}
+                        onDelete={deleteFormDataParam}
+                        onSelectFile={handleFileSelect}
+                        onClearFile={(id) => {
+                            const param = (request.bodyFormData || []).find(p => p.id === id);
+                            if (param) updateFormDataParam(id, param.key, '', 'application/octet-stream', '');
+                        }}
+                        onContentTypeChange={updateFormDataParamContentType}
+                    />
                 </>
             )}
 
