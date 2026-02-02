@@ -36,32 +36,29 @@ import * as yaml from "js-yaml";
 import { z } from "zod/v3";
 import { ChoreoWebViewAPI } from "../../utilities/vscode-webview-rpc";
 
+/** Reusable schema for component name validation */
+export const componentNameSchema = z
+	.string()
+	.min(1, "Required")
+	.min(3, "Needs to be at least 3 characters")
+	.max(60, "Max length exceeded")
+	.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
+	.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters");
+
 export const componentRepoInitSchema = z.object({
 	org: z.string().min(1, "Required"),
 	orgHandler: z.string(),
 	repo: z.string().min(1, "Required"),
 	branch: z.string(),
 	subPath: z.string().regex(/^(\/)?([a-zA-Z0-9_-]+(\/)?)*$/, "Invalid path"),
-	name: z
-		.string()
-		.min(1, "Required")
-		.min(3, "Needs to be at least 3 characters")
-		.max(60, "Max length exceeded")
-		.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
-		.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters"),
+	name: componentNameSchema,
 	gitProvider: z.string().min(1, "Required"),
 	credential: z.string(),
 	serverUrl: z.string(),
 });
 
 export const componentGeneralDetailsSchema = z.object({
-	name: z
-		.string()
-		.min(1, "Required")
-		.min(3, "Needs to be at least 3 characters")
-		.max(60, "Max length exceeded")
-		.regex(/^[A-Za-z]/, "Needs to start with alphabetic letter")
-		.regex(/^[A-Za-z\s\d\-_]+$/, "Cannot have special characters"),
+	name: componentNameSchema,
 	subPath: z.string(), // todo: add regex
 	gitRoot: z.string(),
 	repoUrl: z.string().min(1, "Required"),
