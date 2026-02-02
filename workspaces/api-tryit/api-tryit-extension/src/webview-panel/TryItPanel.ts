@@ -45,7 +45,8 @@ export class TryItPanel {
 		// Set up message handling from webview
 		this._panel.webview.onDidReceiveMessage(
 			async message => {
-				switch (message.type) {
+				const messageType = message.type || message.command;
+				switch (messageType) {
 					case 'webviewReady':
 						ApiTryItStateMachine.sendEvent(EVENT_TYPE.WEBVIEW_READY);
 						break;

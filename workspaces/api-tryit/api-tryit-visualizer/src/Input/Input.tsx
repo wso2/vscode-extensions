@@ -633,14 +633,12 @@ export const Input: React.FC<InputProps> = ({
         onRequestChange?.(updatedRequest);
     };
 
-    const handleFileSelect = (paramId: string) => {
-        // Use native file input to select file
-        const fileInput = document.createElement('input');
-        fileInput.type = 'file';
-        fileInput.onchange = (e: any) => {
-            const file = e.target.files[0];
-            if (file) {
-                const filePath = (file as any).path || file.name;
+    // Listen for file selection response from extension
+    React.useEffect(() => {
+        const handleMessage = (event: MessageEvent) => {
+            const message = event.data;
+            if (message.type === 'fileSelected') {
+                const { paramId, filePath } = message.data;
                 const param = (request.bodyFormData || []).find(p => p.id === paramId);
                 if (param) {
                     updateFormDataParam(
@@ -652,7 +650,19 @@ export const Input: React.FC<InputProps> = ({
                 }
             }
         };
-        fileInput.click();
+
+        window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
+    }, [request.bodyFormData, updateFormDataParam]);
+
+    const handleFileSelect = (paramId: string) => {
+        // Request file selection from VS Code extension
+        if (vscode) {
+            vscode.postMessage({
+                command: 'selectFile',
+                data: { paramId }
+            });
+        }
     };
 
     const addFormUrlEncodedParam = () => {
