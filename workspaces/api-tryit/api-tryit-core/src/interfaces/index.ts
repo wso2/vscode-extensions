@@ -49,6 +49,13 @@ export interface FormUrlEncodedParameter {
     value: string;
 }
 
+export interface BinaryFileParameter {
+    id: string;
+    filePath: string;
+    contentType: string;
+    enabled?: boolean;
+}
+
 // RPC request/response types for saving
 export interface SaveRequestRequest {
     filePath: string;
@@ -72,7 +79,7 @@ export interface ApiRequest {
     body?: string;
     bodyFormData?: FormDataParameter[];
     bodyFormUrlEncoded?: FormUrlEncodedParameter[];
-    bodyBinaryFilePath?: string;
+    bodyBinaryFiles?: BinaryFileParameter[];
     assertions?: string[];
 }
 

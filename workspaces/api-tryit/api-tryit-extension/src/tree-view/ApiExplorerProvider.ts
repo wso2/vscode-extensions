@@ -20,7 +20,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as yaml from 'js-yaml';
-import { ApiCollection, ApiFolder, ApiRequestItem, ApiRequest, ApiResponse } from '@wso2/api-tryit-core';
+import { ApiCollection, ApiFolder, ApiRequestItem, ApiRequest, ApiResponse, FormDataParameter, FormUrlEncodedParameter } from '@wso2/api-tryit-core';
 
 export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem> {
 	private collections: ApiCollection[] = [];
@@ -81,15 +81,82 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 						})
 						: [];
 
+					const formDataParams: FormDataParameter[] | undefined = Array.isArray(requestObj.bodyFormData)
+						? (requestObj.bodyFormData as unknown[]).map((param, index) => {
+							const fd = param as Record<string, unknown>;
+							const normalized: FormDataParameter = {
+								id: typeof fd.id === 'string' ? fd.id : `${Date.now()}-form-data-${index}`,
+								key: typeof fd.key === 'string' ? fd.key : '',
+								contentType: typeof fd.contentType === 'string' ? fd.contentType : ''
+							};
+
+							if (typeof fd.filePath === 'string' && fd.filePath.length > 0) {
+								normalized.filePath = fd.filePath;
+							}
+
+							if (typeof fd.value === 'string') {
+								normalized.value = fd.value;
+							}
+
+							return normalized;
+						})
+						: undefined;
+
+					const formUrlEncodedParams: FormUrlEncodedParameter[] | undefined = Array.isArray(requestObj.bodyFormUrlEncoded)
+						? (requestObj.bodyFormUrlEncoded as unknown[]).map((param, index) => {
+							const fe = param as Record<string, unknown>;
+							return {
+								id: typeof fe.id === 'string' ? fe.id : `${Date.now()}-form-urlencoded-${index}`,
+								key: typeof fe.key === 'string' ? fe.key : '',
+								value: typeof fe.value === 'string' ? fe.value : ''
+							};
+						})
+						: undefined;
+
+					const binaryFiles = Array.isArray(requestObj.bodyBinaryFiles)
+						? (requestObj.bodyBinaryFiles as unknown[]).map((file, index) => {
+							const bf = file as Record<string, unknown>;
+							return {
+								id: typeof bf.id === 'string' ? bf.id : `${Date.now()}-binary-${index}`,
+								filePath: typeof bf.filePath === 'string' ? bf.filePath : '',
+								contentType: typeof bf.contentType === 'string' ? bf.contentType : 'application/octet-stream',
+								enabled: typeof bf.enabled === 'boolean' ? bf.enabled : true
+							};
+						})
+						: undefined;
+
+					const assertions = Array.isArray(requestObj.assertions)
+						? (requestObj.assertions as unknown[]).filter((assertion): assertion is string => typeof assertion === 'string')
+						: undefined;
+
 					const requestWithId: ApiRequest = {
 						id: typeof requestObj.id === 'string' ? requestObj.id : id,
 						name: typeof requestObj.name === 'string' ? requestObj.name : name,
 						method: (typeof requestObj.method === 'string' ? requestObj.method : 'GET') as ApiRequest['method'],
 						url: typeof requestObj.url === 'string' ? requestObj.url : '',
 						queryParameters: qp,
-						headers: headers,
-						body: typeof requestObj.body === 'string' ? requestObj.body : undefined
+						headers: headers
 					};
+
+					if (typeof requestObj.body === 'string') {
+						requestWithId.body = requestObj.body;
+					}
+
+					if (formDataParams) {
+						requestWithId.bodyFormData = formDataParams;
+					}
+
+					if (formUrlEncodedParams) {
+						requestWithId.bodyFormUrlEncoded = formUrlEncodedParams;
+					}
+
+					if (binaryFiles) {
+						requestWithId.bodyBinaryFiles = binaryFiles;
+					}
+
+					if (assertions && assertions.length > 0) {
+						requestWithId.assertions = assertions;
+					}
 
 					const item: ApiRequestItem = {
 						id,
