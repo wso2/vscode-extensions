@@ -93,12 +93,23 @@ export class PositionVisitor {
 
             // First pass: Calculate Y positions for all branch heads to reserve vertical space
             const branchPositions: { head: FlowNode, y: number }[] = [];
-            node.branches.forEach(branch => {
+            node.branches.forEach((branch, index, allBranches) => {
                 const head = branch[0];
                 if (head && !this.visited.has(head.id) && !this.positioned.has(head.id)) {
                     branchPositions.push({ head, y: currentY });
-                    // Reserve vertical space based on subtree height
-                    currentY += head.viewState.subtreeH + C.NODE_GAP_Y;
+
+                    // Look ahead to the next branch's head to decide the gap
+                    const nextBranch = allBranches[index + 1];
+                    const nextHead = nextBranch ? nextBranch[0] : null;
+
+                    if (nextHead && nextHead.type === 'END') {
+                        // Optimization: If the NEXT node is an END node, we assume we don't need 
+                        // the full subtree clearance from the current node.
+                        currentY += C.NODE_GAP_Y; 
+                    } else {
+                        // Default: Next is a Step (or doesn't exist), so reserve the full subtree height
+                        currentY += head.viewState.subtreeH + C.NODE_GAP_Y;
+                    }
                 }
             });
 

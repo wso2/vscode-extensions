@@ -1,7 +1,7 @@
 import { ArazzoWorkflow } from '@wso2/arazzo-designer-core';
 import { InitVisitor } from '../../visitors/InitVisitor';
 import { SizingVisitor } from '../../visitors/SizingVisitor';
-import { PositionVisitor } from '../../visitors/PositionVisitor';
+import { PositionVisitor } from '../../visitors/PositionVisitorHorizontal';
 import { PositionVisitorVertical } from '../../visitors/PositionVisitorVertical';
 import { NodeFactoryVisitor } from '../../visitors/NodeFactoryVisitor';
 
