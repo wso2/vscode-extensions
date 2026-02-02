@@ -17,6 +17,7 @@
  */
 
 import { type ChildProcessWithoutNullStreams, spawn } from "child_process";
+import * as fs from "fs";
 import { type MessageConnection, StreamMessageReader, StreamMessageWriter, createMessageConnection } from "vscode-jsonrpc/node";
 import { ext } from "../extensionVariables";
 import { getLogger } from "../logger/logger";
@@ -28,6 +29,14 @@ export class StdioConnection {
 	private _serverProcess: ChildProcessWithoutNullStreams;
 	constructor() {
 		const executablePath = getChoreoExecPath();
+
+		// Check if the executable exists before attempting to spawn
+		if (!fs.existsSync(executablePath)) {
+			const error = new Error(`Choreo CLI executable not found at: ${executablePath}`);
+			getLogger().error(error.message);
+			throw error;
+		}
+
 		console.log("Starting RPC server, path:", executablePath);
 		getLogger().debug(`Starting RPC server${executablePath}`);
 		let region = process.env.CLOUD_REGION;
@@ -42,6 +51,12 @@ export class StdioConnection {
 				CHOREO_REGION: region,
 			},
 		});
+
+		// Handle spawn errors
+		this._serverProcess.on("error", (err) => {
+			getLogger().error(`Failed to start RPC server: ${err.message}`);
+		});
+
 		this._connection = createMessageConnection(
 			new StreamMessageReader(this._serverProcess.stdout),
 			new StreamMessageWriter(this._serverProcess.stdin),
