@@ -15,7 +15,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React, { useRef } from 'react';
+import React, { useRef, forwardRef, useImperativeHandle } from 'react';
 import styled from '@emotion/styled';
 import { Codicon } from '../Codicon/Codicon';
 
@@ -45,6 +45,11 @@ const ScrollIndicator = styled.div({
     }
 });
 
+export interface ScrollableListRef {
+    scrollToBottom: () => void;
+    scrollToTop: () => void;
+}
+
 export interface ScrollableListProps {
     /** The content to be rendered inside the scrollable container */
     children: React.ReactNode;
@@ -60,16 +65,38 @@ export interface ScrollableListProps {
     showScrollIndicator?: boolean;
 }
 
-export const ScrollableList: React.FC<ScrollableListProps> = ({
-    children,
-    maxVisibleItems = 5,
-    itemCount,
-    maxHeight = '300px',
-    scrollAmount = 100,
-    showScrollIndicator = true
-}) => {
+export const ScrollableList = forwardRef<ScrollableListRef, ScrollableListProps>((
+    {
+        children,
+        maxVisibleItems = 5,
+        itemCount,
+        maxHeight = '300px',
+        scrollAmount = 100,
+        showScrollIndicator = true
+    },
+    ref
+) => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const isScrollable = itemCount > maxVisibleItems;
+
+    useImperativeHandle(ref, () => ({
+        scrollToBottom: () => {
+            if (scrollContainerRef.current) {
+                scrollContainerRef.current.scrollTo({
+                    top: scrollContainerRef.current.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+        },
+        scrollToTop: () => {
+            if (scrollContainerRef.current) {
+                scrollContainerRef.current.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            }
+        }
+    }));
 
     const handleScrollDown = () => {
         if (scrollContainerRef.current) {
@@ -93,4 +120,6 @@ export const ScrollableList: React.FC<ScrollableListProps> = ({
             )}
         </Wrapper>
     );
-};
+});
+
+ScrollableList.displayName = 'ScrollableList';
