@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button, Codicon, Dropdown, TextField, Typography } from '@wso2/ui-toolkit';
 import { VSCodePanels, VSCodePanelTab, VSCodePanelView } from '@vscode/webview-ui-toolkit/react';
 import styled from '@emotion/styled';
@@ -181,6 +181,24 @@ export const MainPanel: React.FC = () => {
     const [showHelp, setShowHelp] = useState(false);
     const [isEditingName, setIsEditingName] = useState(false);
     const [tempName, setTempName] = useState(requestItem?.name);
+    const outputTabRef = useRef<HTMLDivElement>(null);
+    // Counter used to trigger scrolling the Output inside Input without switching tabs
+    const [bringOutputCounter, setBringOutputCounter] = useState(0);
+
+    // Scroll to output when Output tab is activated
+    useEffect(() => {
+        if (activeTab === 'output' && outputTabRef.current) {
+            setTimeout(() => {
+                outputTabRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Also focus for keyboard users
+                try {
+                    (outputTabRef.current as HTMLElement).focus();
+                } catch (e) {
+                    // Ignore if focusing fails
+                }
+            }, 100);
+        }
+    }, [activeTab]);
 
     // Handle messages from VS Code extension
     const { updateRequest } = useExtensionMessages({
@@ -353,9 +371,9 @@ export const MainPanel: React.FC = () => {
                     id: requestItem.id || ''
                 });
             }
-            
-            // Switch to Output tab
-            setActiveTab('output');
+
+            // Trigger scrolling to output in the Input panel without switching tabs
+            setBringOutputCounter(c => c + 1);
             
             console.log(`Request completed in ${duration}ms`);
             
@@ -402,8 +420,8 @@ export const MainPanel: React.FC = () => {
                 });
             }
             
-            // Switch to Output tab to show error
-            setActiveTab('output');
+            // Trigger scrolling of the output inside the Input tab (do not switch tabs)
+            setBringOutputCounter(c => c + 1);
         } finally {
             setIsLoading(false);
         }
@@ -551,9 +569,30 @@ export const MainPanel: React.FC = () => {
                                 </SlidingToggle>
                             )}
                         </ControlsWrapper>
-                        <VSCodePanels activeid={activeTab} onChange={(e: any) => setActiveTab(e.target.activeid)}>
+                        <VSCodePanels
+                            activeid={activeTab}
+                            onChange={(e: any) => {
+                                const newId = e.target.activeid;
+                                // When the Output tab is clicked, do not switch tabs — instead trigger the input-panel scroll to the response
+                                if (newId === 'output') {
+                                    // Increment counter to instruct Input to bring the output into view
+                                    setBringOutputCounter(c => c + 1);
+                                    // Also dispatch a custom event so Input can react immediately
+                                    try {
+                                        window.dispatchEvent(new CustomEvent('apiTryIt:bringOutput'));
+                                    } catch (e) {
+                                        /* ignore */
+                                    }
+                                    // Keep the active tab on 'input' so the user does not accidentally switch away
+                                    setActiveTab('input');
+                                } else {
+                                    setActiveTab(newId);
+                                }
+                            }}
+                        >
                             <VSCodePanelTab id="input">Input</VSCodePanelTab>
-                            <VSCodePanelTab id="output">Output</VSCodePanelTab>
+                            {/* Ensure clicking Output always triggers a bring action even if it was clicked repeatedly */}
+                            <VSCodePanelTab id="output" onClick={(e: React.MouseEvent) => { e.preventDefault(); setBringOutputCounter(c => c + 1); setActiveTab('input'); }}>Output</VSCodePanelTab>
                             <VSCodePanelTab id="assert">Assert</VSCodePanelTab>
                             
                             {/* Input Tab Content */}
@@ -562,13 +601,17 @@ export const MainPanel: React.FC = () => {
                                     request={requestItem.request}
                                     onRequestChange={handleRequestChange}
                                     mode={inputMode}
+                                    response={requestItem.response}
+                                    bringOutputCounter={bringOutputCounter}
                                 />
                             </VSCodePanelView>
 
                         {/* Output Tab Content */}
-                        <VSCodePanelView id="view-output">
-                            <Output response={requestItem.response} />
-                        </VSCodePanelView>
+                        {/* <VSCodePanelView id="view-output">
+                            <div ref={outputTabRef} tabIndex={-1} role="region" aria-label="Response output">
+                                <Output response={requestItem.response} />
+                            </div>
+                        </VSCodePanelView> */}
 
                         {/* Assert Tab Content */}
                         <VSCodePanelView id="view-assert">

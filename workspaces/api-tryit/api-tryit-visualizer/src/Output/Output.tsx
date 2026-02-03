@@ -24,13 +24,14 @@ import { ApiResponse } from '@wso2/api-tryit-core';
 
 interface OutputProps {
     response?: ApiResponse;
+    // If true, Output is rendered inside the Input pane and should not constrain its height
+    embedded?: boolean;
 }
 
-const Container = styled.div`
+const Container = styled.div<{ embedded?: boolean }>`
     padding: 16px 0 16px 0;
     width: 100%;
-    max-height: calc(100vh - 215px);
-    overflow-y: auto;
+    ${props => props.embedded ? `max-height: none; overflow-y: visible;` : `max-height: calc(100vh - 215px); overflow-y: auto;`}
 `;
 
 const Section = styled.div`
