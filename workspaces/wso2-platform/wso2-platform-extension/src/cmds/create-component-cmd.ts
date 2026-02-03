@@ -51,7 +51,7 @@ import { webviewStateStore } from "../stores/webview-state-store";
 import { convertFsPathToUriPath, isSamePath, isSubpath, openDirectory } from "../utils";
 import { showComponentDetailsView } from "../webviews/ComponentDetailsView";
 import { ComponentFormView, type IComponentCreateFormParams, type ISingleComponentCreateFormParams } from "../webviews/ComponentFormView";
-import { getUserInfoForCmd, isRpcActive, selectOrg, selectProjectWithCreateNew, setExtensionName } from "./cmd-utils";
+import { createNewProject, getUserInfoForCmd, isRpcActive, selectOrg, selectProjectWithCreateNew, setExtensionName } from "./cmd-utils";
 import { updateContextFile } from "./create-directory-context-cmd";
 
 let componentWizard: ComponentFormView;
@@ -102,6 +102,24 @@ async function selectOrgAndProject(userInfo: UserInfo, terminology: TerminologyC
 	);
 
 	return { org: selectedOrg, project: createdProjectRes.selectedProject };
+}
+
+async function selectOrgAndProjectForBatch(
+	userInfo: UserInfo,
+	rootDirectory: string
+): Promise<OrgProjectSelection> {
+	await waitForContextStoreToLoad();
+	const selected = contextStore.getState().state.selected;
+
+	if (selected?.project && selected?.org) {
+		return { org: selected.org, project: selected.project };
+	}
+
+	const selectedOrg = await selectOrg(userInfo, "Select organization");
+
+	const projectName = path.basename(rootDirectory);
+	const project = await createNewProject(selectedOrg, projectName, true);
+	return { org: selectedOrg, project: project };
 }
 
 // ============================================================================
@@ -676,7 +694,9 @@ async function executeCreateMultipleNewComponentsCommand(
 	}
 
 	// Select org and project once for all components
-	const { org, project } = await selectOrgAndProject(userInfo, terminology);
+	const { org, project } = extName === "Devant"
+		? await selectOrgAndProjectForBatch(userInfo, rootDirectory)
+		: await selectOrgAndProject(userInfo, terminology);
 	const components = await fetchProjectComponents(org, project, terminology);
 
 	// Prepare all components first, collecting form params

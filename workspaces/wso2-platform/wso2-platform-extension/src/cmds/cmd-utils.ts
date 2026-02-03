@@ -162,55 +162,69 @@ export const selectProjectWithCreateNew = async (
 	quickPick.dispose();
 
 	if ((selectedQuickPick as QuickPickItem)?.label === "Create New") {
-		const projectCache = dataCacheStore.getState().getProjects(org.handle);
-
-		const newProjectName = await window.showInputBox({
-			placeHolder: "project-name",
-			title: "New Project Name",
-			validateInput: (val) => {
-				if (!val) {
-					return "Project name is required";
-				}
-				if (projectCache?.some((item) => item.name === val)) {
-					return "Project name already exists";
-				}
-				if (val?.length > 60 || val?.length < 3) {
-					return "Project name must be between 3 and 60 characters";
-				}
-				if (!/^[A-Za-z]/.test(val)) {
-					return "Project name must start with an alphabetic letter";
-				}
-				if (!/^[A-Za-z\s\d\-_]+$/.test(val)) {
-					return "Project name cannot have any special characters";
-				}
-				return null;
-			},
-		});
-
-		if (!newProjectName) {
-			throw new Error("New project name is required to proceed.");
-		}
-
-		const selectedProject = await window.withProgress(
-			{
-				title: `Creating new project ${newProjectName}...`,
-				location: ProgressLocation.Notification,
-			},
-			() =>
-				ext.clients.rpcClient.createProject({
-					orgHandler: org.handle,
-					orgId: org.id.toString(),
-					projectName: newProjectName,
-					region: "US",
-				}),
-		);
-		return { projectList, selectedProject: selectedProject };
+		const project = await createNewProject(org);
+		return { projectList, selectedProject: project };
 	}
 	if ((selectedQuickPick as ProjectQuickPick)?.item) {
 		return { projectList, selectedProject: (selectedQuickPick as ProjectQuickPick)?.item! };
 	}
 
 	throw new Error("Failed to select project");
+};
+
+export const createNewProject = async (
+	org: Organization,
+	projectName?: string,
+	isWorkspaceMapping?: boolean
+): Promise<Project> => {
+	const projectCache = dataCacheStore.getState().getProjects(org.handle);
+
+	const newProjectName = await window.showInputBox({
+		value: projectName || "",
+		placeHolder: "project-name",
+		prompt: isWorkspaceMapping 
+			? "Your BI workspace will be mapped to a Devant project. Project name is auto-picked from workspace name, you can edit if needed.\n" 
+			: "Enter a name for your new project",
+		title: isWorkspaceMapping ? "Create Devant Project for Workspace" : "New Project Name",
+		validateInput: (val) => {
+			if (!val) {
+				return "Project name is required";
+			}
+			if (projectCache?.some((item) => item.name === val)) {
+				return "Project name already exists";
+			}
+			if (val?.length > 60 || val?.length < 3) {
+				return "Project name must be between 3 and 60 characters";
+			}
+			if (!/^[A-Za-z]/.test(val)) {
+				return "Project name must start with an alphabetic letter";
+			}
+			if (!/^[A-Za-z\s\d\-_]+$/.test(val)) {
+				return "Project name cannot have any special characters";
+			}
+			return null;
+		},
+	});
+
+	if (!newProjectName) {
+		throw new Error("New project name is required to proceed.");
+	}
+
+	const project = await window.withProgress(
+		{
+			title: `Creating new project ${newProjectName}...`,
+			location: ProgressLocation.Notification,
+		},
+		() =>
+			ext.clients.rpcClient.createProject({
+				orgHandler: org.handle,
+				orgId: org.id.toString(),
+				projectName: newProjectName,
+				region: "US",
+			}),
+	);
+
+	return project;
 };
 
 export const selectOrg = async (userInfo: UserInfo, selectTitle = "Select organization"): Promise<Organization> => {
