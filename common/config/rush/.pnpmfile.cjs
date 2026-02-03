@@ -67,7 +67,7 @@ module.exports = {
           pkg.dependencies['diff'] = '^8.0.3';
         }
         if (pkg.dependencies['eslint']) {
-          pkg.dependencies['eslint'] = '^9.26.0';
+          pkg.dependencies['eslint'] = '^9.27.0';
         }
         if (pkg.dependencies['fast-xml-parser']) {
           pkg.dependencies['fast-xml-parser'] = '5.3.4';
@@ -119,7 +119,7 @@ module.exports = {
           pkg.devDependencies['diff'] = '^8.0.3';
         }
         if (pkg.devDependencies['eslint']) {
-          pkg.devDependencies['eslint'] = '^9.26.0';
+          pkg.devDependencies['eslint'] = '^9.27.0';
         }
         if (pkg.devDependencies['fast-xml-parser']) {
           pkg.devDependencies['fast-xml-parser'] = '5.3.4';
