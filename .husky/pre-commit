@@ -8,7 +8,7 @@ STAGED_PACKAGE_JSON=$(git diff --cached --name-only --diff-filter=ACM | grep 'pa
 
 if [ -n "$STAGED_PACKAGE_JSON" ]; then
   # Convert to array and pass to validation script
-  node common/scripts/validate-package-versions.js $STAGED_PACKAGE_JSON
+  node common/scripts/validate-package-versions.js "$STAGED_PACKAGE_JSON"
   
   if [ $? -ne 0 ]; then
     echo ""
