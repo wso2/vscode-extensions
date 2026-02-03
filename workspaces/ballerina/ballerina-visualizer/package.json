@@ -56,7 +56,8 @@
     "@hookform/resolvers": "~5.0.1",
     "highlight.js": "^11.11.1",
     "rehype-raw": "^7.0.0",
-    "remark-breaks": "~4.0.0"
+    "remark-breaks": "~4.0.0",
+    "vscode-languageserver-types": "^3.17.5"
   },
   "devDependencies": {
     "@types/react": "18.2.0",
