@@ -80,6 +80,7 @@ export const MultipartFormItem: React.FC<MultipartFormItemProps> = ({
 }) => {
     const isFileInput = filePath !== undefined;
     const buttonLabel = filePath ? filePath : 'Select File';
+    const fileSelectRef = React.useRef<HTMLButtonElement>(null);
 
     return (
         <RowContainer>
@@ -97,13 +98,13 @@ export const MultipartFormItem: React.FC<MultipartFormItemProps> = ({
                     <Button
                         appearance="secondary"
                         onClick={onSelectFile}
-                        sx={{ width: '100%' }}
-                        buttonSx={{ width: '100%', height: 30, display: 'flex', justifyContent: 'center', alignItems: 'center', textAlign: 'center', overflow: 'hidden' }}
+                        sx={{ width: '100%', overflow: 'hidden' }}
+                        buttonSx={{ width: '100%', height: 30, display: 'flex', justifyContent: filePath ? 'flex-start' : 'center', alignItems: 'center', textAlign: filePath ? 'left' : 'center', overflow: 'hidden' }}
                         tooltip={buttonLabel}
                     >
-                        <span style={{ display: 'block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: filePath ? 'left' : 'center' }}>
                             {buttonLabel}
-                        </span>
+                        </div>
                     </Button>
                 ) : (
                     <TextField
