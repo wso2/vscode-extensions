@@ -29,3 +29,11 @@ export const NODE_GAP_X = 70;  // Horizontal gap between steps
 export const NODE_GAP_Y = 80;  // Vertical gap between branches/failure paths
 export const FAIL_GAP_Y = 50;  // Vertical gap for failure paths
 export const PADDING = 20;
+
+// Additional layout/text constants (selected from bi-diagram defaults)
+export const LABEL_HEIGHT = 20;
+export const LABEL_WIDTH = 180;
+export const NODE_BORDER_WIDTH = 1.8;
+export const NODE_PADDING = 8;
+export const DIAGRAM_CENTER_X = 0;
+export const END_NODE_INNER_DIAMETER = 15;

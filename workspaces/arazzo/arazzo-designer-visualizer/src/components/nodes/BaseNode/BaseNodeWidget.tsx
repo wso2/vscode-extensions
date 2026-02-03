@@ -24,6 +24,7 @@ import {
     NODE_WIDTH,
     NODE_HEIGHT,
     PADDING,
+    NODE_PADDING,
 } from '../../../constants/nodeConstants';
 import { BaseNodeData } from './BaseNodeModel';
 
@@ -79,7 +80,7 @@ export namespace NodeStyles {
         gap: 2px;
         flex: 1;
         min-width: 0;
-        padding: 8px;
+        padding: ${NODE_PADDING}px;
     `;
 
     export const Title = styled.div`

@@ -20,7 +20,7 @@ import React from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import styled from '@emotion/styled';
 import { ThemeColors } from '@wso2/ui-toolkit';
-import { END_NODE_DIAMETER } from '../../../constants/nodeConstants';
+import { END_NODE_DIAMETER, END_NODE_INNER_DIAMETER } from '../../../constants/nodeConstants';
 import { EndNodeData } from './EndNodeModel';
 
 const EndNodeRoot = styled.div`
@@ -34,8 +34,8 @@ const EndNodeRoot = styled.div`
 
 const EndNodeInner = styled.div`
     background: #960000; /* pure red */
-    width: 15px;
-    height: 15px;
+    width: ${END_NODE_INNER_DIAMETER}px;
+    height: ${END_NODE_INNER_DIAMETER}px;
     border-radius: 50%;
     box-shadow: none;
     box-sizing: border-box;
