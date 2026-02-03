@@ -121,6 +121,7 @@ function getAvailableComponentTypes(isDevant: boolean): string[] {
 			DevantScopes.INTEGRATION_AS_API,
 			DevantScopes.EVENT_INTEGRATION,
 			DevantScopes.FILE_INTEGRATION,
+			DevantScopes.LIBRARY,
 		];
 	}
 	return [

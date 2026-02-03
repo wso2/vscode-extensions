@@ -175,6 +175,8 @@ export const getTypeOfIntegrationType = (integrationScope: string): { type?: str
 			return { type: ChoreoComponentType.EventHandler, subType: ChoreoComponentSubType.fileIntegration };
 		case DevantScopes.AI_AGENT:
 			return { type: ChoreoComponentType.Service, subType: ChoreoComponentSubType.AiAgent };
+		case DevantScopes.LIBRARY:
+			return { type: ChoreoComponentType.Library };
 		default:
 			return {};
 	}
