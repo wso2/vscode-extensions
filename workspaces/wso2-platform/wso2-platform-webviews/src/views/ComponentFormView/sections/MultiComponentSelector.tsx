@@ -371,22 +371,52 @@ export const MultiComponentSelector: FC<MultiComponentSelectorProps> = ({
 								<div className="flex shrink-0 items-center gap-2">
 									{showTypePicker ? (
 										<>
-											<label className="text-xs text-vsc-descriptionForeground">
-												Type
-											</label>
+											<span className="sr-only">Component type</span>
 											<VSCodeDropdown
 												value={currentType}
 												onChange={(e: any) => handleComponentTypeChange(index, e.target.value)}
 												disabled={!isSelected || undefined}
-												className="min-w-[140px]"
+												className="min-w-[160px]"
+												aria-label="Component type"
+												title="Multiple integration types were detected for this component. Select the type you want to deploy."
 											>
-												{supportedTypes.map((opt) => (
-													<VSCodeOption key={opt.value} value={opt.value}>
-														{extensionName === "Devant"
-															? getIntegrationComponentTypeText(opt.value, "")
-															: opt.label}
-													</VSCodeOption>
-												))}
+												{supportedTypes.map((opt) => {
+													const optSubType = component.initialValues?.subType;
+													const optIconConfig = getIntegrationTypeIcon(opt.value, optSubType);
+													return (
+														<VSCodeOption 
+															key={opt.value} 
+															value={opt.value}
+														>
+															<div
+																style={{
+																	display: "flex",
+																	alignItems: "center",
+																	gap: "10px",
+																	padding: "6px 4px",
+																	minHeight: "32px",
+																}}
+															>
+																<span style={{ width: 16, display: "inline-flex", justifyContent: "center" }}>
+																	{optIconConfig.isCodicon ? (
+																		<Codicon name={optIconConfig.name} />
+																	) : (
+																		<Icon
+																			name={optIconConfig.name}
+																			iconSx={{ fontSize: 14 }}
+																			sx={{ height: 14, width: 14 }}
+																		/>
+																	)}
+																</span>
+																<span style={{ lineHeight: "18px" }}>
+																	{extensionName === "Devant"
+																		? getIntegrationComponentTypeText(opt.value, "")
+																		: opt.label}
+																</span>
+															</div>
+														</VSCodeOption>
+													);
+												})}
 											</VSCodeDropdown>
 										</>
 									) : (
