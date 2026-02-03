@@ -39,6 +39,7 @@ import {
 import { NodePosition } from "@wso2/syntax-tree";
 import { existsSync } from "fs";
 import { checkIsBallerinaPackage } from "./config";
+import { StateMachine } from "../stateMachine";
 interface ProgressMessage {
     message: string;
     increment?: number;
@@ -432,16 +433,18 @@ export async function findBallerinaPackageRoot(filePath: string) {
         return null;
     }
     
-    // Start with the path itself if it's a directory, otherwise start with its parent
     let currentFolderPath: string;
     try {
-        currentFolderPath = fs.statSync(filePath).isDirectory() ? filePath : path.dirname(filePath);
+        const fileUri = Uri.file(filePath);
+        const stat = await workspace.fs.stat(fileUri);
+        currentFolderPath = (stat.type === 2) ? filePath : path.dirname(filePath); 
     } catch {
         currentFolderPath = path.dirname(filePath);
     }
 
     while (currentFolderPath !== path.sep) {
-        const isBallerinaPackage = await checkIsBallerinaPackage(Uri.parse(currentFolderPath));
+        const baseUri = Uri.file(currentFolderPath);
+        const isBallerinaPackage = await checkIsBallerinaPackage(baseUri);
         if (isBallerinaPackage) {
             return currentFolderPath;
         }

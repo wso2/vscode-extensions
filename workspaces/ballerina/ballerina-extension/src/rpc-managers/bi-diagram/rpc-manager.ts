@@ -19,6 +19,8 @@
  */
 import {
     AIChatRequest,
+    AcquireNodeLockRequest,
+    AcquireNodeLockResponse,
     AddFieldRequest,
     AddFunctionRequest,
     AddImportItemResponse,
@@ -85,6 +87,8 @@ import {
     FunctionNodeResponse,
     GeneratedClientSaveResponse,
     GetConfigVariableNodeTemplateRequest,
+    GetNodeLocksRequest,
+    GetNodeLocksResponse,
     GetRecordConfigRequest,
     GetRecordConfigResponse,
     GetRecordModelFromSourceRequest,
@@ -99,6 +103,8 @@ import {
     LoginMethod,
     ModelFromCodeRequest,
     NodeKind,
+    NodeLock,
+    nodeLockUpdated,
     OpenAPIClientDeleteRequest,
     OpenAPIClientDeleteResponse,
     OpenAPIClientGenerationRequest,
@@ -114,6 +120,8 @@ import {
     RecordSourceGenRequest,
     RecordSourceGenResponse,
     RecordsInWorkspaceMentions,
+    ReleaseNodeLockRequest,
+    ReleaseNodeLockResponse,
     RenameIdentifierRequest,
     RenameRequest,
     SCOPE,
@@ -177,9 +185,24 @@ import { openAIPanelWithPrompt } from "../../views/ai-panel/aiMachine";
 import { chatStateStorage } from "../../views/ai-panel/chatStateStorage";
 import { checkProjectDiagnostics, removeUnusedImports } from "../ai-panel/repair-utils";
 import { getCurrentBallerinaProject } from "../../utils/project-utils";
+import { getUsername } from "../../utils/bi";
+import { Messenger } from "vscode-messenger";
 
 export class BiDiagramRpcManager implements BIDiagramAPI {
     OpenConfigTomlRequest: (params: OpenConfigTomlRequest) => Promise<void>;
+    
+    // Node lock storage: Map<filePath, Map<nodeId, NodeLock>>
+    private static nodeLocks: Map<string, Map<string, NodeLock>> = new Map();
+    // Track lock timeouts for automatic cleanup
+    private static lockTimeouts: Map<string, NodeJS.Timeout> = new Map();
+    private static readonly LOCK_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+    
+    // Messenger instance for broadcasting notifications
+    private messenger: Messenger;
+    
+    constructor(messenger: Messenger) {
+        this.messenger = messenger;
+    }
 
     async getFlowModel(params: BIFlowModelRequest): Promise<BIFlowModelResponse> {
         console.log(">>> requesting bi flow model from ls", params);
@@ -2100,6 +2123,122 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 console.log(">>> error searching", error);
                 reject(error);
             });
+        });
+    }
+
+    // Node lock management methods
+    async acquireNodeLock(params: AcquireNodeLockRequest): Promise<AcquireNodeLockResponse> {
+        const { nodeId, userId, userName, filePath, timestamp } = params;
+        
+        // Get or create file lock map
+        if (!BiDiagramRpcManager.nodeLocks.has(filePath)) {
+            BiDiagramRpcManager.nodeLocks.set(filePath, new Map());
+        }
+        const fileLocks = BiDiagramRpcManager.nodeLocks.get(filePath)!;
+        
+        // Check if node is already locked by another user
+        const existingLock = fileLocks.get(nodeId);
+        if (existingLock && existingLock.userId !== userId) {
+            return {
+                success: false,
+                error: `Node is already locked by ${existingLock.userName}`,
+            };
+        }
+        
+        // Acquire lock
+        const lock: NodeLock = { userId, userName, timestamp: timestamp || Date.now() };
+        fileLocks.set(nodeId, lock);
+        
+        // Set timeout for automatic lock release
+        const timeoutKey = `${filePath}:${nodeId}`;
+        const existingTimeout = BiDiagramRpcManager.lockTimeouts.get(timeoutKey);
+        if (existingTimeout) {
+            clearTimeout(existingTimeout);
+        }
+        
+        const timeout = setTimeout(() => {
+            this.releaseNodeLock({ nodeId, userId, filePath });
+            console.log(`Auto-released lock for node ${nodeId} after timeout`);
+        }, BiDiagramRpcManager.LOCK_TIMEOUT_MS);
+        
+        BiDiagramRpcManager.lockTimeouts.set(timeoutKey, timeout);
+        
+        // Broadcast lock update to all webviews
+        this.broadcastLockUpdate(filePath);
+        
+        return { success: true };
+    }
+
+    async releaseNodeLock(params: ReleaseNodeLockRequest): Promise<ReleaseNodeLockResponse> {
+        const { nodeId, userId, filePath } = params;
+        
+        const fileLocks = BiDiagramRpcManager.nodeLocks.get(filePath);
+        if (!fileLocks) {
+            return { success: true };
+        }
+        
+        const existingLock = fileLocks.get(nodeId);
+        // Only allow the lock owner to release it
+        if (existingLock && existingLock.userId === userId) {
+            fileLocks.delete(nodeId);
+            
+            // Clear timeout
+            const timeoutKey = `${filePath}:${nodeId}`;
+            const timeout = BiDiagramRpcManager.lockTimeouts.get(timeoutKey);
+            if (timeout) {
+                clearTimeout(timeout);
+                BiDiagramRpcManager.lockTimeouts.delete(timeoutKey);
+            }
+            
+            // Clean up empty maps
+            if (fileLocks.size === 0) {
+                BiDiagramRpcManager.nodeLocks.delete(filePath);
+            }
+            
+            // Broadcast lock update to all webviews
+            this.broadcastLockUpdate(filePath);
+        }
+        
+        return { success: true };
+    }
+
+    async getNodeLocks(params: GetNodeLocksRequest): Promise<GetNodeLocksResponse> {
+        const { filePath } = params;
+        const fileLocks = BiDiagramRpcManager.nodeLocks.get(filePath);
+        
+        if (!fileLocks) {
+            return { locks: {} };
+        }
+        
+        // Convert Map to plain object
+        const locks: Record<string, NodeLock> = {};
+        fileLocks.forEach((lock, nodeId) => {
+            locks[nodeId] = lock;
+        });
+        
+        return { locks };
+    }
+
+    async getSystemUsername(): Promise<string> {
+        return getUsername();
+    }
+
+    private broadcastLockUpdate(filePath: string): void {
+        const fileLocks = BiDiagramRpcManager.nodeLocks.get(filePath);
+        const locks: Record<string, NodeLock> = {};
+        
+        if (fileLocks) {
+            fileLocks.forEach((lock, nodeId) => {
+                locks[nodeId] = lock;
+            });
+        }
+        
+        // Broadcast to all BI diagram webviews
+        this.messenger.sendNotification(nodeLockUpdated, {
+            type: 'webview',
+            webviewType: 'ballerina.bi-diagram'
+        }, {
+            locks,
         });
     }
 

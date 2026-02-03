@@ -41,6 +41,7 @@ import { addCheckExpressionErrors } from "../../../rpc-managers/ai-panel/repair-
 import { BiDiagramRpcManager, getBallerinaFiles } from "../../../rpc-managers/bi-diagram/rpc-manager";
 import { updateSourceCode } from "../../../utils/source-utils";
 import { StateMachine } from "../../../stateMachine";
+import { RPCLayer } from "../../../RPCLayer";
 import { getHasStopped, setHasStopped } from "../../../rpc-managers/data-mapper/utils";
 import { commands, Uri, window } from "vscode";
 import { CLOSE_AI_PANEL_COMMAND } from "../constants";
@@ -475,7 +476,7 @@ export async function generateMappingCodeCore(
         eventHandler({ type: "start" });
         eventHandler({ type: "content_block", content: "Building the transformation logic using your provided data structures and mapping hints\n\n" });
         eventHandler({ type: "content_block", content: "<progress>Reading project files and collecting imports...</progress>" });
-        const biDiagramRpcManager = new BiDiagramRpcManager();
+        const biDiagramRpcManager = new BiDiagramRpcManager(RPCLayer._messenger);
         const langClient = StateMachine.langClient();
         const context = StateMachine.context();
         let projectRoot = tempProjectPath;
@@ -1042,7 +1043,7 @@ export async function generateContextTypesCore(
         // Initialize generation process
         eventHandler({ type: "start" });
 
-        const biDiagramRpcManager = new BiDiagramRpcManager();
+        const biDiagramRpcManager = new BiDiagramRpcManager(RPCLayer._messenger);
         const projectComponents = await biDiagramRpcManager.getProjectComponents();
         eventHandler({ type: "content_block", content: "\n\nAnalyzing your provided data to generate Ballerina record types.\n\n" });
         eventHandler({ type: "content_block", content: "\n\n<progress>Generating types...</progress>" });

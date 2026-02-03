@@ -52,8 +52,10 @@ export class VisualizerWebview {
 
         const debouncedRefreshDataMapper = debounce(async () => {
             const stateMachineContext = StateMachine.context();
-            const { documentUri, dataMapperMetadata: { codeData, name } } = stateMachineContext;
-            await refreshDataMapper(documentUri, codeData, name);
+            // Use the cached file path for remote URIs
+            const documentPath = stateMachineContext.documentUri;
+            const { dataMapperMetadata: { codeData, name } } = stateMachineContext;
+            await refreshDataMapper(documentPath, codeData, name);
         }, 500);
 
         vscode.workspace.onDidChangeTextDocument(async (document) => {
@@ -65,8 +67,12 @@ export class VisualizerWebview {
 
             // Check the file is changed in the project.
             const projectPath = StateMachine.context().projectPath;
-            const documentUri = document.document.uri.toString();
-            const isDocumentUnderProject = documentUri.includes(projectPath);
+            const contextDocumentPath = StateMachine.context().documentUri;
+            const documentUriString = document.document.uri.toString();
+            const documentPath = document.document.uri.fsPath;
+            
+            const isDocumentUnderProject = documentPath && projectPath && documentPath.includes(projectPath);
+            
             // Reset visualizer the undo-redo stack if user did changes in the editor
             if (isOpened && isDocumentUnderProject && !this._panel?.active && !undoRedoManager?.isBatchInProgress()) {
                 undoRedoManager.reset();
@@ -74,7 +80,14 @@ export class VisualizerWebview {
 
             const state = StateMachine.state();
             const machineReady = typeof state === 'object' && 'viewActive' in state && state.viewActive === "viewReady";
-            if (document?.contentChanges.length === 0 || !machineReady) { return; }
+            if (!machineReady) { 
+                return; 
+            }
+            
+            // If contentChanges is empty but document was modified programmatically, we still want to update
+            if (document?.contentChanges.length === 0) {
+                console.log('[Webview] Empty contentChanges (likely programmatic edit), checking if update needed');
+            }
 
             const balFileModified = document?.document.languageId === LANGUAGE.BALLERINA;
             const configTomlModified = document.document.languageId === LANGUAGE.TOML &&
@@ -82,19 +95,58 @@ export class VisualizerWebview {
                 vscode.window.visibleTextEditors.some(editor =>
                     editor.document.fileName === document.document.fileName
                 );
+            // Check if the changed document matches the context document
+            // Support both local paths and remote URIs with cached paths
+            const { uriCache } = await import('../../extension');
+            const isContextDocument = contextDocumentPath && (
+                documentPath === contextDocumentPath ||
+                documentUriString === contextDocumentPath ||
+                (uriCache && uriCache.isSamePath(documentPath, contextDocumentPath)) ||
+                (uriCache && uriCache.isSamePath(documentUriString, contextDocumentPath))
+            );
+            
             const dataMapperModified = balFileModified &&
                 (
                     StateMachine.context().view === MACHINE_VIEW.InlineDataMapper ||
                     StateMachine.context().view === MACHINE_VIEW.DataMapper
                 ) &&
-                document.document.fileName === StateMachine.context().documentUri;
+                isContextDocument;
+            const test = AiPanelWebview.currentPanel?.getWebview()?.active;
 
             if (dataMapperModified) {
+                console.log('[Webview] Refreshing data mapper');
                 debouncedRefreshDataMapper();
-            } else if ((this._panel?.active || AiPanelWebview.currentPanel?.getWebview()?.active) && balFileModified) {
+            } else if ((this._panel?.active || AiPanelWebview.currentPanel?.getWebview()?.active) && balFileModified && isDocumentUnderProject) {
+                console.log('[Webview] Sending update notification to webview');
                 sendUpdateNotificationToWebview();
             } else if (configTomlModified) {
                 sendUpdateNotificationToWebview(true);
+            }
+        }, extension.context);
+
+        vscode.workspace.onDidSaveTextDocument(async (document) => {
+            // Update cache for remote files when saved
+            if (document.uri.scheme !== 'file') {
+                const { uriCache } = await import('../../extension');
+                if (uriCache) {
+                    try {
+                        console.log('[Webview] Updating cache for saved remote file:', document.uri.toString());
+                        await uriCache.storeContent(document.uri, document.getText());
+                   
+                        const cachedPath = uriCache.getLocalPath(document.uri);
+                        const langClient = extension.ballerinaExtInstance?.langClient;
+                        if (langClient && cachedPath) {
+                            // Notify language server about the change using cached path
+                            langClient.didChange({
+                                textDocument: { uri: Uri.file(cachedPath).toString(), version: document.version },
+                                contentChanges: [{ text: document.getText() }]
+                            });
+                            console.log('[Webview] Notified LS about remote file change');
+                        }
+                    } catch (error) {
+                        console.error('[Webview] Failed to update cache for remote file:', error);
+                    }
+                }
             }
         }, extension.context);
 

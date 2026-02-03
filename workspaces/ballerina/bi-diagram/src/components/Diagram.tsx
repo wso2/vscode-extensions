@@ -95,6 +95,7 @@ export interface DiagramProps {
         onClickOverlay: () => void;
     }
     isUserAuthenticated?: boolean;
+    currentUserId?: string;
     expressionContext?: ExpressionContextProps;
 }
 
@@ -328,6 +329,7 @@ export function Diagram(props: DiagramProps) {
         project: project,
         readOnly: onAddNode === undefined || onDeleteNode === undefined || onNodeSelect === undefined || readOnly,
         isUserAuthenticated: isUserAuthenticated,
+        currentUserId: props.currentUserId,
         expressionContext: expressionContext || {
             completions: [],
             triggerCharacters: [],

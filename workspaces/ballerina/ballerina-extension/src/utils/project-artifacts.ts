@@ -103,14 +103,17 @@ export async function updateProjectArtifacts(publishedArtifacts: ArtifactsNotifi
         return;
     }
     const projectUri = URI.file(StateMachine.context().projectPath) || URI.file(StateMachine.context().workspacePath);
-    const isWithinProject = URI
-        .parse(publishedArtifacts.uri).fsPath.toLowerCase()
+    
+    // Handle the published artifacts URI - it's always a local file path from the language server (cached path for remote files)
+    const publishedUri = URI.file(publishedArtifacts.uri);
+    
+    const isWithinProject = publishedUri.fsPath.toLowerCase()
         .includes(projectUri.fsPath.toLowerCase());
 
     const isSubmodule = publishedArtifacts?.moduleName;
 
     const persistDir = Utils.joinPath(projectUri, 'persist').fsPath.toLowerCase();
-    const isInPersistDir = URI.parse(publishedArtifacts.uri).fsPath.toLowerCase().includes(persistDir);
+    const isInPersistDir = publishedUri.fsPath.toLowerCase().includes(persistDir);
     
     if (currentProjectStructure && isWithinProject && !isSubmodule && !isInPersistDir) {
         const entryLocations = await traverseUpdatedComponents(publishedArtifacts.artifacts, currentProjectStructure);

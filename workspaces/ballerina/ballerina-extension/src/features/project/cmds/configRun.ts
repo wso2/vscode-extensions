@@ -23,6 +23,7 @@ import { getConfigCompletions } from "../../config-generator/utils";
 import { BiDiagramRpcManager } from "../../../rpc-managers/bi-diagram/rpc-manager";
 import { findWorkspaceTypeFromWorkspaceFolders } from "../../../rpc-managers/common/utils";
 import { StateMachine } from "../../../stateMachine";
+import { RPCLayer } from "../../../RPCLayer";
 import { getCurrentProjectRoot } from "../../../utils/project-utils";
 import { needsProjectDiscovery, requiresPackageSelection, selectPackageOrPrompt } from "../../../utils/command-utils";
 import { tryGetCurrentBallerinaFile } from "../../../utils/project-utils";
@@ -81,7 +82,7 @@ function activateConfigRunCommand() {
                 }
             }
 
-            const biDiagramRpcManager = new BiDiagramRpcManager();
+            const biDiagramRpcManager = new BiDiagramRpcManager(RPCLayer._messenger);
             await biDiagramRpcManager.openConfigToml({ filePath: targetPath });
             return;
         } catch (error) {

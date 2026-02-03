@@ -120,6 +120,7 @@ export interface DiagramContextState {
     lockCanvas?: boolean;
     setLockCanvas?: (lock: boolean) => void;
     isUserAuthenticated?: boolean;
+    currentUserId?: string;
     expressionContext: ExpressionContextProps;
 }
 

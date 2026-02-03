@@ -126,6 +126,7 @@ export interface VisualizerLocation {
     documentUri?: string;
     projectPath?: string;
     workspacePath?: string;
+    fs?: string;
     projectInfo?: ProjectInfo;
     identifier?: string;
     parentIdentifier?: string;

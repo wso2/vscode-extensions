@@ -61,6 +61,8 @@ import {
     convertDataLoaderCategoriesToSidePanelCategories,
     convertChunkerCategoriesToSidePanelCategories,
     convertKnowledgeBaseCategoriesToSidePanelCategories,
+    isNodeLockedByOther,
+    updateNodeLocks,
 } from "../../../utils/bi";
 import { useDraftNodeManager } from "./hooks/useDraftNodeManager";
 import { NodePosition, STNode } from "@wso2/syntax-tree";
@@ -131,6 +133,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const [selectedNodeId, setSelectedNodeId] = useState<string>();
     const [projectOrg, setProjectOrg] = useState<string>("");
     const [isUserAuthenticated, setIsUserAuthenticated] = useState<boolean>(false);
+    const [currentUserId, setCurrentUserId] = useState<string>("");
+    const [currentUserName, setCurrentUserName] = useState<string>("Unknown User");
+    const [nodeLocks, setNodeLocks] = useState<Record<string, any>>({});
 
     // Navigation stack for back navigation
     const [navigationStack, setNavigationStack] = useState<NavigationStackItem[]>([]);
@@ -207,15 +212,91 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             setProjectOrg(location.org);
         });
 
-        // Check user authentication status
-        rpcClient.getAiPanelRpcClient().isUserAuthenticated()
-            .then((isAuth) => {
+        // Check user authentication status and get user info
+        const initializeUserInfo = async () => {
+            try {
+                const isAuth = await rpcClient.getAiPanelRpcClient().isUserAuthenticated();
                 setIsUserAuthenticated(isAuth);
-            })
-            .catch(() => {
+                
+                // Get system username as unique identifier
+                // This uses the OS-level username (process.env.USER or process.env.USERNAME)
+                const systemUser = await rpcClient.getBIDiagramRpcClient().getSystemUsername();
+                const userId = systemUser || `user_${Date.now()}`;
+                const userName = systemUser || "Unknown User";
+                
+                setCurrentUserId(userId);
+                setCurrentUserName(userName);
+            } catch (error) {
+                console.error('Error initializing user info:', error);
                 setIsUserAuthenticated(false);
-            });
+                // Fallback to timestamp-based ID if system username unavailable
+                const fallbackId = `user_${Date.now()}`;
+                setCurrentUserId(fallbackId);
+                setCurrentUserName("Unknown User");
+            }
+        };
+
+        initializeUserInfo();
+
+        // Fetch initial locks when component mounts
+        const fetchInitialLocks = async () => {
+            if (model?.fileName) {
+                try {
+                    // Normalize path for OCT collaboration (host & guest use same key)
+                    const normalizedPath = normalizeFilePath(model.fileName);
+                    
+                    const response = await rpcClient.getBIDiagramRpcClient().getNodeLocks({
+                        filePath: normalizedPath,
+                    });
+                    setNodeLocks(response.locks);
+                } catch (error) {
+                    console.error('Error fetching initial locks:', error);
+                }
+            }
+        };
+
+        fetchInitialLocks();
+
+        // Subscribe to lock updates from other users
+        const unsubscribe = rpcClient.onNodeLockUpdated((updatedLocks) => {
+            setNodeLocks(updatedLocks.locks);
+        });
+
+        return () => {
+            unsubscribe();
+        };
     }, [rpcClient]);
+
+    // Update model with lock information when locks change
+    useEffect(() => {
+        if (model && Object.keys(nodeLocks).length > 0) {
+            const updatedModel = updateNodeLocks(model, nodeLocks);
+            setModel(updatedModel);
+        }
+    }, [nodeLocks]);
+
+    // Cleanup locks on unmount or when file changes
+    useEffect(() => {
+        return () => {
+            // Release all locks when component unmounts
+            if (selectedNodeRef.current?.id) {
+                releaseNodeLock(selectedNodeRef.current.id);
+            }
+        };
+    }, []);
+
+    // Handle visibility changes to release locks when window loses focus
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.hidden && selectedNodeRef.current?.id) {
+                releaseNodeLock(selectedNodeRef.current.id);
+                resetNodeSelectionStates();
+            }
+        };
+        
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, []);
 
     const updateConnectionWithNewItem = (recentIdentifier: string) => {
         // Add a new item as loading into the "Connections" category
@@ -730,7 +811,36 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         return undefined;
     };
 
+    // Helper to normalize file paths for cross-collaborator consistency
+    // Ensures host (local paths) and guests (collab:// URIs) use the same lock keys
+    const normalizeFilePath = (absolutePath: string): string => {
+        if (!absolutePath) return '';
+        
+        // Handle OCT virtual URIs: collab://session-id/path/to/file.bal
+        if (absolutePath.startsWith('collab://')) {
+            // Extract path after session ID: collab://abc123/src/main.bal -> src/main.bal
+            const parts = absolutePath.split('/');
+            // Skip 'collab:', '', session-id (first 3 parts)
+            return parts.slice(3).join('/');
+        }
+        
+        // Handle absolute local paths - make relative to project
+        if (absolutePath.startsWith(projectPath)) {
+            const relative = absolutePath.substring(projectPath.length);
+            // Remove leading slashes/backslashes
+            return relative.replace(/^[\/\\]+/, '');
+        }
+        
+        // Already relative or unknown format
+        return absolutePath;
+    };
+
     const resetNodeSelectionStates = () => {
+        // Release lock when closing side panel
+        if (selectedNodeRef.current?.id) {
+            releaseNodeLock(selectedNodeRef.current.id);
+        }
+        
         setShowSidePanel(false);
         setSidePanelView(SidePanelView.NODE_LIST);
         setSubPanel({ view: SubPanelView.UNDEFINED });
@@ -749,6 +859,64 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         isCreatingNewDataLoader.current = false;
         isCreatingNewChunker.current = false;
         clearNavigationStack();
+    };
+
+    // Lock management functions
+    const acquireNodeLock = async (nodeId: string) => {
+        if (!currentUserId || !nodeId || !model?.fileName) return;
+        
+        try {
+            // Normalize path for OCT collaboration (host & guest use same key)
+            const normalizedPath = normalizeFilePath(model.fileName);
+            
+            const response = await rpcClient.getBIDiagramRpcClient().acquireNodeLock({
+                nodeId,
+                userId: currentUserId,
+                userName: currentUserName,
+                filePath: normalizedPath,
+                timestamp: Date.now(),
+            });
+            
+            if (response.success) {
+                // Update local state on success
+                setNodeLocks(prev => ({
+                    ...prev,
+                    [nodeId]: {
+                        userId: currentUserId,
+                        userName: currentUserName,
+                        timestamp: Date.now(),
+                    }
+                }));
+            } else {
+                console.error('Failed to acquire lock:', response.error);
+            }
+        } catch (error) {
+            console.error('Error acquiring node lock:', error);
+        }
+    };
+
+    const releaseNodeLock = async (nodeId: string) => {
+        if (!currentUserId || !nodeId || !model?.fileName) return;
+        
+        try {
+            // Normalize path for OCT collaboration (host & guest use same key)
+            const normalizedPath = normalizeFilePath(model.fileName);
+            
+            await rpcClient.getBIDiagramRpcClient().releaseNodeLock({
+                nodeId,
+                userId: currentUserId,
+                filePath: normalizedPath,
+            });
+            
+            // Update local state
+            setNodeLocks(prev => {
+                const updated = { ...prev };
+                delete updated[nodeId];
+                return updated;
+            });
+        } catch (error) {
+            console.error('Error releasing node lock:', error);
+        }
     };
 
     const closeSidePanelAndFetchUpdatedFlowModel = () => {
@@ -847,12 +1015,12 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     };
 
     const handleOnAddNode = (parent: FlowNode | Branch, target: LineRange) => {
-        // clear previous click if had
+        // clear previous selections if had
         if (topNodeRef.current || targetRef.current) {
             closeSidePanelAndFetchUpdatedFlowModel();
             return;
         }
-        // handle add new node
+        // store parent and target in refs
         topNodeRef.current = parent;
         changeTargetRange(target)
         fetchNodesAndAISuggestions(parent, target);
@@ -1519,6 +1687,16 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     };
 
     const handleOnEditNode = (node: FlowNode) => {
+        // Check if node is locked by another user
+        if (isNodeLockedByOther(node, currentUserId)) {
+            // Show warning and block selection
+        //     rpcClient.getVisualizerRpcClient().showNotification({
+        //         message: `This node is currently being edited by ${node.locked?.userName || 'another user'}`,
+        //         type: 'warning'
+        // });
+            return;
+        }
+
         setSelectedNodeId(node.id);
         selectedNodeRef.current = node;
         if (suggestedText.current) {
@@ -1531,6 +1709,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         if (!targetRef.current) {
             return;
         }
+
+        // Acquire lock for this node
+        acquireNodeLock(node.id);
 
         setShowProgressIndicator(true);
         rpcClient
@@ -2388,6 +2569,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 onClickOverlay: handleOnCloseSidePanel,
             },
             isUserAuthenticated,
+            currentUserId,
         }),
         [
             flowModel,
@@ -2401,6 +2583,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             selectedNodeId,
             rpcClient,
             isUserAuthenticated,
+            currentUserId,
         ]
     );
 

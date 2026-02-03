@@ -59,8 +59,12 @@ import {
     ProjectMigrationResult,
     onMigratedProject,
     refreshReviewMode,
-    onHideReviewActions
+    onHideReviewActions,
+    nodeLockUpdated
 } from "@wso2/ballerina-core";
+// import { NotificationType } from "vscode-messenger-common";
+
+// const showNotification = new NotificationType<{ message: string; type: 'info' | 'warning' | 'error' }>('showNotification');
 import { LangClientRpcClient } from "./rpc-clients/lang-client/rpc-client";
 import { LibraryBrowserRpcClient } from "./rpc-clients/library-browser/rpc-client";
 import { HOST_EXTENSION } from "vscode-messenger-common";
@@ -280,4 +284,15 @@ export class BallerinaRpcClient {
     onHideReviewActions(callback: () => void) {
         this.messenger.onNotification(onHideReviewActions, callback);
     }
+
+    onNodeLockUpdated(callback: (locks: { [nodeId: string]: { userId: string; userName: string; timestamp: number } }) => void) {
+        this.messenger.onNotification(nodeLockUpdated, callback);
+        return () => {
+            // Return unsubscribe function if needed
+        };
+    }
+
+    // showNotification({message,type}: {message: string, type: 'info' | 'warning' | 'error'}) {
+    //     this.messenger.sendNotification(showNotification, HOST_EXTENSION, {message, type});
+    // }
 }

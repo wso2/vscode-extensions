@@ -24,6 +24,7 @@ import { StateMachine, updateView } from "../stateMachine";
 import { ArtifactNotificationHandler, ArtifactsUpdated } from "./project-artifacts-handler";
 import { dirname } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { uriCache } from "../extension";
 
 interface UpdateFileContentRequest {
     filePath: string;
@@ -72,7 +73,23 @@ export function writeBallerinaFileDidOpenTemp(filePath: string, content: string)
     if (!existsSync(dir)) {
         mkdirSync(dir, { recursive: true });
     }
-    writeFileSync(filePath, content.trim());
+    
+    // Check if document is open in VS Code
+    const normalizedPath = normalize(filePath);
+    const doc = workspace.textDocuments.find((doc) => normalize(doc.uri.fsPath) === normalizedPath);
+    
+    if (doc) {
+        // Document is open - use workspace edit to avoid conflicts
+        const edit = new WorkspaceEdit();
+        edit.replace(doc.uri, new Range(new Position(0, 0), doc.lineAt(doc.lineCount - 1).range.end), content.trim());
+        workspace.applyEdit(edit).then(() => {
+            doc.save();
+        });
+    } else {
+        // No open document - safe to write directly
+        writeFileSync(filePath, content.trim());
+    }
+    
     StateMachine.langClient().didChange({
         textDocument: { uri: filePath, version: 1 },
         contentChanges: [
@@ -92,7 +109,86 @@ export function writeBallerinaFileDidOpenTemp(filePath: string, content: string)
 }
 
 export async function writeBallerinaFileDidOpen(filePath: string, content: string) {
-    writeFileSync(filePath, content.trim());
+    console.log('[Modification] writeBallerinaFileDidOpen called with filePath:', filePath);
+    
+    // Check if this is a cached path and get the remote URI
+    const remoteUri = uriCache?.getRemoteUri(filePath);
+    console.log('[Modification] Remote URI from cache:', remoteUri?.toString());
+    
+    const targetUri = remoteUri || Uri.file(filePath);
+    
+    // Check if document is open in VS Code - check both by remote URI and cached path
+    const normalizedPath = normalize(filePath);
+    const doc = workspace.textDocuments.find((doc) => {
+        const docPath = normalize(doc.uri.fsPath);
+        const docUriString = doc.uri.toString();
+        return docPath === normalizedPath || 
+               (remoteUri && docUriString === remoteUri.toString());
+    });
+    
+    console.log('[Modification] Found open document:', doc?.uri.toString());
+    
+    if (doc) {
+        console.log('[Modification] Updating open document:', doc.uri.toString());
+        const edit = new WorkspaceEdit();
+        edit.replace(doc.uri, new Range(new Position(0, 0), doc.lineAt(doc.lineCount - 1).range.end), content.trim());
+        await workspace.applyEdit(edit);
+        await doc.save();
+    } else {
+        if (remoteUri) {
+            // For remote files: 1) Update cache first, 2) Notify LS, 3) Write to remote
+            console.log('[Modification] Updating cached file for remote:', remoteUri.toString());
+            
+            // Step 1: Update the cache with new content
+            await uriCache.storeContent(remoteUri, content.trim());
+            
+            // Step 2: Notify language server using cached path
+            const cachedPath = uriCache.getLocalPath(remoteUri);
+            const fileUri = Uri.file(cachedPath).toString();
+            
+            StateMachine.langClient().didOpen({
+                textDocument: {
+                    uri: fileUri,
+                    languageId: 'ballerina',
+                    version: 1,
+                    text: content.trim()
+                }
+            });
+            
+            StateMachine.langClient().didChange({
+                textDocument: { uri: fileUri, version: 2 },
+                contentChanges: [{ text: content.trim() }],
+            });
+            
+            // Step 3: Write to remote file through VS Code's file system API
+            console.log('[Modification] Writing cached changes to remote file:', remoteUri.toString());
+            const encoder = new TextEncoder();
+            await workspace.fs.writeFile(remoteUri, encoder.encode(content.trim()));
+        } else {
+            // For local files, write directly and notify language server
+            writeFileSync(filePath, content.trim());
+            
+            const fileUri = Uri.file(filePath).toString();
+            
+            StateMachine.langClient().didOpen({
+                textDocument: {
+                    uri: fileUri,
+                    languageId: 'ballerina',
+                    version: 1,
+                    text: content.trim()
+                }
+            });
+            
+            StateMachine.langClient().didChange({
+                textDocument: { uri: fileUri, version: 2 },
+                contentChanges: [{ text: content.trim() }],
+            });
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    // Continue with the rest of the function
+    const fileUri = Uri.file(filePath).toString();
     StateMachine.langClient().didChange({
         textDocument: { uri: filePath, version: 1 },
         contentChanges: [

@@ -18,6 +18,8 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
+    AcquireNodeLockRequest,
+    AcquireNodeLockResponse,
     AIChatRequest,
     AddFieldRequest,
     AddFunctionRequest,
@@ -48,6 +50,10 @@ import {
     BISourceCodeRequest,
     BreakpointRequest,
     BuildMode,
+    GetNodeLocksRequest,
+    GetNodeLocksResponse,
+    ReleaseNodeLockRequest,
+    ReleaseNodeLockResponse,
     ClassFieldModifierRequest,
     ComponentRequest,
     ConfigVariableRequest,
@@ -128,6 +134,7 @@ import {
     addClassField,
     addFunction,
     addProjectToWorkspace,
+    acquireNodeLock,
     buildProject,
     createComponent,
     createGraphqlClassType,
@@ -166,6 +173,7 @@ import {
     getFunctionNames,
     getFunctionNode,
     getModuleNodes,
+    getNodeLocks,
     getNodeTemplate,
     getOpenApiGeneratedModules,
     getProjectComponents,
@@ -178,6 +186,7 @@ import {
     getServiceClassModel,
     getSignatureHelp,
     getSourceCode,
+    getSystemUsername,
     getType,
     getTypeFromJson,
     getTypes,
@@ -188,6 +197,7 @@ import {
     openAIChat,
     openConfigToml,
     openReadme,
+    releaseNodeLock,
     removeBreakpointFromSource,
     renameIdentifier,
     runProject,
@@ -518,5 +528,21 @@ export class BiDiagramRpcClient implements BIDiagramAPI {
 
     getExpressionTokens(params: ExpressionTokensRequest): Promise<number[]> {
         return this._messenger.sendRequest(getExpressionTokens, HOST_EXTENSION, params);
+    }
+
+    acquireNodeLock(params: AcquireNodeLockRequest): Promise<AcquireNodeLockResponse> {
+        return this._messenger.sendRequest(acquireNodeLock, HOST_EXTENSION, params);
+    }
+
+    releaseNodeLock(params: ReleaseNodeLockRequest): Promise<ReleaseNodeLockResponse> {
+        return this._messenger.sendRequest(releaseNodeLock, HOST_EXTENSION, params);
+    }
+
+    getNodeLocks(params: GetNodeLocksRequest): Promise<GetNodeLocksResponse> {
+        return this._messenger.sendRequest(getNodeLocks, HOST_EXTENSION, params);
+    }
+
+    getSystemUsername(): Promise<string> {
+        return this._messenger.sendRequest(getSystemUsername, HOST_EXTENSION);
     }
 }

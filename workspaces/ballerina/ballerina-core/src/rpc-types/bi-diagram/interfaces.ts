@@ -199,3 +199,35 @@ export interface GeneratedClientSaveResponse {
 export interface DeleteProjectRequest {
     projectPath: string;
 }
+
+// Node Lock Management Interfaces
+export interface AcquireNodeLockRequest {
+    nodeId: string;
+    userId: string;
+    userName: string;
+    filePath: string;
+    timestamp: number;
+}
+
+export interface AcquireNodeLockResponse {
+    success: boolean;
+    error?: string;
+}
+
+export interface ReleaseNodeLockRequest {
+    nodeId: string;
+    userId: string;
+    filePath: string;
+}
+
+export interface ReleaseNodeLockResponse {
+    success: boolean;
+}
+
+export interface GetNodeLocksRequest {
+    filePath: string;
+}
+
+export interface GetNodeLocksResponse {
+    locks: Record<string, { userId: string; userName: string; timestamp: number }>;
+}

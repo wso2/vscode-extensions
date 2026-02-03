@@ -123,7 +123,13 @@ import {
     GeneratedClientSaveResponse,
     AddProjectToWorkspaceRequest,
     DeleteProjectRequest,
-    OpenReadmeRequest
+    OpenReadmeRequest,
+    AcquireNodeLockRequest,
+    AcquireNodeLockResponse,
+    ReleaseNodeLockRequest,
+    ReleaseNodeLockResponse,
+    GetNodeLocksRequest,
+    GetNodeLocksResponse
 } from "./interfaces";
 import { RequestType, NotificationType } from "vscode-messenger-common";
 
@@ -200,6 +206,13 @@ export const searchNodes: RequestType<BISearchNodesRequest, BISearchNodesRespons
 export const getRecordNames: RequestType<void, RecordsInWorkspaceMentions> = { method: `${_preFix}/getRecordNames` };
 export const getFunctionNames: RequestType<void, RecordsInWorkspaceMentions> = { method: `${_preFix}/getFunctionNames` };
 export const getDevantMetadata: RequestType<void, DevantMetadata> = { method: `${_preFix}/getDevantMetadata` };
+
+// Node Lock Management RPC Methods
+export const acquireNodeLock: RequestType<AcquireNodeLockRequest, AcquireNodeLockResponse> = { method: `${_preFix}/acquireNodeLock` };
+export const releaseNodeLock: RequestType<ReleaseNodeLockRequest, ReleaseNodeLockResponse> = { method: `${_preFix}/releaseNodeLock` };
+export const getNodeLocks: RequestType<GetNodeLocksRequest, GetNodeLocksResponse> = { method: `${_preFix}/getNodeLocks` };
+export const nodeLockUpdated: NotificationType<GetNodeLocksResponse> = { method: `${_preFix}/nodeLockUpdated` };
+export const getSystemUsername: RequestType<void, string> = { method: `${_preFix}/getSystemUsername` };
 export const generateOpenApiClient: RequestType<OpenAPIClientGenerationRequest, GeneratedClientSaveResponse> = { method: `${_preFix}/generateOpenApiClient` };
 export const getOpenApiGeneratedModules: RequestType<OpenAPIGeneratedModulesRequest, OpenAPIGeneratedModulesResponse> = { method: `${_preFix}/getOpenApiGeneratedModules` };
 export const deleteOpenApiGeneratedModules: RequestType<OpenAPIClientDeleteRequest, OpenAPIClientDeleteResponse> = { method: `${_preFix}/deleteOpenApiGeneratedModules` };

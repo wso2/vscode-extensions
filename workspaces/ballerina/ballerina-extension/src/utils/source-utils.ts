@@ -27,6 +27,7 @@ import { existsSync, writeFileSync, mkdirSync } from 'fs';
 import * as path from 'path';
 import { notifyCurrentWebview } from '../RPCLayer';
 import { applyBallerinaTomlEdit } from '../rpc-managers/bi-diagram/utils';
+import { uriCache } from '../extension';
 
 export interface UpdateSourceCodeRequest {
     textEdits: {
@@ -118,11 +119,15 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
             // <-------- Using simply the text edits to update the source code -------->
             const workspaceEdit = new vscode.WorkspaceEdit();
             for (const [fileUriString, request] of Object.entries(modificationRequests)) {
+                // Check if this is a cached path with a remote URI
+                const remoteUri = uriCache?.getRemoteUri(request.filePath);
+                // Use remote URI if available, else use local file URI
+                const targetUri = remoteUri || Uri.file(request.filePath);
+                
                 for (const modification of request.modifications) {
-                    const fileUri = Uri.file(request.filePath);
                     const source = modification.config.STATEMENT;
                     workspaceEdit.replace(
-                        fileUri,
+                        targetUri,
                         new vscode.Range(
                             new vscode.Position(modification.startLine, modification.startColumn),
                             new vscode.Position(modification.endLine, modification.endColumn)
@@ -130,10 +135,21 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                         source
                     );
                 }
-            }
-            // Apply all changes at once
+            }         
             await workspace.applyEdit(workspaceEdit);
-
+            
+            // Save remote documents to ensure changes are persisted
+            for (const [fileUriString, request] of Object.entries(modificationRequests)) {
+                const remoteUri = uriCache?.getRemoteUri(request.filePath);
+                
+                if (remoteUri) {
+                    const doc = workspace.textDocuments.find((doc) => doc.uri.toString() === remoteUri.toString());
+                    if (doc) {
+                        await doc.save();
+                    }
+                }
+            }
+            
             // <-------- Format the document after applying all changes using the native formatting API-------->
             const formattedWorkspaceEdit = new vscode.WorkspaceEdit();
             for (const [fileUriString, request] of Object.entries(modificationRequests)) {

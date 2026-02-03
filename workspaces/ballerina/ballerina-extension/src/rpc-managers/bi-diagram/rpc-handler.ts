@@ -25,6 +25,8 @@ import {
     AddFunctionRequest,
     addProjectToWorkspace,
     AddProjectToWorkspaceRequest,
+    acquireNodeLock,
+    AcquireNodeLockRequest,
     AIChatRequest,
     BIAiSuggestionsRequest,
     BIAvailableNodesRequest,
@@ -93,6 +95,8 @@ import {
     getFunctionNames,
     getFunctionNode,
     getModuleNodes,
+    getNodeLocks,
+    GetNodeLocksRequest,
     getNodeTemplate,
     getOpenApiGeneratedModules,
     getProjectComponents,
@@ -105,6 +109,7 @@ import {
     getRecordNames,
     getRecordSource,
     getServiceClassModel,
+    getSystemUsername,
     getSignatureHelp,
     getSourceCode,
     getType,
@@ -129,6 +134,8 @@ import {
     ProjectRequest,
     ReadmeContentRequest,
     RecordSourceGenRequest,
+    releaseNodeLock,
+    ReleaseNodeLockRequest,
     removeBreakpointFromSource,
     renameIdentifier,
     RenameIdentifierRequest,
@@ -157,7 +164,7 @@ import { Messenger } from "vscode-messenger";
 import { BiDiagramRpcManager } from "./rpc-manager";
 
 export function registerBiDiagramRpcHandlers(messenger: Messenger) {
-    const rpcManger = new BiDiagramRpcManager();
+    const rpcManger = new BiDiagramRpcManager(messenger);
     messenger.onRequest(getFlowModel, (args: BIFlowModelRequest) => rpcManger.getFlowModel(args));
     messenger.onRequest(getSourceCode, (args: BISourceCodeRequest) => rpcManger.getSourceCode(args));
     messenger.onRequest(deleteFlowNode, (args: BISourceCodeRequest) => rpcManger.deleteFlowNode(args));
@@ -235,4 +242,10 @@ export function registerBiDiagramRpcHandlers(messenger: Messenger) {
     messenger.onRequest(generateOpenApiClient, (args: OpenAPIClientGenerationRequest) => rpcManger.generateOpenApiClient(args));
     messenger.onRequest(getOpenApiGeneratedModules, (args: OpenAPIGeneratedModulesRequest) => rpcManger.getOpenApiGeneratedModules(args));
     messenger.onRequest(deleteOpenApiGeneratedModules, (args: OpenAPIClientDeleteRequest) => rpcManger.deleteOpenApiGeneratedModules(args));
+    
+    // Node lock management handlers
+    messenger.onRequest(acquireNodeLock, (args: AcquireNodeLockRequest) => rpcManger.acquireNodeLock(args));
+    messenger.onRequest(releaseNodeLock, (args: ReleaseNodeLockRequest) => rpcManger.releaseNodeLock(args));
+    messenger.onRequest(getNodeLocks, (args: GetNodeLocksRequest) => rpcManger.getNodeLocks(args));
+    messenger.onRequest(getSystemUsername, () => rpcManger.getSystemUsername());
 }

@@ -44,6 +44,12 @@ export type ClientKind = "HTTP" | "OTHER";
 
 export type ClientScope = "LOCAL" | "OBJECT" | "GLOBAL";
 
+export type NodeLock = {
+    userId: string;
+    userName: string;
+    timestamp: number;
+};
+
 export type FlowNode = {
     id: string;
     metadata: Metadata;
@@ -57,6 +63,7 @@ export type FlowNode = {
     viewState?: ViewState;
     hasBreakpoint?: boolean;
     isActiveBreakpoint?: boolean;
+    locked?: NodeLock;
 };
 
 export type FunctionNode = {

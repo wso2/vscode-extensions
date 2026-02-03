@@ -29,7 +29,7 @@ import {
     NODE_PADDING,
     NODE_WIDTH,
 } from "../../../resources/constants";
-import { Button, Item, Menu, MenuItem, Popover, ThemeColors } from "@wso2/ui-toolkit";
+import { Button, Item, Menu, MenuItem, Popover, ThemeColors, Tooltip } from "@wso2/ui-toolkit";
 import { MoreVertIcon } from "../../../resources";
 import { FlowNode } from "../../../utils/types";
 import NodeIcon from "../../NodeIcon";
@@ -199,6 +199,27 @@ export namespace NodeStyles {
             width: 12px;
         }
     `;
+
+    export const LockIndicator = styled.div`
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background-color: ${ThemeColors.SECONDARY_CONTAINER};
+        border: 2px solid ${ThemeColors.SECONDARY};
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        cursor: help;
+    `;
+
+    export const LockIcon = styled.div`
+        color: ${ThemeColors.SECONDARY_CONTAINER};
+        font-size: 14px;
+    `;
 }
 
 interface ApiCallNodeWidgetProps {
@@ -211,10 +232,12 @@ export interface NodeWidgetProps extends Omit<ApiCallNodeWidgetProps, "children"
 
 export function ApiCallNodeWidget(props: ApiCallNodeWidgetProps) {
     const { model, engine, onClick } = props;
-    const { onNodeSelect, onConnectionSelect, goToSource, onDeleteNode, removeBreakpoint, addBreakpoint, readOnly, selectedNodeId } =
+    const { onNodeSelect, onConnectionSelect, goToSource, onDeleteNode, removeBreakpoint, addBreakpoint, readOnly, selectedNodeId, currentUserId } =
         useDiagramContext();
 
     const isSelected = selectedNodeId === model.node.id;
+    const isLocked = model.node.locked && model.node.locked.userId !== currentUserId;
+    const isLockedBySelf = model.node.locked && model.node.locked.userId === currentUserId;
 
     const [isBoxHovered, setIsBoxHovered] = useState(false);
     const [isCircleHovered, setIsCircleHovered] = useState(false);
@@ -238,6 +261,10 @@ export function ApiCallNodeWidget(props: ApiCallNodeWidgetProps) {
 
     const handleOnClick = (event: React.MouseEvent<HTMLDivElement>) => {
         if (readOnly) {
+            return;
+        }
+        // Prevent interaction with locked nodes
+        if (isLocked) {
             return;
         }
         if (event.metaKey) {
@@ -316,18 +343,32 @@ export function ApiCallNodeWidget(props: ApiCallNodeWidgetProps) {
         disabled || readOnly ? ThemeColors.ON_SURFACE : isBoxHovered ? ThemeColors.SECONDARY : ThemeColors.ON_SURFACE;
 
     return (
-        <NodeStyles.Node readOnly={readOnly}>
+        <NodeStyles.Node readOnly={readOnly || isLocked}>
             <NodeStyles.Box
                 disabled={disabled}
-                hovered={isBoxHovered}
+                hovered={isBoxHovered && !isLocked}
                 hasError={hasError}
-                readOnly={readOnly}
+                readOnly={readOnly || isLocked}
                 isActiveBreakpoint={isActiveBreakpoint}
                 isSelected={isSelected}
                 onMouseEnter={() => setIsBoxHovered(true)}
                 onMouseLeave={() => setIsBoxHovered(false)}
-                onContextMenu={!readOnly ? handleOnContextMenu : undefined}
+                onContextMenu={!readOnly && !isLocked ? handleOnContextMenu : undefined}
+                style={{
+                    opacity: isLocked ? 0.6 : 1,
+                    cursor: isLocked ? 'not-allowed' : readOnly ? 'default' : 'pointer'
+                }}
             >
+                {/* Lock indicator
+                {isLocked && (
+                    <Tooltip title={`Locked by ${model.node.locked.userName}`} placement="top">
+                        <NodeStyles.LockIndicator>
+                            <NodeStyles.LockIcon>
+                                🔒
+                            </NodeStyles.LockIcon>
+                        </NodeStyles.LockIndicator>
+                    </Tooltip>
+                )} */}
                 {hasBreakpoint && (
                     <div
                         style={{

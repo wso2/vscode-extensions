@@ -31,14 +31,15 @@ export let testController: TestController;
 export async function activate(ballerinaExtInstance: BallerinaExtension) {
     testController = tests.createTestController('ballerina-integrator-tests', 'WSO2 Integrator: BI Tests');
 
-    const workspaceRoot = getWorkspaceRoot();
+    const workspaceFolder = workspace.workspaceFolders?.[0];
 
-    if (!workspaceRoot) {
+    if (!workspaceFolder) {
         return;
     }
 
-    const isBallerinaWorkspace = await checkIsBallerinaWorkspace(Uri.file(workspaceRoot));
-    const isBallerinaProject = !isBallerinaWorkspace && await checkIsBallerinaPackage(Uri.file(workspaceRoot));
+    const workspaceRoot = workspaceFolder.uri.fsPath;
+    const isBallerinaWorkspace = await checkIsBallerinaWorkspace(workspaceFolder.uri);
+    const isBallerinaProject = !isBallerinaWorkspace && await checkIsBallerinaPackage(workspaceFolder.uri);
     const currentProject = !isBallerinaWorkspace && !isBallerinaProject && await getCurrentBallerinaProject();
     const isSingleFile = currentProject && currentProject.kind === PROJECT_TYPE.SINGLE_FILE;
 

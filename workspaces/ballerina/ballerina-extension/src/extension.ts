@@ -18,6 +18,7 @@
 
 import { ExtensionContext, commands, window, Location, Uri, TextEditor, extensions, workspace } from 'vscode';
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { BallerinaExtension } from './core';
 import { activate as activateBBE } from './views/bbe';
 import {
@@ -49,9 +50,11 @@ import { activateTryItCommand } from './features/tryit/activator';
 import { activate as activateNPFeatures } from './features/natural-programming/activator';
 import { activateAgentChatPanel } from './views/agent-chat/activate';
 import { activateTracing } from './features/tracing';
+import { UriCache } from './utils/remote-fs/uri-cache';
 
 let langClient: ExtendedLangClient;
 export let isPluginStartup = true;
+export let uriCache: UriCache;
 
 /**
  * Utility class to expose Ballerina extension state to other extensions
@@ -123,6 +126,93 @@ function onBeforeInit(langClient: ExtendedLangClient) {
 
 export async function activate(context: ExtensionContext) {
     extension.context = context;
+    
+    // Initialize URI cache for non-file schemes
+    uriCache = UriCache.getInstance();
+    debug('Initialized URI cache for non-file schemes');
+    
+    // Watch for changes in remote workspaces and update cache
+    const workspaceFolders = workspace.workspaceFolders;
+    if (workspaceFolders) {
+        for (const folder of workspaceFolders) {
+            if (folder.uri.scheme !== 'file') {
+                debug(`[FileSync] Setting up watcher for remote workspace: ${folder.uri.scheme}`);
+                const watcher = workspace.createFileSystemWatcher(
+                    new vscode.RelativePattern(folder, '**/*.{bal,toml}')
+                );
+                
+                watcher.onDidChange(async (uri) => {
+                    try {
+                        debug(`[FileSync] Remote file changed: ${uri.toString()}`);
+                        // Re-cache the changed file
+                        const localPath = await uriCache.cacheRemoteFile(uri);
+                        
+                        // Notify language server using the cached local path
+                        const content = await workspace.fs.readFile(uri);
+                        const textContent = Buffer.from(content).toString('utf-8');
+                        const localFileUri = Uri.file(localPath).toString();
+                        
+                        // Tell LS the file changed using the cached path
+                        const langClient = extension.ballerinaExtInstance?.langClient;
+                        if (langClient) {
+                            langClient.didChange({
+                                textDocument: { uri: localFileUri, version: Date.now() },
+                                contentChanges: [{ text: textContent }]
+                            });
+                        }
+                        VisualizerWebview.currentPanel?.getWebview()?.active;
+                        // Trigger webview update if it's active and showing this file
+                        if (VisualizerWebview.currentPanel?.getWebview()?.active) {
+                            const context = StateMachine.context();                  
+                            // Check if the changed file matches the current context
+                            // The documentUri in context might be the cached local path or the original remote URI
+                            const changedRemoteUri = uri.toString();
+                            const changedLocalPath = localPath;
+                            const isMatchingDocument = context.documentUri === changedLocalPath || 
+                                                     context.documentUri === changedRemoteUri ||
+                                                     (context.projectPath && changedLocalPath.startsWith(context.projectPath));
+                            
+                            if (isMatchingDocument) {
+                                debug(`[FileSync] Match found! Triggering webview update for remote file change`);
+                                // Call updateView just like the local file change handler does
+                                const { updateView } = await import('./stateMachine');
+                                updateView(false);
+                            } else {
+                                debug(`[FileSync] No match found, skipping webview update`);
+                            }
+                        }
+                    } catch (error) {
+                        console.error(`[FileSync] Failed to sync changed file: ${error}`);
+                    }
+                });
+                
+                watcher.onDidCreate(async (uri) => {
+                    try {
+                        debug(`[FileSync] Remote file created: ${uri.toString()}`);
+                        await uriCache.cacheRemoteFile(uri);
+                    } catch (error) {
+                        console.error(`[FileSync] Failed to cache new file: ${error}`);
+                    }
+                });
+                
+                watcher.onDidDelete(async (uri) => {
+                    try {
+                        debug(`[FileSync] Remote file deleted: ${uri.toString()}`);
+                        const localPath = uriCache.getLocalPath(uri);
+                        const fs = await import('fs');
+                        if (fs.existsSync(localPath)) {
+                            await fs.promises.unlink(localPath);
+                        }
+                    } catch (error) {
+                        console.error(`[FileSync] Failed to remove cached file: ${error}`);
+                    }
+                });
+                
+                context.subscriptions.push(watcher);
+            }
+        }
+    }
+    
     // Init RPC Layer methods
     RPCLayer.init();
     
@@ -134,7 +224,8 @@ export async function activate(context: ExtensionContext) {
         ballerinaExtInstance: extension.ballerinaExtInstance, 
         projectPath: StateMachine.context().projectPath,
         VisualizerWebview,
-        BallerinaExtensionState
+        BallerinaExtensionState,
+        uriCache
     };
 }
 
@@ -157,7 +248,7 @@ export async function activateBallerina(): Promise<BallerinaExtension> {
     // Activate Subscription Commands
     debug('Activating subscription commands.');
     activateSubscriptions();
-    debug('Starting ballerina extension initialization.');
+debug('Starting ballerina extension initialization.');
     await ballerinaExtInstance.init(onBeforeInit).then(() => {
         debug('Ballerina extension activated successfully.');
         // <------------ CORE FUNCTIONS ----------->

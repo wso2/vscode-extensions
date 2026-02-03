@@ -26,7 +26,7 @@ import {
     NODE_PADDING,
     NODE_WIDTH,
 } from "../../../resources/constants";
-import { Button, Item, Menu, MenuItem, Popover, ThemeColors } from "@wso2/ui-toolkit";
+import { Button, Item, Menu, MenuItem, Popover, ThemeColors, Tooltip } from "@wso2/ui-toolkit";
 import { MoreVertIcon } from "../../../resources";
 import NodeIcon from "../../NodeIcon";
 import { useDiagramContext } from "../../DiagramContext";
@@ -163,6 +163,27 @@ export namespace NodeStyles {
         align-items: center;
         gap: 8px;
     `;
+
+    export const LockIndicator = styled.div`
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background-color: ${ThemeColors.SECONDARY_CONTAINER};
+        border: 2px solid ${ThemeColors.SECONDARY};
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        cursor: help;
+    `;
+
+    export const LockIcon = styled.div`
+        color: ${ThemeColors.ON_SECONDARY};
+        font-size: 14px;
+    `;
 }
 
 export interface BaseNodeWidgetProps {
@@ -185,9 +206,12 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
         readOnly,
         selectedNodeId,
         project,
+        currentUserId,
     } = useDiagramContext();
 
     const isSelected = selectedNodeId === model.node.id;
+    const isLocked = model.node.locked && model.node.locked.userId !== currentUserId;
+    const isLockedBySelf = model.node.locked && model.node.locked.userId === currentUserId;
 
     const [isHovered, setIsHovered] = useState(false);
     const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | SVGSVGElement>(null);
@@ -325,9 +349,8 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
         });
     }
 
-    const nodeTitle = getNodeTitle(model.node);
-
-    const hasFullAssignment = model.node.properties?.variable?.value && model.node.properties?.expression?.value;
+    const hasFullAssignment =
+        model.node.properties?.variable?.value && model.node.properties?.expression?.value;
 
     let nodeDescription = hasFullAssignment
         ? `${model.node.properties.variable?.value} = ${model.node.properties?.expression?.value}`
@@ -342,6 +365,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
         nodeDescription = model.node.properties.msg.value;
     }
 
+    const nodeTitle = getNodeTitle(model.node);
     const hasError = nodeHasError(model.node);
 
     return (
@@ -349,13 +373,27 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
             hovered={isHovered}
             disabled={model.node.suggested}
             hasError={hasError}
-            readOnly={readOnly}
+            readOnly={readOnly || isLocked}
             isActiveBreakpoint={isActiveBreakpoint}
             isSelected={isSelected}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            onContextMenu={!readOnly ? handleOnContextMenu : undefined}
+            onContextMenu={!readOnly && !isLocked ? handleOnContextMenu : undefined}
+            style={{
+                opacity: isLocked ? 0.6 : 1,
+                cursor: isLocked ? 'not-allowed' : readOnly ? 'default' : 'pointer'
+            }}
         >
+            {/* Lock indicator */}
+            {isLocked && (
+                <Tooltip content={`Locked by ${model.node.locked.userName}`}>
+                    <NodeStyles.LockIndicator>
+                        <NodeStyles.LockIcon>
+                            🔒
+                        </NodeStyles.LockIcon>
+                    </NodeStyles.LockIndicator>
+                </Tooltip>
+            )}
             {hasBreakpoint && (
                 <div
                     style={{

@@ -39,11 +39,13 @@ import * as path from 'path';
 import { extension } from './BalExtensionContext';
 import { AIStateMachine } from './views/ai-panel/aiMachine';
 import { StateMachinePopup } from './stateMachinePopup';
-import { checkIsBallerinaPackage, checkIsBI, fetchScope, getOrgPackageName, UndoRedoManager, getProjectTomlValues, getOrgAndPackageName, checkIsBallerinaWorkspace } from './utils';
+import { checkIsBallerinaPackage, checkIsBI, fetchScope, getOrgPackageName, UndoRedoManager, getOrgAndPackageName, checkIsBallerinaWorkspace } from './utils';
 import { activateDevantFeatures } from './features/devant/activator';
 import { buildProjectsStructure } from './utils/project-artifacts';
 import { runCommandWithOutput } from './utils/runCommand';
-import { buildOutputChannel } from './utils/logger';
+import { buildOutputChannel, debug } from './utils/logger';
+import { ProjectInfoTranslator } from './utils/remote-fs/project-info-translator';
+import { uriCache } from './extension';
 
 export interface ProjectMetadata {
     readonly isBI: boolean;
@@ -52,6 +54,7 @@ export interface ProjectMetadata {
     readonly scope?: SCOPE;
     readonly orgName?: string;
     readonly packageName?: string;
+    readonly fs?: string;
 }
 
 interface MachineContext extends VisualizerLocation {
@@ -79,7 +82,8 @@ const stateMachine = createMachine<MachineContext>(
             isBISupported: false,
             view: MACHINE_VIEW.PackageOverview,
             dependenciesResolved: false,
-            isInDevant: !!process.env.CLOUD_STS_TOKEN
+            isInDevant: !!process.env.CLOUD_STS_TOKEN,
+            fs: workspace.workspaceFolders && workspace.workspaceFolders.length > 0 ? workspace.workspaceFolders[0].uri.scheme : undefined,
         },
         on: {
             RESET_TO_EXTENSION_READY: {
@@ -92,12 +96,20 @@ const stateMachine = createMachine<MachineContext>(
                     }),
                     () => {
                         // Use queueMicrotask to ensure context is updated before command execution
-                        queueMicrotask(() => {
-                            commands.executeCommand("BI.project-explorer.refresh");
-                            // Check if the current view is Service desginer and if so don't notify the webview
-                            if (StateMachine.context().view !== MACHINE_VIEW.ServiceDesigner && StateMachine.context().view !== MACHINE_VIEW.BIDiagram) {
-                                notifyCurrentWebview();
+                        queueMicrotask(async () => {
+                            try {
+                                await commands.executeCommand("BI.project-explorer.refresh");
+                            } catch (error) {
+                                // BI extension might not be installed/active, ignore the error
+                                console.debug('BI.project-explorer.refresh command not available');
                             }
+                            // Check if the current view is Service desginer or BIDiagram and if so don't notify the webview
+                            // if (StateMachine.context().view !== MACHINE_VIEW.ServiceDesigner && StateMachine.context().view !== MACHINE_VIEW.BIDiagram) {
+                            //     notifyCurrentWebview();
+                            // }
+
+                            // Always notify the webview to update project structure
+                            notifyCurrentWebview();
                         });
                     }
                 ]
@@ -127,8 +139,9 @@ const stateMachine = createMachine<MachineContext>(
                                 return;
                             }
 
-                            // Fetch updated project info from language server
-                            const projectInfo = await context.langClient.getProjectInfo({ projectPath });
+                            // Project path is already cached if it was remote (done in checkForProjects)
+                            // Just fetch updated project info from language server
+                            let projectInfo = await context.langClient.getProjectInfo({ projectPath });
 
                             // Update context with new project info
                             stateService.send({
@@ -481,7 +494,10 @@ const stateMachine = createMachine<MachineContext>(
                     if (!projectPath) {
                         resolve({ projectInfo: undefined });
                     } else {
-                        const projectInfo = await context.langClient.getProjectInfo({ projectPath });
+                        // Project path is already cached if it was remote (done in checkForProjects)
+                        // Just fetch project info using the path
+                        let projectInfo = await context.langClient.getProjectInfo({ projectPath });
+                        
                         resolve({ projectInfo });
                     }
                 } catch (error) {
@@ -839,6 +855,7 @@ export function openView(type: EVENT_TYPE, viewLocation: VisualizerLocation, res
     extension.hasPullModuleResolved = false;
     extension.hasPullModuleNotification = false;
     const projectPath = viewLocation.projectPath || StateMachine.context().projectPath;
+    const projectInfo = StateMachine.context().projectInfo;
     const { orgName, packageName } = getOrgAndPackageName(StateMachine.context().projectInfo, projectPath);
     viewLocation.org = orgName;
     viewLocation.package = packageName;
@@ -846,6 +863,7 @@ export function openView(type: EVENT_TYPE, viewLocation: VisualizerLocation, res
 }
 
 export function updateView(refreshTreeView?: boolean) {
+    console.log('[updateView] Called with refreshTreeView:', refreshTreeView);
     let lastView = getLastHistory();
     // Step over to the next location if the last view is skippable
     if (!refreshTreeView && lastView?.location.view.includes("SKIP")) {
@@ -927,11 +945,13 @@ export function updateView(refreshTreeView?: boolean) {
     }
 
 
+    console.log('[updateView] Sending VIEW_UPDATE event and notifying webview');
     stateService.send({ type: "VIEW_UPDATE", viewLocation: lastView ? newLocation : { view: "Overview" } });
     if (refreshTreeView) {
         buildProjectsStructure(StateMachine.context().projectInfo, StateMachine.langClient(), true);
     }
     notifyCurrentWebview();
+    console.log('[updateView] Completed');
 }
 
 export function updateDataMapperView(codedata?: CodeData, variableName?: string): void {
@@ -999,42 +1019,64 @@ async function handleMultipleWorkspaceFolders(workspaceFolders: readonly Workspa
                 commands.executeCommand('vscode.open', Uri.parse('https://ballerina.io/learn/workspaces'));
             }
         });
-
         // Return empty result to indicate no project should be loaded
         return { isBI: false };
     } else if (balProjects.length === 1) {
+        const projectUri = balProjects[0].uri;
+        
+        // Cache remote project if needed
+        let projectPath = projectUri.fsPath;
+        if (uriCache && projectUri.scheme !== 'file') {
+            try {
+                projectPath = await uriCache.cacheRemoteDirectory(projectUri);
+                debug(`[StateMachine] Cached remote workspace: ${projectUri.toString()} -> ${projectPath}`);
+            } catch (error) {
+                console.error(`[StateMachine] Failed to cache remote workspace:`, error);
+            }
+        }
+        
         const isBI = checkIsBI(balProjects[0].uri);
         const scope = isBI && fetchScope(balProjects[0].uri);
-        const { orgName, packageName } = getOrgPackageName(balProjects[0].uri.fsPath);
-        const projectPath = balProjects[0].uri.fsPath;
+        const { orgName, packageName } = await getOrgPackageName(projectPath);
         setContextValues(isBI, projectPath);
-        return { isBI, projectPath, scope, orgName, packageName };
+        return { isBI, projectPath, scope, orgName, packageName, fs: projectUri.scheme };
     }
 
     return { isBI: false };
 }
 
 async function handleSingleWorkspaceFolder(workspaceURI: Uri): Promise<ProjectMetadata> {
+    // Cache remote workspace if needed
+    let workspacePath = workspaceURI.fsPath;
+    if (uriCache && workspaceURI.scheme !== 'file') {
+        try {
+            workspacePath = await uriCache.cacheRemoteDirectory(workspaceURI);
+            debug(`[StateMachine] Cached remote workspace: ${workspaceURI.toString()} -> ${workspacePath}`);
+        } catch (error) {
+            console.error(`[StateMachine] Failed to cache remote workspace:`, error);
+        }
+    }
+    
     const isBallerinaWorkspace = await checkIsBallerinaWorkspace(workspaceURI);
 
     if (isBallerinaWorkspace) {
         const isBI = checkIsBI(workspaceURI);
-        setContextValues(isBI, undefined, workspaceURI.fsPath);
+        setContextValues(isBI, undefined, workspacePath);
 
-        return { isBI, workspacePath: workspaceURI.fsPath };
+        return { isBI, workspacePath, fs: workspaceURI.scheme };
     } else {
         const isBallerinaPackage = await checkIsBallerinaPackage(workspaceURI);
         const isBI = isBallerinaPackage && checkIsBI(workspaceURI);
         const scope = fetchScope(workspaceURI);
-        const projectPath = isBallerinaPackage ? workspaceURI.fsPath : "";
-        const { orgName, packageName } = getOrgPackageName(projectPath);
+        const projectPath = isBallerinaPackage ? workspacePath : "";
+        const { orgName, packageName } = await getOrgPackageName(projectPath);
 
         setContextValues(isBI, projectPath);
         if (!isBI) {
             console.error("No BI enabled workspace found");
         }
 
-        return { isBI, projectPath, scope, orgName, packageName };
+        return { isBI, projectPath, scope, orgName, packageName, fs: workspaceURI.scheme };
     }
 }
 
