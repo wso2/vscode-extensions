@@ -174,7 +174,7 @@ type AssertMode = 'code' | 'form';
 
 export const MainPanel: React.FC = () => {
     const [requestItem, setRequestItem] = useState<ApiRequestItem | undefined>();
-    const [activeTab, setActiveTab] = useState('input');
+    const [activeTab, setActiveTab] = useState('view-input');
     const [isLoading, setIsLoading] = useState(false);
     const [inputMode, setInputMode] = useState<InputMode>('code');
     const [assertMode, setAssertMode] = useState<AssertMode>('form');
@@ -184,6 +184,8 @@ export const MainPanel: React.FC = () => {
     const outputTabRef = useRef<HTMLDivElement>(null);
     // Counter used to trigger scrolling the Output inside Input without switching tabs
     const [bringOutputCounter, setBringOutputCounter] = useState(0);
+    // When Output tab is clicked we want to suppress the panels' onChange switching to Output
+    const suppressNextPanelChangeRef = useRef(false);
 
     // Scroll to output when Output tab is activated
     useEffect(() => {
@@ -207,7 +209,6 @@ export const MainPanel: React.FC = () => {
             setTempName(item.name);
             setIsEditingName(false);
             setActiveTab('input');
-            console.log('API request item selected:', item);
         }
     });
 
@@ -285,10 +286,8 @@ export const MainPanel: React.FC = () => {
                 }
             });
             
-            console.log('Save request sent to extension');
         } catch (error) {
             console.error('Error saving request:', error);
-            alert('An error occurred while saving the request');
         }
     };
 
@@ -373,10 +372,7 @@ export const MainPanel: React.FC = () => {
             }
 
             // Trigger scrolling to output in the Input panel without switching tabs
-            setBringOutputCounter(c => c + 1);
-            
-            console.log(`Request completed in ${duration}ms`);
-            
+            setBringOutputCounter(c => c + 1);            
         } catch (error) {
             console.error('Request failed:', error);
             
@@ -572,28 +568,29 @@ export const MainPanel: React.FC = () => {
                         <VSCodePanels
                             activeid={activeTab}
                             onChange={(e: any) => {
-                                const newId = e.target.activeid;
-                                // When the Output tab is clicked, do not switch tabs — instead trigger the input-panel scroll to the response
-                                if (newId === 'output') {
-                                    // Increment counter to instruct Input to bring the output into view
-                                    setBringOutputCounter(c => c + 1);
-                                    // Also dispatch a custom event so Input can react immediately
-                                    try {
-                                        window.dispatchEvent(new CustomEvent('apiTryIt:bringOutput'));
-                                    } catch (e) {
-                                        /* ignore */
-                                    }
-                                    // Keep the active tab on 'input' so the user does not accidentally switch away
-                                    setActiveTab('input');
-                                } else {
-                                    setActiveTab(newId);
+                                // Try multiple sources for the active id (some browsers/events may put it in detail)
+                                const rawId = e?.target?.activeid ?? e?.detail?.activeid ?? e?.target?.getAttribute?.('activeid');
+                                if (!rawId) return;
+
+                                // Normalize to the tab id by stripping leading 'view-' if present
+                                const newId = String(rawId).startsWith('view-') ? String(rawId).slice(5) : rawId;
+
+                                // If Output tab was clicked and we've set the suppress flag, prevent switching to Output
+                                if (newId === 'output' && suppressNextPanelChangeRef.current) {
+                                    suppressNextPanelChangeRef.current = false;
+                                    // keep the active tab on input
+                                    setActiveTab('view-input');
+                                    return;
                                 }
+
+                                // Default behavior: switch to the selected tab
+                                setActiveTab(`view-${newId}`);
                             }}
                         >
-                            <VSCodePanelTab id="input">Input</VSCodePanelTab>
+                            <VSCodePanelTab id="view-input">Request</VSCodePanelTab>
                             {/* Ensure clicking Output always triggers a bring action even if it was clicked repeatedly */}
-                            <VSCodePanelTab id="output" onClick={(e: React.MouseEvent) => { e.preventDefault(); setBringOutputCounter(c => c + 1); setActiveTab('input'); }}>Output</VSCodePanelTab>
-                            <VSCodePanelTab id="assert">Assert</VSCodePanelTab>
+                            <VSCodePanelTab id="view-output" onMouseDown={(e: any) => { e.preventDefault(); suppressNextPanelChangeRef.current = true; setBringOutputCounter(c => c + 1); }}>Output</VSCodePanelTab>
+                            <VSCodePanelTab id="view-assert">Assert</VSCodePanelTab>
                             
                             {/* Input Tab Content */}
                             <VSCodePanelView id="view-input">
