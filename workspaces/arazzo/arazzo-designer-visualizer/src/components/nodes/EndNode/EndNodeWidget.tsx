@@ -23,31 +23,22 @@ import { ThemeColors } from '@wso2/ui-toolkit';
 import { END_NODE_DIAMETER } from '../../../constants/nodeConstants';
 import { EndNodeData } from './EndNodeModel';
 
-const EndNodeContainer = styled.div`
-    width: ${END_NODE_DIAMETER}px;
-    height: ${END_NODE_DIAMETER}px;
-    border-radius: 50%;
-    background-color: ${ThemeColors.ERROR};
+const EndNodeRoot = styled.div`
+    position: relative;
+    width: 100%;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    position: relative;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-    border: 2px solid ${ThemeColors.OUTLINE_VARIANT};
-    transition: all 0.15s ease;
-
-    &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.16);
-    }
 `;
 
 const EndNodeInner = styled.div`
-    background: ${ThemeColors.ON_PRIMARY};
-    width: 10px;
-    height: 10px;
+    background: #960000; /* pure red */
+    width: 15px;
+    height: 15px;
     border-radius: 50%;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18);
+    box-shadow: none;
+    box-sizing: border-box;
 `;
 
 const StyledHandle = styled(Handle)`
@@ -60,20 +51,23 @@ const StyledHandle = styled(Handle)`
  */
 export const EndNodeWidget: React.FC<NodeProps<EndNodeData>> = ({ data, isConnectable }) => {
     return (
-        <EndNodeContainer>
+        <EndNodeRoot>
+            <EndNodeInner />
+
             <StyledHandle
                 type="target"
                 position={Position.Left}
                 id="h-left"
                 isConnectable={isConnectable}
+                style={{ left: 0, top: '50%', transform: 'translate(-50%, -50%)' }}
             />
             <StyledHandle
                 type="target"
                 position={Position.Top}
                 id="h-top"
                 isConnectable={isConnectable}
+                style={{ left: '50%', top: 0, transform: 'translate(-50%, -50%)' }}
             />
-            <EndNodeInner />
-        </EndNodeContainer>
+        </EndNodeRoot>
     );
 };

@@ -44,7 +44,7 @@ export namespace NodeStyles {
         flex-direction: column;
         justify-content: space-between;
         align-items: center;
-        width: ${NODE_WIDTH}px;
+        width: 100%;
         min-height: ${NODE_HEIGHT}px;
         padding: 0 ${PADDING / 2}px;
         background-color: ${ThemeColors.SURFACE_DIM};
@@ -83,7 +83,6 @@ export namespace NodeStyles {
     `;
 
     export const Title = styled.div`
-        max-width: ${NODE_WIDTH - 80}px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -148,9 +147,6 @@ export const BaseNodeWidget: React.FC<BaseNodeWidgetProps> = ({
         >
             <NodeStyles.Header>
                 <NodeStyles.Title>{data.label}</NodeStyles.Title>
-                {data.description && (
-                    <NodeStyles.Description>{data.description}</NodeStyles.Description>
-                )}
             </NodeStyles.Header>
 
             {children}

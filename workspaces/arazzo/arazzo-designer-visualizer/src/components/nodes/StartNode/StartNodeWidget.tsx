@@ -42,6 +42,15 @@ const StartNodeContainer = styled.div`
     }
 `;
 
+const StartNodeRoot = styled.div`
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+`;
+
 const StartNodeLabel = styled.div`
     color: ${ThemeColors.ON_PRIMARY};
     font-weight: 700;
@@ -51,6 +60,7 @@ const StartNodeLabel = styled.div`
 `;
 
 const StyledHandle = styled(Handle)`
+    opacity: 0;
     background: ${ThemeColors.PRIMARY};
     border: 2px solid ${ThemeColors.SURFACE_DIM};
     width: 8px;
@@ -67,14 +77,24 @@ const StyledHandle = styled(Handle)`
  */
 export const StartNodeWidget: React.FC<NodeProps<StartNodeData>> = ({ data, isConnectable }) => {
     return (
-        <StartNodeContainer>
+        <StartNodeRoot>
             <StyledHandle
                 type="source"
                 position={Position.Right}
                 id="h-right"
                 isConnectable={isConnectable}
             />
-            <StartNodeLabel>{data.label || 'Start'}</StartNodeLabel>
-        </StartNodeContainer>
+
+            <StyledHandle
+                type="source"
+                position={Position.Bottom}
+                id="h-bottom"
+                isConnectable={isConnectable}
+            />
+
+            <StartNodeContainer>
+                <StartNodeLabel>{data.label || 'Start'}</StartNodeLabel>
+            </StartNodeContainer>
+        </StartNodeRoot>
     );
 };

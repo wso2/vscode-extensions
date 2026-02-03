@@ -114,7 +114,9 @@ export const ConditionNodeWidget: React.FC<NodeProps<ConditionNodeData>> = ({ da
                 id="h-top"
                 isConnectable={isConnectable}
                 style={{
-                    transform: 'translateY(-50%)',
+                    left: 0,
+                    top: 0,
+                    transform: 'translate(-50%, -50%) rotate(-45deg)',
                 }}
             />
             <StyledHandle
@@ -123,7 +125,9 @@ export const ConditionNodeWidget: React.FC<NodeProps<ConditionNodeData>> = ({ da
                 id="h-bottom"
                 isConnectable={isConnectable}
                 style={{
-                    transform: 'translateY(50%)',
+                    left: '100%',
+                    bottom: 0,
+                    transform: 'translate(-50%, 50%) rotate(-45deg)',
                 }}
             />
         </ConditionNodeContainer>
