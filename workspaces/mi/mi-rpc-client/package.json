@@ -15,9 +15,9 @@
     "@types/react": "18.2.0",
     "@types/react-dom": "18.2.0",
     "typescript": "5.8.3",
-    "@typescript-eslint/parser": "^8.32.1",
-    "@typescript-eslint/eslint-plugin": "^8.32.1",
-    "eslint": "^9.27.0"
+    "@typescript-eslint/parser": "8.32.1",
+    "@typescript-eslint/eslint-plugin": "8.32.1",
+    "eslint": "9.27.0"
   },
   "dependencies": {
     "@types/vscode-webview": "^1.57.5",
