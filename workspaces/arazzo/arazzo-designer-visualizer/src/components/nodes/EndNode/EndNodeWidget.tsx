@@ -33,7 +33,7 @@ const EndNodeRoot = styled.div`
 `;
 
 const EndNodeInner = styled.div`
-    background: #960000; /* pure red */
+    background: ${ThemeColors.PRIMARY};
     width: ${END_NODE_INNER_DIAMETER}px;
     height: ${END_NODE_INNER_DIAMETER}px;
     border-radius: 50%;
