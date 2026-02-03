@@ -400,6 +400,29 @@ function buildCreateFormParams(
 	};
 }
 
+async function buildComponentConfigWithoutExistenceCheck(
+	context: ExtensionContext,
+	param: ICreateComponentCmdParams,
+	components: ComponentKind[],
+	terminology: TerminologyContext,
+): Promise<ComponentConfig | null> {
+	const typeSelection = await resolveComponentType(param, terminology);
+	const selectedUri = await selectComponentDirectory(param, terminology);
+	const gitInfo = await getGitInfo(context, selectedUri.fsPath);
+
+	const baseName = param?.name || path.basename(selectedUri.fsPath) || typeSelection.type;
+	const componentName = generateUniqueComponentName(baseName, components);
+
+	return buildCreateFormParams(
+		selectedUri,
+		typeSelection,
+		componentName,
+		gitInfo,
+		param?.buildPackLang,
+		param?.supportedIntegrationTypes,
+	);
+}
+
 async function buildComponentConfig(
 	context: ExtensionContext,
 	param: ICreateComponentCmdParams,
@@ -525,13 +548,51 @@ async function prepareComponentFormParamsBatch(
 	}
 
 	const componentConfigs: ComponentConfig[] = [];
+	const gitInfo = await getGitInfo(context, directoryUri.fsPath);
 
-	for (const param of params) {
-		const componentConfig = await buildComponentConfig(context, param, org, project, components, terminology);
+	// Pre-check: identify which components already exist and filter to only new ones
+	const newComponentParams: ICreateComponentCmdParams[] = [];
+
+	if (gitInfo.root) {
+		for (const param of params) {
+			const selectedUri = await selectComponentDirectory(param, terminology);
+			const componentExists = await checkIfComponentExistsAtPath(components, gitInfo.root, selectedUri.fsPath);
+			
+			if (!componentExists) {
+				newComponentParams.push(param);
+			}
+		}
+
+		// If no new components to deploy, silently update context and return
+		if (newComponentParams.length === 0) {
+			const userInfo = ext.authProvider?.getState().state.userInfo;
+			if (userInfo) {
+				const projectCache = dataCacheStore.getState().getProjects(org.handle);
+				updateContextFile(gitInfo.root, userInfo, project, org, projectCache);
+				contextStore.getState().refreshState();
+			}
+			return null;
+		}
+	}
+
+	// Process only new components (or all if git root not found)
+	const paramsToProcess = gitInfo.root && newComponentParams.length > 0 ? newComponentParams : params;
+
+	for (const param of paramsToProcess) {
+		const componentConfig = await buildComponentConfigWithoutExistenceCheck(
+			context, 
+			param, 
+			components, 
+			terminology
+		);
 		if (!componentConfig) {
 			continue;
 		}
 		componentConfigs.push(componentConfig);
+	}
+
+	if (componentConfigs.length === 0) {
+		return null;
 	}
 
 	const formParams: IComponentCreateFormParams = {
@@ -545,8 +606,6 @@ async function prepareComponentFormParamsBatch(
 	const isWithinWorkspace = workspace.workspaceFolders?.some((folder) =>
 		isSubpath(folder.uri?.fsPath, directoryUri.fsPath),
 	) ?? false;
-
-	const gitInfo = await getGitInfo(context, directoryUri.fsPath);
 
 	return {
 		formParams: formParams,
