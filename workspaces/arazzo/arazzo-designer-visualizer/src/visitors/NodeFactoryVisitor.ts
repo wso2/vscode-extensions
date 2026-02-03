@@ -7,6 +7,11 @@ export class NodeFactoryVisitor {
     private reactEdges: Edge[] = [];
     private visited: Set<string> = new Set();
     private portalCounter: number = 0;
+    private orientation: 'horizontal' | 'vertical' = 'horizontal';
+
+    constructor(orientation: 'horizontal' | 'vertical' = 'horizontal') {
+        this.orientation = orientation;
+    }
 
     public getElements() { return { nodes: this.reactNodes, edges: this.reactEdges }; }
 
@@ -69,13 +74,24 @@ export class NodeFactoryVisitor {
             const targetPortalId = `portal_in_${source.id}_to_${target.id}_${this.portalCounter}`;
             this.portalCounter++;
 
-            // Portal above source (exit portal)
-            const sourcePortalX = source.viewState.x;
-            const sourcePortalY = source.viewState.y - C.NODE_GAP_Y / 2;
+            // Portal positions differ by orientation
+            let sourcePortalX: number, sourcePortalY: number, targetPortalX: number, targetPortalY: number;
+            if (this.orientation === 'horizontal') {
+                // Portal above source (exit portal)
+                sourcePortalX = source.viewState.x;
+                sourcePortalY = source.viewState.y - C.NODE_GAP_Y / 2;
 
-            // Portal above target (entry portal)
-            const targetPortalX = target.viewState.x + (target.viewState.w / 2);
-            const targetPortalY = target.viewState.y - C.NODE_GAP_Y / 2;
+                // Portal above target (entry portal)
+                targetPortalX = target.viewState.x + (target.viewState.w / 2);
+                targetPortalY = target.viewState.y - C.NODE_GAP_Y / 2;
+            } else {
+                // Vertical layout: place portals to the right of nodes
+                sourcePortalX = source.viewState.x + source.viewState.w + C.NODE_GAP_X / 2;
+                sourcePortalY = source.viewState.y + (source.viewState.h / 2);
+
+                targetPortalX = target.viewState.x + target.viewState.w + C.NODE_GAP_X / 2;
+                targetPortalY = target.viewState.y + (target.viewState.h / 2);
+            }
 
             this.reactNodes.push({
                 id: sourcePortalId,
@@ -103,25 +119,36 @@ export class NodeFactoryVisitor {
                 connectable: false
             });
 
-            // Edge: source → source portal (above it)
+            // Map logical sourceHandle ('right' success, 'bottom' failure) to actual handle IDs per orientation
+            const sourceHandleId = this.orientation === 'horizontal'
+                ? (sourceHandle === 'bottom' ? 'h-bottom' : 'h-right')
+                : (sourceHandle === 'right' ? 'h-bottom' : 'h-right');
+
+            // Portal handle for the portal node depends on orientation
+            const portalNodeHandle = this.orientation === 'horizontal' ? 'h-bottom' : 'h-right';
+
+            // Edge: source → source portal
             this.reactEdges.push({
                 id: `e_${source.id}-${sourcePortalId}`,
                 source: source.id,
                 target: sourcePortalId,
-                sourceHandle: sourceHandle === 'bottom' ? 'h-bottom' : 'h-right',
-                targetHandle: 'h-bottom',
+                sourceHandle: sourceHandleId,
+                targetHandle: portalNodeHandle,
                 type: 'smoothstep',
                 markerEnd: { type: MarkerType.ArrowClosed },
                 style: { stroke: '#00f3ff' }
             });
 
-            // Edge: target portal → target (down to it)
+            // Edge: target portal → target (entry to target)
+            // Map portal->target source handle as portalNodeHandle, and target handle depends on orientation
+            const targetNodeHandle = this.orientation === 'horizontal' ? 'h-top' : 'h-left';
+
             this.reactEdges.push({
                 id: `e_${targetPortalId}-${target.id}`,
                 source: targetPortalId,
                 target: target.id,
-                sourceHandle: 'h-bottom',
-                targetHandle: 'h-top',
+                sourceHandle: portalNodeHandle,
+                targetHandle: targetNodeHandle,
                 type: 'smoothstep',
                 markerEnd: { type: MarkerType.ArrowClosed },
                 style: { stroke: '#00f3ff' }
@@ -133,19 +160,35 @@ export class NodeFactoryVisitor {
     }
 
     private createEdge(source: FlowNode, target: FlowNode, sourceHandle: 'right' | 'bottom') {
-        let targetHandle = 'h-left';
+        // Determine handle mapping based on orientation
+        let sourceHandleId: string;
+        let targetHandleId: string;
 
-        // If connecting from Failure (bottom) to a Terminate Node (END) or Retry Node, use top handle
-        if (sourceHandle === 'bottom' && (target.type === 'END' || target.type === 'RETRY')) {
-            targetHandle = 'h-top';
+        if (this.orientation === 'horizontal') {
+            // Existing (preserved) horizontal behavior
+            sourceHandleId = sourceHandle === 'bottom' ? 'h-bottom' : 'h-right';
+            targetHandleId = 'h-left';
+            // If connecting from Failure (bottom) to a Terminate Node (END) or Retry Node, use top handle
+            if (sourceHandle === 'bottom' && (target.type === 'END' || target.type === 'RETRY')) {
+                targetHandleId = 'h-top';
+            }
+        } else {
+            // Vertical behavior
+            // Step nodes: target top, source bottom; failure (logical bottom) uses right
+            sourceHandleId = sourceHandle === 'right' ? 'h-bottom' : 'h-right';
+            targetHandleId = 'h-top';
+            // If failure connecting to END/RETRY, target should be left
+            if (sourceHandle === 'bottom' && (target.type === 'END' || target.type === 'RETRY')) {
+                targetHandleId = 'h-left';
+            }
         }
 
         const edge = {
             id: `e_${source.id}-${target.id}`,
             source: source.id,
             target: target.id,
-            sourceHandle: sourceHandle === 'bottom' ? 'h-bottom' : 'h-right', // Custom handles in your node
-            targetHandle: targetHandle,
+            sourceHandle: sourceHandleId,
+            targetHandle: targetHandleId,
             type: 'smoothstep',
             markerEnd: { type: MarkerType.ArrowClosed },
             style: sourceHandle === 'bottom' ? { stroke: 'red' } : { stroke: '#0099ff' }
@@ -155,7 +198,8 @@ export class NodeFactoryVisitor {
             to: target.id,
             sourceHandle: edge.sourceHandle,
             targetHandle: edge.targetHandle,
-            targetType: target.type
+            targetType: target.type,
+            orientation: this.orientation
         });
         this.reactEdges.push(edge);
     }
