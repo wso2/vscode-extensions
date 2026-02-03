@@ -33,6 +33,7 @@ import {
 	buildGitURL,
 	getComponentTypeText,
 	getIntegrationComponentTypeText,
+	getIntegrationTypeFromComponentType,
 	getRandomNumber,
 	getTypeOfIntegrationType,
 	makeURLSafe,
@@ -90,13 +91,25 @@ export const ComponentFormView: FC<ComponentFormWebviewProps> = (props) => {
 
 	// State for component selection in multi-component mode
 	const [selectedComponents, setSelectedComponents] = useState<ComponentSelectionItem[]>(() =>
-		components.map((comp, index) => ({
-			index,
-			selected: true, // Select all by default
-			componentType: comp.initialValues?.type || ChoreoComponentType.Service,
-			name: comp.initialValues?.name || comp.directoryName,
-			directoryName: comp.directoryName,
-		})),
+		components.map((comp, index) => {
+			// For Devant, convert ChoreoComponentType to DevantScopes for UI consistency
+			let componentType = comp.initialValues?.type || ChoreoComponentType.Service;
+			if (props.extensionName === "Devant" && comp.initialValues?.type) {
+				const convertedType = getIntegrationTypeFromComponentType(
+					comp.initialValues.type,
+					comp.initialValues.subType
+				);
+				componentType = convertedType || comp.initialValues.type;
+			}
+			
+			return {
+				index,
+				selected: true, // Select all by default
+				componentType,
+				name: comp.initialValues?.name || comp.directoryName,
+				directoryName: comp.directoryName,
+			};
+		}),
 	);
 
 	// Hook to manage per-component form data (build details, endpoints, proxy config) for multi-component mode

@@ -44,6 +44,7 @@ const getIntegrationTypeIcon = (type: string, subType?: string): { name: string;
 		[DevantScopes.EVENT_INTEGRATION]: { name: "Event", isCodicon: false },
 		[DevantScopes.FILE_INTEGRATION]: { name: "file", isCodicon: false },
 		[DevantScopes.AI_AGENT]: { name: "bi-ai-agent", isCodicon: false },
+		[DevantScopes.LIBRARY]: { name: "package", isCodicon: true },
 		[DevantScopes.ANY]: { name: "project", isCodicon: true },
 	};
 
@@ -262,7 +263,8 @@ export const MultiComponentSelector: FC<MultiComponentSelectorProps> = ({
 				{allComponents.map((component, index) => {
 					const selectionItem = selectedComponents.find((c) => c.index === index);
 					const isSelected = selectionItem?.selected ?? false;
-					const currentType = selectionItem?.componentType || component.initialValues?.type || ChoreoComponentType.Service;
+					const currentType = selectionItem?.componentType || 
+						(extensionName === "Devant" ? DevantScopes.INTEGRATION_AS_API : ChoreoComponentType.Service);
 					const currentName = selectionItem?.name || component.initialValues?.name || component.directoryName;
 					const isEditing = editingIndex === index;
 					const nameError = validationErrors[index];
