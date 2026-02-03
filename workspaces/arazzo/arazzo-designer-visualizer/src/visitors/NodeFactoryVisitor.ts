@@ -16,7 +16,7 @@ export class NodeFactoryVisitor {
         this.visited.add(node.id);
 
         // 1. Create the React Node
-        this.reactNodes.push({
+        const reactNode = {
             id: node.id,
             type: this.mapType(node.type), // Maps 'STEP' to 'default' or custom type
             position: { x: node.viewState.x, y: node.viewState.y },
@@ -26,7 +26,15 @@ export class NodeFactoryVisitor {
             },
             style: { width: node.viewState.w, height: node.viewState.h }, // Force the calculated size
             connectable: false
+        };
+        console.log(`[NodeFactory] Creating node:`, { 
+            id: reactNode.id, 
+            type: reactNode.type, 
+            internalType: node.type,
+            label: reactNode.data.label,
+            position: reactNode.position 
         });
+        this.reactNodes.push(reactNode);
 
         // 2. Create Edges
         // Right Side Connection
@@ -71,7 +79,7 @@ export class NodeFactoryVisitor {
 
             this.reactNodes.push({
                 id: sourcePortalId,
-                type: 'portal',
+                type: 'portalNode',
                 position: { x: sourcePortalX, y: sourcePortalY },
                 data: {
                     label: `→ ${target.label}`,
@@ -84,7 +92,7 @@ export class NodeFactoryVisitor {
 
             this.reactNodes.push({
                 id: targetPortalId,
-                type: 'portal',
+                type: 'portalNode',
                 position: { x: targetPortalX, y: targetPortalY },
                 data: {
                     label: ``,
@@ -132,7 +140,7 @@ export class NodeFactoryVisitor {
             targetHandle = 'h-top';
         }
 
-        this.reactEdges.push({
+        const edge = {
             id: `e_${source.id}-${target.id}`,
             source: source.id,
             target: target.id,
@@ -141,15 +149,23 @@ export class NodeFactoryVisitor {
             type: 'smoothstep',
             markerEnd: { type: MarkerType.ArrowClosed },
             style: sourceHandle === 'bottom' ? { stroke: 'red' } : { stroke: '#0099ff' }
+        };
+        console.log(`[NodeFactory] Creating edge:`, {
+            from: source.id,
+            to: target.id,
+            sourceHandle: edge.sourceHandle,
+            targetHandle: edge.targetHandle,
+            targetType: target.type
         });
+        this.reactEdges.push(edge);
     }
 
     private mapType(type: string): string {
-        // Map your internal types to React Flow types registered in App.tsx
-        if (type === 'CONDITION') { return 'condition'; }
-        if (type === 'START') { return 'start'; }
-        if (type === 'END') { return 'end'; }
-        if (type === 'RETRY') { return 'retry'; }
+        // Map your internal types to React Flow types registered in nodeTypes
+        if (type === 'CONDITION') { return 'conditionNode'; }
+        if (type === 'START') { return 'startNode'; }
+        if (type === 'END') { return 'endNode'; }
+        if (type === 'RETRY') { return 'retryNode'; }
         return 'stepNode'; // Your custom white rectangle
     }
 }

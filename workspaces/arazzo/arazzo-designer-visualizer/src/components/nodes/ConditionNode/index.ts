@@ -16,16 +16,7 @@
  * under the License.
  */
 
-export const NODE_WIDTH = 180;
-export const NODE_HEIGHT = 80;
-export const START_NODE_DIAMETER = 50;
-export const END_NODE_DIAMETER = 30;
-export const RETRY_NODE_DIAMETER = 35;
-export const DIAMOND_SIZE = 30; // Width/Height of condition node
-export const PX_PER_CHAR = 10;  // Approximate width per character for auto-sizing
-
-// Spacing
-export const NODE_GAP_X = 70;  // Horizontal gap between steps
-export const NODE_GAP_Y = 80;  // Vertical gap between branches/failure paths
-export const FAIL_GAP_Y = 50;  // Vertical gap for failure paths
-export const PADDING = 20;
+export { ConditionNodeModel } from './ConditionNodeModel';
+export type { ConditionNodeData } from './ConditionNodeModel';
+export { ConditionNodeWidget } from './ConditionNodeWidget';
+export { ConditionNodeFactory } from './ConditionNodeFactory';

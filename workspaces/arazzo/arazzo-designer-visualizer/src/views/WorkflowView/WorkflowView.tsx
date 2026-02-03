@@ -33,7 +33,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { buildGraphFromWorkflow } from './graphBuilder';
-import { nodeTypes } from '../../components/NodeStyles';
+import { nodeTypes } from '../../components/nodes';
 
 interface WorkflowViewProps {
     fileUri: string;
