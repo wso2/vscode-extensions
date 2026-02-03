@@ -30,7 +30,7 @@ export const StepNodeWidget: React.FC<NodeProps<StepNodeData>> = (props) => {
 
     return (
         <BaseNodeWidget {...props}>
-            {/* Additional handles for step nodes - preserving all original handle IDs */}
+            {/* Additional handles for step nodes - ensure both sides have correct source/target roles */}
             <NodeStyles.StyledHandle
                 type="target"
                 position={Position.Left}

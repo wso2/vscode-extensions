@@ -82,7 +82,8 @@ export const ConditionNodeWidget: React.FC<NodeProps<ConditionNodeData>> = ({ da
             <ConditionNodeContent>
                 <BranchIcon />
             </ConditionNodeContent>
-            
+        
+            {/* Preserve left/right handles */}
             <StyledHandle
                 type="target"
                 position={Position.Left}
@@ -103,6 +104,26 @@ export const ConditionNodeWidget: React.FC<NodeProps<ConditionNodeData>> = ({ da
                     right: 0,
                     top: 0,
                     transform: 'translate(50%, -50%) rotate(-45deg)',
+                }}
+            />
+
+            {/* New: top target and bottom source for portal/failure connections */}
+            <StyledHandle
+                type="target"
+                position={Position.Top}
+                id="h-top"
+                isConnectable={isConnectable}
+                style={{
+                    transform: 'translateY(-50%)',
+                }}
+            />
+            <StyledHandle
+                type="source"
+                position={Position.Bottom}
+                id="h-bottom"
+                isConnectable={isConnectable}
+                style={{
+                    transform: 'translateY(50%)',
                 }}
             />
         </ConditionNodeContainer>
