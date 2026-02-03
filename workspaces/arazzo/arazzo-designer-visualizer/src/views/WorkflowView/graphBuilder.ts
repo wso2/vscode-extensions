@@ -29,9 +29,18 @@ export const buildGraphFromWorkflow = async (workflow: ArazzoWorkflow, isVertica
     }
 
     // 4. Factory: Generate React Flow Nodes & Edges
-    const factory = new NodeFactoryVisitor();
-    factory.visit(root);
+    if (isVertical) {
+        const factory = new NodeFactoryVisitor('vertical');
+        factory.visit(root);
+        return factory.getElements();
+    }else {
+        const factory = new NodeFactoryVisitor('horizontal');
+        factory.visit(root);
+        return factory.getElements();
+    }
+    
 
-    return factory.getElements();
+
+    
 };
 
