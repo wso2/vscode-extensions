@@ -443,7 +443,7 @@ export interface MarketplaceItem {
 	categories?: string[];
 	visibility: ("PUBLIC" | "ORGANIZATION" | "PROJECT")[];
 	isThirdParty?: boolean;
-	endpointRefs?: Record<string, string>[];
+	endpointRefs?: Record<string, string>;
 }
 
 export interface ConnectionStatus {

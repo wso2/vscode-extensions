@@ -301,15 +301,34 @@ export interface CreateThirdPartyConnectionReq {
 	name: string;
 	serviceId: string;
 	serviceSchemaId: string;
-	endpointName: string;
+	endpointRefs: Record<string, string>;
 	sensitiveKeys: string[];
 }
+
+export type  MarketplaceIdlTypes = 'UDP' | 'TCP' | 'WSDL' | 'Proto3' | 'GraphQL_SDL' | 'OpenAPI' | 'AsyncAPI';
+
+export type MarketplaceServiceTypes = 'ASYNC_API' | 'GRPC' | 'GRAPHQL' | 'SOAP' | 'REST';
+
+export type RegisterMarketplaceConfigMap = Record<
+    string,
+    {
+        environmentTemplateIds: string[];
+        values: {
+            key: string;
+            value: string;
+            isOptional?: boolean;
+        }[];
+        name: string;
+    }
+>;
 
 export interface RegisterMarketplaceConnectionReq {
 	orgId: string;
 	orgUuid: string;
 	projectId: string;
 	name: string;
+	serviceType: MarketplaceServiceTypes;
+	idlType: MarketplaceIdlTypes;
 	idlContent: string;
 	schemaEntries: {
 		name: string;
@@ -318,11 +337,7 @@ export interface RegisterMarketplaceConnectionReq {
 		isSensitive: boolean;
 		isOptional?: boolean;
 	}[];
-	configs: {
-		key: string;
-		value: string;
-		isOptional?: boolean;
-	}[];
+	configs: RegisterMarketplaceConfigMap;
 }
 
 export interface DeleteConnectionReq {

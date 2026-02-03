@@ -479,6 +479,7 @@ export const createConnectionConfig = async (params: CreateLocalConnectionsConfi
 	if (!org) {
 		return "";
 	}
+	const componentYamlPath = join(params.componentDir, ".choreo", "component.yaml");
 
 	let project = dataCacheStore
 		.getState()
@@ -495,35 +496,36 @@ export const createConnectionConfig = async (params: CreateLocalConnectionsConfi
 		}
 	}
 
-	let component = dataCacheStore
-		.getState()
-		.getComponents(org.handle, project.handler)
-		?.find((item) => item.metadata?.id === params.marketplaceItem?.component?.componentId);
-	if (!component) {
-		const extName = webviewStateStore.getState().state?.extensionName;
-		const components = await window.withProgress(
-			{
-				title: `Fetching ${extName === "Devant" ? "integrations" : "components"} of project ${project.name}...`,
-				location: ProgressLocation.Notification,
-			},
-			() =>
-				ext.clients.rpcClient.getComponentList({
-					orgHandle: org.handle,
-					orgId: org.id.toString(),
-					projectHandle: project?.handler!,
-					projectId: project?.id!,
-				}),
-		);
-		component = components?.find((item) => item.metadata?.id === params.marketplaceItem?.component?.componentId);
-		if (!component) {
-			return "";
-		}
-	}
 
-	const componentYamlPath = join(params.componentDir, ".choreo", "component.yaml");
-	let resourceRef = `service:/${project.handler}/${component.metadata?.handler}/v1/${params?.marketplaceItem?.component?.endpointId}/${params.visibility}`;
+	let resourceRef =  ``;
 	if(params.marketplaceItem?.isThirdParty){
 		resourceRef = `thirdparty:${params.marketplaceItem?.name}/${params.marketplaceItem?.version}`;
+	}else{
+		let component = dataCacheStore
+			.getState()
+			.getComponents(org.handle, project.handler)
+			?.find((item) => item.metadata?.id === params.marketplaceItem?.component?.componentId);
+		if (!component) {
+			const extName = webviewStateStore.getState().state?.extensionName;
+			const components = await window.withProgress(
+				{
+					title: `Fetching ${extName === "Devant" ? "integrations" : "components"} of project ${project.name}...`,
+					location: ProgressLocation.Notification,
+				},
+				() =>
+					ext.clients.rpcClient.getComponentList({
+						orgHandle: org.handle,
+						orgId: org.id.toString(),
+						projectHandle: project?.handler!,
+						projectId: project?.id!,
+					}),
+			);
+			component = components?.find((item) => item.metadata?.id === params.marketplaceItem?.component?.componentId);
+			if(!component){
+				return ""
+			}
+			resourceRef = `service:/${project.handler}/${component?.metadata?.handler}/v1/${params?.marketplaceItem?.component?.endpointId}/${params.visibility}`;
+		}
 	}
 	if (existsSync(componentYamlPath)) {
 		const componentYamlFileContent: ComponentYamlContent = yaml.load(readFileSync(componentYamlPath, "utf8")) as any;
