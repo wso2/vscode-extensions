@@ -54,10 +54,6 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 	const isRegistrySupported = compareVersions(runtimeVersion, RUNTIME_VERSION_440) < 0;
 
 	commands.registerCommand(COMMANDS.REFRESH_COMMAND, () => {
-		if (isInWI) {
-			commands.executeCommand(COMMANDS.WI_PROJECT_EXPLORER_VIEW_REFRESH);
-			return;
-		}
 		return projectExplorerDataProvider.refresh();
 	});
 

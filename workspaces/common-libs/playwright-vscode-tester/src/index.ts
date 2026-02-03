@@ -1,4 +1,4 @@
-export { getBrowser, getBrowserLaunchOptions } from './utils';
+export { getBrowser, getBrowserLaunchOptions, downloadExtensionFromMarketplace } from './utils';
 
 export { ReleaseQuality } from './codeUtil';
 
