@@ -23,7 +23,7 @@ export interface FormFillProps {
     values: {
         [key: string]: {
             value: string,
-            type: 'input' | 'dropdown' | 'checkbox' | 'combo' | 'expression' | 'file' | 'inlineExpression' | 'radio' | 'textarea',
+            type: 'input' | 'dropdown' | 'checkbox' | 'combo' | 'expression' | 'file' | 'directory' | 'inlineExpression' | 'radio' | 'textarea',
             additionalProps?: {
                 [key: string]: any
             }
@@ -174,6 +174,23 @@ export class Form {
                         await textInput?.fill(data.value);
                         const okBtn = await fileInput?.waitForSelector('a.monaco-button:has-text("OK")');
                         await okBtn?.click();
+                        break;
+                    }
+                    case 'directory': {
+                        // Find the input field by label and set its value (readonly field)
+                        const labelElement = this.container.locator(`label:has-text("${key}")`);
+                        await labelElement.waitFor();
+                        // Find the parent container and then the input field
+                        const parentContainer = labelElement.locator('../..');
+                        const input = parentContainer.locator('input[type="text"][readonly]');
+                        await input.waitFor();
+                        // Set value directly using JavaScript evaluation since input is readonly
+                        await input.evaluate((el: any, value: string) => {
+                            el.value = value;
+                            // Trigger input and change events to ensure any listeners are notified
+                            el.dispatchEvent(new Event('input', { bubbles: true }));
+                            el.dispatchEvent(new Event('change', { bubbles: true }));
+                        }, data.value);
                         break;
                     }
                     case 'radio': {
