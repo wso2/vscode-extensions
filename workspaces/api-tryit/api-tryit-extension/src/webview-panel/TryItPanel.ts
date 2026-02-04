@@ -102,10 +102,16 @@ export class TryItPanel {
 						const safeName = name.trim();
 						const safeId = safeName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
 						
-						// 1. Create a folder with the given name in the provided path
+						// 1. Create a folder with the given name in the provided path (only if it doesn't exist)
 						const collectionFolderPath = path.join(folderPath, safeId);
 						const collectionFolderUri = vscode.Uri.file(collectionFolderPath);
-						await vscode.workspace.fs.createDirectory(collectionFolderUri);
+						try {
+							await vscode.workspace.fs.stat(collectionFolderUri);
+							// Directory already exists, skip creation
+						} catch {
+							// Directory doesn't exist, create it
+							await vscode.workspace.fs.createDirectory(collectionFolderUri);
+						}
 						
 						// 2. Create collection.yaml file inside the folder
 						const collectionFilePath = path.join(collectionFolderPath, 'collection.yaml');
