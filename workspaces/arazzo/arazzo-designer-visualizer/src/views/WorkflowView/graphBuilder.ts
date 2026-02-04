@@ -1,9 +1,11 @@
 import { ArazzoWorkflow } from '@wso2/arazzo-designer-core';
 import { InitVisitor } from '../../visitors/InitVisitor';
-import { SizingVisitor } from '../../visitors/SizingVisitor';
-import { PositionVisitor } from '../../visitors/PositionVisitorHorizontal';
+import { SizingVisitorHorizontal } from '../../visitors/SizingVisitorHorizontal';
+import { SizingVisitorVertical } from '../../visitors/SizingvisitorVertical';
+import { PositionVisitorHorizontal } from '../../visitors/PositionVisitorHorizontal';
 import { PositionVisitorVertical } from '../../visitors/PositionVisitorVertical';
-import { NodeFactoryVisitor } from '../../visitors/NodeFactoryVisitor';
+import { NodeFactoryVisitorHorizontal } from '../../visitors/NodeFactoryVisitorHorizontal';
+import { NodeFactoryVisitorVertical } from '../../visitors/NodeFactoryVisitorVertical';
 
 /**
  * Builds the graph visualization from the workflow using the Visitor pattern.
@@ -15,8 +17,13 @@ export const buildGraphFromWorkflow = async (workflow: ArazzoWorkflow, isVertica
     const root = init.buildTree(workflow);
 
     // 2. Sizing: Calculate dimensions (Bottom-Up)
-    const sizing = new SizingVisitor();
-    sizing.visit(root);
+    if (isVertical) {
+        const sizing = new SizingVisitorVertical();
+        sizing.visit(root);
+    } else {
+        const sizing = new SizingVisitorHorizontal();
+        sizing.visit(root);
+    }
 
     // 3. Positioning: Assign X,Y coordinates (Top-Down)
     // Start at (50, 300) to give some padding
@@ -24,17 +31,17 @@ export const buildGraphFromWorkflow = async (workflow: ArazzoWorkflow, isVertica
         const positioning = new PositionVisitorVertical();
         positioning.visit(root, 300, 50);
     } else {
-        const positioning = new PositionVisitor();
+        const positioning = new PositionVisitorHorizontal();
         positioning.visit(root, 50, 300);
     }
 
     // 4. Factory: Generate React Flow Nodes & Edges
     if (isVertical) {
-        const factory = new NodeFactoryVisitor('vertical');
+        const factory = new NodeFactoryVisitorVertical();
         factory.visit(root);
         return factory.getElements();
     }else {
-        const factory = new NodeFactoryVisitor('horizontal');
+        const factory = new NodeFactoryVisitorHorizontal();
         factory.visit(root);
         return factory.getElements();
     }

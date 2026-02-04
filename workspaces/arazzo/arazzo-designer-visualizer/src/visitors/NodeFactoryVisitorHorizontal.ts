@@ -2,16 +2,11 @@ import { FlowNode } from '../utils/types';
 import { Node, Edge, MarkerType } from '@xyflow/react';
 import * as C from '../constants/nodeConstants';
 
-export class NodeFactoryVisitor {
+export class NodeFactoryVisitorHorizontal {
     private reactNodes: Node[] = [];
     private reactEdges: Edge[] = [];
     private visited: Set<string> = new Set();
     private portalCounter: number = 0;
-    private orientation: 'horizontal' | 'vertical' = 'horizontal';
-
-    constructor(orientation: 'horizontal' | 'vertical' = 'horizontal') {
-        this.orientation = orientation;
-    }
 
     public getElements() { return { nodes: this.reactNodes, edges: this.reactEdges }; }
 
@@ -74,24 +69,13 @@ export class NodeFactoryVisitor {
             const targetPortalId = `portal_in_${source.id}_to_${target.id}_${this.portalCounter}`;
             this.portalCounter++;
 
-            // Portal positions differ by orientation
-            let sourcePortalX: number, sourcePortalY: number, targetPortalX: number, targetPortalY: number;
-            if (this.orientation === 'horizontal') {
-                // Portal above source (exit portal)
-                sourcePortalX = source.viewState.x;
-                sourcePortalY = source.viewState.y - C.NODE_GAP_Y / 2;
+            // Portal above source (exit portal)
+            const sourcePortalX = source.viewState.x;
+            const sourcePortalY = source.viewState.y - C.NODE_GAP_Y_Horizontal / 2;
 
-                // Portal above target (entry portal)
-                targetPortalX = target.viewState.x + (target.viewState.w / 2);
-                targetPortalY = target.viewState.y - C.NODE_GAP_Y / 2;
-            } else {
-                // Vertical layout: place portals to the right of nodes
-                sourcePortalX = source.viewState.x + source.viewState.w + C.NODE_GAP_X / 2;
-                sourcePortalY = source.viewState.y + (source.viewState.h / 2);
-
-                targetPortalX = target.viewState.x + target.viewState.w + C.NODE_GAP_X / 2;
-                targetPortalY = target.viewState.y + (target.viewState.h / 2);
-            }
+            // Portal above target (entry portal)
+            const targetPortalX = target.viewState.x + (target.viewState.w / 2);
+            const targetPortalY = target.viewState.y - C.NODE_GAP_Y_Horizontal / 2;
 
             this.reactNodes.push({
                 id: sourcePortalId,
@@ -119,13 +103,11 @@ export class NodeFactoryVisitor {
                 connectable: false
             });
 
-            // Map logical sourceHandle ('right' success, 'bottom' failure) to actual handle IDs per orientation
-            const sourceHandleId = this.orientation === 'horizontal'
-                ? (sourceHandle === 'bottom' ? 'h-bottom' : 'h-right')
-                : (sourceHandle === 'right' ? 'h-bottom' : 'h-right');
+            // Map logical sourceHandle ('right' success, 'bottom' failure) to actual handle IDs
+            const sourceHandleId = sourceHandle === 'bottom' ? 'h-bottom' : 'h-right';
 
-            // Portal handle for the portal node depends on orientation
-            const portalNodeHandle = this.orientation === 'horizontal' ? 'h-bottom' : 'h-right';
+            // Portal handle for the portal node
+            const portalNodeHandle = 'h-bottom';
 
             // Edge: source → source portal
             this.reactEdges.push({
@@ -140,8 +122,7 @@ export class NodeFactoryVisitor {
             });
 
             // Edge: target portal → target (entry to target)
-            // Map portal->target source handle as portalNodeHandle, and target handle depends on orientation
-            const targetNodeHandle = this.orientation === 'horizontal' ? 'h-top' : 'h-left';
+            const targetNodeHandle = 'h-top';
 
             this.reactEdges.push({
                 id: `e_${targetPortalId}-${target.id}`,
@@ -160,27 +141,12 @@ export class NodeFactoryVisitor {
     }
 
     private createEdge(source: FlowNode, target: FlowNode, sourceHandle: 'right' | 'bottom') {
-        // Determine handle mapping based on orientation
-        let sourceHandleId: string;
-        let targetHandleId: string;
-
-        if (this.orientation === 'horizontal') {
-            // Existing (preserved) horizontal behavior
-            sourceHandleId = sourceHandle === 'bottom' ? 'h-bottom' : 'h-right';
-            targetHandleId = 'h-left';
-            // If connecting from Failure (bottom) to a Terminate Node (END) or Retry Node, use top handle
-            if (sourceHandle === 'bottom' && (target.type === 'END' || target.type === 'RETRY')) {
-                targetHandleId = 'h-top';
-            }
-        } else {
-            // Vertical behavior
-            // Step nodes: target top, source bottom; failure (logical bottom) uses right
-            sourceHandleId = sourceHandle === 'right' ? 'h-bottom' : 'h-right';
+        // Horizontal behavior
+        let sourceHandleId = sourceHandle === 'bottom' ? 'h-bottom' : 'h-right';
+        let targetHandleId = 'h-left';
+        // If connecting from Failure (bottom) to a Terminate Node (END) or Retry Node, use top handle
+        if (sourceHandle === 'bottom' && (target.type === 'END' || target.type === 'RETRY')) {
             targetHandleId = 'h-top';
-            // If failure connecting to END/RETRY, target should be left
-            if (sourceHandle === 'bottom' && (target.type === 'END' || target.type === 'RETRY')) {
-                targetHandleId = 'h-left';
-            }
         }
 
         const edge = {
@@ -199,7 +165,7 @@ export class NodeFactoryVisitor {
             sourceHandle: edge.sourceHandle,
             targetHandle: edge.targetHandle,
             targetType: target.type,
-            orientation: this.orientation
+            orientation: 'horizontal'
         });
         this.reactEdges.push(edge);
     }

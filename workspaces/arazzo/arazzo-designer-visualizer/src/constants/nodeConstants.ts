@@ -16,6 +16,7 @@
  * under the License.
  */
 
+//node related constants
 export const NODE_WIDTH = 180;
 export const NODE_HEIGHT = 60;
 export const START_NODE_DIAMETER = 50;
@@ -24,16 +25,27 @@ export const RETRY_NODE_DIAMETER = 35;
 export const DIAMOND_SIZE = 30; // Width/Height of condition node
 export const PX_PER_CHAR = 10;  // Approximate width per character for auto-sizing
 
-// Spacing
-export const NODE_GAP_X = 70;  // Horizontal gap between steps
-export const NODE_GAP_Y = 80;  // Vertical gap between branches/failure paths
-export const FAIL_GAP_Y = 50;  // Vertical gap for failure paths
-export const PADDING = 20;
-
-// Additional layout/text constants (selected from bi-diagram defaults)
 export const LABEL_HEIGHT = 20;
 export const LABEL_WIDTH = 180;
 export const NODE_BORDER_WIDTH = 1.8;
 export const NODE_PADDING = 8;
 export const DIAGRAM_CENTER_X = 0;
 export const END_NODE_INNER_DIAMETER = 15;
+export const PADDING = 20;
+
+
+// Horizontal layout constants (main flow goes right, branches go down)
+export const NODE_GAP_X_Horizontal = 70;  // Horizontal gap between steps
+export const NODE_GAP_Y_Horizontal = 80;  // Vertical gap between branches/failure paths
+export const FAIL_GAP_Y_Horizontal = 50;  // Vertical gap for failure paths
+//export const FAIL_GAP_X_Horizontal = 50;  // Horizontal gap for failure paths
+
+// Vertical layout constants (main flow goes down, branches go right)
+export const NODE_GAP_X_Vertical = 50;  // Horizontal gap between steps
+export const NODE_GAP_Y_Vertical = 80;  // Vertical gap between branches/failure paths
+//export const FAIL_GAP_Y_Vertical = 50;  // Vertical gap for failure paths
+export const FAIL_GAP_X_Vertical = 50;  // Horizontal gap for failure paths
+
+
+// Additional layout/text constants (selected from bi-diagram defaults)
+
