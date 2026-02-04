@@ -19,13 +19,15 @@
 import { createMachine, assign, interpret } from 'xstate';
 import * as vscode from 'vscode';
 import { ApiRequestItem } from '@wso2/api-tryit-core';
+import { TryItPanel } from './webview-panel/TryItPanel';
 
 // Event types for the state machine
 export const enum EVENT_TYPE {
     API_ITEM_SELECTED = 'API_ITEM_SELECTED',
     REQUEST_UPDATED = 'REQUEST_UPDATED',
     WEBVIEW_READY = 'WEBVIEW_READY',
-    SHOW_CREATE_COLLECTION_FORM = 'SHOW_CREATE_COLLECTION_FORM'
+    SHOW_CREATE_COLLECTION_FORM = 'SHOW_CREATE_COLLECTION_FORM',
+    ADD_REQUEST_TO_COLLECTION = 'ADD_REQUEST_TO_COLLECTION'
 }
 
 // Context interface for the state machine
@@ -35,6 +37,8 @@ export interface ApiTryItContext {
     webviewReady: boolean;
     savedItems: Map<string, ApiRequestItem>; // Cache of edited items by ID
     showCreateCollectionRequest?: boolean;
+    currentCollectionPath?: string; // Path to the collection folder
+    currentCollectionId?: string; // ID of the current collection
 }
 
 // Event interface
@@ -57,7 +61,13 @@ interface ShowCreateCollectionEvent {
     type: 'SHOW_CREATE_COLLECTION_FORM';
 }
 
-type ApiTryItEvent = ApiItemSelectedEvent | RequestUpdatedEvent | WebviewReadyEvent | ShowCreateCollectionEvent;
+interface AddRequestToCollectionEvent {
+    type: 'ADD_REQUEST_TO_COLLECTION';
+    collectionId: string;
+    collectionPath: string;
+}
+
+type ApiTryItEvent = ApiItemSelectedEvent | RequestUpdatedEvent | WebviewReadyEvent | ShowCreateCollectionEvent | AddRequestToCollectionEvent;
 
 // State machine definition
 const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
@@ -88,6 +98,12 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                         selectedItem: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.data,
                         selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath || event.data.filePath
                     })
+                },
+                ADD_REQUEST_TO_COLLECTION: {
+                    actions: assign({
+                        currentCollectionId: (_context: ApiTryItContext, event: AddRequestToCollectionEvent) => event.collectionId,
+                        currentCollectionPath: (_context: ApiTryItContext, event: AddRequestToCollectionEvent) => event.collectionPath
+                    })
                 }
             }
         },
@@ -107,6 +123,12 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                             return savedItem || event.data;
                         },
                         selectedFilePath: (_context: ApiTryItContext, event: ApiItemSelectedEvent) => event.filePath || event.data?.filePath
+                    })
+                },
+                ADD_REQUEST_TO_COLLECTION: {
+                    actions: assign({
+                        currentCollectionId: (_context: ApiTryItContext, event: AddRequestToCollectionEvent) => event.collectionId,
+                        currentCollectionPath: (_context: ApiTryItContext, event: AddRequestToCollectionEvent) => event.collectionPath
                     })
                 }
             }
@@ -144,6 +166,12 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                             newMap.set(event.data.id, event.data);
                             return newMap;
                         }
+                    })
+                },
+                ADD_REQUEST_TO_COLLECTION: {
+                    actions: assign({
+                        currentCollectionId: (_context: ApiTryItContext, event: AddRequestToCollectionEvent) => event.collectionId,
+                        currentCollectionPath: (_context: ApiTryItContext, event: AddRequestToCollectionEvent) => event.collectionPath
                     })
                 },
                 WEBVIEW_READY: {
@@ -218,6 +246,26 @@ export const ApiTryItStateMachine = {
                     data: context.selectedItem
                 });
             }
+        } else if (eventType === EVENT_TYPE.ADD_REQUEST_TO_COLLECTION && filePath) {
+            console.log('[StateMachine] ADD_REQUEST_TO_COLLECTION triggered with collectionId:', filePath, 'webviewPanel:', !!webviewPanel);
+            // Update context with collection info and create new request
+            stateMachineService.send({ type: 'ADD_REQUEST_TO_COLLECTION', collectionId: filePath, collectionPath: filePath });
+            // Create an empty request for this collection
+            const emptyRequestItem: ApiRequestItem = {
+                id: `new-${Date.now()}`,
+                name: 'New Request',
+                request: {
+                    id: `new-${Date.now()}`,
+                    name: 'New Request',
+                    method: 'GET',
+                    url: '',
+                    queryParameters: [],
+                    headers: []
+                }
+            };
+            // Use TryItPanel.postMessage to queue the message if webview isn't ready
+            console.log('[StateMachine] Sending apiRequestItemSelected message via TryItPanel.postMessage');
+            TryItPanel.postMessage('apiRequestItemSelected', emptyRequestItem);
         } else if (eventType === EVENT_TYPE.SHOW_CREATE_COLLECTION_FORM) {
             // Record the intent in the state machine context
             stateMachineService.send({ type: 'SHOW_CREATE_COLLECTION_FORM' });

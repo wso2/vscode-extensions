@@ -100,6 +100,10 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 						}
 					}
 					break;
+				case 'addRequestToCollection':
+					// Handle adding a request to a collection
+					this._handleAddRequestToCollection(message.collectionId as string);
+					break;
 			}
 		});
 
@@ -222,6 +226,58 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 		} catch (error) {
 			vscode.window.showErrorMessage(`Failed to open request: ${error}`);
 		}
+	}
+
+	private async _handleAddRequestToCollection(collectionId: string) {
+		try {
+			console.log('[ActivityPanel] _handleAddRequestToCollection called with collectionId:', collectionId);
+			if (!this._apiExplorerProvider) {
+				vscode.window.showErrorMessage('API Explorer provider not available');
+				return;
+			}
+
+			// Get all collections to find the one with matching ID
+			const allCollections = await this._apiExplorerProvider.getCollections();
+			const collection = this._findCollectionById(allCollections, collectionId);
+
+			if (!collection) {
+				vscode.window.showErrorMessage('Collection not found');
+				return;
+			}
+
+			console.log('[ActivityPanel] Collection found, showing TryIt panel');
+			// Show TryIt panel
+			TryItPanel.show(this._extensionContext);
+
+			// Wait a moment to ensure the panel is ready
+			await new Promise(resolve => setTimeout(resolve, 300));
+
+			console.log('[ActivityPanel] Sending ADD_REQUEST_TO_COLLECTION event with collectionId:', collectionId);
+			// Send event to state machine to create a new request in this collection
+			// The collection's filePath is already known and will be used by the state machine
+			ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, collectionId);
+
+			const collectionName = typeof collection === 'object' && collection !== null && 'name' in collection 
+				? (collection as Record<string, unknown>).name 
+				: 'Unknown';
+			vscode.window.showInformationMessage(`Add request to "${collectionName}" collection`);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to add request: ${error}`);
+		}
+	}
+
+	private _findCollectionById(items: unknown[], collectionId: string): unknown {
+		for (const item of items) {
+			const typedItem = item as Record<string, unknown>;
+			if (typedItem.id === collectionId) {
+				return typedItem;
+			}
+			if (Array.isArray(typedItem.children)) {
+				const found = this._findCollectionById(typedItem.children as unknown[], collectionId);
+				if (found) return found;
+			}
+		}
+		return undefined;
 	}
 
 	private _findRequestItem(collections: unknown[], requestId: string): Record<string, unknown> | undefined {

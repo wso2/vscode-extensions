@@ -30,6 +30,8 @@ export class TryItPanel {
 	private readonly _panel: vscode.WebviewPanel;
 	private _disposables: vscode.Disposable[] = [];
 	private static _messenger: Messenger = new Messenger();
+	private _webviewReady = false;
+	private _pendingMessages: Array<{ type: string; data?: unknown }> = [];
 
 	private constructor(panel: vscode.WebviewPanel, extensionContext: vscode.ExtensionContext) {
 		this._panel = panel;
@@ -48,6 +50,20 @@ export class TryItPanel {
 		this._panel.webview.onDidReceiveMessage(
 			async message => {
 				const messageType = message.type || message.command;
+				
+				// Handle webviewReady to flush pending messages
+				if (message.type === 'webviewReady') {
+					console.log('[TryItPanel] Webview is ready');
+					this._webviewReady = true;
+					// Flush pending messages
+					while (this._pendingMessages.length > 0) {
+						const msg = this._pendingMessages.shift();
+						if (msg) {
+							this._panel.webview.postMessage({ type: msg.type, data: msg.data });
+						}
+					}
+					return;
+				}
 				// Handle folder selection for collection creation
 				if (message.type === 'selectCollectionFolder') {
 					try {
@@ -304,7 +320,7 @@ export class TryItPanel {
 	public static sendRequestToWebview(requestItem: unknown) {
 		if (TryItPanel.currentPanel) {
 			TryItPanel.currentPanel._panel.webview.postMessage({
-				type: 'loadRequest',
+				type: 'apiRequestItemSelected',
 				data: requestItem
 			});
 		}
@@ -312,7 +328,16 @@ export class TryItPanel {
 
 	public static postMessage(type: string, data?: unknown) {
 		if (TryItPanel.currentPanel) {
-			TryItPanel.currentPanel._panel.webview.postMessage({ type, data });
+			const panel = TryItPanel.currentPanel;
+			if (panel._webviewReady) {
+				console.log('[TryItPanel] Webview is ready, sending message:', type);
+				panel._panel.webview.postMessage({ type, data });
+			} else {
+				console.log('[TryItPanel] Webview not ready, queuing message:', type);
+				panel._pendingMessages.push({ type, data });
+			}
+		} else {
+			console.warn('[TryItPanel] No current panel, cannot send message');
 		}
 	}
 

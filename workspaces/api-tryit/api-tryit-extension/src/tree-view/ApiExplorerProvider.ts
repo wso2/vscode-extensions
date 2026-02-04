@@ -502,9 +502,30 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 				)
 			);
 		} else if (element.type === 'collection' && element.collection) {
-			// Collection level - show folders
-			return Promise.resolve(
-				element.collection.folders.map((folder: ApiFolder) =>
+			// Collection level - show root-level requests first, then folders
+			const children: ApiTreeItem[] = [];
+			
+			// Add root-level requests
+			if (element.collection.rootItems && element.collection.rootItems.length > 0) {
+				element.collection.rootItems.forEach((item: ApiRequestItem) => {
+					children.push(
+						new ApiTreeItem(
+							item.name,
+							vscode.TreeItemCollapsibleState.None,
+							'request',
+							'$(symbol-method)',
+							item.request.method,
+							undefined,
+							undefined,
+							item
+						)
+					);
+				});
+			}
+			
+			// Then add folders
+			element.collection.folders.forEach((folder: ApiFolder) => {
+				children.push(
 					new ApiTreeItem(
 						folder.name,
 						vscode.TreeItemCollapsibleState.Collapsed,
@@ -514,8 +535,10 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 						undefined,
 						folder
 					)
-				)
-			);
+				);
+			});
+			
+			return Promise.resolve(children);
 		} else if (element.type === 'folder' && element.folder) {
 			// Folder level - show request items
 			return Promise.resolve(
