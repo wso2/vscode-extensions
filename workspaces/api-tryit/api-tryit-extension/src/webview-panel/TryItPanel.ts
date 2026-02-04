@@ -354,11 +354,19 @@ export class TryItPanel {
 	}
 
 	public static sendRequestToWebview(requestItem: unknown) {
-		if (TryItPanel.currentPanel) {
-			TryItPanel.currentPanel._panel.webview.postMessage({
+		if (!TryItPanel.currentPanel) {
+			return;
+		}
+
+		const panel = TryItPanel.currentPanel;
+		if (panel._webviewReady) {
+			panel._panel.webview.postMessage({
 				type: 'apiRequestItemSelected',
 				data: requestItem
 			});
+		} else {
+			// Queue the message until the webview signals readiness
+			panel._pendingMessages.push({ type: 'apiRequestItemSelected', data: requestItem });
 		}
 	}
 
