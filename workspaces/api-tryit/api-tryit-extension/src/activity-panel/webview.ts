@@ -25,10 +25,13 @@ import { TryItPanel } from '../webview-panel/TryItPanel';
 
 export class ActivityPanel implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'api-tryit.activity.panel';
+	public static currentPanel: ActivityPanel | undefined;
 	private _view?: vscode.WebviewView;
 	private _sendCollectionsTimeoutId: ReturnType<typeof setTimeout> | undefined;
 	private _lastSentCollectionsHash: string | undefined;
 	private _listenersInitialized = false;
+	private _webviewReady = false;
+	private _pendingMessages: Array<{ type: string; data?: unknown }> = [];
 
 	constructor(
 		private readonly _extensionContext: vscode.ExtensionContext,
@@ -87,7 +90,15 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 					break;
 				case 'webviewReady':
 					// Webview is ready, send initial data
+					this._webviewReady = true;
 					this._sendCollections(true);
+					// flush pending messages
+					while (this._pendingMessages.length > 0 && this._view) {
+						const msg = this._pendingMessages.shift();
+						if (msg) {
+							this._view.webview.postMessage({ type: msg.type, data: msg.data });
+						}
+					}
 					break;
 			}
 		});
@@ -114,6 +125,14 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 
 		// Send initial collections data immediately (no debounce)
 		this._sendCollections(true);
+	}
+
+	public static postMessage(type: string, data?: unknown) {
+		if (ActivityPanel.currentPanel && ActivityPanel.currentPanel._view && ActivityPanel.currentPanel._webviewReady) {
+			ActivityPanel.currentPanel._view.webview.postMessage({ type, data });
+		} else if (ActivityPanel.currentPanel) {
+			ActivityPanel.currentPanel._pendingMessages.push({ type, data });
+		}
 	}
 
 	private _debouncedSendCollections() {

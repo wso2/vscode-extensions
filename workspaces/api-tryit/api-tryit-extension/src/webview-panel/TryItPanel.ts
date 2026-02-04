@@ -20,6 +20,8 @@ import * as vscode from 'vscode';
 import { getComposerJSFiles } from '../util';
 import { ApiTryItStateMachine, EVENT_TYPE } from '../stateMachine';
 import { ApiRequestItem } from '@wso2/api-tryit-core';
+import * as path from 'path';
+import { Buffer } from 'buffer';
 import { Messenger } from 'vscode-messenger';
 import { registerApiTryItRpcHandlers } from '../rpc-managers';
 
@@ -46,6 +48,56 @@ export class TryItPanel {
 		this._panel.webview.onDidReceiveMessage(
 			async message => {
 				const messageType = message.type || message.command;
+				// Handle folder selection for collection creation
+				if (message.type === 'selectCollectionFolder') {
+					try {
+						const folderUris = await vscode.window.showOpenDialog({
+							canSelectFolders: true,
+							canSelectFiles: false,
+							canSelectMany: false,
+							openLabel: 'Select Collection Folder'
+						});
+						if (folderUris && folderUris.length > 0) {
+							const selectedPath = folderUris[0].fsPath;
+							this._panel.webview.postMessage({ 
+								type: 'collectionFolderSelected', 
+								data: { path: selectedPath } 
+							});
+						}
+					} catch (error: unknown) {
+						vscode.window.showErrorMessage(`Error selecting folder: ${error instanceof Error ? error.message : 'Unknown error'}`);
+					}
+					return;
+				}
+				if (message.type === 'createCollectionSubmit') {
+					try {
+						const { name, folderPath } = message.data || {};
+						let targetPath = folderPath;
+						
+						// If no folder path provided, use configured collections path
+						if (!targetPath) {
+							const config = vscode.workspace.getConfiguration('api-tryit');
+							targetPath = config.get<string>('collectionsPath');
+							if (!targetPath) {
+								this._panel.webview.postMessage({ type: 'createCollectionResult', data: { success: false, message: 'Collections path not set' } });
+								return;
+							}
+						}
+						
+						const safeName = (name || 'collection').toString().trim();
+						const fileName = `${safeName.replace(/[^a-z0-9-_.]/ig, '-')}.json`;
+						const destination = vscode.Uri.file(path.join(targetPath, fileName));
+						const content = JSON.stringify({ name: safeName, items: [] }, null, 2);
+						await vscode.workspace.fs.writeFile(destination, Buffer.from(content, 'utf8'));
+						vscode.window.showInformationMessage(`Collection created: ${fileName}`);
+						this._panel.webview.postMessage({ type: 'createCollectionResult', data: { success: true, message: `Collection created: ${fileName}` } });
+						vscode.commands.executeCommand('api-tryit.refreshExplorer');
+					} catch (error: unknown) {
+						const msg = error instanceof Error ? error.message : 'Unknown error';
+						this._panel.webview.postMessage({ type: 'createCollectionResult', data: { success: false, message: msg } });
+					}
+					return;
+				}
 				switch (messageType) {
 					case 'webviewReady':
 						ApiTryItStateMachine.sendEvent(EVENT_TYPE.WEBVIEW_READY);
@@ -163,7 +215,7 @@ export class TryItPanel {
 								});
 							}
 						} catch (error: unknown) {
-									vscode.window.showErrorMessage(`Error selecting file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+							vscode.window.showErrorMessage(`Error selecting file: ${error instanceof Error ? error.message : 'Unknown error'}`);
 						}
 						break;
 				}
@@ -213,6 +265,12 @@ export class TryItPanel {
 				type: 'loadRequest',
 				data: requestItem
 			});
+		}
+	}
+
+	public static postMessage(type: string, data?: unknown) {
+		if (TryItPanel.currentPanel) {
+			TryItPanel.currentPanel._panel.webview.postMessage({ type, data });
 		}
 	}
 

@@ -24,7 +24,8 @@ import { ApiRequestItem } from '@wso2/api-tryit-core';
 export const enum EVENT_TYPE {
     API_ITEM_SELECTED = 'API_ITEM_SELECTED',
     REQUEST_UPDATED = 'REQUEST_UPDATED',
-    WEBVIEW_READY = 'WEBVIEW_READY'
+    WEBVIEW_READY = 'WEBVIEW_READY',
+    SHOW_CREATE_COLLECTION_FORM = 'SHOW_CREATE_COLLECTION_FORM'
 }
 
 // Context interface for the state machine
@@ -33,6 +34,7 @@ export interface ApiTryItContext {
     selectedFilePath?: string; // File path of the selected request
     webviewReady: boolean;
     savedItems: Map<string, ApiRequestItem>; // Cache of edited items by ID
+    showCreateCollectionRequest?: boolean;
 }
 
 // Event interface
@@ -51,7 +53,11 @@ interface WebviewReadyEvent {
     type: 'WEBVIEW_READY';
 }
 
-type ApiTryItEvent = ApiItemSelectedEvent | RequestUpdatedEvent | WebviewReadyEvent;
+interface ShowCreateCollectionEvent {
+    type: 'SHOW_CREATE_COLLECTION_FORM';
+}
+
+type ApiTryItEvent = ApiItemSelectedEvent | RequestUpdatedEvent | WebviewReadyEvent | ShowCreateCollectionEvent;
 
 // State machine definition
 const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
@@ -71,6 +77,11 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                         webviewReady: true
                     })
                 },
+                SHOW_CREATE_COLLECTION_FORM: {
+                    actions: assign({
+                        showCreateCollectionRequest: (_context: ApiTryItContext) => true
+                    })
+                },
                 API_ITEM_SELECTED: {
                     target: 'itemSelected',
                     actions: assign({
@@ -82,6 +93,11 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
         },
         ready: {
             on: {
+                SHOW_CREATE_COLLECTION_FORM: {
+                    actions: assign({
+                        showCreateCollectionRequest: (_context: ApiTryItContext) => true
+                    })
+                },
                 API_ITEM_SELECTED: {
                     target: 'itemSelected',
                     actions: assign({
@@ -97,6 +113,11 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
         },
         itemSelected: {
             on: {
+                SHOW_CREATE_COLLECTION_FORM: {
+                    actions: assign({
+                        showCreateCollectionRequest: (_context: ApiTryItContext) => true
+                    })
+                },
                 API_ITEM_SELECTED: {
                     target: 'itemSelected',
                     actions: assign({
@@ -197,6 +218,13 @@ export const ApiTryItStateMachine = {
                     data: context.selectedItem
                 });
             }
+        } else if (eventType === EVENT_TYPE.SHOW_CREATE_COLLECTION_FORM) {
+            // Record the intent in the state machine context
+            stateMachineService.send({ type: 'SHOW_CREATE_COLLECTION_FORM' });
+            // If the webview is already registered, notify it immediately
+            if (webviewPanel) {
+                webviewPanel.webview.postMessage({ type: 'showCreateCollectionForm' });
+            }
         } else if (eventType === EVENT_TYPE.WEBVIEW_READY) {
             stateMachineService.send({ type: 'WEBVIEW_READY' });
             
@@ -207,6 +235,10 @@ export const ApiTryItStateMachine = {
                     type: 'apiRequestItemSelected',
                     data: context.selectedItem
                 });
+            }
+            // If there's a pending create collection request, notify the webview
+            if (context.showCreateCollectionRequest && webviewPanel) {
+                webviewPanel.webview.postMessage({ type: 'showCreateCollectionForm' });
             }
         }
     },

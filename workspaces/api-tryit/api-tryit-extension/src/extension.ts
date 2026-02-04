@@ -19,6 +19,7 @@
 import * as vscode from 'vscode';
 import { activateActivityPanel } from './activity-panel/activate';
 import { TryItPanel } from './webview-panel/TryItPanel';
+import { ActivityPanel } from './activity-panel/webview';
 import { ApiExplorerProvider } from './tree-view/ApiExplorerProvider';
 import { ApiTryItStateMachine, EVENT_TYPE } from './stateMachine';
 import { ApiRequestItem } from '@wso2/api-tryit-core';
@@ -88,14 +89,18 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage('New request created');
 	});
 
-	// Register command for new collection
+	// Register command for new collection — use state machine to navigate to collection form
 	const newCollectionCommand = vscode.commands.registerCommand('api-tryit.newCollection', () => {
-		vscode.window.showInputBox({ prompt: 'Enter collection name' }).then(name => {
-			if (name) {
-				vscode.window.showInformationMessage(`Creating collection: ${name}`);
-				apiExplorerProvider.refresh();
-			}
-		});
+		// Ensure TryIt panel is visible
+		TryItPanel.show(context);
+
+		// Notify state machine and webviews to show the collection form
+		ApiTryItStateMachine.sendEvent(EVENT_TYPE.SHOW_CREATE_COLLECTION_FORM);
+		TryItPanel.postMessage('showCreateCollectionForm');
+		ActivityPanel.postMessage('showCreateCollectionForm');
+
+		// Provide quick feedback so the user knows the action was triggered
+		vscode.window.setStatusBarMessage('✓ Sent showCreateCollectionForm message to webviews', 3000);
 	});
 
 	// Register command to import a collection file into collections path

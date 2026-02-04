@@ -26,6 +26,7 @@ import { Assert } from '../Assert/Assert';
 import { ApiRequestItem, ApiRequest, ApiResponse, ResponseHeader } from '@wso2/api-tryit-core';
 import axios, { AxiosError } from 'axios';
 import { useExtensionMessages } from '../hooks/useExtensionMessages';
+import CollectionForm from '../CollectionForm/CollectionForm';
 import { getVSCodeAPI } from '../utils/vscode-api';
 
 // Get VS Code API instance (singleton)
@@ -188,14 +189,37 @@ export const MainPanel: React.FC = () => {
 
 
     // Handle messages from VS Code extension
+    const [showCollectionForm, setShowCollectionForm] = React.useState(false);
+
     const { updateRequest } = useExtensionMessages({
         onApiRequestSelected: (item) => {
             setRequestItem(item);
             setTempName(item.name);
             setIsEditingName(false);
             setActiveTab('input');
+            // Close collection form when a request is selected
+            setShowCollectionForm(false);
+        },
+        onShowCreateCollectionForm: () => {
+            console.log('[MainPanel] onShowCreateCollectionForm called - setting showCollectionForm to true');
+            setShowCollectionForm(true);
+        },
+        onCreateCollectionResult: (res) => {
+            if (res.success) {
+                setShowCollectionForm(false);
+                // Optionally show UI notification
+                // TODO: add snackbar component
+                console.info('Collection created:', res.message);
+            } else {
+                // Keep form open and show error in console for now
+                console.error('Failed to create collection:', res.message);
+            }
         }
     });
+
+    const handleCloseCollectionForm = () => {
+        setShowCollectionForm(false);
+    };
 
     const handleRequestChange = (updatedRequest: ApiRequest) => {
         if (!requestItem) return;
@@ -451,7 +475,7 @@ export const MainPanel: React.FC = () => {
                 padding: '20px',
                 overflowY: 'auto',
             }}>
-                {requestItem ? (
+                {!showCollectionForm && requestItem ? (
                 <div style={{ margin: '0 auto' }}>
                     {/* Method and URL */}
                     <div style={{
@@ -624,10 +648,13 @@ export const MainPanel: React.FC = () => {
                         </div>
                     </PanelsWrapper>
                 </div>
-                ) : (
+                ) : !showCollectionForm ? (
                     <Typography variant="subtitle2" sx={{ opacity: 0.6 }}>
                         No request selected
                     </Typography>
+                ) : null}
+                {showCollectionForm && (
+                    <CollectionForm onCancel={handleCloseCollectionForm} />
                 )}
             </div>
         </div>
