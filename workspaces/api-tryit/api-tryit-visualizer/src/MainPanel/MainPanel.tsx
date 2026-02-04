@@ -18,7 +18,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Button, Codicon, Dropdown, TextField, Typography } from '@wso2/ui-toolkit';
-import { VSCodePanels, VSCodePanelTab, VSCodePanelView } from '@vscode/webview-ui-toolkit/react';
+
 import styled from '@emotion/styled';
 import { Input } from '../Input/Input';
 import { Output } from '../Output/Output';
@@ -42,7 +42,7 @@ const ControlsWrapper = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 12px;
+    padding: 12px 8px;
     z-index: 10;
 `;
 
@@ -50,7 +50,7 @@ const SlidingToggle = styled.div<{ isCodeMode: boolean }>`
     position: relative;
     display: flex;
     width: 140px;
-    height: 32px;
+    height: 25px;
     background-color: var(--vscode-editor-background);
     border: 1px solid var(--vscode-panel-border);
     border-radius: 16px;
@@ -65,7 +65,7 @@ const ToggleBackground = styled.div<{ isCodeMode: boolean }>`
     left: 0;
     width: 50%;
     height: 100%;
-    background-color: var(--vscode-button-background);
+    background-color: var(--vscode-charts-yellow);
     border-radius: 15px;
     transition: transform 0.2s ease;
     transform: translateX(${({ isCodeMode }) => isCodeMode ? '0%' : '100%'});
@@ -91,7 +91,7 @@ const HelpButton = styled.button`
     align-items: center;
     justify-content: center;
     width: 28px;
-    height: 28px;
+    height: 25px;
     padding: 0;
     background: transparent;
     border: none;
@@ -174,7 +174,7 @@ type AssertMode = 'code' | 'form';
 
 export const MainPanel: React.FC = () => {
     const [requestItem, setRequestItem] = useState<ApiRequestItem | undefined>();
-    const [activeTab, setActiveTab] = useState('view-input');
+    const [activeTab, setActiveTab] = useState<'input' | 'assert'>('input');
     const [isLoading, setIsLoading] = useState(false);
     const [inputMode, setInputMode] = useState<InputMode>('code');
     const [assertMode, setAssertMode] = useState<AssertMode>('form');
@@ -184,23 +184,8 @@ export const MainPanel: React.FC = () => {
     const outputTabRef = useRef<HTMLDivElement>(null);
     // Counter used to trigger scrolling the Output inside Input without switching tabs
     const [bringOutputCounter, setBringOutputCounter] = useState(0);
-    // When Output tab is clicked we want to suppress the panels' onChange switching to Output
-    const suppressNextPanelChangeRef = useRef(false);
 
-    // Scroll to output when Output tab is activated
-    useEffect(() => {
-        if (activeTab === 'output' && outputTabRef.current) {
-            setTimeout(() => {
-                outputTabRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                // Also focus for keyboard users
-                try {
-                    (outputTabRef.current as HTMLElement).focus();
-                } catch (e) {
-                    // Ignore if focusing fails
-                }
-            }, 100);
-        }
-    }, [activeTab]);
+
 
     // Handle messages from VS Code extension
     const { updateRequest } = useExtensionMessages({
@@ -371,8 +356,9 @@ export const MainPanel: React.FC = () => {
                 });
             }
 
-            // Trigger scrolling to output in the Input panel without switching tabs
-            setBringOutputCounter(c => c + 1);            
+            // Trigger scrolling to output in the Input panel and switch to Input view
+            setBringOutputCounter(c => c + 1);
+            setActiveTab('input');            
         } catch (error) {
             console.error('Request failed:', error);
             
@@ -416,8 +402,9 @@ export const MainPanel: React.FC = () => {
                 });
             }
             
-            // Trigger scrolling of the output inside the Input tab (do not switch tabs)
+            // Trigger scrolling of the output inside the Input tab and switch to Input view
             setBringOutputCounter(c => c + 1);
+            setActiveTab('input');
         } finally {
             setIsLoading(false);
         }
@@ -520,7 +507,7 @@ export const MainPanel: React.FC = () => {
                                     onClick={() => setShowHelp(!showHelp)}
                                     title="Show help"
                                 >
-                                    <Codicon sx={{height: 'unset', width: 'unset'}} iconSx={{fontSize: 24, marginTop: 4}} name="question" />
+                                    <Codicon sx={{height: 'unset', width: 'unset'}} iconSx={{fontSize: 22, marginTop: 4}} name="question" />
                                     <HelpTooltip show={showHelp}>
                                         <strong>Write your request with auto-completions:</strong><br/>
                                         • <CodeHint>key: value</CodeHint> for query parameters<br/>
@@ -565,60 +552,76 @@ export const MainPanel: React.FC = () => {
                                 </SlidingToggle>
                             )}
                         </ControlsWrapper>
-                        <VSCodePanels
-                            activeid={activeTab}
-                            onChange={(e: any) => {
-                                // Try multiple sources for the active id (some browsers/events may put it in detail)
-                                const rawId = e?.target?.activeid ?? e?.detail?.activeid ?? e?.target?.getAttribute?.('activeid');
-                                if (!rawId) return;
 
-                                // Normalize to the tab id by stripping leading 'view-' if present
-                                const newId = String(rawId).startsWith('view-') ? String(rawId).slice(5) : rawId;
+                        {/* Custom Tabs */}
+                        <div>
+                            <div style={{ display: 'flex', gap: 12, paddingTop: 10 }}>
+                                <button
+                                    onClick={() => setActiveTab('input')}
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        borderBottom: activeTab === 'input' ? '1px solid var(--vscode-editor-foreground)' : '2px solid transparent',
+                                        color: activeTab === 'input' ? 'var(--vscode-button-foreground)' : 'var(--vscode-foreground)',
+                                        paddingLeft: 4,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Request
+                                </button>
 
-                                // If Output tab was clicked and we've set the suppress flag, prevent switching to Output
-                                if (newId === 'output' && suppressNextPanelChangeRef.current) {
-                                    suppressNextPanelChangeRef.current = false;
-                                    // keep the active tab on input
-                                    setActiveTab('view-input');
-                                    return;
-                                }
+                                <button
+                                    onClick={() => { setBringOutputCounter(c => c + 1); setActiveTab('input'); }}
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        color: 'var(--vscode-foreground)',
+                                        padding: 8
+                                    }}
+                                >
+                                    Output
+                                </button>
 
-                                // Default behavior: switch to the selected tab
-                                setActiveTab(`view-${newId}`);
-                            }}
-                        >
-                            <VSCodePanelTab id="view-input">Request</VSCodePanelTab>
-                            {/* Ensure clicking Output always triggers a bring action even if it was clicked repeatedly */}
-                            <VSCodePanelTab id="view-output" onMouseDown={(e: any) => { e.preventDefault(); suppressNextPanelChangeRef.current = true; setBringOutputCounter(c => c + 1); }}>Output</VSCodePanelTab>
-                            <VSCodePanelTab id="view-assert">Assert</VSCodePanelTab>
-                            
-                            {/* Input Tab Content */}
-                            <VSCodePanelView id="view-input">
-                                <Input 
-                                    request={requestItem.request}
-                                    onRequestChange={handleRequestChange}
-                                    mode={inputMode}
-                                    response={requestItem.response}
-                                    bringOutputCounter={bringOutputCounter}
-                                />
-                            </VSCodePanelView>
-
-                        {/* Output Tab Content */}
-                        {/* <VSCodePanelView id="view-output">
-                            <div ref={outputTabRef} tabIndex={-1} role="region" aria-label="Response output">
-                                <Output response={requestItem.response} />
+                                <button
+                                    onClick={() => setActiveTab('assert')}
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        borderBottom: activeTab === 'assert' ? '1px solid var(--vscode-editor-foreground)' : '2px solid transparent',
+                                        color: activeTab === 'assert' ? 'var(--vscode-button-foreground)' : 'var(--vscode-foreground)',
+                                        paddingLeft: 4,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Assert
+                                </button>
                             </div>
-                        </VSCodePanelView> */}
 
-                        {/* Assert Tab Content */}
-                        <VSCodePanelView id="view-assert">
-                            <Assert 
-                                request={requestItem.request}
-                                onRequestChange={handleRequestChange}
-                                mode={assertMode}
-                            />
-                        </VSCodePanelView>
-                    </VSCodePanels>
+                            <div style={{ marginTop: 12 }}>
+                                {activeTab === 'input' && (
+                                    <Input
+                                        request={requestItem.request}
+                                        onRequestChange={handleRequestChange}
+                                        mode={inputMode}
+                                        response={requestItem.response}
+                                        bringOutputCounter={bringOutputCounter}
+                                    />
+                                )}
+
+                                {activeTab === 'assert' && (
+                                    requestItem ? (
+                                        <Assert
+                                            request={requestItem.request}
+                                            onRequestChange={handleRequestChange}
+                                            mode={assertMode}
+                                        />
+                                    ) : (
+                                        <div style={{ padding: 16, opacity: 0.6 }}>No request selected</div>
+                                    )
+                                )}
+                            </div>
+                        </div>
                     </PanelsWrapper>
                 </div>
                 ) : (
