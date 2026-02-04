@@ -59,8 +59,46 @@ const PortalLabel = styled.span`
     letter-spacing: 0.2px;
 `;
 
-export const PortalNodeWidget: React.FC<NodeProps<PortalNodeData>> = ({ data, isConnectable }) => {
+export const PortalNodeWidget: React.FC<NodeProps<PortalNodeData>> = ({ id, data, isConnectable }) => {
     const reactFlowInstance = useReactFlow();
+
+    const handleHoverAddEdge = () => {
+        try {
+            const targetId = (data as any).gotoNodeId || (data as any).gotoNode || undefined;
+            if (!targetId) { return; }
+            const hoverEdgeId = `hover_e_${id}-${targetId}`;
+
+            // add edge if not already present
+            reactFlowInstance.setEdges((eds: any[]) => {
+                const exists = eds.some(e => e.id === hoverEdgeId);
+                if (exists) { return eds; }
+                const newEdge = {
+                    id: hoverEdgeId,
+                    source: id,
+                    target: targetId,
+                    sourceHandle: 'h-top',
+                    targetHandle: 'h-top',
+                    type: 'smoothstep',
+                    style: { stroke: ThemeColors.SECONDARY, strokeDasharray: '4 4' },
+                    animated: false,
+                };
+                return [...eds, newEdge];
+            });
+        } catch (e) {
+            // ignore if react flow instance doesn't expose setEdges
+        }
+    };
+
+    const handleHoverRemoveEdge = () => {
+        try {
+            const targetId = (data as any).gotoNodeId || (data as any).gotoNode || undefined;
+            if (!targetId) { return; }
+            const hoverEdgeId = `hover_e_${id}-${targetId}`;
+            reactFlowInstance.setEdges((eds: any[]) => eds.filter(e => e.id !== hoverEdgeId));
+        } catch (e) {
+            // ignore
+        }
+    };
 
     const handleClick = () => {
         if (data.gotoX !== undefined && data.gotoY !== undefined) {
@@ -90,7 +128,12 @@ export const PortalNodeWidget: React.FC<NodeProps<PortalNodeData>> = ({ data, is
     const tooltip = data.gotoLabel || data.label || '';
 
     return (
-        <PortalNodeContainer onClick={handleClick} title={tooltip}>
+        <PortalNodeContainer
+            onClick={handleClick}
+            onMouseEnter={handleHoverAddEdge}
+            onMouseLeave={handleHoverRemoveEdge}
+            title={tooltip}
+        >
             <PortalIcon className="fw fw-link-round" />
             <PortalLabel>goto</PortalLabel>
             <Handle 
@@ -102,8 +145,8 @@ export const PortalNodeWidget: React.FC<NodeProps<PortalNodeData>> = ({ data, is
             />
             <Handle 
                 type="source" 
-                position={Position.Bottom} 
-                id="h-bottom-source" 
+                position={Position.Top} 
+                id="h-top" 
                 isConnectable={isConnectable}
                 style={{ opacity: 0 }}
             />
