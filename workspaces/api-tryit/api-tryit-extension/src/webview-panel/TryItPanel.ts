@@ -232,7 +232,7 @@ export class TryItPanel {
 								const dirPath = path.dirname(targetFilePath);
 								try {
 									await vscode.workspace.fs.createDirectory(vscode.Uri.file(dirPath));
-								} catch (error) {
+								} catch {
 									// Directory might already exist, ignore error
 								}
 							}
@@ -254,8 +254,7 @@ export class TryItPanel {
 
 							if (saveResponse.success) {
 								vscode.window.showInformationMessage(`Request saved successfully to: ${targetFilePath}`);
-								// Refresh explorer so new/updated request files are reloaded
-								vscode.commands.executeCommand('api-tryit.refreshExplorer');
+								
 								// Inform state machine about the saved request so it can update caches and notify webviews
 								try {
 									const savedItem: ApiRequestItem = {
@@ -268,6 +267,20 @@ export class TryItPanel {
 								} catch {
 									vscode.window.showErrorMessage('Failed to notify state machine about saved request');
 								}
+								
+								// Refresh explorer and select the saved request
+								setTimeout(async () => {
+									try {
+										await vscode.commands.executeCommand('api-tryit.refreshExplorer');
+										// Give the explorer time to load, then select the saved request in the tree
+										setTimeout(async () => {
+											await vscode.commands.executeCommand('api-tryit.selectItemByPath', targetFilePath);
+										}, 300);
+									} catch (error: unknown) {
+										const msg = error instanceof Error ? error.message : 'Unknown error';
+										vscode.window.showErrorMessage(`Failed to refresh explorer: ${msg}`);
+									}
+								}, 100);
 							} else {
 								vscode.window.showErrorMessage(`Failed to save request: ${saveResponse.message}`);
 							}

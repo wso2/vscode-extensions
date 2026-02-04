@@ -278,6 +278,30 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			// Send event to state machine to create a new request in this collection
 			ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, collectionPath);
 
+			// Deselect any currently-selected request so the UI behaves like the "New Request" button
+			await vscode.commands.executeCommand('api-tryit.clearSelection');
+
+			// Also create and select an empty request immediately so the TryIt panel shows it without waiting for the state machine debounce
+			const emptyRequestItem: ApiRequestItem = {
+				id: `new-${Date.now()}`,
+				name: 'New Request',
+				request: {
+					id: `new-${Date.now()}`,
+					name: 'New Request',
+					method: 'GET',
+					url: '',
+					queryParameters: [],
+					headers: []
+				}
+			};
+
+			// Ensure the state machine knows we're adding a request and has the collection path
+			ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, collectionPath);
+			// Also set the selected item so other components see the change
+			ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, emptyRequestItem, undefined);
+			// Post the request to the TryIt webview (queued if webview not ready)
+			TryItPanel.postMessage('apiRequestItemSelected', emptyRequestItem);
+
 			const collectionName = typeof collection === 'object' && collection !== null && 'name' in collection 
 				? (collection as Record<string, unknown>).name 
 				: 'Unknown';
