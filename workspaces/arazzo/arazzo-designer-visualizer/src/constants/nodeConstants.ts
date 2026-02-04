@@ -47,5 +47,6 @@ export const NODE_GAP_Y_Vertical = 80;  // Vertical gap between branches/failure
 export const FAIL_GAP_X_Vertical = 50;  // Horizontal gap for failure paths
 
 
-// Additional layout/text constants (selected from bi-diagram defaults)
-
+//portal node constants
+export const PORTALNODE_GAP_X = 35;
+export const PORTALNODE_GAP_Y = 40;

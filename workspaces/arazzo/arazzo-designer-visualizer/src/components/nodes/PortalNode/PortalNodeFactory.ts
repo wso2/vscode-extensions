@@ -35,6 +35,9 @@ export class PortalNodeFactory {
                 height: data.height,
                 pairedPortalX: data.pairedPortalX,
                 pairedPortalY: data.pairedPortalY,
+                gotoLabel: data.gotoLabel,
+                gotoX: data.gotoX,
+                gotoY: data.gotoY,
             },
         };
     }

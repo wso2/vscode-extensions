@@ -50,16 +50,16 @@ export class PortalCreator {
         if (!isPreviousNode) { return; }
 
         const sourcePortalId = `portal_out_${source.id}_to_${target.id}_${this.portalCounter}`;
-        const targetPortalId = `portal_in_${source.id}_to_${target.id}_${this.portalCounter}`;
         this.portalCounter++;
 
-        // Portal above source (exit portal)
-        const sourcePortalX = source.viewState.x;
-        const sourcePortalY = source.viewState.y - C.NODE_GAP_Y_Horizontal / 2;
+        // Portal positioned a bit to the right and above the source (exit portal)
+        // Use layout constants so the offset scales with diagram spacing.
+        const sourcePortalX = source.viewState.x + C.NODE_GAP_X_Horizontal / 2;
+        const sourcePortalY = source.viewState.y - (C.NODE_GAP_Y_Horizontal * 0.75);
 
-        // Portal above target (entry portal)
-        const targetPortalX = target.viewState.x + (target.viewState.w / 2);
-        const targetPortalY = target.viewState.y - C.NODE_GAP_Y_Horizontal / 2;
+        // Target center coordinates for navigation
+        const targetCenterX = target.viewState.x + (target.viewState.w / 2);
+        const targetCenterY = target.viewState.y + (target.viewState.h / 2);
 
         this.reactNodes.push({
             id: sourcePortalId,
@@ -67,22 +67,9 @@ export class PortalCreator {
             position: { x: sourcePortalX, y: sourcePortalY },
             data: {
                 label: `→ ${target.label}`,
-                pairedPortalId: targetPortalId,
-                pairedPortalX: targetPortalX,
-                pairedPortalY: targetPortalY
-            },
-            connectable: false
-        });
-
-        this.reactNodes.push({
-            id: targetPortalId,
-            type: 'portalNode',
-            position: { x: targetPortalX, y: targetPortalY },
-            data: {
-                label: ``,
-                pairedPortalId: sourcePortalId,
-                pairedPortalX: sourcePortalX,
-                pairedPortalY: sourcePortalY
+                gotoLabel: target.label,
+                gotoX: targetCenterX,
+                gotoY: targetCenterY
             },
             connectable: false
         });
@@ -105,12 +92,11 @@ export class PortalCreator {
             style: { stroke: '#00f3ff' }
         });
 
-        // Edge: target portal → target (entry to target)
+        // Edge: source portal → target (directly navigate to target node)
         const targetNodeHandle = 'h-top';
-
         this.reactEdges.push({
-            id: `e_${targetPortalId}-${target.id}`,
-            source: targetPortalId,
+            id: `e_${sourcePortalId}-${target.id}`,
+            source: sourcePortalId,
             target: target.id,
             sourceHandle: portalNodeHandle,
             targetHandle: targetNodeHandle,

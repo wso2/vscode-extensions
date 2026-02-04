@@ -23,13 +23,13 @@ import { ThemeColors } from '@wso2/ui-toolkit';
 import { PortalNodeData } from './PortalNodeModel';
 
 const PortalNodeContainer = styled.div`
-    background-color: ${ThemeColors.PRIMARY};
-    padding: 6px 14px;
-    border-radius: 16px;
-    color: ${ThemeColors.ON_PRIMARY};
-    display: flex;
+    background-color: ${ThemeColors.SECONDARY};
+    padding: 6px 12px;
+    border-radius: 999px;
+    color: ${ThemeColors.ON_SECONDARY};
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     border: 1px solid ${ThemeColors.OUTLINE_VARIANT};
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(0,0,0,0.12);
@@ -46,14 +46,15 @@ const PortalNodeContainer = styled.div`
     }
 `;
 
-const PortalIcon = styled.span`
+const PortalIcon = styled.i`
     font-size: 14px;
-    font-weight: 700;
+    line-height: 1;
 `;
 
 const PortalLabel = styled.span`
     font-size: 11px;
-    font-weight: 500;
+    font-weight: 600;
+    text-transform: lowercase;
     font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
     letter-spacing: 0.2px;
 `;
@@ -62,15 +63,18 @@ export const PortalNodeWidget: React.FC<NodeProps<PortalNodeData>> = ({ data, is
     const reactFlowInstance = useReactFlow();
 
     const handleClick = () => {
-        if (data.pairedPortalX !== undefined && data.pairedPortalY !== undefined) {
-            reactFlowInstance.setCenter(data.pairedPortalX, data.pairedPortalY, { zoom: 1, duration: 800 });
+        if (data.gotoX !== undefined && data.gotoY !== undefined) {
+            reactFlowInstance.setCenter(data.gotoX, data.gotoY, { zoom: 1, duration: 800 });
         }
     };
 
+    // Tooltip should show the actual target step label (gotoLabel)
+    const tooltip = data.gotoLabel || data.label || '';
+
     return (
-        <PortalNodeContainer onClick={handleClick}>
-            <PortalIcon>➔</PortalIcon>
-            <PortalLabel>{data.label || 'Portal'}</PortalLabel>
+        <PortalNodeContainer onClick={handleClick} title={tooltip}>
+            <PortalIcon className="fw fw-link-round" />
+            <PortalLabel>goto</PortalLabel>
             <Handle 
                 type="target" 
                 position={Position.Bottom} 

@@ -22,6 +22,9 @@ import { BaseNodeModel, BaseNodeData } from '../BaseNode/BaseNodeModel';
 export interface PortalNodeData extends BaseNodeData {
     pairedPortalX?: number;
     pairedPortalY?: number;
+    gotoLabel?: string;
+    gotoX?: number;
+    gotoY?: number;
 }
 
 export class PortalNodeModel extends BaseNodeModel {
@@ -43,5 +46,17 @@ export class PortalNodeModel extends BaseNodeModel {
     setPairedPortal(x: number, y: number): void {
         this.data.pairedPortalX = x;
         this.data.pairedPortalY = y;
+    }
+
+    getGotoLabel(): string | undefined {
+        return this.data.gotoLabel;
+    }
+
+    getGotoX(): number | undefined {
+        return this.data.gotoX;
+    }
+
+    getGotoY(): number | undefined {
+        return this.data.gotoY;
     }
 }
