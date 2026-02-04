@@ -68,6 +68,7 @@ export class PortalCreator {
             data: {
                 label: `→ ${target.label}`,
                 gotoLabel: target.label,
+                gotoNodeId: target.id,
                 gotoX: targetCenterX,
                 gotoY: targetCenterY
             },

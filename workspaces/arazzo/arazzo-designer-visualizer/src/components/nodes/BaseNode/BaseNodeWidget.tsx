@@ -19,6 +19,7 @@
 import React from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import styled from '@emotion/styled';
+import { keyframes } from '@emotion/react';
 import { ThemeColors } from '@wso2/ui-toolkit';
 import {
     NODE_WIDTH,
@@ -38,7 +39,14 @@ export namespace NodeStyles {
         hasError?: boolean;
         readOnly?: boolean;
         isSelected?: boolean;
+        flash?: boolean;
     };
+
+    const flashAnim = keyframes`
+        0% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
+        40% { box-shadow: 0 6px 18px rgba(255, 235, 59, 0.18); }
+        100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
+    `;
 
     export const Node = styled.div<NodeStyleProp>`
         display: flex;
@@ -56,15 +64,18 @@ export namespace NodeStyles {
         border-color: ${(props: NodeStyleProp) =>
             props.hasError
                 ? ThemeColors.ERROR
-                : props.isSelected && !props.disabled
+                : props.flash
                     ? ThemeColors.SECONDARY
-                    : props.hovered && !props.disabled && !props.readOnly
+                    : props.isSelected && !props.disabled
                         ? ThemeColors.SECONDARY
-                        : ThemeColors.OUTLINE_VARIANT};
+                        : props.hovered && !props.disabled && !props.readOnly
+                            ? ThemeColors.SECONDARY
+                            : ThemeColors.OUTLINE_VARIANT};
         border-radius: 10px;
         cursor: ${(props: NodeStyleProp) => (props.readOnly ? 'default' : 'pointer')};
         transition: all 0.15s ease;
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+        animation: ${(props: NodeStyleProp) => (props.flash ? `${flashAnim} 0.8s ease` : 'none')};
 
         &:hover {
             transform: translateY(-2px);
@@ -141,6 +152,7 @@ export const BaseNodeWidget: React.FC<BaseNodeWidgetProps> = ({
         <NodeStyles.Node
             disabled={data.disabled}
             hovered={hovered}
+            flash={data.flash}
             hasError={data.hasError}
             isSelected={selected}
             onMouseEnter={() => setHovered(true)}

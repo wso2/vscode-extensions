@@ -65,6 +65,24 @@ export const PortalNodeWidget: React.FC<NodeProps<PortalNodeData>> = ({ data, is
     const handleClick = () => {
         if (data.gotoX !== undefined && data.gotoY !== undefined) {
             reactFlowInstance.setCenter(data.gotoX, data.gotoY, { zoom: 1, duration: 800 });
+
+            // Flash the target node border briefly to draw attention
+            try {
+                const targetId = (data as any).gotoNodeId || (data as any).gotoNode || undefined;
+                if (targetId) {
+                    reactFlowInstance.setNodes((nds: any[]) =>
+                        nds.map(n => n.id === targetId ? { ...n, data: { ...n.data, flash: true } } : n)
+                    );
+
+                    window.setTimeout(() => {
+                        reactFlowInstance.setNodes((nds: any[]) =>
+                            nds.map(n => n.id === targetId ? { ...n, data: { ...n.data, flash: false } } : n)
+                        );
+                    }, 800);
+                }
+            } catch (e) {
+                // ignore if react flow instance doesn't expose setNodes/getNodes in this build
+            }
         }
     };
 

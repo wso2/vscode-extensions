@@ -25,6 +25,7 @@ export interface PortalNodeData extends BaseNodeData {
     gotoLabel?: string;
     gotoX?: number;
     gotoY?: number;
+    gotoNodeId?: string;
 }
 
 export class PortalNodeModel extends BaseNodeModel {
@@ -58,5 +59,9 @@ export class PortalNodeModel extends BaseNodeModel {
 
     getGotoY(): number | undefined {
         return this.data.gotoY;
+    }
+
+    getGotoNodeId(): string | undefined {
+        return this.data.gotoNodeId;
     }
 }

@@ -36,6 +36,7 @@ export class PortalNodeFactory {
                 pairedPortalX: data.pairedPortalX,
                 pairedPortalY: data.pairedPortalY,
                 gotoLabel: data.gotoLabel,
+                    gotoNodeId: data.gotoNodeId,
                 gotoX: data.gotoX,
                 gotoY: data.gotoY,
             },

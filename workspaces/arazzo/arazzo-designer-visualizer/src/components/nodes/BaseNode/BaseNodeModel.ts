@@ -30,6 +30,7 @@ export interface BaseNodeData {
     disabled?: boolean;
     hasError?: boolean;
     errorMessage?: string;
+    flash?: boolean;
     // Add any properties that Visitors need to access/modify
     visitedByPositionVisitor?: boolean;
     visitedBySizingVisitor?: boolean;
