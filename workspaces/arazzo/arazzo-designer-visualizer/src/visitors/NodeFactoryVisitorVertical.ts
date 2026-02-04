@@ -64,79 +64,13 @@ export class NodeFactoryVisitorVertical {
         const isPreviousNode = target.viewState.y < source.viewState.y && target.viewState.x < source.viewState.x;
 
         if (isPreviousNode) {
-            // Create two portal nodes
-            const sourcePortalId = `portal_out_${source.id}_to_${target.id}_${this.portalCounter}`;
-            const targetPortalId = `portal_in_${source.id}_to_${target.id}_${this.portalCounter}`;
-            this.portalCounter++;
-
-            // Vertical layout: place portals to the right of nodes
-            const sourcePortalX = source.viewState.x + source.viewState.w + C.NODE_GAP_X_Vertical / 2;
-            const sourcePortalY = source.viewState.y + (source.viewState.h / 2);
-
-            const targetPortalX = target.viewState.x + target.viewState.w + C.NODE_GAP_X_Vertical / 2;
-            const targetPortalY = target.viewState.y + (target.viewState.h / 2);
-
-            this.reactNodes.push({
-                id: sourcePortalId,
-                type: 'portalNode',
-                position: { x: sourcePortalX, y: sourcePortalY },
-                data: {
-                    label: `→ ${target.label}`,
-                    pairedPortalId: targetPortalId,
-                    pairedPortalX: targetPortalX,
-                    pairedPortalY: targetPortalY
-                },
-                connectable: false
-            });
-
-            this.reactNodes.push({
-                id: targetPortalId,
-                type: 'portalNode',
-                position: { x: targetPortalX, y: targetPortalY },
-                data: {
-                    label: ``,
-                    pairedPortalId: sourcePortalId,
-                    pairedPortalX: sourcePortalX,
-                    pairedPortalY: sourcePortalY
-                },
-                connectable: false
-            });
-
-            // Map logical sourceHandle ('right' success, 'bottom' failure) to actual handle IDs
-            const sourceHandleId = sourceHandle === 'right' ? 'h-bottom' : 'h-right';
-
-            // Portal handle for the portal node
-            const portalNodeHandle = 'h-right';
-
-            // Edge: source → source portal
-            this.reactEdges.push({
-                id: `e_${source.id}-${sourcePortalId}`,
-                source: source.id,
-                target: sourcePortalId,
-                sourceHandle: sourceHandleId,
-                targetHandle: portalNodeHandle,
-                type: 'smoothstep',
-                markerEnd: { type: MarkerType.ArrowClosed },
-                style: { stroke: '#00f3ff' }
-            });
-
-            // Edge: target portal → target (entry to target)
-            const targetNodeHandle = 'h-left';
-
-            this.reactEdges.push({
-                id: `e_${targetPortalId}-${target.id}`,
-                source: targetPortalId,
-                target: target.id,
-                sourceHandle: portalNodeHandle,
-                targetHandle: targetNodeHandle,
-                type: 'smoothstep',
-                markerEnd: { type: MarkerType.ArrowClosed },
-                style: { stroke: '#00f3ff' }
-            });
-        } else {
-            // Normal edge
-            this.createEdge(source, target, sourceHandle);
+            // Portals are created by PortalCreator (run after positioning and before node factory)
+            // Skip creating portals/portal-edges here to avoid duplication.
+            return;
         }
+
+        // Normal edge
+        this.createEdge(source, target, sourceHandle);
     }
 
     private createEdge(source: FlowNode, target: FlowNode, sourceHandle: 'right' | 'bottom') {

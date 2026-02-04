@@ -6,6 +6,7 @@ import { PositionVisitorHorizontal } from '../../visitors/PositionVisitorHorizon
 import { PositionVisitorVertical } from '../../visitors/PositionVisitorVertical';
 import { NodeFactoryVisitorHorizontal } from '../../visitors/NodeFactoryVisitorHorizontal';
 import { NodeFactoryVisitorVertical } from '../../visitors/NodeFactoryVisitorVertical';
+import PortalCreator from '../../visitors/PortalCreator';
 
 /**
  * Builds the graph visualization from the workflow using the Visitor pattern.
@@ -35,16 +36,23 @@ export const buildGraphFromWorkflow = async (workflow: ArazzoWorkflow, isVertica
         positioning.visit(root, 50, 300);
     }
 
+    // Create portals for backward jumps (after positioning)
+    const portals = PortalCreator.createPortals(root);
+
     // 4. Factory: Generate React Flow Nodes & Edges
+    let factory;
     if (isVertical) {
-        const factory = new NodeFactoryVisitorVertical();
-        factory.visit(root);
-        return factory.getElements();
-    }else {
-        const factory = new NodeFactoryVisitorHorizontal();
-        factory.visit(root);
-        return factory.getElements();
+        factory = new NodeFactoryVisitorVertical();    
+    } else {
+        factory = new NodeFactoryVisitorHorizontal();
     }
+    factory.visit(root);
+        const elems = factory.getElements();
+        // Merge portal nodes/edges produced by PortalCreator
+        return {
+            nodes: [...elems.nodes, ...portals.nodes],
+            edges: [...elems.edges, ...portals.edges]
+        };
     
 
 
