@@ -31,11 +31,13 @@
           "id": "api-tryit.activity.panel",
           "name": "API Explorer",
           "type": "webview",
-          "when": "true"
+          "when": "true",
+          "icon": "assets/icon.svg"
         },
         {
           "id": "api-tryit.explorer",
-          "name": "API Explorer Tree"
+          "name": "API Explorer Tree",
+          "icon": "assets/icon.svg"
         }
       ]
     },
@@ -61,6 +63,21 @@
         "icon": "$(new-folder)"
       },
       {
+        "command": "api-tryit.importCollection",
+        "title": "Import Collection",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "api-tryit.openCollection",
+        "title": "Open Collection",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "api-tryit.plusMenu",
+        "title": "Create / Import / Open",
+        "icon": "$(add)"
+      },
+      {
         "command": "api-tryit.settings",
         "title": "Settings",
         "icon": "$(settings-gear)"
@@ -77,6 +94,11 @@
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "api-tryit.plusMenu",
+          "when": "view == api-tryit.activity.panel",
+          "group": "navigation@0"
+        },
         {
           "command": "api-tryit.newRequest",
           "when": "view == api-tryit.explorer",

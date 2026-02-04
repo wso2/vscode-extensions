@@ -22,6 +22,7 @@ import { TryItPanel } from './webview-panel/TryItPanel';
 import { ApiExplorerProvider } from './tree-view/ApiExplorerProvider';
 import { ApiTryItStateMachine, EVENT_TYPE } from './stateMachine';
 import { ApiRequestItem } from '@wso2/api-tryit-core';
+import * as path from 'path';
 
 export async function activate(context: vscode.ExtensionContext) {
 	// Initialize RPC handlers
@@ -97,6 +98,59 @@ export async function activate(context: vscode.ExtensionContext) {
 		});
 	});
 
+	// Register command to import a collection file into collections path
+	const importCollectionCommand = vscode.commands.registerCommand('api-tryit.importCollection', async () => {
+		const fileUris = await vscode.window.showOpenDialog({
+			canSelectFiles: true,
+			canSelectFolders: false,
+			canSelectMany: false,
+			openLabel: 'Select collection file to import'
+		});
+		if (!fileUris || fileUris.length === 0) {
+			return;
+		}
+		const fileUri = fileUris[0];
+		const config = vscode.workspace.getConfiguration('api-tryit');
+		const collectionsPath = config.get<string>('collectionsPath');
+		if (!collectionsPath) {
+			vscode.window.showWarningMessage('Collections path is not set. Please set it first.');
+			return;
+		}
+		const destination = vscode.Uri.file(path.join(collectionsPath, fileUri.path.split('/').pop() || fileUri.path));
+		await vscode.workspace.fs.copy(fileUri, destination, { overwrite: true });
+		vscode.window.showInformationMessage('Collection imported');
+		apiExplorerProvider.refresh();
+	});
+
+	// Register command to open a collection file
+	const openCollectionCommand = vscode.commands.registerCommand('api-tryit.openCollection', async () => {
+		const config = vscode.workspace.getConfiguration('api-tryit');
+		const collectionsPath = config.get<string>('collectionsPath');
+		const defaultUri = collectionsPath ? vscode.Uri.file(collectionsPath) : undefined;
+		const fileUris = await vscode.window.showOpenDialog({
+			canSelectFiles: true,
+			canSelectFolders: false,
+			canSelectMany: false,
+			defaultUri,
+			openLabel: 'Open collection file'
+		});
+		if (!fileUris || fileUris.length === 0) {
+			return;
+		}
+		await vscode.window.showTextDocument(fileUris[0]);
+	});
+
+	// Plus-menu command for the view title (shows quick pick)
+	const plusMenuCommand = vscode.commands.registerCommand('api-tryit.plusMenu', async () => {
+		const pick = await vscode.window.showQuickPick([
+			{ label: 'Create New Collection', command: 'api-tryit.newCollection' },
+			{ label: 'Import Collection', command: 'api-tryit.importCollection' },
+			{ label: 'Open Collection', command: 'api-tryit.openCollection' }
+		], { placeHolder: 'Select action' });
+		if (!pick) return;
+		vscode.commands.executeCommand(pick.command);
+	});
+
 	// Register command for settings
 	const settingsCommand = vscode.commands.registerCommand('api-tryit.settings', () => {
 		vscode.commands.executeCommand('workbench.action.openSettings', 'api-tryit');
@@ -134,6 +188,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		openRequestCommand, 
 		newRequestCommand,
 		newCollectionCommand,
+		importCollectionCommand,
+		openCollectionCommand,
+		plusMenuCommand,
 		settingsCommand,
 		helloCommand
 	);
