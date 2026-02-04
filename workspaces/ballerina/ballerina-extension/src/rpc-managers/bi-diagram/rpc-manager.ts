@@ -156,6 +156,7 @@ import {
 import * as fs from "fs";
 import * as path from 'path';
 import * as vscode from "vscode";
+import { uriCache } from '../../extension';
 
 import { ICreateComponentCmdParams, IWso2PlatformExtensionAPI, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
 import {
@@ -2130,15 +2131,28 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     async acquireNodeLock(params: AcquireNodeLockRequest): Promise<AcquireNodeLockResponse> {
         const { nodeId, userId, userName, filePath, timestamp } = params;
         
-        // Get or create file lock map
-        if (!BiDiagramRpcManager.nodeLocks.has(filePath)) {
-            BiDiagramRpcManager.nodeLocks.set(filePath, new Map());
+        console.log(`[Lock] Acquiring lock for node ${nodeId} at ${filePath} by user ${userName}`);
+        
+        // Find matching file path using UriCache comparison
+        let matchingPath: string | undefined = filePath;
+        for (const existingPath of BiDiagramRpcManager.nodeLocks.keys()) {
+            if (uriCache && uriCache.isSamePath(existingPath, filePath)) {
+                matchingPath = existingPath;
+                console.log(`[Lock] Found matching path: ${existingPath} for ${filePath}`);
+                break;
+            }
         }
-        const fileLocks = BiDiagramRpcManager.nodeLocks.get(filePath)!;
+        
+        // Get or create file lock map
+        if (!BiDiagramRpcManager.nodeLocks.has(matchingPath)) {
+            BiDiagramRpcManager.nodeLocks.set(matchingPath, new Map());
+        }
+        const fileLocks = BiDiagramRpcManager.nodeLocks.get(matchingPath)!;
         
         // Check if node is already locked by another user
         const existingLock = fileLocks.get(nodeId);
         if (existingLock && existingLock.userId !== userId) {
+            console.log(`[Lock] Lock denied - already locked by ${existingLock.userName}`);
             return {
                 success: false,
                 error: `Node is already locked by ${existingLock.userName}`,
@@ -2148,9 +2162,10 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         // Acquire lock
         const lock: NodeLock = { userId, userName, timestamp: timestamp || Date.now() };
         fileLocks.set(nodeId, lock);
+        console.log(`[Lock] Lock acquired successfully`);
         
         // Set timeout for automatic lock release
-        const timeoutKey = `${filePath}:${nodeId}`;
+        const timeoutKey = `${matchingPath}:${nodeId}`;
         const existingTimeout = BiDiagramRpcManager.lockTimeouts.get(timeoutKey);
         if (existingTimeout) {
             clearTimeout(existingTimeout);
@@ -2158,13 +2173,13 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         
         const timeout = setTimeout(() => {
             this.releaseNodeLock({ nodeId, userId, filePath });
-            console.log(`Auto-released lock for node ${nodeId} after timeout`);
+            console.log(`[Lock] Auto-released lock for node ${nodeId} after timeout`);
         }, BiDiagramRpcManager.LOCK_TIMEOUT_MS);
         
         BiDiagramRpcManager.lockTimeouts.set(timeoutKey, timeout);
         
-        // Broadcast lock update to all webviews
-        this.broadcastLockUpdate(filePath);
+        // Broadcast lock update to all matching paths
+        this.broadcastLockUpdate(matchingPath);
         
         return { success: true };
     }
@@ -2172,7 +2187,23 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     async releaseNodeLock(params: ReleaseNodeLockRequest): Promise<ReleaseNodeLockResponse> {
         const { nodeId, userId, filePath } = params;
         
-        const fileLocks = BiDiagramRpcManager.nodeLocks.get(filePath);
+        console.log(`[Lock] Releasing lock for node ${nodeId} at ${filePath} by user ${userId}`);
+        
+        // Find matching file path using UriCache comparison
+        let matchingPath: string | undefined;
+        for (const existingPath of BiDiagramRpcManager.nodeLocks.keys()) {
+            if (uriCache && uriCache.isSamePath(existingPath, filePath)) {
+                matchingPath = existingPath;
+                console.log(`[Lock] Found matching path: ${existingPath} for ${filePath}`);
+                break;
+            }
+        }
+        
+        if (!matchingPath) {
+            return { success: true };
+        }
+        
+        const fileLocks = BiDiagramRpcManager.nodeLocks.get(matchingPath);
         if (!fileLocks) {
             return { success: true };
         }
@@ -2181,9 +2212,10 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         // Only allow the lock owner to release it
         if (existingLock && existingLock.userId === userId) {
             fileLocks.delete(nodeId);
+            console.log(`[Lock] Lock released successfully`);
             
             // Clear timeout
-            const timeoutKey = `${filePath}:${nodeId}`;
+            const timeoutKey = `${matchingPath}:${nodeId}`;
             const timeout = BiDiagramRpcManager.lockTimeouts.get(timeoutKey);
             if (timeout) {
                 clearTimeout(timeout);
@@ -2192,11 +2224,11 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
             
             // Clean up empty maps
             if (fileLocks.size === 0) {
-                BiDiagramRpcManager.nodeLocks.delete(filePath);
+                BiDiagramRpcManager.nodeLocks.delete(matchingPath);
             }
             
             // Broadcast lock update to all webviews
-            this.broadcastLockUpdate(filePath);
+            this.broadcastLockUpdate(matchingPath);
         }
         
         return { success: true };
@@ -2204,7 +2236,24 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
 
     async getNodeLocks(params: GetNodeLocksRequest): Promise<GetNodeLocksResponse> {
         const { filePath } = params;
-        const fileLocks = BiDiagramRpcManager.nodeLocks.get(filePath);
+        
+        console.log(`[Lock] Getting locks for ${filePath}`);
+        
+        // Find matching file path using UriCache comparison
+        let matchingPath: string | undefined;
+        for (const existingPath of BiDiagramRpcManager.nodeLocks.keys()) {
+            if (uriCache && uriCache.isSamePath(existingPath, filePath)) {
+                matchingPath = existingPath;
+                console.log(`[Lock] Found matching path: ${existingPath} for ${filePath}`);
+                break;
+            }
+        }
+        
+        if (!matchingPath) {
+            return { locks: {} };
+        }
+        
+        const fileLocks = BiDiagramRpcManager.nodeLocks.get(matchingPath);
         
         if (!fileLocks) {
             return { locks: {} };
@@ -2224,6 +2273,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     }
 
     private broadcastLockUpdate(filePath: string): void {
+        console.log(`[Lock] Broadcasting lock update for ${filePath}`);
         const fileLocks = BiDiagramRpcManager.nodeLocks.get(filePath);
         const locks: Record<string, NodeLock> = {};
         
@@ -2231,6 +2281,9 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
             fileLocks.forEach((lock, nodeId) => {
                 locks[nodeId] = lock;
             });
+            console.log(`[Lock] Broadcasting ${Object.keys(locks).length} locks:`, locks);
+        } else {
+            console.log(`[Lock] No locks to broadcast (file locks cleared)`);
         }
         
         // Broadcast to all BI diagram webviews

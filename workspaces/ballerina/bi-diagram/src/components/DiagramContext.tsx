@@ -121,6 +121,8 @@ export interface DiagramContextState {
     setLockCanvas?: (lock: boolean) => void;
     isUserAuthenticated?: boolean;
     currentUserId?: string;
+    nodeLocks?: Record<string, any>;
+    isPositionLocked?: (parent: FlowNode | Branch, target: LineRange) => boolean;
     expressionContext: ExpressionContextProps;
 }
 
