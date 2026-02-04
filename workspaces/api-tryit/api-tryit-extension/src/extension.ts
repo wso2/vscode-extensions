@@ -39,8 +39,15 @@ export async function activate(context: vscode.ExtensionContext) {
 	activateActivityPanel(context, apiExplorerProvider);
 
 	// Register command to refresh tree view
-	const refreshCommand = vscode.commands.registerCommand('api-tryit.refreshExplorer', () => {
-		apiExplorerProvider.refresh();
+	const refreshCommand = vscode.commands.registerCommand('api-tryit.refreshExplorer', async () => {
+		try {
+			// Reload collections from disk first, then update the tree
+			await apiExplorerProvider.reloadCollections();
+			vscode.window.setStatusBarMessage('✓ API Explorer refreshed', 2000);
+		} catch (error: unknown) {
+			const msg = error instanceof Error ? error.message : 'Unknown error';
+			vscode.window.showErrorMessage(`Failed to refresh explorer: ${msg}`);
+		}
 	});
 
 	// Register command to open TryIt webview panel

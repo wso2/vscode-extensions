@@ -128,7 +128,16 @@ export const CollectionForm: React.FC<{ onCancel: () => void }> = ({ onCancel })
 
     const handleSubmit = (e?: React.FormEvent) => {
         e?.preventDefault();
-        if (!name.trim() && !folderPath) return;
+        
+        if (!name.trim()) {
+            console.error('[CollectionForm] Collection name is required');
+            return;
+        }
+        
+        if (!folderPath) {
+            console.error('[CollectionForm] Folder path is required');
+            return;
+        }
 
         // Send message to extension to create collection
         if (vscode) {

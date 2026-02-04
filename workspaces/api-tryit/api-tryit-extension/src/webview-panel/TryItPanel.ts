@@ -72,29 +72,71 @@ export class TryItPanel {
 				if (message.type === 'createCollectionSubmit') {
 					try {
 						const { name, folderPath } = message.data || {};
-						let targetPath = folderPath;
 						
-						// If no folder path provided, use configured collections path
-						if (!targetPath) {
-							const config = vscode.workspace.getConfiguration('api-tryit');
-							targetPath = config.get<string>('collectionsPath');
-							if (!targetPath) {
-								this._panel.webview.postMessage({ type: 'createCollectionResult', data: { success: false, message: 'Collections path not set' } });
-								return;
-							}
+						if (!name || !name.trim()) {
+							this._panel.webview.postMessage({ type: 'createCollectionResult', data: { success: false, message: 'Collection name is required' } });
+							return;
+						}
+
+						if (!folderPath) {
+							this._panel.webview.postMessage({ type: 'createCollectionResult', data: { success: false, message: 'Folder path is required' } });
+							return;
 						}
 						
-						const safeName = (name || 'collection').toString().trim();
-						const fileName = `${safeName.replace(/[^a-z0-9-_.]/ig, '-')}.json`;
-						const destination = vscode.Uri.file(path.join(targetPath, fileName));
-						const content = JSON.stringify({ name: safeName, items: [] }, null, 2);
-						await vscode.workspace.fs.writeFile(destination, Buffer.from(content, 'utf8'));
-						vscode.window.showInformationMessage(`Collection created: ${fileName}`);
-						this._panel.webview.postMessage({ type: 'createCollectionResult', data: { success: true, message: `Collection created: ${fileName}` } });
-						vscode.commands.executeCommand('api-tryit.refreshExplorer');
+						const safeName = name.trim();
+						const safeId = safeName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+						
+						// 1. Create a folder with the given name in the provided path
+						const collectionFolderPath = path.join(folderPath, safeName);
+						const collectionFolderUri = vscode.Uri.file(collectionFolderPath);
+						await vscode.workspace.fs.createDirectory(collectionFolderUri);
+						
+						// 2. Create collection.yaml file inside the folder
+						const collectionFilePath = path.join(collectionFolderPath, 'collection.yaml');
+						const collectionFileUri = vscode.Uri.file(collectionFilePath);
+						const yamlContent = `id: ${safeId}\nname: ${safeName}\n`;
+						await vscode.workspace.fs.writeFile(collectionFileUri, Buffer.from(yamlContent, 'utf8'));
+						
+						// 3. Check if the collection is in the current workspace
+						const isInWorkspace = vscode.workspace.workspaceFolders?.some(folder => 
+							collectionFolderPath.startsWith(folder.uri.fsPath)
+						) || false;
+						
+						if (!isInWorkspace) {
+							// Open the folder as a new workspace
+							const openInNewWindow = await vscode.window.showInformationMessage(
+								`Collection "${safeName}" created outside the workspace. Would you like to open it?`,
+								'Open in New Window',
+								'Add to Workspace',
+								'Cancel'
+							);
+							
+							if (openInNewWindow === 'Open in New Window') {
+								await vscode.commands.executeCommand('vscode.openFolder', collectionFolderUri, true);
+							} else if (openInNewWindow === 'Add to Workspace') {
+								vscode.workspace.updateWorkspaceFolders(
+									vscode.workspace.workspaceFolders?.length || 0,
+									0,
+									{ uri: collectionFolderUri, name: safeName }
+								);
+							}
+						} else {
+							vscode.window.showInformationMessage(`Collection "${safeName}" created successfully`);
+						}
+						
+						this._panel.webview.postMessage({ type: 'createCollectionResult', data: { success: true, message: `Collection created: ${safeName}` } });
+						
+						// Add a slight delay to ensure file system operations complete, then refresh explorer
+						setTimeout(() => {
+							vscode.commands.executeCommand('api-tryit.refreshExplorer').then(undefined, (error: unknown) => {
+								const msg = error instanceof Error ? error.message : 'Unknown error';
+								vscode.window.showErrorMessage(`Failed to refresh explorer: ${msg}`);
+							});
+						}, 500);
 					} catch (error: unknown) {
 						const msg = error instanceof Error ? error.message : 'Unknown error';
 						this._panel.webview.postMessage({ type: 'createCollectionResult', data: { success: false, message: msg } });
+						vscode.window.showErrorMessage(`Failed to create collection: ${msg}`);
 					}
 					return;
 				}
