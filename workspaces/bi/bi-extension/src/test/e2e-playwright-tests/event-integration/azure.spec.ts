@@ -16,10 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { addArtifact, initTest, page } from '../utils/helpers';
 import { Form, switchToIFrame } from '@wso2/playwright-vscode-tester';
 import { ProjectExplorer } from '../utils/pages';
+import { DEFAULT_PROJECT_NAME } from '../utils/helpers/setup';
 
 export default function createTests() {
     test.describe('Azure Integration Tests', {
@@ -42,43 +43,26 @@ export default function createTests() {
             await form.switchToFormView(false, artifactWebView);
             await form.fill({
                 values: {
-                    'Name*The name of the listener': {
-                        type: 'input',
-                        value: listenerName,
-                    },
                     'connectionString': {
-                        type: 'textarea',
-                        value: '"Endpoint=sb://test.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=test"',
-                        additionalProps: { clickLabel: true }
+                        type: 'cmEditor',
+                        value: 'Endpoint=sb://test.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=test',
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
                     },
                     'entityConfig': {
-                        type: 'textarea',
+                        type: 'cmEditor',
                         value: `{ queueName: "testQueue" }`,
-                        additionalProps: { clickLabel: true }
+                        additionalProps: { clickLabel: true, switchMode: 'expression-mode', window: global.window }
                     }
                 }
             });
-            await form.submit('Next', true);
-
-            // Check for title
-            const configTitle = artifactWebView.locator('h3', { hasText: 'Azure Service Bus Event Handler Configuration' });
-            await configTitle.waitFor();
-
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
-
             await form.submit('Create');
 
-            const onMessage = artifactWebView.locator(`text="onMessage"`);
-            await onMessage.waitFor();
-
             const projectExplorer = new ProjectExplorer(page.page);
-            await projectExplorer.findItem(['sample', `Azure Service Bus Event Handler`], true);
+            await projectExplorer.findItem(['sample', `Azure Service Bus Event Integration`], true);
 
-            const updateArtifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
-            if (!updateArtifactWebView) {
-                throw new Error('WSO2 Integrator: BI webview not found');
-            }
+            const asbListener = `asbListener`;
+            const context = artifactWebView.locator(`text=${asbListener}`);
+            await context.waitFor();
         });
 
         test('Editing Azure Integration', async ({ }, testInfo) => {
@@ -93,19 +77,61 @@ export default function createTests() {
             await editBtn.waitFor();
             await editBtn.click({ force: true });
 
+
             const form = new Form(page.page, 'WSO2 Integrator: BI', artifactWebView);
             await form.switchToFormView(false, artifactWebView);
+            await form.fill({
+                values: {
+                    'connectionString': {
+                        type: 'cmEditor',
+                        value: 'Endpoint=sb://test.updated.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=test',
+                        additionalProps: { clickLabel: true, switchMode: 'primary-mode', window: global.window }
+                    },
+                    'entityConfig': {
+                        type: 'cmEditor',
+                        value: `{ queueName: "updated-queue-name" }`,
+                        additionalProps: { clickLabel: true, switchMode: 'expression-mode', window: global.window }
+                    }
+                }
+            });
+            await form.submit('Save Changes');
 
-            const configTitle = artifactWebView.locator('h3', { hasText: 'Azure Service Bus Event Handler Configuration' });
-            await configTitle.waitFor();
+            const saveChangesBtn = artifactWebView.locator('#save-changes-btn vscode-button[appearance="primary"]');
+            await saveChangesBtn.waitFor({ state: 'visible' });
+            await expect(saveChangesBtn).toHaveClass('disabled', { timeout: 5000 });
+            await expect(saveChangesBtn).toHaveText('Save Changes');
 
-            const selectedListener = artifactWebView.locator(`[current-value="${listenerName}"]`);
-            await selectedListener.waitFor();
+            const backBtn = artifactWebView.locator('[data-testid="back-button"]');
+            await backBtn.waitFor();
+            await backBtn.click();
 
-            await form.submit('Save');
+            await editBtn.waitFor();
 
-            const onMessage = artifactWebView.locator(`text="onMessage"`);
-            await onMessage.waitFor();
+            const projectExplorer = new ProjectExplorer(page.page);
+            await projectExplorer.findItem(['sample', `Azure Service Bus Event Integration`], true);
+
+            const asbListener = `asbListener`;
+            const context = artifactWebView.locator(`text=${asbListener}`);
+            await context.waitFor({ state: 'visible' });
+        });
+
+        test('Delete Azure Integration', async ({ }, testInfo) => {
+            const testAttempt = testInfo.retry + 1;
+            console.log('Deleting Azure integration in test attempt: ', testAttempt);
+
+            const artifactWebView = await switchToIFrame('WSO2 Integrator: BI', page.page);
+            if (!artifactWebView) {
+                throw new Error('WSO2 Integrator: BI webview not found');
+            }
+
+            const projectExplorer = new ProjectExplorer(page.page);
+            const serviceTreeItem = await projectExplorer.findItem([DEFAULT_PROJECT_NAME, `Azure Service Bus Event Integration`], true);
+            await serviceTreeItem.click({ button: 'right' });
+            const deleteButton = page.page.getByRole('button', { name: 'Delete' }).first();
+            await deleteButton.waitFor({ timeout: 5000 });
+            await deleteButton.click();
+            await page.page.waitForTimeout(500);
+            await expect(serviceTreeItem).not.toBeVisible({ timeout: 10000 });
         });
     });
 }

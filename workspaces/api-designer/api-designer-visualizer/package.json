@@ -32,7 +32,7 @@
     "@hookform/resolvers": "~3.3.4",
     "yup": "~1.4.0",
     "react-hook-form": "7.56.4",
-    "lodash": "~4.17.21",
+    "lodash": "4.17.23",
     "@tanstack/react-query": "4.0.10",
     "@tanstack/query-core": "^4.0.0-beta.1",
     "@mdxeditor/editor": "~3.14.0"
@@ -60,7 +60,7 @@
     "@types/node": "^20.10.6",
     "@types/react": "18.2.0",
     "@types/react-dom": "18.2.0",
-    "@vscode/codicons": "0.0.33",
+    "@vscode/codicons": "0.0.44",
     "copyfiles": "^2.4.1"
   }
 }

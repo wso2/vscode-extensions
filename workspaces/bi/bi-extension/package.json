@@ -2,7 +2,7 @@
     "name": "ballerina-integrator",
     "displayName": "WSO2 Integrator: BI",
     "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
-    "version": "1.5.4",
+    "version": "1.6.0",
     "publisher": "wso2",
     "icon": "resources/images/wso2-ballerina-integrator-logo.png",
     "repository": {
@@ -171,7 +171,8 @@
         "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../..",
         "compile-tests": "tsc -p .",
         "copy-ballerina-ext": "copyfiles -f ../../ballerina/ballerina-extension/vsix/* ./vsix",
-        "e2e-test": "pnpm run copy-ballerina-ext && pnpm run compile-tests && pnpm exec playwright test"
+        "e2e-test": "pnpm run copy-ballerina-ext && pnpm run compile-tests && pnpm exec playwright test",
+        "e2e-test:download-prerelease": "pnpm run compile-tests && DOWNLOAD_PRERELEASE=true pnpm exec playwright test"
     },
     "dependencies": {
         "@wso2/ballerina-core": "workspace:*",
@@ -184,10 +185,10 @@
         "@types/vscode": "^1.84.0",
         "@types/mocha": "^10.0.3",
         "@types/node": "22.15.18",
-        "@typescript-eslint/eslint-plugin": "^6.21.0",
-        "@typescript-eslint/parser": "^8.32.1",
+        "@typescript-eslint/eslint-plugin": "8.32.1",
+        "@typescript-eslint/parser": "8.32.1",
         "@vscode/test-electron": "^2.5.2",
-        "eslint": "^8.57.1",
+        "eslint": "9.27.0",
         "glob": "^11.1.0",
         "mocha": "^11.2.2",
         "typescript": "5.8.3",
