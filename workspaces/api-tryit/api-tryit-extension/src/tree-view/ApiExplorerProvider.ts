@@ -399,6 +399,53 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 	}
 
 	/**
+	 * Find a request by its persisted file path and return identifiers needed for selection.
+	 */
+	public findRequestByFilePath(filePath: string): {
+		collection: ApiCollection;
+		folder?: ApiFolder;
+		requestItem: ApiRequestItem;
+		treeItemId: string;
+		parentIds: string[];
+	} | null {
+		const normalizedTarget = path.normalize(filePath);
+
+		for (const collection of this.collections) {
+			// Root-level requests
+			for (const requestItem of collection.rootItems || []) {
+				if (requestItem.filePath && path.normalize(requestItem.filePath) === normalizedTarget) {
+					const treeItemId = `${collection.id}-${requestItem.name}`;
+					return {
+						collection,
+						requestItem,
+						treeItemId,
+						parentIds: [collection.id]
+					};
+				}
+			}
+
+			// Folder requests
+			for (const folder of collection.folders || []) {
+				for (const requestItem of folder.items) {
+					if (requestItem.filePath && path.normalize(requestItem.filePath) === normalizedTarget) {
+						const folderId = `${collection.id}-${folder.name}`;
+						const treeItemId = `${folderId}-${requestItem.name}`;
+						return {
+							collection,
+							folder,
+							requestItem,
+							treeItemId,
+							parentIds: [collection.id, folderId]
+						};
+					}
+				}
+			}
+		}
+
+		return null;
+	}
+
+	/**
 	 * Get collections as JSON-serializable format for webview
 	 */
 	async getCollections(): Promise<Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest; children?: Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest; children?: Array<{id: string; name: string; type: string; method?: string; request?: ApiRequest}>}>}>> {

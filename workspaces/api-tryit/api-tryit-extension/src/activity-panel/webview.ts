@@ -92,7 +92,7 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 					this._handleOpenRequest(message.request as Record<string, unknown>);
 					break;
 				case 'selectItem':
-					// Handle item selection
+					// Selection from the webview is handled inside ExplorerView; nothing required here
 					break;
 				case 'getCollections':
 					// Send collections to webview

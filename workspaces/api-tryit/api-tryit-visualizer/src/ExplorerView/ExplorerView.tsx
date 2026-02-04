@@ -191,6 +191,8 @@ interface ExplorerViewProps {
 	collections?: RequestItem[];
 	isLoading?: boolean;
 	clearSelectionTrigger?: number;
+	selectedItemId?: string;
+	expandItemIds?: string[];
 }
 
 // Custom collapsible component props
@@ -355,7 +357,7 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 	);
 };
 
-export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], isLoading = false, clearSelectionTrigger = 0 }) => {
+export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], isLoading = false, clearSelectionTrigger = 0, selectedItemId, expandItemIds }) => {
 	const [searchTerm, setSearchTerm] = useState('');
 	const [selectedId, setSelectedId] = useState<string>();
 	const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
@@ -369,6 +371,23 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 			setSelectedId(undefined);
 		}
 	}, [clearSelectionTrigger]);
+
+	// Apply external selection (e.g., after save) and ensure parents are expanded
+	useEffect(() => {
+		if (selectedItemId) {
+			setSelectedId(selectedItemId);
+		}
+	}, [selectedItemId]);
+
+	useEffect(() => {
+		if (expandItemIds && expandItemIds.length > 0) {
+			setExpandedItems(prev => {
+				const next = new Set(prev);
+				expandItemIds.forEach(id => next.add(id));
+				return next;
+			});
+		}
+	}, [expandItemIds]);
 
 	// Initialize expanded state for folders (collections and folders start collapsed)
 	useEffect(() => {

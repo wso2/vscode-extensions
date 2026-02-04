@@ -76,6 +76,42 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage(`Opening: ${requestItem.request.method} ${requestItem.name}`);
 	});
 
+	// Register command to select an item in the explorer by file path (used after save)
+	const selectItemByPathCommand = vscode.commands.registerCommand('api-tryit.selectItemByPath', async (filePath: string) => {
+		if (!filePath || typeof filePath !== 'string') {
+			vscode.window.showWarningMessage('No file path provided to select');
+			return;
+		}
+
+		// Try to locate the request using cached collections; reload once if not found
+		let match = apiExplorerProvider.findRequestByFilePath(filePath);
+		if (!match) {
+			await apiExplorerProvider.reloadCollections();
+			match = apiExplorerProvider.findRequestByFilePath(filePath);
+		}
+
+		if (!match) {
+			vscode.window.showWarningMessage('Saved request not found in API Explorer');
+			return;
+		}
+
+		const { collection, folder, requestItem, treeItemId, parentIds } = match;
+
+		// Inform the activity panel webview so it can highlight the saved request
+		ActivityPanel.postMessage('selectItem', {
+			id: treeItemId,
+			parentIds,
+			filePath: requestItem.filePath,
+			name: requestItem.name,
+			collectionId: collection.id,
+			collectionName: collection.name,
+			folderId: folder?.id,
+			folderName: folder?.name,
+			method: requestItem.request.method,
+			request: requestItem.request
+		});
+	});
+
 	// Register command to clear selection (must be before newRequestCommand)
 	const clearSelectionCommand = vscode.commands.registerCommand('api-tryit.clearSelection', async () => {
 		// Clear selection in the activity panel webview
@@ -219,6 +255,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		refreshCommand, 
 		openTryItCommand, 
 		openRequestCommand, 
+		selectItemByPathCommand,
 		newRequestCommand,
 		newCollectionCommand,
 		importCollectionCommand,
