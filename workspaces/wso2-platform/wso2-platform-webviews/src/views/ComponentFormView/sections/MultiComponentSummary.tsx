@@ -27,6 +27,7 @@ import {
 	WebAppSPATypes,
 	getComponentTypeText,
 	getIntegrationComponentTypeText,
+    getTypeOfIntegrationType,
 } from "@wso2/wso2-platform-core";
 import classNames from "classnames";
 import React, { type HTMLProps, type FC, type ReactNode } from "react";
@@ -80,6 +81,9 @@ export const MultiComponentSummary: FC<MultiComponentSummaryProps> = ({
 		const items: ReactNode[] = [];
 		const componentConfig = allComponents?.[comp.index];
 		const componentType = comp.componentType;
+        const choreoComponentType = extensionName === "Devant"
+            ? getTypeOfIntegrationType(componentType).type
+            : componentType;
 		const buildDetails = componentData?.buildDetails;
 		const endpointDetails = componentData?.endpointDetails;
 		const gitProxyDetails = componentData?.gitProxyDetails;
@@ -87,7 +91,7 @@ export const MultiComponentSummary: FC<MultiComponentSummaryProps> = ({
 		// Build pack / Technology (from initialValues or buildDetails)
 		const buildPackLang = componentConfig?.initialValues?.buildPackLang || buildDetails?.buildPackLang;
 		if (buildPackLang) {
-			const buildPackName = getBuildPackDisplayName(componentType, buildPackLang);
+			const buildPackName = getBuildPackDisplayName(choreoComponentType, buildPackLang);
 			items.push(
 				<ComponentSummaryItem
 					key={`buildpack-${comp.index}`}
@@ -98,7 +102,7 @@ export const MultiComponentSummary: FC<MultiComponentSummaryProps> = ({
 		}
 
 		// API Proxy specific fields
-		if (componentType === ChoreoComponentType.ApiProxy && gitProxyDetails) {
+		if (choreoComponentType === ChoreoComponentType.ApiProxy && gitProxyDetails) {
 			if (gitProxyDetails.componentConfig?.type) {
 				items.push(<ComponentSummaryItem key={`proxy-type-${comp.index}`} title="Proxy Type" text={gitProxyDetails.componentConfig.type} />);
 			}
@@ -119,7 +123,7 @@ export const MultiComponentSummary: FC<MultiComponentSummaryProps> = ({
 				if (buildDetails.dockerFile) {
 					items.push(<ComponentSummaryItem key={`dockerfile-${comp.index}`} title="Docker File" text={buildDetails.dockerFile} />);
 				}
-				if (componentType === ChoreoComponentType.WebApplication && buildDetails.webAppPort) {
+				if (choreoComponentType === ChoreoComponentType.WebApplication && buildDetails.webAppPort) {
 					items.push(<ComponentSummaryItem key={`port-${comp.index}`} title="Port" text={buildDetails.webAppPort} />);
 				}
 			} else if (WebAppSPATypes.includes(buildPackLang as ChoreoBuildPackNames)) {
@@ -134,14 +138,14 @@ export const MultiComponentSummary: FC<MultiComponentSummaryProps> = ({
 				}
 			} else if (buildDetails.langVersion) {
 				items.push(<ComponentSummaryItem key={`lang-version-${comp.index}`} title="Language Version" text={buildDetails.langVersion} />);
-				if (componentType === ChoreoComponentType.WebApplication && buildDetails.webAppPort) {
+				if (choreoComponentType === ChoreoComponentType.WebApplication && buildDetails.webAppPort) {
 					items.push(<ComponentSummaryItem key={`port-${comp.index}`} title="Port" text={buildDetails.webAppPort} />);
 				}
 			}
 		}
 
 		// Endpoints for Service components
-		if (componentType === ChoreoComponentType.Service && endpointDetails?.endpoints?.length) {
+		if (choreoComponentType === ChoreoComponentType.Service && endpointDetails?.endpoints?.length) {
 			items.push(
 				<ComponentSummaryItem
 					key={`endpoints-${comp.index}`}
