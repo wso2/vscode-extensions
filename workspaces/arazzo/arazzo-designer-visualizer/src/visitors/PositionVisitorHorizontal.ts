@@ -51,10 +51,9 @@ export class PositionVisitor {
                 if (!this.visited.has(child.id)) {
                     this.visit(child, childX, childY);
                 }
-            } else {
+            } else { //this case is not triggered as alwats there is only one child in the main flow. but keeping the logic for future use
                 // Calculate total stack height to center it relative to parent
                 const totalH = node.children.reduce((acc, c) => acc + c.viewState.subtreeH, 0) + (node.children.length - 1) * C.NODE_GAP_Y;
-
                 // Start Y: Parent Center - Half Stack Height
                 let currentY = nodeY + (node.viewState.h / 2) - (totalH / 2);
 
@@ -88,14 +87,19 @@ export class PositionVisitor {
         if (node.branches && node.branches.length > 0) {
             const childX = nodeX + node.viewState.w + C.NODE_GAP_X;
 
-            // Top-align the first branch with the condition node
-            let currentY = nodeY;
+            // Top-align the first branch with the condition node's center
+            let currentY = nodeY + (node.viewState.h / 2) - (node.branches[0][0].viewState.h / 2);
 
             // First pass: Calculate Y positions for all branch heads to reserve vertical space
             const branchPositions: { head: FlowNode, y: number }[] = [];
             node.branches.forEach((branch, index, allBranches) => {
                 const head = branch[0];
                 if (head && !this.visited.has(head.id) && !this.positioned.has(head.id)) {
+                    // // For the first branch, align its vertical center with the condition node's center
+                    // const headY = index === 0
+                    //     ? nodeY + (node.viewState.h / 2) - (head.viewState.h / 2)
+                    //     : currentY;
+
                     branchPositions.push({ head, y: currentY });
 
                     // Look ahead to the next branch's head to decide the gap

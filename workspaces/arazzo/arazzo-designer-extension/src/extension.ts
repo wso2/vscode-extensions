@@ -164,7 +164,7 @@ function initializeLanguageServer(context: vscode.ExtensionContext) {
 		
 		// Open the WorkflowView with the specific workflowId
 		openView(EVENT_TYPE.OPEN_VIEW, {
-			view: MACHINE_VIEW.Overview,
+			view: MACHINE_VIEW.Workflow,
 			documentUri: uri.toString(),
 			identifier: workflowId,
 		});
