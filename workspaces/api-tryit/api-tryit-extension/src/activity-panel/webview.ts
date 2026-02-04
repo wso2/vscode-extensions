@@ -17,6 +17,7 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import type { ApiRequestItem, ApiRequest } from '@wso2/api-tryit-core';
 import { getComposerJSFiles } from '../util';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
@@ -252,10 +253,23 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			// Wait a moment to ensure the panel is ready
 			await new Promise(resolve => setTimeout(resolve, 300));
 
-			console.log('[ActivityPanel] Sending ADD_REQUEST_TO_COLLECTION event with collectionId:', collectionId);
+			// Construct the full collection directory path
+			const config = vscode.workspace.getConfiguration('api-tryit');
+			const configuredPath = config.get<string>('collectionsPath');
+			const storagePath = configuredPath || 
+				(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '');
+
+			if (!storagePath) {
+				vscode.window.showErrorMessage('No workspace path available');
+				return;
+			}
+
+			const collectionPath = path.join(storagePath, collectionId);
+			console.log('[ActivityPanel] Full collection path:', collectionPath);
+
+			console.log('[ActivityPanel] Sending ADD_REQUEST_TO_COLLECTION event with collectionId:', collectionId, 'collectionPath:', collectionPath);
 			// Send event to state machine to create a new request in this collection
-			// The collection's filePath is already known and will be used by the state machine
-			ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, collectionId);
+			ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, collectionPath);
 
 			const collectionName = typeof collection === 'object' && collection !== null && 'name' in collection 
 				? (collection as Record<string, unknown>).name 
