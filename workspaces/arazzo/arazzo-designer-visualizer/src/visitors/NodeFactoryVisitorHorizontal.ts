@@ -144,9 +144,16 @@ export class NodeFactoryVisitorHorizontal {
         // Horizontal behavior
         let sourceHandleId = sourceHandle === 'bottom' ? 'h-bottom' : 'h-right';
         let targetHandleId = 'h-left';
-        // If connecting from Failure (bottom) to a Terminate Node (END) or Retry Node, use top handle
-        if (sourceHandle === 'bottom' && (target.type === 'END' || target.type === 'RETRY')) {
-            targetHandleId = 'h-top';
+        // Failure connections: map handles specially
+        if (sourceHandle === 'bottom') {
+            // Failure -> END or RETRY should target top
+            if (target.type === 'END' || target.type === 'RETRY') {
+                targetHandleId = 'h-top';
+            }
+            // Failure -> CONDITION: keep source bottom and target top
+            if (target.type === 'CONDITION') {
+                targetHandleId = 'h-top';
+            }
         }
 
         const edge = {

@@ -144,8 +144,8 @@ export class NodeFactoryVisitorVertical {
         // Step nodes: target top, source bottom; failure (logical bottom) uses right
         let sourceHandleId = sourceHandle === 'right' ? 'h-bottom' : 'h-right';
         let targetHandleId = 'h-top';
-        // If failure connecting to END/RETRY, target should be left
-        if (sourceHandle === 'bottom' && (target.type === 'END' || target.type === 'RETRY')) {
+        // If failure connecting to END/RETRY or CONDITION, target should be left
+        if (sourceHandle === 'bottom' && (target.type === 'END' || target.type === 'RETRY' || target.type === 'CONDITION')) {
             targetHandleId = 'h-left';
         }
 
