@@ -19,19 +19,25 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
 	type Buildpack,
-	ChoreoBuildPackNames,
 	ChoreoComponentType,
 	type ComponentConfig,
 	type ComponentSelectionItem,
 	type Organization,
-	WebAppSPATypes,
 	getComponentTypeText,
 	getIntegrationComponentTypeText,
-    getTypeOfIntegrationType,
+	getIntegrationScopeText,
+	getTypeOfIntegrationType,
 } from "@wso2/wso2-platform-core";
+import { Icon } from "@wso2/ui-toolkit";
 import classNames from "classnames";
-import React, { type HTMLProps, type FC, type ReactNode } from "react";
+import React, { type HTMLProps, type FC } from "react";
+import { Codicon } from "../../../components/Codicon";
 import { queryKeys } from "../../../hooks/use-queries";
+import {
+	getIntegrationTypeColor,
+	getIntegrationTypeIcon,
+	getTypeChipStyle,
+} from "../../../utilities/integration-type-styles";
 import type { PerComponentFormData } from "../hooks";
 
 export interface MultiComponentSummaryProps {
@@ -44,18 +50,17 @@ export interface MultiComponentSummaryProps {
 	organization: Organization;
 }
 
-const ComponentSummaryItem: FC<{ title: string; text: string | number; className?: HTMLProps<HTMLElement>["className"] }> = ({
+/** Compact summary item for repository section */
+const SummaryItem: FC<{ title: string; text: string | number; className?: HTMLProps<HTMLElement>["className"] }> = ({
 	text,
 	title,
 	className,
-}) => {
-	return (
-		<div key={title} title={`${title}: ${text}`} className={className}>
-			<div className="line-clamp-1 text-sm">{title}</div>
-			<div className="line-clamp-1 break-all font-light opacity-80">{text}</div>
-		</div>
-	);
-};
+}) => (
+	<div key={title} title={`${title}: ${text}`} className={className}>
+		<div className="line-clamp-1 text-sm">{title}</div>
+		<div className="line-clamp-1 break-all font-light opacity-80">{text}</div>
+	</div>
+);
 
 export const MultiComponentSummary: FC<MultiComponentSummaryProps> = ({
 	selectedComponents,
@@ -68,6 +73,7 @@ export const MultiComponentSummary: FC<MultiComponentSummaryProps> = ({
 }) => {
 	const queryClient = useQueryClient();
 	const selectedComponentsToDisplay = selectedComponents.filter((comp) => comp.selected);
+	const isDevant = extensionName === "Devant";
 
 	// Helper function to get build pack display name
 	const getBuildPackDisplayName = (componentType: string, buildPackLang: string): string => {
@@ -76,139 +82,135 @@ export const MultiComponentSummary: FC<MultiComponentSummaryProps> = ({
 		return buildPacks?.find((item) => item.language === buildPackLang)?.displayName || buildPackLang || "-";
 	};
 
-	// Helper function to get per-component details as items
-	const getComponentDetails = (comp: ComponentSelectionItem, componentData: PerComponentFormData | undefined): ReactNode[] => {
-		const items: ReactNode[] = [];
+	// Helper function to get technology/buildpack name for a component
+	const getTechnologyName = (comp: ComponentSelectionItem, componentData: PerComponentFormData | undefined): string => {
 		const componentConfig = allComponents?.[comp.index];
 		const componentType = comp.componentType;
-        const choreoComponentType = extensionName === "Devant"
-            ? getTypeOfIntegrationType(componentType).type
-            : componentType;
-		const buildDetails = componentData?.buildDetails;
+		const choreoComponentType = isDevant ? getTypeOfIntegrationType(componentType).type : componentType;
+		const buildPackLang = componentConfig?.initialValues?.buildPackLang || componentData?.buildDetails?.buildPackLang;
+		return buildPackLang ? getBuildPackDisplayName(choreoComponentType, buildPackLang) : "-";
+	};
+
+	// Helper function to get endpoint count for a component
+	const getEndpointCount = (comp: ComponentSelectionItem, componentData: PerComponentFormData | undefined): string => {
+		const componentType = comp.componentType;
+		const choreoComponentType = isDevant ? getTypeOfIntegrationType(componentType).type : componentType;
 		const endpointDetails = componentData?.endpointDetails;
-		const gitProxyDetails = componentData?.gitProxyDetails;
 
-		// Build pack / Technology (from initialValues or buildDetails)
-		const buildPackLang = componentConfig?.initialValues?.buildPackLang || buildDetails?.buildPackLang;
-		if (buildPackLang) {
-			const buildPackName = getBuildPackDisplayName(choreoComponentType, buildPackLang);
-			items.push(
-				<ComponentSummaryItem
-					key={`buildpack-${comp.index}`}
-					title={extensionName === "Devant" ? "Technology" : "Build Pack"}
-					text={buildPackName}
-				/>,
-			);
-		}
-
-		// API Proxy specific fields
-		if (choreoComponentType === ChoreoComponentType.ApiProxy && gitProxyDetails) {
-			if (gitProxyDetails.componentConfig?.type) {
-				items.push(<ComponentSummaryItem key={`proxy-type-${comp.index}`} title="Proxy Type" text={gitProxyDetails.componentConfig.type} />);
-			}
-			if (gitProxyDetails.proxyContext) {
-				items.push(<ComponentSummaryItem key={`api-context-${comp.index}`} title="API Context" text={gitProxyDetails.proxyContext} />);
-			}
-			if (gitProxyDetails.proxyVersion) {
-				items.push(<ComponentSummaryItem key={`version-${comp.index}`} title="Version" text={gitProxyDetails.proxyVersion} />);
-			}
-			if (gitProxyDetails.proxyTargetUrl) {
-				items.push(<ComponentSummaryItem key={`target-url-${comp.index}`} title="Target URL" text={gitProxyDetails.proxyTargetUrl} />);
-			}
-		}
-
-		// Build details based on build pack type
-		if (buildPackLang && buildDetails) {
-			if (buildPackLang === ChoreoBuildPackNames.Docker) {
-				if (buildDetails.dockerFile) {
-					items.push(<ComponentSummaryItem key={`dockerfile-${comp.index}`} title="Docker File" text={buildDetails.dockerFile} />);
-				}
-				if (choreoComponentType === ChoreoComponentType.WebApplication && buildDetails.webAppPort) {
-					items.push(<ComponentSummaryItem key={`port-${comp.index}`} title="Port" text={buildDetails.webAppPort} />);
-				}
-			} else if (WebAppSPATypes.includes(buildPackLang as ChoreoBuildPackNames)) {
-				if (buildDetails.spaNodeVersion) {
-					items.push(<ComponentSummaryItem key={`node-version-${comp.index}`} title="Node Version" text={buildDetails.spaNodeVersion} />);
-				}
-				if (buildDetails.spaBuildCommand) {
-					items.push(<ComponentSummaryItem key={`build-cmd-${comp.index}`} title="Build Command" text={buildDetails.spaBuildCommand} />);
-				}
-				if (buildDetails.spaOutputDir) {
-					items.push(<ComponentSummaryItem key={`output-dir-${comp.index}`} title="Output Directory" text={buildDetails.spaOutputDir} />);
-				}
-			} else if (buildDetails.langVersion) {
-				items.push(<ComponentSummaryItem key={`lang-version-${comp.index}`} title="Language Version" text={buildDetails.langVersion} />);
-				if (choreoComponentType === ChoreoComponentType.WebApplication && buildDetails.webAppPort) {
-					items.push(<ComponentSummaryItem key={`port-${comp.index}`} title="Port" text={buildDetails.webAppPort} />);
-				}
-			}
-		}
-
-		// Endpoints for Service components
 		if (choreoComponentType === ChoreoComponentType.Service && endpointDetails?.endpoints?.length) {
-			items.push(
-				<ComponentSummaryItem
-					key={`endpoints-${comp.index}`}
-					title="Endpoints"
-					text={`${endpointDetails.endpoints.length} endpoint${endpointDetails.endpoints.length > 1 ? "s" : ""}`}
-				/>,
-			);
+			return String(endpointDetails.endpoints.length);
 		}
-
-		return items;
+		return "-";
 	};
 
 	return (
-		<div className={classNames("flex flex-col gap-4", isLoading && "animate-pulse")}>
-			{/* Common Configuration (Repository & Branch) */}
-			<div>
-				<h4 className="mb-2 text-sm font-medium opacity-80">Repository Configuration</h4>
-				<div className="grid grid-cols-2 gap-1 md:grid-cols-3 md:gap-2 xl:grid-cols-4 xl:gap-3">
-					<ComponentSummaryItem key="repo" title="Repository" text={genDetails?.repoUrl || "-"} className="col-span-2" />
-					<ComponentSummaryItem key="branch" title="Branch" text={genDetails?.branch || "-"} />
-				</div>
+		<div className={classNames("flex flex-col gap-5", isLoading && "animate-pulse")}>
+			{/* Repository Configuration - Compact grid matching single component view */}
+			<div className="grid grid-cols-2 gap-1 md:grid-cols-3 md:gap-2 xl:grid-cols-4 xl:gap-3">
+				<SummaryItem title="Repository" text={genDetails?.repoUrl || "-"} className="col-span-2" />
+				<SummaryItem title="Branch" text={genDetails?.branch || "-"} />
 			</div>
 
-			{/* Components List with Per-Component Details */}
-			<div>
-				<h4 className="mb-2 text-sm font-medium opacity-80">
-					{extensionName === "Devant" ? "Integrations" : "Components"} ({selectedComponentsToDisplay.length})
-				</h4>
-				<div className="flex flex-col gap-3">
-					{selectedComponentsToDisplay.map((comp) => {
-						const componentConfig = allComponents?.[comp.index];
-						const componentType = comp.componentType;
-						const subType = componentConfig?.initialValues?.subType;
-						const componentData = componentDataMap?.get(comp.index);
-						const componentDetails = getComponentDetails(comp, componentData);
+			{/* Components Table */}
+			<div className="rounded-lg border border-vsc-input-border bg-vsc-editor-background">
+				{/* Table using actual table element for proper alignment */}
+				<table className="w-full border-collapse text-sm">
+					<thead>
+						<tr className="border-b border-vsc-input-border text-left text-xs text-vsc-descriptionForeground">
+							<th className="px-4 py-2.5 font-medium">Name</th>
+							<th className="px-4 py-2.5 font-medium">Type</th>
+							<th className="px-4 py-2.5 font-medium">{isDevant ? "Technology" : "Build Pack"}</th>
+							<th className="px-4 py-2.5 font-medium">Endpoints</th>
+							<th className="px-4 py-2.5 font-medium">Directory</th>
+						</tr>
+					</thead>
+					<tbody>
+						{selectedComponentsToDisplay.map((comp, idx) => {
+							const componentConfig = allComponents?.[comp.index];
+							const componentType = comp.componentType;
+							const subType = componentConfig?.initialValues?.subType;
+							const componentData = componentDataMap?.get(comp.index);
+							const technologyName = getTechnologyName(comp, componentData);
+							const endpointCount = getEndpointCount(comp, componentData);
+							const isLast = idx === selectedComponentsToDisplay.length - 1;
 
-						return (
-							<div
-								key={comp.index}
-								className="rounded-lg border border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] p-4"
-							>
-								{/* Component Header */}
-								<div className="mb-3 flex items-center gap-2 border-b border-[var(--vscode-widget-border)] pb-2">
-									<span className="font-medium">{comp.name}</span>
-									<span className="rounded bg-[var(--vscode-badge-background)] px-2 py-0.5 text-xs text-[var(--vscode-badge-foreground)]">
-										{extensionName === "Devant"
-											? getIntegrationComponentTypeText(componentType, subType)
-											: getComponentTypeText(componentType)}
-									</span>
-									<span className="text-xs opacity-60">({comp.directoryName})</span>
-								</div>
-
-								{/* Component Details Grid */}
-								<div className="grid grid-cols-2 gap-1 md:grid-cols-3 md:gap-2 xl:grid-cols-4 xl:gap-3">
-									{componentDetails.length > 0 ? (
-										componentDetails
-									) : (
-										<span className="col-span-full text-sm opacity-60">Using default configuration</span>
+							return (
+								<tr
+									key={comp.index}
+									className={classNames(
+										"transition-colors hover:bg-vsc-list-hoverBackground/25",
+										!isLast && "border-b border-vsc-input-border"
 									)}
-								</div>
-							</div>
-						);
-					})}
+								>
+									{/* Name */}
+									<td className="px-4 py-3">
+										<span className="font-medium text-vsc-foreground" title={comp.name}>
+											{comp.name}
+										</span>
+									</td>
+
+									{/* Type */}
+									<td className="px-4 py-3">
+										{(() => {
+											const typeColor = isDevant ? getIntegrationTypeColor(componentType, subType) : undefined;
+											const chipStyle = getTypeChipStyle(typeColor);
+											const iconConfig = isDevant ? getIntegrationTypeIcon(componentType, subType) : null;
+											const typeText = isDevant
+												? getIntegrationScopeText(getIntegrationComponentTypeText(componentType, subType))
+												: getComponentTypeText(componentType);
+
+											return chipStyle ? (
+												<span style={chipStyle} className="inline-flex items-center gap-1">
+													{iconConfig &&
+														(iconConfig.isCodicon ? (
+															<Codicon name={iconConfig.name} className="text-[10px]" />
+														) : (
+															<Icon
+																name={iconConfig.name}
+																iconSx={{ fontSize: 12, opacity: 0.9 }}
+																sx={{ height: 12, width: 12 }}
+															/>
+														))}
+													{typeText}
+												</span>
+											) : (
+												<span className="whitespace-nowrap rounded-full border border-vsc-input-border bg-vsc-input-background px-2.5 py-1 text-xs font-medium text-vsc-foreground">
+													{typeText}
+												</span>
+											);
+										})()}
+									</td>
+
+									{/* Technology */}
+									<td className="px-4 py-3">
+										<span className="text-vsc-foreground opacity-80" title={technologyName}>
+											{technologyName}
+										</span>
+									</td>
+
+									{/* Endpoints */}
+									<td className="px-4 py-3">
+										<span className="text-vsc-foreground opacity-80">
+											{endpointCount}
+										</span>
+									</td>
+
+									{/* Directory */}
+									<td className="px-4 py-3">
+										<span className="font-mono text-xs text-vsc-descriptionForeground" title={comp.directoryName}>
+											{comp.directoryName}
+										</span>
+									</td>
+								</tr>
+							);
+						})}
+					</tbody>
+				</table>
+
+				{/* Footer with count */}
+				<div className="border-t border-vsc-input-border px-4 py-2 text-xs text-vsc-descriptionForeground">
+					{selectedComponentsToDisplay.length} {isDevant ? "integration" : "component"}
+					{selectedComponentsToDisplay.length !== 1 ? "s" : ""} selected
 				</div>
 			</div>
 		</div>

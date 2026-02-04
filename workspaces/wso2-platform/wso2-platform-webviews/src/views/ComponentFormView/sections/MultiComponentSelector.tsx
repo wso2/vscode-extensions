@@ -19,103 +19,19 @@
 import { VSCodeCheckbox, VSCodeDropdown, VSCodeOption } from "@vscode/webview-ui-toolkit/react";
 import {
 	ChoreoBuildPackNames,
-	ChoreoComponentSubType,
 	ChoreoComponentType,
 	type ComponentConfig,
 	type ComponentSelectionItem,
 	DevantScopes,
 	getIntegrationComponentTypeText,
+	getIntegrationScopeText,
 } from "@wso2/wso2-platform-core";
 import { Icon } from "@wso2/ui-toolkit";
 import React, { type FC, useMemo, useState } from "react";
 import { Banner } from "../../../components/Banner";
 import { Codicon } from "../../../components/Codicon";
+import { getIntegrationTypeColor, getIntegrationTypeIcon, getTypeChipStyle } from "../../../utilities/integration-type-styles";
 import { componentNameSchema } from "../componentFormSchema";
-
-/**
- * Icon configuration for integration types.
- * Handles both DevantScopes (from supportedIntegrationTypes) and mapped ChoreoComponentType (from initialValues).
- */
-const getIntegrationTypeIcon = (type: string, subType?: string): { name: string; isCodicon: boolean } => {
-	// First check DevantScopes (direct values from supportedIntegrationTypes)
-	const devantIcons: Record<string, { name: string; isCodicon: boolean }> = {
-		[DevantScopes.AUTOMATION]: { name: "task", isCodicon: false },
-		[DevantScopes.INTEGRATION_AS_API]: { name: "cloud", isCodicon: true },
-		[DevantScopes.EVENT_INTEGRATION]: { name: "Event", isCodicon: false },
-		[DevantScopes.FILE_INTEGRATION]: { name: "file", isCodicon: false },
-		[DevantScopes.AI_AGENT]: { name: "bi-ai-agent", isCodicon: false },
-		[DevantScopes.LIBRARY]: { name: "package", isCodicon: true },
-		[DevantScopes.ANY]: { name: "project", isCodicon: true },
-	};
-
-	if (devantIcons[type]) {
-		return devantIcons[type];
-	}
-
-	// Then check mapped ChoreoComponentType (from getTypeOfIntegrationType mapping)
-	// Handle subTypes first for more specific matches
-	if (subType === ChoreoComponentSubType.AiAgent) {
-		return { name: "bi-ai-agent", isCodicon: false };
-	}
-	if (subType === ChoreoComponentSubType.fileIntegration) {
-		return { name: "file", isCodicon: false };
-	}
-
-	// Map ChoreoComponentType to icons
-	const choreoIcons: Record<string, { name: string; isCodicon: boolean }> = {
-		[ChoreoComponentType.ScheduledTask]: { name: "task", isCodicon: false }, // AUTOMATION
-		[ChoreoComponentType.Service]: { name: "cloud", isCodicon: true }, // INTEGRATION_AS_API (default for service)
-		[ChoreoComponentType.EventHandler]: { name: "Event", isCodicon: false }, // EVENT_INTEGRATION
-		[ChoreoComponentType.ManualTrigger]: { name: "task", isCodicon: false },
-		[ChoreoComponentType.Webhook]: { name: "Event", isCodicon: false },
-		[ChoreoComponentType.WebApplication]: { name: "browser", isCodicon: true },
-		[ChoreoComponentType.TestRunner]: { name: "beaker", isCodicon: true },
-	};
-
-	return choreoIcons[type] || { name: "symbol-class", isCodicon: true };
-};
-
-/**
- * Color for integration types.
- * Handles both DevantScopes and mapped ChoreoComponentType.
- */
-const getIntegrationTypeColor = (type: string, subType?: string): string => {
-	// First check DevantScopes
-	const devantColors: Record<string, string> = {
-		[DevantScopes.AUTOMATION]: "var(--vscode-charts-blue)",
-		[DevantScopes.INTEGRATION_AS_API]: "var(--vscode-charts-green)",
-		[DevantScopes.EVENT_INTEGRATION]: "var(--vscode-charts-orange)",
-		[DevantScopes.FILE_INTEGRATION]: "var(--vscode-charts-purple)",
-		[DevantScopes.AI_AGENT]: "var(--vscode-charts-red)",
-		[DevantScopes.LIBRARY]: "var(--vscode-charts-yellow)",
-		[DevantScopes.ANY]: "var(--vscode-charts-gray)",
-	};
-
-	if (devantColors[type]) {
-		return devantColors[type];
-	}
-
-	// Handle subTypes first for more specific matches
-	if (subType === ChoreoComponentSubType.AiAgent) {
-		return "var(--vscode-charts-red)";
-	}
-	if (subType === ChoreoComponentSubType.fileIntegration) {
-		return "var(--vscode-charts-purple)";
-	}
-
-	// Map ChoreoComponentType to colors
-	const choreoColors: Record<string, string> = {
-		[ChoreoComponentType.ScheduledTask]: "var(--vscode-charts-blue)", // AUTOMATION
-		[ChoreoComponentType.Service]: "var(--vscode-charts-green)", // INTEGRATION_AS_API
-		[ChoreoComponentType.EventHandler]: "var(--vscode-charts-orange)", // EVENT_INTEGRATION
-		[ChoreoComponentType.ManualTrigger]: "var(--vscode-charts-blue)",
-		[ChoreoComponentType.Webhook]: "var(--vscode-charts-orange)",
-		[ChoreoComponentType.WebApplication]: "var(--vscode-charts-yellow)",
-		[ChoreoComponentType.TestRunner]: "var(--vscode-charts-gray)",
-	};
-
-	return choreoColors[type] || "var(--vscode-foreground)";
-};
 
 /** Available component types for the type picker (Choreo) */
 const COMPONENT_TYPE_OPTIONS = [
@@ -244,7 +160,7 @@ export const MultiComponentSelector: FC<MultiComponentSelectorProps> = ({
 	/** Get display text for component type */
 	const getTypeDisplayText = (type: string) => {
 		if (extensionName === "Devant") {
-			return getIntegrationComponentTypeText(type, "");
+			return getIntegrationScopeText(getIntegrationComponentTypeText(type, ""));
 		}
 		return COMPONENT_TYPE_OPTIONS.find((opt) => opt.value === type)?.label || type;
 	};
@@ -430,22 +346,7 @@ export const MultiComponentSelector: FC<MultiComponentSelectorProps> = ({
 											const typeColor = extensionName === "Devant" 
 												? getIntegrationTypeColor(currentType, subType) 
 												: undefined;
-											
-											// Create chip styles with type-specific coloring for Devant
-											const chipStyle = typeColor ? {
-												background: `color-mix(in srgb, ${typeColor} 12%, transparent)`,
-												color: typeColor,
-												border: `1px solid color-mix(in srgb, ${typeColor} 25%, transparent)`,
-												borderRadius: '12px',
-												gap: '4px',
-												textTransform: 'capitalize',
-												whiteSpace: 'nowrap',
-												display: 'inline-flex',
-												alignItems: 'center',
-												padding: '4px 10px',
-												fontSize: '11px',
-												fontWeight: 500,
-											} : undefined;
+											const chipStyle = getTypeChipStyle(typeColor);
 
 											return (
 												<div
