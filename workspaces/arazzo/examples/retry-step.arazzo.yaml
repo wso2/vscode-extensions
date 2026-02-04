@@ -1,0 +1,40 @@
+arazzo: 1.0.1
+info:
+  title: File Upload Retry
+  version: 1.0.0
+sourceDescriptions:
+  - name: file-api
+    url: https://api.files.com/openapi.json
+    type: openapi
+
+workflows:
+  - workflowId: retry-test-flow
+    summary: Tests retry logic visualization.
+    steps:
+      - stepId: init-session
+        operationId: createSession
+
+      - stepId: prepare-file
+        operationId: compressFile
+
+      - stepId: upload-file
+        operationId: uploadToS3
+        onFailure:
+          - name: retry-upload
+            type: retry
+            stepId: upload-file   # <--- Self-loop retry
+            retryLimit: 3
+            criteria:
+              - condition: "$statusCode == 503"
+          - name: abort
+            type: goto
+            stepId: cleanup
+
+      - stepId: verify-upload
+        operationId: checkHash
+
+      - stepId: notify-user
+        operationId: sendEmail
+
+      - stepId: cleanup
+        operationId: deleteTempFiles
