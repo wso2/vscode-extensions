@@ -28,9 +28,22 @@ export class ApiExplorerProvider implements vscode.TreeDataProvider<ApiTreeItem>
 	private _onDidChangeTreeData: vscode.EventEmitter<ApiTreeItem | undefined | null | void> = new vscode.EventEmitter<ApiTreeItem | undefined | null | void>();
 	readonly onDidChangeTreeData: vscode.Event<ApiTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
 	private loadingPromise: Promise<void> | null = null;
+	private treeView?: vscode.TreeView<ApiTreeItem>;
 
 	constructor(private workspacePath?: string) {
 		this.loadingPromise = this.loadCollections();
+	}
+
+	setTreeView(treeView: vscode.TreeView<ApiTreeItem>): void {
+		this.treeView = treeView;
+	}
+
+	clearSelection(): void {
+		if (this.treeView) {
+			// Force a refresh which will rebuild the tree
+			// This is the only reliable way to clear selection since treeView.selection is readonly
+			this._onDidChangeTreeData.fire();
+		}
 	}
 
 	/**

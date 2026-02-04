@@ -27,7 +27,8 @@ export const enum EVENT_TYPE {
     REQUEST_UPDATED = 'REQUEST_UPDATED',
     WEBVIEW_READY = 'WEBVIEW_READY',
     SHOW_CREATE_COLLECTION_FORM = 'SHOW_CREATE_COLLECTION_FORM',
-    ADD_REQUEST_TO_COLLECTION = 'ADD_REQUEST_TO_COLLECTION'
+    ADD_REQUEST_TO_COLLECTION = 'ADD_REQUEST_TO_COLLECTION',
+    CLEAR_COLLECTION_CONTEXT = 'CLEAR_COLLECTION_CONTEXT'
 }
 
 // Context interface for the state machine
@@ -67,7 +68,11 @@ interface AddRequestToCollectionEvent {
     collectionPath: string;
 }
 
-type ApiTryItEvent = ApiItemSelectedEvent | RequestUpdatedEvent | WebviewReadyEvent | ShowCreateCollectionEvent | AddRequestToCollectionEvent;
+interface ClearCollectionContextEvent {
+    type: 'CLEAR_COLLECTION_CONTEXT';
+}
+
+type ApiTryItEvent = ApiItemSelectedEvent | RequestUpdatedEvent | WebviewReadyEvent | ShowCreateCollectionEvent | AddRequestToCollectionEvent | ClearCollectionContextEvent;
 
 // State machine definition
 const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
@@ -103,6 +108,13 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                     actions: assign({
                         currentCollectionId: (_context: ApiTryItContext, event: AddRequestToCollectionEvent) => event.collectionId,
                         currentCollectionPath: (_context: ApiTryItContext, event: AddRequestToCollectionEvent) => event.collectionPath
+                    })
+                },
+                CLEAR_COLLECTION_CONTEXT: {
+                    actions: assign({
+                        currentCollectionId: (_context: ApiTryItContext) => undefined,
+                        currentCollectionPath: (_context: ApiTryItContext) => undefined,
+                        selectedFilePath: (_context: ApiTryItContext) => undefined
                     })
                 }
             }
@@ -172,6 +184,13 @@ const apiTryItMachine = createMachine<ApiTryItContext, ApiTryItEvent>({
                     actions: assign({
                         currentCollectionId: (_context: ApiTryItContext, event: AddRequestToCollectionEvent) => event.collectionId,
                         currentCollectionPath: (_context: ApiTryItContext, event: AddRequestToCollectionEvent) => event.collectionPath
+                    })
+                },
+                CLEAR_COLLECTION_CONTEXT: {
+                    actions: assign({
+                        currentCollectionId: (_context: ApiTryItContext) => undefined,
+                        currentCollectionPath: (_context: ApiTryItContext) => undefined,
+                        selectedFilePath: (_context: ApiTryItContext) => undefined
                     })
                 },
                 WEBVIEW_READY: {
@@ -247,7 +266,6 @@ export const ApiTryItStateMachine = {
                 });
             }
         } else if (eventType === EVENT_TYPE.ADD_REQUEST_TO_COLLECTION && filePath) {
-            console.log('[StateMachine] ADD_REQUEST_TO_COLLECTION triggered with collectionId:', filePath, 'webviewPanel:', !!webviewPanel);
             // Update context with collection info and create new request
             stateMachineService.send({ type: 'ADD_REQUEST_TO_COLLECTION', collectionId: filePath, collectionPath: filePath });
             // Create an empty request for this collection
@@ -263,9 +281,11 @@ export const ApiTryItStateMachine = {
                     headers: []
                 }
             };
-            // Use TryItPanel.postMessage to queue the message if webview isn't ready
-            console.log('[StateMachine] Sending apiRequestItemSelected message via TryItPanel.postMessage');
-            TryItPanel.postMessage('apiRequestItemSelected', emptyRequestItem);
+            // Wait a moment for state machine to process the context update
+            setTimeout(() => {
+                // Use TryItPanel.postMessage to queue the message if webview isn't ready
+                TryItPanel.postMessage('apiRequestItemSelected', emptyRequestItem);
+            }, 50);
         } else if (eventType === EVENT_TYPE.SHOW_CREATE_COLLECTION_FORM) {
             // Record the intent in the state machine context
             stateMachineService.send({ type: 'SHOW_CREATE_COLLECTION_FORM' });

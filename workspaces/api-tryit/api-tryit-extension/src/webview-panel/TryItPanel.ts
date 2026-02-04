@@ -53,7 +53,7 @@ export class TryItPanel {
 				
 				// Handle webviewReady to flush pending messages
 				if (message.type === 'webviewReady') {
-					console.log('[TryItPanel] Webview is ready');
+
 					this._webviewReady = true;
 					// Flush pending messages
 					while (this._pendingMessages.length > 0) {
@@ -172,17 +172,11 @@ export class TryItPanel {
 							const stateContext = ApiTryItStateMachine.getContext();
 							let targetFilePath = filePath || stateContext.selectedFilePath;
 
-							// If no file path but we have a collection path (from "Add Request to Collection" flow)
-							if (!targetFilePath && stateContext.currentCollectionPath) {
-								console.log('[TryItPanel] Saving request to collection:', stateContext.currentCollectionPath);
-								// Auto-generate filename from request name or use default
-								const fileName = (request.name || 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-') + '.yaml';
-								targetFilePath = path.join(stateContext.currentCollectionPath, fileName);
-								console.log('[TryItPanel] Auto-generated file path:', targetFilePath);
-							}
-
-							if (!targetFilePath) {
-								// First, prompt user to select a folder
+						// If no file path but we have a collection path (from "Add Request to Collection" flow)
+						if (!targetFilePath && stateContext.currentCollectionPath) {
+							// Auto-generate filename from request name or use default
+							const fileName = (request.name || 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-') + '.yaml';
+							targetFilePath = path.join(stateContext.currentCollectionPath, fileName);
 								const folderUris = await vscode.window.showOpenDialog({
 									canSelectFolders: true,
 									canSelectFiles: false,
@@ -339,14 +333,10 @@ export class TryItPanel {
 		if (TryItPanel.currentPanel) {
 			const panel = TryItPanel.currentPanel;
 			if (panel._webviewReady) {
-				console.log('[TryItPanel] Webview is ready, sending message:', type);
 				panel._panel.webview.postMessage({ type, data });
 			} else {
-				console.log('[TryItPanel] Webview not ready, queuing message:', type);
 				panel._pendingMessages.push({ type, data });
 			}
-		} else {
-			console.warn('[TryItPanel] No current panel, cannot send message');
 		}
 	}
 

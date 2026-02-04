@@ -31,7 +31,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Register the API Explorer tree view
 	const apiExplorerProvider = new ApiExplorerProvider();
-	vscode.window.registerTreeDataProvider('api-tryit.explorer', apiExplorerProvider);
+	const treeView = vscode.window.createTreeView('api-tryit.explorer', {
+		treeDataProvider: apiExplorerProvider,
+		showCollapseAll: true
+	});
+	// Pass the tree view reference to the provider
+	apiExplorerProvider.setTreeView(treeView);
 	// Register the explorer with the state machine so it can trigger direct reloads when needed
 	ApiTryItStateMachine.registerExplorer(apiExplorerProvider);
 
@@ -71,8 +76,20 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage(`Opening: ${requestItem.request.method} ${requestItem.name}`);
 	});
 
+	// Register command to clear selection (must be before newRequestCommand)
+	const clearSelectionCommand = vscode.commands.registerCommand('api-tryit.clearSelection', async () => {
+		// Clear selection in the activity panel webview
+		ActivityPanel.postMessage('clearSelection');
+		
+		// Clear the collection context from state machine
+		ApiTryItStateMachine.sendEvent(EVENT_TYPE.CLEAR_COLLECTION_CONTEXT);
+	});
+
 	// Register command for new request
-	const newRequestCommand = vscode.commands.registerCommand('api-tryit.newRequest', () => {
+	const newRequestCommand = vscode.commands.registerCommand('api-tryit.newRequest', async () => {
+		// Clear any previous selection first
+		await vscode.commands.executeCommand('api-tryit.clearSelection');
+
 		// Create an empty request item
 		const emptyRequestItem: ApiRequestItem = {
 			id: `new-${Date.now()}`,
@@ -90,8 +107,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Open the TryIt panel
 		TryItPanel.show(context);
 		
-		// Send the empty item through the state machine
-		ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, emptyRequestItem);
+		// Send the empty item through TryItPanel.postMessage to ensure it's queued if webview not ready
+		TryItPanel.postMessage('apiRequestItemSelected', emptyRequestItem);
 		
 		vscode.window.showInformationMessage('New request created');
 	});
@@ -204,7 +221,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		openCollectionCommand,
 		plusMenuCommand,
 		settingsCommand,
-		helloCommand
+		clearSelectionCommand,
+		helloCommand,
+		treeView
 	);
 }
 

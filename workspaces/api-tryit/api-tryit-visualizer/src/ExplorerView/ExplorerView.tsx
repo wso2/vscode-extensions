@@ -190,6 +190,7 @@ const RequestItemContainer = styled.div`
 interface ExplorerViewProps {
 	collections?: RequestItem[];
 	isLoading?: boolean;
+	clearSelectionTrigger?: number;
 }
 
 // Custom collapsible component props
@@ -354,11 +355,20 @@ const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?
 	);
 };
 
-export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], isLoading = false }) => {
+export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], isLoading = false, clearSelectionTrigger = 0 }) => {
 	const [searchTerm, setSearchTerm] = useState('');
 	const [selectedId, setSelectedId] = useState<string>();
 	const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 	const [globalContextMenu, setGlobalContextMenu] = useState<{ x: number; y: number; collectionId: string } | null>(null);
+
+	// Clear selection when trigger changes
+	useEffect(() => {
+		console.log('[ExplorerView] clearSelectionTrigger changed:', clearSelectionTrigger, 'current selectedId:', selectedId);
+		if (clearSelectionTrigger > 0) {
+			console.log('[ExplorerView] Clearing selectedId');
+			setSelectedId(undefined);
+		}
+	}, [clearSelectionTrigger]);
 
 	// Initialize expanded state for folders (collections and folders start collapsed)
 	useEffect(() => {

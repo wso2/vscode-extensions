@@ -34,12 +34,14 @@ interface RequestItem {
 export const ActivityPanelUI: React.FC = () => {
 	const [collections, setCollections] = useState<RequestItem[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
+	const [clearSelectionTrigger, setClearSelectionTrigger] = useState(0);
 	const vscode = getVSCodeAPI();
 
 	useEffect(() => {
 		// Listen for messages from the extension
 		const handleMessage = (event: MessageEvent) => {
 			const message = event.data;
+			console.log('[ActivityPanelUI] Received message:', message);
 			if (message.command === 'updateCollections') {
 				// Deduplicate collections by ID to prevent rendering duplicates
 				const newCollections: RequestItem[] = message.collections || [];
@@ -48,6 +50,10 @@ export const ActivityPanelUI: React.FC = () => {
 				) as RequestItem[];
 				setCollections(uniqueCollections);
 				setIsLoading(false);
+			} else if (message.type === 'clearSelection') {
+				console.log('[ActivityPanelUI] Clearing selection, current trigger:', clearSelectionTrigger);
+				// Trigger selection clear in ExplorerView
+				setClearSelectionTrigger(prev => prev + 1);
 			}
 		};
 
@@ -72,5 +78,5 @@ export const ActivityPanelUI: React.FC = () => {
 	useEffect(() => {
 	}, [collections, isLoading]);
 
-	return <ExplorerView collections={collections} isLoading={isLoading} />;
+	return <ExplorerView collections={collections} isLoading={isLoading} clearSelectionTrigger={clearSelectionTrigger} />;
 };

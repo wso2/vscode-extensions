@@ -45,6 +45,7 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 		_token: vscode.CancellationToken
 	): void | Promise<void> {
 		this._view = webviewView;
+		ActivityPanel.currentPanel = this;
 		const isDevMode = process.env.WEB_VIEW_WATCH_MODE === 'true';
 		const devHost = process.env.WEB_VIEW_DEV_HOST || 'http://localhost:8080';
 
@@ -231,7 +232,6 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 
 	private async _handleAddRequestToCollection(collectionId: string) {
 		try {
-			console.log('[ActivityPanel] _handleAddRequestToCollection called with collectionId:', collectionId);
 			if (!this._apiExplorerProvider) {
 				vscode.window.showErrorMessage('API Explorer provider not available');
 				return;
@@ -246,7 +246,6 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				return;
 			}
 
-			console.log('[ActivityPanel] Collection found, showing TryIt panel');
 			// Show TryIt panel
 			TryItPanel.show(this._extensionContext);
 
@@ -265,9 +264,7 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 			}
 
 			const collectionPath = path.join(storagePath, collectionId);
-			console.log('[ActivityPanel] Full collection path:', collectionPath);
 
-			console.log('[ActivityPanel] Sending ADD_REQUEST_TO_COLLECTION event with collectionId:', collectionId, 'collectionPath:', collectionPath);
 			// Send event to state machine to create a new request in this collection
 			ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, collectionPath);
 
