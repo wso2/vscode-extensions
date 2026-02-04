@@ -41,6 +41,7 @@ export class StepNodeFactory {
                 disabled: data.disabled ?? false,
                 hasError: data.hasError ?? false,
                 errorMessage: data.errorMessage,
+                iconClass: data.iconClass || 'fw fw-bi-arrow-outward',
             },
         };
     }

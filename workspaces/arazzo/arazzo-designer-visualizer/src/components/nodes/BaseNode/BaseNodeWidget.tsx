@@ -102,6 +102,14 @@ export namespace NodeStyles {
         font-size: 14px;
     `;
 
+    export const Icon = styled.i`
+        display: inline-block;
+        margin-right: 8px;
+        font-size: 14px;
+        line-height: 1;
+        opacity: 0.95;
+    `;
+
     export const Description = styled.div`
         width: 100%;
         min-width: 0;
@@ -159,7 +167,10 @@ export const BaseNodeWidget: React.FC<BaseNodeWidgetProps> = ({
             onMouseLeave={() => setHovered(false)}
         >
             <NodeStyles.Header>
-                <NodeStyles.Title>{data.label}</NodeStyles.Title>
+                <NodeStyles.Title>
+                    {data.iconClass ? <NodeStyles.Icon className={data.iconClass} /> : null}
+                    {data.label}
+                </NodeStyles.Title>
             </NodeStyles.Header>
 
             {children}

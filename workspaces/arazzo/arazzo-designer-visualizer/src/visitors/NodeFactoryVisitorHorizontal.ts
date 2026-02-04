@@ -16,14 +16,17 @@ export class NodeFactoryVisitorHorizontal {
         this.visited.add(node.id);
 
         // 1. Create the React Node
+        // Compose node data and ensure step nodes get a default iconClass
+        const composedData = { label: node.label, ...node.data } as any;
+        if (node.type === 'STEP' && !composedData.iconClass) {
+            composedData.iconClass = 'fw fw-bi-arrow-outward';
+        }
+
         const reactNode = {
             id: node.id,
             type: this.mapType(node.type), // Maps 'STEP' to 'default' or custom type
             position: { x: node.viewState.x, y: node.viewState.y },
-            data: {
-                label: node.label,
-                ...node.data
-            },
+            data: composedData,
             style: { width: node.viewState.w, height: node.viewState.h }, // Force the calculated size
             connectable: false
         };
