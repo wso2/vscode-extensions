@@ -88,7 +88,7 @@ export class TryItPanel {
 				if (message.type === 'createCollectionSubmit') {
 					try {
 						const { name, folderPath } = message.data || {};
-						
+												
 						if (!name || !name.trim()) {
 							this._panel.webview.postMessage({ type: 'createCollectionResult', data: { success: false, message: 'Collection name is required' } });
 							return;
@@ -103,7 +103,7 @@ export class TryItPanel {
 						const safeId = safeName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
 						
 						// 1. Create a folder with the given name in the provided path
-						const collectionFolderPath = path.join(folderPath, safeName);
+						const collectionFolderPath = path.join(folderPath, safeId);
 						const collectionFolderUri = vscode.Uri.file(collectionFolderPath);
 						await vscode.workspace.fs.createDirectory(collectionFolderUri);
 						
@@ -172,11 +172,15 @@ export class TryItPanel {
 							const stateContext = ApiTryItStateMachine.getContext();
 							let targetFilePath = filePath || stateContext.selectedFilePath;
 
-						// If no file path but we have a collection path (from "Add Request to Collection" flow)
-						if (!targetFilePath && stateContext.currentCollectionPath) {
-							// Auto-generate filename from request name or use default
-							const fileName = (request.name || 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-') + '.yaml';
-							targetFilePath = path.join(stateContext.currentCollectionPath, fileName);
+							// If no file path but we have a collection path (from "Add Request to Collection" flow)
+							if (!targetFilePath && stateContext.currentCollectionPath) {
+								// Auto-generate filename from request name or use default
+								const fileName = (request.name || 'api-request').toLowerCase().replace(/[^a-z0-9-]/g, '-') + '.yaml';
+								targetFilePath = path.join(stateContext.currentCollectionPath, fileName);
+							}
+
+							// If still no file path, prompt user to select folder and file
+							if (!targetFilePath) {
 								const folderUris = await vscode.window.showOpenDialog({
 									canSelectFolders: true,
 									canSelectFiles: false,
@@ -215,6 +219,16 @@ export class TryItPanel {
 								}
 
 								targetFilePath = fileUri.fsPath;
+							}
+
+							// Ensure the directory exists before saving
+							if (targetFilePath) {
+								const dirPath = path.dirname(targetFilePath);
+								try {
+									await vscode.workspace.fs.createDirectory(vscode.Uri.file(dirPath));
+								} catch (error) {
+									// Directory might already exist, ignore error
+								}
 							}
 
 							// Import the RPC manager here to avoid circular dependencies

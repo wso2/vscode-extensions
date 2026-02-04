@@ -87,7 +87,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Register command for new request
 	const newRequestCommand = vscode.commands.registerCommand('api-tryit.newRequest', async () => {
-		// Clear any previous selection first
+		// Clear any previous selection and collection context first
 		await vscode.commands.executeCommand('api-tryit.clearSelection');
 
 		// Create an empty request item
@@ -107,7 +107,11 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Open the TryIt panel
 		TryItPanel.show(context);
 		
-		// Send the empty item through TryItPanel.postMessage to ensure it's queued if webview not ready
+		// Send empty request through state machine to ensure context is properly set
+		// This will set selectedItem but NOT currentCollectionPath
+		ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, emptyRequestItem, undefined);
+		
+		// Also send to webview via postMessage for queueing
 		TryItPanel.postMessage('apiRequestItemSelected', emptyRequestItem);
 		
 		vscode.window.showInformationMessage('New request created');

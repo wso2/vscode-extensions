@@ -24,6 +24,14 @@ import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
 import { ApiTryItStateMachine, EVENT_TYPE } from '../stateMachine';
 import { TryItPanel } from '../webview-panel/TryItPanel';
 
+/**
+ * Sanitize a name to be used as a folder name or ID
+ * Converts to lowercase and replaces spaces and special characters with hyphens
+ */
+function sanitizeForFileSystem(name: string): string {
+	return name.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+}
+
 export class ActivityPanel implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'api-tryit.activity.panel';
 	public static currentPanel: ActivityPanel | undefined;
@@ -263,7 +271,9 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 				return;
 			}
 
-			const collectionPath = path.join(storagePath, collectionId);
+			// Sanitize the collection ID to ensure it's filesystem-safe
+			const sanitizedCollectionId = sanitizeForFileSystem(collectionId);
+			const collectionPath = path.join(storagePath, sanitizedCollectionId);
 
 			// Send event to state machine to create a new request in this collection
 			ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, collectionPath);
