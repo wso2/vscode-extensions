@@ -87,6 +87,7 @@ const getIntegrationTypeColor = (type: string, subType?: string): string => {
 		[DevantScopes.EVENT_INTEGRATION]: "var(--vscode-charts-orange)",
 		[DevantScopes.FILE_INTEGRATION]: "var(--vscode-charts-purple)",
 		[DevantScopes.AI_AGENT]: "var(--vscode-charts-red)",
+		[DevantScopes.LIBRARY]: "var(--vscode-charts-yellow)",
 		[DevantScopes.ANY]: "var(--vscode-charts-gray)",
 	};
 
@@ -251,7 +252,7 @@ export const MultiComponentSelector: FC<MultiComponentSelectorProps> = ({
 	return (
 		<div className="mb-6">
 			<div className="mb-3 flex items-center justify-between">
-				<label className="block text-sm font-medium text-vsc-foreground">
+				<label className="block text-sm font-normal text-vsc-foreground opacity-80">
 					Select Components to {extensionName === "Devant" ? "Deploy" : "Create"}
 				</label>
 				<span className="text-xs text-vsc-descriptionForeground">
@@ -352,19 +353,19 @@ export const MultiComponentSelector: FC<MultiComponentSelectorProps> = ({
 										)}
 									</div>
 
-									{/* Source Directory */}
-									<div className="flex items-center gap-1.5 px-1">
-										<Codicon
-											name="folder"
-											className="text-xs text-vsc-descriptionForeground/70"
-										/>
-										<span
-											className="font-mono text-xs text-vsc-descriptionForeground/70"
-											title={component.directoryFsPath}
-										>
-											{component.directoryFsPath}
-										</span>
-									</div>
+							{/* Source Directory */}
+							<div className="flex items-center gap-1.5 px-1 opacity-80">
+								<Codicon
+									name="folder"
+									className="text-xs text-vsc-descriptionForeground"
+								/>
+								<span
+									className="font-mono text-xs text-vsc-descriptionForeground"
+									title={component.directoryFsPath}
+								>
+									{component.directoryFsPath}
+								</span>
+							</div>
 								</div>
 
 								{/* Type Selector or Badge - Per-component conditional rendering */}
@@ -432,9 +433,18 @@ export const MultiComponentSelector: FC<MultiComponentSelectorProps> = ({
 											
 											// Create chip styles with type-specific coloring for Devant
 											const chipStyle = typeColor ? {
-												borderColor: typeColor,
-												backgroundColor: `color-mix(in srgb, ${typeColor} 15%, transparent)`,
+												background: `color-mix(in srgb, ${typeColor} 12%, transparent)`,
 												color: typeColor,
+												border: `1px solid color-mix(in srgb, ${typeColor} 25%, transparent)`,
+												borderRadius: '12px',
+												gap: '4px',
+												textTransform: 'capitalize',
+												whiteSpace: 'nowrap',
+												display: 'inline-flex',
+												alignItems: 'center',
+												padding: '4px 10px',
+												fontSize: '11px',
+												fontWeight: 500,
 											} : undefined;
 
 											return (
