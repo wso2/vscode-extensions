@@ -1030,7 +1030,7 @@
     "ts-loader": "9.5.2",
     "ts-morph": "26.0.0",
     "typescript": "5.8.3",
-    "webpack": "5.89.0",
+    "webpack": "5.99.9",
     "webpack-cli": "4.10.0",
     "yaml": "2.8.0"
   },
@@ -1068,7 +1068,7 @@
     "json-schema-to-ts": "3.1.1",
     "jsonix": "3.0.0",
     "jwt-decode": "4.0.0",
-    "lodash": "4.17.21",
+    "lodash": "4.17.23",
     "mustache": "4.2.0",
     "node-fetch": "3.3.2",
     "node-loader": "2.1.0",
