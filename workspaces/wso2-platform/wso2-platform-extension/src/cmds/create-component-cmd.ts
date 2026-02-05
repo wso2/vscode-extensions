@@ -920,7 +920,7 @@ export const submitBatchCreateComponentsHandler = async ({
 	// Show a single progress notification for the entire batch
 	await window.withProgress(
 		{
-			title: `Creating ${totalCount} ${componentTermPlural}...`,
+			title: `Creating ${totalCount} ${componentTermPlural}... `,
 			location: ProgressLocation.Notification,
 			cancellable: false,
 		},
