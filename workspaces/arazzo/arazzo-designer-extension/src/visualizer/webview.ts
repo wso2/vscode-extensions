@@ -103,7 +103,7 @@ export class VisualizerWebview {
     private static createWebview(beside: boolean): vscode.WebviewPanel {
         const panel = vscode.window.createWebviewPanel(
             VisualizerWebview.viewType,
-            "API Designer",
+            "Arazzo Designer",
             beside ? ViewColumn.Beside : ViewColumn.Active,
             {
                 enableScripts: true,
@@ -154,7 +154,7 @@ export class VisualizerWebview {
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
           <meta name="theme-color" content="#000000">
-          <title>Open API Designer</title>
+          <title>Arazzo Visualizer</title>
          
           <style>
             body, html, #root {

@@ -58,7 +58,7 @@ export function Visualizer({ mode }: { mode: string }) {
     }, []);
 
     return (
-        <ErrorBoundary errorMsg="An error occurred in the API Designer" ref={errorBoundaryRef}>
+        <ErrorBoundary errorMsg="An error occurred in the Arazzo Designer" ref={errorBoundaryRef}>
             {(() => {
                 switch (mode) {
                     case MODES.VISUALIZER:

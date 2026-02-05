@@ -2,7 +2,7 @@
   "name": "arazzo-designer",
   "displayName": "Arazzo Designer",
   "description": "An extension which gives a development environment for designing, developing, debugging, and testing Arazzo Specification.",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "publisher": "wso2",
   "engines": {
     "vscode": "^1.81.0"
@@ -58,22 +58,10 @@
         "path": "./syntaxes/arazzo.tmLanguage.json"
       }
     ],
-    "viewsWelcome": [
-      {
-        "view": "APIDesigner.project-explorer",
-        "contents": "Loading...",
-        "when": "APIDesigner.status != 'unknownProject' && APIDesigner.status != 'projectLoaded' && APIDesigner.status != 'disabled'"
-      },
-      {
-        "view": "APIDesigner.project-explorer",
-        "contents": "API Designer",
-        "when": "true"
-      }
-    ],
     "commands": [
       {
         "command": "APIDesigner.openAPIDesigner",
-        "title": "Open API/Arazzo Designer",
+        "title": "Open Arazzo Designer",
         "category": "APIDesigner",
         "when": "isFileOpenAPI || isFileArazzo",
         "icon": "$(preview)"
