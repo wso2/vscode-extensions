@@ -21,13 +21,8 @@ import {
     OpenViewRequest,
     HistoryEntryResponse,
     GoToSourceRequest,
-    GetOpenAPIContentRequest,
-    GetOpenAPIContentResponse,
-    WriteOpenAPIContentResponse,
-    WriteOpenAPIContentRequest,
     GetArazzoModelRequest,
     GetArazzoModelResponse,
-    Schema
 } from "./types";
 
 export interface VisualizerAPI {
@@ -37,8 +32,5 @@ export interface VisualizerAPI {
     addToHistory: (params: HistoryEntry) => void;
     goHome: () => void;
     goToSource: (params: GoToSourceRequest) => void;
-    getOpenApiContent: (params: GetOpenAPIContentRequest) => Promise<GetOpenAPIContentResponse>;
-    writeOpenApiContent: (params: WriteOpenAPIContentRequest) => Promise<WriteOpenAPIContentResponse>;
-    importJSON: () => Promise<Schema | undefined>;
     getArazzoModel: (params: GetArazzoModelRequest) => Promise<GetArazzoModelResponse>;
 }

@@ -19,27 +19,19 @@
  */
 import {
     VisualizerAPI,
-    GetOpenAPIContentRequest,
-    GetOpenAPIContentResponse,
     GetArazzoModelRequest,
     GetArazzoModelResponse,
     GoToSourceRequest,
     HistoryEntry,
     HistoryEntryResponse,
     OpenViewRequest,
-    WriteOpenAPIContentRequest,
-    WriteOpenAPIContentResponse,
     addToHistory,
     getHistory,
-    getOpenApiContent,
     getArazzoModel,
     goBack,
     goHome,
     goToSource,
-    importJSON,
     openView,
-    writeOpenApiContent,
-    Schema
 } from "@wso2/arazzo-designer-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -73,18 +65,6 @@ export class VisualizerRpcClient implements VisualizerAPI {
 
     goToSource(params: GoToSourceRequest): void {
         return this._messenger.sendNotification(goToSource, HOST_EXTENSION, params);
-    }
-
-    getOpenApiContent(params: GetOpenAPIContentRequest): Promise<GetOpenAPIContentResponse> {
-        return this._messenger.sendRequest(getOpenApiContent, HOST_EXTENSION, params);
-    }
-
-    writeOpenApiContent(params: WriteOpenAPIContentRequest): Promise<WriteOpenAPIContentResponse> {
-        return this._messenger.sendRequest(writeOpenApiContent, HOST_EXTENSION, params);
-    }
-
-    importJSON(): Promise<Schema | undefined> {
-        return this._messenger.sendRequest(importJSON, HOST_EXTENSION);
     }
 
     getArazzoModel(params: GetArazzoModelRequest): Promise<GetArazzoModelResponse> {
