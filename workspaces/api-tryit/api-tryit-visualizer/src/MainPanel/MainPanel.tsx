@@ -66,7 +66,7 @@ const ToggleBackground = styled.div<{ isCodeMode: boolean }>`
     left: 0;
     width: 50%;
     height: 100%;
-    background-color: var(--vscode-charts-yellow);
+    background-color: var(--vscode-titleBar-activeBackground);
     border-radius: 15px;
     transition: transform 0.2s ease;
     transform: translateX(${({ isCodeMode }) => isCodeMode ? '0%' : '100%'});
