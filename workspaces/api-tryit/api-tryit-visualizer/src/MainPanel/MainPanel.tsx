@@ -16,15 +16,17 @@
  * under the License.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button, Codicon, Dropdown, TextField, Typography } from '@wso2/ui-toolkit';
-import { VSCodePanels, VSCodePanelTab, VSCodePanelView } from '@vscode/webview-ui-toolkit/react';
+
 import styled from '@emotion/styled';
 import { Input } from '../Input/Input';
 import { Output } from '../Output/Output';
+import { Assert } from '../Assert/Assert';
 import { ApiRequestItem, ApiRequest, ApiResponse, ResponseHeader } from '@wso2/api-tryit-core';
 import axios, { AxiosError } from 'axios';
 import { useExtensionMessages } from '../hooks/useExtensionMessages';
+import CollectionForm from '../CollectionForm/CollectionForm';
 import { getVSCodeAPI } from '../utils/vscode-api';
 
 // Get VS Code API instance (singleton)
@@ -41,7 +43,7 @@ const ControlsWrapper = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 12px;
+    padding: 12px 8px;
     z-index: 10;
 `;
 
@@ -49,7 +51,7 @@ const SlidingToggle = styled.div<{ isCodeMode: boolean }>`
     position: relative;
     display: flex;
     width: 140px;
-    height: 32px;
+    height: 25px;
     background-color: var(--vscode-editor-background);
     border: 1px solid var(--vscode-panel-border);
     border-radius: 16px;
@@ -64,7 +66,7 @@ const ToggleBackground = styled.div<{ isCodeMode: boolean }>`
     left: 0;
     width: 50%;
     height: 100%;
-    background-color: var(--vscode-button-background);
+    background-color: var(--vscode-titleBar-activeBackground);
     border-radius: 15px;
     transition: transform 0.2s ease;
     transform: translateX(${({ isCodeMode }) => isCodeMode ? '0%' : '100%'});
@@ -90,7 +92,7 @@ const HelpButton = styled.button`
     align-items: center;
     justify-content: center;
     width: 28px;
-    height: 28px;
+    height: 25px;
     padding: 0;
     background: transparent;
     border: none;
@@ -169,26 +171,55 @@ const NameTextField = styled(TextField)`
 `;
 
 type InputMode = 'code' | 'form';
+type AssertMode = 'code' | 'form';
 
 export const MainPanel: React.FC = () => {
     const [requestItem, setRequestItem] = useState<ApiRequestItem | undefined>();
-    const [activeTab, setActiveTab] = useState('input');
+    const [activeTab, setActiveTab] = useState<'input' | 'assert'>('input');
     const [isLoading, setIsLoading] = useState(false);
     const [inputMode, setInputMode] = useState<InputMode>('code');
+    const [assertMode, setAssertMode] = useState<AssertMode>('form');
     const [showHelp, setShowHelp] = useState(false);
     const [isEditingName, setIsEditingName] = useState(false);
     const [tempName, setTempName] = useState(requestItem?.name);
+    const outputTabRef = useRef<HTMLDivElement>(null);
+    // Counter used to trigger scrolling the Output inside Input without switching tabs
+    const [bringOutputCounter, setBringOutputCounter] = useState(0);
+
+
 
     // Handle messages from VS Code extension
+    const [showCollectionForm, setShowCollectionForm] = React.useState(false);
+
     const { updateRequest } = useExtensionMessages({
         onApiRequestSelected: (item) => {
             setRequestItem(item);
             setTempName(item.name);
             setIsEditingName(false);
             setActiveTab('input');
-            console.log('API request item selected:', item);
+            // Close collection form when a request is selected
+            setShowCollectionForm(false);
+        },
+        onShowCreateCollectionForm: () => {
+            console.log('[MainPanel] onShowCreateCollectionForm called - setting showCollectionForm to true');
+            setShowCollectionForm(true);
+        },
+        onCreateCollectionResult: (res) => {
+            if (res.success) {
+                setShowCollectionForm(false);
+                // Optionally show UI notification
+                // TODO: add snackbar component
+                console.info('Collection created:', res.message);
+            } else {
+                // Keep form open and show error in console for now
+                console.error('Failed to create collection:', res.message);
+            }
         }
     });
+
+    const handleCloseCollectionForm = () => {
+        setShowCollectionForm(false);
+    };
 
     const handleRequestChange = (updatedRequest: ApiRequest) => {
         if (!requestItem) return;
@@ -264,10 +295,8 @@ export const MainPanel: React.FC = () => {
                 }
             });
             
-            console.log('Save request sent to extension');
         } catch (error) {
             console.error('Error saving request:', error);
-            alert('An error occurred while saving the request');
         }
     };
 
@@ -350,12 +379,10 @@ export const MainPanel: React.FC = () => {
                     id: requestItem.id || ''
                 });
             }
-            
-            // Switch to Output tab
-            setActiveTab('output');
-            
-            console.log(`Request completed in ${duration}ms`);
-            
+
+            // Trigger scrolling to output in the Input panel and switch to Input view
+            setBringOutputCounter(c => c + 1);
+            setActiveTab('input');            
         } catch (error) {
             console.error('Request failed:', error);
             
@@ -399,8 +426,9 @@ export const MainPanel: React.FC = () => {
                 });
             }
             
-            // Switch to Output tab to show error
-            setActiveTab('output');
+            // Trigger scrolling of the output inside the Input tab and switch to Input view
+            setBringOutputCounter(c => c + 1);
+            setActiveTab('input');
         } finally {
             setIsLoading(false);
         }
@@ -447,7 +475,7 @@ export const MainPanel: React.FC = () => {
                 padding: '20px',
                 overflowY: 'auto',
             }}>
-                {requestItem ? (
+                {!showCollectionForm && requestItem ? (
                 <div style={{ margin: '0 auto' }}>
                     {/* Method and URL */}
                     <div style={{
@@ -503,10 +531,10 @@ export const MainPanel: React.FC = () => {
                                     onClick={() => setShowHelp(!showHelp)}
                                     title="Show help"
                                 >
-                                    <Codicon sx={{height: 'unset', width: 'unset'}} iconSx={{fontSize: 24, marginTop: 4}} name="question" />
+                                    <Codicon sx={{height: 'unset', width: 'unset'}} iconSx={{fontSize: 22, marginTop: 4}} name="question" />
                                     <HelpTooltip show={showHelp}>
                                         <strong>Write your request with auto-completions:</strong><br/>
-                                        • <CodeHint>key=value</CodeHint> for query parameters<br/>
+                                        • <CodeHint>key: value</CodeHint> for query parameters<br/>
                                         • <CodeHint>Header-Name: value</CodeHint> for headers<br/>
                                         • Prefix with <CodeHint>//</CodeHint> to disable a line<br/>
                                         • Press <CodeHint>Cmd+Space</CodeHint> or <CodeHint>Cmd+/</CodeHint> for suggestions
@@ -530,50 +558,103 @@ export const MainPanel: React.FC = () => {
                                     </ToggleOption>
                                 </SlidingToggle>
                             )}
-                        </ControlsWrapper>
-                        <VSCodePanels activeid={activeTab} onChange={(e: any) => setActiveTab(e.target.activeid)}>
-                            <VSCodePanelTab id="input">Input</VSCodePanelTab>
-                            <VSCodePanelTab id="output">Output</VSCodePanelTab>
-                            <VSCodePanelTab id="assert">Assert</VSCodePanelTab>
-                            
-                            {/* Input Tab Content */}
-                            <VSCodePanelView id="view-input">
-                                <Input 
-                                    request={requestItem.request}
-                                    onRequestChange={handleRequestChange}
-                                    mode={inputMode}
-                                />
-                            </VSCodePanelView>
-
-                        {/* Output Tab Content */}
-                        <VSCodePanelView id="view-output">
-                            <Output response={requestItem.response} />
-                        </VSCodePanelView>
-
-                        {/* Assert Tab Content */}
-                        <VSCodePanelView id="view-assert">
-                            <div style={{ padding: '16px' }}>
-                                <Typography variant="subtitle2" sx={{ margin: '0 0 12px 0' }}>
-                                    Assertions
-                                </Typography>
-                                <Typography variant="caption" sx={{ opacity: 0.8, margin: '0 0 12px 0', display: 'block' }}>
-                                    Add assertions to validate the API response automatically.
-                                </Typography>
-                                <Button
-                                    appearance="secondary"
-                                    onClick={() => console.log('Add assertion')}
+                            {activeTab === 'assert' && (
+                                <SlidingToggle 
+                                    isCodeMode={assertMode === 'code'}
+                                    onClick={() => setAssertMode(assertMode === 'code' ? 'form' : 'code')}
+                                    title={assertMode === 'code' ? 'Switch to Form mode' : 'Switch to Code mode'}
                                 >
-                                    + Add Assertion
-                                </Button>
+                                    <ToggleBackground isCodeMode={assertMode === 'code'} />
+                                    <ToggleOption isActive={assertMode === 'code'}>
+                                        <Codicon name="code" />
+                                        Code
+                                    </ToggleOption>
+                                    <ToggleOption isActive={assertMode === 'form'}>
+                                        <Codicon name="list-unordered" />
+                                        Form
+                                    </ToggleOption>
+                                </SlidingToggle>
+                            )}
+                        </ControlsWrapper>
+
+                        {/* Custom Tabs */}
+                        <div>
+                            <div style={{ display: 'flex', gap: 12, paddingTop: 10 }}>
+                                <button
+                                    onClick={() => setActiveTab('input')}
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        borderBottom: activeTab === 'input' ? '1px solid var(--vscode-editor-foreground)' : '2px solid transparent',
+                                        color: activeTab === 'input' ? 'var(--vscode-button-foreground)' : 'var(--vscode-foreground)',
+                                        paddingLeft: 4,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Request
+                                </button>
+
+                                <button
+                                    onClick={() => { setBringOutputCounter(c => c + 1); setActiveTab('input'); }}
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        color: 'var(--vscode-foreground)',
+                                        padding: 8
+                                    }}
+                                >
+                                    Output
+                                </button>
+
+                                <button
+                                    onClick={() => setActiveTab('assert')}
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        borderBottom: activeTab === 'assert' ? '1px solid var(--vscode-editor-foreground)' : '2px solid transparent',
+                                        color: activeTab === 'assert' ? 'var(--vscode-button-foreground)' : 'var(--vscode-foreground)',
+                                        paddingLeft: 4,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Assert
+                                </button>
                             </div>
-                        </VSCodePanelView>
-                    </VSCodePanels>
+
+                            <div style={{ marginTop: 12 }}>
+                                {activeTab === 'input' && (
+                                    <Input
+                                        request={requestItem.request}
+                                        onRequestChange={handleRequestChange}
+                                        mode={inputMode}
+                                        response={requestItem.response}
+                                        bringOutputCounter={bringOutputCounter}
+                                    />
+                                )}
+
+                                {activeTab === 'assert' && (
+                                    requestItem ? (
+                                        <Assert
+                                            request={requestItem.request}
+                                            onRequestChange={handleRequestChange}
+                                            mode={assertMode}
+                                        />
+                                    ) : (
+                                        <div style={{ padding: 16, opacity: 0.6 }}>No request selected</div>
+                                    )
+                                )}
+                            </div>
+                        </div>
                     </PanelsWrapper>
                 </div>
-                ) : (
+                ) : !showCollectionForm ? (
                     <Typography variant="subtitle2" sx={{ opacity: 0.6 }}>
                         No request selected
                     </Typography>
+                ) : null}
+                {showCollectionForm && (
+                    <CollectionForm onCancel={handleCloseCollectionForm} />
                 )}
             </div>
         </div>

@@ -31,11 +31,8 @@
           "id": "api-tryit.activity.panel",
           "name": "API Explorer",
           "type": "webview",
-          "when": "true"
-        },
-        {
-          "id": "api-tryit.explorer",
-          "name": "API Explorer Tree"
+          "when": "true",
+          "icon": "assets/icon.svg"
         }
       ]
     },
@@ -51,6 +48,11 @@
         "icon": "$(add)"
       },
       {
+        "command": "api-tryit.openFromCurl",
+        "title": "API TryIt: Open from Curl",
+        "icon": "$(globe)"
+      },
+      {
         "command": "api-tryit.refreshExplorer",
         "title": "Refresh",
         "icon": "$(refresh)"
@@ -59,6 +61,21 @@
         "command": "api-tryit.newCollection",
         "title": "New Collection",
         "icon": "$(new-folder)"
+      },
+      {
+        "command": "api-tryit.importCollection",
+        "title": "Import Collection",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "api-tryit.openCollection",
+        "title": "Open Collection",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "api-tryit.plusMenu",
+        "title": "Create / Import / Open",
+        "icon": "$(add)"
       },
       {
         "command": "api-tryit.settings",
@@ -78,23 +95,23 @@
     "menus": {
       "view/title": [
         {
-          "command": "api-tryit.newRequest",
-          "when": "view == api-tryit.explorer",
-          "group": "navigation@1"
+          "command": "api-tryit.plusMenu",
+          "when": "view == api-tryit.activity.panel",
+          "group": "navigation@0"
         },
         {
           "command": "api-tryit.refreshExplorer",
-          "when": "view == api-tryit.explorer",
+          "when": "view == api-tryit.activity.panel",
           "group": "navigation@2"
         },
         {
           "command": "api-tryit.newCollection",
-          "when": "view == api-tryit.explorer",
+          "when": "view == api-tryit.activity.panel",
           "group": "navigation@3"
         },
         {
           "command": "api-tryit.settings",
-          "when": "view == api-tryit.explorer",
+          "when": "view == api-tryit.activity.panel",
           "group": "navigation@4"
         }
       ],

@@ -19,17 +19,19 @@
 import * as vscode from 'vscode';
 import { activateActivityPanel } from './activity-panel/activate';
 import { TryItPanel } from './webview-panel/TryItPanel';
+import { ActivityPanel } from './activity-panel/webview';
 import { ApiExplorerProvider } from './tree-view/ApiExplorerProvider';
 import { ApiTryItStateMachine, EVENT_TYPE } from './stateMachine';
 import { ApiRequestItem } from '@wso2/api-tryit-core';
+import * as path from 'path';
 
 export async function activate(context: vscode.ExtensionContext) {
 	// Initialize RPC handlers
 	TryItPanel.init();
 
-	// Register the API Explorer tree view
+	// Register the API Explorer tree view provider
 	const apiExplorerProvider = new ApiExplorerProvider();
-	vscode.window.registerTreeDataProvider('api-tryit.explorer', apiExplorerProvider);
+
 	// Register the explorer with the state machine so it can trigger direct reloads when needed
 	ApiTryItStateMachine.registerExplorer(apiExplorerProvider);
 
@@ -37,8 +39,15 @@ export async function activate(context: vscode.ExtensionContext) {
 	activateActivityPanel(context, apiExplorerProvider);
 
 	// Register command to refresh tree view
-	const refreshCommand = vscode.commands.registerCommand('api-tryit.refreshExplorer', () => {
-		apiExplorerProvider.refresh();
+	const refreshCommand = vscode.commands.registerCommand('api-tryit.refreshExplorer', async () => {
+		try {
+			// Reload collections from disk first, then update the tree
+			await apiExplorerProvider.reloadCollections();
+			vscode.window.setStatusBarMessage('✓ API Explorer refreshed', 2000);
+		} catch (error: unknown) {
+			const msg = error instanceof Error ? error.message : 'Unknown error';
+			vscode.window.showErrorMessage(`Failed to refresh explorer: ${msg}`);
+		}
 	});
 
 	// Register command to open TryIt webview panel
@@ -62,8 +71,56 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage(`Opening: ${requestItem.request.method} ${requestItem.name}`);
 	});
 
+	// Register command to select an item in the explorer by file path (used after save)
+	const selectItemByPathCommand = vscode.commands.registerCommand('api-tryit.selectItemByPath', async (filePath: string) => {
+		if (!filePath || typeof filePath !== 'string') {
+			vscode.window.showWarningMessage('No file path provided to select');
+			return;
+		}
+
+		// Try to locate the request using cached collections; reload once if not found
+		let match = apiExplorerProvider.findRequestByFilePath(filePath);
+		if (!match) {
+			await apiExplorerProvider.reloadCollections();
+			match = apiExplorerProvider.findRequestByFilePath(filePath);
+		}
+
+		if (!match) {
+			vscode.window.showWarningMessage('Saved request not found in API Explorer');
+			return;
+		}
+
+		const { collection, folder, requestItem, treeItemId, parentIds } = match;
+
+		// Inform the activity panel webview so it can highlight the saved request
+		ActivityPanel.postMessage('selectItem', {
+			id: treeItemId,
+			parentIds,
+			filePath: requestItem.filePath,
+			name: requestItem.name,
+			collectionId: collection.id,
+			collectionName: collection.name,
+			folderId: folder?.id,
+			folderName: folder?.name,
+			method: requestItem.request.method,
+			request: requestItem.request
+		});
+	});
+
+	// Register command to clear selection (must be before newRequestCommand)
+	const clearSelectionCommand = vscode.commands.registerCommand('api-tryit.clearSelection', async () => {
+		// Clear selection in the activity panel webview
+		ActivityPanel.postMessage('clearSelection');
+		
+		// Clear the collection context from state machine
+		ApiTryItStateMachine.sendEvent(EVENT_TYPE.CLEAR_COLLECTION_CONTEXT);
+	});
+
 	// Register command for new request
-	const newRequestCommand = vscode.commands.registerCommand('api-tryit.newRequest', () => {
+	const newRequestCommand = vscode.commands.registerCommand('api-tryit.newRequest', async () => {
+		// Clear any previous selection and collection context first
+		await vscode.commands.executeCommand('api-tryit.clearSelection');
+
 		// Create an empty request item
 		const emptyRequestItem: ApiRequestItem = {
 			id: `new-${Date.now()}`,
@@ -81,20 +138,124 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Open the TryIt panel
 		TryItPanel.show(context);
 		
-		// Send the empty item through the state machine
-		ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, emptyRequestItem);
+		// Send empty request through state machine to ensure context is properly set
+		// This will set selectedItem but NOT currentCollectionPath
+		ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, emptyRequestItem, undefined);
+		
+		// Also send to webview via postMessage for queueing
+		TryItPanel.postMessage('apiRequestItemSelected', emptyRequestItem);
 		
 		vscode.window.showInformationMessage('New request created');
 	});
 
-	// Register command for new collection
-	const newCollectionCommand = vscode.commands.registerCommand('api-tryit.newCollection', () => {
-		vscode.window.showInputBox({ prompt: 'Enter collection name' }).then(name => {
-			if (name) {
-				vscode.window.showInformationMessage(`Creating collection: ${name}`);
-				apiExplorerProvider.refresh();
+	// Register command to open TryIt with a curl string
+	const openFromCurlCommand = vscode.commands.registerCommand('api-tryit.openFromCurl', async (curlString?: string) => {
+		try {
+			// If no curl string provided, get it from user input
+			if (!curlString || typeof curlString !== 'string') {
+				curlString = await vscode.window.showInputBox({
+					prompt: 'Paste your curl command',
+					placeHolder: 'curl -X GET https://api.example.com/endpoint',
+					title: 'Import from Curl'
+				});
+
+				if (!curlString) {
+					return; // User cancelled
+				}
 			}
+
+			// Import the utility function
+			const { curlToApiRequestItem } = await import('./util');
+			
+			// Convert curl to ApiRequestItem
+			const requestItem = curlToApiRequestItem(curlString);
+			
+			if (!requestItem || !requestItem.request.url) {
+				vscode.window.showErrorMessage('Could not parse curl command. Please check the format and try again.');
+				return;
+			}
+
+			// Open the TryIt panel
+			TryItPanel.show(context);
+			
+			// Send the request item through state machine
+			ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, requestItem, undefined);
+			
+			// Also send to webview for queueing
+			TryItPanel.postMessage('apiRequestItemSelected', requestItem);
+			
+			vscode.window.showInformationMessage(`Loaded: ${requestItem.request.method} ${requestItem.request.url}`);
+		} catch (error: unknown) {
+			const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+			vscode.window.showErrorMessage(`Failed to import from curl: ${errorMsg}`);
+		}
+	});
+
+	// Register command for new collection — use state machine to navigate to collection form
+	const newCollectionCommand = vscode.commands.registerCommand('api-tryit.newCollection', () => {
+		// Ensure TryIt panel is visible
+		TryItPanel.show(context);
+
+		// Notify state machine and webviews to show the collection form
+		ApiTryItStateMachine.sendEvent(EVENT_TYPE.SHOW_CREATE_COLLECTION_FORM);
+		TryItPanel.postMessage('showCreateCollectionForm');
+		ActivityPanel.postMessage('showCreateCollectionForm');
+
+		// Provide quick feedback so the user knows the action was triggered
+		vscode.window.setStatusBarMessage('✓ Sent showCreateCollectionForm message to webviews', 3000);
+	});
+
+	// Register command to import a collection file into collections path
+	const importCollectionCommand = vscode.commands.registerCommand('api-tryit.importCollection', async () => {
+		const fileUris = await vscode.window.showOpenDialog({
+			canSelectFiles: true,
+			canSelectFolders: false,
+			canSelectMany: false,
+			openLabel: 'Select collection file to import'
 		});
+		if (!fileUris || fileUris.length === 0) {
+			return;
+		}
+		const fileUri = fileUris[0];
+		const config = vscode.workspace.getConfiguration('api-tryit');
+		const collectionsPath = config.get<string>('collectionsPath');
+		if (!collectionsPath) {
+			vscode.window.showWarningMessage('Collections path is not set. Please set it first.');
+			return;
+		}
+		const destination = vscode.Uri.file(path.join(collectionsPath, fileUri.path.split('/').pop() || fileUri.path));
+		await vscode.workspace.fs.copy(fileUri, destination, { overwrite: true });
+		vscode.window.showInformationMessage('Collection imported');
+		apiExplorerProvider.refresh();
+	});
+
+	// Register command to open a collection file
+	const openCollectionCommand = vscode.commands.registerCommand('api-tryit.openCollection', async () => {
+		const config = vscode.workspace.getConfiguration('api-tryit');
+		const collectionsPath = config.get<string>('collectionsPath');
+		const defaultUri = collectionsPath ? vscode.Uri.file(collectionsPath) : undefined;
+		const fileUris = await vscode.window.showOpenDialog({
+			canSelectFiles: true,
+			canSelectFolders: false,
+			canSelectMany: false,
+			defaultUri,
+			openLabel: 'Open collection file'
+		});
+		if (!fileUris || fileUris.length === 0) {
+			return;
+		}
+		await vscode.window.showTextDocument(fileUris[0]);
+	});
+
+	// Plus-menu command for the view title (shows quick pick)
+	const plusMenuCommand = vscode.commands.registerCommand('api-tryit.plusMenu', async () => {
+		const pick = await vscode.window.showQuickPick([
+			{ label: 'Create New Collection', command: 'api-tryit.newCollection' },
+			{ label: 'Import Collection', command: 'api-tryit.importCollection' },
+			{ label: 'Open Collection', command: 'api-tryit.openCollection' }
+		], { placeHolder: 'Select action' });
+		if (!pick) return;
+		vscode.commands.executeCommand(pick.command);
 	});
 
 	// Register command for settings
@@ -132,9 +293,15 @@ export async function activate(context: vscode.ExtensionContext) {
 		refreshCommand, 
 		openTryItCommand, 
 		openRequestCommand, 
+		selectItemByPathCommand,
 		newRequestCommand,
+		openFromCurlCommand,
 		newCollectionCommand,
+		importCollectionCommand,
+		openCollectionCommand,
+		plusMenuCommand,
 		settingsCommand,
+		clearSelectionCommand,
 		helloCommand
 	);
 }

@@ -17,15 +17,30 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import type { ApiRequestItem, ApiRequest } from '@wso2/api-tryit-core';
 import { getComposerJSFiles } from '../util';
 import { ApiExplorerProvider } from '../tree-view/ApiExplorerProvider';
 import { ApiTryItStateMachine, EVENT_TYPE } from '../stateMachine';
 import { TryItPanel } from '../webview-panel/TryItPanel';
 
+/**
+ * Sanitize a name to be used as a folder name or ID
+ * Converts to lowercase and replaces spaces and special characters with hyphens
+ */
+function sanitizeForFileSystem(name: string): string {
+	return name.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+}
+
 export class ActivityPanel implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'api-tryit.activity.panel';
+	public static currentPanel: ActivityPanel | undefined;
 	private _view?: vscode.WebviewView;
+	private _sendCollectionsTimeoutId: ReturnType<typeof setTimeout> | undefined;
+	private _lastSentCollectionsHash: string | undefined;
+	private _listenersInitialized = false;
+	private _webviewReady = false;
+	private _pendingMessages: Array<{ type: string; data?: unknown }> = [];
 
 	constructor(
 		private readonly _extensionContext: vscode.ExtensionContext,
@@ -38,6 +53,7 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 		_token: vscode.CancellationToken
 	): void | Promise<void> {
 		this._view = webviewView;
+		ActivityPanel.currentPanel = this;
 		const isDevMode = process.env.WEB_VIEW_WATCH_MODE === 'true';
 		const devHost = process.env.WEB_VIEW_DEV_HOST || 'http://localhost:8080';
 
@@ -76,45 +92,90 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 					this._handleOpenRequest(message.request as Record<string, unknown>);
 					break;
 				case 'selectItem':
-					// Handle item selection
+					// Selection from the webview is handled inside ExplorerView; nothing required here
 					break;
 				case 'getCollections':
 					// Send collections to webview
-					this._sendCollections();
+					this._sendCollections(true);
 					break;
 				case 'webviewReady':
 					// Webview is ready, send initial data
-					this._sendCollections();
+					this._webviewReady = true;
+					this._sendCollections(true);
+					// flush pending messages
+					while (this._pendingMessages.length > 0 && this._view) {
+						const msg = this._pendingMessages.shift();
+						if (msg) {
+							this._view.webview.postMessage({ type: msg.type, data: msg.data });
+						}
+					}
+					break;
+				case 'addRequestToCollection':
+					// Handle adding a request to a collection
+					this._handleAddRequestToCollection(message.collectionId as string);
 					break;
 			}
 		});
 
-		// Refresh webview when provider data changes
-		if (this._apiExplorerProvider) {
-			this._apiExplorerProvider.onDidChangeTreeData(() => {
-				this._sendCollections();
+		// Only register listeners once to prevent duplicates
+		if (!this._listenersInitialized) {
+			this._listenersInitialized = true;
+
+			// Refresh webview when provider data changes
+			if (this._apiExplorerProvider) {
+				this._apiExplorerProvider.onDidChangeTreeData(() => {
+					this._debouncedSendCollections();
+				});
+			}
+
+			// Handle webview visibility changes
+			webviewView.onDidChangeVisibility(() => {
+				if (webviewView.visible) {
+					// Refresh collections when webview becomes visible
+					this._debouncedSendCollections();
+				}
 			});
 		}
 
-		// Handle webview visibility changes
-		webviewView.onDidChangeVisibility(() => {
-			if (webviewView.visible) {
-				// Refresh collections when webview becomes visible
-				this._sendCollections();
-			}
-		});
-
-		// Send initial collections data
-		this._sendCollections();
+		// Send initial collections data immediately (no debounce)
+		this._sendCollections(true);
 	}
 
-	private async _sendCollections() {
+	public static postMessage(type: string, data?: unknown) {
+		if (ActivityPanel.currentPanel && ActivityPanel.currentPanel._view && ActivityPanel.currentPanel._webviewReady) {
+			ActivityPanel.currentPanel._view.webview.postMessage({ type, data });
+		} else if (ActivityPanel.currentPanel) {
+			ActivityPanel.currentPanel._pendingMessages.push({ type, data });
+		}
+	}
+
+	private _debouncedSendCollections() {
+		// Clear any pending timeout
+		if (this._sendCollectionsTimeoutId) {
+			clearTimeout(this._sendCollectionsTimeoutId);
+		}
+
+		// Set a new timeout to debounce rapid calls (300ms)
+		this._sendCollectionsTimeoutId = setTimeout(() => {
+			this._sendCollections(false);
+		}, 300);
+	}
+
+	private async _sendCollections(skipHashCheck: boolean = false) {
 		if (this._view && this._apiExplorerProvider) {
 			const collections = await this._apiExplorerProvider.getCollections();
-			this._view.webview.postMessage({
-				command: 'updateCollections',
-				collections
-			});
+			
+			// Create a hash of the collections to avoid sending identical data
+			const collectionsHash = JSON.stringify(collections);
+			
+			// Only send if collections have changed (skip hash check for initial sends)
+			if (skipHashCheck || collectionsHash !== this._lastSentCollectionsHash) {
+				this._lastSentCollectionsHash = collectionsHash;
+				this._view.webview.postMessage({
+					command: 'updateCollections',
+					collections
+				});
+			}
 		}
 	}
 
@@ -175,6 +236,93 @@ export class ActivityPanel implements vscode.WebviewViewProvider {
 		} catch (error) {
 			vscode.window.showErrorMessage(`Failed to open request: ${error}`);
 		}
+	}
+
+	private async _handleAddRequestToCollection(collectionId: string) {
+		try {
+			if (!this._apiExplorerProvider) {
+				vscode.window.showErrorMessage('API Explorer provider not available');
+				return;
+			}
+
+			// Get all collections to find the one with matching ID
+			const allCollections = await this._apiExplorerProvider.getCollections();
+			const collection = this._findCollectionById(allCollections, collectionId);
+
+			if (!collection) {
+				vscode.window.showErrorMessage('Collection not found');
+				return;
+			}
+
+			// Show TryIt panel
+			TryItPanel.show(this._extensionContext);
+
+			// Wait a moment to ensure the panel is ready
+			await new Promise(resolve => setTimeout(resolve, 300));
+
+			// Construct the full collection directory path
+			const config = vscode.workspace.getConfiguration('api-tryit');
+			const configuredPath = config.get<string>('collectionsPath');
+			const storagePath = configuredPath || 
+				(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '');
+
+			if (!storagePath) {
+				vscode.window.showErrorMessage('No workspace path available');
+				return;
+			}
+
+			// Sanitize the collection ID to ensure it's filesystem-safe
+			const sanitizedCollectionId = sanitizeForFileSystem(collectionId);
+			const collectionPath = path.join(storagePath, sanitizedCollectionId);
+
+			// Send event to state machine to create a new request in this collection
+			ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, collectionPath);
+
+			// Deselect any currently-selected request so the UI behaves like the "New Request" button
+			await vscode.commands.executeCommand('api-tryit.clearSelection');
+
+			// Also create and select an empty request immediately so the TryIt panel shows it without waiting for the state machine debounce
+			const emptyRequestItem: ApiRequestItem = {
+				id: `new-${Date.now()}`,
+				name: 'New Request',
+				request: {
+					id: `new-${Date.now()}`,
+					name: 'New Request',
+					method: 'GET',
+					url: '',
+					queryParameters: [],
+					headers: []
+				}
+			};
+
+			// Ensure the state machine knows we're adding a request and has the collection path
+			ApiTryItStateMachine.sendEvent(EVENT_TYPE.ADD_REQUEST_TO_COLLECTION, undefined, collectionPath);
+			// Also set the selected item so other components see the change
+			ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, emptyRequestItem, undefined);
+			// Post the request to the TryIt webview (queued if webview not ready)
+			TryItPanel.postMessage('apiRequestItemSelected', emptyRequestItem);
+
+			const collectionName = typeof collection === 'object' && collection !== null && 'name' in collection 
+				? (collection as Record<string, unknown>).name 
+				: 'Unknown';
+			vscode.window.showInformationMessage(`Add request to "${collectionName}" collection`);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to add request: ${error}`);
+		}
+	}
+
+	private _findCollectionById(items: unknown[], collectionId: string): unknown {
+		for (const item of items) {
+			const typedItem = item as Record<string, unknown>;
+			if (typedItem.id === collectionId) {
+				return typedItem;
+			}
+			if (Array.isArray(typedItem.children)) {
+				const found = this._findCollectionById(typedItem.children as unknown[], collectionId);
+				if (found) return found;
+			}
+		}
+		return undefined;
 	}
 
 	private _findRequestItem(collections: unknown[], requestId: string): Record<string, unknown> | undefined {

@@ -24,30 +24,43 @@ interface ResponseHeaderItemProps {
     value: string;
 }
 
-const ItemContainer = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background-color: var(--vscode-editor-background);
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 4px;
-    margin-bottom: 8px;
+const TableRow = styled.tr`
+    border-bottom: 1px solid var(--vscode-panel-border);
+    transition: background-color 0.2s ease;
+
+    &:hover {
+        background-color: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.08));
+    }
+
+    &:last-child {
+        border-bottom: none;
+    }
 `;
 
-const KeyLabel = styled.div`
+const TableCell = styled.td`
     color: var(--vscode-foreground);
-    font-family: var(--vscode-font-family);
+    font-family: var(--vscode-editor-font-family);
     font-size: 13px;
-    min-width: 150px;
-    opacity: 0.9;
+    padding: 10px 12px;
+    vertical-align: top;
+    word-break: break-word;
 `;
 
-const ValueLabel = styled.div`
+const KeyCell = styled(TableCell)`
+    font-weight: 600;
+    opacity: 1;
+    white-space: nowrap;
+    width: 200px;
+    max-width: 200px;
+    border-right: 2px solid var(--vscode-panel-border);
+    // background-color: var(--vscode-tab-inactiveBackground, rgba(255, 255, 255, 0.02));
+    // color: var(--vscode-textLink-foreground, #569cd6);
+`;
+
+const ValueCell = styled(TableCell)`
+    width: 100%;
     color: var(--vscode-foreground);
-    font-family: var(--vscode-font-family);
-    font-size: 13px;
-    flex: 1;
+    padding-left: 16px;
 `;
 
 export const ResponseHeaderItem: React.FC<ResponseHeaderItemProps> = ({
@@ -55,9 +68,9 @@ export const ResponseHeaderItem: React.FC<ResponseHeaderItemProps> = ({
     value
 }) => {
     return (
-        <ItemContainer>
-            <KeyLabel>{keyName}</KeyLabel>
-            <ValueLabel>{value}</ValueLabel>
-        </ItemContainer>
+        <TableRow>
+            <KeyCell>{keyName}</KeyCell>
+            <ValueCell>{value}</ValueCell>
+        </TableRow>
     );
 };

@@ -190,6 +190,9 @@ const RequestItemContainer = styled.div`
 interface ExplorerViewProps {
 	collections?: RequestItem[];
 	isLoading?: boolean;
+	clearSelectionTrigger?: number;
+	selectedItemId?: string;
+	expandItemIds?: string[];
 }
 
 // Custom collapsible component props
@@ -227,6 +230,46 @@ const CollectionChildren = styled.div`
 const FolderHeader = styled(CollectionHeader)`
 	// Same styling as CollectionHeader but for folders
 `;
+
+const ContextMenu = styled.div<{ x: number; y: number; visible: boolean }>`
+	display: ${props => props.visible ? 'flex' : 'none'};
+	flex-direction: column;
+	position: fixed;
+	padding: 4px;
+	top: ${props => props.y}px;
+	left: ${props => props.x}px;
+	background: var(--vscode-menu-background);
+	border: 1px solid var(--vscode-menu-border);
+	border-radius: 2px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+	z-index: 1000;
+	min-width: 180px;
+`;
+
+const ContextMenuItem = styled.button`
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	width: 100%;
+	padding: 6px 8px;
+	background: transparent;
+	border: none;
+	color: var(--vscode-menu-foreground);
+	cursor: pointer;
+	font-size: 13px;
+	font-family: var(--vscode-font-family);
+	text-align: left;
+	transition: background-color 0.1s;
+
+	&:hover {
+		background-color: var(--vscode-menu-selectionBackground);
+		color: var(--vscode-menu-selectionForeground);
+	}
+
+	&:active {
+		background-color: var(--vscode-menu-selectionBackground);
+	}
+`;
 const FolderTreeView: React.FC<TreeViewProps> = ({ item, selectedId, onSelect, renderTreeItem, isExpanded, onToggle }) => {
 
 	return (
@@ -254,16 +297,37 @@ const FolderTreeView: React.FC<TreeViewProps> = ({ item, selectedId, onSelect, r
 	);
 };
 
-const CollectionTreeView: React.FC<TreeViewProps> = ({ item, selectedId, onSelect, renderTreeItem, isExpanded, onToggle }) => {
+const CollectionTreeView: React.FC<TreeViewProps & { vscode?: any; collectionId?: string; contextMenu?: { x: number; y: number; collectionId: string } | null; setContextMenu?: (menu: { x: number; y: number; collectionId: string } | null) => void }> = ({ item, selectedId, onSelect, renderTreeItem, isExpanded, onToggle, vscode, collectionId, contextMenu, setContextMenu }) => {
 
 	const handleSelect = useCallback(() => {
 		onSelect(item.id);
 	}, [onSelect, item.id]);
 
+	const handleContextMenu = useCallback((e: React.MouseEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		if (setContextMenu) {
+			setContextMenu({ x: e.clientX, y: e.clientY, collectionId: item.id });
+		}
+	}, [item.id, setContextMenu]);
+
+	const handleAddRequest = useCallback(() => {
+		if (vscode) {
+			vscode.postMessage({
+				command: 'addRequestToCollection',
+				collectionId: item.id
+			});
+		}
+		if (setContextMenu) {
+			setContextMenu(null);
+		}
+	}, [vscode, item.id, setContextMenu]);
+
 	return (
 		<div>
 			<CollectionHeader
 				onClick={() => onToggle(item.id)}
+				onContextMenu={handleContextMenu}
 				isSelected={selectedId === item.id}
 			>
 				<IconContainer>
@@ -272,6 +336,14 @@ const CollectionTreeView: React.FC<TreeViewProps> = ({ item, selectedId, onSelec
 				<Codicon name="library" sx={{ marginRight: 8 }} />
 				<span>{item.name}</span>
 			</CollectionHeader>
+			{contextMenu && contextMenu.collectionId === item.id && (
+				<ContextMenu x={contextMenu.x} y={contextMenu.y} visible={true}>
+					<ContextMenuItem onClick={handleAddRequest}>
+						<Codicon name="file-add" sx={{ marginRight: 8 }} />
+						Add Request
+					</ContextMenuItem>
+				</ContextMenu>
+			)}
 			{isExpanded && item.children && (
 				<CollectionChildren>
 					{item.children.map((child: RequestItem, idx: number) => (
@@ -285,10 +357,37 @@ const CollectionTreeView: React.FC<TreeViewProps> = ({ item, selectedId, onSelec
 	);
 };
 
-export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], isLoading = false }) => {
+export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], isLoading = false, clearSelectionTrigger = 0, selectedItemId, expandItemIds }) => {
 	const [searchTerm, setSearchTerm] = useState('');
 	const [selectedId, setSelectedId] = useState<string>();
 	const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+	const [globalContextMenu, setGlobalContextMenu] = useState<{ x: number; y: number; collectionId: string } | null>(null);
+
+	// Clear selection when trigger changes
+	useEffect(() => {
+		console.log('[ExplorerView] clearSelectionTrigger changed:', clearSelectionTrigger, 'current selectedId:', selectedId);
+		if (clearSelectionTrigger > 0) {
+			console.log('[ExplorerView] Clearing selectedId');
+			setSelectedId(undefined);
+		}
+	}, [clearSelectionTrigger]);
+
+	// Apply external selection (e.g., after save) and ensure parents are expanded
+	useEffect(() => {
+		if (selectedItemId) {
+			setSelectedId(selectedItemId);
+		}
+	}, [selectedItemId]);
+
+	useEffect(() => {
+		if (expandItemIds && expandItemIds.length > 0) {
+			setExpandedItems(prev => {
+				const next = new Set(prev);
+				expandItemIds.forEach(id => next.add(id));
+				return next;
+			});
+		}
+	}, [expandItemIds]);
 
 	// Initialize expanded state for folders (collections and folders start collapsed)
 	useEffect(() => {
@@ -299,6 +398,15 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 		});
 	}, [collections]);
 	const vscode = getVSCodeAPI();
+
+	// Add listener to close context menu when clicking outside
+	useEffect(() => {
+		const handleClickOutside = () => setGlobalContextMenu(null);
+		if (globalContextMenu) {
+			document.addEventListener('click', handleClickOutside);
+			return () => document.removeEventListener('click', handleClickOutside);
+		}
+	}, [globalContextMenu]);
 
 	// Helper function to check if an item or its descendants are selected
 	const isItemSelected = useCallback((item: RequestItem): boolean => {
@@ -415,6 +523,10 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({ collections = [], is
 					renderTreeItem={renderTreeItem}
 					isExpanded={expandedItems.has(item.id)}
 					onToggle={handleToggleExpansion}
+					vscode={vscode}
+					collectionId={item.id}
+					contextMenu={globalContextMenu}
+					setContextMenu={setGlobalContextMenu}
 				/>
 			);
 		}
