@@ -33,15 +33,25 @@ const Container = styled.div<ContainerProps>(({ maxHeight }: ContainerProps) => 
     paddingRight: '4px'
 }));
 
-const ScrollIndicator = styled.div({
+const ScrollIndicator = styled.button({
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
     padding: '2px 0',
     opacity: 0.6,
     cursor: 'pointer',
+    background: 'none',
+    border: 'none',
     '&:hover': {
         opacity: 1
+    },
+    '&:focus': {
+        outline: '2px solid var(--vscode-focusBorder, #0078d4)',
+        outlineOffset: '2px'
+    },
+    '&:focus-visible': {
+        outline: '2px solid var(--vscode-focusBorder, #0078d4)',
+        outlineOffset: '2px'
     }
 });
 
@@ -114,7 +124,11 @@ export const ScrollableList = forwardRef<ScrollableListRef, ScrollableListProps>
                 {children}
             </Container>
             {showScrollIndicator && (
-                <ScrollIndicator onClick={handleScrollDown}>
+                <ScrollIndicator
+                    type="button"
+                    aria-label="Scroll down"
+                    onClick={handleScrollDown}
+                >
                     <Codicon name="chevron-down" sx={{ fontSize: '12px' }} />
                 </ScrollIndicator>
             )}
