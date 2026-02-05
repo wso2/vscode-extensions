@@ -17,7 +17,7 @@
  */
 
 import React from 'react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
+import { Handle, Position, NodeProps, useReactFlow } from '@xyflow/react';
 import styled from '@emotion/styled';
 import { ThemeColors } from '@wso2/ui-toolkit';
 import { RETRY_NODE_DIAMETER } from '../../../constants/nodeConstants';
@@ -61,11 +61,97 @@ const StyledHandle = styled(Handle)`
     box-shadow: 0 0 8px rgba(0,0,0,0.08);
 `;
 
-export const RetryNodeWidget: React.FC<NodeProps<RetryNodeData>> = ({ data, isConnectable }) => {
+export const RetryNodeWidget: React.FC<NodeProps<RetryNodeData>> = ({ id, data, isConnectable }) => {
+    const reactFlowInstance = useReactFlow();
+
+    const handleHoverAddEdge = () => {
+        try {
+            const targetId = (data as any).gotoNodeId || (data as any).gotoNode || undefined;
+            if (!targetId) { return; }
+            const hoverEdgeId = `hover_e_${id}-${targetId}`;
+
+            reactFlowInstance.setEdges((eds: any[]) => {
+                const exists = eds.some(e => e.id === hoverEdgeId);
+                if (exists) { return eds; }
+                const newEdge = {
+                    id: hoverEdgeId,
+                    source: id,
+                    target: targetId,
+                    sourceHandle: 'h-top-source',
+                    targetHandle: 'h-top',
+                    type: 'smoothstep',
+                    style: { stroke: ThemeColors.SECONDARY, strokeDasharray: '4 4' },
+                    animated: false,
+                };
+                return [...eds, newEdge];
+            });
+        } catch (e) {
+            // ignore
+        }
+    };
+
+    const handleHoverRemoveEdge = () => {
+        try {
+            const targetId = (data as any).gotoNodeId || (data as any).gotoNode || undefined;
+            if (!targetId) { return; }
+            const hoverEdgeId = `hover_e_${id}-${targetId}`;
+            reactFlowInstance.setEdges((eds: any[]) => eds.filter(e => e.id !== hoverEdgeId));
+        } catch (e) {
+            // ignore
+        }
+    };
+
+    const handleClick = () => {
+        const targetId = (data as any).gotoNodeId || (data as any).gotoNode || undefined;
+        if (!targetId) { return; }
+
+        if (data.gotoX !== undefined && data.gotoY !== undefined) {
+            reactFlowInstance.setCenter(data.gotoX, data.gotoY, { zoom: 1, duration: 800 });
+        } else {
+            try {
+                const nodes = reactFlowInstance.getNodes();
+                const targetNode: any = nodes.find((n: any) => n.id === targetId);
+                if (targetNode) {
+                    const nodeX = targetNode.position?.x ?? (targetNode.data?.viewState?.x ?? 0);
+                    const nodeY = targetNode.position?.y ?? (targetNode.data?.viewState?.y ?? 0);
+                    const nodeW = (targetNode.style && targetNode.style.width) || (targetNode.data?.viewState?.w) || 0;
+                    const nodeH = (targetNode.style && targetNode.style.height) || (targetNode.data?.viewState?.h) || 0;
+                    const centerX = nodeX + (Number(nodeW) / 2);
+                    const centerY = nodeY + (Number(nodeH) / 2);
+                    reactFlowInstance.setCenter(centerX, centerY, { zoom: 1, duration: 800 });
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        // Flash the target node border briefly
+        try {
+            reactFlowInstance.setNodes((nds: any[]) =>
+                nds.map(n => n.id === targetId ? { ...n, data: { ...n.data, flash: true } } : n)
+            );
+
+            window.setTimeout(() => {
+                reactFlowInstance.setNodes((nds: any[]) =>
+                    nds.map(n => n.id === targetId ? { ...n, data: { ...n.data, flash: false } } : n)
+                );
+            }, 800);
+        } catch (e) {
+            // ignore
+        }
+    };
+
+    const tooltip = data.gotoLabel || data.label || '';
+
     return (
-        <RetryNodeContainer>
+        <RetryNodeContainer
+            onClick={handleClick}
+            onMouseEnter={handleHoverAddEdge}
+            onMouseLeave={handleHoverRemoveEdge}
+            title={tooltip}
+        >
             <RetryIcon>↻</RetryIcon>
-            
+
             <StyledHandle
                 type="target"
                 position={Position.Left}
@@ -77,6 +163,14 @@ export const RetryNodeWidget: React.FC<NodeProps<RetryNodeData>> = ({ data, isCo
                 position={Position.Top}
                 id="h-top"
                 isConnectable={isConnectable}
+            />
+            {/* invisible source handle for hover-edge rendering */}
+            <StyledHandle
+                type="source"
+                position={Position.Top}
+                id="h-top-source"
+                isConnectable={isConnectable}
+                style={{ opacity: 0 }}
             />
         </RetryNodeContainer>
     );

@@ -100,7 +100,9 @@ export class InitVisitor {
                         return [this.createNode(`end_fail_${step.stepId}_${i}`, 'END', 'Fail End')];
                     }
                     if (action.type === 'retry') {
-                        return [this.createNode(`retry_fail_${step.stepId}_${i}`, 'RETRY', 'Retry')];
+                        // Determine retry target: explicit stepId or fallback to the current step (self-retry)
+                        const targetId = (action as any).stepId || step.stepId;
+                        return [this.createNode(`retry_fail_${step.stepId}_${i}`, 'RETRY', 'Retry', { gotoNodeId: targetId, gotoLabel: targetId })];
                     }
                     const targetId = action.stepId || action.name;
                     if (targetId && this.stepNodeMap.has(targetId)) {
