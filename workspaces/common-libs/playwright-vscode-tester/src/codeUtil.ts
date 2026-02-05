@@ -42,7 +42,7 @@ export const DEFAULT_RUN_OPTIONS = {
  * Includes downloading, unpacking, launching, and version checks.
  */
 export class CodeUtil {
-    
+
     private codeFolder: string;
     private downloadPlatform: string;
     private downloadFolder: string;
@@ -352,7 +352,23 @@ export class CodeUtil {
      * Setup paths specific to used OS
      */
     private findExecutables(): void {
-        this.cliPath = path.join(this.codeFolder, 'resources', 'app', 'out', 'cli.js');
+        const defaultCliPath = path.join(this.codeFolder, 'resources', 'app', 'out', 'cli.js');
+        this.cliPath = defaultCliPath;
+
+        if (process.platform === 'win32' && !fs.existsSync(this.cliPath)) {
+            const entries = fs.readdirSync(this.codeFolder, { withFileTypes: true });
+            for (const entry of entries) {
+                if (!entry.isDirectory()) {
+                    continue;
+                }
+                const candidate = path.join(this.codeFolder, entry.name, 'resources', 'app', 'out', 'cli.js');
+                if (fs.existsSync(candidate)) {
+                    this.cliPath = candidate;
+                    break;
+                }
+            }
+        }
+
         switch (process.platform) {
             case 'darwin':
                 this.executablePath = path.join(this.codeFolder, 'Contents', 'MacOS', 'Electron');
@@ -386,10 +402,10 @@ export class CodeUtil {
         Object.assign(finalEnv, {});
         const key = 'PATH';
         finalEnv[key] = [this.downloadFolder, process.env[key]].join(path.delimiter);
-        
+
         const browser = new VSBrowser(literalVersion, this.releaseType, runOptions.resources, {}, this.profileName, this.extensionsFolder);
         const launchArgs = await browser.getLaunchArgs()
-        
+
         process.env = {
             ...process.env,
             ...finalEnv,
@@ -413,7 +429,7 @@ export class CodeUtil {
             this.availableVersions = [await this.getExistingCodeVersion()];
         }
         const literalVersion = runOptions.vscodeVersion === undefined || runOptions.vscodeVersion === 'latest' ? this.availableVersions[0] : runOptions.vscodeVersion;
-        
+
         return {
             name: 'vscode',
             family: 'chromium',
