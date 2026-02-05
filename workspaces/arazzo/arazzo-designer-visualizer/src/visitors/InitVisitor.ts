@@ -36,12 +36,11 @@ export class InitVisitor {
                 currentNode.children.push(conditionNode);
 
                 // 1. Separate the items based on their type
-                const gotoItems = step.onSuccess.filter((item: any) => item.type !== 'end');
+                const gotoItems = step.onSuccess.filter((item: any) => item.type === 'goto');
                 const endItems = step.onSuccess.filter((item: any) => item.type === 'end');
 
                 // 2. Combine them: Goto/Ref items first, End items last
                 const orderedSuccessItems = [...gotoItems, ...endItems];
-
                 // Map branches. branches is of type Flownode[][] with the outer array for different paths. right now only the next step is contained in each branch so can use FLowNode[] also. but later we may need to store multiple steps in a branch here
                 conditionNode.branches = orderedSuccessItems.map((actionItem: SuccessActionObject | ReusableObject, i: number) => {
                     // Check for reference
@@ -83,7 +82,14 @@ export class InitVisitor {
                 const failCond = this.createNode(`cond_fail_${step.stepId}`, 'CONDITION', 'On Failure', { count: step.onFailure.length });
                 currentNode.failureNode = failCond;     //if onFailure exists, create a condition node and assign it to failureNode
 
-                failCond.branches = step.onFailure.map((actionItem: FailureActionObject | ReusableObject, i: number) => {
+                // 1. Separate the items based on their type
+                const gotoItems = step.onFailure.filter((item: any) => item.type === 'goto');
+                const retryItems = step.onFailure.filter((item: any) => item.type === 'retry');
+                const endItems = step.onFailure.filter((item: any) => item.type === 'end');
+
+                // 2. Combine them: Goto/Ref items first, End items last
+                const orderedFailureItems = [...gotoItems, ...retryItems, ...endItems];
+                failCond.branches = orderedFailureItems.map((actionItem: FailureActionObject | ReusableObject, i: number) => {
                     const refItem = actionItem as any;
                     if (refItem.reference) {
                         return [this.createNode(`fail_ref_${i}`, 'END', 'Ref')];        //need to implement this part later
