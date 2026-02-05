@@ -443,6 +443,15 @@ const AIChat: React.FC = () => {
                     }
                     return newMessages;
                 });
+            } else if (response.toolName === "Send-HTTP-request") {
+                setMessages((prevMessages) => {
+                    const newMessages = [...prevMessages];
+                    if (newMessages.length > 0) {
+                        newMessages[newMessages.length - 1].content += `\n\n<toolcall>Sending HTTP request ...</toolcall>`;
+                        newMessages[newMessages.length - 1].content += `\n\n<button type="open_api_tryit">${response.toolInput?.url ? response.toolInput.url : ""}</button>`;
+                    }
+                    return newMessages;
+                });
             }
         } else if (type === "tool_result") {
             if (response.toolName == "LibraryProviderTool") {
@@ -1478,6 +1487,10 @@ const AIChat: React.FC = () => {
 
         setApprovalRequest(null);
     };
+    
+    const handleOpenAPITryIt = (apiUrl: string) => {
+        console.log("Trying API URL:", apiUrl);
+    }
 
     async function processLLMDiagnostics() {
         let response: LLMDiagnostics = await rpcClient.getAiPanelRpcClient().getDriftDiagnosticContents();
@@ -1814,6 +1827,19 @@ const AIChat: React.FC = () => {
                                                 return (
                                                     <VSCodeButton key={`btn-saved-${i}`} title="Documentation has been saved" disabled>
                                                         {"Saved"}
+                                                    </VSCodeButton>
+                                                );
+                                            } else if (
+                                                "buttonType" in segment && 
+                                                segment.buttonType === "open_api_tryit"
+                                            ){
+                                                return (
+                                                    <VSCodeButton
+                                                        key={`btn-openapi-${i}`}
+                                                        title="Open API in TryIt"
+                                                        onClick={() => handleOpenAPITryIt(segment.text)}
+                                                    >
+                                                        {"Open in TryIt"}
                                                     </VSCodeButton>
                                                 );
                                             }
