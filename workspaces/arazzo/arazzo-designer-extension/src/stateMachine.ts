@@ -37,6 +37,11 @@ const stateMachine = createMachine<MachineContext>({
     states: {
         ready: {
             initial: 'activateProjectExplorer',
+            on: {
+                RESET_TO_VIEW_READY: {
+                    target: '.viewReady'
+                }
+            },
             states: {
                 activateProjectExplorer: {
                     invoke: {
@@ -124,6 +129,11 @@ const stateMachine = createMachine<MachineContext>({
         },
         newProject: {
             initial: "viewLoading",
+            on: {
+                RESET_TO_VIEW_READY: {
+                    target: '.viewReady'
+                }
+            },
             states: {
                 viewLoading: {
                     invoke: {
@@ -167,7 +177,7 @@ const stateMachine = createMachine<MachineContext>({
                         VisualizerWebview.workflowPanel.getWebview()?.reveal(ViewColumn.Active);
                         resolve(true);
                     }
-                } else if(context.view === MACHINE_VIEW.Overview) {
+                } else if (context.view === MACHINE_VIEW.Overview) {
                     if (!VisualizerWebview.currentPanel) {
                         // For Overview, create panel if it doesn't exist
                         VisualizerWebview.currentPanel = new VisualizerWebview(extension.webviewReveal, false);
@@ -175,10 +185,10 @@ const stateMachine = createMachine<MachineContext>({
                             resolve(true);
                         });
                     } else {
-                    // For Overview, reuse existing panel
-                    VisualizerWebview.currentPanel!.getWebview()?.reveal(ViewColumn.Active);
-                    vscode.commands.executeCommand('setContext', 'isViewOpenAPI', true);
-                    resolve(true);
+                        // For Overview, reuse existing panel
+                        VisualizerWebview.currentPanel!.getWebview()?.reveal(ViewColumn.Active);
+                        vscode.commands.executeCommand('setContext', 'isViewOpenAPI', true);
+                        resolve(true);
                     }
                 }
             });
@@ -222,7 +232,7 @@ const stateMachine = createMachine<MachineContext>({
         },
         disableExtension: (context, event) => {
             return new Promise(async (resolve, reject) => {
-                vscode.commands.executeCommand('setContext', 'APIDesigner.status', 'disabled');
+                vscode.commands.executeCommand('setContext', 'ArazzoDesigner.status', 'disabled');
                 updateProjectExplorer(context);
                 resolve(true);
             });
@@ -238,7 +248,7 @@ export const stateService = interpret(stateMachine);
 stateService.onTransition((state) => {
     // 1. Only act if the state actually changed
     if (state.changed) {
-        
+
         // 2. Check if ANY panel is currently open
         const isAnyPanelOpen = VisualizerWebview.currentPanel || VisualizerWebview.workflowPanel;
 
@@ -246,8 +256,8 @@ stateService.onTransition((state) => {
             // 3. Send the Broadcast ONCE
             // The target recipient filter reaches ALL open instances of this webviewType.
             RPCLayer._messenger.sendNotification(
-                stateChanged, 
-                { type: 'webview', webviewType: VisualizerWebview.viewType }, 
+                stateChanged,
+                { type: 'webview', webviewType: VisualizerWebview.viewType },
                 state.value
             );
         }
@@ -261,6 +271,7 @@ export const StateMachine = {
     context: () => { return stateService.getSnapshot().context; },
     state: () => { return stateService.getSnapshot().value as MachineStateValue; },
     sendEvent: (eventType: EVENT_TYPE) => { stateService.send({ type: eventType }); },
+    reset: () => { stateService.send({ type: EVENT_TYPE.RESET_TO_VIEW_READY }); },
 };
 
 export function openView(type: EVENT_TYPE, viewLocation?: VisualizerLocation) {
