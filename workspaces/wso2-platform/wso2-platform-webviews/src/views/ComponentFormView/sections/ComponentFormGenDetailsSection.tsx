@@ -18,13 +18,8 @@
 
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-	GitProvider,
-	type MultiComponentSectionProps,
-	parseGitURL,
-	toSentenceCase,
-} from "@wso2/wso2-platform-core";
-import React, { type FC, type ReactNode, useEffect, useState } from "react";
+import { GitProvider, type MultiComponentSectionProps, parseGitURL, toSentenceCase } from "@wso2/wso2-platform-core";
+import React, { type FC, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import type { SubmitHandler, UseFormReturn } from "react-hook-form";
 import type { z } from "zod/v3";
 import { Banner } from "../../../components/Banner";
@@ -45,6 +40,197 @@ interface Props extends MultiComponentSectionProps {
 	form: UseFormReturn<ComponentFormGenDetailsType>;
 	componentType: string;
 }
+
+interface UseComponentGitValidationParams {
+	extensionName?: string;
+	organization: Props["organization"];
+	directoryFsPath?: string;
+	isMultiComponentMode?: boolean;
+	allComponents?: Props["allComponents"];
+	selectedComponents?: Props["selectedComponents"];
+	gitData: any;
+	provider?: ComponentFormGenDetailsType["gitProvider"];
+	credential?: string;
+	form: UseFormReturn<ComponentFormGenDetailsType>;
+}
+
+const useComponentGitValidation = ({
+	extensionName,
+	organization,
+	directoryFsPath,
+	isMultiComponentMode,
+	allComponents,
+	selectedComponents,
+	gitData,
+	provider,
+	credential,
+	form,
+}: UseComponentGitValidationParams) => {
+	const [componentGitErrorCount, setComponentGitErrorCount] = useState<number | null>(null);
+
+	const branch = form.watch("branch");
+	const repoUrlValue = form.watch("repoUrl");
+
+	const targets = useMemo(() => {
+		if (!directoryFsPath && !isMultiComponentMode) {
+			return [] as { directoryFsPath: string }[];
+		}
+
+		// For multi-component mode, validate selected components.
+		// For single component mode, fall back to the current directory.
+		if (isMultiComponentMode && allComponents && selectedComponents) {
+			const selectedTargets = selectedComponents
+				.filter((c) => c.selected)
+				.map((c) => allComponents[c.index])
+				.filter((c) => !!c?.directoryFsPath)
+				.map((c) => ({ directoryFsPath: c.directoryFsPath! }));
+			return selectedTargets;
+		}
+
+		return directoryFsPath ? [{ directoryFsPath }] : [];
+	}, [allComponents, directoryFsPath, isMultiComponentMode, selectedComponents]);
+
+	const targetsSignature = useMemo(
+		() => targets.map((t) => t.directoryFsPath).sort().join("|"),
+		[targets],
+	);
+
+	const shouldRunValidation =
+		extensionName === "Devant" && !!branch && !!repoUrlValue && !!organization?.id && targets.length > 0;
+
+	// Clear error count when validation is not applicable (e.g., no targets selected)
+	useEffect(() => {
+		if (!shouldRunValidation) {
+			setComponentGitErrorCount(null);
+		}
+	}, [shouldRunValidation, targetsSignature]);
+
+	const validationQuery = useQuery({
+		queryKey: [
+			"component-git-validation",
+			{
+				orgId: organization?.id,
+				repoUrl: repoUrlValue,
+				branch,
+				provider,
+				credential: provider !== GitProvider.GITHUB ? credential || "" : "",
+				gitRoot: gitData?.gitRoot,
+				targetsSignature,
+			},
+		],
+		enabled: false, // we control when to run to avoid unnecessary calls
+		staleTime: 60 * 1000, // cache for 60s
+		refetchOnWindowFocus: false,
+		queryFn: async () => {
+			if (!shouldRunValidation || !gitData?.gitRoot) {
+				return { invalidCount: 0 };
+			}
+
+			const parsed = parseGitURL(repoUrlValue);
+			if (!parsed) {
+				return { invalidCount: 0 };
+			}
+
+			const [gitOrgName, gitRepoName] = parsed;
+
+			const metadataRequests: {
+				branch: string;
+				gitOrgName: string;
+				gitRepoName: string;
+				relativePath: string;
+				orgId: string;
+				secretRef: string;
+			}[] = [];
+
+			for (const target of targets) {
+				const componentPath = target.directoryFsPath;
+
+				// If git root is not available, rely on existing repo validation
+				if (!gitData?.gitRoot || !componentPath) {
+					continue;
+				}
+
+				// Compute relative path from git root to component directory
+				let relativePath = "";
+				try {
+					relativePath = await ChoreoWebViewAPI.getInstance().getSubPath({
+						subPath: componentPath,
+						parentPath: gitData.gitRoot,
+					});
+					relativePath = relativePath || "";
+					relativePath = relativePath.startsWith("/") ? relativePath.slice(1) : relativePath;
+				} catch {
+					const normalizedRoot = gitData.gitRoot.replace(/[/\\]+$/, "");
+					const normalizedPath = componentPath.replace(/[/\\]+$/, "");
+					if (normalizedPath.startsWith(normalizedRoot)) {
+						const rest = normalizedPath.slice(normalizedRoot.length);
+						relativePath = rest.replace(/^[/\\]/, "").replace(/\\/g, "/");
+					}
+				}
+
+				metadataRequests.push({
+					branch,
+					gitOrgName,
+					gitRepoName,
+					relativePath,
+					orgId: organization.id.toString(),
+					secretRef: provider !== GitProvider.GITHUB ? credential || "" : "",
+				});
+			}
+
+			if (metadataRequests.length === 0) {
+				return { invalidCount: 0 };
+			}
+
+			let invalidCount = 0;
+
+			try {
+				const results = await ChoreoWebViewAPI.getInstance()
+					.getChoreoRpcClient()
+					.getGitRepoMetadataBatch(metadataRequests);
+
+				for (const metadata of results) {
+					if (!metadata?.metadata || metadata.metadata.isSubPathEmpty) {
+						invalidCount += 1;
+					}
+				}
+			} catch {
+				// If batch call fails, mark all as invalid
+				invalidCount = metadataRequests.length;
+			}
+
+			return { invalidCount };
+		},
+	});
+
+	const validateComponentsPushed = useCallback(
+		async (options?: { force?: boolean }): Promise<boolean> => {
+			if (!shouldRunValidation) {
+				setComponentGitErrorCount(null);
+				return true;
+			}
+
+			// If we have fresh cached data and not forcing, reuse it
+			if (!options?.force && validationQuery.data && !validationQuery.isStale) {
+				const invalidCount = validationQuery.data.invalidCount ?? 0;
+				setComponentGitErrorCount(invalidCount || null);
+				return invalidCount === 0;
+			}
+
+			const result = await validationQuery.refetch();
+			const invalidCount = result.data?.invalidCount ?? 0;
+			setComponentGitErrorCount(invalidCount || null);
+			return invalidCount === 0;
+		},
+		[shouldRunValidation, validationQuery, setComponentGitErrorCount],
+	);
+
+	return {
+		componentGitErrorCount,
+		isValidatingComponents: validationQuery.isFetching,
+		validateComponentsPushed,
+	};
+};
 
 export const ComponentFormGenDetailsSection: FC<Props> = ({
 	onNextClick,
@@ -180,128 +366,47 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 		}
 	}, [branches, gitData]);
 
-	const [componentGitErrorCount, setComponentGitErrorCount] = useState<number | null>(null);
-	const [isValidatingComponents, setIsValidatingComponents] = useState(false);
+	const { componentGitErrorCount, isValidatingComponents, validateComponentsPushed } = useComponentGitValidation({
+		extensionName,
+		organization,
+		directoryFsPath,
+		isMultiComponentMode,
+		allComponents,
+		selectedComponents,
+		gitData,
+		provider,
+		credential,
+		form,
+	});
 
-	const validateComponentsPushed = async (): Promise<boolean> => {
-		// Only validate for Devant when repo/branch are selected
+	// Auto-validate when selection / core git settings change (with caching in the hook)
+	useEffect(() => {
 		if (extensionName !== "Devant") {
-			return true;
+			return;
 		}
 
 		const branch = form.getValues("branch");
-		const repoUrlValue = form.getValues("repoUrl");
-
-		if (!branch || !repoUrlValue || !organization?.id) {
-			return true;
+		if (!repoUrl || !branch || !organization?.id) {
+			return;
 		}
 
-		const parsed = parseGitURL(repoUrlValue);
-		if (!parsed) {
-			return true;
-		}
-
-		const [gitOrgName, gitRepoName] = parsed;
-
-		// For multi-component mode, validate selected components.
-		// For single component mode, fall back to the current directory.
-		const targets =
-			isMultiComponentMode && allComponents && selectedComponents
-				? selectedComponents
-						.filter((c) => c.selected)
-						.map((c) => allComponents[c.index])
-				: directoryFsPath
-				? [{ directoryFsPath }]
-				: [];
-
-		if (!targets.length) {
-			return true;
-		}
-
-		// Prepare batch of metadata requests for all valid targets
-		const metadataRequests: {
-			branch: string;
-			gitOrgName: string;
-			gitRepoName: string;
-			relativePath: string;
-			orgId: string;
-			secretRef: string;
-		}[] = [];
-
-		for (const target of targets) {
-			const componentPath = target.directoryFsPath;
-
-			// If git root is not available, rely on existing repo validation
-			if (!gitData?.gitRoot || !componentPath) {
-				continue;
+		if (isMultiComponentMode) {
+			const anySelected = selectedComponents?.some((c) => c.selected);
+			if (!anySelected) {
+				return;
 			}
-
-			// Compute relative path from git root to component directory
-			let relativePath = "";
-			try {
-				relativePath = await ChoreoWebViewAPI.getInstance().getSubPath({
-					subPath: componentPath,
-					parentPath: gitData.gitRoot,
-				});
-				relativePath = relativePath || "";
-				relativePath = relativePath.startsWith("/") ? relativePath.slice(1) : relativePath;
-			} catch {
-				const normalizedRoot = gitData.gitRoot.replace(/[/\\]+$/, "");
-				const normalizedPath = componentPath.replace(/[/\\]+$/, "");
-				if (normalizedPath.startsWith(normalizedRoot)) {
-					const rest = normalizedPath.slice(normalizedRoot.length);
-					relativePath = rest.replace(/^[/\\]/, "").replace(/\\/g, "/");
-				}
-			}
-
-			metadataRequests.push({
-				branch,
-				gitOrgName,
-				gitRepoName,
-				relativePath,
-				orgId: organization.id.toString(),
-				secretRef: provider !== GitProvider.GITHUB ? credential || "" : "",
-			});
 		}
 
-		if (metadataRequests.length === 0) {
-			setComponentGitErrorCount(null);
-			return true;
-		}
-
-		let invalidCount = 0;
-
-		try {
-			const results = await ChoreoWebViewAPI.getInstance()
-				.getChoreoRpcClient()
-				.getGitRepoMetadataBatch(metadataRequests);
-
-			for (const metadata of results) {
-				if (!metadata?.metadata || metadata.metadata.isSubPathEmpty) {
-					invalidCount += 1;
-				}
-			}
-		} catch {
-			// If batch call fails, mark all as invalid
-			invalidCount = metadataRequests.length;
-		}
-
-		setComponentGitErrorCount(invalidCount || null);
-		return invalidCount === 0;
-	};
+		void validateComponentsPushed();
+		// We intentionally depend on the raw objects; the hook will still use its cache to avoid repeated network calls.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [isMultiComponentMode, extensionName, repoUrl, organization?.id, selectedComponents]);
 
 	const onSubmitForm: SubmitHandler<ComponentFormGenDetailsType> = async () => {
-		setComponentGitErrorCount(null);
-
 		if (isMultiComponentMode || extensionName === "Devant") {
-			setIsValidatingComponents(true);
-			try {
-				const isValid = await validateComponentsPushed();
-				if (!isValid) {
-					return;
-				}
-			} finally {
-				setIsValidatingComponents(false);
+			const isValid = await validateComponentsPushed();
+			if (!isValid) {
+				return;
 			}
 		}
 
@@ -388,56 +493,12 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 		invalidRepoAction = "Source Control";
 		onInvalidRepoActionClick = openSourceControl;
 		onInvalidRepoRefreshClick = async () => {
-			setIsValidatingComponents(true);
-			try {
-				await validateComponentsPushed();
-			} finally {
-				setIsValidatingComponents(false);
-			}
+			await validateComponentsPushed({ force: true });
 		};
 		onInvalidRepoRefreshing = isValidatingComponents;
 	}
 
 	const hasSelectedComponents = selectedComponents?.some((comp) => comp.selected) ?? false;
-
-	// Auto-revalidate on selection/git root changes and approximate refetchOnWindowFocus
-	useEffect(() => {
-		if (extensionName !== "Devant") {
-			return;
-		}
-
-		const branch = form.getValues("branch");
-		if (!repoUrl || !branch || !organization?.id) {
-			return;
-		}
-
-		const shouldValidateNow = () => {
-			if (isMultiComponentMode) {
-				if (!selectedComponents || selectedComponents.length === 0) {
-					invalidRepoMsg = "";
-					setComponentGitErrorCount(null);
-					return false;
-				}
-			}
-			return true;
-		};
-
-		// Validate immediately on dependency changes
-		if (shouldValidateNow()) {
-			void validateComponentsPushed();
-		}
-
-		// Also validate when the window regains focus
-		const handleFocus = () => {
-			if (shouldValidateNow()) {
-				void validateComponentsPushed();
-			}
-		};
-
-		window.addEventListener("focus", handleFocus);
-		return () => window.removeEventListener("focus", handleFocus);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [JSON.stringify(selectedComponents ?? []), gitData?.gitRoot, repoUrl, organization?.id, isMultiComponentMode, extensionName]);
 
 	return (
 		<>
