@@ -390,6 +390,9 @@ import {
     GetMediatorsResponse,
     UpdateMediatorRequest,
     getMediator,
+    getMcpTools,
+    McpToolsRequest,
+    McpToolsResponse,
     getMediators,
     updateMediator,
     GetConnectionSchemaRequest,
@@ -1103,6 +1106,10 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     getMediator(params: GetMediatorRequest): Promise<GetMediatorResponse> {
         return this._messenger.sendRequest(getMediator, HOST_EXTENSION, params);
+    }
+
+    getMcpTools(params: McpToolsRequest): Promise<McpToolsResponse> {
+        return this._messenger.sendRequest(getMcpTools, HOST_EXTENSION, params);
     }
 
     updateMediator(params: UpdateMediatorRequest): Promise<UpdateMediatorResponse> {

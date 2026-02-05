@@ -2103,6 +2103,18 @@ export interface UpdateMediatorRequest {
     trailingSpace?: string;
 }
 
+export interface McpToolsRequest {
+    connectionName: string;
+}
+
+export interface McpToolsResponse {
+    tools: Array<{
+        name: string;
+        description?: string;
+    }>;
+    error?: string;
+}
+
 export interface UpdateMediatorResponse {
     textEdits: ExtendedTextEdit[];
 }

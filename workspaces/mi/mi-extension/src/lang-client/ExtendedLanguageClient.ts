@@ -79,7 +79,9 @@ import {
     UpdateAiDependenciesResponse,
     UpdateAiDependenciesRequest,
     MavenDeployPluginDetails,
-    DependencyStatusResponse
+    DependencyStatusResponse,
+    McpToolsRequest,
+    McpToolsResponse
 } from "@wso2/mi-core";
 import { readFileSync } from "fs";
 import { CancellationToken, FormattingOptions, Position, Uri, workspace } from "vscode";
@@ -470,5 +472,9 @@ export class ExtendedLanguageClient extends LanguageClient {
     }
     async getDependencyStatusList(): Promise<DependencyStatusResponse> {
         return this.sendRequest('synapse/getDependencyStatusList');
-    }    
+    }  
+    
+    async getMcpTools(req: McpToolsRequest): Promise<McpToolsResponse> {
+        return this.sendRequest("synapse/getMCPTools", { connectionName: req.connectionName });
+    }
 }

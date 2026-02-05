@@ -135,6 +135,8 @@ import {
     GetMediatorResponse,
     GetMediatorsRequest,
     GetMediatorsResponse,
+    McpToolsRequest,
+    McpToolsResponse,
     GetMessageStoreRequest,
     GetMessageStoreResponse,
     GetProjectRootRequest,
@@ -5704,6 +5706,14 @@ ${keyValuesXML}`;
         return new Promise(async (resolve) => {
             const langClient = await MILanguageClient.getInstance(this.projectUri);
             let response = await langClient.getMediator(param);
+            resolve(response);
+        });
+    }
+
+    async getMcpTools(param: McpToolsRequest): Promise<McpToolsResponse> {
+        return new Promise(async (resolve) => {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            let response = await langClient.getMcpTools(param);
             resolve(response);
         });
     }
