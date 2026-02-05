@@ -37,11 +37,11 @@
     "zustand": "5.0.5",
     "blueimp-md5": "2.19.0",
     "mousetrap": "1.6.5",
-    "@types/mousetrap": "1.6.15",
     "ajv": "8.17.1",
     "ajv-formats": "3.0.1"
   },
   "devDependencies": {
+    "@types/mousetrap": "1.6.15",
     "@types/lodash.debounce": "4.0.9",
     "@types/lodash": "4.17.17",
     "@types/react": "18.2.0",
