@@ -391,7 +391,7 @@ export const MultiComponentSelector: FC<MultiComponentSelectorProps> = ({
 				<Banner
 					type="error"
 					className="mt-3"
-					title={`${selectedComponentsWithErrors.length} selected component(s) have invalid names. Please fix the errors above.`}
+					title={`${selectedComponentsWithErrors.length === 1 ? "This component name is invalid" : `${selectedComponentsWithErrors.length} selected components have invalid names`}. Please fix the errors above.`}
 				/>
 			)}
 		</div>

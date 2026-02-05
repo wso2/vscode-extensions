@@ -489,7 +489,10 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 	}
 
 	if (!invalidRepoMsg && componentGitErrorCount && componentGitErrorCount > 0) {
-		invalidRepoMsg = `${componentGitErrorCount} selected component(s) have not been pushed to Git. Please push your changes to the remote repository before deploying.`;
+		const baseMessage = componentGitErrorCount === 1
+			? "This component has not been pushed to Git."
+			: `${componentGitErrorCount} selected components have not been pushed to Git.`;
+		invalidRepoMsg = `${baseMessage} Please push your changes to the remote repository before deploying.`;
 		invalidRepoAction = "Source Control";
 		onInvalidRepoActionClick = openSourceControl;
 		onInvalidRepoRefreshClick = async () => {
