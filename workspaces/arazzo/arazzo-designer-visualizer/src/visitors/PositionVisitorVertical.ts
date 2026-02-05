@@ -138,7 +138,7 @@ export class PositionVisitorVertical {
                     if (nextHead && (nextHead.type === 'END' || nextHead.type === 'RETRY')) {
                         // Optimization: If the NEXT node is an END node, we assume we don't need 
                         // the full subtree clearance from the current node.
-                        currentX += C.NODE_GAP_X_Vertical + head.viewState.w; 
+                        currentX +=  head.viewState.w + C.FAIL_GAP_X_Vertical; 
                     } else {
                         // Default: Next is a Step (or doesn't exist), so reserve the full subtree height
                         currentX += head.viewState.subtreeW + C.NODE_GAP_X_Vertical;
