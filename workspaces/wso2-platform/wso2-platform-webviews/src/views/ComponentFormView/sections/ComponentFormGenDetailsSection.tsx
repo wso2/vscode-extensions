@@ -218,7 +218,15 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 			return true;
 		}
 
-		let invalidCount = 0;
+		// Prepare batch of metadata requests for all valid targets
+		const metadataRequests: {
+			branch: string;
+			gitOrgName: string;
+			gitRepoName: string;
+			relativePath: string;
+			orgId: string;
+			secretRef: string;
+		}[] = [];
 
 		for (const target of targets) {
 			const componentPath = target.directoryFsPath;
@@ -246,24 +254,36 @@ export const ComponentFormGenDetailsSection: FC<Props> = ({
 				}
 			}
 
-			try {
-				const metadata = await ChoreoWebViewAPI.getInstance()
-					.getChoreoRpcClient()
-					.getGitRepoMetadata({
-						branch,
-						gitOrgName,
-						gitRepoName,
-						relativePath,
-						orgId: organization.id.toString(),
-						secretRef: provider !== GitProvider.GITHUB ? credential || "" : "",
-					});
+			metadataRequests.push({
+				branch,
+				gitOrgName,
+				gitRepoName,
+				relativePath,
+				orgId: organization.id.toString(),
+				secretRef: provider !== GitProvider.GITHUB ? credential || "" : "",
+			});
+		}
 
+		if (metadataRequests.length === 0) {
+			setComponentGitErrorCount(null);
+			return true;
+		}
+
+		let invalidCount = 0;
+
+		try {
+			const results = await ChoreoWebViewAPI.getInstance()
+				.getChoreoRpcClient()
+				.getGitRepoMetadataBatch(metadataRequests);
+
+			for (const metadata of results) {
 				if (!metadata?.metadata || metadata.metadata.isSubPathEmpty) {
 					invalidCount += 1;
 				}
-			} catch {
-				invalidCount += 1;
 			}
+		} catch {
+			// If batch call fails, mark all as invalid
+			invalidCount = metadataRequests.length;
 		}
 
 		setComponentGitErrorCount(invalidCount || null);
