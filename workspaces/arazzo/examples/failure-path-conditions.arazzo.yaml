@@ -1,0 +1,73 @@
+arazzo: 1.0.1
+info:
+  title: Complex Failure Routing
+  version: 1.0.0
+sourceDescriptions:
+  - name: payment-gateway
+    url: https://api.stripe-fake.com/openapi.json
+    type: openapi
+
+workflows:
+  - workflowId: payment-routing-test
+    summary: Tests multiple branching logic within an onFailure block.
+    steps:
+      # Step 1: Happy path start
+      - stepId: validate-user
+        operationId: getUserStatus
+
+      # Step 2: The complex step
+      - stepId: charge-card
+        operationId: postCharge
+        onSuccess:
+          - name: payment-success
+            type: goto
+            stepId: send-receipt
+        onFailure:
+          # Branch A: Insufficient Funds -> Ask user to add money
+          - name: handle-no-funds
+            type: goto
+            stepId: prompt-top-up
+            criteria:
+              - condition: "$statusCode == 402"
+
+          # Branch B: Fraud Detected -> Security protocol
+          - name: handle-fraud
+            type: goto
+            stepId: lock-account
+            criteria:
+              - condition: "$statusCode == 403"
+
+          # Branch C: Gateway Timeout -> Retry logic
+          - name: retry-timeout
+            type: retry
+            stepId: charge-card
+            retryLimit: 2
+            criteria:
+              - condition: "$statusCode == 504"
+
+          # Branch D: Default/Catch-all -> Generic Error
+          - name: unknown-error
+            type: goto
+            stepId: log-system-error
+
+      # Step 3: Branch A Target
+      - stepId: prompt-top-up
+        operationId: sendPushNotification
+        description: "Asks user to add funds"
+
+      # Step 4: Branch B Target
+      - stepId: lock-account
+        operationId: freezeUserStatus
+        description: "Security lockout"
+
+      # Step 5: Branch D Target
+      - stepId: log-system-error
+        operationId: postLog
+
+      # Step 6: Success Target
+      - stepId: send-receipt
+        operationId: emailReceipt
+
+      # Step 7: Final
+      - stepId: end-transaction
+        operationId: closeSession
