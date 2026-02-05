@@ -75,7 +75,6 @@ export class CodeUtil {
             this.codeFolder = path.join(this.downloadFolder, (process.platform === 'darwin')
                 ? 'Visual Studio Code - Insiders.app' : `VSCode-${this.downloadPlatform}-insider`);
         }
-        this.findExecutables();
     }
 
     /**
@@ -130,6 +129,7 @@ export class CodeUtil {
         } else {
             console.log('VS Code exists in local cache, skipping download');
         }
+        this.findExecutables();
     }
 
     /**
@@ -368,6 +368,7 @@ export class CodeUtil {
                 }
             }
         }
+        console.log(`Using CLI path: ${this.cliPath}`);
 
         switch (process.platform) {
             case 'darwin':
