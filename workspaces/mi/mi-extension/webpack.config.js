@@ -53,7 +53,11 @@ module.exports = {
     vscode: 'commonjs vscode'
   },
   resolve: {
-    extensions: ['.ts', '.js']
+    extensions: ['.ts', '.js'],
+    alias: {
+      'zod/v3': 'zod',
+      'zod/v4': 'zod'
+    }
   },
   module: {
     rules: [
@@ -70,6 +74,12 @@ module.exports = {
   },
   plugins: [
       new webpack.DefinePlugin(envKeys),
+      new webpack.NormalModuleReplacementPlugin(
+        /^zod\/(v3|v4)$/,
+        (resource) => {
+          resource.request = 'zod';
+        }
+      ),
   ],
   devtool: !process.env.CI ? "nosources-source-map" : undefined,
   infrastructureLogging: {
