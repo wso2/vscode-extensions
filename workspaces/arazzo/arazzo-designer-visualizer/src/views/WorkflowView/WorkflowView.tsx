@@ -160,9 +160,19 @@ export function WorkflowView(props: WorkflowViewProps) {
     const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
         console.log('Node clicked:', node);
         event.stopPropagation();
+
+        // Only open properties panel for workflow STEP and CONDITION nodes
+        const allowedTypes = ['stepNode', 'conditionNode'];
+        if (!allowedTypes.includes(node.type)) {
+            // If panel is open for a non-allowed node, close it
+            setIsPanelOpen(false);
+            setSelectedNode(null);
+            return;
+        }
+
         // Set the node first
         setSelectedNode(node);
-        // Use double requestAnimationFrame to ensure panel renders in closed state first,
+        // Use requestAnimationFrame to ensure panel renders in closed state first,
         // then triggers the open animation
         requestAnimationFrame(() => {
             setIsPanelOpen(true);
@@ -368,7 +378,8 @@ export function WorkflowView(props: WorkflowViewProps) {
             >
                 <SidePanelTitleContainer>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {selectedNode ? (selectedNode.data?.label || selectedNode.id) : 'Node Properties'}
+                        {/* {selectedNode ? (selectedNode.data?.label || selectedNode.id) : 'Node Properties'} */}
+                        Properties
                     </div>
                     <StyledButton data-testid="close-panel-btn" appearance="icon" onClick={handleClosePanel}>
                         <Codicon name="close" />
