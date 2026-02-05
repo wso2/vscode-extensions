@@ -80,9 +80,9 @@ import {
     UpdateAiDependenciesRequest,
     MavenDeployPluginDetails,
     DependencyStatusResponse,
+    GenerateMappingsParamsRequest,
     McpToolsRequest,
-    McpToolsResponse,
-    GenerateMappingsParamsRequest
+    McpToolsResponse
 } from "@wso2/mi-core";
 import { readFileSync } from "fs";
 import { CancellationToken, FormattingOptions, Position, Uri, workspace } from "vscode";
