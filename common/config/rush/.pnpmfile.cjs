@@ -21,6 +21,9 @@ module.exports = {
         }
         
         // Security vulnerability fixes
+        if (pkg.dependencies['@isaacs/brace-expansion']) {
+          pkg.dependencies['@isaacs/brace-expansion'] = '^5.0.1';
+        }
         if (pkg.dependencies['brace-expansion']) {
           pkg.dependencies['brace-expansion'] = '^2.0.2';
         }
@@ -76,6 +79,9 @@ module.exports = {
 
       if (pkg.devDependencies) {
         // Security vulnerability fixes for dev dependencies
+        if (pkg.devDependencies['@isaacs/brace-expansion']) {
+          pkg.devDependencies['@isaacs/brace-expansion'] = '^5.0.1';
+        }
         if (pkg.devDependencies['brace-expansion']) {
           pkg.devDependencies['brace-expansion'] = '^2.0.2';
         }
