@@ -1,0 +1,38 @@
+arazzo: 1.0.1
+info:
+  title: Shopping Cart Loop
+  version: 1.0.0
+sourceDescriptions:
+  - name: shop-api
+    url: https://api.shop.com/openapi.json
+    type: openapi
+
+workflows:
+  - workflowId: loop-back-test
+    summary: Tests backward edges.
+    steps:
+      - stepId: login
+        operationId: userLogin
+
+      - stepId: browse-items
+        operationId: getProducts
+
+      - stepId: select-item
+        operationId: getItemDetails
+
+      - stepId: add-to-cart
+        operationId: postCartItem
+
+      - stepId: ask-continue
+        operationId: promptUser
+        description: "User decides whether to checkout or shop more"
+        onSuccess:
+          - name: shop-more
+            type: goto
+            stepId: browse-items  # <--- Jumps back to Step 2
+          - name: checkout
+            type: goto
+            stepId: payment-process
+
+      - stepId: payment-process
+        operationId: processPayment

@@ -1,7 +1,7 @@
 import { FlowNode } from '../utils/types';
 import * as C from '../constants/nodeConstants';
 
-export class SizingVisitor {
+export class SizingVisitorHorizontal {
     private visited: Set<string> = new Set();
 
     public visit(node: FlowNode): void {
@@ -55,23 +55,23 @@ export class SizingVisitor {
         if (node.branches && node.branches.length > 0) {
             node.branches.forEach(branch => {
                 // Width of a branch is the sequence length
-                const branchW = branch.reduce((acc, n) => acc + n.viewState.w + C.NODE_GAP_X, 0);
+                const branchW = branch.reduce((acc, n) => acc + n.viewState.w + C.NODE_GAP_X_Horizontal, 0);
                 const branchH = Math.max(...branch.map(n => n.viewState.h)); // simplistic
 
                 childrenWidth = Math.max(childrenWidth, branchW);           //find the widest branch path
-                childrenHeight += branchH + C.NODE_GAP_Y;                   //get the full height of all the branches
+                childrenHeight += branchH + C.NODE_GAP_Y_Horizontal;                   //get the full height of all the branches
             });
         }
         // Logic for Linear Children (Right side flow)
         else if (node.children.length > 0) {
             // Stack children vertically to support multiple branches if needed
             const totalH = node.children.reduce((acc, c) => acc + c.viewState.subtreeH, 0);
-            const gaps = (node.children.length - 1) * C.NODE_GAP_Y;     //not needed right now as there is only 1 child per node
+            const gaps = (node.children.length - 1) * C.NODE_GAP_Y_Horizontal;     //not needed right now as there is only 1 child per node
             childrenHeight = totalH + gaps;
 
             // Width is max of children subtree widths (plus gap to get to them)
             const maxChildSubtreeW = Math.max(...node.children.map(c => c.viewState.subtreeW));
-            childrenWidth = C.NODE_GAP_X + maxChildSubtreeW;
+            childrenWidth = C.NODE_GAP_X_Horizontal + maxChildSubtreeW;
         }
 
         let rightSideFlowHeight = childrenHeight;
@@ -79,7 +79,7 @@ export class SizingVisitor {
 
         // If failure node exists (Bottom), it adds to height
         if (node.failureNode) {
-            myColumnHeight += C.NODE_GAP_Y + node.failureNode.viewState.subtreeH;
+            myColumnHeight += C.NODE_GAP_Y_Horizontal + node.failureNode.viewState.subtreeH;
         }
 
         node.viewState.subtreeH = Math.max(myColumnHeight, rightSideFlowHeight);

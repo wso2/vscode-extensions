@@ -35,8 +35,15 @@ export class InitVisitor {
                 const conditionNode = this.createNode(`cond_success_${step.stepId}`, 'CONDITION', 'Success', { count: step.onSuccess.length });
                 currentNode.children.push(conditionNode);
 
+                // 1. Separate the items based on their type
+                const gotoItems = step.onSuccess.filter((item: any) => item.type !== 'end');
+                const endItems = step.onSuccess.filter((item: any) => item.type === 'end');
+
+                // 2. Combine them: Goto/Ref items first, End items last
+                const orderedSuccessItems = [...gotoItems, ...endItems];
+
                 // Map branches. branches is of type Flownode[][] with the outer array for different paths. right now only the next step is contained in each branch so can use FLowNode[] also. but later we may need to store multiple steps in a branch here
-                conditionNode.branches = step.onSuccess.map((actionItem: SuccessActionObject | ReusableObject, i: number) => {
+                conditionNode.branches = orderedSuccessItems.map((actionItem: SuccessActionObject | ReusableObject, i: number) => {
                     // Check for reference
                     const refItem = actionItem as any;
                     if (refItem.reference) {

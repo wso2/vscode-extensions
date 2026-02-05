@@ -1,9 +1,12 @@
 import { ArazzoWorkflow } from '@wso2/arazzo-designer-core';
 import { InitVisitor } from '../../visitors/InitVisitor';
-import { SizingVisitor } from '../../visitors/SizingVisitor';
-import { PositionVisitor } from '../../visitors/PositionVisitor';
+import { SizingVisitorHorizontal } from '../../visitors/SizingVisitorHorizontal';
+import { SizingVisitorVertical } from '../../visitors/SizingvisitorVertical';
+import { PositionVisitorHorizontal } from '../../visitors/PositionVisitorHorizontal';
 import { PositionVisitorVertical } from '../../visitors/PositionVisitorVertical';
-import { NodeFactoryVisitor } from '../../visitors/NodeFactoryVisitor';
+import { NodeFactoryVisitorHorizontal } from '../../visitors/NodeFactoryVisitorHorizontal';
+import { NodeFactoryVisitorVertical } from '../../visitors/NodeFactoryVisitorVertical';
+import PortalCreator from '../../visitors/PortalCreator';
 
 /**
  * Builds the graph visualization from the workflow using the Visitor pattern.
@@ -15,8 +18,13 @@ export const buildGraphFromWorkflow = async (workflow: ArazzoWorkflow, isVertica
     const root = init.buildTree(workflow);
 
     // 2. Sizing: Calculate dimensions (Bottom-Up)
-    const sizing = new SizingVisitor();
-    sizing.visit(root);
+    if (isVertical) {
+        const sizing = new SizingVisitorVertical();
+        sizing.visit(root);
+    } else {
+        const sizing = new SizingVisitorHorizontal();
+        sizing.visit(root);
+    }
 
     // 3. Positioning: Assign X,Y coordinates (Top-Down)
     // Start at (50, 300) to give some padding
@@ -24,14 +32,30 @@ export const buildGraphFromWorkflow = async (workflow: ArazzoWorkflow, isVertica
         const positioning = new PositionVisitorVertical();
         positioning.visit(root, 300, 50);
     } else {
-        const positioning = new PositionVisitor();
+        const positioning = new PositionVisitorHorizontal();
         positioning.visit(root, 50, 300);
     }
 
-    // 4. Factory: Generate React Flow Nodes & Edges
-    const factory = new NodeFactoryVisitor();
-    factory.visit(root);
+    // Create portals for backward jumps (after positioning)
+    const portals = PortalCreator.createPortals(root);
 
-    return factory.getElements();
+    // 4. Factory: Generate React Flow Nodes & Edges
+    let factory;
+    if (isVertical) {
+        factory = new NodeFactoryVisitorVertical();    
+    } else {
+        factory = new NodeFactoryVisitorHorizontal();
+    }
+    factory.visit(root);
+        const elems = factory.getElements();
+        // Merge portal nodes/edges produced by PortalCreator
+        return {
+            nodes: [...elems.nodes, ...portals.nodes],
+            edges: [...elems.edges, ...portals.edges]
+        };
+    
+
+
+    
 };
 

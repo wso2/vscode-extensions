@@ -73,12 +73,12 @@ export class VisualizerRpcManager implements VisualizerAPI {
     async getOpenApiContent(params: GetOpenAPIContentRequest): Promise<GetOpenAPIContentResponse> {
         // Read the file content from the file system
         let fileType: 'json' | 'yaml' | undefined;
-        let fileContent;
+        let fileContent = '';
         let filePath = params.filePath;
         
         if (!filePath) {
             console.error('File path is not provided');
-            return { content: undefined, type: undefined };
+            return { content: '', type: undefined };
         }
         
         // Convert URI to file path if needed
@@ -87,7 +87,7 @@ export class VisualizerRpcManager implements VisualizerAPI {
                 filePath = vscode.Uri.parse(filePath).fsPath;
             } catch (err) {
                 console.error('Invalid URI:', filePath, err);
-                return { content: undefined, type: undefined };
+                return { content: '', type: undefined };
             }
         }
         
@@ -107,6 +107,7 @@ export class VisualizerRpcManager implements VisualizerAPI {
             } else {
                 console.error('Error reading file:', err);
             }
+            fileType = undefined;
         }
         return { content: fileContent, type: fileType };
     }

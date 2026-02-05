@@ -16,4 +16,7 @@
  * under the License.
  */
 
-export * from './NodeStyles';
+export { StepNodeModel } from './StepNodeModel';
+export type { StepNodeData } from './StepNodeModel';
+export { StepNodeWidget } from './StepNodeWidget';
+export { StepNodeFactory } from './StepNodeFactory';

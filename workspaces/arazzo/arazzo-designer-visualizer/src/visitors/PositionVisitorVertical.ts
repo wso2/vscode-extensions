@@ -30,17 +30,17 @@ export class PositionVisitorVertical {
 
         // 1. Position Bottom Children (Main Flow - vertical instead of horizontal)
         if (node.children.length > 0) {
-            let childY = nodeY + node.viewState.h + C.NODE_GAP_Y;
+            let childY = nodeY + node.viewState.h + C.NODE_GAP_Y_Vertical;
 
             // Check for collision with failure node subtree
             if (node.failureNode) {
                 const child = node.children[0];
-                const failureExtendsDown = node.failureNode.viewState.subtreeH > (node.viewState.h + C.NODE_GAP_Y);
-                const childExtendsRight = child.viewState.subtreeW > (node.viewState.w + C.FAIL_GAP_Y);
+                const failureExtendsDown = node.failureNode.viewState.subtreeH > (node.viewState.h + C.NODE_GAP_Y_Vertical);
+                const childExtendsRight = child.viewState.subtreeW > (node.viewState.w + C.FAIL_GAP_X_Vertical);
 
                 // If both extend into each other's space, push child further down
                 if (failureExtendsDown && childExtendsRight) {
-                    childY = nodeY + node.failureNode.viewState.subtreeH + C.NODE_GAP_Y;
+                    childY = nodeY + node.failureNode.viewState.subtreeH + C.NODE_GAP_Y_Vertical;
                 }
             }
 
@@ -53,7 +53,7 @@ export class PositionVisitorVertical {
                 }
             } else {
                 // Calculate total stack width to center it relative to parent
-                const totalW = node.children.reduce((acc, c) => acc + c.viewState.subtreeW, 0) + (node.children.length - 1) * C.NODE_GAP_X;
+                const totalW = node.children.reduce((acc, c) => acc + c.viewState.subtreeW, 0) + (node.children.length - 1) * C.NODE_GAP_X_Vertical;
 
                 // Start X: Parent Center - Half Stack Width
                 let currentX = nodeX + (node.viewState.w / 2) - (totalW / 2);
@@ -66,7 +66,7 @@ export class PositionVisitorVertical {
                         this.visit(child, childX, childY);
 
                         // Move right for next child
-                        currentX += child.viewState.subtreeW + C.NODE_GAP_X;
+                        currentX += child.viewState.subtreeW + C.NODE_GAP_X_Vertical;
                     }
                 });
             }
@@ -76,9 +76,9 @@ export class PositionVisitorVertical {
         if (node.failureNode && !this.visited.has(node.failureNode.id)) {
             // Center the failure node vertically relative to the parent
             const failY = nodeY + (node.viewState.h / 2) - (node.failureNode.viewState.h / 2);
-            let failpathgap = C.FAIL_GAP_Y;
+            let failpathgap = C.FAIL_GAP_X_Vertical;
             if (node.failureNode.type === 'CONDITION') {
-                failpathgap = C.NODE_GAP_X;
+                failpathgap = C.NODE_GAP_X_Vertical;
             }
             const failX = nodeX + node.viewState.w + failpathgap;
             this.visit(node.failureNode, failX, failY);
@@ -86,19 +86,46 @@ export class PositionVisitorVertical {
 
         // 3. Position Branches (Stacked Horizontal for Diamonds). this is only for the condition nodes
         if (node.branches && node.branches.length > 0) {
-            const childY = nodeY + node.viewState.h + C.NODE_GAP_Y;
+            const childY = nodeY + node.viewState.h + C.NODE_GAP_Y_Vertical;
 
-            // Left-align the first branch with the condition node
-            let currentX = nodeX;
+            // Compute initial X using the first *unpositioned* branch head so
+            // already-positioned heads don't bias the alignment. If none found,
+            // fall back to nodeX.
+            let currentX: number;
+            const firstUnpositioned = node.branches.find(b => {
+                const h = b[0];
+                return h && !this.visited.has(h.id) && !this.positioned.has(h.id);
+            });
+
+            if (firstUnpositioned && firstUnpositioned[0]) {
+                const firstHead = firstUnpositioned[0];
+                currentX = nodeX + (node.viewState.w / 2) - (firstHead.viewState.w / 2);
+            } else {
+                currentX = nodeX;
+            }
 
             // First pass: Calculate X positions for all branch heads to reserve horizontal space
             const branchPositions: { head: FlowNode, x: number }[] = [];
-            node.branches.forEach(branch => {
+            node.branches.forEach((branch, index, allBranches) => {
                 const head = branch[0];
                 if (head && !this.visited.has(head.id) && !this.positioned.has(head.id)) {
+                    
                     branchPositions.push({ head, x: currentX });
                     // Reserve horizontal space based on subtree width
-                    currentX += head.viewState.subtreeW + C.NODE_GAP_X;
+                    //currentX += head.viewState.subtreeW + C.NODE_GAP_X;
+
+                    // Look ahead to the next branch's head to decide the gap
+                    const nextBranch = allBranches[index + 1];
+                    const nextHead = nextBranch ? nextBranch[0] : null;
+
+                    if (nextHead && nextHead.type === 'END') {
+                        // Optimization: If the NEXT node is an END node, we assume we don't need 
+                        // the full subtree clearance from the current node.
+                        currentX += C.NODE_GAP_X_Vertical + head.viewState.w + C.FAIL_GAP_X_Vertical; 
+                    } else {
+                        // Default: Next is a Step (or doesn't exist), so reserve the full subtree height
+                        currentX += head.viewState.subtreeW + C.NODE_GAP_X_Vertical;
+                    }
                 }
             });
 

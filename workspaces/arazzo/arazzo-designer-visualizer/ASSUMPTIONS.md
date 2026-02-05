@@ -1,0 +1,3 @@
+- when a OnSuccess is not defined automatically go to the next step on success. if there is not next step, END
+- If onFailure is not defined then END
+- if sccess criteria is not defined then 2xx statuscode is a success
