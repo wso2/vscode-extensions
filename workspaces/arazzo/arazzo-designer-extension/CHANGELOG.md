@@ -23,7 +23,7 @@ All notable changes to the "arazzo-designer" extension will be documented in thi
 - **New Commands**:
   - `arazzo.visualize` - Visualize workflow from Code Lens
   - `arazzo.openDesigner` - Open visual designer from Code Lens
-  - `APIDesigner.createArazzoFile` - Create new Arazzo workflow file with template
+  - `ArazzoDesigner.createArazzoFile` - Create new Arazzo workflow file with template
 - **Enhanced File Detection**:
   - Detects both OpenAPI and Arazzo files
   - Context variables for UI state management (`isFileArazzo`, `isViewArazzo`)

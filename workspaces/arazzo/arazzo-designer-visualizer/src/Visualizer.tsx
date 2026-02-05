@@ -58,7 +58,7 @@ export function Visualizer({ mode }: { mode: string }) {
     }, []);
 
     return (
-        <ErrorBoundary errorMsg="An error occurred in the API Designer" ref={errorBoundaryRef}>
+        <ErrorBoundary errorMsg="An error occurred in the Arazzo Designer" ref={errorBoundaryRef}>
             {(() => {
                 switch (mode) {
                     case MODES.VISUALIZER:
@@ -73,8 +73,6 @@ const VisualizerComponent = React.memo(({ state, handleResetError }: { state: Ma
     switch (true) {
         case typeof state === 'object' && 'ready' in state && state.ready === "viewReady":
             return <MainPanel handleResetError={handleResetError} />;
-        // case typeof state === 'object' && 'newProject' in state && state.newProject === "viewReady":
-        //     return <APIDesigner openAPIDefinition={apiDefinition} fileUri={fileUri}/>;
         case state === 'disabled':
             return <>Disabled View</>
         default:

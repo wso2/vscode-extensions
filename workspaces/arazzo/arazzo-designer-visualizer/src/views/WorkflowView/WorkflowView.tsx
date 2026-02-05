@@ -18,7 +18,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useVisualizerContext } from "@wso2/arazzo-designer-rpc-client";
-import { ArazzoDefinition, MachineStateValue } from "@wso2/arazzo-designer-core";
+import { ArazzoDefinition, ArazzoWorkflow, EVENT_TYPE, MACHINE_VIEW, MachineStateValue } from "@wso2/arazzo-designer-core";
 import {
     ReactFlow,
     Background,
@@ -34,11 +34,60 @@ import {
 import '@xyflow/react/dist/style.css';
 import { buildGraphFromWorkflow } from './graphBuilder';
 import { nodeTypes } from '../../components/nodes';
+import { SidePanel, SidePanelTitleContainer, SidePanelBody, Button, Codicon, ThemeColors } from "@wso2/ui-toolkit";
+import styled from "@emotion/styled";
 
 interface WorkflowViewProps {
     fileUri: string;
     workflowId?: string;
 }
+
+const NodeDataContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+`;
+
+const DataSection = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+`;
+
+const DataLabel = styled.div`
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--vscode-foreground);
+    margin-bottom: 4px;
+`;
+
+const DataValue = styled.div`
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    padding: 8px;
+    background-color: var(--vscode-textBlockQuote-background);
+    border-radius: 4px;
+    font-family: var(--vscode-editor-font-family);
+    white-space: pre-wrap;
+    word-break: break-word;
+`;
+
+const JsonValue = styled.pre`
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    padding: 8px;
+    background-color: var(--vscode-textBlockQuote-background);
+    border-radius: 4px;
+    font-family: var(--vscode-editor-font-family);
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+    overflow-x: auto;
+`;
+
+const StyledButton = styled(Button)`
+    border-radius: 5px;
+`;
 
 export function WorkflowView(props: WorkflowViewProps) {
     const { fileUri, workflowId } = props;
@@ -50,6 +99,9 @@ export function WorkflowView(props: WorkflowViewProps) {
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [graphKey, setGraphKey] = useState(0);
     const [isVertical, setIsVertical] = useState(false);
+    const [workflow, setWorkflow] = useState<ArazzoWorkflow | undefined>(undefined);
+    const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+    const [isPanelOpen, setIsPanelOpen] = useState(false);
 
     // rpcClient?.onStateChanged((newState: MachineStateValue) => {
     //     if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
@@ -107,18 +159,149 @@ export function WorkflowView(props: WorkflowViewProps) {
 
     const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
         console.log('Node clicked:', node);
-        // TODO: Show properties panel or handle node interaction
+        event.stopPropagation();
+        // Set the node first
+        setSelectedNode(node);
+        // Use double requestAnimationFrame to ensure panel renders in closed state first,
+        // then triggers the open animation
+        requestAnimationFrame(() => {
+            setIsPanelOpen(true);
+        });
+    }, []);
+
+    const handleClosePanel = useCallback(() => {
+        setIsPanelOpen(false);
+        setSelectedNode(null);
     }, []);
 
     const onPaneClick = useCallback(() => {
         reactFlowWrapper.current?.focus();
-    }, []);
+    }, [isPanelOpen, handleClosePanel]);
 
     const proOptions = { hideAttribution: true };
 
     const toggleOrientation = useCallback(() => {
         setIsVertical(prev => !prev);
     }, []);
+
+    const renderNodeData = () => {
+        if (!selectedNode) return null;
+
+        const nodeData = selectedNode.data || {};
+
+        // Filter out diagram-specific properties and keep only YAML step data
+        // Diagram-specific: label (added for display), iconClass (added for display)
+        // YAML step data: stepId, description, operationId, operationPath, workflowId, 
+        //                 parameters, requestBody, successCriteria, onSuccess, onFailure, outputs
+        const {
+            label,
+            iconClass,
+            ...stepData
+        } = nodeData;
+
+        // If no step data exists, show a message
+        if (Object.keys(stepData).length === 0) {
+            return (
+                <NodeDataContainer>
+                    <DataSection>
+                        <DataValue>No step data available</DataValue>
+                    </DataSection>
+                </NodeDataContainer>
+            );
+        }
+
+        return (
+            <NodeDataContainer>
+                {stepData.stepId && (
+                    <DataSection>
+                        <DataLabel>Step ID</DataLabel>
+                        <DataValue>{stepData.stepId}</DataValue>
+                    </DataSection>
+                )}
+                {stepData.description && (
+                    <DataSection>
+                        <DataLabel>Description</DataLabel>
+                        <DataValue>{stepData.description}</DataValue>
+                    </DataSection>
+                )}
+                {stepData.operationId && (
+                    <DataSection>
+                        <DataLabel>Operation ID</DataLabel>
+                        <DataValue>{stepData.operationId}</DataValue>
+                    </DataSection>
+                )}
+                {stepData.operationPath && (
+                    <DataSection>
+                        <DataLabel>Operation Path</DataLabel>
+                        <DataValue>{stepData.operationPath}</DataValue>
+                    </DataSection>
+                )}
+                {stepData.workflowId && (
+                    <DataSection>
+                        <DataLabel>Workflow ID</DataLabel>
+                        <DataValue>{stepData.workflowId}</DataValue>
+                    </DataSection>
+                )}
+                {stepData.parameters && Array.isArray(stepData.parameters) && stepData.parameters.length > 0 && (
+                    <DataSection>
+                        <DataLabel>Parameters</DataLabel>
+                        <JsonValue>{JSON.stringify(stepData.parameters, null, 2)}</JsonValue>
+                    </DataSection>
+                )}
+                {stepData.requestBody && (
+                    <DataSection>
+                        <DataLabel>Request Body</DataLabel>
+                        <JsonValue>{JSON.stringify(stepData.requestBody, null, 2)}</JsonValue>
+                    </DataSection>
+                )}
+                {stepData.successCriteria && Array.isArray(stepData.successCriteria) && stepData.successCriteria.length > 0 && (
+                    <DataSection>
+                        <DataLabel>Success Criteria</DataLabel>
+                        <JsonValue>{JSON.stringify(stepData.successCriteria, null, 2)}</JsonValue>
+                    </DataSection>
+                )}
+                {stepData.onSuccess && Array.isArray(stepData.onSuccess) && stepData.onSuccess.length > 0 && (
+                    <DataSection>
+                        <DataLabel>On Success</DataLabel>
+                        <JsonValue>{JSON.stringify(stepData.onSuccess, null, 2)}</JsonValue>
+                    </DataSection>
+                )}
+                {stepData.onFailure && Array.isArray(stepData.onFailure) && stepData.onFailure.length > 0 && (
+                    <DataSection>
+                        <DataLabel>On Failure</DataLabel>
+                        <JsonValue>{JSON.stringify(stepData.onFailure, null, 2)}</JsonValue>
+                    </DataSection>
+                )}
+                {stepData.outputs && Object.keys(stepData.outputs).length > 0 && (
+                    <DataSection>
+                        <DataLabel>Outputs</DataLabel>
+                        <JsonValue>{JSON.stringify(stepData.outputs, null, 2)}</JsonValue>
+                    </DataSection>
+                )}
+                {/* Show any other properties that might exist */}
+                {Object.keys(stepData).some(key =>
+                    !['stepId', 'description', 'operationId', 'operationPath', 'workflowId',
+                        'parameters', 'requestBody', 'successCriteria', 'onSuccess', 'onFailure', 'outputs'].includes(key)
+                ) && (
+                        <DataSection>
+                            <DataLabel>Additional Properties</DataLabel>
+                            <JsonValue>
+                                {JSON.stringify(
+                                    Object.fromEntries(
+                                        Object.entries(stepData).filter(([key]) =>
+                                            !['stepId', 'description', 'operationId', 'operationPath', 'workflowId',
+                                                'parameters', 'requestBody', 'successCriteria', 'onSuccess', 'onFailure', 'outputs'].includes(key)
+                                        )
+                                    ),
+                                    null,
+                                    2
+                                )}
+                            </JsonValue>
+                        </DataSection>
+                    )}
+            </NodeDataContainer>
+        );
+    };
 
     if (!arazzoDefinition) {
         return <div style={{ padding: '20px' }}>Loading...</div>;
@@ -171,6 +354,30 @@ export function WorkflowView(props: WorkflowViewProps) {
                 />
                 <Controls />
             </ReactFlow>
+            <SidePanel
+                isOpen={isPanelOpen}
+                alignment="right"
+                overlay={false}
+                width={400}
+                sx={{
+                    fontFamily: "var(--vscode-font-family)",
+                    backgroundColor: ThemeColors.SURFACE_DIM,
+                    boxShadow: "0 0 10px 0 rgba(0, 0, 0, 0.1)",
+                }}
+                onClose={handleClosePanel}
+            >
+                <SidePanelTitleContainer>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {selectedNode ? (selectedNode.data?.label || selectedNode.id) : 'Node Properties'}
+                    </div>
+                    <StyledButton data-testid="close-panel-btn" appearance="icon" onClick={handleClosePanel}>
+                        <Codicon name="close" />
+                    </StyledButton>
+                </SidePanelTitleContainer>
+                <SidePanelBody>
+                    {selectedNode ? renderNodeData() : <div>No node selected</div>}
+                </SidePanelBody>
+            </SidePanel>
         </div>
     );
 }

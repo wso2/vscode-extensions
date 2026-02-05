@@ -2,7 +2,7 @@
   "name": "arazzo-designer",
   "displayName": "Arazzo Designer",
   "description": "An extension which gives a development environment for designing, developing, debugging, and testing Arazzo Specification.",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "publisher": "wso2",
   "engines": {
     "vscode": "^1.81.0"
@@ -58,42 +58,30 @@
         "path": "./syntaxes/arazzo.tmLanguage.json"
       }
     ],
-    "viewsWelcome": [
-      {
-        "view": "APIDesigner.project-explorer",
-        "contents": "Loading...",
-        "when": "APIDesigner.status != 'unknownProject' && APIDesigner.status != 'projectLoaded' && APIDesigner.status != 'disabled'"
-      },
-      {
-        "view": "APIDesigner.project-explorer",
-        "contents": "API Designer",
-        "when": "true"
-      }
-    ],
     "commands": [
       {
-        "command": "APIDesigner.openAPIDesigner",
-        "title": "Open API/Arazzo Designer",
-        "category": "APIDesigner",
+        "command": "ArazzoDesigner.openAPIDesigner",
+        "title": "Open Arazzo Designer",
+        "category": "ArazzoDesigner",
         "when": "isFileOpenAPI || isFileArazzo",
         "icon": "$(preview)"
       },
       {
-        "command": "APIDesigner.createOpenAPIFile",
+        "command": "ArazzoDesigner.createOpenAPIFile",
         "title": "Create OpenAPI/Arazzo File",
-        "category": "APIDesigner"
+        "category": "ArazzoDesigner"
       },
       {
-        "command": "APIDesigner.showCode",
+        "command": "ArazzoDesigner.showCode",
         "title": "Show Code",
-        "category": "APIDesigner",
+        "category": "ArazzoDesigner",
         "when": "isViewOpenAPI || isViewArazzo",
         "icon": "$(code)"
       },
       {
-        "command": "APIDesigner.createArazzoFile",
+        "command": "ArazzoDesigner.createArazzoFile",
         "title": "Create Arazzo Workflow File",
-        "category": "APIDesigner"
+        "category": "ArazzoDesigner"
       },
       {
         "command": "arazzo.visualize",
@@ -110,24 +98,24 @@
       "editor/title": [
         {
           "when": "isFileOpenAPI || isFileArazzo",
-          "command": "APIDesigner.openAPIDesigner",
-          "alt": "APIDesigner.openAPIDesigner",
+          "command": "ArazzoDesigner.openAPIDesigner",
+          "alt": "ArazzoDesigner.openAPIDesigner",
           "group": "navigation"
         },
         {
-          "command": "APIDesigner.showCode",
+          "command": "ArazzoDesigner.showCode",
           "group": "navigation",
           "when": "isViewOpenAPI || isViewArazzo"
         }
       ],
       "explorer/context": [
         {
-          "command": "APIDesigner.createOpenAPIFile",
-          "group": "APIDesigner@1"
+          "command": "ArazzoDesigner.createOpenAPIFile",
+          "group": "ArazzoDesigner@1"
         },
         {
-          "command": "APIDesigner.createArazzoFile",
-          "group": "APIDesigner@2"
+          "command": "ArazzoDesigner.createArazzoFile",
+          "group": "ArazzoDesigner@2"
         }
       ]
     },

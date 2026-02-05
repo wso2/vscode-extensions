@@ -51,15 +51,15 @@ export async function activate(context: vscode.ExtensionContext) {
 	StateMachine.initialize();
 
 	// Register the createOpenAPIFile command
-	let disposable = vscode.commands.registerCommand('APIDesigner.createOpenAPIFile', createOpenAPIFile);
+	let disposable = vscode.commands.registerCommand('ArazzoDesigner.createOpenAPIFile', createOpenAPIFile);
 	context.subscriptions.push(disposable);
 
 	// Register the createArazzoFile command
-	let createArazzoDisposable = vscode.commands.registerCommand('APIDesigner.createArazzoFile', createArazzoFile);
+	let createArazzoDisposable = vscode.commands.registerCommand('ArazzoDesigner.createArazzoFile', createArazzoFile);
 	context.subscriptions.push(createArazzoDisposable);
 
 	// Register the showCode command
-	let showCodeDisposable = vscode.commands.registerCommand('APIDesigner.showCode', showCode);
+	let showCodeDisposable = vscode.commands.registerCommand('ArazzoDesigner.showCode', showCode);
 	context.subscriptions.push(showCodeDisposable);
 
 	// Initialize Arazzo Language Server for procode features
@@ -120,6 +120,7 @@ function initializeLanguageServer(context: vscode.ExtensionContext) {
 	// Register Code Lens command handlers
 	// These are triggered when user clicks Code Lens actions in the editor
 	const visualizeCommand = vscode.commands.registerCommand('arazzo.visualize', async (args?: any) => {
+		StateMachine.reset();
 		let uri: vscode.Uri;
 		let workflowId: string | undefined;
 
@@ -145,6 +146,7 @@ function initializeLanguageServer(context: vscode.ExtensionContext) {
 	context.subscriptions.push(visualizeCommand);
 
 	const designerCommand = vscode.commands.registerCommand('arazzo.openDesigner', async (args?: any) => {
+		StateMachine.reset();
 		let uri: vscode.Uri;
 		let workflowId: string | undefined;
 
@@ -161,7 +163,7 @@ function initializeLanguageServer(context: vscode.ExtensionContext) {
 			}
 			uri = editor.document.uri;
 		}
-		
+
 		// Open the WorkflowView with the specific workflowId
 		openView(EVENT_TYPE.OPEN_VIEW, {
 			view: MACHINE_VIEW.Workflow,
@@ -353,8 +355,8 @@ async function showCode() {
 	if (documentUri) {
 		try {
 			// documentUri should be a URI string, parse it to vscode.Uri
-			const uri = documentUri.startsWith('file://') 
-				? vscode.Uri.parse(documentUri) 
+			const uri = documentUri.startsWith('file://')
+				? vscode.Uri.parse(documentUri)
 				: vscode.Uri.file(documentUri);
 			await vscode.workspace.openTextDocument(uri).then(doc => vscode.window.showTextDocument(doc));
 		} catch (err) {
