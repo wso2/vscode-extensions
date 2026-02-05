@@ -329,7 +329,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
 
     return (
         <>
-            <Typography variant="h3" sx={{ marginBottom: '8px' }}>Query Parameters</Typography>
+            <Typography variant="subtitle2" sx={{ margin: '10px 0' }}> Query Parameters  </Typography>
             <InputEditor
                 minHeight='calc((100vh - 420px) / 3)'
                 onChange={handleQueryParametersChange}
@@ -338,7 +338,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 suggestions={{ queryKeys: COMMON_QUERY_KEYS }}
             />
 
-            <Typography variant="h3" sx={{ margin: '8px 0' }}>Headers</Typography>
+            <Typography variant="subtitle2" sx={{ margin: '10px 0' }}> Headers </Typography>
             <InputEditor
                 minHeight='calc((100vh - 420px) / 3)'
                 onChange={handleHeadersChange}
@@ -351,7 +351,7 @@ export const InputCode: React.FC<InputCodeProps & { bodyFormat: BodyFormat; onFo
                 <>
                     <BodyHeaderContainer>
                         <BodyTitleWrapper>
-                            <Typography variant="h3">Body</Typography>
+                            <Typography variant="subtitle2" sx={{ margin: 0 }}> Body </Typography>
                         </BodyTitleWrapper>
                         <FormatSelectorWrapper ref={formatMenuRef}>
                             <FormatButton onClick={() => setBodyFormatOpen(!bodyFormatOpen)}>

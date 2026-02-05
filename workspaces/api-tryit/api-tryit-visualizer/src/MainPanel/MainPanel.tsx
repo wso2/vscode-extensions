@@ -604,7 +604,7 @@ export const MainPanel: React.FC = () => {
                                         padding: 8
                                     }}
                                 >
-                                    Output
+                                    Response
                                 </button>
 
                                 <button
