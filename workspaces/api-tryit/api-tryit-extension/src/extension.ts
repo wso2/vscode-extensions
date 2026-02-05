@@ -153,6 +153,49 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage('New request created');
 	});
 
+	// Register command to open TryIt with a curl string
+	const openFromCurlCommand = vscode.commands.registerCommand('api-tryit.openFromCurl', async (curlString?: string) => {
+		try {
+			// If no curl string provided, get it from user input
+			if (!curlString || typeof curlString !== 'string') {
+				curlString = await vscode.window.showInputBox({
+					prompt: 'Paste your curl command',
+					placeHolder: 'curl -X GET https://api.example.com/endpoint',
+					title: 'Import from Curl'
+				});
+
+				if (!curlString) {
+					return; // User cancelled
+				}
+			}
+
+			// Import the utility function
+			const { curlToApiRequestItem } = await import('./util');
+			
+			// Convert curl to ApiRequestItem
+			const requestItem = curlToApiRequestItem(curlString);
+			
+			if (!requestItem || !requestItem.request.url) {
+				vscode.window.showErrorMessage('Could not parse curl command. Please check the format and try again.');
+				return;
+			}
+
+			// Open the TryIt panel
+			TryItPanel.show(context);
+			
+			// Send the request item through state machine
+			ApiTryItStateMachine.sendEvent(EVENT_TYPE.API_ITEM_SELECTED, requestItem, undefined);
+			
+			// Also send to webview for queueing
+			TryItPanel.postMessage('apiRequestItemSelected', requestItem);
+			
+			vscode.window.showInformationMessage(`Loaded: ${requestItem.request.method} ${requestItem.request.url}`);
+		} catch (error: unknown) {
+			const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+			vscode.window.showErrorMessage(`Failed to import from curl: ${errorMsg}`);
+		}
+	});
+
 	// Register command for new collection — use state machine to navigate to collection form
 	const newCollectionCommand = vscode.commands.registerCommand('api-tryit.newCollection', () => {
 		// Ensure TryIt panel is visible
@@ -257,6 +300,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		openRequestCommand, 
 		selectItemByPathCommand,
 		newRequestCommand,
+		openFromCurlCommand,
 		newCollectionCommand,
 		importCollectionCommand,
 		openCollectionCommand,

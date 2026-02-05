@@ -163,6 +163,21 @@ export class TryItPanel {
 					return;
 				}
 				switch (messageType) {
+					case 'openFromCurl':
+						// Handle curl to ApiRequestItem conversion
+						try {
+							const { curl } = message.data || {};
+							if (!curl) {
+								vscode.window.showErrorMessage('No curl command provided');
+								break;
+							}
+							// Execute the openFromCurl command with the curl string
+							vscode.commands.executeCommand('api-tryit.openFromCurl', curl);
+						} catch (error: unknown) {
+							const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+							vscode.window.showErrorMessage(`Failed to process curl command: ${errorMsg}`);
+						}
+						break;
 					case 'webviewReady':
 						ApiTryItStateMachine.sendEvent(EVENT_TYPE.WEBVIEW_READY);
 						break;

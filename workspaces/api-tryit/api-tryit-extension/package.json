@@ -53,6 +53,11 @@
         "icon": "$(add)"
       },
       {
+        "command": "api-tryit.openFromCurl",
+        "title": "API TryIt: Open from Curl",
+        "icon": "$(globe)"
+      },
+      {
         "command": "api-tryit.refreshExplorer",
         "title": "Refresh",
         "icon": "$(refresh)"
